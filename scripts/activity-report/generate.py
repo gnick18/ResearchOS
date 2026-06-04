@@ -97,7 +97,17 @@ EXCLUDE_PATH_RX = re.compile(
 # The milestone's date = the earliest commit whose subject matches. This is how
 # we show "how many phases the project went through".
 MILESTONES = [
-    ("Project start",        r"."),
+    # Kilo Code era (Feb-May): the early desktop-app versions, before Claude Code.
+    ("Project start",          r"."),
+    ("Markdown note editor",   r"markdown editor"),
+    ("Multi-storage backend",  r"multiple storage|storage types"),
+    ("Shared-folder collab",   r"clones the repo"),
+    ("OneDrive sync backend",  r"onedrive"),
+    ("Cross-platform support", r"cross.?platform"),
+    ("Desktop installer",      r"\binstaller\b|electron"),
+    ("v1.0 release + branding", r"pinwheel|bump version|1\.0\.[0-9]"),
+    ("Vercel web migration",   r"vercel"),
+    # Claude Code era (May-Jun): the feature initiatives.
     ("Onboarding tour",      r"onboard|tour|walkthrough"),
     ("Gamification/streaks", r"gamif|streak"),
     ("Version control",      r"version[ -]control|\bvc\b|vc phase|version history"),
@@ -575,10 +585,14 @@ def _nice_max(v):
 
 def _fmt_short(v):
     v = float(v)
-    for unit, div in (("M", 1e6), ("k", 1e3)):
+    for unit, div in (("T", 1e12), ("B", 1e9), ("M", 1e6), ("k", 1e3)):
         if abs(v) >= div:
             return f"{v/div:.1f}".rstrip("0").rstrip(".") + unit
     return f"{v:.0f}"
+
+
+def _fmt_money(v):
+    return "$" + _fmt_short(v)
 
 
 def _date_ticks(dates, n=8):
@@ -652,7 +666,7 @@ def milestone_markers(s, dates, milestones, plot_w, plot_h):
         x = PAD_L + (plot_w * i / max(1, n - 1))
         marks.append((x, m.get("n", "")))
     marks.sort()
-    # push badges apart so circles don't overlap
+    # push badges apart so circles don't overlap (forward pass)
     min_gap = 17
     bx = []
     for x, _num in marks:
@@ -660,6 +674,14 @@ def milestone_markers(s, dates, milestones, plot_w, plot_h):
         if bx and nx < bx[-1] + min_gap:
             nx = bx[-1] + min_gap
         bx.append(nx)
+    # if a late cluster pushed the last badge past the right edge, clamp it back
+    # in-bounds and propagate left so nothing clips the SVG.
+    right_max = W - PAD_R - 9
+    if bx and bx[-1] > right_max:
+        bx[-1] = right_max
+        for j in range(len(bx) - 2, -1, -1):
+            if bx[j] > bx[j + 1] - min_gap:
+                bx[j] = bx[j + 1] - min_gap
     for (x, num), badge_x in zip(marks, bx):
         s.append(
             f'<line x1="{x:.1f}" y1="{PAD_T}" x2="{x:.1f}" y2="{PAD_T+plot_h}" '
@@ -795,8 +817,54 @@ def stacked_bar(path, title, subtitle, dates, series, ylabel, milestones=None):
     _write(path, "\n".join(s))
 
 
-def hbar_chart(path, title, subtitle, rows):
-    """rows = list of (label, value, color). Horizontal bars."""
+def _pretty_model(model_id):
+    """claude-opus-4-8 -> Claude Opus 4.8 (version dashes become a dot)."""
+    name = model_id
+    for pre in ("claude-", "anthropic/claude-", "anthropic."):
+        if name.startswith(pre):
+            name = name[len(pre):]
+            break
+    parts = name.split("-")
+    words = []
+    i = 0
+    while i < len(parts):
+        p = parts[i]
+        # collapse a "4-8" style version pair into "4.8"
+        if p.isdigit() and i + 1 < len(parts) and parts[i + 1].isdigit():
+            words.append(f"{p}.{parts[i + 1]}")
+            i += 2
+            continue
+        words.append(p.capitalize() if p.isalpha() else p)
+        i += 1
+    return "Claude " + " ".join(words)
+
+
+def _pretty_tool(name):
+    """Strip the mcp__server__ prefix so MCP tool names fit the label column."""
+    if name.startswith("mcp__"):
+        return name.split("__")[-1]
+    return name
+
+
+def _truncate(text, max_px, font_px=12.5):
+    """Clip a label to a pixel budget, adding an ellipsis if it would overflow.
+
+    Uses an average glyph-width estimate (no font metrics in stdlib), so it is
+    approximate but keeps left labels inside their column."""
+    char_w = font_px * 0.56
+    max_chars = int(max_px / char_w)
+    if len(text) <= max_chars:
+        return text
+    if max_chars <= 1:
+        return text[:1]
+    return text[: max_chars - 1].rstrip() + "…"
+
+
+def hbar_chart(path, title, subtitle, rows, fmt=_fmt_short):
+    """rows = list of (label, value, color). Horizontal bars.
+
+    fmt formats each value label (default abbreviates; pass a currency formatter
+    for cost charts so the bars read as dollars, not counts)."""
     h = max(260, 90 + len(rows) * 34)
     s = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{h}" '
@@ -807,16 +875,84 @@ def hbar_chart(path, title, subtitle, rows):
     if subtitle:
         s.append(f'<text x="{PAD_L}" y="46" font-size="12.5" fill="{PALETTE["axis"]}">{_esc(subtitle)}</text>')
     vmax = max((v for _l, v, _c in rows), default=1) or 1
-    label_w = 190
+    label_w = 250
+    label_gap = 12
+    val_w = 78
     track_x = PAD_L + label_w
-    track_w = W - PAD_R - track_x - 70
+    track_w = W - PAD_R - track_x - val_w
     for i, (label, v, color) in enumerate(rows):
         y = 70 + i * 34
         bw = track_w * v / vmax
-        s.append(f'<text x="{PAD_L}" y="{y+15}" font-size="12.5" fill="{PALETTE["ink"]}">{_esc(label)}</text>')
+        clipped = _truncate(label, label_w - label_gap)
+        s.append(f'<text x="{PAD_L}" y="{y+15}" font-size="12.5" fill="{PALETTE["ink"]}">{_esc(clipped)}</text>')
         s.append(f'<rect x="{track_x}" y="{y}" width="{track_w:.1f}" height="20" fill="{PALETTE["grid"]}" rx="3"/>')
         s.append(f'<rect x="{track_x}" y="{y}" width="{bw:.1f}" height="20" fill="{color}" rx="3"/>')
-        s.append(f'<text x="{track_x+bw+8:.1f}" y="{y+15}" font-size="12" fill="{PALETTE["axis"]}">{_fmt_short(v)}</text>')
+        # value text after the bar, but if it would run past the right edge,
+        # tuck it inside the bar end (right-aligned, white) so nothing overflows.
+        vtxt = fmt(v)
+        after_x = track_x + bw + 8
+        if after_x + val_w > W - PAD_R:
+            s.append(f'<text x="{track_x+bw-8:.1f}" y="{y+15}" font-size="12" '
+                     f'text-anchor="end" fill="#ffffff">{vtxt}</text>')
+        else:
+            s.append(f'<text x="{after_x:.1f}" y="{y+15}" font-size="12" '
+                     f'fill="{PALETTE["axis"]}">{vtxt}</text>')
+    s.append("</svg>")
+    _write(path, "\n".join(s))
+
+
+def model_bars_chart(path, title, subtitle, rows):
+    """Two bars per row: turns (solid, tool color) and output tokens (faded).
+
+    rows = list of (label, turns, tokens, color). Each metric is normalized to
+    its own max across rows, so the two encode different units side by side."""
+    row_h = 50
+    h = max(300, 110 + len(rows) * row_h)
+    s = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{h}" '
+        f'viewBox="0 0 {W} {h}" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif">',
+        f'<rect width="{W}" height="{h}" fill="{PALETTE["bg"]}"/>',
+        f'<text x="{PAD_L}" y="28" font-size="20" font-weight="700" fill="{PALETTE["ink"]}">{_esc(title)}</text>',
+    ]
+    if subtitle:
+        s.append(f'<text x="{PAD_L}" y="46" font-size="12.5" fill="{PALETTE["axis"]}">{_esc(subtitle)}</text>')
+    # metric legend (top-right): solid = turns, faded = output tokens
+    lx = W - PAD_R - 290
+    s.append(f'<rect x="{lx}" y="20" width="13" height="13" rx="2" fill="{PALETTE["ink"]}"/>')
+    s.append(f'<text x="{lx+18}" y="31" font-size="11.5" fill="{PALETTE["axis"]}">turns (messages / requests)</text>')
+    s.append(f'<rect x="{lx+158}" y="20" width="13" height="13" rx="2" fill="{PALETTE["ink"]}" opacity="0.4"/>')
+    s.append(f'<text x="{lx+176}" y="31" font-size="11.5" fill="{PALETTE["axis"]}">output tokens</text>')
+
+    tmax = max((t for _l, t, _o, _c in rows), default=1) or 1
+    omax = max((o for _l, _t, o, _c in rows), default=1) or 1
+    label_w = 250
+    label_gap = 12
+    val_w = 78
+    track_x = PAD_L + label_w
+    track_w = W - PAD_R - track_x - val_w
+    bar_h = 15
+
+    def _bar(y, frac, color, value, opacity):
+        bw = track_w * frac
+        s.append(f'<rect x="{track_x}" y="{y}" width="{track_w:.1f}" height="{bar_h}" '
+                 f'fill="{PALETTE["grid"]}" rx="3"/>')
+        s.append(f'<rect x="{track_x}" y="{y}" width="{bw:.1f}" height="{bar_h}" '
+                 f'fill="{color}" rx="3" opacity="{opacity}"/>')
+        vtxt = _fmt_short(value)
+        after_x = track_x + bw + 8
+        if after_x + val_w > W - PAD_R:
+            s.append(f'<text x="{track_x+bw-7:.1f}" y="{y+bar_h-3}" font-size="11.5" '
+                     f'text-anchor="end" fill="#ffffff">{vtxt}</text>')
+        else:
+            s.append(f'<text x="{after_x:.1f}" y="{y+bar_h-3}" font-size="11.5" '
+                     f'fill="{PALETTE["axis"]}">{vtxt}</text>')
+
+    for i, (label, turns, tokens, color) in enumerate(rows):
+        y0 = 78 + i * row_h
+        clipped = _truncate(label, label_w - label_gap)
+        s.append(f'<text x="{PAD_L}" y="{y0+22}" font-size="12.5" fill="{PALETTE["ink"]}">{_esc(clipped)}</text>')
+        _bar(y0, turns / tmax, color, turns, "1")
+        _bar(y0 + bar_h + 4, tokens / omax, color, tokens, "0.4")
     s.append("</svg>")
     _write(path, "\n".join(s))
 
@@ -1147,11 +1283,16 @@ def main():
                [(KILO_LBL, by_tool["kilo"]["total_tokens"], KILO_COLOR),
                 (CLAUDE_LBL, by_tool["claude"]["total_tokens"], CLAUDE_COLOR)])
 
-    # 10. cost by tool (Kilo real, Claude notional)
+    # 10. cost by tool (Kilo real, Claude notional). The Claude bar is NOT money
+    # spent -- it is what the tokens would cost at list API prices. Grant is on a
+    # subscription, so it must never read as actual spend.
     hbar_chart(os.path.join(OUT_DIR, "cost_by_tool.svg"),
-               "Cost by tool", "Kilo Code is real spend; Claude Code is a list-price estimate",
-               [(f"{KILO_LBL} (actual)", round(by_tool["kilo"]["cost"], 2), KILO_COLOR),
-                (f"{CLAUDE_LBL} (list est.)", round(by_tool["claude"]["cost"], 2), CLAUDE_COLOR)])
+               "Compute cost by tool",
+               "only Kilo Code is real money; Claude Code ran on a subscription, the bar is list-price value of the tokens",
+               [(f"{KILO_LBL} (real spend)", round(by_tool["kilo"]["cost"], 2), KILO_COLOR),
+                (f"{CLAUDE_LBL} (notional, not spent)",
+                 round(by_tool["claude"]["cost"], 2), CLAUDE_COLOR)],
+               fmt=_fmt_money)
 
     # 11. effort hours: your hands-on vs agent runtime vs wall-clock
     eh = effort_hours
@@ -1162,21 +1303,23 @@ def main():
                 ("Agents (runtime)", eh["agent_runtime_hours"], PALETTE["accent"]),
                 ("Wall-clock (elapsed)", eh["wall_clock_hours"], PALETTE["green"])])
 
-    # 12. models / providers used
+    # 12. models / providers used -- two bars each: turns and output tokens,
+    # because output volume alone hides heavily-used-but-terser models (Opus 4.7).
     model_rows = []
     for m, v in claude_models:
-        short = m.replace("claude-", "Claude ").replace("-", " ")
-        model_rows.append((f"{short} (Claude Code)", v["output_tokens"], CLAUDE_COLOR))
+        short = _pretty_model(m)
+        model_rows.append((f"{short} (Claude Code)", v.get("msgs", 0), v["output_tokens"], CLAUDE_COLOR))
     for prov, v in list(kilo_providers.items())[:6]:
         if v.get("output_tokens"):
-            model_rows.append((f"{prov} (Kilo)", v["output_tokens"], KILO_COLOR))
+            model_rows.append((f"{prov} (Kilo)", v.get("requests", 0), v["output_tokens"], KILO_COLOR))
     if model_rows:
-        hbar_chart(os.path.join(OUT_DIR, "models_used.svg"),
-                   "Models & providers used", "by output tokens; Claude models + Kilo inference providers",
-                   model_rows)
+        model_bars_chart(os.path.join(OUT_DIR, "models_used.svg"),
+                         "Models & providers used",
+                         "Kilo amber, Claude blue; each metric scaled to its own max",
+                         model_rows)
 
     # 13. most-used tools (Claude Code only; Kilo does not log comparable calls)
-    tool_rows = [(name, n, PALETTE["bar"]) for name, n in tx["tool_counter"].most_common(12)]
+    tool_rows = [(_pretty_tool(name), n, PALETTE["bar"]) for name, n in tx["tool_counter"].most_common(12)]
     if tool_rows:
         hbar_chart(os.path.join(OUT_DIR, "top_tools.svg"),
                    "Most-used tools", "Claude Code tool calls across all sessions", tool_rows)
@@ -1229,20 +1372,35 @@ def write_index_html(summary):
         ("Hands-on hours", f"{eh['hands_on_hours']:,.0f}"),
         ("Agent runtime hours", f"{eh['agent_runtime_hours']:,.0f}"),
         ("AI requests", f"{a['requests']:,}"),
-        ("Total tokens", f"{a['tokens']['total']:,}"),
-        ("Kilo cost (actual)", f"${a['cost']['kilo_actual_usd']:,.0f}"),
-        ("Claude value (list est.)", f"${a['cost']['claude_list_estimate_usd']:,.0f}"),
+        ("Total tokens", _fmt_short(a['tokens']['total']), f"{a['tokens']['total']:,}"),
+        ("Kilo spend (real $)", f"${a['cost']['kilo_actual_usd']:,.0f}"),
+        ("Claude list-price value (not spent)",
+         f"${a['cost']['claude_list_estimate_usd']:,.0f}",
+         "Subscription, not pay-per-token. This is what the tokens would cost at list API prices, not money spent."),
         ("Kilo lines (checkpoints)", f"{cp.get('net_lines', 0):,}"),
         ("Phases", f"{len(summary['milestones'])}"),
     ]
     rng = summary["date_range"]
-    card_html = "\n".join(
-        f'<div class="card"><div class="v">{html.escape(v)}</div>'
-        f'<div class="k">{html.escape(k)}</div></div>' for k, v in cards
-    )
-    img_html = "\n".join(
-        f'<figure><img src="{c}" alt="{c}"/></figure>' for c in charts
-    )
+    def _card(entry):
+        k, v = entry[0], entry[1]
+        tip = entry[2] if len(entry) > 2 else None
+        title_attr = f' title="{html.escape(tip)}"' if tip else ""
+        return (f'<div class="card"{title_attr}><div class="v">{html.escape(v)}</div>'
+                f'<div class="k">{html.escape(k)}</div></div>')
+    card_html = "\n".join(_card(e) for e in cards)
+    # Inline each SVG straight into the page so the report renders no matter
+    # how index.html is opened (file://, a dev server rooted elsewhere, a
+    # sandboxed preview). It also makes index.html a single self-contained file.
+    figs = []
+    for c in charts:
+        p = os.path.join(OUT_DIR, c)
+        try:
+            with open(p, encoding="utf-8") as fh:
+                svg = fh.read()
+        except OSError:
+            continue
+        figs.append(f'<figure>{svg}</figure>')
+    img_html = "\n".join(figs)
     doc = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1264,6 +1422,7 @@ def write_index_html(summary):
             border-radius:12px; }}
   .charts {{ display:grid; gap:18px; padding:16px 32px 48px; }}
   img {{ width:100%; height:auto; display:block; }}
+  figure svg {{ width:100%; height:auto; display:block; }}
   footer {{ padding:0 32px 40px; color:#9aa5b1; font-size:12px; }}
 </style></head>
 <body>

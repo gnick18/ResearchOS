@@ -54,8 +54,9 @@ your other projects are never counted.
 - thirteen `*.svg` charts: project phases, AI requests per day (the tool handoff),
   commits per day, cumulative lines of code, words you typed per day, cumulative
   words, AI output tokens per day, tokens per day by type, effort hours, models &
-  providers used, tokens by tool, cost by tool, most-used tools. Charts that split
-  by tool color Kilo Code amber and Claude Code blue.
+  providers used (two bars each, turns and output tokens), tokens by tool, cost by
+  tool, most-used tools. Charts that split by tool color Kilo Code amber and Claude
+  Code blue.
 
 ## How the numbers are defined (read before quoting them)
 
@@ -98,7 +99,11 @@ your other projects are never counted.
   4.7). Kilo Code routes through its own provider and does not store the served
   model per request, so the reliable signal there is the **inference provider**
   (Z.AI, Amazon Bedrock, Nvidia, etc.); the `<model>` tags inside tasks are mode
-  definitions, not what actually served the request.
+  definitions, not what actually served the request. The models chart shows two
+  bars per model, turns (Claude messages / Kilo requests) and output tokens,
+  because output volume alone understates a model that was used a lot but
+  answered tersely (Opus 4.7 handled roughly a third of all turns yet shows a
+  small token bar). Each metric is scaled to its own maximum.
 - **Kilo checkpoints** are per-task git shadow repos. The line counts are the
   incremental edits Kilo made (the per-task baseline snapshot commit is skipped,
   and `node_modules`/lockfiles are excluded).
