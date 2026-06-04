@@ -144,6 +144,16 @@ visualization; homology-based annotation.
   (rose) + "N/M matched (X%)" stat + mismatch count in site selector. 519 tests.
   CAVEAT: mismatch-highlight VISUAL unconfirmed (bot could not drive a browser;
   data contract unit-tested) -> Grant to eyeball a one-off-mismatch primer.
-  ALIGNER MVP NOW COMPLETE. Deferred (build-later): mismatch-tolerant specificity,
-  Compare/Align-two-sequences, mutagenesis primer viz, homology annotation, the
-  enhanced Cmd+F Find with close-match fallback.
+  ALIGNER MVP COMPLETE. ROADMAP BUILD STARTED 2026-06-03 (Grant "lets rip away").
+  Run in 2 WAVES to avoid SequenceEditView + primer-dialog collisions.
+  WAVE 1 IN FLIGHT (off main 25b2f196, disjoint): (1) mismatch-tolerant SPECIFICITY
+  [a6e2abd5, claude/spec-mismatch: primer-specificity.ts scanLibrarySpecificity ->
+  mismatchTolerant, report near off-targets w/ mismatch count/identity + UI];
+  (5) ENHANCED FIND [a7ce334b, claude/enhanced-find: SequenceFindBox + SequenceEditView
+  find wiring + new lib/sequences/find.ts; DNA exact + close-match fallback + by-name,
+  protein if clean]; (2) COMPARE/ALIGN [a2a43250, claude/compare-align: new
+  CompareSequencesDialog + app/sequences/page.tsx entry; alignment view + identity +
+  optional dotplot; do NOT touch SequenceEditView]. WAVE 2 (after wave 1 integrates):
+  (3) MUTAGENESIS primer viz (primer dialogs, frees after #1) + (4) HOMOLOGY auto-
+  annotation (SequenceEditView Feature menu + align a feature/primer library to a seq,
+  frees after #5). Cherry-pick each on report; final full verify.
