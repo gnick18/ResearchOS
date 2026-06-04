@@ -12,7 +12,26 @@
 //
 // No emojis (inline SVG only), no em-dashes, Tooltip for icon-only controls.
 
+import { useState } from "react";
+import Tooltip from "@/components/Tooltip";
 import { productGc } from "@/lib/sequences/cloning";
+
+function CopyIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
 
 /** A radio control rendered in the card header when a method offers several
  *  mutually exclusive products to choose between (cut-ligate symmetric overhangs). */
@@ -50,6 +69,19 @@ export default function CloningProductPreview({
 }: Props) {
   const shown = seq.length > PREVIEW_LIMIT ? seq.slice(0, PREVIEW_LIMIT) : seq;
   const selectable = Boolean(select);
+  const [copied, setCopied] = useState(false);
+
+  // Copy the FULL product sequence (not the truncated preview). One card serves
+  // every method, so this single control covers all four chemistries.
+  const copySequence = async () => {
+    try {
+      await navigator.clipboard.writeText(seq);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard may be blocked; the preview is still on screen to copy manually.
+    }
+  };
   return (
     <div
       className={`rounded-md border p-4 ${
@@ -69,10 +101,30 @@ export default function CloningProductPreview({
           ) : null}
           <h3 className="truncate text-body font-semibold text-gray-700">{title}</h3>
         </div>
-        <span className="shrink-0 text-meta text-gray-500">
-          {circular ? "Circular" : "Linear"} · {seq.length.toLocaleString()} bp ·{" "}
-          {productGc(seq).toFixed(0)}% GC
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="text-meta text-gray-500">
+            {circular ? "Circular" : "Linear"} · {seq.length.toLocaleString()} bp ·{" "}
+            {productGc(seq).toFixed(0)}% GC
+          </span>
+          <Tooltip label="Copy product sequence">
+            <button
+              type="button"
+              onClick={copySequence}
+              className="flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-meta font-medium text-gray-600 hover:bg-gray-100"
+              aria-label="Copy product sequence"
+            >
+              {copied ? (
+                <>
+                  <CheckIcon className="h-3.5 w-3.5 text-emerald-600" /> Copied
+                </>
+              ) : (
+                <>
+                  <CopyIcon className="h-3.5 w-3.5" /> Copy
+                </>
+              )}
+            </button>
+          </Tooltip>
+        </div>
       </div>
 
       <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md border border-gray-200 bg-gray-50 p-3 font-mono text-meta leading-relaxed text-gray-700">

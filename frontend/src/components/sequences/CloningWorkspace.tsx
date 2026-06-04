@@ -217,6 +217,10 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
     setMethod(m);
     setStep("pick");
     setSelectedProduct(0);
+    // The construct name is per-method (the placeholder differs by chemistry),
+    // so a name typed for one method must not bleed onto the next (L1).
+    setName("");
+    setSaveError(null);
     if (m === "golden-gate") setEnzymeNames(["BsaI"]);
     else if (m === "restriction") setEnzymeNames(["EcoRI"]);
   }, []);
@@ -299,6 +303,16 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
         ? picked.length === 2 && !resolving && fragments.every((f) => f.seq)
         : picked.length >= 1 && !resolving && fragments.every((f) => f.seq) && enzymeNames.length > 0;
 
+  // Method-specific reason the Review button is disabled. Overlap and Gateway
+  // need two fragments; restriction / golden-gate need only ONE fragment plus a
+  // selected enzyme, so the generic "two fragments" copy was wrong for them (L3).
+  const reviewDisabledReason =
+    method === "overlap"
+      ? "Add at least two fragments first"
+      : method === "gateway"
+        ? "Add the two substrates first"
+        : "Add a fragment and pick an enzyme first";
+
   // --- fragment list editing ---
   const addLibrary = useCallback((rec: SequenceRecord) => {
     setPicked((p) => [...p, { kind: "library", id: rec.id, name: rec.display_name }]);
@@ -343,6 +357,9 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
         setSaveError("Could not save the construct.");
         return;
       }
+      // Clear the name so the next method/product starts from its own
+      // placeholder rather than the just-saved construct's name (L1).
+      setName("");
       onSaved(rec.id);
     } catch {
       setSaveError("Could not save the construct.");
@@ -365,13 +382,19 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
     setSaving(true);
     setSaveError(null);
     try {
-      const genbank = productToGenbank(name.trim() || "Assembled construct", {
+      // Chemistry-aware fallback name (mirrors Gateway), so an unnamed product
+      // reads as what it is rather than the generic "Assembled construct" (L5).
+      const fallback = method === "golden-gate" ? "Golden Gate assembly" : "Ligated construct";
+      // The cut-ligate engine's LigationProduct carries no rebased features
+      // (seq / circular / junctionOverhangs only), so there is nothing to save
+      // through here; features stay [] by design, not by oversight (L5).
+      const genbank = productToGenbank(name.trim() || fallback, {
         seq: prod.seq,
         circular: prod.circular,
         features: [],
       });
       const rec = await sequencesApi.create({
-        display_name: name.trim() || "Assembled construct",
+        display_name: name.trim() || fallback,
         genbank,
         seq_type: "dna",
         project_ids: activeProjectIds,
@@ -380,13 +403,14 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
         setSaveError("Could not save the construct.");
         return;
       }
+      setName("");
       onSaved(rec.id);
     } catch {
       setSaveError("Could not save the construct.");
     } finally {
       setSaving(false);
     }
-  }, [cutLigateResult, name, activeProjectIds, onSaved]);
+  }, [cutLigateResult, method, name, activeProjectIds, onSaved]);
 
   // Save a Gateway product (the desired clone, or the byproduct) as a sequence.
   const saveGatewayProduct = useCallback(
@@ -417,6 +441,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
           setSaveError("Could not save the construct.");
           return;
         }
+        setName("");
         onSaved(rec.id);
       } catch {
         setSaveError("Could not save the construct.");
@@ -487,6 +512,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
             key={m}
             type="button"
             onClick={() => switchMethod(m)}
+            aria-current={method === m ? "true" : undefined}
             className={`rounded-md px-3 py-1.5 text-meta font-medium ${
               method === m
                 ? "bg-sky-100 text-sky-700"
@@ -706,7 +732,11 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                   </div>
                 ) : null}
                 <p className="mt-1 text-meta text-gray-400">
-                  The shared end each junction&apos;s primers add. Default 25 bp suits Gibson / NEBuilder HiFi.
+                  {overlapKind === "tm"
+                    ? `The shared end each junction's primers add, sized so the overlap melts near ${overlapTm} °C.`
+                    : overlapBp === DEFAULT_OVERLAP_BP
+                      ? `The shared end each junction's primers add. The default ${DEFAULT_OVERLAP_BP} bp suits Gibson / NEBuilder HiFi.`
+                      : `The shared end each junction's primers add. Each junction adds a ${overlapBp} bp shared end.`}
                 </p>
               </div>
               </>
@@ -741,13 +771,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
             </div>
             <div className="border-t border-gray-100 p-4">
               <Tooltip
-                label={
-                  canReview
-                    ? "Review the product before saving"
-                    : method === "gateway"
-                      ? "Add the two substrates first"
-                      : "Add at least two fragments first"
-                }
+                label={canReview ? "Review the product before saving" : reviewDisabledReason}
               >
                 <button
                   type="button"
@@ -769,29 +793,14 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
         // --- GATEWAY REVIEW STEP (BP / LR) ---
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           {gatewayResult && gatewayResult.products.length > 0 ? (
-            <div className="mx-auto max-w-4xl space-y-5">
-              <label className="block">
-                <span className="mb-1 block text-meta font-medium uppercase tracking-wide text-gray-400">Construct name</span>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={gatewayReaction === "BP" ? "Entry clone" : "Expression clone"}
-                  className="w-full max-w-md rounded-md border border-gray-200 px-3 py-2 text-body focus:border-sky-400 focus:outline-none"
-                />
-              </label>
-
-              {gatewayResult.warnings.length > 0 ? (
-                <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
-                  <div className="mb-1 flex items-center gap-1.5 text-meta font-semibold text-amber-800">
-                    <WarnIcon className="h-4 w-4" /> Notes
-                  </div>
-                  <ul className="list-inside list-disc space-y-0.5 text-meta text-amber-700">
-                    {gatewayResult.warnings.map((w, i) => <li key={i}>{w}</li>)}
-                  </ul>
-                </div>
-              ) : null}
-
+            <ReviewShell
+              name={name}
+              onNameChange={setName}
+              namePlaceholder={gatewayReaction === "BP" ? "Entry clone" : "Expression clone"}
+              warnings={gatewayResult.warnings}
+              saveError={saveError}
+              onBack={() => setStep("pick")}
+            >
               {gatewayResult.products.map((prod, i) => (
                 <CloningProductPreview
                   key={i}
@@ -817,58 +826,33 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                   </div>
                 </CloningProductPreview>
               ))}
-
-              <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-4">
-                {saveError ? <span className="text-meta text-rose-600">{saveError}</span> : null}
-                <button type="button" onClick={() => setStep("pick")} className="rounded-md border border-gray-200 px-4 py-2 text-body font-medium text-gray-700 hover:bg-gray-100">
-                  Back
-                </button>
-              </div>
-            </div>
+            </ReviewShell>
           ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-2 text-body text-gray-400">
-              <span>No recombination product from these substrates.</span>
-              {gatewayResult?.warnings.length ? (
-                <ul className="list-inside list-disc text-meta text-amber-600">
-                  {gatewayResult.warnings.map((w, i) => <li key={i}>{w}</li>)}
-                </ul>
-              ) : null}
-            </div>
+            <ReviewEmptyState
+              resolving={resolving}
+              message="No recombination product from these substrates."
+              warnings={gatewayResult?.warnings}
+            />
           )}
         </div>
       ) : method !== "overlap" ? (
         // --- CUT-LIGATE REVIEW STEP (restriction / golden-gate) ---
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           {cutLigateResult && cutLigateResult.products.length > 0 ? (
-            <div className="mx-auto max-w-4xl space-y-5">
-              <label className="block">
-                <span className="mb-1 block text-meta font-medium uppercase tracking-wide text-gray-400">Construct name</span>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Assembled construct"
-                  className="w-full max-w-md rounded-md border border-gray-200 px-3 py-2 text-body focus:border-sky-400 focus:outline-none"
-                />
-              </label>
-
-              {cutLigateResult.warnings.length > 0 ? (
-                <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
-                  <div className="mb-1 flex items-center gap-1.5 text-meta font-semibold text-amber-800">
-                    <WarnIcon className="h-4 w-4" /> Notes
-                  </div>
-                  <ul className="list-inside list-disc space-y-0.5 text-meta text-amber-700">
-                    {cutLigateResult.warnings.map((w, i) => <li key={i}>{w}</li>)}
-                  </ul>
-                </div>
-              ) : null}
-
+            <ReviewShell
+              name={name}
+              onNameChange={setName}
+              namePlaceholder={method === "golden-gate" ? "Golden Gate assembly" : "Ligated construct"}
+              warnings={cutLigateResult.warnings}
+              saveError={saveError}
+              onBack={() => setStep("pick")}
+            >
               <div>
-                <h2 className="mb-2 text-body font-semibold text-gray-700">
+                <SectionLabel>
                   {cutLigateResult.products.length === 1
                     ? "Assembled product"
                     : `Possible products (${cutLigateResult.products.length})`}
-                </h2>
+                </SectionLabel>
                 {cutLigateResult.products.length > 1 ? (
                   <p className="mb-2 text-meta text-gray-500">
                     The overhangs are symmetric, so more than one circular product can form. Save the one you want.
@@ -894,7 +878,8 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                       saving={saving}
                     >
                       <div className="rounded bg-gray-50 px-2 py-1.5 text-meta text-gray-500">
-                        junctions: {prod.junctionOverhangs.map((o) => o || "blunt").join(", ")}
+                        <SectionLabel>Junctions</SectionLabel>
+                        {prod.junctionOverhangs.map((o) => o || "blunt").join(", ")}
                       </div>
                     </CloningProductPreview>
                   ))}
@@ -902,7 +887,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
               </div>
 
               <div>
-                <h2 className="mb-2 text-body font-semibold text-gray-700">Digested pieces ({cutLigateResult.pieces.length})</h2>
+                <SectionLabel>Digested pieces ({cutLigateResult.pieces.length})</SectionLabel>
                 <div className="overflow-x-auto rounded-md border border-gray-200">
                   <table className="w-full text-left text-meta">
                     <thead className="bg-gray-50 text-gray-500">
@@ -926,66 +911,38 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                   </table>
                 </div>
               </div>
-
-              <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-4">
-                {saveError ? <span className="text-meta text-rose-600">{saveError}</span> : null}
-                <button type="button" onClick={() => setStep("pick")} className="rounded-md border border-gray-200 px-4 py-2 text-body font-medium text-gray-700 hover:bg-gray-100">
-                  Back
-                </button>
-              </div>
-            </div>
+            </ReviewShell>
           ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-2 text-body text-gray-400">
-              <span>No assembled product from these fragments and enzyme(s).</span>
-              {cutLigateResult?.warnings.length ? (
-                <ul className="list-inside list-disc text-meta text-amber-600">
-                  {cutLigateResult.warnings.map((w, i) => <li key={i}>{w}</li>)}
-                </ul>
-              ) : null}
-            </div>
+            <ReviewEmptyState
+              resolving={resolving}
+              message="No assembled product from these fragments and enzyme(s)."
+              warnings={cutLigateResult?.warnings}
+            />
           )}
         </div>
       ) : (
         // --- OVERLAP REVIEW STEP ---
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           {result ? (
-            <div className="mx-auto max-w-4xl space-y-5">
-              {/* Construct name + preview */}
-              <div className="space-y-3">
-                <label className="block">
-                  <span className="mb-1 block text-meta font-medium uppercase tracking-wide text-gray-400">Construct name</span>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Assembled construct"
-                    className="w-full max-w-md rounded-md border border-gray-200 px-3 py-2 text-body focus:border-sky-400 focus:outline-none"
-                  />
-                </label>
-                <CloningProductPreview
-                  title="Recombinant construct"
-                  seq={result.product.seq}
-                  circular={result.product.circular}
-                  onSave={handleSave}
-                  saving={saving}
-                />
-              </div>
-
-              {/* Assembly-level notes / warnings */}
-              {result.warnings.length > 0 ? (
-                <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
-                  <div className="mb-1 flex items-center gap-1.5 text-meta font-semibold text-amber-800">
-                    <WarnIcon className="h-4 w-4" /> Notes
-                  </div>
-                  <ul className="list-inside list-disc space-y-0.5 text-meta text-amber-700">
-                    {result.warnings.map((w, i) => <li key={i}>{w}</li>)}
-                  </ul>
-                </div>
-              ) : null}
+            <ReviewShell
+              name={name}
+              onNameChange={setName}
+              namePlaceholder="Assembled construct"
+              warnings={result.warnings}
+              saveError={saveError}
+              onBack={() => setStep("pick")}
+            >
+              <CloningProductPreview
+                title="Recombinant construct"
+                seq={result.product.seq}
+                circular={result.product.circular}
+                onSave={handleSave}
+                saving={saving}
+              />
 
               {/* Junctions */}
               <div>
-                <h2 className="mb-2 text-body font-semibold text-gray-700">Junctions ({result.junctions.length})</h2>
+                <SectionLabel>Junctions ({result.junctions.length})</SectionLabel>
                 <div className="space-y-3">
                   {result.junctions.map((jn, i) => {
                     const up = result.primers[jn.fragmentIndex];
@@ -1021,7 +978,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
               {/* Oligo order list */}
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <h2 className="text-body font-semibold text-gray-700">Oligo order list ({result.primers.length * 2})</h2>
+                  <SectionLabel>Oligo order list ({result.primers.length * 2})</SectionLabel>
                   <button type="button" onClick={copyOligos} className="flex items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1.5 text-meta font-medium text-gray-700 hover:bg-gray-100">
                     <CopyIcon className="h-3.5 w-3.5" /> {copied ? "Copied" : "Copy all"}
                   </button>
@@ -1055,27 +1012,110 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                   Each primer is a 3&apos; annealing region (sized to ~{DEFAULT_ANNEAL_TM} °C) plus a 5&apos; homology tail that adds the overlap. Saved with the construct as primer_bind features.
                 </p>
               </div>
-
-              {/* Footer: Back + error only. Save lives on the product card above. */}
-              <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-4">
-                {saveError ? <span className="text-meta text-rose-600">{saveError}</span> : null}
-                <button type="button" onClick={() => setStep("pick")} className="rounded-md border border-gray-200 px-4 py-2 text-body font-medium text-gray-700 hover:bg-gray-100">
-                  Back
-                </button>
-              </div>
-            </div>
+            </ReviewShell>
           ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-2 text-body text-gray-400">
-              <span>Add at least two fragments to assemble.</span>
-              {overlapWarnings.length ? (
-                <ul className="list-inside list-disc text-meta text-amber-600">
-                  {overlapWarnings.map((w, i) => <li key={i}>{w}</li>)}
-                </ul>
-              ) : null}
-            </div>
+            <ReviewEmptyState
+              resolving={resolving}
+              message="Add at least two fragments to assemble."
+              warnings={overlapWarnings}
+            />
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Shared chrome for every review step (L10). Renders the construct-name input,
+ * the amber "Notes" warnings panel, and the Back-plus-error footer IDENTICALLY
+ * across overlap / cut-ligate / gateway, with the method-specific product cards,
+ * oligo table, digested-pieces table, or att-site grid passed as children. The
+ * save handlers and product rendering stay in the parent; only this surrounding
+ * chrome is unified. Behavior-neutral.
+ */
+function ReviewShell({
+  name,
+  onNameChange,
+  namePlaceholder,
+  warnings,
+  saveError,
+  onBack,
+  children,
+}: {
+  name: string;
+  onNameChange: (v: string) => void;
+  namePlaceholder: string;
+  warnings: string[];
+  saveError: string | null;
+  onBack: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mx-auto max-w-4xl space-y-5">
+      <label className="block">
+        <span className="mb-1 block text-meta font-medium uppercase tracking-wide text-gray-400">Construct name</span>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => onNameChange(e.target.value)}
+          placeholder={namePlaceholder}
+          className="w-full max-w-md rounded-md border border-gray-200 px-3 py-2 text-body focus:border-sky-400 focus:outline-none"
+        />
+      </label>
+
+      {warnings.length > 0 ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+          <div className="mb-1 flex items-center gap-1.5 text-meta font-semibold text-amber-800">
+            <WarnIcon className="h-4 w-4" /> Notes
+          </div>
+          <ul className="list-inside list-disc space-y-0.5 text-meta text-amber-700">
+            {warnings.map((w, i) => <li key={i}>{w}</li>)}
+          </ul>
+        </div>
+      ) : null}
+
+      {children}
+
+      <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-4">
+        {saveError ? <span className="text-meta text-rose-600">{saveError}</span> : null}
+        <button type="button" onClick={onBack} className="rounded-md border border-gray-200 px-4 py-2 text-body font-medium text-gray-700 hover:bg-gray-100">
+          Back
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** A lightweight in-card section label, matching the option-group label style
+ *  ("Reaction" / "Restriction enzyme(s)") so the review surface reads
+ *  consistently (L6). */
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="mb-1.5 block text-meta font-medium uppercase tracking-wide text-gray-400">
+      {children}
+    </span>
+  );
+}
+
+/** Empty / resolving state shown when a review step has no product to render
+ *  yet. Resolving reads as latency, not an error (L9). */
+function ReviewEmptyState({ resolving, message, warnings }: { resolving: boolean; message: string; warnings?: string[] }) {
+  if (resolving) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-2 text-body text-gray-400">
+        <span>Resolving fragments…</span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-2 text-body text-gray-400">
+      <span>{message}</span>
+      {warnings && warnings.length ? (
+        <ul className="list-inside list-disc text-meta text-amber-600">
+          {warnings.map((w, i) => <li key={i}>{w}</li>)}
+        </ul>
+      ) : null}
     </div>
   );
 }
