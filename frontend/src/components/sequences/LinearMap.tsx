@@ -36,9 +36,19 @@
 // memos (no recompute, no on-disk change). Label packing is the unit-tested pure
 // helper layoutLabels, now applied over the VISIBLE items only.
 //
-// INTERACTION: double-clicking a feature opens the feature editor; double-
-// clicking a primer opens the Edit Primer dialog — both routed through the same
-// handlers the SeqViz path uses (onAnnotationDoubleClick / onPrimerDoubleClick).
+// INTERACTION (map select bot — SnapGene selection model): the Map is its OWN
+// selection surface and NEVER changes the view mode.
+//   - HOVER a feature -> a floating INFO CARD at the cursor (name, 1-based range,
+//     bp length, aa/kDa for a cds/gene, the product/note) + RED BRACKET markers
+//     on the ruler previewing the range a click will select.
+//   - SINGLE-click a feature -> SELECT its [start, end] (the shared editor
+//     selection), stay on the Map.
+//   - SHIFT-click another feature -> EXTEND the selection to span the anchor
+//     (first-selected) feature through the shift-clicked one.
+//   - DOUBLE-click a feature -> open the feature editor (primer -> Edit Primer).
+//   - Click empty backbone / ruler -> CLEAR the selection (deselect).
+// The selection is the shared editor state, so it PERSISTS across the Map and
+// Sequence tabs and is drawn here as a translucent blue SELECTION BAND.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { digestEnzymes } from "@/lib/sequences/enzyme-filters";
@@ -60,6 +70,7 @@ import {
 import Tooltip from "@/components/Tooltip";
 import LinearMapNavigator from "./LinearMapNavigator";
 import MapJogWheel from "./MapJogWheel";
+import { buildFeatureCard, selectionBandRect } from "@/lib/sequences/linear-map-select";
 import type { SeqType } from "@/vendor/seqviz/elements";
 
 /** A feature to draw below the line. Mirrors the editor's annotation shape. */
@@ -73,6 +84,8 @@ export interface LinearMapFeature {
   type?: string;
   /** exon spans for a multi-segment (join) feature; absent for single-span. */
   segments?: { start: number; end: number }[];
+  /** map select bot — /product or /note qualifier text for the hover info card. */
+  note?: string;
 }
 
 /** A primer to draw above the line (pink). Mirrors the editor's primers memo. */
@@ -99,23 +112,29 @@ export interface LinearMapProps {
   /** double-click a primer: resolve back to its doc feature + open Edit Primer. */
   onPrimerDoubleClick: (p: { name: string; start: number; end: number }) => void;
   /**
-   * SINGLE-click a feature: select + highlight its DNA range and navigate to it
-   * in the Sequence view. Disambiguated from the double-click (which opens the
-   * editor) by a short timer.
+   * map select bot — SINGLE-click a feature: SELECT its DNA range (the shared
+   * editor selection). A plain click selects that one feature and resets the
+   * span anchor; a SHIFT-click extends the selection from the anchor through the
+   * clicked feature (SequenceEditView computes the union). The Map NEVER changes
+   * view mode. `mods.shiftKey` carries the modifier up.
    */
-  onFeatureClick?: (f: { name: string; start: number; end: number; direction?: number }) => void;
+  onFeatureClick?: (
+    f: { name: string; start: number; end: number; direction?: number },
+    mods: { shiftKey: boolean },
+  ) => void;
   /**
-   * SINGLE-click empty track / ruler / backbone: navigate the Sequence view to
-   * that bp (caret + scroll). The bp is computed from the click x accounting for
-   * PAD_X and the current visible window.
+   * map select bot — click on empty backbone / ruler / track (NOT a feature):
+   * CLEAR the selection (deselect). No navigation, no view-mode change.
    */
-  onSeek?: (bp: number) => void;
+  onClearSelection?: () => void;
+  /**
+   * map select bot — the CURRENT editor selection [start, end] (0-based,
+   * half-open), or null when nothing is selected. The Map draws a translucent
+   * blue SELECTION BAND over this range (clipped to the visible window) so the
+   * shared selection is visible here too and persists across Map/Sequence.
+   */
+  selection?: { start: number; end: number } | null;
 }
-
-// map interactivity bot — how long (ms) we wait after a single click before
-// committing it, so a double-click can cancel the pending single and run the
-// editor-open instead. Standard single-vs-double disambiguation delay.
-const CLICK_DELAY_MS = 220;
 
 // ── layout constants (px) ──────────────────────────────────────────────────
 const PAD_X = 16; // horizontal inset so end ticks/labels are not clipped
@@ -152,6 +171,10 @@ const ENZYME_HOVER = "#dc2626";
 const RULER_COLOR = "#cbd5e1";
 const RULER_TEXT = "#94a3b8";
 const STRAND_COLOR = "#94a3b8";
+// map select bot — red HOVER BRACKETS (preview the range a click will select) +
+// the translucent blue SELECTION BAND (the persisted, shared editor selection).
+const HOVER_BRACKET_RED = "#dc2626";
+const SELECTION_BLUE = "#0ea5e9"; // sky-500
 
 /** Estimate a label's pixel width from its text + font size (monospace-ish). */
 function estTextWidth(text: string, fontPx: number): number {
@@ -208,7 +231,8 @@ export default function LinearMap({
   onFeatureDoubleClick,
   onPrimerDoubleClick,
   onFeatureClick,
-  onSeek,
+  onClearSelection,
+  selection,
 }: LinearMapProps) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -216,6 +240,33 @@ export default function LinearMap({
   // Hover state for enzyme highlight, keyed on enzyme NAME (all sites of the same
   // enzyme highlight together — SnapGene behavior).
   const [hoverEnzyme, setHoverEnzyme] = useState<string | null>(null);
+  // map select bot — HOVER a feature: which feature index is hovered + the
+  // card's already-clamped {left, top} (px, relative to the scroll wrapper) so
+  // the floating info card follows the cursor without reading refs during render.
+  // The hovered feature also drives the red bracket preview on the ruler.
+  const [hoverFeature, setHoverFeature] = useState<{ idx: number; left: number; top: number } | null>(null);
+
+  // map select bot — compute the info card's clamped position from a pointer
+  // event. Reads the wrapper rect + scroll offsets HERE (in an event handler,
+  // where ref access is allowed), not during render. Flips left near the right
+  // edge so the card never overflows the map.
+  const CARD_W = 240;
+  const cardPosFromEvent = (clientX: number, clientY: number): { left: number; top: number } => {
+    const el = wrapRef.current;
+    if (!el) return { left: 0, top: 0 };
+    const rect = el.getBoundingClientRect();
+    const OFFSET = 14;
+    const scrollTop = el.scrollTop;
+    const scrollLeft = el.scrollLeft;
+    let left = clientX - rect.left + scrollLeft + OFFSET;
+    let top = clientY - rect.top + scrollTop + OFFSET;
+    if (left + CARD_W > rect.width + scrollLeft) {
+      left = clientX - rect.left + scrollLeft - CARD_W - OFFSET;
+    }
+    if (left < scrollLeft + 4) left = scrollLeft + 4;
+    if (top < scrollTop + 4) top = scrollTop + 4;
+    return { left, top };
+  };
 
   // ── VISIBLE WINDOW (single source of truth for zoom + the navigator) ───────
   // [winStart, winEnd] in bp. Default = whole molecule, i.e. exactly the original
@@ -250,37 +301,22 @@ export default function LinearMap({
   // The WINDOW (not the whole molecule) spans the track now.
   const bpX = (bp: number) => PAD_X + ((bp - winStart) / winSpan) * trackWidth;
 
-  // ── CLICK MODEL (map interactivity bot) ───────────────────────────────────
-  // The map is a navigation + selection surface. A SINGLE click selects + jumps
-  // (a feature -> select its range + go to Sequence view there; empty track ->
-  // seek to that bp). A DOUBLE click opens the editor (feature / primer). We
-  // disambiguate with a short timer: a single click schedules its action, and a
-  // double-click that lands within CLICK_DELAY_MS cancels the pending single and
-  // runs the editor-open instead. The pending action is held in a ref so the
-  // timer's closure always runs the latest one; cleared on unmount.
-  const pendingClickRef = useRef<{ timer: ReturnType<typeof setTimeout>; run: () => void } | null>(null);
-  const clearPendingClick = () => {
-    if (pendingClickRef.current) {
-      clearTimeout(pendingClickRef.current.timer);
-      pendingClickRef.current = null;
-    }
-  };
-  const scheduleSingleClick = (run: () => void) => {
-    clearPendingClick();
-    const timer = setTimeout(() => {
-      pendingClickRef.current = null;
-      run();
-    }, CLICK_DELAY_MS);
-    pendingClickRef.current = { timer, run };
-  };
-  useEffect(() => () => clearPendingClick(), []);
+  // ── CLICK MODEL (map select bot — SnapGene selection surface) ─────────────
+  // The Map NEVER changes the view mode. A SINGLE click on a feature SELECTS its
+  // range (shift-click extends the span); a DOUBLE click opens the editor; a
+  // click on empty track CLEARS the selection. Selection is immediate on click,
+  // so no single-vs-double timer is needed — selecting on the first click of a
+  // double-click is harmless (the editor opens on the second click regardless).
 
-  // Map a pointer event to the bp under it (inverse of bpX, window-aware).
+  // Map a pointer event to the bp under it (inverse of bpX, window-aware). Kept
+  // for the future, currently unused by the click handlers (empty click clears
+  // rather than seeks), so it is referenced by xToBp's export + tests only.
   const eventToBp = (clientX: number): number => {
     const rect = svgRef.current?.getBoundingClientRect();
     const x = rect ? clientX - rect.left : clientX;
     return xToBp(x, { padX: PAD_X, trackWidth, winStart, winSpan, seqLength });
   };
+  void eventToBp;
 
   // Zoom controls. The slider runs 0 (whole molecule) .. 1 (max zoom). Span maps
   // log-scaled so the control feels smooth; zoom keeps the window CENTER stable.
@@ -560,6 +596,40 @@ export default function LinearMap({
     return out;
   }, [seqLength, trackWidth, winStart, winEnd, winSpan]);
 
+  // ── map select bot — SELECTION BAND geometry ───────────────────────────────
+  // Map the shared editor selection to a clipped pixel band over the window.
+  const band = useMemo(() => {
+    if (!selection) return null;
+    return selectionBandRect({
+      selStart: selection.start,
+      selEnd: selection.end,
+      winStart,
+      winEnd,
+      padX: PAD_X,
+      trackWidth,
+    });
+  }, [selection, winStart, winEnd, trackWidth]);
+
+  // ── map select bot — HOVERED feature -> red bracket preview + info card ────
+  // The hovered feature (by index into `features`) clipped to the visible window
+  // gives the start/end x for the red brackets; buildFeatureCard supplies the
+  // floating card content. Both clear on mouse-leave (hoverFeature -> null).
+  const hovered = hoverFeature ? features[hoverFeature.idx] : null;
+  const hoverBracket = useMemo(() => {
+    if (!hovered) return null;
+    const lo = Math.min(hovered.start, hovered.end);
+    const hi = Math.max(hovered.start, hovered.end);
+    if (hi <= winStart || lo >= winEnd) return null; // off-screen
+    const clipLo = Math.max(lo, winStart);
+    const clipHi = Math.min(hi, winEnd);
+    return { x0: bpX(clipLo), x1: bpX(clipHi), startClipped: lo < winStart, endClipped: hi > winEnd };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hovered, winStart, winEnd, trackWidth]);
+  const hoverCard = useMemo(
+    () => (hovered ? buildFeatureCard(hovered) : null),
+    [hovered],
+  );
+
   if (!seqLength) return null;
 
   return (
@@ -634,15 +704,11 @@ export default function LinearMap({
           height={totalH}
           className="my-auto block shrink-0 cursor-pointer select-none"
           style={{ minHeight: totalH }}
-          // map interactivity bot — a click that reaches the SVG itself (i.e. it
-          // was NOT consumed by a feature arrow or an above-line item, both of
-          // which stopPropagation) is a click on empty track / ruler / backbone.
-          // Schedule a SEEK to the bp under the cursor; a double-click cancels it.
-          onClick={(e) => {
-            if (!onSeek) return;
-            const bp = eventToBp(e.clientX);
-            scheduleSingleClick(() => onSeek(bp));
-          }}
+          // map select bot — a click that reaches the SVG itself (it was NOT
+          // consumed by a feature arrow or an above-line item, both of which
+          // stopPropagation) is a click on empty track / ruler / backbone.
+          // CLEAR the selection (deselect). No navigation, no view-mode change.
+          onClick={() => onClearSelection?.()}
         >
           {/* ── strand baseline ── */}
           <rect
@@ -654,6 +720,48 @@ export default function LinearMap({
             fill={STRAND_COLOR}
             opacity={0.5}
           />
+
+          {/* ── map select bot — SELECTION BAND (the persisted shared editor
+              selection). A calm translucent sky band spanning the selection,
+              clipped to the visible window; thin edge rules mark the bounds.
+              Drawn here (under the ruler ticks + features) so feature arrows and
+              labels stay legible on top. pointer-events:none so it never
+              swallows a click meant for a feature or the empty-track clear. */}
+          {band ? (
+            <g pointerEvents="none">
+              <rect
+                x={band.x0}
+                y={baselineY - STRAND_H / 2 - 5}
+                width={Math.max(2, band.x1 - band.x0)}
+                height={featureRowY + FEATURE_ARROW_H / 2 - (baselineY - STRAND_H / 2 - 5)}
+                fill={SELECTION_BLUE}
+                opacity={0.14}
+                rx={2}
+              />
+              {!band.clampedLeft ? (
+                <line
+                  x1={band.x0}
+                  y1={baselineY - STRAND_H / 2 - 5}
+                  x2={band.x0}
+                  y2={featureRowY + FEATURE_ARROW_H / 2}
+                  stroke={SELECTION_BLUE}
+                  strokeWidth={1.25}
+                  opacity={0.55}
+                />
+              ) : null}
+              {!band.clampedRight ? (
+                <line
+                  x1={band.x1}
+                  y1={baselineY - STRAND_H / 2 - 5}
+                  x2={band.x1}
+                  y2={featureRowY + FEATURE_ARROW_H / 2}
+                  stroke={SELECTION_BLUE}
+                  strokeWidth={1.25}
+                  opacity={0.55}
+                />
+              ) : null}
+            </g>
+          ) : null}
 
           {/* ── "more sequence off-screen" ellipsis cues at the strand ends ── */}
           {winStart > 0 ? (
@@ -704,6 +812,38 @@ export default function LinearMap({
             );
           })}
 
+          {/* ── map select bot — RED BRACKET PREVIEW. While a feature is hovered,
+              draw SnapGene-style red square brackets on the ruler at the hovered
+              feature's start + end x, previewing the range a click will select.
+              A bracket whose side is clipped off-screen is omitted (the feature
+              continues past the window). pointer-events:none so it never blocks
+              the underlying feature click. ── */}
+          {hoverBracket ? (
+            (() => {
+              const top = baselineY - STRAND_H / 2 - 7;
+              const bot = baselineY + STRAND_H / 2 + TICK_H + 1;
+              const tab = 4; // horizontal foot of each bracket
+              return (
+                <g pointerEvents="none" stroke={HOVER_BRACKET_RED} strokeWidth={1.5} fill="none">
+                  {!hoverBracket.startClipped ? (
+                    <polyline
+                      points={`${hoverBracket.x0 + tab},${top} ${hoverBracket.x0},${top} ${hoverBracket.x0},${bot} ${hoverBracket.x0 + tab},${bot}`}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  ) : null}
+                  {!hoverBracket.endClipped ? (
+                    <polyline
+                      points={`${hoverBracket.x1 - tab},${top} ${hoverBracket.x1},${top} ${hoverBracket.x1},${bot} ${hoverBracket.x1 - tab},${bot}`}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  ) : null}
+                </g>
+              );
+            })()
+          ) : null}
+
           {/* ── ABOVE the line: enzyme cut-sites + primers with leader lines ── */}
           {abovePlaced.map((p) => {
             const src = aboveSources.find((s) => s.id === p.id);
@@ -727,20 +867,16 @@ export default function LinearMap({
                 onMouseLeave={() => {
                   if (isEnzyme) setHoverEnzyme(null);
                 }}
-                // map interactivity bot — a single click on an above-line item
-                // (enzyme cut / primer) seeks to its position, like clicking that
-                // spot on the track; stopPropagation avoids a double seek. A
-                // double-click on a primer cancels the pending single and opens
-                // the Edit Primer dialog (unchanged behavior).
+                // map select bot — a single click on an above-line item (enzyme
+                // cut / primer) is consumed (stopPropagation) so it does NOT fall
+                // through to the empty-track clear; it has no select action of its
+                // own. A double-click on a primer opens the Edit Primer dialog
+                // (unchanged behavior).
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (!onSeek) return;
-                  const bp = eventToBp(e.clientX);
-                  scheduleSingleClick(() => onSeek(bp));
                 }}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
-                  clearPendingClick();
                   if (src.kind === "primer" && src.primerRef) onPrimerDoubleClick(src.primerRef);
                 }}
               >
@@ -807,20 +943,33 @@ export default function LinearMap({
               <g
                 key={`feat-${i}`}
                 style={{ cursor: "pointer" }}
-                // map interactivity bot — SINGLE click selects the feature's
-                // range + navigates; DOUBLE click cancels that pending single and
-                // opens the editor. stopPropagation so the click does not also hit
-                // the SVG-level empty-track seek.
+                // map select bot — HOVER a feature: track its index + the cursor
+                // so the floating info card follows the pointer and the red
+                // bracket preview draws on the ruler. Clear on mouse-leave.
+                onMouseEnter={(e) =>
+                  setHoverFeature({ idx: i, ...cardPosFromEvent(e.clientX, e.clientY) })
+                }
+                onMouseMove={(e) =>
+                  setHoverFeature({ idx: i, ...cardPosFromEvent(e.clientX, e.clientY) })
+                }
+                onMouseLeave={() =>
+                  setHoverFeature((h) => (h && h.idx === i ? null : h))
+                }
+                // map select bot — SINGLE click SELECTS this feature's range
+                // (shift-click extends the span; SequenceEditView computes the
+                // union from the anchor). The Map stays put. DOUBLE click opens
+                // the editor. stopPropagation so the click does not also hit the
+                // SVG-level empty-track clear.
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!onFeatureClick) return;
-                  scheduleSingleClick(() =>
-                    onFeatureClick({ name: f.name, start: f.start, end: f.end, direction: f.direction }),
+                  onFeatureClick(
+                    { name: f.name, start: f.start, end: f.end, direction: f.direction },
+                    { shiftKey: e.shiftKey },
                   );
                 }}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
-                  clearPendingClick();
                   onFeatureDoubleClick({ name: f.name, start: f.start, end: f.end, direction: f.direction });
                 }}
               >
@@ -904,6 +1053,32 @@ export default function LinearMap({
             );
           })}
         </svg>
+      ) : null}
+
+      {/* ── map select bot — HOVER INFO CARD. A custom floating popover (NOT the
+          icon Tooltip component) anchored at the cursor inside the scroll
+          wrapper, listing the hovered feature's name, 1-based range, bp length,
+          the aa / kDa readout for a coding feature, and the product / note. It
+          follows the pointer and is clamped on-screen so it never overflows the
+          map. pointer-events:none so it never intercepts the feature click. ── */}
+      {hoverFeature && hoverCard ? (
+        <div
+          role="tooltip"
+          className="pointer-events-none absolute z-30 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-lg"
+          style={{ left: hoverFeature.left, top: hoverFeature.top, width: CARD_W }}
+        >
+          <div className="text-body font-semibold text-slate-800">{hoverCard.title}</div>
+          <div className="mt-1 space-y-0.5">
+            {hoverCard.lines.map((line, li) => (
+              <div key={li} className="text-meta text-slate-600">
+                {line.label ? (
+                  <span className="font-medium text-slate-500">{line.label} </span>
+                ) : null}
+                {line.value}
+              </div>
+            ))}
+          </div>
+        </div>
       ) : null}
       </div>
 

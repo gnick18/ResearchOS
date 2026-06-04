@@ -121,6 +121,7 @@ import {
 import SequenceZoomControl from "./SequenceZoomControl";
 import SequenceOverviewBar, { type OverviewFeature } from "./SequenceOverviewBar";
 import LinearMap, { type LinearMapFeature } from "./LinearMap";
+import { spanFromShiftClick } from "@/lib/sequences/linear-map-select";
 import SequenceTabBar, { type SequenceViewMode } from "./SequenceTabBar";
 import SequenceCoordinateBar from "./SequenceCoordinateBar";
 import SequencePrimersPanel from "./SequencePrimersPanel";
@@ -456,6 +457,11 @@ export default function SequenceEditView({
   const [primerEditor, setPrimerEditor] = useState<PrimerEditorRequest | null>(null);
   // When a feature row is clicked we drive the viewer selection to zoom it.
   const [externalSel, setExternalSel] = useState<{ start: number; end: number } | null>(null);
+  // map select bot — the ANCHOR feature range of the current Map selection (the
+  // first-selected feature). A plain Map click sets it; a SHIFT-click on the Map
+  // spans from this anchor through the clicked feature. Null when no Map-driven
+  // selection is active.
+  const [selAnchor, setSelAnchor] = useState<{ start: number; end: number } | null>(null);
 
   // seq editops bot — Edit-menu plumbing. The right-click context menu position
   // (null = closed), the Find box (open + query + match results + active match),
@@ -505,6 +511,17 @@ export default function SequenceEditView({
     const hi = Math.max(selection.start, selection.end);
     return { lo, hi, hasRange: hi > lo, caret: lo };
   }, [selection]);
+
+  // map select bot — the selection the LinearMap draws as a band + that persists
+  // across the Map / Sequence tabs. It is the SHARED editor selection, preferring
+  // a feature-zoom / Map selection (externalSel) but falling back to the user's
+  // active drag RANGE made in the Sequence view (sel.hasRange) so a selection made
+  // in either view shows on the Map. Null (no range) draws no band.
+  const mapSelection = useMemo(() => {
+    if (externalSel) return externalSel;
+    if (sel.hasRange) return { start: sel.lo, end: sel.hi };
+    return null;
+  }, [externalSel, sel.hasRange, sel.lo, sel.hi]);
 
   // VIEW CONTROLS are the lever for the calm default: SeqViz is prop-driven, so
   // a hidden layer is just a filtered prop. We filter the annotations by the
@@ -1236,6 +1253,26 @@ export default function SequenceEditView({
   // the SeqViz annotations, but it ALSO carries `segments` so multi-exon (join)
   // features draw exon boxes + dashed intron connectors. No recompute of data:
   // these are the existing docAnnotations projected to the LinearMap shape.
+  // map select bot — also resolve a /product or /note qualifier from doc.features
+  // (keyed by name+start+end) so the Map's hover info card can show it. The note
+  // is a read-only display field; it is not part of the on-disk annotation shape.
+  const featureNoteByKey = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const f of doc.features) {
+      const notes = (f.notes as Record<string, unknown>) || undefined;
+      if (!notes) continue;
+      const pick = (k: string): string | undefined => {
+        const v = notes[k];
+        if (Array.isArray(v) && v.length > 0) return String(v[0]);
+        if (typeof v === "string" && v.trim()) return v;
+        return undefined;
+      };
+      const text = pick("product") || pick("note") || pick("gene");
+      if (text) m.set(`${f.name}|${f.start}|${f.end}`, text);
+    }
+    return m;
+  }, [doc.features]);
+
   const linearMapFeatures: LinearMapFeature[] = useMemo(
     () =>
       docAnnotations
@@ -1248,16 +1285,20 @@ export default function SequenceEditView({
             strand: a.direction === -1 ? -1 : 1,
           }),
         )
-        .map((a) => ({
-          name: a.name,
-          start: a.start,
-          end: a.end,
-          direction: (a.direction === -1 ? -1 : 1) as 1 | -1,
-          color: a.color,
-          type: a.type,
-          ...(a.segments && a.segments.length > 1 ? { segments: a.segments } : {}),
-        })),
-    [docAnnotations, view],
+        .map((a) => {
+          const note = featureNoteByKey.get(`${a.name}|${a.start}|${a.end}`);
+          return {
+            name: a.name,
+            start: a.start,
+            end: a.end,
+            direction: (a.direction === -1 ? -1 : 1) as 1 | -1,
+            color: a.color,
+            type: a.type,
+            ...(a.segments && a.segments.length > 1 ? { segments: a.segments } : {}),
+            ...(note ? { note } : {}),
+          };
+        }),
+    [docAnnotations, view, featureNoteByKey],
   );
 
   const handleSave = useCallback(async () => {
@@ -1430,6 +1471,9 @@ export default function SequenceEditView({
       if (!f) return;
       setSelectedFeatureIdx(index);
       setExternalSel({ start: f.start, end: f.end });
+      // map select bot — a plain feature select sets the span ANCHOR to this
+      // feature's own range, so a subsequent Map shift-click spans from here.
+      setSelAnchor({ start: f.start, end: f.end });
       // overview zoom bot — FRAME the overview bar's independent extent snugly
       // around the selected feature (padded ~40% of its span per side, floored
       // so a tiny feature still frames a readable window). So selecting a feature
@@ -1683,52 +1727,56 @@ export default function SequenceEditView({
     [doc.features, openEditPrimer],
   );
 
-  // map interactivity bot — SINGLE-CLICK A FEATURE on the linear map -> resolve
-  // it back to its doc feature index, select + highlight its DNA range via the
-  // existing selectFeature (drives externalSel + selectedFeatureIdx, which makes
-  // SeqViz highlight and center the span), then land in the base-level Sequence
-  // view. Mirrors the resolution fallback chain of handleAnnotationDoubleClick so
-  // a viewer-normalized coordinate still maps to the right feature.
+  // map select bot — CLICK A FEATURE on the linear Map. The Map NEVER changes
+  // the view mode; it only sets the SHARED editor selection (externalSel +
+  // selectedFeatureIdx), which highlights in the base SeqViz view and frames the
+  // overview bar, and persists across the Map / Sequence tabs.
+  //   - a PLAIN click selects that one feature and resets the span anchor;
+  //   - a SHIFT-click extends the selection to span the anchor (first-selected)
+  //     feature through the clicked feature, [min(anchor.start, clicked.start),
+  //     max(anchor.end, clicked.end)], keeping the anchor for further shift-clicks.
+  // Resolves the clicked range back to a doc feature via the same fallback chain
+  // as handleAnnotationDoubleClick so a normalized coordinate still maps right.
   const handleMapFeatureClick = useCallback(
-    (range: { name: string; start: number; end: number; direction?: number }) => {
+    (
+      range: { name: string; start: number; end: number; direction?: number },
+      mods: { shiftKey: boolean },
+    ) => {
       let index = doc.features.findIndex(
         (f) => f.name === range.name && f.start === range.start && f.end === range.end,
       );
       if (index < 0) index = doc.features.findIndex((f) => f.name === range.name);
       if (index < 0) index = doc.features.findIndex((f) => f.start === range.start);
       if (index < 0) return;
-      setViewMode("sequence");
+      const f = doc.features[index];
+      if (!f) return;
+
+      if (mods.shiftKey && selAnchor) {
+        // SPAN from the anchor through this feature. The anchor is preserved so a
+        // further shift-click keeps extending from the same origin.
+        const span = spanFromShiftClick(selAnchor, { start: f.start, end: f.end });
+        setSelectedFeatureIdx(index);
+        setExternalSel(span);
+        setOverviewExtent(
+          frameExtentToSelection({ selection: span, seqLength: doc.seq.length }),
+        );
+        return;
+      }
+      // Plain click: select just this feature and (re)set the anchor to it.
       selectFeature(index);
     },
-    [doc.features, selectFeature],
+    [doc.features, doc.seq.length, selAnchor, selectFeature],
   );
 
-  // map interactivity bot — CLICK EMPTY TRACK / RULER / BACKBONE on the linear
-  // map -> navigate the Sequence view to that bp. Same path as the Go To dialog
-  // (applyGoTo): place a zero-width caret at the bp, drive externalSel so SeqViz
-  // centers it, switch to the base-level view, then scroll the viewer there. The
-  // scroll runs on the next frame so SeqViz's linear scroller exists after the
-  // view swap before scrollMainToBp reads its geometry.
-  const handleMapSeek = useCallback(
-    (bp: number) => {
-      const clamped = Math.max(0, Math.min(doc.seq.length, Math.round(bp)));
-      setViewMode("sequence");
-      placeCaret(clamped);
-      setExternalSel({ start: clamped, end: clamped });
-      // overview zoom bot — a plain seek to a bp (click on empty track / ruler)
-      // frames a MODEST window around the target (the frameExtentToSelection
-      // minSpan floor, ~60 bp) rather than leaving the bar at whatever extent it
-      // was, so the overview lands centered on where the detail view jumps.
-      setOverviewExtent(
-        frameExtentToSelection({
-          selection: { start: clamped, end: clamped },
-          seqLength: doc.seq.length,
-        }),
-      );
-      requestAnimationFrame(() => scrollMainToBp(clamped));
-    },
-    [doc.seq.length, placeCaret, scrollMainToBp],
-  );
+  // map select bot — CLICK EMPTY TRACK / RULER / BACKBONE on the linear Map ->
+  // CLEAR the selection (deselect). No navigation, no view-mode change. Drops the
+  // shared selection (externalSel + selectedFeatureIdx) and the span anchor so
+  // the selection band disappears in both the Map and the Sequence view.
+  const handleMapClearSelection = useCallback(() => {
+    setExternalSel(null);
+    setSelectedFeatureIdx(null);
+    setSelAnchor(null);
+  }, []);
 
   const duplicateFeatureAt = useCallback(
     (index: number) => editor.applyDocEdit((prev) => duplicateFeature(prev, index)),
@@ -2858,7 +2906,8 @@ export default function SequenceEditView({
                     onFeatureDoubleClick={handleAnnotationDoubleClick}
                     onPrimerDoubleClick={handlePrimerDoubleClick}
                     onFeatureClick={handleMapFeatureClick}
-                    onSeek={handleMapSeek}
+                    onClearSelection={handleMapClearSelection}
+                    selection={mapSelection}
                   />
                 ) : (
                 <SeqViz
