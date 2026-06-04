@@ -45,36 +45,6 @@ function Chevron({ className }: { className?: string }) {
   );
 }
 
-function IconSearch({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <circle cx="11" cy="11" r="8" />
-      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </svg>
-  );
-}
-function IconClose({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
-}
-function IconUp({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <polyline points="18 15 12 9 6 15" />
-    </svg>
-  );
-}
-function IconDown({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  );
-}
 // Eye / slashed-eye for TOGGLE rows (the show-hide indicator relocated from the
 // rail flyouts). Mirrors the IconEye / IconEyeOff glyphs in ViewControlRail.
 function IconEye({ className }: { className?: string }) {
@@ -377,93 +347,6 @@ export function SequencePromptDialog<T>({
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-/**
- * The inline Find box. Lives anchored top-right of the viewer. Drives the
- * `query` upward; the parent feeds back the match count + current index for the
- * "n of m" readout and the prev/next cycling.
- */
-export function SequenceFindBox({
-  query,
-  onQueryChange,
-  matchCount,
-  activeIndex,
-  onPrev,
-  onNext,
-  onClose,
-}: {
-  query: string;
-  onQueryChange: (q: string) => void;
-  matchCount: number;
-  /** 0-based active match index, or -1 when there is none. */
-  activeIndex: number;
-  onPrev: () => void;
-  onNext: () => void;
-  onClose: () => void;
-}) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  useEffect(() => {
-    const t = setTimeout(() => inputRef.current?.focus(), 0);
-    return () => clearTimeout(t);
-  }, []);
-
-  return (
-    <div
-      data-testid="sequence-find-box"
-      className="absolute right-3 top-3 z-40 flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1.5 shadow-lg"
-      onMouseDown={(e) => e.stopPropagation()}
-    >
-      <IconSearch className="h-4 w-4 text-gray-400" />
-      <input
-        ref={inputRef}
-        type="text"
-        value={query}
-        placeholder="Find bases"
-        onChange={(e) => onQueryChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            if (e.shiftKey) onPrev();
-            else onNext();
-          } else if (e.key === "Escape") {
-            e.preventDefault();
-            onClose();
-          }
-        }}
-        className="w-40 bg-transparent text-body outline-none placeholder:text-gray-400"
-      />
-      <span className="min-w-[3.5rem] text-right text-meta tabular-nums text-gray-400">
-        {query.length < 2 ? "" : matchCount === 0 ? "0 / 0" : `${activeIndex + 1} / ${matchCount}`}
-      </span>
-      <button
-        type="button"
-        onClick={onPrev}
-        disabled={matchCount === 0}
-        aria-label="Previous match"
-        className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 disabled:opacity-30"
-      >
-        <IconUp className="h-3.5 w-3.5" />
-      </button>
-      <button
-        type="button"
-        onClick={onNext}
-        disabled={matchCount === 0}
-        aria-label="Next match"
-        className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 disabled:opacity-30"
-      >
-        <IconDown className="h-3.5 w-3.5" />
-      </button>
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Close find"
-        className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100"
-      >
-        <IconClose className="h-3.5 w-3.5" />
-      </button>
     </div>
   );
 }

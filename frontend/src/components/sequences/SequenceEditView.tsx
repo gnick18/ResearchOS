@@ -129,9 +129,13 @@ import {
   EditMenuDropdown,
   SequenceContextMenu,
   SequencePromptDialog,
-  SequenceFindBox,
   type EditMenuItem,
 } from "./SequenceEditMenu";
+// enhanced find bot — the inline Find box now lives in its own file as the
+// SnapGene-style search family (DNA exact + closest-match fallback / by-name /
+// protein). It owns mode + query and reports matches up via onResults.
+import { SequenceFindBox, type FindResult } from "./SequenceFindBox";
+import type { FindMatch } from "@/lib/sequences/find";
 import {
   ExportMenuDropdown,
   type ExportMenuItem,
@@ -162,7 +166,6 @@ import {
   caseTransform,
 } from "@/lib/sequences/edit-ops";
 import { getMolecularClip } from "@/lib/sequences/molecular-clipboard";
-import type { Range as SeqVizRange } from "@/vendor/seqviz/elements";
 
 const SeqViz = dynamic(() => import("@/vendor/seqviz"), {
   ssr: false,
@@ -419,9 +422,13 @@ export default function SequenceEditView({
   // and the Select Range / Go To prompt dialogs.
   const [contextMenuAt, setContextMenuAt] = useState<{ x: number; y: number } | null>(null);
   const [findOpen, setFindOpen] = useState(false);
-  const [findQuery, setFindQuery] = useState("");
-  const [findMatches, setFindMatches] = useState<SeqVizRange[]>([]);
+  // enhanced find bot — the box owns its query + mode internally and reports the
+  // computed match list up here (FindMatch carries direction + an optional label
+  // for the closest-match readout). `findIsClose` flags an approximate DNA
+  // fallback so the highlight color can differ from an exact hit.
+  const [findMatches, setFindMatches] = useState<FindMatch[]>([]);
   const [findActive, setFindActive] = useState(0);
+  const [findIsClose, setFindIsClose] = useState(false);
   const [selectRangeOpen, setSelectRangeOpen] = useState(false);
   const [goToOpen, setGoToOpen] = useState(false);
 
@@ -1792,38 +1799,40 @@ export default function SequenceEditView({
     [placeCaret, scrollMainToBp],
   );
 
-  // When the find query clears or shortens below the searchable minimum, drop
-  // any stale matches so the readout + cycling reset cleanly.
-  useEffect(() => {
-    if (findQuery.trim().length < 2) {
-      setFindMatches([]);
-      setFindActive(0);
-    }
-  }, [findQuery]);
-
-  // The SeqViz search prop (only active while the Find box is open with a real
-  // query, so the digest/search recompute doesn't run otherwise).
-  const searchProp = useMemo(
-    () =>
-      findOpen && findQuery.trim().length >= 2
-        ? { query: findQuery.trim(), mismatch: 0 }
-        : { query: "", mismatch: 0 },
-    [findOpen, findQuery],
-  );
-
-  // SeqViz reports its match list here. We jump to the first match (and select
-  // it) when the result set changes, mirroring a "find next" on submit.
-  const onSearchResults = useCallback(
-    (results: SeqVizRange[]) => {
-      setFindMatches(results);
-      if (results.length > 0) {
+  // enhanced find bot — the Find box (SequenceFindBox) runs the pure search
+  // (exact DNA both-strand / closest-match fallback / by-name / protein-frame)
+  // and reports the resulting match list here. We jump to + select the first
+  // hit when the set changes, mirroring a "find next" on submit. The previous
+  // SeqViz-search-prop path is retired; highlighting now comes from the
+  // `findHighlights` memo fed to SeqViz's `highlights` prop, which covers ALL
+  // modes (close-match, name, protein), not just an exact substring.
+  const onFindResults = useCallback(
+    (result: FindResult) => {
+      setFindMatches(result.matches);
+      setFindIsClose(result.isCloseMatch);
+      if (result.matches.length > 0) {
         setFindActive(0);
-        const m = results[0];
+        const m = result.matches[0];
         selectSpan(Math.min(m.start, m.end), Math.max(m.start, m.end));
+      } else {
+        setFindActive(0);
       }
     },
     [selectSpan],
   );
+
+  // Visual highlights for every find match, fed to SeqViz. Amber for an
+  // approximate (closest-match) DNA fallback, the default search-yellow for an
+  // exact / name / protein hit. Only active while the box is open.
+  const findHighlights = useMemo(() => {
+    if (!findOpen || findMatches.length === 0) return [];
+    const color = findIsClose ? "#fde68a" : "#fbe58b";
+    return findMatches.map((m) => ({
+      start: Math.min(m.start, m.end),
+      end: Math.max(m.start, m.end),
+      color,
+    }));
+  }, [findOpen, findMatches, findIsClose]);
 
   // Intercept edit intents from SeqViz: a chunk DELETE (a selected range, i.e.
   // count > 1) routes through the confirmation dialog so the user sees which
@@ -2471,18 +2480,24 @@ export default function SequenceEditView({
                   setContextMenuAt({ x: e.clientX, y: e.clientY });
                 }}
               >
-                {/* seq editops bot — inline Find box (Cmd+F), anchored top-right. */}
+                {/* enhanced find bot — inline Find box (Cmd+F), anchored top-right.
+                    SnapGene-style modes (DNA / Name / Protein) with a closest-
+                    match fallback; it owns mode + query and reports matches up. */}
                 {findOpen ? (
                   <SequenceFindBox
-                    query={findQuery}
-                    onQueryChange={setFindQuery}
+                    seq={doc.seq}
+                    features={doc.features}
+                    circular={doc.circular}
                     matchCount={findMatches.length}
                     activeIndex={findActive}
+                    onResults={onFindResults}
                     onPrev={() => goToMatch(findActive - 1)}
                     onNext={() => goToMatch(findActive + 1)}
                     onClose={() => {
                       setFindOpen(false);
-                      setFindQuery("");
+                      setFindMatches([]);
+                      setFindActive(0);
+                      setFindIsClose(false);
                     }}
                   />
                 ) : null}
@@ -2525,8 +2540,7 @@ export default function SequenceEditView({
                   // of stripping them. Still gated by the Primers rail toggle via
                   // the `primers` memo.
                   primers={primers}
-                  search={searchProp}
-                  onSearch={onSearchResults}
+                  highlights={findHighlights}
                   viewer={viewer}
                   zoom={{ linear: viewerLinearZoom, circular: view.circularZoom }}
                   editable={!readOnly && viewMode === "sequence"}
