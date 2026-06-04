@@ -25,14 +25,16 @@ describe("SelectionReadoutContent — floating variant", () => {
     expect(screen.getByText(/GC/)).toBeInTheDocument();
   });
 
-  it("renders the Tm as a single violet chip in the floating variant", () => {
+  it("renders the Tm as a temperature-gradient chip in the floating variant", () => {
     const r = deriveSelectionReadout({ start: 0, end: OLIGO.length } as never, OLIGO);
     render(<SelectionReadoutContent readout={r} floating />);
     // The chip text is a single node "Tm NN.N °C" (not the split label form).
     const chip = screen.getByText(/^Tm\s+\d+\.\d+\s+°C$/);
-    expect(chip.className).toContain("bg-violet-100");
-    expect(chip.className).toContain("text-violet-700");
     expect(chip.className).toContain("rounded-full");
+    // Color is value-driven via inline style now, not a flat violet class.
+    expect(chip.className).not.toContain("bg-violet-100");
+    expect(chip.style.backgroundColor).toMatch(/rgba?\(/);
+    expect(chip.style.color).toMatch(/rgb/);
   });
 
   it("does NOT use the violet chip in the default (bottom-strip) variant", () => {

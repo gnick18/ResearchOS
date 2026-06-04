@@ -76,11 +76,29 @@ export function deriveSelectionReadout(
   return { kind: "range", lo: lo + 1, hi, len, gc, tm, featureName };
 }
 
+/** Tm-chip color on a cool-to-hot gradient so the drag badge reads temperature
+ *  at a glance: a low / weak Tm trends blue, a high / strong Tm trends red, and
+ *  the primer-ideal middle lands on violet (so it matches the old flat chip near
+ *  60 C). Light fill plus a darker same-hue text keeps the contrast readable.
+ *  RGB lerp from blue (#2563eb) to red (#dc2626); the midpoint is violet. */
+function tmChipColors(tm: number): { backgroundColor: string; color: string } {
+  const TMIN = 48;
+  const TMAX = 72;
+  const t = Math.max(0, Math.min(1, (tm - TMIN) / (TMAX - TMIN)));
+  const r = Math.round(37 + (220 - 37) * t);
+  const g = Math.round(99 + (38 - 99) * t);
+  const b = Math.round(235 + (38 - 235) * t);
+  return {
+    backgroundColor: `rgba(${r}, ${g}, ${b}, 0.16)`,
+    color: `rgb(${Math.round(r * 0.62)}, ${Math.round(g * 0.62)}, ${Math.round(b * 0.62)})`,
+  };
+}
+
 /** The inner content of the readout (coords / bp / GC%, or caret, or a hint).
  *  Parents wrap this with their own footer chrome. The `floating` variant is
- *  used by the drag-time badge: it renders the Tm as a SnapGene-style violet
- *  chip (the derive logic / values are identical, only the Tm presentation
- *  differs), so the badge and the bottom strip share one source of truth. */
+ *  used by the drag-time badge: it renders the Tm as a temperature-gradient chip
+ *  (the derive logic / values are identical, only the Tm presentation differs),
+ *  so the badge and the bottom strip share one source of truth. */
 export function SelectionReadoutContent({
   readout,
   floating = false,
@@ -116,7 +134,10 @@ export function SelectionReadoutContent({
       </span>
       {readout.tm != null ? (
         floating ? (
-          <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-700">
+          <span
+            className="inline-flex items-center rounded-full px-2 py-0.5 font-medium"
+            style={tmChipColors(readout.tm)}
+          >
             Tm {readout.tm.toFixed(1)} °C
           </span>
         ) : (
