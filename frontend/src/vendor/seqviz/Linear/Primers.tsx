@@ -3,7 +3,7 @@ import * as React from "react";
 
 import { InputRefFunc } from "../SelectionHandler";
 import AnnotationDoubleClickContext from "../annotationDoubleClickContext";
-import { NameRange } from "../elements";
+import { NameRange, PrimerBaseCell } from "../elements";
 import { annotation, annotationLabel } from "../style";
 import { FindXAndWidthElementType } from "./SeqBlock";
 
@@ -20,7 +20,9 @@ const hoverOtherPrimerRows = (className: string, opacity: number) => {
  * This is not a default export for sake of the React component displayName.
  */
 const PrimeRows = (props: {
+  baseGap: number;
   bpsPerBlock: number;
+  charWidth: number;
   direction: 1 | -1;
   elementHeight: number;
   findXAndWidth: FindXAndWidthElementType;
@@ -28,16 +30,21 @@ const PrimeRows = (props: {
   fullSeq: string;
   inputRef: InputRefFunc;
   lastBase: number;
+  lineHeight: number;
   primerRows: NameRange[][];
   seqBlockRef: unknown;
+  seqFontSize: number;
   width: number;
   yDiff: number;
+  zoomed: boolean;
 }) => (
   <g>
     {props.primerRows.map((primers: NameRange[], i: number) => (
       <PrimerRow
         key={`primer-linear-row-${primers[0].id}-${props.firstBase}-${props.lastBase}`}
+        baseGap={props.baseGap}
         bpsPerBlock={props.bpsPerBlock}
+        charWidth={props.charWidth}
         direction={props.direction}
         findXAndWidth={props.findXAndWidth}
         firstBase={props.firstBase}
@@ -45,10 +52,13 @@ const PrimeRows = (props: {
         height={props.elementHeight}
         inputRef={props.inputRef}
         lastBase={props.lastBase}
+        lineHeight={props.lineHeight}
         primers={primers}
         seqBlockRef={props.seqBlockRef}
+        seqFontSize={props.seqFontSize}
         width={props.width}
         y={props.yDiff + props.elementHeight * i}
+        zoomed={props.zoomed}
       />
     ))}
   </g>
@@ -61,7 +71,9 @@ export default PrimeRows;
  * vertically stacked on top of one another in non-overlapping arrays.
  */
 const PrimerRow = (props: {
+  baseGap: number;
   bpsPerBlock: number;
+  charWidth: number;
   direction: 1 | -1;
   findXAndWidth: FindXAndWidthElementType;
   firstBase: number;
@@ -69,10 +81,13 @@ const PrimerRow = (props: {
   height: number;
   inputRef: InputRefFunc;
   lastBase: number;
+  lineHeight: number;
   primers: NameRange[];
   seqBlockRef: unknown;
+  seqFontSize: number;
   width: number;
   y: number;
+  zoomed: boolean;
 }) => {
   return (
     <g
@@ -101,6 +116,8 @@ const PrimerRow = (props: {
  * It does a bunch of stuff to avoid edge-cases from wrapping around the 0-index, edge of blocks, etc.
  */
 const SingleNamedElement = (props: {
+  baseGap: number;
+  charWidth: number;
   element: NameRange;
   elements: NameRange[];
   findXAndWidth: FindXAndWidthElementType;
@@ -109,8 +126,11 @@ const SingleNamedElement = (props: {
   index: number;
   inputRef: InputRefFunc;
   lastBase: number;
+  seqFontSize: number;
+  zoomed: boolean;
 }) => {
-  const { element, elements, findXAndWidth, firstBase, index, inputRef, lastBase } = props;
+  const { baseGap, charWidth, element, elements, findXAndWidth, firstBase, index, inputRef, lastBase, seqFontSize, zoomed } =
+    props;
 
   // RESEARCHOS (primer dialog bot): primers fire the SAME double-click context as
   // annotations so double-clicking a primer on the viewer opens the Edit Primer
@@ -204,6 +224,49 @@ const SingleNamedElement = (props: {
     }
   }
 
+  // primer bases bot — BASE-LEVEL render (SnapGene parity). When zoomed in enough
+  // that bases are legible (the same `zoomed` gate the strand letters render
+  // under) AND this primer carries a per-base layout (its stored oligo mapped onto
+  // template columns by lib/sequences/primer-base-layout), draw the primer's
+  // ACTUAL bases:
+  //   - ANNEALING bases sit column-for-column on the annealing line (`midY`), over
+  //     the template base they pair with (forward column x = (col - firstBase) *
+  //     charWidth, made local to this element's group by subtracting origX).
+  //   - the non-annealing 5' TAIL bases lift OFF the template as a flap, offset
+  //     vertically AWAY from the strand (up for a forward primer whose row sits
+  //     above the top strand, down for a reverse primer below the complement), with
+  //     a short kink connecting the flap back to the annealing line so it reads as
+  //     "pops off" rather than floating.
+  //   - MISMATCH bases keep their template column but render in a contrasting red
+  //     so a non-pairing base reads as popped even mid-anneal.
+  // The name label stays (lifted clear of the forward flap below). Whole layer is a
+  // no-op when zoomed out, leaving the arrow + label untouched. Coordinates are in
+  // this element's translated group frame; baseLocalX maps a template column to an
+  // x in that frame and is clipped to the visible block columns.
+  const baseCells = (element as { baseCells?: PrimerBaseCell[] }).baseCells;
+  const renderBases = zoomed && charWidth > 4 && Array.isArray(baseCells) && baseCells.length > 0;
+  const baseLocalX = (column: number) => (column - firstBase) * charWidth - origX;
+  // Flap lifts toward the open base-gap lane: up for forward (row above strand),
+  // down for reverse (row below complement). A short connector kink bridges the
+  // annealing line to the flap baseline.
+  const baseFontSize = Math.min(seqFontSize || fontSize, charWidth / 0.62);
+  // primer bases bot — slide the whole base layer toward the strand it pairs with
+  // so the annealing bases sit FLUSH against the template and the reserved base-gap
+  // lane carries the popped 5' flap on the far side. Forward primers ride above the
+  // top strand, so the annealing line drops DOWN by the gap (close to the strand
+  // below) and the flap rises up into the freed row space. Reverse primers ride
+  // below the complement, so the annealing line stays near the row top (close to
+  // the complement above) and the flap drops down into the gap lane below.
+  const baseLaneShift = renderBases && forward ? baseGap : 0;
+  const annealLineY = midY + baseLaneShift;
+  // Annealing bases nudge off the bracket line toward the strand so the stroke
+  // does not cut through the glyphs; the flap rises a full base-height away.
+  const annealBaseShift = baseFontSize * 0.62;
+  const flapOffset = forward ? -(baseFontSize * 1.25 + 4) : baseFontSize * 1.25 + 4;
+  const flapBaselineY = annealLineY + flapOffset;
+  const primerColor = color || "#f472b6";
+  const mismatchColor = "#dc2626"; // contrasting red so a mismatch base reads popped
+
   return (
     <g id={element.id} transform={`translate(${x}, ${0.1 * height})`}>
       {/* <title> provides a hover tooltip on most browsers */}
@@ -220,6 +283,10 @@ const SingleNamedElement = (props: {
         className={`${element.id} la-vz-primer`}
         cursor="pointer"
         d={linePath}
+        // primer bases bot — when the base row renders, slide the bracket with the
+        // annealing line so the thin stroke underlines the annealing bases instead
+        // of sitting at the unshifted row center.
+        transform={baseLaneShift ? `translate(0, ${baseLaneShift})` : undefined}
         // RESEARCHOS (primer style bot): thin outlined bracket, not a filled
         // block. No fill; the primer color is carried by the stroke.
         fill="none"
@@ -239,6 +306,57 @@ const SingleNamedElement = (props: {
         onMouseOut={() => hoverOtherPrimerRows(element.id, 0.7)}
         onMouseOver={() => hoverOtherPrimerRows(element.id, 1.0)}
       />
+      {renderBases && (
+        <g className="la-vz-primer-bases" pointerEvents="none">
+          {baseCells.map((cell: PrimerBaseCell) => {
+            // Only draw bases whose column is visible inside this block (the flap
+            // can poke a column or two past the annealed span; we still clip to
+            // the block's own column window so a base never paints in a neighbour).
+            const cx = baseLocalX(cell.column) + charWidth / 2;
+            if (cx < -charWidth || cx > width + charWidth) return null;
+            const isTail = cell.role === "tail";
+            const isMismatch = cell.role === "mismatch";
+            // Annealing bases sit just off the annealing line on the strand-facing
+            // side (below for a forward primer, above for a reverse primer) so the
+            // thin stroke does not slash through the letters. Tail bases ride the
+            // flap baseline (lifted away from the strand).
+            const annealY = annealLineY + (forward ? annealBaseShift : -annealBaseShift);
+            const y = isTail ? flapBaselineY : annealY;
+            // A tail base pops off: a short connector kink from the annealing line
+            // up/down to the flap base, drawn once per tail base so the flap reads
+            // as lifting off the template rather than floating free.
+            const connector = isTail
+              ? `M ${cx} ${annealLineY} L ${cx} ${y + (forward ? baseFontSize * 0.4 : -baseFontSize * 0.4)}`
+              : null;
+            return (
+              <g key={`pb-${element.id}-${cell.oligoIndex}`}>
+                {connector && (
+                  <path
+                    d={connector}
+                    fill="none"
+                    stroke={primerColor}
+                    strokeWidth={1}
+                    strokeLinecap="round"
+                    opacity={0.7}
+                  />
+                )}
+                <text
+                  dominantBaseline="middle"
+                  textAnchor="middle"
+                  x={cx}
+                  y={y}
+                  fontSize={baseFontSize}
+                  fontFamily="Roboto Mono, monospace"
+                  fontWeight={isMismatch ? 700 : 500}
+                  fill={isMismatch ? mismatchColor : primerColor}
+                >
+                  {cell.base}
+                </text>
+              </g>
+            );
+          })}
+        </g>
+      )}
       <text
         className="la-vz-primer-label"
         cursor="pointer"
@@ -254,7 +372,10 @@ const SingleNamedElement = (props: {
         x={width / 2}
         // RESEARCHOS (primer style bot): sit the label just ABOVE the thin
         // annealing line so it doesn't collide with the bracket stroke.
-        y={height / 2 - 5}
+        // primer bases bot — when the base row renders, lift the forward label
+        // clear above the popped 5'-tail flap (the flap rises toward the block top)
+        // so name + bases don't overlap; reverse keeps the label above the line.
+        y={renderBases && forward ? flapBaselineY - baseFontSize : height / 2 - 5}
         onBlur={() => {
           // do nothing
         }}

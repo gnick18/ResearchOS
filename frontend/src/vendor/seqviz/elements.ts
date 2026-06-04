@@ -77,12 +77,36 @@ export interface PrimerProp {
   id?: string;
   name: string;
   start: number;
+  // primer bases bot — optional base-level render detail (see Primer.baseCells).
+  // Carried through SeqViz's primer normalization spread so the linear viewer can
+  // draw the oligo's actual bases when zoomed.
+  baseCells?: PrimerBaseCell[];
+  tailLength?: number;
+}
+
+/** primer bases bot — one oligo base placed for the base-level (zoomed) render.
+ *  `column` is the 0-based FORWARD-strand template column the base sits over;
+ *  `role` distinguishes annealing / mismatch / popped 5'-tail bases. Mirrors
+ *  PrimerBaseCell in lib/sequences/primer-base-layout (kept here so the vendored
+ *  renderer has a local type without importing our strict module's shape). */
+export interface PrimerBaseCell {
+  oligoIndex: number;
+  base: string;
+  role: "anneal" | "mismatch" | "tail";
+  column: number;
 }
 
 /** Primer is a single primer for PCR. */
 export interface Primer extends NameRange {
   color: string;
   direction: 1 | -1;
+  // primer bases bot — OPTIONAL base-level detail threaded from SequenceEditView
+  // so the linear viewer can draw the primer's actual bases SnapGene-style when
+  // zoomed in. `baseCells` is the per-base column/role layout; `tailLength` is the
+  // count of non-annealing 5' tail bases. Absent when the primer has no stored
+  // oligo or does not anneal, in which case the renderer keeps the arrow only.
+  baseCells?: PrimerBaseCell[];
+  tailLength?: number;
 }
 
 /** HighlightProp is a region of the plasmid and the desired highlight for that region. */

@@ -21,6 +21,15 @@ export type FindXAndWidthType = (
   x: number;
 };
 
+// primer bases bot — extra vertical room added to EACH primer track (forward +
+// reverse) when bases are legible (zoomed), so the SnapGene-style base row + the
+// 5'-tail flap that lifts off the template have space and do not collide with the
+// strand letters or neighbouring rows. Zero when zoomed out (arrow-only), keeping
+// the layout byte-identical to before. Linear.tsx adds the same amount to
+// blockHeight under the same condition so stacked blocks never clip.
+export const PRIMER_BASE_GAP = 16;
+export const primerBaseGapActive = (zoomed: boolean): number => (zoomed ? PRIMER_BASE_GAP : 0);
+
 // ruler spacing bot — vertical breathing room reserved between the top sequence
 // row and the complement row WHEN the in-seam measuring tape renders (base-level
 // zoom, complement shown, DNA). The coordinate number on each 10-tick is centered
@@ -297,9 +306,17 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
 
     const lastBase = firstBase + seq.length;
 
-    // height and yDiff of forward primers
+    // primer bases bot — extra lane height for the base row + popped 5' tail
+    // flap, applied to each primer track only when zoomed (bases legible).
+    const primerBaseGap = primerBaseGapActive(zoomed);
+
+    // height and yDiff of forward primers. When zoomed, reserve the base-gap lane
+    // ABOVE the annealing line (the forward flap lifts up toward the block top),
+    // so the annealing bases can sit flush just above the strand row below.
     const primerFwdYDiff = 0;
-    const primerFwdHeight = primerFwdRows.length ? elementHeight * primerFwdRows.length : 0;
+    const primerFwdHeight = primerFwdRows.length
+      ? elementHeight * primerFwdRows.length + primerBaseGap
+      : 0;
 
     // height and yDiff of cut sites
     const cutSiteYDiff = primerFwdYDiff + primerFwdHeight; // spacing for cutSite names
@@ -321,9 +338,13 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
     const compYDiff = indexYDiff + indexHeight + seamGap;
     const compHeight = zoomed && showComplement ? lineHeight : 0;
 
-    // height and yDiff of reverse primers
+    // height and yDiff of reverse primers. When zoomed, reserve the base-gap lane
+    // BELOW the annealing line (the reverse flap drops down away from the
+    // complement), so the annealing bases sit flush just below the complement row.
     const primerRevYDiff = compYDiff + compHeight;
-    const primerRevHeight = primerRevRows.length ? elementHeight * primerRevRows.length : 0;
+    const primerRevHeight = primerRevRows.length
+      ? elementHeight * primerRevRows.length + primerBaseGap
+      : 0;
 
     // height and yDiff of translations
     // elementHeight * 2 is to account for the translation handle. If no name, don't show the handle
@@ -411,7 +432,9 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
         />
         {primerFwdRows.length && (
           <PrimeRows
+            baseGap={primerBaseGap}
             bpsPerBlock={bpsPerBlock}
+            charWidth={charWidth}
             direction={1}
             elementHeight={elementHeight}
             findXAndWidth={this.findXAndWidthElement}
@@ -419,10 +442,13 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
             fullSeq={fullSeq}
             inputRef={inputRef}
             lastBase={lastBase}
+            lineHeight={lineHeight}
             primerRows={primerFwdRows}
             seqBlockRef={this}
+            seqFontSize={seqFontSize}
             width={size.width}
             yDiff={primerFwdYDiff}
+            zoomed={zoomed}
           />
         )}
         <Highlights
@@ -458,7 +484,9 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
         />
         {primerRevRows.length && (
           <PrimeRows
+            baseGap={primerBaseGap}
             bpsPerBlock={bpsPerBlock}
+            charWidth={charWidth}
             direction={-1}
             elementHeight={elementHeight}
             findXAndWidth={this.findXAndWidthElement}
@@ -466,10 +494,13 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
             fullSeq={fullSeq}
             inputRef={inputRef}
             lastBase={lastBase}
+            lineHeight={lineHeight}
             primerRows={primerRevRows}
             seqBlockRef={this}
+            seqFontSize={seqFontSize}
             width={size.width}
             yDiff={primerRevYDiff}
+            zoomed={zoomed}
           />
         )}
         {translationRows.length && (

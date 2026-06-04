@@ -7,7 +7,7 @@ import { createMultiRows, createSingleRows, stackElements } from "../elementsToR
 import { isEqual } from "../isEqual";
 import { createTranslations } from "../sequence";
 import { InfiniteScroll } from "./InfiniteScroll";
-import { SEAM_GAP, SeqBlock, SeqBlockProps, tapeSeamActive } from "./SeqBlock";
+import { SEAM_GAP, SeqBlock, SeqBlockProps, primerBaseGapActive, tapeSeamActive } from "./SeqBlock";
 
 export interface LinearProps {
   annotations: Annotation[];
@@ -163,11 +163,15 @@ export default class Linear extends React.Component<LinearProps> {
       if (tapeSeamActive(zoomed, showComplement, seqType)) {
         blockHeight += SEAM_GAP;
       }
+      // primer bases bot — add the same per-track base-gap lane SeqBlock reserves
+      // when zoomed (base row + popped 5' tail flap), so the total block height
+      // matches the in-block layout and stacked blocks never clip.
+      const primerBaseGap = primerBaseGapActive(zoomed);
       if (primerFwdRows[i].length) {
-        blockHeight += primerFwdRows[i].length * lineHeight;
+        blockHeight += primerFwdRows[i].length * lineHeight + primerBaseGap;
       }
       if (primerRevRows[i].length) {
-        blockHeight += primerRevRows[i].length * lineHeight;
+        blockHeight += primerRevRows[i].length * lineHeight + primerBaseGap;
       }
       if (showIndex) {
         blockHeight += lineHeight; // another for index row

@@ -110,8 +110,13 @@ import {
   readPrimerDescription,
   readPrimerPhosphorylated,
   buildPrimerQualifiers,
+  derivePrimerSite,
 } from "@/lib/sequences/primer-feature";
 import { reverseComplement } from "@/lib/sequences/primer";
+// primer bases bot — base-level (zoomed) SnapGene-style primer rendering: map the
+// stored oligo onto template columns so annealing bases sit over the template and
+// the 5' tail / mismatches pop off.
+import { layoutPrimerBases, type PrimerBaseCell } from "@/lib/sequences/primer-base-layout";
 import {
   DEFAULT_VIEW_STATE,
   isFeatureVisible,
@@ -675,20 +680,54 @@ export default function SequenceEditView({
   // visibility lever (it was wired earlier as a forward hook fed primers={[]}).
   const primers = useMemo(() => {
     if (!view.showPrimers)
-      return [] as { name: string; start: number; end: number; direction: 1 | -1; color: string }[];
+      return [] as {
+        name: string;
+        start: number;
+        end: number;
+        direction: 1 | -1;
+        color: string;
+        baseCells?: PrimerBaseCell[];
+        tailLength?: number;
+      }[];
     return doc.features
       .filter((f) => (f.type || "").toLowerCase() === "primer_bind")
-      .map((f) => ({
-        name: f.name,
-        start: f.start,
-        end: f.end,
-        direction: (f.strand === -1 ? -1 : 1) as 1 | -1,
-        // primer style bot — carry the primer color (pink, from feature-colors)
-        // so the thin-bracket/marker renderer keeps it instead of SeqViz's
-        // arbitrary colorByIndex fallback.
-        color: f.color || colorForType("primer_bind"),
-      }));
-  }, [doc.features, view.showPrimers]);
+      .map((f) => {
+        const direction = (f.strand === -1 ? -1 : 1) as 1 | -1;
+        // primer bases bot — read the stored 5'->3' oligo (the /note "primer
+        // <SEQ>" flag) and map it onto template columns so the zoomed viewer can
+        // draw the annealing bases over the template + the 5' tail / mismatches
+        // popped off. The feature's start/end already record the ANNEALED span,
+        // but we re-derive the BindingSite from the oligo so we recover the
+        // annealedLength + tail length + mismatch columns the feature does not
+        // store. When the oligo is missing or does not anneal, baseCells stays
+        // undefined and the renderer falls back to the arrow + label only.
+        const oligo = readPrimerSeq(f);
+        let baseCells: PrimerBaseCell[] | undefined;
+        let tailLength: number | undefined;
+        if (oligo) {
+          const site = derivePrimerSite(oligo, doc.seq);
+          if (site) {
+            const layout = layoutPrimerBases(oligo, site);
+            if (layout) {
+              baseCells = layout.cells;
+              tailLength = layout.tailLength;
+            }
+          }
+        }
+        return {
+          name: f.name,
+          start: f.start,
+          end: f.end,
+          direction,
+          // primer style bot — carry the primer color (pink, from feature-colors)
+          // so the thin-bracket/marker renderer keeps it instead of SeqViz's
+          // arbitrary colorByIndex fallback.
+          color: f.color || colorForType("primer_bind"),
+          baseCells,
+          tailLength,
+        };
+      });
+  }, [doc.features, doc.seq, view.showPrimers]);
 
   // Count of primer_bind features regardless of the Primers layer toggle (the
   // Primers tab badge + panel always reflect the real primers on the molecule).
