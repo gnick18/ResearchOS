@@ -98,7 +98,24 @@ export interface LinearMapProps {
   onFeatureDoubleClick: (f: { name: string; start: number; end: number; direction?: number }) => void;
   /** double-click a primer: resolve back to its doc feature + open Edit Primer. */
   onPrimerDoubleClick: (p: { name: string; start: number; end: number }) => void;
+  /**
+   * SINGLE-click a feature: select + highlight its DNA range and navigate to it
+   * in the Sequence view. Disambiguated from the double-click (which opens the
+   * editor) by a short timer.
+   */
+  onFeatureClick?: (f: { name: string; start: number; end: number; direction?: number }) => void;
+  /**
+   * SINGLE-click empty track / ruler / backbone: navigate the Sequence view to
+   * that bp (caret + scroll). The bp is computed from the click x accounting for
+   * PAD_X and the current visible window.
+   */
+  onSeek?: (bp: number) => void;
 }
+
+// map interactivity bot — how long (ms) we wait after a single click before
+// committing it, so a double-click can cancel the pending single and run the
+// editor-open instead. Standard single-vs-double disambiguation delay.
+const CLICK_DELAY_MS = 220;
 
 // ── layout constants (px) ──────────────────────────────────────────────────
 const PAD_X = 16; // horizontal inset so end ticks/labels are not clipped
@@ -108,11 +125,15 @@ const TICK_H = 6; // ruler tick length below the baseline
 const RULER_LABEL_GAP = 4;
 const FEATURE_GAP = 10; // gap between strand and the first feature row
 const FEATURE_ARROW_H = 14; // height of a feature arrow body
-const FEATURE_LABEL_H = 14; // height reserved per below-line label tier
+// label legibility bot — vertical step per stacked label tier. Widened from 14
+// to 20 (below-line features) / 15 to 22 (above-line enzymes/primers) so stacked
+// labels get real breathing room, SnapGene-style, instead of cramming. The map
+// height grows from the tier count and the canvas scrolls, so taller is fine.
+const FEATURE_LABEL_H = 20; // height reserved per below-line label tier
 const FEATURE_ARROWHEAD = 7;
 const ABOVE_TICK_H = 7; // tick mark length above the baseline (enzyme/primer)
-const ABOVE_LEADER_BASE = 10; // first leader-line segment length above the tick
-const ABOVE_TIER_H = 15; // vertical step between stacked label tiers
+const ABOVE_LEADER_BASE = 12; // first leader-line segment length above the tick
+const ABOVE_TIER_H = 22; // vertical step between stacked label tiers
 // SVG map-label type scale (constant pair): coordinate / ruler numbers = 10,
 // feature / primer / enzyme labels = 11. Keep these two values only.
 const ABOVE_LABEL_FONT = 11; // enzyme / source labels above the strand (label tier)
@@ -156,6 +177,25 @@ function comma(n: number): string {
   return Math.round(n).toLocaleString();
 }
 
+/**
+ * map interactivity bot — INVERSE of the map's bp -> x mapping. Convert an x (px,
+ * measured from the SVG's left edge) to the bp under the cursor, accounting for
+ * the left inset (PAD_X) and the current VISIBLE WINDOW (so a zoomed map maps to
+ * the window's bp range, not the whole molecule). The x is clamped to the track
+ * so a click in the side padding lands on the nearest end bp, and the result is
+ * clamped to [0, seqLength]. Pure + unit-tested (see LinearMap math test).
+ */
+export function xToBp(
+  x: number,
+  opts: { padX: number; trackWidth: number; winStart: number; winSpan: number; seqLength: number },
+): number {
+  const { padX, trackWidth, winStart, winSpan, seqLength } = opts;
+  if (trackWidth <= 0) return Math.max(0, Math.min(seqLength, Math.round(winStart)));
+  const frac = Math.max(0, Math.min(1, (x - padX) / trackWidth));
+  const bp = winStart + frac * winSpan;
+  return Math.max(0, Math.min(seqLength, Math.round(bp)));
+}
+
 export default function LinearMap({
   seq,
   seqType,
@@ -167,8 +207,11 @@ export default function LinearMap({
   showPrimers,
   onFeatureDoubleClick,
   onPrimerDoubleClick,
+  onFeatureClick,
+  onSeek,
 }: LinearMapProps) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
   const [width, setWidth] = useState(0);
   // Hover state for enzyme highlight, keyed on enzyme NAME (all sites of the same
   // enzyme highlight together — SnapGene behavior).
@@ -206,6 +249,38 @@ export default function LinearMap({
   const isZoomedIn = winSpan < seqLength;
   // The WINDOW (not the whole molecule) spans the track now.
   const bpX = (bp: number) => PAD_X + ((bp - winStart) / winSpan) * trackWidth;
+
+  // ── CLICK MODEL (map interactivity bot) ───────────────────────────────────
+  // The map is a navigation + selection surface. A SINGLE click selects + jumps
+  // (a feature -> select its range + go to Sequence view there; empty track ->
+  // seek to that bp). A DOUBLE click opens the editor (feature / primer). We
+  // disambiguate with a short timer: a single click schedules its action, and a
+  // double-click that lands within CLICK_DELAY_MS cancels the pending single and
+  // runs the editor-open instead. The pending action is held in a ref so the
+  // timer's closure always runs the latest one; cleared on unmount.
+  const pendingClickRef = useRef<{ timer: ReturnType<typeof setTimeout>; run: () => void } | null>(null);
+  const clearPendingClick = () => {
+    if (pendingClickRef.current) {
+      clearTimeout(pendingClickRef.current.timer);
+      pendingClickRef.current = null;
+    }
+  };
+  const scheduleSingleClick = (run: () => void) => {
+    clearPendingClick();
+    const timer = setTimeout(() => {
+      pendingClickRef.current = null;
+      run();
+    }, CLICK_DELAY_MS);
+    pendingClickRef.current = { timer, run };
+  };
+  useEffect(() => () => clearPendingClick(), []);
+
+  // Map a pointer event to the bp under it (inverse of bpX, window-aware).
+  const eventToBp = (clientX: number): number => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    const x = rect ? clientX - rect.left : clientX;
+    return xToBp(x, { padX: PAD_X, trackWidth, winStart, winSpan, seqLength });
+  };
 
   // Zoom controls. The slider runs 0 (whole molecule) .. 1 (max zoom). Span maps
   // log-scaled so the control feels smooth; zoom keeps the window CENTER stable.
@@ -398,8 +473,12 @@ export default function LinearMap({
     [aboveSources, trackWidth, winStart, winEnd],
   );
 
+  // label legibility bot — maxNudge 0 keeps each enzyme/primer label centered
+  // over its tick so its leader drops straight down; collisions resolve by
+  // STACKING into more tiers (the vertical spread Grant wants). gap widened to 10
+  // so even same-tier labels keep clear air between them.
   const abovePlaced = useMemo(
-    () => layoutLabels(aboveItems, { gap: 6, maxNudge: 0, minX: PAD_X, maxX: PAD_X + trackWidth }),
+    () => layoutLabels(aboveItems, { gap: 10, maxNudge: 0, minX: PAD_X, maxX: PAD_X + trackWidth }),
     [aboveItems, trackWidth],
   );
   const aboveTiers = tierCount(abovePlaced);
@@ -431,11 +510,15 @@ export default function LinearMap({
     [features, trackWidth, winStart, winEnd],
   );
 
+  // label legibility bot — Grant wants feature labels SPREAD VERTICALLY, not
+  // crammed horizontally. maxNudge dropped from 40 to 12 so a label only drifts a
+  // hair off its feature center before it stacks into a fresh tier instead, and
+  // gap widened from 8 to 12 so same-tier neighbors keep clear air.
   const featurePlaced = useMemo(
     () =>
       layoutLabels(featureItems, {
-        gap: 8,
-        maxNudge: 40,
+        gap: 12,
+        maxNudge: 12,
         minX: PAD_X,
         maxX: PAD_X + trackWidth,
       }),
@@ -545,7 +628,22 @@ export default function LinearMap({
         className="relative flex min-h-0 flex-1 flex-col overflow-auto"
       >
       {trackWidth > 0 ? (
-        <svg width="100%" height={totalH} className="my-auto block shrink-0 select-none" style={{ minHeight: totalH }}>
+        <svg
+          ref={svgRef}
+          width="100%"
+          height={totalH}
+          className="my-auto block shrink-0 cursor-pointer select-none"
+          style={{ minHeight: totalH }}
+          // map interactivity bot — a click that reaches the SVG itself (i.e. it
+          // was NOT consumed by a feature arrow or an above-line item, both of
+          // which stopPropagation) is a click on empty track / ruler / backbone.
+          // Schedule a SEEK to the bp under the cursor; a double-click cancels it.
+          onClick={(e) => {
+            if (!onSeek) return;
+            const bp = eventToBp(e.clientX);
+            scheduleSingleClick(() => onSeek(bp));
+          }}
+        >
           {/* ── strand baseline ── */}
           <rect
             x={PAD_X}
@@ -629,7 +727,20 @@ export default function LinearMap({
                 onMouseLeave={() => {
                   if (isEnzyme) setHoverEnzyme(null);
                 }}
-                onDoubleClick={() => {
+                // map interactivity bot — a single click on an above-line item
+                // (enzyme cut / primer) seeks to its position, like clicking that
+                // spot on the track; stopPropagation avoids a double seek. A
+                // double-click on a primer cancels the pending single and opens
+                // the Edit Primer dialog (unchanged behavior).
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!onSeek) return;
+                  const bp = eventToBp(e.clientX);
+                  scheduleSingleClick(() => onSeek(bp));
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  clearPendingClick();
                   if (src.kind === "primer" && src.primerRef) onPrimerDoubleClick(src.primerRef);
                 }}
               >
@@ -642,13 +753,17 @@ export default function LinearMap({
                   stroke={color}
                   strokeWidth={highlighted ? 2 : 1.25}
                 />
-                {/* leader line: tick top -> up to the tier -> across to the label */}
+                {/* label legibility bot — leader: tick top -> straight up to the
+                    label's tier row -> elbow across to the label. Stroke raised
+                    from 0.8 to 1.1 px and opacity from 0.65 to 0.9 so the line
+                    clearly connects ONE label to its tick, SnapGene-style. */}
                 <polyline
                   points={`${tickX},${tickTopY} ${tickX},${tierY} ${p.labelX},${tierY}`}
                   fill="none"
                   stroke={color}
-                  strokeWidth={highlighted ? 1.4 : 0.8}
-                  opacity={highlighted ? 1 : 0.65}
+                  strokeWidth={highlighted ? 1.6 : 1.1}
+                  strokeLinejoin="round"
+                  opacity={highlighted ? 1 : 0.9}
                 />
                 <text
                   x={p.labelX}
@@ -692,9 +807,22 @@ export default function LinearMap({
               <g
                 key={`feat-${i}`}
                 style={{ cursor: "pointer" }}
-                onDoubleClick={() =>
-                  onFeatureDoubleClick({ name: f.name, start: f.start, end: f.end, direction: f.direction })
-                }
+                // map interactivity bot — SINGLE click selects the feature's
+                // range + navigates; DOUBLE click cancels that pending single and
+                // opens the editor. stopPropagation so the click does not also hit
+                // the SVG-level empty-track seek.
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!onFeatureClick) return;
+                  scheduleSingleClick(() =>
+                    onFeatureClick({ name: f.name, start: f.start, end: f.end, direction: f.direction }),
+                  );
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  clearPendingClick();
+                  onFeatureDoubleClick({ name: f.name, start: f.start, end: f.end, direction: f.direction });
+                }}
               >
                 {/* dashed intron connector spanning the visible feature (drawn
                     first, so exon boxes sit on top) */}

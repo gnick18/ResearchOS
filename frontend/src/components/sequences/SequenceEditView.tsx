@@ -1655,6 +1655,43 @@ export default function SequenceEditView({
     [doc.features, openEditPrimer],
   );
 
+  // map interactivity bot — SINGLE-CLICK A FEATURE on the linear map -> resolve
+  // it back to its doc feature index, select + highlight its DNA range via the
+  // existing selectFeature (drives externalSel + selectedFeatureIdx, which makes
+  // SeqViz highlight and center the span), then land in the base-level Sequence
+  // view. Mirrors the resolution fallback chain of handleAnnotationDoubleClick so
+  // a viewer-normalized coordinate still maps to the right feature.
+  const handleMapFeatureClick = useCallback(
+    (range: { name: string; start: number; end: number; direction?: number }) => {
+      let index = doc.features.findIndex(
+        (f) => f.name === range.name && f.start === range.start && f.end === range.end,
+      );
+      if (index < 0) index = doc.features.findIndex((f) => f.name === range.name);
+      if (index < 0) index = doc.features.findIndex((f) => f.start === range.start);
+      if (index < 0) return;
+      setViewMode("sequence");
+      selectFeature(index);
+    },
+    [doc.features, selectFeature],
+  );
+
+  // map interactivity bot — CLICK EMPTY TRACK / RULER / BACKBONE on the linear
+  // map -> navigate the Sequence view to that bp. Same path as the Go To dialog
+  // (applyGoTo): place a zero-width caret at the bp, drive externalSel so SeqViz
+  // centers it, switch to the base-level view, then scroll the viewer there. The
+  // scroll runs on the next frame so SeqViz's linear scroller exists after the
+  // view swap before scrollMainToBp reads its geometry.
+  const handleMapSeek = useCallback(
+    (bp: number) => {
+      const clamped = Math.max(0, Math.min(doc.seq.length, Math.round(bp)));
+      setViewMode("sequence");
+      placeCaret(clamped);
+      setExternalSel({ start: clamped, end: clamped });
+      requestAnimationFrame(() => scrollMainToBp(clamped));
+    },
+    [doc.seq.length, placeCaret, scrollMainToBp],
+  );
+
   const duplicateFeatureAt = useCallback(
     (index: number) => editor.applyDocEdit((prev) => duplicateFeature(prev, index)),
     [editor],
@@ -2777,6 +2814,8 @@ export default function SequenceEditView({
                     showPrimers={view.showPrimers}
                     onFeatureDoubleClick={handleAnnotationDoubleClick}
                     onPrimerDoubleClick={handlePrimerDoubleClick}
+                    onFeatureClick={handleMapFeatureClick}
+                    onSeek={handleMapSeek}
                   />
                 ) : (
                 <SeqViz
