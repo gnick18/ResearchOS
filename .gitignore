@@ -48,3 +48,5 @@ frontend/scratch-parse-output.json
 
 # DNA feature DB build cache (re-fetchable from NCBI; not tracked)
 scripts/.dna-feature-cache/
+.vercel
+.env*

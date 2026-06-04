@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>ResearchOS hero mock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font-family: 'Geist', 'Inter', system-ui, sans-serif; color: #111827; background: #ffffff; }
+  .page { width: 1440px; min-height: 900px; position: relative; overflow: hidden; }
+
+  /* brand ribbon across the very top */
+  .ribbon { height: 6px; width: 100%;
+    background: linear-gradient(90deg, #FFD2B0 0%, #FFF1A8 25%, #B7EBB1 50%, #A6D2F4 75%, #D6B5F0 100%); }
+
+  /* soft rainbow bloom behind the hero, keeps it light + airy */
+  .bloom { position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+    width: 1100px; height: 700px; border-radius: 50%; filter: blur(60px); opacity: .38; z-index: 0;
+    background: radial-gradient(closest-side, #A6D2F4 0%, #B7EBB1 35%, #FFF1A8 60%, #FFD2B0 78%, rgba(255,255,255,0) 100%); }
+
+  nav { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between;
+    padding: 22px 48px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand svg { height: 38px; width: auto; display: block; }
+  .brand .wm { font-weight: 800; font-size: 26px; letter-spacing: -.02em; color: #111827; }
+  .navright { display: flex; align-items: center; gap: 22px; font-weight: 600; color: #475569; font-size: 16px; }
+  .navright .pill { font-size: 13px; color: #0c87c7; background: #e6f3fc; border-radius: 999px; padding: 4px 11px; font-weight: 600; }
+
+  .hero { position: relative; z-index: 1; max-width: 980px; margin: 0 auto; padding: 30px 24px 70px; text-align: center; }
+  .bot { height: 132px; width: auto; display: inline-block; filter: drop-shadow(0 12px 26px rgba(56,160,230,.28)); }
+  .eyebrow { display: inline-flex; align-items: center; gap: 8px; margin-top: 18px;
+    font-size: 14px; font-weight: 600; color: #0c6fa6; background: rgba(255,255,255,.75);
+    border: 1px solid rgba(12,140,224,.25); border-radius: 999px; padding: 6px 14px; backdrop-filter: blur(4px); }
+  h1 { font-weight: 800; letter-spacing: -.03em; line-height: 1.05; color: #111827;
+    font-size: 62px; margin: 20px auto 0; max-width: 16ch; }
+  .sub { font-size: 21px; line-height: 1.5; color: #475569; max-width: 60ch; margin: 22px auto 0; }
+  .ctas { display: flex; gap: 14px; justify-content: center; margin-top: 32px; }
+  .btn { font: inherit; font-weight: 700; font-size: 18px; border-radius: 13px; padding: 14px 28px; cursor: pointer; border: 0; }
+  .btn-primary { background: #1AA0E6; color: #fff; box-shadow: 0 10px 24px rgba(26,160,230,.32); }
+  .btn-ghost { background: #fff; color: #0f172a; border: 1px solid #cbd5e1; }
+  .signin { display: flex; gap: 12px; justify-content: center; align-items: center; margin-top: 18px; }
+  .signin .lbl { color: #94a3b8; font-size: 15px; }
+  .oauth { display: inline-flex; align-items: center; gap: 9px; font-weight: 600; font-size: 15px;
+    background: #fff; border: 1px solid #d7dde5; border-radius: 11px; padding: 10px 16px; color: #1f2937; }
+  .oauth .dot { height: 18px; width: 18px; border-radius: 50%; display: inline-block; }
+  .aud { margin-top: 30px; color: #94a3b8; font-size: 15px; max-width: 62ch; margin-left: auto; margin-right: auto; line-height: 1.5; }
+</style>
+</head>
+<body>
+  <div class="page">
+    <div class="ribbon"></div>
+    <div class="bloom"></div>
+
+    <nav>
+      <div class="brand">
+        <svg viewBox="8 3 24 31" fill="none" stroke="#1AA0E6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <defs><linearGradient id="liq" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/><stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/><stop offset="100%" stop-color="#D6B5F0"/>
+          </linearGradient></defs>
+          <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none"/>
+          <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liq)" stroke="none"/>
+          <path d="M22 8 C 22 6, 24 4, 26 6"/><path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12"/><path d="M11 12 L29 12"/>
+          <circle cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/><circle cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/>
+          <path d="M18 22 Q 20 24, 22 22"/><path d="M14 26 L15.5 26"/><path d="M24.5 26 L26 26"/>
+        </svg>
+        <span class="wm">ResearchOS</span>
+      </div>
+      <div class="navright"><span>Features</span><span>Docs</span><span class="pill">Free &amp; open source</span></div>
+    </nav>
+
+    <div class="hero">
+      <svg class="bot" viewBox="8 3 24 31" fill="none" stroke="#1AA0E6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <defs><linearGradient id="liq2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/><stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/><stop offset="100%" stop-color="#D6B5F0"/>
+        </linearGradient></defs>
+        <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none"/>
+        <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liq2)" stroke="none"/>
+        <path d="M22 8 C 22 6, 24 4, 26 6"/><path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12"/><path d="M11 12 L29 12"/>
+        <circle cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/><circle cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/>
+        <path d="M18 22 Q 20 24, 22 22"/><path d="M14 26 L15.5 26"/><path d="M24.5 26 L26 26"/>
+      </svg>
+      <div class="eyebrow" id="eyebrow"></div>
+      <h1 id="headline"></h1>
+      <p class="sub" id="sub"></p>
+      <div class="ctas">
+        <button class="btn btn-primary">Get started</button>
+        <button class="btn btn-ghost">Try the demo</button>
+      </div>
+      <div class="signin">
+        <span class="lbl">or sign in to share across labs</span>
+        <span class="oauth"><span class="dot" style="background:linear-gradient(135deg,#4285F4,#34A853,#FBBC05,#EA4335)"></span>Continue with Google</span>
+        <span class="oauth"><span class="dot" style="background:#181717"></span>Continue with GitHub</span>
+      </div>
+      <p class="aud" id="aud"></p>
+    </div>
+  </div>
+
+  <script>
+    const V = {
+      balanced: {
+        eyebrow: 'Free and open, built by a researcher for academic labs',
+        headline: 'Your whole lab, in a notebook you actually own',
+        sub: 'Plan experiments, run protocols, design plasmids, and write it all up in one workspace. It is free and local-first, so your data lives as a plain folder on your machine, private and yours to keep.',
+        aud: 'For the people who run the science: grad students and postdocs at the bench, the PI watching the whole lab, and small groups with no IT department.',
+      },
+      capability: {
+        eyebrow: 'The complete lab workspace',
+        headline: 'From PCR to plasmids, your whole lab in one place',
+        sub: 'Gantt planning, protocol calculators, a real lab notebook, purchasing, and a built-in sequence editor with cloning and primer design. Everything a working lab needs, free and on your own machine.',
+        aud: 'One workspace instead of five tools, no per-seat fees, and a friendly guide who shows you around.',
+      },
+      trust: {
+        eyebrow: 'A different deal than a cloud notebook',
+        headline: 'Your research notebook. On your machine. Yours to keep.',
+        sub: 'A free electronic lab notebook that lives as a plain folder on your own computer. No per-seat fees, nothing uploaded to a cloud you do not control, and a friendly guide to get you started.',
+        aud: 'Built by a researcher with support from the UW-Madison RISE Initiative, not a venture-backed company.',
+      },
+    };
+    const v = new URLSearchParams(location.search).get('v') || 'balanced';
+    const d = V[v] || V.balanced;
+    document.getElementById('eyebrow').textContent = d.eyebrow;
+    document.getElementById('headline').textContent = d.headline;
+    document.getElementById('sub').textContent = d.sub;
+    document.getElementById('aud').textContent = d.aud;
+  </script>
+</body>
+</html>
