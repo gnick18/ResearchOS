@@ -82,3 +82,21 @@ REMAINING FOLLOW-UP: DNA-only elements (origins, promoters, MCS, terminators, RB
 polyA) still absent (this DB is protein-only). Needs a separate DNA-reference curation
 from NCBI public-domain records (same verified-fetch, no-fabrication discipline), then
 the detector gains a DNA-vs-DNA path alongside the translated-protein path.
+
+## UPDATE 2026-06-03: DNA ELEMENTS DONE — full common-feature plasmid annotation
+
+DNA detector path shipped @ 12cd7c29 (feature-detect.ts DNA-vs-DNA both-strands path +
+DetectFeaturesDialog renders DNA hits; gates: DNA identity 0.85 / coverage 0.7, near-exact
+for short refs, MIN_DNA_ALIGN_LEN 12 / MIN_DNA_DETECT_LEN 8). DNA dataset v1 @ 300bbc76
+(8 entries) + v2 @ 74cb165e (workhorses; total 19 DNA: 5 origins incl ColE1/pUC + p15A +
+pSC101, 7 promoters incl T7/SP6/lac/tac/trc, 3 terminators incl T7+lambda tL3, 4 regulatory).
+All extracted by COORDINATES from fetched well-annotated public-domain NCBI records (modern
+SnapGene-style synthetic-construct/vector submissions that annotate elements as ranges; the
+classic single-base records were the v1 trap). Audited: ColE1 origin matches a fresh re-fetch
+byte-for-byte; T7 promoter extracted as canonical TAATACGACTCACTATAGG. NO fabrication (every
+seq = substring of a fetched record at an annotated feature's coords; one method-B T7
+cross-confirmed verbatim in pET28a). DETECTOR now aligns 60 references (41 protein + 19 DNA)
+-> full common-feature plasmid annotation (origins/promoters/terminators + markers/FPs/tags).
+Remaining DNA follow-ups (deferred, low priority): f1/M13 origin, araBAD/pBAD, mammalian
+promoters (CMV enhancer+promoter already in; EF1a/CAG/hPGK/U6 not), and the ultra-short
+motifs (Shine-Dalgarno/Kozak/polyA) which need a motif-scan, not alignment.
