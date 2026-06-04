@@ -197,6 +197,17 @@ export function setLastTourTransition(t: TourTransitionType): void {
   lastTransitionType = t;
 }
 
+// Never-present-target degradation window (target watcher, Wave 2
+// follow-up). If a step declares a `targetSelector` and the element has
+// not appeared in the DOM within this many ms of step entry, the
+// controller stops waiting and degrades the step to manual advance (see
+// the target watcher effect). Chosen comfortably longer than the 200ms
+// initial-settle defer so a normal onEnter / cursor-script mount is not
+// raced into a false degrade; short enough that a genuinely dead
+// selector (renamed or removed by a refactor) does not strand the user
+// for long.
+const NEVER_PRESENT_DEGRADE_MS = 2500;
+
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
@@ -340,6 +351,16 @@ export interface TourControllerActions {
    *  "the button you clicked before"). Null when no recovery is
    *  pending. */
   readonly targetDetachRecoveryLabel: string | null;
+  /** Never-present-target degradation (target watcher follow-up). When
+   *  a step declares a `targetSelector` that never appears within
+   *  `NEVER_PRESENT_DEGRADE_MS` of step entry (a stale selector left by
+   *  a refactor), the controller marks the step DEGRADED. The bubble
+   *  surfaces a neutral continue hint and the manual-advance gate is
+   *  force-enabled so the user can move forward instead of stranding on
+   *  a dead step. Null when the active step has not degraded. The value
+   *  is the degraded step id so a stale flag never bleeds onto the next
+   *  step (mirrors the targetDetachRecovery step-id pairing). */
+  readonly degradedStepId: TourStepId | null;
 }
 
 export type TourControllerValue = TourControllerState & TourControllerActions;
@@ -1255,8 +1276,15 @@ export function TourControllerProvider({
     label: string;
     stepId: TourStepId;
   } | null>(null);
+  // Never-present-target degradation state (target watcher follow-up).
+  // Holds the id of the step that degraded so the consumer can ignore a
+  // stale flag once the controller has moved on (same step-id pairing
+  // pattern as targetDetachRecovery). Set by the watcher effect's
+  // never-present timer; reset to null on every step transition.
+  const [degradedStep, setDegradedStep] = useState<TourStepId | null>(null);
   useEffect(() => {
     setTargetDetachRecovery(null);
+    setDegradedStep(null);
     if (typeof document === "undefined") return;
     if (!state.currentStep || state.paused) return;
     const body = getStep(state.currentStep);
@@ -1292,6 +1320,18 @@ export function TourControllerProvider({
     // confirmDetach below). Cleared on re-presence, on the completion
     // event, and on teardown.
     let recheckTimer: number | null = null;
+    // Never-present-target degradation handles (target watcher
+    // follow-up). The detach path above only fires when a target
+    // APPEARED and then vanished (`seenPresent` gates it). A selector
+    // that NEVER resolves (renamed / removed by a refactor) leaves
+    // seenPresent false forever, so the watcher would otherwise sit
+    // silent while the user faces a dead-looking step. neverPresentTimer
+    // fires once NEVER_PRESENT_DEGRADE_MS after step entry; if the
+    // target is still absent on a confirming recheck (and no suppression
+    // applies), the step degrades to manual advance. degraded latches so
+    // we warn + surface the continue hint exactly once per step.
+    let neverPresentTimer: number | null = null;
+    let degraded = false;
     // Grant feedback 2026-05-26 (methods-category demo false recovery):
     // when BeakerBot's own cursor script's terminal action closes the
     // surface containing the spotlight target (e.g. clicking "Create
@@ -1331,6 +1371,12 @@ export function TourControllerProvider({
         window.clearTimeout(recheckTimer);
         recheckTimer = null;
       }
+      // Also cancel a pending never-present degrade: if the gating event
+      // fired the step is completing normally, not stranded.
+      if (neverPresentTimer !== null) {
+        window.clearTimeout(neverPresentTimer);
+        neverPresentTimer = null;
+      }
       // Clear any recovery hint that may have raced in just before the
       // event landed, so a transient false-positive doesn't linger.
       setTargetDetachRecovery(null);
@@ -1366,6 +1412,42 @@ export function TourControllerProvider({
       }
     };
 
+    // Never-present-target degrade decision. Fires once the
+    // NEVER_PRESENT_DEGRADE_MS window from step entry elapses. Only
+    // degrades when the target NEVER appeared (seenPresent false — a
+    // target that appeared and vanished is the detach path's job), is
+    // still absent right now, and none of the standard suppressions
+    // apply (BeakerBot driving, cursor script ran this step, completion
+    // event already fired). On degrade we warn (so dev/CI/persona runs
+    // surface the dead selector) and force-enable manual advance via the
+    // degradedStep flag; we never auto-advance, the user keeps the
+    // speech bubble and just gains a way forward.
+    const confirmNeverPresent = () => {
+      neverPresentTimer = null;
+      if (!selector || degraded || detached) return;
+      if (seenPresent) return;
+      if (cursorScriptRanThisStep || completionEventFired) return;
+      const wNow =
+        typeof window !== "undefined"
+          ? (window as unknown as { __beakerBotCursorScriptRunning?: boolean })
+          : null;
+      if (wNow?.__beakerBotCursorScriptRunning) {
+        cursorScriptRanThisStep = true;
+        return;
+      }
+      if (document.querySelector(selector)) {
+        // Resolved on the confirming recheck after all — treat as
+        // present so the detach path takes over from here.
+        seenPresent = true;
+        return;
+      }
+      degraded = true;
+      console.warn(
+        `[onboarding-v4] step "${owningStepId}" target selector "${selector}" never appeared — degrading to manual advance`,
+      );
+      setDegradedStep(owningStepId);
+    };
+
     const evaluate = () => {
       if (!selector) return;
       // Suppress while BeakerBot is actively driving — the modal-close
@@ -1389,6 +1471,13 @@ export function TourControllerProvider({
       const present = !!document.querySelector(selector);
       if (present) {
         seenPresent = true;
+        // The target showed up, so the never-present degrade no longer
+        // applies — cancel the pending degrade timer. From here the
+        // detach path (seenPresent gated) owns recovery.
+        if (neverPresentTimer !== null) {
+          window.clearTimeout(neverPresentTimer);
+          neverPresentTimer = null;
+        }
         if (recheckTimer !== null) {
           window.clearTimeout(recheckTimer);
           recheckTimer = null;
@@ -1412,6 +1501,13 @@ export function TourControllerProvider({
       // need first. Without this the watcher races the step entry
       // and reports a false-positive detach on every step change.
       const initialTimer = window.setTimeout(evaluate, 200);
+      // Never-present-target degrade timer. Scheduled from step entry;
+      // confirmNeverPresent bails if the target showed up (the present
+      // branch in evaluate clears this timer) or any suppression applies.
+      neverPresentTimer = window.setTimeout(
+        confirmNeverPresent,
+        NEVER_PRESENT_DEGRADE_MS,
+      );
       if (typeof MutationObserver !== "undefined") {
         mo = new MutationObserver(() => {
           evaluate();
@@ -1421,6 +1517,7 @@ export function TourControllerProvider({
       return () => {
         window.clearTimeout(initialTimer);
         if (recheckTimer !== null) window.clearTimeout(recheckTimer);
+        if (neverPresentTimer !== null) window.clearTimeout(neverPresentTimer);
         mo?.disconnect();
         if (completionEvent && typeof window !== "undefined") {
           window.removeEventListener(completionEvent, onCompletionEvent);
@@ -1452,6 +1549,12 @@ export function TourControllerProvider({
     targetDetachRecovery && targetDetachRecovery.stepId === state.currentStep
       ? targetDetachRecovery.label
       : null;
+
+  // Never-present-target degrade flag for the ACTIVE step only. Mirrors
+  // the stale-step guard above: a degrade latched against a previous
+  // step never leaks onto the new step's bubble / advance gate.
+  const degradedStepId =
+    degradedStep && degradedStep === state.currentStep ? degradedStep : null;
 
   // Popstate toast visibility — flipped on by the popstate listener,
   // auto-dismisses 4s later, also cleared on tour end / step change.
@@ -1516,6 +1619,7 @@ export function TourControllerProvider({
       popstateToastVisible,
       dismissPopstateToast,
       targetDetachRecoveryLabel,
+      degradedStepId,
     }),
     [
       state,
@@ -1541,6 +1645,7 @@ export function TourControllerProvider({
       popstateToastVisible,
       dismissPopstateToast,
       targetDetachRecoveryLabel,
+      degradedStepId,
     ],
   );
 
@@ -2272,11 +2377,20 @@ function InProductWalkthroughOverlay({
         onBranchTo={onBranchTo}
         canGoBack={canGoBack}
         cursorActive={cursorActive}
+        manualAdvanceForced={controller.degradedStepId === currentStep}
         flashSpeech={
           pageLockFlash ??
           (controller.targetDetachRecoveryLabel ? (
             <span data-testid="tour-target-detach-recovery">
               Looks like that closed. Click {controller.targetDetachRecoveryLabel} to re-open and try again.
+            </span>
+          ) : controller.degradedStepId === currentStep ? (
+            // Never-present-target degrade. The spotlight anchor never
+            // showed up, so we drop a neutral continue hint and
+            // force-enable the advance button (handled by
+            // manualAdvanceForced) rather than stranding the user.
+            <span data-testid="tour-target-degraded-recovery">
+              I cannot find that on screen right now, so let us keep going. Click {"“"}Got it, next{"”"} to continue.
             </span>
           ) : null)
         }
@@ -3034,6 +3148,13 @@ interface TourBeakerBotOverlayProps {
    *  the bubble dodges the cursor's current zone too, not just the
    *  spotlight / popup. */
   cursorActive?: boolean;
+  /** Never-present-target degrade (target watcher follow-up). When true,
+   *  this step's spotlight anchor never resolved, so the manual-advance
+   *  button is FORCE-ENABLED even if the step declares a
+   *  `disabledUntilEvent` gate that can never fire (the gating element
+   *  is gone). Scoped to the degraded step only by the parent; a normal
+   *  step passes false and its gate is untouched. */
+  manualAdvanceForced?: boolean;
 }
 
 function TourBeakerBotOverlay({
@@ -3046,6 +3167,7 @@ function TourBeakerBotOverlay({
   canGoBack,
   flashSpeech,
   cursorActive = false,
+  manualAdvanceForced = false,
 }: TourBeakerBotOverlayProps) {
   // R2 regression followup Fix 1/3 + Fix 3/3 (2026-05-23):
   //  - Fix 1: `disabledUntilEvent` gating: if the active step's
@@ -3171,7 +3293,17 @@ function TourBeakerBotOverlay({
   //      double-click debounce), OR
   //  (c) BeakerBot's cursor script is still running OR within the
   //      post-script settle buffer (Fix 4, 2026-05-26 wedge fix).
-  const manualGateActive = !!manualDisabledUntilEvent && !eventFired;
+  // Never-present-target degrade override (target watcher follow-up).
+  // When the step degraded, its spotlight anchor never appeared, which
+  // means a `disabledUntilEvent` gate keyed off an element in that
+  // surface can never fire. Force the gate open so the user is not
+  // trapped on a permanently-disabled "Got it, next". Scoped to the
+  // degraded step by the parent (manualAdvanceForced is only true for
+  // it), so a normal step's gate is unchanged. The cursor-demo-busy and
+  // double-click debounce guards still apply — those are transient and
+  // resolve on their own, so we do not want to bypass them.
+  const manualGateActive =
+    !manualAdvanceForced && !!manualDisabledUntilEvent && !eventFired;
   const manualButtonDisabled =
     manualGateActive || advanceClicked || cursorDemoBusy;
   const manualButtonAriaLabel =

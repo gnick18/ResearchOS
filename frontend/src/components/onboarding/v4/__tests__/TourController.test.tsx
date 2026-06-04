@@ -1942,6 +1942,176 @@ describe("TourController — Wave 2 Fix 2: target-detach watcher", () => {
   });
 });
 
+// Never-present-target degradation (target watcher follow-up). A step
+// whose targetSelector never resolves (a stale selector left by a
+// refactor) must degrade to manual advance after the timeout window so
+// the user is not stranded, even when the step's manual completion is
+// gated on a disabledUntilEvent that can never fire.
+describe("TourController — never-present-target degradation", () => {
+  const TEST_STEP_ID = "home-create-project";
+  // A gating event the test never dispatches, so the disabledUntilEvent
+  // gate would trap the user forever absent the degrade override.
+  const NEVER_FIRES_EVENT = "tour:never-present-test-event";
+  let originalBody: TourStep | undefined;
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    originalBody = TOUR_STEPS[TEST_STEP_ID];
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // Start on the step's expectedRoute so the auto-navigate effect
+    // stays quiet and the overlay renders without route churn.
+    window.history.pushState({}, "", "/workbench");
+    setMockPathname("/workbench");
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    if (originalBody) TOUR_STEPS[TEST_STEP_ID] = originalBody;
+    warnSpy.mockRestore();
+  });
+
+  it("degrades to manual advance + warns when the target selector never appears, force-enabling a disabledUntilEvent-gated button", () => {
+    const base = originalBody;
+    if (!base) throw new Error("test setup: missing original step body");
+    // Mutate the step to declare a selector that resolves to nothing,
+    // plus a manual completion GATED on an event the test never fires.
+    // Strip any cursorScript so the post-cursor settle buffer doesn't
+    // keep the button disabled for reasons unrelated to the gate.
+    const DEAD_SELECTOR = "[data-tour-target='this-element-never-mounts']";
+    TOUR_STEPS[TEST_STEP_ID] = {
+      ...base,
+      targetSelector: DEAD_SELECTOR,
+      cursorScript: undefined,
+      completion: {
+        type: "manual",
+        disabledUntilEvent: NEVER_FIRES_EVENT,
+      },
+    };
+
+    // Capture the controller so the test can drive start() against the
+    // SAME provider instance that renders the overlay + the manual
+    // button (the provider mounts <TourOverlay> internally).
+    let ctl: ReturnType<typeof useTourController> | null = null;
+    function Capture() {
+      ctl = useTourController();
+      return null;
+    }
+
+    const { container, unmount } = render(
+      <TourControllerProvider initialFeaturePicks={picks()}>
+        <Capture />
+      </TourControllerProvider>,
+    );
+
+    try {
+      act(() => {
+        ctl!.start(TEST_STEP_ID);
+      });
+      // The watcher effect's 200ms initial-settle + 2500ms degrade
+      // timers run on fake timers. Flush past the degrade window.
+      act(() => {
+        vi.advanceTimersByTime(2600);
+      });
+
+      // The dead selector never appeared, so the controller warned with
+      // the step id + selector and exposed the degrade flag.
+      expect(warnSpy).toHaveBeenCalledWith(
+        `[onboarding-v4] step "${TEST_STEP_ID}" target selector "${DEAD_SELECTOR}" never appeared — degrading to manual advance`,
+      );
+      expect(ctl!.degradedStepId).toBe(TEST_STEP_ID);
+
+      // The bubble shows the neutral continue hint (not the detach copy).
+      expect(
+        container.querySelector(
+          "[data-testid='tour-target-degraded-recovery']",
+        ),
+      ).not.toBeNull();
+      expect(
+        container.querySelector("[data-testid='tour-target-detach-recovery']"),
+      ).toBeNull();
+
+      // The manual-advance button is FORCE-ENABLED even though the
+      // disabledUntilEvent gate never fired — the trap is removed.
+      const btn = container.querySelector(
+        "[data-testid='tour-manual-advance-button']",
+      ) as HTMLButtonElement | null;
+      expect(btn).not.toBeNull();
+      expect(btn!.disabled).toBe(false);
+      expect(btn!.getAttribute("data-disabled-until-event")).toBeNull();
+
+      // Clicking it actually advances off the degraded step.
+      act(() => {
+        btn!.click();
+      });
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+      expect(ctl!.currentStep).not.toBe(TEST_STEP_ID);
+    } finally {
+      unmount();
+    }
+  });
+
+  it("does NOT degrade a step whose target IS present (gate stays active)", () => {
+    const base = originalBody;
+    if (!base) throw new Error("test setup: missing original step body");
+    // Mount a real element matching the selector so seenPresent flips
+    // true and the never-present timer bails.
+    const live = document.createElement("div");
+    live.setAttribute("data-tour-target", "present-test-element");
+    document.body.appendChild(live);
+    const LIVE_SELECTOR = "[data-tour-target='present-test-element']";
+    TOUR_STEPS[TEST_STEP_ID] = {
+      ...base,
+      targetSelector: LIVE_SELECTOR,
+      cursorScript: undefined,
+      completion: {
+        type: "manual",
+        disabledUntilEvent: NEVER_FIRES_EVENT,
+      },
+    };
+
+    let ctl: ReturnType<typeof useTourController> | null = null;
+    function Capture() {
+      ctl = useTourController();
+      return null;
+    }
+
+    const { container, unmount } = render(
+      <TourControllerProvider initialFeaturePicks={picks()}>
+        <Capture />
+      </TourControllerProvider>,
+    );
+
+    try {
+      act(() => {
+        ctl!.start(TEST_STEP_ID);
+      });
+      act(() => {
+        vi.advanceTimersByTime(2600);
+      });
+
+      // Present target => no degrade, no warn, gate still active.
+      expect(warnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("never appeared"),
+      );
+      expect(ctl!.degradedStepId).toBeNull();
+      const btn = container.querySelector(
+        "[data-testid='tour-manual-advance-button']",
+      ) as HTMLButtonElement | null;
+      expect(btn).not.toBeNull();
+      // disabledUntilEvent never fired and no degrade override => still
+      // disabled.
+      expect(btn!.disabled).toBe(true);
+      expect(btn!.getAttribute("data-disabled-until-event")).toBe("true");
+    } finally {
+      document.body.removeChild(live);
+      unmount();
+    }
+  });
+});
+
 // R4 Lab Mode retirement 2026-05-23: the prior `lab-mode-tour:close`
 // event-subscription test block was deleted alongside the
 // DemoLabModeViewer overlay and the 12-step `lab-mode-*` cluster.

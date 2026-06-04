@@ -66,6 +66,31 @@ function isAppShellMounted(): boolean {
   return document.querySelector(APP_SHELL_SELECTOR) !== null;
 }
 
+/**
+ * Silent kill flag — emergency brake for heavy-development windows.
+ *
+ * When `NEXT_PUBLIC_DISABLE_V4_TOUR` is set to "1" (or "true"), the
+ * auto-mount gate does NOT auto-fire the tour for a fresh user: the
+ * probe resolves to a no-op and a fresh user simply lands on the normal
+ * empty state with no banner, notice, or copy of any kind. Use this to
+ * stop the tour from ambushing real fresh users while the product
+ * surfaces it walks are mid-refactor (a renamed route or removed widget
+ * would otherwise strand every new account on a broken beat).
+ *
+ * Default OFF: when the var is unset the tour fires normally. The flag
+ * is read at module load (Next inlines NEXT_PUBLIC_* at build time), so
+ * toggling it requires a rebuild, which is intentional for an emergency
+ * brake rather than a per-request switch.
+ *
+ * IMPORTANT: the flag only suppresses the AUTO-fire path. The dev
+ * `?wizard-preview=1` force-walkthrough launch (previewMode below)
+ * bypasses it entirely so QA can still drive the tour while it is
+ * disabled for real users.
+ */
+const V4_TOUR_KILLED =
+  process.env.NEXT_PUBLIC_DISABLE_V4_TOUR === "1" ||
+  process.env.NEXT_PUBLIC_DISABLE_V4_TOUR === "true";
+
 /** Resolve the expected route for a step id, falling back to "/" when
  *  the step body has no fixed route (dynamic-route steps) or the id
  *  isn't registered. Mirrors the controller's auto-navigate effect. */
@@ -260,6 +285,18 @@ export default function TourBootstrap({ username }: TourBootstrapProps) {
             return;
           }
           controller.start();
+          setState({ kind: "resolved" });
+          return;
+        }
+
+        // Silent kill flag (emergency brake). Reached only on the
+        // non-preview path (preview returned above), so QA's
+        // force-walkthrough still works. Resolve to a no-op so a fresh
+        // user lands on the normal empty state with no auto-fired tour
+        // and no notice. We do NOT touch the sidecar — flipping the flag
+        // off later restores normal auto-fire for users who never saw
+        // the tour.
+        if (V4_TOUR_KILLED) {
           setState({ kind: "resolved" });
           return;
         }
