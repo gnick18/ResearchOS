@@ -1224,6 +1224,32 @@ export default function SequenceEditView({
     [doc.seq.length, recomputeWindow, singleLine],
   );
 
+  // map select bot follow-up — when the user ENTERS the base Sequence view (e.g.
+  // from the Map) with an active selection, land them at the START of the
+  // selection instead of bp 1, so the detail view shows where they were looking.
+  // SeqViz restores its own scrollTop a frame or two after the view swap
+  // (InfiniteScroll.scrollToCentralIndex), so a one-shot scroll gets clobbered;
+  // re-assert the target each frame for a short window (same burst pattern the
+  // recompute loop uses). Only fires on the transition INTO the sequence view,
+  // not on selection changes made while already in it (so a base-view drag-select
+  // never yanks the scroll).
+  const prevViewModeRef = useRef(viewMode);
+  useEffect(() => {
+    const prev = prevViewModeRef.current;
+    prevViewModeRef.current = viewMode;
+    if (viewMode !== "sequence" || prev === "sequence") return;
+    if (!isLinearViewer || !externalSel) return;
+    const startBp = Math.min(externalSel.start, externalSel.end);
+    let raf = 0;
+    const start = performance.now();
+    const tick = () => {
+      scrollMainToBp(startBp);
+      if (performance.now() - start < 260) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [viewMode, isLinearViewer, externalSel, scrollMainToBp]);
+
   // Features projected to the overview bar (whole sequence, as arrows). Uses the
   // same visibility filtering as the main map so hidden types stay hidden.
   const overviewFeatures: OverviewFeature[] = useMemo(
