@@ -139,7 +139,6 @@ import {
   anchorScrollTopForBp,
   clampSequenceZoom,
   MAP_ZOOM,
-  frameExtentToSelection,
 } from "@/lib/sequences/sequence-zoom";
 import {
   EditMenuDropdown,
@@ -1516,19 +1515,12 @@ export default function SequenceEditView({
       // map select bot — a plain feature select sets the span ANCHOR to this
       // feature's own range, so a subsequent Map shift-click spans from here.
       setSelAnchor({ start: f.start, end: f.end });
-      // overview zoom bot — FRAME the overview bar's independent extent snugly
-      // around the selected feature (padded ~40% of its span per side, floored
-      // so a tiny feature still frames a readable window). So selecting a feature
-      // in the Map and landing in Sequence view zooms the overview to that region
-      // regardless of the feature's size. Whole-molecule reset happens on seq swap.
-      setOverviewExtent(
-        frameExtentToSelection({
-          selection: { start: f.start, end: f.end },
-          seqLength: doc.seq.length,
-        }),
-      );
+      // NOTE: selecting a feature deliberately does NOT re-zoom the overview bar
+      // (no frameExtentToSelection). Selection just highlights; the overview keeps
+      // whatever zoom the user set, and zooming the top bar stays a manual choice
+      // (slider / scroll over the bar). Whole-molecule reset still happens on seq swap.
     },
-    [doc.features, doc.seq.length],
+    [doc.features],
   );
 
   // overview featclick bot — CLICK A FEATURE in the TOP OVERVIEW STRIP -> SELECT
@@ -1821,9 +1813,8 @@ export default function SequenceEditView({
         const span = spanFromShiftClick(selAnchor, { start: f.start, end: f.end });
         setSelectedFeatureIdx(index);
         setExternalSel(span);
-        setOverviewExtent(
-          frameExtentToSelection({ selection: span, seqLength: doc.seq.length }),
-        );
+        // No overview re-zoom on a shift-span select either; the band shows at the
+        // user's current overview zoom, which stays a manual control.
         return;
       }
       // Plain click: select just this feature and (re)set the anchor to it.
