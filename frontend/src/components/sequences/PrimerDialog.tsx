@@ -22,6 +22,12 @@ import {
   findBindingSites,
   type BindingSite,
 } from "@/lib/sequences/primer";
+import {
+  designMutagenicPrimer,
+  type MutationType,
+  type MutationSpec,
+  type MutagenicPrimer,
+} from "@/lib/sequences/mutagenesis";
 
 /** What the dialog hands back when the user adds the primer to the template. */
 export interface PrimerAddPayload {
@@ -37,6 +43,10 @@ export interface PrimerDialogRequest {
   template: string;
   /** Optional bases to seed the primer field from (the current selection). */
   seedSeq?: string;
+  /** Optional 0-based [lo, hi) selection range. Seeds the Mutagenesis target
+   *  position/region. Optional + additive: when absent the dialog best-effort
+   *  locates seedSeq in the template, else defaults to the template midpoint. */
+  seedRange?: { lo: number; hi: number };
   /** Optional default name. */
   seedName?: string;
   onSubmit: (payload: PrimerAddPayload) => void;
@@ -65,6 +75,23 @@ function IconSwap({ className }: { className?: string }) {
   );
 }
 
+function IconMutate({ className }: { className?: string }) {
+  // A small "edit/pencil on a strand" glyph for the mutagenesis mode.
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" />
+      <path d="M14.06 6.19l3.75 3.75" />
+    </svg>
+  );
+}
+
+/** A default name for a mutagenic primer when the user leaves the name blank. */
+function mutLabel(mp: MutagenicPrimer): string {
+  if (mp.mutationType === "insertion") return "ins_mut_primer";
+  if (mp.mutationType === "deletion") return "del_mut_primer";
+  return "sub_mut_primer";
+}
+
 /** A small stat chip (label over value). */
 function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
   return (
@@ -76,9 +103,23 @@ function Stat({ label, value, hint }: { label: string; value: React.ReactNode; h
   );
 }
 
+/** Which Add-Primer flow is active. "manual" = type/paste a primer (the original
+ *  flow); "mutagenesis" = design a mutagenic SDM primer from a target + change. */
+type DialogMode = "manual" | "mutagenesis";
+
 export default function PrimerDialog({ request }: { request: PrimerDialogRequest | null }) {
+  const [mode, setMode] = useState<DialogMode>("manual");
   const [name, setName] = useState("");
   const [raw, setRaw] = useState("");
+  // --- Mutagenesis-mode inputs ----------------------------------------------
+  const [mutType, setMutType] = useState<MutationType>("substitution");
+  // 0-based target position (start of the edit). For deletion this is the first
+  // removed base; for insertion it is the insert point (insert BEFORE it).
+  const [mutPos, setMutPos] = useState(0);
+  // New bases for substitution / insertion (ACGT). Ignored for deletion.
+  const [mutNewBases, setMutNewBases] = useState("");
+  // How many template bases the edit replaces (substitution) or removes (deletion).
+  const [mutSpan, setMutSpan] = useState(1);
   // When on, the primer field is shown/interpreted as the reverse-complement of
   // what was typed (the primer anneals to the bottom strand). This flips the
   // ACTUAL primer sequence so length/GC/Tm/binding all recompute.
@@ -90,10 +131,30 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
 
   useEffect(() => {
     if (!request) return;
+    setMode("manual");
     setName(request.seedName ?? "");
     setRaw(sanitizePrimer(request.seedSeq ?? ""));
     setRevComp(false);
     setSiteIdx(0);
+    // Seed the mutagenesis target from the selection. Prefer an explicit range;
+    // else try to locate the seed bases in the template; else the midpoint.
+    const tpl = request.template ?? "";
+    const seed = sanitizePrimer(request.seedSeq ?? "");
+    let lo = request.seedRange?.lo;
+    let hi = request.seedRange?.hi;
+    if (lo == null && seed.length > 0) {
+      const at = tpl.toUpperCase().indexOf(seed);
+      if (at >= 0) {
+        lo = at;
+        hi = at + seed.length;
+      }
+    }
+    if (lo == null) lo = Math.floor(tpl.length / 2);
+    if (hi == null) hi = lo;
+    setMutPos(Math.max(0, Math.min(lo, Math.max(0, tpl.length - 1))));
+    setMutSpan(Math.max(1, hi - lo || 1));
+    setMutType("substitution");
+    setMutNewBases("");
     const t = setTimeout(() => seqRef.current?.focus(), 0);
     return () => clearTimeout(t);
   }, [request]);
@@ -174,12 +235,60 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
     };
   }, [site, length, template, primerSeq]);
 
+  // --- MUTAGENESIS design ----------------------------------------------------
+  // Build the change spec from the inputs and design a single mutagenic primer.
+  // Errors (out-of-range / empty edit) are caught and surfaced as a message
+  // rather than thrown. (Declared BEFORE the early return for stable hook order.)
+  const mutResult = useMemo((): { primer: MutagenicPrimer | null; error: string | null } => {
+    if (mode !== "mutagenesis" || !request) return { primer: null, error: null };
+    const tpl = request.template;
+    const newBases = sanitizePrimer(mutNewBases);
+    let spec: MutationSpec;
+    if (mutType === "substitution") {
+      if (newBases.length === 0) return { primer: null, error: "Enter the new base(s) to substitute." };
+      spec = { type: "substitution", position: mutPos, newBases, replaceLength: Math.max(1, mutSpan) };
+    } else if (mutType === "insertion") {
+      if (newBases.length === 0) return { primer: null, error: "Enter the base(s) to insert." };
+      spec = { type: "insertion", position: mutPos, newBases };
+    } else {
+      spec = { type: "deletion", position: mutPos, length: Math.max(1, mutSpan) };
+    }
+    try {
+      return { primer: designMutagenicPrimer(tpl, spec), error: null };
+    } catch (e) {
+      return { primer: null, error: e instanceof Error ? e.message : "Could not design a primer." };
+    }
+  }, [mode, request, mutType, mutPos, mutNewBases, mutSpan]);
+
   if (!request) return null;
 
-  const canAdd = !!site && length > 0;
+  const canAdd =
+    mode === "mutagenesis" ? !!mutResult.primer : !!site && length > 0;
 
   const submit = () => {
-    if (!canAdd || !site) return;
+    if (!canAdd) return;
+    if (mode === "mutagenesis") {
+      const mp = mutResult.primer;
+      if (!mp) return;
+      // Persist the mutagenic primer as a normal forward primer_bind. The binding
+      // site is the template footprint the primer covers (the two homology arms,
+      // plus the removed range for a deletion); the mutagenic primer is, by
+      // convention, written 5'->3' along the forward (top) strand.
+      const mutSite: BindingSite = {
+        start: mp.templateStart,
+        end: mp.templateEnd,
+        direction: 1,
+        annealedLength: mp.leftArm + mp.rightArm,
+        fullMatch: false,
+      };
+      request.onSubmit({
+        name: name.trim() || mutLabel(mp),
+        primerSeq: mp.primer,
+        site: mutSite,
+      });
+      return;
+    }
+    if (!site) return;
     request.onSubmit({
       name: name.trim() || "primer",
       primerSeq,
@@ -214,17 +323,60 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
             }
           }}
         >
+          {/* Mode toggle: manual primer vs. mutagenesis designer. */}
+          <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-0.5" role="tablist" aria-label="Primer mode">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "manual"}
+              onClick={() => setMode("manual")}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-meta font-medium transition-colors ${
+                mode === "manual" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <IconPrimer className="h-3.5 w-3.5" />
+              Type or paste
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "mutagenesis"}
+              onClick={() => setMode("mutagenesis")}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-meta font-medium transition-colors ${
+                mode === "mutagenesis" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <IconMutate className="h-3.5 w-3.5" />
+              Mutagenesis
+            </button>
+          </div>
+
           {/* Name */}
           <label className="block">
             <span className="mb-1 block text-meta font-medium text-gray-500">Primer name</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. M13_fwd"
+              placeholder={mode === "mutagenesis" ? "e.g. L52A_fwd" : "e.g. M13_fwd"}
               className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-body text-gray-800 focus:border-sky-400 focus:outline-none"
             />
           </label>
 
+          {mode === "mutagenesis" ? (
+            <MutagenesisFields
+              templateLength={template.length}
+              mutType={mutType}
+              setMutType={setMutType}
+              mutPos={mutPos}
+              setMutPos={setMutPos}
+              mutSpan={mutSpan}
+              setMutSpan={setMutSpan}
+              mutNewBases={mutNewBases}
+              setMutNewBases={setMutNewBases}
+              result={mutResult}
+            />
+          ) : (
+          <>
           {/* Sequence + revcomp toggle */}
           <div>
             <div className="mb-1 flex items-center justify-between">
@@ -385,6 +537,8 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
               </p>
             </div>
           ) : null}
+          </>
+          )}
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-gray-100 bg-gray-50 px-4 py-3">
@@ -395,7 +549,15 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
           >
             Cancel
           </button>
-          <Tooltip label={canAdd ? "Add this primer as a primer_bind feature" : "Enter a primer that anneals to the template"}>
+          <Tooltip
+            label={
+              canAdd
+                ? "Add this primer as a primer_bind feature"
+                : mode === "mutagenesis"
+                  ? "Set a target and a change to design a mutagenic primer"
+                  : "Enter a primer that anneals to the template"
+            }
+          >
             <button
               type="button"
               onClick={submit}
@@ -407,6 +569,241 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
           </Tooltip>
         </div>
       </div>
+    </div>
+  );
+}
+
+// --- Mutagenesis sub-form ---------------------------------------------------
+
+const MUT_TYPES: { value: MutationType; label: string; hint: string }[] = [
+  { value: "substitution", label: "Substitute", hint: "Swap base(s) at a position" },
+  { value: "insertion", label: "Insert", hint: "Add base(s) at a position" },
+  { value: "deletion", label: "Delete", hint: "Remove a range of bases" },
+];
+
+function MutagenesisFields({
+  templateLength,
+  mutType,
+  setMutType,
+  mutPos,
+  setMutPos,
+  mutSpan,
+  setMutSpan,
+  mutNewBases,
+  setMutNewBases,
+  result,
+}: {
+  templateLength: number;
+  mutType: MutationType;
+  setMutType: (t: MutationType) => void;
+  mutPos: number;
+  setMutPos: (n: number) => void;
+  mutSpan: number;
+  setMutSpan: (n: number) => void;
+  mutNewBases: string;
+  setMutNewBases: (s: string) => void;
+  result: { primer: MutagenicPrimer | null; error: string | null };
+}) {
+  const mp = result.primer;
+  const maxPos = Math.max(0, templateLength - 1);
+  const posClamped = Math.max(0, Math.min(mutPos, templateLength));
+
+  return (
+    <div className="space-y-3">
+      {/* Change type */}
+      <div>
+        <span className="mb-1 block text-meta font-medium text-gray-500">Change type</span>
+        <div className="grid grid-cols-3 gap-1.5">
+          {MUT_TYPES.map((mt) => (
+            <Tooltip key={mt.value} label={mt.hint}>
+              <button
+                type="button"
+                onClick={() => setMutType(mt.value)}
+                aria-pressed={mutType === mt.value}
+                className={`w-full rounded-md px-2 py-1.5 text-meta font-medium transition-colors ${
+                  mutType === mt.value
+                    ? "bg-sky-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {mt.label}
+              </button>
+            </Tooltip>
+          ))}
+        </div>
+      </div>
+
+      {/* Position + span/new-bases inputs */}
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block">
+          <span className="mb-1 block text-meta font-medium text-gray-500">
+            {mutType === "insertion" ? "Insert before position (1-based)" : "Position (1-based)"}
+          </span>
+          <input
+            type="number"
+            min={1}
+            max={mutType === "insertion" ? templateLength + 1 : templateLength}
+            value={posClamped + 1}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              if (Number.isFinite(v)) setMutPos(Math.max(0, Math.min(Math.round(v) - 1, templateLength)));
+            }}
+            className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-body text-gray-800 focus:border-sky-400 focus:outline-none"
+          />
+        </label>
+
+        {mutType === "deletion" ? (
+          <label className="block">
+            <span className="mb-1 block text-meta font-medium text-gray-500">Bases to remove</span>
+            <input
+              type="number"
+              min={1}
+              max={Math.max(1, templateLength - posClamped)}
+              value={mutSpan}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (Number.isFinite(v)) setMutSpan(Math.max(1, Math.round(v)));
+              }}
+              className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-body text-gray-800 focus:border-sky-400 focus:outline-none"
+            />
+          </label>
+        ) : (
+          <label className="block">
+            <span className="mb-1 block text-meta font-medium text-gray-500">
+              {mutType === "substitution" ? "New base(s)" : "Bases to insert"}
+            </span>
+            <input
+              value={mutNewBases}
+              onChange={(e) => setMutNewBases(sanitizePrimer(e.target.value))}
+              placeholder={mutType === "substitution" ? "e.g. G" : "e.g. GAATTC"}
+              spellCheck={false}
+              className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 font-mono text-body tracking-wide text-gray-800 focus:border-sky-400 focus:outline-none"
+            />
+          </label>
+        )}
+      </div>
+
+      {/* For a substitution, let the user replace more than one template base. */}
+      {mutType === "substitution" ? (
+        <label className="block">
+          <span className="mb-1 block text-meta font-medium text-gray-500">
+            Template bases to replace
+          </span>
+          <input
+            type="number"
+            min={1}
+            max={Math.max(1, templateLength - posClamped)}
+            value={mutSpan}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              if (Number.isFinite(v)) setMutSpan(Math.max(1, Math.round(v)));
+            }}
+            className="w-32 rounded-md border border-gray-200 px-2.5 py-1.5 text-body text-gray-800 focus:border-sky-400 focus:outline-none"
+          />
+          <span className="ml-2 text-meta text-gray-400">
+            usually 1 (a point mutation); set higher to swap a block
+          </span>
+        </label>
+      ) : null}
+
+      <p className="text-meta text-gray-400">
+        Template is {templateLength.toLocaleString()} bp (positions 1..{maxPos + 1}). The change is
+        centered between matching homology arms grown to about 60 °C (QuikChange-style 10-15 base
+        flanks).
+      </p>
+
+      {/* Designed primer + readouts */}
+      {result.error ? (
+        <p className="rounded-md border border-dashed border-amber-200 bg-amber-50 px-2.5 py-2 text-meta text-amber-700">
+          {result.error}
+        </p>
+      ) : mp ? (
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            <Stat label="Length" value={`${mp.length}-mer`} />
+            <Stat label="GC" value={`${mp.gc.toFixed(1)}%`} />
+            <Stat label="Tm" value={`${mp.tm.toFixed(1)} °C`} hint={`arms ${mp.leftArm}+${mp.rightArm}`} />
+          </div>
+
+          {/* The designed primer with the mutation region highlighted. */}
+          <div>
+            <span className="mb-1 block text-meta font-medium text-gray-500">
+              Designed mutagenic primer (5&apos; to 3&apos;)
+            </span>
+            <div className="overflow-x-auto rounded-md border border-gray-200 bg-white px-3 py-2 font-mono text-body tracking-wide">
+              <span className="text-gray-400">5&apos; </span>
+              {mp.primer.split("").map((b, i) => {
+                const edited = i >= mp.mutationPrimerStart && i < mp.mutationPrimerEnd;
+                return (
+                  <span key={i} className={edited ? "font-semibold text-rose-600" : "text-gray-800"}>
+                    {b}
+                  </span>
+                );
+              })}
+              <span className="text-gray-400"> 3&apos;</span>
+            </div>
+          </div>
+
+          {/* Primer aligned to the ORIGINAL template, mismatch-highlighted. Reuses
+              the same blue-match / rose-mismatch convention as the manual view. */}
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-meta font-medium text-gray-500">
+                Aligned to template (intended change in rose)
+              </span>
+              <span className="text-meta font-medium text-gray-500">
+                {mp.leftArm + mp.rightArm} arm bases match
+              </span>
+            </div>
+            <div className="overflow-x-auto rounded-md border border-gray-200 bg-white px-3 py-2.5 font-mono text-meta leading-relaxed">
+              {/* Primer row. */}
+              <div className="whitespace-pre">
+                <span className="text-gray-400">5&apos; </span>
+                {mp.columns.map((c, i) => (
+                  <span
+                    key={i}
+                    className={
+                      c.edited
+                        ? "font-semibold text-rose-600"
+                        : c.match
+                          ? "font-semibold text-sky-700"
+                          : "font-semibold text-rose-600"
+                    }
+                  >
+                    {c.primer}
+                  </span>
+                ))}
+                <span className="text-gray-400"> 3&apos;</span>
+              </div>
+              {/* Match bars. */}
+              <div className="whitespace-pre text-gray-400">
+                {"   "}
+                {mp.columns.map((c) => (c.match ? "|" : c.edited ? "*" : " ")).join("")}
+              </div>
+              {/* Original-template row, lined up column-for-column. */}
+              <div className="whitespace-pre">
+                <span className="text-gray-400">3&apos; </span>
+                {mp.columns.map((c, i) => (
+                  <span
+                    key={i}
+                    className={c.match ? "text-gray-600" : "text-rose-500"}
+                  >
+                    {c.template}
+                  </span>
+                ))}
+                <span className="text-gray-400"> 5&apos;</span>
+              </div>
+            </div>
+            <p className="mt-1 text-meta text-gray-400">
+              {mp.mutationType === "deletion"
+                ? "The arms join directly across the removed bases (marked * with no template partner shown)."
+                : mp.mutationType === "insertion"
+                  ? "Inserted bases (rose, marked *) have no template partner."
+                  : "The substituted base(s) (rose, marked *) sit over the original template base(s)."}
+            </p>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }
