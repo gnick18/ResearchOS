@@ -139,6 +139,7 @@ import {
   anchorScrollTopForBp,
   clampSequenceZoom,
   MAP_ZOOM,
+  frameExtentToSelection,
 } from "@/lib/sequences/sequence-zoom";
 import {
   EditMenuDropdown,
@@ -1238,6 +1239,14 @@ export default function SequenceEditView({
     prevViewModeRef.current = viewMode;
     if (viewMode !== "sequence" || prev === "sequence") return;
     if (!isLinearViewer || !externalSel) return;
+    // overview frame — this is the VIEW TRANSITION into the Sequence view (e.g.
+    // coming from the Map) with an active selection, which is DIFFERENT from a
+    // feature click made while already in the Sequence view (that is guarded out
+    // above and deliberately does not reframe). On the transition, frame the
+    // overview bar to the selection so the user lands looking at their region.
+    setOverviewExtent(
+      frameExtentToSelection({ selection: externalSel, seqLength: doc.seq.length }),
+    );
     const startBp = Math.min(externalSel.start, externalSel.end);
     let raf = 0;
     const start = performance.now();
@@ -1247,7 +1256,7 @@ export default function SequenceEditView({
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [viewMode, isLinearViewer, externalSel, scrollMainToBp]);
+  }, [viewMode, isLinearViewer, externalSel, scrollMainToBp, doc.seq.length]);
 
   // Features projected to the overview bar (whole sequence, as arrows). Uses the
   // same visibility filtering as the main map so hidden types stay hidden.
