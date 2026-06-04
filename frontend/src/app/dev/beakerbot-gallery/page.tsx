@@ -855,6 +855,12 @@ export default function BeakerBotGalleryPage() {
             <span className="text-meta text-slate-500">pointing + alive</span>
           </div>
           <div className="flex flex-col items-center gap-2">
+            <BeakerBot pose="waving" alive className="h-40 w-40 text-sky-500" />
+            <span className="text-meta text-slate-500">
+              waving + alive (living wave)
+            </span>
+          </div>
+          <div className="flex flex-col items-center gap-2">
             <BeakerBot pose="idle" className="h-40 w-40 text-sky-500" />
             <span className="text-meta text-slate-500">
               idle (no alive, reference)

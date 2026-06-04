@@ -218,6 +218,7 @@ export default function WhatsNewModal({
             </button>
             <BeakerBot
               pose="waving"
+              alive
               className="w-20 h-20 text-sky-500"
               ariaLabel="BeakerBot waving"
             />

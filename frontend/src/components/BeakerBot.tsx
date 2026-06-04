@@ -533,6 +533,16 @@ export default function BeakerBot({
   // it deliberately does NOT gate this boolean; the classes are still
   // applied, they just don't move.
   const aliveActive = alive && animated && ALIVE_POSES.has(effectivePose);
+  // Living wave: blink + gaze live on the eye / pupil nodes (not the root
+  // body), so they compose with the `waving` greeting pose without touching
+  // its arm animation. Sway stays gated to ALIVE_POSES (the wave owns the
+  // root body-animation slot and the two would fight), but the face still
+  // comes alive on a wave, so a greeting BeakerBot blinks and glances instead
+  // of freezing mid-wave.
+  const aliveFaceActive =
+    alive &&
+    animated &&
+    (ALIVE_POSES.has(effectivePose) || effectivePose === "waving");
 
   // Mirror via CSS transform so the path data stays canonical
   // (cheaper than maintaining two mirrored sets).
@@ -586,7 +596,7 @@ export default function BeakerBot({
         // client render) so there's no hydration mismatch; the keyframes
         // fall back to deterministic defaults until then. Applied on the
         // root so they cascade to the eye + pupil descendants too.
-        ...(aliveActive && aliveVars ? aliveVars : undefined),
+        ...(aliveFaceActive && aliveVars ? aliveVars : undefined),
         cursor: "pointer",
         // overflow:visible lets the heart easter-egg paint outside the
         // 40x40 viewBox (hearts drift upward to y=-3 in view-box units
@@ -657,7 +667,7 @@ export default function BeakerBot({
             ? `${styles.sleepEye} ${styles.animated}`
             : animated && effectivePose === "reading"
               ? `${styles.readEye} ${styles.animated}`
-              : aliveActive
+              : aliveFaceActive
                 ? `${styles.aliveBlink} ${styles.animated}`
                 : undefined
         }
@@ -715,7 +725,7 @@ export default function BeakerBot({
             r="1.2"
             fill="currentColor"
             stroke="none"
-            className={aliveActive ? styles.aliveGaze : undefined}
+            className={aliveFaceActive ? styles.aliveGaze : undefined}
           />
         )}
       </g>
@@ -733,7 +743,7 @@ export default function BeakerBot({
               ? `${styles.sleepEye} ${styles.animated}`
               : animated && effectivePose === "reading"
                 ? `${styles.readEye} ${styles.animated}`
-                : aliveActive
+                : aliveFaceActive
                   ? `${styles.aliveBlink} ${styles.animated}`
                   : undefined
         }
@@ -785,7 +795,7 @@ export default function BeakerBot({
             r="1.2"
             fill="currentColor"
             stroke="none"
-            className={aliveActive ? styles.aliveGaze : undefined}
+            className={aliveFaceActive ? styles.aliveGaze : undefined}
           />
         )}
       </g>

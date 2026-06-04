@@ -680,6 +680,7 @@ function V3InflightPrompt({ onRestart, onSkip }: V3InflightPromptProps) {
             >
               <BeakerBot
                 pose="waving"
+                alive
                 direction="right"
                 className="w-full h-full text-sky-500"
               />
@@ -790,6 +791,7 @@ function V4ResumePrompt({
             >
               <BeakerBot
                 pose="waving"
+                alive
                 direction="right"
                 className="w-full h-full text-sky-500"
               />
