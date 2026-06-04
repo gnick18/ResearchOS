@@ -97,6 +97,8 @@ import DetectFeaturesDialog, {
 // the editor's new Analyze menu (a second door; the library-header Compare
 // stays). Rendered here with its own open state; not modified.
 import CompareSequencesDialog from "./CompareSequencesDialog";
+// protein analyze bot — the second door into the protein-properties engine.
+import ProteinPropertiesDialog from "./ProteinPropertiesDialog";
 import EnzymePickerDialog from "./EnzymePickerDialog";
 import PrimerDialog, { type PrimerDialogRequest } from "./PrimerDialog";
 import PrimerEditorDialog, {
@@ -431,6 +433,8 @@ export default function SequenceEditView({
   // menu reorg bot — the Compare/Align dialog, opened from the new Analyze menu
   // (a second door into the same library-level dialog the library header opens).
   const [compareOpen, setCompareOpen] = useState(false);
+  // protein analyze bot — the Analyze > Protein properties dialog.
+  const [proteinPropsOpen, setProteinPropsOpen] = useState(false);
   // menu reorg bot — a nonce the Primer menu's "Check specificity..." item bumps
   // to switch the Primers tab onto its Check (specificity) view directly.
   const [primersCheckNonce, setPrimersCheckNonce] = useState(0);
@@ -2190,6 +2194,15 @@ export default function SequenceEditView({
         group: true,
         onRun: () => setCompareOpen(true),
       },
+      // protein analyze bot — the second door into the protein-properties
+      // engine (the Lab calculators panel tab is the first). Pipes in the
+      // active selection or a chosen CDS / gene, no copy-paste.
+      {
+        id: "analyze-protein-props",
+        label: "Protein properties…",
+        enabled: true,
+        onRun: () => setProteinPropsOpen(true),
+      },
     ],
     [openDetectFeatures, openAnnotateFromReference],
   );
@@ -2908,6 +2921,17 @@ export default function SequenceEditView({
         open={compareOpen}
         onClose={() => setCompareOpen(false)}
         defaultAId={sequence.id}
+      />
+
+      {/* protein analyze bot — Protein properties, opened from the Analyze menu.
+          Seeds from the current selection, else a CDS / gene picker, else a
+          paste field; renders the SAME shared view as the calculators tab. */}
+      <ProteinPropertiesDialog
+        open={proteinPropsOpen}
+        onClose={() => setProteinPropsOpen(false)}
+        seq={doc.seq}
+        features={doc.features}
+        selection={sel}
       />
 
       {/* Phase 2d — restriction-enzyme chooser. Applies the active set live. */}
