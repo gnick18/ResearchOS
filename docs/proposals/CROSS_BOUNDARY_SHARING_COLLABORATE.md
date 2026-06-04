@@ -153,6 +153,8 @@ Tradeoffs.
 
 ### Recommendation
 
+DECISION (Grant, 2026-06-04), LOCKED to 4a (E2E-blind). Grant confirmed the key worry, E2E-blind does NOT change the live-editing experience, you still get the full Google-Docs feel (simultaneous editing, live remote cursors, presence) because the Yjs CRDT and awareness layer are identical under both forks, the only difference is that the hub relays sealed bytes it cannot read. The encryption is transparent to the merge (each client decrypts locally and converges), so 4a costs engineering, not UX, and keeps the "our servers never see your research, even live" claim. 4b is no longer under consideration. PROCEEDING via a local spike first (wrangler dev, no infra provisioning) to de-risk the Yjs + CM6 + Durable Object integration before committing to the MVP build.
+
 Recommended, pending Grant, E2E-blind (4a). It is the only option that keeps the strong "our servers never see your research, even live" claim that the whole sharing arc is built on, and it reuses the crypto primitives already shipped in `encryption.ts`. The extra work is real but bounded, and secsync gives us either a library to adopt or a blueprint to copy. The MVP can ship the blind relay first and add blind snapshot/compaction in a fast follow (a two-person session that never drops barely needs catch-up), so the harder half of 4a is deferrable without compromising the posture.
 
 If Grant decides the engineering cost is not worth it for a beta, 4b is the honest fallback, but it must come with an explicit, visible "during a live session the hub temporarily holds the document" disclosure, because it changes the privacy story.
