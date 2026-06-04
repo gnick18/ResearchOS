@@ -3,6 +3,8 @@
 // (shift-click span, hover-card content, the selection band's bp -> x mapping)
 // is verified without rendering. LinearMap + SequenceEditView import these.
 
+import { nearestNeighborTm } from "@/lib/calculators/tm-nn";
+
 /** A half-open-ish feature/selection range in bp (start <= end after normalize). */
 export interface SelRange {
   start: number;
@@ -129,6 +131,34 @@ export function buildFeatureCard(f: CardFeature): { title: string; lines: CardLi
   const note = (f.note || "").trim();
   if (note) lines.push({ label: "Product", value: note });
   return { title: f.name || "feature", lines };
+}
+
+/**
+ * HOVER INFO-CARD for a PRIMER. Same shape as the feature card but with the
+ * primer-relevant stats a biologist reads off a click today: the 1-based binding
+ * coordinates, the length, the %GC, and the nearest-neighbor Tm (the same model
+ * the selection readout uses). `seq` is the whole template; the stats come from
+ * the primer's annealed region seq[lo, hi). Tm is omitted when the region is
+ * outside the model's valid oligo length (nearestNeighborTm returns null).
+ */
+export function buildPrimerCard(
+  primer: { name: string; start: number; end: number },
+  seq: string,
+): { title: string; lines: CardLine[] } {
+  const lo = Math.min(primer.start, primer.end);
+  const hi = Math.max(primer.start, primer.end);
+  const lengthBp = Math.max(0, hi - lo);
+  const region = seq.slice(lo, hi).toUpperCase();
+  const lines: CardLine[] = [];
+  lines.push({ value: `${commaGroup(lo + 1)} .. ${commaGroup(hi)}` });
+  lines.push({ label: "Length", value: `${commaGroup(lengthBp)} bp` });
+  if (lengthBp > 0) {
+    const gc = Math.round(((region.match(/[GC]/g)?.length ?? 0) / lengthBp) * 100);
+    lines.push({ label: "GC", value: `${gc}%` });
+  }
+  const tm = nearestNeighborTm(region);
+  if (tm) lines.push({ label: "Tm", value: `${tm.tm.toFixed(1)} °C` });
+  return { title: primer.name || "primer", lines };
 }
 
 /**

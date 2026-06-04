@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   spanFromShiftClick,
   buildFeatureCard,
+  buildPrimerCard,
   selectionBandRect,
   normalizeRange,
   circularArcLength,
@@ -118,6 +119,29 @@ describe("buildFeatureCard", () => {
   it("comma-groups large coordinates", () => {
     const card = buildFeatureCard({ name: "big", start: 12000, end: 1500000, type: "misc" });
     expect(card.lines[0].value).toBe("12,001 .. 1,500,000");
+  });
+});
+
+describe("buildPrimerCard (primer hover bot)", () => {
+  // A 20-mer, 50% GC. seq region is sliced from [start, end).
+  const TEMPLATE = "X".repeat(100) + "ATGCATGCATGCATGCATGC" + "X".repeat(100);
+  it("shows 1-based coords, length and %GC for the primer's binding region", () => {
+    const card = buildPrimerCard({ name: "Fwd_1", start: 100, end: 120 }, TEMPLATE);
+    expect(card.title).toBe("Fwd_1");
+    expect(card.lines[0].value).toBe("101 .. 120");
+    expect(card.lines.find((l) => l.label === "Length")?.value).toBe("20 bp");
+    expect(card.lines.find((l) => l.label === "GC")?.value).toBe("50%");
+  });
+  it("includes a Tm line for an oligo-length region", () => {
+    const card = buildPrimerCard({ name: "Fwd_1", start: 100, end: 120 }, TEMPLATE);
+    const tm = card.lines.find((l) => l.label === "Tm");
+    expect(tm).toBeDefined();
+    expect(tm?.value).toMatch(/^\d+\.\d °C$/);
+  });
+  it("falls back to a default title and handles a swapped range", () => {
+    const card = buildPrimerCard({ name: "", start: 120, end: 100 }, TEMPLATE);
+    expect(card.title).toBe("primer");
+    expect(card.lines[0].value).toBe("101 .. 120");
   });
 });
 

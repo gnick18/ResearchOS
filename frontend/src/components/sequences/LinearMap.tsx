@@ -70,7 +70,7 @@ import {
 import Tooltip from "@/components/Tooltip";
 import LinearMapNavigator from "./LinearMapNavigator";
 import MapJogWheel from "./MapJogWheel";
-import { buildFeatureCard, selectionBandRect, dragSelectRange, isDrag } from "@/lib/sequences/linear-map-select";
+import { buildFeatureCard, buildPrimerCard, selectionBandRect, dragSelectRange, isDrag } from "@/lib/sequences/linear-map-select";
 import type { SeqType } from "@/vendor/seqviz/elements";
 
 /** A feature to draw below the line. Mirrors the editor's annotation shape. */
@@ -256,6 +256,13 @@ export default function LinearMap({
   // the floating info card follows the cursor without reading refs during render.
   // The hovered feature also drives the red bracket preview on the ruler.
   const [hoverFeature, setHoverFeature] = useState<{ idx: number; left: number; top: number } | null>(null);
+  // primer hover bot — hovering a primer shows the same coords / bp / GC / Tm
+  // card the click readout shows (separate from the feature hover state).
+  const [hoverPrimer, setHoverPrimer] = useState<{
+    primer: { name: string; start: number; end: number };
+    left: number;
+    top: number;
+  } | null>(null);
 
   // map select bot — compute the info card's clamped position from a pointer
   // event. Reads the wrapper rect + scroll offsets HERE (in an event handler,
@@ -730,6 +737,11 @@ export default function LinearMap({
     () => (hovered ? buildFeatureCard(hovered) : null),
     [hovered],
   );
+  // primer hover bot — the primer info card (coords / bp / GC / Tm).
+  const primerCard = useMemo(
+    () => (hoverPrimer ? buildPrimerCard(hoverPrimer.primer, seq) : null),
+    [hoverPrimer, seq],
+  );
 
   if (!seqLength) return null;
 
@@ -982,11 +994,18 @@ export default function LinearMap({
                 // track, so a pointer-down here must NOT begin a range drag. Stop
                 // it from bubbling to the SVG root's drag-start handler.
                 onPointerDown={(e) => e.stopPropagation()}
-                onMouseEnter={() => {
+                onMouseEnter={(e) => {
                   if (isEnzyme && src.enzymeName) setHoverEnzyme(src.enzymeName);
+                  else if (src.kind === "primer" && src.primerRef)
+                    setHoverPrimer({ primer: src.primerRef, ...cardPosFromEvent(e.clientX, e.clientY) });
+                }}
+                onMouseMove={(e) => {
+                  if (src.kind === "primer" && src.primerRef)
+                    setHoverPrimer({ primer: src.primerRef, ...cardPosFromEvent(e.clientX, e.clientY) });
                 }}
                 onMouseLeave={() => {
                   if (isEnzyme) setHoverEnzyme(null);
+                  else setHoverPrimer(null);
                 }}
                 // map select bot — a single click on an above-line item (enzyme
                 // cut / primer) is consumed (stopPropagation) so it does NOT fall
@@ -1196,6 +1215,29 @@ export default function LinearMap({
           <div className="text-body font-semibold text-slate-800">{hoverCard.title}</div>
           <div className="mt-1 space-y-0.5">
             {hoverCard.lines.map((line, li) => (
+              <div key={li} className="text-meta text-slate-600">
+                {line.label ? (
+                  <span className="font-medium text-slate-500">{line.label} </span>
+                ) : null}
+                {line.value}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* primer hover bot — the same floating card for a hovered PRIMER, showing
+          its binding coords, length, %GC and nearest-neighbor Tm (the stats the
+          click readout shows). Same popover treatment as the feature card. */}
+      {hoverPrimer && primerCard ? (
+        <div
+          role="tooltip"
+          className="pointer-events-none absolute z-30 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-lg"
+          style={{ left: hoverPrimer.left, top: hoverPrimer.top, width: CARD_W }}
+        >
+          <div className="text-body font-semibold text-slate-800">{primerCard.title}</div>
+          <div className="mt-1 space-y-0.5">
+            {primerCard.lines.map((line, li) => (
               <div key={li} className="text-meta text-slate-600">
                 {line.label ? (
                   <span className="font-medium text-slate-500">{line.label} </span>
