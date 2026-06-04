@@ -9,7 +9,9 @@ import { describe, it, expect } from "vitest";
 import {
   detectFeatures,
   DEFAULT_FULL_IDENTITY,
+  MIN_DNA_DETECT_LEN,
   type ReferenceProtein,
+  type ReferenceDna,
 } from "./feature-detect";
 import { reverseComplement } from "../align";
 
@@ -219,5 +221,187 @@ describe("detectFeatures — de-dupe overlaps", () => {
     const { features } = detectFeatures(seq, LIB);
     const gfpHits = features.filter((f) => f.name === "TestGFP");
     expect(gfpHits.length).toBeLessThanOrEqual(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DNA-element path
+// ---------------------------------------------------------------------------
+// Fixtures embed REAL dna-features.json entries (verbatim) into synthetic
+// flanks and assert the raw-nucleotide DNA path recovers them at the right
+// forward coordinates, strand, and high identity, and that the short-reference
+// guards suppress chance noise.
+
+// Real entries copied verbatim from frontend/public/feature-db/dna-features.json
+// (CMV promoter, T3 promoter, rrnB T1 terminator, SV40 polyA, Shine-Dalgarno).
+const CMV_PROMOTER: ReferenceDna = {
+  name: "CMV promoter (human cytomegalovirus immediate-early)",
+  category: "promoter",
+  seq: "GTGATGCGGTTTTGGCAGTACATCAATGGGCGTGGATAGCGGTTTGACTCACGGGGATTTCCAAGTCTCCACCCCATTGACGTCAATGGGAGTTTGTTTTGGCACCAAAATCAACGGGACTTTCCAAAATGTCGTAACAACTCCGCCCCATTGACGCAAATGGGCGGTAGGCGTGTACGGTGGGAGGTCTATATAAGCAGAGCT",
+  source: "NCBI GenBank (nuccore), extracted by feature coordinates",
+  license: "Public domain sequence facts (GenBank/NCBI).",
+};
+
+const T3_PROMOTER: ReferenceDna = {
+  name: "T3 promoter (for T3 RNA polymerase)",
+  category: "promoter",
+  seq: "ATTAACCCTCACTAACGGGAGA", // 22 bp -> above MIN_DNA_ALIGN_LEN, alignment path
+  source: "NCBI GenBank (nuccore), extracted by feature coordinates",
+  license: "Public domain sequence facts (GenBank/NCBI).",
+};
+
+const RRNB_T1: ReferenceDna = {
+  name: "rrnB T1 terminator",
+  category: "terminator",
+  seq: "CAAATAAAACGAAAGGCTCAGTCGAAAGACTGGGCCTTTCGTTTTATCTGTTGTTTGTCGGTGAACGCTCTCCTGAGTAGGACAAAT",
+  source: "NCBI GenBank (nuccore), extracted by feature coordinates",
+  license: "Public domain sequence facts (GenBank/NCBI).",
+};
+
+const SV40_POLYA: ReferenceDna = {
+  name: "SV40 late polyA signal",
+  category: "regulatory",
+  seq: "AATAAA", // 6 bp -> below MIN_DNA_DETECT_LEN, skipped entirely
+  source: "NCBI GenBank (nuccore), extracted by feature coordinates",
+  license: "Public domain sequence facts (GenBank/NCBI).",
+};
+
+// A made-up 10 bp reference: in [MIN_DNA_DETECT_LEN, MIN_DNA_ALIGN_LEN), so it
+// routes through the near-exact short-window scan, not loose alignment.
+const SHORT_MOTIF: ReferenceDna = {
+  name: "Test 10bp motif",
+  category: "regulatory",
+  seq: "ACGTACGTAC",
+  source: "synthetic",
+  license: "n/a",
+};
+
+const DNA_LIB = [CMV_PROMOTER, T3_PROMOTER, RRNB_T1, SV40_POLYA, SHORT_MOTIF];
+
+describe("detectFeatures — DNA element, forward strand", () => {
+  it("detects a CMV promoter at exact coords with full identity", () => {
+    const flank5 = randomFlank(120, 31);
+    const flank3 = randomFlank(90, 41);
+    const seq = flank5 + CMV_PROMOTER.seq + flank3;
+
+    const { features } = detectFeatures(seq, [], {}, DNA_LIB);
+    const hit = features.find((f) => f.name === CMV_PROMOTER.name);
+    expect(hit).toBeDefined();
+    if (!hit) return;
+    expect(hit.sequenceType).toBe("dna");
+    expect(hit.kind).toBe("dna");
+    expect(hit.category).toBe("promoter");
+    expect(hit.strand).toBe(1);
+    expect(hit.identity).toBeGreaterThanOrEqual(0.99);
+    expect(hit.dnaStart).toBe(flank5.length);
+    expect(hit.dnaEnd).toBe(flank5.length + CMV_PROMOTER.seq.length);
+    expect(hit.source).toBe(CMV_PROMOTER.source);
+    expect(hit.license).toBe(CMV_PROMOTER.license);
+  });
+
+  it("detects a 22 bp T3 promoter via the alignment path", () => {
+    const flank5 = randomFlank(60, 71);
+    const seq = flank5 + T3_PROMOTER.seq + randomFlank(60, 73);
+    const { features } = detectFeatures(seq, [], {}, DNA_LIB);
+    const hit = features.find((f) => f.name === T3_PROMOTER.name);
+    expect(hit).toBeDefined();
+    if (!hit) return;
+    expect(hit.strand).toBe(1);
+    expect(hit.identity).toBeGreaterThanOrEqual(0.99);
+    expect(hit.dnaStart).toBe(flank5.length);
+    expect(hit.dnaEnd).toBe(flank5.length + T3_PROMOTER.seq.length);
+  });
+});
+
+describe("detectFeatures — DNA element, reverse strand", () => {
+  it("detects an rrnB T1 terminator inserted on the minus strand with flipped strand", () => {
+    const flank5 = randomFlank(70, 91);
+    const flank3 = randomFlank(50, 93);
+    // Insert the reverse complement of the terminator so it is present on the
+    // (-) strand of the forward sequence.
+    const insert = reverseComplement(RRNB_T1.seq);
+    const seq = flank5 + insert + flank3;
+
+    const { features } = detectFeatures(seq, [], {}, DNA_LIB);
+    const hit = features.find((f) => f.name === RRNB_T1.name);
+    expect(hit).toBeDefined();
+    if (!hit) return;
+    expect(hit.strand).toBe(-1);
+    expect(hit.identity).toBeGreaterThanOrEqual(0.99);
+    expect(hit.dnaStart).toBe(flank5.length);
+    expect(hit.dnaEnd).toBe(flank5.length + RRNB_T1.seq.length);
+  });
+});
+
+describe("detectFeatures — DNA short-reference guards", () => {
+  it("skips a reference below MIN_DNA_DETECT_LEN and reports it as too short", () => {
+    // Embed the literal SV40 polyA hexamer; it must NOT be proposed and must be
+    // listed in tooShortDna.
+    const seq = randomFlank(60, 5) + SV40_POLYA.seq + randomFlank(60, 6);
+    expect(SV40_POLYA.seq.length).toBeLessThan(MIN_DNA_DETECT_LEN);
+    const { features, tooShortDna } = detectFeatures(seq, [], {}, DNA_LIB);
+    expect(features.find((f) => f.name === SV40_POLYA.name)).toBeUndefined();
+    expect(tooShortDna).toContain(SV40_POLYA.name);
+  });
+
+  it("does not spuriously match a short (10 bp) motif against random sequence", () => {
+    // Random 1.5 kb with no planted motif; the near-exact short-window scan must
+    // not flag the 10 bp motif (it would need a >=95% full-length window match,
+    // which random DNA effectively never produces here).
+    const seq = randomFlank(1500, 24680);
+    const { features } = detectFeatures(seq, [], {}, DNA_LIB);
+    expect(features.find((f) => f.name === SHORT_MOTIF.name)).toBeUndefined();
+  });
+
+  it("detects the 10 bp motif when it IS planted exactly", () => {
+    const flank5 = randomFlank(40, 12);
+    const seq = flank5 + SHORT_MOTIF.seq + randomFlank(40, 14);
+    const { features } = detectFeatures(seq, [], {}, DNA_LIB);
+    const hit = features.find((f) => f.name === SHORT_MOTIF.name);
+    expect(hit).toBeDefined();
+    if (!hit) return;
+    expect(hit.identity).toBe(1);
+    expect(hit.dnaStart).toBe(flank5.length);
+    expect(hit.dnaEnd).toBe(flank5.length + SHORT_MOTIF.seq.length);
+  });
+});
+
+describe("detectFeatures — DNA identity gate", () => {
+  it("rejects a diverged promoter region below the identity gate", () => {
+    // Mutate every 3rd base of the CMV promoter (~33% divergence) so identity
+    // falls below the 0.85 gate. Rotate each chosen base to the next in ACGT.
+    const next: Record<string, string> = { A: "C", C: "G", G: "T", T: "A" };
+    const mutated = CMV_PROMOTER.seq
+      .split("")
+      .map((b, i) => (i % 3 === 0 ? next[b] ?? b : b))
+      .join("");
+    const seq = randomFlank(60, 33) + mutated + randomFlank(60, 35);
+    const { features } = detectFeatures(seq, [], {}, DNA_LIB);
+    const hit = features.find((f) => f.name === CMV_PROMOTER.name);
+    expect(hit).toBeUndefined();
+  });
+
+  it("accepts the high (0.85) default DNA identity gate for a clean insertion", () => {
+    const seq = randomFlank(40, 51) + RRNB_T1.seq + randomFlank(40, 53);
+    const { features } = detectFeatures(seq, [], {}, DNA_LIB);
+    const hit = features.find((f) => f.name === RRNB_T1.name);
+    expect(hit?.identity).toBeGreaterThanOrEqual(0.85);
+  });
+});
+
+describe("detectFeatures — DNA + protein merge", () => {
+  it("returns both a protein hit and a DNA element from one sequence", () => {
+    // CMV promoter immediately upstream of a fluorescent-protein CDS.
+    const flank5 = randomFlank(30, 61);
+    const cds = cdsFor(FP_REF.seq);
+    const seq = flank5 + CMV_PROMOTER.seq + cds + randomFlank(30, 63);
+
+    const { features } = detectFeatures(seq, LIB, {}, DNA_LIB);
+    const prot = features.find((f) => f.sequenceType === "protein" && f.name === "TestGFP");
+    const dna = features.find((f) => f.sequenceType === "dna" && f.name === CMV_PROMOTER.name);
+    expect(prot).toBeDefined();
+    expect(dna).toBeDefined();
+    // The DNA promoter sits before the protein CDS in coordinate order.
+    if (prot && dna) expect(dna.dnaStart).toBeLessThan(prot.dnaStart);
   });
 });

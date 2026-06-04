@@ -3,13 +3,15 @@
 // feature detect bot — COMMON-FEATURE DETECTOR dialog.
 //
 // Runs detectFeatures (lib/sequences/feature-detect) on the open DNA sequence
-// against the bundled protein feature DB (public/feature-db/protein-features
-// .json): fluorescent proteins, resistance markers, fusion tags, and short
-// epitope tags. The DB is matched by TRANSLATION, so a codon-optimized GFP still
-// flags. Each proposed feature shows name, category, DNA position, strand, and
-// identity; the user checks the ones to keep and they are applied through the
-// editor's add-feature path in ONE undoable edit. A small "closest known
-// protein per ORF" section surfaces near-misses without auto-proposing them.
+// against TWO bundled feature DBs: the protein DB (protein-features.json), which
+// is matched by TRANSLATION (a codon-optimized GFP still flags), and the DNA
+// element DB (dna-features.json), which is matched by RAW NUCLEOTIDE alignment
+// on both strands (origins, promoters, terminators, regulatory regions). Both
+// families merge into one proposed-features list, each row labeled by category.
+// Each proposed feature shows name, category, DNA position, strand, and identity;
+// the user checks the ones to keep and they are applied through the editor's
+// add-feature path in ONE undoable edit. A small "closest known protein per ORF"
+// section surfaces protein near-misses without auto-proposing them.
 //
 // Sibling of AnnotateFromReferenceDialog. Calm, compact layout. Type tokens
 // (text-meta / text-body / text-title). Icon-only buttons wrapped in <Tooltip>.
@@ -24,6 +26,7 @@ import {
   type DetectedFeature,
   type ClosestMatch,
   type ReferenceProtein,
+  type ReferenceDna,
 } from "@/lib/sequences/feature-detect";
 
 export interface DetectFeaturesRequest {
@@ -53,16 +56,21 @@ interface Row {
   selected: boolean;
 }
 
-/** Human label per DB category. */
+/** Human label per DB category (protein families + DNA-element families). */
 const CATEGORY_LABEL: Record<string, string> = {
   fluorescent_protein: "fluorescent protein",
   resistance_marker: "resistance marker",
   fusion_tag: "fusion tag",
   epitope_tag: "epitope tag",
+  origin: "origin",
+  promoter: "promoter",
+  terminator: "terminator",
+  regulatory: "regulatory",
 };
 
 /** Map a detected category to the editor's feature `type` so colors/exports are
- *  sensible. Fluorescent proteins and markers are CDS-level; tags are misc. */
+ *  sensible. Fluorescent proteins and markers are CDS-level; tags are misc; DNA
+ *  elements map to their GenBank-style feature types. */
 function typeForCategory(category: string): string {
   switch (category) {
     case "fluorescent_protein":
@@ -71,6 +79,14 @@ function typeForCategory(category: string): string {
     case "fusion_tag":
     case "epitope_tag":
       return "misc_feature";
+    case "origin":
+      return "rep_origin";
+    case "promoter":
+      return "promoter";
+    case "terminator":
+      return "terminator";
+    case "regulatory":
+      return "regulatory";
     default:
       return "misc_feature";
   }
@@ -97,11 +113,15 @@ export default function DetectFeaturesDialog({
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/feature-db/protein-features.json", {
-          cache: "force-cache",
-        });
-        if (!res.ok) throw new Error("db");
-        const data = (await res.json()) as FeatureDbFile;
+        // Fetch both feature DBs in parallel. The protein DB is required; the
+        // DNA DB is treated as best-effort (if it 404s the detector still runs
+        // the protein path) so an older deploy without it does not hard-fail.
+        const [protRes, dnaRes] = await Promise.all([
+          fetch("/feature-db/protein-features.json", { cache: "force-cache" }),
+          fetch("/feature-db/dna-features.json", { cache: "force-cache" }),
+        ]);
+        if (!protRes.ok) throw new Error("db");
+        const data = (await protRes.json()) as FeatureDbFile;
         if (cancelled) return;
         const refs: ReferenceProtein[] = (data.entries ?? [])
           .filter((e) => e.sequenceType === "protein" && e.seq)
@@ -112,7 +132,20 @@ export default function DetectFeaturesDialog({
             source: e.source,
             license: e.license,
           }));
-        const result = detectFeatures(request.openSeq, refs);
+        let dnaRefs: ReferenceDna[] = [];
+        if (dnaRes.ok) {
+          const dnaData = (await dnaRes.json()) as FeatureDbFile;
+          dnaRefs = (dnaData.entries ?? [])
+            .filter((e) => e.sequenceType === "dna" && e.seq)
+            .map((e) => ({
+              name: e.name,
+              category: e.category,
+              seq: e.seq,
+              source: e.source,
+              license: e.license,
+            }));
+        }
+        const result = detectFeatures(request.openSeq, refs, {}, dnaRefs);
         if (cancelled) return;
         setRows(result.features.map((f) => ({ feature: f, selected: true })));
         setClosest(result.closest);
@@ -212,8 +245,10 @@ export default function DetectFeaturesDialog({
             <div className="space-y-4">
               <p className="text-body text-gray-600">
                 ResearchOS translated every open reading frame on both strands and
-                compared each to a library of common protein elements. Pick the
-                ones to add as features.
+                compared each to a library of common protein elements, and aligned
+                the raw sequence against common DNA elements (origins, promoters,
+                terminators, regulatory regions) on both strands. Pick the ones to
+                add as features.
               </p>
 
               {rows.length === 0 ? (
@@ -279,7 +314,9 @@ export default function DetectFeaturesDialog({
         <div className="flex items-start gap-2 border-t border-gray-100 px-5 py-3">
           <p className="text-meta text-gray-400">
             Reference data from FPbase (copyright-free) and UniProt / Swiss-Prot
-            (CC BY 4.0), plus standard published epitope-tag sequences.
+            (CC BY 4.0), plus standard published epitope-tag sequences. DNA
+            elements extracted from NCBI GenBank records (public-domain sequence
+            facts).
           </p>
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <button
@@ -343,6 +380,13 @@ function DetectedRow({ row, onToggle }: { row: Row; onToggle: () => void }) {
           <Tooltip label="Short epitope tag, matched near-exactly within a reading frame.">
             <span className="shrink-0 rounded-full bg-violet-50 px-2 py-0.5 text-meta font-medium text-violet-700">
               tag
+            </span>
+          </Tooltip>
+        )}
+        {f.sequenceType === "dna" && (
+          <Tooltip label="DNA element, matched by raw-nucleotide alignment on both strands (not by translation).">
+            <span className="shrink-0 rounded-full bg-sky-50 px-2 py-0.5 text-meta font-medium text-sky-700">
+              DNA
             </span>
           </Tooltip>
         )}
