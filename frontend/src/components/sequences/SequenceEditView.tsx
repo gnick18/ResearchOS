@@ -699,9 +699,28 @@ export default function SequenceEditView({
         // popped off. The feature's start/end already record the ANNEALED span,
         // but we re-derive the BindingSite from the oligo so we recover the
         // annealedLength + tail length + mismatch columns the feature does not
-        // store. When the oligo is missing or does not anneal, baseCells stays
-        // undefined and the renderer falls back to the arrow + label only.
-        const oligo = readPrimerSeq(f);
+        // store.
+        //
+        // primer bases FIX (2026-06-04) — most primers in real files (imported
+        // .dna/GenBank, or ones marked only as a binding region) carry NO stored
+        // oligo note, so readPrimerSeq returned nothing and the renderer drew a
+        // bare arrow with no bases (the bug Grant hit on FAD-5F). Fall back to
+        // treating the primer as a perfect annealer whose oligo IS the template
+        // over its recorded binding span (reverse-complemented for a reverse
+        // primer, since the oligo reads 5'->3' on the bottom strand). Now EVERY
+        // primer shows its annealing bases SnapGene-style; the 5' tail / mismatch
+        // flap only appears for primers that DO carry a richer stored oligo with
+        // an overhang. Only if the synthesized region also fails to anneal does
+        // baseCells stay undefined and the arrow-only fallback kick in.
+        let oligo = readPrimerSeq(f);
+        if (!oligo) {
+          const lo = Math.min(f.start, f.end);
+          const hi = Math.max(f.start, f.end);
+          const region = doc.seq.slice(lo, hi);
+          if (region.length > 0) {
+            oligo = direction === -1 ? reverseComplement(region) : region;
+          }
+        }
         let baseCells: PrimerBaseCell[] | undefined;
         let tailLength: number | undefined;
         if (oligo) {
