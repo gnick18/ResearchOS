@@ -125,9 +125,9 @@ export default function MapJogWheel({
           <defs>
             {/* recessed inset look: a soft top-to-bottom shade on the track */}
             <linearGradient id="jogInset" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#e2e8f0" />
-              <stop offset="0.5" stopColor="#f8fafc" />
-              <stop offset="1" stopColor="#e2e8f0" />
+              <stop offset="0" stopColor="#cbd5e1" />
+              <stop offset="0.5" stopColor="#f1f5f9" />
+              <stop offset="1" stopColor="#cbd5e1" />
             </linearGradient>
             {/* clip the spinning ribs to the rounded track */}
             <clipPath id="jogClip">
@@ -143,7 +143,7 @@ export default function MapJogWheel({
             height={WHEEL_H - 1}
             rx={5}
             fill="url(#jogInset)"
-            stroke="#cbd5e1"
+            stroke="#94a3b8"
             strokeWidth={1}
           />
 
@@ -152,7 +152,7 @@ export default function MapJogWheel({
             {xs.map((x, i) => {
               // fade ribs toward the track edges for a cylindrical, rounded feel
               const edgeFade = Math.min(1, Math.min(x, trackW - x) / (trackW / 2.5));
-              const opacity = 0.25 + 0.5 * Math.max(0, edgeFade);
+              const opacity = 0.5 + 0.4 * Math.max(0, edgeFade);
               return (
                 <line
                   key={i}
@@ -160,7 +160,7 @@ export default function MapJogWheel({
                   y1={3}
                   x2={x}
                   y2={WHEEL_H - 3}
-                  stroke="#94a3b8"
+                  stroke="#475569"
                   strokeWidth={RIB_W}
                   strokeLinecap="round"
                   opacity={opacity}
@@ -170,13 +170,13 @@ export default function MapJogWheel({
             {/* center detent marker so the wheel has a visual home line */}
             <line
               x1={midRib}
-              y1={2}
+              y1={1.5}
               x2={midRib}
-              y2={WHEEL_H - 2}
-              stroke="#3b82f6"
-              strokeWidth={1.5}
+              y2={WHEEL_H - 1.5}
+              stroke="#2563eb"
+              strokeWidth={2.5}
               strokeLinecap="round"
-              opacity={0.55}
+              opacity={1}
             />
           </g>
         </svg>

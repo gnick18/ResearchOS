@@ -527,8 +527,8 @@ export default function LinearMap({
 
         {/* ── jog / shuttle wheel: FINE panning when zoomed in (map jog wheel
             bot). Inert at full zoom-out (nothing to pan). ── */}
-        <div className="ml-auto flex items-center gap-1.5">
-          <span className="text-meta text-slate-400">Scroll</span>
+        <div className="ml-auto flex items-center gap-1.5 rounded-md bg-slate-50 px-2 py-1 ring-1 ring-slate-200">
+          <span className="text-meta font-semibold tracking-wide text-slate-600 uppercase">Scroll</span>
           <MapJogWheel onScrub={onJogScrub} disabled={!isZoomedIn} width={96} />
         </div>
       </div>
