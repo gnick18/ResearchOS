@@ -87,6 +87,9 @@ import ViewControlRail from "./ViewControlRail";
 import FeatureEditorDialog, {
   type FeatureEditorRequest,
 } from "./FeatureEditorDialog";
+import AnnotateFromReferenceDialog, {
+  type AnnotateFromReferenceRequest,
+} from "./AnnotateFromReferenceDialog";
 import EnzymePickerDialog from "./EnzymePickerDialog";
 import PrimerDialog, { type PrimerDialogRequest } from "./PrimerDialog";
 import PrimerEditorDialog, {
@@ -401,6 +404,10 @@ export default function SequenceEditView({
   // ViewControlRail (which toggles WHAT is drawn on the map).
   const [viewMode, setViewMode] = useState<SequenceViewMode>("sequence");
   const [featureEditor, setFeatureEditor] = useState<FeatureEditorRequest | null>(null);
+  // annotate-from-reference bot — homology-based "transfer features from a
+  // reference" dialog (open via the Feature menu).
+  const [annotateRef, setAnnotateRef] =
+    useState<AnnotateFromReferenceRequest | null>(null);
   const [selectedFeatureIdx, setSelectedFeatureIdx] = useState<number | null>(null);
   // Phase 2d — the restriction-enzyme picker. `activeEnzymes` is the in-session
   // chosen set (lowercase keys); null means "use the small common default".
@@ -1313,6 +1320,25 @@ export default function SequenceEditView({
     });
   }, [sel, doc.seq.length, editor]);
 
+  // annotate-from-reference bot — open the "transfer features from a reference"
+  // dialog. On confirm, add every chosen proposed feature in ONE undoable edit
+  // by folding the addFeature calls through a single applyDocEdit transform.
+  const openAnnotateFromReference = useCallback(() => {
+    setAnnotateRef({
+      openSeq: doc.seq,
+      currentSeqId: sequence.id,
+      onApply: (features: FeatureDraft[]) => {
+        if (features.length > 0) {
+          editor.applyDocEdit((prev) =>
+            features.reduce((acc, draft) => addFeature(acc, draft), prev),
+          );
+        }
+        setAnnotateRef(null);
+      },
+      onCancel: () => setAnnotateRef(null),
+    });
+  }, [doc.seq, sequence.id, editor]);
+
   // EDIT: open the editor seeded from an existing feature, with a Delete action.
   const openEditFeature = useCallback(
     (index: number) => {
@@ -2042,6 +2068,16 @@ export default function SequenceEditView({
           if (idx != null) deleteFeatureAt(idx);
         },
       },
+      // annotate-from-reference bot — homology-based feature transfer. Aligns
+      // the open sequence to another in the library and carries its features
+      // over. Its own group so it reads as a distinct action, not a CRUD verb.
+      {
+        id: "feat-annotate-ref",
+        label: "Annotate from Reference…",
+        enabled: true,
+        group: true,
+        onRun: openAnnotateFromReference,
+      },
     ];
     // top menus consolidation bot — the per-feature-type show/hide list relocated
     // from the rail's FeatureTypesFlyout. One TOGGLE row per distinct type;
@@ -2066,6 +2102,7 @@ export default function SequenceEditView({
     selectedFeatureIdx,
     selIsFeature,
     openAddFeature,
+    openAnnotateFromReference,
     openEditFeature,
     duplicateFeatureAt,
     deleteFeatureAt,
@@ -2711,6 +2748,9 @@ export default function SequenceEditView({
 
       {/* Add / edit feature dialog. */}
       <FeatureEditorDialog request={featureEditor} />
+
+      {/* annotate-from-reference bot — transfer features from a reference. */}
+      <AnnotateFromReferenceDialog request={annotateRef} />
 
       {/* Phase 2d — restriction-enzyme chooser. Applies the active set live. */}
       <EnzymePickerDialog
