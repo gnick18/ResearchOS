@@ -68,3 +68,17 @@ common fluorescent proteins (from FPbase), and a common MCS.
 - Confirm the assembled set's size is small enough to ship client-side (expected: easily, a
   few hundred short features as FASTA/JSON).
 - Attribution file for CC-BY sources (UniProt) + requested FPbase attribution.
+
+## STATUS 2026-06-03: BUILT (protein-level)
+
+Curated protein feature DB shipped @ 73830c6b (41 entries: 21 FPs from FPbase, 7
+resistance markers + 3 fusion tags from UniProt CC BY, 10 cited epitope-tag
+constants; re-runnable scripts/build-feature-db.mjs; ATTRIBUTION.md). SUMO pinned to
+human SUMO1 P63165. DETECTOR shipped @ 920fb34c: lib/sequences/feature-detect.ts
+(ORF -> translate -> BLOSUM62 align vs refs; full-protein identity>=0.6 + coverage>=0.5;
+epitope tags near-exact >=0.9; closest-known-protein per ORF) + DetectFeaturesDialog +
+Feature-menu "Detect common features...". 644 tests, verified vs live DB (dTomato exact).
+REMAINING FOLLOW-UP: DNA-only elements (origins, promoters, MCS, terminators, RBS,
+polyA) still absent (this DB is protein-only). Needs a separate DNA-reference curation
+from NCBI public-domain records (same verified-fetch, no-fabrication discipline), then
+the detector gains a DNA-vs-DNA path alongside the translated-protein path.
