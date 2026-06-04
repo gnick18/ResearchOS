@@ -36,9 +36,11 @@ PROTOTYPE RESULT (completed at handoff): the Loro data-model prototype PASSED al
 
 The ONE thing the run deliberately did NOT cover, the live-editing binding maturity. That is the remaining open substrate risk.
 
+LIVE-BINDING SPIKE NOW DONE + PASSED (2026-06-04, on `main` at `spikes/unified-model-loro-binding/`). loro-codemirror 0.3.3 binds CodeMirror 6 cleanly, concurrent + offline-then-merge converge, cursor awareness uses Loro stable Cursors (a notch ahead of Yjs), WASM init ~30ms. So **Loro is CONFIRMED as the full substrate, data + history + live text, no Automerge/Yjs fallback needed.** Section 12 of the design doc is closed; see section 12.1 for the results.
+
 NEXT STEPS (where to pick up):
-1. Run the deferred **live-binding spike**, `loro-codemirror` bound to CodeMirror 6, two clients over a local Durable Object relay (reuse the `spikes/collab-yjs/` `wrangler dev` DO), proving live convergence + cursor awareness + offline-then-merge, plus Loro's WASM first-load cost in Chrome/Edge. Keep it LEAN and watchdog-safe, the data-model run stalled once on a live server, so test the binding headlessly first or structure the server step so it streams progress and does not block. This is the last risk because Loro's editor bindings are young (loro-codemirror is months old, single maintainer). If the binding is too immature, that is the only thing that could still tilt the LIVE-TEXT layer back to Yjs (with a custom history layer) while keeping Loro for data + history.
-2. If the binding clears, Loro is confirmed as the substrate. Scope the real PHASED build, notes pilot first, per the migration plan in section 9 of the design doc, and get Grant's sign-off on the phasing before building.
+1. Before scoping the full build, two non-blocking follow-ups: (a) mount `LoroExtensions` inside ONE real React 19 component behind a flag (the Notes pilot is the natural host) to prove the binding under React 19 concurrent rendering, the spikes proved it in isolation only; (b) plan the WASM load strategy (serve loro-crdt brotli-compressed with `compileStreaming`, warm it during onboarding so the editor's first open is instant). Pin loro-codemirror versions, it is young (single maintainer, the awareness API already churned once).
+2. Then scope the real PHASED build, notes pilot first, per the migration plan in section 9 of the design doc, and get Grant's sign-off on the phasing before building.
 
 The eventual production build needs Grant to provision a Cloudflare Worker + Durable Object deploy target (the one new infra, like R2/Neon were). The local spikes need none.
 
@@ -53,7 +55,7 @@ The eventual production build needs Grant to provision a Cloudflare Worker + Dur
 
 ## Open and ready (not started)
 
-- **Settings revamp** is the one ready-to-build idle item. Spec is signed off at `docs/proposals/CROSS_BOUNDARY_SHARING_SETTINGS.md` (Personal-tab Sharing-identity + Inbox-and-storage sections at 5 GB / 100 pending, change-password, email-rotate flow, plus an operator-only usage tracker). Requires bumping the relay `RECIPIENT_QUOTA` 50 to 100 and adding an enforced `FREE_STORAGE_BYTES` as shared constants. Grant may ask you to start this in parallel.
+- **Settings revamp is DONE** (a parallel session shipped the build in `a73553f4`, and this session closed the two leftover D1/D6 copy gaps: claimed-account Security copy in `26ccae53`, forgot-password clarifier in `78156c39`). The relay constants landed as shared `PENDING_SHARE_CAP = 100` + `FREE_STORAGE_BYTES = 5 GiB` in `frontend/src/lib/sharing/relay/limits.ts`. No open work here.
 - Telegram standby state ("another tab") could get the same quiet-dot + popover treatment as the conflict state, for visual consistency (optional follow-up Grant was offered).
 - TOFU transparency-log endpoint for the directory (needs a `KT_LOG_SIGNING_KEY` provisioned).
 - Sharing prod housekeeping: add `AUTH_SECRET` to Vercel prod, verify `research-os.app` in Resend as the sending domain, swap CoC/privacy/abuse contacts to `support@research-os.app` (now that it works), confirm prod R2 CORS origins.

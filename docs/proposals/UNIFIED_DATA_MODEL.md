@@ -12,7 +12,7 @@ The core tension the research kept hitting, **no shipping system gets full real-
 
 | Question | Recommendation | Confidence |
 | --- | --- | --- |
-| Substrate | Loro (primary), Automerge (fallback), Yjs (last resort) | Medium, prototype-gated |
+| Substrate | **Loro, CONFIRMED for data + history + AND live text** (both prototypes passed 2026-06-04). Automerge/Yjs fallbacks no longer needed | High, prototype-proven |
 | On-disk model | LOCKED to B-plus-graceful-C (Grant, 2026-06-04). CRDT sidecar is the merge/history source of truth, a readable markdown/JSON mirror is always written, an external edit is ingested as ONE snapshot-commit (clean diff where the change is cleanly followable, full-copy checkpoint + a warning where it is not), concurrent external + in-app edits keep both as a conflict copy | High, locked |
 | Rich-text formatting | Marks live in the CRDT sidecar (Peritext-style), NOT as markdown control characters in the text | High |
 | Document granularity | One small CRDT doc per entity, linked by id; a project folder is a container doc holding child ids + folder metadata, not child content | High |
@@ -117,6 +117,14 @@ It must answer, in order of risk,
 6. React 19 + WASM init cost on first load in Chrome/Edge against our UX budget.
 
 If Loro clears these, it is the substrate and we scope the real phased build (notes pilot first, mirroring the migration plan). If it fails on history weight or bindings, fall back to Automerge (accepting load-time work). Yjs only if both fall over.
+
+## 12.1 Prototype results (2026-06-04), Loro CONFIRMED
+
+Both prototypes passed, so section 12 is closed and Loro is the substrate.
+- Data-model prototype (`spikes/unified-model-loro/`, node-only, 75/75 checks): the B + graceful-C external-edit policy works end to end, version-control-from-native-history is cheap (5000 commits compress to a 22KB snapshot that loads in 1.45ms, vs Automerge's ~1.8s large-doc load), the deterministic seed prevents the fork pitfall, and a structured record (Map + Counter + Movable Tree + Text in one doc) merges per-field with cross-type attribution.
+- Live-binding prototype (`spikes/unified-model-loro-binding/`): loro-codemirror 0.3.3 binds CodeMirror 6 cleanly (no peer-dep friction), concurrent + offline-then-merge-out-of-order converge, and cursor awareness uses Loro stable Cursors that track position natively (a notch ahead of Yjs's raw-offset awareness). WASM init is ~30ms (a non-issue); the only load note is the ~700KB brotli first-load, serve it brotli-compressed with `compileStreaming` and warm it during onboarding.
+
+Two follow-ups to fold into the phased build, NOT blockers: (1) mount `LoroExtensions` inside ONE real React 19 component behind a flag (the Notes pilot is the natural host) to prove the binding under React 19 concurrent rendering, the spikes proved it in isolation only; (2) the brotli-stream + warm-on-onboarding WASM load strategy. The maturity caveat stands, loro-codemirror is young (single maintainer, the awareness API already churned once from `LoroAwarenessPlugin` to `LoroEphemeralPlugin`), so pin versions and watch the project. This is a governance risk, not a capability risk.
 
 ## 13. Open decisions for Grant
 
