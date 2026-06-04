@@ -35,9 +35,11 @@ import { buildRawZip } from "@/lib/export/raw";
 import { buildSourceInstance } from "@/lib/export/types";
 import type {
   ExperimentExportPayload,
+  ManifestSender,
   RawManifest,
 } from "@/lib/export/types";
 import { projectsApi, methodsApi, filesApi, dependenciesApi } from "@/lib/local-api";
+import { readManifestSender } from "@/lib/sharing/sender-stamp";
 import type { Method, Project, Task } from "@/lib/types";
 
 /**
@@ -110,17 +112,16 @@ function envelopeTask(method: Method): Task {
  *                    or shared-with-me method the sender does not own still
  *                    packages correctly (it localizes to the recipient on
  *                    import). Compound methods throw CompoundMethodNotSupportedError.
- * @param currentUser the folder-local user (reserved for parity with the
- *                    experiment adapter's signature; the read keys on
- *                    method.owner).
+ * @param currentUser the folder-local user driving the share. Used to read the
+ *                    sender's identity sidecar for the verified-sender stamp on
+ *                    the manifest (the method content read still keys on
+ *                    method.owner, so a shared-with-me method still packages).
  * @returns the bundle as raw bytes, ready for sendRawShare to seal.
  */
 export async function buildMethodSendPayload(
   method: Method,
   currentUser: string | null,
 ): Promise<Uint8Array> {
-  void currentUser; // reserved; the method read keys on method.owner.
-
   if (method.method_type === "compound") {
     throw new CompoundMethodNotSupportedError();
   }
@@ -159,12 +160,19 @@ export async function buildMethodSendPayload(
     },
   };
 
+  // Verified-sender attribution, read from the signed-in user driving the
+  // share (NOT method.owner, a shared-with-me method may be owned elsewhere).
+  // SEND-ONLY and additive, undefined when the user has not claimed a sharing
+  // identity, in which case the recipient falls back to the relay hash.
+  const sender = await readManifestSender(currentUser);
+
   const result = await buildRawZip(payload);
   const buf = await result.blob.arrayBuffer();
   return stampMethodKind(new Uint8Array(buf), {
     exportedAt,
     ownerLabel,
     method,
+    sender,
   });
 }
 
@@ -173,11 +181,18 @@ export async function buildMethodSendPayload(
  * `kind: "method"`. raw.ts builds the manifest without the marker (it is
  * experiment-shaped by construction); we rewrite the one entry so the inbox
  * sniff can classify the bundle without touching raw.ts. Everything else in
- * the zip is left byte-for-byte intact.
+ * the zip is left byte-for-byte intact. The same single re-stamp pass also
+ * folds in the optional verified-sender block (SEND-ONLY attribution), so a
+ * method bundle never round-trips the zip twice.
  */
 async function stampMethodKind(
   bytes: Uint8Array,
-  ctx: { exportedAt: string; ownerLabel: string; method: Method },
+  ctx: {
+    exportedAt: string;
+    ownerLabel: string;
+    method: Method;
+    sender?: ManifestSender;
+  },
 ): Promise<Uint8Array> {
   const zip = await JSZip.loadAsync(bytes);
   const entry = zip.file("_export-manifest.json");
@@ -191,6 +206,8 @@ async function stampMethodKind(
   const manifest = JSON.parse(raw) as RawManifest;
   manifest.kind = "method";
   manifest.source_instance = buildSourceInstance(ctx.ownerLabel, ctx.exportedAt);
+  // Additive, omitted when the sender has no claimed identity (backward-compatible).
+  if (ctx.sender) manifest.sender = ctx.sender;
   zip.file("_export-manifest.json", JSON.stringify(manifest, null, 2));
   // Preserve deterministic entry mtimes (raw.ts stamps every entry with the
   // export date; keep the rewritten manifest consistent).

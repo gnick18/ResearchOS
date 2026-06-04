@@ -33,6 +33,10 @@
 import JSZip from "jszip";
 
 import { exportExperiments } from "@/lib/export/orchestrate";
+import {
+  readManifestSender,
+  stampExperimentSender,
+} from "@/lib/sharing/sender-stamp";
 import type { Task } from "@/lib/types";
 
 /**
@@ -41,10 +45,20 @@ import type { Task } from "@/lib/types";
  * local "Export experiment (raw)" feature produces, so the recipient's existing
  * import pipeline can parse them with zero new format work.
  *
+ * The one send-path difference from a local export, the manifest is re-stamped
+ * with the sender's verified PUBLIC identity (email + fingerprint) read from
+ * their sharing identity sidecar, so the recipient's inbox attributes the share
+ * to a real person instead of the relay key hash (mirrors the note bundle's
+ * sender block). This re-stamp is additive and SEND-ONLY, the plain local export
+ * never carries it. When the sender has not claimed a sharing identity the stamp
+ * is skipped and the bundle ships sender-free, the recipient falls back to the
+ * hash exactly as for a pre-attribution bundle.
+ *
  * @param task        the experiment to share (a single Task).
  * @param currentUser the folder-local owner, threaded into the export path so
  *                    it can read the task's notes/results/methods/attachments
- *                    and dependency records off disk.
+ *                    and dependency records off disk, and used to read the
+ *                    sender's identity sidecar for the attribution stamp.
  * @returns the export zip as raw bytes, ready for sendRawShare to seal.
  */
 export async function buildExperimentSendPayload(
@@ -56,7 +70,8 @@ export async function buildExperimentSendPayload(
   // that is the round-trippable format the import pipeline reads.
   const result = await exportExperiments([task], "raw", currentUser);
   const buf = await result.blob.arrayBuffer();
-  return new Uint8Array(buf);
+  const sender = await readManifestSender(currentUser);
+  return stampExperimentSender(new Uint8Array(buf), sender);
 }
 
 /**

@@ -48,6 +48,8 @@ import {
 } from "@/lib/sharing/experiment-transfer";
 import { methodPayloadToFile } from "@/lib/sharing/method-transfer";
 import { projectPayloadToFile } from "@/lib/sharing/project-transfer";
+import { readManifestSenderFromPayload } from "@/lib/sharing/sender-stamp";
+import ReceivedFromBadge from "@/components/ReceivedFromBadge";
 import ImportExperimentDialog from "@/components/ImportExperimentDialog";
 import ProjectImportDialog from "@/components/sharing/ProjectImportDialog";
 import type { ProjectImportResult } from "@/lib/import/project-apply";
@@ -272,10 +274,24 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
                       Encrypted item
                     </span>
                   </div>
-                  <p className="text-meta text-gray-500 truncate">
-                    {resolvedSenders[item.bundleId]?.email ??
-                      senderLabel(item.senderEmailHash)}
-                  </p>
+                  {/* Once Review decrypts a bundle (note OR experiment / method
+                      / project) and recovers the embedded verified sender, show
+                      the "Received from X, verified" badge. An unreviewed or
+                      pre-attribution row falls back to the short relay-hash
+                      label so two shares from the same sender still read alike. */}
+                  {resolvedSenders[item.bundleId]?.email ? (
+                    <div className="mt-0.5">
+                      <ReceivedFromBadge
+                        receivedFrom={resolvedSenders[item.bundleId].email}
+                        fingerprint={resolvedSenders[item.bundleId].fingerprint}
+                        small
+                      />
+                    </div>
+                  ) : (
+                    <p className="text-meta text-gray-500 truncate">
+                      {senderLabel(item.senderEmailHash)}
+                    </p>
+                  )}
                   <p className="text-meta text-gray-400">
                     {new Date(item.createdAt).toLocaleString()} ·{" "}
                     {formatBytes(item.sizeBytes)} ·{" "}
@@ -384,6 +400,12 @@ function ReviewImportModal({
   const [experimentFile, setExperimentFile] = useState<File | null>(null);
   // A decrypted PROJECT bundle wrapped as a File for the project import dialog.
   const [projectFile, setProjectFile] = useState<File | null>(null);
+  // The verified sender read from the decrypted EXPERIMENT / METHOD / PROJECT
+  // manifest (the note path uses `received.sender` instead). Populated once the
+  // decrypt resolves, so the experiment/method/project provenance label upgrades
+  // from the relay hash to the embedded verified email, mirroring the note path.
+  // Null on a pre-attribution bundle, the label then falls back to the hash.
+  const [manifestSender, setManifestSender] = useState<BundleSender | null>(null);
 
   // Keep onResolveSender out of the decrypt effect's deps so the inline parent
   // callback can't retrigger a re-fetch / re-decrypt on every render.
@@ -423,16 +445,32 @@ function ReviewImportModal({
             onResolveSenderRef.current(item.bundleId, result.sender);
           }
         } else if (sniffed === "experiment") {
-          // Hand the decrypted export zip to the existing import resolution
-          // flow. The export manifest carries the source owner, the embedded
-          // sender block is a note-only RO-Crate concept, so the experiment
-          // provenance comes from the relay key hash here.
+          // Read the embedded verified sender from the export manifest (SEND-path
+          // attribution, mirrors the note bundle's sender block) so the receive
+          // label + the import provenance show the real email instead of the
+          // relay hash. Undefined on a pre-attribution / local-export bundle, the
+          // label then falls back to the hash. Hand the decrypted export zip to
+          // the existing import resolution flow.
+          const sender = await readManifestSenderFromPayload(payload);
+          if (cancelled) return;
+          if (sender) {
+            setManifestSender(sender);
+            onResolveSenderRef.current(item.bundleId, sender);
+          }
           setExperimentFile(experimentPayloadToFile(payload));
         } else if (sniffed === "project") {
           // A project bundle (researchos-project) drives its own thin import
           // dialog, it brings many experiments + methods and imports ALWAYS-NEW
           // (no per-method resolution), so it does not reuse the experiment
           // dialog. Wrap the decrypted bytes as a File for the project importer.
+          // The embedded sender upgrades the label and the project's
+          // imported_from stamp (via provenanceLabel) to the verified email.
+          const sender = await readManifestSenderFromPayload(payload);
+          if (cancelled) return;
+          if (sender) {
+            setManifestSender(sender);
+            onResolveSenderRef.current(item.bundleId, sender);
+          }
           setProjectFile(projectPayloadToFile(payload));
         } else if (sniffed === "method") {
           // A standalone method bundle is researchos-experiment-shaped (a
@@ -440,6 +478,13 @@ function ReviewImportModal({
           // import dialog drives it, the recipient sees one method to resolve
           // and "Don't link to a project" for the envelope project. Reuse the
           // experiment plumbing verbatim, only the wrapped File's name differs.
+          // The method manifest carries the same verified sender block.
+          const sender = await readManifestSenderFromPayload(payload);
+          if (cancelled) return;
+          if (sender) {
+            setManifestSender(sender);
+            onResolveSenderRef.current(item.bundleId, sender);
+          }
           setExperimentFile(methodPayloadToFile(payload));
         }
       } catch (err) {
@@ -510,8 +555,14 @@ function ReviewImportModal({
     [email, item.bundleId, onImported],
   );
 
+  // Provenance label for the export-zip tiers (experiment / method / project).
+  // Prefer the embedded verified sender (note path via `received.sender`,
+  // export-zip path via the manifest `manifestSender`), falling back to the
+  // short relay-hash label for a pre-attribution bundle.
   const experimentSenderLabel =
-    received?.sender?.email ?? senderLabel(item.senderEmailHash);
+    received?.sender?.email ??
+    manifestSender?.email ??
+    senderLabel(item.senderEmailHash);
 
   // A project bundle drives its own thin import dialog (always-new, no
   // per-method resolution). It owns its parse + applyProjectImportPlan; we ack

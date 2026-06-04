@@ -166,11 +166,34 @@ export interface RawManifest {
   // method receive path instead of treating it as an experiment. Additive
   // and optional, so experiment bundles (which omit it) keep parsing.
   kind?: "method";
+  // Verified-sender attribution (cross-boundary sharing, 2026-06-04). Set ONLY
+  // on the SHARING send path (experiment-transfer / method-transfer re-stamp it
+  // from the sender's identity sidecar after the bundle is built), never by the
+  // plain local export. Carries the sender's PUBLIC email + key fingerprint so
+  // the recipient's inbox can attribute the share to a real person instead of
+  // the relay key hash, mirroring the note bundle's BundleSender block. Additive
+  // and optional, a local export (and any bundle from a sender who has not
+  // claimed a sharing identity) omits it and the receiver falls back to the
+  // relay hash.
+  sender?: ManifestSender;
   task_id: number;
   task_key: string;
   project_id: number;
   method_ids: number[];
   dependency_ids?: number[];
+}
+
+/**
+ * The sender's verified public identity, embedded in a share manifest on the
+ * SEND path so the recipient can attribute the share. PUBLIC fields only (the
+ * identity sidecar holds no private keys). Mirrors BundleSender (bundle.ts), the
+ * note bundle's equivalent block.
+ */
+export interface ManifestSender {
+  /** The sender's canonical email, from their sharing identity sidecar. */
+  email: string;
+  /** The sender's key fingerprint (the grouped safety-check string). */
+  fingerprint: string;
 }
 
 export interface HtmlManifest {

@@ -32,6 +32,7 @@ import { projectsApi, methodsApi, filesApi, dependenciesApi } from "@/lib/local-
 import type { Dependency, Project, Task } from "@/lib/types";
 import { buildExperimentPayload } from "./extract";
 import { buildRawZip } from "./raw";
+import type { ManifestSender } from "./types";
 import { resolveCollidingFilenames } from "./slug";
 import { slugify } from "./slug";
 
@@ -64,6 +65,14 @@ export interface ProjectBundleManifest {
   exported_at: string;
   exported_by: string;
   source_owner: string;
+  // Verified-sender attribution (cross-boundary sharing, 2026-06-04). Set ONLY
+  // on the SHARING send path (project-transfer re-stamps it from the sender's
+  // identity sidecar), never by a plain local project export. Carries the
+  // sender's PUBLIC email + fingerprint so the recipient's inbox attributes the
+  // share to a real person (and populates Project.imported_from with it) instead
+  // of the relay key hash. Additive + optional, a bundle from a sender with no
+  // claimed sharing identity omits it and the receiver falls back to the hash.
+  sender?: ManifestSender;
   /** Source-side project id (sender's id-space). */
   project_id: number;
   project_name: string;

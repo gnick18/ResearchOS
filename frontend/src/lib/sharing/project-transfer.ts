@@ -29,6 +29,10 @@ import {
   buildProjectBundle,
   projectBundleSlug,
 } from "@/lib/export/project-bundle";
+import {
+  readManifestSender,
+  stampProjectSender,
+} from "@/lib/sharing/sender-stamp";
 import type { Project, Task } from "@/lib/types";
 
 /**
@@ -72,9 +76,19 @@ async function readNativeTasks(project: Project): Promise<Task[]> {
  * native tasks off disk, builds the `researchos-project` bundle, and rejects up
  * front if the bundle's sealed size alone would exceed FREE_STORAGE_BYTES.
  *
+ * The project manifest is re-stamped with the sender's verified PUBLIC identity
+ * (email + fingerprint) read from their sharing identity sidecar, SEND-ONLY and
+ * additive, so the recipient's inbox attributes the share to a real person and
+ * the imported project's `imported_from` records the verified email instead of
+ * the relay key hash. The stamp happens BEFORE the fits-or-rejects size check
+ * since it (slightly) grows the bundle the relay bills. When the sender has not
+ * claimed a sharing identity the stamp is skipped and the recipient falls back
+ * to the hash exactly as for a pre-attribution bundle.
+ *
  * @param project     the project to share.
  * @param currentUser the folder-local owner, threaded into the per-experiment
- *                    export so it reads each task's content off disk.
+ *                    export so it reads each task's content off disk, and used
+ *                    to read the sender's identity sidecar for the stamp.
  * @returns the project-bundle zip as raw bytes, ready for sendRawShare to seal.
  */
 export async function buildProjectSendPayload(
@@ -82,7 +96,9 @@ export async function buildProjectSendPayload(
   currentUser: string | null,
 ): Promise<Uint8Array> {
   const tasks = await readNativeTasks(project);
-  const bytes = await buildProjectBundle(project, tasks, currentUser);
+  const built = await buildProjectBundle(project, tasks, currentUser);
+  const sender = await readManifestSender(currentUser);
+  const bytes = await stampProjectSender(built, sender);
 
   // Fits-or-rejects against the recipient's whole budget. We compare the SEALED
   // size (what the relay stores + bills) using the fixed seal overhead.
