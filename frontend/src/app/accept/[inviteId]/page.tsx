@@ -595,7 +595,7 @@ function headlineFor(load: LoadState): string {
 function Header({ headline }: { headline: string }) {
   return (
     <div className="px-6 pt-6 pb-4 border-b border-gray-100 flex items-center gap-3">
-      <BeakerBot pose="idle" className="w-10 h-10 text-sky-500" />
+      <BeakerBot pose="idle" alive className="w-10 h-10 text-sky-500" />
       <div>
         <p className="text-meta uppercase tracking-wide text-blue-600 font-semibold">
           ResearchOS
