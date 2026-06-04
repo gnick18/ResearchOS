@@ -8,6 +8,8 @@ import {
   previewImport,
 } from "@/lib/import/orchestrate";
 import { pickImportedMethodName, pickImportedProjectName } from "@/lib/import/resolve";
+import Tooltip from "@/components/Tooltip";
+import { CloseIcon } from "@/components/sharing/icons";
 import type {
   ImportPlan,
   ImportResult,
@@ -236,14 +238,16 @@ export default function ImportExperimentDialog({
             </p>
           </div>
           {(stage === "review" || stage === "success" || stage === "error" || stage === "picker") && (
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-lg leading-none p-1"
-              aria-label="Close"
-            >
-              ×
-            </button>
+            <Tooltip label="Close" placement="bottom">
+              <button
+                type="button"
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600 p-1"
+                aria-label="Close"
+              >
+                <CloseIcon className="w-5 h-5" />
+              </button>
+            </Tooltip>
           )}
         </div>
 
