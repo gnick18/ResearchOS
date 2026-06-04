@@ -196,6 +196,69 @@ def local_day(iso_ts: str) -> str | None:
         return None
 
 
+def epoch_of(iso_ts: str):
+    if not iso_ts:
+        return None
+    try:
+        return datetime.fromisoformat(iso_ts.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+IDLE_GAP = 1800  # seconds; a gap longer than this means you stepped away
+
+
+def hours_from_groups(groups):
+    """Three time estimates from event groups (lists of (epoch, kind)):
+
+      hands_on    -- time between your own consecutive messages (so reading,
+                     reviewing, and supervising the agent all count). This is
+                     your real at-the-keyboard time, not just typing.
+      agent_runtime -- gaps that lead into agent work (the agent generating /
+                     running tools). Can exceed wall-clock when sub-agents run
+                     in parallel, so treat it as aggregate agent labor.
+      wall_clock  -- union of all active gaps; elapsed working time.
+
+    Gaps longer than IDLE_GAP are treated as 'stepped away' and dropped."""
+    hands_on = agent = 0.0
+    intervals = []
+    all_humans = []
+    for ev in groups:
+        ev = sorted(ev)
+        all_humans.extend(t for t, k in ev if k == "human")
+        for i in range(len(ev) - 1):
+            a = ev[i][0]
+            b, kind = ev[i + 1]
+            g = b - a
+            if 0 < g <= IDLE_GAP:
+                if kind != "human":
+                    agent += g
+                intervals.append((a, b))
+    # hands-on spans gaps between your consecutive messages globally, so working
+    # across back-to-back sessions/tasks counts (not just within one).
+    all_humans.sort()
+    for i in range(len(all_humans) - 1):
+        g = all_humans[i + 1] - all_humans[i]
+        if 0 < g <= IDLE_GAP:
+            hands_on += g
+    intervals.sort()
+    merged = 0.0
+    cs = ce = None
+    for a, b in intervals:
+        if cs is None:
+            cs, ce = a, b
+        elif a <= ce:
+            ce = max(ce, b)
+        else:
+            merged += ce - cs
+            cs, ce = a, b
+    if cs is not None:
+        merged += ce - cs
+    return {"hands_on_hours": round(hands_on / 3600, 1),
+            "agent_runtime_hours": round(agent / 3600, 1),
+            "wall_clock_hours": round(merged / 3600, 1)}
+
+
 def classify_user_text(text: str) -> str:
     s = text.lstrip()
     if s.startswith(INJECTED_PREFIXES):
@@ -209,7 +272,9 @@ def collect_transcripts():
     per_day = defaultdict(lambda: defaultdict(float))
     totals = defaultdict(float)
     tokens_by_model = defaultdict(lambda: defaultdict(int))
+    models = defaultdict(lambda: {"msgs": 0, "output_tokens": 0})
     tool_counter = Counter()
+    hour_groups = defaultdict(list)
     sessions = set()
     active_days = set()
     seen_uuids = set()
@@ -238,15 +303,19 @@ def collect_transcripts():
                 if uid:
                     seen_uuids.add(uid)
 
+                sid = o.get("sessionId") or path
                 if o.get("sessionId"):
                     sessions.add(o["sessionId"])
                 day = local_day(o.get("timestamp"))
                 if day:
                     active_days.add(day)
+                ep = epoch_of(o.get("timestamp"))
 
                 msg = o.get("message") or {}
 
                 if t == "assistant":
+                    if ep is not None:
+                        hour_groups[sid].append((ep, "machine"))
                     usage = msg.get("usage") or {}
                     it = int(usage.get("input_tokens", 0) or 0)
                     ot = int(usage.get("output_tokens", 0) or 0)
@@ -254,6 +323,9 @@ def collect_transcripts():
                     cr = int(usage.get("cache_read_input_tokens", 0) or 0)
                     model = msg.get("model") or ""
                     bucket = price_bucket(model)
+                    if model and model != "<synthetic>":
+                        models[model]["msgs"] += 1
+                        models[model]["output_tokens"] += ot
                     if day:
                         per_day[day]["input_tokens"] += it
                         per_day[day]["output_tokens"] += ot
@@ -290,6 +362,8 @@ def collect_transcripts():
 
                 elif t == "user":
                     if o.get("isSidechain"):
+                        if ep is not None:
+                            hour_groups[sid].append((ep, "machine"))
                         continue  # sub-agent's inbound prompts are not your typing
                     content = msg.get("content")
                     text = None
@@ -304,10 +378,16 @@ def collect_transcripts():
                         if parts:
                             text = "\n".join(parts)
                     if text is None:
-                        continue  # tool_result / image-only -> not typed
+                        if ep is not None:
+                            hour_groups[sid].append((ep, "machine"))  # tool result
+                        continue
                     kind = classify_user_text(text)
                     if kind != "human":
+                        if ep is not None:
+                            hour_groups[sid].append((ep, "machine"))  # injected/dispatch
                         continue
+                    if ep is not None:
+                        hour_groups[sid].append((ep, "human"))
                     words = len(text.split())
                     if day:
                         per_day[day]["your_prompts"] += 1
@@ -319,7 +399,9 @@ def collect_transcripts():
         "per_day": per_day,
         "totals": totals,
         "tokens_by_model": tokens_by_model,
+        "models": dict(models),
         "tool_counter": tool_counter,
+        "hours": hours_from_groups(hour_groups.values()),
         "sessions": sessions,
         "active_days": active_days,
         "file_count": len(files),
@@ -897,6 +979,22 @@ def main():
             1 for r in rows if r[f"{tool}_words"] or r[f"{tool}_requests"]
         )
 
+    # hours: Claude (from transcripts) + Kilo (from snapshot). The two eras do not
+    # overlap in time, so the figures simply add.
+    HK = ["hands_on_hours", "agent_runtime_hours", "wall_clock_hours"]
+    ch = tx["hours"]
+    kh = (kilo_meta or {}).get("hours") or {k: 0 for k in HK}
+    effort_hours = {k: round(ch.get(k, 0) + kh.get(k, 0), 1) for k in HK}
+    effort_hours["by_tool"] = {"kilo": kh, "claude": ch}
+    effort_hours["method"] = (
+        "hands_on = time between your consecutive messages (reviewing/supervising "
+        "counts), idle gaps >30min dropped; agent_runtime = time the agent was "
+        "generating or running tools, which can exceed wall-clock when sub-agents "
+        "run in parallel; wall_clock = elapsed active time")
+    claude_models = sorted(tx["models"].items(), key=lambda kv: -kv[1]["output_tokens"])
+    kilo_providers = (kilo_meta or {}).get("providers") or {}
+    kilo_checkpoints = (kilo_meta or {}).get("checkpoints") or {}
+
     # ---- summary.json ----
     t = tx["totals"]
     combined_prompts = tot("your_prompts")
@@ -949,9 +1047,19 @@ def main():
             },
             "top_tools": tx["tool_counter"].most_common(15),
         },
+        "effort_hours": effort_hours,
+        "models": {
+            "claude": [{"model": m, "messages": v["msgs"], "output_tokens": v["output_tokens"]}
+                       for m, v in claude_models],
+            "kilo_providers": kilo_providers,
+            "note": "Kilo routes through its own provider, so the served model is not "
+                    "stored per request; inference provider is the reliable signal.",
+        },
+        "kilo_checkpoints": kilo_checkpoints,
         "tools": {
             "kilo": {"task_count": kilo_meta["task_count"] if kilo_meta else 0,
                      "span": kilo_meta["date_span"] if kilo_meta else None,
+                     "workspaces": kilo_meta.get("workspaces") if kilo_meta else None,
                      "modes": kilo_meta.get("modes") if kilo_meta else None},
             "claude": {"sessions": len(tx["sessions"]), "transcript_files": tx["file_count"],
                        "active_days": by_tool["claude"]["active_days"]},
@@ -1045,7 +1153,29 @@ def main():
                [(f"{KILO_LBL} (actual)", round(by_tool["kilo"]["cost"], 2), KILO_COLOR),
                 (f"{CLAUDE_LBL} (list est.)", round(by_tool["claude"]["cost"], 2), CLAUDE_COLOR)])
 
-    # 11. most-used tools (Claude Code only; Kilo does not log comparable calls)
+    # 11. effort hours: your hands-on vs agent runtime vs wall-clock
+    eh = effort_hours
+    hbar_chart(os.path.join(OUT_DIR, "effort_hours.svg"),
+               "Effort hours",
+               "your hands-on time vs agent runtime (idle >30min trimmed; agents ran in parallel)",
+               [("You (hands-on)", eh["hands_on_hours"], PALETTE["violet"]),
+                ("Agents (runtime)", eh["agent_runtime_hours"], PALETTE["accent"]),
+                ("Wall-clock (elapsed)", eh["wall_clock_hours"], PALETTE["green"])])
+
+    # 12. models / providers used
+    model_rows = []
+    for m, v in claude_models:
+        short = m.replace("claude-", "Claude ").replace("-", " ")
+        model_rows.append((f"{short} (Claude Code)", v["output_tokens"], CLAUDE_COLOR))
+    for prov, v in list(kilo_providers.items())[:6]:
+        if v.get("output_tokens"):
+            model_rows.append((f"{prov} (Kilo)", v["output_tokens"], KILO_COLOR))
+    if model_rows:
+        hbar_chart(os.path.join(OUT_DIR, "models_used.svg"),
+                   "Models & providers used", "by output tokens; Claude models + Kilo inference providers",
+                   model_rows)
+
+    # 13. most-used tools (Claude Code only; Kilo does not log comparable calls)
     tool_rows = [(name, n, PALETTE["bar"]) for name, n in tx["tool_counter"].most_common(12)]
     if tool_rows:
         hbar_chart(os.path.join(OUT_DIR, "top_tools.svg"),
@@ -1066,6 +1196,13 @@ def main():
     print(f"  AI requests ......... {a['requests']:>11,}   (Kilo {k['requests']:,} + Claude {c['requests']:,})")
     print(f"  Total tokens ........ {a['tokens']['total']:>11,}")
     print(f"  Cost ................ Kilo ${a['cost']['kilo_actual_usd']:,.2f} actual  +  Claude ${a['cost']['claude_list_estimate_usd']:,.0f} list-est")
+    eh = summary["effort_hours"]
+    print(f"  Hands-on hours ...... {eh['hands_on_hours']:>11,.1f}   (Kilo {eh['by_tool']['kilo'].get('hands_on_hours',0):,.1f} + Claude {eh['by_tool']['claude'].get('hands_on_hours',0):,.1f})")
+    print(f"  Agent runtime ....... {eh['agent_runtime_hours']:>11,.1f}   (parallel; can exceed wall-clock {eh['wall_clock_hours']:,.1f})")
+    cp = summary["kilo_checkpoints"]
+    if cp:
+        print(f"  Kilo checkpoints .... {cp.get('total_checkpoints',0):>11,}   (+{cp.get('lines_added',0):,} / -{cp.get('lines_deleted',0):,} lines)")
+    print(f"  Models .............. Claude: {', '.join(m['model'] for m in summary['models']['claude'])}")
     print(f"  Phases detected ..... {len(milestones):>11,}")
     print("=" * 64)
     print(f"  CSV     -> {csv_path}")
@@ -1076,10 +1213,12 @@ def main():
 
 def write_index_html(summary):
     g = summary["git"]; e = summary["your_effort"]; a = summary["ai_usage"]
+    eh = summary["effort_hours"]; cp = summary.get("kilo_checkpoints") or {}
     charts = [
         "phases.svg", "ai_requests_per_day.svg", "commits_per_day.svg",
         "cumulative_loc.svg", "your_words_per_day.svg", "cumulative_words.svg",
         "output_tokens_per_day.svg", "tokens_per_day.svg",
+        "effort_hours.svg", "models_used.svg",
         "tokens_by_tool.svg", "cost_by_tool.svg", "top_tools.svg",
     ]
     cards = [
@@ -1087,10 +1226,13 @@ def write_index_html(summary):
         ("Net lines of code", f"{g['net_lines']:,}"),
         ("Prompts you typed", f"{e['prompts_typed']:,}"),
         ("Words you typed", f"{e['words_typed']:,}"),
+        ("Hands-on hours", f"{eh['hands_on_hours']:,.0f}"),
+        ("Agent runtime hours", f"{eh['agent_runtime_hours']:,.0f}"),
         ("AI requests", f"{a['requests']:,}"),
         ("Total tokens", f"{a['tokens']['total']:,}"),
         ("Kilo cost (actual)", f"${a['cost']['kilo_actual_usd']:,.0f}"),
         ("Claude value (list est.)", f"${a['cost']['claude_list_estimate_usd']:,.0f}"),
+        ("Kilo lines (checkpoints)", f"{cp.get('net_lines', 0):,}"),
         ("Phases", f"{len(summary['milestones'])}"),
     ]
     rng = summary["date_range"]

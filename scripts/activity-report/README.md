@@ -33,10 +33,17 @@ only your own activity.
 
 Kilo Code can prune old tasks, so `snapshot_kilo.py` copies the numbers we need
 into `kilo_snapshot.json` (git-ignored). The snapshot holds **aggregates only**:
-per-day token counts, word counts, prompt counts, and cost. It never stores
-prompt text or research content, so it is safe to keep or commit. `generate.py`
-reads it if present and silently skips the Kilo phase if it is missing. Re-run
-the snapshot whenever you want to capture more recent Kilo activity.
+per-day token counts, word counts, prompt counts, cost, hours, inference-provider
+mix, and checkpoint stats. It never stores prompt text or research content, so it
+is safe to keep or commit. `generate.py` reads it if present and silently skips
+the Kilo phase if it is missing. Re-run the snapshot whenever you want to capture
+more recent Kilo activity.
+
+The project's early phase lived in a differently-named folder
+(`ResearchManager_GANNT`, Feb 12-15, the founding sprint before the folder was
+renamed). Those Kilo tasks are folded in via `EXTRA_WORKSPACES` in
+`snapshot_kilo.py`. Tasks are matched to the project by exact workspace path, so
+your other projects are never counted.
 
 ## What it writes (into `out/`, git-ignored)
 
@@ -44,11 +51,11 @@ the snapshot whenever you want to capture more recent Kilo activity.
 - `summary.json` -- all the totals, machine-readable.
 - `timeline.csv` -- one row per calendar day, every metric (including per-tool
   `kilo_*` and `claude_*` columns), for your own charts.
-- eleven `*.svg` charts: project phases, AI requests per day (the tool handoff),
+- thirteen `*.svg` charts: project phases, AI requests per day (the tool handoff),
   commits per day, cumulative lines of code, words you typed per day, cumulative
-  words, AI output tokens per day, tokens per day by type, tokens by tool, cost
-  by tool, most-used tools. Charts that split by tool color Kilo Code amber and
-  Claude Code blue.
+  words, AI output tokens per day, tokens per day by type, effort hours, models &
+  providers used, tokens by tool, cost by tool, most-used tools. Charts that split
+  by tool color Kilo Code amber and Claude Code blue.
 
 ## How the numbers are defined (read before quoting them)
 
@@ -77,6 +84,24 @@ the snapshot whenever you want to capture more recent Kilo activity.
   own reported `totalCost`). Claude Code is a **notional list-price estimate**
   (`PRICING` in `generate.py`), not what you paid on a subscription. The two are
   shown separately and never summed, because they are different kinds of figure.
+- **Hours are three different estimates** (idle gaps over 30 min are dropped as
+  time you stepped away):
+  - *hands-on* = time between your own consecutive messages, so reading output,
+    reviewing diffs, and supervising the agent all count. This is your real
+    at-the-keyboard time, not just typing. Raise `IDLE_GAP` to count longer
+    unattended-looking agent runs as supervised.
+  - *agent runtime* = time the agent was generating or running tools. It can
+    exceed wall-clock because sub-agents run in parallel, so read it as aggregate
+    agent labor, not elapsed time.
+  - *wall-clock* = elapsed active time (union of all active gaps).
+- **Models.** Claude Code records the exact model per message (Opus 4.8, Opus
+  4.7). Kilo Code routes through its own provider and does not store the served
+  model per request, so the reliable signal there is the **inference provider**
+  (Z.AI, Amazon Bedrock, Nvidia, etc.); the `<model>` tags inside tasks are mode
+  definitions, not what actually served the request.
+- **Kilo checkpoints** are per-task git shadow repos. The line counts are the
+  incremental edits Kilo made (the per-task baseline snapshot commit is skipped,
+  and `node_modules`/lockfiles are excluded).
 
 ## Tuning
 
