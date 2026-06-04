@@ -23,8 +23,10 @@
 import {
   dependenciesApi,
   projectsApi,
+  sequencesApi,
   tasksApi,
 } from "@/lib/local-api";
+import { sequenceStore } from "@/lib/sequences/sequence-store";
 import { getCurrentUserCached } from "@/lib/storage/json-store";
 import type { Dependency, ProjectImportedFrom } from "@/lib/types";
 import { pickImportedProjectName } from "./resolve";
@@ -49,6 +51,9 @@ export interface ProjectImportResult {
   /** The aggregate of every experiment's notCarried, so the recipient sees one
    *  "here is what did not come over" summary rather than one per experiment. */
   notCarried: ImportNotCarried;
+  /** Number of bundled sequences recreated + filed into the new project (v2;
+   *  0 when the bundle carried none). */
+  sequencesCreated: number;
 }
 
 /** Caller-supplied provenance for the imported_from stamp (design §5, Q6). The
@@ -197,10 +202,40 @@ export async function applyProjectImportPlan(
     await dependenciesApi.create(dep);
   }
 
+  // 6. Recreate the bundled sequences (v2), each FILED INTO the new project via
+  //    project_ids = [String(newProjectId)] (unlike the standalone sequence tier,
+  //    which lands Unfiled because it has no project to map). Stamp fresh
+  //    cross-boundary provenance from the SAME sender label the project import
+  //    uses for tasks/methods (provenance.sender) onto each new sidecar — the
+  //    sender stripped its own received_from* on send, so this is always fresh.
+  let sequencesCreated = 0;
+  const importedAt = new Date().toISOString();
+  for (const seq of payload.sequences ?? []) {
+    const created = await sequencesApi.create({
+      display_name: seq.display_name,
+      genbank: seq.genbank,
+      seq_type: seq.seq_type,
+      project_ids: [String(newProject.id)],
+    });
+    if (!created) continue;
+    // Stamp provenance on the new sidecar (create does not carry it, mirroring
+    // the standalone sequence tier). received_from is the project sender label.
+    await sequenceStore.updateMeta(
+      created.id,
+      {
+        received_from: provenance.sender,
+        received_at: importedAt,
+      },
+      currentUser,
+    );
+    sequencesCreated += 1;
+  }
+
   return {
     newProjectId: newProject.id,
     newOwner: currentUser,
     experiments: experimentResults,
     notCarried,
+    sequencesCreated,
   };
 }

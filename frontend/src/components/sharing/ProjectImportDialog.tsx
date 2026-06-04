@@ -103,6 +103,7 @@ export default function ProjectImportDialog({
       lists,
       methods: methodIds.size,
       dependencies: payload.dependencies.length,
+      sequences: payload.sequences.length,
     };
   }, [payload]);
 
@@ -192,6 +193,9 @@ export default function ProjectImportDialog({
                   <InventoryRow label="Lists" value={inventory.lists} />
                 )}
                 <InventoryRow label="Methods" value={inventory.methods} />
+                {inventory.sequences > 0 && (
+                  <InventoryRow label="Sequences" value={inventory.sequences} />
+                )}
                 <InventoryRow label="Experiment links" value={inventory.dependencies} />
               </ul>
             </>

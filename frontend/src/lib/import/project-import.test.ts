@@ -27,6 +27,14 @@ const createdProjects: Array<{ id: number; name: string; imported_from?: unknown
 const createdMethods: Array<{ id: number; name: string }> = [];
 const createdTasks: Array<{ id: number; name: string; project_id: number | null; method_ids: number[] }> = [];
 const createdDeps: Array<{ parent_id: number; child_id: number; dep_type: string }> = [];
+const createdSequences: Array<{
+  id: number;
+  display_name: string;
+  genbank: string;
+  seq_type: string;
+  project_ids: string[];
+}> = [];
+const sequenceMetaStamps: Array<{ id: number; patch: Record<string, unknown>; username: string }> = [];
 
 vi.mock("@/lib/file-system/file-service", () => ({
   fileService: {
@@ -78,6 +86,27 @@ vi.mock("@/lib/local-api", () => ({
       return { id: createdDeps.length + 900, ...data };
     }),
   },
+  sequencesApi: {
+    create: vi.fn(
+      async (data: {
+        display_name: string;
+        genbank: string;
+        seq_type?: string;
+        project_ids?: string[];
+      }) => {
+        const id = createdSequences.length + 500;
+        const rec = {
+          id,
+          display_name: data.display_name,
+          genbank: data.genbank,
+          seq_type: data.seq_type ?? "dna",
+          project_ids: data.project_ids ?? [],
+        };
+        createdSequences.push(rec);
+        return rec;
+      },
+    ),
+  },
   pcrApi: { create: vi.fn(async () => ({ id: 999 })) },
   lcGradientApi: { create: vi.fn(async () => ({ id: 999 })) },
   plateApi: { create: vi.fn(async () => ({ id: 999 })) },
@@ -85,6 +114,17 @@ vi.mock("@/lib/local-api", () => ({
   massSpecApi: { create: vi.fn(async () => ({ id: 999 })) },
   codingWorkflowApi: { create: vi.fn(async () => ({ id: 999 })) },
   qpcrAnalysisApi: { create: vi.fn(async () => ({ id: 999 })) },
+}));
+
+vi.mock("@/lib/sequences/sequence-store", () => ({
+  sequenceStore: {
+    updateMeta: vi.fn(
+      async (id: number, patch: Record<string, unknown>, username: string) => {
+        sequenceMetaStamps.push({ id, patch, username });
+        return { id, ...patch };
+      },
+    ),
+  },
 }));
 
 vi.mock("@/lib/storage/json-store", () => ({
@@ -109,7 +149,17 @@ beforeEach(() => {
   createdMethods.length = 0;
   createdTasks.length = 0;
   createdDeps.length = 0;
+  createdSequences.length = 0;
+  sequenceMetaStamps.length = 0;
 });
+
+const GB_PLASMID = `LOCUS       pTEST        12 bp    DNA     circular SYN 04-JUN-2026
+FEATURES             Location/Qualifiers
+     source          1..12
+ORIGIN
+        1 atgcatgcatgc
+//
+`;
 
 const EXPORTED_AT = "2026-06-04T12:00:00.000Z";
 
@@ -204,10 +254,21 @@ async function buildExperimentPayloadForTask(
  * built with the REAL buildRawZip (pure, no disk) so the parser exercises the
  * actual experiment-bundle shape. dependencies = the project-scoped deduped union.
  */
+interface BundleSequence {
+  id: number;
+  display_name: string;
+  seq_type: "dna" | "rna" | "protein";
+  circular: boolean;
+  genbank: string;
+}
+
 async function buildProjectBundleZip(opts: {
   tasks: Task[];
   perTaskDeps: Dependency[][];
   projectDeps: Dependency[];
+  sequences?: BundleSequence[];
+  /** Force a v1-shaped manifest (no `sequences` field) to exercise back-compat. */
+  legacyV1?: boolean;
 }): Promise<Blob> {
   const zip = new JSZip();
   const experimentsIndex: ProjectBundleManifest["experiments"] = [];
@@ -243,6 +304,52 @@ async function buildProjectBundleZip(opts: {
     zip.file("dependencies.json", JSON.stringify(opts.projectDeps, null, 2));
   }
 
+  // Nest sequences as `sequences/{id}.gb` + `sequences/{id}.json`, sorted by id.
+  const seqList = [...(opts.sequences ?? [])].sort((a, b) => a.id - b.id);
+  const sequencesIndex: ProjectBundleManifest["sequences"] = [];
+  for (const s of seqList) {
+    const gbPath = `sequences/${s.id}.gb`;
+    const metaPath = `sequences/${s.id}.json`;
+    zip.file(gbPath, s.genbank);
+    zip.file(
+      metaPath,
+      JSON.stringify(
+        { display_name: s.display_name, seq_type: s.seq_type, circular: s.circular },
+        null,
+        2,
+      ),
+    );
+    sequencesIndex.push({
+      sequence_id: s.id,
+      display_name: s.display_name,
+      seq_type: s.seq_type,
+      circular: s.circular,
+      path: gbPath,
+      meta_path: metaPath,
+    });
+  }
+
+  if (opts.legacyV1) {
+    // A v1 bundle: no `sequences` field, version 1. Exercises that a newer
+    // parser still reads an older bundle (back-compat).
+    const legacyManifest = {
+      format: PROJECT_BUNDLE_FORMAT,
+      version: 1,
+      kind: "project",
+      exported_at: EXPORTED_AT,
+      exported_by: "ResearchOS",
+      source_owner: project.owner,
+      project_id: project.id,
+      project_name: project.name,
+      experiments: experimentsIndex,
+      dependency_ids: opts.projectDeps.map((d) => d.id),
+      counts: { experiments: experimentsIndex.length, dependencies: opts.projectDeps.length },
+    };
+    zip.file(PROJECT_MANIFEST_FILE, JSON.stringify(legacyManifest, null, 2));
+    const ab = await zip.generateAsync({ type: "arraybuffer" });
+    return ab as unknown as Blob;
+  }
+
   const manifest: ProjectBundleManifest = {
     format: PROJECT_BUNDLE_FORMAT,
     version: PROJECT_BUNDLE_VERSION,
@@ -254,7 +361,12 @@ async function buildProjectBundleZip(opts: {
     project_name: project.name,
     experiments: experimentsIndex,
     dependency_ids: opts.projectDeps.map((d) => d.id),
-    counts: { experiments: experimentsIndex.length, dependencies: opts.projectDeps.length },
+    sequences: sequencesIndex,
+    counts: {
+      experiments: experimentsIndex.length,
+      dependencies: opts.projectDeps.length,
+      sequences: sequencesIndex.length,
+    },
   };
   zip.file(PROJECT_MANIFEST_FILE, JSON.stringify(manifest, null, 2));
 
@@ -375,5 +487,96 @@ describe("method dedup across experiments (design Q3)", () => {
     expect(createdTasks).toHaveLength(2);
     expect(createdTasks[0].method_ids).toEqual([createdMethods[0].id]);
     expect(createdTasks[1].method_ids).toEqual([createdMethods[0].id]);
+  });
+});
+
+describe("sequences carried in the project bundle (v2)", () => {
+  function seq(id: number, name: string): BundleSequence {
+    return {
+      id,
+      display_name: name,
+      seq_type: "dna",
+      circular: true,
+      genbank: GB_PLASMID,
+    };
+  }
+
+  it("parses the sequences section off a v2 bundle", async () => {
+    const blob = await buildProjectBundleZip({
+      tasks: [makeTask(5, [10])],
+      perTaskDeps: [[]],
+      projectDeps: [],
+      sequences: [seq(1, "pUC19"), seq(2, "pET28a")],
+    });
+
+    const parsed = await parseProjectBundle(blob);
+
+    expect(parsed.manifest.version).toBe(2);
+    expect(parsed.sequences).toHaveLength(2);
+    // Sorted by id; first carries the GenBank source + meta.
+    expect(parsed.sequences[0].sourceId).toBe(1);
+    expect(parsed.sequences[0].display_name).toBe("pUC19");
+    expect(parsed.sequences[0].seq_type).toBe("dna");
+    expect(parsed.sequences[0].circular).toBe(true);
+    expect(parsed.sequences[0].genbank).toContain("LOCUS");
+  });
+
+  it("recreates each bundled sequence FILED into the new project + stamps provenance", async () => {
+    const blob = await buildProjectBundleZip({
+      tasks: [makeTask(5, [10])],
+      perTaskDeps: [[]],
+      projectDeps: [],
+      sequences: [seq(1, "pUC19"), seq(2, "pET28a"), seq(3, "pBR322")],
+    });
+    const parsed = await parseProjectBundle(blob);
+
+    const result = await applyProjectImportPlan(parsed, { sender: "morgan@lab.edu" });
+
+    // N sequences created, each filed into the single new project.
+    expect(result.sequencesCreated).toBe(3);
+    expect(createdSequences).toHaveLength(3);
+    for (const s of createdSequences) {
+      expect(s.project_ids).toEqual([String(result.newProjectId)]);
+    }
+    // Fresh provenance stamped from the project sender label on each.
+    expect(sequenceMetaStamps).toHaveLength(3);
+    for (const stamp of sequenceMetaStamps) {
+      expect(stamp.patch.received_from).toBe("morgan@lab.edu");
+      expect(typeof stamp.patch.received_at).toBe("string");
+    }
+  });
+
+  it("imports a zero-sequence v2 bundle with no sequences created", async () => {
+    const blob = await buildProjectBundleZip({
+      tasks: [makeTask(5, [10])],
+      perTaskDeps: [[]],
+      projectDeps: [],
+      sequences: [],
+    });
+    const parsed = await parseProjectBundle(blob);
+
+    expect(parsed.sequences).toHaveLength(0);
+
+    const result = await applyProjectImportPlan(parsed, { sender: "morgan@lab.edu" });
+    expect(result.sequencesCreated).toBe(0);
+    expect(createdSequences).toHaveLength(0);
+  });
+
+  it("BACK-COMPAT: a v1 bundle (no sequences field) still parses + imports", async () => {
+    const blob = await buildProjectBundleZip({
+      tasks: [makeTask(5, [10])],
+      perTaskDeps: [[]],
+      projectDeps: [],
+      legacyV1: true,
+    });
+
+    const parsed = await parseProjectBundle(blob);
+    expect(parsed.manifest.version).toBe(1);
+    // No sequences field on a v1 manifest -> parser yields an empty array.
+    expect(parsed.sequences).toEqual([]);
+
+    const result = await applyProjectImportPlan(parsed, { sender: "morgan@lab.edu" });
+    expect(result.sequencesCreated).toBe(0);
+    expect(createdTasks).toHaveLength(1);
   });
 });

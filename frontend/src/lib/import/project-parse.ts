@@ -12,16 +12,31 @@
 
 import JSZip from "jszip";
 
-import type { Dependency, Project } from "@/lib/types";
+import type { Dependency, Project, SeqType } from "@/lib/types";
 import {
   PROJECT_BUNDLE_FORMAT,
   PROJECT_MANIFEST_FILE,
   type ProjectBundleManifest,
+  type ProjectManifestSequence,
 } from "@/lib/export/project-bundle";
 import { ImportParseError, parseImportBundle } from "./parse";
 import type { ImportPayload } from "./types";
 
 const INNER_EXPERIMENT_RE = /^experiments\/.+\.zip$/;
+
+/** One parsed sequence pulled from the bundle's `sequences/` section (v2). The
+ *  GenBank text is the source of truth; display_name/seq_type/circular come from
+ *  the small sidecar (or the manifest index). The importer recreates each as a
+ *  fresh sequence filed into the new project. */
+export interface ProjectImportSequence {
+  /** Source-side sequence id (the sender's id-space; advisory only). */
+  sourceId: number;
+  display_name: string;
+  seq_type: SeqType;
+  circular: boolean;
+  /** The raw GenBank text the importer writes to disk. */
+  genbank: string;
+}
 
 export interface ProjectImportPayload {
   manifest: ProjectBundleManifest;
@@ -34,6 +49,9 @@ export interface ProjectImportPayload {
    *  importer remaps these once it has the full multi-task id map. Empty when
    *  the project had no in-project links. */
   dependencies: Dependency[];
+  /** The project's sequences (v2). Empty on a v1 bundle or a v2 bundle with no
+   *  sequences. The importer recreates each filed into the new project. */
+  sequences: ProjectImportSequence[];
 }
 
 function isProjectManifestShape(v: unknown): v is ProjectBundleManifest {
@@ -41,10 +59,25 @@ function isProjectManifestShape(v: unknown): v is ProjectBundleManifest {
   const m = v as Record<string, unknown>;
   return (
     m.format === PROJECT_BUNDLE_FORMAT &&
-    m.version === 1 &&
+    // Accept v1 (experiments + deps only) and v2 (adds the sequences section).
+    // A v1 receiver reading a v2 bundle would also pass this gate; the unknown
+    // `sequences` fields are simply ignored there (back-compat).
+    (m.version === 1 || m.version === 2) &&
     m.kind === "project" &&
     typeof m.project_id === "number" &&
     Array.isArray(m.experiments)
+  );
+}
+
+/** Shape-check a manifest sequence index entry (v2). Lenient: a malformed entry
+ *  is dropped rather than failing the import. */
+function isManifestSequenceShape(v: unknown): v is ProjectManifestSequence {
+  if (!v || typeof v !== "object") return false;
+  const s = v as Record<string, unknown>;
+  return (
+    typeof s.sequence_id === "number" &&
+    typeof s.path === "string" &&
+    s.path.length > 0
   );
 }
 
@@ -155,6 +188,75 @@ export async function parseProjectBundle(file: Blob): Promise<ProjectImportPaylo
     }
   }
 
+  // The project's sequences (v2). Driven by the manifest index so ordering
+  // matches the sender's intent; each entry's GenBank source is read from
+  // `sequences/{id}.gb` and the meta from `sequences/{id}.json` (falling back to
+  // the manifest index when the sidecar is missing / malformed). A v1 bundle has
+  // no `sequences` field, so this stays empty. An entry whose .gb is missing or
+  // empty is dropped + warned rather than poisoning the import.
+  const sequences: ProjectImportSequence[] = [];
+  const manifestSequences = Array.isArray(
+    (manifest as { sequences?: unknown }).sequences,
+  )
+    ? (manifest.sequences as unknown[])
+    : [];
+  for (const raw of manifestSequences) {
+    if (!isManifestSequenceShape(raw)) {
+      console.warn("[project.parse] dropping malformed sequence index entry:", raw);
+      continue;
+    }
+    const gbEntry = zip.file(raw.path);
+    if (!gbEntry) {
+      console.warn(
+        `[project.parse] manifest references ${raw.path} but no such sequence entry was found.`,
+      );
+      continue;
+    }
+    let genbank: string;
+    try {
+      genbank = await gbEntry.async("string");
+    } catch (err) {
+      console.warn(`[project.parse] failed to read sequence ${raw.path}:`, err);
+      continue;
+    }
+    if (!genbank) {
+      console.warn(`[project.parse] sequence ${raw.path} is empty; skipping.`);
+      continue;
+    }
+
+    // Prefer the small sidecar's meta; fall back to the manifest index values.
+    let displayName = raw.display_name;
+    let seqType: SeqType = (raw.seq_type as SeqType) ?? "dna";
+    let circular = raw.circular === true;
+    const metaPath =
+      typeof raw.meta_path === "string" && raw.meta_path
+        ? raw.meta_path
+        : raw.path.replace(/\.gb$/, ".json");
+    const metaEntry = zip.file(metaPath);
+    if (metaEntry) {
+      try {
+        const parsed = JSON.parse(await metaEntry.async("string")) as Record<string, unknown>;
+        if (typeof parsed.display_name === "string" && parsed.display_name) {
+          displayName = parsed.display_name;
+        }
+        if (parsed.seq_type === "dna" || parsed.seq_type === "rna" || parsed.seq_type === "protein") {
+          seqType = parsed.seq_type;
+        }
+        circular = parsed.circular === true;
+      } catch (err) {
+        console.warn(`[project.parse] failed to parse sequence meta ${metaPath}:`, err);
+      }
+    }
+
+    sequences.push({
+      sourceId: raw.sequence_id,
+      display_name: displayName || "Shared sequence",
+      seq_type: seqType,
+      circular,
+      genbank,
+    });
+  }
+
   // Parse each inner experiment bundle with the unchanged single-experiment
   // parser. Walk by manifest order first (so the receive inventory matches the
   // sender's intent), then sweep any inner zips the manifest did not list.
@@ -202,5 +304,5 @@ export async function parseProjectBundle(file: Blob): Promise<ProjectImportPaylo
     );
   }
 
-  return { manifest, project, experiments, dependencies };
+  return { manifest, project, experiments, dependencies, sequences };
 }

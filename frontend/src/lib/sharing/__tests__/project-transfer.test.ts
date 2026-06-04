@@ -81,6 +81,23 @@ describe("projectPayloadToFile", () => {
 
 // ── Exporter integration: buildProjectBundle via mocked extract (no disk) ─────
 
+// buildProjectBundle now also gathers the project's sequences (v2). Stub the
+// sequences read so the export side does not touch disk; this test pins the
+// experiment + sniff path, not the sequence carry (that lives in the project
+// import round-trip test). An empty list keeps the bundle sequence-free.
+vi.mock("@/lib/local-api", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/lib/local-api")>("@/lib/local-api");
+  return {
+    ...actual,
+    sequencesApi: {
+      ...actual.sequencesApi,
+      listByProject: vi.fn(async () => []),
+      get: vi.fn(async () => null),
+    },
+  };
+});
+
 vi.mock("@/lib/export/extract", async () => {
   const actual = await vi.importActual<typeof import("@/lib/export/extract")>(
     "@/lib/export/extract",

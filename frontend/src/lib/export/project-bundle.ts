@@ -28,8 +28,8 @@
 
 import JSZip from "jszip";
 
-import { projectsApi, methodsApi, filesApi, dependenciesApi } from "@/lib/local-api";
-import type { Dependency, Project, Task } from "@/lib/types";
+import { projectsApi, methodsApi, filesApi, dependenciesApi, sequencesApi } from "@/lib/local-api";
+import type { Dependency, Project, SeqType, Task } from "@/lib/types";
 import { buildExperimentPayload } from "./extract";
 import { buildRawZip } from "./raw";
 import type { ManifestSender } from "./types";
@@ -41,10 +41,14 @@ import { slugify } from "./slug";
  *  project bundle from an experiment / method bundle by file shape alone. */
 export const PROJECT_MANIFEST_FILE = "_project-manifest.json";
 
-/** Bundle format + manifest version for the project tier. v1 = single-blob
- *  transport, the only version this build emits. */
+/** Bundle format + manifest version for the project tier.
+ *  v1 = single-blob transport, experiments + dependencies only.
+ *  v2 = additive `sequences` section (the project's sequences ride along, filed
+ *       into the imported project). Back-compat: a v2 bundle with no sequences
+ *       omits the section + ships an empty `sequences` array, and an older v1
+ *       receiver ignores the unknown fields (the parser accepts v1 || v2). */
 export const PROJECT_BUNDLE_FORMAT = "researchos-project" as const;
-export const PROJECT_BUNDLE_VERSION = 1 as const;
+export const PROJECT_BUNDLE_VERSION = 2 as const;
 
 /** One entry in the manifest's per-experiment index. Carries no file bytes,
  *  only the in-zip path + source task identity, so a future manifest-first
@@ -56,6 +60,25 @@ export interface ProjectManifestExperiment {
   name: string;
   /** The in-zip path of this experiment's intact per-experiment bundle. */
   path: string;
+}
+
+/** One entry in the manifest's per-sequence index (v2). Carries no GenBank
+ *  bytes, only the in-zip paths + the meta a receive-side inventory needs. The
+ *  GenBank source of truth lives at `sequences/{id}.gb`; the small sidecar at
+ *  `sequences/{id}.json` carries display_name/seq_type/circular. */
+export interface ProjectManifestSequence {
+  /** Source-side sequence id (the sender's id-space). */
+  sequence_id: number;
+  /** Display name, for a receive-side inventory line + the recreated record. */
+  display_name: string;
+  /** Molecule kind, so the importer's create does not re-derive it. */
+  seq_type: SeqType;
+  /** Whether the molecule is circular (plasmid), informational. */
+  circular: boolean;
+  /** The in-zip path of this sequence's GenBank source text. */
+  path: string;
+  /** The in-zip path of this sequence's small meta sidecar. */
+  meta_path: string;
 }
 
 export interface ProjectBundleManifest {
@@ -81,10 +104,17 @@ export interface ProjectBundleManifest {
   /** The de-duplicated bundled dependency record ids (convenience index; the
    *  canonical content is `dependencies.json`). */
   dependency_ids: number[];
+  /** Per-sequence index (v2). The project's sequences, each carried as a
+   *  `sequences/{id}.gb` + `sequences/{id}.json` pair. Empty array when the
+   *  project has no sequences (kept for back-compat shape; older receivers
+   *  ignore the field entirely). */
+  sequences: ProjectManifestSequence[];
   /** Counts for a receive-side inventory line. */
   counts: {
     experiments: number;
     dependencies: number;
+    /** Number of sequences carried (v2; 0 when none). */
+    sequences: number;
   };
 }
 
@@ -187,6 +217,44 @@ export async function buildProjectBundle(
     zip.file("dependencies.json", JSON.stringify(dependencies, null, 2));
   }
 
+  // The project's sequences (v2). Gather the owner's sequences filed into this
+  // project, sorted by id for a stable, byte-deterministic ordering, then nest
+  // each as a `sequences/{id}.gb` (GenBank source of truth) + `sequences/{id}.json`
+  // (the small meta the importer needs). Sender-side provenance (received_from*)
+  // is NEVER carried — the receiver stamps fresh provenance on import.
+  const sequenceRecords = await sequencesApi.listByProject(project.id);
+  sequenceRecords.sort((a, b) => a.id - b.id);
+  const sequencesIndex: ProjectManifestSequence[] = [];
+  for (const rec of sequenceRecords) {
+    const detail = await sequencesApi.get(rec.id);
+    if (!detail || !detail.genbank) continue; // skip an unreadable / empty pair.
+    const gbPath = `sequences/${rec.id}.gb`;
+    const metaPath = `sequences/${rec.id}.json`;
+    zip.file(gbPath, detail.genbank);
+    zip.file(
+      metaPath,
+      JSON.stringify(
+        {
+          // Provenance (received_from*) is deliberately omitted; the importer
+          // re-mints it from the project sender.
+          display_name: detail.display_name,
+          seq_type: detail.seq_type,
+          circular: detail.circular,
+        },
+        null,
+        2,
+      ),
+    );
+    sequencesIndex.push({
+      sequence_id: rec.id,
+      display_name: detail.display_name,
+      seq_type: detail.seq_type,
+      circular: detail.circular,
+      path: gbPath,
+      meta_path: metaPath,
+    });
+  }
+
   const manifest: ProjectBundleManifest = {
     format: PROJECT_BUNDLE_FORMAT,
     version: PROJECT_BUNDLE_VERSION,
@@ -198,9 +266,11 @@ export async function buildProjectBundle(
     project_name: project.name,
     experiments: experimentsIndex,
     dependency_ids: dependencies.map((d) => d.id),
+    sequences: sequencesIndex,
     counts: {
       experiments: experimentsIndex.length,
       dependencies: dependencies.length,
+      sequences: sequencesIndex.length,
     },
   };
   zip.file(PROJECT_MANIFEST_FILE, JSON.stringify(manifest, null, 2));
