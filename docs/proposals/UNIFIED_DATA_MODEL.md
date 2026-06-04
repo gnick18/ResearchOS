@@ -180,6 +180,18 @@ The spike's `spikes/unified-model-loro-binding/package.json` carries the verifie
 - `frontend/public/` -- no manual `.wasm` copy needed. The bundler emits the asset from the static import in the `bundler/` target.
 - The Vercel deployment config -- brotli serving is automatic on Vercel for all static assets.
 
+## 12.3 Phased build roadmap
+
+Collab is not a parallel system bolted onto local editing. Per section 10, ONE store has three swappable backends, (a) the readable mirror, (b) the CRDT sidecar, (c) the Durable Object relay. Going live is the same local document connecting backend (c). So the relay is the LAST backend plugged in, not the first thing built. The phases reflect that.
+
+- Phase 0, substrate validation. DONE. Both Loro spikes passed, the React 19 mount is proven (the flag-gated `LoroNoteEditor` on main), and the WASM strategy is planned (section 12.2). Identity, the directory, the store-and-forward sharing relay, and `encryption.ts` already shipped, so the crypto and identity layer collab needs is in place.
+- Phase 1, unified local store (notes pilot, single-user, NO relay). Build the store plus backends (a) and (b) for notes behind `LORO_PILOT_ENABLED`. This is the load-bearing foundation. Detailed scope in `UNIFIED_MODEL_PHASE1_NOTES.md`. Needs sign-off on its persisted-data-shape decisions before code.
+- Phase 2, version control from native Loro history (notes). Auto-snapshot, diff-vs-previous, restore-as-a-new-change, day and session grouping, the attribution sidecar. Replaces the paused VC Phase 1 engine; derives from Loro history instead of a bespoke delta store.
+- Phase 3, live collab MVP (the relay backend, two-person live note). The one new infra, a Cloudflare Worker plus Durable Object. The DO authenticates a signed Ed25519 socket, fans encrypted Loro updates, relays encrypted awareness for cursors. Per-doc key wrapped to the collaborator via the existing `sealToRecipient`. E2E-blind (locked 4a). Retire-to-local through the existing `note-transfer.ts`. The `collab-yjs` spike already proved the fan-out mechanic; swap the Yjs client for Loro.
+- Phase 4, collab hardening. Blind snapshot plus compaction for late-join and reconnect catch-up, N-person sessions, methods (same text core), relay-the-final-snapshot for an offline-at-retire collaborator, and the live file-watcher for external edits while the app is open.
+- Phase 5, structured records plus folders. Experiment and method scalar fields (map LWW plus counter) with validate-and-repair-on-read, content-addressed attachments with conflict copies, the project folder as a container doc (Movable Tree) with lazy child loading. Whole-folder live collab stays frontier, deferred (cross-document atomicity is the unsolved-by-the-library part).
+
+Two gates before the build starts, (1) Grant signs off on the phasing and the Phase 1 data-shape decisions, (2) Cloudflare Worker plus DO provisioning, which is a Phase 3 prerequisite and can proceed in parallel since Phases 1 and 2 need no new infra.
 
 ## 13. Open decisions for Grant
 
