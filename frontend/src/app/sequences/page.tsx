@@ -162,16 +162,17 @@ function AssembleIcon({ className }: { className?: string }) {
 
 /** Compare glyph: two stacked tracks with offset tick marks, reading as two
  *  sequences laid out for alignment. Inline SVG, stroke-only (no emojis). */
-/** Align glyph: two sequence lines joined by vertical match columns, reading as
- *  a pairwise alignment. Inline SVG, stroke-only (no emojis). */
+/** Align glyph: two separated DNA strands joined by DOTTED base-pair match lines,
+ *  reading as a pairwise alignment (not a solid DNA ladder). Inline SVG,
+ *  stroke-only (no emojis). */
 function AlignIcon({ className }: { className?: string }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <line x1="4" y1="8" x2="20" y2="8" />
-      <line x1="4" y1="16" x2="20" y2="16" />
-      <line x1="8" y1="8" x2="8" y2="16" />
-      <line x1="12" y1="8" x2="12" y2="16" />
-      <line x1="16" y1="8" x2="16" y2="16" />
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="4" y1="17" x2="20" y2="17" />
+      <line x1="8" y1="7" x2="8" y2="17" strokeDasharray="1.5 2.5" />
+      <line x1="12" y1="7" x2="12" y2="17" strokeDasharray="1.5 2.5" />
+      <line x1="16" y1="7" x2="16" y2="17" strokeDasharray="1.5 2.5" />
     </svg>
   );
 }
