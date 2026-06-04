@@ -218,6 +218,10 @@ data). So:
   state the tunable knobs, and ask him to reload and look. Do not stack three unverified visual
   guesses.
 - For vendored-file edits, manually audit variable scope (see trap #1) before saying it is done.
+  There is now a render-level guard for this: `vendor/seqviz/Linear/Primers.render.test.tsx` mounts
+  the `Linear` viewer with a primer at base zoom, so a render-path crash (the `seqFontSize` class of
+  bug) fails the suite even though tsc cannot see it. It was verified to bite by reintroducing the
+  original bug. Extend it when you touch the primer render.
 - The demo data (`frontend/public/demo-data/`) is task / note JSON, NOT sequence files, so there is
   no easy fixture plasmid with primers to self-screenshot. Plan around that.
 
