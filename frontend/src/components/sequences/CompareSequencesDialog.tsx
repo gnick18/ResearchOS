@@ -31,7 +31,11 @@ const MAX_ALIGN_BASES = 60_000;
 // summarized without painting hundreds of thousands of monospace cells.
 const MAX_RENDER_COLUMNS = 6_000;
 const ROW_WIDTH = 60;
-const DOTPLOT_PX = 220;
+// Rendered square size of the dotplot. Sized to read as a real plot in its own
+// section under the alignment, not a cramped corner thumbnail. The grid sampled
+// by computeDotplot is independent (DOTPLOT_GRID); the SVG scales it to fit.
+const DOTPLOT_PX = 340;
+const DOTPLOT_GRID = 160;
 
 type AlignMode = "global" | "local";
 // Which substitution scheme drives the alignment. "dna" is IUPAC-aware DNA
@@ -213,11 +217,12 @@ function AlignmentView({ model }: { model: CompareModel }) {
   );
 }
 
-/** A small SVG dotplot of shared k-mers (down-sampled grid). */
+/** An SVG dotplot of shared k-mers (down-sampled grid). Rendered as a readable
+ *  square with labelled axes in its own result section. */
 function DotplotView({ a, b }: { a: string; b: string }) {
   const plot = useMemo(() => {
     const k = dotplotWordSize(Math.min(a.length, b.length));
-    return computeDotplot(a, b, 120, k);
+    return computeDotplot(a, b, DOTPLOT_GRID, k);
   }, [a, b]);
 
   const g = plot.size;
@@ -230,32 +235,40 @@ function DotplotView({ a, b }: { a: string; b: string }) {
   }
 
   return (
-    <div className="flex flex-col items-start gap-1">
+    <div className="flex flex-col items-start gap-2">
       <span className="text-meta font-medium uppercase tracking-wide text-gray-400">
         Dotplot (k = {plot.k})
       </span>
-      <svg
-        width={DOTPLOT_PX}
-        height={DOTPLOT_PX}
-        viewBox={`0 0 ${DOTPLOT_PX} ${DOTPLOT_PX}`}
-        className="rounded-md border border-gray-200 bg-white"
-        role="img"
-        aria-label="Dotplot of shared k-mers between the two sequences"
-      >
-        {dots.map((d, i) => (
-          <rect
-            key={i}
-            x={d.x}
-            y={d.y}
-            width={Math.max(1, cell)}
-            height={Math.max(1, cell)}
-            className="fill-sky-500"
-          />
-        ))}
-      </svg>
-      <div className="flex w-[220px] justify-between text-meta text-gray-400">
-        <span>A &rarr;</span>
-        <span>B &darr;</span>
+      {/* axis labels frame the square: A runs along the top, B down the left */}
+      <div className="flex flex-col gap-1">
+        <span className="text-meta text-gray-400">A &rarr;</span>
+        <div className="flex items-stretch gap-1">
+          <span
+            className="flex items-center text-meta text-gray-400"
+            style={{ writingMode: "vertical-rl" }}
+          >
+            B &darr;
+          </span>
+          <svg
+            width={DOTPLOT_PX}
+            height={DOTPLOT_PX}
+            viewBox={`0 0 ${DOTPLOT_PX} ${DOTPLOT_PX}`}
+            className="rounded-md border border-gray-200 bg-white"
+            role="img"
+            aria-label="Dotplot of shared k-mers between the two sequences"
+          >
+            {dots.map((d, i) => (
+              <rect
+                key={i}
+                x={d.x}
+                y={d.y}
+                width={Math.max(1, cell)}
+                height={Math.max(1, cell)}
+                className="fill-sky-500"
+              />
+            ))}
+          </svg>
+        </div>
       </div>
     </div>
   );
@@ -536,14 +549,17 @@ export default function CompareSequencesDialog({
                 </p>
               ) : null}
 
-              <div className="flex flex-wrap gap-6">
-                <div className="min-w-0 flex-1">
-                  <AlignmentView model={visibleModel} />
-                </div>
-                {showDotplot && lastBasesRef.current ? (
-                  <DotplotView a={lastBasesRef.current.a} b={lastBasesRef.current.b} />
-                ) : null}
+              {/* The alignment is the primary readout; the dotplot sits in its
+                  own section below it (a readable square, not a corner thumbnail)
+                  so neither crowds the other. The dotplot stays toggleable. */}
+              <div className="min-w-0">
+                <AlignmentView model={visibleModel} />
               </div>
+              {showDotplot && lastBasesRef.current ? (
+                <div className="border-t border-gray-100 pt-4">
+                  <DotplotView a={lastBasesRef.current.a} b={lastBasesRef.current.b} />
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>

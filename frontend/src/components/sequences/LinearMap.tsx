@@ -533,10 +533,19 @@ export default function LinearMap({
         </div>
       </div>
 
-      {/* ── the map itself (scrollable; wrapRef measures the track width) ── */}
-      <div ref={wrapRef} className="relative min-h-0 flex-1 overflow-auto">
+      {/* ── the map itself (scrollable; wrapRef measures the track width) ──
+          vertical layout: a single-line linear map is short, so without this it
+          would pin to the top and leave a tall empty band above the navigator.
+          Centering the SVG in the available column places the strand + feature
+          track in the middle of the canvas. `my-auto` (not justify-center) does
+          the centering so a tall map (many feature-label tiers) still scrolls
+          fully into view without the flexbox top-clipping bug. */}
+      <div
+        ref={wrapRef}
+        className="relative flex min-h-0 flex-1 flex-col overflow-auto"
+      >
       {trackWidth > 0 ? (
-        <svg width="100%" height={totalH} className="block select-none" style={{ minHeight: totalH }}>
+        <svg width="100%" height={totalH} className="my-auto block shrink-0 select-none" style={{ minHeight: totalH }}>
           {/* ── strand baseline ── */}
           <rect
             x={PAD_X}
@@ -780,9 +789,13 @@ export default function LinearMap({
           at full zoom-out the whole molecule already fills the track, so there is
           nothing to navigate. The strip's vertical slot is RESERVED at all zoom
           levels (a fixed min-height matching the navigator height) so showing /
-          hiding it does not shift the surrounding layout. The "Whole molecule (N bp)"
-          footer is always present as the label. */}
-      <div className="shrink-0 border-t border-slate-100">
+          hiding it does not shift the surrounding layout.
+
+          NOTE: the "Whole molecule (N bp)" caption is NOT drawn here. The editor's
+          shared SequenceCoordinateBar (Map mode) already renders that indicator
+          directly below this component, so a footer label here was a visible
+          duplicate. The navigator slot only carries the strip itself now. */}
+      <div className="shrink-0">
         <div
           className="px-0"
           // Reserve the navigator's vertical slot whether or not the strip renders,
@@ -799,9 +812,6 @@ export default function LinearMap({
               />
             </div>
           ) : null}
-        </div>
-        <div className="px-3 pb-1 text-meta tabular-nums text-slate-400">
-          Whole molecule ({comma(seqLength)} bp)
         </div>
       </div>
     </div>

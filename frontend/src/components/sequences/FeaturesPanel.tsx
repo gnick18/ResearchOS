@@ -375,24 +375,44 @@ export default function FeaturesPanel({
                       {/* row actions (appear on hover) */}
                       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                         <Tooltip label={hidden ? "Show in viewer" : "Hide in viewer"}>
-                          <button type="button" onClick={() => toggleFeature(f)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                          <button
+                            type="button"
+                            onClick={() => toggleFeature(f)}
+                            aria-label={`${hidden ? "Show" : "Hide"} ${f.name} in viewer`}
+                            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          >
                             {hidden ? <IconEyeOff className="h-3.5 w-3.5" /> : <IconEye className="h-3.5 w-3.5" />}
                           </button>
                         </Tooltip>
                         <Tooltip label={readOnly ? "Feature details" : "Edit feature"}>
-                          <button type="button" onClick={() => onEditFeature(index)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                          <button
+                            type="button"
+                            onClick={() => onEditFeature(index)}
+                            aria-label={`${readOnly ? "Details for" : "Edit"} ${f.name}`}
+                            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          >
                             <IconEdit className="h-3.5 w-3.5" />
                           </button>
                         </Tooltip>
                         {!readOnly ? (
                           <>
                             <Tooltip label="Duplicate feature">
-                              <button type="button" onClick={() => onDuplicateFeature(index)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                              <button
+                                type="button"
+                                onClick={() => onDuplicateFeature(index)}
+                                aria-label={`Duplicate ${f.name}`}
+                                className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                              >
                                 <IconDuplicate className="h-3.5 w-3.5" />
                               </button>
                             </Tooltip>
                             <Tooltip label="Delete feature">
-                              <button type="button" onClick={() => onDeleteFeature(index)} className="rounded p-1 text-gray-400 hover:bg-rose-50 hover:text-rose-600">
+                              <button
+                                type="button"
+                                onClick={() => onDeleteFeature(index)}
+                                aria-label={`Delete ${f.name}`}
+                                className="rounded p-1 text-gray-400 hover:bg-rose-50 hover:text-rose-600"
+                              >
                                 <IconTrash className="h-3.5 w-3.5" />
                               </button>
                             </Tooltip>

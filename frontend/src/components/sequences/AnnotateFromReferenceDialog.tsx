@@ -145,6 +145,10 @@ export default function AnnotateFromReferenceDialog({
     });
   }, []);
 
+  // Count ONLY the rows that are both selected AND addable (mapped). Unmapped /
+  // not-found rows render disabled and are never counted, so this number is the
+  // exact set apply() will transfer — the footer "M of N selected" and the
+  // "Add M features" button both read from it and can never diverge.
   const selectedCount = rows.filter((r) => r.selected && !r.proposal.unmapped).length;
 
   const apply = useCallback(() => {
@@ -262,8 +266,7 @@ export default function AnnotateFromReferenceDialog({
                 onClick={apply}
                 className="rounded-md bg-sky-500 px-3 py-1.5 text-body font-medium text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Add {selectedCount > 0 ? selectedCount : ""} feature
-                {selectedCount === 1 ? "" : "s"}
+                Add {selectedCount} feature{selectedCount === 1 ? "" : "s"}
               </button>
             )}
           </div>
