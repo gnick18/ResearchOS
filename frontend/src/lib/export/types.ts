@@ -8,6 +8,7 @@ import type {
   Task,
   Method,
   Project,
+  Dependency,
   TaskMethodAttachment,
   PCRProtocol,
   LCGradientProtocol,
@@ -104,6 +105,15 @@ export interface ExperimentExportPayload {
   // Attachments, already deduplicated by origin+filename
   attachments: ExperimentAttachment[];
 
+  // Task-to-task dependency records whose parent_id or child_id is this task.
+  // These live in users/<owner>/dependencies/<id>.json, separate from the
+  // Task record, so they are carried explicitly. Optional + additive: the
+  // real producer (buildExperimentPayload) always sets it, but pre-existing
+  // payload factories that predate Gap 1 omit it, and raw.ts treats a missing
+  // value as "no links" (`payload.dependencies ?? []`). Added 2026-06-04 for
+  // cross-boundary sharing (Gap 1).
+  dependencies?: Dependency[];
+
   // Title-page metadata pre-computed for convenience
   meta: {
     ownerLabel: string;     // for shared tasks this is `task.owner`
@@ -133,9 +143,16 @@ export interface ExportResult {
 // scheme is intentionally free-text so future iterations can fold in
 // hostname or folder-display-name without bumping `version`.
 
+// `version` was bumped 1 -> 2 on 2026-06-04 when the optional `dependencies`
+// section was added (Gap 1, cross-boundary sharing). The bump is additive:
+// a v2 manifest is a strict superset of v1, and the importer's parser
+// accepts BOTH versions. A v1 bundle (no `dependencies.json`, no
+// `dependency_ids` here) still imports unchanged. `dependency_ids` is an
+// optional convenience index of the bundled dependency record ids; the
+// canonical content lives in the `dependencies.json` sidecar.
 export interface RawManifest {
   format: "researchos-experiment";
-  version: 1;
+  version: 1 | 2;
   exported_at: string;
   exported_by: string;
   source_owner: string;
@@ -144,6 +161,7 @@ export interface RawManifest {
   task_key: string;
   project_id: number;
   method_ids: number[];
+  dependency_ids?: number[];
 }
 
 export interface HtmlManifest {

@@ -209,7 +209,12 @@ describe("buildRawZip — happy path", () => {
       await zip.file("_export-manifest.json")!.async("string"),
     ) as RawManifest;
     expect(manifest.format).toBe("researchos-experiment");
-    expect(manifest.version).toBe(1);
+    // Raw manifest bumped 1 -> 2 on 2026-06-04 with the additive
+    // dependencies section (Gap 1). A no-dependency task still serializes an
+    // empty dependency_ids and writes no dependencies.json sidecar.
+    expect(manifest.version).toBe(2);
+    expect(manifest.dependency_ids).toEqual([]);
+    expect(names).not.toContain("dependencies.json");
     expect(manifest.task_id).toBe(42);
     expect(manifest.project_id).toBe(7);
     expect(manifest.method_ids).toEqual([101]);
@@ -249,6 +254,34 @@ describe("buildRawZip — happy path", () => {
       await zip.file("_export-manifest.json")!.async("string"),
     ) as RawManifest;
     expect(manifest.method_ids).toEqual([5, 3, 9, 1]);
+  });
+
+  it("writes dependencies.json + manifest.dependency_ids when the task has links (Gap 1)", async () => {
+    const payload = buildTestPayload({
+      dependencies: [
+        { id: 7, parent_id: 42, child_id: 99, dep_type: "FS" },
+        { id: 8, parent_id: 12, child_id: 42, dep_type: "SS" },
+      ],
+    });
+    const result = await buildRawZip(payload);
+    const zip = await unzip(result.blob);
+
+    const names = Object.keys(zip.files).sort();
+    expect(names).toContain("dependencies.json");
+
+    const manifest = JSON.parse(
+      await zip.file("_export-manifest.json")!.async("string"),
+    ) as RawManifest;
+    expect(manifest.version).toBe(2);
+    expect(manifest.dependency_ids).toEqual([7, 8]);
+
+    const deps = JSON.parse(
+      await zip.file("dependencies.json")!.async("string"),
+    );
+    expect(deps).toEqual([
+      { id: 7, parent_id: 42, child_id: 99, dep_type: "FS" },
+      { id: 8, parent_id: 12, child_id: 42, dep_type: "SS" },
+    ]);
   });
 });
 

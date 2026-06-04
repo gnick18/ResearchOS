@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import type { Task } from "@/lib/types";
-import { projectsApi, methodsApi, filesApi } from "@/lib/local-api";
+import { projectsApi, methodsApi, filesApi, dependenciesApi } from "@/lib/local-api";
 import { buildExperimentPayload } from "./extract";
 import { resolveCollidingFilenames } from "./slug";
 import { buildRawZip } from "./raw";
@@ -204,7 +204,7 @@ export async function exportExperiments(
     throw new Error("Nothing to export: no tasks supplied.");
   }
 
-  const deps = { projectsApi, methodsApi, filesApi };
+  const deps = { projectsApi, methodsApi, filesApi, dependenciesApi };
   const payloads = await Promise.all(
     tasks.map((t) => buildExperimentPayload(t, currentUser, deps))
   );
@@ -295,7 +295,7 @@ export async function exportExperimentsToFile(
     throw new Error("exportExperimentsToFile requires 2+ tasks");
   }
 
-  const deps = { projectsApi, methodsApi, filesApi };
+  const deps = { projectsApi, methodsApi, filesApi, dependenciesApi };
   const payloads = await Promise.all(
     tasks.map((t) => buildExperimentPayload(t, currentUser, deps))
   );

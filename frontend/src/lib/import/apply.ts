@@ -10,12 +10,14 @@ import {
   qpcrAnalysisApi,
   projectsApi,
   tasksApi,
+  dependenciesApi,
 } from "@/lib/local-api";
 import { getCurrentUserCached } from "@/lib/storage/json-store";
 import { taskNotesBase, taskResultsBase, taskResultsTabBase } from "@/lib/tasks/results-paths";
-import type { TaskMethodAttachment } from "@/lib/types";
+import type { Dependency, TaskMethodAttachment } from "@/lib/types";
 import { pickImportedMethodName, pickImportedProjectName } from "./resolve";
 import type {
+  ImportNotCarried,
   ImportPayload,
   ImportPlan,
   ImportResult,
@@ -349,18 +351,39 @@ async function applyMethodResolutions(
 
 /**
  * Remap `method_attachments` from the source's method id space into the
- * receiver's. Entries whose method was skipped get dropped; entries whose
- * method maps to an existing receiver method carry their variation notes /
- * PCR overrides over.
+ * receiver's. Entries whose method maps to a receiver-side method carry their
+ * variation notes / PCR overrides over, with `owner` reset to null so the
+ * reference points at the importer's own freshly localized method (Gap 2, no
+ * dangling foreign owner). Entries whose method did NOT map (skipped, or never
+ * bundled) are dropped AND recorded on `notCarried.methodRefs` so a future UI
+ * can warn the user instead of the link severing silently.
+ *
+ * `methodNameById` is a best-effort source-id -> name lookup for the report.
  */
 function remapMethodAttachments(
   source: TaskMethodAttachment[],
   mapping: Record<number, number>,
+  notCarried: ImportNotCarried,
+  methodNameById: Map<number, string>,
+  reportedMethodIds: Set<number>,
 ): TaskMethodAttachment[] {
   const out: TaskMethodAttachment[] = [];
   for (const att of source) {
     const newId = mapping[att.method_id];
-    if (newId == null) continue;
+    if (newId == null) {
+      // Drop + report. Dedupe against method_ids-level reports so the same
+      // missing method isn't listed twice.
+      if (!reportedMethodIds.has(att.method_id)) {
+        reportedMethodIds.add(att.method_id);
+        notCarried.methodRefs.push({
+          sourceMethodId: att.method_id,
+          sourceMethodName: methodNameById.get(att.method_id) ?? "",
+          reason:
+            "A method attached to this experiment was not included in the bundle (or was skipped during import), so the reference was dropped rather than left pointing at a method the recipient cannot open.",
+        });
+      }
+      continue;
+    }
     out.push({
       method_id: newId,
       // Import remaps id-space into the receiver's namespace, so the new
@@ -376,6 +399,79 @@ function remapMethodAttachments(
       variation_notes: att.variation_notes,
       compound_snapshots: att.compound_snapshots ?? null,
       qpcr_analysis: att.qpcr_analysis ?? null,
+    });
+  }
+  return out;
+}
+
+/**
+ * Remap the task's `method_ids` (Gap 2). A referenced method survives only
+ * when it localized to a receiver-side method (present in `mapping`). Any id
+ * that did not map is dropped and reported, so the new task never carries a
+ * method id the recipient cannot resolve.
+ */
+function remapMethodIds(
+  sourceMethodIds: number[],
+  mapping: Record<number, number>,
+  notCarried: ImportNotCarried,
+  methodNameById: Map<number, string>,
+  reportedMethodIds: Set<number>,
+): number[] {
+  const out: number[] = [];
+  for (const id of sourceMethodIds) {
+    const newId = mapping[id];
+    if (newId == null) {
+      if (!reportedMethodIds.has(id)) {
+        reportedMethodIds.add(id);
+        notCarried.methodRefs.push({
+          sourceMethodId: id,
+          sourceMethodName: methodNameById.get(id) ?? "",
+          reason:
+            "A method this experiment referenced was not included in the bundle (or was skipped during import), so the reference was dropped rather than left pointing at a method the recipient cannot open.",
+        });
+      }
+      continue;
+    }
+    out.push(newId);
+  }
+  return out;
+}
+
+/**
+ * Remap the carried dependency records (Gap 1). A dependency is recreated ONLY
+ * when BOTH of its endpoints are tasks present in this same import (future
+ * multi-task / project share). For a single-experiment share the other
+ * endpoint is absent, so the link cannot be honestly rebuilt — it is DROPPED
+ * and reported, never silently recreated against an invented task.
+ *
+ * `taskIdMap` maps a SOURCE task id -> the receiver-side task id it was
+ * materialized as. In the current single-task import it has exactly one entry
+ * (the imported task). The shape already supports multi-task remap so the
+ * later tier plugs in without touching this rule.
+ *
+ * Returns the dependency records to create, in the receiver's id-space.
+ */
+function remapDependencies(
+  dependencies: Dependency[],
+  taskIdMap: Map<number, number>,
+  notCarried: ImportNotCarried,
+): Array<{ parent_id: number; child_id: number; dep_type: Dependency["dep_type"] }> {
+  const out: Array<{ parent_id: number; child_id: number; dep_type: Dependency["dep_type"] }> = [];
+  for (const dep of dependencies) {
+    const newParent = taskIdMap.get(dep.parent_id);
+    const newChild = taskIdMap.get(dep.child_id);
+    if (newParent != null && newChild != null) {
+      out.push({ parent_id: newParent, child_id: newChild, dep_type: dep.dep_type });
+      continue;
+    }
+    // At least one endpoint is not in this import. Drop + report; do not
+    // invent the missing endpoint.
+    notCarried.dependencies.push({
+      sourceParentId: dep.parent_id,
+      sourceChildId: dep.child_id,
+      depType: dep.dep_type,
+      reason:
+        "This experiment had a link to another experiment that was not included in what was shared. The link was not carried over.",
     });
   }
   return out;
@@ -422,10 +518,46 @@ export async function applyImportPlan(plan: ImportPlan): Promise<ImportResult> {
     throw new Error("No active user — sign in before importing.");
   }
 
+  const notCarried: ImportNotCarried = { dependencies: [], methodRefs: [] };
+
   const newProjectId = await applyProjectResolution(plan);
   const { mapping, resultMethodIds } = await applyMethodResolutions(plan);
+  void resultMethodIds; // method_ids is recomputed below from the source task.
+
+  // Best-effort source-method-id -> name lookup for the notCarried report.
+  // Pull from both the resolution list and the parsed records so a method
+  // that was dropped before resolution still gets a name when available.
+  const methodNameById = new Map<number, string>();
+  for (const r of plan.methods) {
+    methodNameById.set(r.sourceMethodId, r.sourceMethodName);
+  }
+  for (const m of plan.payload.methods) {
+    if (!methodNameById.has(m.record.id)) {
+      methodNameById.set(m.record.id, m.record.name);
+    }
+  }
 
   const sourceTask = plan.payload.task;
+
+  // Gap 2: remap both reference surfaces (method_ids + method_attachments)
+  // through the localized-method mapping. A shared report set dedupes a
+  // method that appears in both surfaces so the user sees it once.
+  const reportedMethodIds = new Set<number>();
+  const newMethodIds = remapMethodIds(
+    sourceTask.method_ids ?? [],
+    mapping,
+    notCarried,
+    methodNameById,
+    reportedMethodIds,
+  );
+  const newMethodAttachments = remapMethodAttachments(
+    sourceTask.method_attachments ?? [],
+    mapping,
+    notCarried,
+    methodNameById,
+    reportedMethodIds,
+  );
+
   const newTask = await tasksApi.create({
     project_id: newProjectId,
     name: sourceTask.name,
@@ -434,14 +566,11 @@ export async function applyImportPlan(plan: ImportPlan): Promise<ImportResult> {
     is_high_level: sourceTask.is_high_level,
     task_type: sourceTask.task_type,
     weekend_override: sourceTask.weekend_override,
-    method_ids: resultMethodIds,
+    method_ids: newMethodIds,
     tags: sourceTask.tags ?? undefined,
     experiment_color: sourceTask.experiment_color,
     sub_tasks: sourceTask.sub_tasks ?? undefined,
-    method_attachments: remapMethodAttachments(
-      sourceTask.method_attachments ?? [],
-      mapping,
-    ),
+    method_attachments: newMethodAttachments,
   });
 
   // Persist deviation_log + is_complete via a follow-up update — create()
@@ -455,11 +584,28 @@ export async function applyImportPlan(plan: ImportPlan): Promise<ImportResult> {
 
   await writeNotesResultsAttachments(newTask.id, currentUser, plan.payload);
 
+  // Gap 1: carry dependencies. The only source task present in this import is
+  // the one we just materialized, so the task-id map has exactly one entry.
+  // A dependency is recreated only when both endpoints are in that map; the
+  // common single-experiment case drops + reports the link.
+  const taskIdMap = new Map<number, number>([
+    [plan.payload.manifest.task_id, newTask.id],
+  ]);
+  const depsToCreate = remapDependencies(
+    plan.payload.dependencies ?? [],
+    taskIdMap,
+    notCarried,
+  );
+  for (const dep of depsToCreate) {
+    await dependenciesApi.create(dep);
+  }
+
   return {
     newTaskId: newTask.id,
     newTaskOwner: currentUser,
     newProjectId,
     importedMethodIds: mapping,
+    notCarried,
   };
 }
 

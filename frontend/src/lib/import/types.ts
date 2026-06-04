@@ -6,6 +6,7 @@
 import type {
   CellCultureSchedule,
   CodingWorkflowProtocol,
+  Dependency,
   LCGradientProtocol,
   MassSpecProtocol,
   Method,
@@ -18,7 +19,10 @@ import type {
 
 export interface ImportManifest {
   format: "researchos-experiment";
-  version: 1;
+  // v1 = pre-dependency bundles. v2 added the optional dependencies section
+  // (Gap 1, 2026-06-04). The parser accepts both; a v1 bundle imports
+  // unchanged because the dependencies section is treated as empty.
+  version: 1 | 2;
   exported_at: string;
   exported_by: string;
   source_owner: string;
@@ -26,6 +30,9 @@ export interface ImportManifest {
   task_key: string;
   project_id: number;
   method_ids: number[];
+  // v2 only, optional even then: convenience index of bundled dependency ids.
+  // The canonical content is the parsed `ImportPayload.dependencies`.
+  dependency_ids?: number[];
 }
 
 export type ImportAttachmentOrigin = "notes" | "results" | "methods";
@@ -96,6 +103,10 @@ export interface ImportPayload {
   notesMarkdown: string | null;
   resultsMarkdown: string | null;
   attachments: ImportAttachment[];
+  // Task-to-task dependency records carried in the bundle (Gap 1). The ids
+  // are still in the SOURCE id-space; apply.ts remaps them. Empty array for
+  // v1 bundles and for tasks that had no links.
+  dependencies: Dependency[];
 }
 
 export type MethodDecision = "use-existing" | "import-new" | "skip";
@@ -135,10 +146,45 @@ export interface ImportProgress {
   message: string;
 }
 
+// A single dependency record that could not be recreated on the receiver
+// side, with a human-readable reason a future UI can surface verbatim.
+export interface NotCarriedDependency {
+  // Source-side ids (the bundle's id-space). The receiver has no record with
+  // these ids; they are reported for diagnostics only.
+  sourceParentId: number;
+  sourceChildId: number;
+  depType: Dependency["dep_type"];
+  reason: string;
+}
+
+// A method reference (from method_ids or a method_attachment) that could not
+// be localized to a receiver-side method, so the reference was dropped rather
+// than left dangling at an owner the recipient cannot resolve.
+export interface NotCarriedMethodRef {
+  sourceMethodId: number;
+  // Best-effort name for the UI; may be empty if the bundle never carried the
+  // record (the very case that forces the drop).
+  sourceMethodName: string;
+  reason: string;
+}
+
+// Structured report of everything the import deliberately dropped so the
+// receiver is never left with a silently severed link or a dangling foreign
+// reference. A future UI warns the user from this. Empty arrays = clean
+// import (the normal local same-app case).
+export interface ImportNotCarried {
+  dependencies: NotCarriedDependency[];
+  methodRefs: NotCarriedMethodRef[];
+}
+
 export interface ImportResult {
   newTaskId: number;
   newTaskOwner: string;
   newProjectId: number | null;
   // Map from source method id → receiver-side method id, for diagnostics.
   importedMethodIds: Record<number, number>;
+  // What the import could not carry over (dropped dependencies + dropped
+  // method references), each with a reason. Always present; empty when the
+  // import was lossless. Added 2026-06-04 (Gaps 1 + 2).
+  notCarried: ImportNotCarried;
 }

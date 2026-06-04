@@ -2,6 +2,7 @@ import JSZip from "jszip";
 import type {
   CellCultureSchedule,
   CodingWorkflowProtocol,
+  Dependency,
   LCGradientProtocol,
   MassSpecProtocol,
   Method,
@@ -37,10 +38,27 @@ function isManifestShape(v: unknown): v is ImportManifest {
   const m = v as Record<string, unknown>;
   return (
     m.format === "researchos-experiment" &&
-    m.version === 1 &&
+    // Accept v1 (pre-dependency) AND v2 (dependencies section added). Both
+    // share the same required fields; v2 only adds optional fields, so v1
+    // bundles keep parsing unchanged.
+    (m.version === 1 || m.version === 2) &&
     typeof m.task_id === "number" &&
     typeof m.project_id === "number" &&
     Array.isArray(m.method_ids)
+  );
+}
+
+// Defensive shape guard for a single dependency record. The bundle is
+// untrusted input, so we drop anything that isn't a well-formed Dependency
+// rather than poison the import with a malformed link.
+function isDependencyShape(v: unknown): v is Dependency {
+  if (!v || typeof v !== "object") return false;
+  const d = v as Record<string, unknown>;
+  return (
+    typeof d.id === "number" &&
+    typeof d.parent_id === "number" &&
+    typeof d.child_id === "number" &&
+    (d.dep_type === "FS" || d.dep_type === "SS" || d.dep_type === "SF")
   );
 }
 
@@ -125,6 +143,32 @@ export async function parseImportBundle(file: Blob): Promise<ImportPayload> {
   const resultsEntry = zip.file("results.md");
   const resultsMarkdown = resultsEntry ? await resultsEntry.async("string") : null;
 
+  // dependencies.json is a v2-only optional sidecar (Gap 1). Missing is the
+  // common case (v1 bundles, no-link tasks) and is treated as no dependencies.
+  // Each record is shape-checked; malformed entries are dropped with a warn.
+  const dependencies: Dependency[] = [];
+  const dependenciesEntry = zip.file("dependencies.json");
+  if (dependenciesEntry) {
+    try {
+      const parsed = JSON.parse(await dependenciesEntry.async("string")) as unknown;
+      if (Array.isArray(parsed)) {
+        for (const rec of parsed) {
+          if (isDependencyShape(rec)) {
+            dependencies.push(rec);
+          } else {
+            console.warn("[import.parse] dropping malformed dependency record:", rec);
+          }
+        }
+      } else {
+        console.warn("[import.parse] dependencies.json is not an array; ignoring.");
+      }
+    } catch (err) {
+      // A corrupt dependencies.json must not fail the whole import; the task
+      // and methods are the load-bearing content. Drop the section and warn.
+      console.warn("[import.parse] failed to parse dependencies.json:", err);
+    }
+  }
+
   // Walk every entry, slot it into the right bucket. Methods are assembled
   // last so we can match {id → record, body, pdf bytes} across files.
   const methodRecords = new Map<number, Method>();
@@ -147,6 +191,7 @@ export async function parseImportBundle(file: Blob): Promise<ImportPayload> {
     if (path === "project.json") continue;
     if (path === "notes.md") continue;
     if (path === "results.md") continue;
+    if (path === "dependencies.json") continue;
 
     const methodJsonMatch = path.match(METHOD_JSON_RE);
     if (methodJsonMatch) {
@@ -354,6 +399,7 @@ export async function parseImportBundle(file: Blob): Promise<ImportPayload> {
     notesMarkdown,
     resultsMarkdown,
     attachments,
+    dependencies,
   };
 }
 

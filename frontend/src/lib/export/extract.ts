@@ -1,4 +1,5 @@
 import type {
+  Dependency,
   LCGradientProtocol,
   CellCultureSchedule,
   MassSpecProtocol,
@@ -21,6 +22,7 @@ import {
   projectsApi,
   methodsApi,
   filesApi,
+  dependenciesApi,
   pcrApi,
   lcGradientApi,
   plateApi,
@@ -40,6 +42,10 @@ export interface ExtractDeps {
   projectsApi: typeof projectsApi;
   methodsApi: typeof methodsApi;
   filesApi: typeof filesApi;
+  // Optional so older test seams that pass only the three core APIs keep
+  // working. When absent, the export simply carries no dependency records
+  // (a backward-compatible no-op equivalent to a task with no links).
+  dependenciesApi?: typeof dependenciesApi;
 }
 
 // Base64-encoded PDF magic bytes (`%PDF-`). `filesApi.readFile` returns a
@@ -572,6 +578,37 @@ async function buildMethodPayload(
   };
 }
 
+/**
+ * Collect the task's dependency records (Gap 1, cross-boundary sharing).
+ * Returns every dependency whose `parent_id` or `child_id` is this task, so a
+ * future multi-task share can remap links whose other endpoint is also in the
+ * bundle. For a single-experiment share the receiver drops links whose other
+ * endpoint is missing (see apply.ts), but we still carry them so the receiver
+ * can report exactly what was severed.
+ *
+ * Resilient by design: when `dependenciesApi` is not injected, or the store
+ * read fails, we return an empty list. No-links and read-failure both collapse
+ * to "no dependencies carried", which is the backward-compatible v1 behavior.
+ */
+async function collectTaskDependencies(
+  task: Task,
+  deps: ExtractDeps,
+): Promise<Dependency[]> {
+  if (!deps.dependenciesApi) return [];
+  try {
+    const all = await deps.dependenciesApi.list();
+    return all.filter(
+      (d) => d.parent_id === task.id || d.child_id === task.id,
+    );
+  } catch (err) {
+    console.warn(
+      `[export.extract] failed to read dependencies for task ${task.id}:`,
+      err,
+    );
+    return [];
+  }
+}
+
 function dedupeAttachments(
   attachments: ExperimentAttachment[]
 ): ExperimentAttachment[] {
@@ -666,6 +703,8 @@ export async function buildExperimentPayload(
 
   const project = await resolveProject(task, deps);
 
+  const dependencies = await collectTaskDependencies(task, deps);
+
   const attachments = dedupeAttachments([
     ...notesAttachments,
     ...resultsAttachments,
@@ -695,6 +734,7 @@ export async function buildExperimentPayload(
     resultsMarkdown,
     methods,
     attachments,
+    dependencies,
     meta,
   };
 }

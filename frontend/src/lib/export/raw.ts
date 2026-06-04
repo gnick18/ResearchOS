@@ -18,9 +18,14 @@ export async function buildRawZip(
   const JSZip = (await import("jszip")).default;
   const zip = new JSZip();
 
+  const dependencies = payload.dependencies ?? [];
+
   const manifest: RawManifest = {
     format: "researchos-experiment",
-    version: 1,
+    // v2 adds the optional dependencies section (Gap 1). Receivers on the
+    // v1 parser still accept v2 because the parser checks `version === 1 ||
+    // version === 2`; the extra fields are ignored by older code.
+    version: 2,
     exported_at: payload.meta.exportedAt,
     exported_by: "ResearchOS",
     source_owner: payload.task.owner,
@@ -32,11 +37,20 @@ export async function buildRawZip(
     task_key: taskKey(payload.task),
     project_id: payload.project.id,
     method_ids: [...payload.task.method_ids],
+    dependency_ids: dependencies.map((d) => d.id),
   };
 
   zip.file("_export-manifest.json", JSON.stringify(manifest, null, 2));
   zip.file("task.json", JSON.stringify(payload.task, null, 2));
   zip.file("project.json", JSON.stringify(payload.project, null, 2));
+
+  // The dependency records (Gap 1). Only written when the task actually has
+  // links, so a no-dependency bundle stays byte-identical to a v1 bundle
+  // apart from the manifest version + empty dependency_ids. A bundle with no
+  // dependencies.json still parses (the receiver treats it as no links).
+  if (dependencies.length > 0) {
+    zip.file("dependencies.json", JSON.stringify(dependencies, null, 2));
+  }
 
   if (payload.notesMarkdown !== null) {
     zip.file("notes.md", payload.notesMarkdown);
