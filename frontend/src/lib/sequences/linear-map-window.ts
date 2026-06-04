@@ -145,6 +145,35 @@ export function panWindow(
 }
 
 /**
+ * JOG WHEEL sensitivity factor (map jog wheel bot). A drag of the FULL track
+ * width nudges the window by this fraction of its CURRENT span, so the jog is
+ * far finer than the navigator box (where a full-width drag pans roughly the
+ * whole molecule). Scaling by the current span keeps the feel consistent across
+ * zoom levels: at a tight 60 bp window a comfortable drag nudges a handful of
+ * bp; when less zoomed the same drag covers proportionally more.
+ */
+export const JOG_SENSITIVITY = 0.3;
+
+/**
+ * Convert a horizontal jog-wheel DRAG (pixels) into a fine pan DELTA (bp). The
+ * pan is proportional to (dragPx / trackWidthPx) * winSpan * JOG_SENSITIVITY, so
+ * it scales with the visible span (consistent feel across zoom) yet stays much
+ * finer than dragging the whole-molecule navigator box the same distance.
+ * Positive dragPx (drag right) returns a positive delta (window moves toward the
+ * molecule end), matching a tactile wheel that scrolls content with the drag.
+ */
+export function jogScrubToDeltaBp(
+  dragPx: number,
+  trackWidthPx: number,
+  winSpan: number,
+): number {
+  const dx = Number.isFinite(dragPx) ? dragPx : 0;
+  const tw = Number.isFinite(trackWidthPx) && trackWidthPx > 0 ? trackWidthPx : 1;
+  const span = Number.isFinite(winSpan) && winSpan > 0 ? winSpan : 1;
+  return (dx / tw) * span * JOG_SENSITIVITY;
+}
+
+/**
  * RESIZE a window by moving ONE edge to a target bp, keeping the OTHER edge fixed
  * (the navigator's edge-drag = zoom). Enforces the MIN_WINDOW_BP floor so the
  * dragged edge can never collapse the window below the cap, and clamps to the

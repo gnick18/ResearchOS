@@ -54,9 +54,12 @@ import {
   spanOverlapsWindow,
   clipSpanToWindow,
   rulerStepForSpan,
+  panWindow,
+  jogScrubToDeltaBp,
 } from "@/lib/sequences/linear-map-window";
 import Tooltip from "@/components/Tooltip";
 import LinearMapNavigator from "./LinearMapNavigator";
+import MapJogWheel from "./MapJogWheel";
 import type { SeqType } from "@/vendor/seqviz/elements";
 
 /** A feature to draw below the line. Mirrors the editor's annotation shape. */
@@ -218,6 +221,32 @@ export default function LinearMap({
   const canZoomOut = winSpan < seqLength;
   const zoomIn = () => setSpanKeepingCenter(winSpan / ZOOM_STEP);
   const zoomOut = () => setSpanKeepingCenter(winSpan * ZOOM_STEP);
+
+  // ── JOG / SHUTTLE WHEEL (map jog wheel bot) ───────────────────────────────
+  // Each onScrub reports the incremental drag (px) since the last move. We turn
+  // that into a FINE bp pan via the unit-tested jogScrubToDeltaBp (scaled by the
+  // current span so the feel is consistent across zoom) and apply it with the
+  // pure panWindow (which clamps to [0, seqLength] keeping the span). The handler
+  // reads live geometry from a ref + uses the functional setWin form so a fast
+  // drag never acts on a stale window. The wheel only matters when zoomed in.
+  //
+  // FRACTIONAL ACCUMULATOR: at tight zoom one move's deltaBp is often well under
+  // 1 bp (e.g. a 7px move on a 66 bp window is ~0.17 bp). panWindow rounds the
+  // start to an integer, so applying each sub-bp delta in isolation would round
+  // back to the same start and the wheel would feel dead. We carry the leftover
+  // fraction in a ref and only feed panWindow whole-bp steps, keeping the
+  // remainder for the next move. This makes a slow drag accumulate smoothly.
+  const jogGeomRef = useRef({ trackWidth, winSpan });
+  jogGeomRef.current = { trackWidth, winSpan };
+  const jogFracRef = useRef(0);
+  const onJogScrub = (deltaPx: number) => {
+    const { trackWidth: tw, winSpan: span } = jogGeomRef.current;
+    const deltaBp = jogScrubToDeltaBp(deltaPx, tw, span) + jogFracRef.current;
+    const wholeBp = Math.trunc(deltaBp);
+    jogFracRef.current = deltaBp - wholeBp; // carry the sub-bp remainder
+    if (wholeBp === 0) return;
+    setWin((w) => panWindow(w, wholeBp, seqLength));
+  };
 
   // ── TRACKPAD PINCH-TO-ZOOM (map pinch bot) ────────────────────────────────
   // The map's window is the single source of truth, so a pinch just sets a new
@@ -495,6 +524,13 @@ export default function LinearMap({
         <span className="tabular-nums text-slate-400">
           {comma(winStart + 1)} .. {comma(winEnd)}
         </span>
+
+        {/* ── jog / shuttle wheel: FINE panning when zoomed in (map jog wheel
+            bot). Inert at full zoom-out (nothing to pan). ── */}
+        <div className="ml-auto flex items-center gap-1.5">
+          <span className="text-meta text-slate-400">Scroll</span>
+          <MapJogWheel onScrub={onJogScrub} disabled={!isZoomedIn} width={96} />
+        </div>
       </div>
 
       {/* ── the map itself (scrollable; wrapRef measures the track width) ── */}

@@ -9,6 +9,8 @@ import {
   windowAroundPoint,
   fullWindow,
   panWindow,
+  jogScrubToDeltaBp,
+  JOG_SENSITIVITY,
   resizeWindowEdge,
   spanOverlapsWindow,
   clipSpanToWindow,
@@ -145,6 +147,41 @@ describe("panWindow", () => {
   });
   it("clamps at the right edge", () => {
     expect(panWindow({ start: 9700, end: 9900 }, 500, len)).toEqual({ start: 9800, end: 10000 });
+  });
+});
+
+describe("jogScrubToDeltaBp", () => {
+  it("maps a full-track drag to JOG_SENSITIVITY * span", () => {
+    // Drag the whole 400px track on a 600 bp window -> 0.3 * 600 = 180 bp.
+    expect(jogScrubToDeltaBp(400, 400, 600)).toBeCloseTo(JOG_SENSITIVITY * 600);
+  });
+  it("is FINE: a comfortable drag nudges only a handful of bp at tight zoom", () => {
+    // 30px drag on a 400px track at a 60 bp window: 30/400 * 60 * 0.3 ~= 1.35 bp.
+    const delta = jogScrubToDeltaBp(30, 400, 60);
+    expect(delta).toBeGreaterThan(0);
+    expect(delta).toBeLessThan(3);
+  });
+  it("scales with the visible span (consistent feel across zoom)", () => {
+    // Same drag fraction -> proportionally larger delta at a wider window.
+    const tight = jogScrubToDeltaBp(50, 400, 100);
+    const wide = jogScrubToDeltaBp(50, 400, 1000);
+    expect(wide / tight).toBeCloseTo(10);
+  });
+  it("is signed: dragging right returns a positive (forward) delta", () => {
+    expect(jogScrubToDeltaBp(40, 400, 600)).toBeGreaterThan(0);
+    expect(jogScrubToDeltaBp(-40, 400, 600)).toBeLessThan(0);
+  });
+  it("is far finer than a navigator-box drag of the same fraction", () => {
+    // The navigator maps a drag fraction ~1:1 to a molecule fraction. The jog
+    // moves only JOG_SENSITIVITY of the WINDOW span for that same fraction.
+    const fullTrackPx = 400;
+    const winSpan = 600;
+    const jogDelta = jogScrubToDeltaBp(fullTrackPx, fullTrackPx, winSpan);
+    expect(jogDelta).toBeLessThan(winSpan); // never even a full window per drag
+    expect(jogDelta).toBeCloseTo(JOG_SENSITIVITY * winSpan);
+  });
+  it("guards a zero/invalid track width", () => {
+    expect(Number.isFinite(jogScrubToDeltaBp(10, 0, 100))).toBe(true);
   });
 });
 
