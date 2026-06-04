@@ -1,0 +1,125 @@
+// Cross-boundary sharing, directory request-body validation (Phase 1b-ii).
+//
+// Pure parsing and shape checks for the three route bodies, plus the response
+// shaping for a lookup hit. Kept here, separate from the route handlers, so the
+// validation logic is unit-testable without a live DB, Redis, or mailer. The
+// routes call these and translate a null/failure into a generic error.
+
+/** A loose email shape check, enough to reject obvious garbage before hashing. */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** A 6-digit numeric OTP, the shape generateOtp produces. */
+const OTP_RE = /^\d{6}$/;
+
+/** Lowercase hex, the encoding every public key and signature uses on the wire. */
+const HEX_RE = /^[0-9a-f]+$/;
+
+function isNonEmptyString(v: unknown): v is string {
+  return typeof v === "string" && v.length > 0;
+}
+
+/**
+ * Validates a `{ email }` body (signup and lookup share this). Returns the
+ * trimmed email on success or null if the field is missing or not a plausible
+ * email. Canonicalization (lowercasing) is the caller's job via canonicalizeEmail.
+ */
+export function parseEmailBody(body: unknown): { email: string } | null {
+  if (typeof body !== "object" || body === null) return null;
+  const email = (body as Record<string, unknown>).email;
+  if (!isNonEmptyString(email)) return null;
+  const trimmed = email.trim();
+  if (!EMAIL_RE.test(trimmed)) return null;
+  return { email: trimmed };
+}
+
+/** The fields a verify request must carry. */
+export interface VerifyBody {
+  email: string;
+  otp: string;
+  x25519PublicKey: string;
+  ed25519PublicKey: string;
+  keyBackupBlob: string | null;
+  signature: string;
+  issuedAt: string;
+}
+
+/**
+ * Validates a verify body. Requires a plausible email, a 6-digit OTP, two
+ * hex-encoded public keys, a hex signature, and an ISO-8601 issuedAt timestamp
+ * (the server needs issuedAt to reconstruct the exact bytes the client signed,
+ * see buildBindingPayload). keyBackupBlob is optional (an opaque client blob),
+ * coerced to null when absent. Returns null on any shape failure so the route
+ * returns a single generic error.
+ */
+export function parseVerifyBody(body: unknown): VerifyBody | null {
+  if (typeof body !== "object" || body === null) return null;
+  const b = body as Record<string, unknown>;
+
+  if (!isNonEmptyString(b.email)) return null;
+  const email = b.email.trim();
+  if (!EMAIL_RE.test(email)) return null;
+
+  if (!isNonEmptyString(b.otp) || !OTP_RE.test(b.otp)) return null;
+
+  if (!isNonEmptyString(b.x25519PublicKey) || !HEX_RE.test(b.x25519PublicKey)) {
+    return null;
+  }
+  if (!isNonEmptyString(b.ed25519PublicKey) || !HEX_RE.test(b.ed25519PublicKey)) {
+    return null;
+  }
+  if (!isNonEmptyString(b.signature) || !HEX_RE.test(b.signature)) return null;
+
+  if (!isNonEmptyString(b.issuedAt) || !isIsoTimestamp(b.issuedAt)) return null;
+
+  let keyBackupBlob: string | null = null;
+  if (b.keyBackupBlob !== undefined && b.keyBackupBlob !== null) {
+    if (!isNonEmptyString(b.keyBackupBlob)) return null;
+    keyBackupBlob = b.keyBackupBlob;
+  }
+
+  return {
+    email,
+    otp: b.otp,
+    x25519PublicKey: b.x25519PublicKey,
+    ed25519PublicKey: b.ed25519PublicKey,
+    keyBackupBlob,
+    signature: b.signature,
+    issuedAt: b.issuedAt,
+  };
+}
+
+/**
+ * Accepts a value as an ISO-8601 timestamp only if it round-trips, the string
+ * parses to a real date AND re-serializes to the same string. This rejects junk
+ * like "not-a-date" (NaN) and loose forms Date would coerce, so the signed
+ * issuedAt the client sends matches what buildBindingPayload re-encodes.
+ */
+function isIsoTimestamp(value: string): boolean {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return false;
+  return parsed.toISOString() === value;
+}
+
+/** The public-facing shape of a successful lookup, the backup blob never leaks. */
+export interface LookupResult {
+  x25519PublicKey: string;
+  ed25519PublicKey: string;
+  fingerprint: string;
+}
+
+/**
+ * Shapes a stored binding into the lookup response, dropping the email hash and
+ * the backup blob so a lookup only ever returns what a sender needs to seal to
+ * and verify against.
+ */
+export function shapeLookupResult(binding: {
+  x25519PublicKey: string;
+  ed25519PublicKey: string;
+  fingerprint: string;
+}): LookupResult {
+  return {
+    x25519PublicKey: binding.x25519PublicKey,
+    ed25519PublicKey: binding.ed25519PublicKey,
+    fingerprint: binding.fingerprint,
+  };
+}
