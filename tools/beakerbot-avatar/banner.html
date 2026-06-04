@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>ResearchOS banner render</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@600;700;800&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; }
+  .banner {
+    width: 2048px; height: 1152px; box-sizing: border-box;
+    display: flex; align-items: center; justify-content: center;
+    /* pastel rainbow lifted from BeakerBot's liquid gradient, swept horizontally */
+    background: linear-gradient(90deg, #FFD2B0 0%, #FFF1A8 25%, #B7EBB1 50%, #A6D2F4 75%, #D6B5F0 100%);
+  }
+  .lockup { display: flex; align-items: center; gap: 40px; }
+  .lockup svg { height: 280px; width: auto; display: block; }
+  h1 {
+    margin: 0; font-family: 'Geist', 'Inter', system-ui, -apple-system, sans-serif;
+    font-weight: 800; color: #111827; letter-spacing: -0.03em; line-height: 1;
+    font-size: 200px;
+  }
+  body[data-v="lockup"] h1 { font-size: 165px; }
+  .tag {
+    font-family: 'Geist', 'Inter', system-ui, sans-serif; font-weight: 600;
+    color: #1f2937; opacity: .85; letter-spacing: .01em; font-size: 46px; margin-top: 14px;
+  }
+  .stack { display: flex; flex-direction: column; align-items: center; }
+</style>
+</head>
+<body>
+  <div class="banner">
+    <div class="lockup" id="lockup">
+      <!-- BeakerBot mark, framed tight to the figure (viewBox crops the 0..40 art) -->
+      <svg id="mark" viewBox="8 3 24 31" fill="none" stroke="#1AA0E6" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none" />
+        <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liq)" stroke="none" />
+        <defs>
+          <linearGradient id="liq" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#FFD2B0" /><stop offset="25%" stop-color="#FFF1A8" />
+            <stop offset="50%" stop-color="#B7EBB1" /><stop offset="75%" stop-color="#A6D2F4" />
+            <stop offset="100%" stop-color="#D6B5F0" />
+          </linearGradient>
+        </defs>
+        <path d="M22 8 C 22 6, 24 4, 26 6" />
+        <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" />
+        <path d="M11 12 L29 12" />
+        <circle cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none" />
+        <circle cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none" />
+        <path d="M18 22 Q 20 24, 22 22" />
+        <path d="M14 26 L15.5 26" /><path d="M24.5 26 L26 26" />
+      </svg>
+      <h1>ResearchOS</h1>
+    </div>
+  </div>
+
+  <script>
+    // ?v=wordmark (text only) | lockup (mark + text)  ;  ?tag=1 adds a tagline
+    const p = new URLSearchParams(location.search);
+    const v = p.get('v') || 'wordmark';
+    document.body.dataset.v = v;
+    if (v === 'wordmark') document.getElementById('mark').style.display = 'none';
+    if (p.get('tag') === '1') {
+      const wrap = document.createElement('div');
+      wrap.className = 'stack';
+      const h1 = document.querySelector('h1');
+      h1.parentNode.insertBefore(wrap, h1);
+      wrap.appendChild(h1);
+      const t = document.createElement('div');
+      t.className = 'tag';
+      t.textContent = 'The lab operating system';
+      wrap.appendChild(t);
+    }
+  </script>
+</body>
+</html>

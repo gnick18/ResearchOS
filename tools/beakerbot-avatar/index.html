@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BeakerBot Avatar</title>
+<style>
+  :root { --bb: #1AA0E6; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    background: #0b1220; transition: background .25s ease;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  }
+  body.bg-transparent { background: transparent; }
+  body.bg-green { background: #00b140; }
+  body.bg-dark { background: #0b1220; }
+
+  #stage { width: min(82vmin, 860px); aspect-ratio: 1 / 1; }
+  #stage svg { width: 100%; height: 100%; display: block; overflow: visible; }
+
+  #panel {
+    position: fixed; left: 14px; top: 14px; max-width: 286px;
+    color: #cbd5e1; background: rgba(15, 23, 42, .85);
+    padding: 14px 16px; border-radius: 14px; backdrop-filter: blur(8px);
+    box-shadow: 0 8px 30px rgba(0,0,0,.35); font-size: 13px; line-height: 1.45;
+    transition: opacity .3s ease; user-select: none;
+  }
+  #panel.hidden { opacity: 0; pointer-events: none; }
+  #panel h1 { font-size: 14px; margin: 0 0 10px; color: #f8fafc; }
+  #panel label { display: block; margin: 12px 0 3px; color: #94a3b8; }
+  #panel input[type=range] { width: 100%; accent-color: var(--bb); }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  button {
+    font: inherit; cursor: pointer; border: 0; border-radius: 9px;
+    padding: 7px 11px; background: var(--bb); color: #fff; font-weight: 600;
+  }
+  button.secondary { background: #334155; color: #cbd5e1; font-weight: 500; }
+  button[aria-pressed="true"] { outline: 2px solid var(--bb); outline-offset: 1px; }
+  .meter { height: 8px; border-radius: 5px; background: #1e293b; overflow: hidden; margin-top: 6px; }
+  .meter > i { display: block; height: 100%; width: 0%; background: var(--bb); }
+  .hint { color: #64748b; font-size: 12px; margin-top: 12px; }
+  kbd { background: #334155; border-radius: 4px; padding: 1px 5px; font-size: 11px; }
+  #status { font-size: 12px; color: #94a3b8; margin-top: 6px; min-height: 16px; }
+  #cam { position: fixed; right: 14px; bottom: 14px; width: 180px; border-radius: 12px;
+         transform: scaleX(-1); display: none; box-shadow: 0 6px 20px rgba(0,0,0,.4); }
+  #cam.show { display: block; }
+  #dbg { position: fixed; right: 14px; top: 14px; font: 11px/1.5 ui-monospace, Menlo, monospace;
+         color: #93c5fd; background: rgba(15,23,42,.8); padding: 8px 10px; border-radius: 10px;
+         white-space: pre; display: none; }
+  #dbg.show { display: block; }
+</style>
+</head>
+<body class="bg-dark">
+  <div id="stage">
+    <!-- BeakerBot SVG, geometry lifted verbatim from frontend/src/components/BeakerBot.tsx -->
+    <svg viewBox="0 0 40 40" fill="none" stroke="var(--bb)" stroke-width="2"
+         stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="BeakerBot avatar">
+      <defs>
+        <linearGradient id="liq" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"  stop-color="#FFD2B0" />
+          <stop offset="25%" stop-color="#FFF1A8" />
+          <stop offset="50%" stop-color="#B7EBB1" />
+          <stop offset="75%" stop-color="#A6D2F4" />
+          <stop offset="100%" stop-color="#D6B5F0" />
+        </linearGradient>
+      </defs>
+
+      <g id="beaker">
+        <!-- white body fill (legibility backdrop) -->
+        <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none" />
+        <!-- rainbow liquid with wavy meniscus -->
+        <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liq)" stroke="none" />
+        <!-- hair flick -->
+        <path d="M22 8 C 22 6, 24 4, 26 6" />
+        <!-- body outline -->
+        <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" />
+        <!-- beaker lip -->
+        <path d="M11 12 L29 12" />
+        <!-- brows (always visible, lift on emphasis) -->
+        <path id="leftBrow"  d="M 15.4 14.6 Q 17 13.8, 18.6 14.6" stroke-width="1" />
+        <path id="rightBrow" d="M 21.4 14.6 Q 23 13.8, 24.6 14.6" stroke-width="1" />
+        <!-- eyes (wrapped for blink + gaze) -->
+        <g id="leftEye"><circle cx="17" cy="18" r="1.2" fill="var(--bb)" stroke="none" /></g>
+        <g id="rightEye"><circle cx="23" cy="18" r="1.2" fill="var(--bb)" stroke="none" /></g>
+        <!-- mouth: smile path crossfades with an openable / puckerable ellipse -->
+        <path id="smile" d="M18 22 Q 20 24, 22 22" />
+        <ellipse id="mouth" cx="20" cy="22.7" rx="2.1" ry="0.3" fill="var(--bb)" stroke="none" opacity="0" />
+        <!-- cheek measurement dashes -->
+        <path d="M14 26 L15.5 26" />
+        <path d="M24.5 26 L26 26" />
+      </g>
+    </svg>
+  </div>
+
+  <video id="cam" autoplay playsinline muted></video>
+  <pre id="dbg"></pre>
+
+  <div id="panel">
+    <h1>BeakerBot Avatar</h1>
+    <div class="row">
+      <button id="mic">Enable mic</button>
+      <button id="face" class="secondary">Enable face tracking</button>
+    </div>
+    <div class="meter"><i id="lvl"></i></div>
+    <div id="status"></div>
+
+    <div class="row" id="faceCtl" style="display:none">
+      <button id="recenter" class="secondary">Recenter pose</button>
+      <button id="mirror" class="secondary" aria-pressed="true">Mirror</button>
+      <button id="campv" class="secondary" aria-pressed="false">Cam preview</button>
+    </div>
+
+    <label for="sens">Mouth sensitivity (mic)</label>
+    <input id="sens" type="range" min="0.4" max="3" step="0.05" value="1.3" />
+    <label for="head">Head motion amount</label>
+    <input id="head" type="range" min="0" max="2" step="0.05" value="1" />
+
+    <label>Background</label>
+    <div class="row">
+      <button class="secondary" data-bg="dark" aria-pressed="true">Dark</button>
+      <button class="secondary" data-bg="transparent" aria-pressed="false">Transparent</button>
+      <button class="secondary" data-bg="green" aria-pressed="false">Green</button>
+    </div>
+
+    <p class="hint">
+      <kbd>H</kbd> hide panel &middot; <kbd>B</kbd> background &middot; <kbd>D</kbd> debug<br />
+      Face tracking: click Enable, allow the camera, then Recenter while looking straight ahead.
+      For OBS, add a Browser Source at this URL, pick Transparent, crop into the corner.
+    </p>
+  </div>
+
+<script type="module">
+  const $ = (id) => document.getElementById(id);
+  const beaker = $('beaker'), leftEye = $('leftEye'), rightEye = $('rightEye');
+  const smile = $('smile'), mouth = $('mouth'), leftBrow = $('leftBrow'), rightBrow = $('rightBrow');
+  const panel = $('panel'), micBtn = $('mic'), faceBtn = $('face'), sensEl = $('sens'), headEl = $('head');
+  const lvl = $('lvl'), statusEl = $('status'), dbg = $('dbg'), cam = $('cam');
+  const faceCtl = $('faceCtl'), recenterBtn = $('recenter'), mirrorBtn = $('mirror'), campvBtn = $('campv');
+
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  // ---- unified expression channels (0..1, except head*/gaze* signed) -----
+  const ch = {
+    mouthOpen: 0, pucker: 0, smileX: 0,
+    blinkL: 0, blinkR: 0, browRaise: 0, browFurrow: 0,
+    gazeX: 0, gazeY: 0, headYaw: 0, headPitch: 0, headRoll: 0,
+  };
+  // smoothed render state so nothing jitters
+  const r = { ...ch };
+  function smoothToward(target, fast) {
+    for (const k in r) r[k] = lerp(r[k], target[k] ?? 0, fast ? 0.55 : 0.3);
+  }
+
+  let faceOn = false, micOn = false, mirror = true;
+
+  // ---- microphone -> amplitude envelope ----------------------------------
+  let analyser = null, abuf = null, env = 0, talkEnv = 0;
+  async function enableMic() {
+    if (micOn) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = ctx.createMediaStreamSource(stream);
+      analyser = ctx.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.5;
+      abuf = new Float32Array(analyser.fftSize); src.connect(analyser);
+      micOn = true; micBtn.textContent = 'Mic on'; micBtn.style.background = '#16a34a';
+    } catch (e) {
+      micBtn.textContent = 'Mic blocked'; micBtn.style.background = '#dc2626';
+      alert('Microphone failed. Serve over http://localhost (not file://) and allow the prompt.');
+    }
+  }
+  function micLevel() {
+    if (!micOn) return 0;
+    analyser.getFloatTimeDomainData(abuf);
+    let s = 0; for (let i = 0; i < abuf.length; i++) s += abuf[i] * abuf[i];
+    const rms = Math.sqrt(s / abuf.length);
+    env += (rms - env) * (rms > env ? 0.6 : 0.15);
+    return clamp((env - 0.012) * 9 * parseFloat(sensEl.value), 0, 1);
+  }
+  micBtn.addEventListener('click', enableMic);
+
+  // ---- MediaPipe face tracking ------------------------------------------
+  let faceLandmarker = null, neutral = null;
+  async function enableFace() {
+    if (faceOn) return;
+    // 1) Ask for the camera FIRST so the permission prompt is unmistakable and any error is specific.
+    let stream;
+    try {
+      statusEl.textContent = 'Requesting camera access...';
+      stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+    } catch (e) {
+      statusEl.textContent = 'Camera not available (' + e.name + '). Click the camera icon at the right edge of the address bar, choose Allow, reload, and retry.';
+      console.error(e); return;
+    }
+    // 2) Load the MediaPipe face model (GPU, falling back to CPU on machines where WebGL is restricted).
+    try {
+      statusEl.textContent = 'Loading face model...';
+      try { window.dbg = function () {}; globalThis.dbg = window.dbg; } catch (_) {}  // force-shim: an extension may have polluted a global the WASM reads
+      const V = '0.10.12';
+      const { FaceLandmarker, FilesetResolver } = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@' + V);
+      const MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+      // Fresh fileset per delegate: a failed GPU attempt must not leave a broken module for the CPU fallback.
+      const make = async (delegate) => {
+        const fileset = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@' + V + '/wasm');
+        return FaceLandmarker.createFromOptions(fileset, {
+          baseOptions: { modelAssetPath: MODEL, delegate },
+          runningMode: 'VIDEO', numFaces: 1, outputFaceBlendshapes: true, outputFacialTransformationMatrixes: false,
+        });
+      };
+      try { faceLandmarker = await make('GPU'); }
+      catch (_) { faceLandmarker = await make('CPU'); }
+    } catch (e) {
+      stream.getTracks().forEach(t => t.stop());
+      statusEl.textContent = 'Face model failed: ' + (e.message || e);
+      console.error(e); return;
+    }
+    cam.srcObject = stream;
+    await cam.play();
+    faceOn = true;
+    faceBtn.textContent = 'Face tracking on'; faceBtn.style.background = '#16a34a';
+    faceCtl.style.display = 'flex';
+    statusEl.textContent = 'Look straight ahead, then click Recenter.';
+  }
+  faceBtn.addEventListener('click', enableFace);
+  recenterBtn.addEventListener('click', () => { neutral = null; statusEl.textContent = 'Recentered.'; });
+
+  // pull a blendshape score by name
+  function bsMap(cats) { const m = {}; for (const c of cats) m[c.categoryName] = c.score; return m; }
+
+  let lastVideoTime = -1;
+  function readFace() {
+    if (!faceOn || cam.readyState < 2) return;
+    if (cam.currentTime === lastVideoTime) return;
+    lastVideoTime = cam.currentTime;
+    const res = faceLandmarker.detectForVideo(cam, performance.now());
+    if (!res.faceLandmarks || !res.faceLandmarks.length) return;
+    const lm = res.faceLandmarks[0];
+    const bs = (res.faceBlendshapes && res.faceBlendshapes.length) ? bsMap(res.faceBlendshapes[0].categories) : {};
+    const g = (n) => bs[n] || 0;
+
+    // --- head pose from landmarks (normalized image coords) ---
+    const L = lm[33], R = lm[263], nose = lm[1], FL = lm[234], FR = lm[454], chin = lm[152];
+    const eyeCx = (L.x + R.x) / 2, eyeCy = (L.y + R.y) / 2;
+    const faceW = Math.hypot(FR.x - FL.x, FR.y - FL.y) || 0.2;
+    let roll = Math.atan2(R.y - L.y, R.x - L.x);               // radians, 0 = level
+    let yawRaw = (nose.x - eyeCx) / faceW;                      // + = nose toward image-right
+    let pitchRaw = (nose.y - eyeCy) / (Math.abs(chin.y - eyeCy) || 0.2);
+    if (!neutral) neutral = { roll, yawRaw, pitchRaw };
+    let yaw = (yawRaw - neutral.yawRaw) * 2.2;
+    let pitch = (pitchRaw - neutral.pitchRaw) * 2.2;
+    let rollRel = roll - neutral.roll;
+    if (mirror) { yaw = -yaw; }
+
+    // --- gaze from eyeLook blendshapes ---
+    let gx = (g('eyeLookOutLeft') + g('eyeLookInRight')) - (g('eyeLookInLeft') + g('eyeLookOutRight'));
+    let gy = (g('eyeLookUpLeft') + g('eyeLookUpRight')) - (g('eyeLookDownLeft') + g('eyeLookDownRight'));
+    if (mirror) gx = -gx;
+
+    // --- blinks (swap on mirror so a real wink reads on the correct eye) ---
+    let bL = g('eyeBlinkLeft'), bR = g('eyeBlinkRight');
+    if (mirror) { const t = bL; bL = bR; bR = t; }
+
+    ch.headYaw = clamp(yaw, -1, 1);
+    ch.headPitch = clamp(pitch, -1, 1);
+    ch.headRoll = clamp(rollRel, -0.6, 0.6);
+    ch.gazeX = clamp(gx * 0.9, -1, 1);
+    ch.gazeY = clamp(gy * 0.9, -1, 1);
+    ch.blinkL = clamp(bL * 1.4, 0, 1);
+    ch.blinkR = clamp(bR * 1.4, 0, 1);
+    // Deadzone so resting micro-movements read as zero; brows only move on a deliberate raise/furrow.
+    const browUp = g('browInnerUp') * 0.6 + (g('browOuterUpLeft') + g('browOuterUpRight')) * 0.3;
+    const browDn = (g('browDownLeft') + g('browDownRight')) * 0.7;
+    ch.browRaise = clamp((browUp - 0.35) / 0.45, 0, 1);
+    ch.browFurrow = clamp((browDn - 0.32) / 0.45, 0, 1);
+    ch.pucker = clamp(Math.max(g('mouthPucker'), g('mouthFunnel')), 0, 1);
+    ch.smileX = clamp((g('mouthSmileLeft') + g('mouthSmileRight')) / 2, 0, 1);
+    ch.cameraJaw = clamp(g('jawOpen') * 1.5, 0, 1);
+  }
+
+  // ---- procedural idle (used when face tracking is OFF) ------------------
+  let nextBlink = 1200, blinkStart = -1, gaze = { x: 0, y: 0 }, gazeTgt = { x: 0, y: 0 }, nextGaze = 800;
+  function idleBlink(t) {
+    if (t > nextBlink && blinkStart < 0) blinkStart = t;
+    if (blinkStart >= 0) {
+      const d = t - blinkStart;
+      if (d > 150) { blinkStart = -1; nextBlink = t + 2500 + Math.random() * 4000; return 0; }
+      return Math.sin((d / 150) * Math.PI) * 0.92;
+    }
+    return 0;
+  }
+  function idleGaze(t) {
+    if (t > nextGaze) { gazeTgt.x = (Math.random()*2-1)*0.7; gazeTgt.y = (Math.random()*2-1)*0.45; nextGaze = t + 1400 + Math.random()*2600; }
+    gaze.x += (gazeTgt.x - gaze.x) * 0.06; gaze.y += (gazeTgt.y - gaze.y) * 0.06;
+  }
+
+  // ---- smile path generator (corners widen + deepen with smile) ----------
+  function smilePath(sx) {
+    const spread = sx * 0.9, depth = 23.7 + sx * 1.5, lift = sx * 0.4;
+    return `M${(18 - spread).toFixed(2)} ${(22 - lift).toFixed(2)} Q 20 ${depth.toFixed(2)}, ${(22 + spread).toFixed(2)} ${(22 - lift).toFixed(2)}`;
+  }
+
+  // ---- render loop -------------------------------------------------------
+  function frame(t) {
+    readFace();
+
+    // gather targets into ch
+    const mic = micLevel();
+    ch.mouthOpen = Math.max(mic, faceOn ? (ch.cameraJaw || 0) : 0);
+    if (!faceOn) {
+      const b = idleBlink(t); idleGaze(t);
+      ch.blinkL = b; ch.blinkR = b; ch.gazeX = gaze.x / 0.7; ch.gazeY = gaze.y / 0.45;
+      ch.headYaw = 0.18 * Math.sin(t * 0.0009); ch.headPitch = 0.12 * Math.sin(t * 0.0013);
+      ch.headRoll = 0.04 * Math.sin(t * 0.0006);
+      ch.browRaise = 0; ch.browFurrow = 0; ch.pucker = 0; ch.smileX = 0.18;
+    }
+    smoothToward(ch, faceOn);
+
+    lvl.style.width = Math.round(r.mouthOpen * 100) + '%';
+
+    // Voice-activity gate: snap to "talking" on ANY voice (even a whisper), release gently.
+    // This drives the smile<->mouth SWITCH; volume only sets how wide the mouth opens.
+    const speaking = ch.mouthOpen > 0.06;
+    talkEnv += ((speaking ? 1 : 0) - talkEnv) * (speaking ? 0.6 : 0.08);
+    const talk = talkEnv, open = r.mouthOpen, puck = r.pucker, sx = r.smileX;
+
+    // mouth: clearly open whenever talking (floor so a whisper still reads as open), wider with volume; pucker narrows + rounds
+    mouth.setAttribute('rx', lerp(2.1, 1.0, puck).toFixed(2));
+    mouth.setAttribute('ry', (0.3 + talk * (0.9 + open * 1.6) + puck * 1.0).toFixed(2));
+    mouth.setAttribute('opacity', clamp(talk + puck, 0, 1).toFixed(2));
+    // smile: only when NOT talking; vanishes immediately on voice, no muddy half-and-half
+    smile.setAttribute('d', smilePath(sx));
+    smile.setAttribute('opacity', clamp((1 - talk * 1.4 - puck) * (0.55 + sx), 0, 1).toFixed(2));
+
+    // brows: hidden at rest, appear on raise (lift + arch) or furrow (lower + angle inward)
+    const bw = r.browRaise, bf = r.browFurrow;
+    const show = clamp(Math.max(bw, bf), 0, 1);
+    const ty = (bf * 1.4 - bw * 1.8).toFixed(2);
+    leftBrow.setAttribute('opacity', show.toFixed(2));
+    leftBrow.setAttribute('transform', `translate(0 ${ty}) rotate(${(bf * 12).toFixed(2)} 17 14)`);
+    rightBrow.setAttribute('opacity', show.toFixed(2));
+    rightBrow.setAttribute('transform', `translate(0 ${ty}) rotate(${(-bf * 12).toFixed(2)} 23 14)`);
+
+    // eyes: per-eye blink (scaleY about centre) + shared gaze offset
+    const gX = r.gazeX * 0.7, gY = r.gazeY * 0.5;
+    const sL = clamp(1 - r.blinkL, 0.06, 1), sR = clamp(1 - r.blinkR, 0.06, 1);
+    leftEye.setAttribute('transform',  `translate(${gX.toFixed(2)} ${gY.toFixed(2)}) translate(17 18) scale(1 ${sL.toFixed(3)}) translate(-17 -18)`);
+    rightEye.setAttribute('transform', `translate(${gX.toFixed(2)} ${gY.toFixed(2)}) translate(23 18) scale(1 ${sR.toFixed(3)}) translate(-23 -18)`);
+
+    // head: turn = translate + lean; tilt = roll; nod = translate + slight scale
+    const amt = parseFloat(headEl.value);
+    const hx = r.headYaw * 3.2 * amt, hy = r.headPitch * 2.6 * amt;
+    const rotDeg = (-r.headRoll * 180 / Math.PI + r.headYaw * 6) * amt;
+    beaker.setAttribute('transform', `translate(${hx.toFixed(2)} ${hy.toFixed(2)}) rotate(${rotDeg.toFixed(2)} 20 22)`);
+
+    if (dbg.classList.contains('show')) {
+      dbg.textContent =
+        `mode   ${faceOn ? 'FACE' : (micOn ? 'MIC' : 'idle')}\n` +
+        `mouth  ${r.mouthOpen.toFixed(2)}  pucker ${r.pucker.toFixed(2)}  smile ${r.smileX.toFixed(2)}\n` +
+        `brow   ${r.browRaise.toFixed(2)}\n` +
+        `blink  L ${r.blinkL.toFixed(2)}  R ${r.blinkR.toFixed(2)}\n` +
+        `gaze   x ${r.gazeX.toFixed(2)}  y ${r.gazeY.toFixed(2)}\n` +
+        `head   yaw ${r.headYaw.toFixed(2)}  pitch ${r.headPitch.toFixed(2)}  roll ${r.headRoll.toFixed(2)}`;
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // ---- controls ----------------------------------------------------------
+  mirrorBtn.addEventListener('click', () => {
+    mirror = !mirror; mirrorBtn.setAttribute('aria-pressed', String(mirror));
+    cam.style.transform = mirror ? 'scaleX(-1)' : 'none';
+  });
+  campvBtn.addEventListener('click', () => {
+    const on = cam.classList.toggle('show');
+    campvBtn.setAttribute('aria-pressed', String(on));
+  });
+
+  const bgClasses = ['bg-dark', 'bg-transparent', 'bg-green'];
+  function setBg(name) {
+    document.body.classList.remove(...bgClasses);
+    document.body.classList.add('bg-' + name);
+    document.querySelectorAll('[data-bg]').forEach(b => b.setAttribute('aria-pressed', b.dataset.bg === name ? 'true' : 'false'));
+  }
+  document.querySelectorAll('[data-bg]').forEach(b => b.addEventListener('click', () => setBg(b.dataset.bg)));
+
+  let bgIdx = 0;
+  document.addEventListener('keydown', (e) => {
+    const k = e.key.toLowerCase();
+    if (k === 'h') panel.classList.toggle('hidden');
+    if (k === 'd') dbg.classList.toggle('show');
+    if (k === 'b') { bgIdx = (bgIdx + 1) % bgClasses.length; setBg(bgClasses[bgIdx].slice(3)); }
+  });
+
+  let hideTimer = null;
+  function nudge() { panel.classList.remove('hidden'); clearTimeout(hideTimer); hideTimer = setTimeout(() => panel.classList.add('hidden'), 4000); }
+  document.addEventListener('mousemove', nudge); nudge();
+</script>
+</body>
+</html>
