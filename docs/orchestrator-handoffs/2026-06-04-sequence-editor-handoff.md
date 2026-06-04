@@ -118,6 +118,30 @@ Primer color is stored on the primer_bind feature the same way features store co
 (`feature.color` -> `ApEinfo_fwdcolor` / `ApEinfo_revcolor` notes). The color picker drives the
 border / arrowhead / name; the yellow bases + dark fill are fixed for contrast.
 
+### Current tuned constant values (as of 2026-06-04, Grant-approved)
+
+These are the named constants in `Primers.tsx` (the primer element) and `SeqBlock.tsx`, with their
+approved values, so you can reason about or restore them without re-deriving:
+
+- `baseColor = "#fde047"` (yellow-300, the base glyphs on the dark body)
+- `mismatchColor = "#f87171"` (red-400, a mismatch base, still readable on dark)
+- `boxFill = "#0a0a0a"` (near-black primer body; pure `#000000` if Grant wants it blacker)
+- `borderW = 3` (colored outline thickness; NOTE it must not use `style={annotation}`, which would
+  force it back to 0.5)
+- `boxH = baseFontSize + 6` (one base box height, `baseFontSize = min(seqFontSize, charWidth/0.62)`)
+- `strandMargin = 3` (gap between the annealing box and the strand it hugs)
+- `headLen = min(charWidth * 1.25, baseFontSize * 1.7)` (3' arrowhead forward reach)
+- `barbRise = boxH * 0.85` (how tall the pulled-back barb rises off the body)
+- `barbBack = headLen * 0.55` (how far the barb overhangs BACK over the shaft, the "pull back")
+- `SeqBlock.primerRowHeight = round(label + barb + box * (hasTail ? 2 : 1) + 5)`, where
+  `label = seqFontSize + 4`, `box = baseFontSize + 6`, `barb = round(box * 0.85)`. The `barb` term
+  reserves headroom for the arrowhead so it never crowds the name label. If you change `barbRise`
+  in `Primers.tsx`, change the `0.85` here to match or the barb will clip / float.
+
+Full layout math (`layoutPrimerBases`) is covered by `primer-base-layout.test.ts` (13 cases,
+forward / reverse / tail / mismatch / guards). The whole sequences + align + calculators suite is
+1030 tests green as of this handoff.
+
 ---
 
 ## 5. Traps that already bit this session (do not repeat)
