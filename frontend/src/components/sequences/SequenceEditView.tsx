@@ -3082,12 +3082,14 @@ export default function SequenceEditView({
                     if (externalSel) setExternalSel(null);
                   }}
                   selection={externalSel ?? undefined}
-                  // nav polish bot — FIX 1: remove the base ruler / complement
-                  // strand in Map view (there are no legible bases to index), and
-                  // always keep them available in Sequence view so it retains its
-                  // base-level character even at the slider floor.
+                  // nav polish bot — FIX 1: drop the complement strand in Map view
+                  // (no legible bases to index there). But KEEP the index: for a
+                  // circular plasmid the Map view IS the bp-number ring, which is
+                  // useful at a glance, so respect the user's showIndex toggle in
+                  // both modes. (The linear Map uses the separate LinearMap with its
+                  // own ruler, so this prop only affects the circular ring.)
                   showComplement={!isMapView}
-                  showIndex={isMapView ? false : view.showIndex}
+                  showIndex={view.showIndex}
                   // wrap toggle bot — SINGLE-LINE vs WRAPPED for the linear
                   // Sequence detail view. Map / circular always render wrapped.
                   wrapSequence={!singleLine}
