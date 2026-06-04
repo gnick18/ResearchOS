@@ -219,11 +219,12 @@ function SendForm({
   // never holds every full GenBank in memory at once, and a missing / deleted id
   // is skipped rather than aborting the whole batch.
   const sendOne = useCallback(
-    async (id: number, fromEmail: string, recipientEmail: string) => {
+    async (id: number, fromEmail: string, recipientEmail: string): Promise<boolean> => {
       const seq = await sequencesApi.get(id);
-      if (!seq) return; // deleted between select and send, skip it
+      if (!seq) return false; // deleted between select and send, skip it
       const payload = await buildSequenceSendPayload(seq, ownerUsername);
       await sendRawShare({ email: fromEmail, recipientEmail, payload });
+      return true;
     },
     [ownerUsername],
   );
@@ -252,24 +253,46 @@ function SendForm({
     }
     const recipientEmail = recipient.trim();
     setState({ phase: "sending", done: 0, total });
-    // Send the FIRST sequence on its own so a RecipientNotFound (the person is
-    // not on ResearchOS) surfaces the invite offer for the whole batch BEFORE we
-    // relay any of them. Mirrors the single dialog's recipient-missing branch.
-    try {
-      await sendOne(ids[0], senderEmail, recipientEmail);
-    } catch (err) {
-      if (
-        err instanceof RecipientNotFoundError ||
-        (err instanceof RelayError && err.status === 404)
-      ) {
-        setState({ phase: "offer-invite", recipient: recipientEmail });
+    // Probe with the FIRST sequence that still exists so a RecipientNotFound
+    // (the person is not on ResearchOS) surfaces the invite offer for the whole
+    // batch BEFORE we relay any of them. Probing ids[0] blindly missed this when
+    // the first selected sequence was deleted between select and send (the skip
+    // looked like a success), so walk forward until one actually sends. Mirrors
+    // the single dialog's recipient-missing branch.
+    let i = 0;
+    let probed = false;
+    for (; i < ids.length; i += 1) {
+      setState({ phase: "sending", done: i, total });
+      try {
+        const sent = await sendOne(ids[i], senderEmail, recipientEmail);
+        if (sent) {
+          probed = true;
+          i += 1; // this one is done; relay the rest below
+          break;
+        }
+        // sent === false: this id was deleted, keep probing with the next one.
+      } catch (err) {
+        if (
+          err instanceof RecipientNotFoundError ||
+          (err instanceof RelayError && err.status === 404)
+        ) {
+          setState({ phase: "offer-invite", recipient: recipientEmail });
+          return;
+        }
+        setState({ phase: "error", message: "Could not send, please try again." });
         return;
       }
-      setState({ phase: "error", message: "Could not send, please try again." });
+    }
+    if (!probed) {
+      // Every selected sequence was deleted before we could send any.
+      setState({
+        phase: "error",
+        message: "Those sequences are no longer available.",
+      });
       return;
     }
     // The recipient exists. Relay the rest, one at a time, updating progress.
-    for (let i = 1; i < ids.length; i += 1) {
+    for (; i < ids.length; i += 1) {
       setState({ phase: "sending", done: i, total });
       try {
         await sendOne(ids[i], senderEmail, recipientEmail);
