@@ -20,16 +20,23 @@
 //   - the 64 exact standard codons,
 //   - stop codon -> "*" (kept inline, not trimmed),
 //   - dropping a trailing partial codon (length not a multiple of 3),
-//   - upper/lowercasing the input.
+//   - upper/lowercasing the input,
+//   - the gap glyph "X" for an untranslatable codon (unified 2026-06-03;
+//     seqviz previously emitted "?"),
+//   - resolving an UNAMBIGUOUS degenerate codon to its single residue
+//     (GGN -> "G", CTN -> "L", YTR -> "L") and gapping an AMBIGUOUS one to
+//     "X" (GAN -> Asp+Glu, MGN -> Arg+Ser). Both ResearchOS paths now expand
+//     each IUPAC codon and collapse, matching Biopython on every case below.
 // The trivial hand-check ATG GCC -> "MA" is asserted against both engines
 // before any larger case is trusted.
 //
 // DOCUMENTED, BY-DESIGN DIVERGENCES (NOT translation bugs):
-//   - Gap glyph for an untranslatable codon: seqviz emits "?", translateFrame1
-//     and Biopython emit "X".
-//   - Degenerate-but-resolvable codons (e.g. GGN, ACN): Biopython resolves to
-//     the real amino acid; BOTH ResearchOS functions emit a gap because they
-//     carry only the 64 exact codons. Asserted as OUR documented behavior.
+//   - Two-way ambiguity codes B (Asn/Asp) and Z (Gln/Glu): Biopython emits
+//     these for codons like RAY -> "B" / SAA -> "Z". ResearchOS emits the
+//     single gap glyph "X" for ANY disagreement (it never emits B/Z); these
+//     are not single residues and were explicitly out of scope. The cases
+//     asserted below (GAN, MGN) are ones where Biopython ALSO emits "X", so
+//     they match exactly.
 //   - Whitespace is NOT stripped by either ResearchOS function, so embedded
 //     spaces shift the reading frame and gap out; Biopython here is fed
 //     whitespace-stripped input. Tested explicitly as OUR documented behavior.
@@ -53,6 +60,20 @@ const BIO = {
   atggccaaattt: "MAKF", //                        lowercase
   ATGGAAGATTTCAAACGTCATTGGTACTAA: "MEDFKRHWY*", // longer peptide
   ACCATGTAA: "TM*", //                            = revcomp("TTACATGGT")
+  // --- degenerate (IUPAC) codons, Biopython Seq.translate(table=1) ----------
+  ATGAAACCCGGNGGG: "MKPGG", //  GGN resolves to Gly -> G (was a gap pre-2026-06-03)
+  GGN: "G", //                  all four GG{A,C,G,T} are Gly
+  CTN: "L", //                  all four CT{A,C,G,T} are Leu
+  YTR: "L", //                  CTA/CTG/TTA/TTG all Leu
+  ACN: "T", //                  all four AC{A,C,G,T} are Thr
+  CGN: "R", //                  all four CG{A,C,G,T} are Arg
+  AAR: "K", //                  AAA/AAG -> Lys (used in the mixed-sequence case)
+  MGN: "X", //                  CGN=Arg but AGC/AGT=Ser -> disagreement -> X
+  GAN: "X", //                  GAT/GAC=Asp, GAA/GAG=Glu -> disagreement -> X
+  ATGNNNNNNGGG: "MXXG", //      N-run: two fully-ambiguous codons -> XX
+  // ATG GAA GAT TTC AAR CGT CAT TGG TAC TAA: the single degenerate codon AAR
+  // resolves to K, so the whole peptide reads exactly like the all-exact form.
+  ATGGAAGATTTCAARCGTCATTGGTACTAA: "MEDFKRHWY*",
 } as const;
 
 describe("translation golden suite (Biopython table=1 ground truth)", () => {
@@ -118,20 +139,70 @@ describe("translation golden suite (Biopython table=1 ground truth)", () => {
   // DOCUMENTED DIVERGENCES - asserted as OUR behavior, with the Biopython
   // ground-truth recorded inline so any future change is caught.
   // -------------------------------------------------------------------------
-  describe("ambiguous bases (documented gap behavior, NOT a bug)", () => {
-    it("fully-ambiguous NNN: Biopython -> X; seqviz emits ?, frame1 emits X", () => {
+  describe("degenerate codons are resolved (Biopython parity, 2026-06-03)", () => {
+    it("fully-ambiguous NNN -> X on both engines (== Biopython)", () => {
       // Biopython: Seq("ATGAAACCCNNNGGG").translate(table=1) == "MKPXG"
       const seq = "ATGAAACCCNNNGGG";
-      expect(translate(seq, "dna")).toBe("MKP?G"); // seqviz gap glyph "?"
-      expect(translateFrame1(seq)).toBe("MKPXG"); // frame1 gap glyph "X" == Biopython "MKPXG"
+      expect(translate(seq, "dna")).toBe("MKPXG");
+      expect(translateFrame1(seq)).toBe("MKPXG");
     });
 
-    it("degenerate-resolvable GGN: Biopython resolves to G; ours gap out", () => {
-      // Biopython: Seq("ATGAAACCCGGNGGG").translate(table=1) == "MKPGG".
-      // ResearchOS carries only the 64 exact codons, so the GGN codon gaps.
+    it("GGN resolves to G on both engines (== Biopython MKPGG)", () => {
       const seq = "ATGAAACCCGGNGGG";
-      expect(translate(seq, "dna")).toBe("MKP?G"); // seqviz gap, NOT "MKPGG"
-      expect(translateFrame1(seq)).toBe("MKPXG"); // frame1 gap, NOT "MKPGG"
+      expect(translate(seq, "dna")).toBe(BIO.ATGAAACCCGGNGGG);
+      expect(translateFrame1(seq)).toBe(BIO.ATGAAACCCGGNGGG);
+    });
+
+    it("single degenerate codons collapse to their unambiguous residue", () => {
+      for (const codon of ["GGN", "CTN", "YTR", "ACN", "CGN", "AAR"] as const) {
+        expect(translate(codon, "dna")).toBe(BIO[codon]);
+        expect(translateFrame1(codon)).toBe(BIO[codon]);
+      }
+    });
+
+    it("ambiguous-residue codons gap to X (MGN=Arg+Ser, GAN=Asp+Glu)", () => {
+      // Verified against Biopython: MGN -> X, GAN -> X (both disagree).
+      for (const codon of ["MGN", "GAN"] as const) {
+        expect(translate(codon, "dna")).toBe(BIO[codon]);
+        expect(translateFrame1(codon)).toBe(BIO[codon]);
+      }
+    });
+
+    it("an N-run gaps codon-by-codon: ATGNNNNNNGGG -> MXXG", () => {
+      const seq = "ATGNNNNNNGGG";
+      expect(translate(seq, "dna")).toBe(BIO.ATGNNNNNNGGG);
+      expect(translateFrame1(seq)).toBe(BIO.ATGNNNNNNGGG);
+    });
+
+    it("a real ORF with ONE resolvable degenerate codon (AAR->K) is unchanged", () => {
+      const seq = "ATGGAAGATTTCAARCGTCATTGGTACTAA";
+      expect(translate(seq, "dna")).toBe(BIO.ATGGAAGATTTCAARCGTCATTGGTACTAA);
+      expect(translateFrame1(seq)).toBe(BIO.ATGGAAGATTTCAARCGTCATTGGTACTAA);
+    });
+
+    it("RNA degenerate codons resolve identically (U read as T): GGN/GGU... ", () => {
+      expect(translate("GGN", "rna")).toBe("G");
+      expect(translate("CUN", "rna")).toBe("L"); // RNA spelling of CTN
+    });
+  });
+
+  describe("the two translate paths agree on every shared input", () => {
+    // Equivalence guard: for any DNA input, seqviz translate and translateFrame1
+    // must now produce byte-identical protein strings (same residues, same gap
+    // glyph "X", same stop "*"). Catches future drift between the two tables.
+    const inputs = [
+      "ATGGCC",
+      "ATGAAACCCGGGTAA",
+      "ATGTAATGGAAATAA",
+      "atggccaaattt",
+      "ATGAAACCCGGNGGG",
+      "ATGNNNNNNGGG",
+      "ATGGAAGATTTCAARCGTCATTGGTACTAA",
+      "GGNCTNYTRACNCGNAARMGNGAN",
+      "ATGGCCA", // trailing partial codon
+    ];
+    it.each(inputs)("translate == translateFrame1 for %s", (seq) => {
+      expect(translate(seq, "dna")).toBe(translateFrame1(seq));
     });
   });
 
@@ -139,8 +210,10 @@ describe("translation golden suite (Biopython table=1 ground truth)", () => {
     it("embedded spaces shift the frame and gap out", () => {
       // Biopython fed whitespace-stripped "atggccaaattt" -> "MAKF" (see above).
       // ResearchOS does not strip spaces, so the frame is corrupted instead.
+      // A space is off-alphabet, so every codon containing one gaps to "X" on
+      // BOTH engines (seqviz no longer emits "?").
       const spaced = "  atg gcc aaa ttt  ";
-      expect(translate(spaced, "dna")).toBe("??A???");
+      expect(translate(spaced, "dna")).toBe("XXAXXX");
       expect(translateFrame1(spaced)).toBe("XXAXXX");
     });
   });

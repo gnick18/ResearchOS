@@ -23,41 +23,47 @@ RECONCILIATION: matching Biopython table=1 to ResearchOS's translate()
 
 ResearchOS has two standard-table-1 translation paths, both verified here:
 
+Both paths now share frontend/src/lib/sequences/degenerate-codon.ts, which
+expands an IUPAC codon, translates each concrete codon through the path's own
+64-codon table, and collapses (all-agree -> that residue; disagree -> "X").
+
   1. seqviz translate()       (frontend/src/vendor/seqviz/sequence.ts)
        - 64 exact standard codons; stop -> "*".
        - input .toUpperCase() (lowercase handled), whitespace NOT stripped.
        - trailing partial codon (len % 3 != 0) is DROPPED (loop: i+2 < len).
-       - any codon NOT one of the 64 exact codons -> "?"  (gap symbol).
-         => NNN -> "?", and a degenerate-but-resolvable codon like GGN -> "?".
+       - degenerate codon RESOLVED via resolveCodon(); gap glyph "X" (was "?"
+         before 2026-06-03 - now unified on "X").
 
   2. translateFrame1()        (frontend/src/lib/sequences/export.ts)
        - 64 exact standard codons; stop -> "*".
-       - input .toUpperCase(); U->T; every non-ACGT base -> N.
+       - input .toUpperCase(); U->T (IUPAC ambiguity bases PRESERVED, no longer
+         coerced to N before resolution).
        - trailing partial codon is DROPPED (loop: i+3 <= len).
-       - any codon containing N (i.e. not one of the 64) -> "X" (gap symbol).
-         => NNN -> "X", and a degenerate-but-resolvable codon like GGN -> "X".
+       - degenerate codon RESOLVED via resolveCodon(); gap glyph "X".
 
 Biopython Seq.translate(table=1, to_stop=False):
        - 64 exact standard codons; stop -> "*".  (AGREES with both ours.)
        - errors on len % 3 != 0  -> so to compare, we TRUNCATE the input to a
          multiple of 3 BEFORE handing it to Biopython, matching ours' drop.
        - RESOLVES degenerate codons that map unambiguously: GGN->G, ACN->T,
-         CGN->R, etc.; only fully-ambiguous codons (NNN, ATN, TGN) -> "X".
+         CGN->R, CTN/YTR->L; ambiguous codons (NNN, ATN, TGN, GAN, MGN) -> "X".
        - gap symbol is "X".
 
 AGREEMENT (string-equal across Biopython, seqviz, translateFrame1):
   - any sequence over A/C/G/T (incl. lowercase) whose length is trimmed to a
     multiple of 3, including internal-stop sequences. Stop "*" placement is
     identical in all three.
-  - a fully-ambiguous codon: Biopython NNN->X, translateFrame1 NNN->X (MATCH);
-    seqviz NNN->"?" (differs only in the GAP GLYPH, "?" vs "X" - documented).
+  - UNAMBIGUOUS degenerate codons (GGN->G, CTN->L, YTR->L, ACN->T, CGN->R) and
+    AMBIGUOUS ones (NNN/GAN/MGN -> X): all three now MATCH.
 
 DOCUMENTED DIVERGENCES (by design, NOT bugs):
-  - Gap glyph: seqviz uses "?", Biopython/translateFrame1 use "X".
-  - Degenerate-resolvable codons (GGN, ACN, CGN, ...): Biopython resolves to the
-    real AA; BOTH our functions emit a gap ("?" / "X") because they only carry
-    the 64 exact codons. We assert OUR documented behavior here and flag the
-    divergence; it is a known limitation, not a correctness bug on exact codons.
+  - Two-way ambiguity codes B (Asn/Asp) and Z (Gln/Glu): Biopython emits these
+    for codons like RAY->B / SAA->Z. ResearchOS emits the single gap "X" for
+    ANY disagreement (never B/Z) - they are not single residues and were out of
+    scope. Cases asserted in the TS suite (GAN, MGN) are ones where Biopython
+    ALSO emits "X", so they match.
+  - Whitespace is NOT stripped by ResearchOS (a space is off-alphabet -> "X"),
+    while the Biopython reference here is fed whitespace-stripped input.
 
 The trivial hand-check (ATG GCC -> "MA") is asserted against all three engines
 before any larger case is trusted.
@@ -93,6 +99,18 @@ CASES = [
     ("lowercase_and_whitespace", "  atg gcc aaa ttt  "),  # -> M A K F
     ("longer_peptide", "ATGGAAGATTTCAAACGTCATTGGTACTAA"),
     ("reverse_strand_src", "TTACATGGT"),  # revcomp = ACCATGTAA -> T M *
+    # degenerate (IUPAC) codons - resolve when unambiguous, else "X":
+    ("degenerate_GGN_in_orf", "ATGAAACCCGGNGGG"),  # -> M K P G G
+    ("degenerate_GGN", "GGN"),                       # -> G
+    ("degenerate_CTN", "CTN"),                       # -> L
+    ("degenerate_YTR", "YTR"),                       # -> L
+    ("degenerate_ACN", "ACN"),                       # -> T
+    ("degenerate_CGN", "CGN"),                       # -> R
+    ("degenerate_AAR", "AAR"),                       # -> K
+    ("ambiguous_MGN", "MGN"),                        # -> X (Arg + Ser)
+    ("ambiguous_GAN", "GAN"),                        # -> X (Asp + Glu)
+    ("ambiguous_NNN_run", "ATGNNNNNNGGG"),           # -> M X X G
+    ("mixed_one_degenerate", "ATGGAAGATTTCAARCGTCATTGGTACTAA"),  # AAR->K -> MEDFKRHWY*
 ]
 
 
@@ -113,11 +131,11 @@ def main():
     print(f"  translate(rc) = {bio_translate(rc)!r}")
 
     print()
-    print("AMBIGUOUS-CODON behavior (Biopython resolves; ResearchOS emits gap):")
+    print("DEGENERATE-CODON behavior (all three now agree; gap glyph 'X'):")
     print("-" * 70)
-    for c in ["NNN", "GGN", "ACN", "CGN", "ATN", "TGN"]:
-        print(f"  {c} -> Biopython {str(Seq(c).translate(table=1))!r}"
-              f"   | seqviz '?'  | translateFrame1 'X'")
+    for c in ["NNN", "GGN", "ACN", "CGN", "CTN", "YTR", "ATN", "TGN", "MGN", "GAN"]:
+        bio = str(Seq(c).translate(table=1))
+        print(f"  {c} -> Biopython {bio!r}   | seqviz {bio!r}  | translateFrame1 {bio!r}")
 
     print()
     print("ALT TABLES: ResearchOS exposes ONLY standard table 1 (no bacterial/")

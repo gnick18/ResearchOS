@@ -1,4 +1,6 @@
 // @ts-nocheck — vendored third-party source (SeqViz / bio-parsers facade); kept out of strict typecheck per the sequence-editor proposal. OUR code is strict; this file is owned-but-vendored.
+import { resolveCodon, GAP_GLYPH } from "../../lib/sequences/degenerate-codon";
+
 import { NameRange, SeqType } from "./elements";
 
 /**
@@ -266,11 +268,6 @@ export const directionality = (direction: number | string | undefined): -1 | 0 |
   return 0;
 };
 
-const rnaCodonToAminoAcid = Object.keys(dnaCodonToAminoAcid).reduce(
-  (acc, k) => ({ ...acc, [k.replace(/T/gi, "U")]: dnaCodonToAminoAcid[k] }),
-  {},
-);
-
 /**
  * Given a sequence, translate it into an Amino Acid sequence
  */
@@ -279,17 +276,18 @@ export const translate = (seqInput: string, seqType: SeqType): string => {
     return seqInput;
   }
 
-  let codonMap: { [key: string]: string } = dnaCodonToAminoAcid;
-  if (seqType === "rna") {
-    codonMap = rnaCodonToAminoAcid;
-  }
-
+  // Resolution always runs against the DNA 64-codon table; an RNA codon is
+  // normalized U->T per position so RNA and DNA share one resolver and stay
+  // consistent (the RNA table is the DNA table with T->U keys, same residues).
   const seq = seqInput.toUpperCase();
   const seqLength = seq.length;
   let aaSeq = "";
   for (let i = 0, j = 0; i < seqLength; i += 3, j += 1) {
     if (i + 2 < seqLength) {
-      aaSeq += codonMap[seq[i] + seq[i + 1] + seq[i + 2]] || "?";
+      const codon = (seq[i] + seq[i + 1] + seq[i + 2]).replace(/U/g, "T");
+      // resolveCodon: exact codon -> its residue; unambiguous degenerate codon
+      // -> the resolved residue (GGN->G); disagreement / off-alphabet -> "X".
+      aaSeq += resolveCodon(codon, dnaCodonToAminoAcid) || GAP_GLYPH;
     }
   }
   return aaSeq;

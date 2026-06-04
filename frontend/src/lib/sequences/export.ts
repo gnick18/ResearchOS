@@ -12,6 +12,7 @@
 import type { SeqDocument, EditFeature } from "./edit-model";
 import { documentToGenbank } from "./edit-model";
 import { shiftFeaturesOnDelete } from "./coordinate-shift";
+import { resolveCodon, GAP_GLYPH } from "./degenerate-codon";
 
 // ---------------------------------------------------------------------------
 // Filenames
@@ -200,16 +201,19 @@ const CODON_TABLE: Record<string, string> = {
 
 /**
  * Translate a DNA/RNA string in reading frame 1 (start at index 0) to a single
- * amino-acid string. U is read as T; any codon with a non-ACGT base (or a
- * trailing partial codon) is left untranslated as `X`. Stops render as `*`
+ * amino-acid string. U is read as T. A codon with an IUPAC ambiguity base (N,
+ * R, Y, ...) is RESOLVED when every concrete codon it represents yields the
+ * same residue (GGN -> "G", CTN -> "L"), matching Biopython; a codon whose
+ * expansions disagree (GAN -> Asp+Glu) or that has an off-alphabet base, plus a
+ * trailing partial codon, is left untranslated as `X`. Stops render as `*`
  * (kept, not trimmed, so the reader sees the frame as-is).
  */
 export function translateFrame1(seq: string): string {
-  const s = (seq || "").toUpperCase().replace(/U/g, "T").replace(/[^ACGT]/g, "N");
+  const s = (seq || "").toUpperCase().replace(/U/g, "T");
   let aa = "";
   for (let i = 0; i + 3 <= s.length; i += 3) {
     const codon = s.slice(i, i + 3);
-    aa += CODON_TABLE[codon] ?? "X";
+    aa += resolveCodon(codon, CODON_TABLE) || GAP_GLYPH;
   }
   return aa;
 }
