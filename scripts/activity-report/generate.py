@@ -326,35 +326,77 @@ def collect_transcripts():
     }
 
 
-def estimate_cost(tokens_by_model):
-    total = 0.0
-    by_model = {}
-    for bucket, tk in tokens_by_model.items():
-        p = PRICING.get(bucket, PRICING["opus"])
-        c = (
-            tk["in"] / 1e6 * p["in"]
-            + tk["out"] / 1e6 * p["out"]
-            + tk["cache_write"] / 1e6 * p["cache_write"]
-            + tk["cache_read"] / 1e6 * p["cache_read"]
-        )
-        by_model[bucket] = round(c, 2)
-        total += c
-    return round(total, 2), by_model
-
-
 # --------------------------------------------------------------------------- #
 # timeline assembly
 # --------------------------------------------------------------------------- #
 
-TIMELINE_FIELDS = [
-    "commits", "lines_added", "lines_deleted", "net_lines", "files_touched",
-    "your_prompts", "your_words", "assistant_msgs",
-    "input_tokens", "output_tokens", "cache_write_tokens", "cache_read_tokens",
-    "total_tokens", "tool_calls", "web_searches", "web_fetches",
-]
+# AI metrics tracked per tool (claude / kilo). Each becomes <tool>_<metric>
+# columns plus a combined column.
+AI_METRICS = ["prompts", "words", "requests",
+              "input_tokens", "output_tokens", "cache_write", "cache_read",
+              "total_tokens", "cost"]
+
+TIMELINE_FIELDS = (
+    ["commits", "lines_added", "lines_deleted", "net_lines", "files_touched"]
+    + [f"kilo_{m}" for m in AI_METRICS]
+    + [f"claude_{m}" for m in AI_METRICS]
+    + ["your_prompts", "your_words", "ai_requests",
+       "input_tokens", "output_tokens", "cache_write_tokens", "cache_read_tokens",
+       "total_tokens", "tool_calls", "web_searches", "web_fetches"]
+)
 
 
-def build_timeline(commits, tx):
+def load_kilo():
+    """Read the text-free Kilo snapshot (preferred) so the early, pre-Claude
+    phase of the project is included. Returns (per_day, meta) or ({}, None)."""
+    path = os.path.join(SCRIPT_DIR, "kilo_snapshot.json")
+    if not os.path.isfile(path):
+        return {}, None
+    try:
+        snap = json.load(open(path))
+    except (json.JSONDecodeError, ValueError, OSError):
+        return {}, None
+    return snap.get("per_day", {}), snap
+
+
+def _claude_day_metrics(p):
+    """Normalize a claude per-day bucket into the shared AI metric schema and
+    price it at list rates (subscription, so this is a notional value)."""
+    it = int(p.get("input_tokens", 0))
+    ot = int(p.get("output_tokens", 0))
+    cw = int(p.get("cache_write_tokens", 0))
+    cr = int(p.get("cache_read_tokens", 0))
+    pr = PRICING["opus"]  # all observed claude usage is opus
+    cost = (it / 1e6 * pr["in"] + ot / 1e6 * pr["out"]
+            + cw / 1e6 * pr["cache_write"] + cr / 1e6 * pr["cache_read"])
+    return {
+        "prompts": int(p.get("your_prompts", 0)),
+        "words": int(p.get("your_words", 0)),
+        "requests": int(p.get("assistant_msgs", 0)),
+        "input_tokens": it, "output_tokens": ot,
+        "cache_write": cw, "cache_read": cr,
+        "total_tokens": it + ot + cw + cr,
+        "cost": cost,
+    }
+
+
+def _kilo_day_metrics(p):
+    it = int(p.get("input_tokens", 0))
+    ot = int(p.get("output_tokens", 0))
+    cw = int(p.get("cache_write", 0))
+    cr = int(p.get("cache_read", 0))
+    return {
+        "prompts": int(p.get("prompts", 0)),
+        "words": int(p.get("words", 0)),
+        "requests": int(p.get("requests", 0)),
+        "input_tokens": it, "output_tokens": ot,
+        "cache_write": cw, "cache_read": cr,
+        "total_tokens": it + ot + cw + cr,
+        "cost": float(p.get("cost", 0)),
+    }
+
+
+def build_timeline(commits, tx, kilo_per_day):
     git_day = defaultdict(lambda: defaultdict(int))
     for c in commits:
         d = git_day[c["day"]]
@@ -363,45 +405,47 @@ def build_timeline(commits, tx):
         d["lines_deleted"] += c["deleted"]
         d["files_touched"] += c["files"]
 
-    all_days = set(git_day) | set(tx["per_day"])
+    all_days = set(git_day) | set(tx["per_day"]) | set(kilo_per_day)
     if not all_days:
         return []
-    start = min(all_days)
-    end = max(all_days)
-    d0 = date.fromisoformat(start)
-    d1 = date.fromisoformat(end)
+    d0 = date.fromisoformat(min(all_days))
+    d1 = date.fromisoformat(max(all_days))
 
     rows = []
     cur = d0
     while cur <= d1:
         key = cur.isoformat()
         g = git_day.get(key, {})
-        p = tx["per_day"].get(key, {})
         added = int(g.get("lines_added", 0))
         deleted = int(g.get("lines_deleted", 0))
-        it = int(p.get("input_tokens", 0))
-        ot = int(p.get("output_tokens", 0))
-        cw = int(p.get("cache_write_tokens", 0))
-        cr = int(p.get("cache_read_tokens", 0))
-        rows.append({
+        claude = _claude_day_metrics(tx["per_day"].get(key, {}))
+        kilo = _kilo_day_metrics(kilo_per_day.get(key, {}))
+        cp = tx["per_day"].get(key, {})
+        row = {
             "date": key,
             "commits": int(g.get("commits", 0)),
             "lines_added": added,
             "lines_deleted": deleted,
             "net_lines": added - deleted,
             "files_touched": int(g.get("files_touched", 0)),
-            "your_prompts": int(p.get("your_prompts", 0)),
-            "your_words": int(p.get("your_words", 0)),
-            "assistant_msgs": int(p.get("assistant_msgs", 0)),
-            "input_tokens": it,
-            "output_tokens": ot,
-            "cache_write_tokens": cw,
-            "cache_read_tokens": cr,
-            "total_tokens": it + ot + cw + cr,
-            "tool_calls": int(p.get("tool_calls", 0)),
-            "web_searches": int(p.get("web_searches", 0)),
-            "web_fetches": int(p.get("web_fetches", 0)),
-        })
+            # claude-only extras
+            "tool_calls": int(cp.get("tool_calls", 0)),
+            "web_searches": int(cp.get("web_searches", 0)),
+            "web_fetches": int(cp.get("web_fetches", 0)),
+        }
+        for m in AI_METRICS:
+            row[f"kilo_{m}"] = kilo[m] if m == "cost" else int(kilo[m])
+            row[f"claude_{m}"] = round(claude[m], 4) if m == "cost" else int(claude[m])
+        # combined convenience columns
+        row["your_prompts"] = kilo["prompts"] + claude["prompts"]
+        row["your_words"] = kilo["words"] + claude["words"]
+        row["ai_requests"] = kilo["requests"] + claude["requests"]
+        row["input_tokens"] = kilo["input_tokens"] + claude["input_tokens"]
+        row["output_tokens"] = kilo["output_tokens"] + claude["output_tokens"]
+        row["cache_write_tokens"] = kilo["cache_write"] + claude["cache_write"]
+        row["cache_read_tokens"] = kilo["cache_read"] + claude["cache_read"]
+        row["total_tokens"] = kilo["total_tokens"] + claude["total_tokens"]
+        rows.append(row)
         cur += timedelta(days=1)
     return rows
 
@@ -423,6 +467,10 @@ PALETTE = {
     "bg": "#ffffff",
 }
 
+# Per-tool colors, used consistently everywhere the AI tools are split.
+KILO_COLOR = "#f2994a"      # amber: the early, Kilo Code phase
+CLAUDE_COLOR = "#2f80ed"    # blue: the later, Claude Code phase
+
 W, H = 1100, 460
 PAD_L, PAD_R, PAD_T, PAD_B = 70, 30, 74, 70
 
@@ -437,7 +485,7 @@ def _nice_max(v):
     import math
     exp = math.floor(math.log10(v))
     base = 10 ** exp
-    for m in (1, 2, 2.5, 5, 10):
+    for m in (1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10):
         if v <= m * base:
             return m * base
     return 10 * base
@@ -542,6 +590,47 @@ def milestone_markers(s, dates, milestones, plot_w, plot_h):
         s.append(f'<circle cx="{badge_x:.1f}" cy="{cy:.1f}" r="7.5" fill="{PALETTE["accent"]}"/>')
         s.append(f'<text x="{badge_x:.1f}" y="{cy+3.5:.1f}" font-size="9.5" font-weight="700" '
                  f'text-anchor="middle" fill="#ffffff">{num}</text>')
+
+
+def _legend(s, items, x=None, y=None):
+    """Small inline legend: items = [(label, color), ...]. Defaults to the top
+    right corner, clear of the title (left) and the milestone badge lane."""
+    width = sum(26 + len(label) * 7 for label, _ in items)
+    lx = (W - PAD_R - width) if x is None else x
+    ly = 22 if y is None else y
+    for label, color in items:
+        s.append(f'<rect x="{lx}" y="{ly-9}" width="11" height="11" fill="{color}" rx="2"/>')
+        s.append(f'<text x="{lx+16}" y="{ly}" font-size="11.5" fill="{PALETTE["ink"]}">{_esc(label)}</text>')
+        lx += 26 + len(label) * 7
+
+
+def stacked_area(path, title, subtitle, dates, series, ylabel, milestones=None):
+    """series = [(label, color, cumulative_values[])]; bands stacked bottom-up so
+    the top edge is the grand cumulative total."""
+    s = svg_open(title, subtitle)
+    n = len(dates)
+    totals = [sum(series[j][2][i] for j in range(len(series))) for i in range(n)]
+    ymax = _nice_max(max(totals) if totals else 1)
+    plot_w, plot_h = axes(s, ymax, dates, ylabel)
+
+    def X(i):
+        return PAD_L + plot_w * i / max(1, n - 1)
+
+    def Y(v):
+        return PAD_T + plot_h - plot_h * v / ymax
+
+    acc = [0.0] * n
+    for label, color, vals in series:
+        top = [acc[i] + vals[i] for i in range(n)]
+        pts_top = " ".join(f"{X(i):.1f} {Y(top[i]):.1f}" for i in range(n))
+        pts_bot = " ".join(f"{X(i):.1f} {Y(acc[i]):.1f}" for i in range(n - 1, -1, -1))
+        s.append(f'<path d="M {pts_top} L {pts_bot} Z" fill="{color}" opacity="0.85"/>')
+        acc = top
+    _legend(s, [(lbl, col) for lbl, col, _ in series])
+    if milestones:
+        milestone_markers(s, dates, milestones, plot_w, plot_h)
+    s.append("</svg>")
+    _write(path, "\n".join(s))
 
 
 def bar_chart(path, title, subtitle, dates, values, color, ylabel, milestones=None):
@@ -784,12 +873,34 @@ def main():
     print(f"Reading transcripts from {TRANSCRIPT_DIR} ...")
     tx = collect_transcripts()
 
-    rows = build_timeline(commits, tx)
+    kilo_per_day, kilo_meta = load_kilo()
+    if kilo_meta:
+        print(f"Including Kilo Code snapshot ({kilo_meta['task_count']} tasks, "
+              f"{kilo_meta['date_span']['start']} -> {kilo_meta['date_span']['end']})")
+    else:
+        print("No Kilo snapshot found (run snapshot_kilo.py to include the early phase).")
+
+    rows = build_timeline(commits, tx, kilo_per_day)
     dates = [r["date"] for r in rows]
-    cost_total, cost_by_model = estimate_cost(tx["tokens_by_model"])
+
+    def col(name):
+        return [r[name] for r in rows]
+
+    def tot(name):
+        return sum(col(name))
+
+    # per-tool AI totals straight off the timeline columns
+    by_tool = {}
+    for tool in ("kilo", "claude"):
+        by_tool[tool] = {m: tot(f"{tool}_{m}") for m in AI_METRICS}
+        by_tool[tool]["active_days"] = sum(
+            1 for r in rows if r[f"{tool}_words"] or r[f"{tool}_requests"]
+        )
 
     # ---- summary.json ----
     t = tx["totals"]
+    combined_prompts = tot("your_prompts")
+    combined_words = tot("your_words")
     summary = {
         "generated_for": REPO_ROOT,
         "date_range": {"start": dates[0] if dates else None, "end": dates[-1] if dates else None,
@@ -802,32 +913,50 @@ def main():
             "files_touched": sum(c["files"] for c in commits),
         },
         "your_effort": {
-            "prompts_typed": int(t["your_prompts"]),
-            "words_typed": int(t["your_words"]),
-            "active_days": len(tx["active_days"]),
-            "sessions": len(tx["sessions"]),
-            "transcript_files": tx["file_count"],
-            "avg_words_per_prompt": round(t["your_words"] / t["your_prompts"], 1) if t["your_prompts"] else 0,
+            "prompts_typed": combined_prompts,
+            "words_typed": combined_words,
+            "avg_words_per_prompt": round(combined_words / combined_prompts, 1) if combined_prompts else 0,
+            "by_tool": {
+                "kilo": {"prompts": by_tool["kilo"]["prompts"], "words": by_tool["kilo"]["words"],
+                         "active_days": by_tool["kilo"]["active_days"]},
+                "claude": {"prompts": by_tool["claude"]["prompts"], "words": by_tool["claude"]["words"],
+                           "active_days": by_tool["claude"]["active_days"]},
+            },
         },
         "ai_usage": {
-            "assistant_messages": int(t["assistant_msgs"]),
+            "requests": tot("ai_requests"),
             "tool_calls": int(t["tool_calls"]),
             "web_searches": int(t["web_searches"]),
             "web_fetches": int(t["web_fetches"]),
             "tokens": {
-                "input": int(t["input_tokens"]),
-                "output": int(t["output_tokens"]),
-                "cache_write": int(t["cache_write_tokens"]),
-                "cache_read": int(t["cache_read_tokens"]),
-                "total": int(t["input_tokens"] + t["output_tokens"]
-                              + t["cache_write_tokens"] + t["cache_read_tokens"]),
+                "input": tot("input_tokens"), "output": tot("output_tokens"),
+                "cache_write": tot("cache_write_tokens"), "cache_read": tot("cache_read_tokens"),
+                "total": tot("total_tokens"),
             },
-            "estimated_cost_usd": cost_total,
-            "estimated_cost_by_model_usd": cost_by_model,
+            "cost": {
+                "kilo_actual_usd": round(by_tool["kilo"]["cost"], 2),
+                "claude_list_estimate_usd": round(by_tool["claude"]["cost"], 2),
+                "note": "Kilo is real pay-per-token spend; Claude is a notional list-price "
+                        "estimate (subscription, not what you paid).",
+            },
+            "by_tool": {
+                tool: {
+                    "requests": by_tool[tool]["requests"],
+                    "total_tokens": by_tool[tool]["total_tokens"],
+                    "output_tokens": by_tool[tool]["output_tokens"],
+                    "cost_usd": round(by_tool[tool]["cost"], 2),
+                } for tool in ("kilo", "claude")
+            },
             "top_tools": tx["tool_counter"].most_common(15),
         },
+        "tools": {
+            "kilo": {"task_count": kilo_meta["task_count"] if kilo_meta else 0,
+                     "span": kilo_meta["date_span"] if kilo_meta else None,
+                     "modes": kilo_meta.get("modes") if kilo_meta else None},
+            "claude": {"sessions": len(tx["sessions"]), "transcript_files": tx["file_count"],
+                       "active_days": by_tool["claude"]["active_days"]},
+        },
         "milestones": milestones,
-        "pricing_note": "estimated_cost is a rough list-price estimate; edit PRICING in generate.py",
     }
     with open(os.path.join(OUT_DIR, "summary.json"), "w") as f:
         json.dump(summary, f, indent=2)
@@ -836,124 +965,132 @@ def main():
 
     # ---- charts ----
     print("Rendering charts ...")
-    # git-based: span the full repo history
-    commits_v = [r["commits"] for r in rows]
-    wd, (wv,) = trim_window(dates, commits_v)
+    KILO_LBL, CLAUDE_LBL = "Kilo Code", "Claude Code"
+
+    # 1-2. git-based, full repo history
+    wd, (wv,) = trim_window(dates, col("commits"))
     bar_chart(os.path.join(OUT_DIR, "commits_per_day.svg"),
               "Commits per day", "git history, with project phases marked",
               wd, wv, PALETTE["bar"], "commits / day", milestones_in(milestones, wd))
 
-    cum_loc = cumulative([r["net_lines"] for r in rows])
+    cum_loc = cumulative(col("net_lines"))
     wd, (wv,) = trim_window(dates, cum_loc)
     line_chart(os.path.join(OUT_DIR, "cumulative_loc.svg"),
                "Cumulative net lines of code", "added minus deleted; deps/lockfiles/installer excluded",
                wd, wv, PALETTE["green"], "net lines", milestones_in(milestones, wd))
 
-    # effort-based: trims to the window where you were actually typing
-    words_v = [r["your_words"] for r in rows]
-    wd, (wv,) = trim_window(dates, words_v)
-    bar_chart(os.path.join(OUT_DIR, "your_words_per_day.svg"),
-              "Words you typed per day", "your chat prompts only (machine-authored dispatches excluded)",
-              wd, wv, PALETTE["violet"], "words / day", milestones_in(milestones, wd))
+    # 3. THE handoff chart: AI requests per day, split by tool
+    kr, crq = col("kilo_requests"), col("claude_requests")
+    wd, (wkr, wcrq) = trim_window(dates, kr, crq)
+    stacked_bar(os.path.join(OUT_DIR, "ai_requests_per_day.svg"),
+                "AI requests per day", "the tool handoff: Kilo Code (Feb-Mar), then Claude Code (May-Jun)",
+                wd, [(KILO_LBL, KILO_COLOR, wkr), (CLAUDE_LBL, CLAUDE_COLOR, wcrq)],
+                "requests / day", milestones_in(milestones, wd))
 
-    # re-cumulate within the window so the curve starts at 0
-    wd2, (raw,) = trim_window(dates, words_v)
-    line_chart(os.path.join(OUT_DIR, "cumulative_words.svg"),
-               "Cumulative words you typed", "your total written input over the project",
-               wd2, cumulative(raw), PALETTE["violet"], "words", milestones_in(milestones, wd2))
+    # 4. words you typed per day, split by tool
+    kw, cw_ = col("kilo_words"), col("claude_words")
+    wd, (wkw, wcw_) = trim_window(dates, kw, cw_)
+    stacked_bar(os.path.join(OUT_DIR, "your_words_per_day.svg"),
+                "Words you typed per day", "your chat prompts only; colored by tool",
+                wd, [(KILO_LBL, KILO_COLOR, wkw), (CLAUDE_LBL, CLAUDE_COLOR, wcw_)],
+                "words / day", milestones_in(milestones, wd))
 
-    cr = [r["cache_read_tokens"] for r in rows]
-    cw = [r["cache_write_tokens"] for r in rows]
-    ti = [r["input_tokens"] for r in rows]
-    to = [r["output_tokens"] for r in rows]
-    wd, (wcr, wcw, wti, wto) = trim_window(dates, cr, cw, ti, to)
+    # 5. cumulative words, stacked by tool
+    kc = cumulative(kw)
+    cc = cumulative(cw_)
+    combined_w = [kw[i] + cw_[i] for i in range(len(rows))]
+    lo = next((i for i, v in enumerate(combined_w) if v), 0)
+    wd = dates[lo:]
+    stacked_area(os.path.join(OUT_DIR, "cumulative_words.svg"),
+                 "Cumulative words you typed", "your total written input, by tool",
+                 wd, [(KILO_LBL, KILO_COLOR, kc[lo:]), (CLAUDE_LBL, CLAUDE_COLOR, cc[lo:])],
+                 "words", milestones_in(milestones, wd))
+
+    # 6. AI output tokens per day, split by tool
+    ko, co = col("kilo_output_tokens"), col("claude_output_tokens")
+    wd, (wko, wco) = trim_window(dates, ko, co)
+    stacked_bar(os.path.join(OUT_DIR, "output_tokens_per_day.svg"),
+                "AI output tokens per day", "what the model wrote, by tool",
+                wd, [(KILO_LBL, KILO_COLOR, wko), (CLAUDE_LBL, CLAUDE_COLOR, wco)],
+                "output tokens / day", milestones_in(milestones, wd))
+
+    # 7. token-type breakdown across both tools (cache dominance over the project)
+    wd, (wcr, wcw2, wti, wto) = trim_window(
+        dates, col("cache_read_tokens"), col("cache_write_tokens"),
+        col("input_tokens"), col("output_tokens"))
     stacked_bar(os.path.join(OUT_DIR, "tokens_per_day.svg"),
-                "Tokens per day", "AI token throughput (cache reads dominate, as expected)",
+                "Tokens per day by type", "all tools combined; cache reads dominate, as expected",
                 wd,
                 [("cache read", PALETTE["grid"], wcr),
-                 ("cache write", PALETTE["bar2"], wcw),
+                 ("cache write", PALETTE["bar2"], wcw2),
                  ("input", PALETTE["amber"], wti),
                  ("output", PALETTE["accent"], wto)],
                 "tokens / day", milestones_in(milestones, wd))
 
-    # output tokens alone tell the "AI writing" story more cleanly
-    wd, (wto,) = trim_window(dates, to)
-    line_chart(os.path.join(OUT_DIR, "output_tokens_per_day.svg"),
-               "AI output tokens per day (7-day average)", "smoothed; what the model actually wrote",
-               wd, rolling(wto), PALETTE["accent"], "output tokens / day",
-               milestones_in(milestones, wd), fill=True)
-
+    # 8. project phases roadmap
     phases_chart(os.path.join(OUT_DIR, "phases.svg"),
                  "Project phases",
                  f"{len(milestones)} initiatives in date order; bar = commits matching that initiative",
                  milestones, commits, dates[-1] if dates else "")
 
-    # model token mix
-    mix_rows = []
-    for bucket in ("opus", "sonnet", "haiku"):
-        tkm = tx["tokens_by_model"].get(bucket)
-        if not tkm:
-            continue
-        total = tkm["in"] + tkm["out"] + tkm["cache_write"] + tkm["cache_read"]
-        color = {"opus": PALETTE["violet"], "sonnet": PALETTE["bar"], "haiku": PALETTE["green"]}[bucket]
-        mix_rows.append((bucket, total, color))
-    if mix_rows:
-        hbar_chart(os.path.join(OUT_DIR, "model_mix.svg"),
-                   "Tokens by model tier", "total tokens (input + output + cache)", mix_rows)
+    # 9. tokens by tool
+    hbar_chart(os.path.join(OUT_DIR, "tokens_by_tool.svg"),
+               "Tokens by tool", "total tokens (input + output + cache)",
+               [(KILO_LBL, by_tool["kilo"]["total_tokens"], KILO_COLOR),
+                (CLAUDE_LBL, by_tool["claude"]["total_tokens"], CLAUDE_COLOR)])
 
-    # top tools
+    # 10. cost by tool (Kilo real, Claude notional)
+    hbar_chart(os.path.join(OUT_DIR, "cost_by_tool.svg"),
+               "Cost by tool", "Kilo Code is real spend; Claude Code is a list-price estimate",
+               [(f"{KILO_LBL} (actual)", round(by_tool["kilo"]["cost"], 2), KILO_COLOR),
+                (f"{CLAUDE_LBL} (list est.)", round(by_tool["claude"]["cost"], 2), CLAUDE_COLOR)])
+
+    # 11. most-used tools (Claude Code only; Kilo does not log comparable calls)
     tool_rows = [(name, n, PALETTE["bar"]) for name, n in tx["tool_counter"].most_common(12)]
     if tool_rows:
         hbar_chart(os.path.join(OUT_DIR, "top_tools.svg"),
-                   "Most-used tools", "tool calls across all sessions", tool_rows)
+                   "Most-used tools", "Claude Code tool calls across all sessions", tool_rows)
 
     write_index_html(summary)
 
     # ---- console summary ----
     g = summary["git"]; e = summary["your_effort"]; a = summary["ai_usage"]
-    print("\n" + "=" * 62)
+    k, c = a["by_tool"]["kilo"], a["by_tool"]["claude"]
+    print("\n" + "=" * 64)
     print(f"  ResearchOS activity report  ({summary['date_range']['start']} -> {summary['date_range']['end']})")
-    print("=" * 62)
-    print(f"  Commits ............. {g['commits']:>10,}")
-    print(f"  Net lines of code ... {g['net_lines']:>10,}   (+{g['lines_added']:,} / -{g['lines_deleted']:,})")
-    print(f"  Files touched ....... {g['files_touched']:>10,}")
-    print(f"  Prompts you typed ... {e['prompts_typed']:>10,}")
-    print(f"  Words you typed ..... {e['words_typed']:>10,}   ({e['avg_words_per_prompt']} avg/prompt)")
-    print(f"  Active days ......... {e['active_days']:>10,}   over {len(tx['sessions']):,} sessions")
-    print(f"  AI messages ......... {a['assistant_messages']:>10,}")
-    print(f"  Tool calls .......... {a['tool_calls']:>10,}")
-    print(f"  Total tokens ........ {a['tokens']['total']:>10,}")
-    print(f"     output tokens .... {a['tokens']['output']:>10,}")
-    print(f"  List-price value .... ${cost_total:>9,.2f}   (notional; not what you paid on a plan)")
-    print(f"  Phases detected ..... {len(milestones):>10,}")
-    print("=" * 62)
+    print("=" * 64)
+    print(f"  Commits ............. {g['commits']:>11,}")
+    print(f"  Net lines of code ... {g['net_lines']:>11,}   (+{g['lines_added']:,} / -{g['lines_deleted']:,})")
+    print(f"  Prompts you typed ... {e['prompts_typed']:>11,}   (Kilo {e['by_tool']['kilo']['prompts']:,} + Claude {e['by_tool']['claude']['prompts']:,})")
+    print(f"  Words you typed ..... {e['words_typed']:>11,}   (Kilo {e['by_tool']['kilo']['words']:,} + Claude {e['by_tool']['claude']['words']:,})")
+    print(f"  AI requests ......... {a['requests']:>11,}   (Kilo {k['requests']:,} + Claude {c['requests']:,})")
+    print(f"  Total tokens ........ {a['tokens']['total']:>11,}")
+    print(f"  Cost ................ Kilo ${a['cost']['kilo_actual_usd']:,.2f} actual  +  Claude ${a['cost']['claude_list_estimate_usd']:,.0f} list-est")
+    print(f"  Phases detected ..... {len(milestones):>11,}")
+    print("=" * 64)
     print(f"  CSV     -> {csv_path}")
     print(f"  JSON    -> {os.path.join(OUT_DIR, 'summary.json')}")
-    print(f"  Charts  -> {OUT_DIR}/*.svg")
     print(f"  Viewer  -> open {os.path.join(OUT_DIR, 'index.html')}")
-    print("=" * 62)
+    print("=" * 64)
 
 
 def write_index_html(summary):
     g = summary["git"]; e = summary["your_effort"]; a = summary["ai_usage"]
     charts = [
-        "phases.svg", "commits_per_day.svg", "cumulative_loc.svg",
-        "your_words_per_day.svg", "cumulative_words.svg",
+        "phases.svg", "ai_requests_per_day.svg", "commits_per_day.svg",
+        "cumulative_loc.svg", "your_words_per_day.svg", "cumulative_words.svg",
         "output_tokens_per_day.svg", "tokens_per_day.svg",
-        "model_mix.svg", "top_tools.svg",
+        "tokens_by_tool.svg", "cost_by_tool.svg", "top_tools.svg",
     ]
     cards = [
         ("Commits", f"{g['commits']:,}"),
         ("Net lines of code", f"{g['net_lines']:,}"),
-        ("Files touched", f"{g['files_touched']:,}"),
         ("Prompts you typed", f"{e['prompts_typed']:,}"),
         ("Words you typed", f"{e['words_typed']:,}"),
-        ("Active days", f"{e['active_days']:,}"),
-        ("Sessions", f"{e['sessions']:,}"),
-        ("AI messages", f"{a['assistant_messages']:,}"),
-        ("Tool calls", f"{a['tool_calls']:,}"),
+        ("AI requests", f"{a['requests']:,}"),
         ("Total tokens", f"{a['tokens']['total']:,}"),
-        ("List-price value", f"${a['estimated_cost_usd']:,.0f}"),
+        ("Kilo cost (actual)", f"${a['cost']['kilo_actual_usd']:,.0f}"),
+        ("Claude value (list est.)", f"${a['cost']['claude_list_estimate_usd']:,.0f}"),
         ("Phases", f"{len(summary['milestones'])}"),
     ]
     rng = summary["date_range"]
@@ -992,12 +1129,14 @@ def write_index_html(summary):
   <h1>ResearchOS activity report</h1>
   <div class="sub">{html.escape(str(rng['start']))} &rarr; {html.escape(str(rng['end']))}
     &middot; {rng['calendar_days']} calendar days
+    &middot; built with Kilo Code, then Claude Code
     &middot; SVG charts paste straight into slides</div>
 </header>
 <div class="grid">{card_html}</div>
 <div class="charts">{img_html}</div>
 <footer>Generated by scripts/activity-report/generate.py &middot;
-  cost is a rough list-price estimate &middot; no message text is stored in any output.</footer>
+  Kilo cost is real spend, Claude cost is a list-price estimate &middot;
+  no message text or research content is stored in any output.</footer>
 </body></html>"""
     _write(os.path.join(OUT_DIR, "index.html"), doc)
 
