@@ -90,6 +90,9 @@ import FeatureEditorDialog, {
 import AnnotateFromReferenceDialog, {
   type AnnotateFromReferenceRequest,
 } from "./AnnotateFromReferenceDialog";
+import DetectFeaturesDialog, {
+  type DetectFeaturesRequest,
+} from "./DetectFeaturesDialog";
 import EnzymePickerDialog from "./EnzymePickerDialog";
 import PrimerDialog, { type PrimerDialogRequest } from "./PrimerDialog";
 import PrimerEditorDialog, {
@@ -408,6 +411,7 @@ export default function SequenceEditView({
   // reference" dialog (open via the Feature menu).
   const [annotateRef, setAnnotateRef] =
     useState<AnnotateFromReferenceRequest | null>(null);
+  const [detectReq, setDetectReq] = useState<DetectFeaturesRequest | null>(null);
   const [selectedFeatureIdx, setSelectedFeatureIdx] = useState<number | null>(null);
   // Phase 2d — the restriction-enzyme picker. `activeEnzymes` is the in-session
   // chosen set (lowercase keys); null means "use the small common default".
@@ -1359,6 +1363,26 @@ export default function SequenceEditView({
     });
   }, [doc.seq, sequence.id, editor]);
 
+  // feature detect bot — open the "detect common features" dialog. It scans the
+  // open DNA against the bundled protein feature DB (fluorescent proteins,
+  // markers, fusion + epitope tags) by translating ORFs on both strands, then
+  // adds every chosen hit in ONE undoable edit (same fold-through-applyDocEdit
+  // path as annotate-from-reference).
+  const openDetectFeatures = useCallback(() => {
+    setDetectReq({
+      openSeq: doc.seq,
+      onApply: (features: FeatureDraft[]) => {
+        if (features.length > 0) {
+          editor.applyDocEdit((prev) =>
+            features.reduce((acc, draft) => addFeature(acc, draft), prev),
+          );
+        }
+        setDetectReq(null);
+      },
+      onCancel: () => setDetectReq(null),
+    });
+  }, [doc.seq, editor]);
+
   // EDIT: open the editor seeded from an existing feature, with a Delete action.
   const openEditFeature = useCallback(
     (index: number) => {
@@ -2098,6 +2122,15 @@ export default function SequenceEditView({
         group: true,
         onRun: openAnnotateFromReference,
       },
+      // feature detect bot — scan the open DNA for common protein elements
+      // (fluorescent proteins, resistance markers, fusion + epitope tags) by
+      // translating ORFs on both strands and aligning to the bundled feature DB.
+      {
+        id: "feat-detect-common",
+        label: "Detect common features…",
+        enabled: true,
+        onRun: openDetectFeatures,
+      },
     ];
     // top menus consolidation bot — the per-feature-type show/hide list relocated
     // from the rail's FeatureTypesFlyout. One TOGGLE row per distinct type;
@@ -2123,6 +2156,7 @@ export default function SequenceEditView({
     selIsFeature,
     openAddFeature,
     openAnnotateFromReference,
+    openDetectFeatures,
     openEditFeature,
     duplicateFeatureAt,
     deleteFeatureAt,
@@ -2803,6 +2837,9 @@ export default function SequenceEditView({
 
       {/* annotate-from-reference bot — transfer features from a reference. */}
       <AnnotateFromReferenceDialog request={annotateRef} />
+
+      {/* feature detect bot — detect common protein features from the bundled DB. */}
+      <DetectFeaturesDialog request={detectReq} />
 
       {/* Phase 2d — restriction-enzyme chooser. Applies the active set live. */}
       <EnzymePickerDialog
