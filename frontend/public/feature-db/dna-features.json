@@ -1,0 +1,124 @@
+{
+  "generatedAt": "2026-06-04T02:28:03.643Z",
+  "sources": [
+    {
+      "name": "NCBI GenBank (nuccore)",
+      "license": "GenBank/NCBI sequence data carries no copyright restrictions on the sequence facts. See https://www.ncbi.nlm.nih.gov/home/about/policies/",
+      "url": "https://www.ncbi.nlm.nih.gov/nuccore/"
+    }
+  ],
+  "method": "Each sequence is the substring of a fetched GenBank record at the coordinates of a feature whose type and /note match the target. complement() locations are reverse-complemented. No sequence is written, completed, or recalled from memory.",
+  "count": 8,
+  "countsByCategory": {
+    "origin": 2,
+    "promoter": 2,
+    "regulatory": 3,
+    "terminator": 1
+  },
+  "entries": [
+    {
+      "id": "ori_sv40_aux",
+      "name": "SV40 origin of replication (auxiliary region)",
+      "category": "origin",
+      "sequenceType": "dna",
+      "seq": "GTCAGCCATGGGGCGGAGAATGGGCGGAACTGGGCGGAGTTAGGGGCGGGAT",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=J02400.1&rettype=gb&retmode=text",
+      "accession": "J02400.1",
+      "coords": "32..83",
+      "license": "Public domain sequence facts (GenBank/NCBI); record is freely redistributable.",
+      "note": "SV40 origin auxiliary region (adjacent to the core origin), in the primary SV40 genome record (J02400). Extracted feature: rep_origin; record /note: \"replication origin auxiliary region; 0.67 [89]\"."
+    },
+    {
+      "id": "ori_sv40_core",
+      "name": "SV40 origin of replication (core region)",
+      "category": "origin",
+      "sequenceType": "dna",
+      "seq": "GGCCTCCAAAAAAGCCTCCTCACTACTTCTGGAATAGCTCAGAGGCCGAGGCGGCCTCGGCCTCTGCATAAATAAAAAAAATTA",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=J02400.1&rettype=gb&retmode=text",
+      "accession": "J02400.1",
+      "coords": "join(5191..5243,1..31)",
+      "license": "Public domain sequence facts (GenBank/NCBI); record is freely redistributable.",
+      "note": "SV40 core origin of replication; origin-spanning feature across the circular junction in the primary SV40 genome record (J02400). Extracted feature: rep_origin; record /note: \"replication origin core region; 0.67 [89]\"."
+    },
+    {
+      "id": "promoter_cmv",
+      "name": "CMV promoter (human cytomegalovirus immediate-early)",
+      "category": "promoter",
+      "sequenceType": "dna",
+      "seq": "GTGATGCGGTTTTGGCAGTACATCAATGGGCGTGGATAGCGGTTTGACTCACGGGGATTTCCAAGTCTCCACCCCATTGACGTCAATGGGAGTTTGTTTTGGCACCAAAATCAACGGGACTTTCCAAAATGTCGTAACAACTCCGCCCCATTGACGCAAATGGGCGGTAGGCGTGTACGGTGGGAGGTCTATATAAGCAGAGCT",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=PZ020853.1&rettype=gb&retmode=text",
+      "accession": "PZ020853.1",
+      "coords": "615..818",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "CMV immediate-early promoter, annotated as a clean range in a GenBank expression-vector record (pcDNA3.1 derivative). Extracted feature: regulatory; record /note: \"CMV promoter\"."
+    },
+    {
+      "id": "promoter_t3",
+      "name": "T3 promoter (for T3 RNA polymerase)",
+      "category": "promoter",
+      "sequenceType": "dna",
+      "seq": "ATTAACCCTCACTAACGGGAGA",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=X02981.1&rettype=gb&retmode=text",
+      "accession": "X02981.1",
+      "coords": "2808..2829",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "Promoter for T3 RNA polymerase, from the bacteriophage T3 gene 1 (RNA polymerase) record (X02981). Extracted feature: regulatory; record /note: \"put. promoter for T3 RNA polymerase\"."
+    },
+    {
+      "id": "promoter_cmv_enhancer",
+      "name": "CMV enhancer (human cytomegalovirus immediate-early)",
+      "category": "regulatory",
+      "sequenceType": "dna",
+      "seq": "GACATTGATTATTGACTAGTTATTAATAGTAATCAATTACGGGGTCATTAGTTCATAGCCCATATATGGAGTTCCGCGTTACATAACTTACGGTAAATGGCCCGCCTGGCTGACCGCCCAACGACCCCCGCCCATTGACGTCAATAATGACGTATGTTCCCATAGTAACGCCAATAGGGACTTTCCATTGACGTCAATGGGTGGAGTATTTACGGTAAACTGCCCACTTGGCAGTACATCAAGTGTATCATATGCCAAGTACGCCCCCTATTGACGTCAATGACGGTAAATGGCCCGCCTGGCATTATGCCCAGTACATGACCTTATGGGACTTTCCTACTTGGCAGTACATCTACGTATTAGTCATCGCTATTACCATG",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=PZ020853.1&rettype=gb&retmode=text",
+      "accession": "PZ020853.1",
+      "coords": "235..614",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "CMV immediate-early enhancer; pairs with the CMV promoter in mammalian expression vectors. Extracted feature: regulatory; record /note: \"CMV enhancer\"."
+    },
+    {
+      "id": "regulatory_shine_dalgarno",
+      "name": "Shine-Dalgarno sequence (E. coli, pBR322 rop 5'UTR)",
+      "category": "regulatory",
+      "sequenceType": "dna",
+      "seq": "GGAGG",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=J01749.1&rettype=gb&retmode=text",
+      "accession": "J01749.1",
+      "coords": "1905..1909",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "Shine-Dalgarno ribosome-binding sequence extracted from a real E. coli gene 5'UTR in the pBR322 record (J01749), not recited. Extracted feature: regulatory; record /note: \"Shine-Dalgarno sequence\"."
+    },
+    {
+      "id": "regulatory_sv40_polya",
+      "name": "SV40 late polyA signal",
+      "category": "regulatory",
+      "sequenceType": "dna",
+      "seq": "AATAAA",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=J02400.1&rettype=gb&retmode=text",
+      "accession": "J02400.1",
+      "coords": "2657..2662",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "SV40 late mRNA polyadenylation signal (the hexamer signal), from the primary SV40 genome record (J02400). Extracted feature: regulatory; record /note: \"late mRNA polyadenyation signal; 0.17 [23],[68], [120]\"."
+    },
+    {
+      "id": "terminator_rrnb_t1",
+      "name": "rrnB T1 terminator (E. coli)",
+      "category": "terminator",
+      "sequenceType": "dna",
+      "seq": "CAAATAAAACGAAAGGCTCAGTCGAAAGACTGGGCCTTTCGTTTTATCTGTTGTTTGTCGGTGAACGCTCTCCTGAGTAGGACAAAT",
+      "source": "NCBI GenBank (nuccore), extracted by feature coordinates",
+      "sourceUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=PV231317.1&rettype=gb&retmode=text",
+      "accession": "PV231317.1",
+      "coords": "2688..2774",
+      "license": "Public domain sequence facts (GenBank/NCBI).",
+      "note": "E. coli rrnB T1 transcription terminator, annotated as a clean range with an explicit note in a GenBank vector record (pSEVA251 derivative). Extracted feature: regulatory; record /note: \"rrnB T1 terminator\"."
+    }
+  ]
+}

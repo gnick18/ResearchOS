@@ -45,3 +45,6 @@ frontend/scratch-parse-output.json
 
 # Kilo Code plugin state, fully per-developer, not tracked.
 .kilo/
+
+# DNA feature DB build cache (re-fetchable from NCBI; not tracked)
+scripts/.dna-feature-cache/
