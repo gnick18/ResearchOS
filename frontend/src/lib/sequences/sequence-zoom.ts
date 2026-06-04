@@ -728,3 +728,35 @@ export function showInOverview(
   if (!Number.isFinite(span) || span <= 0) return true;
   return span / seqLength < OVERVIEW_WHOLE_SPAN_FRACTION;
 }
+
+/**
+ * overview featclick bot — HIT-TEST a clicked bp against the overview's drawn
+ * features and return the MOST SPECIFIC match, or null when the click missed
+ * every feature (a bare-track click).
+ *
+ * `features` is the already-drawn set, IN DRAW ORDER (a later entry sits on top).
+ * The pick is the NARROWEST [start, end] that contains the clicked bp; ties (two
+ * equally narrow features over the same bp) resolve to the TOPMOST (last-drawn)
+ * one, matching what the eye reads as "on top". The bp is compared against each
+ * feature's TRUE span, so a click resolves anywhere along the on-screen arrow.
+ *
+ * Pure + DOM-free so it is unit-testable in isolation; the component calls it
+ * with the same features it draws.
+ */
+export function pickOverviewFeatureAtBp<T extends { start: number; end: number }>(
+  features: readonly T[],
+  bp: number,
+): T | null {
+  let best: T | null = null;
+  let bestSpan = Infinity;
+  for (const f of features) {
+    if (bp < f.start || bp > f.end) continue;
+    const span = f.end - f.start;
+    // <= so a later-drawn (topmost) feature of equal width wins the tie.
+    if (span <= bestSpan) {
+      best = f;
+      bestSpan = span;
+    }
+  }
+  return best;
+}

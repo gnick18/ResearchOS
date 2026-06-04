@@ -36,6 +36,7 @@ import {
   OVERVIEW_SLIDER_MIN,
   OVERVIEW_SLIDER_MAX,
   overviewSelectionRect,
+  pickOverviewFeatureAtBp,
 } from "./sequence-zoom";
 
 describe("initialLinearZoom", () => {
@@ -894,5 +895,41 @@ describe("overview slider bot — rescaleExtentToSpan (center-anchored)", () => 
     const center = (next.start + next.end) / 2;
     expect(Math.abs(center - 5000)).toBeLessThanOrEqual(1);
     expect(next.end - next.start).toBe(targetSpan);
+  });
+});
+
+describe("pickOverviewFeatureAtBp (overview feature-click hit-test)", () => {
+  const outer = { name: "operon", start: 100, end: 900 };
+  const inner = { name: "geneA", start: 200, end: 400 };
+  const other = { name: "geneB", start: 600, end: 800 };
+  const drawn = [outer, inner, other]; // draw order; later = topmost
+
+  it("returns null when the click misses every feature (bare track)", () => {
+    expect(pickOverviewFeatureAtBp(drawn, 50)).toBeNull(); // before any feature
+    expect(pickOverviewFeatureAtBp(drawn, 1000)).toBeNull(); // past every feature
+    // A true gap between non-overlapping features.
+    expect(pickOverviewFeatureAtBp([inner, other], 500)).toBeNull();
+  });
+
+  it("selects the single feature under a click that hits only one", () => {
+    expect(pickOverviewFeatureAtBp(drawn, 700)).toBe(other);
+  });
+
+  it("picks the NARROWEST feature when ranges nest (most specific wins)", () => {
+    // 300 is inside both `operon` (800 bp) and `geneA` (200 bp) -> geneA.
+    expect(pickOverviewFeatureAtBp(drawn, 300)).toBe(inner);
+    // 150 is only inside the wide operon.
+    expect(pickOverviewFeatureAtBp(drawn, 150)).toBe(outer);
+  });
+
+  it("matches inclusively at the feature boundaries", () => {
+    expect(pickOverviewFeatureAtBp(drawn, 100)).toBe(outer);
+    expect(pickOverviewFeatureAtBp(drawn, 200)).toBe(inner); // boundary, narrower wins
+  });
+
+  it("breaks an equal-width tie in favor of the TOPMOST (last-drawn)", () => {
+    const a = { name: "a", start: 10, end: 30 };
+    const b = { name: "b", start: 10, end: 30 }; // same span, drawn later
+    expect(pickOverviewFeatureAtBp([a, b], 20)).toBe(b);
   });
 });

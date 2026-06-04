@@ -1252,6 +1252,20 @@ export default function SequenceEditView({
 
   // Features projected to the overview bar (whole sequence, as arrows). Uses the
   // same visibility filtering as the main map so hidden types stay hidden.
+  // overview featclick bot — resolve each annotation back to its index in the
+  // source `doc.features` list (the index `selectFeature` consumes). Annotations
+  // drop `primer_bind` + carry no index, so key by name|start|end (the same
+  // fallback chain handleMapFeatureClick uses). First-match wins on duplicate
+  // keys, consistent with the Map's findIndex.
+  const featureIndexByKey = useMemo(() => {
+    const m = new Map<string, number>();
+    doc.features.forEach((f, i) => {
+      const key = `${f.name}|${f.start}|${f.end}`;
+      if (!m.has(key)) m.set(key, i);
+    });
+    return m;
+  }, [doc.features]);
+
   const overviewFeatures: OverviewFeature[] = useMemo(
     () =>
       docAnnotations
@@ -1271,8 +1285,9 @@ export default function SequenceEditView({
           direction: (a.direction === -1 ? -1 : 1) as 1 | -1,
           color: a.color,
           type: a.type,
+          index: featureIndexByKey.get(`${a.name}|${a.start}|${a.end}`),
         })),
-    [docAnnotations, view],
+    [docAnnotations, view, featureIndexByKey],
   );
 
   // linear map bot — features for the SnapGene-style single-line LinearMap (the
@@ -1514,6 +1529,28 @@ export default function SequenceEditView({
       );
     },
     [doc.features, doc.seq.length],
+  );
+
+  // overview featclick bot — CLICK A FEATURE in the TOP OVERVIEW STRIP -> SELECT
+  // it (its range), reusing the shared `selectFeature` path (externalSel +
+  // selectedFeatureIdx + the selection band), exactly like the Map's feature
+  // click. It does NOT change the view mode, so the user stays where they are.
+  // A bare-track click in the strip keeps the existing scroll-to-bp behavior.
+  const handleOverviewFeatureClick = useCallback(
+    (feature: OverviewFeature) => {
+      if (typeof feature.index === "number" && feature.index >= 0) {
+        selectFeature(feature.index);
+        return;
+      }
+      // Defensive fallback: if the index didn't resolve (e.g. a duplicate-key
+      // annotation), match by name + range like handleMapFeatureClick.
+      let idx = doc.features.findIndex(
+        (f) => f.name === feature.name && f.start === feature.start && f.end === feature.end,
+      );
+      if (idx < 0) idx = doc.features.findIndex((f) => f.name === feature.name);
+      if (idx >= 0) selectFeature(idx);
+    },
+    [doc.features, selectFeature],
   );
 
   // ADD: open the editor seeded from the current drag-selection (or a 1-bp stub
@@ -2255,11 +2292,34 @@ export default function SequenceEditView({
     readOnly,
   ]);
 
+  // overview featclick bot — the selection the readout describes. A FEATURE
+  // selection (Map / overview / Features list) sets `externalSel` but, because
+  // SeqViz never fires onSelection for a programmatic prop selection, it never
+  // reaches the local `selection` state. So the readout prefers `externalSel`
+  // when present, falling back to the user's live drag `selection`. A free-hand
+  // drag clears externalSel (onSelection), so the fallback path is unchanged.
+  const readoutSelection = useMemo<Selection | null>(() => {
+    if (externalSel) {
+      return { start: externalSel.start, end: externalSel.end, type: "" };
+    }
+    return selection;
+  }, [externalSel, selection]);
+
+  // overview featclick bot — the SELECTED FEATURE context for the readout. When a
+  // feature is selected (selectedFeatureIdx set) and the readout selection still
+  // equals that feature's span, the readout prefixes the feature NAME.
+  const readoutSelectedFeature = useMemo(() => {
+    if (selectedFeatureIdx == null) return null;
+    const f = doc.features[selectedFeatureIdx];
+    if (!f) return null;
+    return { name: f.name, start: f.start, end: f.end };
+  }, [selectedFeatureIdx, doc.features]);
+
   // Selection readout values (shared with the read view via the extracted
   // helper; edit-mode behavior is identical to before).
   const readout = useMemo(
-    () => deriveSelectionReadout(selection, doc.seq),
-    [selection, doc.seq],
+    () => deriveSelectionReadout(readoutSelection, doc.seq, readoutSelectedFeature),
+    [readoutSelection, doc.seq, readoutSelectedFeature],
   );
 
   // The shared Edit-menu action list (one source of truth for the toolbar
@@ -2838,6 +2898,10 @@ export default function SequenceEditView({
                       features={overviewFeatures}
                       window={overviewWindow}
                       onScrollToBp={scrollMainToBp}
+                      // overview featclick bot — a click ON a feature arrow
+                      // SELECTS that feature (range + band), reusing selectFeature;
+                      // a bare-track click still scrolls via onScrollToBp.
+                      onFeatureClick={handleOverviewFeatureClick}
                       // overview zoom bot — the bar's OWN zoom (independent of the
                       // detail-view linearZoom). Scroll / pinch over the bar
                       // updates this extent; it never touches the detail zoom.

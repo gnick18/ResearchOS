@@ -32,6 +32,7 @@ import {
   zoomExtentAroundCursor,
   panExtent,
   overviewSelectionRect,
+  pickOverviewFeatureAtBp,
 } from "@/lib/sequences/sequence-zoom";
 
 /** overview selband bot — the shared editor SELECTION color, matched exactly to
@@ -49,6 +50,13 @@ export interface OverviewFeature {
   /** GenBank feature type (e.g. "CDS", "source"). Used only to keep the
    *  whole-span `source` feature off the mini-map; see showInOverview. */
   type?: string;
+  /**
+   * overview featclick bot — a stable reference back to this feature's index in
+   * the source `doc.features` list, so a click on the arrow resolves straight to
+   * `selectFeature(index)` (the same path the Map / Features list use). Populated
+   * by the host's overviewFeatures memo.
+   */
+  index?: number;
 }
 
 export interface SequenceOverviewBarProps {
@@ -58,6 +66,13 @@ export interface SequenceOverviewBarProps {
   window: { start: number; end: number };
   /** Scroll the main view so `bp` sits at the top of its viewport. */
   onScrollToBp: (bp: number) => void;
+  /**
+   * overview featclick bot — clicking ON a feature arrow SELECTS that feature
+   * (sets the shared selection to its range) instead of scrolling. Only fired
+   * when a click lands on a feature; a bare-track click still scrolls via
+   * `onScrollToBp`. Omitted => the bar reverts to scroll-only on every click.
+   */
+  onFeatureClick?: (feature: OverviewFeature) => void;
   /**
    * overview zoom bot — the bp DOMAIN the bar currently spans (its OWN zoom).
    * Defaults to the whole molecule when omitted, preserving the original
@@ -108,6 +123,7 @@ export default function SequenceOverviewBar({
   features,
   window: win,
   onScrollToBp,
+  onFeatureClick,
   extent,
   onExtentChange,
   selection,
@@ -173,11 +189,62 @@ export default function SequenceOverviewBar({
 
   const draggingRef = useRef(false);
 
+  // overview featclick bot — the features eligible for a click hit-test: the same
+  // set the bar DRAWS as arrows (drop empty + whole-span `source` features, and
+  // anything fully outside the visible extent), kept in draw order so a later
+  // entry is "topmost". Drawing arrows clamp to the extent, but the hit-test runs
+  // against the feature's TRUE [start, end] so a click anywhere on the on-screen
+  // arrow resolves, and clamped-off portions don't falsely match.
+  const hittableFeatures = useMemo(
+    () =>
+      features.filter(
+        (f) =>
+          f.end > f.start && showInOverview(f, seqLength) && f.end > lo && f.start < hi,
+      ),
+    [features, seqLength, lo, hi],
+  );
+
+  // overview featclick bot — resolve the MOST SPECIFIC feature under a clicked bp
+  // (narrowest containing span, topmost on a tie). Pure pick lives in the zoom lib
+  // so it is unit-testable; null means the bare track was clicked.
+  const featureAtBp = useCallback(
+    (bp: number): OverviewFeature | null => pickOverviewFeatureAtBp(hittableFeatures, bp),
+    [hittableFeatures],
+  );
+
   const onPointerDownTrack = useCallback(
     (e: React.PointerEvent) => {
-      // Click-to-jump: center the window on the click, then begin a drag.
       e.preventDefault();
+      // overview featclick bot — FIRST hit-test the clicked bp against the visible
+      // features. A click ON a feature SELECTS it (no scroll, no drag); only a
+      // BARE-track click falls through to the existing click-to-jump + drag. The
+      // viewport-box drag is handled by the box's own pointer handler, so it is
+      // unaffected by this branch.
+      const bpAtPointer = clientXToBp(e.clientX, false);
+      const hit = onFeatureClick ? featureAtBp(bpAtPointer) : null;
+      if (hit) {
+        onFeatureClick?.(hit);
+        return;
+      }
+      // Bare track: click-to-jump (center the window on the click), then drag.
       (e.target as Element).setPointerCapture?.(e.pointerId);
+      draggingRef.current = true;
+      const bp = clientXToBp(e.clientX, true);
+      setDragBp(bp);
+      onScrollToBp(bp);
+    },
+    [clientXToBp, onScrollToBp, onFeatureClick, featureAtBp],
+  );
+
+  // overview featclick bot — the VIEWPORT BOX gets its OWN pointer-down so a click
+  // that lands on the box always DRAGS (centers the window on the pointer), even
+  // when a feature arrow sits under the box. stopPropagation keeps the SVG-level
+  // feature hit-test from also firing, so the box stays a pure drag handle.
+  const onPointerDownBox = useCallback(
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
       draggingRef.current = true;
       const bp = clientXToBp(e.clientX, true);
       setDragBp(bp);
@@ -389,9 +456,19 @@ export default function SequenceOverviewBar({
           stroke="#cbd5e1"
           strokeWidth={2}
         />
-        {/* feature arrows */}
+        {/* feature arrows. overview featclick bot — a pointer cursor signals the
+            arrows are clickable (a click SELECTS the feature); the actual select
+            is handled by the SVG-level hit-test in onPointerDownTrack, not a
+            per-arrow handler, so the narrowest-feature tie-break stays in one
+            place. */}
         {arrows.map((a) => (
-          <polygon key={a.key} points={a.points} fill={a.color} opacity={0.9}>
+          <polygon
+            key={a.key}
+            points={a.points}
+            fill={a.color}
+            opacity={0.9}
+            style={onFeatureClick ? { cursor: "pointer" } : undefined}
+          >
             <title>{a.name}</title>
           </polygon>
         ))}
@@ -426,6 +503,10 @@ export default function SequenceOverviewBar({
           stroke="#475569"
           strokeWidth={1.5}
           style={{ cursor: "grab" }}
+          onPointerDown={onPointerDownBox}
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
         />
         {/* start / end labels (the visible EXTENT bounds) */}
         <text x={TRACK_PAD_X} y={BAR_HEIGHT - 3} fontSize={10} fill="#94a3b8">

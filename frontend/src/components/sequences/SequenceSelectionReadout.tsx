@@ -15,13 +15,28 @@ import { nearestNeighborTm } from "@/lib/calculators/tm-nn";
 
 export type SelectionReadout =
   | { kind: "caret"; caret: number }
-  | { kind: "range"; lo: number; hi: number; len: number; gc: number; tm?: number };
+  | { kind: "range"; lo: number; hi: number; len: number; gc: number; tm?: number; featureName?: string };
+
+/**
+ * overview featclick bot — the SELECTED FEATURE this selection corresponds to,
+ * if any. When the live selection range exactly equals a selected feature's
+ * [start, end] (0-based half-open, the shape `externalSel` / the feature carry),
+ * the readout PREFIXES the feature NAME (SnapGene style, e.g. "FUN_007645
+ * (31,971 .. 32,687 = 717 bp)"). A plain range selection passes none and reads
+ * coords-only exactly as before.
+ */
+export interface SelectedFeatureContext {
+  name: string;
+  start: number;
+  end: number;
+}
 
 /** Derive the readout values from a SeqViz selection over a sequence string.
  *  Returns null when there is no usable selection. */
 export function deriveSelectionReadout(
   selection: Selection | null,
   seq: string,
+  selectedFeature?: SelectedFeatureContext | null,
 ): SelectionReadout | null {
   if (!selection || typeof selection.start !== "number" || typeof selection.end !== "number") {
     return null;
@@ -42,8 +57,23 @@ export function deriveSelectionReadout(
     const r = nearestNeighborTm(seq.slice(lo, hi));
     if (r) tm = r.tm;
   }
+  // overview featclick bot — only attach the feature NAME when the selection
+  // range matches that feature's own span (so a later free-hand drag inside the
+  // feature reads as a plain range, not the feature). Compared in the raw 0-based
+  // half-open space the feature + selection share, before the 1-based display
+  // conversion below.
+  let featureName: string | undefined;
+  if (
+    selectedFeature &&
+    typeof selectedFeature.name === "string" &&
+    selectedFeature.name.trim() &&
+    Math.min(selectedFeature.start, selectedFeature.end) === lo &&
+    Math.max(selectedFeature.start, selectedFeature.end) === hi
+  ) {
+    featureName = selectedFeature.name;
+  }
   // SnapGene shows 1-based inclusive coordinates (e.g. "5..10").
-  return { kind: "range", lo: lo + 1, hi, len, gc, tm };
+  return { kind: "range", lo: lo + 1, hi, len, gc, tm, featureName };
 }
 
 /** The inner content of the readout (coords / bp / GC%, or caret, or a hint).
@@ -70,6 +100,9 @@ export function SelectionReadoutContent({
   }
   return (
     <>
+      {readout.featureName ? (
+        <span className="font-semibold text-gray-900">{readout.featureName}</span>
+      ) : null}
       <span>
         <span className="font-medium text-gray-800">
           {readout.lo.toLocaleString()}..{readout.hi.toLocaleString()}
