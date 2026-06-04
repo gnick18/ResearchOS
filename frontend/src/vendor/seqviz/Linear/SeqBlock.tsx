@@ -554,6 +554,10 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
                clear band instead of on top of the letters. */
             seamYDiff={(indexYDiff + compYDiff) / 2 + lineHeight / 2}
             seq={seq}
+            /* ruler center bot — pass the strand glyph font size so the tape can
+               optically center its 10s number in the seam lane (lift by half a
+               strand cap-height; the baseline midpoint alone reads too low). */
+            seqFontSize={seqFontSize}
             seqType={seqType}
             showIndex={showIndex}
             size={size}

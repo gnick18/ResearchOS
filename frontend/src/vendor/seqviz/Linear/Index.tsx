@@ -32,6 +32,14 @@ interface IndexProps {
   seamYDiff?: number;
   baseLegible?: boolean;
   lineHeight?: number;
+  // ruler center bot — the strand glyph font size (seqFontSize in SeqBlock). The
+  // seam baseline (y=0 in renderTape) is the midpoint between the two strand text
+  // BASELINES, but the top strand's visible lower edge sits ON its baseline while
+  // the bottom strand's visible upper edge sits a cap-height ABOVE its baseline.
+  // That asymmetry pushes a baseline-midpoint number toward the bottom strand.
+  // We use this to lift the number by half a cap-height so it lands on the lane's
+  // true optical center (equal whitespace to both strands). Ticks are unaffected.
+  seqFontSize?: number;
 }
 
 // State A measuring-tape contrast. Real slate, not the old 0.45-opacity wash:
@@ -152,8 +160,18 @@ export default class Index extends React.PureComponent<IndexProps> {
   // every 10. The coordinate number sits at each 10-tick on the seam (the only
   // number source in State A; the separate bottom index row is hidden there).
   renderTape = () => {
-    const { charWidth, firstBase, lineHeight, seq } = this.props;
+    const { charWidth, firstBase, lineHeight, seq, seqFontSize } = this.props;
     const half = lineHeight ?? 14; // seam half-height fallback if not provided
+
+    // ruler center bot — optical centering of the 10s number in the seam lane.
+    // y=0 here is the midpoint between the two strand text BASELINES. The lane's
+    // facing edges are the top strand's lower edge (its baseline, at y=0 side)
+    // and the bottom strand's upper edge (a cap-height above its baseline). The
+    // true center of that visible gap is half a strand cap-height ABOVE y=0, so
+    // we shift the number up by that amount. Roboto Mono cap height is ~0.72em.
+    // (Negative y is up in this SVG.) Falls back to a sane default font size.
+    const strandFont = seqFontSize ?? 12;
+    const numberCenterY = -(strandFont * 0.72) / 2;
 
     // tick half-lengths above/below the baseline, graduated by landmark level.
     const minorHalf = half * 0.16;
@@ -203,15 +221,15 @@ export default class Index extends React.PureComponent<IndexProps> {
               height={halfH * 2}
               width={halfW * 2}
               x={cx - halfW}
-              y={-halfH}
+              y={numberCenterY - halfH}
             />
             <text
               className="la-vz-index-tick-label"
-              dominantBaseline="middle"
+              dominantBaseline="central"
               fontSize={numFontSize}
               style={indexTickLabel}
               textAnchor="middle"
-              transform={`translate(${cx}, 0)`}
+              transform={`translate(${cx}, ${numberCenterY})`}
             >
               {label}
             </text>
