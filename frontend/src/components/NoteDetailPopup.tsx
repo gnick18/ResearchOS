@@ -13,6 +13,8 @@ import {
   type VersionRestoreApi,
 } from "@/lib/history/useVersionRestore";
 import { useAppStore } from "@/lib/store";
+import { LORO_PILOT_ENABLED } from "@/lib/loro/config";
+import LoroNoteEditor from "@/components/loro/LoroNoteEditor";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import NoteCommentsThread from "./NoteCommentsThread";
 import ReceivedFromBadge from "./ReceivedFromBadge";
@@ -1586,30 +1588,38 @@ export default function NoteDetailPopup({
               </div>
             ) : note.is_running_log ? (
               currentEntry ? (
-                <LiveMarkdownEditor
-                  value={currentEntry.content}
-                  onChange={updateEntryContent}
-                  placeholder="Write your meeting notes in Markdown..."
-                  disabled={readOnly}
-                  allowAnyFileType={true}
-                  onImageDrop={handleImageUpload}
-                  onFileDrop={handleFileUpload}
-                  imageBasePath={basePath}
-                  recordType="note"
-                  // note-save (note-save manager): the popup owns its own
-                  // version-controlled "Save note" button above, so hide the
-                  // editor's internal buffer-commit button. saveRef lets that
-                  // button flush the live buffer; onExplicitSave routes Cmd+S
-                  // to disk; onDirtyChange keeps the button lit while mid-edit.
-                  hideSaveButton
-                  saveRef={editorSaveRef}
-                  onExplicitSave={(v) => { if (activeTab) void saveEntryContent(activeTab, v); }}
-                  onDirtyChange={setEditorDirty}
-                  // Typora editor chip 1: standalone Notes is the pilot
-                  // surface, so surface the opt-in CodeMirror 6 "Inline" mode
-                  // pill. No other surface passes this.
-                  enableInlineMode
-                />
+                LORO_PILOT_ENABLED ? (
+                  <LoroNoteEditor
+                    initialContent={currentEntry.content}
+                    onChange={updateEntryContent}
+                    readOnly={readOnly}
+                  />
+                ) : (
+                  <LiveMarkdownEditor
+                    value={currentEntry.content}
+                    onChange={updateEntryContent}
+                    placeholder="Write your meeting notes in Markdown..."
+                    disabled={readOnly}
+                    allowAnyFileType={true}
+                    onImageDrop={handleImageUpload}
+                    onFileDrop={handleFileUpload}
+                    imageBasePath={basePath}
+                    recordType="note"
+                    // note-save (note-save manager): the popup owns its own
+                    // version-controlled "Save note" button above, so hide the
+                    // editor's internal buffer-commit button. saveRef lets that
+                    // button flush the live buffer; onExplicitSave routes Cmd+S
+                    // to disk; onDirtyChange keeps the button lit while mid-edit.
+                    hideSaveButton
+                    saveRef={editorSaveRef}
+                    onExplicitSave={(v) => { if (activeTab) void saveEntryContent(activeTab, v); }}
+                    onDirtyChange={setEditorDirty}
+                    // Typora editor chip 1: standalone Notes is the pilot
+                    // surface, so surface the opt-in CodeMirror 6 "Inline" mode
+                    // pill. No other surface passes this.
+                    enableInlineMode
+                  />
+                )
               ) : (
                 <div className="flex items-center justify-center h-full text-gray-400">
                   <p>No entries yet. Click &quot;Add Entry&quot; to get started.</p>
@@ -1618,29 +1628,41 @@ export default function NoteDetailPopup({
             ) : (
               // Single note - use the first (and only) entry
               entries[0] && (
-                <LiveMarkdownEditor
-                  value={entries[0].content}
-                  onChange={(content) => {
-                    if (entries[0]) {
-                      updateEntryContent(content);
-                    }
-                  }}
-                  placeholder="Write your meeting notes in Markdown..."
-                  disabled={readOnly}
-                  allowAnyFileType={true}
-                  onImageDrop={handleImageUpload}
-                  onFileDrop={handleFileUpload}
-                  imageBasePath={basePath}
-                  recordType="note"
-                  // note-save (note-save manager): see running-log branch.
-                  hideSaveButton
-                  saveRef={editorSaveRef}
-                  onExplicitSave={(v) => { if (activeTab) void saveEntryContent(activeTab, v); }}
-                  onDirtyChange={setEditorDirty}
-                  // Typora editor chip 1: Notes pilot opt-in (see running-log
-                  // branch). No other surface passes this.
-                  enableInlineMode
-                />
+                LORO_PILOT_ENABLED ? (
+                  <LoroNoteEditor
+                    initialContent={entries[0].content}
+                    onChange={(content) => {
+                      if (entries[0]) {
+                        updateEntryContent(content);
+                      }
+                    }}
+                    readOnly={readOnly}
+                  />
+                ) : (
+                  <LiveMarkdownEditor
+                    value={entries[0].content}
+                    onChange={(content) => {
+                      if (entries[0]) {
+                        updateEntryContent(content);
+                      }
+                    }}
+                    placeholder="Write your meeting notes in Markdown..."
+                    disabled={readOnly}
+                    allowAnyFileType={true}
+                    onImageDrop={handleImageUpload}
+                    onFileDrop={handleFileUpload}
+                    imageBasePath={basePath}
+                    recordType="note"
+                    // note-save (note-save manager): see running-log branch.
+                    hideSaveButton
+                    saveRef={editorSaveRef}
+                    onExplicitSave={(v) => { if (activeTab) void saveEntryContent(activeTab, v); }}
+                    onDirtyChange={setEditorDirty}
+                    // Typora editor chip 1: Notes pilot opt-in (see running-log
+                    // branch). No other surface passes this.
+                    enableInlineMode
+                  />
+                )
               )
             )}
           </div>
