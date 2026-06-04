@@ -35,6 +35,7 @@ import { useParams } from "next/navigation";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
+import BeakerBot from "@/components/BeakerBot";
 import {
   fetchInviteRawBundle,
   ackInvite,
@@ -464,7 +465,7 @@ function headlineFor(load: LoadState): string {
 function Header({ headline }: { headline: string }) {
   return (
     <div className="px-6 pt-6 pb-4 border-b border-gray-100 flex items-center gap-3">
-      <BeakerBotMark className="w-10 h-10 text-sky-500" />
+      <BeakerBot pose="idle" className="w-10 h-10 text-sky-500" />
       <div>
         <p className="text-meta uppercase tracking-wide text-blue-600 font-semibold">
           ResearchOS
@@ -745,42 +746,8 @@ function ImportItemBody({
   );
 }
 
-// ── Inline SVG (no emoji, no icon-font deps). BeakerBot mark + check glyph. ────
-
-function BeakerBotMark({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 40 40"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      role="img"
-      aria-label="BeakerBot"
-      className={className ?? "w-10 h-10 text-sky-500"}
-    >
-      <path
-        d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z"
-        fill="white"
-        stroke="none"
-      />
-      <path
-        d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z"
-        fill="#A6D2F4"
-        stroke="none"
-      />
-      <path d="M22 8 C 22 6, 24 4, 26 6" />
-      <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" />
-      <path d="M11 12 L29 12" />
-      <circle cx="17" cy="18" r="1.2" fill="currentColor" stroke="none" />
-      <circle cx="23" cy="18" r="1.2" fill="currentColor" stroke="none" />
-      <path d="M18 22 Q 20 24, 22 22" />
-      <path d="M14 26 L15.5 26" />
-      <path d="M24.5 26 L26 26" />
-    </svg>
-  );
-}
+// ── Inline SVG (no emoji, no icon-font deps). Check glyph. The header mascot is
+// the real <BeakerBot/> component (pastel-rainbow liquid), not a hand-rolled mark.
 
 function CheckGlyph({ className }: { className?: string }) {
   return (
