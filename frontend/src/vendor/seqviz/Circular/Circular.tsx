@@ -4,6 +4,7 @@ import * as React from "react";
 import { InputRefFunc } from "../SelectionHandler";
 import { CHAR_WIDTH } from "../SeqViewerContainer";
 import AnnotationDoubleClickContext from "../annotationDoubleClickContext";
+import CircularFeatureInteractionContext from "../circularFeatureInteractionContext";
 import CentralIndexContext from "../centralIndexContext";
 import { Annotation, Coor, CutSite, Highlight, Range, Size } from "../elements";
 import { stackElements } from "../elementsToRows";
@@ -477,6 +478,10 @@ const CircularPrimers = (props: {
   // RESEARCHOS (primer dialog bot): double-clicking a circular primer marker
   // opens the Edit Primer dialog (same context the annotations use).
   const onAnnotationDoubleClick = React.useContext(AnnotationDoubleClickContext);
+  // RESEARCHOS (primer hover bot): HOVER a circular primer marker -> the host
+  // shows the same coords/length/%GC/Tm card the linear Map shows on hover. The
+  // ring's feature arcs already drive onFeatureHover; this is the primer twin.
+  const featureInteraction = React.useContext(CircularFeatureInteractionContext);
   if (!primers || !primers.length || !seqLength) return null;
 
   const stemInner = radius - 2; // stem starts just inside the plasmid edge
@@ -524,9 +529,23 @@ const CircularPrimers = (props: {
           e.stopPropagation();
           onAnnotationDoubleClick({ name: p.name, start: p.start, end: p.end, direction: p.direction });
         };
+        const handleHoverMove = (e: React.MouseEvent) => {
+          featureInteraction?.onPrimerHover?.({ name: p.name, start: p.start, end: p.end }, e.clientX, e.clientY);
+        };
+        const handleHoverLeave = () => {
+          featureInteraction?.onPrimerHover?.(null, 0, 0);
+        };
 
         return (
-          <g key={id} cursor="pointer" transform={getRotation(mid)} onDoubleClick={handleDoubleClick}>
+          <g
+            key={id}
+            cursor="pointer"
+            transform={getRotation(mid)}
+            onDoubleClick={handleDoubleClick}
+            onMouseMove={handleHoverMove}
+            onMouseOver={handleHoverMove}
+            onMouseOut={handleHoverLeave}
+          >
             <title>{coordLabel}</title>
             <line
               ref={inputRef(id, {

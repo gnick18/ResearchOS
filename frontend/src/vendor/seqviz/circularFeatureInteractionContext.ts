@@ -32,6 +32,18 @@ export interface CircularFeatureInteraction {
   onFeatureClick?: (range: CircularFeatureRange, mods: { shiftKey: boolean }) => void;
   /** HOVER a feature arc (range + cursor) or mouse-leave (range === null). */
   onFeatureHover?: (range: CircularFeatureRange | null, clientX: number, clientY: number) => void;
+  /**
+   * HOVER a primer marker (radial stem + arrowhead) on the ring, or mouse-leave
+   * (range === null). The host shows the SAME primer info card the linear Map
+   * shows on hover (coords / length / %GC / Tm via buildPrimerCard), so the two
+   * maps read identically. Separate from onFeatureHover because primers use the
+   * primer card (GC/Tm), not the feature card (aa/kDa/product).
+   */
+  onPrimerHover?: (
+    range: { name: string; start: number; end: number } | null,
+    clientX: number,
+    clientY: number,
+  ) => void;
 }
 
 const CircularFeatureInteractionContext = React.createContext<CircularFeatureInteraction | null>(null);

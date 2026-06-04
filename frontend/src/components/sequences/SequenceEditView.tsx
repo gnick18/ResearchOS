@@ -127,7 +127,7 @@ import SequenceZoomControl from "./SequenceZoomControl";
 import SequenceOverviewBar, { type OverviewFeature } from "./SequenceOverviewBar";
 import SequenceOverviewZoomSlider from "./SequenceOverviewZoomSlider";
 import LinearMap, { type LinearMapFeature } from "./LinearMap";
-import { spanFromShiftClick, buildFeatureCard } from "@/lib/sequences/linear-map-select";
+import { spanFromShiftClick, buildFeatureCard, buildPrimerCard } from "@/lib/sequences/linear-map-select";
 import SequenceTabBar, { type SequenceViewMode } from "./SequenceTabBar";
 import SequenceCoordinateBar from "./SequenceCoordinateBar";
 import SequencePrimersPanel from "./SequencePrimersPanel";
@@ -486,10 +486,21 @@ export default function SequenceEditView({
   // viewer container) so the floating info card follows the cursor. Null on
   // mouse-leave clears both the card and the red preview arc.
   const [circularHover, setCircularHover] = useState<{ idx: number; left: number; top: number } | null>(null);
+  // primer hover bot — HOVER state for a PRIMER marker on the ring. Mirrors the
+  // linear Map's primer hover card: it carries the primer identity (name +
+  // binding span, for the coords/length/%GC/Tm card) and the clamped {left, top}.
+  // Separate from circularHover because primers use the primer card, not the
+  // feature card. Null on mouse-leave clears it.
+  const [circularPrimerHover, setCircularPrimerHover] = useState<{
+    primer: { name: string; start: number; end: number };
+    left: number;
+    top: number;
+  } | null>(null);
   // circular qol bot — drop a lingering hover card / preview arc on a molecule
   // swap or a tab switch (the ring unmounts, so no mouse-leave would fire).
   useEffect(() => {
     setCircularHover(null);
+    setCircularPrimerHover(null);
   }, [sequence.id, viewMode]);
 
   // seq editops bot — Edit-menu plumbing. The right-click context menu position
@@ -2035,9 +2046,40 @@ export default function SequenceEditView({
   // circular shift-span runs the SAME selAnchor + spanFromShiftClick path as the
   // linear/overview handlers (one shared selection source of truth). The HOVER
   // drives the card + preview arc.
+  // primer hover bot — HOVER a primer marker on the ring. Same geometry as the
+  // feature hover (clamp the card inside the viewer, flip left near the right
+  // edge), but it stores the primer identity for the primer card (coords / bp /
+  // %GC / Tm) instead of a feature index. Null range (mouse-leave) clears it.
+  const handleCircularPrimerHover = useCallback(
+    (range: { name: string; start: number; end: number } | null, clientX: number, clientY: number) => {
+      if (!range) {
+        setCircularPrimerHover(null);
+        return;
+      }
+      const el = viewerRef.current;
+      if (!el) {
+        setCircularPrimerHover({ primer: range, left: 0, top: 0 });
+        return;
+      }
+      const rect = el.getBoundingClientRect();
+      const OFFSET = 14;
+      let left = clientX - rect.left + OFFSET;
+      let top = clientY - rect.top + OFFSET;
+      if (left + CIRCULAR_CARD_W > rect.width) left = clientX - rect.left - CIRCULAR_CARD_W - OFFSET;
+      if (left < 4) left = 4;
+      if (top < 4) top = 4;
+      setCircularPrimerHover({ primer: range, left, top });
+    },
+    [],
+  );
+
   const circularFeatureInteraction = useMemo(
-    () => ({ onFeatureClick: handleMapFeatureClick, onFeatureHover: handleCircularFeatureHover }),
-    [handleMapFeatureClick, handleCircularFeatureHover],
+    () => ({
+      onFeatureClick: handleMapFeatureClick,
+      onFeatureHover: handleCircularFeatureHover,
+      onPrimerHover: handleCircularPrimerHover,
+    }),
+    [handleMapFeatureClick, handleCircularFeatureHover, handleCircularPrimerHover],
   );
 
   // circular qol bot — the hovered feature's range, fed to the circular viewer as
@@ -2062,6 +2104,14 @@ export default function SequenceEditView({
     const note = featureNoteByKey.get(`${f.name}|${f.start}|${f.end}`);
     return buildFeatureCard({ name: f.name, start: f.start, end: f.end, type: f.type, note });
   }, [circularHover, doc.features, featureNoteByKey]);
+
+  // primer hover bot — the hovered primer's info-card content (reuses the SAME
+  // buildPrimerCard the linear Map uses, so the fields read identically: 1-based
+  // coords, length, %GC, Tm computed from the binding region of doc.seq).
+  const circularPrimerCard = useMemo(() => {
+    if (!circularPrimerHover) return null;
+    return buildPrimerCard(circularPrimerHover.primer, doc.seq);
+  }, [circularPrimerHover, doc.seq]);
 
   const duplicateFeatureAt = useCallback(
     (index: number) => editor.applyDocEdit((prev) => duplicateFeature(prev, index)),
@@ -3333,6 +3383,30 @@ export default function SequenceEditView({
                     <div className="text-body font-semibold text-slate-800">{circularHoverCard.title}</div>
                     <div className="mt-1 space-y-0.5">
                       {circularHoverCard.lines.map((line, li) => (
+                        <div key={li} className="text-meta text-slate-600">
+                          {line.label ? (
+                            <span className="font-medium text-slate-500">{line.label} </span>
+                          ) : null}
+                          {line.value}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {/* primer hover bot — CIRCULAR map PRIMER HOVER CARD. The same
+                    floating popover the linear Map shows on a primer (name,
+                    1-based binding range, bp length, %GC, Tm), built from the
+                    SHARED buildPrimerCard so the two maps read identically.
+                    pointer-events:none keeps it clear of the ring click/drag. */}
+                {circularPrimerHover && circularPrimerCard ? (
+                  <div
+                    role="tooltip"
+                    className="pointer-events-none absolute z-30 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-lg"
+                    style={{ left: circularPrimerHover.left, top: circularPrimerHover.top, width: CIRCULAR_CARD_W }}
+                  >
+                    <div className="text-body font-semibold text-slate-800">{circularPrimerCard.title}</div>
+                    <div className="mt-1 space-y-0.5">
+                      {circularPrimerCard.lines.map((line, li) => (
                         <div key={li} className="text-meta text-slate-600">
                           {line.label ? (
                             <span className="font-medium text-slate-500">{line.label} </span>
