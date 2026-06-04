@@ -112,7 +112,7 @@ import {
   buildPrimerQualifiers,
   derivePrimerSite,
 } from "@/lib/sequences/primer-feature";
-import { reverseComplement } from "@/lib/sequences/primer";
+import { reverseComplement, type BindingSite } from "@/lib/sequences/primer";
 // primer bases bot — base-level (zoomed) SnapGene-style primer rendering: map the
 // stored oligo onto template columns so annealing bases sit over the template and
 // the 5' tail / mismatches pop off.
@@ -711,32 +711,49 @@ export default function SequenceEditView({
         // but we re-derive the BindingSite from the oligo so we recover the
         // annealedLength + tail length + mismatch columns the feature does not
         // store.
-        //
-        // primer bases FIX (2026-06-04) — most primers in real files (imported
-        // .dna/GenBank, or ones marked only as a binding region) carry NO stored
-        // oligo note, so readPrimerSeq returned nothing and the renderer drew a
-        // bare arrow with no bases (the bug Grant hit on FAD-5F). Fall back to
-        // treating the primer as a perfect annealer whose oligo IS the template
-        // over its recorded binding span (reverse-complemented for a reverse
-        // primer, since the oligo reads 5'->3' on the bottom strand). Now EVERY
-        // primer shows its annealing bases SnapGene-style; the 5' tail / mismatch
-        // flap only appears for primers that DO carry a richer stored oligo with
-        // an overhang. Only if the synthesized region also fails to anneal does
-        // baseCells stay undefined and the arrow-only fallback kick in.
-        let oligo = readPrimerSeq(f);
-        if (!oligo) {
+        let baseCells: PrimerBaseCell[] | undefined;
+        let tailLength: number | undefined;
+        const storedOligo = readPrimerSeq(f);
+        if (storedOligo) {
+          // A primer with an explicit 5'->3' oligo note can carry a 5' tail
+          // (cloning overhang) and internal mismatches, so we have to DISCOVER
+          // which sub-region actually anneals and how long the tail is. Re-derive
+          // the BindingSite against the template the same way the Check view does.
+          const site = derivePrimerSite(storedOligo, doc.seq);
+          if (site) {
+            const layout = layoutPrimerBases(storedOligo, site);
+            if (layout) {
+              baseCells = layout.cells;
+              tailLength = layout.tailLength;
+            }
+          }
+        } else {
+          // primer bases FIX (2026-06-04) — the COMMON case. Most primers in real
+          // files (imported .dna/GenBank, or ones marked only as a binding region)
+          // carry NO oligo note, so readPrimerSeq returned nothing and the renderer
+          // drew a bare arrow with no bases (the FAD-5F bug Grant hit). Treat a
+          // note-less primer as a clean full-length annealer whose oligo IS the
+          // template over its recorded binding span (reverse-complemented for a
+          // reverse primer, since the oligo reads 5'->3' on the bottom strand).
+          //
+          // PIN the layout straight to the recorded span instead of re-searching
+          // with derivePrimerSite. We already KNOW where it binds, so building the
+          // BindingSite directly guarantees the bases sit exactly on the stored
+          // span (and the arrow) and removes the repeat-ambiguity risk where
+          // findBindingSites could otherwise lock onto a duplicate of a short
+          // region elsewhere in the molecule. No tail, no mismatches by construction.
           const lo = Math.min(f.start, f.end);
           const hi = Math.max(f.start, f.end);
           const region = doc.seq.slice(lo, hi);
           if (region.length > 0) {
-            oligo = direction === -1 ? reverseComplement(region) : region;
-          }
-        }
-        let baseCells: PrimerBaseCell[] | undefined;
-        let tailLength: number | undefined;
-        if (oligo) {
-          const site = derivePrimerSite(oligo, doc.seq);
-          if (site) {
+            const oligo = direction === -1 ? reverseComplement(region) : region;
+            const site: BindingSite = {
+              start: lo,
+              end: hi,
+              direction,
+              annealedLength: hi - lo,
+              fullMatch: true,
+            };
             const layout = layoutPrimerBases(oligo, site);
             if (layout) {
               baseCells = layout.cells;
