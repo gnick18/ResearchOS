@@ -226,7 +226,13 @@ vi.mock("./SendToNotePicker", () => ({
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-import InboxPanel from "./InboxPanel";
+// Phase 2b-iii unified-inbox rework (2026-06-03): the photo-triage flow these
+// tests cover was moved VERBATIM out of InboxPanel into PhotosInboxTab when the
+// inbox gained segmented "Shared with me" + "Photos" tabs. InboxPanel is now the
+// tabbed shell (which defaults to the Shared-with-me segment), so this suite
+// renders PhotosInboxTab directly, the component that now owns the exact photo
+// behavior. No assertions changed, only the mounted component.
+import PhotosInboxTab from "./PhotosInboxTab";
 
 function renderPanel() {
   const queryClient = new QueryClient({
@@ -234,7 +240,7 @@ function renderPanel() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <InboxPanel onClose={vi.fn()} />
+      <PhotosInboxTab />
     </QueryClientProvider>,
   );
 }
