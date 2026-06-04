@@ -11,7 +11,7 @@
 // via `RestoreParentPromptHost`. "Restore both" cascades: parent is
 // restored first so the child's `original_path` parent directory exists.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import Tooltip from "@/components/Tooltip";
@@ -29,6 +29,14 @@ import {
   useResolveRestoreParent,
   RestoreParentPromptHost,
 } from "@/components/trash/RestoreParentPrompt";
+import {
+  entryKey,
+  toggleKey,
+  toggleSection,
+  sectionSelectState,
+  pruneSelection,
+  selectedEntries,
+} from "./trash-selection";
 
 const SORT_OPTIONS: Array<{ value: TrashSort; label: string }> = [
   { value: "newest", label: "Newest first" },
@@ -65,6 +73,12 @@ export default function TrashPage() {
   const [collapsedOverrides, setCollapsedOverrides] = useState<
     Partial<Record<TrashEntityType, boolean>>
   >({});
+  // Bulk-select model: a set of composite `${entity_type}:${id}` keys.
+  // Ids collide across entity types, so the key must be namespaced.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Bulk action progress + the permanent-delete confirm gate.
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const resolveRestoreParent = useResolveRestoreParent();
 
   useEffect(() => {
@@ -92,6 +106,13 @@ export default function TrashPage() {
       cancelled = true;
     };
   }, [currentUser, isConnected]);
+
+  // Drop any selected keys whose row no longer exists (after a single-row
+  // restore/delete, or when the list reloads). Keeps the selection set and
+  // its derived count honest.
+  useEffect(() => {
+    setSelected((prev) => pruneSelection(prev, entries));
+  }, [entries]);
 
   // Pre-bucket by entity type for the section render.
   const byType = useMemo(() => {
@@ -216,6 +237,96 @@ export default function TrashPage() {
     }
   };
 
+  // --- Bulk select model ---------------------------------------------
+  const toggleRow = (entry: TrashIndexEntry) =>
+    setSelected((prev) => toggleKey(prev, entryKey(entry)));
+
+  const toggleSectionSelect = (sectionEntries: TrashIndexEntry[]) =>
+    setSelected((prev) => toggleSection(prev, sectionEntries));
+
+  const clearSelection = () => setSelected(new Set());
+
+  const selectedCount = selected.size;
+
+  // --- Bulk actions ---------------------------------------------------
+  // Both bulk paths loop the same restore / permanent-delete APIs the
+  // single-row buttons use. Each selected entry is treated independently
+  // (no parent-restore prompt in bulk; if a parent is also selected it is
+  // restored on its own pass). Non-owner no-ops return falsy from the API
+  // and are counted as failures rather than crashing.
+
+  const handleBulkRestore = async () => {
+    if (!currentUser) return;
+    const targets = selectedEntries(selected, entries);
+    if (targets.length === 0) return;
+    setBulkBusy(true);
+    setActionState({ busyId: null, error: null });
+    const restoredKeys = new Set<string>();
+    let failures = 0;
+    for (const entry of targets) {
+      try {
+        const ok = await restoreEntity(
+          currentUser,
+          entry.entity_type,
+          entry.id,
+        );
+        if (ok) restoredKeys.add(entryKey(entry));
+        else failures += 1;
+      } catch (err) {
+        console.warn("[trash-page] bulk restore item failed", err);
+        failures += 1;
+      }
+    }
+    setEntries((prev) => prev.filter((e) => !restoredKeys.has(entryKey(e))));
+    setSelected(new Set());
+    setBulkBusy(false);
+    setActionState({
+      busyId: null,
+      error:
+        failures > 0
+          ? `Restored ${restoredKeys.size} of ${targets.length}. ${failures} could not be restored.`
+          : null,
+    });
+  };
+
+  const handleBulkPermanentDelete = async () => {
+    if (!currentUser) return;
+    const targets = selectedEntries(selected, entries);
+    if (targets.length === 0) {
+      setConfirmBulkDelete(false);
+      return;
+    }
+    setConfirmBulkDelete(false);
+    setBulkBusy(true);
+    setActionState({ busyId: null, error: null });
+    const deletedKeys = new Set<string>();
+    let failures = 0;
+    for (const entry of targets) {
+      try {
+        const ok = await permanentlyDelete(
+          currentUser,
+          entry.entity_type,
+          entry.id,
+        );
+        if (ok) deletedKeys.add(entryKey(entry));
+        else failures += 1;
+      } catch (err) {
+        console.warn("[trash-page] bulk permanent delete item failed", err);
+        failures += 1;
+      }
+    }
+    setEntries((prev) => prev.filter((e) => !deletedKeys.has(entryKey(e))));
+    setSelected(new Set());
+    setBulkBusy(false);
+    setActionState({
+      busyId: null,
+      error:
+        failures > 0
+          ? `Deleted ${deletedKeys.size} of ${targets.length}. ${failures} could not be deleted.`
+          : null,
+    });
+  };
+
   return (
     <AppShell>
       <RestoreParentPromptHost />
@@ -274,6 +385,40 @@ export default function TrashPage() {
           </div>
         )}
 
+        {!loading && entries.length > 0 && selectedCount > 0 && (
+          <div className="sticky top-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 shadow-sm">
+            <span className="text-body font-medium text-gray-900">
+              {selectedCount} selected
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleBulkRestore}
+                disabled={bulkBusy}
+                className="px-3 py-1.5 text-body rounded-md border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {bulkBusy ? "Working…" : `Restore ${selectedCount}`}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmBulkDelete(true)}
+                disabled={bulkBusy}
+                className="px-3 py-1.5 text-body rounded-md text-red-700 border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Permanent delete {selectedCount}
+              </button>
+              <button
+                type="button"
+                onClick={clearSelection}
+                disabled={bulkBusy}
+                className="px-3 py-1.5 text-body rounded-md text-gray-700 hover:bg-white/70 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Clear selection
+              </button>
+            </div>
+          </div>
+        )}
+
         {!loading && entries.length > 0 && (
           <div className="space-y-3">
             {SECTION_ORDER.map(({ key, label }) => {
@@ -302,6 +447,11 @@ export default function TrashPage() {
                   busyId={actionState.busyId}
                   onRestore={handleRestore}
                   onPermanentDelete={handlePermanentDelete}
+                  selected={selected}
+                  selectState={sectionSelectState(selected, sectionEntries)}
+                  onToggleRow={toggleRow}
+                  onToggleSection={() => toggleSectionSelect(sectionEntries)}
+                  selectDisabled={bulkBusy}
                 />
               );
             })}
@@ -309,7 +459,63 @@ export default function TrashPage() {
         )}
         </div>
       </div>
+      {confirmBulkDelete && (
+        <BulkDeleteConfirm
+          count={selectedCount}
+          onCancel={() => setConfirmBulkDelete(false)}
+          onConfirm={handleBulkPermanentDelete}
+        />
+      )}
     </AppShell>
+  );
+}
+
+interface BulkDeleteConfirmProps {
+  count: number;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
+/** Modal confirm gate for the irreversible bulk permanent-delete. The
+ *  single-row path uses window.confirm, but a bulk wipe deserves an
+ *  explicit red confirm so it can never fire on a stray click. */
+function BulkDeleteConfirm({ count, onCancel, onConfirm }: BulkDeleteConfirmProps) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="bulk-delete-title"
+    >
+      <div className="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl">
+        <h2
+          id="bulk-delete-title"
+          className="text-title font-semibold text-gray-900"
+        >
+          Permanently delete {count} item{count === 1 ? "" : "s"}?
+        </h2>
+        <p className="mt-2 text-body text-gray-600">
+          This cannot be undone. The selected records are removed without
+          recovery.
+        </p>
+        <div className="mt-5 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-3 py-1.5 text-body rounded-md border border-gray-300 bg-white hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="px-3 py-1.5 text-body rounded-md text-white bg-red-600 hover:bg-red-700"
+          >
+            Permanently delete
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -322,6 +528,11 @@ interface TrashSectionProps {
   busyId: string | null;
   onRestore: (entry: TrashIndexEntry) => void;
   onPermanentDelete: (entry: TrashIndexEntry) => void;
+  selected: Set<string>;
+  selectState: "none" | "some" | "all";
+  onToggleRow: (entry: TrashIndexEntry) => void;
+  onToggleSection: () => void;
+  selectDisabled: boolean;
 }
 
 function TrashSection({
@@ -333,33 +544,59 @@ function TrashSection({
   busyId,
   onRestore,
   onPermanentDelete,
+  selected,
+  selectState,
+  onToggleRow,
+  onToggleSection,
+  selectDisabled,
 }: TrashSectionProps) {
   const count = entries.length;
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
+  // The indeterminate flag is DOM-only (no React prop), so set it on the
+  // ref whenever the section's tri-state lands on "some".
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = selectState === "some";
+    }
+  }, [selectState]);
   return (
     <section
       className="border border-gray-200 rounded-lg bg-white overflow-hidden"
       aria-label={`Trash section: ${label}`}
     >
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 text-left"
-        aria-expanded={!collapsed}
-        aria-controls={`trash-section-${entryType}`}
-      >
-        <span className="flex items-center gap-2">
-          <span
-            aria-hidden="true"
-            className={`inline-block w-2 h-2 border-r border-b border-gray-500 transform transition-transform ${
-              collapsed ? "-rotate-45" : "rotate-45"
-            }`}
+      <div className="flex items-center gap-3 px-4 py-3">
+        <Tooltip label={`Select all ${label.toLowerCase()}`} placement="top">
+          <input
+            ref={selectAllRef}
+            type="checkbox"
+            checked={selectState === "all"}
+            disabled={selectDisabled}
+            onChange={onToggleSection}
+            aria-label={`Select all ${label}`}
+            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           />
-          <span className="text-body font-medium text-gray-900">{label}</span>
-        </span>
-        <span className="text-meta text-gray-500">
-          {count === 0 ? "Empty" : `${count} item${count === 1 ? "" : "s"}`}
-        </span>
-      </button>
+        </Tooltip>
+        <button
+          type="button"
+          onClick={onToggle}
+          className="-mx-1 flex flex-1 items-center justify-between rounded px-1 py-0.5 hover:bg-gray-50 text-left"
+          aria-expanded={!collapsed}
+          aria-controls={`trash-section-${entryType}`}
+        >
+          <span className="flex items-center gap-2">
+            <span
+              aria-hidden="true"
+              className={`inline-block w-2 h-2 border-r border-b border-gray-500 transform transition-transform ${
+                collapsed ? "-rotate-45" : "rotate-45"
+              }`}
+            />
+            <span className="text-body font-medium text-gray-900">{label}</span>
+          </span>
+          <span className="text-meta text-gray-500">
+            {count === 0 ? "Empty" : `${count} item${count === 1 ? "" : "s"}`}
+          </span>
+        </button>
+      </div>
       {!collapsed && count > 0 && (
         <ul
           id={`trash-section-${entryType}`}
@@ -372,6 +609,9 @@ function TrashSection({
               busy={busyId === `${entry.entity_type}:${entry.id}`}
               onRestore={() => onRestore(entry)}
               onPermanentDelete={() => onPermanentDelete(entry)}
+              checked={selected.has(`${entry.entity_type}:${entry.id}`)}
+              onToggleSelect={() => onToggleRow(entry)}
+              selectDisabled={selectDisabled}
             />
           ))}
         </ul>
@@ -385,14 +625,33 @@ interface TrashRowProps {
   busy: boolean;
   onRestore: () => void;
   onPermanentDelete: () => void;
+  checked: boolean;
+  onToggleSelect: () => void;
+  selectDisabled: boolean;
 }
 
-function TrashRow({ entry, busy, onRestore, onPermanentDelete }: TrashRowProps) {
+function TrashRow({
+  entry,
+  busy,
+  onRestore,
+  onPermanentDelete,
+  checked,
+  onToggleSelect,
+  selectDisabled,
+}: TrashRowProps) {
   const displayName = buildDisplayName(entry);
   const deletedAtPretty = formatRelativeTime(entry.deleted_at);
   const expiresInLabel = formatExpiresIn(entry.auto_expires_at);
   return (
     <li className="px-4 py-3 flex items-center gap-3">
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={selectDisabled}
+        onChange={onToggleSelect}
+        aria-label={`Select ${displayName}`}
+        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+      />
       <div className="flex-1 min-w-0">
         <div className="text-body font-medium text-gray-900 truncate">
           {displayName}
