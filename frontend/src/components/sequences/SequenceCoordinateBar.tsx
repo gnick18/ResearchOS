@@ -209,14 +209,16 @@ export default function SequenceCoordinateBar({
 
   return (
     <div className="flex items-center gap-3 border-t border-gray-100 bg-white px-3 py-1.5">
-      {/* zoom slider cluster — floored to the Sequence view's min zoom so the
-          slider bottom matches the floored view (the whole-molecule map is the
-          Map tab, reached via the bottom tab bar). */}
+      {/* overview slider bot — base/text-view zoom: FIT only. The zoom slider was
+          relocated to the top overview bar (it now drives the bar's extent), so
+          the base view keeps just the Fit button (it also keeps trackpad pinch
+          zoom). Fit snaps the detail zoom to the Sequence view's floor. */}
       <SequenceZoomControl
         axis="linear"
         zoom={zoom}
         onZoomChange={onZoomChange}
         minZoom={SEQUENCE_MIN_LINEAR_ZOOM}
+        fitOnly
       />
 
       <div className="h-5 w-px bg-gray-200" />

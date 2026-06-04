@@ -57,6 +57,11 @@ export interface SequenceZoomControlProps {
    *  view (the whole-molecule map lives on the Map tab, not the slider bottom).
    *  Defaults to MIN_LINEAR_ZOOM. */
   minZoom?: number;
+  /** overview slider bot — render ONLY the Fit button (no minus / slider / plus).
+   *  The base/text-view zoom slider was relocated to drive the overview bar, so
+   *  the bottom cluster keeps Fit alone (the base view also keeps trackpad pinch
+   *  zoom). Linear axis only. */
+  fitOnly?: boolean;
 }
 
 export default function SequenceZoomControl({
@@ -64,6 +69,7 @@ export default function SequenceZoomControl({
   onZoomChange,
   axis,
   minZoom = MIN_LINEAR_ZOOM,
+  fitOnly = false,
 }: SequenceZoomControlProps) {
   const floor = Math.max(MIN_LINEAR_ZOOM, minZoom);
   const set = (z: number) => onZoomChange(Math.min(MAX_LINEAR_ZOOM, Math.max(floor, clampLinearZoom(z))));
@@ -72,37 +78,43 @@ export default function SequenceZoomControl({
 
   return (
     <div className="flex items-center gap-1.5" role="group" aria-label="Zoom">
-      <Tooltip label="Zoom out">
-        <button
-          type="button"
-          onClick={() => set(zoom - STEP)}
-          disabled={zoom <= floor}
-          className="flex h-6 w-6 items-center justify-center rounded text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
-          aria-label="Zoom out"
-        >
-          <IconMinus className="h-3.5 w-3.5" />
-        </button>
-      </Tooltip>
-      <input
-        type="range"
-        min={axis === "linear" ? floor : MIN_LINEAR_ZOOM}
-        max={MAX_LINEAR_ZOOM}
-        value={Math.max(zoom, axis === "linear" ? floor : MIN_LINEAR_ZOOM)}
-        onChange={(e) => set(Number(e.target.value))}
-        aria-label={`${axis === "linear" ? "Linear" : "Circular"} zoom`}
-        className="h-1 w-28 cursor-pointer accent-sky-600"
-      />
-      <Tooltip label="Zoom in">
-        <button
-          type="button"
-          onClick={() => set(zoom + STEP)}
-          disabled={zoom >= MAX_LINEAR_ZOOM}
-          className="flex h-6 w-6 items-center justify-center rounded text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
-          aria-label="Zoom in"
-        >
-          <IconPlus className="h-3.5 w-3.5" />
-        </button>
-      </Tooltip>
+      {!fitOnly ? (
+        <Tooltip label="Zoom out">
+          <button
+            type="button"
+            onClick={() => set(zoom - STEP)}
+            disabled={zoom <= floor}
+            className="flex h-6 w-6 items-center justify-center rounded text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Zoom out"
+          >
+            <IconMinus className="h-3.5 w-3.5" />
+          </button>
+        </Tooltip>
+      ) : null}
+      {!fitOnly ? (
+        <input
+          type="range"
+          min={axis === "linear" ? floor : MIN_LINEAR_ZOOM}
+          max={MAX_LINEAR_ZOOM}
+          value={Math.max(zoom, axis === "linear" ? floor : MIN_LINEAR_ZOOM)}
+          onChange={(e) => set(Number(e.target.value))}
+          aria-label={`${axis === "linear" ? "Linear" : "Circular"} zoom`}
+          className="h-1 w-28 cursor-pointer accent-sky-600"
+        />
+      ) : null}
+      {!fitOnly ? (
+        <Tooltip label="Zoom in">
+          <button
+            type="button"
+            onClick={() => set(zoom + STEP)}
+            disabled={zoom >= MAX_LINEAR_ZOOM}
+            className="flex h-6 w-6 items-center justify-center rounded text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Zoom in"
+          >
+            <IconPlus className="h-3.5 w-3.5" />
+          </button>
+        </Tooltip>
+      ) : null}
       {axis === "linear" ? (
         <Tooltip label="Fit (zoom out fully; the whole-molecule map is the Map tab)">
           <button

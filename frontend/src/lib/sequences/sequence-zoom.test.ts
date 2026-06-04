@@ -28,6 +28,13 @@ import {
   zoomExtentAroundCursor,
   panExtent,
   frameExtentToSelection,
+  overviewMinSpan,
+  extentSpanToSlider,
+  sliderToExtentSpan,
+  rescaleExtentToSpan,
+  OVERVIEW_MIN_SPAN_FLOOR,
+  OVERVIEW_SLIDER_MIN,
+  OVERVIEW_SLIDER_MAX,
 } from "./sequence-zoom";
 
 describe("initialLinearZoom", () => {
@@ -726,5 +733,103 @@ describe("bpToScrollLeft (drag the overview box -> horizontal pan)", () => {
   it("degrades safely on bad geometry", () => {
     expect(bpToScrollLeft({ bp: 100, scrollWidth: 0, clientWidth: 100, seqLength: 500 })).toBe(0);
     expect(bpToScrollLeft({ bp: 100, scrollWidth: 1000, clientWidth: 100, seqLength: 0 })).toBe(0);
+  });
+});
+
+describe("overview slider bot — overviewMinSpan (shared extent floor)", () => {
+  it("floors at OVERVIEW_MIN_SPAN_FLOOR when the detail window is tiny", () => {
+    expect(overviewMinSpan(10, 10000)).toBe(OVERVIEW_MIN_SPAN_FLOOR);
+  });
+  it("never tighter than the detail window span", () => {
+    expect(overviewMinSpan(800, 10000)).toBe(800);
+  });
+  it("caps at the molecule length", () => {
+    expect(overviewMinSpan(9999, 200)).toBe(200);
+  });
+});
+
+describe("overview slider bot — extentSpanToSlider / sliderToExtentSpan", () => {
+  const seqLength = 60000;
+  const minSpan = 50;
+
+  it("slider MIN maps to / from the whole molecule", () => {
+    expect(extentSpanToSlider({ span: seqLength, seqLength, minSpan })).toBe(OVERVIEW_SLIDER_MIN);
+    expect(sliderToExtentSpan({ slider: OVERVIEW_SLIDER_MIN, seqLength, minSpan })).toBe(seqLength);
+  });
+
+  it("slider MAX maps to / from the minimum span", () => {
+    expect(extentSpanToSlider({ span: minSpan, seqLength, minSpan })).toBe(OVERVIEW_SLIDER_MAX);
+    expect(sliderToExtentSpan({ slider: OVERVIEW_SLIDER_MAX, seqLength, minSpan })).toBe(minSpan);
+  });
+
+  it("round-trips a mid span within rounding tolerance", () => {
+    const span = 6000;
+    const slider = extentSpanToSlider({ span, seqLength, minSpan });
+    const back = sliderToExtentSpan({ slider, seqLength, minSpan });
+    // Log scale + integer slider snapping, so allow a few percent.
+    expect(Math.abs(back - span) / span).toBeLessThan(0.1);
+  });
+
+  it("is monotonic — a bigger slider value yields a smaller span (more zoom)", () => {
+    const a = sliderToExtentSpan({ slider: 20, seqLength, minSpan });
+    const b = sliderToExtentSpan({ slider: 80, seqLength, minSpan });
+    expect(b).toBeLessThan(a);
+  });
+
+  it("clamps the slider position into [MIN, MAX]", () => {
+    expect(extentSpanToSlider({ span: seqLength * 2, seqLength, minSpan })).toBe(OVERVIEW_SLIDER_MIN);
+    expect(extentSpanToSlider({ span: 1, seqLength, minSpan })).toBe(OVERVIEW_SLIDER_MAX);
+  });
+
+  it("degenerate molecule (shorter than the floor) is always whole / slider 0", () => {
+    expect(extentSpanToSlider({ span: 30, seqLength: 30, minSpan: 50 })).toBe(OVERVIEW_SLIDER_MIN);
+    expect(sliderToExtentSpan({ slider: 100, seqLength: 30, minSpan: 50 })).toBe(30);
+  });
+});
+
+describe("overview slider bot — rescaleExtentToSpan (center-anchored)", () => {
+  const seqLength = 10000;
+
+  it("keeps the extent centered while changing the span", () => {
+    // extent [4000,6000] center 5000; rescale to span 1000 -> [4500,5500].
+    const next = rescaleExtentToSpan({
+      extent: { start: 4000, end: 6000 },
+      seqLength,
+      targetSpan: 1000,
+      minSpan: 50,
+    });
+    expect(next.end - next.start).toBe(1000);
+    const center = (next.start + next.end) / 2;
+    expect(Math.abs(center - 5000)).toBeLessThanOrEqual(1);
+  });
+
+  it("widening to the whole molecule shifts to stay in [0, seqLength]", () => {
+    const next = rescaleExtentToSpan({
+      extent: { start: 100, end: 300 },
+      seqLength,
+      targetSpan: seqLength,
+      minSpan: 50,
+    });
+    expect(next).toEqual({ start: 0, end: seqLength });
+  });
+
+  it("honors the minSpan floor", () => {
+    const next = rescaleExtentToSpan({
+      extent: { start: 4000, end: 6000 },
+      seqLength,
+      targetSpan: 1,
+      minSpan: 200,
+    });
+    expect(next.end - next.start).toBe(200);
+  });
+
+  it("slider-driven rescale preserves the center end-to-end", () => {
+    const minSpan = overviewMinSpan(120, seqLength);
+    const extent = { start: 3000, end: 7000 }; // center 5000
+    const targetSpan = sliderToExtentSpan({ slider: 70, seqLength, minSpan });
+    const next = rescaleExtentToSpan({ extent, seqLength, targetSpan, minSpan });
+    const center = (next.start + next.end) / 2;
+    expect(Math.abs(center - 5000)).toBeLessThanOrEqual(1);
+    expect(next.end - next.start).toBe(targetSpan);
   });
 });

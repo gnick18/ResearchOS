@@ -120,6 +120,7 @@ import {
 } from "./sequence-view-state";
 import SequenceZoomControl from "./SequenceZoomControl";
 import SequenceOverviewBar, { type OverviewFeature } from "./SequenceOverviewBar";
+import SequenceOverviewZoomSlider from "./SequenceOverviewZoomSlider";
 import LinearMap, { type LinearMapFeature } from "./LinearMap";
 import { spanFromShiftClick } from "@/lib/sequences/linear-map-select";
 import SequenceTabBar, { type SequenceViewMode } from "./SequenceTabBar";
@@ -2800,17 +2801,33 @@ export default function SequenceEditView({
                   for the linear Sequence (detail) view, where it provides the
                   navigational context the detail scroll lacks. */}
               {isLinearViewer && !linearMapMode ? (
-                <SequenceOverviewBar
-                  seqLength={doc.seq.length}
-                  features={overviewFeatures}
-                  window={overviewWindow}
-                  onScrollToBp={scrollMainToBp}
-                  // overview zoom bot — the bar's OWN zoom (independent of the
-                  // detail-view linearZoom). Scroll / pinch over the bar updates
-                  // this extent; it never touches the detail zoom, and vice-versa.
-                  extent={overviewExtent}
-                  onExtentChange={setOverviewExtent}
-                />
+                // overview slider bot — the overview bar sits in a row with its
+                // OWN zoom slider on the right. The slider drives the bar's bp
+                // EXTENT (its zoom), two-way synced with the bar's scroll / pinch
+                // zoom. The base/text view keeps pinch + Fit (no slider here).
+                <div className="flex items-stretch border-b border-gray-100 bg-gray-50">
+                  <div className="min-w-0 flex-1">
+                    <SequenceOverviewBar
+                      seqLength={doc.seq.length}
+                      features={overviewFeatures}
+                      window={overviewWindow}
+                      onScrollToBp={scrollMainToBp}
+                      // overview zoom bot — the bar's OWN zoom (independent of the
+                      // detail-view linearZoom). Scroll / pinch over the bar
+                      // updates this extent; it never touches the detail zoom.
+                      extent={overviewExtent}
+                      onExtentChange={setOverviewExtent}
+                    />
+                  </div>
+                  <div className="flex shrink-0 items-center border-l border-gray-100 px-2.5">
+                    <SequenceOverviewZoomSlider
+                      seqLength={doc.seq.length}
+                      extent={overviewExtent}
+                      onExtentChange={setOverviewExtent}
+                      winSpan={overviewWindow.end - overviewWindow.start}
+                    />
+                  </div>
+                </div>
               ) : null}
               <div
                 ref={viewerRef}

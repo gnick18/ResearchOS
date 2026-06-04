@@ -514,6 +514,114 @@ export function panExtent(
   return { start, end: start + span };
 }
 
+// ─── overview slider bot — OVERVIEW-EXTENT ZOOM SLIDER (span <-> 0..100) ───────
+//
+// The bottom zoom slider was repurposed to drive the TOP overview bar's zoom (its
+// bp EXTENT span), not the base/text view. These pure helpers map the slider's
+// 0..100 position to a target extent SPAN and back, and rescale the extent to a
+// target span anchored on its CENTER. The mapping is LOG scale (matching the
+// bar's own exponential wheel-zoom feel): one octave of span is a constant slider
+// distance, so the slider feels even across a 60 kb molecule the same as a 3 kb
+// one. Pure + DOM-free so they are unit-testable in isolation.
+
+/** overview slider bot — the absolute floor for the overview extent span (never
+ *  zoom the bar tighter than this many bp). The bar's own wheel-zoom uses the
+ *  same floor (max with the detail window span); the slider mirrors it so the two
+ *  controls share a minimum. */
+export const OVERVIEW_MIN_SPAN_FLOOR = 50;
+
+/**
+ * overview slider bot — the minimum extent span for the overview, never tighter
+ * than the detail window span (so the viewport box stays meaningful) and never
+ * below OVERVIEW_MIN_SPAN_FLOOR. Mirrors the inline `minSpan()` in
+ * SequenceOverviewBar so the slider and the bar's wheel-zoom share one floor.
+ */
+export function overviewMinSpan(winSpan: number, seqLength: number): number {
+  const len = Number.isFinite(seqLength) && seqLength > 0 ? seqLength : 0;
+  const ws = Number.isFinite(winSpan) && winSpan > 0 ? winSpan : 0;
+  const floor = Math.max(OVERVIEW_MIN_SPAN_FLOOR, ws);
+  if (len <= 0) return Math.max(1, Math.round(floor));
+  return Math.max(1, Math.min(len, Math.round(floor)));
+}
+
+/** The slider runs 0..100; 0 == whole molecule, 100 == the minimum span. */
+export const OVERVIEW_SLIDER_MIN = 0;
+export const OVERVIEW_SLIDER_MAX = 100;
+
+/**
+ * overview slider bot — map an extent SPAN to a 0..100 slider position on a LOG
+ * scale. Whole molecule (span == seqLength) -> 0; the minimum span (`minSpan`) ->
+ * 100; spans in between interpolate by log so each octave is even. Clamped to
+ * [0, 100]. The degenerate case (minSpan >= seqLength, i.e. a molecule shorter
+ * than the floor) returns 0 (already whole). Pure.
+ */
+export function extentSpanToSlider(opts: {
+  span: number;
+  seqLength: number;
+  minSpan: number;
+}): number {
+  const { span, seqLength, minSpan } = opts;
+  const len = Number.isFinite(seqLength) && seqLength > 0 ? seqLength : 0;
+  if (len <= 0) return OVERVIEW_SLIDER_MIN;
+  const floor = Math.max(1, Math.min(len, Math.round(minSpan)));
+  if (floor >= len) return OVERVIEW_SLIDER_MIN;
+  const s = Math.max(floor, Math.min(len, Number.isFinite(span) && span > 0 ? span : len));
+  // t = 0 at whole molecule, 1 at the floor (log scale).
+  const t = (Math.log(len) - Math.log(s)) / (Math.log(len) - Math.log(floor));
+  const v = OVERVIEW_SLIDER_MIN + t * (OVERVIEW_SLIDER_MAX - OVERVIEW_SLIDER_MIN);
+  return Math.max(OVERVIEW_SLIDER_MIN, Math.min(OVERVIEW_SLIDER_MAX, Math.round(v)));
+}
+
+/**
+ * overview slider bot — INVERSE of extentSpanToSlider: map a 0..100 slider
+ * position to a target extent SPAN (log scale). 0 -> whole molecule (seqLength),
+ * 100 -> the minimum span. Clamped to [minSpan, seqLength]. Pure.
+ */
+export function sliderToExtentSpan(opts: {
+  slider: number;
+  seqLength: number;
+  minSpan: number;
+}): number {
+  const { slider, seqLength, minSpan } = opts;
+  const len = Number.isFinite(seqLength) && seqLength > 0 ? seqLength : 0;
+  if (len <= 0) return 0;
+  const floor = Math.max(1, Math.min(len, Math.round(minSpan)));
+  if (floor >= len) return len;
+  const v = Number.isFinite(slider) ? slider : OVERVIEW_SLIDER_MIN;
+  const t = Math.max(0, Math.min(1, (v - OVERVIEW_SLIDER_MIN) / (OVERVIEW_SLIDER_MAX - OVERVIEW_SLIDER_MIN)));
+  // Interpolate log-span from whole molecule (t=0) down to the floor (t=1).
+  const logSpan = Math.log(len) - t * (Math.log(len) - Math.log(floor));
+  const span = Math.round(Math.exp(logSpan));
+  return Math.max(floor, Math.min(len, span));
+}
+
+/**
+ * overview slider bot — rescale an extent to a target SPAN anchored on its CENTER
+ * (keep the extent's midpoint fixed while changing the span). Reuses the proven
+ * cursor-anchored math at cursorFraction 0.5, so the clamp / shift behavior is
+ * identical to the bar's wheel-zoom. Pure.
+ */
+export function rescaleExtentToSpan(opts: {
+  extent: { start: number; end: number };
+  seqLength: number;
+  targetSpan: number;
+  minSpan: number;
+}): { start: number; end: number } {
+  const { extent, seqLength, targetSpan, minSpan } = opts;
+  const curStart = Math.max(0, Math.min(seqLength, extent.start));
+  const curEnd = Math.max(curStart, Math.min(seqLength, extent.end));
+  const curSpan = Math.max(1, curEnd - curStart);
+  const target = Number.isFinite(targetSpan) && targetSpan > 0 ? targetSpan : curSpan;
+  const factor = target / curSpan;
+  return zoomExtentAroundCursor({
+    extent: { start: curStart, end: curEnd },
+    seqLength,
+    cursorFraction: 0.5,
+    factor,
+    minSpan,
+  });
+}
+
 /**
  * overview zoom bot — FRAME the overview EXTENT to a selected bp range so a Map
  * selection that lands in Sequence view shows up snugly in the bar.
