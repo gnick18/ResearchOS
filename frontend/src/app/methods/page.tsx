@@ -29,6 +29,7 @@ import { InteractiveGradientEditor } from "@/components/InteractiveGradientEdito
 import MethodExperimentsSidebar from "@/components/MethodExperimentsSidebar";
 import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
+import MethodSendOutsideDialog from "@/components/sharing/MethodSendOutsideDialog";
 import Tooltip from "@/components/Tooltip";
 import type {
   Method,
@@ -1247,6 +1248,70 @@ function CreateCategoryModal({
   );
 }
 
+// ── Share-outside button (cross-boundary sharing, methods tier) ──────────────
+
+/**
+ * "Share outside this folder" one-time send for a USER'S OWN method, mirrored
+ * from the experiment entry point in TaskDetailPopup. Opens MethodSendOutsideDialog,
+ * which builds the existing export bundle for this one method (record + body /
+ * structured protocol + bundled source PDF), seals it, and relays an encrypted
+ * copy (not live editing) to one recipient on ResearchOS. Identity-gated inside
+ * the dialog via useSharingIdentity, so the button always renders for an own
+ * method and the dialog handles setup / restore / send (and the deferred
+ * compound case). Lives in the method viewer's action strip, where the user
+ * looks at their own method outside any experiment.
+ */
+function MethodShareOutsideButton({
+  method,
+  currentUser,
+}: {
+  method: Method;
+  currentUser: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <Tooltip
+        label="Send an encrypted copy to someone on ResearchOS"
+        placement="bottom"
+      >
+        <button
+          type="button"
+          aria-label="Share outside this folder"
+          onClick={() => setOpen(true)}
+          className="text-gray-400 hover:text-gray-600 p-1"
+        >
+          {/* Paper-plane glyph (inline SVG; no icon library, no emoji), the same
+              send affordance as the note + experiment share entry points. */}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M3 11.5 21 3l-6 18-4.5-7.5L3 11.5Z" />
+          </svg>
+        </button>
+      </Tooltip>
+
+      {open && currentUser && (
+        <MethodSendOutsideDialog
+          method={method}
+          ownerUsername={currentUser}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
 // ── View Method Modal ────────────────────────────────────────────────────────
 
 function ViewMethodModal({
@@ -1321,12 +1386,18 @@ function ViewMethodModal({
       <div className="flex bg-white rounded-xl shadow-2xl max-w-[calc(4rem+4rem+72rem)] w-full mx-4 max-h-[85vh]">
         {/* Main content area */}
         <div className="flex-1 flex flex-col overflow-hidden rounded-l-xl">
-          {/* "Extend into kit" action strip — non-compound methods only. The
-              source method becomes the first child of the new compound; the
-              user is navigated into the compound builder to add component #2. */}
-          {method.method_type !== "compound" && !method.is_shared_with_me && (
-            <div className="flex items-center justify-end px-4 pt-3 pb-1">
-              <WrapAsCompoundAction method={method} onWrapped={handleWrapped} />
+          {/* Action strip for the user's OWN method. "Extend into kit" wraps a
+              non-compound method into a new compound; "Share outside this
+              folder" sends an encrypted copy to one recipient on ResearchOS
+              (cross-boundary sharing, methods tier). Both gate on
+              !is_shared_with_me, a received method is not the user's to wrap or
+              re-share from here. */}
+          {!method.is_shared_with_me && (
+            <div className="flex items-center justify-end gap-1 px-4 pt-3 pb-1">
+              {method.method_type !== "compound" && (
+                <WrapAsCompoundAction method={method} onWrapped={handleWrapped} />
+              )}
+              <MethodShareOutsideButton method={method} currentUser={currentUser} />
             </div>
           )}
           {renderViewer()}

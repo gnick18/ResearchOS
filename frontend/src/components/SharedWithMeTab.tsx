@@ -46,6 +46,7 @@ import {
   experimentPayloadToFile,
   type SharePayloadKind,
 } from "@/lib/sharing/experiment-transfer";
+import { methodPayloadToFile } from "@/lib/sharing/method-transfer";
 import ImportExperimentDialog from "@/components/ImportExperimentDialog";
 import { recordNoteHistory } from "@/lib/history";
 import { fileService } from "@/lib/file-system/file-service";
@@ -422,6 +423,13 @@ function ReviewImportModal({
           // sender block is a note-only RO-Crate concept, so the experiment
           // provenance comes from the relay key hash here.
           setExperimentFile(experimentPayloadToFile(payload));
+        } else if (sniffed === "method") {
+          // A standalone method bundle is researchos-experiment-shaped (a
+          // synthetic envelope task carrying the one method), so the SAME
+          // import dialog drives it, the recipient sees one method to resolve
+          // and "Don't link to a project" for the envelope project. Reuse the
+          // experiment plumbing verbatim, only the wrapped File's name differs.
+          setExperimentFile(methodPayloadToFile(payload));
         }
       } catch (err) {
         console.error("[inbox] receiveRawShare failed", err);
@@ -447,29 +455,36 @@ function ReviewImportModal({
   const handleExperimentImported = useCallback(
     async (result: ImportResult) => {
       try {
-        // ACK-AFTER-WRITE: the experiment is on disk now, delete the relay copy.
+        // ACK-AFTER-WRITE: the import is on disk now, delete the relay copy.
         await ackShare({ email, bundleId: item.bundleId });
       } catch (err) {
         // The import succeeded locally; a failed ack only means the relay copy
         // lingers until its TTL. Don't block the user, just log.
-        console.warn("[inbox] ack after experiment import failed", err);
+        console.warn("[inbox] ack after import failed", err);
       }
       const dropped =
         result.notCarried.dependencies.length +
         result.notCarried.methodRefs.length;
+      // A method bundle carries one method and no task links, so its only
+      // "not carried" surface is the method itself failing to localize; phrase
+      // the toast per kind so the copy matches what the recipient received.
+      const noun = kind === "method" ? "Method" : "Experiment";
       const message =
         dropped > 0
-          ? "Experiment imported. Some links or method references were not carried over, see the import summary."
-          : "Experiment imported into your workspace.";
+          ? `${noun} imported. Some content was not carried over, see the import summary.`
+          : `${noun} imported into your workspace.`;
       onImported(item.bundleId, message);
     },
-    [email, item.bundleId, onImported],
+    [email, item.bundleId, onImported, kind],
   );
 
   const experimentSenderLabel =
     received?.sender?.email ?? senderLabel(item.senderEmailHash);
 
-  if (kind === "experiment" && experimentFile) {
+  // Both an experiment and a standalone-method bundle drive the SAME import
+  // dialog (a method bundle is researchos-experiment-shaped). Reuse the
+  // experiment receive plumbing verbatim for the method case.
+  if ((kind === "experiment" || kind === "method") && experimentFile) {
     return (
       <ImportExperimentDialog
         isOpen

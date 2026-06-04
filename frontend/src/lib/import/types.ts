@@ -26,6 +26,13 @@ export interface ImportManifest {
   exported_at: string;
   exported_by: string;
   source_owner: string;
+  // Standalone-method marker (cross-boundary sharing, methods tier). Set to
+  // "method" on a single-method bundle, absent on an experiment bundle. The
+  // bundle still uses the researchos-experiment envelope (a synthetic
+  // envelope task carrying the one method), so parse + apply read it
+  // unchanged; only the inbox sniff branches on this field. Optional and
+  // additive, an experiment bundle that omits it parses as before.
+  kind?: "method";
   task_id: number;
   task_key: string;
   project_id: number;

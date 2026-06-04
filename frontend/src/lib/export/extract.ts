@@ -579,6 +579,70 @@ async function buildMethodPayload(
 }
 
 /**
+ * Build the per-method package for a STANDALONE method share (cross-boundary
+ * sharing, methods tier). This is the task-less entry the design doc calls for,
+ * it reuses the exact same `buildMethodPayload` slice the experiment export
+ * uses (record + body/PDF + the per-type structured protocol record), so the
+ * serialized `methods/method-<id>-*` layout is byte-identical to what an
+ * experiment carries. There is no task and no per-task override, we want the
+ * method's CANONICAL stored protocol, which is exactly what
+ * `buildMethodPayload` reads when there is no attachment (the protocol fetch
+ * helpers key on `method.owner` first).
+ *
+ * A SYNTHETIC envelope task is threaded purely so the shared helper's owner
+ * resolution has something to fall back on, its only meaningful field for the
+ * read path is `owner` (set to the method's owner). It carries no overrides
+ * (`method_attachments` empty), so the package reflects the library method as
+ * it lives.
+ *
+ * Returns the `MethodPayload` plus an optional method-origin attachment (the
+ * PDF body, when the method is a PDF / PDF-stashed-as-markdown). Returns null
+ * when the method record could not be read.
+ */
+export async function buildStandaloneMethodPackage(
+  method: Method,
+  deps: ExtractDeps,
+): Promise<{
+  payload: MethodPayload;
+  pdfAttachment: ExperimentAttachment | null;
+} | null> {
+  // Envelope task: owner threads the right namespace into the protocol fetch
+  // helpers (which prefer `method.owner` but fall back to the task for shared
+  // methods). No method_attachments => the canonical stored protocol, no
+  // per-task overrides.
+  const envelopeTask: Task = {
+    id: 0,
+    project_id: 0,
+    name: method.name,
+    start_date: "",
+    duration_days: 1,
+    end_date: "",
+    is_high_level: false,
+    is_complete: false,
+    task_type: "experiment",
+    weekend_override: null,
+    method_ids: [method.id],
+    deviation_log: null,
+    tags: null,
+    sort_order: 0,
+    experiment_color: null,
+    sub_tasks: null,
+    method_attachments: [],
+    owner: method.owner,
+    shared_with: [],
+    is_shared_with_me: method.is_shared_with_me,
+  };
+  const { payload, pdfAttachment } = await buildMethodPayload(
+    method.id,
+    [],
+    deps,
+    envelopeTask,
+  );
+  if (!payload) return null;
+  return { payload, pdfAttachment };
+}
+
+/**
  * Collect the task's dependency records (Gap 1, cross-boundary sharing).
  * Returns every dependency whose `parent_id` or `child_id` is this task, so a
  * future multi-task share can remap links whose other endpoint is also in the

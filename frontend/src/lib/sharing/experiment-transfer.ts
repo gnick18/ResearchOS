@@ -65,14 +65,20 @@ export async function buildExperimentSendPayload(
  * researchos-experiment export zip (export/raw.ts), "unknown" is neither (an
  * unsupported or malformed payload the inbox should let the user decline).
  */
-export type SharePayloadKind = "note" | "experiment" | "unknown";
+export type SharePayloadKind = "note" | "experiment" | "method" | "unknown";
 
 /**
  * Sniffs decrypted payload bytes to decide which importer the inbox should use.
  * The relay is blind and stores no entity type, so the only source of truth is
- * the decrypted content itself. Both payload kinds are zips, but their marker
+ * the decrypted content itself. The payload kinds are zips, but their marker
  * files are disjoint and unambiguous,
- *   - experiment: a top-level `_export-manifest.json` (export/raw.ts).
+ *   - experiment: a top-level `_export-manifest.json` (export/raw.ts) WITHOUT a
+ *                 `kind: "method"` field.
+ *   - method:     the SAME `_export-manifest.json` envelope, marked
+ *                 `kind: "method"` (method-transfer.ts). A standalone method
+ *                 reuses the experiment envelope so the unchanged importer can
+ *                 read it, so the only way to tell it from an experiment is this
+ *                 one manifest field.
  *   - note:       a BagIt bag, `<uuid>/bagit.txt` + `<uuid>/data/
  *                 ro-crate-metadata.json` (bundle.ts), no `_export-manifest.json`.
  * Returns "unknown" if the bytes are not a zip or carry neither marker.
@@ -87,8 +93,23 @@ export async function sniffSharePayload(
     return "unknown";
   }
 
-  // The experiment export writes _export-manifest.json at the zip root.
-  if (zip.file("_export-manifest.json")) return "experiment";
+  // The experiment export (and the method bundle, which reuses the same
+  // envelope) writes _export-manifest.json at the zip root. Read it to
+  // distinguish a method bundle (kind: "method") from an experiment bundle (no
+  // kind). A malformed / unreadable manifest still resolves to "experiment" so
+  // the existing importer surfaces its own parse error, the pre-method behavior.
+  const manifestEntry = zip.file("_export-manifest.json");
+  if (manifestEntry) {
+    try {
+      const parsed = JSON.parse(await manifestEntry.async("string")) as {
+        kind?: unknown;
+      };
+      if (parsed && parsed.kind === "method") return "method";
+    } catch {
+      // fall through to "experiment"
+    }
+    return "experiment";
+  }
 
   // A note bundle is a BagIt bag, look for the RO-Crate metadata or bagit.txt
   // under the single top-level bag directory. Match on the path suffix so we

@@ -157,6 +157,15 @@ export interface RawManifest {
   exported_by: string;
   source_owner: string;
   source_instance?: string;
+  // Standalone-method marker (cross-boundary sharing, methods tier,
+  // 2026-06-04). Absent on an experiment bundle, set to "method" on a
+  // single-method bundle. A method bundle reuses the SAME
+  // researchos-experiment envelope (so the existing parse + apply pipeline
+  // reads it unchanged), wrapping the one method in a synthetic envelope
+  // task. The inbox sniff reads this field to route a method bundle to the
+  // method receive path instead of treating it as an experiment. Additive
+  // and optional, so experiment bundles (which omit it) keep parsing.
+  kind?: "method";
   task_id: number;
   task_key: string;
   project_id: number;
