@@ -4077,13 +4077,38 @@ async function recordEntryHistory(
   });
 }
 
+// Back-compat heal (unified Share verifier follow-up, 2026-06-04): notes
+// from the pre-R1 coarse-toggle era could set `is_shared = true` WITHOUT
+// writing the "*" whole-lab sentinel into `shared_with`. The unified
+// canRead / ACL surfaces read ONLY `shared_with` (never the legacy
+// boolean), so such a note rendered as "only you" in the new per-person
+// ACL tab AND was silently unreadable by labmates. Materialize the
+// sentinel on read so the `is_shared` <-> "*" invariant holds for every
+// reader; the next save persists it to disk. Purely additive + idempotent
+// (a no-op once the sentinel is present, or when `is_shared` is false).
+function healLegacyNoteShare(note: Note): Note {
+  if (note.is_shared && !isWholeLabShared(note.shared_with ?? [])) {
+    return {
+      ...note,
+      shared_with: [
+        ...normalizeSharedWith(note.shared_with),
+        { username: WHOLE_LAB_SENTINEL, level: "read" },
+      ],
+    };
+  }
+  return note;
+}
+
 export const notesApi = {
   list: async (): Promise<Note[]> => {
-    return notesStore.listAll();
+    return (await notesStore.listAll()).map(healLegacyNoteShare);
   },
-  
+
   get: async (id: number, owner?: string): Promise<Note | null> => {
-    return owner ? notesStore.getForUser(id, owner) : notesStore.get(id);
+    const note = owner
+      ? await notesStore.getForUser(id, owner)
+      : await notesStore.get(id);
+    return note ? healLegacyNoteShare(note) : null;
   },
   
   create: async (data: { title: string; description?: string; is_running_log?: boolean; is_shared?: boolean; entries?: Array<{ title: string; date: string; content?: string }> }): Promise<Note> => {
@@ -6504,7 +6529,9 @@ export const labApi = {
     for (const username of usernames) {
       const userNotes = await notesStore.listAllForUser(username);
       for (const note of userNotes) {
-        notes.push({ ...note, username: note.username || username });
+        notes.push(
+          healLegacyNoteShare({ ...note, username: note.username || username }),
+        );
       }
     }
 
@@ -6516,7 +6543,9 @@ export const labApi = {
 
   getUserNotes: async (username: string): Promise<Note[]> => {
     const notes = await notesStore.listAllForUser(username);
-    return notes.map((n) => ({ ...n, username: n.username || username }));
+    return notes.map((n) =>
+      healLegacyNoteShare({ ...n, username: n.username || username }),
+    );
   },
 
   // Weekly goals widget (PI beta feedback, weekly-goals widget,

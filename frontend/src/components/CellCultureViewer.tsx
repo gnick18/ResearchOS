@@ -148,20 +148,21 @@ export default function CellCultureViewer({
           </div>
           <div className="flex items-center gap-2">
             {canModify && !currentMethod.is_shared_with_me && (
-              <button
-                onClick={() => setShowSharePopup(true)}
-                className={`px-3 py-1.5 text-meta rounded-lg ${
-                  isWholeLab
-                    ? "bg-green-50 text-green-600 hover:bg-green-100"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-                title="Share method"
-              >
-                <span className="flex items-center gap-1">
-                  {isWholeLab ? <GlobeIcon /> : <LockIcon />}
-                  {isWholeLab ? "Public" : "Private"}
-                </span>
-              </button>
+              <Tooltip label="Share method" placement="bottom">
+                <button
+                  onClick={() => setShowSharePopup(true)}
+                  className={`px-3 py-1.5 text-meta rounded-lg ${
+                    isWholeLab
+                      ? "bg-green-50 text-green-600 hover:bg-green-100"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  <span className="flex items-center gap-1">
+                    {isWholeLab ? <GlobeIcon /> : <LockIcon />}
+                    {isWholeLab ? "Public" : "Private"}
+                  </span>
+                </button>
+              </Tooltip>
             )}
             {canModify && (
               <button
