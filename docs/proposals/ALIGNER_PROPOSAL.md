@@ -130,5 +130,12 @@ visualization; homology-based annotation.
   tolerant primer-binding upgrade. Compare/Align (identity + alignment view /
   dotplot) comes later, once the engine is proven.
 - Pure JS now; a WASM port only if a real performance ceiling appears.
-- BUILD STATUS: design locked, but HOLD dispatch until Grant gives an explicit go
-  ("ask me before starting"). Do not start the build bot without that go-ahead.
+- BUILD STATUS: Grant gave the go 2026-06-03. STAGED build. STAGE 1 (engine)
+  MERGED @ 0cf21c13: frontend/src/lib/align/ (scoring.ts IUPAC-aware dnaScoring +
+  reverseComplement; core.ts Gotoh affine-gap DP for alignLocal/alignGlobal/
+  alignSemiGlobal; seed.ts buildKmerIndex + seedAndExtend both-strands; types.ts
+  AlignmentResult {score,aStart/aEnd,bStart/bEnd,identity,alignedA/B,ops,cigar};
+  index.ts barrel). 34 tests, tsc clean. Protein/BLOSUM62 = clean seam, deferred.
+  STAGE 2 (mismatch-tolerant primer binding + show mismatches in the primer
+  dialogs) = next, touches lib/sequences/primer.ts + primer dialogs; must NOT
+  regress exact/clean-primer behavior or existing primer tests.
