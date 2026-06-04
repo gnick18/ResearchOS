@@ -13,8 +13,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { sequencesApi } from "@/lib/local-api";
-import { alignGlobal, alignLocal, dnaScoring, proteinScoring } from "@/lib/align";
-import type { AlignmentResult } from "@/lib/align";
+import {
+  alignGlobal,
+  alignLocal,
+  dnaScoring,
+  proteinScoring,
+  findSharedRegions,
+} from "@/lib/align";
+import type { AlignmentResult, AlignOp, Hsp, SharedRegionResult } from "@/lib/align";
 import {
   buildCompareModel,
   formatSummaryLine,
@@ -317,6 +323,116 @@ function DotplotView({ a, b }: { a: string; b: string }) {
   );
 }
 
+/**
+ * Build a render model directly from an HSP's aligned strings so the same
+ * monospace block view (used for the normal alignment) renders each shared
+ * region. The HSP carries `aStart`/`bStart` (0-based, forward coordinates) so
+ * the coordinate ticks read in real sequence positions. For a reverse-strand
+ * HSP `alignedB` is already the reverse-complemented B segment, and `bStart` is
+ * the forward-B start of the spanned region; we still tick B forward from there,
+ * which keeps the ticks monotonic across the displayed (revcomp) segment.
+ */
+function hspToCompareModel(hsp: Hsp): CompareModel {
+  const ops: AlignOp[] = [];
+  for (let i = 0; i < hsp.alignedA.length; i++) {
+    const ca = hsp.alignedA[i];
+    const cb = hsp.alignedB[i];
+    if (ca === "-" || cb === "-") ops.push("D");
+    else ops.push(ca.toUpperCase() === cb.toUpperCase() ? "M" : "X");
+  }
+  const synthetic: AlignmentResult = {
+    score: hsp.score,
+    aStart: hsp.aStart,
+    aEnd: hsp.aEnd,
+    bStart: hsp.bStart,
+    bEnd: hsp.bEnd,
+    identity: hsp.identity,
+    alignedA: hsp.alignedA,
+    alignedB: hsp.alignedB,
+    ops,
+    cigar: "",
+  };
+  return buildCompareModel(synthetic, ROW_WIDTH);
+}
+
+/** One expandable shared-region (HSP) card. */
+function HspCard({ hsp, rank }: { hsp: Hsp; rank: number }) {
+  const [open, setOpen] = useState(false);
+  const model = useMemo(() => hspToCompareModel(hsp), [hsp]);
+  const idPct = Math.round(hsp.identity * 100);
+  return (
+    <div className="rounded-lg border border-gray-200">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-left transition-colors hover:bg-gray-50"
+      >
+        <span className="text-meta font-semibold text-gray-400">#{rank}</span>
+        <span className="rounded bg-sky-50 px-1.5 py-0.5 text-meta font-medium text-sky-700">
+          {idPct}% identity
+        </span>
+        <span
+          className={
+            hsp.strand === 1
+              ? "rounded bg-emerald-50 px-1.5 py-0.5 text-meta font-medium text-emerald-700"
+              : "rounded bg-violet-50 px-1.5 py-0.5 text-meta font-medium text-violet-700"
+          }
+        >
+          {hsp.strand === 1 ? "+ strand" : "- strand"}
+        </span>
+        <span className="text-meta text-gray-500">
+          A {(hsp.aStart + 1).toLocaleString()}&ndash;{hsp.aEnd.toLocaleString()}{" "}
+          ({hsp.aLength.toLocaleString()} bp)
+        </span>
+        <span className="text-meta text-gray-500">
+          B {(hsp.bStart + 1).toLocaleString()}&ndash;{hsp.bEnd.toLocaleString()}{" "}
+          ({hsp.bLength.toLocaleString()} bp)
+        </span>
+        <span className="ml-auto text-meta text-gray-400">
+          {open ? "Hide alignment" : "Show alignment"}
+        </span>
+      </button>
+      {open ? (
+        <div className="overflow-x-auto border-t border-gray-100 px-3 py-3">
+          <AlignmentView model={model} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** The ranked shared-region (local homology) list for the large-sequence path. */
+function SharedRegionsView({ result }: { result: SharedRegionResult }) {
+  if (result.hsps.length === 0) {
+    return (
+      <p className="rounded-lg bg-gray-50 px-4 py-3 text-body text-gray-500">
+        No shared regions of {result.k} or more identical bases were found
+        between these sequences on either strand. They share little local
+        homology. Lower the dotplot word size to look for weaker similarity.
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="text-meta font-medium uppercase tracking-wide text-gray-400">
+          Shared regions (local homology)
+        </span>
+        <span className="text-meta text-gray-500">
+          {result.truncated
+            ? `Top ${result.hsps.length} of ${result.totalHsps.toLocaleString()} regions, ranked by score (seed word ${result.k}).`
+            : `${result.hsps.length.toLocaleString()} ${result.hsps.length === 1 ? "region" : "regions"}, ranked by score (seed word ${result.k}).`}
+        </span>
+      </div>
+      <div className="space-y-2">
+        {result.hsps.map((hsp, i) => (
+          <HspCard key={`${hsp.strand}:${hsp.aStart}:${hsp.bStart}`} hsp={hsp} rank={i + 1} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function CompareSequencesDialog({
   open,
   onClose,
@@ -338,6 +454,9 @@ export default function CompareSequencesDialog({
   const [usedScheme, setUsedScheme] = useState<ScoreScheme>("dna");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<AlignmentResult | null>(null);
+  // Set instead of `result` when the pair is too large for full DP: the ranked
+  // shared-region (local homology) list plus the always-on dotplot.
+  const [largeResult, setLargeResult] = useState<SharedRegionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Bases of the two sequences actually aligned, kept for the dotplot.
   const lastBasesRef = useRef<{ a: string; b: string } | null>(null);
@@ -354,6 +473,7 @@ export default function CompareSequencesDialog({
       setAId(defaultAId ?? null);
       setBId(null);
       setResult(null);
+      setLargeResult(null);
       setError(null);
     }
   }, [open, defaultAId]);
@@ -376,6 +496,7 @@ export default function CompareSequencesDialog({
     setRunning(true);
     setError(null);
     setResult(null);
+    setLargeResult(null);
     try {
       const [a, b] = await Promise.all([
         sequencesApi.get(aId),
@@ -387,25 +508,28 @@ export default function CompareSequencesDialog({
       }
       const aSeq = a.seq;
       const bSeq = b.seq;
-      if (aSeq.length > MAX_ALIGN_BASES || bSeq.length > MAX_ALIGN_BASES) {
-        setError(
-          `These sequences are too large to align in the browser (${aSeq.length.toLocaleString()} bp and ${bSeq.length.toLocaleString()} bp; limit ${MAX_ALIGN_BASES.toLocaleString()} bp each). Compare a smaller region instead.`,
-        );
-        return;
-      }
       // Resolve the scoring scheme: "auto" sniffs the input, otherwise honor the
       // explicit choice. Protein uses BLOSUM62; DNA uses the IUPAC-aware scheme.
       const resolved: ScoreScheme =
         scheme === "auto" ? (looksLikeProtein(aSeq, bSeq) ? "protein" : "dna") : scheme;
       const scoring = resolved === "protein" ? proteinScoring() : dnaScoring({ iupac });
-      // Yield a frame so the "Aligning…" state can paint before the DP blocks
-      // the thread on a large pair.
+      // Yield a frame so the "Aligning…" state can paint before the compute
+      // blocks the thread on a large pair.
       await new Promise((r) => requestAnimationFrame(() => r(null)));
+      lastBasesRef.current = { a: aSeq, b: bSeq };
+      setUsedScheme(resolved);
+      if (aSeq.length > MAX_ALIGN_BASES || bSeq.length > MAX_ALIGN_BASES) {
+        // Too large for full O(m*n) DP. Instead of refusing, find the shared
+        // regions (local homology) via seed-and-extend and still show the
+        // dotplot. This is a heuristic block list, not a single optimal global
+        // alignment, so the UI labels it accordingly.
+        const shared = findSharedRegions(aSeq, bSeq, { scoring });
+        setLargeResult(shared);
+        return;
+      }
       const res = mode === "global"
         ? alignGlobal(aSeq, bSeq, { scoring })
         : alignLocal(aSeq, bSeq, { scoring });
-      lastBasesRef.current = { a: aSeq, b: bSeq };
-      setUsedScheme(resolved);
       setResult(res);
     } catch {
       setError("Alignment failed. Try a different pair or a smaller region.");
@@ -554,6 +678,28 @@ export default function CompareSequencesDialog({
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {error ? (
             <div className="rounded-lg bg-rose-50 px-4 py-3 text-body text-rose-700">{error}</div>
+          ) : largeResult && lastBasesRef.current ? (
+            <div className="space-y-4">
+              <div className="rounded-md bg-amber-50 px-3 py-2 text-meta text-amber-700">
+                These sequences are too large for a full base-level alignment
+                ({lastBasesRef.current.a.length.toLocaleString()} bp and{" "}
+                {lastBasesRef.current.b.length.toLocaleString()} bp; the exact
+                alignment is capped at {MAX_ALIGN_BASES.toLocaleString()} bp each).
+                Showing the shared regions (local homology) and the dotplot
+                instead. The shared-region list is a fast heuristic, not a single
+                guaranteed-optimal global alignment.
+              </div>
+              {aName && bName ? (
+                <span className="text-meta text-gray-400">A: {aName} · B: {bName}</span>
+              ) : null}
+              <SharedRegionsView result={largeResult} />
+              <div className="border-t border-gray-100 pt-4">
+                <DotplotView
+                  a={lastBasesRef.current.a}
+                  b={lastBasesRef.current.b}
+                />
+              </div>
+            </div>
           ) : !result ? (
             <div className="flex h-40 items-center justify-center text-body text-gray-400">
               {running ? "Aligning…" : "Pick two sequences and select Align."}

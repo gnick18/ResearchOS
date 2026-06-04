@@ -19,6 +19,12 @@ export {
 export type { ScoringFn, DnaScoringOptions, ProteinScoringOptions } from "./scoring";
 export { seedAndExtend, buildKmerIndex } from "./seed";
 export type { SeedHit, SeedAndExtendOptions } from "./seed";
+export { findSharedRegions, chooseSeedK } from "./local-homology";
+export type {
+  Hsp,
+  SharedRegionResult,
+  SharedRegionOptions,
+} from "./local-homology";
 export type {
   AlignOp,
   AlignOptions,
