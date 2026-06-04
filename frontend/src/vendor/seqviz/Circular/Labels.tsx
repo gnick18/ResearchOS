@@ -1,6 +1,7 @@
 // @ts-nocheck — vendored third-party source (SeqViz / bio-parsers facade); kept out of strict typecheck per the sequence-editor proposal. OUR code is strict; this file is owned-but-vendored.
 import * as React from "react";
 
+import { deCollideCircularLabels, type CircularLabelBox } from "../../../lib/sequences/circular-label-layout";
 import { CHAR_WIDTH } from "../SeqViewerContainer";
 import { Coor, Size } from "../elements";
 import { circularLabel, circularLabelLine } from "../style";
@@ -263,7 +264,7 @@ export class Labels extends React.Component<LabelsProps, LabelsState> {
      * even the small "+1" labels can overflow the sides if the viewer is small enough
      * this pushes their textCoors inward to prevent that
      */
-    return labelsGrouped.map(g => {
+    labelsGrouped = labelsGrouped.map(g => {
       let { x, y } = g.textCoor;
       // prevent the text label from overflowing the sides (w/ one char padding)
       x = Math.max(CHAR_WIDTH * (g.name.length + 1), x);
@@ -271,6 +272,44 @@ export class Labels extends React.Component<LabelsProps, LabelsState> {
       y = Math.max(CHAR_WIDTH, y);
       y = Math.min(size.height - CHAR_WIDTH - 12, y); // assuming 12px font-size w/ padding
       return { ...g, textCoor: { x, y } };
+    });
+
+    /**
+     * RESEARCHOS (label decollide bot): UNIFIED, TYPE-AGNOSTIC vertical
+     * de-collision over the WHOLE set of placed labels, per side of the ring.
+     *
+     * The grouping above can still leave two SEPARATE labels' text boxes
+     * overlapping (e.g. a black feature name and a pink primer name seeded at
+     * nearly the same angle land in different groups but render on top of each
+     * other). The de-collision below treats every visible label on a side as one
+     * pool, regardless of type, and pushes overlapping boxes apart along y until
+     * no two overlap. The leader line just angles to follow the shifted text. We
+     * carry the original y into a forkCoor so the leader keeps seeding at the
+     * label's true position on the plasmid.
+     *
+     * O(n log n) — a sort + a single sweep per side — so it stays smooth on a
+     * 400+ feature plasmid.
+     */
+    const LABEL_BOX_H = 14; // 12px font + ~2px padding (matches the 15px group window)
+    const boxes: CircularLabelBox[] = labelsGrouped.map((g, i) => ({
+      id: String(i), // stable index key; group ids are not guaranteed unique
+      side: g.textAnchor === "end" ? "left" : "right",
+      idealY: g.textCoor.y,
+      height: LABEL_BOX_H,
+    }));
+    const placed = deCollideCircularLabels(boxes, {
+      gap: 1,
+      minY: CHAR_WIDTH,
+      maxY: size.height - CHAR_WIDTH - 12,
+    });
+
+    return labelsGrouped.map((g, i) => {
+      const newY = placed[i].y;
+      if (Math.abs(newY - g.textCoor.y) < 0.5) return g; // unmoved
+      // The label moved to clear an overlap. Seed a fork at its true position so
+      // the leader line elbows from the plasmid out to the shifted name.
+      const forkCoor = g.forkCoor || { x: g.textCoor.x, y: g.textCoor.y };
+      return { ...g, forkCoor, textCoor: { x: g.textCoor.x, y: newY } };
     });
   };
 
