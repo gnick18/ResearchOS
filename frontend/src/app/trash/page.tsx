@@ -219,7 +219,8 @@ export default function TrashPage() {
   return (
     <AppShell>
       <RestoreParentPromptHost />
-      <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
         <header className="space-y-2">
           <h1 className="text-2xl font-semibold text-gray-900">Trash</h1>
           <p className="text-body text-gray-600">
@@ -277,8 +278,10 @@ export default function TrashPage() {
           <div className="space-y-3">
             {SECTION_ORDER.map(({ key, label }) => {
               const sectionEntries = byType.get(key) ?? [];
-              const isEmpty = sectionEntries.length === 0;
-              const defaultCollapsed = isEmpty;
+              // Hide empty categories entirely so the page stays uncluttered; a
+              // category reappears on its own once it has trashed items again.
+              if (sectionEntries.length === 0) return null;
+              const defaultCollapsed = false;
               const collapsed =
                 collapsedOverrides[key] !== undefined
                   ? collapsedOverrides[key]
@@ -304,6 +307,7 @@ export default function TrashPage() {
             })}
           </div>
         )}
+        </div>
       </div>
     </AppShell>
   );
