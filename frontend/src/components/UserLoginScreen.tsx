@@ -1049,12 +1049,11 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                               // "PI" since it's academia-specific). The Main
                               // badge is orthogonal (laptop owner) and shows
                               // alongside when both apply.
-                              <span
-                                className="shrink-0 px-1.5 py-0.5 text-meta font-semibold rounded bg-amber-100 text-amber-800"
-                                title="PI"
-                              >
-                                PI
-                              </span>
+                              <Tooltip label="PI" placement="bottom">
+                                <span className="shrink-0 px-1.5 py-0.5 text-meta font-semibold rounded bg-amber-100 text-amber-800">
+                                  PI
+                                </span>
+                              </Tooltip>
                             )}
                             {archivedUsers.has(user) && (
                               // Lab Head Phase 6: Archived badge. Gray so it
@@ -1064,12 +1063,14 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                               // Clicking an archived tile still works (a
                               // returning postdoc can re-login without PI
                               // help — design decision #2, Grant 2026-05-23).
-                              <span
-                                className="shrink-0 px-1.5 py-0.5 text-meta font-semibold rounded bg-slate-200 text-slate-600"
-                                title="Archived account — hidden by default"
+                              <Tooltip
+                                label="Archived account, hidden by default"
+                                placement="bottom"
                               >
-                                Archived
-                              </span>
+                                <span className="shrink-0 px-1.5 py-0.5 text-meta font-semibold rounded bg-slate-200 text-slate-600">
+                                  Archived
+                                </span>
+                              </Tooltip>
                             )}
                             {mainUser === user && (
                               <span className="shrink-0 text-meta text-amber-400 font-normal">(Main)</span>
@@ -1246,7 +1247,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-white mb-2">
+                  <h3 className="text-title font-semibold text-white mb-2">
                     Delete User Profile
                   </h3>
                   {deleteConfirmStep === 1 ? (
@@ -1333,7 +1334,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-4 border-b border-white/10">
-              <h3 className="text-lg font-semibold text-white">Enter password</h3>
+              <h3 className="text-title font-semibold text-white">Enter password</h3>
               <p className="text-meta text-slate-400 mt-0.5">
                 Sign in to {passwordGate.username}
               </p>
@@ -1443,7 +1444,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-4 border-b border-white/10">
-              <h3 className="text-lg font-semibold text-white">
+              <h3 className="text-title font-semibold text-white">
                 Set a PI password
               </h3>
               <p className="text-meta text-slate-400 mt-0.5">
