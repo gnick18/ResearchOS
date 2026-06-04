@@ -564,6 +564,9 @@ function SettingsBody() {
             <TipsSection />
             <SecuritySection
               pwExists={pwExists}
+              claimed={
+                sharing.status === "ready" || sharing.status === "needs-restore"
+              }
               onOpen={() => setPwOpen(true)}
             />
             <OfflineModeSection settings={settings} update={update} />
@@ -4454,17 +4457,33 @@ function TipsSection() {
 
 function SecuritySection({
   pwExists,
+  claimed,
   onOpen,
 }: {
   pwExists: boolean | null;
+  // True when this account has claimed a global sharing identity (status
+  // "ready" or "needs-restore"). Per D1 a claimed account treats the password
+  // as the OFFLINE fallback and can also unlock online with Google or GitHub
+  // (that provider-unlock UI lives on the login screen, not here); this section
+  // just explains the relationship so the password no longer reads as the sole
+  // lock.
+  claimed: boolean;
   onOpen: () => void;
 }) {
   return (
     <SectionShell
       title="Security"
       description="A password blocks accidental sign-in to this account from inside the app. It does not encrypt files on disk."
-      searchKeywords="password lock login sign-in"
+      searchKeywords="password lock login sign-in google github unlock"
     >
+      {claimed && (
+        <p className="text-body text-gray-600 mb-3 leading-relaxed">
+          Your password is the offline lock for this account. When you are
+          online you can also unlock by signing in with Google or GitHub, the
+          same identity you share with. The password stays as the offline
+          fallback.
+        </p>
+      )}
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-body text-gray-800">
@@ -4475,7 +4494,9 @@ function SecuritySection({
             .
           </p>
           <p className="text-meta text-gray-400 mt-1">
-            Same flow as the lock icon on the login screen.
+            {claimed
+              ? "Online unlock with Google or GitHub appears on the login screen."
+              : "Same flow as the lock icon on the login screen."}
           </p>
         </div>
         <button
