@@ -1,0 +1,5 @@
+node_modules/
+.wrangler/
+public/client.js
+public/client.js.map
+package-lock.json

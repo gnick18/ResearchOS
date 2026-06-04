@@ -1,0 +1,22 @@
+# THROWAWAY spike config. Runs the Durable Object locally via `wrangler dev`
+# (workerd). No Cloudflare account or login is needed for local dev.
+name = "collab-yjs-spike"
+main = "src/worker.ts"
+compatibility_date = "2024-12-01"
+
+# Serve the built client (public/) straight from the worker so there is no
+# second dev server to run. The worker upgrades /ws to a WebSocket and serves
+# everything else as a static asset.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[durable_objects.bindings]]
+name = "COLLAB_ROOM"
+class_name = "CollabRoom"
+
+# new_sqlite_classes is required for the WebSocket Hibernation API on a fresh
+# DO class. SQLite-backed DOs are the current default storage backend.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["CollabRoom"]

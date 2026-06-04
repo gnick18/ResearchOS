@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Collab Yjs spike</title>
+    <style>
+      body {
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        margin: 0;
+        padding: 24px;
+        background: #f7f8fa;
+        color: #1a1a1a;
+      }
+      h1 { font-size: 18px; margin: 0 0 4px; }
+      p.hint { color: #666; font-size: 13px; margin: 0 0 16px; }
+      #status {
+        font-size: 12px;
+        color: #1e90ff;
+        margin-bottom: 12px;
+      }
+      #editor {
+        border: 1px solid #d0d4da;
+        border-radius: 8px;
+        background: #fff;
+        min-height: 320px;
+        overflow: hidden;
+      }
+      .cm-editor { height: 320px; }
+      .cm-editor.cm-focused { outline: none; }
+    </style>
+  </head>
+  <body>
+    <h1>Collab Yjs spike, live note</h1>
+    <p class="hint">
+      Open this page in two tabs. Type in one and watch it appear in the other
+      with a live remote cursor. Throwaway proof-of-concept, plaintext relay.
+    </p>
+    <div id="status">loading...</div>
+    <div id="editor"></div>
+    <script type="module" src="/client.js"></script>
+  </body>
+</html>
