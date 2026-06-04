@@ -121,7 +121,7 @@ export default function TelegramStatusBadge() {
         onClick={() => setModalOpen(true)}
         aria-label={detailTitle}
         title={detailTitle}
-        className="flex items-center justify-center w-7 h-7 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+        className="flex items-center justify-center w-7 h-7 rounded-full bg-white/75 shadow-sm text-gray-400 hover:text-gray-600 hover:bg-white transition-colors"
       >
         <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
       </button>
