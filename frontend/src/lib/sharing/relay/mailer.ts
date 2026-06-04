@@ -60,6 +60,29 @@ function getResend(): Resend {
   return resendSingleton;
 }
 
+/**
+ * The four item kinds an invite can carry. Only the email's noun depends on it,
+ * everything else (the sealed payload, the accept link) is identical. Defaults to
+ * "note" wherever omitted, so the original note invite copy is unchanged.
+ */
+export type InviteItemKind = "note" | "experiment" | "method" | "project";
+
+/** The bare noun and its article for each kind, used to phrase the email copy. */
+function itemNoun(kind: InviteItemKind | undefined): { article: string; noun: string } {
+  switch (kind) {
+    case "experiment":
+      return { article: "an", noun: "experiment" };
+    case "method":
+      return { article: "a", noun: "method" };
+    case "project":
+      return { article: "a", noun: "project" };
+    case "note":
+    default:
+      // The original copy says "research note", keep it for the note path.
+      return { article: "a", noun: "research note" };
+  }
+}
+
 /** Everything the invite email template needs. */
 export interface InviteEmailParams {
   /** The recipient's plaintext email (we send to it, but never store it). */
@@ -79,6 +102,11 @@ export interface InviteEmailParams {
    * is the keyless-invite trust channel.
    */
   acceptUrl: string;
+  /**
+   * Which kind of item this invite carries, so the body reads "a research note" /
+   * "an experiment" / "a method" / "a project". Omit for the note path.
+   */
+  itemKind?: InviteItemKind;
 }
 
 /** Minimal HTML-escape for the few interpolated text fields. */
@@ -115,8 +143,12 @@ const BEAKERBOT_SVG = `<svg width="48" height="48" viewBox="0 0 40 40" fill="non
  * item, no marketing language, exactly the framing that lands in inboxes rather
  * than spam.
  */
-export function inviteSubject(senderLabel: string): string {
-  return `${senderLabel} shared a research note with you on ResearchOS`;
+export function inviteSubject(
+  senderLabel: string,
+  itemKind?: InviteItemKind,
+): string {
+  const { article, noun } = itemNoun(itemKind);
+  return `${senderLabel} shared ${article} ${noun} with you on ResearchOS`;
 }
 
 /**
@@ -127,6 +159,7 @@ export function inviteSubject(senderLabel: string): string {
 export function buildInviteHtml(params: InviteEmailParams): string {
   const sender = esc(params.senderLabel);
   const title = esc(params.itemTitle);
+  const { article, noun } = itemNoun(params.itemKind);
   // The accept URL is placed in href / text verbatim. It is a same-team-built
   // URL (research-os.app/accept/<uuid>#k=<hex>), the fragment is opaque hex, so
   // it is URL-safe to embed directly. We do not escape the fragment away.
@@ -138,16 +171,16 @@ export function buildInviteHtml(params: InviteEmailParams): string {
     <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;padding:28px;">
       <div style="text-align:center;margin-bottom:8px;">${BEAKERBOT_SVG}</div>
       <h1 style="font-size:18px;font-weight:600;text-align:center;margin:8px 0 4px;">
-        ${sender} shared a research note with you
+        ${sender} shared ${article} ${noun} with you
       </h1>
       <p style="font-size:14px;line-height:1.6;color:#4b5563;text-align:center;margin:0 0 20px;">
         They used ResearchOS to send you an encrypted copy of
         <strong style="color:#111827;">&ldquo;${title}&rdquo;</strong>.
-        Create a free account to open it, the note stays sealed until you do.
+        Create a free account to open it, the ${noun} stays sealed until you do.
       </p>
       <div style="text-align:center;margin:0 0 20px;">
         <a href="${url}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 22px;border-radius:9px;">
-          Open this note on ResearchOS
+          Open this ${noun} on ResearchOS
         </a>
       </div>
       <p style="font-size:13px;line-height:1.6;color:#6b7280;text-align:center;margin:0;">
@@ -179,11 +212,12 @@ export function buildInviteHtml(params: InviteEmailParams): string {
  * minimization, the title plus the accept link, nothing else.
  */
 export function buildInviteText(params: InviteEmailParams): string {
+  const { article, noun } = itemNoun(params.itemKind);
   return [
-    `${params.senderLabel} shared a research note with you on ResearchOS.`,
+    `${params.senderLabel} shared ${article} ${noun} with you on ResearchOS.`,
     ``,
     `They sent you an encrypted copy of "${params.itemTitle}". Create a free`,
-    `account to open it, the note stays sealed until you do.`,
+    `account to open it, the ${noun} stays sealed until you do.`,
     ``,
     `Open it here: ${params.acceptUrl}`,
     ``,
@@ -206,7 +240,7 @@ export async function sendInviteEmail(params: InviteEmailParams): Promise<void> 
   const { error } = await resend.emails.send({
     from: INVITE_FROM_ADDRESS,
     to: params.toEmail,
-    subject: inviteSubject(params.senderLabel),
+    subject: inviteSubject(params.senderLabel, params.itemKind),
     html: buildInviteHtml(params),
     text: buildInviteText(params),
   });

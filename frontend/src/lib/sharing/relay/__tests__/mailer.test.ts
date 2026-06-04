@@ -26,6 +26,22 @@ describe("inviteSubject", () => {
       "alice@lab.edu shared a research note with you on ResearchOS",
     );
   });
+
+  it("reads with the right noun and article per item kind", () => {
+    expect(inviteSubject("alice@lab.edu", "experiment")).toBe(
+      "alice@lab.edu shared an experiment with you on ResearchOS",
+    );
+    expect(inviteSubject("alice@lab.edu", "method")).toBe(
+      "alice@lab.edu shared a method with you on ResearchOS",
+    );
+    expect(inviteSubject("alice@lab.edu", "project")).toBe(
+      "alice@lab.edu shared a project with you on ResearchOS",
+    );
+    // An explicit "note" matches the default.
+    expect(inviteSubject("alice@lab.edu", "note")).toBe(
+      inviteSubject("alice@lab.edu"),
+    );
+  });
 });
 
 describe("buildInviteHtml", () => {
@@ -40,6 +56,16 @@ describe("buildInviteHtml", () => {
     const html = buildInviteHtml(PARAMS);
     expect(html.toLowerCase()).toContain("do not invite me again");
     expect(html.toLowerCase()).toContain("report abuse");
+  });
+
+  it("uses the item-kind noun in the body and CTA", () => {
+    const html = buildInviteHtml({ ...PARAMS, itemKind: "project" });
+    expect(html).toContain("shared a project with you");
+    expect(html).toContain("Open this project on ResearchOS");
+    // The default (omitted kind) keeps the original note wording.
+    const noteHtml = buildInviteHtml(PARAMS);
+    expect(noteHtml).toContain("shared a research note with you");
+    expect(noteHtml).toContain("Open this research note on ResearchOS");
   });
 
   it("escapes HTML in interpolated fields", () => {

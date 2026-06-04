@@ -620,6 +620,14 @@ function buildAcceptUrl(inviteId: string, oneTimeKey: Uint8Array): string {
   return `${acceptBaseUrl()}/accept/${inviteId}#k=${bytesToHex(oneTimeKey)}`;
 }
 
+/**
+ * The four item kinds the invite-a-non-user loop can carry. Only the branded
+ * email's noun ("a research note" / "an experiment" / ...) depends on this, the
+ * relay transport is byte-agnostic. Defaults to "note" everywhere it is omitted,
+ * so the original note invite path is unchanged.
+ */
+export type InviteItemKind = "note" | "experiment" | "method" | "project";
+
 /** Params for inviteShare. */
 export interface InviteShareParams {
   /** The sender's own canonical email (the identity making the request). */
@@ -632,6 +640,11 @@ export interface InviteShareParams {
   itemTitle: string;
   /** The sender's display label for the email body (their claimed email). */
   senderLabel: string;
+  /**
+   * Which kind of item this invite carries, so the branded email reads with the
+   * right noun. Omit (or "note") for the note path, the route defaults to "note".
+   */
+  itemKind?: InviteItemKind;
 }
 
 /** The result of a successful invite. */
@@ -704,6 +717,104 @@ export async function inviteShare(
     senderLabel: params.senderLabel,
     itemTitle: params.itemTitle,
     acceptUrl,
+    ...(params.itemKind ? { itemKind: params.itemKind } : {}),
+  });
+
+  return { inviteId: reserved.inviteId, expiresAt: reserved.expiresAt };
+}
+
+// ---------------------------------------------------------------------------
+// inviteRawShare. Invites a non-user with an OPAQUE payload, not the RO-Crate
+// note bundle.
+//
+// The note invite path (inviteShare above) builds an RO-Crate-in-BagIt bundle
+// and seals it under a one-time key. Experiments, methods, and projects are
+// different, the payload is the already-built export zip (the same bytes the
+// registered-send path relays via sendRawShare), which is NOT an RO-Crate crate.
+// inviteRawShare reuses the EXACT invite sequence (seal under a one-time key,
+// reserve, PUT, confirm + branded email) but takes the caller's payload bytes
+// verbatim and never touches buildBundle. The accept page opens it with the same
+// keyless fetchInviteRawBundle, then sniffs + drives the existing import dialog.
+// ---------------------------------------------------------------------------
+
+/** Params for inviteRawShare. */
+export interface InviteRawShareParams {
+  /** The sender's own canonical email (the identity making the request). */
+  email: string;
+  /** The non-user recipient's email. Not resolved against the directory. */
+  recipientEmail: string;
+  /** The raw payload bytes to seal under the one-time key (e.g. an export zip). */
+  payload: Uint8Array;
+  /** The item title to expose as the email teaser (no other content is sent). */
+  itemTitle: string;
+  /** The sender's display label for the email body (their claimed email). */
+  senderLabel: string;
+  /** Which kind of item this invite carries, so the email reads with the right noun. */
+  itemKind: InviteItemKind;
+}
+
+/**
+ * Invites a non-user and shares one OPAQUE payload with them. Same invite
+ * sequence as inviteShare (seal under a one-time key, reserve, PUT, confirm +
+ * branded email), but the sealed bytes are the caller's payload verbatim rather
+ * than a freshly built RO-Crate bundle. Throws NoLocalIdentityError if this
+ * device has no identity (the sender still needs theirs to sign), RelayError on
+ * any HTTP failure.
+ */
+export async function inviteRawShare(
+  params: InviteRawShareParams,
+): Promise<InviteShareResult> {
+  const identity = await requireIdentity();
+
+  // 1. Seal the caller's payload bytes under a fresh one-time symmetric key. The
+  //    key is held only locally and goes only into the accept-link fragment.
+  const { sealed, key } = sealUnderOneTimeKey(params.payload);
+
+  // 2. Sign an "invite" request and reserve an invite id plus an upload URL.
+  const body = signRelayRequest(
+    {
+      action: "invite",
+      email: params.email,
+      issuedAt: nowIso(),
+      recipientEmail: params.recipientEmail,
+      sizeBytes: sealed.length,
+    },
+    identity.keys.signing.privateKey,
+  );
+  const reserved = await postJson<{
+    inviteId: string;
+    uploadUrl: string;
+    expiresAt: string;
+  }>("/api/relay/invite/send", body);
+
+  // 3. PUT the sealed bytes directly to the presigned URL.
+  const putRes = await fetch(reserved.uploadUrl, {
+    method: "PUT",
+    body: sealed as unknown as BodyInit,
+  });
+  if (!putRes.ok) {
+    throw new RelayError("Failed to upload the sealed invite", putRes.status);
+  }
+
+  // 4. Compose the accept link (key in fragment) and confirm. The confirm route
+  //    flips the invite to ready and sends the branded email with the right noun.
+  const acceptUrl = buildAcceptUrl(reserved.inviteId, key);
+  const confirmBody = signRelayRequest(
+    {
+      action: "invite-confirm",
+      email: params.email,
+      issuedAt: nowIso(),
+      inviteId: reserved.inviteId,
+    },
+    identity.keys.signing.privateKey,
+  );
+  await postJson<{ ok: true }>("/api/relay/invite/confirm", {
+    ...confirmBody,
+    recipientEmail: params.recipientEmail,
+    senderLabel: params.senderLabel,
+    itemTitle: params.itemTitle,
+    acceptUrl,
+    itemKind: params.itemKind,
   });
 
   return { inviteId: reserved.inviteId, expiresAt: reserved.expiresAt };
@@ -740,6 +851,38 @@ export interface FetchInviteParams {
 export async function fetchInviteBundle(
   params: FetchInviteParams,
 ): Promise<ReceiveShareResult> {
+  // Reuse the keyless raw fetch + decrypt, then read + verify the RO-Crate bundle.
+  const { payload } = await fetchInviteRawBundle(params);
+  const result = await readBundle(payload);
+
+  return {
+    valid: result.valid,
+    shareUuid: result.shareUuid,
+    version: result.version,
+    entityType: result.entityType,
+    entity: result.entity,
+    attachments: result.attachments,
+    sender: result.sender,
+  };
+}
+
+/**
+ * Fetches and decrypts an invited payload on the accept page WITHOUT the
+ * RO-Crate parse/verify step, returning the raw decrypted bytes. The keyless,
+ * raw sibling of fetchInviteBundle, the accept-page equivalent of receiveRawShare.
+ * Use this for invited payloads that are not RO-Crate bundles (the export zips
+ * for experiments / methods / projects), or to sniff the kind before deciding
+ * how to parse. Requires NO local identity, the inviteId is the bearer
+ * capability and the one-time key comes from the URL fragment. Like its sibling
+ * it does NOT ack, the accept page files the item locally first, then ackInvite.
+ *
+ * Throws RelayError on any HTTP failure (including 410 if the invite expired and
+ * 404 if it is missing / unconfirmed), and openWithOneTimeKey throws on tamper or
+ * a wrong key.
+ */
+export async function fetchInviteRawBundle(
+  params: FetchInviteParams,
+): Promise<ReceiveRawShareResult> {
   // Import the one-time-key opener lazily-free, it is a pure crypto helper.
   const { openWithOneTimeKey } = await import("@/lib/sharing/encryption");
 
@@ -756,20 +899,12 @@ export async function fetchInviteBundle(
   }
   const sealed = new Uint8Array(await getRes.arrayBuffer());
 
-  // 3. Open with the one-time key from the fragment, then read + verify.
+  // 3. Open with the one-time key from the fragment. No readBundle, the payload
+  //    may be an opaque export zip the caller will sniff + parse itself.
   const oneTimeKey = hexToBytes(params.oneTimeKeyHex);
-  const zipped = openWithOneTimeKey(sealed, oneTimeKey);
-  const result = await readBundle(zipped);
+  const payload = openWithOneTimeKey(sealed, oneTimeKey);
 
-  return {
-    valid: result.valid,
-    shareUuid: result.shareUuid,
-    version: result.version,
-    entityType: result.entityType,
-    entity: result.entity,
-    attachments: result.attachments,
-    sender: result.sender,
-  };
+  return { payload };
 }
 
 /**

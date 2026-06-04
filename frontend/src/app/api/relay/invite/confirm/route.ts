@@ -30,7 +30,7 @@ import {
 } from "@/lib/sharing/directory/guard";
 import { verifyRelayRequest } from "@/lib/sharing/relay/auth";
 import { ensureInviteSchema, markInviteReady } from "@/lib/sharing/relay/db";
-import { sendInviteEmail } from "@/lib/sharing/relay/mailer";
+import { sendInviteEmail, type InviteItemKind } from "@/lib/sharing/relay/mailer";
 
 export const runtime = "nodejs";
 
@@ -39,8 +39,23 @@ const GENERIC_FAILURE = { error: "invite confirm failed" } as const;
 /** A loose email shape check for the unsigned recipient delivery field. */
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** The item kinds the branded email can phrase. Anything else falls back to a note. */
+const ITEM_KINDS: readonly InviteItemKind[] = [
+  "note",
+  "experiment",
+  "method",
+  "project",
+];
+
 function nonEmptyString(v: unknown): v is string {
   return typeof v === "string" && v.trim().length > 0;
+}
+
+/** Coerce the unsigned itemKind delivery field to a known kind, default "note". */
+function coerceItemKind(v: unknown): InviteItemKind {
+  return typeof v === "string" && (ITEM_KINDS as readonly string[]).includes(v)
+    ? (v as InviteItemKind)
+    : "note";
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -79,6 +94,10 @@ export async function POST(request: Request): Promise<Response> {
   const senderLabel = b.senderLabel;
   const itemTitle = b.itemTitle;
   const acceptUrl = b.acceptUrl;
+  // The item kind is an optional delivery hint for the email noun only. It is
+  // not security-sensitive (it never gates fetch / decrypt), so an unknown or
+  // missing value safely defaults to "note" rather than failing the confirm.
+  const itemKind = coerceItemKind(b.itemKind);
   if (
     !nonEmptyString(recipientEmailRaw) ||
     !EMAIL_RE.test(recipientEmailRaw.trim()) ||
@@ -112,6 +131,7 @@ export async function POST(request: Request): Promise<Response> {
       senderLabel: senderLabel.trim(),
       itemTitle: itemTitle,
       acceptUrl: acceptUrl,
+      itemKind: itemKind,
     });
   } catch (err) {
     // Do not log the acceptUrl (it carries the fragment key). Log only that the
