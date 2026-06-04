@@ -1,0 +1,92 @@
+// Cross-boundary sharing, the email-to-keys binding signature (Phase 1b-i).
+//
+// At signup the server binds a verified email (as its directory hash) to the
+// user's published X25519 and Ed25519 public keys. The user signs that binding
+// with their Ed25519 private key, so the directory can prove the keys it stores
+// were submitted by whoever controls the signing key, not swapped in by a man
+// in the middle. Section 6 of
+// docs/proposals/CROSS_BOUNDARY_SHARING_PROPOSAL.md.
+//
+// The signed bytes must be canonical and deterministic, both ends have to
+// derive the exact same payload independently. We encode it as a versioned,
+// fixed-field-order UTF-8 string so there is no JSON key-ordering ambiguity and
+// no chance a future field silently changes what an old signature covered.
+//
+// This module is pure crypto, no network and no storage. signBinding is used
+// client-side and in tests, the server only calls verifyBindingSignature.
+
+import { ed25519 } from "@noble/curves/ed25519.js";
+import { utf8ToBytes } from "@noble/hashes/utils.js";
+
+// Bumped only if the field set or encoding changes. An old signature made under
+// v1 will not verify against a v2 payload, which is the intended fail-closed
+// behavior, never a silent cross-version match.
+const BINDING_VERSION = "researchos.directory.binding.v1";
+
+/**
+ * The fields a user signs to bind their email hash to their public keys.
+ *
+ * - emailHash, the directory key (hashEmail output), never a plaintext email.
+ * - x25519PublicKey / ed25519PublicKey, hex-encoded public keys (encodePublicKey
+ *   convention from identity/keys.ts).
+ * - issuedAt, an ISO-8601 timestamp, lets the server reject stale bindings.
+ */
+export interface BindingInput {
+  emailHash: string;
+  x25519PublicKey: string;
+  ed25519PublicKey: string;
+  issuedAt: string;
+}
+
+/**
+ * Builds the canonical, deterministic byte encoding of a binding.
+ *
+ * Format, a version line followed by one "key=value" line per field in a fixed
+ * order, joined by newlines, encoded as UTF-8. Fixed order plus explicit field
+ * labels means the same input always yields the same bytes on every platform,
+ * with no dependency on object iteration order or JSON serializer quirks.
+ *
+ * The values here are all hex or ISO timestamps, none of which contain a
+ * newline or an equals sign, so the line-oriented framing is unambiguous for
+ * this payload.
+ */
+export function buildBindingPayload(input: BindingInput): Uint8Array {
+  const lines = [
+    BINDING_VERSION,
+    `emailHash=${input.emailHash}`,
+    `x25519PublicKey=${input.x25519PublicKey}`,
+    `ed25519PublicKey=${input.ed25519PublicKey}`,
+    `issuedAt=${input.issuedAt}`,
+  ];
+  return utf8ToBytes(lines.join("\n"));
+}
+
+/**
+ * Signs a binding payload with the user's Ed25519 private key. Returns the raw
+ * 64-byte signature. Client-side and test use.
+ */
+export function signBinding(
+  payload: Uint8Array,
+  ed25519PrivateKey: Uint8Array,
+): Uint8Array {
+  return ed25519.sign(payload, ed25519PrivateKey);
+}
+
+/**
+ * Verifies a binding signature against the claimed Ed25519 public key.
+ *
+ * Returns false (never throws) on any malformed input, so a bad signature or a
+ * wrong-length key is a clean rejection rather than a 500. The server treats a
+ * false result as "do not store this binding."
+ */
+export function verifyBindingSignature(
+  payload: Uint8Array,
+  signature: Uint8Array,
+  ed25519PublicKey: Uint8Array,
+): boolean {
+  try {
+    return ed25519.verify(signature, payload, ed25519PublicKey);
+  } catch {
+    return false;
+  }
+}
