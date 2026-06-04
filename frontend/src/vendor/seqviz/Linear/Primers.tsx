@@ -243,6 +243,12 @@ const SingleNamedElement = (props: {
   // fit these lanes; we derive the lane geometry from that same height here so the
   // two agree. Zoomed out, none of this runs and the thin arrow + label is used.
   const primerColor = color || "#f472b6";
+  // primer bases — the border + arrowhead + name carry the PRIMER's own color
+  // (purple/pink/whatever the user set); the bases INSIDE render in a distinct
+  // green so they stand out against the border the way SnapGene shows them. Green
+  // is tuned to read on the editor's light background (darker than SnapGene's
+  // dark-mode green). Mismatches still override to red.
+  const baseColor = "#15803d"; // green-700 — the in-primer base glyphs
   const mismatchColor = "#dc2626"; // contrasting red so a mismatch base reads popped
   const baseCells = (element as { baseCells?: PrimerBaseCell[] }).baseCells;
   const renderBases = zoomed && charWidth > 4 && Array.isArray(baseCells) && baseCells.length > 0;
@@ -300,19 +306,27 @@ const SingleNamedElement = (props: {
   const annCols = annVis.map(c => c.column);
   const annX0 = annVis.length ? colLeftX(Math.min(...annCols)) : 0;
   const annX1 = annVis.length ? colLeftX(Math.max(...annCols)) + charWidth : 0;
-  const arrowLen = Math.min(charWidth * 0.85, baseFontSize + 2);
-  // The 3' reading end: right for forward (drawn when the FWD end lands here), left
-  // for reverse (when the REV end lands here). Otherwise the box runs flat into the
-  // next block (the primer continues; no cap).
+  // 3' ARROWHEAD — SnapGene "pull back" style. The annealing BODY stays a full
+  // rectangle so the bases are fully enclosed and the last letter is never clipped;
+  // the arrowhead is an extra barb at the 3' end that rises OFF the body (away from
+  // the strand it hugs: up for forward, down for reverse) and sweeps forward to a
+  // point in the reading direction. Drawn only when the 3' end lands in this block;
+  // otherwise the body runs flat into the next block (the primer continues).
+  const headLen = Math.min(charWidth * 0.9, baseFontSize + 3); // forward reach of the tip
+  const barbRise = boxH * 0.55; // how far the barb pulls back off the body
   const arrowRight = forward && endFWD;
   const arrowLeft = reverse && endREV;
   const annealBoxPath = (() => {
     if (!annVis.length) return "";
     if (arrowRight) {
-      return `M ${annX0} ${annTop} L ${annX1 - arrowLen} ${annTop} L ${annX1} ${annBaseY} L ${annX1 - arrowLen} ${annBot} L ${annX0} ${annBot} Z`;
+      // full top edge to the right corner, riser UP (pull back), sweep to the tip,
+      // back down to the bottom-right corner, bottom edge home.
+      return `M ${annX0} ${annTop} L ${annX1} ${annTop} L ${annX1} ${annTop - barbRise} L ${annX1 + headLen} ${annBaseY} L ${annX1} ${annBot} L ${annX0} ${annBot} Z`;
     }
     if (arrowLeft) {
-      return `M ${annX1} ${annTop} L ${annX0 + arrowLen} ${annTop} L ${annX0} ${annBaseY} L ${annX0 + arrowLen} ${annBot} L ${annX1} ${annBot} Z`;
+      // mirror: full bottom edge to the left corner, riser DOWN (pull back), sweep
+      // to the tip on the left, back up to the top-left corner, top edge home.
+      return `M ${annX1} ${annBot} L ${annX0} ${annBot} L ${annX0} ${annBot + barbRise} L ${annX0 - headLen} ${annBaseY} L ${annX0} ${annTop} L ${annX1} ${annTop} Z`;
     }
     return `M ${annX0} ${annTop} L ${annX1} ${annTop} L ${annX1} ${annBot} L ${annX0} ${annBot} Z`;
   })();
@@ -402,7 +416,7 @@ const SingleNamedElement = (props: {
                 fontSize={baseFontSize}
                 fontFamily="Roboto Mono, monospace"
                 fontWeight={isMismatch ? 700 : 500}
-                fill={isMismatch ? mismatchColor : primerColor}
+                fill={isMismatch ? mismatchColor : baseColor}
               >
                 {cell.base}
               </text>
