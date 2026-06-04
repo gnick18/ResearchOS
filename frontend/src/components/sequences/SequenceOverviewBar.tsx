@@ -72,7 +72,13 @@ export interface SequenceOverviewBarProps {
    * when a click lands on a feature; a bare-track click still scrolls via
    * `onScrollToBp`. Omitted => the bar reverts to scroll-only on every click.
    */
-  onFeatureClick?: (feature: OverviewFeature) => void;
+  onFeatureClick?: (feature: OverviewFeature, mods: { shiftKey: boolean }) => void;
+  /**
+   * Shift-click on the bare track EXTENDS the current selection to the clicked
+   * bp (matching the Map's shift-click span), instead of scrolling. Only fired
+   * for a shift-click that does not land on a feature.
+   */
+  onShiftSelectToBp?: (bp: number) => void;
   /**
    * overview zoom bot — the bp DOMAIN the bar currently spans (its OWN zoom).
    * Defaults to the whole molecule when omitted, preserving the original
@@ -124,6 +130,7 @@ export default function SequenceOverviewBar({
   window: win,
   onScrollToBp,
   onFeatureClick,
+  onShiftSelectToBp,
   extent,
   onExtentChange,
   selection,
@@ -223,7 +230,13 @@ export default function SequenceOverviewBar({
       const bpAtPointer = clientXToBp(e.clientX, false);
       const hit = onFeatureClick ? featureAtBp(bpAtPointer) : null;
       if (hit) {
-        onFeatureClick?.(hit);
+        onFeatureClick?.(hit, { shiftKey: e.shiftKey });
+        return;
+      }
+      // Bare-track SHIFT-click extends the current selection to this bp (like the
+      // Map's shift-span), instead of scrolling/dragging.
+      if (e.shiftKey && onShiftSelectToBp) {
+        onShiftSelectToBp(bpAtPointer);
         return;
       }
       // Bare track: click-to-jump (center the window on the click), then drag.
@@ -233,7 +246,7 @@ export default function SequenceOverviewBar({
       setDragBp(bp);
       onScrollToBp(bp);
     },
-    [clientXToBp, onScrollToBp, onFeatureClick, featureAtBp],
+    [clientXToBp, onScrollToBp, onFeatureClick, onShiftSelectToBp, featureAtBp],
   );
 
   // overview featclick bot — the VIEWPORT BOX gets its OWN pointer-down so a click

@@ -1538,20 +1538,48 @@ export default function SequenceEditView({
   // click. It does NOT change the view mode, so the user stays where they are.
   // A bare-track click in the strip keeps the existing scroll-to-bp behavior.
   const handleOverviewFeatureClick = useCallback(
-    (feature: OverviewFeature) => {
-      if (typeof feature.index === "number" && feature.index >= 0) {
-        selectFeature(feature.index);
+    (feature: OverviewFeature, mods: { shiftKey: boolean }) => {
+      // Resolve the feature's index (carried index first, then name+range fallback
+      // for duplicate-key annotations, like handleMapFeatureClick).
+      let idx =
+        typeof feature.index === "number" && feature.index >= 0 ? feature.index : -1;
+      if (idx < 0) {
+        idx = doc.features.findIndex(
+          (f) => f.name === feature.name && f.start === feature.start && f.end === feature.end,
+        );
+        if (idx < 0) idx = doc.features.findIndex((f) => f.name === feature.name);
+      }
+      if (idx < 0) return;
+      const f = doc.features[idx];
+      if (!f) return;
+      // SHIFT-click extends from the span anchor through this feature (mirrors the
+      // Map's shift-span); a plain click selects just this feature + sets anchor.
+      if (mods.shiftKey && selAnchor) {
+        const span = spanFromShiftClick(selAnchor, { start: f.start, end: f.end });
+        setSelectedFeatureIdx(idx);
+        setExternalSel(span);
         return;
       }
-      // Defensive fallback: if the index didn't resolve (e.g. a duplicate-key
-      // annotation), match by name + range like handleMapFeatureClick.
-      let idx = doc.features.findIndex(
-        (f) => f.name === feature.name && f.start === feature.start && f.end === feature.end,
-      );
-      if (idx < 0) idx = doc.features.findIndex((f) => f.name === feature.name);
-      if (idx >= 0) selectFeature(idx);
+      selectFeature(idx);
     },
-    [doc.features, selectFeature],
+    [doc.features, selAnchor, selectFeature],
+  );
+
+  // Shift-click on the overview's BARE track extends the current selection to the
+  // clicked bp (matches the Map's shift behavior). Anchor = the feature/selection
+  // origin; if only a free-hand area is selected (no feature anchor), use that as
+  // the anchor and stabilize it so further shift-clicks keep extending from it.
+  const handleOverviewShiftSelectToBp = useCallback(
+    (bp: number) => {
+      const anchor =
+        selAnchor ?? externalSel ?? (sel.hasRange ? { start: sel.lo, end: sel.hi } : null);
+      if (!anchor) return;
+      if (!selAnchor) setSelAnchor(anchor);
+      const span = spanFromShiftClick(anchor, { start: bp, end: bp });
+      setSelectedFeatureIdx(null);
+      setExternalSel(span);
+    },
+    [selAnchor, externalSel, sel.hasRange, sel.lo, sel.hi],
   );
 
   // ADD: open the editor seeded from the current drag-selection (or a 1-bp stub
@@ -2902,6 +2930,7 @@ export default function SequenceEditView({
                       // SELECTS that feature (range + band), reusing selectFeature;
                       // a bare-track click still scrolls via onScrollToBp.
                       onFeatureClick={handleOverviewFeatureClick}
+                      onShiftSelectToBp={handleOverviewShiftSelectToBp}
                       // overview zoom bot — the bar's OWN zoom (independent of the
                       // detail-view linearZoom). Scroll / pinch over the bar
                       // updates this extent; it never touches the detail zoom.
