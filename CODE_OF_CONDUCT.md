@@ -20,7 +20,7 @@ This Code of Conduct applies in all community spaces, including the repository, 
 
 ## Enforcement
 
-Concerns about behavior in the community may be reported to the project maintainer at gnickles@wisc.edu. All reports will be reviewed promptly, handled with discretion, and kept confidential to the extent possible. Maintainers are obligated to respect the privacy and safety of anyone who reports a concern.
+Concerns about behavior in the community may be reported to the project maintainer at support@research-os.app. All reports will be reviewed promptly, handled with discretion, and kept confidential to the extent possible. Maintainers are obligated to respect the privacy and safety of anyone who reports a concern.
 
 ## Attribution
 
