@@ -17,7 +17,8 @@ Multi-session reality: several chats run in parallel. Worktrees branch off a ses
 
 ## Git state at handoff
 
-- Branch: `main`. Local `main` is at `b503a7a1` and is ~32 commits AHEAD of `origin/main` (`d076509e`). Grant works locally; the sharing work, sequences work, unified-model docs, email-forwarding docs, and Telegram/settings fixes are all committed to local `main` but NOT pushed. Do not push without Grant.
+- Branch: `main`. Local `main` is at `b6db184c`, about 9 commits AHEAD of `origin/main` (`9e0d7142`). A parallel session pushed to origin during this session, so the gap is smaller than it was, but local is still ahead. Grant works locally and pushes deliberately; do NOT push to origin without his say-so.
+- Note for the inheritor: several chats run in parallel and there are OTHER dated handoff docs being maintained by those workers (e.g. the sequences/landing worker's handoff, the source of the recent `docs(handoff): ...primer.../...hero-wave...` commits). THIS file (`HANDOFF_2026-06-04_orchestrator.md`) is the master orchestrator's; do not confuse it with theirs.
 
 ## THE LIVE THREAD (highest priority), Unified Data Model + Collaborate
 
@@ -52,10 +53,13 @@ The eventual production build needs Grant to provision a Cloudflare Worker + Dur
 - Settings page dead-scroll-below-footer fixed via `min-h-0` (`f422a002`).
 - `support@research-os.app` email forwarding is LIVE and verified (ForwardEmail records on Vercel DNS forward to `gnickles@wisc.edu`; a test landed). See `docs/SUPPORT_EMAIL_SETUP.md`.
 - `docs/ROADMAP.md` captures beta feedback from Dylan Duerre as future ideas (reference/citation management, lab equipment manuals, shared instrument calendars, experiment planner), all status `idea`, none started.
+- Unified data model + Collaborate: 6-facet deep research plus a synthesis design doc (`docs/proposals/UNIFIED_DATA_MODEL.md`), then TWO Loro prototypes both PASSED, so Loro is CONFIRMED as the full substrate (data + history + live text), no Automerge/Yjs fallback. See the LIVE THREAD section above. Spikes on `main` at `spikes/unified-model-loro/` (data model) and `spikes/unified-model-loro-binding/` (live binding); the earlier collab feasibility spike is `spikes/collab-yjs/`.
+- Settings revamp DONE (parallel-session build `a73553f4` + this session's D1 claimed-account Security copy `26ccae53` and D6 forgot-password clarifier `78156c39`; relay constants `PENDING_SHARE_CAP = 100` + `FREE_STORAGE_BYTES = 5 GiB` in `frontend/src/lib/sharing/relay/limits.ts`).
+- Code of Conduct contact now points at `support@research-os.app` (`ab5637f6`).
 
 ## Open and ready (not started)
 
-- **Settings revamp is DONE** (a parallel session shipped the build in `a73553f4`, and this session closed the two leftover D1/D6 copy gaps: claimed-account Security copy in `26ccae53`, forgot-password clarifier in `78156c39`). The relay constants landed as shared `PENDING_SHARE_CAP = 100` + `FREE_STORAGE_BYTES = 5 GiB` in `frontend/src/lib/sharing/relay/limits.ts`. No open work here.
+- **Top open item, the unified-model next step:** before scoping the phased build, mount the Loro CodeMirror binding inside ONE real React 19 component behind a flag (the Notes pilot is the natural host) to prove it under React-19 concurrent rendering (the spikes proved it in isolation only), and plan the WASM load strategy (brotli + `compileStreaming` + warm-on-onboarding). Details in the LIVE THREAD section and design-doc section 12.1. Then scope the phased build (notes pilot first) for Grant's sign-off. (Settings revamp is DONE, see Recently shipped.)
 - Telegram standby state ("another tab") could get the same quiet-dot + popover treatment as the conflict state, for visual consistency (optional follow-up Grant was offered).
 - TOFU transparency-log endpoint for the directory (needs a `KT_LOG_SIGNING_KEY` provisioned).
 - Sharing prod housekeeping: add `AUTH_SECRET` to Vercel prod, verify `research-os.app` in Resend as the sending domain, swap CoC/privacy/abuse contacts to `support@research-os.app` (now that it works), confirm prod R2 CORS origins.
