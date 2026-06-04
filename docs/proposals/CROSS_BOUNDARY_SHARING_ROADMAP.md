@@ -41,7 +41,7 @@ A method is often a pointer. Structured methods (PCR, LC gradient, plate, cell c
 An experiment (a task) is a small composite, the experiment record plus its child notes, result files, and images. Same shape as a project but smaller, so it is the natural stepping stone, walk the experiment subtree, pack records plus files, remap ids on import. Proves the composite path at a manageable size before projects.
 
 ### Tier 4, Projects (the big one)
-A project is the whole subtree, experiments, notes, methods, files. It is the largest and most-wanted share, and it is where two new problems appear that the smaller tiers never hit, scale (below) and import semantics (below).
+A project is the whole subtree, experiments, notes, methods, files. It is the largest and most-wanted share, and it is where two new problems appear that the smaller tiers never hit, scale (below) and import semantics (below). Fleshed-out design in `CROSS_BOUNDARY_SHARING_PROJECTS.md` (manifest + per-file sealing, always-new import, id-remap at scale).
 
 ---
 
