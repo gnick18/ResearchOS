@@ -17,6 +17,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Tooltip from "@/components/Tooltip";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import type { EditFeature } from "@/lib/sequences/edit-model";
 import {
   findExactDna,
@@ -26,11 +27,18 @@ import {
   findCloseProtein,
   isDnaQuery,
   isProteinQuery,
+  seqIdentity,
   type FindMode,
   type FindMatch,
   type CloseDnaMatch,
   type CloseProteinMatch,
 } from "@/lib/sequences/find";
+
+// debounce-perf bot — how long the editor must stay quiet before the whole-
+// sequence find scan re-runs. The visible window / caret / typed query stay
+// immediate; only the (up to ~25-30 ms on a 50 kb plasmid) cross-sequence scan
+// is deferred so typing in the editor with Find open stays smooth.
+const FIND_DEBOUNCE_MS = 200;
 
 function IconSearch({ className }: { className?: string }) {
   return (
@@ -74,6 +82,12 @@ export interface FindResult {
   matches: FindMatch[];
   /** When the DNA exact search came up empty and we fell back to close-match. */
   isCloseMatch: boolean;
+  /** debounce-perf bot — STALE GUARD KEY. The cheap identity (length + hash) of
+   *  the sequence revision these matches were computed against. Match positions
+   *  are absolute, so the parent renders / selects them ONLY while this equals
+   *  the live sequence's identity; once an edit lands they are discarded until
+   *  the debounced rescan catches up (never painted at shifted positions). */
+  seqKey: string;
 }
 
 export function SequenceFindBox({
@@ -112,6 +126,15 @@ export function SequenceFindBox({
     return () => clearTimeout(t);
   }, []);
 
+  // debounce-perf bot — the whole-sequence scan is the per-keystroke cost on big
+  // plasmids, so DEBOUNCE the sequence the scan runs against. The typed `query`
+  // and `mode` stay immediate (those are box-local and cheap to react to); only
+  // editor-driven `seq` changes are deferred. The scan therefore runs against
+  // `searchSeq` (a settled revision), and we report THAT revision's identity so
+  // the parent can reject the matches the instant the live sequence diverges.
+  const searchSeq = useDebouncedValue(seq, FIND_DEBOUNCE_MS);
+  const searchSeqKey = useMemo(() => seqIdentity(searchSeq), [searchSeq]);
+
   // Run the search for the current mode + query. Pure + memoized: the box is the
   // single source of truth for the match list, reported up via onResults.
   const { matches, isCloseMatch, note, invalid } = useMemo(() => {
@@ -120,20 +143,20 @@ export function SequenceFindBox({
       return { matches: [] as FindMatch[], isCloseMatch: false, note: "", invalid: false };
     }
     if (mode === "name") {
-      const m = findByName(q, seq, features, circular);
+      const m = findByName(q, searchSeq, features, circular);
       return { matches: m as FindMatch[], isCloseMatch: false, note: "", invalid: false };
     }
     if (mode === "protein") {
       if (!isProteinQuery(q)) {
         return { matches: [] as FindMatch[], isCloseMatch: false, note: "Enter amino acids", invalid: true };
       }
-      const m = findProtein(q, seq);
+      const m = findProtein(q, searchSeq);
       if (m.length > 0) {
         return { matches: m, isCloseMatch: false, note: "", invalid: false };
       }
       // No exact frame hit — surface the closest BLOSUM62-scored peptide site(s),
       // labeled with percent identity, mirroring the DNA closest-match fallback.
-      const close = findCloseProtein(q, seq);
+      const close = findCloseProtein(q, searchSeq);
       if (close.length > 0) {
         const best = close[0] as CloseProteinMatch;
         return {
@@ -149,13 +172,13 @@ export function SequenceFindBox({
     if (!isDnaQuery(q)) {
       return { matches: [] as FindMatch[], isCloseMatch: false, note: "Enter DNA bases", invalid: true };
     }
-    const exact = findExactDna(q, seq, circular);
+    const exact = findExactDna(q, searchSeq, circular);
     if (exact.length > 0) {
       return { matches: exact, isCloseMatch: false, note: "", invalid: false };
     }
     // No exact hit — automatically surface the closest approximate site(s),
     // clearly labeled, rather than reporting a bare "0 / 0".
-    const close = findCloseDna(q, seq, { circular });
+    const close = findCloseDna(q, searchSeq, { circular });
     if (close.length > 0) {
       const best = close[0] as CloseDnaMatch;
       return {
@@ -166,15 +189,18 @@ export function SequenceFindBox({
       };
     }
     return { matches: [] as FindMatch[], isCloseMatch: false, note: "", invalid: false };
-  }, [mode, query, seq, features, circular]);
+  }, [mode, query, searchSeq, features, circular]);
 
   // Report results upward whenever they change. Effect (not render) so the
-  // parent's state update never runs during this component's render.
+  // parent's state update never runs during this component's render. The
+  // reported `seqKey` is the identity of the (debounced) sequence the matches
+  // were computed against, so the parent can reject them once the live sequence
+  // diverges (stale guard — absolute positions must not be painted post-edit).
   const reportRef = useRef(onResults);
   reportRef.current = onResults;
   useEffect(() => {
-    reportRef.current({ matches, isCloseMatch });
-  }, [matches, isCloseMatch]);
+    reportRef.current({ matches, isCloseMatch, seqKey: searchSeqKey });
+  }, [matches, isCloseMatch, searchSeqKey]);
 
   const activeMode = MODES.find((m) => m.mode === mode) ?? MODES[0];
   const showCount = query.trim().length >= 1 && !invalid;

@@ -68,6 +68,7 @@ import {
 } from "@/lib/sequences/molecular-clipboard";
 import { useSequenceEditor } from "@/lib/sequences/use-sequence-editor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useStaleGuardedValue } from "@/hooks/useDebouncedValue";
 import {
   historyEngine,
   canonicalize,
@@ -148,6 +149,7 @@ import {
 // protein). It owns mode + query and reports matches up via onResults.
 import { SequenceFindBox, type FindResult } from "./SequenceFindBox";
 import type { FindMatch } from "@/lib/sequences/find";
+import { seqIdentity } from "@/lib/sequences/find";
 import {
   ExportMenuDropdown,
   type ExportMenuItem,
@@ -466,6 +468,14 @@ export default function SequenceEditView({
   const [findMatches, setFindMatches] = useState<FindMatch[]>([]);
   const [findActive, setFindActive] = useState(0);
   const [findIsClose, setFindIsClose] = useState(false);
+  // debounce-perf bot — STALE GUARD KEY. The identity of the sequence revision
+  // `findMatches` were computed against (reported by the debounced Find box).
+  // Find positions are absolute, so an edit shifts them; we render / select a
+  // match ONLY while this still equals the live sequence's identity. The moment
+  // the live sequence diverges (an edit landed but the debounced rescan has not
+  // caught up) the matches are treated as PENDING and nothing stale is painted,
+  // rather than risking a highlight at an off-by-shift position.
+  const [findMatchesKey, setFindMatchesKey] = useState<string>("");
   const [selectRangeOpen, setSelectRangeOpen] = useState(false);
   const [goToOpen, setGoToOpen] = useState(false);
 
@@ -532,10 +542,17 @@ export default function SequenceEditView({
     return [...set].sort();
   }, [doc.features]);
 
-  // Translation tracks: amino-acid translation of CDS-like features (opt-in),
-  // plus computed ORFs when that layer is on. Both render as SeqViz translation
-  // tracks, which is the only translation primitive the renderer exposes.
-  const translations: TranslationProp[] = useMemo(() => {
+  // debounce-perf bot — a CHEAP identity (length + hash) of the LIVE sequence,
+  // computed once and shared by every stale guard (debounced ORF tracks + the
+  // Find match guard). Absolute-position derivations are only valid for the exact
+  // revision they were computed against; comparing this key rejects any stale
+  // result before it can be painted at shifted coordinates.
+  const liveSeqKey = useMemo(() => seqIdentity(doc.seq), [doc.seq]);
+
+  // CDS-feature translation tracks (opt-in). These come from `doc.features`,
+  // whose coordinates the editor shifts ATOMICALLY with the bases on each edit,
+  // so they are always in sync with the live sequence and stay LIVE (cheap).
+  const cdsTranslations: TranslationProp[] = useMemo(() => {
     const out: TranslationProp[] = [];
     // Central-dogma dedup: when a locus carries overlapping gene/mRNA/CDS, only
     // the one closest to the protein gets a track, so the same translation is
@@ -557,25 +574,49 @@ export default function SequenceEditView({
         ...(f.locations && f.locations.length > 1 ? { segments: f.locations } : {}),
       });
     }
-    if (view.showOrfs) {
-      // sequence-view legibility bot — ORF overlay tracks are COMPUTED guesses
-      // (ATG-to-stop runs), not annotated CDS. Tag them with `orf: true` and a
-      // clearer "ORF" label so the renderer can give them a muted / outline
-      // treatment, keeping them visually distinct from your real CDS
-      // translations.
-      for (const o of findOrfs(doc.seq)) {
-        out.push({
-          start: o.start,
-          end: o.end,
-          direction: o.strand,
-          name: "ORF",
-          color: "#94a3b8",
-          orf: true,
-        });
-      }
-    }
     return out;
-  }, [doc.features, doc.seq, view.showTranslation, view.showOrfs]);
+  }, [doc.features, view.showTranslation]);
+
+  // debounce-perf bot — ORF overlay tracks are COMPUTED from the WHOLE sequence
+  // (ATG-to-stop runs), an ~O(n) scan that re-ran on every keystroke when the
+  // layer was on. DEBOUNCE it keyed on the live sequence identity, and STALE-
+  // GUARD it: ORF spans are absolute positions, so a scan over an old revision
+  // must never be drawn against the edited sequence (shifted = wrong arrows).
+  // The input carries the layer toggle too, so flipping it off settles to [] and
+  // flipping it on triggers a rescan. `value` is null while a recompute is owed;
+  // we simply omit ORFs until the settled scan reports tracks keyed to the live
+  // sequence (the `findOrfs` math itself is unchanged — only WHEN it runs).
+  const orfTranslations = useStaleGuardedValue<
+    { seq: string; on: boolean },
+    TranslationProp[]
+  >(
+    useMemo(() => ({ seq: doc.seq, on: view.showOrfs }), [doc.seq, view.showOrfs]),
+    // Key derived PURELY from the input arg (never the live closure) so the
+    // effect tags the result with the SAME revision it scanned. Reuse the cached
+    // liveSeqKey only when the arg IS the live seq (the common case); otherwise
+    // hash the arg's own bases.
+    (inp) => (inp.on ? `on:${inp.seq === doc.seq ? liveSeqKey : seqIdentity(inp.seq)}` : "off"),
+    (inp) =>
+      !inp.on
+        ? []
+        : findOrfs(inp.seq).map((o) => ({
+            start: o.start,
+            end: o.end,
+            direction: o.strand,
+            name: "ORF",
+            color: "#94a3b8",
+            orf: true,
+          })),
+    200,
+  );
+
+  // Translation tracks fed to the renderer: live CDS tracks plus the debounced/
+  // stale-guarded ORF tracks (omitted while a rescan is pending, never shown at
+  // stale positions). SeqViz renders these as its translation primitive.
+  const translations: TranslationProp[] = useMemo(
+    () => [...cdsTranslations, ...(orfTranslations.value ?? [])],
+    [cdsTranslations, orfTranslations.value],
+  );
 
   // Restriction-enzyme cut sites. `showEnzymes` (the rail toggle) is the master
   // visibility lever; the Phase 2d picker chooses WHICH enzymes are active.
@@ -1888,15 +1929,30 @@ export default function SequenceEditView({
     setFindOpen(true);
   }, []);
 
+  // debounce-perf bot — whether the current `findMatches` were computed against
+  // the live sequence. `findMatchesFresh` is the gate every position-bearing
+  // consumer (highlights / prev-next selection) must check: when false, an edit
+  // has landed since the matches were computed and their absolute positions are
+  // stale, so we paint / select nothing until the debounced rescan reports
+  // matches keyed to the new sequence. No `findMatches` -> always fresh (an empty
+  // set is position-free). `liveSeqKey` is computed once near the top of the
+  // component (the ORF stale-guard shares the same identity).
+  const findMatchesFresh =
+    findMatches.length === 0 || findMatchesKey === liveSeqKey;
+
   const goToMatch = useCallback(
     (idx: number) => {
-      if (findMatches.length === 0) return;
+      // debounce-perf bot — STALE GUARD: prev/next must not jump the selection to
+      // a position computed against a stale sequence revision. While the matches
+      // are stale (an edit landed, rescan pending) prev/next is a no-op until the
+      // debounced rescan lands fresh, live-keyed matches.
+      if (findMatches.length === 0 || !findMatchesFresh) return;
       const i = ((idx % findMatches.length) + findMatches.length) % findMatches.length;
       setFindActive(i);
       const m = findMatches[i];
       selectSpan(Math.min(m.start, m.end), Math.max(m.start, m.end));
     },
-    [findMatches, selectSpan],
+    [findMatches, findMatchesFresh, selectSpan],
   );
 
   // GO TO — jump/scroll the view to a coordinate and place the caret there,
@@ -1922,6 +1978,7 @@ export default function SequenceEditView({
     (result: FindResult) => {
       setFindMatches(result.matches);
       setFindIsClose(result.isCloseMatch);
+      setFindMatchesKey(result.seqKey);
       if (result.matches.length > 0) {
         setFindActive(0);
         const m = result.matches[0];
@@ -1937,14 +1994,18 @@ export default function SequenceEditView({
   // approximate (closest-match) DNA fallback, the default search-yellow for an
   // exact / name / protein hit. Only active while the box is open.
   const findHighlights = useMemo(() => {
-    if (!findOpen || findMatches.length === 0) return [];
+    // debounce-perf bot — STALE GUARD: never paint a highlight whose positions
+    // were computed against a different sequence revision than the one on screen
+    // (an edit shifts every absolute index). When the matches are stale we draw
+    // nothing until the debounced rescan reports matches keyed to the live seq.
+    if (!findOpen || findMatches.length === 0 || !findMatchesFresh) return [];
     const color = findIsClose ? "#fde68a" : "#fbe58b";
     return findMatches.map((m) => ({
       start: Math.min(m.start, m.end),
       end: Math.max(m.start, m.end),
       color,
     }));
-  }, [findOpen, findMatches, findIsClose]);
+  }, [findOpen, findMatches, findIsClose, findMatchesFresh]);
 
   // Intercept edit intents from SeqViz: a chunk DELETE (a selected range, i.e.
   // count > 1) routes through the confirmation dialog so the user sees which
@@ -2687,6 +2748,7 @@ export default function SequenceEditView({
                       setFindMatches([]);
                       setFindActive(0);
                       setFindIsClose(false);
+                      setFindMatchesKey("");
                     }}
                   />
                 ) : null}

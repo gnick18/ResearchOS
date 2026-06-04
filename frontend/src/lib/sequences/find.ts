@@ -65,6 +65,25 @@ export interface CloseDnaMatch extends FindMatch {
 
 const DNA_QUERY = /[^ACGTURYSWKMBDHVN]/i;
 
+/**
+ * debounce-perf bot — a CHEAP identity for a sequence, used as the stale-guard
+ * key when search results are debounced (the whole-sequence scan is the real
+ * per-keystroke cost on big plasmids). Find matches carry ABSOLUTE positions, so
+ * a result computed against one sequence revision must never be rendered against
+ * a different revision (the bases, hence the match positions, have shifted). We
+ * key each reported result to this identity and reject any whose key != the live
+ * sequence's identity. Length + a djb2-style rolling hash over the bases is O(n)
+ * but ~free relative to the alignment engine, and collisions that survive an
+ * identical length are astronomically unlikely for a base-edit.
+ */
+export function seqIdentity(seq: string): string {
+  let h = 5381;
+  for (let i = 0; i < seq.length; i++) {
+    h = ((h << 5) + h + seq.charCodeAt(i)) | 0;
+  }
+  return `${seq.length}:${h >>> 0}`;
+}
+
 /** True when `q` is a usable DNA / IUPAC query (non-empty, only valid codes). */
 export function isDnaQuery(q: string): boolean {
   const t = q.trim();

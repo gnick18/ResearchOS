@@ -7,8 +7,33 @@ import {
   findCloseProtein,
   isDnaQuery,
   isProteinQuery,
+  seqIdentity,
 } from "./find";
 import type { EditFeature } from "./edit-model";
+
+// debounce-perf bot — the cheap identity that keys the find/ORF stale guards.
+// Different revisions must produce different identities so a debounced result
+// computed for one revision is never accepted against another.
+describe("seqIdentity", () => {
+  it("is stable for the same sequence across separate calls", () => {
+    expect(seqIdentity("ACGTACGTACGT")).toBe(seqIdentity("ACGTACGTACGT"));
+  });
+
+  it("changes when a base is inserted (length differs)", () => {
+    expect(seqIdentity("ACGTACGT")).not.toBe(seqIdentity("ACGTACGTA"));
+  });
+
+  it("changes when a base is substituted at the same length", () => {
+    // A single substitution must change the identity, or a stale result could
+    // be wrongly accepted against the edited sequence (the off-by-shift bug).
+    expect(seqIdentity("ACGTACGT")).not.toBe(seqIdentity("ACGTACGA"));
+  });
+
+  it("encodes the length as the prefix", () => {
+    expect(seqIdentity("ACGT").startsWith("4:")).toBe(true);
+    expect(seqIdentity("").startsWith("0:")).toBe(true);
+  });
+});
 
 describe("findExactDna", () => {
   it("finds a forward-strand exact match", () => {
