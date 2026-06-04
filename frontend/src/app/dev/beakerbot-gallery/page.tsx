@@ -808,6 +808,60 @@ export default function BeakerBotGalleryPage() {
           Timing: {selected.timingNote}
         </p>
       </section>
+
+      {/* Alive idle showcase. Standalone from the catalog/dropdown (which
+          the gallery tests assert is exactly 35 entries) so it can be
+          previewed without changing those counts. Shows the `alive` prop
+          on the standing case: a subtle body sway, periodic blink, and
+          slow gaze drift, with multiple instances so the per-instance
+          de-sync (no lockstep blinking) is visible at a glance. */}
+      <section
+        aria-label="Alive idle showcase"
+        data-testid="gallery-alive-showcase"
+        className="mt-4 rounded-lg border border-slate-200 bg-white p-4"
+      >
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-rose-100 px-2 py-0.5 text-meta font-medium uppercase tracking-wide text-rose-800">
+            Alive (idle)
+          </span>
+          <h2 className="text-title font-semibold text-slate-900">
+            alive prop
+          </h2>
+        </div>
+        <p className="mt-2 text-body text-slate-700">
+          Opt-in subtle idle for the standing BeakerBot. Gentle body sway,
+          a periodic blink, and slow gaze drift, all pure CSS. Gated to the
+          neutral standing poses (idle + pointing*) and disabled under
+          prefers-reduced-motion. Each instance gets a randomized delay so
+          they do not blink in lockstep.
+        </p>
+        <div className="mt-4 flex flex-wrap items-end gap-8">
+          <div className="flex flex-col items-center gap-2">
+            <BeakerBot pose="idle" alive className="h-40 w-40 text-sky-500" />
+            <span className="text-meta text-slate-500">idle + alive</span>
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <BeakerBot pose="idle" alive className="h-40 w-40 text-sky-500" />
+            <span className="text-meta text-slate-500">
+              idle + alive (de-synced)
+            </span>
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <BeakerBot
+              pose="pointing"
+              alive
+              className="h-40 w-40 text-sky-500"
+            />
+            <span className="text-meta text-slate-500">pointing + alive</span>
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <BeakerBot pose="idle" className="h-40 w-40 text-sky-500" />
+            <span className="text-meta text-slate-500">
+              idle (no alive, reference)
+            </span>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

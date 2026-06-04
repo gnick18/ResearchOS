@@ -22,6 +22,74 @@
   }
 }
 
+/* ===== Alive idle ===================================================
+ *
+ * Opt-in subtle "alive" idle for the neutral standing BeakerBot (the
+ * `alive` prop, gated to the idle + pointing* poses in BeakerBot.tsx).
+ * Three layered channels, all pure CSS keyframes, ported from the
+ * standalone tools/beakerbot-avatar idle loop:
+ *   (a) body sway  : slow rotate +/-2.2deg + tiny translateY, ~6.4s.
+ *   (b) eye blink  : both eye <g>'s snap scaleY to 0.08 for ~140ms
+ *                    once per cycle (~5.4s), with a per-instance delay.
+ *   (c) gaze drift : pupils translate +/-0.6 x, +/-0.4 y on a slow,
+ *                    wandering cycle (~7.5s).
+ * Per-instance animation-delay + duration jitter come in via CSS custom
+ * properties set on the root after mount (see BeakerBot.tsx), so two
+ * BeakerBots on screen don't blink in lockstep. The var() fallbacks here
+ * are the deterministic SSR / first-paint defaults (delay 0). All three
+ * collapse to `animation: none` under prefers-reduced-motion below. */
+
+/* Body sway: gentle rocking, anchored at the beaker base (the .root
+ * transform-origin of 50% 80%). Amplitude stays well under the giggle /
+ * volcano magnitudes so it reads as breathing, never distracting. */
+@keyframes beakerBotAliveSway {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2.2deg);
+  }
+  50% {
+    transform: translateY(-0.6%) rotate(2.2deg);
+  }
+}
+
+/* Eye blink: hold open most of the cycle, snap closed (scaleY 0.08)
+ * around 4%, reopen by ~6.5%. With a ~5.4s cycle that 2.5% window is
+ * roughly 140ms of closed eye, matching the reference blink feel. */
+@keyframes beakerBotAliveBlink {
+  0%,
+  3.5%,
+  6.5%,
+  100% {
+    transform: scaleY(1);
+  }
+  4.5%,
+  5.5% {
+    transform: scaleY(0.08);
+  }
+}
+
+/* Gaze drift: pupils wander slowly within a small box (+/-0.6 x,
+ * +/-0.4 y in view-box units). The waypoints are uneven so the drift
+ * reads as idle looking-around rather than a clean back-and-forth. */
+@keyframes beakerBotAliveGaze {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(0.6px, -0.2px);
+  }
+  45% {
+    transform: translate(-0.4px, 0.4px);
+  }
+  70% {
+    transform: translate(0.5px, 0.3px);
+  }
+  85% {
+    transform: translate(-0.6px, -0.3px);
+  }
+}
+
 /* Bounce burst: ~600ms acknowledgement on Next-click step transitions.
  * The wizard sets pose=bouncing, schedules a 650ms timer, then resets
  * pose to the step's resting pose. */
@@ -544,6 +612,32 @@
 
 .idle.animated {
   animation: beakerBotIdleBob 2.6s ease-in-out infinite;
+}
+
+/* Alive idle channels. Applied via the `alive` prop on the root <svg>
+ * (body sway), the eye <g> wrappers (blink), and the default pupil
+ * circles (gaze). Durations + delays read per-instance CSS vars set
+ * after mount, with the var() fallbacks acting as the deterministic
+ * first-paint defaults so SSR + first client render agree. */
+.aliveSway.animated {
+  animation: beakerBotAliveSway var(--alive-sway-dur, 6.4s) ease-in-out
+    var(--alive-sway-delay, 0s) infinite;
+}
+
+.aliveBlink.animated {
+  transform-box: view-box;
+  /* Anchor the scaleY snap at the eye row (y=18) so the lid closes
+   * toward the eye's own center, not the view-box origin. */
+  transform-origin: 20px 18px;
+  animation: beakerBotAliveBlink var(--alive-blink-dur, 5.4s) ease-in-out
+    var(--alive-blink-delay, 0s) infinite;
+}
+
+.aliveGaze {
+  transform-box: view-box;
+  transform-origin: center;
+  animation: beakerBotAliveGaze var(--alive-gaze-dur, 7.5s) ease-in-out
+    var(--alive-gaze-delay, 0s) infinite;
 }
 
 .bouncing.animated {
@@ -1100,6 +1194,9 @@
  * active. */
 @media (prefers-reduced-motion: reduce) {
   .idle.animated,
+  .aliveSway.animated,
+  .aliveBlink.animated,
+  .aliveGaze,
   .bouncing.animated,
   .thinking.animated,
   .celebrating.animated,

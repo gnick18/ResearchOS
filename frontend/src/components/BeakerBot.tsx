@@ -174,6 +174,29 @@ export interface BeakerBotProps {
    *  silhouette. Animation is ALSO disabled regardless of this
    *  prop when the user's OS has `prefers-reduced-motion: reduce`. */
   animated?: boolean;
+  /** Opt the neutral/standing BeakerBot into a subtle "alive" idle:
+   *  a slow body sway, a periodic blink, and a slow gaze drift, all
+   *  pure CSS keyframes. Default false, so every existing call site is
+   *  unchanged unless it opts in. This is for the decorative standing
+   *  case (a BeakerBot sitting on a hero, header, or empty state); it
+   *  layers gentle life onto an otherwise static figure.
+   *
+   *  It only takes effect when ALL of these hold:
+   *    - `alive` is true,
+   *    - `animated` is true (the existing animation gate), and
+   *    - the OS is not set to `prefers-reduced-motion: reduce`
+   *      (handled in CSS, the idle keyframes go to `animation: none`).
+   *
+   *  Pose gate: the alive idle ONLY applies on the benign standing
+   *  poses that have no eye or body loop of their own, namely `idle`,
+   *  `pointing`, `pointing-up`, and `pointing-down` (see ALIVE_POSES).
+   *  Any pose that already drives the eyes or body (sleeping, thinking,
+   *  reading, bow-wink, the laugh / scene poses, etc.) keeps its own
+   *  motion and the alive idle yields entirely, so the two never
+   *  double-animate the same element. On `idle` the alive sway also
+   *  REPLACES the default idle-bob root animation (rather than stacking
+   *  a second transform on the root) so only one root keyframe runs. */
+  alive?: boolean;
   /** Per-instance click easter-egg selector.
    *  - `"heart"` (default): click triggers a brief 200ms body wobble
    *    plus a pink heart that pops, drifts upward, and fades. Multiple
@@ -200,6 +223,21 @@ const DIRECTIONAL_POSES: ReadonlySet<BeakerBotPose> = new Set([
   "waving",
   "typing",
   "typing-on-laptop",
+]);
+
+// Poses the `alive` idle is allowed to decorate. These are the neutral
+// standing / pointing poses that have NO eye animation and NO body loop
+// of their own (pointing* have no root animation; idle has only the
+// idle-bob, which the alive sway replaces). Every other pose drives the
+// eyes and/or body itself, so the alive idle yields to avoid two
+// keyframes fighting over the same element. Keeping this an explicit
+// allowlist (rather than a denylist) means a future pose is static under
+// `alive` until it is deliberately added here.
+const ALIVE_POSES: ReadonlySet<BeakerBotPose> = new Set([
+  "idle",
+  "pointing",
+  "pointing-up",
+  "pointing-down",
 ]);
 
 /** Map each pose to its root-level animation class. Sub-element
@@ -369,6 +407,7 @@ export default function BeakerBot({
   ariaLabel = "ResearchOS assistant",
   noLiquid = false,
   animated = true,
+  alive = false,
   easterEgg = "heart",
 }: BeakerBotProps) {
   // Fixed gradient id. Was `useId()` historically (one per mount, to avoid
@@ -399,6 +438,34 @@ export default function BeakerBot({
   const heartWobbleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+
+  // Alive-idle de-sync. Two BeakerBots painted at once must not blink or
+  // sway in lockstep, so each instance gets randomized animation delays
+  // and a slight duration jitter, fed to the keyframes as CSS custom
+  // properties on the root <svg>. We compute them in an effect AFTER
+  // mount (NOT during render) so the server-rendered HTML and the first
+  // client render both use the same deterministic defaults (delay 0, the
+  // CSS base durations); that avoids a React 19 hydration mismatch. Once
+  // mounted, the randomized values swap in and the keyframes pick them up
+  // via the var() fallbacks. The vars only matter when `alive` is on, but
+  // computing them is cheap and harmless otherwise.
+  const [aliveVars, setAliveVars] = useState<React.CSSProperties | null>(null);
+  useEffect(() => {
+    // Stagger each channel independently so blink, sway, and gaze don't
+    // start on the same beat even within one instance. Negative delays
+    // start the loops mid-cycle on first paint (no "everyone frozen at 0"
+    // beat). Small duration jitter (+/- ~12%) keeps two instances from
+    // re-converging after a few cycles.
+    const rand = (min: number, max: number) => min + Math.random() * (max - min);
+    setAliveVars({
+      "--alive-sway-delay": `${rand(-6, 0).toFixed(2)}s`,
+      "--alive-sway-dur": `${rand(5.6, 7.2).toFixed(2)}s`,
+      "--alive-blink-delay": `${rand(-5, 0).toFixed(2)}s`,
+      "--alive-blink-dur": `${rand(4.4, 6.4).toFixed(2)}s`,
+      "--alive-gaze-delay": `${rand(-7, 0).toFixed(2)}s`,
+      "--alive-gaze-dur": `${rand(6.5, 9).toFixed(2)}s`,
+    } as React.CSSProperties);
+  }, []);
 
   useEffect(() => {
     const cleanupTimeouts = heartCleanupTimeoutsRef.current;
@@ -460,11 +527,26 @@ export default function BeakerBot({
 
   const effectivePose = pose;
 
+  // Alive idle only takes effect on the benign standing poses (idle +
+  // pointing*) and only when the animation gate is on. Reduced-motion is
+  // handled in CSS (the idle keyframes resolve to `animation: none`), so
+  // it deliberately does NOT gate this boolean; the classes are still
+  // applied, they just don't move.
+  const aliveActive = alive && animated && ALIVE_POSES.has(effectivePose);
+
   // Mirror via CSS transform so the path data stays canonical
   // (cheaper than maintaining two mirrored sets).
   const flip = DIRECTIONAL_POSES.has(effectivePose) && direction === "left";
 
-  const rootAnim = rootAnimationClass(effectivePose, animated);
+  // On `idle`, the alive sway is the root body animation and it REPLACES
+  // the default idle-bob so only one keyframe runs on the root. On
+  // pointing* the pose has no root animation, so the alive sway is the
+  // only root animation. For every other pose aliveActive is false and
+  // the pose's own root animation is used unchanged.
+  const baseRootAnim = rootAnimationClass(effectivePose, animated);
+  const rootAnim = aliveActive
+    ? `${styles.aliveSway} ${styles.animated}`
+    : baseRootAnim;
   // Heart-wobble override: when easterEgg=heart and we're currently
   // mid-wobble after a click, override the pose's root animation class
   // with the brief 200ms beakerBotHeartWobble keyframe so the click
@@ -499,6 +581,12 @@ export default function BeakerBot({
       className={wrapperClass}
       style={{
         ...(flip ? { transform: "scaleX(-1)" } : undefined),
+        // Per-instance alive-idle de-sync vars (delay + duration jitter).
+        // Set only once mounted (aliveVars is null on the SSR + first
+        // client render) so there's no hydration mismatch; the keyframes
+        // fall back to deterministic defaults until then. Applied on the
+        // root so they cascade to the eye + pupil descendants too.
+        ...(aliveActive && aliveVars ? aliveVars : undefined),
         cursor: "pointer",
         // overflow:visible lets the heart easter-egg paint outside the
         // 40x40 viewBox (hearts drift upward to y=-3 in view-box units
@@ -569,7 +657,9 @@ export default function BeakerBot({
             ? `${styles.sleepEye} ${styles.animated}`
             : animated && effectivePose === "reading"
               ? `${styles.readEye} ${styles.animated}`
-              : undefined
+              : aliveActive
+                ? `${styles.aliveBlink} ${styles.animated}`
+                : undefined
         }
       >
         {effectivePose === "panicked" ? (
@@ -619,7 +709,14 @@ export default function BeakerBot({
             stroke="none"
           />
         ) : (
-          <circle cx="17" cy="18" r="1.2" fill="currentColor" stroke="none" />
+          <circle
+            cx="17"
+            cy="18"
+            r="1.2"
+            fill="currentColor"
+            stroke="none"
+            className={aliveActive ? styles.aliveGaze : undefined}
+          />
         )}
       </g>
       {/* Right eye: wrapped in a <g> so the bow-wink pose can scale
@@ -636,7 +733,9 @@ export default function BeakerBot({
               ? `${styles.sleepEye} ${styles.animated}`
               : animated && effectivePose === "reading"
                 ? `${styles.readEye} ${styles.animated}`
-                : undefined
+                : aliveActive
+                  ? `${styles.aliveBlink} ${styles.animated}`
+                  : undefined
         }
       >
         {effectivePose === "panicked" ? (
@@ -680,7 +779,14 @@ export default function BeakerBot({
             stroke="none"
           />
         ) : (
-          <circle cx="23" cy="18" r="1.2" fill="currentColor" stroke="none" />
+          <circle
+            cx="23"
+            cy="18"
+            r="1.2"
+            fill="currentColor"
+            stroke="none"
+            className={aliveActive ? styles.aliveGaze : undefined}
+          />
         )}
       </g>
       {/* Mouth: smile by default, open-laugh for giggle/rolling, yawn-
