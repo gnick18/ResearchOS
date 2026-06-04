@@ -584,7 +584,11 @@ export default function LinearMap({
           kind: "primer",
           anchorBp: (visLo + visHi) / 2,
           label: `${p.name} (${comma(lo)}..${comma(hi)})`,
-          color: PRIMER_PINK,
+          // primer colors bot — color the primer's tick, leader, AND label in the
+          // primer's own color (carried on p.color, derived from the primer_bind
+          // feature). A forward + reverse pair colored alike are easy to match.
+          // Falls back to the standard primer pink when the primer has none.
+          color: p.color || PRIMER_PINK,
           primerRef: { name: p.name, start: p.start, end: p.end },
         });
       });

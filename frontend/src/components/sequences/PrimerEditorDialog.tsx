@@ -34,6 +34,8 @@ import {
   findBindingSites,
   type BindingSite,
 } from "@/lib/sequences/primer";
+import { colorForType } from "@/lib/sequences/feature-colors";
+import ColorSwatchPicker from "./ColorSwatchPicker";
 
 /** What the dialog hands back on Save. The parent re-derives the feature
  *  geometry from `oligo` (the same findBindingSites path) and persists. */
@@ -46,6 +48,9 @@ export interface PrimerEditorSavePayload {
   /** The chosen binding site (forward coords + strand), or null if it does not
    *  anneal. The parent keeps the previous geometry when null. */
   site: BindingSite | null;
+  /** primer colors bot — the user-chosen primer color (hex), or undefined to use
+   *  the default primer color. Persists on the primer_bind feature. */
+  color?: string;
 }
 
 export interface PrimerEditorRequest {
@@ -58,6 +63,9 @@ export interface PrimerEditorRequest {
   initialDescription: string;
   initialOligo: string;
   initialPhosphorylated: boolean;
+  /** primer colors bot — the primer's current explicit color (hex), or "" when it
+   *  has none (renders with the default primer color). */
+  initialColor?: string;
   /** When true, fields are read-only (no Save, no edits). */
   readOnly?: boolean;
   onSubmit: (payload: PrimerEditorSavePayload) => void;
@@ -67,11 +75,15 @@ export interface PrimerEditorRequest {
 
 // --- inline icons -----------------------------------------------------------
 function IconPrimer({ className }: { className?: string }) {
+  // primer colors bot — SnapGene-style oligo glyph (bar + forward arrow above,
+  // reverse arrow below). Shared shape with the toolbar IconPrimer.
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <line x1="3" y1="16" x2="21" y2="16" />
-      <path d="M4 9h12" />
-      <path d="M13 6l3 3-3 3" />
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <path d="M5 8h11" />
+      <polyline points="14 5.5 17 8 14 10.5" />
+      <path d="M19 16H10" />
+      <polyline points="12 13.5 9 16 12 18.5" />
     </svg>
   );
 }
@@ -115,9 +127,12 @@ function Stat({ label, value, hint }: { label: string; value: React.ReactNode; h
 function BindingViz({
   template,
   site,
+  color: primerColor,
 }: {
   template: string;
   site: BindingSite;
+  /** primer colors bot — the primer's display color for the annealing bracket. */
+  color: string;
 }) {
   const CHAR_W = 9; // px per base (Roboto-Mono-ish monospace cell)
   const PAD = 6; // bases of flanking context on each side
@@ -137,7 +152,7 @@ function BindingViz({
   const footH = 5;
   const hookW = 6;
   const hookH = 4;
-  const color = "#f472b6"; // primer pink (matches feature-colors primer_bind)
+  const color = primerColor; // primer colors bot — the chosen primer color
 
   let linePath = `M ${ax} ${midY} L ${ax + aw} ${midY}`;
   linePath += ` M ${ax} ${midY} L ${ax} ${midY + footH}`; // left foot
@@ -206,6 +221,8 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
   const [description, setDescription] = useState("");
   const [raw, setRaw] = useState("");
   const [phosphorylated, setPhosphorylated] = useState(false);
+  // primer colors bot — the primer's explicit color (hex), or "" for the default.
+  const [color, setColor] = useState("");
   // The user-chosen binding site (index into the found sites). Defaults to the
   // first (full matches sort first).
   const [siteIdx, setSiteIdx] = useState(0);
@@ -217,6 +234,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
     setDescription(request.initialDescription ?? "");
     setRaw(sanitizePrimer(request.initialOligo ?? ""));
     setPhosphorylated(!!request.initialPhosphorylated);
+    setColor(request.initialColor ?? "");
     setSiteIdx(0);
     const t = setTimeout(() => seqRef.current?.focus(), 0);
     return () => clearTimeout(t);
@@ -254,6 +272,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
       oligo,
       phosphorylated,
       site,
+      color: color.trim() || undefined,
     });
   };
 
@@ -355,6 +374,18 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
             5&apos; Phosphorylated
           </label>
 
+          {/* primer colors bot — set this primer's color so its arrow + label
+              render in it on the detail view and the map. A forward + reverse
+              pair colored alike are easy to match at a glance. */}
+          <ColorSwatchPicker
+            value={color}
+            effectiveColor={color.trim() || colorForType("primer_bind")}
+            onChange={setColor}
+            onReset={() => setColor("")}
+            resetLabel="Use default primer color"
+            disabled={readOnly}
+          />
+
           {/* Live stats */}
           <div className="grid grid-cols-3 gap-2">
             <Stat label="Length" value={length ? `${length}-mer` : "—"} />
@@ -446,7 +477,11 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
                   %)
                 </span>
               </div>
-              <BindingViz template={template} site={site} />
+              <BindingViz
+                template={template}
+                site={site}
+                color={color.trim() || colorForType("primer_bind")}
+              />
               {/* Base-for-base alignment with mismatches highlighted, when the
                   aligner placed an imperfect primer. */}
               {site.alignedPrimer && site.alignedTemplate ? (

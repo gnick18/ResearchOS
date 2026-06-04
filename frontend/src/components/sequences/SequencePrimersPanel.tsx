@@ -175,6 +175,11 @@ export interface SequencePrimersPanelProps {
     name: string,
     primerSeq: string,
     site: { start: number; end: number; direction: 1 | -1 },
+    // primer colors bot — optional per-primer color, persisted on the
+    // primer_bind feature. The design/check panel does not set one (defaults
+    // to the standard primer color), but the type stays in sync with the
+    // shared addPrimerFeature signature.
+    color?: string,
   ) => void;
   onDeletePrimer: (index: number) => void;
   readOnly?: boolean;

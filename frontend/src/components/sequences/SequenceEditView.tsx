@@ -258,11 +258,21 @@ function IconFeatureTag({ className }: { className?: string }) {
     </svg>
   );
 }
+// primer colors bot — a clearer SnapGene-style OLIGO glyph: a short oligo/ruler
+// bar with a forward arrow riding ABOVE it (5'->3') and a shorter reverse arrow
+// tucked BELOW, so the icon reads as "a primer / oligo pair", not two abstract
+// arrows. Stroke-only, currentColor, no fill.
 function IconPrimer({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <line x1="3" y1="12" x2="17" y2="12" />
-      <polyline points="13 7 18 12 13 17" />
+      {/* the oligo / template bar */}
+      <line x1="3" y1="12" x2="21" y2="12" />
+      {/* forward primer arrow, above the bar, 3' end pointing right */}
+      <path d="M5 8h11" />
+      <polyline points="14 5.5 17 8 14 10.5" />
+      {/* reverse primer arrow, below the bar, 3' end pointing left */}
+      <path d="M19 16H10" />
+      <polyline points="12 13.5 9 16 12 18.5" />
     </svg>
   );
 }
@@ -705,7 +715,15 @@ export default function SequenceEditView({
   // so every path that creates a primer uses the SAME persistence (it lands on
   // the map + GenBank, with the 5'->3' sequence in a /note "primer <SEQ>" flag).
   const addPrimerFeature = useCallback(
-    (name: string, primerSeq: string, site: { start: number; end: number; direction: 1 | -1 }) => {
+    (
+      name: string,
+      primerSeq: string,
+      site: { start: number; end: number; direction: 1 | -1 },
+      // primer colors bot — optional per-primer color, persisted on the
+      // primer_bind feature (via addFeature's color -> ApEinfo notes). Undefined
+      // falls back to the default primer color when the map derives `primers`.
+      color?: string,
+    ) => {
       editor.applyDocEdit((prev) =>
         addFeature(prev, {
           name: name || "primer",
@@ -713,6 +731,7 @@ export default function SequenceEditView({
           strand: site.direction === -1 ? -1 : 1,
           start: site.start,
           end: site.end,
+          color: color && color.trim() ? color.trim() : undefined,
           qualifiers: [
             { key: "note", value: `primer ${primerSeq}` },
             { key: "label", value: name || "primer" },
@@ -767,8 +786,8 @@ export default function SequenceEditView({
         seedRange: sel.hasRange ? { lo: sel.lo, hi: sel.hi } : undefined,
         seedName: "",
         initialMode: mode,
-        onSubmit: ({ name, primerSeq, site }) => {
-          addPrimerFeature(name, primerSeq, site);
+        onSubmit: ({ name, primerSeq, site, color }) => {
+          addPrimerFeature(name, primerSeq, site, color);
           setPrimerRequest(null);
         },
         onCancel: () => setPrimerRequest(null),
@@ -1742,8 +1761,11 @@ export default function SequenceEditView({
             ? reverseComplement(doc.seq.slice(f.start, f.end))
             : doc.seq.slice(f.start, f.end)),
         initialPhosphorylated: readPrimerPhosphorylated(f),
+        // primer colors bot — seed the color picker from the primer's explicit
+        // color (empty when it has none, so the picker shows "use default").
+        initialColor: f.color ?? "",
         readOnly,
-        onSubmit: ({ name, description, oligo, phosphorylated, site }) => {
+        onSubmit: ({ name, description, oligo, phosphorylated, site, color }) => {
           editor.applyDocEdit((prev) => {
             const cur = prev.features[index];
             if (!cur) return prev;
@@ -1763,7 +1785,8 @@ export default function SequenceEditView({
               strand,
               start,
               end,
-              color: cur.color,
+              // primer colors bot — persist the chosen color (empty -> default).
+              color: color && color.trim() ? color.trim() : undefined,
               qualifiers,
             });
           });

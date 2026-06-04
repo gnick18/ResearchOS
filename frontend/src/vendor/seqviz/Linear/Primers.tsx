@@ -243,6 +243,10 @@ const SingleNamedElement = (props: {
         className="la-vz-primer-label"
         cursor="pointer"
         dominantBaseline="middle"
+        // RESEARCHOS (primer colors bot): color the label TEXT in the primer's own
+        // color so it matches the annealing bracket. Overrides annotationLabel's
+        // dark default. Falls back to the standard primer pink when unset.
+        fill={color || "#f472b6"}
         fontSize={fontSize}
         id={element.id}
         style={annotationLabel}

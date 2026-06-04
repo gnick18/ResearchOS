@@ -28,6 +28,8 @@ import {
   type MutationSpec,
   type MutagenicPrimer,
 } from "@/lib/sequences/mutagenesis";
+import { colorForType } from "@/lib/sequences/feature-colors";
+import ColorSwatchPicker from "./ColorSwatchPicker";
 
 /** What the dialog hands back when the user adds the primer to the template. */
 export interface PrimerAddPayload {
@@ -36,6 +38,9 @@ export interface PrimerAddPayload {
   primerSeq: string;
   /** The binding site chosen (forward-strand coords + strand). */
   site: BindingSite;
+  /** primer colors bot — the user-chosen primer color (hex), or undefined to use
+   *  the default primer color. Persists on the primer_bind feature. */
+  color?: string;
 }
 
 export interface PrimerDialogRequest {
@@ -60,12 +65,15 @@ export interface PrimerDialogRequest {
 
 // --- inline icons ----------------------------------------------------------
 function IconPrimer({ className }: { className?: string }) {
-  // A small 5'->3' arrow-over-strand glyph.
+  // primer colors bot — SnapGene-style oligo glyph (bar + forward arrow above,
+  // reverse arrow below). Shared shape with the toolbar IconPrimer.
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <line x1="3" y1="16" x2="21" y2="16" />
-      <path d="M4 9h12" />
-      <path d="M13 6l3 3-3 3" />
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <path d="M5 8h11" />
+      <polyline points="14 5.5 17 8 14 10.5" />
+      <path d="M19 16H10" />
+      <polyline points="12 13.5 9 16 12 18.5" />
     </svg>
   );
 }
@@ -116,6 +124,9 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
   const [mode, setMode] = useState<DialogMode>("manual");
   const [name, setName] = useState("");
   const [raw, setRaw] = useState("");
+  // primer colors bot — the user-chosen primer color (hex), or "" for the default
+  // primer color. Persisted on the primer_bind feature on Add.
+  const [color, setColor] = useState("");
   // --- Mutagenesis-mode inputs ----------------------------------------------
   const [mutType, setMutType] = useState<MutationType>("substitution");
   // 0-based target position (start of the edit). For deletion this is the first
@@ -141,6 +152,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
     setMode(request.initialMode === "mutagenesis" ? "mutagenesis" : "manual");
     setName(request.seedName ?? "");
     setRaw(sanitizePrimer(request.seedSeq ?? ""));
+    setColor("");
     setRevComp(false);
     setSiteIdx(0);
     // Seed the mutagenesis target from the selection. Prefer an explicit range;
@@ -292,6 +304,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
         name: name.trim() || mutLabel(mp),
         primerSeq: mp.primer,
         site: mutSite,
+        color: color.trim() || undefined,
       });
       return;
     }
@@ -300,6 +313,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
       name: name.trim() || "primer",
       primerSeq,
       site,
+      color: color.trim() || undefined,
     });
   };
 
@@ -368,6 +382,17 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
               className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-body text-gray-800 focus:border-sky-400 focus:outline-none"
             />
           </label>
+
+          {/* primer colors bot — set a color for this primer so its arrow + label
+              render in it on the map (a forward + reverse pair colored alike are
+              easy to match). Defaults to the standard primer color when unset. */}
+          <ColorSwatchPicker
+            value={color}
+            effectiveColor={color.trim() || colorForType("primer_bind")}
+            onChange={setColor}
+            onReset={() => setColor("")}
+            resetLabel="Use default primer color"
+          />
 
           {mode === "mutagenesis" ? (
             <MutagenesisFields
