@@ -61,7 +61,8 @@ import ProjectImportDialog from "@/components/sharing/ProjectImportDialog";
 import type { ProjectImportResult } from "@/lib/import/project-apply";
 import { recordNoteHistory } from "@/lib/history";
 import { fileService } from "@/lib/file-system/file-service";
-import type { Note } from "@/lib/types";
+import { projectsApi } from "@/lib/local-api";
+import type { Note, Project } from "@/lib/types";
 import type { ImportResult } from "@/lib/import/types";
 
 // ── Sender label ─────────────────────────────────────────────────────────────
@@ -418,6 +419,15 @@ function ReviewImportModal({
   const [sequencePayload, setSequencePayload] =
     useState<SequenceSharePayload | null>(null);
   const [sequenceBytes, setSequenceBytes] = useState<Uint8Array | null>(null);
+  // RECEIVER PLACEMENT (sequence). The receiver chooses where a received sequence
+  // lands: "unfiled" (default, mirrors the historical behavior) or a project id
+  // from their OWN library. Mirrors ImportExperimentDialog's placement section,
+  // trimmed to the two choices a lone sequence needs (no create-a-new-project).
+  const [seqProjects, setSeqProjects] = useState<Project[]>([]);
+  const [seqPlacement, setSeqPlacement] = useState<"unfiled" | "project">(
+    "unfiled",
+  );
+  const [seqProjectId, setSeqProjectId] = useState<number | null>(null);
   // The verified sender read from the decrypted EXPERIMENT / METHOD / PROJECT
   // manifest (the note path uses `received.sender` instead). Populated once the
   // decrypt resolves, so the experiment/method/project provenance label upgrades
@@ -534,6 +544,28 @@ function ReviewImportModal({
     };
   }, [email, item.bundleId]);
 
+  // RECEIVER PLACEMENT. Load the receiver's OWN projects once we know the item is
+  // a sequence, so the placement dropdown can offer "File into a project". The
+  // sender's projects never appear here (they are not in this folder). Archived
+  // projects are filtered out so the picker matches the rest of the app.
+  useEffect(() => {
+    if (kind !== "sequence") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const all = await projectsApi.list();
+        if (cancelled) return;
+        setSeqProjects(all.filter((p) => !p.is_archived));
+      } catch (err) {
+        // A failed load is non-fatal: the user can still import as Unfiled.
+        console.warn("[inbox] could not load projects for placement", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [kind]);
+
   // ── Experiment branch ──────────────────────────────────────────────────────
   // Once decrypted, drive the EXISTING import resolution dialog directly. It
   // owns its own project + per-method resolution UI and applyImportPlan call,
@@ -590,7 +622,8 @@ function ReviewImportModal({
   // A sequence is self-contained, nothing to resolve. Import in one step,
   // decrypt (done) -> create in the recipient's folder -> stamp provenance ->
   // ack the relay (ACK-AFTER-WRITE) -> "Saved to your library" toast. No
-  // resolution dialog. project_ids are dropped on import (it lands Unfiled).
+  // resolution dialog. RECEIVER PLACEMENT: the import lands in the receiver's
+  // chosen project, or stays Unfiled (the default) when they leave it unfiled.
   const handleSequenceImport = useCallback(async () => {
     if (!sequenceBytes) return;
     setImporting(true);
@@ -603,16 +636,36 @@ function ReviewImportModal({
       const senderEmail =
         manifestSender?.email || senderLabel(item.senderEmailHash);
 
-      await importSequencePayload(sequenceBytes, {
-        currentUser,
-        senderEmail,
-        senderFingerprint,
-      });
+      // The receiver's placement choice. A projectId files it into that project,
+      // omitted keeps the default Unfiled behavior.
+      const projectId =
+        seqPlacement === "project" && seqProjectId != null
+          ? seqProjectId
+          : undefined;
+
+      await importSequencePayload(
+        sequenceBytes,
+        {
+          currentUser,
+          senderEmail,
+          senderFingerprint,
+        },
+        { projectId },
+      );
 
       // ACK-AFTER-WRITE: the sequence pair is on disk now, delete the relay copy.
       await ackShare({ email, bundleId: item.bundleId });
 
-      onImported(item.bundleId, "Saved to your sequence library.");
+      const placedName =
+        projectId != null
+          ? seqProjects.find((p) => p.id === projectId)?.name
+          : undefined;
+      onImported(
+        item.bundleId,
+        placedName
+          ? `Saved to your sequence library, filed into ${placedName}.`
+          : "Saved to your sequence library.",
+      );
     } catch (err) {
       console.error("[inbox] sequence import failed", err);
       setError(
@@ -621,7 +674,17 @@ function ReviewImportModal({
     } finally {
       setImporting(false);
     }
-  }, [sequenceBytes, manifestSender, item, email, currentUser, onImported]);
+  }, [
+    sequenceBytes,
+    manifestSender,
+    item,
+    email,
+    currentUser,
+    onImported,
+    seqPlacement,
+    seqProjectId,
+    seqProjects,
+  ]);
 
   // Provenance label for the export-zip tiers (experiment / method / project).
   // Prefer the embedded verified sender (note path via `received.sender`,
@@ -829,10 +892,70 @@ function ReviewImportModal({
                 {sequencePayload.circular ? "Circular" : "Linear"}
               </p>
               <p className="text-meta text-gray-500 mt-3 leading-relaxed">
-                Saving adds a copy to your sequence library as a new, unfiled
-                sequence. It is not linked to any of the sender&rsquo;s projects,
-                you can file it afterward. Your copy is yours to edit.
+                Saving adds a copy to your sequence library. It is not linked to
+                any of the sender&rsquo;s projects. Your copy is yours to edit.
               </p>
+
+              {/* RECEIVER PLACEMENT. Two choices (trimmed from the experiment
+                  dialog's three): leave it unfiled, or file it into one of the
+                  receiver's OWN projects. */}
+              <div className="mt-4">
+                <p className="text-meta uppercase tracking-wide text-gray-500 font-semibold mb-1.5">
+                  Where to save it
+                </p>
+                <div className="space-y-1">
+                  <label className="flex items-center gap-2 text-body cursor-pointer rounded px-2 py-1 hover:bg-gray-50">
+                    <input
+                      type="radio"
+                      name="seq-placement"
+                      checked={seqPlacement === "unfiled"}
+                      onChange={() => setSeqPlacement("unfiled")}
+                      disabled={importing}
+                    />
+                    <span className="text-gray-800">Leave unfiled</span>
+                  </label>
+                  <label
+                    className={`flex items-center gap-2 text-body rounded px-2 py-1 ${
+                      seqProjects.length === 0
+                        ? "opacity-50 cursor-not-allowed"
+                        : "cursor-pointer hover:bg-gray-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="seq-placement"
+                      checked={seqPlacement === "project"}
+                      onChange={() => {
+                        setSeqPlacement("project");
+                        if (seqProjectId == null && seqProjects[0]) {
+                          setSeqProjectId(seqProjects[0].id);
+                        }
+                      }}
+                      disabled={importing || seqProjects.length === 0}
+                    />
+                    <span className="text-gray-800">File into a project</span>
+                    {seqPlacement === "project" && seqProjects.length > 0 && (
+                      <select
+                        value={seqProjectId ?? ""}
+                        onChange={(e) => setSeqProjectId(Number(e.target.value))}
+                        disabled={importing}
+                        className="ml-1 text-meta border border-gray-200 rounded px-2 py-1"
+                      >
+                        {seqProjects.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </label>
+                  {seqProjects.length === 0 && (
+                    <p className="text-meta text-gray-400 px-2">
+                      You have no projects yet, so it saves unfiled.
+                    </p>
+                  )}
+                </div>
+              </div>
             </>
           ) : preview ? (
             <>

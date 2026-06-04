@@ -16,9 +16,16 @@
 //   RECEIVE  -> importSequencePayload
 //     Parses the decrypted envelope, creates a brand-new sequence in the
 //     recipient's folder via sequencesApi.create (genbank + display_name +
-//     seq_type), DROPS project_ids (the recipient does not have the sender's
-//     projects, so the sequence lands Unfiled), then stamps the provenance
-//     fields onto the new sequence's sidecar. Returns the new sequence id.
+//     seq_type), DROPS the sender's project_ids (the recipient does not have the
+//     sender's projects), then stamps the provenance fields onto the new
+//     sequence's sidecar. Returns the new sequence id.
+//
+//     RECEIVER PLACEMENT (additive). The recipient may choose where the import
+//     lands via an optional third `placement` arg. When a projectId is given we
+//     set the new sequence's project_ids to that ONE recipient-local project (so
+//     it files straight into the chosen project); when it is omitted the
+//     sequence keeps the default Unfiled behavior. This populates the EXISTING
+//     project_ids field with the recipient's own ids, never the sender's.
 //
 // ONE-CLICK IMPORT. A sequence has nothing to resolve (no project link to map,
 // no method to localize), so the inbox imports it in one step, decrypt -> create
@@ -176,15 +183,22 @@ export class InvalidSequencePayloadError extends Error {
  * as a brand-new sequence, then stamp the provenance fields on its sidecar.
  * Returns the new local sequence id.
  *
- * Drops project_ids entirely, the recipient does not have the sender's projects,
- * so the sequence imports as Unfiled (the recipient can file it afterward). The
- * promise resolves only once both files are on disk and the provenance is
- * stamped, which is what lets the inbox ack the relay (ACK-AFTER-WRITE).
+ * The sender's project_ids are never used (they are meaningless in the
+ * recipient's folder). By default the sequence imports as Unfiled. RECEIVER
+ * PLACEMENT (additive, optional): when `placement.projectId` is given we file
+ * the new sequence into that ONE recipient-local project by setting its
+ * project_ids to [String(projectId)]; otherwise it stays Unfiled (the default,
+ * backward compatible). The promise resolves only once both files are on disk
+ * and the provenance (plus any placement) is stamped, which is what lets the
+ * inbox ack the relay (ACK-AFTER-WRITE).
  *
  * @param bytes       the decrypted envelope bytes.
  * @param opts        the recipient (currentUser) plus the verified sender
  *                    attribution to stamp (email + fingerprint, both may be a
  *                    relay-hash fallback for a pre-attribution bundle).
+ * @param placement   optional receiver placement. `projectId` files the import
+ *                    into that recipient-local project; omitted / undefined
+ *                    keeps the default Unfiled behavior.
  * @returns the new sequence id.
  */
 export async function importSequencePayload(
@@ -194,12 +208,14 @@ export async function importSequencePayload(
     senderEmail: string;
     senderFingerprint: string;
   },
+  placement?: { projectId?: number },
 ): Promise<{ sequenceId: number }> {
   const payload = parseSequencePayload(bytes);
   if (!payload) throw new InvalidSequencePayloadError();
 
   // Create the sequence in the recipient's folder. project_ids is intentionally
-  // omitted, the sender's project ids are meaningless here, so it lands Unfiled.
+  // omitted from create, the sender's project ids are meaningless here. The
+  // receiver's chosen project (if any) is applied below via the meta patch.
   // seq_type is carried so create does not have to re-derive it from the parse.
   const created = await sequencesApi.create({
     display_name: payload.display_name,
@@ -210,11 +226,21 @@ export async function importSequencePayload(
     throw new Error("Could not create the imported sequence on disk.");
   }
 
+  // RECEIVER PLACEMENT. When the receiver chose a project, file the new sequence
+  // into it by populating the EXISTING project_ids with that ONE recipient-local
+  // id. Omitted -> the field stays unset and the sequence is Unfiled (default).
+  const projectPatch =
+    placement?.projectId != null
+      ? { project_ids: [String(placement.projectId)] }
+      : {};
+
   // Stamp the cross-boundary provenance on the new sidecar (the create path does
-  // not carry it, mirroring the note tier). Write to the recipient's own store.
+  // not carry it, mirroring the note tier), together with any placement, in one
+  // write to the recipient's own store.
   await sequenceStore.updateMeta(
     created.id,
     {
+      ...projectPatch,
       received_from: opts.senderEmail,
       received_from_fingerprint: opts.senderFingerprint,
       received_at: new Date().toISOString(),

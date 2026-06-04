@@ -24,6 +24,7 @@ import ImportProgressOverlay, {
 import CloningWorkspace from "@/components/sequences/CloningWorkspace";
 import CompareSequencesDialog from "@/components/sequences/CompareSequencesDialog";
 import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
+import BulkSequenceSendDialog from "@/components/sharing/BulkSequenceSendDialog";
 import ReceivedFromBadge from "@/components/ReceivedFromBadge";
 import RestoredBadge from "@/components/RestoredBadge";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -269,6 +270,11 @@ export default function SequencesPage() {
   // trash with one shared Undo toast.
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  // Bulk SEND outside the lab: when true, the BulkSequenceSendDialog is mounted
+  // over the current checked selection. Picks ONE recipient, then loops the
+  // existing single-sequence send once per checked id (each lands as its own
+  // inbox item). Separate from the open-viewer single Share (shareOpen).
+  const [bulkSendOpen, setBulkSendOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [assembleOpen, setAssembleOpen] = useState(false);
@@ -1131,6 +1137,18 @@ export default function SequencesPage() {
                 >
                   Clear
                 </button>
+                {/* Bulk SEND outside the lab. Reuses the single-sequence send,
+                    looped once per checked id (each lands as its own inbox item
+                    the recipient can sort independently). */}
+                <button
+                  type="button"
+                  onClick={() => setBulkSendOpen(true)}
+                  disabled={deleting}
+                  className="flex items-center gap-1 rounded-md border border-sky-200 bg-white px-2.5 py-1 text-meta font-medium text-sky-700 transition-colors hover:bg-sky-50 disabled:opacity-50"
+                >
+                  <ShareIcon className="h-3.5 w-3.5" />
+                  {`Send ${checkedIds.size} selected`}
+                </button>
                 <button
                   type="button"
                   onClick={handleDeleteChecked}
@@ -1402,6 +1420,18 @@ export default function SequencesPage() {
           isOpen
           target={{ kind: "sequence", sequence: selected, owner: currentUser }}
           onClose={() => setShareOpen(false)}
+        />
+      )}
+
+      {/* Bulk send the checked selection outside the lab. One recipient, then a
+          loop of the single-sequence send (one {kind:"sequence"} payload each).
+          Mounts only with a resolved user + a non-empty selection. */}
+      {bulkSendOpen && currentUser && checkedIds.size > 0 && (
+        <BulkSequenceSendDialog
+          ids={Array.from(checkedIds)}
+          ownerUsername={currentUser}
+          onClose={() => setBulkSendOpen(false)}
+          onSent={() => setCheckedIds(new Set())}
         />
       )}
 

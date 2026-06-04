@@ -218,6 +218,83 @@ describe("importSequencePayload", () => {
     expect(typeof patch.received_at).toBe("string");
   });
 
+  it("leaves the import Unfiled when no placement is given (default)", async () => {
+    createSequence.mockResolvedValue({ id: 42 });
+    updateMeta.mockResolvedValue({});
+
+    await importSequencePayload(envelope(), {
+      currentUser: "recipient",
+      senderEmail: "sender@lab.edu",
+      senderFingerprint: "FP-ABC",
+    });
+
+    // No projectId -> the meta patch carries provenance only, never project_ids,
+    // so the new sequence stays Unfiled (the backward-compatible default).
+    const [, patch] = updateMeta.mock.calls[0];
+    expect(patch.project_ids).toBeUndefined();
+  });
+
+  it("leaves the import Unfiled when placement is given without a projectId", async () => {
+    createSequence.mockResolvedValue({ id: 42 });
+    updateMeta.mockResolvedValue({});
+
+    await importSequencePayload(
+      envelope(),
+      {
+        currentUser: "recipient",
+        senderEmail: "sender@lab.edu",
+        senderFingerprint: "FP-ABC",
+      },
+      {},
+    );
+
+    const [, patch] = updateMeta.mock.calls[0];
+    expect(patch.project_ids).toBeUndefined();
+  });
+
+  it("files the import into the chosen project when a projectId is given", async () => {
+    createSequence.mockResolvedValue({ id: 42 });
+    updateMeta.mockResolvedValue({});
+
+    await importSequencePayload(
+      envelope(),
+      {
+        currentUser: "recipient",
+        senderEmail: "sender@lab.edu",
+        senderFingerprint: "FP-ABC",
+      },
+      { projectId: 7 },
+    );
+
+    // The recipient-local project id (stringified) is set on the new sequence,
+    // alongside the provenance, in the same single updateMeta write.
+    expect(updateMeta).toHaveBeenCalledTimes(1);
+    const [id, patch, username] = updateMeta.mock.calls[0];
+    expect(id).toBe(42);
+    expect(username).toBe("recipient");
+    expect(patch.project_ids).toEqual(["7"]);
+    expect(patch.received_from).toBe("sender@lab.edu");
+  });
+
+  it("does not pass project_ids to create even when a placement is chosen", async () => {
+    createSequence.mockResolvedValue({ id: 42 });
+    updateMeta.mockResolvedValue({});
+
+    await importSequencePayload(
+      envelope(),
+      {
+        currentUser: "recipient",
+        senderEmail: "sender@lab.edu",
+        senderFingerprint: "FP-ABC",
+      },
+      { projectId: 7 },
+    );
+
+    // Placement is applied through the meta patch, never through create.
+    const createArg = createSequence.mock.calls[0][0];
+    expect(createArg.project_ids).toBeUndefined();
+  });
+
   it("throws InvalidSequencePayloadError on a non-sequence payload", async () => {
     const bad = new TextEncoder().encode(JSON.stringify({ kind: "note" }));
     await expect(

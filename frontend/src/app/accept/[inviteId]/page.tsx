@@ -62,7 +62,8 @@ import ImportExperimentDialog from "@/components/ImportExperimentDialog";
 import ProjectImportDialog from "@/components/sharing/ProjectImportDialog";
 import { recordNoteHistory } from "@/lib/history";
 import { fileService } from "@/lib/file-system/file-service";
-import type { Note } from "@/lib/types";
+import { projectsApi } from "@/lib/local-api";
+import type { Note, Project } from "@/lib/types";
 
 // ── Fragment key parsing ─────────────────────────────────────────────────────
 // The key arrives as the URL fragment "#k=<hex>". We read window.location.hash
@@ -140,10 +141,42 @@ export default function AcceptInvitePage() {
   // existing import dialog (ImportExperimentDialog / ProjectImportDialog) on top.
   const [launchImport, setLaunchImport] = useState(false);
 
+  // RECEIVER PLACEMENT (sequence). The visitor chooses where a received sequence
+  // lands: "unfiled" (default) or one of their OWN projects. A fresh invite-only
+  // signup usually has no projects, so the picker self-hides to Unfiled. Mirrors
+  // the inbox placement, trimmed to the two choices a lone sequence needs.
+  const [seqProjects, setSeqProjects] = useState<Project[]>([]);
+  const [seqPlacement, setSeqPlacement] = useState<"unfiled" | "project">(
+    "unfiled",
+  );
+  const [seqProjectId, setSeqProjectId] = useState<number | null>(null);
+
   // Read the fragment key once on mount (client only).
   useEffect(() => {
     setKeyHex(readFragmentKey());
   }, []);
+
+  // RECEIVER PLACEMENT. Load the visitor's OWN projects once they have connected
+  // a folder and the loaded item is a sequence, so the placement dropdown can
+  // offer "File into a project". Archived projects are filtered out. A failed or
+  // empty load is non-fatal, the import simply lands Unfiled.
+  const loadedSequence = load.phase === "ready" && load.kind === "sequence";
+  useEffect(() => {
+    if (!isConnected || !currentUser || !loadedSequence) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const all = await projectsApi.list();
+        if (cancelled) return;
+        setSeqProjects(all.filter((p) => !p.is_archived));
+      } catch (err) {
+        console.warn("[accept] could not load projects for placement", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, currentUser, loadedSequence]);
 
   // Fetch + decrypt + sniff the payload once we have both the id and the fragment
   // key. This shows the preview / kind without requiring any account, the key
@@ -368,11 +401,21 @@ export default function AcceptInvitePage() {
     try {
       const senderFingerprint = load.manifestSender?.fingerprint || "";
       const senderEmail = load.manifestSender?.email || "an invited share";
-      await importSequencePayload(load.payload, {
-        currentUser,
-        senderEmail,
-        senderFingerprint,
-      });
+      // The visitor's placement choice. A projectId files it into that project,
+      // omitted keeps the default Unfiled behavior.
+      const projectId =
+        seqPlacement === "project" && seqProjectId != null
+          ? seqProjectId
+          : undefined;
+      await importSequencePayload(
+        load.payload,
+        {
+          currentUser,
+          senderEmail,
+          senderFingerprint,
+        },
+        { projectId },
+      );
       try {
         await ackInvite(inviteId);
       } catch (ackErr) {
@@ -387,7 +430,7 @@ export default function AcceptInvitePage() {
           "Import failed. Nothing was acknowledged, so this invite stays available to try again.",
       });
     }
-  }, [load, currentUser, inviteId]);
+  }, [load, currentUser, inviteId, seqPlacement, seqProjectId]);
 
   // The import dialog (experiment / method / project) reports a successful
   // on-disk import. ACK-AFTER-FILE: ack the keyless invite now, then unmount the
@@ -476,6 +519,13 @@ export default function AcceptInvitePage() {
               currentUser={currentUser}
               identityReady={identity.status === "ready"}
               imp={imp}
+              projects={seqProjects}
+              placement={seqPlacement}
+              projectId={seqProjectId}
+              onPlacementChange={(next, id) => {
+                setSeqPlacement(next);
+                if (id !== undefined) setSeqProjectId(id);
+              }}
               onSetUpSharing={() => setWizardOpen(true)}
               onSave={() => void handleSequenceImport()}
             />
@@ -837,6 +887,10 @@ function SequenceBody({
   currentUser,
   identityReady,
   imp,
+  projects,
+  placement,
+  projectId,
+  onPlacementChange,
   onSetUpSharing,
   onSave,
 }: {
@@ -846,6 +900,10 @@ function SequenceBody({
   currentUser: string | null;
   identityReady: boolean;
   imp: ImportPhase;
+  projects: Project[];
+  placement: "unfiled" | "project";
+  projectId: number | null;
+  onPlacementChange: (next: "unfiled" | "project", projectId?: number) => void;
   onSetUpSharing: () => void;
   onSave: () => void;
 }) {
@@ -859,8 +917,8 @@ function SequenceBody({
           Saved to your library
         </h2>
         <p className="text-body text-gray-600 mt-1 leading-relaxed">
-          This sequence is now in your library as a new, unfiled sequence. You can
-          open, edit, and file it like any other, your copy is yours.
+          This sequence is now in your library. You can open, edit, and file it
+          like any other, your copy is yours.
         </p>
       </div>
     );
@@ -899,8 +957,8 @@ function SequenceBody({
           {typeLabel} · {sequence?.circular ? "Circular" : "Linear"}
         </p>
         <p className="text-meta text-gray-500 mt-2 leading-relaxed">
-          Saving adds a copy to your sequence library as a new, unfiled sequence.
-          It is not linked to any of the sender&rsquo;s projects.
+          Saving adds a copy to your sequence library. It is not linked to any of
+          the sender&rsquo;s projects.
         </p>
       </div>
 
@@ -932,14 +990,71 @@ function SequenceBody({
           </button>
         </div>
       ) : (
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={imp.phase === "importing" || !sequence}
-          className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {imp.phase === "importing" ? "Saving…" : "Save to my library"}
-        </button>
+        <>
+          {/* RECEIVER PLACEMENT. Two choices (trimmed from the experiment
+              dialog's three): leave it unfiled, or file it into one of the
+              visitor's OWN projects. Only meaningful once they have a project,
+              otherwise it stays at the Unfiled default. */}
+          {projects.length > 0 && (
+            <div>
+              <p className="text-meta uppercase tracking-wide text-gray-500 font-semibold mb-1.5">
+                Where to save it
+              </p>
+              <div className="space-y-1">
+                <label className="flex items-center gap-2 text-body cursor-pointer rounded px-2 py-1 hover:bg-gray-50">
+                  <input
+                    type="radio"
+                    name="accept-seq-placement"
+                    checked={placement === "unfiled"}
+                    onChange={() => onPlacementChange("unfiled")}
+                    disabled={imp.phase === "importing"}
+                  />
+                  <span className="text-gray-800">Leave unfiled</span>
+                </label>
+                <label className="flex items-center gap-2 text-body cursor-pointer rounded px-2 py-1 hover:bg-gray-50">
+                  <input
+                    type="radio"
+                    name="accept-seq-placement"
+                    checked={placement === "project"}
+                    onChange={() =>
+                      onPlacementChange(
+                        "project",
+                        projectId ?? projects[0]?.id,
+                      )
+                    }
+                    disabled={imp.phase === "importing"}
+                  />
+                  <span className="text-gray-800">File into a project</span>
+                  {placement === "project" && (
+                    <select
+                      value={projectId ?? ""}
+                      onChange={(e) =>
+                        onPlacementChange("project", Number(e.target.value))
+                      }
+                      disabled={imp.phase === "importing"}
+                      className="ml-1 text-meta border border-gray-200 rounded px-2 py-1"
+                    >
+                      {projects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </label>
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={imp.phase === "importing" || !sequence}
+            className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {imp.phase === "importing" ? "Saving…" : "Save to my library"}
+          </button>
+        </>
       )}
     </div>
   );
