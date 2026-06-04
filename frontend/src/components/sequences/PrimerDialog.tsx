@@ -132,22 +132,45 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
   // (Declared BEFORE the early return so the hook order is stable per React.)
   const alignment = useMemo(() => {
     if (!site || length === 0) return null;
+    // Aligner hits (internal mismatch / small indel) carry their own gapped
+    // alignment strings, already oriented so identical columns are matches. Use
+    // them directly so the mismatch bases line up and can be highlighted.
+    if (site.alignedPrimer && site.alignedTemplate) {
+      const cols = site.alignedPrimer.split("").map((pb, i) => ({
+        primer: pb,
+        template: site.alignedTemplate![i] ?? "-",
+        match: pb !== "-" && site.alignedTemplate![i] === pb,
+      }));
+      const matched = cols.filter((c) => c.match).length;
+      return {
+        tail: 0,
+        primerTail: "",
+        cols,
+        matched,
+        total: cols.length,
+        identity: site.identity ?? matched / Math.max(1, cols.length),
+      };
+    }
+    // Clean fast-path hit: exact / 3'-anchored partial, no mismatches. Build the
+    // per-column data from the annealed region so the same renderer serves both.
     const annealed = site.annealedLength;
     const tail = length - annealed; // non-annealing 5' bases
-    // Template region the primer's annealed part sits over (forward coords).
     const tplForward = template.slice(site.start, site.end);
-    // In the primer's reading frame (5'->3'), the template strand it pairs with:
-    //  - forward primer pairs with the BOTTOM strand = complement of tplForward,
-    //    read 3'->5' under the primer. We display the template bases the primer
-    //    matches (i.e. tplForward for a forward primer; revcomp(tplForward) for
-    //    a reverse primer) so identical bases line up as a match.
     const tplUnderAnneal = site.direction === 1 ? tplForward : reverseComplement(tplForward);
+    const primerAnneal = primerSeq.slice(tail);
+    const cols = primerAnneal.split("").map((pb, i) => ({
+      primer: pb,
+      template: tplUnderAnneal[i] ?? "-",
+      match: pb === tplUnderAnneal[i],
+    }));
+    const matched = cols.filter((c) => c.match).length;
     return {
       tail,
-      annealed,
       primerTail: primerSeq.slice(0, tail),
-      primerAnneal: primerSeq.slice(tail),
-      templateAnneal: tplUnderAnneal,
+      cols,
+      matched,
+      total: cols.length,
+      identity: cols.length ? matched / cols.length : 0,
     };
   }, [site, length, template, primerSeq]);
 
@@ -276,7 +299,11 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
                       >
                         {s.direction === 1 ? "→" : "←"} {(s.start + 1).toLocaleString()}..
                         {s.end.toLocaleString()}
-                        {s.fullMatch ? "" : " (3')"}
+                        {s.fullMatch
+                          ? ""
+                          : s.mismatches && s.mismatches.length
+                            ? ` (${s.mismatches.length} mm)`
+                            : " (3')"}
                       </button>
                     ))}
                   </div>
@@ -290,7 +317,12 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
                     position {(site.start + 1).toLocaleString()}..{site.end.toLocaleString()}
                     {", "}
                     <span className="font-medium">{site.annealedLength}</span> of {length} bp anneal
-                    {site.fullMatch ? "" : " (3'-anchored, 5' tail does not anneal)"}.
+                    {site.mismatches && site.mismatches.length
+                      ? `, ${site.mismatches.length} mismatch${site.mismatches.length === 1 ? "" : "es"}`
+                      : site.fullMatch
+                        ? ""
+                        : " (3'-anchored, 5' tail does not anneal)"}
+                    .
                   </div>
                 ) : null}
               </div>
@@ -300,37 +332,56 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
           {/* Visual alignment */}
           {alignment ? (
             <div>
-              <span className="mb-1 block text-meta font-medium text-gray-500">
-                Alignment (primer over template)
-              </span>
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-meta font-medium text-gray-500">
+                  Alignment (primer over template)
+                </span>
+                <span className="text-meta font-medium text-gray-500">
+                  {alignment.matched}/{alignment.total} matched (
+                  {Math.round(alignment.identity * 100)}%)
+                </span>
+              </div>
               <div className="overflow-x-auto rounded-md border border-gray-200 bg-white px-3 py-2.5 font-mono text-meta leading-relaxed">
-                {/* Primer row: dimmed 5' tail, bold annealed 3' region. */}
-                <div className="whitespace-pre text-gray-800">
+                {/* Primer row: dimmed 5' tail, annealed bases per-column (matches
+                    blue, mismatches rose). */}
+                <div className="whitespace-pre">
                   <span className="text-gray-400">5&apos; </span>
-                  <span className="text-gray-300">{alignment.primerTail}</span>
-                  <span className="font-semibold text-sky-700">{alignment.primerAnneal}</span>
+                  {alignment.tail ? (
+                    <span className="text-gray-300">{alignment.primerTail}</span>
+                  ) : null}
+                  {alignment.cols.map((c, i) => (
+                    <span
+                      key={i}
+                      className={
+                        c.match ? "font-semibold text-sky-700" : "font-semibold text-rose-600"
+                      }
+                    >
+                      {c.primer}
+                    </span>
+                  ))}
                   <span className="text-gray-400"> 3&apos;</span>
                 </div>
-                {/* Match bars under the annealed region only. */}
+                {/* Match bars: | for a match, blank for a mismatch/indel. */}
                 <div className="whitespace-pre text-gray-400">
                   {"   "}
                   {" ".repeat(alignment.tail)}
-                  {alignment.primerAnneal
-                    .split("")
-                    .map((b, i) => (b === alignment.templateAnneal[i] ? "|" : " "))
-                    .join("")}
+                  {alignment.cols.map((c) => (c.match ? "|" : " ")).join("")}
                 </div>
-                {/* Template row (3'->5' under the primer's 5'->3'), annealed region. */}
-                <div className="whitespace-pre text-gray-600">
+                {/* Template row, lined up column-for-column under the primer. */}
+                <div className="whitespace-pre">
                   <span className="text-gray-400">3&apos; </span>
                   {" ".repeat(alignment.tail)}
-                  <span>{alignment.templateAnneal}</span>
+                  {alignment.cols.map((c, i) => (
+                    <span key={i} className={c.match ? "text-gray-600" : "text-rose-500"}>
+                      {c.template}
+                    </span>
+                  ))}
                   <span className="text-gray-400"> 5&apos;</span>
                 </div>
               </div>
               <p className="mt-1 text-meta text-gray-400">
-                The 3&apos; annealed bases are shown in blue; a dimmed 5&apos; region is a
-                non-annealing tail (e.g. a cloning overhang).
+                Matched bases are blue; mismatches are shown in rose. A dimmed 5&apos; region
+                is a non-annealing tail (e.g. a cloning overhang).
               </p>
             </div>
           ) : null}

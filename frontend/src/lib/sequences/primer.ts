@@ -15,6 +15,7 @@
 // strand encodes.
 
 import { nearestNeighborTm } from "@/lib/calculators/tm-nn";
+import { seedAndExtend, dnaScoring } from "@/lib/align";
 
 /** Complement of a single IUPAC base (uppercased). Unknown chars map to "N". */
 const COMPLEMENT: Record<string, string> = {
@@ -149,9 +150,39 @@ export interface BindingSite {
   direction: 1 | -1;
   /** How many of the primer's 3'-most bases actually anneal (= end - start). */
   annealedLength: number;
-  /** True when the ENTIRE primer anneals (full-length match); false = 3'-anchored
-   *  partial (the primer has a non-annealing 5' tail, e.g. a cloning overhang). */
+  /** True when the ENTIRE primer anneals with ZERO mismatches/indels (a clean,
+   *  full-length match); false = a 3'-anchored partial (the primer has a
+   *  non-annealing 5' tail, e.g. a cloning overhang) OR an imperfect match found
+   *  by the aligner (internal mismatches / a small indel). */
   fullMatch: boolean;
+  // --- OPTIONAL aligner-derived detail (present on mismatch-tolerant hits) -----
+  /** Template positions (forward coords) where the primer base does NOT pair with
+   *  the template base in the annealed region. Empty/absent for a clean hit. */
+  mismatches?: number[];
+  /** Fraction of aligned columns that match, 0..1, over the annealed alignment.
+   *  Absent for the exact / 3'-anchored fast path (those are 1.0 by construction). */
+  identity?: number;
+  /** The primer's annealed region as a gapped alignment string (5'->3' in the
+   *  primer's own reading frame; '-' marks a base the template inserts). Present
+   *  only on aligner hits, for the dialog's mismatch visualization. */
+  alignedPrimer?: string;
+  /** The template bases the primer pairs with, as a gapped alignment string lined
+   *  up column-for-column with `alignedPrimer` (already oriented so identical
+   *  characters are a match). Present only on aligner hits. */
+  alignedTemplate?: string;
+}
+
+/** Tuning for the mismatch-tolerant aligner path in {@link findBindingSites}. */
+export interface MismatchBindingOptions {
+  /** Turn the aligner path on. Default true. When false, only the exact /
+   *  3'-anchored fast path runs (byte-identical to the pre-aligner behaviour). */
+  mismatchTolerant?: boolean;
+  /** Minimum fraction of matching columns (0..1) for an aligner hit to be kept,
+   *  so a junk primer does not spuriously bind. Default 0.75. */
+  minIdentity?: number;
+  /** Minimum annealed length (aligned columns) for an aligner hit. Default is the
+   *  same adaptive floor the exact partial path uses. */
+  minAlignedLength?: number;
 }
 
 /** Two IUPAC bases are compatible if their allowed-base sets overlap. We only
@@ -199,12 +230,21 @@ function anneal3PrimeRun(primer: string, template: string, pos: number): number 
  * and there is no full match at a position, a 3'-anchored partial match of at
  * least `minAnneal` bases is reported (this is the cloning-tail case).
  *
+ * MISMATCH TOLERANCE (additive). After the exact / 3'-anchored fast path runs, an
+ * aligner pass (lib/align seed-and-extend, IUPAC DNA scoring, both strands) finds
+ * primers that bind with INTERNAL MISMATCHES or a small indel, reporting the
+ * mismatch positions and the identity. The fast path is unchanged, so a CLEAN
+ * primer's sites are byte-identical to before; aligner hits that merely re-derive
+ * a site the fast path already found are dropped (no double-reporting). Weak
+ * aligner hits are gated by `minIdentity` / `minAlignedLength` so junk does not
+ * flood. Pass `mismatchTolerant: false` to disable the aligner pass entirely.
+ *
  * Sites are de-duplicated and sorted by start, full matches before partials.
  */
 export function findBindingSites(
   primer: string,
   template: string,
-  opts: { allowPartial?: boolean; minAnneal?: number } = {},
+  opts: { allowPartial?: boolean; minAnneal?: number } & MismatchBindingOptions = {},
 ): BindingSite[] {
   const allowPartial = opts.allowPartial ?? true;
   const minAnneal = opts.minAnneal ?? Math.min(12, Math.max(6, Math.floor(primer.length * 0.6)));
@@ -258,6 +298,26 @@ export function findBindingSites(
     -1,
   );
 
+  // --- MISMATCH-TOLERANT aligner pass (additive) ----------------------------
+  // Everything above is the exact / 3'-anchored fast path and is left untouched.
+  // Now run the alignment engine to recover primers that bind with internal
+  // mismatches or a small indel. Aligner hits that merely re-cover a span the
+  // fast path already reported on the same strand are discarded so a site is
+  // never double-reported, and the fast path's BindingSite objects win (they
+  // carry no aligner fields, preserving clean-primer parity).
+  const mismatchTolerant = opts.mismatchTolerant ?? true;
+  if (mismatchTolerant) {
+    const minIdentity = opts.minIdentity ?? 0.75;
+    const minAlignedLength = opts.minAlignedLength ?? minAnneal;
+    const fastHits = sites.slice(); // snapshot of the clean fast-path hits
+    for (const a of alignerSites(p, t, minIdentity, minAlignedLength)) {
+      const overlapsClean = fastHits.some(
+        (f) => f.direction === a.direction && a.start < f.end && f.start < a.end,
+      );
+      if (!overlapsClean) sites.push(a);
+    }
+  }
+
   // De-dup (a palindromic primer can hit both strands at the same span).
   const seen = new Set<string>();
   const unique = sites.filter((s) => {
@@ -270,4 +330,81 @@ export function findBindingSites(
     (a, b) => a.start - b.start || (a.fullMatch === b.fullMatch ? 0 : a.fullMatch ? -1 : 1),
   );
   return unique;
+}
+
+// IUPAC-aware DNA scoring shared with the alignment engine. A clean primer never
+// reaches this pass (the fast path handles it), so the cost is only paid for
+// primers the fast path could not place exactly.
+const PRIMER_ALIGN_SCORING = dnaScoring({ iupac: true });
+
+/**
+ * Run the alignment engine and turn each {@link import("@/lib/align").SeedHit}
+ * into a {@link BindingSite}, reporting mismatch positions (forward template
+ * coords) and identity. Both strands; gated by `minIdentity` and
+ * `minAlignedLength` so weak/junk hits are dropped. Forward-strand convention:
+ *  - For a forward hit the aligner's query is the primer (5'->3') and `alignedA`
+ *    is the forward template, so identical alignment columns are matches.
+ *  - For a reverse hit the query is revcomp(primer), which reads 5'->3' in the
+ *    primer's own frame and pairs base-for-base with the forward template the
+ *    engine aligned it to, so the same column-equality rule gives matches and the
+ *    displayed strings are already lined up.
+ */
+function alignerSites(
+  primer: string,
+  template: string,
+  minIdentity: number,
+  minAlignedLength: number,
+): BindingSite[] {
+  if (primer.length === 0 || template.length === 0) return [];
+  const hits = seedAndExtend(primer, template, {
+    scoring: PRIMER_ALIGN_SCORING,
+    mode: "semiGlobal",
+    bothStrands: true,
+  });
+  const out: BindingSite[] = [];
+  for (const hit of hits) {
+    const { alignment } = hit;
+    const alignedPrimer = alignment.alignedB; // query in the primer's 5'->3' frame
+    const alignedTemplate = alignment.alignedA; // forward template under it
+    const alignedLength = alignment.ops.length;
+    if (alignedLength < minAlignedLength) continue;
+    if (alignment.identity < minIdentity) continue;
+
+    // Walk the alignment columns to map mismatches to FORWARD template positions.
+    // 'M' = match, 'X' = mismatch, 'I' = base in template not in primer (the
+    // template column advances, primer does not), 'D' = base in primer not in
+    // template (primer column advances, template does not). targetStart is the
+    // forward template coordinate of the first aligned template base.
+    const mismatches: number[] = [];
+    let tPos = hit.targetStart;
+    for (const op of alignment.ops) {
+      if (op === "X") {
+        mismatches.push(tPos);
+        tPos += 1;
+      } else if (op === "M") {
+        tPos += 1;
+      } else if (op === "I") {
+        // template base with no primer base aligned: a deletion in the primer.
+        mismatches.push(tPos);
+        tPos += 1;
+      } // 'D': primer base with a template gap; no forward template position moves.
+    }
+
+    const annealedLength = hit.targetEnd - hit.targetStart;
+    out.push({
+      start: hit.targetStart,
+      end: hit.targetEnd,
+      direction: hit.strand,
+      annealedLength,
+      // Aligner hits are imperfect by definition here (the fast path already took
+      // every clean span), so fullMatch stays false. mismatches/indels live in
+      // the optional fields.
+      fullMatch: false,
+      mismatches,
+      identity: alignment.identity,
+      alignedPrimer,
+      alignedTemplate,
+    });
+  }
+  return out;
 }

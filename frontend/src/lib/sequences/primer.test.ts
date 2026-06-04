@@ -184,6 +184,112 @@ describe("findBindingSites — edge cases", () => {
   });
 });
 
+describe("findBindingSites — mismatch-tolerant aligner path (Stage 2)", () => {
+  // A 60 bp template; we build a forward primer that matches a window exactly,
+  // then introduce a single internal substitution so only the aligner can place
+  // it. The clean window lives at [10, 30).
+  const template =
+    "GGGTTTAAACAGTCGTACCGATTGCAACGTTTACGGCATTAAGCCTAGCTAGGATCCAAAA";
+  const cleanWindow = template.slice(10, 30); // 20 nt forward exact site
+
+  it("finds a forward primer with one internal mismatch and reports it", () => {
+    // Flip the 10th base of the window (index 10 in the primer) to a mismatch.
+    const arr = cleanWindow.split("");
+    const orig = arr[10];
+    arr[10] = orig === "A" ? "C" : "A";
+    const primer = arr.join("");
+    const sites = findBindingSites(primer, template);
+    const fwd = sites.find((s) => s.direction === 1 && s.start === 10 && s.end === 30);
+    expect(fwd).toBeDefined();
+    expect(fwd!.fullMatch).toBe(false);
+    expect(fwd!.mismatches).toBeDefined();
+    // The single mismatch sits at forward template position 10 + 10 = 20.
+    expect(fwd!.mismatches).toContain(20);
+    expect(fwd!.mismatches!.length).toBe(1);
+    expect(fwd!.identity).toBeGreaterThan(0.9);
+    expect(fwd!.identity).toBeLessThan(1);
+    expect(fwd!.alignedPrimer).toBeTruthy();
+    expect(fwd!.alignedTemplate).toBeTruthy();
+  });
+
+  it("finds a REVERSE-strand primer with an internal mismatch", () => {
+    // A reverse primer is revcomp of a top-strand window; mutate one internal base.
+    const rc = reverseComplement(cleanWindow); // anneals to [10,30) reverse
+    const arr = rc.split("");
+    arr[8] = arr[8] === "G" ? "T" : "G";
+    const primer = arr.join("");
+    const sites = findBindingSites(primer, template);
+    const rev = sites.find((s) => s.direction === -1 && s.start === 10 && s.end === 30);
+    expect(rev).toBeDefined();
+    expect(rev!.fullMatch).toBe(false);
+    expect(rev!.mismatches && rev!.mismatches.length).toBe(1);
+    expect(rev!.identity).toBeGreaterThan(0.9);
+  });
+
+  it("aligned strings line up column-for-column for the dialog renderer", () => {
+    // The dialogs map alignedPrimer/alignedTemplate index-by-index, coloring a
+    // column rose when the two characters differ. Guard that contract: equal
+    // length, and exactly the reported mismatch count of differing columns.
+    const arr = cleanWindow.split("");
+    arr[5] = arr[5] === "A" ? "C" : "A";
+    arr[12] = arr[12] === "G" ? "T" : "G";
+    const primer = arr.join("");
+    const sites = findBindingSites(primer, template);
+    const hit = sites.find((s) => s.direction === 1 && s.alignedPrimer);
+    expect(hit).toBeDefined();
+    expect(hit!.alignedPrimer!.length).toBe(hit!.alignedTemplate!.length);
+    const differing = hit!.alignedPrimer!
+      .split("")
+      .filter((pb, i) => pb !== hit!.alignedTemplate![i]).length;
+    expect(differing).toBe(hit!.mismatches!.length);
+  });
+
+  it("does NOT spuriously bind a junk primer (identity gate)", () => {
+    // Random-ish 20-mer with no real homology to the template.
+    const junk = "TTGGCCAATTGGCCAATTGG";
+    const sites = findBindingSites(junk, template);
+    // Nothing should pass the 0.75 identity gate over the full anneal length.
+    expect(sites.every((s) => (s.identity ?? 1) >= 0.75)).toBe(true);
+    expect(sites.some((s) => s.start === 10 && s.end === 30)).toBe(false);
+  });
+
+  it("can be disabled with mismatchTolerant: false (fast path only)", () => {
+    const arr = cleanWindow.split("");
+    arr[10] = arr[10] === "A" ? "C" : "A";
+    const primer = arr.join("");
+    const withAligner = findBindingSites(primer, template);
+    const fastOnly = findBindingSites(primer, template, { mismatchTolerant: false });
+    expect(withAligner.some((s) => s.start === 10 && s.end === 30)).toBe(true);
+    // The fast path alone cannot place a primer whose 3' end mismatches mid-run;
+    // at minimum it never reports the imperfect [10,30) full span.
+    expect(fastOnly.some((s) => s.start === 10 && s.end === 30 && !s.fullMatch && s.mismatches)).toBe(false);
+  });
+});
+
+describe("findBindingSites — clean-primer parity (no aligner regression)", () => {
+  // A clean primer's BindingSite must be byte-identical to the pre-aligner result:
+  // the aligner pass must not add fields or duplicate the exact site.
+  const template = "AAAGGGCCCTTTGGGCCCAAA";
+  it("a clean full-length forward match carries NO aligner fields", () => {
+    const primer = template.slice(3, 12); // GGGCCCTTT, exact at 3
+    const sites = findBindingSites(primer, template);
+    const exact = sites.find((s) => s.start === 3 && s.end === 12 && s.direction === 1);
+    expect(exact).toBeDefined();
+    expect(exact!.fullMatch).toBe(true);
+    expect(exact!.annealedLength).toBe(9);
+    // No optional aligner detail leaks onto a clean hit.
+    expect(exact!.mismatches).toBeUndefined();
+    expect(exact!.identity).toBeUndefined();
+    expect(exact!.alignedPrimer).toBeUndefined();
+  });
+  it("clean results are identical with the aligner on or off", () => {
+    const primer = "GGGCCC";
+    const on = findBindingSites(primer, template, { allowPartial: false });
+    const off = findBindingSites(primer, template, { allowPartial: false, mismatchTolerant: false });
+    expect(on).toEqual(off);
+  });
+});
+
 describe("primer persistence — primer_bind round-trips into the .gb", () => {
   // The Add-Primer flow saves a primer as a GenBank primer_bind feature. The
   // bio-parsers default splits primer_bind out of `features` into a separate

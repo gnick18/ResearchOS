@@ -174,9 +174,13 @@ function BindingViz({
           strokeLinecap="round"
           strokeLinejoin="round"
         />
-        {/* Template bases (the annealed window highlighted). */}
+        {/* Template bases (the annealed window highlighted; a mismatch base, from
+            the aligner, is drawn in rose). `site.mismatches` are forward template
+            coordinates, so we shift by `lo` into local indices. */}
         {bases.split("").map((b, i) => {
           const inAnneal = i >= annealStart && i < annealEnd;
+          const isMismatch = (site.mismatches ?? []).includes(lo + i);
+          const fill = isMismatch ? "#e11d48" : inAnneal ? "#374151" : "#9ca3af";
           return (
             <text
               key={i}
@@ -185,7 +189,7 @@ function BindingViz({
               textAnchor="middle"
               fontSize={11}
               fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
-              fill={inAnneal ? "#374151" : "#9ca3af"}
+              fill={fill}
               fontWeight={inAnneal ? 600 : 400}
             >
               {b}
@@ -394,7 +398,11 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
                       >
                         {s.direction === 1 ? "→" : "←"} {(s.start + 1).toLocaleString()}..
                         {s.end.toLocaleString()}
-                        {s.fullMatch ? "" : " (3')"}
+                        {s.fullMatch
+                          ? ""
+                          : s.mismatches && s.mismatches.length
+                            ? ` (${s.mismatches.length} mm)`
+                            : " (3')"}
                       </button>
                     ))}
                   </div>
@@ -408,7 +416,12 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
                     position {(site.start + 1).toLocaleString()}..{site.end.toLocaleString()}
                     {", "}
                     <span className="font-medium">{site.annealedLength}</span> of {length} bases anneal
-                    {site.fullMatch ? "" : " (3'-anchored, 5' tail does not anneal)"}.
+                    {site.mismatches && site.mismatches.length
+                      ? `, ${site.mismatches.length} mismatch${site.mismatches.length === 1 ? "" : "es"}`
+                      : site.fullMatch
+                        ? ""
+                        : " (3'-anchored, 5' tail does not anneal)"}
+                    .
                   </div>
                 ) : null}
               </div>
@@ -418,13 +431,65 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
           {/* Binding-site visualization (SnapGene-style thin bracket + 3' hook) */}
           {site ? (
             <div>
-              <span className="mb-1 block text-meta font-medium text-gray-500">
-                Annealing (primer over template)
-              </span>
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-meta font-medium text-gray-500">
+                  Annealing (primer over template)
+                </span>
+                <span className="text-meta font-medium text-gray-500">
+                  {site.annealedLength - (site.mismatches?.length ?? 0)}/{site.annealedLength}{" "}
+                  matched (
+                  {Math.round(
+                    (site.identity ??
+                      (site.annealedLength - (site.mismatches?.length ?? 0)) /
+                        Math.max(1, site.annealedLength)) * 100,
+                  )}
+                  %)
+                </span>
+              </div>
               <BindingViz template={template} site={site} />
+              {/* Base-for-base alignment with mismatches highlighted, when the
+                  aligner placed an imperfect primer. */}
+              {site.alignedPrimer && site.alignedTemplate ? (
+                <div className="mt-2 overflow-x-auto rounded-md border border-gray-200 bg-white px-3 py-2.5 font-mono text-meta leading-relaxed">
+                  <div className="whitespace-pre">
+                    <span className="text-gray-400">5&apos; </span>
+                    {site.alignedPrimer.split("").map((pb, i) => {
+                      const match = pb !== "-" && site.alignedTemplate![i] === pb;
+                      return (
+                        <span
+                          key={i}
+                          className={match ? "font-semibold text-sky-700" : "font-semibold text-rose-600"}
+                        >
+                          {pb}
+                        </span>
+                      );
+                    })}
+                    <span className="text-gray-400"> 3&apos;</span>
+                  </div>
+                  <div className="whitespace-pre text-gray-400">
+                    {"   "}
+                    {site.alignedPrimer
+                      .split("")
+                      .map((pb, i) => (pb !== "-" && site.alignedTemplate![i] === pb ? "|" : " "))
+                      .join("")}
+                  </div>
+                  <div className="whitespace-pre">
+                    <span className="text-gray-400">3&apos; </span>
+                    {site.alignedTemplate.split("").map((tb, i) => {
+                      const match = tb !== "-" && site.alignedPrimer![i] === tb;
+                      return (
+                        <span key={i} className={match ? "text-gray-600" : "text-rose-500"}>
+                          {tb}
+                        </span>
+                      );
+                    })}
+                    <span className="text-gray-400"> 5&apos;</span>
+                  </div>
+                </div>
+              ) : null}
               <p className="mt-1 text-meta text-gray-400">
                 The thin bracket marks the annealed bases; the hook points toward the
-                primer&apos;s 3&apos; end.
+                primer&apos;s 3&apos; end. Mismatched bases are shown in rose.
               </p>
             </div>
           ) : null}

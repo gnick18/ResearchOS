@@ -624,8 +624,12 @@ export default function SequencePrimersPanel({
                           {(s.start + 1).toLocaleString()}..{s.end.toLocaleString()}
                           {", "}
                           {s.annealedLength} of {checkAnalysis.length} bp anneal
-                          {s.fullMatch ? "" : " (3'-anchored)"}
-                          {i > 0 ? " — extra site, may be unintended" : ""}
+                          {s.mismatches && s.mismatches.length
+                            ? `, ${s.annealedLength - s.mismatches.length}/${s.annealedLength} matched (${Math.round((s.identity ?? 0) * 100)}%)`
+                            : s.fullMatch
+                              ? ""
+                              : " (3'-anchored)"}
+                          {i > 0 ? ", extra site, may be unintended" : ""}
                         </div>
                       ))}
                       {checkBindingReport.hasExtraSites ? (
