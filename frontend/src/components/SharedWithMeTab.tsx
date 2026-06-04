@@ -47,7 +47,10 @@ import {
   type SharePayloadKind,
 } from "@/lib/sharing/experiment-transfer";
 import { methodPayloadToFile } from "@/lib/sharing/method-transfer";
+import { projectPayloadToFile } from "@/lib/sharing/project-transfer";
 import ImportExperimentDialog from "@/components/ImportExperimentDialog";
+import ProjectImportDialog from "@/components/sharing/ProjectImportDialog";
+import type { ProjectImportResult } from "@/lib/import/project-apply";
 import { recordNoteHistory } from "@/lib/history";
 import { fileService } from "@/lib/file-system/file-service";
 import type { Note } from "@/lib/types";
@@ -379,6 +382,8 @@ function ReviewImportModal({
   // resolves.
   const [kind, setKind] = useState<SharePayloadKind | null>(null);
   const [experimentFile, setExperimentFile] = useState<File | null>(null);
+  // A decrypted PROJECT bundle wrapped as a File for the project import dialog.
+  const [projectFile, setProjectFile] = useState<File | null>(null);
 
   // Keep onResolveSender out of the decrypt effect's deps so the inline parent
   // callback can't retrigger a re-fetch / re-decrypt on every render.
@@ -423,6 +428,12 @@ function ReviewImportModal({
           // sender block is a note-only RO-Crate concept, so the experiment
           // provenance comes from the relay key hash here.
           setExperimentFile(experimentPayloadToFile(payload));
+        } else if (sniffed === "project") {
+          // A project bundle (researchos-project) drives its own thin import
+          // dialog, it brings many experiments + methods and imports ALWAYS-NEW
+          // (no per-method resolution), so it does not reuse the experiment
+          // dialog. Wrap the decrypted bytes as a File for the project importer.
+          setProjectFile(projectPayloadToFile(payload));
         } else if (sniffed === "method") {
           // A standalone method bundle is researchos-experiment-shaped (a
           // synthetic envelope task carrying the one method), so the SAME
@@ -478,8 +489,43 @@ function ReviewImportModal({
     [email, item.bundleId, onImported, kind],
   );
 
+  // ── Project branch ─────────────────────────────────────────────────────────
+  // The project import dialog materializes a fresh project on disk, then we ack
+  // the relay (ack-after-write) and surface the aggregated notCarried report.
+  const handleProjectImported = useCallback(
+    async (result: ProjectImportResult) => {
+      try {
+        await ackShare({ email, bundleId: item.bundleId });
+      } catch (err) {
+        console.warn("[inbox] ack after project import failed", err);
+      }
+      const dropped =
+        result.notCarried.dependencies.length + result.notCarried.methodRefs.length;
+      const message =
+        dropped > 0
+          ? "Project imported. Some content was not carried over, see the import summary."
+          : "Project imported as a new project in your folder.";
+      onImported(item.bundleId, message);
+    },
+    [email, item.bundleId, onImported],
+  );
+
   const experimentSenderLabel =
     received?.sender?.email ?? senderLabel(item.senderEmailHash);
+
+  // A project bundle drives its own thin import dialog (always-new, no
+  // per-method resolution). It owns its parse + applyProjectImportPlan; we ack
+  // the relay after it reports success and surface the notCarried report.
+  if (kind === "project" && projectFile) {
+    return (
+      <ProjectImportDialog
+        initialFile={projectFile}
+        provenanceLabel={experimentSenderLabel}
+        onClose={onClose}
+        onImported={(result) => void handleProjectImported(result)}
+      />
+    );
+  }
 
   // Both an experiment and a standalone-method bundle drive the SAME import
   // dialog (a method bundle is researchos-experiment-shaped). Reuse the
@@ -640,8 +686,9 @@ function ReviewImportModal({
             <p className="text-body text-red-600 text-center py-6">{error}</p>
           ) : unsupported ? (
             <p className="text-body text-gray-600 text-center py-6">
-              Unsupported item type. ResearchOS can import notes and experiments
-              here; this item is a different kind. You can decline it.
+              Unsupported item type. ResearchOS can import notes, experiments,
+              methods, and projects here; this item is a different kind. You can
+              decline it.
             </p>
           ) : preview ? (
             <>

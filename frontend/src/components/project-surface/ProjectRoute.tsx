@@ -20,6 +20,7 @@ import { listImagesInFolder } from "@/lib/attachments/image-folder";
 import { readProjectActivity } from "@/lib/project-activity/event-log";
 import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
 import ProjectDepositDialog from "@/components/ProjectDepositDialog";
+import ProjectSendOutsideDialog from "@/components/sharing/ProjectSendOutsideDialog";
 import Tooltip from "@/components/Tooltip";
 import ProjectFundingSection from "@/components/project-surface/ProjectFundingSection";
 import ResultsGallery from "@/components/project-surface/ResultsGallery";
@@ -228,6 +229,8 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
 
   const [showSharePopup, setShowSharePopup] = useState(false);
   const [showDepositDialog, setShowDepositDialog] = useState(false);
+  // Cross-boundary PROJECT sharing (v1): "Share outside this folder" entry.
+  const [showSendOutsideDialog, setShowSendOutsideDialog] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -684,6 +687,33 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
                 </Tooltip>
               )}
 
+              {!isMiscellaneousProject && !isAnyReceiver && (
+                <Tooltip label="Share outside this folder" placement="bottom">
+                  <button
+                    onClick={() => setShowSendOutsideDialog(true)}
+                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    aria-label="Share outside this folder"
+                    data-testid="project-send-outside-button"
+                  >
+                    {/* Paper-plane / send glyph (inline SVG; no icon library, no
+                        emoji). Mirrors the cross-boundary send affordance. */}
+                    <svg
+                      className="w-5 h-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                    >
+                      <path d="M22 2 11 13" />
+                      <path d="M22 2 15 22l-4-9-9-4Z" />
+                    </svg>
+                  </button>
+                </Tooltip>
+              )}
+
               {!isMiscellaneousProject && (
                 <Tooltip label="Deposit to a repository" placement="bottom">
                   <button
@@ -968,6 +998,14 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
         ownerHint={effectiveOwnerOf(project)}
         onClose={() => setShowDepositDialog(false)}
       />
+
+      {showSendOutsideDialog && (
+        <ProjectSendOutsideDialog
+          project={project}
+          ownerUsername={project.owner || currentUser || ""}
+          onClose={() => setShowSendOutsideDialog(false)}
+        />
+      )}
 
       {showEditModal && projectsApi && (
         <EditProjectModal

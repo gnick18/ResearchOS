@@ -65,7 +65,12 @@ export async function buildExperimentSendPayload(
  * researchos-experiment export zip (export/raw.ts), "unknown" is neither (an
  * unsupported or malformed payload the inbox should let the user decline).
  */
-export type SharePayloadKind = "note" | "experiment" | "method" | "unknown";
+export type SharePayloadKind =
+  | "note"
+  | "experiment"
+  | "method"
+  | "project"
+  | "unknown";
 
 /**
  * Sniffs decrypted payload bytes to decide which importer the inbox should use.
@@ -91,6 +96,15 @@ export async function sniffSharePayload(
     zip = await JSZip.loadAsync(bytes);
   } catch {
     return "unknown";
+  }
+
+  // A project bundle (export/project-bundle.ts) writes `_project-manifest.json`
+  // at the zip root, disjoint from the experiment/method marker
+  // (`_export-manifest.json`) and the note BagIt markers. Check it first, a
+  // project bundle nests per-experiment bundles but never carries a TOP-LEVEL
+  // `_export-manifest.json`, so this branch is unambiguous.
+  if (zip.file("_project-manifest.json")) {
+    return "project";
   }
 
   // The experiment export (and the method bundle, which reuses the same

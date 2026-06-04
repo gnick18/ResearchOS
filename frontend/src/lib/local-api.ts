@@ -350,6 +350,12 @@ export const projectsApi = {
       ...(data.funding_account_id !== undefined
         ? { funding_account_id: data.funding_account_id }
         : {}),
+      // Cross-boundary PROJECT sharing (v1): only the project-import path
+      // supplies this provenance stamp. Ordinary creates omit it, so the field
+      // stays absent (= not imported) on a clean project.
+      ...(data.imported_from !== undefined
+        ? { imported_from: data.imported_from }
+        : {}),
     });
     // Onboarding v4 §6.1: notify the home-create-project walkthrough
     // step that a new project landed, so BeakerBot can advance without

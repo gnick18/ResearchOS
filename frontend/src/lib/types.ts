@@ -382,6 +382,30 @@ export interface Project {
   // Globally denylisted in canonicalize.ts (FLAG-2) so it never pollutes a
   // delta. Absent on every project that was never restored. Mirrors Task / Note.
   revert_undo_window?: RevertUndoWindow;
+  // Cross-boundary PROJECT sharing (v1, 2026-06-04): provenance stamp written
+  // when this project was materialized from a received project bundle. ALWAYS-NEW
+  // import lands a shared project as a FRESH project with remapped ids and this
+  // marker, so the UI can show "Imported from alex@lab on 2026-06-04" without
+  // inventing a live sharing relationship. Optional + additive: every project
+  // created the ordinary way (and every project written before this slice) omits
+  // it. It is the cheap seed a future merge-into-existing (P3) needs.
+  imported_from?: ProjectImportedFrom;
+}
+
+/**
+ * Provenance for a project that arrived via cross-boundary sharing. Set once at
+ * import time and never edited. `sender` is the recipient's best-known label for
+ * the sender (the verified email when the relay bundle carried one, else a short
+ * key-hash label). `source_project_name` preserves the sender's original project
+ * name even after the local copy is renamed to dodge a collision. `source_grant`
+ * carries the source funding-account NAME for reference (the grant LINK itself is
+ * dropped on share, design Q4), null/undefined when the source had none.
+ */
+export interface ProjectImportedFrom {
+  sender: string;
+  imported_at: string; // ISO timestamp
+  source_project_name: string;
+  source_grant?: string | null;
 }
 
 export interface ProjectCreate {
@@ -395,6 +419,11 @@ export interface ProjectCreate {
   sort_order?: number;
   // Project -> grant link — see Project.funding_account_id.
   funding_account_id?: number | null;
+  // Cross-boundary PROJECT sharing (v1): provenance stamp for a project
+  // materialized from a received bundle. Only the project-import path sets it;
+  // ordinary creates leave it off (absent = not imported). See
+  // Project.imported_from.
+  imported_from?: ProjectImportedFrom;
 }
 
 export interface ProjectUpdate {

@@ -17,6 +17,7 @@ import { taskNotesBase, taskResultsBase, taskResultsTabBase } from "@/lib/tasks/
 import type { Dependency, TaskMethodAttachment } from "@/lib/types";
 import { pickImportedMethodName, pickImportedProjectName } from "./resolve";
 import type {
+  ImportMethodEntry,
   ImportNotCarried,
   ImportPayload,
   ImportPlan,
@@ -107,246 +108,253 @@ async function applyMethodResolutions(
       console.warn(`[import.apply] resolution index ${i} has no payload method entry`);
       continue;
     }
+    const newId = await localizeImportedMethod(entry, res.sourceMethodName);
+    if (newId == null) continue; // protocol-less structured method, dropped + warned.
+    mapping[res.sourceMethodId] = newId;
+    resultMethodIds.push(newId);
+  }
 
-    if (entry.record.method_type === "pcr") {
-      if (entry.pcrProtocol == null) {
-        console.warn(
-          `[import.apply] PCR method '${res.sourceMethodName}' was marked import-new but the bundle did not carry the protocol record. Skipping.`,
-        );
-        continue;
-      }
-      const newName = await pickImportedMethodName(res.sourceMethodName);
-      const newProtocol = await pcrApi.create({
-        name: entry.pcrProtocol.name,
-        gradient: entry.pcrProtocol.gradient,
-        ingredients: entry.pcrProtocol.ingredients,
-        notes: entry.pcrProtocol.notes,
-        is_public: false,
-      });
-      const newMethod = await methodsApi.create({
-        name: newName,
-        source_path: `pcr://protocol/${newProtocol.id}`,
-        method_type: "pcr",
-        folder_path: entry.record.folder_path,
-        tags: entry.record.tags ?? undefined,
-        is_public: false,
-      });
-      mapping[res.sourceMethodId] = newMethod.id;
-      resultMethodIds.push(newMethod.id);
-      continue;
-    }
+  return { mapping, resultMethodIds };
+}
 
-    if (entry.record.method_type === "lc_gradient") {
-      if (entry.lcGradientProtocol == null) {
-        console.warn(
-          `[import.apply] LC gradient method '${res.sourceMethodName}' was marked import-new but the bundle did not carry the protocol record. Skipping.`,
-        );
-        continue;
-      }
-      const newName = await pickImportedMethodName(res.sourceMethodName);
-      const newProtocol = await lcGradientApi.create({
-        name: entry.lcGradientProtocol.name,
-        description: entry.lcGradientProtocol.description,
-        gradient_steps: entry.lcGradientProtocol.gradient_steps,
-        column: entry.lcGradientProtocol.column,
-        detection_wavelength_nm: entry.lcGradientProtocol.detection_wavelength_nm,
-        ingredients: entry.lcGradientProtocol.ingredients,
-        is_public: false,
-      });
-      const newMethod = await methodsApi.create({
-        name: newName,
-        source_path: `lc_gradient://protocol/${newProtocol.id}`,
-        method_type: "lc_gradient",
-        folder_path: entry.record.folder_path,
-        tags: entry.record.tags ?? undefined,
-        is_public: false,
-      });
-      mapping[res.sourceMethodId] = newMethod.id;
-      resultMethodIds.push(newMethod.id);
-      continue;
-    }
-
-    if (entry.record.method_type === "plate") {
-      if (entry.plateProtocol == null) {
-        console.warn(
-          `[import.apply] Plate method '${res.sourceMethodName}' was marked import-new but the bundle did not carry the protocol record. Skipping.`,
-        );
-        continue;
-      }
-      const newName = await pickImportedMethodName(res.sourceMethodName);
-      const newProtocol = await plateApi.create({
-        name: entry.plateProtocol.name,
-        description: entry.plateProtocol.description,
-        plate_size: entry.plateProtocol.plate_size,
-        region_labels: entry.plateProtocol.region_labels,
-        is_public: false,
-      });
-      const newMethod = await methodsApi.create({
-        name: newName,
-        source_path: `plate://protocol/${newProtocol.id}`,
-        method_type: "plate",
-        folder_path: entry.record.folder_path,
-        tags: entry.record.tags ?? undefined,
-        is_public: false,
-      });
-      mapping[res.sourceMethodId] = newMethod.id;
-      resultMethodIds.push(newMethod.id);
-      continue;
-    }
-
-    if (entry.record.method_type === "cell_culture") {
-      if (entry.cellCultureSchedule == null) {
-        console.warn(
-          `[import.apply] Cell culture method '${res.sourceMethodName}' was marked import-new but the bundle did not carry the schedule record. Skipping.`,
-        );
-        continue;
-      }
-      const newName = await pickImportedMethodName(res.sourceMethodName);
-      const newSchedule = await cellCultureApi.create({
-        name: entry.cellCultureSchedule.name,
-        description: entry.cellCultureSchedule.description,
-        cell_line: entry.cellCultureSchedule.cell_line,
-        media: entry.cellCultureSchedule.media,
-        planned_events: entry.cellCultureSchedule.planned_events,
-        is_public: false,
-      });
-      const newMethod = await methodsApi.create({
-        name: newName,
-        source_path: `cell_culture://protocol/${newSchedule.id}`,
-        method_type: "cell_culture",
-        folder_path: entry.record.folder_path,
-        tags: entry.record.tags ?? undefined,
-        is_public: false,
-      });
-      mapping[res.sourceMethodId] = newMethod.id;
-      resultMethodIds.push(newMethod.id);
-      continue;
-    }
-
-    if (entry.record.method_type === "mass_spec") {
-      if (entry.massSpecProtocol == null) {
-        console.warn(
-          `[import.apply] Mass spec method '${res.sourceMethodName}' was marked import-new but the bundle did not carry the protocol record. Skipping.`,
-        );
-        continue;
-      }
-      const newName = await pickImportedMethodName(res.sourceMethodName);
-      const newProtocol = await massSpecApi.create({
-        name: entry.massSpecProtocol.name,
-        description: entry.massSpecProtocol.description,
-        ionization_mode: entry.massSpecProtocol.ionization_mode,
-        ionization_label: entry.massSpecProtocol.ionization_label,
-        instrument: entry.massSpecProtocol.instrument,
-        source: entry.massSpecProtocol.source,
-        scan: entry.massSpecProtocol.scan,
-        calibration: entry.massSpecProtocol.calibration,
-        is_public: false,
-      });
-      const newMethod = await methodsApi.create({
-        name: newName,
-        source_path: `mass_spec://protocol/${newProtocol.id}`,
-        method_type: "mass_spec",
-        folder_path: entry.record.folder_path,
-        tags: entry.record.tags ?? undefined,
-        is_public: false,
-      });
-      mapping[res.sourceMethodId] = newMethod.id;
-      resultMethodIds.push(newMethod.id);
-      continue;
-    }
-
-    if (entry.record.method_type === "coding_workflow") {
-      if (entry.codingWorkflow == null) {
-        console.warn(
-          `[import.apply] Coding workflow '${res.sourceMethodName}' was marked import-new but the bundle did not carry the protocol record. Skipping.`,
-        );
-        continue;
-      }
-      const newName = await pickImportedMethodName(res.sourceMethodName);
-      const newProtocol = await codingWorkflowApi.create({
-        name: entry.codingWorkflow.name,
-        description: entry.codingWorkflow.description,
-        language: entry.codingWorkflow.language,
-        language_label: entry.codingWorkflow.language_label,
-        embedded_code: entry.codingWorkflow.embedded_code,
-        external_path: entry.codingWorkflow.external_path,
-        output_renderer: entry.codingWorkflow.output_renderer,
-        is_public: false,
-      });
-      const newMethod = await methodsApi.create({
-        name: newName,
-        source_path: `coding_workflow://protocol/${newProtocol.id}`,
-        method_type: "coding_workflow",
-        folder_path: entry.record.folder_path,
-        tags: entry.record.tags ?? undefined,
-        is_public: false,
-      });
-      mapping[res.sourceMethodId] = newMethod.id;
-      resultMethodIds.push(newMethod.id);
-      continue;
-    }
-
-    if (entry.record.method_type === "qpcr_analysis") {
-      if (entry.qpcrAnalysisProtocol == null) {
-        console.warn(
-          `[import.apply] qPCR analysis method '${res.sourceMethodName}' was marked import-new but the bundle did not carry the protocol record. Skipping.`,
-        );
-        continue;
-      }
-      const newName = await pickImportedMethodName(res.sourceMethodName);
-      const newProtocol = await qpcrAnalysisApi.create({
-        name: entry.qpcrAnalysisProtocol.name,
-        description: entry.qpcrAnalysisProtocol.description,
-        chemistry: entry.qpcrAnalysisProtocol.chemistry,
-        chemistry_label: entry.qpcrAnalysisProtocol.chemistry_label,
-        references: entry.qpcrAnalysisProtocol.references,
-        standard_curve: entry.qpcrAnalysisProtocol.standard_curve,
-        melt_curve: entry.qpcrAnalysisProtocol.melt_curve,
-        use_delta_delta_cq: entry.qpcrAnalysisProtocol.use_delta_delta_cq,
-        is_public: false,
-      });
-      const newMethod = await methodsApi.create({
-        name: newName,
-        source_path: `qpcr_analysis://protocol/${newProtocol.id}`,
-        method_type: "qpcr_analysis",
-        folder_path: entry.record.folder_path,
-        tags: entry.record.tags ?? undefined,
-        is_public: false,
-      });
-      mapping[res.sourceMethodId] = newMethod.id;
-      resultMethodIds.push(newMethod.id);
-      continue;
-    }
-
-    const newName = await pickImportedMethodName(res.sourceMethodName);
-    const newSlug = slugifyForPath(newName);
-
-    let sourcePath: string | null = null;
-    if (entry.record.method_type === "markdown" && entry.bodyMarkdown !== null) {
-      sourcePath = `methods/${newSlug}/${newSlug}.md`;
-      await fileService.writeFileFromBlob(
-        sourcePath,
-        new Blob([entry.bodyMarkdown], { type: "text/markdown" }),
+/**
+ * Localize ONE bundled method entry into a fresh receiver-side method, returning
+ * its new id (or null when the method cannot be honestly recreated, a structured
+ * method whose protocol record was not bundled). Extracted verbatim from the
+ * former import-new branch of applyMethodResolutions so BOTH the single-experiment
+ * path and the new project-import path (project-apply.ts) share one localizer —
+ * the single-experiment behavior is byte-for-byte unchanged.
+ *
+ * For structured methods (PCR / LC / plate / cell-culture / mass-spec /
+ * coding-workflow / qPCR) it first recreates the canonical protocol record in
+ * the receiver's namespace, then mints the method pointing at the fresh protocol
+ * id. For markdown / PDF methods it writes the body to a `methods/{slug}/...`
+ * path and points source_path there.
+ */
+export async function localizeImportedMethod(
+  entry: ImportMethodEntry,
+  sourceMethodName: string,
+): Promise<number | null> {
+  if (entry.record.method_type === "pcr") {
+    if (entry.pcrProtocol == null) {
+      console.warn(
+        `[import.apply] PCR method '${sourceMethodName}' was marked import-new but the bundle did not carry the protocol record. Skipping.`,
       );
-    } else if (entry.record.method_type === "pdf" && entry.bytes && entry.pdfFilename) {
-      sourcePath = `methods/${newSlug}/${entry.pdfFilename}`;
-      await writeBytes(sourcePath, entry.bytes, "application/pdf");
+      return null;
     }
-
+    const newName = await pickImportedMethodName(sourceMethodName);
+    const newProtocol = await pcrApi.create({
+      name: entry.pcrProtocol.name,
+      gradient: entry.pcrProtocol.gradient,
+      ingredients: entry.pcrProtocol.ingredients,
+      notes: entry.pcrProtocol.notes,
+      is_public: false,
+    });
     const newMethod = await methodsApi.create({
       name: newName,
-      source_path: sourcePath,
-      method_type: entry.record.method_type ?? undefined,
+      source_path: `pcr://protocol/${newProtocol.id}`,
+      method_type: "pcr",
       folder_path: entry.record.folder_path,
       tags: entry.record.tags ?? undefined,
       is_public: false,
     });
-
-    mapping[res.sourceMethodId] = newMethod.id;
-    resultMethodIds.push(newMethod.id);
+    return newMethod.id;
   }
 
-  return { mapping, resultMethodIds };
+  if (entry.record.method_type === "lc_gradient") {
+    if (entry.lcGradientProtocol == null) {
+      console.warn(
+        `[import.apply] LC gradient method '${sourceMethodName}' was marked import-new but the bundle did not carry the protocol record. Skipping.`,
+      );
+      return null;
+    }
+    const newName = await pickImportedMethodName(sourceMethodName);
+    const newProtocol = await lcGradientApi.create({
+      name: entry.lcGradientProtocol.name,
+      description: entry.lcGradientProtocol.description,
+      gradient_steps: entry.lcGradientProtocol.gradient_steps,
+      column: entry.lcGradientProtocol.column,
+      detection_wavelength_nm: entry.lcGradientProtocol.detection_wavelength_nm,
+      ingredients: entry.lcGradientProtocol.ingredients,
+      is_public: false,
+    });
+    const newMethod = await methodsApi.create({
+      name: newName,
+      source_path: `lc_gradient://protocol/${newProtocol.id}`,
+      method_type: "lc_gradient",
+      folder_path: entry.record.folder_path,
+      tags: entry.record.tags ?? undefined,
+      is_public: false,
+    });
+    return newMethod.id;
+  }
+
+  if (entry.record.method_type === "plate") {
+    if (entry.plateProtocol == null) {
+      console.warn(
+        `[import.apply] Plate method '${sourceMethodName}' was marked import-new but the bundle did not carry the protocol record. Skipping.`,
+      );
+      return null;
+    }
+    const newName = await pickImportedMethodName(sourceMethodName);
+    const newProtocol = await plateApi.create({
+      name: entry.plateProtocol.name,
+      description: entry.plateProtocol.description,
+      plate_size: entry.plateProtocol.plate_size,
+      region_labels: entry.plateProtocol.region_labels,
+      is_public: false,
+    });
+    const newMethod = await methodsApi.create({
+      name: newName,
+      source_path: `plate://protocol/${newProtocol.id}`,
+      method_type: "plate",
+      folder_path: entry.record.folder_path,
+      tags: entry.record.tags ?? undefined,
+      is_public: false,
+    });
+    return newMethod.id;
+  }
+
+  if (entry.record.method_type === "cell_culture") {
+    if (entry.cellCultureSchedule == null) {
+      console.warn(
+        `[import.apply] Cell culture method '${sourceMethodName}' was marked import-new but the bundle did not carry the schedule record. Skipping.`,
+      );
+      return null;
+    }
+    const newName = await pickImportedMethodName(sourceMethodName);
+    const newSchedule = await cellCultureApi.create({
+      name: entry.cellCultureSchedule.name,
+      description: entry.cellCultureSchedule.description,
+      cell_line: entry.cellCultureSchedule.cell_line,
+      media: entry.cellCultureSchedule.media,
+      planned_events: entry.cellCultureSchedule.planned_events,
+      is_public: false,
+    });
+    const newMethod = await methodsApi.create({
+      name: newName,
+      source_path: `cell_culture://protocol/${newSchedule.id}`,
+      method_type: "cell_culture",
+      folder_path: entry.record.folder_path,
+      tags: entry.record.tags ?? undefined,
+      is_public: false,
+    });
+    return newMethod.id;
+  }
+
+  if (entry.record.method_type === "mass_spec") {
+    if (entry.massSpecProtocol == null) {
+      console.warn(
+        `[import.apply] Mass spec method '${sourceMethodName}' was marked import-new but the bundle did not carry the protocol record. Skipping.`,
+      );
+      return null;
+    }
+    const newName = await pickImportedMethodName(sourceMethodName);
+    const newProtocol = await massSpecApi.create({
+      name: entry.massSpecProtocol.name,
+      description: entry.massSpecProtocol.description,
+      ionization_mode: entry.massSpecProtocol.ionization_mode,
+      ionization_label: entry.massSpecProtocol.ionization_label,
+      instrument: entry.massSpecProtocol.instrument,
+      source: entry.massSpecProtocol.source,
+      scan: entry.massSpecProtocol.scan,
+      calibration: entry.massSpecProtocol.calibration,
+      is_public: false,
+    });
+    const newMethod = await methodsApi.create({
+      name: newName,
+      source_path: `mass_spec://protocol/${newProtocol.id}`,
+      method_type: "mass_spec",
+      folder_path: entry.record.folder_path,
+      tags: entry.record.tags ?? undefined,
+      is_public: false,
+    });
+    return newMethod.id;
+  }
+
+  if (entry.record.method_type === "coding_workflow") {
+    if (entry.codingWorkflow == null) {
+      console.warn(
+        `[import.apply] Coding workflow '${sourceMethodName}' was marked import-new but the bundle did not carry the protocol record. Skipping.`,
+      );
+      return null;
+    }
+    const newName = await pickImportedMethodName(sourceMethodName);
+    const newProtocol = await codingWorkflowApi.create({
+      name: entry.codingWorkflow.name,
+      description: entry.codingWorkflow.description,
+      language: entry.codingWorkflow.language,
+      language_label: entry.codingWorkflow.language_label,
+      embedded_code: entry.codingWorkflow.embedded_code,
+      external_path: entry.codingWorkflow.external_path,
+      output_renderer: entry.codingWorkflow.output_renderer,
+      is_public: false,
+    });
+    const newMethod = await methodsApi.create({
+      name: newName,
+      source_path: `coding_workflow://protocol/${newProtocol.id}`,
+      method_type: "coding_workflow",
+      folder_path: entry.record.folder_path,
+      tags: entry.record.tags ?? undefined,
+      is_public: false,
+    });
+    return newMethod.id;
+  }
+
+  if (entry.record.method_type === "qpcr_analysis") {
+    if (entry.qpcrAnalysisProtocol == null) {
+      console.warn(
+        `[import.apply] qPCR analysis method '${sourceMethodName}' was marked import-new but the bundle did not carry the protocol record. Skipping.`,
+      );
+      return null;
+    }
+    const newName = await pickImportedMethodName(sourceMethodName);
+    const newProtocol = await qpcrAnalysisApi.create({
+      name: entry.qpcrAnalysisProtocol.name,
+      description: entry.qpcrAnalysisProtocol.description,
+      chemistry: entry.qpcrAnalysisProtocol.chemistry,
+      chemistry_label: entry.qpcrAnalysisProtocol.chemistry_label,
+      references: entry.qpcrAnalysisProtocol.references,
+      standard_curve: entry.qpcrAnalysisProtocol.standard_curve,
+      melt_curve: entry.qpcrAnalysisProtocol.melt_curve,
+      use_delta_delta_cq: entry.qpcrAnalysisProtocol.use_delta_delta_cq,
+      is_public: false,
+    });
+    const newMethod = await methodsApi.create({
+      name: newName,
+      source_path: `qpcr_analysis://protocol/${newProtocol.id}`,
+      method_type: "qpcr_analysis",
+      folder_path: entry.record.folder_path,
+      tags: entry.record.tags ?? undefined,
+      is_public: false,
+    });
+    return newMethod.id;
+  }
+
+  const newName = await pickImportedMethodName(sourceMethodName);
+  const newSlug = slugifyForPath(newName);
+
+  let sourcePath: string | null = null;
+  if (entry.record.method_type === "markdown" && entry.bodyMarkdown !== null) {
+    sourcePath = `methods/${newSlug}/${newSlug}.md`;
+    await fileService.writeFileFromBlob(
+      sourcePath,
+      new Blob([entry.bodyMarkdown], { type: "text/markdown" }),
+    );
+  } else if (entry.record.method_type === "pdf" && entry.bytes && entry.pdfFilename) {
+    sourcePath = `methods/${newSlug}/${entry.pdfFilename}`;
+    await writeBytes(sourcePath, entry.bytes, "application/pdf");
+  }
+
+  const newMethod = await methodsApi.create({
+    name: newName,
+    source_path: sourcePath,
+    method_type: entry.record.method_type ?? undefined,
+    folder_path: entry.record.folder_path,
+    tags: entry.record.tags ?? undefined,
+    is_public: false,
+  });
+  return newMethod.id;
 }
 
 /**
@@ -360,7 +368,7 @@ async function applyMethodResolutions(
  *
  * `methodNameById` is a best-effort source-id -> name lookup for the report.
  */
-function remapMethodAttachments(
+export function remapMethodAttachments(
   source: TaskMethodAttachment[],
   mapping: Record<number, number>,
   notCarried: ImportNotCarried,
@@ -410,7 +418,7 @@ function remapMethodAttachments(
  * that did not map is dropped and reported, so the new task never carries a
  * method id the recipient cannot resolve.
  */
-function remapMethodIds(
+export function remapMethodIds(
   sourceMethodIds: number[],
   mapping: Record<number, number>,
   notCarried: ImportNotCarried,
@@ -451,7 +459,7 @@ function remapMethodIds(
  *
  * Returns the dependency records to create, in the receiver's id-space.
  */
-function remapDependencies(
+export function remapDependencies(
   dependencies: Dependency[],
   taskIdMap: Map<number, number>,
   notCarried: ImportNotCarried,
@@ -477,7 +485,7 @@ function remapDependencies(
   return out;
 }
 
-async function writeNotesResultsAttachments(
+export async function writeNotesResultsAttachments(
   newTaskId: number,
   currentUser: string,
   payload: ImportPayload,
