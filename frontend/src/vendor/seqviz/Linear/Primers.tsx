@@ -224,165 +224,250 @@ const SingleNamedElement = (props: {
     }
   }
 
-  // primer bases bot — BASE-LEVEL render (SnapGene parity). When zoomed in enough
-  // that bases are legible (the same `zoomed` gate the strand letters render
-  // under) AND this primer carries a per-base layout (its stored oligo mapped onto
-  // template columns by lib/sequences/primer-base-layout), draw the primer's
-  // ACTUAL bases:
-  //   - ANNEALING bases sit column-for-column on the annealing line (`midY`), over
-  //     the template base they pair with (forward column x = (col - firstBase) *
-  //     charWidth, made local to this element's group by subtracting origX).
-  //   - the non-annealing 5' TAIL bases lift OFF the template as a flap, offset
-  //     vertically AWAY from the strand (up for a forward primer whose row sits
-  //     above the top strand, down for a reverse primer below the complement), with
-  //     a short kink connecting the flap back to the annealing line so it reads as
-  //     "pops off" rather than floating.
-  //   - MISMATCH bases keep their template column but render in a contrasting red
-  //     so a non-pairing base reads as popped even mid-anneal.
-  // The name label stays (lifted clear of the forward flap below). Whole layer is a
-  // no-op when zoomed out, leaving the arrow + label untouched. Coordinates are in
-  // this element's translated group frame; baseLocalX maps a template column to an
-  // x in that frame and is clipped to the visible block columns.
-  const baseCells = (element as { baseCells?: PrimerBaseCell[] }).baseCells;
-  const renderBases = zoomed && charWidth > 4 && Array.isArray(baseCells) && baseCells.length > 0;
-  const baseLocalX = (column: number) => (column - firstBase) * charWidth - origX;
-  // Flap lifts toward the open base-gap lane: up for forward (row above strand),
-  // down for reverse (row below complement). A short connector kink bridges the
-  // annealing line to the flap baseline.
-  const baseFontSize = Math.min(seqFontSize || fontSize, charWidth / 0.62);
-  // primer bases bot — slide the whole base layer toward the strand it pairs with
-  // so the annealing bases sit FLUSH against the template and the reserved base-gap
-  // lane carries the popped 5' flap on the far side. Forward primers ride above the
-  // top strand, so the annealing line drops DOWN by the gap (close to the strand
-  // below) and the flap rises up into the freed row space. Reverse primers ride
-  // below the complement, so the annealing line stays near the row top (close to
-  // the complement above) and the flap drops down into the gap lane below.
-  const baseLaneShift = renderBases && forward ? baseGap : 0;
-  const annealLineY = midY + baseLaneShift;
-  // Annealing bases nudge off the bracket line toward the strand so the stroke
-  // does not cut through the glyphs; the flap rises a full base-height away.
-  const annealBaseShift = baseFontSize * 0.62;
-  const flapOffset = forward ? -(baseFontSize * 1.25 + 4) : baseFontSize * 1.25 + 4;
-  const flapBaselineY = annealLineY + flapOffset;
+  // primer bases — BASE-LEVEL render (SnapGene parity). When zoomed in enough that
+  // bases are legible AND this primer carries a per-base layout (its oligo mapped
+  // onto template columns by lib/sequences/primer-base-layout), draw the primer as
+  // SnapGene does, instead of the thin bracket:
+  //   - the ANNEALING region is an outlined BOX hugging the bases, which sit
+  //     column-for-column over the template base they pair with. A 3' ARROWHEAD
+  //     caps the box on the reading end (right for a forward primer, left for a
+  //     reverse one).
+  //   - a non-annealing 5' TAIL (a cloning overhang) is a SECOND outlined box,
+  //     raised one row OFF the template (up for forward, down for reverse) and
+  //     abutting the annealing box at the 5' corner, so the tail reads as
+  //     "popping off" the template.
+  //   - MISMATCH bases keep their column but render in a contrasting red.
+  //   - the NAME label sits in its own lane clear of the boxes (above for forward,
+  //     below for reverse), so name and bases never overlap.
+  // The whole row's height (props.height) was sized by SeqBlock.primerRowHeight to
+  // fit these lanes; we derive the lane geometry from that same height here so the
+  // two agree. Zoomed out, none of this runs and the thin arrow + label is used.
   const primerColor = color || "#f472b6";
   const mismatchColor = "#dc2626"; // contrasting red so a mismatch base reads popped
+  const baseCells = (element as { baseCells?: PrimerBaseCell[] }).baseCells;
+  const renderBases = zoomed && charWidth > 4 && Array.isArray(baseCells) && baseCells.length > 0;
 
+  // column (forward template coord) -> local x within this element's group (the
+  // group is translated to origX, so we subtract it). Center is +half a char.
+  const colLeftX = (column: number) => (column - firstBase) * charWidth - origX;
+  const colCenterX = (column: number) => colLeftX(column) + charWidth / 2;
+  const baseFontSize = Math.min(seqFontSize || fontSize, charWidth / 0.62);
+
+  // ---- base-render lane geometry (row-local y: 0 = row top, H = row bottom) ----
+  const H = props.height; // the full primer-row height (SeqBlock.primerRowHeight)
+  const boxH = baseFontSize + 6; // one base box (glyph + vertical padding)
+  const strandMargin = 3; // gap between the annealing box and the strand it hugs
+
+  const annealList = renderBases ? baseCells!.filter(c => c.role !== "tail") : [];
+  const tailList = renderBases ? baseCells!.filter(c => c.role === "tail") : [];
+  // Clip to THIS block's column window (a primer + its 5' tail can span more than
+  // one SeqBlock; each block draws only its own columns). Using the column range
+  // (not the primer's pixel width) is essential for the forward tail, whose bases
+  // sit to the LEFT of the primer's start, well outside the primer's own x-span.
+  const inBlock = (c: PrimerBaseCell) => c.column >= firstBase && c.column <= lastBase;
+  const annVis = annealList.filter(inBlock);
+  const tailVis = tailList.filter(inBlock);
+  const hasTail = tailVis.length > 0;
+
+  // Forward primer: annealing box flush at the BOTTOM of the track (the top strand
+  // is just below), tail box raised above it, label above that. Reverse primer:
+  // mirror — annealing box flush at the TOP (complement just above), tail below,
+  // label below.
+  let annTop: number;
+  let annBot: number;
+  let tailTop: number;
+  let tailBot: number;
+  let labelY: number;
+  if (forward) {
+    annBot = H - strandMargin;
+    annTop = annBot - boxH;
+    tailBot = annTop;
+    tailTop = tailBot - boxH;
+    // label lane = everything above the topmost box; center the name in it.
+    labelY = (hasTail ? tailTop : annTop) / 2;
+  } else {
+    annTop = strandMargin;
+    annBot = annTop + boxH;
+    tailTop = annBot;
+    tailBot = tailTop + boxH;
+    // label lane = everything below the bottommost box; center the name in it.
+    labelY = ((hasTail ? tailBot : annBot) + H) / 2;
+  }
+  const annBaseY = (annTop + annBot) / 2;
+  const tailBaseY = (tailTop + tailBot) / 2;
+
+  // Annealing box x-extent from the visible annealing cells, plus the 3' arrowhead.
+  const annCols = annVis.map(c => c.column);
+  const annX0 = annVis.length ? colLeftX(Math.min(...annCols)) : 0;
+  const annX1 = annVis.length ? colLeftX(Math.max(...annCols)) + charWidth : 0;
+  const arrowLen = Math.min(charWidth * 0.85, baseFontSize + 2);
+  // The 3' reading end: right for forward (drawn when the FWD end lands here), left
+  // for reverse (when the REV end lands here). Otherwise the box runs flat into the
+  // next block (the primer continues; no cap).
+  const arrowRight = forward && endFWD;
+  const arrowLeft = reverse && endREV;
+  const annealBoxPath = (() => {
+    if (!annVis.length) return "";
+    if (arrowRight) {
+      return `M ${annX0} ${annTop} L ${annX1 - arrowLen} ${annTop} L ${annX1} ${annBaseY} L ${annX1 - arrowLen} ${annBot} L ${annX0} ${annBot} Z`;
+    }
+    if (arrowLeft) {
+      return `M ${annX1} ${annTop} L ${annX0 + arrowLen} ${annTop} L ${annX0} ${annBaseY} L ${annX0 + arrowLen} ${annBot} L ${annX1} ${annBot} Z`;
+    }
+    return `M ${annX0} ${annTop} L ${annX1} ${annTop} L ${annX1} ${annBot} L ${annX0} ${annBot} Z`;
+  })();
+
+  // Tail box x-extent from the visible tail cells.
+  const tailCols = tailVis.map(c => c.column);
+  const tailX0 = hasTail ? colLeftX(Math.min(...tailCols)) : 0;
+  const tailX1 = hasTail ? colLeftX(Math.max(...tailCols)) + charWidth : 0;
+
+  // Label centered over the annealing box (falls back to the block center when the
+  // annealing region is in another block).
+  const labelCenterX = annVis.length ? (annX0 + annX1) / 2 : width / 2;
+
+  // Shared primer interaction handlers (selection ref via the stroked shape, the
+  // double-click-to-edit, and the row-dim hover) attach to whichever stroked shape
+  // carries the primer in each mode.
+  const refForShape = inputRef(element.id, {
+    end: end,
+    name: element.name,
+    ref: element.id,
+    start: start,
+    type: "PRIMER",
+    viewer: "LINEAR",
+  });
+
+  if (renderBases) {
+    // SnapGene-style box render. The element group sits at the row top (origX, 0)
+    // so the lane y's computed above map straight to row-local pixels.
+    return (
+      <g id={element.id} transform={`translate(${x}, 0)`}>
+        <title>{name}</title>
+        {/* ANNEALING box (with the 3' arrowhead) — the stroked shape that also
+            carries the selection ref + interaction handlers. */}
+        {annealBoxPath ? (
+          <path
+            ref={refForShape}
+            className={`${element.id} la-vz-primer`}
+            cursor="pointer"
+            d={annealBoxPath}
+            fill="none"
+            id={element.id}
+            stroke={primerColor}
+            strokeWidth={1.5}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            style={annotation}
+            onBlur={() => {}}
+            onDoubleClick={handleDoubleClick}
+            onFocus={() => {}}
+            onMouseOut={() => hoverOtherPrimerRows(element.id, 0.7)}
+            onMouseOver={() => hoverOtherPrimerRows(element.id, 1.0)}
+          />
+        ) : null}
+        {/* 5' TAIL box — raised off the template, abutting the annealing box at the
+            5' corner so it reads as one connected shape that pops off. */}
+        {hasTail ? (
+          <rect
+            className={`${element.id} la-vz-primer`}
+            cursor="pointer"
+            x={Math.min(tailX0, tailX1)}
+            y={tailTop}
+            width={Math.abs(tailX1 - tailX0)}
+            height={boxH}
+            rx={2.5}
+            fill="none"
+            stroke={primerColor}
+            strokeWidth={1.5}
+            strokeLinejoin="round"
+            onDoubleClick={handleDoubleClick}
+            onMouseOut={() => hoverOtherPrimerRows(element.id, 0.7)}
+            onMouseOver={() => hoverOtherPrimerRows(element.id, 1.0)}
+          />
+        ) : null}
+        {/* the primer's actual bases, column-aligned over the template (annealing)
+            or packed in the raised tail box (tail). */}
+        <g className="la-vz-primer-bases" pointerEvents="none">
+          {baseCells!.filter(inBlock).map((cell: PrimerBaseCell) => {
+            const isTail = cell.role === "tail";
+            const isMismatch = cell.role === "mismatch";
+            return (
+              <text
+                key={`pb-${element.id}-${cell.oligoIndex}`}
+                dominantBaseline="middle"
+                textAnchor="middle"
+                x={colCenterX(cell.column)}
+                y={isTail ? tailBaseY : annBaseY}
+                fontSize={baseFontSize}
+                fontFamily="Roboto Mono, monospace"
+                fontWeight={isMismatch ? 700 : 500}
+                fill={isMismatch ? mismatchColor : primerColor}
+              >
+                {cell.base}
+              </text>
+            );
+          })}
+        </g>
+        {/* NAME label in its own lane, clear of the boxes. */}
+        <text
+          className="la-vz-primer-label"
+          cursor="pointer"
+          dominantBaseline="middle"
+          fill={primerColor}
+          fontSize={fontSize}
+          id={element.id}
+          style={annotationLabel}
+          textAnchor="middle"
+          x={labelCenterX}
+          y={labelY}
+          onDoubleClick={handleDoubleClick}
+          onMouseOut={() => hoverOtherPrimerRows(element.id, 0.7)}
+          onMouseOver={() => hoverOtherPrimerRows(element.id, 1.0)}
+        >
+          {displayName}
+        </text>
+      </g>
+    );
+  }
+
+  // Zoomed-out (arrow-only): the thin outlined annealing bracket + 3' hook + label,
+  // unchanged from before.
   return (
     <g id={element.id} transform={`translate(${x}, ${0.1 * height})`}>
-      {/* <title> provides a hover tooltip on most browsers */}
       <title>{name}</title>
       <path
-        ref={inputRef(element.id, {
-          end: end,
-          name: element.name,
-          ref: element.id,
-          start: start,
-          type: "PRIMER",
-          viewer: "LINEAR",
-        })}
+        ref={refForShape}
         className={`${element.id} la-vz-primer`}
         cursor="pointer"
         d={linePath}
-        // primer bases bot — when the base row renders, slide the bracket with the
-        // annealing line so the thin stroke underlines the annealing bases instead
-        // of sitting at the unshifted row center.
-        transform={baseLaneShift ? `translate(0, ${baseLaneShift})` : undefined}
-        // RESEARCHOS (primer style bot): thin outlined bracket, not a filled
-        // block. No fill; the primer color is carried by the stroke.
         fill="none"
         id={element.id}
-        stroke={color || "#f472b6"}
+        stroke={primerColor}
         strokeWidth={1.5}
         strokeLinecap="round"
         strokeLinejoin="round"
         style={annotation}
-        onBlur={() => {
-          // do nothing
-        }}
+        onBlur={() => {}}
         onDoubleClick={handleDoubleClick}
-        onFocus={() => {
-          // do nothing
-        }}
+        onFocus={() => {}}
         onMouseOut={() => hoverOtherPrimerRows(element.id, 0.7)}
         onMouseOver={() => hoverOtherPrimerRows(element.id, 1.0)}
       />
-      {renderBases && (
-        <g className="la-vz-primer-bases" pointerEvents="none">
-          {baseCells.map((cell: PrimerBaseCell) => {
-            // Only draw bases whose column is visible inside this block (the flap
-            // can poke a column or two past the annealed span; we still clip to
-            // the block's own column window so a base never paints in a neighbour).
-            const cx = baseLocalX(cell.column) + charWidth / 2;
-            if (cx < -charWidth || cx > width + charWidth) return null;
-            const isTail = cell.role === "tail";
-            const isMismatch = cell.role === "mismatch";
-            // Annealing bases sit just off the annealing line on the strand-facing
-            // side (below for a forward primer, above for a reverse primer) so the
-            // thin stroke does not slash through the letters. Tail bases ride the
-            // flap baseline (lifted away from the strand).
-            const annealY = annealLineY + (forward ? annealBaseShift : -annealBaseShift);
-            const y = isTail ? flapBaselineY : annealY;
-            // A tail base pops off: a short connector kink from the annealing line
-            // up/down to the flap base, drawn once per tail base so the flap reads
-            // as lifting off the template rather than floating free.
-            const connector = isTail
-              ? `M ${cx} ${annealLineY} L ${cx} ${y + (forward ? baseFontSize * 0.4 : -baseFontSize * 0.4)}`
-              : null;
-            return (
-              <g key={`pb-${element.id}-${cell.oligoIndex}`}>
-                {connector && (
-                  <path
-                    d={connector}
-                    fill="none"
-                    stroke={primerColor}
-                    strokeWidth={1}
-                    strokeLinecap="round"
-                    opacity={0.7}
-                  />
-                )}
-                <text
-                  dominantBaseline="middle"
-                  textAnchor="middle"
-                  x={cx}
-                  y={y}
-                  fontSize={baseFontSize}
-                  fontFamily="Roboto Mono, monospace"
-                  fontWeight={isMismatch ? 700 : 500}
-                  fill={isMismatch ? mismatchColor : primerColor}
-                >
-                  {cell.base}
-                </text>
-              </g>
-            );
-          })}
-        </g>
-      )}
       <text
         className="la-vz-primer-label"
         cursor="pointer"
         dominantBaseline="middle"
-        // RESEARCHOS (primer colors bot): color the label TEXT in the primer's own
-        // color so it matches the annealing bracket. Overrides annotationLabel's
-        // dark default. Falls back to the standard primer pink when unset.
-        fill={color || "#f472b6"}
+        fill={primerColor}
         fontSize={fontSize}
         id={element.id}
         style={annotationLabel}
         textAnchor="middle"
         x={width / 2}
-        // RESEARCHOS (primer style bot): sit the label just ABOVE the thin
-        // annealing line so it doesn't collide with the bracket stroke.
-        // primer bases bot — when the base row renders, lift the forward label
-        // clear above the popped 5'-tail flap (the flap rises toward the block top)
-        // so name + bases don't overlap; reverse keeps the label above the line.
-        y={renderBases && forward ? flapBaselineY - baseFontSize : height / 2 - 5}
-        onBlur={() => {
-          // do nothing
-        }}
+        y={height / 2 - 5}
+        onBlur={() => {}}
         onDoubleClick={handleDoubleClick}
-        onFocus={() => {
-          // do nothing
-        }}
+        onFocus={() => {}}
         onMouseOut={() => hoverOtherPrimerRows(element.id, 0.7)}
         onMouseOver={() => hoverOtherPrimerRows(element.id, 1.0)}
       >

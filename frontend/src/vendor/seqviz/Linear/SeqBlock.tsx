@@ -21,14 +21,43 @@ export type FindXAndWidthType = (
   x: number;
 };
 
-// primer bases bot — extra vertical room added to EACH primer track (forward +
-// reverse) when bases are legible (zoomed), so the SnapGene-style base row + the
-// 5'-tail flap that lifts off the template have space and do not collide with the
-// strand letters or neighbouring rows. Zero when zoomed out (arrow-only), keeping
-// the layout byte-identical to before. Linear.tsx adds the same amount to
-// blockHeight under the same condition so stacked blocks never clip.
-export const PRIMER_BASE_GAP = 16;
-export const primerBaseGapActive = (zoomed: boolean): number => (zoomed ? PRIMER_BASE_GAP : 0);
+// primer bases — SnapGene-style base-level primer rendering needs real vertical
+// room: an annealing BOX sitting on the template (with a 3' arrowhead), a name
+// label clear above/below it, and (when the primer has a non-annealing 5' tail /
+// cloning overhang) a SECOND box raised one row OFF the template for the popped
+// tail. So in the zoomed base view each primer ROW is taller than the flat
+// elementHeight, sized to the bases + lanes, and grows by an extra box-lane only
+// when the track actually contains a tailed primer. Zoomed out (arrow-only) it
+// stays at elementHeight, byte-identical to before. SeqBlock lays out the strands
+// with these heights and Linear.tsx adds the same per block so stacked blocks
+// never clip.
+
+/** The per-base glyph size used inside the primer boxes (matches Primers.tsx). */
+export const primerBaseFont = (seqFontSize: number, charWidth: number): number =>
+  Math.min(seqFontSize, charWidth / 0.62);
+
+/** True when any primer in these stacked rows carries a non-annealing 5' tail. */
+export const primerRowsHaveTail = (rows: { tailLength?: number }[][]): boolean =>
+  rows.some(row => row.some(p => (p.tailLength ?? 0) > 0));
+
+/**
+ * Height of ONE primer row. Zoomed out: the flat elementHeight (arrow-only).
+ * Zoomed in: room for the annealing box + the name-label lane, plus a SECOND
+ * box-lane when the track has a tailed primer (the raised/lowered 5' tail box).
+ * Primers.tsx derives its lane geometry from this same height so the two agree.
+ */
+export const primerRowHeight = (
+  zoomed: boolean,
+  hasTail: boolean,
+  seqFontSize: number,
+  charWidth: number,
+  elementHeight: number,
+): number => {
+  if (!zoomed) return elementHeight;
+  const box = primerBaseFont(seqFontSize, charWidth) + 6; // one base box (glyph + padding)
+  const label = seqFontSize + 4; // the name lane
+  return Math.round(label + box * (hasTail ? 2 : 1) + 5); // + a small strand margin
+};
 
 // ruler spacing bot — vertical breathing room reserved between the top sequence
 // row and the complement row WHEN the in-seam measuring tape renders (base-level
@@ -306,17 +335,30 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
 
     const lastBase = firstBase + seq.length;
 
-    // primer bases bot — extra lane height for the base row + popped 5' tail
-    // flap, applied to each primer track only when zoomed (bases legible).
-    const primerBaseGap = primerBaseGapActive(zoomed);
+    // primer bases — per-track row height. A track with a tailed primer gets the
+    // extra raised/lowered tail box-lane; a plain (no-tail) track only needs the
+    // annealing box + label lane. Computed separately for the forward track
+    // (above the top strand) and the reverse track (below the complement).
+    const primerFwdRowH = primerRowHeight(
+      zoomed,
+      primerRowsHaveTail(primerFwdRows),
+      seqFontSize,
+      charWidth,
+      elementHeight,
+    );
+    const primerRevRowH = primerRowHeight(
+      zoomed,
+      primerRowsHaveTail(primerRevRows),
+      seqFontSize,
+      charWidth,
+      elementHeight,
+    );
 
-    // height and yDiff of forward primers. When zoomed, reserve the base-gap lane
-    // ABOVE the annealing line (the forward flap lifts up toward the block top),
-    // so the annealing bases can sit flush just above the strand row below.
+    // height and yDiff of forward primers (above the top strand). The annealing
+    // box sits at the BOTTOM of the track flush above the strand row below; the
+    // tail box (if any) and the name label stack upward toward the block top.
     const primerFwdYDiff = 0;
-    const primerFwdHeight = primerFwdRows.length
-      ? elementHeight * primerFwdRows.length + primerBaseGap
-      : 0;
+    const primerFwdHeight = primerFwdRows.length ? primerFwdRowH * primerFwdRows.length : 0;
 
     // height and yDiff of cut sites
     const cutSiteYDiff = primerFwdYDiff + primerFwdHeight; // spacing for cutSite names
@@ -338,13 +380,11 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
     const compYDiff = indexYDiff + indexHeight + seamGap;
     const compHeight = zoomed && showComplement ? lineHeight : 0;
 
-    // height and yDiff of reverse primers. When zoomed, reserve the base-gap lane
-    // BELOW the annealing line (the reverse flap drops down away from the
-    // complement), so the annealing bases sit flush just below the complement row.
+    // height and yDiff of reverse primers (below the complement). The annealing
+    // box sits at the TOP of the track flush below the complement row above; the
+    // tail box (if any) and the name label stack downward.
     const primerRevYDiff = compYDiff + compHeight;
-    const primerRevHeight = primerRevRows.length
-      ? elementHeight * primerRevRows.length + primerBaseGap
-      : 0;
+    const primerRevHeight = primerRevRows.length ? primerRevRowH * primerRevRows.length : 0;
 
     // height and yDiff of translations
     // elementHeight * 2 is to account for the translation handle. If no name, don't show the handle
@@ -432,11 +472,11 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
         />
         {primerFwdRows.length && (
           <PrimeRows
-            baseGap={primerBaseGap}
+            baseGap={0}
             bpsPerBlock={bpsPerBlock}
             charWidth={charWidth}
             direction={1}
-            elementHeight={elementHeight}
+            elementHeight={primerFwdRowH}
             findXAndWidth={this.findXAndWidthElement}
             firstBase={firstBase}
             fullSeq={fullSeq}
@@ -484,11 +524,11 @@ export class SeqBlock extends React.PureComponent<SeqBlockProps> {
         />
         {primerRevRows.length && (
           <PrimeRows
-            baseGap={primerBaseGap}
+            baseGap={0}
             bpsPerBlock={bpsPerBlock}
             charWidth={charWidth}
             direction={-1}
-            elementHeight={elementHeight}
+            elementHeight={primerRevRowH}
             findXAndWidth={this.findXAndWidthElement}
             firstBase={firstBase}
             fullSeq={fullSeq}
