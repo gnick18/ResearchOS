@@ -72,6 +72,7 @@ export default class Linear extends React.Component<LinearProps> {
     const {
       annotations,
       bpsPerBlock,
+      charWidth,
       compSeq,
       cutSites,
       elementHeight,
@@ -81,6 +82,7 @@ export default class Linear extends React.Component<LinearProps> {
       primers,
       search,
       seq,
+      seqFontSize,
       seqType,
       showComplement,
       showIndex,
