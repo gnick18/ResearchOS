@@ -5,6 +5,16 @@ Datasets integration (`docs/proposals/ncbi-datasets-import.md`). Grant: look up 
 taxonomy of something, look up an accession, and attach NCBI metadata to any
 sequence entry on demand.
 
+## Decisions (Grant, 2026-06-05)
+
+- AUTO-FILL on NCBI import: when a sequence is downloaded from NCBI, populate the
+  sidecar organism + tax id + named lineage automatically (we have it for free).
+  Everything NOT from NCBI stays opt-in (the enrich action with preview-then-apply).
+- LINEAGE DISPLAY: show the MAJOR ranks (superkingdom / kingdom / phylum / class /
+  order / family / genus / species) as a calm line, full ancestor chain on expand.
+- V1 SCOPE: BOTH the per-sequence "Enrich from NCBI" action AND a standalone
+  organism-to-lineage lookup tool in the workbench launcher.
+
 ## Goal
 
 Three related capabilities, all browser-direct (no proxy), reusing the NCBI
