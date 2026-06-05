@@ -1085,7 +1085,14 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               in your SnapGene files, edit and annotate, scan for restriction
               sites, design primers, and assemble constructs in silico with a
               review step before anything is saved. It is part of the notebook,
-              not a separate subscription.
+              not a separate subscription. Every calculation here, from melting
+              temperature to restriction sites and alignment, is checked against
+              the established tools like Biopython and primer3 on every release,
+              and you can see the full comparison on the{" "}
+              <Link href="/transparency" className="font-medium text-sky-700 underline-offset-2 hover:underline">
+                method-validation page
+              </Link>
+              .
             </IllustratedBand>
             <HeroBand
               eyebrow="Version history"
