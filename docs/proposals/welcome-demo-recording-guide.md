@@ -10,7 +10,7 @@ Heroes:
 - [x] Sequence editor, Clip A (plasmid map) — recorded + encoded 2026-06-04
 - [ ] Sequence editor, Clip B (Assemble / Gibson cloning)
 - [x] You own your data — recorded + encoded 2026-06-04
-- [x] Replaces 5 tools — recorded + encoded 2026-06-04
+- [ ] Replaces 5 tools — first take deleted, re-recording
 - [x] Preloaded methods library — recorded + encoded 2026-06-04
 
 Secondary:
@@ -20,8 +20,8 @@ Secondary:
 
 Encoded review copies (720p MP4 + JPG poster, full length, pending trim) live in
 `demo-recordings/processed/` (gitignored). Remaining to record: Clip B (Gibson
-cloning), Snap from the bench, NIH / Zenodo. Pending from Grant: trim in/out
-points per clip so I can cut clean loops.
+cloning), Replaces 5 tools (re-take), Snap from the bench, NIH / Zenodo. Pending
+from Grant: trim in/out points per clip so I can cut clean loops.
 
 ## Before every clip (applies to all)
 
