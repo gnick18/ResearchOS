@@ -81,11 +81,15 @@ function rankLabel(rank: string): string {
 export interface TaxonomyLookupDialogProps {
   open: boolean;
   onClose: () => void;
+  /** Optional cross-link: open the tree explorer centered on the looked-up
+   *  organism. When omitted, the "Explore in tree" affordance is hidden. */
+  onExploreInTree?: (taxId: string) => void;
 }
 
 export default function TaxonomyLookupDialog({
   open,
   onClose,
+  onExploreInTree,
 }: TaxonomyLookupDialogProps) {
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
@@ -277,6 +281,19 @@ export default function TaxonomyLookupDialog({
                     </ol>
                   ) : null}
                 </>
+              ) : null}
+
+              {onExploreInTree ? (
+                <div className="mt-3 border-t border-gray-200 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => onExploreInTree(result.taxId)}
+                    className="inline-flex items-center gap-1.5 text-meta font-medium text-sky-600 transition-colors hover:text-sky-700"
+                  >
+                    <TreeIcon className="h-3.5 w-3.5" />
+                    Explore in tree
+                  </button>
+                </div>
               ) : null}
             </div>
           ) : null}

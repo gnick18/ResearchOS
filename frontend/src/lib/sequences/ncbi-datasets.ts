@@ -215,6 +215,222 @@ export async function resolveTaxonomy(
   return assembleTaxonomy(leaf, taxonNameCache);
 }
 
+// --- Tree explorer (one node, its neighbors, autocomplete) -------------------
+//
+// The taxonomy tree explorer walks UP to a parent, SIDEWAYS to siblings, and
+// DOWN to children. The same CORS-open Datasets taxonomy endpoint carries
+// everything a tree node needs in one dataset_report call: the node's parents
+// (ancestor lineage, root -> parent order), its direct children, the named
+// major-rank classification, and a counts array. We normalize that report into
+// a flat ExplorerTaxonNode the UI can render directly. Pure parsing is unit
+// tested against saved real reports; no network in the tests.
+
+/** A toggleable set of tallies for a node, mapped from the report counts array
+ *  to named fields. species is absent on the live path (it comes from the
+ *  backbone), present here only when a future report carries it. */
+export interface ExplorerCounts {
+  /** Assemblies under the node (COUNT_TYPE_ASSEMBLY). */
+  assemblies?: number;
+  /** Genes under the node (COUNT_TYPE_GENE). */
+  genes?: number;
+  /** Species under the node, when the source carries it (the live report does
+   *  not, so this stays undefined on the live path). */
+  species?: number;
+}
+
+/** One normalized tree node. childIds and a parentId let the UI walk in every
+ *  direction; classification maps a major rank to its name for the breadcrumb. */
+export interface ExplorerTaxonNode {
+  taxId: string;
+  name: string;
+  rank: string;
+  /** The nearest ancestor's tax id (the last entry of the report parents), or
+   *  null at a root. */
+  parentId: string | null;
+  /** Direct child tax ids (resolved to names in a batch by the caller). */
+  childIds: string[];
+  /** Major rank -> name, for the breadcrumb (e.g. domain, phylum, family). */
+  classification: Record<string, string>;
+  /** Named tallies, toggled in the count badge. */
+  counts: ExplorerCounts;
+}
+
+/** One autocomplete suggestion from taxon_suggest. */
+export interface TaxonSuggestion {
+  taxId: string;
+  name: string;
+  rank: string;
+}
+
+/** The dataset_report taxonomy subset the explorer reads. Every field optional
+ *  and validated so a shape drift degrades rather than crashes. */
+interface RawTaxonReport {
+  reports?: Array<{
+    taxonomy?: {
+      tax_id?: number | string;
+      rank?: string;
+      current_scientific_name?: { name?: string } | string;
+      classification?: Record<string, { name?: string; id?: number | string }>;
+      parents?: Array<number | string>;
+      children?: Array<number | string>;
+      counts?: Array<{ type?: string; count?: number | string }>;
+    };
+  }>;
+}
+
+/** Read the scientific name out of the report, which carries it as an object
+ *  ({ name, authority }) on the modern endpoint or, defensively, as a string. */
+function readScientificName(
+  v: { name?: string } | string | undefined,
+  taxId: string,
+): string {
+  if (typeof v === "string") return asString(v) || `Taxon ${taxId}`;
+  if (v && typeof v === "object") return asString(v.name) || `Taxon ${taxId}`;
+  return `Taxon ${taxId}`;
+}
+
+/** Map the report counts array to the named ExplorerCounts fields. Unknown
+ *  count types are ignored; the two the UI surfaces are assemblies and genes. */
+function readCounts(
+  arr: Array<{ type?: string; count?: number | string }> | undefined,
+): ExplorerCounts {
+  const out: ExplorerCounts = {};
+  if (!Array.isArray(arr)) return out;
+  for (const entry of arr) {
+    const n = asNumber(entry?.count);
+    if (n === undefined) continue;
+    if (entry.type === "COUNT_TYPE_ASSEMBLY") out.assemblies = n;
+    else if (entry.type === "COUNT_TYPE_GENE") out.genes = n;
+  }
+  return out;
+}
+
+/** Map the report classification block to a major-rank -> name map. */
+function readClassification(
+  raw: Record<string, { name?: string; id?: number | string }> | undefined,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const [rank, entry] of Object.entries(raw)) {
+    const name = asString(entry?.name);
+    if (name) out[rank.toLowerCase()] = name;
+  }
+  return out;
+}
+
+/** Parse a single-taxon dataset_report into a normalized ExplorerTaxonNode.
+ *  Pure. Throws a clear error when the report carries no taxon. The parentId is
+ *  the LAST entry of parents (root -> parent order), or null at a root. */
+export function parseExplorerNode(raw: unknown): ExplorerTaxonNode {
+  const root = (raw || {}) as RawTaxonReport;
+  const tax = Array.isArray(root.reports) ? root.reports[0]?.taxonomy : undefined;
+  if (!tax || tax.tax_id == null) {
+    throw new NcbiDatasetsError("No taxon matched that id on NCBI.");
+  }
+  const taxId = String(tax.tax_id);
+  const parents = Array.isArray(tax.parents) ? tax.parents.map((v) => String(v)) : [];
+  const childIds = Array.isArray(tax.children)
+    ? tax.children.map((v) => String(v))
+    : [];
+  return {
+    taxId,
+    name: readScientificName(tax.current_scientific_name, taxId),
+    rank: (asString(tax.rank) || "").toLowerCase(),
+    parentId: parents.length > 0 ? parents[parents.length - 1] : null,
+    childIds,
+    classification: readClassification(tax.classification),
+    counts: readCounts(tax.counts),
+  };
+}
+
+/** Parse a BATCH dataset_report (a comma-separated id list) into a tax-id ->
+ *  { taxId, name, rank } map, so a node's children or siblings get their names
+ *  and ranks in one call. Pure. */
+export function parseExplorerNodeMap(raw: unknown): Map<string, TaxonSuggestion> {
+  const root = (raw || {}) as RawTaxonReport;
+  const map = new Map<string, TaxonSuggestion>();
+  for (const report of root.reports || []) {
+    const tax = report.taxonomy;
+    if (!tax || tax.tax_id == null) continue;
+    const id = String(tax.tax_id);
+    map.set(id, {
+      taxId: id,
+      name: readScientificName(tax.current_scientific_name, id),
+      rank: (asString(tax.rank) || "").toLowerCase(),
+    });
+  }
+  return map;
+}
+
+/** The taxon_suggest autocomplete response subset we read. */
+interface RawSuggestResponse {
+  sci_name_and_ids?: Array<{
+    tax_id?: number | string;
+    sci_name?: string;
+    rank?: string;
+  }>;
+}
+
+/** Parse a taxon_suggest response into a list of suggestions. Pure. Entries with
+ *  no tax id are dropped. */
+export function parseTaxonSuggestions(raw: unknown): TaxonSuggestion[] {
+  const root = (raw || {}) as RawSuggestResponse;
+  const out: TaxonSuggestion[] = [];
+  for (const entry of root.sci_name_and_ids || []) {
+    if (entry?.tax_id == null) continue;
+    const id = String(entry.tax_id);
+    out.push({
+      taxId: id,
+      name: asString(entry.sci_name) || `Taxon ${id}`,
+      rank: (asString(entry.rank) || "").toLowerCase(),
+    });
+  }
+  return out;
+}
+
+/**
+ * Fetch one tree node (parents, children, counts, classification), normalized.
+ * Browser-direct over the CORS-open taxonomy endpoint, one call. Used for nodes
+ * below the curated backbone (genus / species / strain) and for the live
+ * assemblies count on any centered node.
+ */
+export async function getTaxonNode(
+  taxId: string | number,
+  opts?: { signal?: AbortSignal },
+): Promise<ExplorerTaxonNode> {
+  const id = String(taxId).trim();
+  if (!id) throw new NcbiDatasetsError("Enter a tax id.");
+  const url = `${NCBI_DATASETS_BASE}/taxonomy/taxon/${encodeURIComponent(id)}/dataset_report`;
+  return parseExplorerNode(await getJson(url, opts?.signal));
+}
+
+/** Resolve a batch of tax ids to { taxId, name, rank } in one call, for naming a
+ *  node's children or siblings. An empty input returns an empty map with no
+ *  network. */
+export async function resolveTaxonNames(
+  taxIds: Array<string | number>,
+  opts?: { signal?: AbortSignal },
+): Promise<Map<string, TaxonSuggestion>> {
+  const ids = taxIds.map((v) => String(v).trim()).filter((v) => v !== "");
+  if (ids.length === 0) return new Map();
+  const url =
+    `${NCBI_DATASETS_BASE}/taxonomy/taxon/` +
+    ids.map((id) => encodeURIComponent(id)).join(",");
+  return parseExplorerNodeMap(await getJson(url, opts?.signal));
+}
+
+/** Autocomplete organism search over taxon_suggest. An empty / whitespace query
+ *  returns an empty list with no network. */
+export async function suggestTaxa(
+  query: string,
+  opts?: { signal?: AbortSignal },
+): Promise<TaxonSuggestion[]> {
+  const q = (query || "").trim();
+  if (!q) return [];
+  const url = `${NCBI_DATASETS_BASE}/taxonomy/taxon_suggest/${encodeURIComponent(q)}`;
+  return parseTaxonSuggestions(await getJson(url, opts?.signal));
+}
+
 /** What kind of record a preview / download refers to. The generic "accession"
  *  box resolves to one of the concrete kinds by sniffing the accession class. */
 export type NcbiKind = "gene" | "genome" | "protein";

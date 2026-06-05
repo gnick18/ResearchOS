@@ -58,6 +58,10 @@ export interface SequenceLineageChipProps {
   organism?: string;
   taxId?: string;
   lineage?: SequenceTaxonNode[];
+  /** Optional cross-link into the taxonomy tree explorer, centered on this
+   *  sequence's tax id. The affordance shows only when a tax id and the handler
+   *  are both present. */
+  onExploreInTree?: (taxId: string) => void;
 }
 
 /** Title-case a rank label for display ("phylum" -> "Phylum"). */
@@ -70,6 +74,7 @@ export default function SequenceLineageChip({
   organism,
   taxId,
   lineage,
+  onExploreInTree,
 }: SequenceLineageChipProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -128,6 +133,16 @@ export default function SequenceLineageChip({
                 </li>
               ))}
             </ol>
+          ) : null}
+          {onExploreInTree && taxId ? (
+            <button
+              type="button"
+              onClick={() => onExploreInTree(taxId)}
+              className="mt-1 inline-flex items-center gap-1 text-meta font-medium text-sky-600 transition-colors hover:text-sky-700"
+            >
+              <LineageIcon className="h-3 w-3" />
+              Explore in tree
+            </button>
           ) : null}
         </div>
         {hasLineage ? (

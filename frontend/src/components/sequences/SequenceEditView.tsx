@@ -409,6 +409,7 @@ export default function SequenceEditView({
   initialShowEnzymes = false,
   embedded = false,
   onEnriched,
+  onExploreInTree,
 }: {
   sequence: SequenceDetail;
   /** persist the current GenBank; resolves true on success. Unused when readOnly. */
@@ -418,6 +419,10 @@ export default function SequenceEditView({
    *  feature) plus the organism / tax id / named lineage sidecar fields. The page
    *  writes them and refreshes. Absent in read-only / embedded surfaces. */
   onEnriched?: (result: EnrichResult) => Promise<void>;
+  /** Optional cross-link from the organism lineage chip into the taxonomy tree
+   *  explorer, centered on this sequence's tax id. Absent in read-only / embedded
+   *  surfaces. */
+  onExploreInTree?: (taxId: string) => void;
   /** When true, the surface is a read-only inspector: no caret/keystroke edit,
    *  no clipboard, no Save, no Add/Edit/Delete feature actions. Selection +
    *  readout still work, and double-clicking a feature opens its READ-ONLY info
@@ -3249,6 +3254,7 @@ export default function SequenceEditView({
         organism={sequence.organism}
         taxId={sequence.tax_id}
         lineage={sequence.tax_lineage}
+        onExploreInTree={onExploreInTree}
       />
 
       {/* Icon rail + tab content. The left ViewControlRail (layer toggles) stays

@@ -105,6 +105,20 @@ function TaxonomyIcon(props: IconProps) {
   );
 }
 
+/** A wider branching tree for "Explore the tree of life" (walk up and down). */
+function ExploreTreeIcon(props: IconProps) {
+  return (
+    <svg {...baseSvg(props)}>
+      <circle cx="12" cy="4" r="2" />
+      <circle cx="5" cy="13" r="2" />
+      <circle cx="12" cy="13" r="2" />
+      <circle cx="19" cy="13" r="2" />
+      <circle cx="12" cy="20" r="2" />
+      <path d="M12 6v5M12 15v3M10.5 11.5 6.3 12M13.5 11.5 17.7 12" />
+    </svg>
+  );
+}
+
 /** Primer / Tm glyph: a short primer annealed to a template strand. */
 function PrimerIcon(props: IconProps) {
   return (
@@ -200,6 +214,8 @@ export interface SequencesLauncherProps {
   onNcbi: () => void;
   /** Open the standalone "look up an organism" taxonomy tool. */
   onLookupTaxonomy: () => void;
+  /** Open the interactive taxonomy tree explorer. */
+  onExploreTaxonomy: () => void;
 }
 
 export default function SequencesLauncher({
@@ -209,6 +225,7 @@ export default function SequencesLauncher({
   onImport,
   onNcbi,
   onLookupTaxonomy,
+  onExploreTaxonomy,
 }: SequencesLauncherProps) {
   const actions: ActionCard[] = [
     {
@@ -252,6 +269,13 @@ export default function SequencesLauncher({
       description: "See an organism's taxonomy lineage from NCBI by name or tax id.",
       Icon: TaxonomyIcon,
       onClick: onLookupTaxonomy,
+    },
+    {
+      key: "explore-tree",
+      title: "Explore the tree of life",
+      description: "Walk up and down the taxonomy to see related organisms.",
+      Icon: ExploreTreeIcon,
+      onClick: onExploreTaxonomy,
     },
   ];
 

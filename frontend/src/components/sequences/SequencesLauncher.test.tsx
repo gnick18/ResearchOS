@@ -23,6 +23,7 @@ describe("SequencesLauncher", () => {
         onImport={noop}
         onNcbi={noop}
         onLookupTaxonomy={noop}
+        onExploreTaxonomy={noop}
       />,
     );
     expect(
@@ -52,6 +53,7 @@ describe("SequencesLauncher", () => {
         onImport={noop}
         onNcbi={onNcbi}
         onLookupTaxonomy={noop}
+        onExploreTaxonomy={noop}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /Download from NCBI/i }));
@@ -68,12 +70,32 @@ describe("SequencesLauncher", () => {
         onImport={noop}
         onNcbi={noop}
         onLookupTaxonomy={onLookupTaxonomy}
+        onExploreTaxonomy={noop}
       />,
     );
     fireEvent.click(
       screen.getByRole("button", { name: /Look up an organism/i }),
     );
     expect(onLookupTaxonomy).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls onExploreTaxonomy when the Explore the tree of life card is clicked", () => {
+    const onExploreTaxonomy = vi.fn();
+    render(
+      <SequencesLauncher
+        onNew={noop}
+        onAssemble={noop}
+        onAlign={noop}
+        onImport={noop}
+        onNcbi={noop}
+        onLookupTaxonomy={noop}
+        onExploreTaxonomy={onExploreTaxonomy}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /Explore the tree of life/i }),
+    );
+    expect(onExploreTaxonomy).toHaveBeenCalledTimes(1);
   });
 
   it("calls onNew when the New sequence card is clicked", () => {
@@ -86,6 +108,7 @@ describe("SequencesLauncher", () => {
         onImport={noop}
         onNcbi={noop}
         onLookupTaxonomy={noop}
+        onExploreTaxonomy={noop}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /New sequence/i }));
@@ -101,6 +124,7 @@ describe("SequencesLauncher", () => {
         onImport={noop}
         onNcbi={noop}
         onLookupTaxonomy={noop}
+        onExploreTaxonomy={noop}
       />,
     );
     // The hints are NOT buttons (informational only).

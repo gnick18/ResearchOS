@@ -23,8 +23,11 @@ import ImportProgressOverlay, {
 } from "@/components/sequences/ImportProgressOverlay";
 import CloningWorkspace from "@/components/sequences/CloningWorkspace";
 import CompareSequencesDialog from "@/components/sequences/CompareSequencesDialog";
-import NcbiDownloadDialog from "@/components/sequences/NcbiDownloadDialog";
+import NcbiDownloadDialog, {
+  type NcbiDownloadPrefill,
+} from "@/components/sequences/NcbiDownloadDialog";
 import TaxonomyLookupDialog from "@/components/sequences/TaxonomyLookupDialog";
+import TaxonomyExplorerPanel from "@/components/sequences/TaxonomyExplorerPanel";
 import type { EnrichResult } from "@/components/sequences/EnrichFromNcbiDialog";
 import SequencesLauncher from "@/components/sequences/SequencesLauncher";
 import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
@@ -298,8 +301,19 @@ export default function SequencesPage() {
   const [compareOpen, setCompareOpen] = useState(false);
   // "Download from NCBI" dialog (gene / genome / accession -> the collection).
   const [ncbiOpen, setNcbiOpen] = useState(false);
+  // A one-shot prefill applied when the NCBI dialog opens (set by the taxonomy
+  // tree explorer's import jump on a species node).
+  const [ncbiPrefill, setNcbiPrefill] = useState<NcbiDownloadPrefill | undefined>(
+    undefined,
+  );
   // sequence editor master. The standalone "look up an organism" taxonomy tool.
   const [taxonomyOpen, setTaxonomyOpen] = useState(false);
+  // sequence editor master. The interactive taxonomy tree explorer. Optionally
+  // centered on a tax id when opened from a cross-link.
+  const [explorerOpen, setExplorerOpen] = useState(false);
+  const [explorerTaxId, setExplorerTaxId] = useState<string | undefined>(
+    undefined,
+  );
   // Cross-boundary "Share outside this folder" dialog for the open sequence.
   const [shareOpen, setShareOpen] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -1469,6 +1483,10 @@ export default function SequencesPage() {
                   onSave={handleSave}
                   saving={saving}
                   onEnriched={handleEnriched}
+                  onExploreInTree={(taxId) => {
+                    setExplorerTaxId(taxId);
+                    setExplorerOpen(true);
+                  }}
                 />
               </div>
             </>
@@ -1483,6 +1501,10 @@ export default function SequencesPage() {
               onImport={() => fileInputRef.current?.click()}
               onNcbi={() => setNcbiOpen(true)}
               onLookupTaxonomy={() => setTaxonomyOpen(true)}
+              onExploreTaxonomy={() => {
+                setExplorerTaxId(undefined);
+                setExplorerOpen(true);
+              }}
             />
           )}
         </section>
@@ -1513,15 +1535,41 @@ export default function SequencesPage() {
           sequence(s) land in the active collection via handleNcbiImported. */}
       <NcbiDownloadDialog
         open={ncbiOpen}
-        onClose={() => setNcbiOpen(false)}
+        onClose={() => {
+          setNcbiOpen(false);
+          setNcbiPrefill(undefined);
+        }}
         onImported={handleNcbiImported}
+        prefill={ncbiPrefill}
       />
 
       {/* sequence editor master. The standalone organism-to-lineage lookup tool.
-          Pure client over the NCBI taxonomy endpoint, no sequence involved. */}
+          Pure client over the NCBI taxonomy endpoint, no sequence involved. An
+          "Explore in tree" cross-link opens the tree explorer centered on the
+          looked-up organism. */}
       <TaxonomyLookupDialog
         open={taxonomyOpen}
         onClose={() => setTaxonomyOpen(false)}
+        onExploreInTree={(taxId) => {
+          setTaxonomyOpen(false);
+          setExplorerTaxId(taxId);
+          setExplorerOpen(true);
+        }}
+      />
+
+      {/* sequence editor master. The interactive taxonomy tree explorer. Walks
+          one node at a time (parent / siblings / children + breadcrumb), backed
+          by the offline backbone (family and above) with a live fallback below
+          family. A species / strain node offers a prefilled NCBI import jump. */}
+      <TaxonomyExplorerPanel
+        open={explorerOpen}
+        initialTaxId={explorerTaxId}
+        onClose={() => setExplorerOpen(false)}
+        onImportOrganism={({ organism }) => {
+          setExplorerOpen(false);
+          setNcbiPrefill({ tab: "gene", organism });
+          setNcbiOpen(true);
+        }}
       />
 
       {/* Unified Share dialog. Sequences have no lab-ACL model, so the dialog

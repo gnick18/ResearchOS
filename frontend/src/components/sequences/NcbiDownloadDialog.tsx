@@ -16,7 +16,7 @@
 // Inline stroke-only SVG icons (no emoji), <Tooltip> for icon-only controls,
 // useEscapeToClose, site typography tokens. No em-dash, no mid-sentence colon.
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tooltip from "@/components/Tooltip";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import {
@@ -48,12 +48,28 @@ type Tab = "gene" | "genome" | "accession";
 
 type Phase = "form" | "previewing" | "preview" | "downloading";
 
+/** Optional prefill applied when the dialog opens, so a cross-link (e.g. the
+ *  taxonomy tree explorer's import jump on a species node) lands on the right
+ *  tab with the organism / accession filled in. */
+export interface NcbiDownloadPrefill {
+  /** Which tab to land on. Defaults to the gene tab when an organism is given. */
+  tab?: Tab;
+  /** Seed the gene tab's organism field. */
+  organism?: string;
+  /** Seed the gene tab's gene symbol field. */
+  geneSymbol?: string;
+  /** Seed the genome / accession field. */
+  accession?: string;
+}
+
 export interface NcbiDownloadDialogProps {
   open: boolean;
   onClose: () => void;
   /** Called with the parsed, provenance-tagged sequences on a successful
    *  download. The page persists them via its existing persistNew path. */
   onImported: (sequences: NcbiImportedSequence[]) => void | Promise<void>;
+  /** Optional one-shot prefill applied when the dialog opens. */
+  prefill?: NcbiDownloadPrefill;
 }
 
 // --- Inline SVG icons (no emoji) --------------------------------------------
@@ -139,6 +155,7 @@ export default function NcbiDownloadDialog({
   open,
   onClose,
   onImported,
+  prefill,
 }: NcbiDownloadDialogProps) {
   const [tab, setTab] = useState<Tab>("gene");
   const [phase, setPhase] = useState<Phase>("form");
@@ -205,6 +222,24 @@ export default function NcbiDownloadDialog({
     },
     [resetState],
   );
+
+  // Apply an optional prefill when the dialog opens (e.g. the taxonomy tree
+  // explorer's import jump on a species node). Runs only on the open transition
+  // so a user can still edit the fields afterward. A species name lands on the
+  // gene tab in the organism field, the natural starting point for a gene-by-
+  // organism import; an accession lands on the accession tab.
+  useEffect(() => {
+    if (!open || !prefill) return;
+    const next =
+      prefill.tab ?? (prefill.accession ? "accession" : "gene");
+    setTab(next);
+    if (prefill.organism !== undefined) setOrganism(prefill.organism);
+    if (prefill.geneSymbol !== undefined) setGeneSymbol(prefill.geneSymbol);
+    if (prefill.accession !== undefined) setAccession(prefill.accession);
+    // Intentionally keyed on `open` only: re-applying on every prefill identity
+    // change would fight the user's edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   // The Datasets-package paths (genome, gene FASTA) gate on the size / contig
   // caps. The efetch path imports one individual record (a gene region or a
