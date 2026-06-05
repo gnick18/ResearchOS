@@ -4,6 +4,20 @@ Exact recording instructions for every demo loop on the new `/welcome` page.
 Companion to `welcome-page-redesign.md`. Click-paths verified against the live
 code 2026-06-04, so the button names below are the real ones.
 
+## Recording progress
+
+Heroes:
+- [x] Sequence editor, Clip A (plasmid map) — recorded 2026-06-04
+- [ ] Sequence editor, Clip B (Assemble / Gibson cloning)
+- [ ] You own your data
+- [ ] Replaces 5 tools
+- [ ] Preloaded methods library
+
+Secondary:
+- [ ] Snap from the bench
+- [ ] PI Lab Overview
+- [ ] NIH compliance + Zenodo
+
 ## Before every clip (applies to all)
 
 - FIXTURE MODE ONLY. Append `?wikiCapture=1` to the URL, or use `/demo`. Never
@@ -24,7 +38,7 @@ code 2026-06-04, so the button names below are the real ones.
 
 Two clips. This is the strongest feature, so it gets the most care.
 
-### Clip A: the plasmid map (file `sequence-editor-a.mov`)
+### Clip A: the plasmid map (file `sequence-editor-a.mov`) — DONE (recorded 2026-06-04)
 Sells: "it renders a real annotated plasmid like SnapGene."
 1. Go to the **Sequences** tab.
 2. Click a plasmid in your library to open it. The circular map renders with
