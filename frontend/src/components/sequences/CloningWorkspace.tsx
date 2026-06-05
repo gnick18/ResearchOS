@@ -265,6 +265,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
       name: f.name,
       seq: f.seq,
       circular: fragmentIsCircular(i),
+      features: f.features ?? [],
     }));
     return cutAndLigate(ligFrags, {
       enzymeNames,
@@ -385,13 +386,10 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
       // Chemistry-aware fallback name (mirrors Gateway), so an unnamed product
       // reads as what it is rather than the generic "Assembled construct" (L5).
       const fallback = method === "golden-gate" ? "Golden Gate assembly" : "Ligated construct";
-      // The cut-ligate engine's LigationProduct carries no rebased features
-      // (seq / circular / junctionOverhangs only), so there is nothing to save
-      // through here; features stay [] by design, not by oversight (L5).
       const genbank = productToGenbank(name.trim() || fallback, {
         seq: prod.seq,
         circular: prod.circular,
-        features: [],
+        features: prod.features,
       });
       const rec = await sequencesApi.create({
         display_name: name.trim() || fallback,

@@ -132,3 +132,174 @@ describe("canonicalCircular — documented rotation+strand normalization", () =>
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Feature rebasing tests
+// ---------------------------------------------------------------------------
+
+describe("cutAndLigate — feature rebasing into assembled products", () => {
+  // Design: fragment A has two EcoRI sites framing a body with a known feature.
+  // EcoRI cuts G^AATTC: topCut = site+1, bottomCut = site+5 => L = site+1, R = site+5.
+  // Piece seq spans [L_left, R_right). For a linear fragment:
+  //   piece 0: [0, R_0)           original left, AATT right overhang
+  //   piece 1: [L_0, R_1)         AATT left overhang, AATT right overhang  <-- kept
+  //   piece 2: [L_1, n)           AATT left overhang, original right
+  //
+  // We place a feature INSIDE the middle piece body so it survives into the
+  // self-circularized product.
+  //
+  // Fragment layout (0-based):
+  //   0123456789...
+  //   AAAGAATTCBBBBBBBBGAATTCCCC
+  //   ^^^        ^^^   = EcoRI sites at positions 3 and 17
+  //   Site 0 at pos 3: topCut=4, bottomCut=8, L=4, R=8
+  //   Site 1 at pos 17: topCut=18, bottomCut=22, L=18, R=22
+  //   Middle piece body: seq[4..22) = "AATTCBBBBBBBBG" (18 bases, includes both overhangs)
+  //   Middle piece sourceStart = 4
+  //   Feature "cds" at [9, 17) in the fragment => inside [4, 22)
+  //   After self-circularization the middle piece closes on itself:
+  //     circular product = piece.seq.slice(4) (strip leading AATT=4 bases)
+  //     = "CBBBBBBBBG" (10 bases, but wait...)
+  //   Let me recompute: piece seq = "AATTCBBBBBBBBG" (L_0=4 to R_1=22 => 18 bases)
+  //   Self-circularized: strip first chain[0].left.overhang.length = 4 bases from front
+  //   out = "AATTCBBBBBBBBG".slice(4) = "CBBBBBBBBG" => 10 bases
+  //   Then canonicalCircular("CBBBBBBBBG").
+  //
+  // Feature "cds" at source [9,17): within [4,22).
+  //   productOffset for piece 0 = 0 - circularLeadStrip(4) = -4.
+  //   Rebased: start = 9 - 4 + (-4) = 1, end = 17 - 4 + (-4) = 9.
+  //   Clamped to [0, 10): start=1, end=9. Valid.
+  //   In canonical form the product may be rotated, so we check the feature's
+  //   presence and that it has correct width (9-1=8 = 17-9=8 in source).
+
+  it("features from a forward piece survive EcoRI self-circularization", () => {
+    // fragment: AAA GAATTC BBBBBBBB GAATTC CCC
+    //           000 3      9        17     23
+    // 'B' = ACGT repeating for non-ambiguous DNA
+    const body = "ACGTACGT"; // 8 bases as the internal body
+    const frag: LigateFragment = {
+      name: "ins",
+      seq: "AAAGAATTC" + body + "GAATTCCCC",
+      features: [
+        // Feature sits at [9, 17) = the "BBBBBBBB" body (entirely within the middle piece [4,22))
+        { name: "cds", start: 9, end: 17, strand: 1, type: "CDS" },
+      ],
+    };
+    const res = cutAndLigate([frag], {
+      enzymeNames: ["ecori"],
+      mode: "restriction",
+      circularOnly: true,
+      allowBlunt: false,
+    });
+    const circle = res.products.find((p) => p.circular);
+    expect(circle).toBeTruthy();
+    // The product should carry exactly one feature named "cds".
+    const feat = circle!.features.find((f) => f.name === "cds");
+    expect(feat).toBeTruthy();
+    // The feature width must be preserved: source width = 17-9 = 8 bases.
+    expect(feat!.end - feat!.start).toBe(8);
+    // Strand must be preserved (forward).
+    expect(feat!.strand).toBe(1);
+    // Feature must be within the product bounds.
+    expect(feat!.start).toBeGreaterThanOrEqual(0);
+    expect(feat!.end).toBeLessThanOrEqual(circle!.seq.length);
+  });
+
+  it("two-fragment restriction ligation carries features from both fragments", () => {
+    // Design: two fragments each flanked by EcoRI sites (GAATTC, 4-nt 5' AATT overhang).
+    // Use DIFFERENT interior sequences so the two-piece circle is distinct from
+    // single-piece self-circularization, and EcoRI's AATT palindrome means all
+    // AATT-overhang pieces can ligate. We look for the product that contains both
+    // features by checking features of every circular product.
+    //
+    // Fragment A: XGAATTC + body_A + GAATTCY
+    // Fragment B: XGAATTC + body_B + GAATTCY
+    // EcoRI: fcut=1, rcut=5, L=site+1, R=site+5 => AATT overhang.
+    // Middle piece A: sourceStart = site0.L = 1 (for site at pos 0),
+    //   but we pad with extra bases: TTTGAATTC + AAAAAAAAAA + GAATTCCCC
+    //   Site 0 at 3: L=4, R=8. Site 1 at 19: L=20, R=24.
+    //   Middle piece: seq[4..24) = 20 bases. sourceStart=4.
+    //   feature "featA" at [9, 19) = the 10 A's. Within [4, 24). Width=10.
+    //
+    // We find the product whose features array contains BOTH "featA" and "featB".
+    const fragA: LigateFragment = {
+      name: "A",
+      seq: "TTTGAATTC" + "AAAAAAAAAA" + "GAATTCCCC",
+      features: [{ name: "featA", start: 9, end: 19, strand: 1, type: "misc_feature" }],
+    };
+    // Use distinct non-self-complementary body to help identify the two-piece product.
+    const fragB: LigateFragment = {
+      name: "B",
+      seq: "TTTGAATTC" + "CCCCCCCCCC" + "GAATTCGGG",
+      features: [{ name: "featB", start: 9, end: 19, strand: -1, type: "misc_feature" }],
+    };
+    const res = cutAndLigate([fragA, fragB], {
+      enzymeNames: ["ecori"],
+      mode: "restriction",
+      circularOnly: true,
+      allowBlunt: false,
+    });
+    // There may be several circular products (orientation-ambiguous AATT); find the
+    // one that contains BOTH features.
+    const circle = res.products.find(
+      (p) => p.circular && p.features.some((f) => f.name === "featA") && p.features.some((f) => f.name === "featB"),
+    );
+    expect(circle).toBeTruthy();
+    const fa = circle!.features.find((f) => f.name === "featA");
+    const fb = circle!.features.find((f) => f.name === "featB");
+    expect(fa).toBeTruthy();
+    expect(fb).toBeTruthy();
+    // Feature widths preserved: both are 10 bases in source.
+    expect(fa!.end - fa!.start).toBe(10);
+    expect(fb!.end - fb!.start).toBe(10);
+    // Strand preservation.
+    expect(fa!.strand).toBe(1);
+    expect(fb!.strand).toBe(-1);
+    // Both features within product bounds.
+    expect(fa!.start).toBeGreaterThanOrEqual(0);
+    expect(fa!.end).toBeLessThanOrEqual(circle!.seq.length);
+    expect(fb!.start).toBeGreaterThanOrEqual(0);
+    expect(fb!.end).toBeLessThanOrEqual(circle!.seq.length);
+  });
+
+  it("features outside the kept piece window are dropped", () => {
+    // A feature that lies in the discarded flank (outside the enzyme-cut window)
+    // should not appear in the product.
+    const frag: LigateFragment = {
+      name: "ins",
+      seq: "AAAGAATTC" + "ACGTACGT" + "GAATTCCCC",
+      features: [
+        // Feature sits in the left discarded flank [0,3) -- entirely outside the middle piece.
+        { name: "flankFeat", start: 0, end: 3, strand: 1 },
+        // Feature sits inside the middle piece body [9,17).
+        { name: "bodyFeat", start: 9, end: 17, strand: 1 },
+      ],
+    };
+    const res = cutAndLigate([frag], {
+      enzymeNames: ["ecori"],
+      mode: "restriction",
+      circularOnly: true,
+      allowBlunt: false,
+    });
+    const circle = res.products.find((p) => p.circular);
+    expect(circle).toBeTruthy();
+    // "flankFeat" is in the discarded flank piece, not the ligated middle piece.
+    // It should not appear in the product.
+    expect(circle!.features.find((f) => f.name === "flankFeat")).toBeUndefined();
+    // "bodyFeat" is in the middle piece and should survive.
+    expect(circle!.features.find((f) => f.name === "bodyFeat")).toBeTruthy();
+  });
+
+  it("LigationProduct.features is an empty array when no fragment has features", () => {
+    const res = cutAndLigate([{ name: "f", seq: "ttGAATTCaaacccgggtttGAATTCtt" }], {
+      enzymeNames: ["ecori"],
+      mode: "restriction",
+      circularOnly: true,
+      allowBlunt: false,
+    });
+    const circle = res.products.find((p) => p.circular);
+    expect(circle).toBeTruthy();
+    expect(Array.isArray(circle!.features)).toBe(true);
+    expect(circle!.features).toHaveLength(0);
+  });
+});

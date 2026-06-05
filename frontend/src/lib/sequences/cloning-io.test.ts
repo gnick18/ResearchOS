@@ -88,6 +88,37 @@ describe("productToGenbank round-trip", () => {
   });
 });
 
+describe("productToGenbank — linear overlap round-trip", () => {
+  it("serializes a LINEAR assembled product so bases and features re-parse correctly", () => {
+    const a = dna(100, 5);
+    const b = dna(80, 6);
+    const res = assembleGibson(
+      [
+        { name: "X", seq: a, features: [{ name: "termX", start: 2, end: 20, strand: -1, type: "terminator" }] },
+        { name: "Y", seq: b, features: [{ name: "cdsY", start: 10, end: 40, strand: 1, type: "CDS" }] },
+      ],
+      { circular: false },
+    );
+    expect(res.product.circular).toBe(false);
+    const gb = productToGenbank("linearConstruct", res.product);
+    const parsed = genbankToJson(gb, {}).find((r) => r.success)?.parsedSequence;
+    expect(parsed).toBeTruthy();
+    expect(parsed!.sequence.toUpperCase()).toBe(res.product.seq);
+    expect(parsed!.circular).toBeFalsy();
+    // termX at [2,20) in fragment X => stays at [2,20) in the linear product (X is first).
+    const term = parsed!.features.find((f) => f.name === "termX");
+    expect(term).toBeTruthy();
+    expect(term!.start).toBe(2);
+    expect(term!.end).toBe(19); // exclusive 20 -> inclusive 19
+    expect(term!.strand).toBe(-1);
+    // cdsY at [10,40) in fragment Y (len=100) => shifted by 100 to [110,140).
+    const cds = parsed!.features.find((f) => f.name === "cdsY");
+    expect(cds).toBeTruthy();
+    expect(cds!.start).toBe(110);
+    expect(cds!.end).toBe(139); // exclusive 140 -> inclusive 139
+  });
+});
+
 describe("oligoOrderText", () => {
   it("produces a tab-delimited list with a header and 2 rows per fragment", () => {
     const res = assembleGibson(

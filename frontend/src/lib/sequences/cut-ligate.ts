@@ -57,11 +57,29 @@
 // A piece can ligate in EITHER orientation (it can flip, presenting its
 // reverse-complement). A symmetric pair of identical overhangs (e.g. an EcoRI
 // fragment with AATT on both ends) is therefore genuinely orientation-ambiguous
-// and yields MORE THAN ONE product — exactly what pydna reports. We enumerate all
+// and yields MORE THAN ONE product -- exactly what pydna reports. We enumerate all
 // distinct circular (or linear) products, deduplicated up to circular rotation
 // and strand, and return them sorted by a canonical key for determinism.
+//
+// FEATURE REBASING
+// ----------------
+// Each LigateFragment may carry CloneFeature[] annotations in the same 0-based,
+// end-EXCLUSIVE [start, end) convention as the Gibson engine. When a fragment is
+// digested, each resulting DsPiece records the 0-based start of its top-strand
+// extent within the original fragment (sourceStart) so that features can be
+// clipped and rebased into the assembled product after ligation.
+//
+// For a FORWARD (non-flipped) piece the feature clip window is
+//   [sourceStart, sourceStart + piece.seq.length)
+// and features are shifted by (productOffset - sourceStart).
+//
+// For a FLIPPED (reverse-complement) piece the same clip window applies to the
+// source fragment (the physical DNA being flipped is the same bases), then
+// coordinates are mirrored inside the window and strand is inverted before
+// shifting by productOffset.
 
 import { reverseComplement } from "./primer";
+import type { CloneFeature } from "./cloning";
 import enzymes from "../../vendor/seqviz/enzymes";
 import type { Enzyme } from "../../vendor/seqviz/elements";
 
@@ -74,6 +92,9 @@ export interface LigateFragment {
   seq: string;
   /** True if this input is a circular molecule (e.g. a plasmid to be cut open). */
   circular?: boolean;
+  /** Feature annotations to carry into the assembled product. 0-based,
+   *  end-EXCLUSIVE [start, end) on the fragment's own top strand. */
+  features?: CloneFeature[];
 }
 
 /** End geometry of a double-stranded piece. */
@@ -107,6 +128,9 @@ export interface DsPiece {
   hasSite: boolean;
   /** Source fragment name, for reporting. */
   sourceName: string;
+  /** 0-based start of this piece's top-strand sequence within the original
+   *  (cleaned) fragment's top strand. Used to clip and rebase features. */
+  sourceStart: number;
 }
 
 export interface CutLigateOptions {
@@ -127,6 +151,9 @@ export interface LigationProduct {
   circular: boolean;
   /** The ordered junction overhangs sealed to make this product (5'->3'). */
   junctionOverhangs: string[];
+  /** Features from the input fragments, rebased into product coordinates.
+   *  0-based, end-EXCLUSIVE [start, end) on the product top strand. */
+  features: CloneFeature[];
 }
 
 export interface CutLigateResult {
@@ -293,6 +320,11 @@ function recognitionRegex(rseq: string): RegExp {
  * Because a 5' overhang's protruding strand is the top strand on the downstream
  * side and the bottom strand on the upstream side, the upstream piece's right-end
  * overhang is recorded as the reverse complement of those bases (see `pairEnds`).
+ *
+ * sourceStart records the 0-based offset of this piece within the original
+ * (cleaned) fragment sequence. Pieces from digestFragment are always in the
+ * fragment's forward orientation; flipping happens later in the oriented-piece
+ * layer via flip().
  */
 export function digestFragment(
   frag: LigateFragment,
@@ -314,6 +346,7 @@ export function digestFragment(
         right: { kind: "blunt", overhang: "" },
         hasSite: false,
         sourceName: frag.name,
+        sourceStart: 0,
       },
     ];
   }
@@ -355,6 +388,7 @@ export function digestFragment(
           : { kind: "blunt", overhang: "", original: true },
         hasSite: false,
         sourceName: frag.name,
+        sourceStart: start,
       });
     }
   } else {
@@ -367,14 +401,18 @@ export function digestFragment(
       const nxt = sites[(k + 1) % m];
       // Extent cur.L .. nxt.R on the circle (top strand). nxt.R may wrap past n.
       let body: string;
+      let start: number;
       if (nxt.R <= cur.L) {
         // wrap: cur.L .. n .. nxt.R
         body = seq.slice(cur.L) + seq.slice(0, nxt.R);
+        start = cur.L;
       } else if (cur.L < nxt.L) {
         body = seq.slice(cur.L, nxt.R);
+        start = cur.L;
       } else {
         // single-cut circle (m === 1): the whole molecule re-linearised at the cut.
         body = seq.slice(cur.L) + seq.slice(0, nxt.R);
+        start = cur.L;
       }
       pieces.push({
         seq: body,
@@ -382,6 +420,7 @@ export function digestFragment(
         right: pairEnds(nxt, overhang(nxt)).upstream,
         hasSite: false,
         sourceName: frag.name,
+        sourceStart: start,
       });
     }
   }
@@ -486,20 +525,73 @@ function flipEnd(e: PieceEnd): PieceEnd {
 }
 
 /**
+ * Clip and rebase features from a source piece into product coordinates.
+ *
+ * sourceStart and pieceLen define the piece's extent in the original fragment
+ * (always in the forward/unflipped orientation; the DsPiece.seq.length).
+ * productOffset is where the first base of the DsPiece.seq maps to in the
+ * pre-canonical product string (for the circular case this may be negative for
+ * piece 0, reflecting the rotation strip).
+ *
+ * Forward piece: product_pos = sourceCoord - sourceStart + productOffset.
+ * Flipped piece: mirror within the window, flip strand, then add productOffset.
+ */
+function rebasePieceFeatures(
+  srcFeatures: CloneFeature[],
+  sourceStart: number,
+  pieceLen: number,
+  productOffset: number,
+  flipped: boolean,
+): CloneFeature[] {
+  const windowStart = sourceStart;
+  const windowEnd = sourceStart + pieceLen;
+  const out: CloneFeature[] = [];
+  for (const f of srcFeatures) {
+    const clStart = Math.max(f.start, windowStart);
+    const clEnd = Math.min(f.end, windowEnd);
+    if (clEnd <= clStart) continue;
+    if (!flipped) {
+      // Shift so that windowStart maps to productOffset.
+      out.push({
+        ...f,
+        start: clStart - windowStart + productOffset,
+        end: clEnd - windowStart + productOffset,
+      });
+    } else {
+      // Mirror within the window (windowEnd - coord) and flip strand.
+      const mirStart = windowEnd - clEnd;
+      const mirEnd = windowEnd - clStart;
+      out.push({
+        ...f,
+        start: mirStart + productOffset,
+        end: mirEnd + productOffset,
+        strand: f.strand === 1 ? -1 : 1,
+      });
+    }
+  }
+  return out;
+}
+
+/**
  * Assemble pieces by ligation. Enumerates orderings/orientations of the pieces
  * that form a consistent chain (each adjacent pair ligatable) and, for circular
  * products, also close the loop. Deduplicates products up to rotation/strand.
  *
  * Combinatorial but bounded: cloning assemblies use a handful of pieces. We cap
  * the piece count to keep this deterministic and fast.
+ *
+ * fragmentFeatureMap maps sourceName -> CloneFeature[] for rebasing annotations
+ * from the input fragments into the assembled product.
  */
 export function ligate(
   pieces: DsPiece[],
   opts: { circularOnly: boolean; allowBlunt: boolean },
+  fragmentFeatureMap?: Map<string, CloneFeature[]>,
 ): LigationProduct[] {
   const MAX_PIECES = 8;
   if (pieces.length === 0 || pieces.length > MAX_PIECES) return [];
 
+  const featureMap = fragmentFeatureMap ?? new Map<string, CloneFeature[]>();
   const products = new Map<string, LigationProduct>();
 
   // Build the product top strand from an ordered chain of oriented pieces. Each
@@ -532,16 +624,62 @@ export function ligate(
       const lead = chain[0].left.overhang.length;
       out = out.slice(lead);
     }
+
+    // Rebase features from each piece into product coordinates.
+    // For a circular product, `out` has already had the first piece's leading
+    // overhang (circularLeadStrip bases) removed from its front. The product
+    // offset of piece i's DsPiece.seq[0] in `out` is:
+    //   sum of previous contributions - circularLeadStrip.
+    // Each piece contributes (seq.length - leadOverhang) NEW bases after its
+    // leading overhang (which was already in the previous piece's tail).
+    const circularLeadStrip = circular ? chain[0].left.overhang.length : 0;
+    const allFeatures: CloneFeature[] = [];
+    let runningOffset = 0; // position of piece[i].seq[0] in the pre-strip concat
+    for (let i = 0; i < chain.length; i += 1) {
+      const op = chain[i];
+      const srcPiece = pieces[op.pieceIndex];
+      const leadOverhang = i === 0 ? 0 : op.left.overhang.length;
+      // productOffset: where srcPiece.seq[0] maps in the final `out` string.
+      // For piece 0: runningOffset (=0) - circularLeadStrip.
+      // For piece i>0: runningOffset is already past the leading overhangs of
+      // earlier pieces; subtract circularLeadStrip for the circular strip.
+      const productOffset = runningOffset - circularLeadStrip;
+      const srcFeatures = featureMap.get(srcPiece.sourceName) ?? [];
+      if (srcFeatures.length > 0) {
+        const rebased = rebasePieceFeatures(
+          srcFeatures,
+          srcPiece.sourceStart,
+          srcPiece.seq.length,
+          productOffset,
+          op.flipped,
+        );
+        allFeatures.push(...rebased);
+      }
+      // Advance: piece i contributes its full seq.length to runningOffset.
+      // The next piece will strip its own leadOverhang.
+      runningOffset += op.seq.length - leadOverhang;
+    }
+
     // A sticky overhang's sequence is strand-relative (the seam can be read on
     // either strand depending on which way the chain was anchored). To report a
-    // junction overhang DETERMINISTICALLY — independent of chain anchoring /
-    // orientation — we canonicalize each non-blunt seam to its strand-canonical
+    // junction overhang DETERMINISTICALLY -- independent of chain anchoring /
+    // orientation -- we canonicalize each non-blunt seam to its strand-canonical
     // form (the smaller of the overhang and its reverse complement), matching how
     // `canonicalCircular` treats the product itself. Blunt seams stay "".
     const rawSeams = circular ? [...seams, closeSeam] : seams;
     const junctionOverhangs = rawSeams.map((s) => (s === "" ? "" : canonicalLinear(s)));
     const canon = circular ? canonicalCircular(out) : canonicalLinear(out);
-    return { seq: canon, circular, junctionOverhangs };
+
+    // Clamp features to [0, productLen) and drop zero-width windows.
+    const productLen = canon.length;
+    const validFeatures: CloneFeature[] = [];
+    for (const f of allFeatures) {
+      const s = Math.max(0, Math.min(f.start, productLen));
+      const e = Math.max(s, Math.min(f.end, productLen));
+      if (e > s) validFeatures.push({ ...f, start: s, end: e });
+    }
+
+    return { seq: canon, circular, junctionOverhangs, features: validFeatures };
   }
 
   // SUBSET assembly (matching pydna's graph model): a product may use ANY subset
@@ -552,7 +690,7 @@ export function ligate(
   //
   // To bound the search and de-duplicate circular rotations we ANCHOR each chain
   // on its lowest piece index `anchor` in FORWARD orientation, and only extend
-  // with pieces of index > anchor's set already in the chain is not required —
+  // with pieces of index > anchor's set already in the chain is not required --
   // rotation/strand dedup is handled by canonicalCircular. The anchor's forward
   // orientation is sufficient for circular products (a flipped whole circle is
   // the reverse-complement rotation, collapsed by canonicalCircular); for linear
@@ -601,6 +739,10 @@ export function ligate(
  * pieces into assembled products. `mode` "golden-gate" discards the pieces that
  * still carry a recognition site (the Type IIS flanks); "restriction" keeps all
  * pieces. PURE + DETERMINISTIC.
+ *
+ * Feature annotations from each LigateFragment are rebased into the assembled
+ * product using each piece's sourceStart and the oriented-piece's flip flag,
+ * matching the behavior of assembleGibson in cloning.ts.
  */
 export function cutAndLigate(
   fragments: LigateFragment[],
@@ -624,6 +766,14 @@ export function cutAndLigate(
     return { products: [], pieces: [], warnings };
   }
 
+  // Build a map from fragment name to features for use during ligation.
+  const fragmentFeatureMap = new Map<string, CloneFeature[]>();
+  for (const frag of fragments) {
+    if (frag.features && frag.features.length > 0) {
+      fragmentFeatureMap.set(frag.name, frag.features);
+    }
+  }
+
   // Digest every fragment.
   let pieces: DsPiece[] = [];
   for (const frag of fragments) {
@@ -636,7 +786,7 @@ export function cutAndLigate(
   if (options.mode === "golden-gate") {
     kept = pieces.filter((p) => !p.hasSite);
     if (kept.length < pieces.length) {
-      // expected — flanks discarded
+      // expected -- flanks discarded
     }
     // In Golden Gate the kept pieces must have two sticky ends (no original blunt
     // ends), else the design is wrong. Warn if any kept piece has a blunt end.
@@ -654,7 +804,7 @@ export function cutAndLigate(
     return { products: [], pieces: kept, warnings };
   }
 
-  const products = ligate(kept, { circularOnly, allowBlunt });
+  const products = ligate(kept, { circularOnly, allowBlunt }, fragmentFeatureMap);
   if (products.length === 0) {
     warnings.push("No assembled product: the piece overhangs do not form a consistent ligation.");
   } else if (products.length > 1 && circularOnly) {
