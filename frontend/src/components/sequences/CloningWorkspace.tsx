@@ -226,6 +226,25 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
     setLibrarySearch("");
   }, [method]);
 
+  // Escape exits the Assemble workspace. If the inline paste box is open, the
+  // first Escape closes that (the topmost transient layer), so it takes two
+  // presses to leave the page from inside an open paste box. Bound while open.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (pasteOpen) {
+        setPasteOpen(false);
+        return;
+      }
+      onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, pasteOpen, onClose]);
+
 
   // Resolve the full bases + features of every picked LIBRARY fragment (pasted
   // ones already carry their seq). Keyed on the picked id list so it refetches
