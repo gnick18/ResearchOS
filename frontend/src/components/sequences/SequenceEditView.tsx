@@ -343,8 +343,8 @@ function ToolbarButton({
  *  the container bounds: it offsets down-right of the cursor by default and
  *  flips up / left when that would overflow the right or bottom edge, so the
  *  card never spills out of the viewer. pointer-events: none keeps it from
- *  intercepting the drag. Content reuses SelectionReadoutContent (floating
- *  variant) so range / bp / GC / Tm match the bottom strip exactly. */
+ *  intercepting the drag. Content reuses SelectionReadoutContent so range / bp /
+ *  GC / the temperature-gradient Tm chip match the bottom strip exactly. */
 function FloatingSelectionBadge({
   pointer,
   container,
@@ -388,7 +388,7 @@ function FloatingSelectionBadge({
       className="pointer-events-none absolute z-30 flex items-center gap-3 rounded-lg border border-gray-200 bg-white/95 px-3 py-1.5 text-meta text-gray-600 shadow-md backdrop-blur-sm"
       style={{ left: pos.left, top: pos.top }}
     >
-      <SelectionReadoutContent readout={readout} floating />
+      <SelectionReadoutContent readout={readout} />
     </div>
   );
 }
