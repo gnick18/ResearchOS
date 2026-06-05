@@ -16,7 +16,9 @@ Heroes:
 Secondary:
 - [ ] Snap from the bench
 - [x] PI Lab Overview — recorded + encoded 2026-06-04
-- [ ] NIH compliance + Zenodo
+- [n/a] NIH compliance + Zenodo — NO video. Grant's call 2026-06-04: reuse the
+  existing sky-gradient NIH banner from the live welcome instead of a clip.
+  Already in the preview page.
 
 Encoded review copies (720p MP4 + JPG poster, full length, pending trim) live in
 `demo-recordings/processed/` (gitignored). Remaining to record: Clip B (Gibson
