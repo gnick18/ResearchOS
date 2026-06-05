@@ -497,6 +497,43 @@ function InboxStorageSection({
   return <InboxStorageReady email={email} />;
 }
 
+/**
+ * One labeled budget gauge for the Inbox and storage card. Always rendered,
+ * even at zero, so a user always sees the framing (an empty bar at 0 percent,
+ * not a missing one). Turns amber past 80 percent of the ceiling.
+ */
+function BudgetBar({
+  label,
+  valueLabel,
+  pct,
+}: {
+  label: string;
+  valueLabel: string;
+  pct: number;
+}) {
+  const over80 = pct > 80;
+  const pctLabel = pct === 0 ? "0%" : pct < 1 ? "<1%" : `${Math.round(pct)}%`;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-meta font-medium text-gray-600">{label}</span>
+        <span className="text-meta text-gray-400">
+          {valueLabel}
+          <span className={`ml-2 font-semibold ${over80 ? "text-amber-600" : "text-gray-500"}`}>
+            {pctLabel}
+          </span>
+        </span>
+      </div>
+      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+        <div
+          className={`h-full rounded-full ${over80 ? "bg-amber-500" : "bg-blue-500"}`}
+          style={{ width: `${pct > 0 ? Math.max(pct, 2) : 0}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function InboxStorageReady({ email }: { email: string }) {
   const query = useQuery({
     queryKey: ["sharing-inbox", email],
@@ -519,8 +556,8 @@ function InboxStorageReady({ email }: { email: string }) {
     (sum, it) => sum + (it.sizeBytes ?? 0),
     0,
   );
-  const fraction = Math.min(totalBytes / FREE_STORAGE_BYTES, 1);
-  const over80 = fraction > 0.8;
+  const storagePct = Math.min((totalBytes / FREE_STORAGE_BYTES) * 100, 100);
+  const sharePct = Math.min((count / PENDING_SHARE_CAP) * 100, 100);
 
   return (
     <Card
@@ -546,29 +583,27 @@ function InboxStorageReady({ email }: { email: string }) {
 
       {!query.isLoading && !unavailable && !query.isError && (
         <>
-          {count === 0 ? (
-            <p className="text-body text-gray-600">
-              Nothing pending. Shares people send you will appear here.
-            </p>
-          ) : (
-            <p className="text-body text-gray-800">
-              {count} pending {count === 1 ? "share" : "shares"},{" "}
-              {humanBytes(totalBytes)} of {humanBytes(FREE_STORAGE_BYTES)} used
-            </p>
-          )}
+          <p className="text-body text-gray-800">
+            {count === 0
+              ? "Nothing pending yet. Shares people send you wait in your encrypted inbox until you import them."
+              : `${count} pending ${count === 1 ? "share" : "shares"} in your encrypted inbox.`}
+          </p>
 
-          <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
-            <div
-              className={`h-full rounded-full ${
-                over80 ? "bg-amber-500" : "bg-blue-500"
-              }`}
-              style={{ width: `${Math.round(fraction * 100)}%` }}
+          <div className="mt-3 space-y-3">
+            <BudgetBar
+              label="Storage"
+              valueLabel={`${humanBytes(totalBytes)} of ${humanBytes(FREE_STORAGE_BYTES)}`}
+              pct={storagePct}
+            />
+            <BudgetBar
+              label="Shares"
+              valueLabel={`${count} of ${PENDING_SHARE_CAP}`}
+              pct={sharePct}
             />
           </div>
 
-          <p className="text-meta text-gray-400 leading-relaxed">
-            Pending shares are held for {TTL_DAYS} days, then removed. Each person
-            can hold up to {PENDING_SHARE_CAP} pending shares at a time.
+          <p className="mt-3 text-meta text-gray-400 leading-relaxed">
+            Pending shares are held for {TTL_DAYS} days, then removed.
           </p>
 
           <div className="flex items-center justify-between gap-4 pt-1">
