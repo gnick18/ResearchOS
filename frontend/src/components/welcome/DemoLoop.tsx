@@ -68,15 +68,15 @@ function ChromeFrame({
   children: ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/15 bg-[#0c1322] shadow-[0_30px_80px_rgba(2,8,20,0.45)]">
-      <div className="flex items-center gap-3 border-b border-white/10 bg-[#131c2e] px-4 py-3">
+    <div className="overflow-hidden rounded-2xl border border-[#d3deec] bg-white shadow-[0_30px_80px_rgba(15,40,80,0.16)]">
+      <div className="flex items-center gap-3 border-b border-[#e3eaf3] bg-[#f1f5fa] px-4 py-3">
         <div className="flex gap-1.5" aria-hidden>
           <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
           <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
           <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
         </div>
         <div
-          className="mx-auto flex max-w-[460px] flex-1 items-center gap-2 rounded-lg border border-white/10 bg-[#0d1220] px-3 py-1.5 font-mono text-[12.5px] text-slate-500"
+          className="mx-auto flex max-w-[460px] flex-1 items-center gap-2 rounded-lg border border-[#e3eaf3] bg-white px-3 py-1.5 font-mono text-[12.5px] text-[#8593a8]"
           aria-hidden
         >
           <svg
@@ -185,8 +185,8 @@ export default function DemoLoop({
 
   const aspectBox = (
     <div
-      className={`relative aspect-[16/10] w-full overflow-hidden bg-[#0c1424] ${
-        framed ? "" : "rounded-2xl border border-white/10"
+      className={`relative aspect-[16/10] w-full overflow-hidden bg-[#eaf2fb] ${
+        framed ? "" : "rounded-2xl border border-[#e3eaf3]"
       } ${className ?? ""}`}
     >
       {media}
@@ -213,7 +213,7 @@ export interface DemoLoopPlaceholderProps {
 /**
  * A soft "demo coming soon" box for clips that are not recorded yet. Renders a
  * tasteful poster-style panel with a play glyph and the claim, never a broken
- * <video>. Matches the loop boxes' dark treatment so the bento grid reads
+ * <video>. Matches the loop boxes' light treatment so the bento grid reads
  * evenly whether a cell has a real clip or a stand-in.
  */
 export function DemoLoopPlaceholder({
@@ -225,8 +225,8 @@ export function DemoLoopPlaceholder({
 }: DemoLoopPlaceholderProps) {
   const box = (
     <div
-      className={`relative flex aspect-[16/10] w-full flex-col items-center justify-center gap-3 overflow-hidden bg-gradient-to-br from-[#101a2d] to-[#0c1424] px-6 text-center ${
-        framed ? "" : "rounded-2xl border border-white/10"
+      className={`relative flex aspect-[16/10] w-full flex-col items-center justify-center gap-3 overflow-hidden bg-gradient-to-br from-[#f5f9fe] to-[#eaf2fb] px-6 text-center ${
+        framed ? "" : "rounded-2xl border border-[#e3eaf3]"
       } ${className ?? ""}`}
     >
       <svg
@@ -238,21 +238,21 @@ export function DemoLoopPlaceholder({
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-slate-500"
+        className="text-[#94a3b8]"
         aria-hidden
       >
         <rect x="3" y="4" width="18" height="14" rx="2" />
         <path d="M10 9l5 3-5 3V9Z" fill="currentColor" stroke="none" />
       </svg>
       {tag ? (
-        <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-sky-300/80">
+        <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-sky-700">
           {tag}
         </span>
       ) : null}
-      <span className="font-mono text-[12px] uppercase tracking-[0.06em] text-slate-400">
+      <span className="font-mono text-[12px] uppercase tracking-[0.06em] text-[#64748b]">
         Demo coming soon
       </span>
-      <span className="max-w-[34ch] text-[13.5px] leading-relaxed text-slate-300">
+      <span className="max-w-[34ch] text-[13.5px] leading-relaxed text-[#475569]">
         {claim}
       </span>
     </div>

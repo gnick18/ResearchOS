@@ -5,11 +5,13 @@
  *
  * This is the modern rebuild of the welcome / sell page, built on a temporary
  * route so the live `/welcome` (LandingPage.tsx) stays untouched while we
- * iterate. The design is locked in docs/proposals/welcome-page-redesign.md:
- * a dark-first hybrid (dark navy hero + bento feature grid with the BeakerBot
- * sky-blue accent, then a LIGHTER "you own your data" trust block and a lighter
- * final CTA so the page is not one dark slab). The aesthetic matches the chosen
- * mock at tools/welcome-mock/index.html (?v=dark).
+ * iterate. The design is locked in docs/proposals/welcome-page-redesign.md.
+ * The aesthetic is LIGHT (Grant 2026-06-04, reversed from the dark-first
+ * build). Clean white and pale-blue panels, dark slate text, soft and clinical,
+ * the trustworthy look for a non-design-savvy scientist. The hero keeps the
+ * thin rainbow ribbon, the soft rainbow bloom behind BeakerBot, and the
+ * rainbow-gradient headline word as the only saturated accents. It matches the
+ * chosen mock at tools/welcome-mock/index.html (?v=light).
  *
  * The page sells the tools through silent, looping, real-UI demo videos
  * (DemoLoop) plus a few stand-in placeholders for clips not yet recorded. It
@@ -27,7 +29,7 @@
  * Voice rules: no em-dashes, no emojis (every glyph is an inline SVG), no
  * mid-sentence colons. Warm, concept-first, contractions OK. BeakerBot is the
  * only mascot and renders via the real <BeakerBot alive /> component, branding
- * untouched (blue eyes, sky-blue stroke, rainbow liquid) on the dark hero.
+ * untouched (blue eyes, sky-blue stroke, rainbow liquid) on the light hero.
  */
 
 import { useEffect, useState, type ReactNode } from "react";
@@ -41,28 +43,26 @@ const RAINBOW =
   "linear-gradient(90deg, #FFD2B0 0%, #FFF1A8 25%, #B7EBB1 50%, #A6D2F4 75%, #D6B5F0 100%)";
 
 /* ----------------------------------------------------------------------------
- * Sign-in row (two-path), reused at the hero and the final CTA.
- * tone="dark" for the navy hero, tone="light" for the lighter CTA block.
+ * Sign-in row (two-path), reused at the hero and the final CTA. Both placements
+ * are on a light surface now, so the local link reads dark-on-light everywhere.
+ * The tone prop is kept for callers but no longer flips a dark variant.
  * -------------------------------------------------------------------------- */
 function SignInRow({
   onGoogle,
   onGitHub,
   onLocal,
-  tone,
 }: {
   onGoogle: () => void;
   onGitHub: () => void;
   onLocal: () => void;
-  tone: "dark" | "light";
+  tone?: "dark" | "light";
 }) {
-  const isDark = tone === "dark";
   const googleCls =
     "inline-flex items-center justify-center gap-2.5 rounded-xl border border-[#d7dde5] bg-white px-5 py-3 text-body font-semibold text-gray-800 shadow-[0_6px_18px_rgba(0,0,0,0.10)] transition-transform hover:scale-[1.02]";
   const githubCls =
     "inline-flex items-center justify-center gap-2.5 rounded-xl border border-[#181717] bg-[#181717] px-5 py-3 text-body font-semibold text-white transition-transform hover:scale-[1.02]";
-  const localCls = isDark
-    ? "text-meta font-medium text-sky-300/90 underline underline-offset-2 transition-colors hover:text-sky-200"
-    : "text-meta font-medium text-sky-700 underline underline-offset-2 transition-colors hover:text-sky-800";
+  const localCls =
+    "text-meta font-medium text-sky-700 underline underline-offset-2 transition-colors hover:text-sky-800";
   return (
     <div className="flex flex-col items-center gap-3">
       <div className="flex flex-col items-center gap-3 sm:flex-row">
@@ -117,21 +117,18 @@ function CheckGlyph() {
   );
 }
 
-/** Section eyebrow kicker in the page's monospace accent style. */
-function Kicker({ children, dark = true }: { children: ReactNode; dark?: boolean }) {
+/** Section eyebrow kicker in the page's monospace accent style. Sky accent
+ *  tuned for the light surface (matches the mock's --accent #1283c9). */
+function Kicker({ children }: { children: ReactNode; dark?: boolean }) {
   return (
-    <div
-      className={`font-mono text-[12px] font-semibold uppercase tracking-[0.12em] ${
-        dark ? "text-sky-400" : "text-sky-600"
-      }`}
-    >
+    <div className="font-mono text-[12px] font-semibold uppercase tracking-[0.12em] text-[#1283c9]">
       {children}
     </div>
   );
 }
 
 /* ----------------------------------------------------------------------------
- * Comparison table, carried from LandingPage and restyled to the dark
+ * Comparison table, carried from LandingPage and restyled to the light
  * aesthetic. ResearchOS vs LabArchives vs SnapGene, honest three-way.
  * -------------------------------------------------------------------------- */
 type CellMark = "win" | "have" | "soon" | "none";
@@ -143,7 +140,7 @@ interface Cell {
 function MarkIcon({ mark }: { mark: CellMark }) {
   if (mark === "soon") {
     return (
-      <span className="mt-0.5 inline-block flex-none whitespace-nowrap rounded-full bg-sky-500/15 px-2 py-0.5 text-meta font-semibold text-sky-300">
+      <span className="mt-0.5 inline-block flex-none whitespace-nowrap rounded-full bg-sky-100 px-2 py-0.5 text-meta font-semibold text-sky-700">
         Coming soon
       </span>
     );
@@ -152,7 +149,7 @@ function MarkIcon({ mark }: { mark: CellMark }) {
     return (
       <svg
         className={`mt-0.5 h-4 w-4 flex-none ${
-          mark === "win" ? "text-emerald-400" : "text-slate-500"
+          mark === "win" ? "text-emerald-500" : "text-slate-400"
         }`}
         fill="none"
         stroke="currentColor"
@@ -179,21 +176,21 @@ function ComparisonRow({
   snapgene: Cell;
 }) {
   return (
-    <tr className="border-b border-white/10 align-top last:border-0">
-      <td className="px-4 py-3 text-body font-medium text-slate-100">{label}</td>
-      <td className="bg-sky-500/10 px-4 py-3 text-body text-slate-100">
+    <tr className="border-b border-[#e3eaf3] align-top last:border-0">
+      <td className="px-4 py-3 text-body font-medium text-[#0e1726]">{label}</td>
+      <td className="bg-sky-50 px-4 py-3 text-body text-[#0e1726]">
         <span className="flex items-start gap-2">
           <MarkIcon mark={us.mark} />
           <span>{us.text}</span>
         </span>
       </td>
-      <td className="px-4 py-3 text-body text-slate-400">
+      <td className="px-4 py-3 text-body text-[#64748b]">
         <span className="flex items-start gap-2">
           <MarkIcon mark={labarchives.mark} />
           <span>{labarchives.text}</span>
         </span>
       </td>
-      <td className="px-4 py-3 text-body text-slate-400">
+      <td className="px-4 py-3 text-body text-[#64748b]">
         <span className="flex items-start gap-2">
           <MarkIcon mark={snapgene.mark} />
           <span>{snapgene.text}</span>
@@ -223,7 +220,7 @@ export default function WelcomePreviewPage() {
   const handleLocal = () => router.push("/?connect=1");
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-[#0a0e16] text-slate-100">
+    <div className="min-h-screen w-full overflow-x-hidden bg-[#fbfcfe] text-[#0e1726]">
       {/* Thin rainbow ribbon pinned to the very top edge. */}
       <div aria-hidden className="h-[5px] w-full" style={{ background: RAINBOW }} />
 
@@ -238,11 +235,11 @@ export default function WelcomePreviewPage() {
               ariaLabel="ResearchOS BeakerBot logo"
               className="h-8 w-8 shrink-0 text-sky-500"
             />
-            <span className="text-lg font-extrabold tracking-tight text-white">
+            <span className="text-lg font-extrabold tracking-tight text-[#0e1726]">
               ResearchOS
             </span>
           </div>
-          <span className="rounded-full border border-white/10 bg-sky-500/10 px-3 py-1 text-meta font-semibold text-sky-300">
+          <span className="rounded-full border border-[#d3deec] bg-sky-50 px-3 py-1 text-meta font-semibold text-sky-700">
             Free and open source
           </span>
         </nav>
@@ -271,15 +268,15 @@ export default function WelcomePreviewPage() {
               />
             </div>
 
-            <span className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-sky-500/10 px-3.5 py-1.5 text-meta font-semibold text-sky-300">
+            <span className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#d3deec] bg-sky-50 px-3.5 py-1.5 text-meta font-semibold text-sky-700">
               <span
                 aria-hidden
-                className="h-[7px] w-[7px] rounded-full bg-sky-400 shadow-[0_0_0_4px_rgba(54,179,245,0.12)]"
+                className="h-[7px] w-[7px] rounded-full bg-sky-500 shadow-[0_0_0_4px_rgba(54,179,245,0.12)]"
               />
               Free and open, built by a researcher for academic labs
             </span>
 
-            <h1 className="mt-6 max-w-[17ch] text-4xl font-extrabold leading-[1.05] tracking-tight text-white md:text-6xl">
+            <h1 className="mt-6 max-w-[17ch] text-4xl font-extrabold leading-[1.05] tracking-tight text-[#0e1726] md:text-6xl">
               Your whole lab, in a notebook you{" "}
               <span
                 style={{
@@ -293,7 +290,7 @@ export default function WelcomePreviewPage() {
               </span>
             </h1>
 
-            <p className="mt-5 max-w-[56ch] text-title leading-relaxed text-slate-300 md:text-lg">
+            <p className="mt-5 max-w-[56ch] text-title leading-relaxed text-[#475569] md:text-lg">
               Plan experiments, run real protocols, design plasmids, and write it
               all up in one workspace. It is free and local-first, so your data
               stays a plain folder on your own machine.
@@ -304,10 +301,10 @@ export default function WelcomePreviewPage() {
                 onGoogle={handleGoogle}
                 onGitHub={handleGitHub}
                 onLocal={handleLocal}
-                tone="dark"
+                tone="light"
               />
             </div>
-            <p className="mt-3 max-w-[52ch] text-meta text-slate-500">
+            <p className="mt-3 max-w-[52ch] text-meta text-[#8593a8]">
               The notebook needs no account. Sign-in is only for sharing, inbox,
               and collaboration.
             </p>
@@ -323,7 +320,7 @@ export default function WelcomePreviewPage() {
               framed
               frameUrl="research-os.app/sequences"
             />
-            <p className="mt-4 text-body text-slate-400">
+            <p className="mt-4 text-body text-[#64748b]">
               Design plasmids and run cloning, built in.
             </p>
           </div>
@@ -331,8 +328,8 @@ export default function WelcomePreviewPage() {
 
         {/* ── Credibility strip ───────────────────────────────────────── */}
         <section className="px-6 pb-4 pt-8 text-center sm:px-12">
-          <p className="mx-auto max-w-[70ch] text-body leading-relaxed text-slate-300">
-            <span className="font-semibold text-white">
+          <p className="mx-auto max-w-[70ch] text-body leading-relaxed text-[#475569]">
+            <span className="font-semibold text-[#0e1726]">
               Built by a researcher, for researchers.
             </span>{" "}
             Free and open source, backed by a UW-Madison university fellowship.
@@ -344,10 +341,10 @@ export default function WelcomePreviewPage() {
         <section className="px-6 py-16 sm:px-12">
           <div className="mx-auto mb-8 max-w-[1320px]">
             <Kicker>// the few that matter</Kicker>
-            <h2 className="mt-2.5 max-w-[22ch] text-3xl font-extrabold leading-tight tracking-tight text-white md:text-[36px]">
+            <h2 className="mt-2.5 max-w-[22ch] text-3xl font-extrabold leading-tight tracking-tight text-[#0e1726] md:text-[36px]">
               The tools that make you want to try it
             </h2>
-            <p className="mt-3 max-w-[60ch] text-title leading-relaxed text-slate-300">
+            <p className="mt-3 max-w-[60ch] text-title leading-relaxed text-[#475569]">
               We do not list every feature. We lead with the handful that make a
               researcher go &ldquo;I have to try this,&rdquo; and trust you to
               discover the rest once you are in.
@@ -358,12 +355,12 @@ export default function WelcomePreviewPage() {
             {/* Lead 1: sequence editor (real clip, also the hero, repeated as
                 the lead bento cell with its claim). */}
             <BentoCell num="01" span="lead" title="Design plasmids and run cloning, built in">
-              <p className="text-body leading-relaxed text-slate-300">
+              <p className="text-body leading-relaxed text-[#475569]">
                 SnapGene-style circular maps with annotated feature arcs and live
                 cloning. Free, and right inside your notebook.
               </p>
               <CodeLine>
-                <span className="text-sky-400">pUC19</span> 2686 bp &middot; EcoRI
+                <span className="text-[#1283c9]">pUC19</span> 2686 bp &middot; EcoRI
                 &middot; HindIII &middot; BamHI
               </CodeLine>
               <DemoLoop
@@ -376,12 +373,12 @@ export default function WelcomePreviewPage() {
 
             {/* Lead 2: own your data (real clip). */}
             <BentoCell num="02" span="lead" title="Your whole project lives in one folder you own">
-              <p className="text-body leading-relaxed text-slate-300">
+              <p className="text-body leading-relaxed text-[#475569]">
                 Every note, image, and protocol is a plain file on your disk.
                 Local-first, private, no cloud lock-in.
               </p>
               <CodeLine>
-                ~/Lab/<span className="text-sky-400">my-project</span>/notes/
+                ~/Lab/<span className="text-[#1283c9]">my-project</span>/notes/
                 images/ methods/
               </CodeLine>
               <DemoLoop
@@ -398,7 +395,7 @@ export default function WelcomePreviewPage() {
               span="wide"
               title="Notebook, methods, Gantt, purchasing, and calendar in one place"
             >
-              <p className="text-body leading-relaxed text-slate-300">
+              <p className="text-body leading-relaxed text-[#475569]">
                 One workspace instead of five tabs. The whole lab, planned and
                 recorded together, with nothing to wire up.
               </p>
@@ -412,14 +409,14 @@ export default function WelcomePreviewPage() {
 
             {/* Wide 4: methods library (real clip). */}
             <BentoCell num="04" span="wide" title="Real lab protocols, preloaded and ready to run">
-              <p className="text-body leading-relaxed text-slate-300">
+              <p className="text-body leading-relaxed text-[#475569]">
                 The method library ships structured PCR, qPCR, and LC-MS templates
                 with bundled source PDFs. It already knows how to run your
                 experiment, and the reaction math scales itself.
               </p>
               <CodeLine>
                 PCR master mix &middot;{" "}
-                <span className="text-sky-400">24 rxn</span> &middot; 2x Q5 12.5
+                <span className="text-[#1283c9]">24 rxn</span> &middot; 2x Q5 12.5
                 &micro;L &middot; primer 1.25 &micro;L
               </CodeLine>
               <DemoLoop
@@ -432,7 +429,7 @@ export default function WelcomePreviewPage() {
 
             {/* Small 5: Gibson cloning (placeholder, pairs with the editor). */}
             <BentoCell num="05" span="small" title="Gibson and Golden Gate cloning, in silico">
-              <p className="text-body leading-relaxed text-slate-300">
+              <p className="text-body leading-relaxed text-[#475569]">
                 Drop in a fragment, pick a restriction site, and the map updates
                 live, with a review step before anything saves.
               </p>
@@ -445,7 +442,7 @@ export default function WelcomePreviewPage() {
 
             {/* Small 6: PI lab overview (real clip, secondary). */}
             <BentoCell num="06" span="small" title="The PI sees the whole lab at a glance">
-              <p className="text-body leading-relaxed text-slate-300">
+              <p className="text-body leading-relaxed text-[#475569]">
                 A live dashboard of every member&apos;s projects, funding, and
                 progress, configurable for the decision-maker.
               </p>
@@ -459,7 +456,7 @@ export default function WelcomePreviewPage() {
 
             {/* Small 7: snap from the bench (placeholder). */}
             <BentoCell num="07" span="small" title="Snap it from the bench">
-              <p className="text-body leading-relaxed text-slate-300">
+              <p className="text-body leading-relaxed text-[#475569]">
                 Send a photo or note from your phone over Telegram and it lands in
                 your notebook inbox, ready to attach.
               </p>
@@ -565,16 +562,16 @@ export default function WelcomePreviewPage() {
 
         {/* ── Live collaboration coming-soon teaser ───────────────────── */}
         <section className="px-6 py-16 sm:px-12">
-          <div className="mx-auto max-w-[1320px] overflow-hidden rounded-2xl border border-white/10 bg-[#121a2b]">
+          <div className="mx-auto max-w-[1320px] overflow-hidden rounded-2xl border border-[#e3eaf3] bg-white shadow-[0_1px_2px_rgba(15,40,80,0.04)]">
             <div className="grid items-center gap-8 p-8 md:grid-cols-[1.1fr_1fr] md:p-12">
               <div>
-                <span className="inline-flex items-center gap-2 rounded-full border border-sky-400/30 bg-sky-500/10 px-3 py-1 text-meta font-semibold text-sky-300">
+                <span className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-meta font-semibold text-sky-700">
                   On the roadmap
                 </span>
-                <h2 className="mt-4 max-w-[20ch] text-2xl font-extrabold leading-tight tracking-tight text-white md:text-3xl">
+                <h2 className="mt-4 max-w-[20ch] text-2xl font-extrabold leading-tight tracking-tight text-[#0e1726] md:text-3xl">
                   Live collaboration, coming soon
                 </h2>
-                <p className="mt-3 max-w-[52ch] text-title leading-relaxed text-slate-300">
+                <p className="mt-3 max-w-[52ch] text-title leading-relaxed text-[#475569]">
                   Google-Docs-style real-time editing on the same notes, methods,
                   and projects, so your whole lab can work a record together. It
                   is in active development, not shipped yet, and it will stay free
@@ -582,72 +579,72 @@ export default function WelcomePreviewPage() {
                 </p>
               </div>
               {/* A static, badged mock of two cursors on one note. No video. */}
-              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-[#101a2d] to-[#0c1424] p-6">
+              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl border border-[#e3eaf3] bg-gradient-to-br from-[#f5f9fe] to-[#eaf2fb] p-6">
                 <div className="flex h-full flex-col gap-2.5">
-                  <div className="h-2.5 w-2/3 rounded-full bg-white/10" />
-                  <div className="h-2.5 w-1/2 rounded-full bg-white/10" />
-                  <div className="relative h-2.5 w-3/4 rounded-full bg-white/10">
+                  <div className="h-2.5 w-2/3 rounded-full bg-[#dbe6f4]" />
+                  <div className="h-2.5 w-1/2 rounded-full bg-[#dbe6f4]" />
+                  <div className="relative h-2.5 w-3/4 rounded-full bg-[#dbe6f4]">
                     {/* Cursor A */}
                     <span
                       aria-hidden
-                      className="absolute -right-1 -top-1 h-4 w-[2px] bg-sky-400"
+                      className="absolute -right-1 -top-1 h-4 w-[2px] bg-sky-500"
                     />
                     <span
                       aria-hidden
-                      className="absolute -right-1 -top-5 rounded bg-sky-400 px-1.5 py-0.5 font-mono text-[9px] font-semibold text-[#0a0e16]"
+                      className="absolute -right-1 -top-5 rounded bg-sky-500 px-1.5 py-0.5 font-mono text-[9px] font-semibold text-white"
                     >
                       Mira
                     </span>
                   </div>
-                  <div className="relative h-2.5 w-2/5 rounded-full bg-white/10">
+                  <div className="relative h-2.5 w-2/5 rounded-full bg-[#dbe6f4]">
                     {/* Cursor B */}
                     <span
                       aria-hidden
-                      className="absolute -right-1 -top-1 h-4 w-[2px] bg-purple-400"
+                      className="absolute -right-1 -top-1 h-4 w-[2px] bg-purple-500"
                     />
                     <span
                       aria-hidden
-                      className="absolute -right-1 -top-5 rounded bg-purple-400 px-1.5 py-0.5 font-mono text-[9px] font-semibold text-[#0a0e16]"
+                      className="absolute -right-1 -top-5 rounded bg-purple-500 px-1.5 py-0.5 font-mono text-[9px] font-semibold text-white"
                     >
                       Alex
                     </span>
                   </div>
-                  <div className="h-2.5 w-1/3 rounded-full bg-white/10" />
+                  <div className="h-2.5 w-1/3 rounded-full bg-[#dbe6f4]" />
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ── Comparison (carried from LandingPage, restyled dark) ─────── */}
+        {/* ── Comparison (carried from LandingPage, restyled light) ────── */}
         <section className="px-6 py-16 sm:px-12">
           <div className="mx-auto mb-8 max-w-[1320px]">
             <Kicker>// a full lab suite vs the point tools</Kicker>
-            <h2 className="mt-2.5 max-w-[24ch] text-3xl font-extrabold leading-tight tracking-tight text-white md:text-[36px]">
+            <h2 className="mt-2.5 max-w-[24ch] text-3xl font-extrabold leading-tight tracking-tight text-[#0e1726] md:text-[36px]">
               How we compare to LabArchives and SnapGene
             </h2>
-            <p className="mt-3 max-w-[60ch] text-title leading-relaxed text-slate-300">
+            <p className="mt-3 max-w-[60ch] text-title leading-relaxed text-[#475569]">
               LabArchives is the notebook most labs are leaving and SnapGene is
               the sequence tool many of them also pay for. Here is the honest
               three-way on the things that matter most.
             </p>
           </div>
 
-          <div className="mx-auto max-w-[1320px] overflow-hidden rounded-2xl border border-white/10 bg-[#121a2b] shadow-sm">
+          <div className="mx-auto max-w-[1320px] overflow-hidden rounded-2xl border border-[#e3eaf3] bg-white shadow-[0_1px_2px_rgba(15,40,80,0.04)]">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] border-collapse text-left">
                 <thead>
-                  <tr className="border-b border-white/10">
-                    <th className="w-[24%] px-4 py-3 text-body font-semibold text-slate-400">
+                  <tr className="border-b border-[#e3eaf3]">
+                    <th className="w-[24%] px-4 py-3 text-body font-semibold text-[#64748b]">
                       <span className="sr-only">Capability</span>
                     </th>
-                    <th className="w-[28%] bg-sky-500/10 px-4 py-3 text-body font-bold text-sky-300">
+                    <th className="w-[28%] bg-sky-50 px-4 py-3 text-body font-bold text-sky-700">
                       ResearchOS
                     </th>
-                    <th className="w-[24%] px-4 py-3 text-body font-semibold text-slate-200">
+                    <th className="w-[24%] px-4 py-3 text-body font-semibold text-[#334155]">
                       LabArchives (Professional)
                     </th>
-                    <th className="w-[24%] px-4 py-3 text-body font-semibold text-slate-200">
+                    <th className="w-[24%] px-4 py-3 text-body font-semibold text-[#334155]">
                       SnapGene
                     </th>
                   </tr>
@@ -733,7 +730,7 @@ export default function WelcomePreviewPage() {
             </div>
           </div>
 
-          <p className="mx-auto mt-6 max-w-[60ch] text-center text-body leading-relaxed text-slate-400">
+          <p className="mx-auto mt-6 max-w-[60ch] text-center text-body leading-relaxed text-[#64748b]">
             SnapGene genuinely leads on deep cloning and sequence visualization.
             ResearchOS wins on price and ownership, and it folds sequence work
             into a full lab suite instead of a separate tool.
@@ -771,13 +768,13 @@ export default function WelcomePreviewPage() {
         </section>
 
         {/* ── Footer ──────────────────────────────────────────────────── */}
-        <footer className="bg-[#0a0e16] px-6 py-10 text-center text-meta text-slate-500">
-          <div className="inline-flex items-center gap-2 font-bold text-slate-300">
+        <footer className="border-t border-[#e3eaf3] bg-[#f3f7fc] px-6 py-10 text-center text-meta text-[#8593a8]">
+          <div className="inline-flex items-center gap-2 font-bold text-[#475569]">
             <BeakerBot
               pose="idle"
               animated={false}
               ariaLabel="ResearchOS"
-              className="h-5 w-5 text-slate-400"
+              className="h-5 w-5 text-sky-500"
             />
             ResearchOS
           </div>
@@ -815,13 +812,13 @@ function BentoCell({
         : "md:col-span-2";
   return (
     <div
-      className={`flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#121a2b] p-6 ${spanCls}`}
+      className={`flex flex-col overflow-hidden rounded-2xl border border-[#e3eaf3] bg-white p-6 shadow-[0_1px_2px_rgba(15,40,80,0.04)] ${spanCls}`}
     >
-      <div className="font-mono text-[12px] font-semibold tracking-[0.04em] text-sky-400">
+      <div className="font-mono text-[12px] font-semibold tracking-[0.04em] text-[#1283c9]">
         {num}
       </div>
       <h3
-        className={`mt-2 font-bold leading-tight tracking-tight text-white ${
+        className={`mt-2 font-bold leading-tight tracking-tight text-[#0e1726] ${
           span === "small" ? "text-lg" : "text-xl md:text-[22px]"
         }`}
       >
@@ -834,7 +831,7 @@ function BentoCell({
 
 function CodeLine({ children }: { children: ReactNode }) {
   return (
-    <div className="mt-3 font-mono text-[12px] leading-relaxed text-slate-500">
+    <div className="mt-3 font-mono text-[12px] leading-relaxed text-[#8593a8]">
       {children}
     </div>
   );
