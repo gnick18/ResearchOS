@@ -13,6 +13,39 @@ domains, and add any hits back onto the sequence as features (so they draw on
 the map and round-trip to GenBank). Fully on the user's device, matching the
 "everything stays on your machine" promise.
 
+## Decisions (Grant, 2026-06-05)
+
+These refine the architecture below; where they differ, these win.
+
+1. DATABASE-AGNOSTIC ENGINE, not "Pfam annotation". `hmmscan` takes ANY HMMER
+   `.hmm` library, so the feature is "run HMMER against a database and add the
+   hits as features", with Pfam as the first database, not the only one. Why stop
+   at Pfam: the same path serves TIGRFAM, custom labs' HMM sets, and the user's
+   own. The UI talks about "domain / HMM databases", and Pfam is one entry.
+2. DATABASE SOURCES (all feed the same engine):
+   a. a curated common-molbio subset WE HOST (tens of MB, download once, cached) -
+      the zero-setup default.
+   b. BRING YOUR OWN: the user points at their OWN local Pfam / HMM library file
+      (or folder) and runs against it with NO download from us. Many labs already
+      have Pfam on disk; honor that.
+   c. (optional) the full Pfam-A library as a larger on-device download from us.
+3. EBI HANDOFF ONLY IF SEAMLESS. An opt-in InterProScan handoff is worth it ONLY
+   if it is truly seamless (submit -> poll -> parse -> auto-add features, no tab
+   bounce). That requires EBI to allow browser-direct CORS (verify it, the way
+   Zenodo vs Figshare was verified). If CORS blocks browser-direct, the only
+   seamless route is a server proxy, which puts us back on the server and off the
+   user's machine, so we DROP the handoff in that case and rely on 2a/2b/2c.
+4. UNIFIED, FILTERABLE FEATURE LABEL. Hits from ANY database are added as features
+   under one unified, filterable label (a "domain" group), so the user can show /
+   hide all domain annotations at once via the existing view-rail feature-type
+   flyout, with the source database (Pfam / TIGRFAM / custom) carried per feature
+   for finer filtering.
+5. FEATURE TYPE: BOTH. Use a custom `domain` feature type (distinct treatment on
+   the map + the unified filter group) AND carry the standard GenBank
+   `/db_xref="Pfam:PFxxxxx"` + score/E-value qualifiers, so it is visually
+   distinct here AND round-trips cleanly to SnapGene / ApE.
+6. V1 SUBSET = common molbio domains (~tens of MB), per Grant.
+
 ## How domain annotation actually works (so we pick the right tool)
 
 Pfam is not a lookup table. Each of its ~21,000 families is a profile Hidden
