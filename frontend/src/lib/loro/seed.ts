@@ -14,9 +14,8 @@
  *      Loro timestamps are in seconds; we parse the ISO string and floor to seconds.
  *      If created_at is absent we fall back to SEED_EPOCH (1970-01-01T00:00:00Z).
  *   3. Canonical insert ordering -- meta keys in a declared fixed order, entries sorted
- *      by their id string (lexicographic), each Text content inserted in one operation.
- *      Mark ops follow the text insert in sorted (start, type) order (same sort
- *      splitMarkdownInline guarantees), keeping the op log byte-identical across devices.
+ *      by their id string (lexicographic), each Text content (markdown stored verbatim)
+ *      inserted in one operation, keeping the op log byte-identical across devices.
  */
 
 import { LoroDoc, LoroMap, LoroText } from "loro-crdt";

@@ -8,23 +8,15 @@
  *
  * One doc per note; entries are Movable so reordering is a first-class CRDT op.
  *
- * Marks (Peritext, chunk 3):
- *   Bold, italic, and link marks are stored as Loro text marks (NOT as markdown
- *   control characters inside the Text). listEntries() re-renders marks back to
- *   markdown so callers and the mirror always see plain markdown strings.
- *   setEntryContent() splits incoming markdown, replaces the plain text, and
- *   re-applies marks. getEntryContentText() returns the raw LoroText handle for
- *   the editor binding (chunk 5); the editor works with the Delta API directly.
+ * Content (markdown verbatim):
+ *   Each entry's content is the markdown string stored verbatim in its nested
+ *   LoroText (the `**` / `*` / link syntax characters live IN the text, the same
+ *   way loro-codemirror binds the live editor's document). listEntries() reads it
+ *   straight back with toString(); there is no separate marks layer. See
+ *   setEntryContent() for why we store raw markdown rather than plain-text-plus-marks.
  */
 
 import { LoroDoc, LoroMap, LoroText } from "loro-crdt";
-import type { Delta } from "loro-crdt";
-import {
-  renderMarkdownInline,
-  splitMarkdownInline,
-  configureTextStyles,
-} from "./marks";
-import type { InlineMark } from "./marks";
 import type { Note } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -45,63 +37,6 @@ export interface NoteEntryPlain {
   created_at: string;
   updated_at: string;
   content: string;
-}
-
-// ---------------------------------------------------------------------------
-// Internal: extract InlineMark[] from a LoroText Delta
-// ---------------------------------------------------------------------------
-
-/**
- * Convert a toDelta() result back into InlineMark[] offsets into the plain text.
- *
- * toDelta() returns a Quill-style delta: an array of segments, each with
- * { insert: string, attributes?: { bold?: true, italic?: true, link?: string } }.
- * We walk the segments, track the plain-text cursor, and emit one InlineMark
- * per (attribute, contiguous span) pair.
- *
- * WHY we re-derive marks from the Delta instead of from the plain-text markdown:
- * After a real collaborative edit the Text may have been modified by mark()
- * calls from another peer without going through our markdown parser, so the
- * ground truth is always the Loro mark layer, not any markdown we might try
- * to parse from toString().
- */
-function deltaToMarks(delta: Delta<string>[]): InlineMark[] {
-  const marks: InlineMark[] = [];
-  let cursor = 0;
-
-  for (const seg of delta) {
-    // Delta segments in a text toDelta() are always "insert" segments after
-    // state read (delete/retain appear only in deltas that describe changes,
-    // not the full state snapshot). Guard defensively anyway.
-    if (!("insert" in seg) || typeof seg.insert !== "string") {
-      // retain / delete segments do not contribute plain text characters.
-      continue;
-    }
-
-    const segLen = seg.insert.length;
-    const attrs = seg.attributes;
-
-    if (attrs) {
-      if (attrs["bold"] === true) {
-        marks.push({ start: cursor, end: cursor + segLen, type: "bold" });
-      }
-      if (attrs["italic"] === true) {
-        marks.push({ start: cursor, end: cursor + segLen, type: "italic" });
-      }
-      if (typeof attrs["link"] === "string") {
-        marks.push({
-          start: cursor,
-          end: cursor + segLen,
-          type: "link",
-          url: attrs["link"] as string,
-        });
-      }
-    }
-
-    cursor += segLen;
-  }
-
-  return marks;
 }
 
 // ---------------------------------------------------------------------------
@@ -305,7 +240,7 @@ export function syncEntrySet(doc: LoroDoc, note: Note): boolean {
   }
 
   // Append note entries the doc is missing, in note order, seeding content
-  // (usually empty for a fresh entry) through the marks-aware path.
+  // (usually empty for a fresh entry) through setEntryContent.
   for (const entry of note.entries) {
     if (docIds.has(entry.id)) continue;
     const idx = (list.toArray() as unknown[]).length;
