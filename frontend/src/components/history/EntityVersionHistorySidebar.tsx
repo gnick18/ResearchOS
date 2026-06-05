@@ -539,9 +539,15 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
               const sessionKey = `${day.dayKey}:${si}`;
               const expanded =
                 !session.collapsible || expandedSessions.has(sessionKey);
-              const resolved = resolveDisplayName(session.actor, profileMap);
+              // Resolve display names for all contributors in this session.
+              const resolvedActors = session.actors.map((a) =>
+                resolveDisplayName(a, profileMap),
+              );
+              const resolvedNames = resolvedActors.map((r) => r.label);
               if (session.collapsible && !expanded) {
                 // Collapsed run: one expandable summary row.
+                // Show up to 3 stacked UserAvatars for multi-author sessions.
+                const avatarActors = session.actors.slice(0, 3);
                 return (
                   <button
                     key={sessionKey}
@@ -550,9 +556,20 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
                     className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-50 text-left transition-colors"
                     data-testid="session-collapsed"
                   >
-                    <UserAvatar username={session.actor} size="xs" />
+                    {/* Stacked avatars for multi-author; single avatar for solo */}
+                    <span className="relative flex-shrink-0" style={{ width: avatarActors.length > 1 ? `${16 + (avatarActors.length - 1) * 8}px` : undefined }}>
+                      {avatarActors.map((actor, idx) => (
+                        <span
+                          key={actor}
+                          className="absolute top-0"
+                          style={idx === 0 ? undefined : { left: `${idx * 8}px` }}
+                        >
+                          <UserAvatar username={actor} size="xs" />
+                        </span>
+                      ))}
+                    </span>
                     <span className="flex-1 text-meta text-gray-600 truncate">
-                      {sessionRangeLabel(session, resolved.label)}
+                      {sessionRangeLabel(session, resolvedNames)}
                     </span>
                     <svg
                       className="w-3 h-3 text-gray-400 flex-shrink-0"
@@ -594,7 +611,11 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
                           d="M19 9l-7 7-7-7"
                         />
                       </svg>
-                      {resolved.label}, {session.versions.length} versions
+                      {resolvedNames.length === 1
+                        ? `${resolvedNames[0]}, ${session.versions.length} versions`
+                        : resolvedNames.length === 2
+                          ? `${resolvedNames[0]} & ${resolvedNames[1]}, ${session.versions.length} versions`
+                          : `${resolvedNames[0]} +${resolvedNames.length - 1} others, ${session.versions.length} versions`}
                     </button>
                   )}
                   {session.versions.map((entry) => (

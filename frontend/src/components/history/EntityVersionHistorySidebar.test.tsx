@@ -47,6 +47,7 @@ vi.mock("@/hooks/useUserColor", () => ({
 
 import EntityVersionHistorySidebar from "./EntityVersionHistorySidebar";
 import { notesAdapter } from "@/lib/history/notes-viewer";
+import { makeSpacedClock } from "@/lib/history/test-utils";
 
 const OWNER = "mira";
 const ID = 47;
@@ -129,7 +130,10 @@ async function seedBareGenesis(): Promise<ReturnType<typeof noteRecord>> {
 
 beforeEach(() => {
   storage = new MemoryStorage();
-  engine = new HistoryEngine({ storage, clock: makeClock() });
+  // Use a spaced clock (35-min intervals) so each save is a separate session
+  // regardless of author. Tests that need individual version rows to be visible
+  // without expanding collapsed groups depend on this.
+  engine = new HistoryEngine({ storage, clock: makeSpacedClock() });
 });
 
 describe("EntityVersionHistorySidebar (Notes adapter)", () => {

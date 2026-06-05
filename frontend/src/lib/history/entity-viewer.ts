@@ -31,6 +31,18 @@ export const VERSION_PAGE_SIZE = 50;
  */
 export const SESSION_MIN_RUN = 2;
 
+/**
+ * Maximum millisecond gap between consecutive versions that still belong to
+ * the same session. A gap longer than this starts a new session regardless of
+ * author. 30 minutes matches the Google-Docs model: close-in-time edits from
+ * multiple collaborators (A, B, A, B within a window) group into one session,
+ * while edits hours apart stay in separate sessions.
+ *
+ * The boundary is evaluated on REAL timestamps (newest-first order is inverted
+ * before the grouping loop, then re-inverted for output).
+ */
+export const SESSION_GAP_MS = 30 * 60 * 1000; // 30 minutes
+
 // ── The entity adapter (the only entity-specific surface) ────────────────────
 
 /**
@@ -91,11 +103,27 @@ export interface VersionEntry {
   summary: string;
 }
 
-/** A contiguous run of same-editor versions within a single day. */
+/**
+ * A time-bounded window of versions within a single day. Sessions are split by
+ * a calendar-day boundary OR a time gap exceeding SESSION_GAP_MS -- NOT by
+ * author change. This produces the Google-Docs model: close-in-time edits from
+ * multiple collaborators (A,B,A,B within the gap) collapse into ONE session,
+ * while edits hours apart stay separate regardless of author.
+ */
 export interface SessionGroup {
-  /** The editor of every version in this run. */
+  /**
+   * Primary author for this session: the contributor with the most versions,
+   * or the first contributor when tied. Kept for backward compatibility with
+   * any consumer that reads a single actor; for the full set use `actors`.
+   */
   actor: string;
   owner: string;
+  /**
+   * All distinct contributors in this session, ordered by first appearance.
+   * A single-author session has actors.length === 1 and renders exactly as
+   * before (no visual change for solo / non-collab history).
+   */
+  actors: string[];
   /** Newest-first versions in the run. */
   versions: VersionEntry[];
   /** ISO ts of the earliest version in the run. */
@@ -242,7 +270,19 @@ export function buildVersionList(
   const visible = entries.slice(0, limit);
   const hasMore = entries.length > limit;
 
-  // Group visible entries by day, then by contiguous same-editor run.
+  // Group visible entries by day, then by time-gap session.
+  //
+  // Session boundary rule: a new session starts when EITHER the calendar day
+  // changes OR the gap from the PREVIOUS version (by real timestamp) exceeds
+  // SESSION_GAP_MS. Author changes no longer start new sessions -- this is the
+  // key fix for live collaboration, where interleaved A,B,A,B edits within the
+  // gap should all belong to one multi-author session.
+  //
+  // `visible` is newest-first. To compute gaps on real chronological order we
+  // track the timestamp of the PREVIOUS entry in this same-session run (which
+  // was added one iteration earlier, i.e. newer) and compare it to the current
+  // entry (older). Gap = prevTs - currentTs. A gap > SESSION_GAP_MS breaks the
+  // session even within the same calendar day.
   const days: DayGroup[] = [];
   for (const entry of visible) {
     const dayKey = dayKeyOf(entry.ts);
@@ -252,13 +292,40 @@ export function buildVersionList(
       days.push(day);
     }
     const lastSession = day.sessions[day.sessions.length - 1];
-    if (lastSession && lastSession.actor === entry.actor) {
+    // Determine whether this entry continues the current session or starts a
+    // new one. `endTs` of lastSession is the NEWEST ts in that session (set
+    // when the session was first created); `entry.ts` is older (newest-first).
+    const gapMs = lastSession
+      ? new Date(lastSession.endTs).getTime() - new Date(entry.ts).getTime()
+      : Infinity;
+    if (lastSession && gapMs <= SESSION_GAP_MS) {
+      // Same session: extend it with this (older) entry.
       lastSession.versions.push(entry);
       // versions are newest-first, so the run's start is the LAST pushed.
       lastSession.startTs = entry.ts;
+      // Track this contributor if not yet seen in this session.
+      if (!lastSession.actors.includes(entry.actor)) {
+        lastSession.actors.push(entry.actor);
+      }
+      // Recompute primary actor as the one with the most versions in this
+      // session (first-appearance wins ties since we iterate newest-first and
+      // the first actor seen remains at index 0).
+      const counts = new Map<string, number>();
+      for (const v of lastSession.versions) {
+        counts.set(v.actor, (counts.get(v.actor) ?? 0) + 1);
+      }
+      let maxCount = 0;
+      for (const [actor, count] of counts) {
+        if (count > maxCount) {
+          maxCount = count;
+          lastSession.actor = actor;
+        }
+      }
     } else {
+      // New session: gap exceeded, or this is the first session in the day.
       day.sessions.push({
         actor: entry.actor,
+        actors: [entry.actor],
         owner: entry.owner,
         versions: [entry],
         startTs: entry.ts,
@@ -288,17 +355,39 @@ export function buildVersionList(
 }
 
 /**
- * Build a "Morgan, 9:01-9:40, 7 versions" label for a collapsed session run.
- * Pure string assembly so the component stays declarative. `displayName` is the
- * resolved editor label (with the "(PI)" badge) the caller passes in.
+ * Build a collapsed-session label.
+ *
+ * Single-author (actors.length === 1): "Morgan, 9:01-9:40, 7 versions"
+ * Two authors:                         "Morgan & Alex, 9:01-9:40, 12 versions"
+ * Three or more:                       "Morgan +2 others, 9:01-9:40, 12 versions"
+ *
+ * Pure string assembly so the component stays declarative. `displayNames` is an
+ * array of resolved editor labels (with "(PI)" badges) the caller passes in,
+ * ordered to match session.actors. For a single-author session the caller may
+ * pass either an array or the legacy single-string form -- both are handled so
+ * existing call sites need no changes.
+ *
+ * No em-dashes, no mid-sentence colons, no emojis.
  */
 export function sessionRangeLabel(
   session: SessionGroup,
-  displayName: string,
+  displayNames: string | string[],
 ): string {
   const start = clockOf(session.startTs);
   const end = clockOf(session.endTs);
   const count = session.versions.length;
   const range = start === end ? start : `${start}-${end}`;
-  return `${displayName}, ${range}, ${count} versions`;
+
+  const names = Array.isArray(displayNames) ? displayNames : [displayNames];
+  let authorPart: string;
+  if (names.length <= 1) {
+    authorPart = names[0] ?? session.actor;
+  } else if (names.length === 2) {
+    authorPart = `${names[0]} & ${names[1]}`;
+  } else {
+    // 3 or more: "Morgan +2 others"
+    authorPart = `${names[0]} +${names.length - 1} others`;
+  }
+
+  return `${authorPart}, ${range}, ${count} versions`;
 }

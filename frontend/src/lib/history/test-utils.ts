@@ -52,6 +52,31 @@ export function makeClock(): EngineClock {
   };
 }
 
+/**
+ * A deterministic clock that spaces each save 35 minutes apart (just over the
+ * 30-minute SESSION_GAP_MS threshold). Use this in component tests that need
+ * each save to appear as a SEPARATE SESSION (no multi-author collapsing) so the
+ * tests can assert on individual version rows without expanding collapsed groups.
+ *
+ * The 35-minute gap ensures every two consecutive saves exceed SESSION_GAP_MS
+ * and each save is its own session, regardless of author.
+ */
+export function makeSpacedClock(): EngineClock {
+  let counter = 0;
+  const base = Date.parse("2026-01-01T00:00:00.000Z");
+  // 35 minutes in ms -- just over SESSION_GAP_MS (30 min) so every save is a
+  // separate session.
+  const STEP_MS = 35 * 60 * 1000;
+  return {
+    newId(): string {
+      return `r${counter++}`;
+    },
+    now(): string {
+      return new Date(base + counter * STEP_MS).toISOString();
+    },
+  };
+}
+
 /** A fresh engine wired to a fresh in-memory store + deterministic clock. */
 export function makeEngine(): { engine: HistoryEngine; storage: MemoryStorage } {
   const storage = new MemoryStorage();

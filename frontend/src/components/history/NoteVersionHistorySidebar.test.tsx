@@ -58,6 +58,7 @@ vi.mock("@/hooks/useUserColor", () => ({
 }));
 
 import NoteVersionHistorySidebar from "./NoteVersionHistorySidebar";
+import { makeSpacedClock } from "@/lib/history/test-utils";
 
 const OWNER = "mira";
 const NOTE_ID = 47;
@@ -107,7 +108,11 @@ async function seed(
 
 beforeEach(() => {
   storage = new MemoryStorage();
-  engine = new HistoryEngine({ storage, clock: makeClock() });
+  // Use a spaced clock (35-min intervals) so each save is a separate session
+  // regardless of author. Tests that need individual version rows to be visible
+  // without expanding collapsed groups depend on this. Tests that specifically
+  // exercise session grouping create their own engine with makeClock().
+  engine = new HistoryEngine({ storage, clock: makeSpacedClock() });
 });
 
 describe("NoteVersionHistorySidebar", () => {
@@ -256,7 +261,12 @@ describe("NoteVersionHistorySidebar", () => {
   });
 
   it("collapses a same-editor run into one expandable session", async () => {
-    // Four consecutive mira saves on one day -> one collapsible session.
+    // Four consecutive mira saves, all within a few seconds (close-clock), so
+    // they are within SESSION_GAP_MS and collapse into one session. This test
+    // overrides the module engine with a close-clock one so saves are
+    // close-in-time rather than 35 minutes apart.
+    storage = new MemoryStorage();
+    engine = new HistoryEngine({ storage, clock: makeClock() });
     await seed([
       { title: "Draft", content: "a", actor: "mira" },
       { title: "Draft", content: "a b", actor: "mira" },

@@ -24,6 +24,7 @@ import {
   dayLabelOf,
   projectNoteState,
   sessionRangeLabel,
+  SESSION_GAP_MS,
   summarizeChange,
   VERSION_PAGE_SIZE,
 } from "./notes-viewer";
@@ -359,10 +360,17 @@ describe("buildVersionList — grouping + HEAD", () => {
     expect(sessions).toHaveLength(1);
     expect(sessions[0].collapsible).toBe(true);
     expect(sessions[0].versions).toHaveLength(5);
+    // Single-author session: actors has exactly one entry.
+    expect(sessions[0].actors).toEqual(["morgan"]);
+    // sessionRangeLabel with a string (legacy call) OR array both work.
     expect(sessionRangeLabel(sessions[0], "Morgan")).toMatch(/^Morgan, .*, 5 versions$/);
+    expect(sessionRangeLabel(sessions[0], ["Morgan"])).toMatch(/^Morgan, .*, 5 versions$/);
   });
 
-  it("splits a day into separate sessions when the editor changes", () => {
+  it("keeps edits from different authors within the gap in ONE session (collab fix)", () => {
+    // Under the OLD author-change rule these would split into 2 sessions.
+    // Under the new time-gap rule all three are within 10 minutes so they
+    // belong to one multi-author session.
     const rows: HistoryRow[] = [
       genesis(),
       delta({ id: "r1", ts: "2026-05-29T09:00:00.000Z", actor: "mira" }),
@@ -371,12 +379,135 @@ describe("buildVersionList — grouping + HEAD", () => {
     ];
     const model = buildVersionList(rows, NOW, {});
     const sessions = model.days[0].sessions;
-    // Newest-first: morgan run (r3,r2), then mira (r1).
-    expect(sessions).toHaveLength(2);
+    // All three edits are within SESSION_GAP_MS so they collapse into one session.
+    expect(sessions).toHaveLength(1);
+    // All versions are present newest-first.
+    expect(sessions[0].versions.map((v) => v.rowId)).toEqual(["r3", "r2", "r1"]);
+    // Both authors are tracked; morgan has 2 versions so is primary.
     expect(sessions[0].actor).toBe("morgan");
-    expect(sessions[0].versions.map((v) => v.rowId)).toEqual(["r3", "r2"]);
-    expect(sessions[1].actor).toBe("mira");
+    // actors is ordered by first appearance in newest-first iteration: r3=morgan
+    // is the first entry processed, so morgan appears first.
+    expect(sessions[0].actors).toEqual(["morgan", "mira"]);
+  });
+
+  it("splits sessions on a time gap exceeding SESSION_GAP_MS", () => {
+    const gapMs = SESSION_GAP_MS + 60_000; // 31 minutes
+    const t1 = new Date("2026-05-29T08:00:00.000Z");
+    const t2 = new Date(t1.getTime() + gapMs); // > 30 min later
+    const rows: HistoryRow[] = [
+      genesis(),
+      delta({ id: "r1", ts: t1.toISOString(), actor: "mira" }),
+      delta({ id: "r2", ts: t2.toISOString(), actor: "mira" }),
+    ];
+    const model = buildVersionList(rows, NOW, {});
+    const sessions = model.days[0].sessions;
+    // Same author but gap exceeded -> 2 separate sessions.
+    expect(sessions).toHaveLength(2);
+    // Newest-first: r2, then r1.
+    expect(sessions[0].versions.map((v) => v.rowId)).toEqual(["r2"]);
     expect(sessions[1].versions.map((v) => v.rowId)).toEqual(["r1"]);
+    // Each session has only one actor.
+    expect(sessions[0].actors).toEqual(["mira"]);
+    expect(sessions[1].actors).toEqual(["mira"]);
+  });
+
+  it("interleaved A,B,A,B within the gap collapses into ONE multi-author session", () => {
+    // The core collab scenario: four edits alternating between two authors,
+    // all within a 10-minute window (well under the 30-minute gap threshold).
+    const rows: HistoryRow[] = [
+      genesis(),
+      delta({ id: "r1", ts: "2026-05-29T09:00:00.000Z", actor: "alex" }),
+      delta({ id: "r2", ts: "2026-05-29T09:02:00.000Z", actor: "morgan" }),
+      delta({ id: "r3", ts: "2026-05-29T09:05:00.000Z", actor: "alex" }),
+      delta({ id: "r4", ts: "2026-05-29T09:08:00.000Z", actor: "morgan" }),
+    ];
+    const model = buildVersionList(rows, NOW, {});
+    const sessions = model.days[0].sessions;
+    // All four edits are within SESSION_GAP_MS -> exactly ONE session.
+    expect(sessions).toHaveLength(1);
+    // All four versions present newest-first.
+    expect(sessions[0].versions.map((v) => v.rowId)).toEqual(["r4", "r3", "r2", "r1"]);
+    // Both authors appear in actors (ordered by first appearance, newest-first
+    // means alex appears first in the iteration order).
+    expect(sessions[0].actors).toContain("alex");
+    expect(sessions[0].actors).toContain("morgan");
+    expect(sessions[0].actors).toHaveLength(2);
+    // Morgan has 2 versions and alex has 2 versions; tie broken by first appearance
+    // in the newest-first iteration. Check that actor is one of the two.
+    expect(["alex", "morgan"]).toContain(sessions[0].actor);
+    // The session is collapsible (>= SESSION_MIN_RUN).
+    expect(sessions[0].collapsible).toBe(true);
+  });
+
+  it("solo editing within the gap produces a single-author session unchanged", () => {
+    // Solo use: one author, multiple close-in-time edits. Must look identical
+    // to the pre-collab behavior: one session, actors.length === 1.
+    const rows: HistoryRow[] = [genesis()];
+    for (let k = 1; k <= 4; k++) {
+      rows.push(
+        delta({
+          id: `r${k}`,
+          ts: `2026-05-29T10:0${k}:00.000Z`,
+          actor: "mira",
+        }),
+      );
+    }
+    const model = buildVersionList(rows, NOW, {});
+    const sessions = model.days[0].sessions;
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].actors).toEqual(["mira"]);
+    expect(sessions[0].actor).toBe("mira");
+    expect(sessions[0].collapsible).toBe(true);
+    // Label is identical to the old format for a solo session.
+    expect(sessionRangeLabel(sessions[0], ["Mira"])).toMatch(/^Mira, .*, 4 versions$/);
+  });
+});
+
+describe("sessionRangeLabel — multi-author formats", () => {
+  function fakeSession(actors: string[]): import("./notes-viewer").SessionGroup {
+    return {
+      actor: actors[0],
+      actors,
+      owner: "mira",
+      versions: Array.from({ length: 3 }, (_, i) => ({
+        rowId: `r${i}`,
+        versionIndex: i + 1,
+        ts: `2026-05-29T09:0${i}:00.000Z`,
+        actor: actors[i % actors.length],
+        owner: "mira",
+        isHead: false,
+        summary: "edited",
+      })),
+      startTs: "2026-05-29T09:00:00.000Z",
+      endTs: "2026-05-29T09:02:00.000Z",
+      collapsible: true,
+    };
+  }
+
+  it("single author renders exactly as before (no visual change)", () => {
+    const s = fakeSession(["morgan"]);
+    expect(sessionRangeLabel(s, ["Morgan"])).toMatch(/^Morgan, .*, 3 versions$/);
+    // Legacy string argument also works.
+    expect(sessionRangeLabel(s, "Morgan")).toMatch(/^Morgan, .*, 3 versions$/);
+  });
+
+  it("two authors renders 'A & B, ...'", () => {
+    const s = fakeSession(["morgan", "alex"]);
+    expect(sessionRangeLabel(s, ["Morgan", "Alex"])).toMatch(
+      /^Morgan & Alex, .*, 3 versions$/,
+    );
+  });
+
+  it("three or more authors renders 'A +N others, ...'", () => {
+    const s = fakeSession(["morgan", "alex", "mira"]);
+    expect(sessionRangeLabel(s, ["Morgan", "Alex", "Mira"])).toMatch(
+      /^Morgan \+2 others, .*, 3 versions$/,
+    );
+
+    const s4 = fakeSession(["morgan", "alex", "mira", "lee"]);
+    expect(sessionRangeLabel(s4, ["Morgan", "Alex", "Mira", "Lee"])).toMatch(
+      /^Morgan \+3 others, .*, 3 versions$/,
+    );
   });
 });
 

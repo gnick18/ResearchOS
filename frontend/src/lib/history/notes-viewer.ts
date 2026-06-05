@@ -23,6 +23,7 @@ import type { HistoryEditKind } from "./types";
 export {
   VERSION_PAGE_SIZE,
   SESSION_MIN_RUN,
+  SESSION_GAP_MS,
   buildVersionList,
   sessionRangeLabel,
   dayKeyOf,
