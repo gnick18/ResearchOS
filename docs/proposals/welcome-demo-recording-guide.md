@@ -7,16 +7,21 @@ code 2026-06-04, so the button names below are the real ones.
 ## Recording progress
 
 Heroes:
-- [x] Sequence editor, Clip A (plasmid map) — recorded 2026-06-04
+- [x] Sequence editor, Clip A (plasmid map) — recorded + encoded 2026-06-04
 - [ ] Sequence editor, Clip B (Assemble / Gibson cloning)
-- [ ] You own your data
-- [ ] Replaces 5 tools
-- [ ] Preloaded methods library
+- [x] You own your data — recorded + encoded 2026-06-04
+- [x] Replaces 5 tools — recorded + encoded 2026-06-04
+- [x] Preloaded methods library — recorded + encoded 2026-06-04
 
 Secondary:
 - [ ] Snap from the bench
-- [ ] PI Lab Overview
+- [x] PI Lab Overview — recorded + encoded 2026-06-04
 - [ ] NIH compliance + Zenodo
+
+Encoded review copies (720p MP4 + JPG poster, full length, pending trim) live in
+`demo-recordings/processed/` (gitignored). Remaining to record: Clip B (Gibson
+cloning), Snap from the bench, NIH / Zenodo. Pending from Grant: trim in/out
+points per clip so I can cut clean loops.
 
 ## Before every clip (applies to all)
 
