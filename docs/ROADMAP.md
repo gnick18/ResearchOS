@@ -56,3 +56,24 @@ Raised by, Dylan Duerre (beta feedback, 2026-06-04)
 The ask, an experiment planner.
 
 What this could include, a way to plan an experiment ahead of running it, steps, timeline, the methods and instruments it needs, and the resources/reagents to have on hand. ResearchOS already has experiments (tasks), methods, and a Gantt chart, so this likely builds on those rather than starting fresh, the planner would be the forward-looking, pre-run view that complements the existing record-keeping. Worth checking against the beta de-bloat work so it adds planning value without adding click-heavy complexity.
+
+## Simulate overlap extension PCR (assembly and overhang check)
+
+Status, `idea`
+Raised by, Justin Eagan (beta feedback, 2026-06-04)
+
+The ask, simulate overlap extension PCR so the editor can check a user's primer overhangs and confirm the fragments will assemble into the intended construct in the correct orientation. Justin noted this is currently a paid-tier SnapGene feature.
+
+What this could include:
+- Given two or more fragments plus the primers that carry the complementary overhangs, predict the assembled product and verify that the overlapping ends are truly complementary and long enough to anneal.
+- Check orientation, confirming each fragment joins in the intended 5-prime-to-3-prime direction so the construct is not assembled backwards.
+- Surface failure modes before the bench, mismatched or too-short overlaps, unintended secondary annealing, or a fragment that can go in two orientations.
+- Render the predicted junction sequence so the user can eyeball the seam.
+
+Why it fits ResearchOS, this sits squarely in the sequence-editor / cloning-engine arc already in flight (the SnapGene-style surface), and overlap extension PCR (also called SOEing PCR) is a common primer-driven assembly method that pairs with the primer-design and specificity tooling the sequence work is building. Catching a bad overhang in silico saves a failed bench reaction.
+
+Early technical notes (not a commitment):
+- The core check is local string and alignment work on the fragment ends and the primer overhangs (complementarity, overlap length, Tm of the overlap), the same class of pure-function sequence logic already validated on the transparency page (Tm, alignment, digest, translation).
+- Builds on the cloning engine the sequence-editor initiative is already scoping rather than a standalone tool.
+
+Open questions for whenever this gets scoped, how the user inputs the fragments and primers (pick from the sequence library vs paste), how many fragments to support in one assembly, and whether to unify this with other assembly methods (Gibson, Golden Gate) under one assembly-simulator surface rather than an overlap-extension-only tool.
