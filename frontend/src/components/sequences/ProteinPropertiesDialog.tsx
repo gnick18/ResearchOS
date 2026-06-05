@@ -22,18 +22,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { analyzeProtein } from "@/lib/calculators/protein";
 import { translateFrame1 } from "@/lib/sequences/export";
-import { reverseComplement } from "@/lib/sequences/primer";
 import type { EditFeature } from "@/lib/sequences/edit-model";
+import {
+  isCodingFeature,
+  translateFeature,
+  trimTrailingStop,
+} from "@/lib/sequences/feature-protein";
 import ProteinPropertiesView, {
   NonStandardNotice,
 } from "./ProteinPropertiesView";
-
-/** The feature types we treat as protein-coding for the picker. */
-const CODING_TYPES = new Set(["cds", "gene", "mat_peptide", "sig_peptide"]);
-
-function isCodingFeature(f: EditFeature): boolean {
-  return CODING_TYPES.has((f.type || "").trim().toLowerCase());
-}
 
 function ProteinIcon({ className }: { className?: string }) {
   // A small chain-of-beads glyph, reading as a polypeptide. Inline SVG to match
@@ -74,32 +71,6 @@ function CloseIcon({ className }: { className?: string }) {
       <line x1="18" y1="6" x2="6" y2="18" />
     </svg>
   );
-}
-
-/**
- * Translate one feature to amino acids, honoring strand and exon joins. For a
- * multi-exon (join) feature the exon bases are concatenated left to right
- * first; a reverse-strand feature reverse-complements before reading frame 1.
- * Uses the editor's degenerate-codon-aware translateFrame1 util.
- */
-function translateFeature(seq: string, f: EditFeature): string {
-  const spans =
-    f.locations && f.locations.length > 1
-      ? [...f.locations].sort((a, b) => a.start - b.start)
-      : [{ start: f.start, end: f.end }];
-  let bases = "";
-  for (const s of spans) {
-    const lo = Math.max(0, Math.min(s.start, s.end));
-    const hi = Math.min(seq.length, Math.max(s.start, s.end));
-    bases += seq.slice(lo, hi);
-  }
-  if (f.strand === -1) bases = reverseComplement(bases);
-  return translateFrame1(bases);
-}
-
-/** Trim exactly one trailing stop, the common "CDS includes its stop" case. */
-function trimTrailingStop(aa: string): string {
-  return aa.endsWith("*") ? aa.slice(0, -1) : aa;
 }
 
 type SourceKind = "selection" | "feature" | "manual";

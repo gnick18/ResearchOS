@@ -100,6 +100,10 @@ import DetectFeaturesDialog, {
 import CompareSequencesDialog from "./CompareSequencesDialog";
 // protein analyze bot — the second door into the protein-properties engine.
 import ProteinPropertiesDialog from "./ProteinPropertiesDialog";
+// sequence editor master — the third door: a right-docked drawer that opens when
+// a coding feature is selected, reflowing the viewer narrower (never overlaying).
+import ProteinPropertiesDrawer from "./ProteinPropertiesDrawer";
+import { isCodingFeature } from "@/lib/sequences/feature-protein";
 import EnzymePickerDialog from "./EnzymePickerDialog";
 import PrimerDialog, { type PrimerDialogRequest } from "./PrimerDialog";
 import PrimerEditorDialog, {
@@ -477,6 +481,14 @@ export default function SequenceEditView({
   // to switch the Primers tab onto its Check (specificity) view directly.
   const [primersCheckNonce, setPrimersCheckNonce] = useState(0);
   const [selectedFeatureIdx, setSelectedFeatureIdx] = useState<number | null>(null);
+  // sequence editor master — the protein-properties drawer is dismissable with
+  // its X without clearing the feature selection. We track the dismissed feature
+  // index so reselecting the SAME coding feature reopens it, and selecting a
+  // DIFFERENT coding feature opens fresh. Cleared whenever the selection changes
+  // to a new index (see the effect below).
+  const [proteinDrawerDismissedIdx, setProteinDrawerDismissedIdx] = useState<
+    number | null
+  >(null);
   // Phase 2d — the restriction-enzyme picker. `activeEnzymes` is the in-session
   // chosen set (lowercase keys); null means "use the small common default".
   // NOT persisted to disk (out of scope for this chip). `enzymePickerOpen`
@@ -2709,6 +2721,26 @@ export default function SequenceEditView({
   const selIsPrimer = !!selFeat && (selFeat.type || "").toLowerCase() === "primer_bind";
   const selIsFeature = !!selFeat && !selIsPrimer;
 
+  // sequence editor master — PROTEIN-PROPERTIES DRAWER GATE. The drawer opens
+  // when the selected feature is CODING (cds / gene / mat_peptide / sig_peptide)
+  // and the user has not dismissed it for that same index. Non-coding selections
+  // never open it, so the existing select behavior is unchanged for them.
+  const showProteinDrawer =
+    selectedFeatureIdx != null &&
+    !!selFeat &&
+    isCodingFeature(selFeat) &&
+    proteinDrawerDismissedIdx !== selectedFeatureIdx;
+  // Reselecting a DIFFERENT feature clears any prior dismissal so the drawer can
+  // reopen. (Dismissing keeps the feature selected; reopening = reselect it.)
+  useEffect(() => {
+    if (
+      proteinDrawerDismissedIdx != null &&
+      proteinDrawerDismissedIdx !== selectedFeatureIdx
+    ) {
+      setProteinDrawerDismissedIdx(null);
+    }
+  }, [selectedFeatureIdx, proteinDrawerDismissedIdx]);
+
   // menu reorg bot — the Feature menu is now TRUE CRUD only: Add / Edit /
   // Duplicate / Remove. The analysis engines (Detect / Annotate) moved to the new
   // Analyze menu, and the per-feature-type show/hide list moved back to the left
@@ -3569,6 +3601,22 @@ export default function SequenceEditView({
             />
           ) : null}
         </div>
+
+        {/* sequence editor master — RIGHT-DOCKED PROTEIN-PROPERTIES DRAWER. A flex
+            sibling of the viewer column (NOT an overlay): when it mounts, the
+            column above shrinks and SeqViz reflows narrower via its ResizeObserver,
+            so the map is never covered. Shown only alongside the Map / Sequence
+            viewer, and only for a CODING feature selection. */}
+        {showViewer && showProteinDrawer && selFeat && selectedFeatureIdx != null ? (
+          <ProteinPropertiesDrawer
+            feature={selFeat}
+            featureIndex={selectedFeatureIdx}
+            seq={doc.seq}
+            readOnly={readOnly}
+            onClose={() => setProteinDrawerDismissedIdx(selectedFeatureIdx)}
+            onEditFeature={openEditFeature}
+          />
+        ) : null}
       </div>
 
       {/* Live selection readout */}
