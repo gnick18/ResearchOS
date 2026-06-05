@@ -15,6 +15,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { LoroDoc } from "loro-crdt";
 import { seedNoteDoc, rebuildFromNote } from "../seed";
 import { projectToNote } from "../mirror";
+import { syncNoteMetadataToDoc, listEntries } from "../note-doc";
 import { loadOrRebuild, persistNote, sidecarPath } from "../sidecar-store";
 import type { Note, NoteComment } from "@/lib/types";
 
@@ -255,5 +256,44 @@ describe("persistNote: write ordering and correct paths", () => {
 
     // Sidecar is written BEFORE mirror (the crash-safety ordering guarantee).
     expect(callOrder).toEqual(["sidecar", "mirror"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test: legacy metadata edits (rename) are not clobbered by the stale seed
+// ---------------------------------------------------------------------------
+
+describe("syncNoteMetadataToDoc: legacy title/metadata edits survive a content commit", () => {
+  it("a note rename is reflected in the projection after the sync (not reverted to the seeded title)", () => {
+    const note = fixtureNote();
+    const doc = new LoroDoc();
+    doc.import(seedNoteDoc(note));
+
+    // Simulate a legacy rename: the title field is edited through the popup
+    // header, not the Loro editor, so only the live `base` changes.
+    const renamed: Note = { ...note, title: "Renamed via legacy field" };
+
+    // Without the sync, projectToNote overlays the STALE seeded meta title and
+    // reverts the rename (this is the bug the sync fixes).
+    expect(projectToNote(doc, renamed).title).toBe(note.title);
+
+    // After syncing the live metadata into the doc, the projection keeps the
+    // rename. Content (Loro-owned) is untouched by the sync.
+    const changed = syncNoteMetadataToDoc(doc, renamed);
+    expect(changed).toBe(true);
+    expect(projectToNote(doc, renamed).title).toBe("Renamed via legacy field");
+
+    // Entry content still comes from the CRDT, unchanged by the metadata sync.
+    const entries = listEntries(doc);
+    const original = [...note.entries].sort((a, b) => (a.id < b.id ? -1 : 1));
+    expect(entries.map((e) => e.content)).toEqual(original.map((e) => e.content));
+  });
+
+  it("returns false when nothing changed (no redundant commit)", () => {
+    const note = fixtureNote();
+    const doc = new LoroDoc();
+    doc.import(seedNoteDoc(note));
+    // Syncing the same values the doc was seeded with is a no-op.
+    expect(syncNoteMetadataToDoc(doc, note)).toBe(false);
   });
 });

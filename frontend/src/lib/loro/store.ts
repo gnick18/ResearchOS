@@ -22,7 +22,7 @@ import { LoroSyncPlugin } from "loro-codemirror";
 import type { Extension } from "@codemirror/state";
 import { loadOrRebuild, persistNote } from "./sidecar-store";
 import { classifyExternalEdit, ingestExternalEdit } from "./external-edit";
-import { getEntryContentText } from "./note-doc";
+import { getEntryContentText, syncNoteMetadataToDoc } from "./note-doc";
 import { projectToNote } from "./mirror";
 import type { Note } from "@/lib/types";
 
@@ -186,6 +186,16 @@ class NoteHandleImpl implements NoteHandle {
       ...base,
       updated_at: new Date().toISOString(),
     };
+
+    // Phase 1: the note title/description/is_running_log and per-entry
+    // title/date are edited through the legacy UI, not the Loro editor (only
+    // the entry content text is Loro-bound). Push those legacy edits INTO the
+    // CRDT before projecting, otherwise projectToNote would overwrite a rename
+    // with the stale seeded value on the next content commit. Content is left
+    // to the editor binding. Commit only when something actually changed.
+    if (syncNoteMetadataToDoc(this.doc, stampedBase)) {
+      this.doc.commit({ message: "metadata-sync" });
+    }
 
     await persistNote(this._owner, this.doc, stampedBase);
 

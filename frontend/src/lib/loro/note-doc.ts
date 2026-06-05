@@ -25,6 +25,7 @@ import {
   configureTextStyles,
 } from "./marks";
 import type { InlineMark } from "./marks";
+import type { Note } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // Public plain-object shapes (what read helpers return)
@@ -248,4 +249,56 @@ export function setEntryContent(
       text.mark({ start: mark.start, end: mark.end }, "link", mark.url ?? "");
     }
   }
+}
+
+/**
+ * Sync the note's NON-CONTENT metadata from the live Note into the CRDT doc.
+ *
+ * Phase 1 only binds the entry CONTENT text to the Loro editor; the note title,
+ * description, is_running_log flag, and the per-entry title/date are still
+ * edited through the legacy UI (the popup header, the entry tabs), not the Loro
+ * editor. The CRDT was seeded with those values at creation and would otherwise
+ * go stale, so projectToNote (which reads them from the doc) would overwrite a
+ * legacy rename with the stale seeded value on the next content commit. Calling
+ * this before each persist keeps the CRDT in step with those legacy edits.
+ *
+ * Entry CONTENT is owned by the editor binding and is deliberately NOT touched.
+ * Writes are guarded so an unchanged field produces no redundant LWW op.
+ *
+ * Returns true if anything changed (so the caller can skip an empty commit).
+ */
+export function syncNoteMetadataToDoc(doc: LoroDoc, note: Note): boolean {
+  let changed = false;
+  const meta = doc.getMap("meta");
+
+  const setMeta = (key: string, value: string | boolean) => {
+    if (meta.get(key) !== value) {
+      meta.set(key, value);
+      changed = true;
+    }
+  };
+  setMeta("title", note.title ?? "");
+  setMeta("description", note.description ?? "");
+  setMeta("is_running_log", note.is_running_log ?? false);
+
+  const list = doc.getMovableList("entries");
+  const len = (list.toArray() as unknown[]).length;
+  const byId = new Map(note.entries.map((e) => [e.id, e]));
+  for (let i = 0; i < len; i++) {
+    const entryMap = list.get(i) as LoroMap;
+    if (!entryMap) continue;
+    const entry = byId.get(entryMap.get("id") as string);
+    if (!entry) continue;
+    const setEntry = (key: string, value: string) => {
+      if (entryMap.get(key) !== value) {
+        entryMap.set(key, value);
+        changed = true;
+      }
+    };
+    setEntry("title", entry.title ?? "");
+    setEntry("date", entry.date ?? "");
+    setEntry("updated_at", entry.updated_at ?? "");
+  }
+
+  return changed;
 }
