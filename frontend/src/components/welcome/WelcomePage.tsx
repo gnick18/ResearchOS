@@ -142,7 +142,7 @@ function CheckGlyph() {
  *  tuned for the light surface (matches the mock's --accent #1283c9). */
 function Kicker({ children }: { children: ReactNode; dark?: boolean }) {
   return (
-    <div className="font-mono text-[12px] font-semibold uppercase tracking-[0.12em] text-[#1283c9]">
+    <div className="font-mono text-meta font-semibold uppercase tracking-[0.12em] text-[#1283c9]">
       {children}
     </div>
   );
@@ -267,7 +267,7 @@ export default function WelcomePage() {
               ariaLabel="ResearchOS BeakerBot logo"
               className="h-8 w-8 shrink-0 text-sky-500"
             />
-            <span className="text-lg font-extrabold tracking-tight text-[#0e1726]">
+            <span className="text-heading font-extrabold tracking-tight text-[#0e1726]">
               ResearchOS
             </span>
           </div>
@@ -350,7 +350,7 @@ export default function WelcomePage() {
               </span>
             </h1>
 
-            <p className="mt-5 max-w-[56ch] text-title leading-relaxed text-[#475569] md:text-lg">
+            <p className="mt-5 max-w-[56ch] text-title leading-relaxed text-[#475569] md:text-title">
               Plan experiments, run real protocols, design plasmids, and write it
               all up in one workspace. Free to use, and everything you write
               stays on your own machine.
@@ -599,7 +599,7 @@ export default function WelcomePage() {
             </div>
             {/* The own-your-data clip, framed light to match this block. */}
             <div className="overflow-hidden rounded-2xl border border-[#d8e3f1] bg-white shadow-[0_24px_60px_rgba(15,40,80,0.12)]">
-              <div className="flex items-center gap-2 border-b border-[#d8e3f1] bg-[#f3f7fc] px-3.5 py-3 font-mono text-[12px] text-[#64748b]">
+              <div className="flex items-center gap-2 border-b border-[#d8e3f1] bg-[#f3f7fc] px-3.5 py-3 font-mono text-meta text-[#64748b]">
                 <span className="flex gap-1.5" aria-hidden>
                   <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
                   <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
@@ -650,7 +650,7 @@ export default function WelcomePage() {
                     />
                     <span
                       aria-hidden
-                      className="absolute -right-1 -top-5 rounded bg-sky-500 px-1.5 py-0.5 font-mono text-[9px] font-semibold text-white"
+                      className="absolute -right-1 -top-5 rounded bg-sky-500 px-1.5 py-0.5 font-mono text-meta font-semibold text-white"
                     >
                       Mira
                     </span>
@@ -663,7 +663,7 @@ export default function WelcomePage() {
                     />
                     <span
                       aria-hidden
-                      className="absolute -right-1 -top-5 rounded bg-purple-500 px-1.5 py-0.5 font-mono text-[9px] font-semibold text-white"
+                      className="absolute -right-1 -top-5 rounded bg-purple-500 px-1.5 py-0.5 font-mono text-meta font-semibold text-white"
                     >
                       Alex
                     </span>
@@ -680,7 +680,7 @@ export default function WelcomePage() {
           <button
             type="button"
             onClick={() => setRoadmapOpen(true)}
-            className="inline-flex items-center gap-2 rounded-full border border-[#d3deec] bg-white px-4 py-2 text-[13px] font-semibold text-[#0e1726] shadow-sm transition-colors hover:bg-[#eef4fb] hover:border-[#c5d6ea]"
+            className="inline-flex items-center gap-2 rounded-full border border-[#d3deec] bg-white px-4 py-2 text-meta font-semibold text-[#0e1726] shadow-sm transition-colors hover:bg-[#eef4fb] hover:border-[#c5d6ea]"
           >
             <svg
               width="14"
@@ -916,12 +916,12 @@ function BentoCell({
     <div
       className={`flex flex-col overflow-hidden rounded-2xl border border-[#dbe6f3] bg-white p-6 shadow-[0_1px_3px_rgba(15,40,80,0.06),0_16px_36px_-14px_rgba(15,40,80,0.22)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#cdddee] hover:shadow-[0_2px_5px_rgba(15,40,80,0.08),0_26px_50px_-16px_rgba(15,40,80,0.28)] ${spanCls}`}
     >
-      <div className="font-mono text-[12px] font-semibold tracking-[0.04em] text-[#1283c9]">
+      <div className="font-mono text-meta font-semibold tracking-[0.04em] text-[#1283c9]">
         {num}
       </div>
       <h3
         className={`mt-2 font-bold leading-tight tracking-tight text-[#0e1726] ${
-          span === "small" ? "text-lg" : "text-xl md:text-[22px]"
+          span === "small" ? "text-title" : "text-heading md:text-heading"
         }`}
       >
         {title}
@@ -933,7 +933,7 @@ function BentoCell({
 
 function CodeLine({ children }: { children: ReactNode }) {
   return (
-    <div className="mt-3 font-mono text-[12px] leading-relaxed text-[#8593a8]">
+    <div className="mt-3 font-mono text-meta leading-relaxed text-[#8593a8]">
       {children}
     </div>
   );

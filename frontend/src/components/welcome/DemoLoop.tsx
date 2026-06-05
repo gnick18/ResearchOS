@@ -76,7 +76,7 @@ function ChromeFrame({
           <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
         </div>
         <div
-          className="mx-auto flex max-w-[460px] flex-1 items-center gap-2 rounded-lg border border-[#e3eaf3] bg-white px-3 py-1.5 font-mono text-[12.5px] text-[#8593a8]"
+          className="mx-auto flex max-w-[460px] flex-1 items-center gap-2 rounded-lg border border-[#e3eaf3] bg-white px-3 py-1.5 font-mono text-meta text-[#8593a8]"
           aria-hidden
         >
           <svg
@@ -245,14 +245,14 @@ export function DemoLoopPlaceholder({
         <path d="M10 9l5 3-5 3V9Z" fill="currentColor" stroke="none" />
       </svg>
       {tag ? (
-        <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-sky-700">
+        <span className="font-mono text-meta uppercase tracking-[0.08em] text-sky-700">
           {tag}
         </span>
       ) : null}
-      <span className="font-mono text-[12px] uppercase tracking-[0.06em] text-[#64748b]">
+      <span className="font-mono text-meta uppercase tracking-[0.06em] text-[#64748b]">
         Demo coming soon
       </span>
-      <span className="max-w-[34ch] text-[13.5px] leading-relaxed text-[#475569]">
+      <span className="max-w-[34ch] text-body leading-relaxed text-[#475569]">
         {claim}
       </span>
     </div>

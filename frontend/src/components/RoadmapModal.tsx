@@ -43,7 +43,7 @@ const STATUS_CLS: Record<Status, string> = {
 function StatusBadge({ status }: { status: Status }) {
   return (
     <span
-      className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold leading-tight ${STATUS_CLS[status]}`}
+      className={`inline-block rounded-full px-2.5 py-0.5 text-meta font-semibold leading-tight ${STATUS_CLS[status]}`}
     >
       {STATUS_LABEL[status]}
     </span>
@@ -245,10 +245,10 @@ function FeatureCard({ feature, isLast }: { feature: Feature; isLast: boolean })
           </div>
           <StatusBadge status={feature.status} />
         </div>
-        <h3 className="text-[15px] font-bold leading-snug tracking-tight text-[#0e1726]">
+        <h3 className="text-body font-bold leading-snug tracking-tight text-[#0e1726]">
           {feature.title}
         </h3>
-        <p className="text-[13px] leading-relaxed text-[#475569]">
+        <p className="text-meta leading-relaxed text-[#475569]">
           {feature.description}
         </p>
       </div>
@@ -269,7 +269,7 @@ const SHIPPED = [
 
 function ShippedChip({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#d3e8c8] bg-[#f0faf0] px-3 py-1.5 text-[12px] font-medium text-[#2d6a2d]">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#d3e8c8] bg-[#f0faf0] px-3 py-1.5 text-meta font-medium text-[#2d6a2d]">
       {/* Small checkmark */}
       <svg
         width="11"
@@ -362,10 +362,10 @@ export default function RoadmapModal({ open, onClose }: RoadmapModalProps) {
         {/* ── Header ────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between border-b border-[#e8f0f8] px-6 py-4">
           <div>
-            <h2 className="text-[18px] font-extrabold tracking-tight text-[#0e1726]">
+            <h2 className="text-title font-extrabold tracking-tight text-[#0e1726]">
               What we&apos;re building
             </h2>
-            <p className="mt-0.5 text-[13px] text-[#8593a8]">
+            <p className="mt-0.5 text-meta text-[#8593a8]">
               Shaped by what labs ask for and built in the open.
             </p>
           </div>
@@ -376,7 +376,7 @@ export default function RoadmapModal({ open, onClose }: RoadmapModalProps) {
         <div className="max-h-[80vh] overflow-y-auto px-6 pb-6 pt-5">
           {/* Section A: upcoming features */}
           <div className="mb-5">
-            <p className="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-[#1283c9]">
+            <p className="mb-3 font-mono text-meta font-semibold uppercase tracking-[0.1em] text-[#1283c9]">
               // upcoming
             </p>
 
@@ -407,7 +407,7 @@ export default function RoadmapModal({ open, onClose }: RoadmapModalProps) {
 
           {/* Section B: recently shipped */}
           <div className="rounded-xl border border-[#e8f0f8] bg-[#f6fbf6] px-4 py-4">
-            <p className="mb-2.5 font-mono text-[11px] font-semibold uppercase tracking-[0.1em] text-[#2d6a2d]">
+            <p className="mb-2.5 font-mono text-meta font-semibold uppercase tracking-[0.1em] text-[#2d6a2d]">
               // recently shipped
             </p>
             <div className="flex flex-wrap gap-2">
@@ -429,7 +429,7 @@ export default function RoadmapModal({ open, onClose }: RoadmapModalProps) {
               </svg>
             </a>
           </div>
-          <p className="mt-2 text-center text-[11px] text-[#b0bac8]">
+          <p className="mt-2 text-center text-meta text-[#b0bac8]">
             Shaped by what labs ask for. We read every request.
           </p>
         </div>
