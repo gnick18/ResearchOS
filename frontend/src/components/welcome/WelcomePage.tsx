@@ -150,19 +150,20 @@ function SignInRow({
             <CheckGlyph /> Live collaboration, coming soon.
           </li>
         </ul>
-        {/* ORCID gets visual priority as the academic identity, full-width on
-            top in its brand green, with Google / GitHub / LinkedIn in a row
-            below and a small email-verify link under those. */}
-        <button
-          type="button"
-          onClick={onOrcid}
-          data-testid="welcome-preview-signin-orcid"
-          className="mt-5 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#A6CE39] px-2 py-2.5 text-meta font-semibold text-slate-900 transition-colors hover:bg-[#8fb82e]"
-        >
-          <OrcidIcon className="h-4 w-4 shrink-0" />
-          Sign in with ORCID
-        </button>
-        <div className="mt-2 flex gap-2">
+        {/* Four identity providers, equal weight, in a 2x2 grid. ORCID sits
+            top-left for soft priority as the academic identity, on a WHITE
+            button so its green iD circle reads as the full official badge (a
+            green button hides the circle against itself). */}
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={onOrcid}
+            data-testid="welcome-preview-signin-orcid"
+            className={`${oauthBtn} border-[#d7dde5] bg-white text-gray-800`}
+          >
+            <OrcidIcon className="h-4 w-4 shrink-0" />
+            ORCID
+          </button>
           <button
             type="button"
             onClick={onGoogle}
