@@ -32,9 +32,11 @@ export default function LabCalculatorsFeaturePage() {
         alt="The Lab calculators modal open over the app, showing a row of tabs (Scientific, Molarity, Dilution, Serial dilution, Primer Tm, DNA / RNA, Protein properties, Buffer recipe) and the Molarity calculator's input fields and result card below."
         caption="The Lab calculators modal. Tabs across the top switch calculators; results update live as you type. Nothing here is saved."
       />
-      {/* SCREENSHOT TODO: capture the Lab calculators modal open with the tab row
-          visible and one calculator (e.g. Molarity or Primer Tm) filled in so a
-          result card shows, using wikiCapture fixture data. */}
+      <Screenshot
+        src="/wiki/screenshots/lab-calculators-modal.png"
+        alt="The Lab calculators modal open over the workbench, with a tab row across the top (Scientific, Molarity, Dilution, Serial dilution, Primer Tm, DNA / RNA, Protein properties, Buffer recipe) and the scientific calculator keypad showing."
+        caption="The Lab calculators modal. A tab row across the top switches between the bench calculators, and a footer reminds you that everything computes live and nothing is saved."
+      />
 
       <h2>The calculators</h2>
       <p>

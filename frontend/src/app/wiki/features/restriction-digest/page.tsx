@@ -43,12 +43,9 @@ export default function RestrictionDigestFeaturePage() {
 
       <Screenshot
         src="/wiki/screenshots/restriction-digest-map.png"
-        alt="A circular plasmid map with restriction cut sites overlaid as labeled tick marks around the ring, and an enzyme picker panel open beside it showing a filtered enzyme list with cut counts."
-        caption="Restriction sites overlaid on a plasmid map, with the enzyme picker open. Each enzyme shows how many times it cuts this sequence."
+        alt="A circular plasmid map of pEGFP-N1 with restriction cut sites overlaid as labeled tick marks around the ring (NcoI, XhoI, NotI, SphI and others), each with a leader line to its cut position, shown beside the base-level sequence."
+        caption="Cut sites overlaid on the plasmid map once the Enzyme menu's Cut sites toggle is on. Each label points a leader line at the exact cut position, and a count next to an enzyme (XhoI x8) shows how many times it cuts."
       />
-      {/* SCREENSHOT TODO: capture a plasmid map with the Restriction sites toggle
-          on and the enzyme picker open, showing cut counts and filters, using
-          wikiCapture fixture data. */}
 
       <h2>The enzyme catalog</h2>
       <p>

@@ -41,13 +41,10 @@ export default function CloningWorkspaceFeaturePage() {
       <TryInDemo href="/sequences">Try the Sequences workbench</TryInDemo>
 
       <Screenshot
-        src="/wiki/screenshots/cloning-workspace-overview.png"
-        alt="The Cloning Workspace open over the Sequences library, showing the four method pills (Overlap, Restriction, Golden Gate, Gateway) across the top, a fragment list on the left, and method options on the right."
-        caption="The Cloning Workspace. Pick a chemistry from the four method pills, add fragments or substrates, then set the method's options."
+        src="/wiki/screenshots/sequences-cloning-methods.png"
+        alt="The Cloning Workspace open over the Sequences library, showing the four method tabs (Overlap, Restriction, Golden Gate, Gateway) across the top, a fragments-in-order panel on the left, and the DNA library on the right."
+        caption="The Cloning Workspace. Pick a chemistry from the four method tabs, add fragments from your library or paste a sequence, then set the method's options."
       />
-      {/* SCREENSHOT TODO: capture the Cloning Workspace pick step with the four
-          method pills (Overlap / Restriction / Golden Gate / Gateway) and a
-          fragment list populated, using wikiCapture fixture data. */}
 
       <h2>The two-step flow</h2>
       <p>
@@ -183,13 +180,10 @@ export default function CloningWorkspaceFeaturePage() {
         collection and opens in the editor like any other sequence.
       </p>
       <Screenshot
-        src="/wiki/screenshots/cloning-workspace-review.png"
-        alt="The Cloning Workspace review step showing the assembled product map, its rebased features, a junction list, amber warnings for an internal cut site, and a Save to library button."
-        caption="The review step. The product, its features, and any warnings are shown before you save. Accept it, or go back and adjust the pick step."
+        src="/wiki/screenshots/sequences-cloning-review.png"
+        alt="The Cloning Workspace review step showing the recombinant construct sequence, a per-junction breakdown with primer overlaps and annealing temperatures, and a Save to library button."
+        caption="The review step. The recombinant construct, each junction's primers and annealing temperatures, and the oligo order list are shown before you save to your library."
       />
-      {/* SCREENSHOT TODO: capture the Cloning Workspace review step with an
-          assembled circular product, rebased features, a junction list, and at
-          least one amber warning visible, using wikiCapture fixture data. */}
 
       <Callout variant="tip" title="The assembled construct is validated, not estimated">
         A wrong cloning product is a real molecular-biology error, so the assembly

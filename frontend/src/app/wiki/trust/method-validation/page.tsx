@@ -1,4 +1,5 @@
 import Callout from "@/components/wiki/Callout";
+import Screenshot from "@/components/wiki/Screenshot";
 import WikiPage from "@/components/wiki/WikiPage";
 
 export default function MethodValidationPage() {
@@ -86,10 +87,11 @@ export default function MethodValidationPage() {
         sign-in, no demo data, just the agreement table.
       </Callout>
 
-      {/* SCREENSHOT TODO: the /transparency agreement table, showing a domain
-          (e.g. primer melting temperature) with our value, the oracle value,
-          the delta, the tolerance band, and the pass/warn pills. Capture with
-          ?wikiCapture=1 fixture mode. */}
+      <Screenshot
+        src="/wiki/screenshots/transparency-method-validation.png"
+        alt="The public Method validation page summarizing 146 exact matches, 8 within a documented tolerance, and 2 larger documented differences, with a differences spotlight calling out the cases that diverge."
+        caption="The public Method validation page. Every comparison is counted (exact, within tolerance, or a documented difference), and the cases that diverge are spotlighted rather than hidden."
+      />
 
       <h2>What this does not claim</h2>
       <p>

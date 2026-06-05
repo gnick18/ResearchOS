@@ -80,28 +80,6 @@ const PUBLIC_ROUTES = [
     waitFor: '[data-testid="landing-page"]',
     settleMs: 2300,
   },
-  // The public /transparency ("Method validation") page for the Trust wiki.
-  // Public, no fixture. Expand the first domain's full comparison table so the
-  // numbers are visible, then capture the whole page (header, differences
-  // spotlight, agreement scatter, table).
-  {
-    path: "/transparency",
-    file: "transparency-method-validation.png",
-    waitFor: "text=Validation of bioinformatic, text=Method validation",
-    settleMs: 1200,
-    action: async (page) => {
-      try {
-        const showAll = page
-          .getByRole("button", { name: /Show all .* comparisons/i })
-          .first();
-        if (await showAll.count()) {
-          await showAll.click({ timeout: 3000 });
-          await page.waitForTimeout(700);
-        }
-      } catch {}
-    },
-    fullPage: true,
-  },
 ];
 
 /** Picker-mode route: fixture is installed but no currentUser is set, so
@@ -759,20 +737,44 @@ const FIXTURE_ROUTES = [
     fullPage: true,
   },
   {
+    // The public /transparency ("Method validation") page for the Trust wiki.
+    // Captured in fixture mode because the app's folder gate redirects
+    // /transparency to the landing page in a fresh, no-folder context. The
+    // fixture installs a connected folder so the page renders. Viewport capture
+    // shows the header, the exact/within/larger counts, and the differences
+    // spotlight (the trust-defining content above the fold).
+    path: "/transparency",
+    file: "transparency-method-validation.png",
+    waitFor: "text=Method validation, text=peer-reviewed",
+    settleMs: 1400,
+  },
+  {
     // Lab calculators modal: the floating beaker button (global) opens the
     // tabbed modal. For the new features/lab-calculators wiki page.
     path: "/workbench",
     file: "lab-calculators-modal.png",
     waitFor: "text=Workbench",
-    settleMs: 600,
+    settleMs: 900,
+    // The modal renders inside [data-floating-dock]; keep the dock visible at
+    // screenshot time (default cleanup hides it). The modal backdrop covers
+    // the sibling FABs, so nothing else leaks into the shot.
+    keepDock: true,
     action: async (page) => {
       try {
-        const btn = page
-          .getByRole("button", { name: /Open lab calculators/i })
-          .first();
+        let btn = page.locator('button[aria-label="Open lab calculators"]').first();
+        if (!(await btn.count())) {
+          btn = page.getByRole("button", { name: /Open lab calculators/i }).first();
+        }
         if (await btn.count()) {
-          await btn.click({ timeout: 3000 });
-          await page.waitForTimeout(1000);
+          await btn.scrollIntoViewIfNeeded().catch(() => {});
+          await btn.click({ timeout: 3000, force: true });
+          // Wait for the modal's tab row (aria-label "Calculator type") to mount.
+          await page
+            .locator('[aria-label="Calculator type"]')
+            .first()
+            .waitFor({ timeout: 4000 })
+            .catch(() => {});
+          await page.waitForTimeout(800);
         }
       } catch {}
     },
@@ -2978,6 +2980,61 @@ const FIXTURE_ROUTES = [
     },
   },
   {
+    // 3b. Restriction-digest view: pEGFP-N1 with Cut sites enabled, so the
+    // circular map carries enzyme labels (NcoI, KpnI, SphI, NruI...) with
+    // leader lines to each cut position. For the features/restriction-digest
+    // wiki page. Captured in the split Sequence view (map + bases) because
+    // that is where the enzyme labels render on the ring.
+    path: "/sequences",
+    file: "restriction-digest-map.png",
+    waitFor: "text=pEGFP-N1",
+    settleMs: 1200,
+    action: async (page) => {
+      try {
+        const item = page.getByText(/pEGFP-N1 \(U55762\)/).first();
+        if (await item.count()) {
+          await item.click({ timeout: 4000 });
+          await page.waitForTimeout(1200);
+        }
+        await page
+          .getByRole("button", { name: /Enzyme/i })
+          .first()
+          .click({ timeout: 4000 });
+        await page.waitForTimeout(500);
+        await page
+          .getByText(/^Cut sites$/)
+          .first()
+          .click({ timeout: 4000 })
+          .catch(() => {});
+        await page.waitForTimeout(1000);
+        const seqTab = page.getByRole("tab", { name: /^Sequence$/i }).first();
+        if (await seqTab.count()) {
+          await seqTab.click({ timeout: 3000 });
+          await page.waitForTimeout(1500);
+        }
+      } catch {}
+      // Crop to the editor panel (right of the library), matching the
+      // circular-map route's clip logic.
+      const clip = await page.evaluate(() => {
+        const lib = document.querySelector("select");
+        if (lib) {
+          const libRect = lib
+            .closest("aside, [class*='library'], [class*='panel']")
+            ?.getBoundingClientRect();
+          const libRight = libRect ? Math.ceil(libRect.right) : 380;
+          return {
+            x: libRight,
+            y: 0,
+            width: window.innerWidth - libRight,
+            height: window.innerHeight,
+          };
+        }
+        return { x: 375, y: 0, width: 1065, height: 900 };
+      });
+      return { clip };
+    },
+  },
+  {
     // 4. Base-level sequence view: complement strand, ruler, feature tracks.
     path: "/sequences",
     file: "sequences-base-view.png",
@@ -3279,13 +3336,6 @@ const FIXTURE_ROUTES = [
  *  for wiki docs. The cluster lives in `frontend/src/components/AppShell.tsx`. */
 const HIDE_SCRIPT = `
   (function hideDevUI() {
-    // Robust primary hide: nuke the entire bottom-right floating dock
-    // (Calculators, Feedback, Donate, and ALL dev-only FABs). Replaces the
-    // fragile per-button list below so new/renamed/relocated dev FABs
-    // (BeakerBot gallery, Demo toggle, etc.) can never leak into wiki shots.
-    for (const dock of document.querySelectorAll("[data-floating-dock]")) {
-      dock.style.display = "none";
-    }
     const HIDE_TEXTS = [
       "Test Notification",
       "Test Error",
@@ -3364,9 +3414,22 @@ const HIDE_SCRIPT = `
   })();
 `;
 
-async function applyClean(page) {
+async function applyClean(page, opts = {}) {
   try {
     await page.evaluate(HIDE_SCRIPT);
+    // Robust primary hide: nuke the entire bottom-right floating dock
+    // (Calculators, Feedback, Donate, and ALL dev-only FABs) so new/renamed
+    // dev FABs can never leak into wiki shots. Routes that are SHOWCASING a
+    // dock surface (e.g. the lab-calculators modal, which renders inside the
+    // dock container) opt out with keepDock:true — the modal backdrop already
+    // covers the sibling FABs, so nothing leaks.
+    if (!opts.keepDock) {
+      await page.evaluate(() => {
+        for (const dock of document.querySelectorAll("[data-floating-dock]")) {
+          dock.style.display = "none";
+        }
+      });
+    }
   } catch {}
 }
 
@@ -3514,7 +3577,7 @@ async function _capturePageAt(page, route, url) {
       console.warn(`  ⚠ ${route.file} — action threw: ${err.message}`);
     }
   }
-  await applyClean(page);
+  await applyClean(page, { keepDock: route.keepDock });
   await applyHighlight(page, route.highlight);
   await page.waitForTimeout(200); // let style changes commit
   // Actions that need to capture a clip taller than the default viewport

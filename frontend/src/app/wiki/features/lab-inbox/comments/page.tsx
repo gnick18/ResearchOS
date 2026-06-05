@@ -8,18 +8,10 @@ export default function LabInboxCommentsPage() {
       title="Comments"
       intro="Comments are short asynchronous messages attached to a record (a task, a note, or a purchase). They keep a conversation tied to the thing it is about: a question about a PCR recipe lives on that PCR task, not in a separate chat channel. One level of reply nesting keeps threads readable without turning them into Reddit."
     >
-      {/* TODO screenshot agent: capture the comments thread on a task popup with one reply.
-          Route: open a task popup with two comments + one reply
-          Fixture: ?wikiCapture=1
-          Viewport: desktop 1440x900
-          State: lab_head fixture; task with a top-level comment from member, a reply from
-                 lab_head, and an @-mention chip rendered inline
-          Save to: frontend/public/wiki/screenshots/lab-inbox-comments-thread.png
-      */}
       <Screenshot
-        src="/wiki/screenshots/lab-inbox-comments-thread.png"
-        alt="A comments thread inside a task popup showing two top-level comments, one with an indented reply, and an @-mention chip inside one of the bodies."
-        caption="A thread on a task: top-level comments with one level of reply indent. @-mentions render as inline chips."
+        src="/wiki/screenshots/lab-inbox-comments-rail.png"
+        alt="An experiment popup with the comments rail docked open on the right, showing a threaded conversation with one reply indented, while the experiment dependency chain stays in view on the left."
+        caption="Comments dock in a rail on the right of the record, the way Google Docs and Word park comments beside the document. The header comment button carries a count badge when a thread is waiting."
       />
 
       <h2>Where comments live</h2>
@@ -65,12 +57,6 @@ export default function LabInboxCommentsPage() {
         rail already expanded and the cursor in the composer, so a quick note
         to a labmate is two clicks from the board.
       </p>
-      {/* SCREENSHOT TODO: fresh capture of the comments rail docked open on the
-          right of an experiment (task) popup, with a short thread visible and the
-          header comment button showing its count badge. Fixture: ?wikiCapture=1,
-          desktop 1440x900. Save to:
-          frontend/public/wiki/screenshots/lab-inbox-comments-rail.png */}
-
       <h2>Threading: one level deep</h2>
       <p>
         Comments support a single level of reply nesting. A top-level comment
