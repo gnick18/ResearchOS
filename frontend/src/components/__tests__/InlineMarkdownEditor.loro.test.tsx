@@ -125,6 +125,14 @@ function makeFakeHandle(entryText = "hello world"): NoteHandle & { _commitSpy: R
     flush: flushSpy,
     subscribe: vi.fn().mockReturnValue(() => {}),
     close: vi.fn().mockResolvedValue(undefined),
+    // Auto-save additions (auto-save bot, 2026-06-05): always settled in tests.
+    commitPending: false as boolean,
+    subscribeCommitPending: vi
+      .fn()
+      .mockImplementation((cb: (v: boolean) => void) => {
+        cb(false);
+        return () => {};
+      }),
     _commitSpy: commitSpy,
   };
 }

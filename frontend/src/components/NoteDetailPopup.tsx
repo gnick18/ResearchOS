@@ -338,6 +338,22 @@ export default function NoteDetailPopup({
   const loroOpening =
     LORO_PILOT_ENABLED && loroHandle === null && !loroOpenFailed;
 
+  // Auto-save status (auto-save bot, 2026-06-05). Tracks whether a debounced
+  // commit is queued or in flight so the Saving/Saved indicator stays accurate.
+  // Only meaningful when LORO_PILOT_ENABLED and the handle is open; false
+  // (settled) otherwise. The subscription fires on every flip; we mirror it
+  // into React state for a re-render.
+  const [loroCommitPending, setLoroCommitPending] = useState(false);
+  useEffect(() => {
+    if (!LORO_PILOT_ENABLED || !loroHandle) {
+      setLoroCommitPending(false);
+      return;
+    }
+    // subscribeCommitPending fires immediately with the current value so the
+    // indicator initialises correctly without a one-frame flash.
+    return loroHandle.subscribeCommitPending(setLoroCommitPending);
+  }, [loroHandle]);
+
   // Track unsaved content (pending writes that haven't been manually saved
   // yet). Still drives the close + SPA-nav safety nets even though we no
   // longer auto-save: a user can navigate away mid-edit and we flush these.
@@ -499,8 +515,18 @@ export default function NoteDetailPopup({
   // the manual path, giving the in-flight write a fighting chance before the
   // browser tears down. The guard itself only triggers when `hasUnsavedEdits`
   // is true, so it does not prompt for clean closes.
-  useUnsavedChangesGuard(hasUnsavedEdits && !saving, {
-    onFlush: flushAllUnsaved,
+  //
+  // Auto-save (auto-save bot, 2026-06-05): under the Loro pilot there are no
+  // "unsaved changes" to warn about (every edit auto-persists via the debounced
+  // commit), so the beforeunload prompt is suppressed. We STILL call flush via
+  // onFlush so any pending debounced commit is drained before the page unloads
+  // (belt and suspenders alongside the close/unmount paths).
+  const loroActive = LORO_PILOT_ENABLED && !!loroHandle;
+  const flushLoroOnUnload = useCallback(() => {
+    if (loroHandle) void loroHandle.flush();
+  }, [loroHandle]);
+  useUnsavedChangesGuard(!loroActive && hasUnsavedEdits && !saving, {
+    onFlush: loroActive ? flushLoroOnUnload : flushAllUnsaved,
   });
 
   // SPA-nav-safe persistence for the currently-active entry's body. Notes
@@ -2002,39 +2028,56 @@ export default function NoteDetailPopup({
             </div>
           )}
 
-          {/* Save toolbar (note-save manager). Notes now use the manual
-              version-control save model from the experiment Lab Notes tab:
-              this parent-owned "Save note" button lights up the moment there
-              are unsaved edits (including while typing) and greys when there
-              is nothing new to save. Each save is a git commit; notes no
-              longer auto-save. Hidden entirely in readOnly mode. */}
+          {/* Save toolbar. Two modes, flag-gated:
+              - Loro pilot ON + handle ready: Google-Docs-style auto-save status
+                ("Saving..." / "Saved"). The Save button and "Unsaved changes"
+                are hidden; every edit auto-persists via the debounced commit.
+                (auto-save bot, 2026-06-05)
+              - Legacy (flag OFF or handle not yet ready): the manual
+                version-control "Save note" button, unchanged. */}
           {!readOnly && currentEntry && (
             <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 flex-shrink-0">
               <div className="flex-1" />
-              {(hasUnsavedChanges || editorDirty) && (
-                <span className="inline-flex items-center gap-1 text-meta text-amber-700 font-medium">
-                  <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                  Unsaved changes
+              {LORO_PILOT_ENABLED && !!loroHandle ? (
+                /* Auto-save status indicator. Subtle muted text; no spinner. */
+                <span
+                  data-testid="note-autosave-status"
+                  className={`text-meta transition-colors ${
+                    loroCommitPending ? "text-gray-400" : "text-gray-300"
+                  }`}
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  {loroCommitPending ? "Saving..." : "Saved"}
                 </span>
+              ) : (
+                <>
+                  {(hasUnsavedChanges || editorDirty) && (
+                    <span className="inline-flex items-center gap-1 text-meta text-amber-700 font-medium">
+                      <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                      Unsaved changes
+                    </span>
+                  )}
+                  <button
+                    data-testid="note-save"
+                    data-tour-target="note-save"
+                    onClick={() => {
+                      // Flush the editor's in-flight block buffer first so the
+                      // last in-progress edit lands on disk, then persist.
+                      const latest = editorSaveRef.current?.() ?? (currentEntry?.content ?? "");
+                      if (activeTab) void saveEntryContent(activeTab, latest);
+                    }}
+                    disabled={saving || readOnly || (!hasUnsavedChanges && !editorDirty)}
+                    className={`px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
+                      (hasUnsavedChanges || editorDirty) && !saving
+                        ? "text-white bg-blue-600 hover:bg-blue-700"
+                        : "text-gray-400 bg-gray-100 cursor-not-allowed"
+                    }`}
+                  >
+                    {saving ? "Saving..." : "Save note"}
+                  </button>
+                </>
               )}
-              <button
-                data-testid="note-save"
-                data-tour-target="note-save"
-                onClick={() => {
-                  // Flush the editor's in-flight block buffer first so the
-                  // last in-progress edit lands on disk, then persist.
-                  const latest = editorSaveRef.current?.() ?? (currentEntry?.content ?? "");
-                  if (activeTab) void saveEntryContent(activeTab, latest);
-                }}
-                disabled={saving || readOnly || (!hasUnsavedChanges && !editorDirty)}
-                className={`px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
-                  (hasUnsavedChanges || editorDirty) && !saving
-                    ? "text-white bg-blue-600 hover:bg-blue-700"
-                    : "text-gray-400 bg-gray-100 cursor-not-allowed"
-                }`}
-              >
-                {saving ? "Saving..." : "Save note"}
-              </button>
             </div>
           )}
 

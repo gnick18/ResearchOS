@@ -125,6 +125,12 @@ function makeHandle(doc: LoroDoc): NoteHandle {
     flush: async () => {},
     subscribe: () => () => {},
     close: async () => {},
+    // Auto-save additions (auto-save bot, 2026-06-05): always settled in tests.
+    commitPending: false as boolean,
+    subscribeCommitPending: (cb: (v: boolean) => void) => {
+      cb(false);
+      return () => {};
+    },
   };
 }
 

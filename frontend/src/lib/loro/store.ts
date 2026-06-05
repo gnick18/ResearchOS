@@ -107,6 +107,26 @@ export interface NoteHandle {
    * lifecycle and calls view.destroy() before calling handle.close().
    */
   close(): Promise<void>;
+
+  /**
+   * True while a debounced commit is queued or a _runCommit is in flight.
+   *
+   * Used by the Google-Docs-style auto-save status indicator in
+   * NoteDetailPopup (auto-save bot, 2026-06-05) to show "Saving..." while
+   * pending and "Saved" once settled. Subscribers are notified via
+   * subscribeCommitPending whenever this flips. Never read on the legacy path
+   * (flag off) so flag-off behavior is unchanged.
+   */
+  readonly commitPending: boolean;
+
+  /**
+   * Subscribe to commitPending changes. Fires once immediately with the
+   * current value, then again whenever commitPending flips.
+   *
+   * Returns an unsubscribe function. Callers must unsubscribe on unmount
+   * to avoid memory leaks.
+   */
+  subscribeCommitPending(cb: (pending: boolean) => void): () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -125,6 +145,31 @@ class NoteHandleImpl implements NoteHandle {
   private _externalUnsubs: Array<() => void> = [];
   // The Loro doc.subscribe() unsubscribe handle (returned by LoroDoc.subscribe).
   private _docUnsub: (() => void) | null = null;
+
+  // Auto-save status (auto-save bot, 2026-06-05). True while a debounced
+  // commit is queued or _runCommit is in flight. Subscribers (the popup's
+  // Saving/Saved indicator) are notified whenever this flips.
+  private _commitPending = false;
+  private _commitPendingSubs: Array<(pending: boolean) => void> = [];
+
+  private _setCommitPending(v: boolean): void {
+    if (this._commitPending === v) return;
+    this._commitPending = v;
+    for (const cb of this._commitPendingSubs) cb(v);
+  }
+
+  get commitPending(): boolean {
+    return this._commitPending;
+  }
+
+  subscribeCommitPending(cb: (pending: boolean) => void): () => void {
+    // Fire immediately with current state so the subscriber can initialise.
+    cb(this._commitPending);
+    this._commitPendingSubs.push(cb);
+    return () => {
+      this._commitPendingSubs = this._commitPendingSubs.filter((c) => c !== cb);
+    };
+  }
 
   constructor(doc: LoroDoc, owner: string) {
     this.doc = doc;
@@ -190,6 +235,9 @@ class NoteHandleImpl implements NoteHandle {
       clearTimeout(this._pendingTimer);
     }
 
+    // Signal that a commit is queued so the auto-save status shows "Saving...".
+    this._setCommitPending(true);
+
     this._pendingTimer = setTimeout(() => {
       void this._runCommit();
     }, 600);
@@ -214,7 +262,11 @@ class NoteHandleImpl implements NoteHandle {
     this._pendingTimer = null;
 
     const base = this._pendingBase;
-    if (!base) return;
+    if (!base) {
+      // Nothing to commit; clear the pending flag so the indicator settles.
+      this._setCommitPending(false);
+      return;
+    }
     this._pendingBase = null;
 
     // Stamp note-level updated_at to the current wall-clock ISO string.
@@ -243,6 +295,13 @@ class NoteHandleImpl implements NoteHandle {
     }
 
     await persistNote(this._owner, this.doc, stampedBase);
+
+    // Commit complete: clear the pending flag so the auto-save indicator
+    // settles to "Saved". Only clear if no NEW commit was queued while we
+    // were persisting (which would have set a new timer and kept the flag true).
+    if (this._pendingTimer === null) {
+      this._setCommitPending(false);
+    }
 
     // Notify flush waiters (set by close() before it awaits flush()).
     const waiters = this._flushWaiters;
@@ -305,6 +364,9 @@ class NoteHandleImpl implements NoteHandle {
       unsub();
     }
     this._externalUnsubs = [];
+
+    // Clear the commit-pending subs so callbacks cannot fire after close.
+    this._commitPendingSubs = [];
   }
 }
 
