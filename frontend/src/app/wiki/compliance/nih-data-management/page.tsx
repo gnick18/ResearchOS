@@ -231,11 +231,15 @@ export default function NihDataManagementPage() {
         yourself, and the repository issues the identifier. This is one extra
         manual step compared to LabArchives&apos; Figshare and DOI buttons.
       </Callout>
-      <Callout variant="warning" title="Per-entry edit history is on the roadmap">
-        The append-only PI audit log and soft-delete Trash exist today. A
-        full per-record revision history with a revert button is planned, not
-        shipped. If your plan or institution requires a complete versioned
-        history of every entry, account for that gap now.
+      <Callout variant="info" title="Per-entry version history with restore ships today">
+        Alongside the append-only PI audit log and soft-delete Trash,
+        ResearchOS now keeps a full per-record version history with a restore
+        button and a 24-hour undo on notes, tasks, and projects. You can browse
+        prior versions, see who changed what, and roll an entry back. See{" "}
+        <Link href="/wiki/features/version-history">Version history</Link>.
+        Results and methods do not have it yet, so if your plan requires a
+        complete versioned history of those two record types, account for that
+        narrower gap now.
       </Callout>
       <Callout variant="info" title="Structured grant and ORCID fields are in">
         ResearchOS now has first-class fields for your ORCID iD (on your

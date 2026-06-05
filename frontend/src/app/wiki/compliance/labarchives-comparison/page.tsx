@@ -310,8 +310,11 @@ export default function LabArchivesComparisonPage() {
           repository yourself.
         </li>
         <li>
-          <strong>Complete per-entry revision history.</strong> Shipped
-          today in LabArchives; still on the ResearchOS roadmap.
+          <strong>Complete per-entry revision history.</strong> ResearchOS now
+          ships per-entry version history with a restore button on notes,
+          tasks, and projects, so the gap here is narrow. LabArchives still
+          covers every record type, while ResearchOS does not yet version
+          results and methods.
         </li>
         <li>
           <strong>Security certifications.</strong> FedRAMP, SOC 2, ISO
