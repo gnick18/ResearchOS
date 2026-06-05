@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { signIn, signOut, useSession } from "next-auth/react";
+import { signIn, signOut } from "next-auth/react";
 import { usersApi } from "@/lib/local-api";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { hasPassword, verifyPassword, setPassword } from "@/lib/auth/password";
@@ -181,10 +181,53 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // bugging the PI.
   const [showArchived, setShowArchived] = useState(false);
 
-  // NextAuth session. Used to show/hide the "Enable sharing" OAuth section
-  // in the picker. If authenticated, we show "Signed in as X" instead of the
-  // OAuth buttons so users know their sharing identity is already active.
-  const { data: session, status: sessionStatus } = useSession();
+  // NextAuth session, read by FETCHING /api/auth/session directly rather than
+  // useSession(). This app mounts NO <SessionProvider> (the existing OAuth code
+  // in SharingSetupWizard and the unlock-resume effect below both hit the
+  // endpoint the same way), so useSession() throws "must be wrapped in a
+  // SessionProvider". Used to show/hide the "Enable sharing" OAuth section in
+  // the picker: authenticated shows "Signed in as X", otherwise the OAuth
+  // buttons. Offline we never call it and stay unauthenticated.
+  const [session, setSession] = useState<{
+    user?: { email?: string | null; name?: string | null } | null;
+  } | null>(null);
+  const [sessionStatus, setSessionStatus] = useState<
+    "loading" | "authenticated" | "unauthenticated"
+  >("loading");
+  useEffect(() => {
+    if (!isOnline) {
+      setSession(null);
+      setSessionStatus("unauthenticated");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/session", {
+          headers: { accept: "application/json" },
+        });
+        const data = (await res.json()) as {
+          user?: { email?: string | null; name?: string | null } | null;
+        } | null;
+        if (cancelled) return;
+        if (data && data.user) {
+          setSession(data);
+          setSessionStatus("authenticated");
+        } else {
+          setSession(null);
+          setSessionStatus("unauthenticated");
+        }
+      } catch {
+        if (!cancelled) {
+          setSession(null);
+          setSessionStatus("unauthenticated");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOnline]);
 
   // Bug report state
   const { showBugReport, currentError, openBugReport, closeBugReport } = useErrorReporting();
