@@ -40,10 +40,11 @@ Datasets client the import feature adds:
 
 ## Format note (corrected 2026-06-05)
 
-An earlier draft claimed full GenBank-record metadata needs efetch (not CORS-open).
-That is WRONG for assembly/genome accessions: the Datasets API serves the full
-annotated GenBank Flat File browser-direct via `include_annotation_type=GENOME_GBFF`
-(verified live; see ncbi-datasets-import.md), and the GBFF carries the DEFINITION,
+An earlier draft claimed full GenBank-record metadata needs efetch, and that efetch
+is not CORS-open. Both are WRONG. For assembly/genome accessions the Datasets API
+serves the full annotated GenBank Flat File browser-direct via
+`include_annotation_type=GENOME_GBFF` (verified live; see ncbi-datasets-import.md),
+and the GBFF carries the DEFINITION,
 the ORGANISM line with the complete taxonomy lineage, the REFERENCE / author list,
 and all features. So for an NCBI-imported genome, the organism + lineage (+
 references) are ALREADY on the record, no separate enrichment call needed.
@@ -51,9 +52,11 @@ references) are ALREADY on the record, no separate enrichment call needed.
 Where enrichment still adds value: (a) sequences NOT imported from NCBI (a
 file-imported or hand-built sequence the user wants to tag), and (b) the standalone
 taxonomy lookup (organism -> lineage) independent of any sequence. For those, the
-taxonomy endpoint (CORS-open) supplies organism + tax id + named lineage. The only
-genuinely browser-direct-unavailable case is the prose record for a single
-non-assembly accession with no GBFF; that is a narrow edge, not the common path.
+taxonomy endpoint (CORS-open) supplies organism + tax id + named lineage. Single
+non-assembly accessions (a transcript, a RefSeqGene, a plasmid) are also covered
+browser-direct, by efetch (CORS-open), which returns their annotated GenBank with
+the organism + lineage on board (see ncbi-efetch-annotated-import.md). There is no
+genuinely browser-direct-unavailable case left.
 
 ## Capabilities in detail
 

@@ -110,7 +110,10 @@ Base: `https://api.ncbi.nlm.nih.gov/datasets/v2`.
 ## Format: GBFF gives ANNOTATED GenBank browser-direct (corrected 2026-06-05)
 
 CORRECTION: an earlier draft claimed Datasets only returns FASTA + GFF3 and that
-annotated GenBank needs efetch (not CORS-open). That was WRONG. The Datasets API
+annotated GenBank needs efetch, which it called not CORS-open. WRONG on both
+points. efetch IS CORS-open too (verified 2026-06-05, see
+`ncbi-efetch-annotated-import.md`), so single-accession annotated records are
+browser-direct as well. And the Datasets API
 serves the GenBank Flat File via `include_annotation_type=GENOME_GBFF` (the REST
 equivalent of `datasets download genome accession <acc> --include gbff`), and it
 is CORS-open. VERIFIED LIVE (2026-06-05): downloading GCF_000005845.2 with
