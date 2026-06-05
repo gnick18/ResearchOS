@@ -54,7 +54,7 @@ export default function FragmentLadder({
             <g key={lane.label}>
               {/* lane background */}
               <rect x={x} y={TOP} width={LANE_W} height={BOT - TOP} rx={4} fill="#f8fafc" stroke="#e5e7eb" />
-              <text x={x + LANE_W / 2} y={TOP - 8} textAnchor="middle" className="fill-gray-500 text-[11px] font-medium">
+              <text x={x + LANE_W / 2} y={TOP - 8} textAnchor="middle" className="fill-gray-500 font-medium" fontSize={11}>
                 {lane.label}
               </text>
               {/* bands */}
@@ -69,7 +69,7 @@ export default function FragmentLadder({
                     fill={li === 0 ? "#0ea5e9" : "#4f46e5"}
                     fillOpacity={0.85}
                   />
-                  <text x={x + LANE_W + 4} y={y(bp) + 3} className="fill-gray-400 text-[9px]">
+                  <text x={x + LANE_W + 4} y={y(bp) + 3} className="fill-gray-400" fontSize={9}>
                     {bp}
                   </text>
                 </g>

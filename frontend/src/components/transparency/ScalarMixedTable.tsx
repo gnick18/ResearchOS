@@ -31,7 +31,7 @@ export default function ScalarMixedTable({ domain }: { domain: DomainReport }) {
                 <tr key={c.id} className="border-b border-gray-100 last:border-0 align-top">
                   <td className="px-3 py-2">
                     <div className="font-medium text-gray-800">{c.label}</div>
-                    <div className="mt-0.5 text-[11px] text-gray-400">{c.input}</div>
+                    <div className="mt-0.5 text-meta text-gray-400">{c.input}</div>
                   </td>
                   <td className="px-3 py-2 text-right font-mono text-gray-800 whitespace-nowrap">
                     {cmp.ours} {cmp.tolerance.unit}

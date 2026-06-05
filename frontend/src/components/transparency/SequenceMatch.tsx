@@ -50,7 +50,7 @@ export default function SequenceMatch({
         <div className="overflow-x-auto rounded-lg bg-gray-50 px-3 py-2">
           <code className="whitespace-pre font-mono text-[12px] text-gray-700">{preview}</code>
         </div>
-        <p className="mt-1.5 text-[11px] text-gray-400">
+        <p className="mt-1.5 text-meta text-gray-400">
           Compared as a canonical circular molecule (rotation and strand invariant).
         </p>
       </div>

@@ -41,7 +41,7 @@ export default function CodonTrack({
             );
           })}
         </div>
-        <div className="mt-2 flex gap-4 text-[11px] text-gray-400">
+        <div className="mt-2 flex gap-4 text-meta text-gray-400">
           <span>top row: ResearchOS</span>
           <span>bottom row: Biopython</span>
         </div>

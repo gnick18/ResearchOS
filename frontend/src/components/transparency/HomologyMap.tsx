@@ -59,19 +59,19 @@ export default function HomologyMap({
         {/* track A */}
         <rect x={PAD} y={TOP_Y} width={aTrackW} height={TRACK_H} rx={4} fill="#e5e7eb" />
         <rect x={aBlockX} y={TOP_Y} width={aBlockW} height={TRACK_H} rx={3} fill={fill} />
-        <text x={PAD} y={TOP_Y - 6} className="fill-gray-500 text-[11px]">
+        <text x={PAD} y={TOP_Y - 6} className="fill-gray-500" fontSize={11}>
           Sequence A ({aLen.toLocaleString()} bp)
         </text>
 
         {/* track B */}
         <rect x={PAD} y={BOT_Y} width={bTrackW} height={TRACK_H} rx={4} fill="#e5e7eb" />
         <rect x={bBlockX} y={BOT_Y} width={bBlockW} height={TRACK_H} rx={3} fill={fill} />
-        <text x={PAD} y={BOT_Y + TRACK_H + 14} className="fill-gray-500 text-[11px]">
+        <text x={PAD} y={BOT_Y + TRACK_H + 14} className="fill-gray-500" fontSize={11}>
           Sequence B ({bLen.toLocaleString()} bp)
         </text>
 
         {/* identity badge on the ribbon */}
-        <text x={W / 2} y={(TOP_Y + TRACK_H + BOT_Y) / 2 + 4} textAnchor="middle" className="fill-indigo-700 text-[12px] font-semibold">
+        <text x={W / 2} y={(TOP_Y + TRACK_H + BOT_Y) / 2 + 4} textAnchor="middle" className="fill-indigo-700 font-semibold" fontSize={12}>
           {(region.aEnd - region.aStart).toLocaleString()} bp shared, {idPct}% identical
           {region.strand === -1 ? " (reverse strand)" : ""}
         </text>

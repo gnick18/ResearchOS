@@ -74,24 +74,24 @@ export default function ParityScatter({
           strokeWidth="1.5"
           strokeDasharray="5 4"
         />
-        <text x={sx(max) - 4} y={sy(max) + 16} textAnchor="end" className="fill-gray-400 text-[10px]">
+        <text x={sx(max) - 4} y={sy(max) + 16} textAnchor="end" className="fill-gray-400" fontSize={10}>
           exact agreement (y = x)
         </text>
 
         {/* ticks */}
         {ticks.map((t) => (
           <g key={t}>
-            <text x={sx(t)} y={H - PAD + 16} textAnchor="middle" className="fill-gray-400 text-[10px]">
+            <text x={sx(t)} y={H - PAD + 16} textAnchor="middle" className="fill-gray-400" fontSize={10}>
               {t}
             </text>
-            <text x={PAD - 8} y={sy(t) + 3} textAnchor="end" className="fill-gray-400 text-[10px]">
+            <text x={PAD - 8} y={sy(t) + 3} textAnchor="end" className="fill-gray-400" fontSize={10}>
               {t}
             </text>
           </g>
         ))}
 
         {/* axis labels */}
-        <text x={(W - PAD) / 2 + PAD / 2} y={H - 6} textAnchor="middle" className="fill-gray-500 text-[11px]">
+        <text x={(W - PAD) / 2 + PAD / 2} y={H - 6} textAnchor="middle" className="fill-gray-500" fontSize={11}>
           Reference value ({unit})
         </text>
         <text
@@ -99,7 +99,7 @@ export default function ParityScatter({
           y={14}
           textAnchor="middle"
           transform="rotate(-90)"
-          className="fill-gray-500 text-[11px]"
+          className="fill-gray-500" fontSize={11}
         >
           ResearchOS value ({unit})
         </text>

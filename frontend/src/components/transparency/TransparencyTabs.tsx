@@ -260,7 +260,7 @@ export default function TransparencyTabs({ domains }: { domains: DomainReport[] 
             >
               {d.title}
               <span
-                className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums ${
+                className={`rounded-full px-1.5 py-0.5 text-meta font-semibold tabular-nums ${
                   selected ? "bg-sky-100 text-sky-700" : "bg-gray-100 text-gray-500"
                 }`}
               >
