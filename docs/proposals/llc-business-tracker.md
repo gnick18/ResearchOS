@@ -118,13 +118,17 @@ anyone not on it, exactly like the metrics route does today.
 3. v3. When storage billing ships, auto-record storage payments into the ledger
    so money-in fills itself too.
 
-## Open questions for Grant
+## Decisions (Grant, 2026-06-05)
 
-- Reserve percentage to start with (placeholder until the accountant sets it)?
-- Same admin allowlist as the metrics tab, or a stricter one for the financial
-  data?
-- Should the deadline strip be able to email or notify you ahead of a due date,
-  or is the dashboard view enough?
+- Access: reuse the existing `isAdminEmail` (ADMIN_EMAILS) gate, same as the
+  metrics tab. No separate allowlist.
+- Reminders: email ahead of due dates via the existing Resend setup (for example
+  14 and 3 days out), not dashboard-only. This needs a daily scheduled check
+  (Vercel Cron) and the email infra live, so it only fires in an environment
+  where SHARING_ENABLED is on. Until then the dashboard strip still shows
+  countdowns and the email path lies dormant.
+- Reserve percentage: a configurable setting with a placeholder default, filled
+  in once the accountant sets the real number.
 
 ## Caveats I am not qualified to close
 
