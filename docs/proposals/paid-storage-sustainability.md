@@ -2,21 +2,30 @@
 
 Status: draft for Grant, 2026-06-05. Author: sharing infra.
 
+Revised 2026-06-05 after two clarifications from Grant. First, cloud storage
+must be metered, not absorbed, because server-side use is a real recurring cost
+and ResearchOS is not a money printer. Second, ResearchOS is registered as an
+LLC in Wisconsin, so there is already a legal entity to receive revenue, deduct
+the Neon and R2 bills, and handle accounting. Those two facts move the answer
+away from the no-entity contribution workaround and toward a straightforward
+metered paid-storage product run through the LLC. The earlier
+contribution-fund-first recommendation is kept below as the alternative, but it
+is no longer the lead.
+
 ## What this is and is not
 
-This is about one narrow thing. A lab uses enough server-side storage that it
-costs real money on Neon or R2, and they want to chip in to cover it, or to lift
-their own limit. The question is how money for that can flow with the least
-handling and the least tax mess, ideally going to the infrastructure provider
-without ResearchOS becoming a business in the middle.
+The local-first core stays free. The app runs on the user's own machine and the
+notebook never needs the cloud. What costs real money is the optional
+server-side storage, collaborative note sync on Neon and the transient sharing
+relay on R2. That is what gets metered, with a free allowance per lab and a paid
+way to raise the ceiling that recovers the per-GB cost. This is cost recovery,
+not a profit center, and it does not touch the free local product.
 
-This is separate from the voluntary fundraising and donations already planned.
-It is also a real departure from the locked sustainability model (free for every
-lab, funded by the RISE fellowship and voluntary donations, no paid tier, no
-per-seat fees, AGPLv3). Metered, paid storage is a paid tier no matter how it is
-framed, so the recommendation below leans hard toward the option that keeps it a
-contribution rather than a sale, because that is the one that stays inside the
-existing identity.
+It is still a real change from the strictest reading of the locked model (no
+paid tier ever). The honest framing is that the notebook is free and the
+optional cloud is metered at cost, which is a defensible line to hold and is the
+only way heavy collaborative use does not drain the shared budget for everyone
+else.
 
 ## The blunt mechanical constraint
 
@@ -145,24 +154,56 @@ of Record (option C), not raw Stripe.
 | C. Neon platforms + MoR | Yes (net income) | Sales tax offloaded by MoR; income tax remains | High | No, it is a paid tier |
 | D. Stripe self-collect | Yes | Highest, you own all of it | Moderate | No |
 
-## Recommendation
+## Recommendation, given the LLC and the decision to meter
 
-Start with A, the fiscal-host contribution fund. It is the honest answer to what
-you actually asked, the money goes to the infrastructure rather than to you, a
-501(c)(6) like Open Source Collective handles the receipts, accounting, and
-compliance and pays the Neon and R2 invoices directly, and it extends the
-existing voluntary-donation plan instead of breaking the free-for-every-lab
-identity. Keep it a contribution that lifts a shared ceiling, not a per-dollar
-entitlement, so it stays a contribution in the eyes of an accountant.
+Build a real metered quota with a paid top-up, run through the LLC. The shape:
 
-Hold B and C in reserve. If a small number of heavy collaborative labs ever make
-a strict, paid, per-lab quota genuinely necessary, the cleanest technical path is
-Neon for Platforms (per-lab project, API-adjustable limit) and the cleanest money
-path is a Merchant of Record so you never personally touch sales tax. Treat that
-as a deliberate, signed-off move into a paid tier, not a quiet feature.
+1. Per-owner storage accounting. Sum each lab owner's collab bytes on Neon and
+   pending bundle bytes on R2. The collab side already has a budget and an
+   `/admin` signal, so this is half done. This is step zero and it is the same
+   step every option needs.
+2. A per-owner quota field. A free allowance (small, enough that most local-first
+   labs never hit it) plus any paid additions. Enforced at write time, the relay
+   already rejects over budget, collab needs the same check.
+3. A checkout that raises the quota. On successful payment, a webhook bumps the
+   owner's quota field. Sell it as simple blocks (for example $X per 10 GB per
+   month) priced to clear Neon's $0.35 per GB-month plus history plus processing
+   fees with a small buffer, not to profit.
+4. A billing surface in Settings. Show usage against quota (the dual gauge
+   already built is the start) and an "add storage" button.
 
-Do the prerequisite either way. Per-owner collab storage accounting and an
-adjustable limit is step zero, and it is already half-built on the collab side.
+You do NOT need database-per-lab to start. A per-owner quota on the shared
+database is far simpler and enough to meter. Neon for Platforms (a separate
+Neon project per lab, limits set by API) is the heavier upgrade you would only
+reach for if you want hard data isolation or to pass Neon usage through one to
+one. Start with the shared-DB quota.
+
+On the money rail, two honest choices, both fine through the LLC:
+- Stripe plus Stripe Tax. Lower fees (about 2.9% plus $0.30). The LLC is the
+  merchant of record, so you own sales-tax compliance. In practice that is light
+  at first, Wisconsin does not tax SaaS or customer-no-control cloud storage at
+  all, and other states only matter once you cross their economic-nexus
+  thresholds (typically $100k or 200 transactions a year), which is far off.
+- A Merchant of Record (Polar, which is open-source friendly, or Lemon Squeezy).
+  Higher fees (about 5% plus $0.50) but they become the seller of record and
+  remit sales tax and VAT everywhere, including internationally, so you never
+  track it. The "do not want to think about tax" option.
+
+Recommendation on the rail: start with Stripe plus Stripe Tax through the LLC
+since early customers are mostly US academic labs and Wisconsin is tax-free for
+this, and switch to a Merchant of Record if and when international or heavy
+multi-state sales make the compliance burden real. Confirm with an accountant
+before launch either way.
+
+## Alternative, no longer the lead: the fiscal-host contribution fund
+
+Kept for the record. If you ever wanted to take infrastructure money WITHOUT it
+being LLC revenue, a 501(c)(6) fiscal host like Open Source Collective would
+hold the funds, handle compliance, and pay the Neon and R2 invoices directly, so
+nothing is personal or LLC income. But that is a contribution model, not a
+meter, and you have both an LLC and a decision to meter, so it does not fit the
+goal. It remains a clean way to run a purely voluntary server-donation drive
+alongside the meter if you want one.
 
 ## Caveats I am not qualified to close
 
@@ -185,3 +226,5 @@ accountant before committing.
 - [Neon usage-based pricing explained](https://neon.com/blog/new-usage-based-pricing)
 - [Merchant of Record, Lemon Squeezy](https://www.lemonsqueezy.com/reporting/merchant-of-record)
 - [Stripe vs Paddle vs Lemon Squeezy vs Polar, Merchant of Record for B2B SaaS](https://fintechspecs.com/blog/stripe-vs-paddle-vs-lemon-squeezy-vs-polar-merchant-of-record-b2b-saas/)
+- [Is SaaS taxable in Wisconsin (Numeral)](https://www.numeral.com/blog/saas-sales-tax-wisconsin)
+- [Wisconsin DOR, sales and use tax treatment of computer software and services](https://www.revenue.wi.gov/Pages/FAQS/pcs-computerc.aspx)
