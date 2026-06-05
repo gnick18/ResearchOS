@@ -67,6 +67,15 @@ export async function grantCollabOnShare(
   // path skipped it and the note never got a doc id; minting here fixes that.
   const docId = getOrMintCollabDocId(doc);
 
+  // The server grant + initial push must be SIGNED with the caller's directory
+  // email. ownerEmail here is that email (NOT a username). When it is absent or
+  // not an email (no sharing identity on this device), we still minted the doc
+  // id above so live collab over the relay works; we just skip the durable Neon
+  // calls, which would 400 without a registered identity.
+  const signerEmail =
+    ownerEmail && ownerEmail.includes("@") ? ownerEmail : null;
+  if (!signerEmail) return docId;
+
   // Compute newly-added usernames (present in next, absent in previous).
   const prevSet = new Set((previousSharedWith ?? []).map((s) => s.username));
   const newMembers = nextSharedWith
@@ -75,15 +84,19 @@ export async function grantCollabOnShare(
 
   const isFirstShare = (previousSharedWith ?? []).length === 0;
 
-  // On first share, grant the owner themselves so they can push.
+  // On first share, grant the owner themselves so they can push. This is what
+  // creates the server doc row, so it must use the owner's real directory email.
   if (isFirstShare) {
-    await tryGrant(docId, ownerEmail, ownerEmail);
+    await tryGrant(docId, signerEmail, signerEmail);
   }
 
-  // Grant each new member. Each call is independent so one failure does not
-  // block the others.
+  // Grant each new member. NOTE: members come from shared_with as USERNAMES, but
+  // the grant route resolves a member by EMAIL; granting by username will not
+  // find a directory binding. Mapping member usernames to emails (lab roster /
+  // directory) is a follow-up; the owner grant above still creates the doc so
+  // the owner's own open/push work.
   for (const memberEmail of newMembers) {
-    await tryGrant(docId, ownerEmail, memberEmail);
+    await tryGrant(docId, signerEmail, memberEmail);
   }
 
   // Seed the server canonical with the current doc state right after sharing.
@@ -95,7 +108,7 @@ export async function grantCollabOnShare(
   try {
     const snapshot = doc.export({ mode: "update" });
     if (snapshot.length > 0) {
-      await pushCollabUpdate(docId, ownerEmail, snapshot);
+      await pushCollabUpdate(docId, signerEmail, snapshot);
     }
   } catch (err) {
     console.warn("[collab] grant-on-share: initial canonical push failed (will seed on first edit)", err);

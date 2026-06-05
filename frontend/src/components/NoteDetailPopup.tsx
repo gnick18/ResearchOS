@@ -30,6 +30,7 @@ import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { fileEvents } from "@/lib/attachments/file-events";
 import { checkForDuplicates } from "@/lib/attachments/duplicate-check";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { useLabHeadEditGate } from "@/hooks/useLabHeadEditGate";
@@ -48,6 +49,7 @@ import VersionDiffView from "@/components/history/VersionDiffView";
 import { useCollabSession } from "@/lib/loro/collab/use-collab-session";
 import { peerColorClass } from "@/lib/loro/collab/safe-ephemeral-plugin";
 import { grantCollabOnShare } from "@/lib/collab/client/grant-on-share";
+import { setCollabSignerEmail } from "@/lib/collab/client/current-email";
 import { getCollabDocId } from "@/lib/collab/client/doc-id";
 
 interface NoteDetailPopupProps {
@@ -183,6 +185,18 @@ export default function NoteDetailPopup({
   const { resolve: resolveDuplicates, DialogComponent: DuplicateDialog } =
     useDuplicateResolver();
   const { currentUser } = useCurrentUser();
+  // The device's own directory email (canonical), used to SIGN collab Neon
+  // requests. This is the registered identity email, NOT a username or the note
+  // owner; the server rejects anything that is not a bound directory email.
+  // Null when this device has no sharing identity (collab then stays live-only).
+  const { email: myDirectoryEmail } = useSharingIdentity();
+
+  // Publish the device's directory email to the lazy collab signer (store.ts and
+  // the sync hooks read it when they sign Neon requests). Reactive so the email
+  // becomes available as soon as the sharing identity sidecar loads.
+  useEffect(() => {
+    setCollabSignerEmail(myDirectoryEmail);
+  }, [myDirectoryEmail]);
 
   // Loro pilot: one handle per note (keyed on note.id + owner). Opened once;
   // closed on note identity change or unmount. Null when flag is off or while
@@ -458,7 +472,7 @@ export default function NoteDetailPopup({
     // Mint + grant best-effort, then connect once the docId is available.
     void grantCollabOnShare({
       doc: loroHandle.doc,
-      ownerEmail: currentUser,
+      ownerEmail: myDirectoryEmail ?? "",
       // Treat the whole shared_with list as newly-added so both members and the
       // granting user (as "owner") get registered on the server.
       previousSharedWith: [],
@@ -1371,7 +1385,7 @@ export default function NoteDetailPopup({
               if (LORO_PILOT_ENABLED && loroHandle && currentUser) {
                 void grantCollabOnShare({
                   doc: loroHandle.doc,
-                  ownerEmail: currentUser,
+                  ownerEmail: myDirectoryEmail ?? "",
                   previousSharedWith: sharedWithBeforeShareRef.current,
                   nextSharedWith: updated.shared_with ?? [],
                 }).then((docId) => {

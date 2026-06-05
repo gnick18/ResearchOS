@@ -30,6 +30,7 @@ import { safeLoroEphemeralPlugin } from "./collab/safe-ephemeral-plugin";
 import { LORO_PILOT_ENABLED } from "./config";
 import { getCollabDocId } from "@/lib/collab/client/doc-id";
 import { buildCollabBaseDoc, attachPushOnEdit } from "@/lib/collab/client/sync-hooks";
+import { getCollabSignerEmail } from "@/lib/collab/client/current-email";
 import type { Note } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -435,10 +436,17 @@ export async function openNote(base: Note, owner: string): Promise<NoteHandle> {
   // When the server has nothing yet (this client makes the note collaborative
   // first) or the fetch fails, buildCollabBaseDoc returns localDoc unchanged.
   const collabDocId = LORO_PILOT_ENABLED ? getCollabDocId(localDoc) : undefined;
+  // The Neon durable layer signs every request with the CALLER's directory
+  // email (not a username, not the note owner), resolved lazily from the device
+  // identity (set reactively via setCollabSignerEmail). Only attempt it when we
+  // have a real email; otherwise stay live-only (the relay path needs no email)
+  // instead of firing requests the server rejects with a 400.
+  const collabSignerEmail = getCollabSignerEmail();
+  const canPersist = !!collabDocId && !!collabSignerEmail;
   let doc = localDoc;
   let collabAdopted = false;
-  if (collabDocId) {
-    const adopt = await buildCollabBaseDoc(localDoc, collabDocId, owner);
+  if (canPersist) {
+    const adopt = await buildCollabBaseDoc(localDoc, collabDocId!, collabSignerEmail!);
     doc = adopt.doc;
     collabAdopted = adopt.adopted;
   }
@@ -475,7 +483,11 @@ export async function openNote(base: Note, owner: string): Promise<NoteHandle> {
       // Fire-and-forget: align the local sidecar with the adopted canonical.
       void persistNote(owner, doc, base);
     }
-    const unsub = attachPushOnEdit(handle, collabDocId, owner);
+    // Always attach push-on-edit for a collab doc. It resolves the signer email
+    // lazily at send time, so edits start persisting as soon as the device
+    // identity loads, even if the note opened before that (no reopen needed).
+    // When there is no identity it simply skips each send (live collab is fine).
+    const unsub = attachPushOnEdit(handle, collabDocId);
     handle._registerUnsub(unsub);
   }
 

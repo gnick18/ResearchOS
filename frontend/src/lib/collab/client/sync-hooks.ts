@@ -30,6 +30,7 @@ import {
   CollabError,
   NoLocalIdentityError,
 } from "./persistence";
+import { getCollabSignerEmail } from "./current-email";
 
 // ---------------------------------------------------------------------------
 // Adopt the server-canonical base (the fork fix)
@@ -196,7 +197,6 @@ function defaultOnError(err: unknown): void {
 export function attachPushOnEdit(
   handle: NoteHandle,
   docId: string,
-  email: string,
   onError: (err: unknown) => void = defaultOnError,
 ): () => void {
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -226,6 +226,13 @@ export function attachPushOnEdit(
 
       // Skip empty exports (no new ops since last export).
       if (updateBytes.length === 0) return;
+
+      // Resolve the signer email LAZILY at send time (not at attach time): the
+      // device identity may load after the note opens, so resolving here means
+      // edits start persisting as soon as the email is available, with no reopen.
+      // When there is still no identity, skip silently (live collab is unaffected).
+      const email = getCollabSignerEmail();
+      if (!email) return;
 
       pushCollabUpdate(docId, email, updateBytes).catch(onError);
     }, 400);
