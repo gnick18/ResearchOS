@@ -2351,6 +2351,11 @@ export default function LiveMarkdownEditor({
                   onExplicitSave={onExplicitSave}
                   onDirtyChange={onDirtyChange}
                   measureClass={measureClass}
+                  // Forward imageBasePath so the inline editor's image widget
+                  // (chip 2b) resolves relative srcs the same way the preview
+                  // and the hybrid editor do. Was missing here, so inline-mode
+                  // images did not resolve their base path.
+                  imageBasePath={imageBasePath}
                   loroHandle={loroHandle}
                   loroEntryIndex={loroEntryIndex}
                   loroBaseNote={loroBaseNote}
