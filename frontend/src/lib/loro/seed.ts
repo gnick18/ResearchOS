@@ -15,9 +15,12 @@
  *      If created_at is absent we fall back to SEED_EPOCH (1970-01-01T00:00:00Z).
  *   3. Canonical insert ordering -- meta keys in a declared fixed order, entries sorted
  *      by their id string (lexicographic), each Text content inserted in one operation.
+ *      Mark ops follow the text insert in sorted (start, type) order (same sort
+ *      splitMarkdownInline guarantees), keeping the op log byte-identical across devices.
  */
 
 import { LoroDoc, LoroMap, LoroText } from "loro-crdt";
+import { splitMarkdownInline, configureTextStyles } from "./marks";
 import type { Note } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -81,6 +84,10 @@ export function seedNoteDoc(note: Note): Uint8Array {
   // Step 1: fixed peer id. Every op in this commit gets (SEED_ACTOR_ID, counter).
   doc.setPeerId(seedActorId);
 
+  // Register the three mark types so Loro accepts mark() calls below.
+  // Must happen before any text.mark() call on this doc.
+  configureTextStyles(doc);
+
   // Step 2: write meta in canonical key order (title, description, is_running_log,
   // created_at). Order matters because Loro encodes ops in insertion order and
   // the same insertion sequence must play out on both devices.
@@ -118,10 +125,29 @@ export function seedNoteDoc(note: Note): Uint8Array {
     // of the entryMap and returns the live LoroText handle.
     const text = entryMap.setContainer("content", new LoroText());
 
-    // Insert the full content string in ONE operation. A single insert avoids
-    // any dependency on chunking decisions and keeps the op count deterministic.
     if (e.content) {
-      text.insert(0, e.content);
+      // Split the markdown into plain text + inline marks (Peritext: bold/italic/link
+      // live as Loro marks anchored to character ids, NOT as control chars in the text).
+      // splitMarkdownInline returns marks already sorted by (start, type), so the
+      // mark() ops below execute in a fixed canonical order on every device, which
+      // preserves byte-determinism across independent seeds of the same note.
+      const { text: plain, marks } = splitMarkdownInline(e.content);
+
+      // Insert the plain text in ONE operation (same determinism guarantee as before).
+      text.insert(0, plain);
+
+      // Apply marks in sorted order. Each mark() call is an op with a deterministic
+      // (peer, counter) id because the peer is fixed and the counter advances
+      // monotonically from the text insert op.
+      for (const mark of marks) {
+        if (mark.type === "bold") {
+          text.mark({ start: mark.start, end: mark.end }, "bold", true);
+        } else if (mark.type === "italic") {
+          text.mark({ start: mark.start, end: mark.end }, "italic", true);
+        } else if (mark.type === "link") {
+          text.mark({ start: mark.start, end: mark.end }, "link", mark.url ?? "");
+        }
+      }
     }
   }
 
