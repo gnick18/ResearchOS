@@ -121,10 +121,14 @@ cursors on one note, badged as on the roadmap. Revisit when the collab MVP ships
 ## SECONDARY 1. Snap from the bench
 
 Files `snap-from-bench-phone.mov` (phone) and `snap-from-bench-desktop.mov`
-(desktop). See the production note in the chat for the phone-vs-camera decision.
+(desktop). Production approach DECIDED (Grant 2026-06-04): screen-record only,
+no physical bench filming. Use the phone's built-in screen recorder for the
+Telegram send, screen-record the desktop for the receive, and I composite the
+phone clip into a device frame then cut to the desktop.
 Sells: "capture from your phone at the bench, it lands in your notebook."
 Flow to capture:
-1. PHONE side: in the ResearchOS Telegram chat, attach and send a photo.
+1. PHONE side: screen-record your phone. In the ResearchOS Telegram chat, attach
+   and send a photo.
 2. DESKTOP side: the **Inbox** badge updates. Open the Inbox, the photo is there.
 3. Use **Move to active** (or the attach action) to drop the photo onto an open
    note or experiment.
