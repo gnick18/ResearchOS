@@ -80,6 +80,28 @@ const PUBLIC_ROUTES = [
     waitFor: '[data-testid="landing-page"]',
     settleMs: 2300,
   },
+  // The public /transparency ("Method validation") page for the Trust wiki.
+  // Public, no fixture. Expand the first domain's full comparison table so the
+  // numbers are visible, then capture the whole page (header, differences
+  // spotlight, agreement scatter, table).
+  {
+    path: "/transparency",
+    file: "transparency-method-validation.png",
+    waitFor: "text=Validation of bioinformatic, text=Method validation",
+    settleMs: 1200,
+    action: async (page) => {
+      try {
+        const showAll = page
+          .getByRole("button", { name: /Show all .* comparisons/i })
+          .first();
+        if (await showAll.count()) {
+          await showAll.click({ timeout: 3000 });
+          await page.waitForTimeout(700);
+        }
+      } catch {}
+    },
+    fullPage: true,
+  },
 ];
 
 /** Picker-mode route: fixture is installed but no currentUser is set, so
@@ -735,6 +757,44 @@ const FIXTURE_ROUTES = [
     settleMs: 600,
     action: ensureExperimentsTab,
     fullPage: true,
+  },
+  {
+    // Lab calculators modal: the floating beaker button (global) opens the
+    // tabbed modal. For the new features/lab-calculators wiki page.
+    path: "/workbench",
+    file: "lab-calculators-modal.png",
+    waitFor: "text=Workbench",
+    settleMs: 600,
+    action: async (page) => {
+      try {
+        const btn = page
+          .getByRole("button", { name: /Open lab calculators/i })
+          .first();
+        if (await btn.count()) {
+          await btn.click({ timeout: 3000 });
+          await page.waitForTimeout(1000);
+        }
+      } catch {}
+    },
+  },
+  {
+    // Lab comments docked right rail on an experiment popup, for the
+    // features/lab-inbox/comments page. Open the seeded experiment that carries
+    // a threaded comment, then click the header comment button to open the rail.
+    path: "/workbench",
+    file: "lab-inbox-comments-rail.png",
+    waitFor: "text=Workbench",
+    settleMs: 600,
+    action: async (page) => {
+      await revealCompletedAndOpenTask(page, /PCR-screen integrants/);
+      try {
+        const cbtn = page.locator('[data-testid="task-comments-button"]').first();
+        if (await cbtn.count()) {
+          await cbtn.click({ timeout: 3000 });
+          await page.waitForTimeout(1000);
+        }
+      } catch {}
+    },
   },
   {
     // Notes tab: flat search-driven list. Click the Notes tab button in
