@@ -2072,27 +2072,10 @@ export default function NoteDetailPopup({
         )}
         </div>
 
-        {/* Footer */}
-        {!readOnly && (
-          <div className="p-4 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
-            <div className="text-meta text-gray-400">
-              Created: {note.created_at ? formatDate(note.created_at) : "—"} • Updated: {formatDate(note.updated_at)}
-            </div>
-            {/* VCP R1 OQ9 (2026-05-26): owner-only Delete. Shared-edit
-                users see no Delete button; their writes still go through
-                the unwrapped notesApi.update. A PI in an active Phase 5
-                unlock (`labHeadGate.unlocked`) gets the button so they
-                can delete cross-owner under audit. */}
-            {canDeleteNote && (
-              <button
-                onClick={handleDeleteNote}
-                className="px-4 py-2 text-body text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                Delete Note
-              </button>
-            )}
-          </div>
-        )}
+        {/* Footer removed (2026-06-05): the created/updated dates already show
+            in the header metadata and Delete lives in the header trash icon, so
+            this fixed bottom bar was pure redundancy. Dropping it gives the
+            markdown editor the full popup height. */}
       </div>
     </div>
     </>
