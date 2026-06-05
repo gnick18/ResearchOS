@@ -358,48 +358,15 @@ export default function WelcomePreviewPage() {
             </p>
           </div>
 
-          <div className="mx-auto grid max-w-[1320px] grid-cols-1 gap-4 md:grid-cols-6">
-            {/* Lead 1: sequence editor (real clip, also the hero, repeated as
-                the lead bento cell with its claim). */}
-            <BentoCell num="01" span="lead" title="Design plasmids and run cloning, built in">
-              <p className="text-body leading-relaxed text-[#475569]">
-                SnapGene-style circular maps with annotated feature arcs and live
-                cloning. Free, and right inside your notebook.
-              </p>
-              <CodeLine>
-                <span className="text-[#1283c9]">pUC19</span> 2686 bp &middot; EcoRI
-                &middot; HindIII &middot; BamHI
-              </CodeLine>
-              <DemoLoop
-                src="/welcome-demos/sequence-editor.mp4"
-                poster="/welcome-demos/sequence-editor.poster.jpg"
-                label="The sequence editor showing a circular plasmid map with colored feature arcs"
-                className="mt-4 flex-1"
-              />
-            </BentoCell>
-
-            {/* Lead 2: own your data (real clip). */}
-            <BentoCell num="02" span="lead" title="Your whole project lives in one folder you own">
-              <p className="text-body leading-relaxed text-[#475569]">
-                Every note, image, and protocol is a plain file on your disk.
-                Local-first, private, no cloud lock-in.
-              </p>
-              <CodeLine>
-                ~/Lab/<span className="text-[#1283c9]">my-project</span>/notes/
-                images/ methods/
-              </CodeLine>
-              <DemoLoop
-                src="/welcome-demos/own-your-data.mp4"
-                poster="/welcome-demos/own-your-data.poster.jpg"
-                label="Connecting a local folder and seeing the project files sitting on disk"
-                className="mt-4 flex-1"
-              />
-            </BentoCell>
-
-            {/* Wide 3: replaces 5 tools (real clip). */}
+          {/* The sequence-editor clip leads the HERO, and own-your-data has its
+              own trust block below, so neither repeats here. The grid carries
+              the remaining showcases at half / third width so no single loop
+              renders huge. */}
+          <div className="mx-auto grid max-w-[1180px] grid-cols-1 gap-4 md:grid-cols-6">
+            {/* 01: replaces 5 tools (real clip), half width. */}
             <BentoCell
-              num="03"
-              span="wide"
+              num="01"
+              span="lead"
               title="Notebook, methods, Gantt, purchasing, and calendar in one place"
             >
               <p className="text-body leading-relaxed text-[#475569]">
@@ -414,8 +381,8 @@ export default function WelcomePreviewPage() {
               />
             </BentoCell>
 
-            {/* Wide 4: methods library (real clip). */}
-            <BentoCell num="04" span="wide" title="Real lab protocols, preloaded and ready to run">
+            {/* 02: methods library (real clip), half width. */}
+            <BentoCell num="02" span="lead" title="Real lab protocols, preloaded and ready to run">
               <p className="text-body leading-relaxed text-[#475569]">
                 The method library ships structured PCR, qPCR, and LC-MS templates
                 with bundled source PDFs. It already knows how to run your
@@ -434,8 +401,8 @@ export default function WelcomePreviewPage() {
               />
             </BentoCell>
 
-            {/* Small 5: Gibson cloning (placeholder, pairs with the editor). */}
-            <BentoCell num="05" span="small" title="Gibson and Golden Gate cloning, in silico">
+            {/* 03: Gibson cloning (placeholder, pairs with the editor). */}
+            <BentoCell num="03" span="small" title="Gibson and Golden Gate cloning, in silico">
               <p className="text-body leading-relaxed text-[#475569]">
                 Drop in a fragment, pick a restriction site, and the map updates
                 live, with a review step before anything saves.
@@ -447,8 +414,8 @@ export default function WelcomePreviewPage() {
               />
             </BentoCell>
 
-            {/* Small 6: PI lab overview (real clip, secondary). */}
-            <BentoCell num="06" span="small" title="The PI sees the whole lab at a glance">
+            {/* 04: PI lab overview (real clip, secondary). */}
+            <BentoCell num="04" span="small" title="The PI sees the whole lab at a glance">
               <p className="text-body leading-relaxed text-[#475569]">
                 A live dashboard of every member&apos;s projects, funding, and
                 progress, configurable for the decision-maker.
@@ -461,8 +428,8 @@ export default function WelcomePreviewPage() {
               />
             </BentoCell>
 
-            {/* Small 7: snap from the bench (placeholder). */}
-            <BentoCell num="07" span="small" title="Snap it from the bench">
+            {/* 05: snap from the bench (placeholder). */}
+            <BentoCell num="05" span="small" title="Snap it from the bench">
               <p className="text-body leading-relaxed text-[#475569]">
                 Send a photo or note from your phone over Telegram and it lands in
                 your notebook inbox, ready to attach.
