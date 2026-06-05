@@ -23,6 +23,7 @@ import ImportProgressOverlay, {
 } from "@/components/sequences/ImportProgressOverlay";
 import CloningWorkspace from "@/components/sequences/CloningWorkspace";
 import CompareSequencesDialog from "@/components/sequences/CompareSequencesDialog";
+import SequencesLauncher from "@/components/sequences/SequencesLauncher";
 import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
 import BulkSequenceSendDialog from "@/components/sharing/BulkSequenceSendDialog";
 import ReceivedFromBadge from "@/components/ReceivedFromBadge";
@@ -966,7 +967,8 @@ export default function SequencesPage() {
               <div>
                 <h1 className="text-lg font-semibold text-gray-900">Sequences</h1>
                 <p className="mt-0.5 text-meta text-gray-500">
-                  Your plasmids and sequences, organized by project.
+                  Your molecular-biology workbench. Edit, annotate, design
+                  primers, plan cloning, and find domains.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
@@ -1382,11 +1384,15 @@ export default function SequencesPage() {
               </div>
             </>
           ) : (
-            <div className="flex flex-1 items-center justify-center text-body text-gray-400">
-              {sequences.length === 0
-                ? "No sequences to display yet."
-                : "Select a sequence from the library."}
-            </div>
+            // No sequence open: show the calm workbench overview (the launcher)
+            // instead of a bare empty state. The clickable action cards reuse the
+            // header handlers; the hint list teaches the editor-internal tools.
+            <SequencesLauncher
+              onNew={() => setNewOpen(true)}
+              onAssemble={() => setAssembleOpen(true)}
+              onAlign={() => setCompareOpen(true)}
+              onImport={() => fileInputRef.current?.click()}
+            />
           )}
         </section>
       </div>
