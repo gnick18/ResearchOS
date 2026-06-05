@@ -8,6 +8,8 @@ Goal, when `LORO_PILOT_ENABLED` is on, the notes version-history surface (the ri
 
 The whole point of section 7 of the design doc, the version-control features map onto the substrate's native history, so most of this phase is reading and presenting history Loro already keeps, not building a second history system.
 
+Macro context (Grant, 2026-06-04), the end state is EVERY editable entity on Loro (notes, methods, experiments, sequences, project folders), and the legacy world (value-in/value-out, JSON sidecars, AND the `_history` delta engine) fully retires, because collab is impossible for anything not on the CRDT. The chosen order is DEPTH-FIRST, finish the whole notes vertical (store done, VC this phase, collab next), then replicate the proven store+VC+collab pattern to the other entities one at a time. So this VC engine is built ENTITY-AGNOSTIC (it reuses the existing per-entity-adapter pattern), and the legacy `_history` engine retires entity-by-entity as each entity migrates, gone entirely when the last one moves. Phase 2 is notes only because notes are the only entity on Loro today.
+
 Non-goals (deferred, do NOT build here):
 - Touching the legacy engine for tasks, projects, or sequences. Those are not Loro-bound, so they keep the `_history/` delta engine. Phase 2 only swaps the NOTES surface when the flag is on.
 - Compaction and retention windows (design doc section 7). The Loro data-model spike showed history is cheap (5000 commits compress to a 22KB snapshot loading in 1.45ms), so retention tuning is deferred until real growth is measured. Phase 2 keeps full history.
@@ -53,8 +55,8 @@ Per design doc section 7:
 
 Version rows need an editor ("you", or a collaborator later). Loro attributes every change to a `peer` id. Two pieces:
 
-- A STABLE per-user peer id for live edits. Phase 1 seeds the doc with a FIXED peer (`BigInt(0)`) for determinism, and `loadOrRebuild` imports into a `new LoroDoc()` whose peer id is RANDOM per load. That means live edits currently carry a random, per-session actor, which is wrong for attribution. Phase 2 sets a stable per-user peer id on the doc at `openNote` (derived deterministically from the signed-in user, so the same user is the same actor across loads and devices-per-user). The fixed seed peer stays seed-only.
-- A peer-id to identity map. A small sidecar index mapping Loro peer ids to ResearchOS identities (username, and later the directory identity the sharing feature already has). In Phase 1 single-user this has one entry (the local user), but the mechanism must exist so Phase 3 collaborators attribute correctly. The map is written when a peer first commits.
+- A STABLE per-DEVICE peer id for live edits. Phase 1 seeds the doc with a FIXED peer (`BigInt(0)`) for determinism, and `loadOrRebuild` imports into a `new LoroDoc()` whose peer id is RANDOM per load. That means live edits currently carry a random, per-session actor, which breaks session grouping. Phase 2 sets a stable per-device peer id on the doc at `openNote`, a random non-zero u64 generated ONCE and persisted in the browser (localStorage), reused across loads on this device. It is deliberately per-device, NOT derived from the username, because two devices (or a reinstall) sharing one username-derived peer id would later collide in collab (two different edits sharing one Loro operation id corrupts the merge). The fixed seed peer (`BigInt(0)`) stays seed-only.
+- A peer-id to identity map. A small sidecar index mapping Loro peer ids to ResearchOS identities (username now, and later the directory identity the sharing feature already has). This is what resolves a per-device peer back to "you" / the user for display and session grouping. In Phase 1 single-user this has one entry (the local device + user), but the mechanism must exist so Phase 3 collaborators attribute correctly. The map entry is written at `openNote` when the device's peer first acts.
 
 This is the genuinely new build in Phase 2; the rest is reading history.
 
@@ -72,7 +74,7 @@ When `LORO_PILOT_ENABLED` is on, the Loro engine is the sole notes history sourc
 
 ## 8. Persisted-data-shape decisions (sign-off gate)
 
-1. The stable per-user peer id derivation (section 5). Confirm the approach (a deterministic function of the signed-in username so the same user is the same Loro actor). This writes a real peer id into the CRDT ops, so it is a data-shape contract.
+1. The stable per-DEVICE peer id (section 5). A random non-zero u64 generated once and persisted in localStorage, reused across loads, mapped to the username in actors.json. Per-device (not username-derived) so multi-device collab cannot collide on operation ids. This writes a real peer id into the CRDT ops, so it is a data-shape contract.
 2. The peer-id to identity map sidecar, its path and shape (proposed `users/<owner>/.researchos/actors.json`, a `{ peerId: { username } }` map). Confirm path + that it lives under the existing `.researchos/` dir.
 3. The restore commit message convention (`restore-vN`) and that restore is a forward commit, never a history rewrite.
 4. Suppressing the legacy `_history/notes/` writer when the flag is on (vs keeping both). Recommend suppress, single source of truth.
