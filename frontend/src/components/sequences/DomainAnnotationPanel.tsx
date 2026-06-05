@@ -1,9 +1,16 @@
 "use client";
 
-// sequence editor master. protein DOMAIN ANNOTATION (two sources).
+// sequence editor master. protein DOMAIN ANNOTATION (three sources).
 //
 // Lives inside the CDS protein-properties drawer. The user clicks "Annotate
 // domains" and picks a source:
+//
+//   - Common domains (on-device, zero setup). We host a curated CC0 Pfam subset
+//     as a static asset; the browser downloads it ONCE (cancelable progress),
+//     caches it durably, and runs the WASM HMMER engine against it on the user's
+//     machine. Later annotations are instant from cache. Nothing of the user's
+//     is sent (the database is a one-way static download), so there is NO consent
+//     gate. This is the zero-setup on-device option for users with no local .hmm.
 //
 //   - EBI InterProScan (off-device, full Pfam). On first use we show a ONE-TIME
 //     privacy notice (modeled on the NCBI Primer-BLAST handoff), persisted so it
@@ -17,9 +24,11 @@
 //     + their protein all stay local). Nothing is sent anywhere, so there is NO
 //     consent gate on this path.
 //
-// Both paths produce the SAME DomainHit[], so the Detect-Features-style review
-// list, the accept toggles, and domainHitToFeature -> features are shared. The
-// EBI path is unchanged.
+// All three paths produce the SAME DomainHit[], so the Detect-Features-style
+// review list, the accept toggles, and domainHitToFeature -> features are shared.
+// The curated path reuses runLocalHmmer + parseDomtblout exactly like the local
+// .hmm path; only the byte source differs (a cached download, not a file pick).
+// The EBI and local-.hmm paths are unchanged.
 //
 // Icons inline SVG, <Tooltip> for icon-only controls, no emoji, no em-dashes, no
 // mid-sentence colons. Type tokens (text-meta / text-body / text-title).
@@ -43,6 +52,12 @@ import {
 } from "@/lib/sequences/interproscan";
 import { runLocalHmmer } from "@/lib/sequences/hmmer-client";
 import { parseDomtblout } from "@/lib/sequences/hmmer-domtbl";
+import {
+  getCuratedDbManifest,
+  getCuratedHmmDb,
+  type CuratedDbManifest,
+  type DownloadProgress,
+} from "@/lib/sequences/hmmer-db-cache";
 
 /** Soft warning threshold for a chosen .hmm. Full Pfam-A (~1.5 GB) is heavy in
  *  browser memory; we do not block, just warn that a curated subset is faster. */
@@ -87,13 +102,15 @@ function rememberDomainConsent(): void {
 }
 
 /** Which database backed the current result set, for the review footer label. */
-type Source = "ebi" | "local";
+type Source = "ebi" | "local" | "curated";
 
 type Phase =
   | { kind: "idle" }
   | { kind: "source" }
+  | { kind: "curated" }
   | { kind: "local" }
   | { kind: "consent" }
+  | { kind: "downloading"; progress: DownloadProgress }
   | { kind: "searching"; note: string }
   | { kind: "error"; message: string }
   | { kind: "results"; hits: DomainHit[]; rows: Row[]; source: Source };
@@ -131,6 +148,13 @@ export default function DomainAnnotationPanel({
   onCandidatesChange?: (hits: DomainHit[]) => void;
 }) {
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
+  // The curated-subset manifest (family count etc.), fetched lazily when the user
+  // opens the "Common domains" step so the card can show "44 common Pfam
+  // families" without parsing the HMM. Null until loaded; a load failure just
+  // leaves the count out of the copy (the source still works).
+  const [curatedManifest, setCuratedManifest] = useState<CuratedDbManifest | null>(
+    null,
+  );
   const abortRef = useRef<AbortController | null>(null);
 
   // Surface the current review candidates (the SELECTED rows in the results
@@ -292,10 +316,67 @@ export default function DomainAnnotationPanel({
     }
   }, [protein, hitsToRows]);
 
-  // The "Annotate domains" click opens the source picker (EBI vs local).
+  // The CURATED on-device path: get the hosted subset bytes (cached after the
+  // one-time download), then run hmmsearch in the WebWorker against OUR translated
+  // protein exactly like the local-.hmm path. The only difference from runLocal is
+  // the byte source (a cached static download, not a File System Access pick), so
+  // everything downstream (parse -> rows -> review -> features) is identical.
+  // Nothing of the user's is sent, so there is no consent gate.
+  const runCurated = useCallback(async () => {
+    const controller = new AbortController();
+    abortRef.current = controller;
+    // Start in the download state; if the database is already cached the getter
+    // returns instantly without ever calling onProgress, so we move straight on.
+    setPhase({ kind: "downloading", progress: { receivedBytes: 0 } });
+
+    try {
+      const bytes = await getCuratedHmmDb({
+        signal: controller.signal,
+        onProgress: (progress) => {
+          if (controller.signal.aborted) return;
+          setPhase({ kind: "downloading", progress });
+        },
+      });
+      if (controller.signal.aborted) return;
+      setPhase({ kind: "searching", note: "Running on your computer…" });
+      const domtblout = await runLocalHmmer(bytes, proteinToFasta(protein), {
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted) return;
+      const hits = parseDomtblout(domtblout);
+      const rows = hitsToRows(hits);
+      setPhase({ kind: "results", hits, rows, source: "curated" });
+    } catch (e) {
+      if ((e as Error)?.name === "AbortError" || controller.signal.aborted) {
+        setPhase({ kind: "idle" });
+        return;
+      }
+      setPhase({
+        kind: "error",
+        message:
+          (e as Error)?.message || "The on-device domain search did not complete.",
+      });
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
+    }
+  }, [protein, hitsToRows]);
+
+  // The "Annotate domains" click opens the source picker (curated / EBI / local).
   const onClickAnnotate = useCallback(() => {
     setPhase({ kind: "source" });
   }, []);
+
+  // Opening the curated step lazily loads the manifest (family count) once.
+  const onChooseCurated = useCallback(() => {
+    setPhase({ kind: "curated" });
+    if (curatedManifest === null) {
+      void getCuratedDbManifest()
+        .then((m) => setCuratedManifest(m))
+        .catch(() => {
+          // A manifest miss only costs the count in the copy, not the feature.
+        });
+    }
+  }, [curatedManifest]);
 
   // From the source picker, the EBI choice gates on the one-time consent.
   const onChooseEbi = useCallback(() => {
@@ -381,6 +462,22 @@ export default function DomainAnnotationPanel({
         <div className="flex flex-col gap-2 p-2.5">
           <button
             type="button"
+            onClick={onChooseCurated}
+            className="flex items-start gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-left transition-colors hover:bg-indigo-100"
+          >
+            <IconDownload className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" />
+            <span className="min-w-0">
+              <span className="block text-body font-medium text-indigo-800">
+                Common domains (on your computer, downloads once)
+              </span>
+              <span className="block text-meta text-indigo-700">
+                A curated set of common Pfam domains. Runs entirely on your
+                computer; downloads once, then works offline.
+              </span>
+            </span>
+          </button>
+          <button
+            type="button"
             onClick={onChooseLocal}
             className="flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-left transition-colors hover:bg-emerald-100"
           >
@@ -419,6 +516,44 @@ export default function DomainAnnotationPanel({
             className="ml-auto rounded-md px-2.5 py-1 text-meta font-medium text-gray-600 transition-colors hover:bg-gray-100"
           >
             Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // --- CURATED: the zero-setup hosted subset (downloads once) -------------
+  if (phase.kind === "curated") {
+    const familyCount = curatedManifest?.families;
+    return (
+      <div className="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-meta text-indigo-800">
+        <p className="flex items-start gap-1.5 font-medium">
+          <IconDownload className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          Search this protein against a curated set of common Pfam domains.
+        </p>
+        <p className="mt-1 text-indigo-700">
+          A curated set of common Pfam domains. Runs entirely on your computer;
+          downloads once, then works offline. The database is about 3 MB; the
+          first run downloads it, later runs are instant.
+          {familyCount
+            ? ` This set has ${familyCount} common Pfam families.`
+            : ""}
+        </p>
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void runCurated()}
+            className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-meta font-medium text-white transition-colors hover:bg-indigo-700"
+          >
+            <IconDownload className="h-3.5 w-3.5" />
+            Annotate domains
+          </button>
+          <button
+            type="button"
+            onClick={() => setPhase({ kind: "source" })}
+            className="rounded-md px-2.5 py-1 text-meta font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
+          >
+            Back
           </button>
         </div>
       </div>
@@ -491,6 +626,41 @@ export default function DomainAnnotationPanel({
             Cancel
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // --- DOWNLOADING: the one-time curated-database download ----------------
+  if (phase.kind === "downloading") {
+    const { receivedBytes, totalBytes } = phase.progress;
+    const pct =
+      totalBytes && totalBytes > 0
+        ? Math.min(100, Math.round((receivedBytes / totalBytes) * 100))
+        : null;
+    return (
+      <div className="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-meta text-indigo-700">
+        <p className="flex items-center gap-2 font-medium text-indigo-800">
+          <Spinner className="h-3.5 w-3.5 shrink-0" />
+          Downloading the common-domain database (~3 MB), one time…
+        </p>
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-indigo-100">
+          <div
+            className="h-full rounded-full bg-indigo-500 transition-[width]"
+            style={{ width: pct !== null ? `${pct}%` : "33%" }}
+          />
+        </div>
+        <p className="mt-1 text-indigo-600 tabular-nums">
+          {pct !== null
+            ? `${pct}% downloaded. Later annotations are instant.`
+            : "Downloading. Later annotations are instant."}
+        </p>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="mt-2 rounded-md px-2.5 py-1 text-meta font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
+        >
+          Cancel
+        </button>
       </div>
     );
   }
@@ -608,7 +778,9 @@ export default function DomainAnnotationPanel({
         <span className="text-meta text-gray-400">
           {phase.source === "local"
             ? "on your computer, your database"
-            : "via EBI InterProScan"}
+            : phase.source === "curated"
+              ? "on your computer, common domains"
+              : "via EBI InterProScan"}
         </span>
         <div className="ml-auto flex items-center gap-2">
           <button
@@ -688,6 +860,25 @@ function IconLaptop({ className }: { className?: string }) {
     >
       <rect x="3" y="5" width="18" height="11" rx="1.5" />
       <path d="M2 20h20" />
+    </svg>
+  );
+}
+
+function IconDownload({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 3v12" />
+      <path d="m7 11 5 5 5-5" />
+      <path d="M5 21h14" />
     </svg>
   );
 }
