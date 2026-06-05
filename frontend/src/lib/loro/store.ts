@@ -22,6 +22,8 @@ import { LoroSyncPlugin } from "loro-codemirror";
 import type { Extension } from "@codemirror/state";
 import { loadOrRebuild, persistNote } from "./sidecar-store";
 import { classifyExternalEdit, ingestExternalEdit } from "./external-edit";
+import { getDevicePeerId } from "./device-peer";
+import { recordActor } from "./actors";
 import { getEntryContentText, syncNoteMetadataToDoc, syncEntrySet } from "./note-doc";
 import { projectToNote } from "./mirror";
 import type { Note } from "@/lib/types";
@@ -323,6 +325,13 @@ export async function openNote(base: Note, owner: string): Promise<NoteHandle> {
   // Load from sidecar or rebuild from mirror.
   const doc = await loadOrRebuild(owner, base);
 
+  // Set this device's stable peer id on the loaded doc BEFORE any edit (the
+  // external-edit ingest below, and every live keystroke) so changes attribute
+  // to a consistent actor. loadOrRebuild imports into a doc whose peer is random
+  // per load, which would break attribution + session grouping. The fixed seed
+  // peer (BigInt(0)) stays seed-only; this is the live-edit peer.
+  doc.setPeerId(getDevicePeerId());
+
   // External-edit detection at open time (design doc section 7).
   const kind = classifyExternalEdit(doc, base);
   if (kind === "clean" || kind === "unclean") {
@@ -331,6 +340,12 @@ export async function openNote(base: Note, owner: string): Promise<NoteHandle> {
 
   const handle = new NoteHandleImpl(doc, owner);
   _handleCache.set(key, handle);
+
+  // Record this device's peer -> identity for version-history attribution.
+  // Best-effort, fire-and-forget so the open is not blocked on disk I/O.
+  // Phase 1/2 is single-user, so `owner` is the editing user; Phase 3 passes
+  // the real editing identity instead of the note owner.
+  void recordActor(owner, getDevicePeerId(), owner);
 
   return handle;
 }

@@ -79,6 +79,56 @@ function buildProfilePayloadBytes(
 }
 
 // ---------------------------------------------------------------------------
+// Fingerprint URL helpers
+//
+// The canonical fingerprint is a space-grouped hex string ("abcd ef12 3456
+// 7890"). For clean, shareable profile URLs we use a compact, space-free form
+// in the path (/researchers/abcdef1234567890). The server expands it back to
+// the canonical form for the exact-match lookup, so the two are perfect
+// inverses (the grouping is fixed at 4-char blocks).
+// ---------------------------------------------------------------------------
+
+/** Strips the spaces from a grouped fingerprint for use in a URL. */
+export function compactFingerprint(fp: string): string {
+  return fp.replace(/\s+/g, "").toLowerCase();
+}
+
+/** Re-inserts the 4-char grouping into a compact fingerprint. */
+export function expandFingerprint(compact: string): string {
+  const clean = compact.replace(/\s+/g, "").toLowerCase();
+  const groups: string[] = [];
+  for (let i = 0; i < clean.length; i += 4) {
+    groups.push(clean.slice(i, i + 4));
+  }
+  return groups.join(" ");
+}
+
+// ---------------------------------------------------------------------------
+// Fetch a profile by fingerprint (public, exact-match, non-enumerable)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches a single published profile by its compact (space-free) fingerprint.
+ * Public: no OAuth session required, so a profile URL is shareable. Returns
+ * null if no profile is published for that fingerprint or on any error. Never
+ * exposes an email.
+ */
+export async function fetchProfileByFingerprint(
+  compactFp: string,
+): Promise<PublishedProfile | null> {
+  try {
+    const res = await fetch(
+      `/api/directory/researcher?fp=${encodeURIComponent(compactFp)}`,
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as { profile: PublishedProfile | null };
+    return data.profile ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Fetch own profile
 // ---------------------------------------------------------------------------
 

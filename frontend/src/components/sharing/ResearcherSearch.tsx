@@ -20,8 +20,13 @@
 
 import { useCallback, useRef, useState } from "react";
 
+import Link from "next/link";
 import Tooltip from "@/components/Tooltip";
-import { type ProfileSearchResult, searchResearchers } from "@/lib/sharing/profile";
+import {
+  type ProfileSearchResult,
+  compactFingerprint,
+  searchResearchers,
+} from "@/lib/sharing/profile";
 
 // ---------------------------------------------------------------------------
 // Icons (inline SVG, house style)
@@ -120,7 +125,15 @@ function ResultCard({ result }: { result: ProfileSearchResult }) {
   }, [result.fingerprint]);
 
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4">
+    <div className="relative flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4 transition-colors hover:border-sky-200 hover:bg-sky-50/40">
+      {/* Stretched link: covers the whole card so clicking anywhere (except the
+          copy button, which sits above it) opens the profile. */}
+      <Link
+        href={`/researchers/${compactFingerprint(result.fingerprint)}`}
+        className="absolute inset-0 z-0 rounded-xl"
+        aria-label={`View ${result.displayName}'s profile`}
+      />
+
       {/* Avatar placeholder */}
       <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-50 text-sky-500">
         <UserIcon className="h-5 w-5" />
@@ -137,7 +150,7 @@ function ResultCard({ result }: { result: ProfileSearchResult }) {
               label={`Institutional login verified — this person signed in with a ${result.affiliationDomain} account`}
               placement="top"
             >
-              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-meta font-medium text-emerald-700">
+              <span className="relative z-10 inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-meta font-medium text-emerald-700">
                 <BadgeCheckIcon className="h-3 w-3" />
                 {result.affiliationDomain}
               </span>
@@ -158,8 +171,12 @@ function ResultCard({ result }: { result: ProfileSearchResult }) {
           <Tooltip label="Copy fingerprint" placement="top">
             <button
               type="button"
-              onClick={copyFingerprint}
-              className="shrink-0 text-gray-400 hover:text-gray-600"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                void copyFingerprint();
+              }}
+              className="relative z-10 shrink-0 text-gray-400 hover:text-gray-600"
               aria-label="Copy fingerprint"
             >
               {copied ? (

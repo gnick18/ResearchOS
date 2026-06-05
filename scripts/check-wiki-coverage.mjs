@@ -51,6 +51,7 @@ const EXCLUDED_PREFIXES = [
   "/sharing-setup-test", // dev-only test harness for the cross-boundary sharing setup wizard (NODE_ENV=development gated, renders "not available" in prod); not a user feature
   "/privacy", // privacy policy (legal/informational, no AppShell, not a documented app feature; like /open-source). OAuth providers require a privacy-policy URL
   "/welcome-preview", // internal design preview for the welcome page redesign, not a documented user feature
+  "/researchers", // opt-in researcher directory (browse + standalone shareable profile pages); a sharing-network surface, documented under the sharing wiki, not its own page
 ];
 
 /** Next.js conventions to ignore when walking app/. */

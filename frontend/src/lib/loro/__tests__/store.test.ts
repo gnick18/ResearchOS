@@ -179,20 +179,20 @@ describe("commit (via flush): stamps updated_at and calls persistNote", () => {
     await handle.flush();
     const after = Date.now();
 
-    // Both I/O calls must have happened.
+    // The sidecar is written once by the flush (openNote does not write it).
     expect(mocks.writeFileFromBlob).toHaveBeenCalledTimes(1);
-    expect(mocks.writeJson).toHaveBeenCalledTimes(1);
-
-    // Sidecar path must be correct.
     const sidecarArg = mocks.writeFileFromBlob.mock.calls[0][0] as string;
     expect(sidecarArg).toBe(sidecarPath("mira", note.id));
 
-    // Mirror path must be correct.
-    const mirrorArg = mocks.writeJson.mock.calls[0][0] as string;
-    expect(mirrorArg).toBe(`users/mira/notes/${note.id}.json`);
+    // writeJson also carries openNote's one-time actors.json write, so find the
+    // mirror write by path rather than asserting a total call count.
+    const mirrorCalls = mocks.writeJson.mock.calls.filter(
+      (c) => (c[0] as string) === `users/mira/notes/${note.id}.json`,
+    );
+    expect(mirrorCalls).toHaveLength(1);
 
     // The written mirror note must have a fresh updated_at (different from base).
-    const writtenNote = mocks.writeJson.mock.calls[0][1] as Note;
+    const writtenNote = mirrorCalls[0][1] as Note;
     expect(writtenNote.updated_at).not.toBe(note.updated_at);
     const writtenMs = Date.parse(writtenNote.updated_at);
     expect(writtenMs).toBeGreaterThanOrEqual(before);
@@ -257,8 +257,12 @@ describe("close: flushes pending debounced commit", () => {
     // Close immediately -- should flush the pending commit synchronously.
     await handle.close();
 
-    // Both I/O calls must have fired (flush ran before the timer expired).
+    // The flush wrote the sidecar (once) and the mirror (found by path; writeJson
+    // also carries openNote's one-time actors.json write).
     expect(mocks.writeFileFromBlob).toHaveBeenCalledTimes(1);
-    expect(mocks.writeJson).toHaveBeenCalledTimes(1);
+    const mirrorCalls = mocks.writeJson.mock.calls.filter(
+      (c) => (c[0] as string) === `users/mira/notes/${note.id}.json`,
+    );
+    expect(mirrorCalls).toHaveLength(1);
   });
 });
