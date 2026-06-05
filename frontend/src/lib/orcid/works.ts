@@ -93,6 +93,68 @@ function safeStr(val: unknown): string | null {
   return null;
 }
 
+/** Normalizes a title for duplicate detection, lowercase, alphanumeric-only. */
+function normalizeTitle(title: string): string {
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+/**
+ * Whether a work looks like a preprint (so we drop it in favor of the published
+ * version when both share a title). Signals, an explicit preprint type, a known
+ * preprint-server DOI prefix (bioRxiv/medRxiv 10.1101, chemRxiv 10.26434, arXiv
+ * 10.48550, Research Square 10.21203, Preprints.org 10.20944), or a preprint
+ * host in the url.
+ */
+function isPreprintWork(w: OrcidWork): boolean {
+  if (w.type && w.type.toLowerCase() === "preprint") return true;
+  if (w.doi && /^10\.(1101|26434|48550|21203|20944|31234|31219)\b/.test(w.doi)) {
+    return true;
+  }
+  if (
+    w.url &&
+    /(biorxiv|medrxiv|chemrxiv|arxiv|researchsquare|preprints?\.org)/i.test(w.url)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Collapses obvious preprint/published pairs, works that share an effectively
+ * identical title. Within such a group we keep the single most canonical
+ * version, preferring a non-preprint over a preprint, then one that has a
+ * journal, then the most recent year. Works with distinct titles (including a
+ * separate "Correction:" record, whose title differs) are all kept.
+ */
+function dedupeWorks(works: OrcidWork[]): OrcidWork[] {
+  const groups = new Map<string, OrcidWork[]>();
+  for (const w of works) {
+    const key = normalizeTitle(w.title);
+    const existing = groups.get(key);
+    if (existing) existing.push(w);
+    else groups.set(key, [w]);
+  }
+
+  const kept: OrcidWork[] = [];
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      kept.push(group[0]);
+      continue;
+    }
+    group.sort((a, b) => {
+      const pa = isPreprintWork(a) ? 1 : 0;
+      const pb = isPreprintWork(b) ? 1 : 0;
+      if (pa !== pb) return pa - pb; // non-preprint first
+      const ja = a.journal ? 0 : 1;
+      const jb = b.journal ? 0 : 1;
+      if (ja !== jb) return ja - jb; // has-journal first
+      return (b.year ?? "0000").localeCompare(a.year ?? "0000"); // newest first
+    });
+    kept.push(group[0]);
+  }
+  return kept;
+}
+
 export function parseOrcidWorks(raw: unknown): OrcidWork[] {
   if (!raw || typeof raw !== "object") return [];
 
@@ -173,15 +235,17 @@ export function parseOrcidWorks(raw: unknown): OrcidWork[] {
     works.push({ putCode, title, journal, year, type, doi, url });
   }
 
-  // Sort year descending (null years go to bottom)
-  works.sort((a, b) => {
+  // Collapse obvious preprint/published duplicates (same title), then sort
+  // year descending (null years go to bottom).
+  const deduped = dedupeWorks(works);
+  deduped.sort((a, b) => {
     if (a.year === null && b.year === null) return 0;
     if (a.year === null) return 1;
     if (b.year === null) return -1;
     return b.year.localeCompare(a.year);
   });
 
-  return works;
+  return deduped;
 }
 
 // ---------------------------------------------------------------------------

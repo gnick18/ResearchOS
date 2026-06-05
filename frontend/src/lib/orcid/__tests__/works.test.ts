@@ -80,6 +80,84 @@ describe("parseOrcidWorks", () => {
     expect(works).toEqual([]);
   });
 
+  it("collapses a preprint/published pair with the same title, keeping the published one", () => {
+    const works = parseOrcidWorks({
+      group: [
+        {
+          "work-summary": [
+            {
+              "put-code": 10,
+              title: { title: { value: "Mining for a New Class of Natural Products" } },
+              "journal-title": null,
+              type: "preprint",
+              "publication-date": { year: { value: "2023" } },
+              "external-ids": {
+                "external-id": [
+                  {
+                    "external-id-type": "doi",
+                    "external-id-value": "10.1101/2023.04.17.537281",
+                    "external-id-normalized": { value: "10.1101/2023.04.17.537281" },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        {
+          "work-summary": [
+            {
+              "put-code": 11,
+              title: { title: { value: "Mining for a new class of natural products" } },
+              "journal-title": { value: "Nucleic Acids Research" },
+              type: "journal-article",
+              "publication-date": { year: { value: "2023" } },
+              "external-ids": {
+                "external-id": [
+                  {
+                    "external-id-type": "doi",
+                    "external-id-value": "10.1093/nar/gkad573",
+                    "external-id-normalized": { value: "10.1093/nar/gkad573" },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+    expect(works).toHaveLength(1);
+    expect(works[0].journal).toBe("Nucleic Acids Research");
+    expect(works[0].doi).toBe("10.1093/nar/gkad573");
+  });
+
+  it("does NOT collapse a Correction record (different title)", () => {
+    const works = parseOrcidWorks({
+      group: [
+        {
+          "work-summary": [
+            {
+              "put-code": 20,
+              title: { title: { value: "A Timeline of Discovery" } },
+              "journal-title": { value: "Journal of Fungi" },
+              "publication-date": { year: { value: "2024" } },
+            },
+          ],
+        },
+        {
+          "work-summary": [
+            {
+              "put-code": 21,
+              title: { title: { value: "Correction: A Timeline of Discovery" } },
+              "journal-title": { value: "Journal of Fungi" },
+              "publication-date": { year: { value: "2024" } },
+            },
+          ],
+        },
+      ],
+    });
+    expect(works).toHaveLength(2);
+  });
+
   it("returns an empty array for malformed or empty input", () => {
     expect(parseOrcidWorks(null)).toEqual([]);
     expect(parseOrcidWorks(undefined)).toEqual([]);
