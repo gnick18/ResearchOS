@@ -48,6 +48,12 @@ import {
   type GatewayReaction,
   type GatewaySubstrate,
 } from "@/lib/sequences/cloning-gateway";
+import {
+  fragmentSiteSummary,
+  checkGatewayMatch,
+  type FragmentSiteSummary,
+  type GatewayMatch,
+} from "@/lib/sequences/pick-readouts";
 import type { SequenceRecord } from "@/lib/types";
 import CloningProductPreview from "./CloningProductPreview";
 import type { RibbonJunction } from "./FragmentRibbon";
@@ -96,6 +102,9 @@ function WarnIcon({ className }: { className?: string }) {
 }
 function CopyIcon({ className }: { className?: string }) {
   return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>);
+}
+function CheckIcon({ className }: { className?: string }) {
+  return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>);
 }
 
 // --- types for the workspace's working state --------------------------------
@@ -308,6 +317,35 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
       features: fragments[1].features ?? [],
     };
     return runGateway(insert, cassette, gatewayReaction);
+  }, [method, fragments, gatewayReaction, fragmentIsCircular]);
+
+  // PICK-STEP READOUTS (Phase C). Chemistry-tuned compatibility info shown on the
+  // pick step BEFORE review, so the user sees each method's key fact up front.
+  // Pure helpers (pick-readouts.ts) on the existing engine helpers (digestEnzymes,
+  // locateAttSites); display only, no assembly-logic change.
+
+  // Restriction / Golden Gate: how many times each selected enzyme cuts each
+  // picked fragment. Index-aligned with `fragments`. Recomputed live as the user
+  // changes fragments or enzymes (the digest is cheap and memoized here).
+  const fragmentSiteSummaries: FragmentSiteSummary[] = useMemo(() => {
+    if (method === "overlap" || method === "gateway") return [];
+    return fragments.map((f) => fragmentSiteSummary(f.seq, enzymeNames));
+  }, [method, fragments, enzymeNames]);
+
+  // Gateway: classify each picked substrate (attL / attR / attB / attP) and check
+  // the picked pair against the chosen BP/LR reaction. Slot order matters.
+  const gatewayMatch: GatewayMatch | null = useMemo(() => {
+    if (method !== "gateway") return null;
+    const substrates: GatewaySubstrate[] = fragments
+      .filter((f) => f.seq)
+      .map((f, i) => ({
+        name: f.name,
+        seq: f.seq,
+        circular: fragmentIsCircular(i),
+        features: f.features ?? [],
+      }));
+    if (substrates.length === 0) return null;
+    return checkGatewayMatch(substrates, gatewayReaction);
   }, [method, fragments, gatewayReaction, fragmentIsCircular]);
 
   // RENDERABLE PRODUCT DETAILS for the review-step map. Built from the engine
@@ -652,33 +690,55 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                 {picked.map((p, i) => {
                   const frag = fragments[i];
                   const len = frag?.seq.length ?? 0;
+                  // Phase C readouts. Restriction / Golden Gate show this
+                  // fragment's per-enzyme site counts; Gateway shows the
+                  // auto-detected att classification for this substrate slot.
+                  const siteSummary =
+                    method !== "overlap" && method !== "gateway"
+                      ? fragmentSiteSummaries[i]
+                      : undefined;
+                  const gatewayClass =
+                    method === "gateway" ? gatewayMatch?.substrates[i] : undefined;
                   return (
-                    <li key={`${p.kind}-${i}-${p.name}`} className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-meta font-semibold text-sky-700">
-                        {i + 1}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-body font-medium text-gray-800">{p.name}</span>
-                        <span className="block text-meta text-gray-400">
-                          {p.kind === "pasted" ? "Pasted" : "Library"} ·{" "}
-                          {resolving && p.kind === "library" && !len ? "resolving…" : `${len.toLocaleString()} bp`}
+                    <li key={`${p.kind}-${i}-${p.name}`} className="rounded-md border border-gray-200 bg-white px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-meta font-semibold text-sky-700">
+                          {i + 1}
                         </span>
-                      </span>
-                      <Tooltip label="Move up">
-                        <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30" aria-label="Move up">
-                          <UpIcon className="h-4 w-4" />
-                        </button>
-                      </Tooltip>
-                      <Tooltip label="Move down">
-                        <button type="button" onClick={() => move(i, 1)} disabled={i === picked.length - 1} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30" aria-label="Move down">
-                          <DownIcon className="h-4 w-4" />
-                        </button>
-                      </Tooltip>
-                      <Tooltip label="Remove">
-                        <button type="button" onClick={() => remove(i)} className="rounded p-1 text-gray-400 hover:bg-rose-50 hover:text-rose-600" aria-label="Remove">
-                          <TrashIcon className="h-4 w-4" />
-                        </button>
-                      </Tooltip>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-body font-medium text-gray-800">{p.name}</span>
+                          <span className="block text-meta text-gray-400">
+                            {p.kind === "pasted" ? "Pasted" : "Library"} ·{" "}
+                            {resolving && p.kind === "library" && !len ? "resolving…" : `${len.toLocaleString()} bp`}
+                          </span>
+                        </span>
+                        <Tooltip label="Move up">
+                          <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30" aria-label="Move up">
+                            <UpIcon className="h-4 w-4" />
+                          </button>
+                        </Tooltip>
+                        <Tooltip label="Move down">
+                          <button type="button" onClick={() => move(i, 1)} disabled={i === picked.length - 1} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30" aria-label="Move down">
+                            <DownIcon className="h-4 w-4" />
+                          </button>
+                        </Tooltip>
+                        <Tooltip label="Remove">
+                          <button type="button" onClick={() => remove(i)} className="rounded p-1 text-gray-400 hover:bg-rose-50 hover:text-rose-600" aria-label="Remove">
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        </Tooltip>
+                      </div>
+
+                      {/* Restriction / Golden Gate: sites per fragment for the
+                          selected enzyme(s). Shown only once the bases resolve. */}
+                      {siteSummary && len > 0 ? (
+                        <SitesPerFragment summary={siteSummary} goldenGate={method === "golden-gate"} />
+                      ) : null}
+
+                      {/* Gateway: the auto-detected att classification chip. */}
+                      {gatewayClass && len > 0 ? (
+                        <GatewaySubstrateChip kind={gatewayClass.kind} label={gatewayClass.label} />
+                      ) : null}
                     </li>
                   );
                 })}
@@ -745,6 +805,14 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                       ? "attB substrate x attP donor builds an attL entry clone (the ccdB cassette leaves as the byproduct)."
                       : "attL entry clone x attR destination builds an attB expression clone (the ccdB cassette leaves as the byproduct)."}
                   </p>
+                  {/* Phase C: gentle hint when the two picked substrates do not
+                      match the chosen reaction, so the empty product is explained. */}
+                  {gatewayMatch && gatewayMatch.hint ? (
+                    <div className="mt-2 flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-meta text-amber-700">
+                      <WarnIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span>{gatewayMatch.hint}</span>
+                    </div>
+                  ) : null}
                 </div>
               ) : method !== "overlap" ? (
                 <div>
@@ -1252,6 +1320,67 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
     <span className="mb-1.5 block text-meta font-medium uppercase tracking-wide text-gray-400">
       {children}
     </span>
+  );
+}
+
+/** Pick-step "sites per fragment" readout (Phase C). One compact line per
+ *  selected enzyme showing how many times it cuts this fragment, e.g.
+ *  "BsaI x2". An enzyme with 0 sites reads as a muted warning ("BsaI: no
+ *  sites") with a subtle amber tint, since it cannot contribute an end (and for
+ *  Golden Gate it means the part cannot be excised). Calm and scannable, not a
+ *  table. Display only, on the pure fragmentSiteSummary helper. */
+function SitesPerFragment({ summary, goldenGate }: { summary: FragmentSiteSummary; goldenGate: boolean }) {
+  if (summary.enzymes.length === 0) return null;
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-8">
+      {summary.enzymes.map((e) => {
+        if (e.count === 0) {
+          return (
+            <span
+              key={e.name}
+              className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 font-mono text-meta text-amber-700"
+            >
+              <WarnIcon className="h-3 w-3 shrink-0" />
+              {e.name}: no sites
+            </span>
+          );
+        }
+        return (
+          <span
+            key={e.name}
+            className="inline-flex items-center rounded bg-emerald-50 px-1.5 py-0.5 font-mono text-meta text-emerald-700"
+          >
+            {e.name} x{e.count}
+          </span>
+        );
+      })}
+      {/* Golden Gate health note: a Type IIS part is normally flanked by exactly
+          two sites (one per end), so flag a part with no sites to excise. */}
+      {goldenGate && summary.hasNoncutter ? (
+        <span className="text-meta text-amber-600">cannot be excised</span>
+      ) : null}
+    </div>
+  );
+}
+
+/** Pick-step Gateway substrate chip (Phase C). A small label on each picked
+ *  substrate row naming what the att auto-detection found, e.g. "attL entry
+ *  clone detected". An unrecognized substrate gets a muted amber chip so the
+ *  user knows why the run may not produce a clone. Display only, on the pure
+ *  classifyGatewaySubstrate helper (via the checkGatewayMatch result). */
+function GatewaySubstrateChip({ kind, label }: { kind: string; label: string }) {
+  const recognized = kind !== "unknown";
+  return (
+    <div className="mt-1.5 pl-8">
+      <span
+        className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-meta font-medium ${
+          recognized ? "bg-sky-50 text-sky-700" : "bg-amber-50 text-amber-700"
+        }`}
+      >
+        {recognized ? <CheckIcon className="h-3 w-3 shrink-0" /> : <WarnIcon className="h-3 w-3 shrink-0" />}
+        {label}
+      </span>
+    </div>
   );
 }
 
