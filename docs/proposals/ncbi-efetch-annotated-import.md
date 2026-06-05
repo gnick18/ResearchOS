@@ -5,6 +5,17 @@ ANNOTATED gene imports (not bare FASTA), design doc first, scope = genes plus an
 accession. Extends the NCBI Datasets integration
 (`docs/proposals/ncbi-datasets-import.md`).
 
+## Decisions (Grant, 2026-06-05)
+
+- GENE DEFAULT: pull the RefSeqGene `NG_` (the whole-gene curated record, all
+  transcripts + exons + CDS). The gene report already hands us the `NG_`, no extra
+  resolve. The MANE `NM_` transcript is a later option, not v1.
+- FASTA PATH: keep both. Annotated GenBank is the default for a gene; a "sequence
+  only" toggle still offers the bulk gene/rna/protein/cds FASTA.
+- NCBI IDENTITY: send `tool=research-os` only, no email. Zero PII in the request.
+- PROVENANCE: a sibling `source = "ncbi-efetch"` tag, distinct from
+  `"ncbi-datasets"`, so the record reflects which endpoint served it.
+
 ## The problem this solves
 
 NCBI genome/assembly imports already arrive fully annotated, because the Datasets
