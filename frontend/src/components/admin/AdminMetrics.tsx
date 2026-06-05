@@ -184,6 +184,97 @@ function Unavailable() {
   );
 }
 
+/**
+ * The two ceilings that can actually take cross-boundary sharing down: R2
+ * storage (the sealed bundles in flight) and Resend's monthly send budget.
+ * Both are rendered as ordinary service cards below, sitting among services
+ * that self-clean (Neon, Upstash keys) or are console-only and are NOT the
+ * binding constraint. This banner pulls the two binding ones to the top and
+ * shouts when either crosses a watch or critical threshold, so the survival
+ * signal does not get lost in a grid of equal-looking tiles.
+ */
+function SurvivalRisk({ c }: { c: CapacityMetrics }) {
+  const signals = [
+    {
+      key: "r2",
+      name: "Cloudflare R2 storage",
+      available: c.r2.usedBytes !== null,
+      pct: pctUsed(c.r2.usedBytes ?? 0, c.r2.limitBytes),
+      detail: `${humanBytes(c.r2.usedBytes ?? 0)} of ${humanBytes(c.r2.limitBytes)} of sealed bundles in flight`,
+      meaning:
+        "Per-inbox caps bound each user, but the global free tier is the real ceiling. Two full 5 GB inboxes already reach it.",
+    },
+    {
+      key: "resend",
+      name: "Resend email",
+      available: c.resend.sentLast30Days !== null,
+      pct: pctUsed(c.resend.sentLast30Days ?? 0, c.resend.perMonthLimit),
+      detail: `${fmtInt(c.resend.sentLast30Days ?? 0)} of ${fmtInt(c.resend.perMonthLimit)} sends in the last 30 days`,
+      meaning:
+        "Every OTP and share invite spends one. This is the only ceiling that is truly monthly and global.",
+    },
+  ];
+  const worst: CapacityStatus = signals
+    .filter((s) => s.available)
+    .reduce<CapacityStatus>((acc, s) => {
+      const st = capacityStatus(s.pct);
+      if (acc === "critical" || st === "critical") return "critical";
+      if (acc === "watch" || st === "watch") return "watch";
+      return "ok";
+    }, "ok");
+  const anyUnavailable = signals.some((s) => !s.available);
+
+  const BOX: Record<CapacityStatus, string> = {
+    ok: "border-emerald-200 bg-emerald-50",
+    watch: "border-amber-200 bg-amber-50",
+    critical: "border-rose-200 bg-rose-50",
+  };
+  const headline =
+    worst === "critical"
+      ? "A survival-critical ceiling is close to its limit."
+      : worst === "watch"
+        ? "A survival-critical ceiling is worth watching."
+        : anyUnavailable
+          ? "One survival-critical ceiling could not be measured."
+          : "Both survival-critical ceilings are healthy.";
+
+  return (
+    <div className={`mb-4 rounded-2xl border p-4 ${BOX[worst]}`}>
+      <p className={`text-body font-semibold ${STATUS_TEXT[worst]}`}>{headline}</p>
+      <p className="mt-1 text-meta text-gray-500 leading-relaxed">
+        These two ceilings are the ones that can take cross-boundary sharing
+        down. The other services below either self-clean (Neon rows, Upstash
+        keys all TTL out) or are only visible in the provider console, so they
+        are not the binding constraint.
+      </p>
+      <ul className="mt-3 space-y-2">
+        {signals.map((s) => {
+          const st = capacityStatus(s.pct);
+          return (
+            <li key={s.key} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <span
+                className={`inline-block h-2 w-2 self-center rounded-full ${
+                  s.available ? STATUS_BAR[st] : "bg-gray-300"
+                }`}
+              />
+              <span className="text-meta font-semibold text-gray-700">{s.name}</span>
+              {s.available ? (
+                <span className={`text-meta font-semibold ${STATUS_TEXT[st]}`}>
+                  {s.pct < 10 ? s.pct.toFixed(1) : Math.round(s.pct)}%
+                </span>
+              ) : (
+                <span className="text-meta text-gray-400">unavailable</span>
+              )}
+              <span className="text-meta text-gray-400">{s.detail}.</span>
+              <span className="w-full text-meta text-gray-400 leading-relaxed">{s.meaning}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 export default function AdminMetrics() {
   const [state, setState] = useState<
     | { phase: "loading" }
@@ -349,7 +440,9 @@ export default function AdminMetrics() {
           {(() => {
             const c = state.data.capacity;
             return (
-              <div className="grid gap-4 sm:grid-cols-2">
+              <>
+                <SurvivalRisk c={c} />
+                <div className="grid gap-4 sm:grid-cols-2">
                 {/* Neon Postgres */}
                 <ServiceCard
                   name="Neon Postgres"
@@ -441,7 +534,8 @@ export default function AdminMetrics() {
                     </div>
                   )}
                 </ServiceCard>
-              </div>
+                </div>
+              </>
             );
           })()}
         </section>
