@@ -35,6 +35,7 @@ import BetaNotice from "@/components/BetaNotice";
 import DevForceWalkthroughButton from "@/components/DevForceWalkthroughButton";
 import DevForceLandingButton from "@/components/DevForceLandingButton";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
+import RoadmapModal from "@/components/RoadmapModal";
 
 interface UserLoginScreenProps {
   onLogin: () => void;
@@ -231,6 +232,9 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
 
   // Bug report state
   const { showBugReport, currentError, openBugReport, closeBugReport } = useErrorReporting();
+
+  // Roadmap modal state
+  const [roadmapOpen, setRoadmapOpen] = useState(false);
 
   const refreshLockStatus = async (usernames: string[]) => {
     const next = new Set<string>();
@@ -1748,6 +1752,17 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           Setting up a shared lab account?
         </a>
         <button
+          type="button"
+          onClick={() => setRoadmapOpen(true)}
+          className="text-slate-400 hover:text-white text-meta transition-colors flex items-center gap-1"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 14 14" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 11.5c1.5-3 3-5 5-6.5 2.5-1.8 5-1.5 5-1.5s.3 2.5-1.5 5c-1.5 2-3.5 3.5-6.5 5z" />
+            <circle cx="7.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+          </svg>
+          What we&apos;re building
+        </button>
+        <button
           onClick={openBugReport}
           className="text-slate-500 hover:text-white text-meta transition-colors flex items-center gap-1"
         >
@@ -1765,6 +1780,9 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         onClose={closeBugReport}
         prefilledError={currentError}
       />
+
+      {/* Roadmap modal */}
+      <RoadmapModal open={roadmapOpen} onClose={() => setRoadmapOpen(false)} />
 
       {/* Dev-only floating button: create a temporary Test-N user and
           fire the v4 walkthrough on it. Renders nothing in production

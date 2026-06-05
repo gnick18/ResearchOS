@@ -37,6 +37,7 @@ import { useRouter } from "next/navigation";
 import BeakerBot from "@/components/BeakerBot";
 import DemoLoop, { DemoLoopPlaceholder } from "@/components/welcome/DemoLoop";
 import { GoogleIcon, GitHubIcon, LinkedInIcon } from "@/components/sharing/icons";
+import RoadmapModal from "@/components/RoadmapModal";
 
 /** The rainbow ribbon gradient (pastel), for the top ribbon and the soft bloom. */
 const RAINBOW =
@@ -241,6 +242,9 @@ export default function WelcomePage() {
     };
   }, []);
 
+  // Roadmap modal state.
+  const [roadmapOpen, setRoadmapOpen] = useState(false);
+
   // Three-path sign-in, plain router.push (no SessionProvider in this app).
   const handleGoogle = () => router.push("/?connect=1&signIn=google");
   const handleGitHub = () => router.push("/?connect=1&signIn=github");
@@ -267,9 +271,34 @@ export default function WelcomePage() {
               ResearchOS
             </span>
           </div>
-          <span className="rounded-full border border-[#d3deec] bg-sky-50 px-3 py-1 text-meta font-semibold text-sky-700">
-            Free and open source
-          </span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setRoadmapOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#d3deec] bg-white px-3 py-1 text-meta font-semibold text-[#0e1726] transition-colors hover:bg-[#eef4fb] hover:border-[#c5d6ea]"
+            >
+              {/* Small flag/rocket icon */}
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M2 11.5c1.5-3 3-5 5-6.5 2.5-1.8 5-1.5 5-1.5s.3 2.5-1.5 5c-1.5 2-3.5 3.5-6.5 5z" />
+                <circle cx="7.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+                <path d="M2 11.5L5 9" />
+              </svg>
+              What we&apos;re building
+            </button>
+            <span className="rounded-full border border-[#d3deec] bg-sky-50 px-3 py-1 text-meta font-semibold text-sky-700">
+              Free and open source
+            </span>
+          </div>
         </nav>
 
         {/* ── Hero ────────────────────────────────────────────────────── */}
@@ -646,6 +675,45 @@ export default function WelcomePage() {
           </div>
         </section>
 
+        {/* ── What we're building chip (above comparison table) ───────── */}
+        <div className="px-6 pb-0 pt-4 text-center sm:px-12">
+          <button
+            type="button"
+            onClick={() => setRoadmapOpen(true)}
+            className="inline-flex items-center gap-2 rounded-full border border-[#d3deec] bg-white px-4 py-2 text-[13px] font-semibold text-[#0e1726] shadow-sm transition-colors hover:bg-[#eef4fb] hover:border-[#c5d6ea]"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 14 14"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M2 11.5c1.5-3 3-5 5-6.5 2.5-1.8 5-1.5 5-1.5s.3 2.5-1.5 5c-1.5 2-3.5 3.5-6.5 5z" />
+              <circle cx="7.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+              <path d="M2 11.5L5 9" />
+            </svg>
+            What we&apos;re building
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M2 6h8M6 2l4 4-4 4" />
+            </svg>
+          </button>
+        </div>
+
         {/* ── Comparison (carried from LandingPage, restyled light) ────── */}
         <section className="px-6 py-16 sm:px-12">
           <div className="mx-auto mb-8 max-w-[1320px]">
@@ -814,6 +882,9 @@ export default function WelcomePage() {
           </div>
         </footer>
       </div>
+
+      {/* Roadmap modal */}
+      <RoadmapModal open={roadmapOpen} onClose={() => setRoadmapOpen(false)} />
     </div>
   );
 }
