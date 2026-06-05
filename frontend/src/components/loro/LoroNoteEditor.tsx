@@ -60,6 +60,17 @@ export default function LoroNoteEditor({
   // EditorView once the handle is available.
   const [ready, setReady] = useState(false);
 
+  // Latest-value refs for note + onChange. These change identity on EVERY
+  // render (NoteDetailPopup builds a fresh note object and updateEntryContent
+  // closure each time the user types). If Effect 2 depended on them directly it
+  // would destroy and rebuild the entire CodeMirror view on every keystroke,
+  // re-initialising the Loro sync each time and hanging the main thread. The
+  // updateListener reads these refs so the effect can stay stable.
+  const noteRef = useRef(note);
+  noteRef.current = note;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
   // Effect 1: open the note (or close + reopen when note identity changes).
   // Dep array: note.id + owner -- the two things that identify which Loro doc
   // to open. entryIndex is intentionally excluded; it is handled by Effect 2.
@@ -128,11 +139,12 @@ export default function LoroNoteEditor({
       EditorView.updateListener.of((update) => {
         if (!update.docChanged) return;
         // (a) Debounced persist through the handle (handle owns the timer).
-        void handle.commit(note);
+        //     Read the latest base note from the ref, not the captured prop.
+        void handle.commit(noteRef.current);
         // (b) Fire onChange so NoteDetailPopup's React state stays in sync
         //     with the CRDT content (drives the "unsaved changes" indicator
         //     and the legacy save path, which may still fire on Cmd+S).
-        onChange(update.state.doc.toString());
+        onChangeRef.current(update.state.doc.toString());
       }),
     ];
 
@@ -155,9 +167,11 @@ export default function LoroNoteEditor({
       view.destroy();
       viewRef.current = null;
     };
-    // `note` is included so handle.commit(note) always has the latest base.
-    // `readOnly` is included so the EditorView.editable extension is correct.
-  }, [ready, entryIndex, note, readOnly, onChange]);
+    // Deps are intentionally ONLY ready/entryIndex/readOnly. note and onChange
+    // are accessed via refs (see noteRef/onChangeRef above) so a keystroke does
+    // not rebuild the EditorView; rebuilding per keystroke hangs the page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, entryIndex, readOnly]);
 
   return (
     <div
