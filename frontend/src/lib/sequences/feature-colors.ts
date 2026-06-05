@@ -26,6 +26,11 @@ export const FEATURE_TYPE_COLORS: Record<string, string> = {
   primer: "#f472b6", // pink
   primer_bind: "#f472b6",
   misc_feature: "#a78bfa", // violet
+  // sequence editor master — protein domain annotations (InterProScan / Pfam +
+  // the later on-device HMMER path) share one distinct type so they form a single
+  // filterable group in the view-rail feature-type flyout. Indigo reads in light
+  // and dark and is not used by another common type.
+  domain: "#818cf8", // indigo
   protein_bind: "#22d3ee", // cyan
   rbs: "#fb923c", // orange
   sig_peptide: "#fcd34d",

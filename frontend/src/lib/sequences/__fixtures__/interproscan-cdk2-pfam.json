@@ -1,0 +1,59 @@
+{
+ "interproscan-version": "5.77-108.0",
+ "results": [
+  {
+   "matches": [
+    {
+     "signature": {
+      "accession": "PF00069",
+      "name": "Pkinase",
+      "description": "Protein kinase domain",
+      "type": "DOMAIN",
+      "signatureLibraryRelease": {
+       "library": "PFAM",
+       "version": "38.1"
+      },
+      "entry": {
+       "accession": "IPR000719",
+       "name": "Prot_kinase_dom",
+       "description": "Protein kinase domain",
+       "type": "DOMAIN"
+      }
+     },
+     "locations": [
+      {
+       "start": 4,
+       "end": 286,
+       "representative": true,
+       "hmmStart": 1,
+       "hmmEnd": 262,
+       "hmmLength": 262,
+       "hmmBounds": "COMPLETE",
+       "evalue": 4.4e-74,
+       "score": 260.8,
+       "envelopeStart": 4,
+       "envelopeEnd": 286,
+       "postProcessed": true,
+       "location-fragments": [
+        {
+         "start": 4,
+         "end": 286,
+         "dc-status": "CONTINUOUS"
+        }
+       ]
+      }
+     ],
+     "evalue": 3.8e-74,
+     "score": 260.9,
+     "model-ac": "PF00069"
+    }
+   ],
+   "xref": [
+    {
+     "name": "EMBOSS_001",
+     "id": "EMBOSS_001"
+    }
+   ]
+  }
+ ]
+}

@@ -30,8 +30,10 @@ import {
   translateFeature,
   trimTrailingStop,
 } from "@/lib/sequences/feature-protein";
+import type { FeatureDraft } from "@/lib/sequences/feature-edit";
 import Tooltip from "@/components/Tooltip";
 import ProteinPropertiesView, { NonStandardNotice } from "./ProteinPropertiesView";
+import DomainAnnotationPanel from "./DomainAnnotationPanel";
 
 /** Fixed drawer width. Wide enough for the four stats + the composition grid on
  *  expand, narrow enough to leave the map readable when reflowed. */
@@ -121,6 +123,7 @@ export default function ProteinPropertiesDrawer({
   readOnly,
   onClose,
   onEditFeature,
+  onAddDomains,
 }: {
   /** The selected coding feature to analyze. */
   feature: EditFeature;
@@ -134,6 +137,9 @@ export default function ProteinPropertiesDrawer({
   onClose: () => void;
   /** Open the existing edit/info dialog for this feature. */
   onEditFeature: (index: number) => void;
+  /** Apply accepted domain hits as features in ONE undoable edit. Omitted on a
+   *  read-only surface, which hides the "Annotate domains" action. */
+  onAddDomains?: (drafts: FeatureDraft[]) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -264,9 +270,30 @@ export default function ProteinPropertiesDrawer({
         )}
       </div>
 
-      {/* Footer action: Edit feature (hidden on a read-only surface). */}
+      {/* Footer actions: Annotate domains + Edit feature (hidden on a read-only
+          surface). The domain action submits this CDS's translated protein to
+          EBI InterProScan (opt-in, reviewed before adding). It is disabled when
+          the feature does not translate to a clean protein (empty translation or
+          an internal stop), since there is nothing valid to submit. */}
       {!readOnly ? (
-        <div className="border-t border-gray-100 px-4 py-2.5">
+        <div className="space-y-2 border-t border-gray-100 px-4 py-2.5">
+          {onAddDomains ? (
+            <DomainAnnotationPanel
+              // Key by the feature identity so selecting a different CDS remounts
+              // the panel fresh (idle, no stale results / in-flight job leaking).
+              key={`${feature.type}|${feature.start}|${feature.end}|${feature.strand ?? 1}|${feature.name}`}
+              feature={feature}
+              protein={aa.replace(/\*+$/, "")}
+              seqLength={seq.length}
+              disabled={result === null || hasInternalStop}
+              disabledReason={
+                result === null
+                  ? "This feature does not translate to a protein, so there is nothing to search."
+                  : "This translation has an internal stop, so it is not a clean protein to search."
+              }
+              onAddDomains={onAddDomains}
+            />
+          ) : null}
           <button
             type="button"
             onClick={() => onEditFeature(featureIndex)}

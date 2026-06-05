@@ -1787,6 +1787,19 @@ export default function SequenceEditView({
     });
   }, [doc.seq, editor]);
 
+  // sequence editor master — apply accepted protein-domain hits (from the
+  // opt-in EBI InterProScan handoff in the CDS protein drawer) as features in ONE
+  // undoable edit, the same fold-through-applyDocEdit path as detect-features.
+  const addDomainFeatures = useCallback(
+    (drafts: FeatureDraft[]) => {
+      if (drafts.length === 0) return;
+      editor.applyDocEdit((prev) =>
+        drafts.reduce((acc, draft) => addFeature(acc, draft), prev),
+      );
+    },
+    [editor],
+  );
+
   // EDIT: open the editor seeded from an existing feature, with a Delete action.
   const openEditFeature = useCallback(
     (index: number) => {
@@ -3615,6 +3628,7 @@ export default function SequenceEditView({
             readOnly={readOnly}
             onClose={() => setProteinDrawerDismissedIdx(selectedFeatureIdx)}
             onEditFeature={openEditFeature}
+            onAddDomains={readOnly ? undefined : addDomainFeatures}
           />
         ) : null}
       </div>
