@@ -17,7 +17,7 @@ import Tooltip from "@/components/Tooltip";
 import { productGc, type FragmentSpan } from "@/lib/sequences/cloning";
 import type { SequenceDetail } from "@/lib/types";
 import SequenceReadView from "./SequenceReadView";
-import FragmentRibbon from "./FragmentRibbon";
+import FragmentRibbon, { type RibbonJunction } from "./FragmentRibbon";
 
 function CopyIcon({ className }: { className?: string }) {
   return (
@@ -72,6 +72,14 @@ interface Props {
   detail?: SequenceDetail | null;
   /** Per-fragment product spans for the origin ribbon under the map. */
   fragmentSpans?: FragmentSpan[];
+  /** Per-boundary junction-tick labels on the ribbon (overlap bp/Tm, overhang
+   *  seal, att-site scar). Optional; the ribbon renders without them. */
+  ribbonJunctions?: RibbonJunction[];
+  /** Start the embedded map on the cut-site layer (restriction / Golden Gate). */
+  showEnzymes?: boolean;
+  /** Chemistry-specific hero module, rendered ABOVE the map. Leads the review
+   *  with the one verification that chemistry's user most needs. */
+  hero?: React.ReactNode;
   /** Optional radio for picking among several possible products. */
   select?: SelectControl;
   /** Method-specific extras (junctions, oligo table, digested pieces, att-sites). */
@@ -89,6 +97,9 @@ export default function CloningProductPreview({
   circular,
   detail,
   fragmentSpans,
+  ribbonJunctions,
+  showEnzymes = false,
+  hero,
   select,
   children,
   onSave,
@@ -158,18 +169,28 @@ export default function CloningProductPreview({
         </div>
       </div>
 
+      {/* Hero module, the chemistry-specific lead of the review. */}
+      {hero ? <div className="mb-3">{hero}</div> : null}
+
       {/* The live product map (read-only SeqViz via the saved-sequence read path).
-          Circular products render the ring, linear render the track. */}
+          Circular products render the ring, linear render the track. The embedded
+          map opens on the Map (ring) view with slim chrome; restriction / Golden
+          Gate also start with the enzyme / cut-site layer on. */}
       {detail ? (
         <div className="overflow-hidden rounded-md border border-gray-200">
-          <SequenceReadView sequence={detail} />
+          <SequenceReadView
+            sequence={detail}
+            embedded
+            initialViewMode="map"
+            initialShowEnzymes={showEnzymes}
+          />
         </div>
       ) : null}
 
       {/* Fragment-origin ribbon, directly under the map. */}
       {fragmentSpans && fragmentSpans.length > 0 ? (
         <div className="mt-3">
-          <FragmentRibbon spans={fragmentSpans} length={seq.length} />
+          <FragmentRibbon spans={fragmentSpans} length={seq.length} junctions={ribbonJunctions} />
         </div>
       ) : null}
 

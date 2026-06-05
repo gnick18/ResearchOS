@@ -145,12 +145,28 @@ export interface CutLigateOptions {
   allowBlunt?: boolean;
 }
 
+/** One sealed junction in an assembled product, with the seam geometry the
+ *  sticky-end ladder hero draws. `overhang` is the canonical seal (same value
+ *  as the matching `junctionOverhangs[i]`); `kind` is the overhang geometry of
+ *  the upstream piece's end at this seam ("blunt" | "5'" | "3'"). The data comes
+ *  off the `PieceEnd`s inside the ligation chain; this is purely a convenience
+ *  surfacing of it (in-memory only, no on-disk shape). */
+export interface ProductJunction {
+  /** Canonical sealed overhang (top strand 5'->3'), "" if blunt. */
+  overhang: string;
+  /** Overhang geometry of this seam. */
+  kind: "blunt" | "5'" | "3'";
+}
+
 export interface LigationProduct {
   /** Assembled product top strand, 5'->3' (canonical rotation if circular). */
   seq: string;
   circular: boolean;
   /** The ordered junction overhangs sealed to make this product (5'->3'). */
   junctionOverhangs: string[];
+  /** Per-junction seam geometry (overhang + 5'/3'/blunt kind), index-aligned
+   *  with `junctionOverhangs`. Additive; surfaced for the sticky-end hero. */
+  junctions: ProductJunction[];
   /** Features from the input fragments, rebased into product coordinates.
    *  0-based, end-EXCLUSIVE [start, end) on the product top strand. */
   features: CloneFeature[];
@@ -684,6 +700,20 @@ export function ligate(
     // `canonicalCircular` treats the product itself. Blunt seams stay "".
     const rawSeams = circular ? [...seams, closeSeam] : seams;
     const junctionOverhangs = rawSeams.map((s) => (s === "" ? "" : canonicalLinear(s)));
+
+    // Per-junction seam geometry, index-aligned with rawSeams. Internal seam i is
+    // the join chain[i].right -> chain[i+1].left, so its overhang KIND is the
+    // upstream piece's right-end kind. The closing seam (circular) is
+    // chain[last].right -> chain[0].left. Additive surfacing of PieceEnd.kind.
+    const seamKind = (k: EndKind): "blunt" | "5'" | "3'" =>
+      k === "blunt" ? "blunt" : k === "5overhang" ? "5'" : "3'";
+    const rawKinds: EndKind[] = [];
+    for (let i = 0; i < chain.length - 1; i += 1) rawKinds.push(chain[i].right.kind);
+    if (circular) rawKinds.push(chain[chain.length - 1].right.kind);
+    const junctions: ProductJunction[] = junctionOverhangs.map((oh, i) => ({
+      overhang: oh,
+      kind: seamKind(rawKinds[i] ?? "blunt"),
+    }));
     const canon = circular ? canonicalCircular(out) : canonicalLinear(out);
 
     // Clamp features to [0, productLen) and drop zero-width windows.
@@ -707,6 +737,7 @@ export function ligate(
       seq: canon,
       circular,
       junctionOverhangs,
+      junctions,
       features: validFeatures,
       fragmentSpans: validSpans,
     };

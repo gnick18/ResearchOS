@@ -50,6 +50,11 @@ import {
 } from "@/lib/sequences/cloning-gateway";
 import type { SequenceRecord } from "@/lib/types";
 import CloningProductPreview from "./CloningProductPreview";
+import type { RibbonJunction } from "./FragmentRibbon";
+import OverlapHomologyHero from "./cloning-heroes/OverlapHomologyHero";
+import StickyEndLadderHero from "./cloning-heroes/StickyEndLadderHero";
+import GoldenGateFingerprintHero from "./cloning-heroes/GoldenGateFingerprintHero";
+import GatewayCrossoverHero from "./cloning-heroes/GatewayCrossoverHero";
 
 /** Which assembly chemistry the workspace is driving. */
 type CloneMethod = "overlap" | "restriction" | "golden-gate" | "gateway";
@@ -341,6 +346,54 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
           features: prod.features,
         }),
       ),
+    [gatewayResult],
+  );
+
+  // RIBBON JUNCTION-TICK LABELS (Phase B 1c). Each chemistry labels its boundaries
+  // with the readout that matters: overlap bp + Tm, the overhang seal, the att
+  // scar. Boundaries sit at the END of each non-final fragment span (the seam
+  // between span i and span i+1), in product bp coordinates the ribbon shares.
+  const overlapRibbonJunctions: RibbonJunction[] = useMemo(() => {
+    if (!result) return [];
+    const spans = result.fragmentSpans;
+    // One junction per span boundary; the engine's junctions[] is index-aligned
+    // with the fragment order, so junction i is the seam at the end of span i.
+    return result.junctions.map((jn, i) => {
+      const atBp = spans[i]?.end ?? 0;
+      const tm = Number.isFinite(jn.overlapTm) ? `${jn.overlapTm.toFixed(0)} C` : "n/a";
+      return { atBp, label: `${jn.overlapBp} bp / ${tm}` };
+    });
+  }, [result]);
+
+  const cutLigateRibbonJunctions: RibbonJunction[][] = useMemo(
+    () =>
+      (cutLigateResult?.products ?? []).map((prod) => {
+        const spans = prod.fragmentSpans;
+        // Label each interior span boundary with its overhang seal. The closing
+        // (wrap-around) junction of a circular product has no interior boundary to
+        // mark, so we label only the n-1 interior seams.
+        const out: RibbonJunction[] = [];
+        for (let i = 0; i < spans.length - 1; i += 1) {
+          const oh = prod.junctionOverhangs[i];
+          out.push({ atBp: spans[i].end, label: oh ? oh : "blunt" });
+        }
+        return out;
+      }),
+    [cutLigateResult],
+  );
+
+  const gatewayRibbonJunctions: RibbonJunction[][] = useMemo(
+    () =>
+      (gatewayResult?.products ?? []).map((prod) => {
+        const spans = prod.fragmentSpans;
+        // Mark each interior span boundary with the att-site scar at that seam.
+        const out: RibbonJunction[] = [];
+        for (let i = 0; i < spans.length - 1; i += 1) {
+          const att = prod.attSites[Math.min(i, prod.attSites.length - 1)];
+          out.push({ atBp: spans[i].end, label: att?.name ?? "att" });
+        }
+        return out;
+      }),
     [gatewayResult],
   );
 
@@ -878,6 +931,17 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                   circular={prod.circular}
                   detail={gatewayDetails[i]}
                   fragmentSpans={prod.fragmentSpans}
+                  ribbonJunctions={gatewayRibbonJunctions[i]}
+                  hero={
+                    prod.role === "clone" ? (
+                      <GatewayCrossoverHero
+                        reaction={gatewayResult.reaction}
+                        clone={prod}
+                        byproduct={gatewayResult.products.find((p) => p.role === "byproduct") ?? null}
+                        substrateNames={[fragments[0]?.name ?? "Substrate 1", fragments[1]?.name ?? "Substrate 2"]}
+                      />
+                    ) : undefined
+                  }
                   onSave={() => saveGatewayProduct(i)}
                   saving={saving}
                 >
@@ -932,6 +996,22 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                       circular={prod.circular}
                       detail={cutLigateDetails[i]}
                       fragmentSpans={prod.fragmentSpans}
+                      ribbonJunctions={cutLigateRibbonJunctions[i]}
+                      showEnzymes
+                      hero={
+                        method === "golden-gate" ? (
+                          <GoldenGateFingerprintHero
+                            product={prod}
+                            enzymeNames={enzymeNames}
+                          />
+                        ) : (
+                          <StickyEndLadderHero
+                            product={prod}
+                            pieces={cutLigateResult.pieces}
+                            enzymeNames={enzymeNames}
+                          />
+                        )
+                      }
                       select={
                         cutLigateResult.products.length > 1
                           ? {
@@ -1005,6 +1085,14 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                 circular={result.product.circular}
                 detail={overlapDetail}
                 fragmentSpans={result.fragmentSpans}
+                ribbonJunctions={overlapRibbonJunctions}
+                hero={
+                  <OverlapHomologyHero
+                    junctions={result.junctions}
+                    primers={result.primers}
+                    annealTargetTm={DEFAULT_ANNEAL_TM}
+                  />
+                }
                 onSave={handleSave}
                 saving={saving}
               />

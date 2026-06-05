@@ -10,7 +10,29 @@
 
 import type { SequenceDetail } from "@/lib/types";
 import SequenceEditView from "./SequenceEditView";
+import type { SequenceViewMode } from "./SequenceTabBar";
 
-export default function SequenceReadView({ sequence }: { sequence: SequenceDetail }) {
-  return <SequenceEditView sequence={sequence} readOnly />;
+export default function SequenceReadView({
+  sequence,
+  initialViewMode,
+  initialShowEnzymes,
+  embedded,
+}: {
+  sequence: SequenceDetail;
+  /** Seed the embedded map's view tab (e.g. "map" to open on the ring). */
+  initialViewMode?: SequenceViewMode;
+  /** Start the cut-site layer ON (restriction / Golden Gate previews). */
+  initialShowEnzymes?: boolean;
+  /** Hide the editor toolbar row for a slim preview embed. */
+  embedded?: boolean;
+}) {
+  return (
+    <SequenceEditView
+      sequence={sequence}
+      readOnly
+      initialViewMode={initialViewMode}
+      initialShowEnzymes={initialShowEnzymes}
+      embedded={embedded}
+    />
+  );
 }

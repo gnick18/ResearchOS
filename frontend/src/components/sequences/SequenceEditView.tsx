@@ -394,6 +394,9 @@ export default function SequenceEditView({
   onSave,
   saving,
   readOnly = false,
+  initialViewMode,
+  initialShowEnzymes = false,
+  embedded = false,
 }: {
   sequence: SequenceDetail;
   /** persist the current GenBank; resolves true on success. Unused when readOnly. */
@@ -405,6 +408,16 @@ export default function SequenceEditView({
    *  popup. Used to embed the same surface where the user can't edit (future
    *  in-note embeds / read-only-shared sequences). */
   readOnly?: boolean;
+  /** Seed the bottom-tab view switcher. Default "sequence" (unchanged). Embeds
+   *  that want to open on the ring pass "map". Additive, default-preserving. */
+  initialViewMode?: SequenceViewMode;
+  /** Start with the restriction-enzyme cut-site layer ON. Default off (unchanged).
+   *  Used by chemistries where the cut sites ARE the point (restriction / GG). */
+  initialShowEnzymes?: boolean;
+  /** When true, hide the top editor toolbar row entirely (Copy / Edit / Enzyme /
+   *  Export / read-only badge). The view tabs, the left view rail, and the map
+   *  itself stay. The "chrome slim" for a preview embed. Default false. */
+  embedded?: boolean;
 }) {
   const editor = useSequenceEditor(sequence);
   const { doc, annotations: docAnnotations, applyEdit, undo, redo, canUndo, canRedo, dirty } = editor;
@@ -435,7 +448,12 @@ export default function SequenceEditView({
 
   // Phase 2c — view controls (calm-by-default) + the feature add/edit dialog +
   // the currently-selected feature row, and an externally-driven zoom selection.
-  const [view, setView] = useState<SequenceViewState>(DEFAULT_VIEW_STATE);
+  // initialShowEnzymes (additive) starts the cut-site layer ON for embeds where
+  // the cut sites are the point (restriction / Golden Gate). Default off keeps
+  // the standalone editor's calm-by-default behavior.
+  const [view, setView] = useState<SequenceViewState>(
+    initialShowEnzymes ? { ...DEFAULT_VIEW_STATE, showEnzymes: true } : DEFAULT_VIEW_STATE,
+  );
   // seq nav bot — the SnapGene BOTTOM-TAB view switcher. `viewMode` is the
   // primary "which view" state (Map / Sequence / Features / Primers /
   // History). Restriction enzymes are a rail LAYER, not a tab. The Map +
@@ -443,7 +461,7 @@ export default function SequenceEditView({
   // zoomed-out feature map, Sequence = base-level detail); the rest render their
   // panels in the main content area. This is orthogonal to the left
   // ViewControlRail (which toggles WHAT is drawn on the map).
-  const [viewMode, setViewMode] = useState<SequenceViewMode>("sequence");
+  const [viewMode, setViewMode] = useState<SequenceViewMode>(initialViewMode ?? "sequence");
   const [featureEditor, setFeatureEditor] = useState<FeatureEditorRequest | null>(null);
   // annotate-from-reference bot — homology-based "transfer features from a
   // reference" dialog (open via the Feature menu).
@@ -3051,7 +3069,9 @@ export default function SequenceEditView({
     <div ref={containerRef} className="flex h-full w-full flex-col" tabIndex={-1}>
       {/* Toolbar. The mutating affordances (undo/redo/cut/paste/primer/save) are
           hidden on the read-only surface; selection, the feature list, enzymes
-          (display-only) and Copy remain available. */}
+          (display-only) and Copy remain available. The whole row is hidden in an
+          `embedded` preview (chrome slim): the view tabs + view rail + map stay. */}
+      {!embedded ? (
       <div className="flex items-center gap-1 border-b border-gray-100 px-2 py-1.5">
         {!readOnly ? (
           <>
@@ -3147,6 +3167,7 @@ export default function SequenceEditView({
           </div>
         </div>
       </div>
+      ) : null}
 
       {/* Icon rail + tab content. The left ViewControlRail (layer toggles) stays
           visible for the Map + Sequence views; the other tabs render their own
