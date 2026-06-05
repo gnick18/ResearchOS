@@ -76,41 +76,12 @@ export const RELEASE_NOTES: ReadonlyArray<ReleaseNote> = [
     date: "2026-06-05",
     signInChoice: true,
     highlights: [
-      "ResearchOS now has free accounts, and they are completely optional. Your notebook still works exactly as before, fully local on your own machine, no account needed.",
-      "Sign in with Google, GitHub, or LinkedIn to share notes, methods, and whole projects with anyone by email, even a different lab with no shared folder",
-      "A 5 GB encrypted inbox for work others send you, held 30 days",
-      "A redesigned welcome page and a What we are building roadmap",
-      "A new BeakerBot rainbow profile color, and typography polish across the app",
-    ],
-    message: [
-      {
-        kind: "para",
-        text: "Big news, and I want to be clear up front. ResearchOS now has accounts, and you never need one. Everything you have been doing stays exactly the same, fully local, on your own machine, and free. If that is all you want, close this and keep going. That is totally fine, and always will be.",
-      },
-      {
-        kind: "para",
-        text: "What an account adds is sharing. Sign in with Google, GitHub, or LinkedIn, only to verify your email, and your notebook still lives on your machine. With an account you can send notes, methods, and whole projects to anyone by email, get a 5 GB encrypted inbox for work others send you, and share across labs with no shared folder.",
-      },
-      {
-        kind: "feature",
-        title: "Coming soon:",
-        text: "two more things that signing in will unlock.",
-        items: [
-          "Live collaboration, Google-Docs-style simultaneous editing",
-          "Finding other ResearchOS users to share with",
-        ],
-      },
-      {
-        kind: "feature",
-        title: "Also in this release:",
-        text: "polish and new surfaces.",
-        items: [
-          "A redesigned, video-driven welcome page",
-          "A What we are building roadmap you can open any time",
-          "LinkedIn sign-in",
-          "A BeakerBot rainbow profile color in your account settings",
-        ],
-      },
+      "Free accounts, and completely optional. Your notebook stays fully local and free, no account needed.",
+      "A full cloning workbench with Gibson, Golden Gate, Gateway, and restriction, plus junction primers designed for you",
+      "A public Transparency page that checks our science against Biopython and primer3",
+      "Sign in to share notes, methods, and projects by email, with a 5 GB encrypted inbox",
+      "Redesigned welcome page, a roadmap, LinkedIn sign-in, and a BeakerBot rainbow color",
+      "Coming soon with an account, live collaboration and finding other ResearchOS users",
     ],
   },
   {
