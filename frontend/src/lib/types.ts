@@ -2598,6 +2598,11 @@ export interface SequenceMeta {
   ncbi_accession?: string;   // GCF_..., a gene id, etc.
   organism?: string;         // source organism name from the dataset report
   tax_id?: string;           // NCBI taxonomy id
+  // NCBI taxonomy enrichment (Phase 2). The named lineage (root -> organism
+  // order), auto-filled on NCBI import and written by the opt-in "Enrich from
+  // NCBI" action. Additive + optional sidecar, no migration, self-hides when
+  // absent (a sequence that was never enriched lacks it).
+  tax_lineage?: SequenceTaxonNode[];
 
   // restore audit bot (2026-06-04): deleted/restored provenance. Additive +
   // optional, stamped ONLY when this sequence was restored from Trash (see
@@ -2651,6 +2656,10 @@ export interface SequenceRecord {
   ncbi_accession?: string;
   organism?: string;
   tax_id?: string;
+  // NCBI taxonomy enrichment (Phase 2): the named lineage, carried through from
+  // the sidecar so the viewer can render the calm lineage line. Absent on a
+  // non-enriched sequence (the line self-hides).
+  tax_lineage?: SequenceTaxonNode[];
 
   // restore audit bot: carried through from the sidecar so the library row +
   // viewer header can render the RestoredBadge. Absent on a never-trashed
@@ -2701,6 +2710,19 @@ export interface SequenceCreate {
   ncbi_accession?: string;
   organism?: string;
   tax_id?: string;
+  // NCBI taxonomy enrichment (Phase 2): the named lineage, set on an NCBI import
+  // (auto-fill) so the created sidecar carries it. Undefined for a native or
+  // file create.
+  tax_lineage?: SequenceTaxonNode[];
+}
+
+/** One node of a sequence's NCBI taxonomy lineage, persisted on the sidecar. The
+ *  shape mirrors the resolver's TaxonomyNode (kept here so lib/types stays free
+ *  of a lib/sequences import). Root -> organism order in the stored array. */
+export interface SequenceTaxonNode {
+  taxId: string;
+  name: string;
+  rank: string;
 }
 
 /** Patch shape for `sequencesApi.update`. Any subset; `genbank` replaces the
@@ -2710,4 +2732,10 @@ export interface SequenceUpdate {
   project_ids?: string[];
   seq_type?: SeqType;
   genbank?: string;
+  // NCBI taxonomy enrichment (Phase 2): the opt-in "Enrich from NCBI" apply
+  // writes organism / tax id / named lineage onto the sidecar. Additive +
+  // optional, only set by the enrich flow.
+  organism?: string;
+  tax_id?: string;
+  tax_lineage?: SequenceTaxonNode[];
 }

@@ -85,6 +85,7 @@ export function genbankToDetail(
     ncbi_accession: meta.ncbi_accession,
     organism: meta.organism,
     tax_id: meta.tax_id,
+    tax_lineage: meta.tax_lineage,
     // restore audit bot: deleted/restored provenance, carried from the sidecar
     // (undefined on a never-trashed sequence so the RestoredBadge self-hides).
     _restore_audit: meta._restore_audit,
@@ -125,6 +126,7 @@ export function genbankToRecord(
     ncbi_accession: meta.ncbi_accession,
     organism: meta.organism,
     tax_id: meta.tax_id,
+    tax_lineage: meta.tax_lineage,
     _restore_audit: meta._restore_audit,
   };
 }

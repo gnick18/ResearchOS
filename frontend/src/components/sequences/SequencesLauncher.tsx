@@ -93,6 +93,18 @@ function NcbiIcon(props: IconProps) {
   );
 }
 
+/** Branching life-tree glyph for "Look up an organism" (taxonomy lineage). */
+function TaxonomyIcon(props: IconProps) {
+  return (
+    <svg {...baseSvg(props)}>
+      <circle cx="6" cy="6" r="2.5" />
+      <circle cx="6" cy="18" r="2.5" />
+      <circle cx="18" cy="12" r="2.5" />
+      <path d="M8.5 6.8 15.5 11M8.5 17.2 15.5 13" />
+    </svg>
+  );
+}
+
 /** Primer / Tm glyph: a short primer annealed to a template strand. */
 function PrimerIcon(props: IconProps) {
   return (
@@ -186,6 +198,8 @@ export interface SequencesLauncherProps {
   onImport: () => void;
   /** Open the "Download from NCBI" dialog (the header NCBI action's handler). */
   onNcbi: () => void;
+  /** Open the standalone "look up an organism" taxonomy tool. */
+  onLookupTaxonomy: () => void;
 }
 
 export default function SequencesLauncher({
@@ -194,6 +208,7 @@ export default function SequencesLauncher({
   onAlign,
   onImport,
   onNcbi,
+  onLookupTaxonomy,
 }: SequencesLauncherProps) {
   const actions: ActionCard[] = [
     {
@@ -230,6 +245,13 @@ export default function SequencesLauncher({
       description: "Pull a gene or genome from NCBI straight into your collection.",
       Icon: NcbiIcon,
       onClick: onNcbi,
+    },
+    {
+      key: "taxonomy",
+      title: "Look up an organism",
+      description: "See an organism's taxonomy lineage from NCBI by name or tax id.",
+      Icon: TaxonomyIcon,
+      onClick: onLookupTaxonomy,
     },
   ];
 

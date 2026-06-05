@@ -16,6 +16,7 @@
 
 import { unzipSync } from "fflate";
 import { importSequenceFile, type ImportedSequence } from "./import";
+import type { SequenceTaxonNode } from "../types";
 
 /** NCBI provenance carried onto each imported record (mirrors the additive
  *  SequenceMeta fields). Threaded into persistence so the library can show a
@@ -26,6 +27,10 @@ export interface NcbiProvenance {
   ncbi_accession?: string;
   organism?: string;
   tax_id?: string;
+  // NCBI taxonomy enrichment (Phase 2): the named lineage, auto-filled on import
+  // when the download carried a tax id. Best-effort, absent when the resolve
+  // failed or there was no tax id.
+  tax_lineage?: SequenceTaxonNode[];
 }
 
 /** An ImportedSequence with the NCBI provenance attached. */

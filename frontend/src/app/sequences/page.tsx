@@ -24,6 +24,8 @@ import ImportProgressOverlay, {
 import CloningWorkspace from "@/components/sequences/CloningWorkspace";
 import CompareSequencesDialog from "@/components/sequences/CompareSequencesDialog";
 import NcbiDownloadDialog from "@/components/sequences/NcbiDownloadDialog";
+import TaxonomyLookupDialog from "@/components/sequences/TaxonomyLookupDialog";
+import type { EnrichResult } from "@/components/sequences/EnrichFromNcbiDialog";
 import SequencesLauncher from "@/components/sequences/SequencesLauncher";
 import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
 import BulkSequenceSendDialog from "@/components/sharing/BulkSequenceSendDialog";
@@ -296,6 +298,8 @@ export default function SequencesPage() {
   const [compareOpen, setCompareOpen] = useState(false);
   // "Download from NCBI" dialog (gene / genome / accession -> the collection).
   const [ncbiOpen, setNcbiOpen] = useState(false);
+  // sequence editor master. The standalone "look up an organism" taxonomy tool.
+  const [taxonomyOpen, setTaxonomyOpen] = useState(false);
   // Cross-boundary "Share outside this folder" dialog for the open sequence.
   const [shareOpen, setShareOpen] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -487,6 +491,26 @@ export default function SequencesPage() {
     [selectedId, queryClient],
   );
 
+  // sequence editor master. Persist an NCBI enrichment for the open sequence.
+  // It writes the rewritten GenBank (organism in the source feature) plus the
+  // organism / tax id / named-lineage sidecar fields in one update, then refreshes
+  // the detail + summary queries so the lineage line and library row pick it up.
+  const handleEnriched = useCallback(
+    async (result: EnrichResult): Promise<void> => {
+      if (selectedId == null) return;
+      await sequencesApi.update(selectedId, {
+        genbank: result.genbank,
+        organism: result.organism,
+        tax_id: result.taxId,
+        tax_lineage: result.lineage,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["sequence", selectedId] });
+      await queryClient.invalidateQueries({ queryKey: ["sequences"] });
+      setStatus({ text: `Enriched "${result.organism}" from NCBI.`, tone: "ok" });
+    },
+    [selectedId, queryClient],
+  );
+
   // seq delete trash bot: soft-delete a set of sequence ids into the
   // recoverable trash, refresh the list, and pop ONE Undo toast covering the
   // whole batch. Shared by the per-row delete (single id) and the bulk action
@@ -658,6 +682,7 @@ export default function SequencesPage() {
           ncbi_accession: imp.provenance.ncbi_accession,
           organism: imp.provenance.organism,
           tax_id: imp.provenance.tax_id,
+          tax_lineage: imp.provenance.tax_lineage,
         });
         if (rec && firstId == null) firstId = rec.id;
       }
@@ -1443,6 +1468,7 @@ export default function SequencesPage() {
                   sequence={selected}
                   onSave={handleSave}
                   saving={saving}
+                  onEnriched={handleEnriched}
                 />
               </div>
             </>
@@ -1456,6 +1482,7 @@ export default function SequencesPage() {
               onAlign={() => setCompareOpen(true)}
               onImport={() => fileInputRef.current?.click()}
               onNcbi={() => setNcbiOpen(true)}
+              onLookupTaxonomy={() => setTaxonomyOpen(true)}
             />
           )}
         </section>
@@ -1488,6 +1515,13 @@ export default function SequencesPage() {
         open={ncbiOpen}
         onClose={() => setNcbiOpen(false)}
         onImported={handleNcbiImported}
+      />
+
+      {/* sequence editor master. The standalone organism-to-lineage lookup tool.
+          Pure client over the NCBI taxonomy endpoint, no sequence involved. */}
+      <TaxonomyLookupDialog
+        open={taxonomyOpen}
+        onClose={() => setTaxonomyOpen(false)}
       />
 
       {/* Unified Share dialog. Sequences have no lab-ACL model, so the dialog

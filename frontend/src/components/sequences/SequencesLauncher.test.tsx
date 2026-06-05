@@ -22,6 +22,7 @@ describe("SequencesLauncher", () => {
         onAlign={noop}
         onImport={noop}
         onNcbi={noop}
+        onLookupTaxonomy={noop}
       />,
     );
     expect(
@@ -50,10 +51,29 @@ describe("SequencesLauncher", () => {
         onAlign={noop}
         onImport={noop}
         onNcbi={onNcbi}
+        onLookupTaxonomy={noop}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /Download from NCBI/i }));
     expect(onNcbi).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls onLookupTaxonomy when the Look up an organism card is clicked", () => {
+    const onLookupTaxonomy = vi.fn();
+    render(
+      <SequencesLauncher
+        onNew={noop}
+        onAssemble={noop}
+        onAlign={noop}
+        onImport={noop}
+        onNcbi={noop}
+        onLookupTaxonomy={onLookupTaxonomy}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /Look up an organism/i }),
+    );
+    expect(onLookupTaxonomy).toHaveBeenCalledTimes(1);
   });
 
   it("calls onNew when the New sequence card is clicked", () => {
@@ -65,6 +85,7 @@ describe("SequencesLauncher", () => {
         onAlign={noop}
         onImport={noop}
         onNcbi={noop}
+        onLookupTaxonomy={noop}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /New sequence/i }));
@@ -79,6 +100,7 @@ describe("SequencesLauncher", () => {
         onAlign={noop}
         onImport={noop}
         onNcbi={noop}
+        onLookupTaxonomy={noop}
       />,
     );
     // The hints are NOT buttons (informational only).

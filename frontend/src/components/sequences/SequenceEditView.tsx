@@ -94,6 +94,13 @@ import AnnotateFromReferenceDialog, {
 import DetectFeaturesDialog, {
   type DetectFeaturesRequest,
 } from "./DetectFeaturesDialog";
+// sequence editor master. The opt-in "Enrich from NCBI" dialog (taxonomy +
+// organism enrichment) plus the calm organism / lineage line on the sequence.
+import EnrichFromNcbiDialog, {
+  type EnrichResult,
+} from "./EnrichFromNcbiDialog";
+import SequenceLineageChip from "./SequenceLineageChip";
+import { extractAccession } from "@/lib/sequences/ncbi-datasets";
 // menu reorg bot — the library-level Compare/Align dialog, also surfaced from
 // the editor's new Analyze menu (a second door; the library-header Compare
 // stays). Rendered here with its own open state; not modified.
@@ -401,11 +408,16 @@ export default function SequenceEditView({
   initialViewMode,
   initialShowEnzymes = false,
   embedded = false,
+  onEnriched,
 }: {
   sequence: SequenceDetail;
   /** persist the current GenBank; resolves true on success. Unused when readOnly. */
   onSave?: (genbank: string) => Promise<boolean>;
   saving?: boolean;
+  /** Persist an NCBI enrichment: the rewritten GenBank (organism in the source
+   *  feature) plus the organism / tax id / named lineage sidecar fields. The page
+   *  writes them and refreshes. Absent in read-only / embedded surfaces. */
+  onEnriched?: (result: EnrichResult) => Promise<void>;
   /** When true, the surface is a read-only inspector: no caret/keystroke edit,
    *  no clipboard, no Save, no Add/Edit/Delete feature actions. Selection +
    *  readout still work, and double-clicking a feature opens its READ-ONLY info
@@ -472,6 +484,8 @@ export default function SequenceEditView({
   const [annotateRef, setAnnotateRef] =
     useState<AnnotateFromReferenceRequest | null>(null);
   const [detectReq, setDetectReq] = useState<DetectFeaturesRequest | null>(null);
+  // sequence editor master. The opt-in "Enrich from NCBI" dialog open state.
+  const [enrichOpen, setEnrichOpen] = useState(false);
   // menu reorg bot — the Compare/Align dialog, opened from the new Analyze menu
   // (a second door into the same library-level dialog the library header opens).
   const [compareOpen, setCompareOpen] = useState(false);
@@ -2833,8 +2847,22 @@ export default function SequenceEditView({
         enabled: true,
         onRun: () => setProteinPropsOpen(true),
       },
+      // sequence editor master. Opt-in NCBI taxonomy enrichment, present only
+      // when the surface can persist (onEnriched given). A preview-then-apply
+      // dialog, never automatic.
+      ...(onEnriched
+        ? [
+            {
+              id: "analyze-enrich-ncbi",
+              label: "Enrich from NCBI…",
+              enabled: true,
+              group: true,
+              onRun: () => setEnrichOpen(true),
+            } as EditMenuItem,
+          ]
+        : []),
     ],
-    [openDetectFeatures, openAnnotateFromReference],
+    [openDetectFeatures, openAnnotateFromReference, onEnriched],
   );
 
   const primerMenuItems = useMemo<EditMenuItem[]>(() => {
@@ -3213,6 +3241,15 @@ export default function SequenceEditView({
         </div>
       </div>
       ) : null}
+
+      {/* sequence editor master. The calm organism + taxonomy-lineage line for an
+          enriched sequence. Self-hides when the sequence has no organism / lineage
+          (a native or non-enriched sequence shows nothing). */}
+      <SequenceLineageChip
+        organism={sequence.organism}
+        taxId={sequence.tax_id}
+        lineage={sequence.tax_lineage}
+      />
 
       {/* Icon rail + tab content. The left ViewControlRail (layer toggles) stays
           visible for the Map + Sequence views; the other tabs render their own
@@ -3664,6 +3701,21 @@ export default function SequenceEditView({
 
       {/* feature detect bot — detect common protein features from the bundled DB. */}
       <DetectFeaturesDialog request={detectReq} />
+
+      {/* sequence editor master. Opt-in "Enrich from NCBI". Resolves this
+          sequence's organism + tax id + named lineage (its own accession, its
+          NCBI provenance, or a typed organism / accession), previews them, and on
+          apply persists the sidecar + the source-feature qualifiers via onEnriched. */}
+      {onEnriched ? (
+        <EnrichFromNcbiDialog
+          open={enrichOpen}
+          onClose={() => setEnrichOpen(false)}
+          genbank={sequence.genbank}
+          parsedAccession={extractAccession(sequence.genbank)}
+          provenanceAccession={sequence.ncbi_accession}
+          onApply={onEnriched}
+        />
+      ) : null}
 
       {/* menu reorg bot — Compare / align two sequences, opened from the Analyze
           menu. Seeds sequence A with the open molecule (the dialog's own

@@ -26,6 +26,7 @@ import {
   downloadPackage,
   includeForKind,
   checkCaps,
+  resolveTaxonomy,
   NcbiDatasetsError,
   type NcbiPreview,
 } from "@/lib/sequences/ncbi-datasets";
@@ -220,12 +221,29 @@ export default function NcbiDownloadDialog({
         include: includeForKind(preview.kind),
         signal: controller.signal,
       });
+      // Auto-fill the named taxonomy lineage when the preview carried a tax id.
+      // Best-effort and resolved ONCE for the whole download (every record in a
+      // genome package shares the organism), so a multi-record import never fans
+      // out to N taxonomy calls. A failed resolve keeps organism / tax id and
+      // drops only the lineage; it never blocks the import.
+      let taxLineage: NcbiImportedSequence["provenance"]["tax_lineage"];
+      if (preview.taxId) {
+        try {
+          const tax = await resolveTaxonomy(preview.taxId, {
+            signal: controller.signal,
+          });
+          taxLineage = tax.lineage;
+        } catch (e) {
+          if ((e as Error)?.name === "AbortError") throw e;
+        }
+      }
       setProgress("Unpacking and reading the sequence...");
       const imports = await ncbiPackageToImports(zip, {
         source: "ncbi-datasets",
         ncbi_accession: preview.accession,
         organism: preview.organism,
         tax_id: preview.taxId,
+        tax_lineage: taxLineage,
       });
       await onImported(imports);
       handleClose();

@@ -21,6 +21,200 @@
 /** Base URL of the NCBI Datasets v2 REST API. */
 export const NCBI_DATASETS_BASE = "https://api.ncbi.nlm.nih.gov/datasets/v2";
 
+// --- Taxonomy (organism -> named lineage) -----------------------------------
+//
+// The taxonomy endpoint is browser-direct / CORS-open (the OPTIONS preflight
+// reflects our origin), so the organism-to-lineage lookup runs straight from the
+// browser with no proxy. A query may be an organism name ("Escherichia coli") or
+// a numeric tax id ("9606"). The single-taxon response carries the tax id, the
+// scientific name, the rank, and a `lineage` array of ANCESTOR TAX IDS (root ->
+// parent order), but NOT their names. To show a named lineage we resolve those
+// ids to { name, rank } with one batch call (the endpoint takes a comma-separated
+// id list). Pure parsing is unit-tested against saved real responses; no network
+// in the tests.
+
+/** One node of a resolved taxonomy lineage. */
+export interface TaxonomyNode {
+  taxId: string;
+  name: string;
+  rank: string;
+}
+
+/** A resolved taxonomy result: the organism plus its named lineage (root ->
+ *  organism order, the organism itself as the final node). */
+export interface TaxonomyResult {
+  taxId: string;
+  name: string;
+  rank: string;
+  lineage: TaxonomyNode[];
+}
+
+/** The major taxonomic ranks we surface on the calm inline line, in canonical
+ *  root -> leaf order. NCBI labels the top tier "DOMAIN" (Bacteria, Eukaryota,
+ *  Archaea) and historically "SUPERKINGDOM"; we accept either as the superkingdom
+ *  slot. The rest map one-to-one to NCBI rank strings. */
+const MAJOR_RANK_ORDER = [
+  "superkingdom",
+  "kingdom",
+  "phylum",
+  "class",
+  "order",
+  "family",
+  "genus",
+  "species",
+] as const;
+
+/** Map an NCBI rank string (any case) to one of our canonical major-rank slots,
+ *  or null when it is not a major rank we show inline. DOMAIN folds into the
+ *  superkingdom slot so Bacteria / Eukaryota / Archaea read as the top tier. */
+function majorRankSlot(rank: string | undefined): string | null {
+  const r = (rank || "").trim().toLowerCase();
+  if (!r) return null;
+  if (r === "domain" || r === "superkingdom") return "superkingdom";
+  return (MAJOR_RANK_ORDER as readonly string[]).includes(r) ? r : null;
+}
+
+/**
+ * Pick only the major-rank nodes from a full lineage, in canonical
+ * superkingdom -> species order, keeping at most one node per slot (the first
+ * match wins). Pure: takes a lineage, returns the calm inline subset. A lineage
+ * with no major ranks (a sparse / clade-only chain) returns an empty array, and
+ * the display self-hides.
+ */
+export function majorRanks(lineage: TaxonomyNode[]): TaxonomyNode[] {
+  const bySlot = new Map<string, TaxonomyNode>();
+  for (const node of lineage) {
+    const slot = majorRankSlot(node.rank);
+    if (slot && !bySlot.has(slot)) bySlot.set(slot, node);
+  }
+  const out: TaxonomyNode[] = [];
+  for (const slot of MAJOR_RANK_ORDER) {
+    const node = bySlot.get(slot);
+    if (node) out.push(node);
+  }
+  return out;
+}
+
+/** The taxonomy endpoint response subset we read. Every field optional +
+ *  validated, so a shape drift degrades rather than crashes. */
+interface RawTaxonomyResponse {
+  taxonomy_nodes?: Array<{
+    taxonomy?: {
+      tax_id?: number | string;
+      organism_name?: string;
+      rank?: string;
+      lineage?: Array<number | string>;
+    };
+  }>;
+}
+
+/** Pull the first taxonomy node out of a single-taxon response, normalized to
+ *  strings. Throws a clear error when nothing matched (a typo / unknown name). */
+export function parseTaxonNode(raw: unknown): {
+  taxId: string;
+  name: string;
+  rank: string;
+  lineageIds: string[];
+} {
+  const root = (raw || {}) as RawTaxonomyResponse;
+  const tax = Array.isArray(root.taxonomy_nodes)
+    ? root.taxonomy_nodes[0]?.taxonomy
+    : undefined;
+  if (!tax || tax.tax_id == null) {
+    throw new NcbiDatasetsError(
+      "No organism matched that name or tax id on NCBI. Check the spelling.",
+    );
+  }
+  return {
+    taxId: String(tax.tax_id),
+    name: asString(tax.organism_name) || `Taxon ${tax.tax_id}`,
+    rank: (asString(tax.rank) || "").toLowerCase(),
+    lineageIds: Array.isArray(tax.lineage)
+      ? tax.lineage.map((v) => String(v))
+      : [],
+  };
+}
+
+/** Parse a BATCH taxonomy response into a tax-id -> { name, rank } map. The batch
+ *  endpoint returns nodes in arbitrary order, so the caller must look up by id,
+ *  not by position. Pure. */
+export function parseTaxonNodeMap(raw: unknown): Map<string, TaxonomyNode> {
+  const root = (raw || {}) as RawTaxonomyResponse;
+  const map = new Map<string, TaxonomyNode>();
+  for (const node of root.taxonomy_nodes || []) {
+    const tax = node.taxonomy;
+    if (!tax || tax.tax_id == null) continue;
+    const id = String(tax.tax_id);
+    map.set(id, {
+      taxId: id,
+      name: asString(tax.organism_name) || `Taxon ${id}`,
+      rank: (asString(tax.rank) || "").toLowerCase(),
+    });
+  }
+  return map;
+}
+
+/** Assemble a TaxonomyResult from a parsed leaf node and a resolved id -> node
+ *  map. Pure, so the full resolve is unit-tested against the two saved fixtures
+ *  (a single-taxon response + a batch lineage response) with no network. The
+ *  lineage is the leaf's ancestor ids in their given root -> parent order, each
+ *  resolved to a name + rank, with the organism itself appended as the final
+ *  node. Ids that did not resolve are dropped from the named lineage. */
+export function assembleTaxonomy(
+  leaf: { taxId: string; name: string; rank: string; lineageIds: string[] },
+  nameMap: Map<string, TaxonomyNode>,
+): TaxonomyResult {
+  const lineage: TaxonomyNode[] = [];
+  for (const id of leaf.lineageIds) {
+    const node = nameMap.get(id);
+    if (node) lineage.push(node);
+  }
+  // The organism itself is the leaf of its own lineage.
+  lineage.push({ taxId: leaf.taxId, name: leaf.name, rank: leaf.rank });
+  return { taxId: leaf.taxId, name: leaf.name, rank: leaf.rank, lineage };
+}
+
+/** A simple in-memory cache of resolved tax id -> node, shared across resolves
+ *  in a session so repeated lookups (and a multi-record genome import that hits
+ *  the same lineage) do not re-resolve the same ids. */
+const taxonNameCache = new Map<string, TaxonomyNode>();
+
+/**
+ * Resolve an organism name or tax id to its scientific name, rank, and named
+ * lineage (root -> organism order). Browser-direct over the CORS-open taxonomy
+ * endpoint. Two calls at most: one to resolve the query to a leaf (+ ancestor
+ * ids), one batch call to name the ancestors that are not already cached. The
+ * batch fetch is best-effort, so a transient names failure still returns the
+ * organism with a lineage of whatever resolved (never throws on the second leg).
+ */
+export async function resolveTaxonomy(
+  query: string,
+  opts?: { signal?: AbortSignal },
+): Promise<TaxonomyResult> {
+  const q = (query || "").trim();
+  if (!q) throw new NcbiDatasetsError("Enter an organism name or tax id.");
+  const signal = opts?.signal;
+  const leafUrl = `${NCBI_DATASETS_BASE}/taxonomy/taxon/${encodeURIComponent(q)}`;
+  const leaf = parseTaxonNode(await getJson(leafUrl, signal));
+
+  // Which ancestor ids still need a name. The leaf itself is named already.
+  const missing = leaf.lineageIds.filter((id) => !taxonNameCache.has(id));
+  if (missing.length > 0) {
+    try {
+      const batchUrl =
+        `${NCBI_DATASETS_BASE}/taxonomy/taxon/` +
+        missing.map((id) => encodeURIComponent(id)).join(",");
+      const batch = parseTaxonNodeMap(await getJson(batchUrl, signal));
+      for (const [id, node] of batch) taxonNameCache.set(id, node);
+    } catch (e) {
+      // Best-effort: an abort still propagates so a cancelled lookup stops; any
+      // other names failure degrades to the resolved-so-far lineage.
+      if ((e as Error)?.name === "AbortError") throw e;
+    }
+  }
+  return assembleTaxonomy(leaf, taxonNameCache);
+}
+
 /** What kind of record a preview / download refers to. The generic "accession"
  *  box resolves to one of the concrete kinds by sniffing the accession class. */
 export type NcbiKind = "gene" | "genome" | "protein";
@@ -123,6 +317,113 @@ export function checkCaps(preview: NcbiPreview): CapCheck {
     };
   }
   return { ok: true };
+}
+
+// --- GenBank source-feature round-trip (pure text) --------------------------
+//
+// The enrich apply writes the organism into the GenBank `source` feature's
+// /organism and /db_xref="taxon:<id>" qualifiers so it survives export. We do
+// this as a PURE TEXT transform on the flat file (the export source of truth),
+// not on the feature model, so it touches only the source block and leaves every
+// other feature byte-for-byte. GenBank qualifiers are indented to column 21.
+
+const GB_QUALIFIER_INDENT = " ".repeat(21);
+
+/** Pull the GenBank ACCESSION value (the first token of the ACCESSION line), or
+ *  null when the record has none. Pure. Used by the enrich flow to resolve a
+ *  sequence's own accession before falling back to provenance / a typed value. */
+export function extractAccession(genbank: string): string | null {
+  const m = /^ACCESSION\s+(\S+)/m.exec(genbank || "");
+  return m ? m[1] : null;
+}
+
+/** Escape a value for a quoted GenBank qualifier (quotes are doubled). */
+function gbQuoteValue(v: string): string {
+  return v.replace(/"/g, '""');
+}
+
+/**
+ * Write the organism into the GenBank `source` feature's /organism and (when a
+ * tax id is given) /db_xref="taxon:<id>" qualifiers, so an enriched sequence
+ * round-trips the classification on export. Pure text transform:
+ *  - If a `source` feature exists, its existing /organism and taxon /db_xref
+ *    qualifier lines are replaced (or added right under the source location).
+ *  - If there is no `source` feature, one spanning 1..<length> is inserted at the
+ *    top of the FEATURES table.
+ *  - If there is no FEATURES table at all, the input is returned unchanged (a
+ *    degenerate record we do not rewrite; the sidecar still carries the data).
+ * Other features are left untouched.
+ */
+export function setSourceOrganismInGenbank(
+  genbank: string,
+  organism: string,
+  taxId?: string,
+): string {
+  const text = genbank || "";
+  const org = (organism || "").trim();
+  if (!org) return text;
+
+  const orgLine = `${GB_QUALIFIER_INDENT}/organism="${gbQuoteValue(org)}"`;
+  const xrefLine = taxId
+    ? `${GB_QUALIFIER_INDENT}/db_xref="taxon:${gbQuoteValue(String(taxId))}"`
+    : null;
+
+  const lines = text.split("\n");
+
+  // Locate the FEATURES header line.
+  const featuresIdx = lines.findIndex((l) => /^FEATURES\s/.test(l));
+  if (featuresIdx === -1) return text;
+
+  // Locate the `source` feature line (a feature key at column 6, key "source").
+  let sourceIdx = -1;
+  for (let i = featuresIdx + 1; i < lines.length; i++) {
+    const l = lines[i];
+    // A new top-level section (ORIGIN, //, or a non-indented keyword) ends the
+    // FEATURES table.
+    if (/^[A-Z/]/.test(l)) break;
+    if (/^ {5}source\b/.test(l)) {
+      sourceIdx = i;
+      break;
+    }
+  }
+
+  if (sourceIdx === -1) {
+    // No source feature. Insert one spanning the whole molecule, derived from
+    // the LOCUS length (fallback 1..1 when the length is unreadable).
+    const locus = /^LOCUS\s+\S+\s+(\d+)/m.exec(text);
+    const length = locus ? locus[1] : "1";
+    const block = [`     source          1..${length}`, orgLine];
+    if (xrefLine) block.push(xrefLine);
+    lines.splice(featuresIdx + 1, 0, ...block);
+    return lines.join("\n");
+  }
+
+  // The source feature exists. Find the span of its qualifier lines (the
+  // indented lines following the source location, up to the next feature key or
+  // the end of the table), strip any existing /organism and taxon /db_xref, and
+  // insert the fresh qualifiers right after the source location line.
+  let end = sourceIdx + 1;
+  const kept: string[] = [];
+  for (; end < lines.length; end++) {
+    const l = lines[end];
+    // The next feature key sits at column 6 with a non-space; the table ends at
+    // a top-level keyword. Either stops the source block.
+    if (/^ {5}\S/.test(l) || /^[A-Z/]/.test(l)) break;
+    const trimmed = l.trim();
+    if (/^\/organism=/.test(trimmed)) continue;
+    if (/^\/db_xref="taxon:/.test(trimmed)) continue;
+    kept.push(l);
+  }
+
+  const fresh = [orgLine];
+  if (xrefLine) fresh.push(xrefLine);
+  const rebuilt = [
+    ...lines.slice(0, sourceIdx + 1),
+    ...fresh,
+    ...kept,
+    ...lines.slice(end),
+  ];
+  return rebuilt.join("\n");
 }
 
 // --- Accession sniffing -----------------------------------------------------

@@ -2353,6 +2353,9 @@ export const sequencesApi = {
       ...(data.ncbi_accession ? { ncbi_accession: data.ncbi_accession } : {}),
       ...(data.organism ? { organism: data.organism } : {}),
       ...(data.tax_id ? { tax_id: data.tax_id } : {}),
+      ...(data.tax_lineage && data.tax_lineage.length > 0
+        ? { tax_lineage: data.tax_lineage }
+        : {}),
     };
     const { meta: fullMeta, genbank } = await sequenceStore.create(
       data.genbank,
@@ -2376,6 +2379,11 @@ export const sequencesApi = {
     if (data.display_name !== undefined) metaPatch.display_name = data.display_name;
     if (data.project_ids !== undefined) metaPatch.project_ids = data.project_ids;
     if (data.seq_type !== undefined) metaPatch.seq_type = data.seq_type;
+    // NCBI taxonomy enrichment: the opt-in enrich apply patches organism / tax id
+    // / named lineage onto the sidecar (additive, only sent by the enrich flow).
+    if (data.organism !== undefined) metaPatch.organism = data.organism;
+    if (data.tax_id !== undefined) metaPatch.tax_id = data.tax_id;
+    if (data.tax_lineage !== undefined) metaPatch.tax_lineage = data.tax_lineage;
     let meta = await sequenceStore.updateMeta(id, metaPatch, username);
     if (!meta) {
       const raw = await sequenceStore.getRawForUser(id, username);
