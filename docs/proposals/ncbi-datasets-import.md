@@ -126,6 +126,117 @@ Base: `https://api.ncbi.nlm.nih.gov/datasets/v2`.
 3. BROWSE. Taxonomy search / autocomplete (organism name -> assemblies / genes),
    so the user does not need an exact accession.
 
+## Implementation plan (exactly what we build)
+
+Grounded in the real code (verified 2026-06-05). Heavily reuse-driven: parsing
+and persistence already exist, so the new surface is small.
+
+### File map
+
+ADD:
+- `frontend/src/lib/sequences/ncbi-datasets.ts` - the API client. Endpoint
+  builders, the `previewX` calls (dataset_report -> typed `NcbiPreview`), the
+  `downloadPackage` call (-> ZIP `ArrayBuffer`), the cap constants + check. Network
+  is thin; the JSON-to-preview parsing and the cap logic are pure + tested.
+- `frontend/src/lib/sequences/ncbi-import.ts` - the glue. `unzipNcbiPackage(zip)`
+  (fflate) finds the FASTA under `ncbi_dataset/data/`; `ncbiPackageToImports(zip,
+  provenance)` hands each FASTA to the EXISTING `importSequenceFile(name, bytes)`
+  and tags the result with provenance. Returns `ImportedSequence[]`.
+- `frontend/src/components/sequences/NcbiDownloadDialog.tsx` - the form + preview +
+  progress modal.
+- Tests: `ncbi-datasets.test.ts` (parse saved real report fixtures -> preview; cap
+  over/under), `ncbi-import.test.ts` (a saved small real ZIP -> unzip -> FASTA ->
+  the expected record).
+
+EDIT:
+- `frontend/src/app/sequences/page.tsx` - add a "Download from NCBI" action in the
+  library header (beside New / Import / Assemble; there is already an `ImportIcon`
+  / `AssembleIcon` pattern to match). It opens `NcbiDownloadDialog`; on success it
+  reuses the existing `persistNew(imports)` path (the same one file import uses),
+  so the new sequence lands in the active collection and opens in the editor with
+  no new persistence code.
+- `frontend/src/lib/types.ts` - additive optional provenance on `SequenceMeta`,
+  mirroring the existing `received_from` pattern exactly: `source?: "ncbi-datasets"`,
+  `ncbi_accession?: string`, `organism?: string`, `tax_id?: string`. FLAG: this is
+  a data-shape touch, but sidecar-only, additive, optional, NO migration (a native
+  sequence simply lacks them, like `received_from`). Thread through
+  `normalizeSequenceMeta` + `genbankToDetail` like the other optional meta.
+
+ADD DEPENDENCY:
+- `fflate` (MIT, tiny, zero-dep) for the client-side unzip. The only new package.
+
+### The client module (`ncbi-datasets.ts`)
+
+```
+const BASE = "https://api.ncbi.nlm.nih.gov/datasets/v2";
+type NcbiKind = "gene" | "genome" | "protein" | "accession";
+interface NcbiPreview {
+  kind: NcbiKind;
+  title: string;          // gene symbol or assembly name
+  accession: string;      // GCF_..., NM_..., etc.
+  organism: string;
+  taxId?: string;
+  lengthBp?: number;      // total_sequence_length (genome) or gene length
+  contigs?: number;       // number_of_contigs (genome)
+  assemblyLevel?: string; // "Complete Genome", "Scaffold", ...
+}
+```
+- `previewGeneBySymbol(symbol, taxon)` -> GET `/gene/symbol/{symbol}/taxon/{taxon}/dataset_report`, parse `reports[0].gene`.
+- `previewGenomeByAccession(acc)` -> GET `/genome/accession/{acc}/dataset_report`, parse `reports[0]` (organism, `assembly_stats.total_sequence_length`, `number_of_contigs`, `assembly_info.assembly_level`). (Shapes verified live above.)
+- `previewByAccession(acc)` -> sniff accession class (GCF/GCA -> genome; NM/NR/XM -> gene/RNA; NP/XP -> protein) and route.
+- `downloadPackage(kind, id, { include, apiKey, signal })` -> the matching `/download` endpoint with `include_annotation_type`, returns the ZIP `ArrayBuffer`. Injects the `api-key` header when provided (preflight confirmed it is allowed).
+- `CAP = { maxGenomeBp: <decide>, maxContigs: <decide>, maxPackages: 1 }` and `checkCaps(preview)` -> `{ ok, reason? }`, enforced on the preview before any download.
+
+### The dialog (`NcbiDownloadDialog.tsx`)
+
+- A small typed picker (Gene / Genome / Protein / Accession) with the fields each
+  kind needs (gene: symbol + organism; genome: accession; accession: one box).
+- Preview button -> client preview -> a preview card (organism, title, accession,
+  length, contigs, assembly level). Download is disabled with the exact reason
+  when `checkCaps` fails.
+- Download -> a calm progress state (fetch -> unzip -> parse), cancelable via an
+  AbortSignal; on success it returns the `ImportedSequence[]` to the page.
+- NO privacy-consent gate. Unlike the InterProScan flow, NOTHING of the user's is
+  sent out: we send only the public identifier the user typed (a gene symbol or
+  accession) to a public government API, and we receive a public sequence. State
+  this in the dialog copy briefly, but there is no opt-in screen.
+- Uses the new `useEscapeToClose` hook, `<Tooltip>` for icon-only controls, inline
+  SVG icons, no emoji.
+
+### The import pipeline (reuse, do not rebuild)
+
+1. `downloadPackage` -> ZIP `ArrayBuffer`.
+2. `unzipNcbiPackage` (fflate) -> the entry list; pick the FASTA(s) under
+   `ncbi_dataset/data/` (and the GFF3 in Phase 2).
+3. For each FASTA, the EXISTING `importSequenceFile(name, bytes)` parses it (it
+   already handles FASTA via bio-parsers and content-sniffing), giving
+   `ImportedSequence[]`.
+4. Attach provenance, hand to the page's EXISTING `persistNew(imports)` ->
+   `sequencesApi.create` per sequence, filed in the active collection.
+5. The new sequence opens in the editor. Unannotated FASTA -> the user can run
+   Detect Features; GFF3 -> features is Phase 2.
+
+### Build chunks
+
+1. CORE (one sub-bot). Client (gene-by-symbol + by-accession preview + download) +
+   the fflate unzip glue + the dialog + the library-header action + the additive
+   provenance meta + caps + tests. Ships a working "download a gene / a bacterial
+   genome / an accession into the collection."
+2. GENOME + ANNOTATIONS. Genome-by-taxon assembly picker (when the user gives an
+   organism not an accession) + GFF3 -> features so imports arrive annotated.
+3. BROWSE + KEY. Taxonomy autocomplete (organism name -> assemblies / genes) and an
+   optional user NCBI API key in Settings for rate limits.
+
+### Tests + verification
+
+- Pure unit tests on saved REAL fixtures: the BRCA1 gene report and the E. coli
+  genome report JSON (already fetched above) -> `NcbiPreview`; `checkCaps` over and
+  under; and a saved small real ZIP package -> `unzipNcbiPackage` finds the FASTA
+  -> `ncbiPackageToImports` yields the expected record (name, length, `seq_type`
+  dna). Network is mocked in tests.
+- One real end-to-end fetch run manually during the build (download a small gene +
+  the E. coli genome, confirm they import), like the InterProScan live check.
+
 ## Open questions for Grant
 
 1. Exact caps: the size limit (a few tens of Mb?) and the contig-count limit, and
