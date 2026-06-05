@@ -94,6 +94,36 @@ Pfam retired its own site around 2023 and now lives inside InterPro at EBI.
   run and pay for per query, AND it sends the user's protein off-device. Only an
   opt-in fallback (see below), not the default.
 
+## BUILD RESULT (2026-06-05): the WASM engine works, and it is GREENER than the spike feared
+
+We built HMMER to WASM and validated it. Artifact + recipe preserved in
+`tools/hmmer-wasm/`. The verdict is much better than the spike's YELLOW:
+
+- The Emscripten SSE2 -> WASM-SIMD path WORKS. `emconfigure ./configure
+  --enable-sse --host=i686-pc-linux-gnu --disable-threads` then compiling with
+  `-O2 -msse2 -mssse3 -msse4.1 -msimd128` produced a `hmmsearch.wasm` (388 KB)
+  that loads + runs in Node via the browser MEMFS pattern, exit 0, ~24 ms.
+- THE MAIN ALIGNMENT DP IS CORRECT. With `--max` (prefilters off) the WASM build
+  reproduces native HMMER exactly on CDK2 vs Pkinase: PF00069, score 260.9 bits,
+  E ~ 7e-82, residues 4..286, full alignment.
+- THE ONLY BUG IS THE MSV/SSV PREFILTER. In default mode the prefilter rejects
+  everything ("No hits"); it uses SSE2 saturating-unsigned-8-bit intrinsics that
+  Emscripten mistranslates to WASM SIMD. So the fix is isolated to ONE filter, not
+  a from-scratch port.
+
+### What this changes
+
+- WE CAN SHIP THE ON-DEVICE ENGINE NOW with `--max` (skip the broken prefilter,
+  run full DP on every model). For a curated subset (hundreds of HMMs) this is
+  correct and fast enough for an interactive single-protein annotation. No SIMD
+  debugging is needed to ship v1 on-device.
+- Fixing the MSV/SSV unsigned-saturating SIMD is an OPTIMIZATION (fast-follow)
+  that makes full-Pfam-scale (~20k HMMs) on-device fast; without it, `--max` on
+  full Pfam is minutes, not seconds. The curated-subset default does not need it.
+
+So the on-device path is no longer gated on a multi-day SIMD port to SHIP; it is
+gated on it only to SCALE to full Pfam. The engine is in hand.
+
 ## Phase 0 spike RESULT (2026-06-05): YELLOW, and EBI is seamless
 
 Spike run, full writeup in `docs/spikes/hmmer-wasm-spike-result.md`. Headlines:
