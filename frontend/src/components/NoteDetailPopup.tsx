@@ -15,6 +15,7 @@ import {
 import { useAppStore } from "@/lib/store";
 import { LORO_PILOT_ENABLED } from "@/lib/loro/config";
 import { openNote, type NoteHandle } from "@/lib/loro/store";
+import { persistEntryContent } from "@/lib/notes/persist-entry-content";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import NoteCommentsThread from "./NoteCommentsThread";
 import ReceivedFromBadge from "./ReceivedFromBadge";
@@ -307,10 +308,26 @@ export default function NoteDetailPopup({
       setSaving(true);
 
       try {
-        const updated = await notesApi.updateEntry(note.id, entryId, { content });
-        if (!updated) return;
-        // Only update state if we're not closing
-        if (!isClosingRef.current) {
+        // Loro pilot: when the CRDT owns content (flag on + handle ready) flush
+        // the handle instead of writing content through the legacy API, so
+        // notes/<id>.json is written ONCE (by the Loro mirror), not twice. The
+        // legacy metadata paths (saveTitle/description, entry title+date) are
+        // untouched and still feed syncNoteMetadataToDoc. Flag-off / handle-not-
+        // ready falls through to the unchanged legacy content write.
+        const { legacyResult: updated, wroteLegacy } = await persistEntryContent({
+          loroOwnsContent: LORO_PILOT_ENABLED && !!loroHandle,
+          flushLoro: () => loroHandle!.flush(),
+          writeLegacyContent: () =>
+            notesApi.updateEntry(note.id, entryId, { content }),
+        });
+        // Legacy write failed -> leave the entry dirty so the user can retry.
+        // (In Loro mode wroteLegacy is false and updated is null by design; we
+        // proceed to the shared dirty-bookkeeping below.)
+        if (wroteLegacy && !updated) return;
+        // Only update state if we're not closing. In Loro mode there is no
+        // fresh Note from the API (updated is null); local entries already hold
+        // the typed content via updateEntryContent, so nothing to re-sync here.
+        if (updated && !isClosingRef.current) {
           setEntries(updated.entries);
         }
         unsavedContentRef.current.delete(entryId);
@@ -338,7 +355,7 @@ export default function NoteDetailPopup({
         isSavingRef.current = false;
       }
     },
-    [note.id, onUpdate, notesApi, currentUser, note.username]
+    [note.id, onUpdate, notesApi, currentUser, note.username, loroHandle]
   );
 
   // note-save (note-save manager): notes no longer auto-save. Versions push
@@ -451,13 +468,23 @@ export default function NoteDetailPopup({
       setSaving(true);
       try {
         // Snapshot the entry ids whose content is about to be flushed so
-        // we can drop their SPA-nav drafts after the API write resolves.
+        // we can drop their SPA-nav drafts after the write resolves.
         const flushedEntryIds = Array.from(unsavedContentRef.current.keys());
-        // Save all unsaved entries in parallel
-        const savePromises = Array.from(unsavedContentRef.current.entries()).map(
-          ([entryId, content]) => notesApi.updateEntry(note.id, entryId, { content })
-        );
-        await Promise.all(savePromises);
+        // Loro pilot: when the CRDT owns content, flush the handle ONCE (its
+        // doc already holds every entry's edits) instead of per-entry legacy
+        // content writes. Flag-off / handle-not-ready keeps the parallel
+        // legacy save. Metadata paths are unaffected either way.
+        await persistEntryContent({
+          loroOwnsContent: LORO_PILOT_ENABLED && !!loroHandle,
+          flushLoro: () => loroHandle!.flush(),
+          writeLegacyContent: () =>
+            Promise.all(
+              Array.from(unsavedContentRef.current.entries()).map(
+                ([entryId, content]) =>
+                  notesApi.updateEntry(note.id, entryId, { content }),
+              ),
+            ),
+        });
         unsavedContentRef.current.clear();
         // Drop persisted drafts now that the content is on disk.
         for (const entryId of flushedEntryIds) {
@@ -477,7 +504,7 @@ export default function NoteDetailPopup({
     }
 
     onClose();
-  }, [note.id, note.username, onClose, notesApi, currentUser]);
+  }, [note.id, note.username, onClose, notesApi, currentUser, loroHandle]);
 
   // The explicit "X" is a ONE-CLICK FULL DISMISS, even when the history sidebar
   // is open (vc-persona-fixes sub-bot of HR, 2026-05-30: the old X dismissed only
