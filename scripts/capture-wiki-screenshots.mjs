@@ -2849,6 +2849,363 @@ const FIXTURE_ROUTES = [
       } catch {}
     },
   },
+
+  // ── Sequence editor shots ─────────────────────────────────────────────────
+
+  {
+    // 1. Whole workbench: library panel + open plasmid in Map view.
+    //    pEGFP-N1 is the first fixture sequence; it auto-selects on load.
+    path: "/sequences",
+    file: "sequences-workbench-overview.png",
+    waitFor: "text=pEGFP-N1",
+    settleMs: 1200,
+    action: async (page) => {
+      try {
+        const mapTab = page.getByRole("tab", { name: /^Map$/i }).first();
+        if (await mapTab.count()) {
+          await mapTab.click({ timeout: 3000 });
+          await page.waitForTimeout(900);
+        }
+      } catch {}
+    },
+  },
+  {
+    // 2. Library panel: collection selector visible, crop to the left panel.
+    //    The selector is a native <select> so we capture its closed state.
+    path: "/sequences",
+    file: "sequences-library-filter.png",
+    waitFor: "text=pEGFP-N1",
+    settleMs: 900,
+    action: async (page) => {
+      // Crop to the left library panel (roughly 380 px wide).
+      const clip = await page.evaluate(() => {
+        const panel = document.querySelector("[data-library-panel], aside, .library-panel");
+        if (panel) {
+          const r = panel.getBoundingClientRect();
+          return { x: Math.floor(r.left), y: Math.floor(r.top), width: Math.ceil(r.width), height: Math.ceil(r.height) };
+        }
+        // Fallback: crop to left 380 px, full height.
+        return { x: 0, y: 0, width: 380, height: 900 };
+      });
+      return { clip };
+    },
+  },
+  {
+    // 3. Circular plasmid map with labeled feature arcs.
+    path: "/sequences",
+    file: "sequences-circular-map.png",
+    waitFor: "text=pEGFP-N1",
+    settleMs: 1200,
+    action: async (page) => {
+      try {
+        const mapTab = page.getByRole("tab", { name: /^Map$/i }).first();
+        if (await mapTab.count()) {
+          await mapTab.click({ timeout: 3000 });
+          await page.waitForTimeout(1000);
+        }
+      } catch {}
+      // Crop to the editor panel (right of the library).
+      const clip = await page.evaluate(() => {
+        const lib = document.querySelector("select");
+        if (lib) {
+          const libRect = lib.closest("aside, [class*='library'], [class*='panel']")?.getBoundingClientRect();
+          const libRight = libRect ? Math.ceil(libRect.right) : 380;
+          return { x: libRight, y: 0, width: window.innerWidth - libRight, height: window.innerHeight };
+        }
+        return { x: 375, y: 0, width: 1065, height: 900 };
+      });
+      return { clip };
+    },
+  },
+  {
+    // 4. Base-level sequence view: complement strand, ruler, feature tracks.
+    path: "/sequences",
+    file: "sequences-base-view.png",
+    waitFor: "text=pEGFP-N1",
+    settleMs: 1000,
+    action: async (page) => {
+      try {
+        const seqTab = page.getByRole("tab", { name: /^Sequence$/i }).first();
+        if (await seqTab.count()) {
+          await seqTab.click({ timeout: 3000 });
+          await page.waitForTimeout(900);
+        }
+      } catch {}
+    },
+  },
+  {
+    // 5. View-control rail: the narrow icon-toggle strip on the left edge.
+    //    Crop to just the rail column.
+    path: "/sequences",
+    file: "sequences-view-rail.png",
+    waitFor: "text=pEGFP-N1",
+    settleMs: 1200,
+    action: async (page) => {
+      try {
+        const mapTab = page.getByRole("tab", { name: /^Map$/i }).first();
+        if (await mapTab.count()) {
+          await mapTab.click({ timeout: 3000 });
+          await page.waitForTimeout(900);
+        }
+      } catch {}
+      // Crop to a band around the rail — starts after the library panel.
+      const clip = await page.evaluate(() => {
+        const lib = document.querySelector("select");
+        const libRight = lib
+          ? Math.ceil((lib.closest("aside, [class*='library'], div")?.getBoundingClientRect()?.right ?? 380))
+          : 380;
+        return { x: libRight, y: 60, width: 56, height: 780 };
+      });
+      return { clip };
+    },
+  },
+  {
+    // 6. Feature-edit dialog open on a feature.
+    path: "/sequences",
+    file: "sequences-feature-dialog.png",
+    waitFor: "text=pEGFP-N1",
+    settleMs: 1000,
+    action: async (page) => {
+      try {
+        const featTab = page.getByRole("tab", { name: /Features/i }).first();
+        if (await featTab.count()) {
+          await featTab.click({ timeout: 3000 });
+          await page.waitForTimeout(700);
+        }
+        // Click the first edit (pencil) button in the features panel.
+        const editBtn = page
+          .locator('button[aria-label*="Edit"], button[title*="Edit"], button[aria-label*="edit"]')
+          .first();
+        if (await editBtn.count()) {
+          await editBtn.click({ timeout: 3000 });
+          await page.waitForTimeout(800);
+        } else {
+          // Fallback: double-click first feature row.
+          const firstRow = page.locator('[role="row"], [data-feature-row]').first();
+          if (await firstRow.count()) {
+            await firstRow.dblclick({ timeout: 3000 });
+            await page.waitForTimeout(800);
+          }
+        }
+      } catch (err) {
+        console.warn(`  ⚠ sequences-feature-dialog action: ${err.message}`);
+      }
+    },
+  },
+  {
+    // 7. Live selection readout: coords, bp count, GC% at the bottom.
+    path: "/sequences",
+    file: "sequences-selection-readout.png",
+    waitFor: "text=pEGFP-N1",
+    settleMs: 1000,
+    action: async (page) => {
+      try {
+        const seqTab = page.getByRole("tab", { name: /^Sequence$/i }).first();
+        if (await seqTab.count()) {
+          await seqTab.click({ timeout: 3000 });
+          await page.waitForTimeout(900);
+        }
+        // Click somewhere in the sequence view to trigger a selection readout.
+        // The editor panel sits right of the library (x ~400, y ~400).
+        await page.mouse.click(900, 350);
+        await page.waitForTimeout(500);
+        // Drag to select ~30 bp.
+        await page.mouse.move(780, 320);
+        await page.mouse.down();
+        await page.mouse.move(980, 320);
+        await page.mouse.up();
+        await page.waitForTimeout(600);
+      } catch (err) {
+        console.warn(`  ⚠ sequences-selection-readout action: ${err.message}`);
+      }
+    },
+  },
+  {
+    // 8. Primer design dialog: Add Primer flow with live stats.
+    path: "/sequences",
+    file: "sequences-primer-design.png",
+    waitFor: "text=pEGFP-N1",
+    settleMs: 1000,
+    action: async (page) => {
+      try {
+        // Open the Primer toolbar menu.
+        const primerMenu = page.getByRole("button", { name: /^Primer/i }).first();
+        if (await primerMenu.count()) {
+          await primerMenu.click({ timeout: 3000 });
+          await page.waitForTimeout(400);
+        }
+        // Click "Add Primer…" in the dropdown.
+        const addItem = page.getByRole("menuitem", { name: /Add Primer/i }).first();
+        if (await addItem.count()) {
+          await addItem.click({ timeout: 3000 });
+          await page.waitForTimeout(600);
+        }
+        // Type a plausible primer sequence so the stats populate.
+        const input = page.locator('input[placeholder*="primer" i], input[placeholder*="sequence" i], input[type="text"]').first();
+        if (await input.count()) {
+          await input.fill("ATGGTGAGCAAGGGCGAGGAG");
+          await page.waitForTimeout(700);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ sequences-primer-design action: ${err.message}`);
+      }
+    },
+  },
+  {
+    // 9. NCBI specificity handoff: the Primers tab with the BLAST link visible.
+    path: "/sequences",
+    file: "sequences-ncbi-specificity.png",
+    waitFor: "text=pEGFP-N1",
+    settleMs: 1000,
+    action: async (page) => {
+      try {
+        // Open Primer > Add Primer…, type a sequence, then go to the Check tab.
+        const primerMenu = page.getByRole("button", { name: /^Primer/i }).first();
+        if (await primerMenu.count()) {
+          await primerMenu.click({ timeout: 3000 });
+          await page.waitForTimeout(400);
+        }
+        const addItem = page.getByRole("menuitem", { name: /Add Primer/i }).first();
+        if (await addItem.count()) {
+          await addItem.click({ timeout: 3000 });
+          await page.waitForTimeout(600);
+        }
+        // Fill a primer sequence.
+        const input = page.locator('input[placeholder*="primer" i], input[placeholder*="sequence" i], input[type="text"]').first();
+        if (await input.count()) {
+          await input.fill("ATGGTGAGCAAGGGCGAGGAG");
+          await page.waitForTimeout(500);
+        }
+        // Click the "Check" tab if it exists.
+        const checkTab = page.getByRole("tab", { name: /Check/i }).first();
+        if (await checkTab.count()) {
+          await checkTab.click({ timeout: 3000 });
+          await page.waitForTimeout(500);
+        }
+        // Click "Check specificity" to reveal the NCBI handoff button.
+        const checkBtn = page.getByRole("button", { name: /Check specificity/i }).first();
+        if (await checkBtn.count()) {
+          await checkBtn.click({ timeout: 3000 });
+          await page.waitForTimeout(700);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ sequences-ncbi-specificity action: ${err.message}`);
+      }
+    },
+  },
+  {
+    // 10. Cloning workspace: the four-method picker (Overlap / Restriction /
+    //     Golden Gate / Gateway).
+    path: "/sequences",
+    file: "sequences-cloning-methods.png",
+    waitFor: "text=pEGFP-N1",
+    settleMs: 1000,
+    action: async (page) => {
+      try {
+        const assembleBtn = page.getByRole("button", { name: /Assemble/i }).first();
+        if (await assembleBtn.count()) {
+          await assembleBtn.click({ timeout: 3000 });
+          await page.waitForTimeout(1000);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ sequences-cloning-methods action: ${err.message}`);
+      }
+    },
+  },
+  {
+    // 11. Cloning workspace review step: assembled product with junctions.
+    //     Add two fragments from the library then click Review junctions.
+    path: "/sequences",
+    file: "sequences-cloning-review.png",
+    waitFor: "text=pEGFP-N1",
+    settleMs: 1000,
+    action: async (page) => {
+      try {
+        // Open the cloning workspace.
+        const assembleBtn = page.getByRole("button", { name: /Assemble/i }).first();
+        if (await assembleBtn.count()) {
+          await assembleBtn.click({ timeout: 3000 });
+          await page.waitForTimeout(800);
+        }
+        // The library panel is an <aside> with heading "Your DNA library".
+        // Each sequence row is a <li><button> inside that panel's <ul>.
+        const libButtons = page.locator('aside:has-text("Your DNA library") ul li button');
+        const count = await libButtons.count();
+        if (count >= 1) {
+          await libButtons.nth(0).click({ timeout: 3000, force: true });
+          await page.waitForTimeout(400);
+        }
+        if (count >= 2) {
+          // Click a second distinct library row (index 1).
+          await libButtons.nth(1).click({ timeout: 3000, force: true });
+          await page.waitForTimeout(400);
+        } else if (count >= 1) {
+          // Only one sequence — click same one again (Review requires 2+).
+          await libButtons.nth(0).click({ timeout: 3000, force: true });
+          await page.waitForTimeout(400);
+        }
+        // Hide the floating dock again (React may have re-rendered it after
+        // the dialog opened, re-enabling its pointer events).
+        await page.evaluate(() => {
+          for (const el of document.querySelectorAll("[data-floating-dock]")) {
+            el.style.display = "none";
+          }
+        });
+        // Click "Review junctions" (now enabled with 2+ fragments).
+        const reviewBtn = page
+          .getByRole("button", { name: /Review junctions|Review the product|Review recombination/i })
+          .first();
+        if (await reviewBtn.count()) {
+          await reviewBtn.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
+          await reviewBtn.click({ timeout: 5000 });
+          await page.waitForTimeout(2500);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ sequences-cloning-review action: ${err.message}`);
+      }
+    },
+  },
+  {
+    // 12. Compare / align dialog: pairwise alignment result with dotplot.
+    path: "/sequences",
+    file: "sequences-compare.png",
+    waitFor: "text=pEGFP-N1",
+    settleMs: 1000,
+    action: async (page) => {
+      try {
+        // Click the Align button in the library header.
+        const alignBtn = page.getByRole("button", { name: /^Align$/i }).first();
+        if (await alignBtn.count()) {
+          await alignBtn.click({ timeout: 3000 });
+          await page.waitForTimeout(600);
+        }
+        // The dialog has two sequence <select> pickers (Sequence A, Sequence B).
+        // Scope to inside the dialog to avoid the collection selector.
+        const dialog = page.locator('[data-testid="compare-sequences-dialog"]');
+        const dialogOrPage = (await dialog.count()) ? dialog : page;
+        const pickerA = dialogOrPage.locator('select').nth(0);
+        if (await pickerA.count()) {
+          await pickerA.selectOption({ index: 1 });
+          await page.waitForTimeout(300);
+        }
+        const pickerB = dialogOrPage.locator('select').nth(1);
+        if (await pickerB.count()) {
+          await pickerB.selectOption({ index: 2 });
+          await page.waitForTimeout(300);
+        }
+        // Click the Align button inside the dialog (force past the backdrop).
+        const runBtn = dialogOrPage
+          .getByRole("button", { name: /^(Align|Run|Compare|Compute)$/i })
+          .first();
+        if (await runBtn.count()) {
+          await runBtn.click({ timeout: 3000, force: true });
+          await page.waitForTimeout(2000);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ sequences-compare action: ${err.message}`);
+      }
+    },
+  },
 ];
 
 /** Hide dev/beta UI that distracts from docs. Re-applied per page.

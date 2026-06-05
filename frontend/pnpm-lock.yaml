@@ -95,6 +95,12 @@ importers:
       konva:
         specifier: ^10.3.0
         version: 10.3.0
+      loro-codemirror:
+        specifier: ^0.3.3
+        version: 0.3.3(@codemirror/state@6.6.0)(@codemirror/view@6.43.0)(loro-crdt@1.12.3)
+      loro-crdt:
+        specifier: ^1.12.3
+        version: 1.12.3
       marked:
         specifier: ^18.0.3
         version: 18.0.4
@@ -2962,6 +2968,16 @@ packages:
   loose-envify@1.4.0:
     resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
     hasBin: true
+
+  loro-codemirror@0.3.3:
+    resolution: {integrity: sha512-C6qAUmDjMTyoXVeDxKWixvr/TSTo/jXFrvgGW+wn6RAHeIzNFovBDLQNi/Sary4Ahx8DaYADTCm9eCaRAjvWtw==}
+    peerDependencies:
+      '@codemirror/state': ^6.0.0
+      '@codemirror/view': ^6.7.0
+      loro-crdt: ^1.8.2
+
+  loro-crdt@1.12.3:
+    resolution: {integrity: sha512-ZCeW0e/bo2lP4/zxSlVrJlMrX3hq9tXpeANbBDkdVS0bxoPHYx5Za3yS/A1+aWEFPJpzzI3Eac4K20cL9+BtXw==}
 
   lowlight@3.3.0:
     resolution: {integrity: sha512-0JNhgFoPvP6U6lE/UdVsSq99tn6DhjjpAj5MxG49ewd2mOBVtwWYIT8ClyABhq198aXXODMU6Ox8DrGy/CpTZQ==}
@@ -7107,6 +7123,14 @@ snapshots:
   loose-envify@1.4.0:
     dependencies:
       js-tokens: 4.0.0
+
+  loro-codemirror@0.3.3(@codemirror/state@6.6.0)(@codemirror/view@6.43.0)(loro-crdt@1.12.3):
+    dependencies:
+      '@codemirror/state': 6.6.0
+      '@codemirror/view': 6.43.0
+      loro-crdt: 1.12.3
+
+  loro-crdt@1.12.3: {}
 
   lowlight@3.3.0:
     dependencies:
