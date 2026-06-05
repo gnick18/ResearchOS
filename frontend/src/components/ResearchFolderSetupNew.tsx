@@ -311,7 +311,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
             {/* Brand mark: BeakerBot in the gradient pill, matching
                 UserLoginScreen. Static, no liquid (white wireframe
                 reads cleanly on the blue→purple gradient). */}
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg mb-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-sky to-brand-purple shadow-lg mb-4">
               <BeakerBot
                 pose="idle"
                 noLiquid
@@ -319,7 +319,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 className="w-8 h-8 text-white"
               />
             </div>
-            <h1 className="text-display font-bold text-white">ResearchOS</h1>
+            <h1 className="text-display font-extrabold tracking-tight text-white">ResearchOS</h1>
             <p className="text-slate-400 mt-2">Connected to: {directoryName}</p>
           </div>
 
@@ -542,7 +542,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
             {/* Brand mark: BeakerBot in the gradient pill, matching
                 UserLoginScreen. Static, no liquid (white wireframe
                 reads cleanly on the blue→purple gradient). */}
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg mb-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-sky to-brand-purple shadow-lg mb-4">
               <BeakerBot
                 pose="idle"
                 noLiquid
@@ -550,7 +550,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 className="w-8 h-8 text-white"
               />
             </div>
-            <h1 className="text-display font-bold text-white">ResearchOS</h1>
+            <h1 className="text-display font-extrabold tracking-tight text-white">ResearchOS</h1>
             <p className="text-slate-400 mt-2">Connected to: {directoryName}</p>
           </div>
 
@@ -636,7 +636,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
             {/* Brand mark: BeakerBot in the gradient pill, matching
                 UserLoginScreen. Static, no liquid (white wireframe
                 reads cleanly on the blue→purple gradient). */}
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg mb-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-sky to-brand-purple shadow-lg mb-4">
               <BeakerBot
                 pose="idle"
                 noLiquid
@@ -644,7 +644,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 className="w-8 h-8 text-white"
               />
             </div>
-            <h1 className="text-display font-bold text-white">ResearchOS</h1>
+            <h1 className="text-display font-extrabold tracking-tight text-white">ResearchOS</h1>
             <p className="text-slate-400 mt-2">Local-first research data management</p>
           </div>
 
@@ -733,7 +733,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
 
       <div className="relative z-10 w-full max-w-3xl mx-4">
         {/* Page title, centered. */}
-        <h1 className="mb-8 text-center text-display font-bold text-white">
+        <h1 className="mb-8 text-center text-display font-extrabold tracking-tight text-white">
           Welcome to ResearchOS
         </h1>
 

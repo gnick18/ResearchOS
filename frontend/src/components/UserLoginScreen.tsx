@@ -941,7 +941,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               mascot reads as a clean white wireframe on the blue→
               purple gradient instead of fighting it with its own
               pastel-rainbow fill. */}
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-sky to-brand-purple shadow-lg mb-4">
             <BeakerBot
               pose="idle"
               noLiquid
@@ -949,7 +949,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               className="w-8 h-8 text-white"
             />
           </div>
-          <h1 className="text-display font-bold text-white mb-2">ResearchOS</h1>
+          <h1 className="text-display font-extrabold tracking-tight text-white mb-2">ResearchOS</h1>
           <p className="text-slate-400">Select your account to continue</p>
         </div>
 

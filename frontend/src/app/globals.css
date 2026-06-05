@@ -100,6 +100,9 @@
   --color-brand-sky: #1aa0e6;
   --color-brand-action: #1283c9;
   --color-brand-ink: #111827;
+  /* Channel purple (the YouTube avatar background in brand/README.md). Pairs
+   * with brand-sky for the dark-surface logo pill on the auth screens. */
+  --color-brand-purple: #5b47d6;
 }
 
 body {
