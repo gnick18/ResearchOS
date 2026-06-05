@@ -198,13 +198,9 @@ export default function ShareDialog({
     setShared((prev) => removeSharedEntry(prev, username));
   };
 
-  const handleToggleLevel = (username: string) => {
+  const handleSetLevel = (username: string, level: "read" | "edit") => {
     setShared((prev) =>
-      prev.map((s) =>
-        s.username === username
-          ? { username, level: s.level === "edit" ? "read" : "edit" }
-          : s,
-      ),
+      prev.map((s) => (s.username === username ? { username, level } : s)),
     );
   };
 
@@ -270,11 +266,11 @@ export default function ShareDialog({
                     key={s.username}
                     className="bg-gray-50 rounded-lg px-3 py-2"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2">
                         <SharedUserAvatar username={s.username} />
-                        <div>
-                          <p className="text-body font-medium text-gray-900">
+                        <div className="min-w-0">
+                          <p className="truncate text-body font-medium text-gray-900">
                             {s.username === WHOLE_LAB_SENTINEL
                               ? "Whole lab"
                               : `@${s.username}`}
@@ -284,19 +280,50 @@ export default function ShareDialog({
                               </span>
                             )}
                           </p>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleLevel(s.username)}
-                            className="text-meta text-gray-500 hover:text-gray-700 underline-offset-2 hover:underline"
+                          {/* Read/Edit segmented control: two explicit choices
+                           *  instead of a hidden "click to toggle" text link, so
+                           *  the current level is always visible and either side
+                           *  is one tap away. */}
+                          <div
+                            role="group"
+                            aria-label={`Access level for ${
+                              s.username === WHOLE_LAB_SENTINEL
+                                ? "the whole lab"
+                                : `@${s.username}`
+                            }`}
+                            className="mt-1 inline-flex rounded-md border border-gray-300 bg-white p-0.5"
                           >
-                            {s.level === "edit" ? "Can edit" : "Can read"} (click
-                            to toggle)
-                          </button>
+                            {(
+                              [
+                                { value: "read", label: "Can view" },
+                                { value: "edit", label: "Can edit" },
+                              ] as const
+                            ).map((opt) => {
+                              const active = s.level === opt.value;
+                              return (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  aria-pressed={active}
+                                  onClick={() =>
+                                    handleSetLevel(s.username, opt.value)
+                                  }
+                                  className={`rounded px-2.5 py-1 text-meta font-medium transition-colors ${
+                                    active
+                                      ? "bg-brand-action text-white shadow-sm"
+                                      : "text-gray-500 hover:text-gray-800"
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
                       <button
                         onClick={() => handleRemove(s.username)}
-                        className="text-red-500 hover:text-red-700 text-body font-medium"
+                        className="shrink-0 text-meta font-medium text-gray-400 hover:text-red-600"
                         aria-label={`Remove access for ${s.username}`}
                       >
                         Remove
