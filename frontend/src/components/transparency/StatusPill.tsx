@@ -27,7 +27,23 @@ const STYLES: Record<Status, { bg: string; text: string; ring: string; label: st
   },
 };
 
-function Glyph({ status }: { status: Status }) {
+/** Calm styling for an expected (loose-tolerance) difference: no amber alarm. */
+const EXPECTED_STYLE = {
+  bg: "bg-slate-50",
+  text: "text-slate-600",
+  ring: "ring-slate-200",
+  label: "Expected",
+};
+
+function Glyph({ status, expected }: { status: Status; expected?: boolean }) {
+  if (expected) {
+    // Approximately-equal glyph: this differs by design, it is not a warning.
+    return (
+      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M4 9c2-2 4-2 6 0s4 2 6 0M4 15c2-2 4-2 6 0s4 2 6 0" />
+      </svg>
+    );
+  }
   if (status === "pass") {
     return (
       <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -53,19 +69,28 @@ export default function StatusPill({
   status,
   label,
   exact,
+  kind,
 }: {
   status: Status;
   label?: string;
   /** When true and the status is a pass, the pill reads "Exact" (delta is 0). */
   exact?: boolean;
+  /**
+   * Tolerance kind of the underlying comparison. A "loose" warn is an
+   * approximate-by-design offset (expected), so it renders calm slate
+   * "Expected" instead of the amber "Marginal" alarm reserved for a "tight"
+   * port that actually drifted.
+   */
+  kind?: "tight" | "loose";
 }) {
-  const s = STYLES[status];
+  const expected = status === "warn" && kind === "loose";
+  const s = expected ? EXPECTED_STYLE : STYLES[status];
   const text = label ?? (exact && status === "pass" ? "Exact" : s.label);
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-meta font-semibold ring-1 ring-inset ${s.bg} ${s.text} ${s.ring}`}
     >
-      <Glyph status={status} />
+      <Glyph status={status} expected={expected} />
       {text}
     </span>
   );

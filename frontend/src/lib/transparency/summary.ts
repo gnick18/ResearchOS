@@ -16,27 +16,41 @@ export interface AgreementCounts {
   exact: number;
   /** Non-zero but within the pass tolerance. */
   within: number;
-  /** Beyond pass, within warn: a documented, larger difference. */
-  flagged: number;
-  /** Total gated comparisons (exact + within + flagged). */
+  /**
+   * Beyond pass but with a LOOSE tolerance: an approximate-by-design method
+   * whose offset from an exact tool is expected, not a defect.
+   */
+  expected: number;
+  /**
+   * Beyond pass with a TIGHT tolerance: a faithful port that drifted past
+   * parity. This is the only bucket that warrants the amber "larger difference"
+   * framing. Currently zero.
+   */
+  larger: number;
+  /** Total gated comparisons (exact + within + expected + larger). */
   total: number;
 }
 
-export function agreementCounts(report: TransparencyReport): AgreementCounts {
+function tallyCounts(
+  comparisons: { status: string; delta: number; informational?: boolean; tolerance: { kind: "tight" | "loose" } }[],
+): AgreementCounts {
   let exact = 0;
   let within = 0;
-  let flagged = 0;
-  for (const d of report.domains) {
-    for (const c of d.cases) {
-      for (const cmp of c.comparisons) {
-        if (cmp.informational) continue;
-        if (cmp.status === "warn" || cmp.status === "fail") flagged += 1;
-        else if (cmp.delta === 0) exact += 1;
-        else within += 1;
-      }
-    }
+  let expected = 0;
+  let larger = 0;
+  for (const cmp of comparisons) {
+    if (cmp.informational) continue;
+    if (cmp.status === "warn" || cmp.status === "fail") {
+      if (cmp.tolerance.kind === "tight") larger += 1;
+      else expected += 1;
+    } else if (cmp.delta === 0) exact += 1;
+    else within += 1;
   }
-  return { exact, within, flagged, total: exact + within + flagged };
+  return { exact, within, expected, larger, total: exact + within + expected + larger };
+}
+
+export function agreementCounts(report: TransparencyReport): AgreementCounts {
+  return tallyCounts(report.domains.flatMap((d) => d.cases.flatMap((c) => c.comparisons)));
 }
 
 /** One genuine difference to spotlight. */
@@ -49,8 +63,15 @@ export interface Difference {
   theirs: number;
   delta: number;
   unit: string;
-  /** "within" = small documented offset; "flagged" = larger documented difference. */
+  /** "within" = small documented offset; "flagged" = beyond the pass band. */
   level: "within" | "flagged";
+  /**
+   * Tolerance kind, which decides how a flagged case reads. "tight" = a
+   * faithful port that drifted past parity (a genuine "larger difference").
+   * "loose" = an approximate-by-design method whose offset is expected, so a
+   * flagged loose case is an "expected difference", not an alarm.
+   */
+  kind: "tight" | "loose";
   reason: string;
 }
 
@@ -84,6 +105,7 @@ export function collectDifferences(report: TransparencyReport): Difference[] {
           delta: cmp.delta,
           unit: cmp.tolerance.unit,
           level,
+          kind: cmp.tolerance.kind,
           reason: cmp.tolerance.rationale,
         });
       }
@@ -102,16 +124,7 @@ export function hasMethodContext(report: TransparencyReport): boolean {
   );
 }
 
-/** Gated comparisons for a domain, split exact / within / flagged. */
+/** Gated comparisons for a domain, split exact / within / expected / larger. */
 export function domainCounts(comparisons: ScalarComparison[]): AgreementCounts {
-  let exact = 0;
-  let within = 0;
-  let flagged = 0;
-  for (const cmp of comparisons) {
-    if (cmp.informational) continue;
-    if (cmp.status === "warn" || cmp.status === "fail") flagged += 1;
-    else if (cmp.delta === 0) exact += 1;
-    else within += 1;
-  }
-  return { exact, within, flagged, total: exact + within + flagged };
+  return tallyCounts(comparisons);
 }

@@ -104,7 +104,15 @@ function CaseVisualCard({ domain, c }: { domain: DomainReport; c: CaseResult }) 
     <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <span className="text-body font-medium text-gray-800">{c.label}</span>
-        <StatusPill status={c.status} exact={c.comparisons.every((cmp) => cmp.delta === 0)} />
+        <StatusPill
+          status={c.status}
+          exact={c.comparisons.every((cmp) => cmp.delta === 0)}
+          kind={
+            c.comparisons.find(
+              (cmp) => !cmp.informational && (cmp.status === "warn" || cmp.status === "fail"),
+            )?.tolerance.kind
+          }
+        />
       </div>
 
       {v?.kind === "alignment-columns" ? (
@@ -178,7 +186,7 @@ function ScalarTable({ domain, unit }: { domain: DomainReport; unit: string }) {
                   {cmp.informational ? (
                     <span className="text-meta text-gray-400">context</span>
                   ) : (
-                    <StatusPill status={cmp.status} exact={cmp.delta === 0} />
+                    <StatusPill status={cmp.status} exact={cmp.delta === 0} kind={cmp.tolerance.kind} />
                   )}
                 </td>
               </tr>
@@ -235,9 +243,14 @@ function DomainSummary({ domain }: { domain: DomainReport }) {
           {c.within} within tolerance
         </span>
       ) : null}
-      {c.flagged > 0 ? (
+      {c.expected > 0 ? (
+        <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 font-semibold text-slate-600">
+          {c.expected} expected difference{c.expected === 1 ? "" : "s"}
+        </span>
+      ) : null}
+      {c.larger > 0 ? (
         <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
-          {c.flagged} larger difference{c.flagged === 1 ? "" : "s"}
+          {c.larger} larger difference{c.larger === 1 ? "" : "s"}
         </span>
       ) : null}
       {hasInfo ? <span className="text-gray-400">+ {infoCount} cross-method context</span> : null}

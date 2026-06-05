@@ -24,7 +24,7 @@ import TransparencyTabs from "./TransparencyTabs";
 export default function TransparencyView() {
   const report: TransparencyReport = buildTransparencyReport();
   const counts = agreementCounts(report);
-  const nonExact = counts.within + counts.flagged;
+  const nonExact = counts.within + counts.expected + counts.larger;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -55,9 +55,14 @@ export default function TransparencyView() {
             <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 font-semibold text-gray-600">
               {nonExact} within a documented tolerance
             </span>
-            {counts.flagged > 0 ? (
+            {counts.expected > 0 ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-600">
+                {counts.expected} expected difference{counts.expected === 1 ? "" : "s"}
+              </span>
+            ) : null}
+            {counts.larger > 0 ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
-                {counts.flagged} larger difference{counts.flagged === 1 ? "" : "s"}
+                {counts.larger} larger difference{counts.larger === 1 ? "" : "s"}
               </span>
             ) : null}
             <span className="text-gray-400">across {counts.total} comparisons, recomputed on every commit</span>

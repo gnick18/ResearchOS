@@ -11,16 +11,42 @@ import type { TransparencyReport } from "@/lib/transparency/types";
  */
 
 function DiffRow({ d }: { d: Difference }) {
-  const flagged = d.level === "flagged";
+  // Three readings, not two. A flagged TIGHT case is a faithful port that
+  // drifted past parity, which is genuinely worth the amber "Larger difference"
+  // alarm. A flagged LOOSE case is an approximate-by-design method (e.g. the
+  // seed-and-extend homology finder) whose offset from an exact tool is
+  // expected, so it reads as a calm "Expected difference", not an alarm.
+  const tone =
+    d.level === "flagged"
+      ? d.kind === "tight"
+        ? "larger"
+        : "expected"
+      : "within";
+  const row =
+    tone === "larger"
+      ? "border-amber-200 bg-amber-50/70"
+      : "border-gray-200 bg-white";
+  const badge =
+    tone === "larger"
+      ? "bg-amber-100 text-amber-800"
+      : tone === "expected"
+        ? "bg-slate-100 text-slate-600"
+        : "bg-gray-100 text-gray-600";
+  const badgeText =
+    tone === "larger"
+      ? "Larger difference"
+      : tone === "expected"
+        ? "Expected difference"
+        : "Within tolerance";
   return (
-    <li className={`rounded-lg border px-4 py-3 ${flagged ? "border-amber-200 bg-amber-50/70" : "border-gray-200 bg-white"}`}>
+    <li className={`rounded-lg border px-4 py-3 ${row}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <span className="text-body font-medium text-gray-900">
           {d.domainTitle}
           <span className="text-gray-400"> · {d.caseLabel}</span>
         </span>
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-meta font-semibold ${flagged ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-600"}`}>
-          {flagged ? "Larger difference" : "Within tolerance"}
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-meta font-semibold ${badge}`}>
+          {badgeText}
         </span>
       </div>
       <p className="mt-1 text-meta text-gray-600">

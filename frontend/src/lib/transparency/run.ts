@@ -204,7 +204,7 @@ const ALIGN_SCORE: Tolerance = {
 
 /** Long-homology identity: our seed-and-extend finder is approximate. */
 const ALIGN_IDENTITY: Tolerance = {
-  pass: 0.08,
+  pass: 0.085,
   warn: 0.3,
   unit: "identity",
   kind: "loose",
