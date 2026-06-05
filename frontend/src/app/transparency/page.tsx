@@ -8,7 +8,7 @@ import TransparencyView from "@/components/transparency/TransparencyView";
  *
  * Shows ResearchOS's built-in bioinformatic calculations (primer Tm today;
  * alignment, restriction digest, and translation to follow) side by side with
- * the established third-party reference implementations (Biopython, primer3).
+ * the established peer-reviewed alternatives (Biopython, primer3).
  * Every comparison on the page is produced by `buildTransparencyReport()` and
  * enforced by a vitest gate (`lib/transparency/report.test.ts`) that runs on
  * every push, so the page can never quietly drift from the truth.
@@ -21,7 +21,7 @@ import TransparencyView from "@/components/transparency/TransparencyView";
 export const metadata: Metadata = {
   title: "Method validation | ResearchOS",
   description:
-    "Bioinformatic calculations in ResearchOS (melting temperature, alignment, restriction digest, translation) compared against Biopython and primer3 reference implementations, recomputed on every commit.",
+    "Bioinformatic calculations in ResearchOS (melting temperature, alignment, restriction digest, translation) compared against peer-reviewed alternatives (Biopython and primer3), recomputed on every commit.",
 };
 
 export default function TransparencyPage() {

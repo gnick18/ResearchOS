@@ -226,12 +226,12 @@ export default function TransparencyView() {
         <header className="mt-8 mb-12">
           <p className="mb-3 text-body font-semibold uppercase tracking-wide text-sky-600">Method validation</p>
           <h1 className="mb-5 text-display font-bold tracking-tight text-gray-900 sm:text-4xl">
-            Validation of bioinformatic calculations against reference implementations
+            Validation of bioinformatic calculations against peer-reviewed alternatives
           </h1>
           <p className="max-w-2xl text-body text-gray-600">
             ResearchOS performs sequence-analysis calculations client-side. Each calculation listed
             below is evaluated over a fixed set of test inputs and compared against an established
-            reference implementation (Biopython, primer3) under matched parameters. Reference values
+            peer-reviewed alternative (Biopython, primer3) under matched parameters. Reference values
             are pinned from the cited tool versions and reproducible with the listed generator scripts.
             The comparisons are recomputed from source on every commit as an automated test; a result
             exceeding its stated tolerance fails the build.
