@@ -169,6 +169,9 @@ export default function NoteDetailPopup({
   // closed on note identity change or unmount. Null when flag is off or while
   // the async open is in flight.
   const [loroHandle, setLoroHandle] = useState<NoteHandle | null>(null);
+  // True when the async Loro open failed for this note. Lets the editor fall
+  // back to the normal (non-Loro) surface instead of blocking on a loader.
+  const [loroOpenFailed, setLoroOpenFailed] = useState(false);
 
   // Per-note attachment folder. Mirrors how tasks use
   // `users/{owner}/results/task-{id}/`. Falls back to the note's own
@@ -205,6 +208,7 @@ export default function NoteDetailPopup({
 
     let active = true;
     const ownerValue = note.username || currentUser || "";
+    setLoroOpenFailed(false);
 
     openNote(note, ownerValue)
       .then((handle) => {
@@ -213,6 +217,7 @@ export default function NoteDetailPopup({
       })
       .catch((err) => {
         console.error("[NoteDetailPopup] Loro openNote failed:", err);
+        if (active) setLoroOpenFailed(true);
       });
 
     return () => {
@@ -225,6 +230,15 @@ export default function NoteDetailPopup({
     // Keyed on note identity + owner only, matching LoroNoteEditor Effect 1.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.id, note.username, currentUser]);
+
+  // Loro pilot: while the handle is still opening (flag on, not yet ready, not
+  // failed) render a brief loading placeholder INSTEAD of the editor, so the
+  // CM6 editor only ever mounts once its final mode (Loro vs normal) is known.
+  // Mounting the editor before the handle arrives would build it in non-Loro
+  // mode and never switch (its mount effect runs once). On open failure we fall
+  // through to the normal editor (loroHandle stays null, so no Loro props).
+  const loroOpening =
+    LORO_PILOT_ENABLED && loroHandle === null && !loroOpenFailed;
 
   // Track unsaved content (pending writes that haven't been manually saved
   // yet). Still drives the close + SPA-nav safety nets even though we no
@@ -1623,9 +1637,16 @@ export default function NoteDetailPopup({
               currentEntry ? (
                 // Loro pilot: when the flag is on AND the handle is ready, pass
                 // loroHandle/entryIndex/baseNote into LiveMarkdownEditor so
-                // InlineMarkdownEditor runs in Loro mode. When the flag is off OR
-                // the handle is still opening (null), the extra props are absent and
-                // the editor behaves exactly as before.
+                // InlineMarkdownEditor runs in Loro mode. While the handle is
+                // still opening we show a loader (loroOpening) so the editor
+                // mounts in its final mode. When the flag is off OR the open
+                // failed, the extra props are absent and the editor behaves
+                // exactly as before.
+                loroOpening ? (
+                  <div className="flex items-center justify-center h-full text-gray-400 text-body p-6">
+                    <p>Loading editor...</p>
+                  </div>
+                ) : (
                 <LiveMarkdownEditor
                   value={currentEntry.content}
                   onChange={updateEntryContent}
@@ -1654,6 +1675,7 @@ export default function NoteDetailPopup({
                   loroEntryIndex={LORO_PILOT_ENABLED ? entries.findIndex((e) => e.id === activeTab) : undefined}
                   loroBaseNote={LORO_PILOT_ENABLED ? note : undefined}
                 />
+                )
               ) : (
                 <div className="flex items-center justify-center h-full text-gray-400">
                   <p>No entries yet. Click &quot;Add Entry&quot; to get started.</p>
@@ -1662,6 +1684,11 @@ export default function NoteDetailPopup({
             ) : (
               // Single note - use the first (and only) entry
               entries[0] && (
+                loroOpening ? (
+                  <div className="flex items-center justify-center h-full text-gray-400 text-body p-6">
+                    <p>Loading editor...</p>
+                  </div>
+                ) : (
                 <LiveMarkdownEditor
                   value={entries[0].content}
                   onChange={(content) => {
@@ -1689,6 +1716,7 @@ export default function NoteDetailPopup({
                   loroEntryIndex={LORO_PILOT_ENABLED ? 0 : undefined}
                   loroBaseNote={LORO_PILOT_ENABLED ? note : undefined}
                 />
+                )
               )
             )}
           </div>
