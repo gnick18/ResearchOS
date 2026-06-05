@@ -109,7 +109,7 @@ Full analysis in `docs/research/launch-page-design-research.md` section 3. The r
 
 The biggest ResearchOS-specific risk the research flags: the page looking too slick to be a sincere free academic tool. The whole direction leans concept-first and real-UI-forward to counter that.
 
-DECIDED (Grant 2026-06-04): **dark-first (hybrid)**. Dark navy hero + bento feature grid with the BeakerBot sky-blue accent, then the "you own your data" trust block and the final CTA in a lighter treatment so the page is not one dark slab. Chosen from the rendered mockups at `tools/welcome-mock/index.html` (?v=dark vs ?v=light).
+DECIDED (Grant 2026-06-04, then REVERSED same day): **light**, not dark. Grant first picked dark-first from the mockups, then after seeing the built `/welcome-preview` with real video decided he wants the page LIGHT. Clean white / pale-blue throughout (the `?v=light` mockup at `tools/welcome-mock/index.html`), keeping the rainbow ribbon + bloom + the real BeakerBot + the "actually own" rainbow-gradient headline word. The sky-gradient NIH band and any colored accent sections still pop against the light base. The earlier dark build is being converted to light.
 
 ### BeakerBot in the implementation (LOCKED)
 
