@@ -14,7 +14,15 @@ A living roadmap. A curated, honest subset surfaces on the welcome page (the "wh
 
 ## Exploring / not committed
 - Biological registries (plasmid, antibody) as a catalog of a lab's reusable materials (see INVENTORY_DESIGN.md section 6).
-- Inventory list: explored in depth and SHELVED as a poor fit for small academic labs. Real labs run reactive "grab the last tube, reorder it"; a maintained stock list adds a logging step nobody sustains. The design and the reasoning are preserved in INVENTORY_DESIGN.md so we do not re-litigate it; the only surviving thread is the reorder polish above.
+- Lab inventory with barcode scanning: previously shelved as a poor fit (manual stock logging nobody sustains), but REOPENED 2026-06-05 based on multiple beta-tester requests and the mobile-app arc. The barcode-scan-to-log UX is meaningfully different from the manual stock list that was shelved and pairs naturally with a future mobile app. Design doc needed before building; the original analysis in INVENTORY_DESIGN.md stays as context.
+
+## Big upcoming features (public roadmap)
+These are the high-confidence direction items that surface on the welcome page and login screen. No hard dates. Listed only when direction is confident.
+- Live real-time collaboration: Google-Docs-style simultaneous editing on notes, methods, and experiments. CRDT foundation (Loro) already building.
+- Cross-lab sharing: send a note, method, or project to anyone by email — even a different lab with no shared folder. Encrypted relay, verified identity.
+- NIH data sharing and Zenodo deposit: one-click deposit to Zenodo with grant number, ORCID, and DataCite metadata pre-filled. Supports NIH Data Management and Sharing Plan compliance.
+- Lab inventory with barcode scanning: track reagents and consumables by scanning barcodes. Beta-requested; pairs with the mobile app.
+- Mobile app: a full ResearchOS experience on iOS and Android, beyond the current Telegram bench-capture inbox.
 
 ## Internal / NOT public (do not put on the welcome page)
 - AGPL relicense + CLA activation: blocked on the Wisconsin LLC + the UW/WARF IP check (see project_llc_blocked_followups memory).
