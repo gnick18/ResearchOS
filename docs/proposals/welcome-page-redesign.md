@@ -109,7 +109,12 @@ Full analysis in `docs/research/launch-page-design-research.md` section 3. The r
 
 The biggest ResearchOS-specific risk the research flags: the page looking too slick to be a sincere free academic tool. The whole direction leans concept-first and real-UI-forward to counter that.
 
-OPEN DECISION for Grant: dark-first vs light. The research leans dark hero + lighter trust/CTA sections, but a committed clean light mode can read as more clinical and trustworthy to non-design-savvy scientists. Recommend building quick rendered mockups (the `hero-mock.html` approach used to pick the hero positioning) so Grant picks from real options, not prose.
+DECIDED (Grant 2026-06-04): **dark-first (hybrid)**. Dark navy hero + bento feature grid with the BeakerBot sky-blue accent, then the "you own your data" trust block and the final CTA in a lighter treatment so the page is not one dark slab. Chosen from the rendered mockups at `tools/welcome-mock/index.html` (?v=dark vs ?v=light).
+
+### BeakerBot in the implementation (LOCKED)
+
+- Use the **real, live `<BeakerBot alive />` component** (the one that waves on land then settles into its living idle), exactly like the current welcome page hero. Do NOT recreate BeakerBot as a static or hand-drawn SVG. The mockup's recreated mascot was a layout stand-in only.
+- Keep his branding exactly as shipped: the **blue eyes**, the sky-blue stroke, the rainbow liquid. Do not restyle, recolor, or simplify him for the dark background. He renders on dark the same way the existing landing hero already handles it.
 
 ## Video technical implementation
 
