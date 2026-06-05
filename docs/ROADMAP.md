@@ -77,3 +77,27 @@ Early technical notes (not a commitment):
 - Builds on the cloning engine the sequence-editor initiative is already scoping rather than a standalone tool.
 
 Open questions for whenever this gets scoped, how the user inputs the fragments and primers (pick from the sequence library vs paste), how many fragments to support in one assembly, and whether to unify this with other assembly methods (Gibson, Golden Gate) under one assembly-simulator surface rather than an overlap-extension-only tool.
+
+---
+
+## Quartzy integration (lab ordering and inventory)
+
+Status, `idea`
+Raised by, Grant + a labmate (2026-06-05)
+
+The ask, connect ResearchOS with Quartzy, the online lab inventory and ordering app many labs already use to submit orders, mark receipt of items, track inventories, and keep an ordering history. The goal is to meet labs where they are rather than force them to start over.
+
+Integrate or replace, the leaning is INTEGRATE first. Integration is the easiest path to adoption because a lab does not have to abandon the tool and history it already relies on. A from-scratch ResearchOS ordering/inventory feature (see the separate "Lab inventory + barcode scan" idea) could come later or in parallel, but the connection is the lower-friction win.
+
+What this could include:
+- A plug-in style connection, the user links their Quartzy account and ResearchOS pulls and pushes data both ways (orders, receipts, current inventory, ordering history).
+- Surface a lab's Quartzy inventory and order status inside ResearchOS so ordering context lives next to the experiments and methods that consume the reagents.
+- Mark receipt or kick off a request from inside ResearchOS and have it reflected in Quartzy, so the two stay in sync.
+
+Why it fits ResearchOS, ordering and inventory are a real daily lab workflow that currently lives in a separate tab; pulling it next to the bench work (experiments, methods, the reagents a protocol calls for) is the kind of consolidation the product is about, and it pairs naturally with the barcode-scan inventory idea and the mobile app.
+
+Feasibility notes (not a commitment):
+- Quartzy is a private company, not open source, so this depends on whether they expose a public API or partner integration. Accounts are free to make, which helps, but the integration surface (API availability, auth, rate limits, terms) is the first thing to confirm before any scoping. Closed commercial tools are harder to integrate than open standards (contrast with the Zenodo browser-direct deposit, which works because Zenodo is open and CORS-friendly).
+- If no usable API exists, the fallback is the "replace" path, a native ResearchOS ordering/inventory surface, which is a bigger build.
+
+Open questions for whenever this gets scoped, does Quartzy offer a public API or OAuth integration at all; integrate vs build-native vs both; and how account linking and the data sync (one-way pull vs two-way push) should work without ResearchOS becoming a custodian of a lab's ordering data.

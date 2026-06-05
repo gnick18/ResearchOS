@@ -171,6 +171,29 @@ function PhoneIcon() {
   );
 }
 
+/** Two-way sync arrows — connecting an existing ordering tool (Quartzy). */
+function SyncIcon() {
+  return (
+    <svg
+      width="28"
+      height="28"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="text-sky-600"
+    >
+      <path d="M4 9a8 8 0 0 1 13.7-4.3L20 7" />
+      <path d="M20 4v3h-3" />
+      <path d="M20 15a8 8 0 0 1-13.7 4.3L4 17" />
+      <path d="M4 20v-3h3" />
+    </svg>
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 /* Feature card data                                                           */
 /* -------------------------------------------------------------------------- */
@@ -210,6 +233,13 @@ const FEATURES: Feature[] = [
     description:
       "Track reagents and consumables by scanning barcodes. Beta-requested; pairs with the mobile app.",
     icon: <BarcodeIcon />,
+  },
+  {
+    title: "Quartzy ordering sync",
+    status: "exploring",
+    description:
+      "Connect your free Quartzy account so orders, receipts, and inventory flow both ways, no need to leave the ordering tools your lab already uses.",
+    icon: <SyncIcon />,
   },
   {
     title: "Mobile app",
