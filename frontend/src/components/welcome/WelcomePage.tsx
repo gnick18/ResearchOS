@@ -213,12 +213,19 @@ export default function WelcomePage() {
   const router = useRouter();
 
   // Hi-wave greeting: BeakerBot waves on land then settles into the living
-  // idle. Mirrors the LandingPage hero mechanic (a one-shot ~2.6s timer flips
-  // the wave off). The alive idle keeps him blinking and glancing afterward.
-  const [waveActive, setWaveActive] = useState(true);
+  // idle. Start false so the first server/client render is idle (avoids any
+  // hydration flicker), then flip to waving immediately on mount and settle
+  // after ~3s. The alive idle keeps him blinking and glancing afterward.
+  const [waveActive, setWaveActive] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setWaveActive(false), 2600);
-    return () => clearTimeout(t);
+    // Small leading delay so the wave starts after the page paints and the
+    // visitor's eye is on it, not before.
+    const start = setTimeout(() => setWaveActive(true), 120);
+    const stop = setTimeout(() => setWaveActive(false), 3200);
+    return () => {
+      clearTimeout(start);
+      clearTimeout(stop);
+    };
   }, []);
 
   // Two-path sign-in, plain router.push (no SessionProvider in this app).
