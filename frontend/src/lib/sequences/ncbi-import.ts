@@ -22,7 +22,9 @@ import type { SequenceTaxonNode } from "../types";
  *  SequenceMeta fields). Threaded into persistence so the library can show a
  *  "From NCBI" badge and the accession stays linkable. */
 export interface NcbiProvenance {
-  source: "ncbi-datasets";
+  // "ncbi-datasets" is a Datasets ZIP package; "ncbi-efetch" is an annotated
+  // efetch GenBank record (a gene by symbol, or any nuccore accession).
+  source: "ncbi-datasets" | "ncbi-efetch";
   /** The accession or gene id the user resolved (GCF_..., a gene id, ...). */
   ncbi_accession?: string;
   organism?: string;
@@ -116,4 +118,30 @@ export async function ncbiPackageToImports(
     throw new Error("Could not read any sequence from the NCBI package.");
   }
   return out;
+}
+
+/**
+ * Turn efetch GenBank text into ImportedSequence records, tagged with the given
+ * NCBI provenance. Hands the text to the EXISTING `importSequenceFile` through
+ * the GenBank path (the same parse the genome GBFF import uses, no new parser).
+ * A multi-LOCUS efetch record imports as one annotated record per LOCUS. Throws
+ * when nothing parses (the efetch caller already rejected a non-GenBank body, so
+ * by here the text is a real record). The `.gb` file name picks the GenBank path
+ * deterministically.
+ */
+export async function efetchGenbankToImports(
+  genbank: string,
+  provenance: NcbiProvenance,
+): Promise<NcbiImportedSequence[]> {
+  const name = `${provenance.ncbi_accession || "ncbi-record"}.gb`;
+  const bytes = new TextEncoder().encode(genbank);
+  const buf = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
+  const result = await importSequenceFile(name, buf);
+  if (result.sequences.length === 0) {
+    throw new Error("Could not read a sequence from the NCBI record.");
+  }
+  return result.sequences.map((seq) => ({ ...seq, provenance }));
 }

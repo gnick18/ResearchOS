@@ -1,0 +1,2446 @@
+LOCUS       NG_017013              32772 bp    DNA     linear   PRI 04-JUN-2026
+DEFINITION  Homo sapiens tumor protein p53 (TP53), RefSeqGene (LRG_321) on
+            chromosome 17.
+ACCESSION   NG_017013
+VERSION     NG_017013.2
+KEYWORDS    RefSeq; RefSeqGene.
+SOURCE      Homo sapiens (human)
+  ORGANISM  Homo sapiens
+            Eukaryota; Metazoa; Chordata; Craniata; Vertebrata; Euteleostomi;
+            Mammalia; Eutheria; Euarchontoglires; Primates; Haplorrhini;
+            Catarrhini; Hominidae; Homo.
+REFERENCE   1  (bases 1 to 32772)
+  AUTHORS   Mirgayazova,R., Khadiullina,R., Chasov,V., Mingaleeva,R.,
+            Miftakhova,R., Rizvanov,A. and Bulatov,E.
+  TITLE     Therapeutic Editing of the TP53 Gene: Is CRISPR/Cas9 an Option?
+  JOURNAL   Genes (Basel) 11 (6), 704 (2020)
+   PUBMED   32630614
+  REMARK    Review article
+            Publication Status: Online-Only
+REFERENCE   2  (bases 1 to 32772)
+  AUTHORS   Flynt,E., Bisht,K., Sridharan,V., Ortiz,M., Towfic,F. and
+            Thakurta,A.
+  TITLE     Prognosis, Biology, and Targeting of TP53 Dysregulation in Multiple
+            Myeloma
+  JOURNAL   Cells 9 (2), 287 (2020)
+   PUBMED   31991614
+  REMARK    Review article
+            Publication Status: Online-Only
+REFERENCE   3  (bases 1 to 32772)
+  AUTHORS   Barnoud,T., Parris,J.L.D. and Murphy,M.E.
+  TITLE     Common genetic variants in the TP53 pathway and their impact on
+            cancer
+  JOURNAL   J Mol Cell Biol 11 (7), 578-585 (2019)
+   PUBMED   31152665
+  REMARK    Review article
+REFERENCE   4  (bases 1 to 32772)
+  AUTHORS   Hu,W., Chen,S., Thorne,R.F. and Wu,M.
+  TITLE     TP53, TP53 Target Genes (DRAM, TIGAR), and Autophagy
+  JOURNAL   Adv Exp Med Biol 1206, 127-149 (2019)
+   PUBMED   31776983
+  REMARK    Review article
+REFERENCE   5  (bases 1 to 32772)
+  AUTHORS   Baugh,E.H., Ke,H., Levine,A.J., Bonneau,R.A. and Chan,C.S.
+  TITLE     Why are there hotspot mutations in the TP53 gene in human cancers?
+  JOURNAL   Cell Death Differ 25 (1), 154-160 (2018)
+   PUBMED   29099487
+  REMARK    Review article
+REFERENCE   6  (bases 1 to 32772)
+  AUTHORS   Aubrey,B.J., Strasser,A. and Kelly,G.L.
+  TITLE     Tumor-Suppressor Functions of the TP53 Pathway
+  JOURNAL   Cold Spring Harb Perspect Med 6 (5), a026062 (2016)
+   PUBMED   27141080
+  REMARK    Review article
+            Publication Status: Online-Only
+REFERENCE   7  (bases 1 to 32772)
+  AUTHORS   Soussi,T. and Wiman,K.G.
+  TITLE     TP53: an oncogene in disguise
+  JOURNAL   Cell Death Differ 22 (8), 1239-1249 (2015)
+   PUBMED   26024390
+  REMARK    Review article
+REFERENCE   8  (bases 1 to 32772)
+  AUTHORS   Soussi,T.
+  TITLE     The TP53 gene network in a postgenomic era
+  JOURNAL   Hum Mutat 35 (6), 641-642 (2014)
+   PUBMED   24753184
+  REMARK    Review article
+REFERENCE   9  (bases 1 to 32772)
+  AUTHORS   Anczukow,O., Ware,M.D., Buisson,M., Zetoune,A.B.,
+            Stoppa-Lyonnet,D., Sinilnikova,O.M. and Mazoyer,S.
+  TITLE     Does the nonsense-mediated mRNA decay mechanism prevent the
+            synthesis of truncated BRCA1, CHK2, and p53 proteins?
+  JOURNAL   Hum Mutat 29 (1), 65-73 (2008)
+   PUBMED   17694537
+REFERENCE   10 (bases 1 to 32772)
+  AUTHORS   Bourdon,J.C.
+  TITLE     p53 Family isoforms
+  JOURNAL   Curr Pharm Biotechnol 8 (6), 332-336 (2007)
+   PUBMED   18289041
+  REMARK    Review article
+REFERENCE   11 (bases 1 to 32772)
+  AUTHORS   Candeias,M.M., Powell,D.J., Roubalova,E., Apcher,S., Bourougaa,K.,
+            Vojtesek,B., Bruzzoni-Giovanelli,H. and Fahraeus,R.
+  TITLE     Expression of p53 and p53/47 are controlled by alternative
+            mechanisms of messenger RNA translation initiation
+  JOURNAL   Oncogene 25 (52), 6936-6947 (2006)
+   PUBMED   16983332
+REFERENCE   12 (bases 1 to 32772)
+  AUTHORS   Murray-Zmijewski,F., Lane,D.P. and Bourdon,J.C.
+  TITLE     p53/p63/p73 isoforms: an orchestra of isoforms to harmonise cell
+            differentiation and response to stress
+  JOURNAL   Cell Death Differ 13 (6), 962-972 (2006)
+   PUBMED   16601753
+  REMARK    Review article
+REFERENCE   13 (bases 1 to 32772)
+  AUTHORS   Bourdon,J.C., Fernandes,K., Murray-Zmijewski,F., Liu,G., Diot,A.,
+            Xirodimas,D.P., Saville,M.K. and Lane,D.P.
+  TITLE     p53 isoforms can regulate p53 transcriptional activity
+  JOURNAL   Genes Dev 19 (18), 2122-2137 (2005)
+   PUBMED   16131611
+REFERENCE   14 (bases 1 to 32772)
+  AUTHORS   Ghosh,A., Stewart,D. and Matlashewski,G.
+  TITLE     Regulation of human p53 activity and cell localization by
+            alternative splicing
+  JOURNAL   Mol Cell Biol 24 (18), 7987-7997 (2004)
+   PUBMED   15340061
+REFERENCE   15 (bases 1 to 32772)
+  AUTHORS   Flaman,J.M., Waridel,F., Estreicher,A., Vannier,A., Limacher,J.M.,
+            Gilbert,D., Iggo,R. and Frebourg,T.
+  TITLE     The human tumour suppressor gene p53 is alternatively spliced in
+            normal cells
+  JOURNAL   Oncogene 12 (4), 813-818 (1996)
+   PUBMED   8632903
+REFERENCE   16 (bases 1 to 32772)
+  AUTHORS   Schneider,K., Zelley,K., Nichols,K.E., Schwartz Levine,A. and
+            Garber,J.
+  TITLE     Li-Fraumeni Syndrome
+  JOURNAL   (in) Adam MP, Bick S, Mirzaa GM, Pagon RA, Wallace SE and Amemiya A
+            (Eds.);
+            GENEREVIEWS(R);
+            (1993)
+   PUBMED   20301488
+REFERENCE   17 (bases 1 to 32772)
+  AUTHORS   Turner,J.T., Brzezinski,J. and Dome,J.S.
+  TITLE     Wilms Tumor Predisposition
+  JOURNAL   (in) Adam MP, Bick S, Mirzaa GM, Pagon RA, Wallace SE and Amemiya A
+            (Eds.);
+            GENEREVIEWS(R);
+            (1993)
+   PUBMED   20301471
+REFERENCE   18 (bases 1 to 32772)
+  AUTHORS   Lamb,P. and Crawford,L.
+  TITLE     Characterization of the human p53 gene
+  JOURNAL   Mol Cell Biol 6 (5), 1379-1385 (1986)
+   PUBMED   2946935
+REFERENCE   19 (bases 1 to 32772)
+  AUTHORS   Isobe,M., Emanuel,B.S., Givol,D., Oren,M. and Croce,C.M.
+  TITLE     Localization of gene for human p53 tumour antigen to band 17p13
+  JOURNAL   Nature 320 (6057), 84-85 (1986)
+   PUBMED   3456488
+REFERENCE   20 (bases 1 to 32772)
+  AUTHORS   Benchimol,S., Lamb,P., Crawford,L.V., Sheer,D., Shows,T.B.,
+            Bruns,G.A. and Peacock,J.
+  TITLE     Transformation associated p53 protein is encoded by a gene on human
+            chromosome 17
+  JOURNAL   Somat Cell Mol Genet 11 (5), 505-510 (1985)
+   PUBMED   2994241
+REFERENCE   21 (bases 1 to 32772)
+  AUTHORS   Harlow,E., Williamson,N.M., Ralston,R., Helfman,D.M. and Adams,T.E.
+  TITLE     Molecular cloning and in vitro expression of a cDNA clone for human
+            cellular tumor antigen p53
+  JOURNAL   Mol Cell Biol 5 (7), 1601-1610 (1985)
+   PUBMED   3894933
+REFERENCE   22 (bases 1 to 32772)
+  AUTHORS   Zakut-Houri,R., Bienz-Tadmor,B., Givol,D. and Oren,M.
+  TITLE     Human p53 cellular tumor antigen: cDNA sequence and expression in
+            COS cells
+  JOURNAL   EMBO J 4 (5), 1251-1255 (1985)
+   PUBMED   4006916
+REFERENCE   23 (bases 1 to 32772)
+  AUTHORS   Matlashewski,G., Lamb,P., Pim,D., Peacock,J., Crawford,L. and
+            Benchimol,S.
+  TITLE     Isolation and characterization of a human p53 cDNA clone:
+            expression of the human p53 gene
+  JOURNAL   EMBO J 3 (13), 3257-3262 (1984)
+   PUBMED   6396087
+COMMENT     REVIEWED REFSEQ: This record has been curated by NCBI staff in
+            collaboration with Magali Olivier, Thierry Soussi, Jean-Christophe
+            Bourdon, Nazneen Rahman. The reference sequence was derived from
+            AC087388.9 and AC007421.13.
+            This sequence is a reference standard in the RefSeqGene project.
+            
+            On Apr 3, 2012 this sequence version replaced NG_017013.1.
+            
+            Summary: This gene encodes a tumor suppressor protein containing
+            transcriptional activation, DNA binding, and oligomerization
+            domains. The encoded protein responds to diverse cellular stresses
+            to regulate expression of target genes, thereby inducing cell cycle
+            arrest, apoptosis, senescence, DNA repair, or changes in
+            metabolism. Mutations in this gene are associated with a variety of
+            human cancers, including hereditary cancers such as Li-Fraumeni
+            syndrome. Alternative splicing of this gene and the use of
+            alternate promoters result in multiple transcript variants and
+            isoforms. Additional isoforms have also been shown to result from
+            the use of alternate translation initiation codons from identical
+            transcript variants (PMIDs: 12032546, 20937277). [provided by
+            RefSeq, Dec 2016].
+            COMPLETENESS: complete on the 3' end.
+PRIMARY     REFSEQ_SPAN         PRIMARY_IDENTIFIER PRIMARY_SPAN        COMP
+            1-20379             AC087388.9         62560-82938
+            20380-32772         AC007421.13        1-12393
+FEATURES             Location/Qualifiers
+     source          1..32772
+                     /organism="Homo sapiens"
+                     /mol_type="genomic DNA"
+                     /db_xref="taxon:9606"
+                     /chromosome="17"
+                     /map="17p13.1"
+     gene            complement(<1..6480)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="WD repeat containing antisense to TP53"
+                     /db_xref="GeneID:55135"
+                     /db_xref="HGNC:HGNC:25522"
+                     /db_xref="MIM:612661"
+     mRNA            complement(join(<2850..2961,3229..3327,3472..3903,
+                     6327..6480))
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /product="WD repeat containing antisense to TP53,
+                     transcript variant 2"
+                     /inference="similar to RNA sequence, mRNA (same
+                     species):RefSeq:NM_001143990.2"
+                     /exception="annotated by transcript or proteomic data"
+                     /transcript_id="NM_001143990.2"
+                     /db_xref="GeneID:55135"
+                     /db_xref="HGNC:HGNC:25522"
+                     /db_xref="MIM:612661"
+     mRNA            complement(join(<2850..2961,3229..3327,3472..3903,
+                     4948..5122))
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /product="WD repeat containing antisense to TP53,
+                     transcript variant 3"
+                     /inference="similar to RNA sequence, mRNA (same
+                     species):RefSeq:NM_001143991.2"
+                     /exception="annotated by transcript or proteomic data"
+                     /transcript_id="NM_001143991.2"
+                     /db_xref="GeneID:55135"
+                     /db_xref="HGNC:HGNC:25522"
+                     /db_xref="MIM:612661"
+     mRNA            complement(join(<2850..2961,3229..3327,3472..4202))
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /product="WD repeat containing antisense to TP53,
+                     transcript variant 1"
+                     /inference="similar to RNA sequence, mRNA (same
+                     species):RefSeq:NM_018081.2"
+                     /exception="annotated by transcript or proteomic data"
+                     /transcript_id="NM_018081.2"
+                     /db_xref="GeneID:55135"
+                     /db_xref="HGNC:HGNC:25522"
+                     /db_xref="MIM:612661"
+     mRNA            complement(join(<2850..2961,3229..3327,3472..3903,
+                     3990..4074))
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /product="WD repeat containing antisense to TP53,
+                     transcript variant 4"
+                     /inference="similar to RNA sequence, mRNA (same
+                     species):RefSeq:NM_001143992.2"
+                     /exception="annotated by transcript or proteomic data"
+                     /transcript_id="NM_001143992.2"
+                     /db_xref="GeneID:55135"
+                     /db_xref="HGNC:HGNC:25522"
+                     /db_xref="MIM:612661"
+     CDS             complement(join(<2850..2961,3229..3327,3472..3902))
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /inference="similar to AA sequence (same
+                     species):RefSeq:NP_060551.2"
+                     /exception="annotated by transcript or proteomic data"
+                     /note="WD40 protein Wrap53; WD repeat-containing protein
+                     79; WRAP53beta; WD repeat-containing protein WRAP53; WD40
+                     repeat-containing protein antisense to TP53; WD40
+                     repeat-containing protein encoding RNA antisense to p53"
+                     /codon_start=1
+                     /product="telomerase Cajal body protein 1"
+                     /protein_id="NP_060551.2"
+                     /db_xref="CCDS:CCDS11119.1"
+                     /db_xref="GeneID:55135"
+                     /db_xref="HGNC:HGNC:25522"
+                     /db_xref="MIM:612661"
+                     /translation="MKTLETQPLAPDCCPSDQDPAPAHPSPHASPMNKNADSELMPPP
+                     PERGDPPRLSPDPVAGSAVSQELREGDPVSLSTPLETEFGSPSELSPRIEEQELSENT
+                     SLPAEEANGSLSEEEANGPELGSGKAMEDTSGEPAAEDEGDTAWNYSFSQLPRFLSGS
+                     WSEFSTQPENFLKGCKWAPDGSCILTNSADNILRIYNLPPELYHEGEQVEYAEMVPVL
+                     RMVEGDTIYDYCWYSLMSSAQPDTSYVASSSRENPIHIWDAFTGELRASFRAYNHLDE
+                     LTAAHSLCFSPDGSQLFCGFNRTVRVFSTARPGRDCEVRATFAKKQGQSGIISCIAFS
+                     PAQPLYACGSYGRSLGLYAWDDGSPLALLGGHQGGITHLCFHPDGNRFFSGARKDAEL
+                     LCWDLRQSGYPLWSLGREVTTNQRIYFDLDPTGQFLVSGSTSGAVSVWDTDGPGNDGK
+                     PEPVLSFLPQKDCTNGVSLHPSLPLLATASGQRVFPEPTESGDEGEELGLPLLSTRHV
+                     HLECRLQLWWCGGAPDSSIPDDHQGEKGQGGTEGGVGELI"
+     misc_feature    complement(3477..3902)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="propagated from UniProtKB/Swiss-Prot (Q9BUR4.1);
+                     Region: Disordered. /evidence=ECO:0000256|SAM:MobiDB-lite"
+     misc_feature    complement(3825..3827)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:20068231; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(3813..3815)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:20068231; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(3741..3743)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:17081983,
+                     ECO:0007744|PubMed:18220336, ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:23186163, ECO:0007744|PubMed:24275569;
+                     propagated from UniProtKB/Swiss-Prot (Q9BUR4.1);
+                     phosphorylation site"
+     misc_feature    complement(3711..3713)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine, by ATM.
+                     /evidence=ECO:0000269|PubMed:27715493,
+                     ECO:0007744|PubMed:23186163; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(3648..3650)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:19690332, ECO:0007744|PubMed:24275569;
+                     propagated from UniProtKB/Swiss-Prot (Q9BUR4.1);
+                     phosphorylation site"
+     misc_feature    complement(3633..3635)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:16964243,
+                     ECO:0007744|PubMed:18669648, ECO:0007744|PubMed:19690332,
+                     ECO:0007744|PubMed:20068231, ECO:0007744|PubMed:23186163,
+                     ECO:0007744|PubMed:24275569; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(3567..3569)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:19690332; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(3561..3563)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:19690332; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(join(2874..2961,3229..3260))
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="propagated from UniProtKB/Swiss-Prot (Q9BUR4.1);
+                     Region: WD 1. /evidence=ECO:0000255"
+     CDS             complement(join(<2850..2961,3229..3327,3472..3902))
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /inference="similar to AA sequence (same
+                     species):RefSeq:NP_001137462.1"
+                     /exception="annotated by transcript or proteomic data"
+                     /note="WD40 protein Wrap53; WD repeat-containing protein
+                     79; WRAP53beta; WD repeat-containing protein WRAP53; WD40
+                     repeat-containing protein antisense to TP53; WD40
+                     repeat-containing protein encoding RNA antisense to p53"
+                     /codon_start=1
+                     /product="telomerase Cajal body protein 1"
+                     /protein_id="NP_001137462.1"
+                     /db_xref="CCDS:CCDS11119.1"
+                     /db_xref="GeneID:55135"
+                     /db_xref="HGNC:HGNC:25522"
+                     /db_xref="MIM:612661"
+                     /translation="MKTLETQPLAPDCCPSDQDPAPAHPSPHASPMNKNADSELMPPP
+                     PERGDPPRLSPDPVAGSAVSQELREGDPVSLSTPLETEFGSPSELSPRIEEQELSENT
+                     SLPAEEANGSLSEEEANGPELGSGKAMEDTSGEPAAEDEGDTAWNYSFSQLPRFLSGS
+                     WSEFSTQPENFLKGCKWAPDGSCILTNSADNILRIYNLPPELYHEGEQVEYAEMVPVL
+                     RMVEGDTIYDYCWYSLMSSAQPDTSYVASSSRENPIHIWDAFTGELRASFRAYNHLDE
+                     LTAAHSLCFSPDGSQLFCGFNRTVRVFSTARPGRDCEVRATFAKKQGQSGIISCIAFS
+                     PAQPLYACGSYGRSLGLYAWDDGSPLALLGGHQGGITHLCFHPDGNRFFSGARKDAEL
+                     LCWDLRQSGYPLWSLGREVTTNQRIYFDLDPTGQFLVSGSTSGAVSVWDTDGPGNDGK
+                     PEPVLSFLPQKDCTNGVSLHPSLPLLATASGQRVFPEPTESGDEGEELGLPLLSTRHV
+                     HLECRLQLWWCGGAPDSSIPDDHQGEKGQGGTEGGVGELI"
+     misc_feature    complement(3477..3902)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="propagated from UniProtKB/Swiss-Prot (Q9BUR4.1);
+                     Region: Disordered. /evidence=ECO:0000256|SAM:MobiDB-lite"
+     misc_feature    complement(3825..3827)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:20068231; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(3813..3815)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:20068231; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(3741..3743)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:17081983,
+                     ECO:0007744|PubMed:18220336, ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:23186163, ECO:0007744|PubMed:24275569;
+                     propagated from UniProtKB/Swiss-Prot (Q9BUR4.1);
+                     phosphorylation site"
+     misc_feature    complement(3711..3713)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine, by ATM.
+                     /evidence=ECO:0000269|PubMed:27715493,
+                     ECO:0007744|PubMed:23186163; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(3648..3650)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:19690332, ECO:0007744|PubMed:24275569;
+                     propagated from UniProtKB/Swiss-Prot (Q9BUR4.1);
+                     phosphorylation site"
+     misc_feature    complement(3633..3635)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:16964243,
+                     ECO:0007744|PubMed:18669648, ECO:0007744|PubMed:19690332,
+                     ECO:0007744|PubMed:20068231, ECO:0007744|PubMed:23186163,
+                     ECO:0007744|PubMed:24275569; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(3567..3569)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:19690332; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(3561..3563)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:19690332; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(join(2874..2961,3229..3260))
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="propagated from UniProtKB/Swiss-Prot (Q9BUR4.1);
+                     Region: WD 1. /evidence=ECO:0000255"
+     CDS             complement(join(<2850..2961,3229..3327,3472..3902))
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /inference="similar to AA sequence (same
+                     species):RefSeq:NP_001137463.1"
+                     /exception="annotated by transcript or proteomic data"
+                     /note="WD40 protein Wrap53; WD repeat-containing protein
+                     79; WRAP53beta; WD repeat-containing protein WRAP53; WD40
+                     repeat-containing protein antisense to TP53; WD40
+                     repeat-containing protein encoding RNA antisense to p53"
+                     /codon_start=1
+                     /product="telomerase Cajal body protein 1"
+                     /protein_id="NP_001137463.1"
+                     /db_xref="CCDS:CCDS11119.1"
+                     /db_xref="GeneID:55135"
+                     /db_xref="HGNC:HGNC:25522"
+                     /db_xref="MIM:612661"
+                     /translation="MKTLETQPLAPDCCPSDQDPAPAHPSPHASPMNKNADSELMPPP
+                     PERGDPPRLSPDPVAGSAVSQELREGDPVSLSTPLETEFGSPSELSPRIEEQELSENT
+                     SLPAEEANGSLSEEEANGPELGSGKAMEDTSGEPAAEDEGDTAWNYSFSQLPRFLSGS
+                     WSEFSTQPENFLKGCKWAPDGSCILTNSADNILRIYNLPPELYHEGEQVEYAEMVPVL
+                     RMVEGDTIYDYCWYSLMSSAQPDTSYVASSSRENPIHIWDAFTGELRASFRAYNHLDE
+                     LTAAHSLCFSPDGSQLFCGFNRTVRVFSTARPGRDCEVRATFAKKQGQSGIISCIAFS
+                     PAQPLYACGSYGRSLGLYAWDDGSPLALLGGHQGGITHLCFHPDGNRFFSGARKDAEL
+                     LCWDLRQSGYPLWSLGREVTTNQRIYFDLDPTGQFLVSGSTSGAVSVWDTDGPGNDGK
+                     PEPVLSFLPQKDCTNGVSLHPSLPLLATASGQRVFPEPTESGDEGEELGLPLLSTRHV
+                     HLECRLQLWWCGGAPDSSIPDDHQGEKGQGGTEGGVGELI"
+     misc_feature    complement(3477..3902)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="propagated from UniProtKB/Swiss-Prot (Q9BUR4.1);
+                     Region: Disordered. /evidence=ECO:0000256|SAM:MobiDB-lite"
+     misc_feature    complement(3825..3827)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:20068231; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(3813..3815)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:20068231; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(3741..3743)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:17081983,
+                     ECO:0007744|PubMed:18220336, ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:23186163, ECO:0007744|PubMed:24275569;
+                     propagated from UniProtKB/Swiss-Prot (Q9BUR4.1);
+                     phosphorylation site"
+     misc_feature    complement(3711..3713)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine, by ATM.
+                     /evidence=ECO:0000269|PubMed:27715493,
+                     ECO:0007744|PubMed:23186163; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(3648..3650)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:19690332, ECO:0007744|PubMed:24275569;
+                     propagated from UniProtKB/Swiss-Prot (Q9BUR4.1);
+                     phosphorylation site"
+     misc_feature    complement(3633..3635)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:16964243,
+                     ECO:0007744|PubMed:18669648, ECO:0007744|PubMed:19690332,
+                     ECO:0007744|PubMed:20068231, ECO:0007744|PubMed:23186163,
+                     ECO:0007744|PubMed:24275569; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(3567..3569)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:19690332; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(3561..3563)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:19690332; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(join(2874..2961,3229..3260))
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="propagated from UniProtKB/Swiss-Prot (Q9BUR4.1);
+                     Region: WD 1. /evidence=ECO:0000255"
+     CDS             complement(join(<2850..2961,3229..3327,3472..3902))
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /inference="similar to AA sequence (same
+                     species):RefSeq:NP_001137464.1"
+                     /exception="annotated by transcript or proteomic data"
+                     /note="WD40 protein Wrap53; WD repeat-containing protein
+                     79; WRAP53beta; WD repeat-containing protein WRAP53; WD40
+                     repeat-containing protein antisense to TP53; WD40
+                     repeat-containing protein encoding RNA antisense to p53"
+                     /codon_start=1
+                     /product="telomerase Cajal body protein 1"
+                     /protein_id="NP_001137464.1"
+                     /db_xref="CCDS:CCDS11119.1"
+                     /db_xref="GeneID:55135"
+                     /db_xref="HGNC:HGNC:25522"
+                     /db_xref="MIM:612661"
+                     /translation="MKTLETQPLAPDCCPSDQDPAPAHPSPHASPMNKNADSELMPPP
+                     PERGDPPRLSPDPVAGSAVSQELREGDPVSLSTPLETEFGSPSELSPRIEEQELSENT
+                     SLPAEEANGSLSEEEANGPELGSGKAMEDTSGEPAAEDEGDTAWNYSFSQLPRFLSGS
+                     WSEFSTQPENFLKGCKWAPDGSCILTNSADNILRIYNLPPELYHEGEQVEYAEMVPVL
+                     RMVEGDTIYDYCWYSLMSSAQPDTSYVASSSRENPIHIWDAFTGELRASFRAYNHLDE
+                     LTAAHSLCFSPDGSQLFCGFNRTVRVFSTARPGRDCEVRATFAKKQGQSGIISCIAFS
+                     PAQPLYACGSYGRSLGLYAWDDGSPLALLGGHQGGITHLCFHPDGNRFFSGARKDAEL
+                     LCWDLRQSGYPLWSLGREVTTNQRIYFDLDPTGQFLVSGSTSGAVSVWDTDGPGNDGK
+                     PEPVLSFLPQKDCTNGVSLHPSLPLLATASGQRVFPEPTESGDEGEELGLPLLSTRHV
+                     HLECRLQLWWCGGAPDSSIPDDHQGEKGQGGTEGGVGELI"
+     misc_feature    complement(3477..3902)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="propagated from UniProtKB/Swiss-Prot (Q9BUR4.1);
+                     Region: Disordered. /evidence=ECO:0000256|SAM:MobiDB-lite"
+     misc_feature    complement(3825..3827)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:20068231; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(3813..3815)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:20068231; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(3741..3743)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:17081983,
+                     ECO:0007744|PubMed:18220336, ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:23186163, ECO:0007744|PubMed:24275569;
+                     propagated from UniProtKB/Swiss-Prot (Q9BUR4.1);
+                     phosphorylation site"
+     misc_feature    complement(3711..3713)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine, by ATM.
+                     /evidence=ECO:0000269|PubMed:27715493,
+                     ECO:0007744|PubMed:23186163; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(3648..3650)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:19690332, ECO:0007744|PubMed:24275569;
+                     propagated from UniProtKB/Swiss-Prot (Q9BUR4.1);
+                     phosphorylation site"
+     misc_feature    complement(3633..3635)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:16964243,
+                     ECO:0007744|PubMed:18669648, ECO:0007744|PubMed:19690332,
+                     ECO:0007744|PubMed:20068231, ECO:0007744|PubMed:23186163,
+                     ECO:0007744|PubMed:24275569; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(3567..3569)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:19690332; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(3561..3563)
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="Phosphoserine.
+                     /evidence=ECO:0007744|PubMed:18669648,
+                     ECO:0007744|PubMed:19690332; propagated from
+                     UniProtKB/Swiss-Prot (Q9BUR4.1); phosphorylation site"
+     misc_feature    complement(join(2874..2961,3229..3260))
+                     /gene="WRAP53"
+                     /gene_synonym="DKCB3; TCAB1; WDR79"
+                     /note="propagated from UniProtKB/Swiss-Prot (Q9BUR4.1);
+                     Region: WD 1. /evidence=ECO:0000255"
+     gene            5001..24149
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="tumor protein p53"
+                     /db_xref="GeneID:7157"
+                     /db_xref="HGNC:HGNC:11998"
+                     /db_xref="MIM:191170"
+     mRNA            join(5001..5174,15929..16169,16279..16557,17315..17498,
+                     17580..17692,18261..18370,18714..18850,18943..19016,
+                     21836..21942,22861..24149)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /product="tumor protein p53, transcript variant 8"
+                     /transcript_id="NM_001126118.1"
+                     /db_xref="GeneID:7157"
+                     /db_xref="LRG:t8"
+                     /db_xref="HGNC:HGNC:11998"
+                     /db_xref="MIM:191170"
+     mRNA            join(5001..5174,15929..16030,16148..16169,16279..16557,
+                     17315..17498,17580..17692,18261..18370,18714..18850,
+                     18943..19016,19212..19344,21836..21942,22861..24149)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /product="tumor protein p53, transcript variant 3"
+                     /transcript_id="NM_001126114.2"
+                     /db_xref="GeneID:7157"
+                     /db_xref="LRG:t3"
+                     /db_xref="HGNC:HGNC:11998"
+                     /db_xref="MIM:191170"
+     mRNA            join(5001..5174,15929..16030,16148..16169,16279..16557,
+                     17315..17498,17580..17692,18261..18370,18714..18850,
+                     18943..19016,19285..19344,21836..21942,22861..24149)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /product="tumor protein p53, transcript variant 4"
+                     /transcript_id="NM_001126113.2"
+                     /db_xref="GeneID:7157"
+                     /db_xref="LRG:t4"
+                     /db_xref="HGNC:HGNC:11998"
+                     /db_xref="MIM:191170"
+     mRNA            join(5001..5174,15929..16030,16148..16169,16279..16557,
+                     17315..17498,17580..17692,18261..18370,18714..18850,
+                     18943..19016,21836..21942,22861..24149)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /product="tumor protein p53, transcript variant 1"
+                     /transcript_id="NM_000546.5"
+                     /db_xref="GeneID:7157"
+                     /db_xref="LRG:t1"
+                     /db_xref="HGNC:HGNC:11998"
+                     /db_xref="MIM:191170"
+     mRNA            join(5001..5174,15932..16030,16148..16169,16279..16557,
+                     17315..17498,17580..17692,18261..18370,18714..18850,
+                     18943..19016,21836..21942,22861..24149)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /product="tumor protein p53, transcript variant 2"
+                     /transcript_id="NM_001126112.2"
+                     /db_xref="GeneID:7157"
+                     /db_xref="LRG:t2"
+                     /db_xref="HGNC:HGNC:11998"
+                     /db_xref="MIM:191170"
+     exon            5001..5174
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /inference="alignment:Splign:1.39.8"
+                     /number=1
+     exon            15929..16169
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /inference="alignment:Splign:1.39.8"
+                     /number=2b
+     exon            15929..16030
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /inference="alignment:Splign:1.39.8"
+                     /number=2a
+     exon            15932..16030
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /inference="alignment:Splign:1.39.8"
+                     /number=2c
+     CDS             join(15957..16030,16148..16169,16279..16557,17315..17498,
+                     17580..17692,18261..18370,18714..18850,18943..19016,
+                     21836..21942,22861..22942)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="isoform a is encoded by transcript variant 1; tumor
+                     protein 53; mutant tumor protein 53; cellular tumor
+                     antigen p53; phosphoprotein p53; transformation-related
+                     protein 53; antigen NY-CO-13; tumor supressor p53"
+                     /codon_start=1
+                     /product="cellular tumor antigen p53 isoform a"
+                     /protein_id="NP_000537.3"
+                     /db_xref="CCDS:CCDS11118.1"
+                     /db_xref="GeneID:7157"
+                     /db_xref="LRG:p1"
+                     /db_xref="HGNC:HGNC:11998"
+                     /db_xref="MIM:191170"
+                     /translation="MEEPQSDPSVEPPLSQETFSDLWKLLPENNVLSPLPSQAMDDLM
+                     LSPDDIEQWFTEDPGPDEAPRMPEAAPPVAPAPAAPTPAAPAPAPSWPLSSSVPSQKT
+                     YQGSYGFRLGFLHSGTAKSVTCTYSPALNKMFCQLAKTCPVQLWVDSTPPPGTRVRAM
+                     AIYKQSQHMTEVVRRCPHHERCSDSDGLAPPQHLIRVEGNLRVEYLDDRNTFRHSVVV
+                     PYEPPEVGSDCTTIHYNYMCNSSCMGGMNRRPILTIITLEDSSGNLLGRNSFEVRVCA
+                     CPGRDRRTEEENLRKKGEPHHELPPGSTKRALPNNTSSSPQPKKKPLDGEYFTLQIRG
+                     RERFEMFRELNEALELKDAQAGKEPGGSRAHSSHLKSKKGQSTSRHKKLMFKTEGPDS
+                     D"
+     misc_feature    join(15957..16030,16148..16169,16279..16557,17315..17498,
+                     17580..17692,18261..18370,18714..18850,18943..18983)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with CCAR2.
+                     /evidence=ECO:0000269|PubMed:25732823"
+     misc_feature    join(15957..16030,16148..16169,16279..16431)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with HRMT1L2.
+                     /evidence=ECO:0000269|PubMed:15186775"
+     misc_feature    join(15957..16030,16148..16169,16279..16314)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Transcription activation (acidic)"
+     misc_feature    15981..15983
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by HIPK4.
+                     /evidence=ECO:0000269|PubMed:18022393; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    15999..16001
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by CDK5, PRPK, AMPK, NUAK1 and ATM.
+                     /evidence=ECO:0000269|PubMed:10570149,
+                     ECO:0000269|PubMed:11554766, ECO:0000269|PubMed:15866171,
+                     ECO:0000269|PubMed:17108107, ECO:0000269|PubMed:17591690,
+                     ECO:0000269|PubMed:17967874, ECO:0000269|PubMed:21317932,
+                     ECO:0000269|PubMed:28842590; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    join(16005..16030,16148)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: TADI"
+     misc_feature    16008..16010
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphothreonine, by CK1, VRK1 and VRK2.
+                     /evidence=ECO:0000269|PubMed:10606744,
+                     ECO:0000269|PubMed:10951572, ECO:0000269|PubMed:16704422,
+                     ECO:0000269|PubMed:31527692; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    16014..16016
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by CHEK2, CK1 and PLK3.
+                     /evidence=ECO:0000269|PubMed:10570149,
+                     ECO:0000269|PubMed:11447225, ECO:0000269|PubMed:11551930,
+                     ECO:0000269|PubMed:12810724, ECO:0000269|PubMed:20041275;
+                     propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     phosphorylation site"
+     misc_feature    16279..16281
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by CDK5 and CDK7.
+                     /evidence=ECO:0000269|PubMed:17591690,
+                     ECO:0000269|PubMed:9372954; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    16291..16293
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by MAPKAPK5.
+                     /evidence=ECO:0000269|PubMed:17254968; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    16300..16302
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="delta40p53alpha; Region: alternative start codon"
+     misc_feature    16318..16320
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by CDK5, DYRK2, HIPK2 and PKC/PRKCG.
+                     /evidence=ECO:0000269|PubMed:11740489,
+                     ECO:0000269|PubMed:11780126, ECO:0000269|PubMed:16377624,
+                     ECO:0000269|PubMed:17349958, ECO:0000269|PubMed:17591690;
+                     propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     phosphorylation site"
+     misc_feature    16324..16350
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: TADII"
+     misc_feature    16330..16470
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Disordered. /evidence=ECO:0000269|PubMed:31953488"
+     misc_feature    16345..16347
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphothreonine, by TAF1 and GRK5.
+                     /evidence=ECO:0000269|PubMed:15053879,
+                     ECO:0000269|PubMed:20124405; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    16378..16512
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with WWOX"
+     misc_feature    join(16480..16557,17315..17498,17580..17692,18261..18370,
+                     18714..18850,18943..19016,21836..21942,22861..22870)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with HIPK1. /evidence=ECO:0000250"
+     misc_feature    join(16480..16557,17315..17498,17580..17692,18261..18370,
+                     18714..18831)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Required for interaction with ZNF385A.
+                     /evidence=ECO:0000269|PubMed:17719541"
+     misc_feature    join(16519..16557,17315..17498,17580..17692,18261..18296)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Required for interaction with FBXO42.
+                     /evidence=ECO:0000269|PubMed:19509332"
+     misc_feature    join(16528..16557,17315..17498,17580..17692,18261..18370,
+                     18714..18807)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with AXIN1. /evidence=ECO:0000250"
+     misc_feature    16540..16542
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Interaction with DNA.
+                     /evidence=ECO:0000269|PubMed:16793544,
+                     ECO:0000269|PubMed:18996393, ECO:0000269|PubMed:20364130;
+                     propagated from UniProtKB/Swiss-Prot (P04637.4); other
+                     site"
+     misc_feature    16540..16542
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6-acetyllysine.
+                     /evidence=ECO:0000269|PubMed:17189187,
+                     ECO:0000269|PubMed:19854137, ECO:0000269|PubMed:23431171;
+                     propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     acetylation site"
+     misc_feature    17486..17488
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by AURKB.
+                     /evidence=ECO:0000269|PubMed:20959462; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    18309..18332
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with the 53BP2 SH3 domain"
+     misc_feature    join(18354..18370,18714..18813)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with E4F1.
+                     /evidence=ECO:0000269|PubMed:10644996"
+     misc_feature    18736..18738
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by AURKB.
+                     /evidence=ECO:0000269|PubMed:20959462; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    18748..18771
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with DNA"
+     misc_feature    join(18775..18850,18943..18998)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Disordered. /evidence=ECO:0000256|SAM:MobiDB-lite"
+     misc_feature    18781..18783
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphothreonine, by AURKB.
+                     /evidence=ECO:0000269|PubMed:20959462; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    join(18829..18850,18943..19016,21836..21942,22861..22939)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with CARM1.
+                     /evidence=ECO:0000269|PubMed:15186775"
+     misc_feature    join(18844..18850,18943..18986)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Bipartite nuclear localization signal"
+     misc_feature    18844..18846
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6-acetyllysine.
+                     /evidence=ECO:0000269|PubMed:12724314; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); acetylation site"
+     misc_feature    18966..18968
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by AURKA, CDK1 and CDK2.
+                     /evidence=ECO:0000269|PubMed:10884347,
+                     ECO:0000269|PubMed:14702041; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    join(18978..19016,21836..21922)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with HIPK2"
+     misc_feature    18984..18986
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6-acetyllysine.
+                     /evidence=ECO:0000250|UniProtKB:P02340; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); acetylation site"
+     misc_feature    join(18996..19016,21836..21910)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Oligomerization"
+     misc_feature    21839..21841
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Omega-N-methylarginine, by PRMT5.
+                     /evidence=ECO:0000269|PubMed:19011621; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); methylation site"
+     misc_feature    21845..21847
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Symmetric dimethylarginine, by PRMT5.
+                     /evidence=ECO:0000269|PubMed:19011621; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); methylation site"
+     misc_feature    21851..21853
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Symmetric dimethylarginine, by PRMT5.
+                     /evidence=ECO:0000269|PubMed:19011621; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); methylation site"
+     misc_feature    21857..21892
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Nuclear export signal"
+     misc_feature    join(21893..21942,22861..22939)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Disordered. /evidence=ECO:0000269|PubMed:31953488,
+                     ECO:0000269|PubMed:36108750"
+     misc_feature    21917..21931
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with USP7"
+     misc_feature    22862..22921
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Basic (repression of DNA-binding)"
+     misc_feature    22868..22876
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: [KR]-[STA]-K motif"
+     misc_feature    22868..22870
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6,N6-dimethyllysine, alternate.
+                     /evidence=ECO:0000269|PubMed:17108971,
+                     ECO:0000269|PubMed:22864287; N6-methyllysine, by SMYD2,
+                     alternate. /evidence=ECO:0000269|PubMed:17108971,
+                     ECO:0000269|PubMed:22864287; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); methylation site"
+     misc_feature    22874..22876
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6-methyllysine, by SETD7.
+                     /evidence=ECO:0000269|PubMed:15525938,
+                     ECO:0000269|PubMed:16415881; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); methylation site"
+     misc_feature    22877..22879
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6,N6-dimethyllysine, by EHMT1 and EHMT2,
+                     alternate. /evidence=ECO:0000269|PubMed:20118233;
+                     propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     methylation site"
+     misc_feature    22877..22879
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6-acetyllysine, alternate.
+                     /evidence=ECO:0000269|PubMed:10656795; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); acetylation site"
+     misc_feature    22880..22939
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with MORN3.
+                     /evidence=ECO:0000269|PubMed:29681526"
+     misc_feature    22901..22903
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6-acetyllysine.
+                     /evidence=ECO:0000269|PubMed:29474172,
+                     ECO:0007744|PubMed:19608861; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); acetylation site"
+     misc_feature    22904..22906
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6,N6-dimethyllysine, alternate.
+                     /evidence=ECO:0000269|PubMed:17707234,
+                     ECO:0000269|PubMed:20870725, ECO:0000269|PubMed:22864287;
+                     N6-methyllysine, by KMT5A, alternate.
+                     /evidence=ECO:0000269|PubMed:17707234,
+                     ECO:0000269|PubMed:20870725, ECO:0000269|PubMed:22864287;
+                     propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     methylation site"
+     misc_feature    22904..22906
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6-acetyllysine, alternate.
+                     /evidence=ECO:0000269|PubMed:10656795,
+                     ECO:0000269|PubMed:15448695, ECO:0000269|PubMed:20228809,
+                     ECO:0000269|PubMed:23431171, ECO:0000269|PubMed:29681526,
+                     ECO:0007744|PubMed:19608861; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); acetylation site"
+     misc_feature    22934..22936
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by CK2, CDK2 and NUAK1.
+                     /evidence=ECO:0000269|PubMed:10884347,
+                     ECO:0000269|PubMed:11239457, ECO:0000269|PubMed:17108107,
+                     ECO:0000269|PubMed:21317932, ECO:0000269|PubMed:22214662,
+                     ECO:0000269|PubMed:35618207; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     CDS             join(15957..16030,16148..16169,16279..16557,17315..17498,
+                     17580..17692,18261..18370,18714..18850,18943..19016,
+                     21836..21942,22861..22942)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="isoform a is encoded by transcript variant 2; tumor
+                     protein 53; mutant tumor protein 53; cellular tumor
+                     antigen p53; phosphoprotein p53; transformation-related
+                     protein 53; antigen NY-CO-13; tumor supressor p53"
+                     /codon_start=1
+                     /product="cellular tumor antigen p53 isoform a"
+                     /protein_id="NP_001119584.1"
+                     /db_xref="CCDS:CCDS11118.1"
+                     /db_xref="GeneID:7157"
+                     /db_xref="HGNC:HGNC:11998"
+                     /db_xref="MIM:191170"
+                     /translation="MEEPQSDPSVEPPLSQETFSDLWKLLPENNVLSPLPSQAMDDLM
+                     LSPDDIEQWFTEDPGPDEAPRMPEAAPPVAPAPAAPTPAAPAPAPSWPLSSSVPSQKT
+                     YQGSYGFRLGFLHSGTAKSVTCTYSPALNKMFCQLAKTCPVQLWVDSTPPPGTRVRAM
+                     AIYKQSQHMTEVVRRCPHHERCSDSDGLAPPQHLIRVEGNLRVEYLDDRNTFRHSVVV
+                     PYEPPEVGSDCTTIHYNYMCNSSCMGGMNRRPILTIITLEDSSGNLLGRNSFEVRVCA
+                     CPGRDRRTEEENLRKKGEPHHELPPGSTKRALPNNTSSSPQPKKKPLDGEYFTLQIRG
+                     RERFEMFRELNEALELKDAQAGKEPGGSRAHSSHLKSKKGQSTSRHKKLMFKTEGPDS
+                     D"
+     misc_feature    join(15957..16030,16148..16169,16279..16557,17315..17498,
+                     17580..17692,18261..18370,18714..18850,18943..18983)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with CCAR2.
+                     /evidence=ECO:0000269|PubMed:25732823"
+     misc_feature    join(15957..16030,16148..16169,16279..16431)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with HRMT1L2.
+                     /evidence=ECO:0000269|PubMed:15186775"
+     misc_feature    join(15957..16030,16148..16169,16279..16314)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Transcription activation (acidic)"
+     misc_feature    15981..15983
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by HIPK4.
+                     /evidence=ECO:0000269|PubMed:18022393; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    15999..16001
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by CDK5, PRPK, AMPK, NUAK1 and ATM.
+                     /evidence=ECO:0000269|PubMed:10570149,
+                     ECO:0000269|PubMed:11554766, ECO:0000269|PubMed:15866171,
+                     ECO:0000269|PubMed:17108107, ECO:0000269|PubMed:17591690,
+                     ECO:0000269|PubMed:17967874, ECO:0000269|PubMed:21317932,
+                     ECO:0000269|PubMed:28842590; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    join(16005..16030,16148)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: TADI"
+     misc_feature    16008..16010
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphothreonine, by CK1, VRK1 and VRK2.
+                     /evidence=ECO:0000269|PubMed:10606744,
+                     ECO:0000269|PubMed:10951572, ECO:0000269|PubMed:16704422,
+                     ECO:0000269|PubMed:31527692; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    16014..16016
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by CHEK2, CK1 and PLK3.
+                     /evidence=ECO:0000269|PubMed:10570149,
+                     ECO:0000269|PubMed:11447225, ECO:0000269|PubMed:11551930,
+                     ECO:0000269|PubMed:12810724, ECO:0000269|PubMed:20041275;
+                     propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     phosphorylation site"
+     misc_feature    16279..16281
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by CDK5 and CDK7.
+                     /evidence=ECO:0000269|PubMed:17591690,
+                     ECO:0000269|PubMed:9372954; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    16291..16293
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by MAPKAPK5.
+                     /evidence=ECO:0000269|PubMed:17254968; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    16300..16302
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="delta40p53alpha; Region: alternative start codon"
+     misc_feature    16318..16320
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by CDK5, DYRK2, HIPK2 and PKC/PRKCG.
+                     /evidence=ECO:0000269|PubMed:11740489,
+                     ECO:0000269|PubMed:11780126, ECO:0000269|PubMed:16377624,
+                     ECO:0000269|PubMed:17349958, ECO:0000269|PubMed:17591690;
+                     propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     phosphorylation site"
+     misc_feature    16324..16350
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: TADII"
+     misc_feature    16330..16470
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Disordered. /evidence=ECO:0000269|PubMed:31953488"
+     misc_feature    16345..16347
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphothreonine, by TAF1 and GRK5.
+                     /evidence=ECO:0000269|PubMed:15053879,
+                     ECO:0000269|PubMed:20124405; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    16378..16512
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with WWOX"
+     misc_feature    join(16480..16557,17315..17498,17580..17692,18261..18370,
+                     18714..18850,18943..19016,21836..21942,22861..22870)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with HIPK1. /evidence=ECO:0000250"
+     misc_feature    join(16480..16557,17315..17498,17580..17692,18261..18370,
+                     18714..18831)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Required for interaction with ZNF385A.
+                     /evidence=ECO:0000269|PubMed:17719541"
+     misc_feature    join(16519..16557,17315..17498,17580..17692,18261..18296)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Required for interaction with FBXO42.
+                     /evidence=ECO:0000269|PubMed:19509332"
+     misc_feature    join(16528..16557,17315..17498,17580..17692,18261..18370,
+                     18714..18807)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with AXIN1. /evidence=ECO:0000250"
+     misc_feature    16540..16542
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Interaction with DNA.
+                     /evidence=ECO:0000269|PubMed:16793544,
+                     ECO:0000269|PubMed:18996393, ECO:0000269|PubMed:20364130;
+                     propagated from UniProtKB/Swiss-Prot (P04637.4); other
+                     site"
+     misc_feature    16540..16542
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6-acetyllysine.
+                     /evidence=ECO:0000269|PubMed:17189187,
+                     ECO:0000269|PubMed:19854137, ECO:0000269|PubMed:23431171;
+                     propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     acetylation site"
+     misc_feature    17486..17488
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by AURKB.
+                     /evidence=ECO:0000269|PubMed:20959462; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    18309..18332
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with the 53BP2 SH3 domain"
+     misc_feature    join(18354..18370,18714..18813)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with E4F1.
+                     /evidence=ECO:0000269|PubMed:10644996"
+     misc_feature    18736..18738
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by AURKB.
+                     /evidence=ECO:0000269|PubMed:20959462; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    18748..18771
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with DNA"
+     misc_feature    join(18775..18850,18943..18998)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Disordered. /evidence=ECO:0000256|SAM:MobiDB-lite"
+     misc_feature    18781..18783
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphothreonine, by AURKB.
+                     /evidence=ECO:0000269|PubMed:20959462; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    join(18829..18850,18943..19016,21836..21942,22861..22939)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with CARM1.
+                     /evidence=ECO:0000269|PubMed:15186775"
+     misc_feature    join(18844..18850,18943..18986)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Bipartite nuclear localization signal"
+     misc_feature    18844..18846
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6-acetyllysine.
+                     /evidence=ECO:0000269|PubMed:12724314; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); acetylation site"
+     misc_feature    18966..18968
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by AURKA, CDK1 and CDK2.
+                     /evidence=ECO:0000269|PubMed:10884347,
+                     ECO:0000269|PubMed:14702041; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    join(18978..19016,21836..21922)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with HIPK2"
+     misc_feature    18984..18986
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6-acetyllysine.
+                     /evidence=ECO:0000250|UniProtKB:P02340; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); acetylation site"
+     misc_feature    join(18996..19016,21836..21910)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Oligomerization"
+     misc_feature    21839..21841
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Omega-N-methylarginine, by PRMT5.
+                     /evidence=ECO:0000269|PubMed:19011621; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); methylation site"
+     misc_feature    21845..21847
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Symmetric dimethylarginine, by PRMT5.
+                     /evidence=ECO:0000269|PubMed:19011621; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); methylation site"
+     misc_feature    21851..21853
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Symmetric dimethylarginine, by PRMT5.
+                     /evidence=ECO:0000269|PubMed:19011621; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); methylation site"
+     misc_feature    21857..21892
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Nuclear export signal"
+     misc_feature    join(21893..21942,22861..22939)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Disordered. /evidence=ECO:0000269|PubMed:31953488,
+                     ECO:0000269|PubMed:36108750"
+     misc_feature    21917..21931
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with USP7"
+     misc_feature    22862..22921
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Basic (repression of DNA-binding)"
+     misc_feature    22868..22876
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: [KR]-[STA]-K motif"
+     misc_feature    22868..22870
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6,N6-dimethyllysine, alternate.
+                     /evidence=ECO:0000269|PubMed:17108971,
+                     ECO:0000269|PubMed:22864287; N6-methyllysine, by SMYD2,
+                     alternate. /evidence=ECO:0000269|PubMed:17108971,
+                     ECO:0000269|PubMed:22864287; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); methylation site"
+     misc_feature    22874..22876
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6-methyllysine, by SETD7.
+                     /evidence=ECO:0000269|PubMed:15525938,
+                     ECO:0000269|PubMed:16415881; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); methylation site"
+     misc_feature    22877..22879
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6,N6-dimethyllysine, by EHMT1 and EHMT2,
+                     alternate. /evidence=ECO:0000269|PubMed:20118233;
+                     propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     methylation site"
+     misc_feature    22877..22879
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6-acetyllysine, alternate.
+                     /evidence=ECO:0000269|PubMed:10656795; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); acetylation site"
+     misc_feature    22880..22939
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with MORN3.
+                     /evidence=ECO:0000269|PubMed:29681526"
+     misc_feature    22901..22903
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6-acetyllysine.
+                     /evidence=ECO:0000269|PubMed:29474172,
+                     ECO:0007744|PubMed:19608861; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); acetylation site"
+     misc_feature    22904..22906
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6,N6-dimethyllysine, alternate.
+                     /evidence=ECO:0000269|PubMed:17707234,
+                     ECO:0000269|PubMed:20870725, ECO:0000269|PubMed:22864287;
+                     N6-methyllysine, by KMT5A, alternate.
+                     /evidence=ECO:0000269|PubMed:17707234,
+                     ECO:0000269|PubMed:20870725, ECO:0000269|PubMed:22864287;
+                     propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     methylation site"
+     misc_feature    22904..22906
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6-acetyllysine, alternate.
+                     /evidence=ECO:0000269|PubMed:10656795,
+                     ECO:0000269|PubMed:15448695, ECO:0000269|PubMed:20228809,
+                     ECO:0000269|PubMed:23431171, ECO:0000269|PubMed:29681526,
+                     ECO:0007744|PubMed:19608861; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); acetylation site"
+     misc_feature    22934..22936
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by CK2, CDK2 and NUAK1.
+                     /evidence=ECO:0000269|PubMed:10884347,
+                     ECO:0000269|PubMed:11239457, ECO:0000269|PubMed:17108107,
+                     ECO:0000269|PubMed:21317932, ECO:0000269|PubMed:22214662,
+                     ECO:0000269|PubMed:35618207; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     CDS             join(15957..16030,16148..16169,16279..16557,17315..17498,
+                     17580..17692,18261..18370,18714..18850,18943..19016,
+                     19285..19332)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="isoform c is encoded by transcript variant 4; tumor
+                     protein 53; mutant tumor protein 53; cellular tumor
+                     antigen p53; phosphoprotein p53; transformation-related
+                     protein 53; antigen NY-CO-13; tumor supressor p53"
+                     /codon_start=1
+                     /product="cellular tumor antigen p53 isoform c"
+                     /protein_id="NP_001119585.1"
+                     /db_xref="CCDS:CCDS45605.1"
+                     /db_xref="GeneID:7157"
+                     /db_xref="LRG:p4"
+                     /db_xref="HGNC:HGNC:11998"
+                     /db_xref="MIM:191170"
+                     /translation="MEEPQSDPSVEPPLSQETFSDLWKLLPENNVLSPLPSQAMDDLM
+                     LSPDDIEQWFTEDPGPDEAPRMPEAAPPVAPAPAAPTPAAPAPAPSWPLSSSVPSQKT
+                     YQGSYGFRLGFLHSGTAKSVTCTYSPALNKMFCQLAKTCPVQLWVDSTPPPGTRVRAM
+                     AIYKQSQHMTEVVRRCPHHERCSDSDGLAPPQHLIRVEGNLRVEYLDDRNTFRHSVVV
+                     PYEPPEVGSDCTTIHYNYMCNSSCMGGMNRRPILTIITLEDSSGNLLGRNSFEVRVCA
+                     CPGRDRRTEEENLRKKGEPHHELPPGSTKRALPNNTSSSPQPKKKPLDGEYFTLQMLL
+                     DLRWCYFLINSS"
+     misc_feature    16300..16302
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="delta40p53gamma; Region: alternative start codon"
+     CDS             join(15957..16030,16148..16169,16279..16557,17315..17498,
+                     17580..17692,18261..18370,18714..18850,18943..19016,
+                     19212..19244)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="isoform b is encoded by transcript variant 3; tumor
+                     protein 53; mutant tumor protein 53; cellular tumor
+                     antigen p53; phosphoprotein p53; transformation-related
+                     protein 53; antigen NY-CO-13; tumor supressor p53"
+                     /codon_start=1
+                     /product="cellular tumor antigen p53 isoform b"
+                     /protein_id="NP_001119586.1"
+                     /db_xref="CCDS:CCDS45606.1"
+                     /db_xref="GeneID:7157"
+                     /db_xref="LRG:p3"
+                     /db_xref="HGNC:HGNC:11998"
+                     /db_xref="MIM:191170"
+                     /translation="MEEPQSDPSVEPPLSQETFSDLWKLLPENNVLSPLPSQAMDDLM
+                     LSPDDIEQWFTEDPGPDEAPRMPEAAPPVAPAPAAPTPAAPAPAPSWPLSSSVPSQKT
+                     YQGSYGFRLGFLHSGTAKSVTCTYSPALNKMFCQLAKTCPVQLWVDSTPPPGTRVRAM
+                     AIYKQSQHMTEVVRRCPHHERCSDSDGLAPPQHLIRVEGNLRVEYLDDRNTFRHSVVV
+                     PYEPPEVGSDCTTIHYNYMCNSSCMGGMNRRPILTIITLEDSSGNLLGRNSFEVRVCA
+                     CPGRDRRTEEENLRKKGEPHHELPPGSTKRALPNNTSSSPQPKKKPLDGEYFTLQDQT
+                     SFQKENC"
+     misc_feature    join(15957..16030,16148..16169,16279..16557,17315..17498,
+                     17580..17692,18261..18370,18714..18850,18943..18983)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with CCAR2.
+                     /evidence=ECO:0000269|PubMed:25732823"
+     misc_feature    join(15957..16030,16148..16169,16279..16431)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with HRMT1L2.
+                     /evidence=ECO:0000269|PubMed:15186775"
+     misc_feature    join(15957..16030,16148..16169,16279..16314)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Transcription activation (acidic)"
+     misc_feature    15981..15983
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by HIPK4.
+                     /evidence=ECO:0000269|PubMed:18022393; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    15999..16001
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by CDK5, PRPK, AMPK, NUAK1 and ATM.
+                     /evidence=ECO:0000269|PubMed:10570149,
+                     ECO:0000269|PubMed:11554766, ECO:0000269|PubMed:15866171,
+                     ECO:0000269|PubMed:17108107, ECO:0000269|PubMed:17591690,
+                     ECO:0000269|PubMed:17967874, ECO:0000269|PubMed:21317932,
+                     ECO:0000269|PubMed:28842590; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    join(16005..16030,16148)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: TADI"
+     misc_feature    16008..16010
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphothreonine, by CK1, VRK1 and VRK2.
+                     /evidence=ECO:0000269|PubMed:10606744,
+                     ECO:0000269|PubMed:10951572, ECO:0000269|PubMed:16704422,
+                     ECO:0000269|PubMed:31527692; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    16014..16016
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by CHEK2, CK1 and PLK3.
+                     /evidence=ECO:0000269|PubMed:10570149,
+                     ECO:0000269|PubMed:11447225, ECO:0000269|PubMed:11551930,
+                     ECO:0000269|PubMed:12810724, ECO:0000269|PubMed:20041275;
+                     propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     phosphorylation site"
+     misc_feature    16279..16281
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by CDK5 and CDK7.
+                     /evidence=ECO:0000269|PubMed:17591690,
+                     ECO:0000269|PubMed:9372954; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    16291..16293
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by MAPKAPK5.
+                     /evidence=ECO:0000269|PubMed:17254968; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    16300..16302
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="delta40p53beta; Region: alternative start codon"
+     misc_feature    16318..16320
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by CDK5, DYRK2, HIPK2 and PKC/PRKCG.
+                     /evidence=ECO:0000269|PubMed:11740489,
+                     ECO:0000269|PubMed:11780126, ECO:0000269|PubMed:16377624,
+                     ECO:0000269|PubMed:17349958, ECO:0000269|PubMed:17591690;
+                     propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     phosphorylation site"
+     misc_feature    16324..16350
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: TADII"
+     misc_feature    16330..16470
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Disordered. /evidence=ECO:0000269|PubMed:31953488"
+     misc_feature    16345..16347
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphothreonine, by TAF1 and GRK5.
+                     /evidence=ECO:0000269|PubMed:15053879,
+                     ECO:0000269|PubMed:20124405; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    16378..16512
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with WWOX"
+     misc_feature    join(16480..16557,17315..17498,17580..17692,18261..18370,
+                     18714..18831)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Required for interaction with ZNF385A.
+                     /evidence=ECO:0000269|PubMed:17719541"
+     misc_feature    join(16519..16557,17315..17498,17580..17692,18261..18296)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Required for interaction with FBXO42.
+                     /evidence=ECO:0000269|PubMed:19509332"
+     misc_feature    join(16528..16557,17315..17498,17580..17692,18261..18370,
+                     18714..18807)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with AXIN1. /evidence=ECO:0000250"
+     misc_feature    16540..16542
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Interaction with DNA.
+                     /evidence=ECO:0000269|PubMed:16793544,
+                     ECO:0000269|PubMed:18996393, ECO:0000269|PubMed:20364130;
+                     propagated from UniProtKB/Swiss-Prot (P04637.4); other
+                     site"
+     misc_feature    16540..16542
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6-acetyllysine.
+                     /evidence=ECO:0000269|PubMed:17189187,
+                     ECO:0000269|PubMed:19854137, ECO:0000269|PubMed:23431171;
+                     propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     acetylation site"
+     misc_feature    17486..17488
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by AURKB.
+                     /evidence=ECO:0000269|PubMed:20959462; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    18309..18332
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with the 53BP2 SH3 domain"
+     misc_feature    join(18354..18370,18714..18813)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with E4F1.
+                     /evidence=ECO:0000269|PubMed:10644996"
+     misc_feature    18736..18738
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by AURKB.
+                     /evidence=ECO:0000269|PubMed:20959462; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    18748..18771
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Interaction with DNA"
+     misc_feature    join(18775..18850,18943..18998)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Disordered. /evidence=ECO:0000256|SAM:MobiDB-lite"
+     misc_feature    18781..18783
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphothreonine, by AURKB.
+                     /evidence=ECO:0000269|PubMed:20959462; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    join(18844..18850,18943..18986)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="propagated from UniProtKB/Swiss-Prot (P04637.4);
+                     Region: Bipartite nuclear localization signal"
+     misc_feature    18844..18846
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6-acetyllysine.
+                     /evidence=ECO:0000269|PubMed:12724314; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); acetylation site"
+     misc_feature    18966..18968
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="Phosphoserine, by AURKA, CDK1 and CDK2.
+                     /evidence=ECO:0000269|PubMed:10884347,
+                     ECO:0000269|PubMed:14702041; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); phosphorylation site"
+     misc_feature    18984..18986
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="N6-acetyllysine.
+                     /evidence=ECO:0000250|UniProtKB:P02340; propagated from
+                     UniProtKB/Swiss-Prot (P04637.4); acetylation site"
+     exon            16148..16169
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /inference="alignment:Splign:1.39.8"
+                     /number=2d
+     exon            16279..16557
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /inference="alignment:Splign:1.39.8"
+                     /number=3
+     CDS             join(16300..16557,17315..17498,17580..17692,18261..18370,
+                     18714..18850,18943..19016,21836..21942,22861..22942)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="isoform g is encoded by transcript variant 8; tumor
+                     protein 53; mutant tumor protein 53; cellular tumor
+                     antigen p53; phosphoprotein p53; transformation-related
+                     protein 53; antigen NY-CO-13; tumor supressor p53"
+                     /codon_start=1
+                     /product="cellular tumor antigen p53 isoform g"
+                     /protein_id="NP_001119590.1"
+                     /db_xref="CCDS:CCDS73969.1"
+                     /db_xref="GeneID:7157"
+                     /db_xref="LRG:p8"
+                     /db_xref="HGNC:HGNC:11998"
+                     /db_xref="MIM:191170"
+                     /translation="MDDLMLSPDDIEQWFTEDPGPDEAPRMPEAAPPVAPAPAAPTPA
+                     APAPAPSWPLSSSVPSQKTYQGSYGFRLGFLHSGTAKSVTCTYSPALNKMFCQLAKTC
+                     PVQLWVDSTPPPGTRVRAMAIYKQSQHMTEVVRRCPHHERCSDSDGLAPPQHLIRVEG
+                     NLRVEYLDDRNTFRHSVVVPYEPPEVGSDCTTIHYNYMCNSSCMGGMNRRPILTIITL
+                     EDSSGNLLGRNSFEVRVCACPGRDRRTEEENLRKKGEPHHELPPGSTKRALPNNTSSS
+                     PQPKKKPLDGEYFTLQIRGRERFEMFRELNEALELKDAQAGKEPGGSRAHSSHLKSKK
+                     GQSTSRHKKLMFKTEGPDSD"
+     mRNA            join(17058..17498,17580..17692,18261..18370,18714..18850,
+                     18943..19016,19212..19344,21836..21942,22861..24149)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /product="tumor protein p53, transcript variant 6"
+                     /transcript_id="NM_001126116.1"
+                     /db_xref="GeneID:7157"
+                     /db_xref="LRG:t6"
+                     /db_xref="HGNC:HGNC:11998"
+                     /db_xref="MIM:191170"
+     mRNA            join(17058..17498,17580..17692,18261..18370,18714..18850,
+                     18943..19016,19285..19344,21836..21942,22861..24149)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /product="tumor protein p53, transcript variant 7"
+                     /transcript_id="NM_001126117.1"
+                     /db_xref="GeneID:7157"
+                     /db_xref="LRG:t7"
+                     /db_xref="HGNC:HGNC:11998"
+                     /db_xref="MIM:191170"
+     mRNA            join(17058..17498,17580..17692,18261..18370,18714..18850,
+                     18943..19016,21836..21942,22861..24149)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /product="tumor protein p53, transcript variant 5"
+                     /transcript_id="NM_001126115.1"
+                     /db_xref="GeneID:7157"
+                     /db_xref="LRG:t5"
+                     /db_xref="HGNC:HGNC:11998"
+                     /db_xref="MIM:191170"
+     exon            17058..17498
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /inference="alignment:Splign:1.39.8"
+                     /number=4a
+     exon            17315..17498
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /inference="alignment:Splign:1.39.8"
+                     /number=4b
+     CDS             join(17336..17498,17580..17692,18261..18370,18714..18850,
+                     18943..19016,21836..21942,22861..22942)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="isoform d is encoded by transcript variant 5; tumor
+                     protein 53; mutant tumor protein 53; cellular tumor
+                     antigen p53; phosphoprotein p53; transformation-related
+                     protein 53; antigen NY-CO-13; tumor supressor p53"
+                     /codon_start=1
+                     /product="cellular tumor antigen p53 isoform d"
+                     /protein_id="NP_001119587.1"
+                     /db_xref="CCDS:CCDS73966.1"
+                     /db_xref="GeneID:7157"
+                     /db_xref="LRG:p5"
+                     /db_xref="HGNC:HGNC:11998"
+                     /db_xref="MIM:191170"
+                     /translation="MFCQLAKTCPVQLWVDSTPPPGTRVRAMAIYKQSQHMTEVVRRC
+                     PHHERCSDSDGLAPPQHLIRVEGNLRVEYLDDRNTFRHSVVVPYEPPEVGSDCTTIHY
+                     NYMCNSSCMGGMNRRPILTIITLEDSSGNLLGRNSFEVRVCACPGRDRRTEEENLRKK
+                     GEPHHELPPGSTKRALPNNTSSSPQPKKKPLDGEYFTLQIRGRERFEMFRELNEALEL
+                     KDAQAGKEPGGSRAHSSHLKSKKGQSTSRHKKLMFKTEGPDSD"
+     misc_feature    17417..17419
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="delta133p53alpha; Region: alternative start codon"
+     CDS             join(17336..17498,17580..17692,18261..18370,18714..18850,
+                     18943..19016,19285..19332)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="isoform f is encoded by transcript variant 7; tumor
+                     protein 53; mutant tumor protein 53; cellular tumor
+                     antigen p53; phosphoprotein p53; transformation-related
+                     protein 53; antigen NY-CO-13; tumor supressor p53"
+                     /codon_start=1
+                     /product="cellular tumor antigen p53 isoform f"
+                     /protein_id="NP_001119589.1"
+                     /db_xref="CCDS:CCDS73967.1"
+                     /db_xref="GeneID:7157"
+                     /db_xref="LRG:p7"
+                     /db_xref="HGNC:HGNC:11998"
+                     /db_xref="MIM:191170"
+                     /translation="MFCQLAKTCPVQLWVDSTPPPGTRVRAMAIYKQSQHMTEVVRRC
+                     PHHERCSDSDGLAPPQHLIRVEGNLRVEYLDDRNTFRHSVVVPYEPPEVGSDCTTIHY
+                     NYMCNSSCMGGMNRRPILTIITLEDSSGNLLGRNSFEVRVCACPGRDRRTEEENLRKK
+                     GEPHHELPPGSTKRALPNNTSSSPQPKKKPLDGEYFTLQMLLDLRWCYFLINSS"
+     misc_feature    17417..17419
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="delta160p53gamma; Region: alternative start codon"
+     CDS             join(17336..17498,17580..17692,18261..18370,18714..18850,
+                     18943..19016,19212..19244)
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="isoform e is encoded by transcript variant 6; tumor
+                     protein 53; mutant tumor protein 53; cellular tumor
+                     antigen p53; phosphoprotein p53; transformation-related
+                     protein 53; antigen NY-CO-13; tumor supressor p53"
+                     /codon_start=1
+                     /product="cellular tumor antigen p53 isoform e"
+                     /protein_id="NP_001119588.1"
+                     /db_xref="CCDS:CCDS73968.1"
+                     /db_xref="GeneID:7157"
+                     /db_xref="LRG:p6"
+                     /db_xref="HGNC:HGNC:11998"
+                     /db_xref="MIM:191170"
+                     /translation="MFCQLAKTCPVQLWVDSTPPPGTRVRAMAIYKQSQHMTEVVRRC
+                     PHHERCSDSDGLAPPQHLIRVEGNLRVEYLDDRNTFRHSVVVPYEPPEVGSDCTTIHY
+                     NYMCNSSCMGGMNRRPILTIITLEDSSGNLLGRNSFEVRVCACPGRDRRTEEENLRKK
+                     GEPHHELPPGSTKRALPNNTSSSPQPKKKPLDGEYFTLQDQTSFQKENC"
+     misc_feature    17417..17419
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /note="delta160p53beta; Region: alternative start codon"
+     exon            17580..17692
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /inference="alignment:Splign:1.39.8"
+                     /number=5
+     exon            18261..18370
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /inference="alignment:Splign:1.39.8"
+                     /number=6
+     exon            18714..18850
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /inference="alignment:Splign:1.39.8"
+                     /number=7
+     exon            18943..19016
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /inference="alignment:Splign:1.39.8"
+                     /number=8
+     exon            19212..19344
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /inference="alignment:Splign:1.39.8"
+                     /number=9a
+     exon            19285..19344
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /inference="alignment:Splign:1.39.8"
+                     /number=9b
+     exon            21836..21942
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /inference="alignment:Splign:1.39.8"
+                     /number=10
+     exon            22861..24149
+                     /gene="TP53"
+                     /gene_synonym="BCC7; BMFS5; LFS1; P53; TRP53"
+                     /inference="alignment:Splign:1.39.8"
+                     /number=11
+ORIGIN      
+        1 ctccttggtt caagtaattc tcctgcctca gactccagag tagctgggat tacaggcgcc
+       61 cgccaccacg cccagctaat tttttgtatt tttaatagag atggggtttc atcatgttgg
+      121 ccaggctggt ctcgaactcc tgacctcagg tgatccacct gcctcagcct cccaaagtgc
+      181 tgggattaca ggagtcagcc accgcaccca gccccaacta atttttgtat ttgagtagag
+      241 acagggtttt accatgttgg ccaggctggt ctaaaactct tcacctcagg tgatccaccc
+      301 atctcagcct cccaaagtgt tgggattaca ggcgtgagcc accgtgcctg gccctggatt
+      361 tcactcttgc ccacccataa accattcact cttctgtttt aaaactctct tggccgggcg
+      421 cagtggctca tgcctgtaat cccagcactt tgggaggcca aggtgggcag atcacaaggt
+      481 caggagttcg agaccagcct ggccaatatg atgaaccccc catctctact aaaaaaatac
+      541 aaaaaaatta gccgggtgtg gtggcacatg cctgtaatcc cagctactcg gaaggttgag
+      601 gcaggagaat cacttaaacc tgggaggcgg aggttgcggt gagctgagat ggtgccactg
+      661 cactccagcc tggacaacag agcaagactc tgtctcaaac aaacaaacaa aaaaaacctc
+      721 tctcatggcc tggcatggtg gctcacgcct gtaatcctag cactttggaa ggctgaggca
+      781 ggtggatcac ctgaggtcag gagtttgaga ccagccaggc caacgtggca aaacctgtct
+      841 ctactaaaaa tacaaaaatt aagccaggcg cggtggctca tgcctataat cccagcactt
+      901 tgggaggccg agaccggcgg atcaaatgtc aggagtacga gaccatcctg gccaatatgg
+      961 taaaaccccg tctctattta aaaaaataca aaaattagct gggcatggtg gcgggtgcct
+     1021 gtaatcccag ctactcggga ggctgaggca ggagaatcgc ttgaatccag gaggcagagg
+     1081 ttgcagtgag ccgagatcac gccattgcac tccagcctgg gcgacagagc aagactcgtc
+     1141 tcaaaaaaaa aaaaaaaaca cctctctcat gacttcccaa ataaactcca aatgccttac
+     1201 ccataagaac caacacgacg tggctgctct tctctgtcct cacccctctg tccccctcac
+     1261 ttgcctcagt ctggctatac cagcattctg ggttttttgt tttgtgtttg tttgtttgtt
+     1321 tgtttgtttg tttgtttgtt ttgggatgga gtctcactct gtcacccagg ctggagtgca
+     1381 gtgacatgat cttggctcac tgcaacctcc atctcctggg ttcaaatgat tcttctgctt
+     1441 cagcctctca agtagctggg attacaggca cccaccatca cacccagcta atttttgtat
+     1501 ttttgtagag atgaggtttt gccatgttgg ccaggctggt ctcaaactct tgacctcagg
+     1561 tgatctgccc acctcagcct cccaaagtgc tgggattaca ggtgtgagcc actgagccca
+     1621 gtctgttttg ttgttttttg agatggagtc tcactctgtc gcccaggctg gagtgcagtg
+     1681 gtacaatttt gtctgactgc agcctccacc tcctgagttt aagagattct cctgcctcag
+     1741 ccacacaagt agctgggatt acaggcgcgt gccaccacat gcgtctaatt ttggtatttt
+     1801 tagtagcgat ggggttttgc catattggcc aggctggtct cgaactcctg gcctcaagtg
+     1861 atctgcacac ctcggcctcc tgagtagctg ggattacagg cgtgagccac catgcagggc
+     1921 ctttctggtc ttttaacgca caaagctatt tcccagttct gggtgtttat agtatcattg
+     1981 ccagttcctg gaaagctctt tccagaagcc ttcacatgac tgatccctta tcctccttca
+     2041 ggtcttagct caaatgcctc cttttcagag agctccttcc tgaccatttt atgcaatgtg
+     2101 ctttcctcta gttagtctct cttcattctg tgtatttcct tcagagcatt tatcatcatc
+     2161 ttggtcctga tgcttgctgg tttacatgtt tgttgtctgt ctcccacaca gaaagcaaac
+     2221 cagcccttca tctgtcttgt ccaccacttt atcccagcac agtgactaac atatatcagt
+     2281 agtcaatcaa taaatagcta taagccaggc acggtgactc acacctgtga tccccgcact
+     2341 ttgggaggcc aaggtgggcg gatcctctga ggtcaggaat ttgatatcag cctgcccaac
+     2401 atggcgaaac cccgtctcta ctaaaactat aaaaattagt cgagtgtgat ggcgtgcgcc
+     2461 tgtaatacca gctacttgtg aggctgaggc aggagaatcg cttgaacccg ggaggcagag
+     2521 gttgcagtga gccgagatca caccacagca ctccagcctg ggtgacagag caagaccttg
+     2581 tctcaaaaaa ataagaaata gaaatatata tatgctgcca caagaaattc actacttttt
+     2641 agcaaaaaac acagattcct aattaaagaa aggggaaacc tctctctaaa taacttcaga
+     2701 attcggggca gaaaacgcta catgtggaaa ctcgtcttga aaaacagtcc cgtttgtgaa
+     2761 caggaaacac ttggactaca ctttttccat ctccacgaag gacttaaatg tgcagcattg
+     2821 atgaagaggc agttagcccc agtccttacc atttctgcat attccacctg ctccccctca
+     2881 tggtacagct ctgggggcag gttataaatt cgcaagatgt tatcagcact attggtcaag
+     2941 atgcaggaac cgtcaggagc cctagaaaca ggggagagtt agaaagctgg ccagacctat
+     3001 gcttttcaag tgtagggcta gggctgagcc tgcctctggg gtaggtaagc ccccctgaat
+     3061 ccttgaggga agtagaagac acaaactgct agataaaatg taagctcagt ctaaaagggc
+     3121 tacgtgccgc ttctcccagc tctggggcat ccctctccta gaaaactgga ctgttttaca
+     3181 gtgaaaatct cgggggtggt cagctccctg ccccgttgtt atccttacca cttacagcct
+     3241 ttcaagaagt tctcaggttg ggtgctgaac tctgaccagg aaccactgag aaatcgaggc
+     3301 agctgggaga agctgtagtt ccaagcgctg aaaggaagat gggggacaat aaacctgggt
+     3361 cgccaagcaa agggggcaga ggcctggaga agtgggtctc aggaccagag gacagatcga
+     3421 cctcacactt catctcccca gactccacac tccactgcca tcaccactta cgtgtctccc
+     3481 tcgtcctctg cagcgggttc cccagaggta tcttccatgg cttttccaga ccccaactct
+     3541 ggcccgttcg cttcttcttc agaaaggctc ccgtttgctt cttctgcagg aaggcttgta
+     3601 ttttcagaaa gttcttgctc ctcgattcga ggactcaact cactagggga accaaactct
+     3661 gtttccaggg gagtggagag agaaactggg tccccctccc gtagctcctg ggacacagct
+     3721 gagccagcca caggatctgg ggacaaccgg ggcggatccc ccctttcggg aggcggtggc
+     3781 atcagttcag agtccgcatt tttattcatc ggggaagcgt ggggagaagg atgggctgga
+     3841 gctgggtcct ggtctgaagg acagcagtcc ggagctaacg gttgagtctc caaagtcttc
+     3901 atactgcaga ggaagcacag cggagattag cctcagccag gatggcttcg aagttctcag
+     3961 ggatccgacg cagagctaaa gaaacccacc tgtgcttccc tcctcttctg ggagtaggca
+     4021 gaagactccc gggaggagag gcgaacagcg gacgccaatt cttttgaaag cactgtgttc
+     4081 cttagcaccg cgggtcgcta cgggcctctt gctgtcgcgg gatttcggtc caccttccga
+     4141 ttgggccgcc gcatcccgga tcagatttcg cgggcgaccc acggaacccg cggagccggg
+     4201 acgtgaaagg ttagaaggtt tcccgttccc atcaagccct agggctcctc gtggctgctg
+     4261 ggagttgtag tctgaacgct tctatcttgg cgagaagcgc ctacgctccc cctaccgagt
+     4321 cccgcggtaa ttcttaaagc acctgcaccg cccccccgcc gcctgcagag ggcgcagcag
+     4381 gtcttgcacc tcttctgcat ctcattctcc aggcttcaga cctgtctccc tcattcaaaa
+     4441 aatatttatt atcgagctct tacttgctac ccagcactga tataggcact caggaataca
+     4501 acaatgaata agatagtaga aaaattctat atcctcataa ggcttacgtt tccatgtact
+     4561 gaaagcaatg aacaaataaa tcttatcaga gtgataaggg ttgtgaagga gattaaataa
+     4621 gatggtgtga tataaagtat ctgggagaaa acgttagggt gtgatattac ggaaagcctt
+     4681 cctaaaaaat gacattttaa ctgatgagaa gaaaggatcc agctgagagc aaacgcaaaa
+     4741 gctttcttcc ttccaccctt catatttgac acaatgcagg attcctccaa aatgatttcc
+     4801 accaattctg ccctcacagc tctggcttgc agaattttcc accccaaaat gttagtatct
+     4861 acggcaccag gtcggcgaga atcctgactc tgcaccctcc tccccaactc catttccttt
+     4921 gcttcctccg gcaggcggat tacttgccct tacttgtcat ggcgactgtc cagctttgtg
+     4981 ccaggagcct cgcaggggtt gatgggattg gggttttccc ctcccatgtg ctcaagactg
+     5041 gcgctaaaag ttttgagctt ctcaaaagtc tagagccacc gtccagggag caggtagctg
+     5101 ctgggctccg gggacacttt gcgttcgggc tgggagcgtg ctttccacga cggtgacacg
+     5161 cttccctgga ttgggtaagc tcctgactga acttgatgag tcctctctga gtcacgggct
+     5221 ctcggctccg tgtattttca gctcgggaaa atcgctgggg ctgggggtgg ggcagtgggg
+     5281 acttagcgag tttgggggtg agtgggatgg aagcttggct agagggatca tcataggagt
+     5341 tgcattgttg ggagacctgg gtgtagatga tggggatgtt aggaccatcc gaactcaaag
+     5401 ttgaacgcct aggcagagga gtggagcttt ggggaacctt gagccggcct aaagcgtact
+     5461 tctttgcaca tccacccggt gctgggcgta gggaatccct gaaataaaag atgcacaaag
+     5521 cattgaggtc tgagactttt ggatctcgaa acattgagaa ctcatagctg tatattttag
+     5581 agcccatggc atcctagtga aaactggggc tccattccga aatgatcatt tgggggtgat
+     5641 ccggggagcc caagctgcta aggtcccaca acttccggac ctttgtcctt cctggagcga
+     5701 tctttccagg cagcccccgg ctccgctaga tggagaaaat ccaattgaag gctgtcagtc
+     5761 gtggaagtga gaagtgctaa accaggggtt tgcccgccag gccgaggagg accgtcgcaa
+     5821 tctgagaggc ccggcagccc tgttattgtt tggctccaca tttacatttc tgcctcttgc
+     5881 agcagcattt ccggtttctt tttgccggag cagctcacta ttcacccgat gagaggggag
+     5941 gagagagaga gaaaatgtcc tttaggccgg ttcctcttac ttggcagagg gaggctgcta
+     6001 ttctccgcct gcatttcttt ttctggatta cttagttatg gcctttgcaa aggcaggggt
+     6061 atttgttttg atgcaaacct caatccctcc ccttctttga atggtgtgcc ccaccccgcg
+     6121 ggtcgcctgc aacctaggcg gacgctacca tggcgtgaga cagggaggga aagaagtgtg
+     6181 cagaaggcaa gcccggaggt attttcaaga atgagtatat ctcatcttcc cggaggaaaa
+     6241 aaaaaaagaa tgggtacgtc tgagaatcaa attttgaaag agtgcaatga tgggtcgttt
+     6301 gataatttgt cggaaaaaca atctacctgt tatctagctt tgggctaggc cattccagtt
+     6361 ccagacgcag gctgaacgtc gtgaagcgga aggggcgggc ccgcaggcgt ccgtgtggtc
+     6421 ctccgtgcag ccctccggcc cgagccggtt cttcctggta ggaggcggaa ctcgaattca
+     6481 tttctcccgc tgccccatct cttagctcgc ggttgtttca ttccgcagtt tcttcccatg
+     6541 cacctgccgc gtaccggcca ctttgtgccg tacttacgtc atctttttcc taaatcgagg
+     6601 tggcatttac acacagcgcc agtgcacaca gcaagtgcac aggaagatga gttttggccc
+     6661 ctaaccgctc cgtgatgcct accaagtcac agaccctttt catcgtccca gaaacgtttc
+     6721 atcacgtctc ttcccagtcg attcccgacc ccacctttat tttgatctcc ataaccattt
+     6781 tgcctgttgg agaacttcat atagaatgga atcaggctgg gcgctgtggc tcacgcctgc
+     6841 actttgggag gccgaggcgg gcggattact tgaggatagg agttccagac cagcgtggcc
+     6901 aacgtggtga atccccgtct ctactaaaaa atacaaaaat tagctgggcg tggtgggtgc
+     6961 ctgtaatccc agctattcgg gagggtgagg caggagaatc gcttgaaccc gggaggcaga
+     7021 ggttgcagtg agccaagatc gtgccactac actccagcct gggcgacaag aacgaaactc
+     7081 cgtctcaaaa aaaagggggg aatcatacat tatgtgctca tttttgtcgg gcttctgtcc
+     7141 ttcaatgtac tgtctgacat tcgttcatgt tgtatatatc agtattttgc tccttttcat
+     7201 ttagtatagt ccatcgattg tatatccgtc cttttgatgg ccttttgagt tgtttcccat
+     7261 ttgcggttat gaaataaagc tgctataaac attcttgtac aattcttttt gtgatcatat
+     7321 gttttcgtgt ttcttggaga aatacttagg aggggaattg cgagtttgga agtaaaaagt
+     7381 agctgtattt tgaacttttt cagaagctct gagttttcca gagcggttgt accattttac
+     7441 actccaacta gcaaggtatg ggagttatta tggttgtgcc acagccttcc ggacattagg
+     7501 tattgtcagt ctttctaatg tggtatatcc ttgtggttgt aatttacagt tctctattga
+     7561 ctaaggatgt tcagcatttt ttcatgtgcc tattggccat tcgtattttg tttgtaaagt
+     7621 agctcttcga gtcttttacc tgttattttg gttttttgtt tgtttttatt gttcagttgt
+     7681 gggactgctt tatacattct ggatacaagt cctttatcag atccatgtgt cgtgaatgtt
+     7741 ttcttctgat ctgttgcttg cctatttgtt tgctttacag agtttacagt atcttaagag
+     7801 gagtggattt atctttttta tgttcagtat ttgccttgtc ctgtttagga catctttttt
+     7861 ttttttttta accccagggt catgaagata ttatcttaca ttttctttta ggacctttat
+     7921 ggttgtaagt tttacagtaa ggtccttgag ccattaatta attcttaaaa ttaattgttt
+     7981 atggtgtgag gtgtaggagt cagtctctgg tatctttcct gtatggaaat ccagttattc
+     8041 tgtctccact tgttgaaata ggcttccttt ctctactgaa tgcttttaat tttaattatt
+     8101 ttacagttgg agtatagggc taccatttta gtgctatttt ctttttttct ttgttaattt
+     8161 ttgagacagg gactcacact gttgcccagg ctagagtaca atggcacaat caaggcttac
+     8221 tgcagcctcg aacccctggg ctcaagcagt cctctagcag cctcacgagt agctgggatt
+     8281 actccaccac acccagctaa ctattttatt tttttgtatt gacaggatct cactatgttg
+     8341 cccaggctgg tctcaaactg ctggcctcaa gctttcatcc catctcggcc tcccaaagtg
+     8401 ctgggattac aggtgtgagc caccatgcct gacctcttag tgctattttc tatttatctc
+     8461 ctctgttctc tgctctcttt aaacgttgga ggaagaaaca gtacccatct tacacaaact
+     8521 cttcagaaaa cagaggaaca gactgggcgc ggtggctcat acctgtaatc tcagcacttt
+     8581 ggtacgctga ggcaggggat catttgaggt cgggagttcg agaccagcct ggccaacacg
+     8641 gcgaaacccc atctctacta aaaatacaaa aagtagctag gcgtggtgac acatacctgt
+     8701 aatgccagtt actcaggagg ctgaggcaca agaatccctt gaacctggga agcggaggtt
+     8761 gcagtgagcc gagattgcgc cactgcactc cagcctgggc aacagagtga gaccctgtct
+     8821 cagaaaaaaa aagaaagaaa gaaaaaatag aggaatattt cccaacttgt tttcgaagcc
+     8881 agcataatcc tggtaccaaa accaaacaag gacattataa gaaaagaaaa tatagaccaa
+     8941 tattcctgtt agcatagaca tgcaacagct aaccaatttt agcaaaccaa acctggtaat
+     9001 atagaaaaaa ggataaatag gccagtcgcg gtggctcacg cctgtaatcc cagcactttg
+     9061 ggaggctgag gcaggcagat cacttgaggt caggagtttg agaccagcct gaccaacatg
+     9121 gtgaaacccc gtttctaata aaaatacaaa aatcaggctg ggcacggtgg ctcacgcctg
+     9181 taatcccagc actttgggag gccgaggtgg gcagatcacg aggtcaggag ttcaagacca
+     9241 gcctgaccaa tgtggtgaaa cgccatctct actaaaaata caaaaatcag ccggtgtggt
+     9301 ggcacctgcc tgtaatccca gctactcagg aggctgaggc agaattgctt gaacccggga
+     9361 ggcagaggtt gcagtgagcc aagatcgtgc cactgcactc cagcctgggc gacagagcaa
+     9421 gacttcatct caaaaaaaaa aaaaaattag ctgggcatgg tggtgggcac ctgaaatccc
+     9481 agctactcgg gagtctgagg caggagaatc gcttgaaccc aggaggcaga agttgcactg
+     9541 agctgggatc acaccattgc actccagcct gggcaacaga gtgagactcc atctcaaaaa
+     9601 aagaaaaaga aaaaggataa atacattcta accaaataat gtttatctca tgattgtagc
+     9661 tgattcaaca ttcaaaaatt ggcctggtgc agtagctcag gcctgtaatc ccaacatttt
+     9721 aggaggctga ggcaggaaga tctcttgagc ccaggatttc aagaccagcc tgggcaacat
+     9781 agtcagactg gtctttactg gggggaaaaa aatcagtctg tgtaattcac cacattaaca
+     9841 aagggaaaca taaaaaccct atgatcattt caacagatgt agcaaaagca gttaatgata
+     9901 ttcaacacat atgcatgatt acaaaccaac caacctccta gcaaactagg gaaaggaaac
+     9961 ttaacctagt ttgataacag ggcgtccaca gtcggagttc cactagcagc atacataatg
+    10021 gtagaaaact cagtgctgcc gggcgcggtg gctcacgcct gtaatgccag cactttggga
+    10081 ggcctaggcg ggcggatcac gaggtcagga gatcgagact gtcctgacta gcatgctgaa
+    10141 accccgtctc tactaaaaat acaaaaacaa aaaattagcc gggcatggtg gcgggcgcct
+    10201 atagtcccag ctactcggga ggctgaggcg agagaatggc gtgaacccgg gaggcggagc
+    10261 ttgcagagcc tagatcgtgc cactgcactc cagcctgggt gacagagtga gacttcgtct
+    10321 caaaaaaaaa aaaaaaaaaa aaagaaaaga aaactcaacg ctttttcctc taagatcagg
+    10381 aactagaaaa ggatttgact ctcacaacgt tgataccata ctggaggttt taaccaggca
+    10441 agaaaaagaa ataatgaggg ccgggtgcgg tggctcaggc ctgtaatccc agcactttgg
+    10501 gaagccgaga cgggtggatc acgaggtcag gagatcgaga ccatcctggc taacacggtg
+    10561 aaaccctgtc tctactaaat atacaaaaaa ttagccgggc gtagtggcgg gcgcctgtag
+    10621 tcccagctac tcgggaggct gaggcaggag aatggcgtga actcaggggg cggagcttgc
+    10681 agtgagctga gatcgagcca ctgcactcca gcctgggcga cagagcaaga ctgtgtctca
+    10741 aaaaaaaaaa aagaaaaaga aataatgatt agtggcccga tgtctcacgc ctataatccc
+    10801 agcactttgg gaggccgagg tgggcagatc acctgaggtc tggagttgga gaccagcctg
+    10861 acaaagatgg tgaaacctcg tctctattaa aatattaaaa aaatagccag gcgttggccg
+    10921 ggtacagtgg ctcatgcctg taatcccagc actttgggag gccgaggtgg gtggatcacc
+    10981 tgaggtcagg agttcaacac cagcctggcc aacatggtga aaccccatct ctactaaaaa
+    11041 tacaaaaatt agccgggcgt agtggcgggc gcctgtaatc ccagctactt gggaggctta
+    11101 ggcaggagaa tcgcttgaac ctgggaggcg gaggttgtag tgagccgaga ttgcaccatt
+    11161 gcactccagc ctgggtgaca aaagcaaaaa ctccgtctca aaaaaaaaag aattagccag
+    11221 gggtagtggt gaacgcctgt agtcccagct actcaggagg cagaggcagg agaatcactt
+    11281 gaacccagga ggcagaggtt gcagtgagcc gagattgtcc cattgcactc cagcctaggc
+    11341 gacaagagca aaattccatg tcaaaaaaaa aaaaaaaaaa ggaaagaaaa aaaataacga
+    11401 ttagaaagga agaaataaaa cacattcaca gccagtatga ttctatacat acatgtccta
+    11461 atggggccag gcgtggtggc tcatgcctgt aatcctagca cttttaggag gctgaggcag
+    11521 gtggcttccc tgggaccagc ctggccaaca tggtgaaacc ccaactctaa taaaaataca
+    11581 aaaaatcagc caggcgtggt gacgggcacc tctaatccca gctactcagg aggctgaggc
+    11641 aggagaattg cttggacctg ggaggcagag gttgcagtga gccgagatcg cgctattgca
+    11701 ctccagcctg ggcaacaaga gtgaaactcc ggcagggtgt ggtggcttac gcctgtaatc
+    11761 ccagcacttc gggaggctga ggcaggccga tcacctgagg tcaggagttt gagaccaacc
+    11821 taacatggtg aaaccccgtc tctactaaaa atacaagaat tagctgggtg tagtggtggg
+    11881 cgcctgtaat cccagctact tgggaggctg agacagaaga attgcttgaa cccaggaggt
+    11941 ggaggttgca gtgagctgag atcatgccat tgcacaccac gccgggcaac agagcgagat
+    12001 tccgtctcaa aaaaaaaaaa aaagagtgaa actctatctc aaaaaaaaaa aaaagtccta
+    12061 atggaaaatc cataaaaagc taccaaaact aataaataaa tatagcaggg ttgcaggtta
+    12121 cagggcaata tagttatccc tctatctgta ggggcttggt tctgggactc ctcacacacc
+    12181 aaacccacag atgtctaagt cccatatata agacggtata gtatttggat ttaacctaca
+    12241 catatcctcc catatagttt aaattatctc tagattactt acattacccc catacaatga
+    12301 aaatgctaat gtacatgcaa gtatgtatgt aagtacttgt actatattgt ttagggaatc
+    12361 actggacata taggccttca agactgatac cagcagccac tgttaagatt ctggtcaggc
+    12421 ctgcccctgt ttggggtctc agttgatctc attgccttcc cacccagcca agggcacctg
+    12481 catttctctt ggctccctgg ccatttggaa ggcctagttc agcctggcac atttgtatcc
+    12541 tggcccactg atgctggtac ccctgggaag gtcctgctct gaaaaacacg gagattttag
+    12601 ttgctactga agatttgaga gataaagaca gggagacctg tctgtagacc tgtgtccctc
+    12661 caagtgggat tgagactttg ggccccccat ttcaggacag cacctcctgg cctgttgact
+    12721 gaatagatcc ctgaaggagg tgtacttgca ttaatggagt gggggtggga gcagtaccac
+    12781 agatccgcac taacaatcac acagttctct ctagaataat aatatagaac aagtgaaata
+    12841 gaacaattgc agaaagagct aacctttgtt gagctcttac tgtgtgccca gcactttcct
+    12901 caactctaca tttcccataa tacacagagt actaggtagg ccaggcttgg tggctcacgc
+    12961 ctgtaatccc agcactttag gaggccaagg ggggtggatc acctgaggtc gggagttcaa
+    13021 gaccagcctg accaacatgg tgaaaccccg tctctactag aagtacaaaa ttagccaggt
+    13081 gtggtggcac atgcttgtag tcctagctac tcagcaggct gaggcaggag aatcatttga
+    13141 atccgggagg aggttgcagt aagcggagat agtgccactg tactccagcc tgggcaataa
+    13201 gagctgagac tccgtctcaa aataaaataa aataaaataa aataaaataa aataaaataa
+    13261 aaaaagaaaa gagcctgcca ttaaaggagc tgtttggtag gggatgtttt gtcagtgcaa
+    13321 acaacagaaa agtgggctgg gcacagtggt tcatgcctgt aatcccagca ctttgggagg
+    13381 ccaaggcggg cggatcacct gaagttggga gttcaagacc agcctgacca atatggagaa
+    13441 accccgtctc tactaaaaat acaaaattag ccgggcgcag tggcgcatgc ctgtaatccc
+    13501 agctactcgg gaggctgagg caggagaatc gcttgaacct gggaggcaga ggttgcggtg
+    13561 agccgagatc gcaccattgc actccagcct ggacgagagc aaaactctgt ctcaaaaaaa
+    13621 aaaaaaaaca gaaaagtgta acaaacactt acagtaggca tgtttcttag caaatctgat
+    13681 gacaaatttg gcataaagaa agagagcatc cctgaaaaaa aaaaaaagaa aaagaaagag
+    13741 agcatcctgc ctgggcaaca tagtgaaacc ctgcctctac aaaaaaactc aaaaattggc
+    13801 cgggtgcagt ggctcacacc tgtaatccca gcactttggg agtcggaggc gggaggatca
+    13861 cctgaggtca ggagttcgaa accagcctgg ccaacatggc aaaaccccat ctctactaaa
+    13921 aatacaaaaa attaatcagg cgcattggtg ggcgcctgta atcccagcta ctcaggaagt
+    13981 tgaggcaaga ggatcgcttg aatctgggag gtggaggtta cagtgagtcg agatcacacc
+    14041 actgcactct agcctgggtg acagggcgag actccgtctc caaaaaaaaa aagaaaaaga
+    14101 aaaagactaa aaaattagcc aggcaggcct ctgtggtccc agctacttgg gaggctgagg
+    14161 caggagaatc actgagccca ggagtccgag gctgtagtga gccatgattg caccactgta
+    14221 ccctagcttg ggcaacaaag caagaccctg cctcaaaaga aaaaagaaag aaagaaagaa
+    14281 catggcgggc caggcacagt ggctcacacc tgtaatccca gcgctttgag aggccgaggc
+    14341 aggtggatca caaggtcagg agttccacac cagcctggcc aacatggtga aaccctgtct
+    14401 ctactaaaaa tacaaaaaat cagccaggca tggtggcagg ggcctgtaat cccagctact
+    14461 cgggaggctg aggcaggaga attgcttgaa accagaaggc agaggttgca gtgagcctag
+    14521 actgcaccac tgcactccag cctgggcgaa aagagccaaa ctccatctca aaaaacaaac
+    14581 aaaaaaacaa aacaaaagaa aacatggcaa agcctttgaa agcttgtctg ggagaaggtg
+    14641 cgatgatagt tgcataactt cgtgcaagat gctggtccac acaggggctg ccccttgctc
+    14701 tttctcgctc tcttaacctc tcatataaca ggcttgtgtg ttattcacat ttattgagcc
+    14761 caagcaggtg caaggcattg tgatctaata ctttggtcag caagacaaca agatagatca
+    14821 ctgccctgcc cttaggaagt gtatatgcta ttagaggaaa cagataaaat aaacaaggaa
+    14881 aagtatcaga caatgtaagt gctatgagaa tgcaaatgag gtgatgtgaa ttaaaatagg
+    14941 atgacttaaa gtctgcacgg gaaggagcct acccccatgt tcctggctag ccaaggaacc
+    15001 accagttgat tagcagagaa gggcagccag tctagctaga gcttttgggg aagagggagt
+    15061 ggttgttaag agatgagatt aaagaagccg agacgggcca ttcgtgaggg gtttgtaatg
+    15121 cagggctgag gagtgtccga agagaatggg caggtgagcg gtgagacagt tgttcttcca
+    15181 gaagctttgc agtgaaagga atcaaagaaa tggagccgtg tatcaggtgg ggaagggtgg
+    15241 gggccaaggg ggtgtccttc cccatacaga gattgcaggc tgagaatgac tatatccttg
+    15301 ttaacaggag gtgggagcag ggcacggtag ctcacacctg taatcttggc actttaggag
+    15361 gctgaggcgg gccgatcacc tgaagtaagg agttcgagac cagcctggcc aacatgcaaa
+    15421 gccctgtctc tactaaaaat acaaaaatta gctgggtgtg gtggtactcg cctgtaatcc
+    15481 cagctactcg ggagactgag gcaggagaat ggcttgaacc cggaaggtag aggttgcagt
+    15541 gagctgagat catgccactg tgctccagcc taggtgacag agagagactc catctcaaaa
+    15601 aaaaaaaaaa aatacaggaa gggagttggg aatagggtgc acatttagga agtcttgggg
+    15661 atttagtggt gggaaggttg gaagtccctc tctgattgtc ttttcctcaa agaagtgcat
+    15721 ggctggtgag gggtggggca ggagtgcttg ggttgtggtg aaacattgga agagagaatg
+    15781 tgaagcagcc attcttttcc tgctccacag gaagccgagc tgtctcagac actggcatgg
+    15841 tgttggggga gggggttcct tctctgcagg cccaggtgac ccagggttgg aagtgtctca
+    15901 tgctggatcc ccacttttcc tcttgcagca gccagactgc cttccgggtc actgccatgg
+    15961 aggagccgca gtcagatcct agcgtcgagc cccctctgag tcaggaaaca ttttcagacc
+    16021 tatggaaact gtgagtggat ccattggaag ggcaggccca ccacccccac cccaacccca
+    16081 gccccctagc agagacctgt gggaagcgaa aattccatgg gactgacttt ctgctcttgt
+    16141 ctttcagact tcctgaaaac aacgttctgg taaggacaag ggttgggctg gggacctgga
+    16201 gggctgggga cctggagggc tggggggctg gggggctgag gacctggtcc tctgactgct
+    16261 cttttcaccc atctacagtc ccccttgccg tcccaagcaa tggatgattt gatgctgtcc
+    16321 ccggacgata ttgaacaatg gttcactgaa gacccaggtc cagatgaagc tcccagaatg
+    16381 ccagaggctg ctccccccgt ggcccctgca ccagcagctc ctacaccggc ggcccctgca
+    16441 ccagccccct cctggcccct gtcatcttct gtcccttccc agaaaaccta ccagggcagc
+    16501 tacggtttcc gtctgggctt cttgcattct gggacagcca agtctgtgac ttgcacggtc
+    16561 agttgccctg aggggctggc ttccatgaga cttcaatgcc tggccgtatc cccctgcatt
+    16621 tcttttgttt ggaactttgg gattcctctt caccctttgg cttcctgtca gtgttttttt
+    16681 atagtttacc cacttaatgt gtgatctctg actcctgtcc caaagttgaa tattcccccc
+    16741 ttgaatttgg gcttttatcc atcccatcac accctcagca tctctcctgg ggatgcagaa
+    16801 cttttctttt tcttcatcca cgtgtattcc ttggcttttg aaaataagct cctgaccagg
+    16861 cttggtggct cacacctgca atcccagcac tctcaaagag gccaaggcag gcagatcacc
+    16921 tgagcccagg agttcaagac cagcctgggt aacatgatga aacctcgtct ctacaaaaaa
+    16981 atacaaaaaa ttagccaggc atggtggtgc acacctatag tcccagccac ttaggaggct
+    17041 gaggtgggaa gatcacttga ggccaggaga tggaggctgc agtgagctgt gatcacacca
+    17101 ctgtgctcca gcctgagtga cagagcaaga ccctatctca aaaaaaaaaa aaaaaaagaa
+    17161 aagctcctga ggtgtagacg ccaactctct ctagctcgct agtgggttgc aggaggtgct
+    17221 tacgcatgtt tgtttctttg ctgccgtctt ccagttgctt tatctgttca cttgtgccct
+    17281 gactttcaac tctgtctcct tcctcttcct acagtactcc cctgccctca acaagatgtt
+    17341 ttgccaactg gccaagacct gccctgtgca gctgtgggtt gattccacac ccccgcccgg
+    17401 cacccgcgtc cgcgccatgg ccatctacaa gcagtcacag cacatgacgg aggttgtgag
+    17461 gcgctgcccc caccatgagc gctgctcaga tagcgatggt gagcagctgg ggctggagag
+    17521 acgacagggc tggttgccca gggtccccag gcctctgatt cctcactgat tgctcttagg
+    17581 tctggcccct cctcagcatc ttatccgagt ggaaggaaat ttgcgtgtgg agtatttgga
+    17641 tgacagaaac acttttcgac atagtgtggt ggtgccctat gagccgcctg aggtctggtt
+    17701 tgcaactggg gtctctggga ggaggggtta agggtggttg tcagtggccc tccaggtgag
+    17761 cagtaggggg gctttctcct gctgcttatt tgacctccct ataaccccat gagatgtgca
+    17821 aagtaaatgg gtttaactat tgcacagttg aaaaaactga agcttacaga ggctaagggc
+    17881 ctcccctgct tggctgggcg cagtggctca tgcctgtaat cccagcactt tgggaggcca
+    17941 aggcaggcgg atcacgaggt tgggagatcg agaccatcct ggctaacggt gaaaccccgt
+    18001 ctctactgaa aaatacaaaa aaaaattagc cgggcgtggt gctgggcacc tgtagtccca
+    18061 gctactcggg aggctgagga aggagaatgg cgtgaacctg ggcggtggag cttgcagtga
+    18121 gctgagatca cgccactgca ctccagcctg ggcgacagag cgagattcca tctcaaaaaa
+    18181 aaaaaaaaaa ggcctcccct gcttgccaca ggtctcccca aggcgcactg gcctcatctt
+    18241 gggcctgtgt tatctcctag gttggctctg actgtaccac catccactac aactacatgt
+    18301 gtaacagttc ctgcatgggc ggcatgaacc ggaggcccat cctcaccatc atcacactgg
+    18361 aagactccag gtcaggagcc acttgccacc ctgcacactg gcctgctgtg ccccagcctc
+    18421 tgcttgcctc tgacccctgg gcccacctct taccgatttc ttccatacta ctacccatcc
+    18481 acctctcatc acatccccgg cggggaatct ccttactgct cccactcagt tttcttttct
+    18541 ctggctttgg gacctcttaa cctgtggctt ctcctccacc tacctggagc tggagcttag
+    18601 gctccagaaa ggacaagggt ggttgggagt agatggagcc tggtttttta aatgggacag
+    18661 gtaggacctg atttccttac tgcctcttgc ttctcttttc ctatcctgag tagtggtaat
+    18721 ctactgggac ggaacagctt tgaggtgcgt gtttgtgcct gtcctgggag agaccggcgc
+    18781 acagaggaag agaatctccg caagaaaggg gagcctcacc acgagctgcc cccagggagc
+    18841 actaagcgag gtaagcaagc aggacaagaa gcggtggagg agaccaaggg tgcagttatg
+    18901 cctcagattc acttttatca cctttccttg cctctttcct agcactgccc aacaacacca
+    18961 gctcctctcc ccagccaaag aagaaaccac tggatggaga atatttcacc cttcaggtac
+    19021 taagtcttgg gacctcttat caagtggaaa gtttccagtc taacactcaa aatgccgttt
+    19081 tcttcttgac tgttttacct gcaattgggg catttgccat cagggggcag tgatgcctca
+    19141 aagacaatgg ctcctggttg tagctaacta acttcagaac accaacttat accataatat
+    19201 atattttaaa ggaccagacc agctttcaaa aagaaaattg ttaaagagag catgaaaatg
+    19261 gttctatgac tttgcctgat acagatgcta cttgacttac gatggtgtta cttcctgata
+    19321 aactcgtcgt aagttgaaaa tattgtaagt tgaaaatgga tttaatacac ctaatctaag
+    19381 gaacatcata gcttagccta gcctgctttt tttttttttt tttttggaga cagagtctca
+    19441 ctctgtcacc caggctggag tgcagtggcg ggatctcggc tcactgcaac ctccgccttc
+    19501 tgggttcaag cgattctcct gcctcagccc actgagtagc tgggattaca ggcacctgcc
+    19561 ccgacgccca gctaattttt tgttatttat ttattttttt ttttagtaga gatgaggttt
+    19621 caccatgttg gccaggctag tctcgaactc ctgaccttgt gatctgcctg ccttggcctc
+    19681 ccaaagtgct gggattacag gcgtgagcca ccgcacccgg cctgcctagc ctacttttat
+    19741 tttattttta atggagacag catcttgctc tgttgcccag gctggattac agtgatgtga
+    19801 tcatagctca ttataccctc ctgggctcaa gcaatccccc taactctgcc tccccagtag
+    19861 ctaggaccac aggcatacac caccataccc agctaatttt taaaattttt tgtagataga
+    19921 tagagtctca ctatgttgcc caggctggtc tctagcctac ttttttgaga caaggtcttg
+    19981 ctctgtcacc caggctggat agagtgcagt agtgcagtca cagctcactg cagcctccac
+    20041 ctcccaggct ccatccatcc tcccagctca gcctcccaag ttgcttcaac tacaggcctg
+    20101 caccaccatg cctggctaat ttttatttat ttatttttat tttattttat tttatttttt
+    20161 tgagactcag tctcactctg tcgcccaggc tggagtgcag tggcatgatc tcggctcact
+    20221 gcaacctctg cctcctgggt tcaagtgatt ctcctgcctc agcctcccga atagctagga
+    20281 ctacaagcgc ctgctaccac gcccagctaa tttttgtatt tttagtagag acagggtttc
+    20341 accatgttgg ccaggctggt ctcgaacttc tgaccatgtg atccgcccgc ctcggcctcc
+    20401 caaagtgctg ggattacagg tgtgagccac cacgcccggc taatttttat ttatttattt
+    20461 aaagacagag tctcactctg tcactcaggc tagagtgcag tggcaccatc tcagctcact
+    20521 gcagccttga cctccctggg ctccggtgat ttcaccctcc caagtagcta ggactacagg
+    20581 cacatgccac gacacccagc taatttttta ttttctgtga agtcaaggtc ttgctacgtt
+    20641 gcccatgctg gtatcaaacc cctgggctca atcaatcctt ccacctcagc ctccccaagt
+    20701 attggggtta caggcatgag ctaccacact cagccctagc ctacttgaaa cgtgttcaga
+    20761 gcatttaagt taccctacag ttgggcaaag tcatctaaca caaagccctt tttatagtaa
+    20821 taaaatgttg tatatctcat gtgatttatt gaatattgtt actgaaagtg agaaacagca
+    20881 tggttgcatg aaaggaggca cagtcgagcc aggcacagcc tgggcgcaga gcgagactca
+    20941 aaaaaagaaa aggccaggcg cactggctca cgcctgtaat cccagcattt cgggaggctg
+    21001 aggcgggtgg atcacctgag gtcaggagtt caagaccagc ctagccaaca tggtgaaacc
+    21061 ccgtctctac taaaatacaa aaattaaccg ggcgtgatgg caggtgcctg taatcccagc
+    21121 tacttgggag gctgaggcag gagaatcgct tgaaccagga ggcggaggtt gcagggagcc
+    21181 aagatggcgc cactgcactc cagcctgggc gatagagtga gactccgtct cagaaaaaaa
+    21241 agaaaagaaa cgaggcacag tcgcatgcac atgtagtccc agttacttga gaggctaagg
+    21301 caggaggatc tcttgagccc aagagtttga gtccagcctg aacaacatag caagacatca
+    21361 tctctaaaat ttaaaaaagg gccgggcaca gtggctcaca cctgtaatcc cagcactttg
+    21421 ggaggtggag gtgggtagat cacctgacgt caggagttgg aaaccagcct ggctaacatg
+    21481 gtgaagcccc atctctacta aaaacacaaa aattagccag gtgtggtagc acacgcctgt
+    21541 agtcccagct actcgggagg ctgaggcaca agaatcactt gaaccccaga ggcggagatt
+    21601 gcaatcagcc aagattgcac cattgcactc ccgcctgggc aacagagtga gaccccatct
+    21661 caaaataaat aaataaatat ttttaaaagt cagctgtata ggtacttgaa gtgcagtttc
+    21721 tactaaatgc atgttgcttt tgtaccgtca taaagtcaaa caattgtaac ttgaaccatc
+    21781 ttttaactca ggtactgtgt atatacttac ttctccccct cctctgttgc tgcagatccg
+    21841 tgggcgtgag cgcttcgaga tgttccgaga gctgaatgag gccttggaac tcaaggatgc
+    21901 ccaggctggg aaggagccag gggggagcag ggctcactcc aggtgagtga cctcagcccc
+    21961 ttcctggccc tactcccctg ccttcctagg ttggaaagcc ataggattcc attctcatcc
+    22021 tgccttcatg gtcaaaggca gctgacccca tctcattggg tcccagccct gcacagacat
+    22081 ttttttagtc ttcctccggt tgaatcctat aaccacattc ttgcctcagt gtatccacag
+    22141 aacatccaaa cccagggacg agtgtggata cttctttgcc attctccgca actcccagcc
+    22201 cagagctgga gggtctcaag gaggggccta ataattgtgt aatactgaat acagccagag
+    22261 tttcaggtca tatactcagc cctgccatgc accggcaggt cctaggtgac ccccgtcaaa
+    22321 ctcagtttcc ttatatataa aatggggtaa gggggccggg cgcagtggct cacgaatccc
+    22381 acactctggg aggccaaggc gagtggatca cctgaggtcg ggagtttgag cccagcctga
+    22441 ccaacatgga gaaaccccat ctctactaaa aatacaaaag tagccgggcg tggtgatgca
+    22501 tgcctgtaat cccagctacc tactcgggag gctgaggcag gagaatcgct tgaacccggg
+    22561 aggcagaggt tgcggtgagc tgagatctca ccattacact ccagcctggg caacaagagt
+    22621 gaaactccgt ctcaaaaaag ataaataaag taaaatgggg taagggaaga ttacgagact
+    22681 aatacacact aatactctga ggtgctcagt aaacatattt gcatggggtg tggccaccat
+    22741 cttgatttga attcccgttg tcccagcctt aggcccttca aagcattggt cagggaaaag
+    22801 gggcacagac cctctcactc atgtgatgtc atctctcctc cctgcttctg tctcctacag
+    22861 ccacctgaag tccaaaaagg gtcagtctac ctcccgccat aaaaaactca tgttcaagac
+    22921 agaagggcct gactcagact gacattctcc acttcttgtt ccccactgac agcctcccac
+    22981 ccccatctct ccctcccctg ccattttggg ttttgggtct ttgaaccctt gcttgcaata
+    23041 ggtgtgcgtc agaagcaccc aggacttcca tttgctttgt cccggggctc cactgaacaa
+    23101 gttggcctgc actggtgttt tgttgtgggg aggaggatgg ggagtaggac ataccagctt
+    23161 agattttaag gtttttactg tgagggatgt ttgggagatg taagaaatgt tcttgcagtt
+    23221 aagggttagt ttacaatcag ccacattcta ggtaggggcc cacttcaccg tactaaccag
+    23281 ggaagctgtc cctcactgtt gaattttctc taacttcaag gcccatatct gtgaaatgct
+    23341 ggcatttgca cctacctcac agagtgcatt gtgagggtta atgaaataat gtacatctgg
+    23401 ccttgaaacc accttttatt acatggggtc tagaacttga cccccttgag ggtgcttgtt
+    23461 ccctctccct gttggtcggt gggttggtag tttctacagt tgggcagctg gttaggtaga
+    23521 gggagttgtc aagtctctgc tggcccagcc aaaccctgtc tgacaacctc ttggtgaacc
+    23581 ttagtaccta aaaggaaatc tcaccccatc ccacaccctg gaggatttca tctcttgtat
+    23641 atgatgatct ggatccacca agacttgttt tatgctcagg gtcaatttct tttttctttt
+    23701 tttttttttt ttttcttttt ctttgagact gggtctcgct ttgttgccca ggctggagtg
+    23761 gagtggcgtg atcttggctt actgcagcct ttgcctcccc ggctcgagca gtcctgcctc
+    23821 agcctccgga gtagctggga ccacaggttc atgccaccat ggccagccaa cttttgcatg
+    23881 ttttgtagag atggggtctc acagtgttgc ccaggctggt ctcaaactcc tgggctcagg
+    23941 cgatccacct gtctcagcct cccagagtgc tgggattaca attgtgagcc accacgtcca
+    24001 gctggaaggg tcaacatctt ttacattctg caagcacatc tgcattttca ccccaccctt
+    24061 cccctccttc tcccttttta tatcccattt ttatatcgat ctcttatttt acaataaaac
+    24121 tttgctgcca cctgtgtgtc tgaggggtga acgccagtgc aggctactgg ggtcagcagg
+    24181 tgcaggggtg agtgaggagg tgctgggaag cagccacctg agtctgcaat gagtgtgggc
+    24241 tggggggccc agtgcccggg ttccgggagg ggaacaaagg ctggagactg ggtcagtctg
+    24301 cgggctgcat gacaacaagg gagggggtgg ctccattcat aactcaggaa ccaaccgtcc
+    24361 ctcctcccct ccggccacgg ctggcacaag gttctctccc tcccctgctt ctaggactgg
+    24421 gctgcttccc cctcggcagc ctctcaccaa ggattacggg atttaaatgt ctgatttagc
+    24481 aaggctgagc ctccagggtg gccatctgct ccatcagaaa gtggcaggat acctgggttc
+    24541 ccaaggggaa caggggtggg tgctactgga tggagagagg ccagtgggag gcctgctagc
+    24601 cagggtccca ggaaagtggg ggcagctaag gtaagagtag gggtgtgggg ctaggtcctt
+    24661 cccagcatcc cctcatcctg ggcctcatgc caggtagctg aatgaattga agctttaaac
+    24721 tctgccagga aaacctttca aagggcttct tgggataggg aggagagtcg ggttgaggag
+    24781 ctcagtactg cctgcccatg ctcctcaggg ctgctggctc ccagggaggg gggctgggag
+    24841 caggcaggct cttccccatc acccactgct ctcttggagc cagtgcttga aggggcagtc
+    24901 agacatggct tgcccttcct cctccctggt ggtggagatg ggtgttaggg tccagtgggt
+    24961 gctactgtcc aggggggctt ctggggccac cagcctgtca gctcatcaac caggctgaag
+    25021 gtgcaagcag gagccccttg ccttgcccca aggatcccag acagctatga agccaccagc
+    25081 cttcctgacc tcaagaccac cttttttttt tctctttctt actagggaat gccaaacact
+    25141 ctccccagga gatccagacc cgcctctttc agagactttt aacttaaaca tctgtcccta
+    25201 cccagcaggc aaactagagc tcctgaagct cagtccctgt ccttgcctct gtagacaggt
+    25261 caccttgatg agcttccttt tttttttttt aatttttttt tattttaggc tttattgggg
+    25321 cataattgat cccccaaaat tgcatacatt caaggtatgc agtgtgatga tttgatatgg
+    25381 gggtatattg tgaaaccatt accacaatca aattaatcag cacgtccatc atcacacaca
+    25441 gttaccattt gtgtgtgtgc acgtgtgttc acctacgacg aggacacttg gacctactct
+    25501 gcagatctca agtaaacaga aaatctccct ttttgacaac catcctccac cctttcaatc
+    25561 ccaacctttt cctagattat gtccctagct ctgtttttat ttctgctgtg ctgcttcaga
+    25621 tccattctga ctctgccaaa cccttctttg tgagctgata gattgctgga ttgagaatta
+    25681 cagctgggcg cggtggctca cgcctgtaat cccaacactg tgggaggcca aggccggcgg
+    25741 atcacttgag gtcaggagtt ggagaccagc ctgaccaaca agatgaaacc ccatctctac
+    25801 taaaaataca aaattagctg ggcatggtgg tgcacgcctg taatctcatc ttcttgggag
+    25861 gctgaggcag gagaattgct tgaacccggg aggtggaggt tgcagtgagc caagatcctg
+    25921 ccattgcact ccagcctggg caacaacagt gaagctccat ctcaaaacac acaaaaaaaa
+    25981 gaagtacaaa gtctgagact tcaggccagc tctgctacac tatatactct aacctctctg
+    26041 gtcctacttg gtgacttctt tccctctggt cgtgttcaag ttcccgtccc atccagtcaa
+    26101 gcaggtactc attggtacct taccctgtgc caggagctgt tctaggccct ggaaacctat
+    26161 ggcagacatg ttccctaccc tcccactcaa agagcccagg ccttatccta atgagatctg
+    26221 aaatcaaatc tcccaatttc ctcatggctt cagtctaaac ttgtaattca caaccttaaa
+    26281 tcaatatgtt ctattttttt atttagaaaa catttccggc caggcacggt ggatcacacc
+    26341 tgtaatccca gctactcggg aggctgaggc aggagaatcg cttgaaccca ggaggcagag
+    26401 ggttgcagtg agccgagatt gcgccattgc actctagcct gggcaacaga gcaagactcc
+    26461 atctcaaaaa agaaaaaaaa atggaagaaa aaaaaatttc cccctcattt taggaacacg
+    26521 aggtctccaa atctaaaatt cgtactctga ggagattgaa tagccttaaa tgctttcatc
+    26581 attaaaaaga aaagaaagga acctggtatg catcctaaaa atgaaaaata tacctacctg
+    26641 taatcccagc acacagcaca ttgggaggct aaagcaggag gataacttga ggccaggagt
+    26701 ttcagatcag cctgggcaac atagcaacac cccatttctt tttcttttct tttttttttg
+    26761 gagacacagt ctcgctctgt tactcaggct ggagtgcagt ggctcaatct cagctcactg
+    26821 caagctctgc ctcccaggtt catgccattc tcctgcctca gcctcccgag tagctgggac
+    26881 tacaggcgcc cgccaccacg cctggctaat tttttgtatt tttagtagag acagggtttc
+    26941 accgtgttag ccaggatggt ctcgatctcc tgacctcgtg atccgccagc cttggcctcc
+    27001 taaagtactg ggattacagg cgtgagccac tgcgcctggc cacaacaccc catttctatt
+    27061 ttaataaaat aaaatactgt gaaaaacatt tacaattttt aaattttaat tttaaaatta
+    27121 aacttatatt tattcatttg tgtgtgtggg tttttttttt tttttttttt tgcttttttt
+    27181 ttgagatgga gtgtcactct gtcacccagg ctggagtgca gtggcgtgat ctctgcctcc
+    27241 cggttcaagt gattctcctg ccatagcctc ccaagtagct gggactacag gtacacgcca
+    27301 ccacgccggg ttaatttttg tatttttagt agagacagga tttcactgtg tcgccaggct
+    27361 agcctcgaac tcctgacctc aggtgattcg cccaccttgg cctcccaaag tgctgtgatt
+    27421 acaagcgtga gccaccgtgc ccagcccaaa gttggtttta atagcagaaa atctatcaac
+    27481 ataattcaat atattaaatt tagaaagaaa aattatctat catatcaaca gatactgaaa
+    27541 ggaatttgat taaatttcag tagccatttc cttaaaaaag aaaacacttt aacacagtaa
+    27601 tagactgata atggaatacc aattttccta ataagttaaa cattaagata atttcaatta
+    27661 aggtcaagag ctgggccagg tgcagtggct cacacctgta atcccaacac tttggaggcc
+    27721 aaggtgggtg gatcacctga ggtcaggagt ggagaccagc ctggctgaca atagtgaaat
+    27781 cctgcctcta ctaaaaacac aaaaaattag ctgggcatgg tggtgggcac ctataatccc
+    27841 agctactggg aaggctgaga caggagaatt gcttgaacct gggaggcgga ggttgcagtg
+    27901 agcaaagatc acaccattgc actccagcct gggcgacaga gccagagtca gtctcaaaaa
+    27961 aaaaaagagg tggccacacc tataatccaa acattttgtg aggccaaggc aggagaattg
+    28021 cttcaggcca agagttgaac acctcgtcaa catagccaga cctctctcta gatagataga
+    28081 tagatgatag atagagagat agatagatga tagatagaga gatagataga tgatagatag
+    28141 atagatagat agatagatag atagatagat agatagatag atagatagat aatctggccg
+    28201 ggtgtggagg ctcacgcctg taatcccagc actttgggag gctgaggcgg gcagatcacg
+    28261 aggacaagag attgaaacca tcctggctaa caaggtgaaa ccccgtctct actaaaaata
+    28321 caaaaaatta ggcgggtgtg gtggcacgcg cctgtagtcc tagctattca ggaggctgag
+    28381 acaggagaat tgcttgaatc cgaaaggcgg aggttgcagc gagccgagat cgtgccactg
+    28441 cactccagcc tgggtgacag agcaagactc catctcaaaa taaataaata aataatcaag
+    28501 aacagtataa ggggctgtat ggtggctcat gcctgtgatc ccagcacttt gggaggccaa
+    28561 ggtgggagga tcccttgaga ccagcccagg caacagagaa agaccctgtc tctatttaaa
+    28621 aaaattaaaa actggccggg cacggtggct cacgcctgta attccagcgc ttgggaggcc
+    28681 aaggcaggca catcaggagg tcaggagttc gagaccagcc tggccaacgt ggtgaaaccc
+    28741 cgtctctact aaaaatacaa aaagtagcta ggcgtggtgg caggcacctg taatcccagc
+    28801 tacttgggag gctgaggcag gagaatcgct tgaacccagg aggcggaggt tgcagtgggc
+    28861 aaagatcgtg ccattgcact cagcctgggt gacagggcaa gactccatct caaaataaat
+    28921 aaacaaagta attaattaat taaattaaaa actgtgggga tatagactta ctctggtttt
+    28981 attttttctt ttcttttctt ttcttttttc tgagacggag tctcgctctg ttgcccaggc
+    29041 tggagtacag tggcgtggtt tctgttctct gcaacctcca cctcccggat tcaagcgatt
+    29101 ctcttgcctc agcctcttga atacctggaa ttacaggtgc ctgccaccac ccccggctaa
+    29161 ttttttgtat ttttagtaga gacagggttt caccatgttg gccaagctgg tctcgaactc
+    29221 ctgacctcat gatccacccg cctctgcctc ccaaagcact gagactacag gagtgagcca
+    29281 ctgtgcccag cctactctgg ttttagtgca ttcaagagga acaaaaaagg aagaaaatca
+    29341 ctagtaaata tacctctttc tggttagagt ggatgtttgg aaattatata tatattatat
+    29401 tatattatat atattatata tatacacaaa cacgtacata catgcacaca catatatgcc
+    29461 tttttgatta taggatagta taccaaaact cagaaatatt atggaattaa cagaatttag
+    29521 taaggcagat aagtagtagg tagaaaaata ttaattttat cttccagcag aagcactgtg
+    29581 aaaaattaga caacaagaaa acattccatt caaaataatg acaataaggc cgggcatggt
+    29641 ggctcacacc tgtaatccca gcactttggg aggctgaggc aggaggatca tctgaggtca
+    29701 agtttgagat cagcctggcc aacatggtga caccctgtct ctactgaaaa tacaaaaatc
+    29761 agccagctat ggtagtgtaa gcctgtaatt ccagctactc gggaggtcga agcagaagaa
+    29821 tcacttgaac ccaggaggca gagattgcag tgagccaaga tcctgccagt gctttccagc
+    29881 ctgggcaaca gtgtgaggct ccatctcaaa aaaaaaaaaa aaaaaaagac aatagcaata
+    29941 aacattaaga aatgtgtaat aggaatggca cacacaaaga aggaatggca cagagcctgt
+    30001 atgcagaaga ccacaaaccc ttatttaacg acgtaagcca agatccaaag aaaatgatag
+    30061 attctcagat gggaaaacta aaaaaataag aaaaatcaat tatctcgaga taaatataat
+    30121 ataatgcaat ttcaattaga atcccaaatt ttcattgtgt gtgtgtgtga gttgggtaaa
+    30181 tttatcataa atgtatagga acgagtaagt gtcactagtt gtttaaataa atactggatt
+    30241 tgggccaggc atggtggctc acgcctctaa tcccagcact ttgggagacc gaggcgggca
+    30301 gatcatgagg tcaggagatc gagaccatct ggccaacata gtgaaaactc gtctctacta
+    30361 aagatacaaa aaattagctg ggcatggtgg cacgtgcctg tagttccagc tactctggag
+    30421 gctgaggcag gagagttgct tgaacccggg aggtggaggt tgcaatgagc cgagatcctg
+    30481 tcactgcact ccaccctggc gacaaagtga gactccgtct ctctctctct ctttaggcca
+    30541 aggcaggtgg atcacctgag gtcaggagtt caagacagcc tggccaacat agcgaaatcc
+    30601 catctctact aaaaatacaa aaattagcct ggcagtggtg gcccacgcct gtaatcccag
+    30661 ctactaaggg ggctgaggca ggaggatctc ttaaccaggg aggaggaggt tgcagtgagc
+    30721 agagattgtg ccactgcact ccagcctgtg caacagagtg agactctgtc tcaaaaaaaa
+    30781 taaataaaca aaatactgga ggccgggcac ggtggctccc gcctgtaatc ccagcacttt
+    30841 gggaggccaa ggcgggtgaa tcgctttcag ctcaggagtt ccggaccagt ctgggcaaca
+    30901 tggcaaaacc ccgtctatac taaaaataca aaacttagcc aggcgtggta gtgcatacct
+    30961 ataatcccag ctactcgaga ggctgaggca ggagaatccc ttgaaaccgg gaggcagagg
+    31021 ttgcagtaag ctgaaatcgt gccactgcac tccagcctgg acgacacagc gggagactgt
+    31081 ctcaataaat aaaataaata atataaaata acataaataa taaaattgta aataataagt
+    31141 aaataataag caacagaatg gagagggggt cctatttgcc ttgccagatt ttagagaact
+    31201 tagtataggc taggcaggtg cagtggctca cgcctgtaat cccagcactt tgggagtcca
+    31261 aggcagtgga tcacatgagg tcaggagttc aagaccagcc tgaccaacat ggtgaaaccc
+    31321 catctctact aaaaatacaa aattagccag gcatggtggc acatgcctgt aatcccagct
+    31381 acttgggagg ctgaggcagg agaatcactt gaactcgaga ggtggaagct gcagcgagct
+    31441 gagatcacgc tactgtactc cagcctgggc aacaagagtg agactccatc aaaaaaaaaa
+    31501 aaaaagaaac gagaaaaaaa aaaagaaaac ttactatata actgctggaa tgaggtggat
+    31561 gtgacatatg gagtggtaga caaaccaagg aaagcaagta acaaatacag gagatgttct
+    31621 catacaggag aattattaca tggccaaaat tagcatttca atttaattgg aacacattag
+    31681 atatatttgt tcttttgttc tttttgttat cttttttttt tttttttttt tttttttttt
+    31741 gagacagagt ttcgctctca ttgcccaggc tggagtgtaa tggtgtgatc ttgactcacc
+    31801 gcaacctccg cttcctacgt tgaagtgatt ctcctgcctc agcctcccga gtagccggga
+    31861 ttacaggcat acgccaccac acctggctaa ttttttttgc attttcagta gagacagggt
+    31921 ttctccatgt tgatcaggct ggtttcgaac tcctgagctt aggtgatccg cccacctcag
+    31981 cctcccaaag tgctgggatt acaggcgtga gccactgtgc ccggccccta tctctttttt
+    32041 tgtttgtttg ttttctgaga tggaatctgg ctctctcacc caggctagag tgcaatggca
+    32101 cgatgttggc tcactgcaac atccacgtcc cgggttcaag cgattcttct gcctcagcct
+    32161 cccaagtagc tgggattaca ggtgcctgtc gccacatcca gctaattttt tgtattttta
+    32221 gtagagacag ggtttcaccg tgttccccag gctggtctca aactcctgag ctccggcaat
+    32281 ccacccgcct cggcttccca aagcgctagg attacaggcg tgagccaccg cacctggccc
+    32341 ctatctctta aaaatatatt tttttgccca acacacattt ccaagttgcc ttgggggaaa
+    32401 aaaaataaat gaagctggca caactgaaaa aataaaactg gggccttggc caggcacagt
+    32461 ggctcaggcc tataatccca gcactttggg aagctgaggt gggaggatca cttgaggtca
+    32521 ggagttcgag accagtctgg ctaacacggt gaaaaccctt ctctactaaa aatacaaaag
+    32581 tcagccaggc gtagtggtgt gcacctgtaa tcccagctac tcaggtagct gaggcatgag
+    32641 aatcacatga acctggaaag tggaggttgc agtgagccga gattgcacca ctgcactcca
+    32701 gcctgggtaa ggaaatgaga ctctgtctcc aaaaaaaaaa aaaagatact acaaagtcaa
+    32761 gagacaaaca at
+//
+

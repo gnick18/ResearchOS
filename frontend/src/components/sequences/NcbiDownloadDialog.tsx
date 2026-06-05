@@ -22,16 +22,25 @@ import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import {
   previewGeneBySymbol,
   previewGenomeByAccession,
-  previewByAccession,
   downloadPackage,
   includeForKind,
   checkCaps,
   resolveTaxonomy,
+  sniffAccessionKind,
   NcbiDatasetsError,
   type NcbiPreview,
 } from "@/lib/sequences/ncbi-datasets";
 import {
+  efetchGenbank,
+  resolveGeneToAccession,
+  parseEfetchPreview,
+  EfetchError,
+  NoRefSeqGeneError,
+  type EfetchPreview,
+} from "@/lib/sequences/ncbi-efetch";
+import {
   ncbiPackageToImports,
+  efetchGenbankToImports,
   type NcbiImportedSequence,
 } from "@/lib/sequences/ncbi-import";
 
@@ -91,6 +100,16 @@ function SpinnerIcon({ className }: { className?: string }) {
   );
 }
 
+function InfoIcon({ className }: { className?: string }) {
+  return (
+    <svg {...svgBase(className)}>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="16" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12.01" y2="8" />
+    </svg>
+  );
+}
+
 function WarnIcon({ className }: { className?: string }) {
   return (
     <svg {...svgBase(className)}>
@@ -125,6 +144,11 @@ export default function NcbiDownloadDialog({
   const [phase, setPhase] = useState<Phase>("form");
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<NcbiPreview | null>(null);
+  // The efetch (annotated GenBank) preview, used by the accession path for any
+  // record that is not an assembly. Mutually exclusive with `preview` above.
+  const [efetchPreview, setEfetchPreview] = useState<EfetchPreview | null>(null);
+  // A calm inline note that is not an error (e.g. "no RefSeqGene, used FASTA").
+  const [note, setNote] = useState<string | null>(null);
   const [progress, setProgress] = useState<string>("");
 
   // Form fields.
@@ -132,8 +156,18 @@ export default function NcbiDownloadDialog({
   const [organism, setOrganism] = useState("");
   const [genomeAcc, setGenomeAcc] = useState("");
   const [accession, setAccession] = useState("");
+  // Gene tab toggle. Off (default) imports the annotated RefSeqGene record via
+  // efetch; on keeps the bulk gene / rna / protein / cds FASTA download.
+  const [geneSequenceOnly, setGeneSequenceOnly] = useState(false);
+  // The RefSeqGene NG_ accession resolved for the previewed gene, or null when
+  // the gene has no RefSeqGene record (the annotated path then falls back to
+  // FASTA). Resolved once at preview, reused at download.
+  const [geneNgAccession, setGeneNgAccession] = useState<string | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
+  // The fetched efetch GenBank text, held between preview and download so the
+  // accession path never fetches the same record twice.
+  const efetchTextRef = useRef<string | null>(null);
 
   const busy = phase === "previewing" || phase === "downloading";
   useEscapeToClose(() => {
@@ -145,7 +179,11 @@ export default function NcbiDownloadDialog({
     setPhase("form");
     setError(null);
     setPreview(null);
+    setEfetchPreview(null);
+    setNote(null);
     setProgress("");
+    setGeneNgAccession(null);
+    efetchTextRef.current = null;
   }, []);
 
   const handleClose = useCallback(() => {
@@ -156,6 +194,7 @@ export default function NcbiDownloadDialog({
     setOrganism("");
     setGenomeAcc("");
     setAccession("");
+    setGeneSequenceOnly(false);
     onClose();
   }, [onClose, resetState]);
 
@@ -167,36 +206,87 @@ export default function NcbiDownloadDialog({
     [resetState],
   );
 
-  const capCheck = useMemo(
-    () => (preview ? checkCaps(preview) : { ok: false as const }),
-    [preview],
-  );
+  // The Datasets-package paths (genome, gene FASTA) gate on the size / contig
+  // caps. The efetch path imports one individual record (a gene region or a
+  // transcript or a plasmid), which is never assembly-scale, so it has no cap.
+  const capCheck = useMemo(() => {
+    if (efetchPreview) return { ok: true as const };
+    return preview ? checkCaps(preview) : { ok: false as const };
+  }, [preview, efetchPreview]);
 
-  // Run the preview for the active tab.
+  // Run the preview for the active tab. The gene tab and the genome tab preview
+  // through the cheap Datasets report. The accession tab routes by accession
+  // class: an assembly (GCF_ / GCA_) previews through Datasets, anything else
+  // (NG_ / NM_ / NP_ / NC_ / a plasmid) fetches the annotated GenBank via efetch
+  // and previews straight off the record (one fetch, reused at download).
   const handlePreview = useCallback(async () => {
     setError(null);
+    setNote(null);
     setPreview(null);
+    setEfetchPreview(null);
+    efetchTextRef.current = null;
     const controller = new AbortController();
     abortRef.current = controller;
     setPhase("previewing");
     try {
-      let result: NcbiPreview;
       if (tab === "gene") {
-        result = await previewGeneBySymbol(geneSymbol, organism, controller.signal);
+        const result = await previewGeneBySymbol(
+          geneSymbol,
+          organism,
+          controller.signal,
+        );
+        setPreview(result);
+        // Resolve the RefSeqGene NG_ now (one cheap report call) so the preview
+        // can say whether an annotated whole-gene record is available, and so
+        // the download reuses it. A gene with no RefSeqGene shows a calm note
+        // that it will import as FASTA.
+        if (!geneSequenceOnly) {
+          try {
+            const ng = await resolveGeneToAccession(geneSymbol, organism, {
+              signal: controller.signal,
+            });
+            setGeneNgAccession(ng);
+          } catch (e) {
+            if ((e as Error)?.name === "AbortError") throw e;
+            if (e instanceof NoRefSeqGeneError) {
+              setGeneNgAccession(null);
+              setNote(
+                "This gene has no annotated RefSeqGene record. It will import as a sequence-only FASTA.",
+              );
+            } else {
+              throw e;
+            }
+          }
+        }
+        setPhase("preview");
       } else if (tab === "genome") {
-        result = await previewGenomeByAccession(genomeAcc, controller.signal);
+        const result = await previewGenomeByAccession(
+          genomeAcc,
+          controller.signal,
+        );
+        setPreview(result);
+        setPhase("preview");
       } else {
-        result = await previewByAccession(accession, controller.signal);
+        // Accession tab. An assembly stays on Datasets; everything else is an
+        // individual record served annotated by efetch.
+        const acc = accession.trim();
+        if (sniffAccessionKind(acc) === "genome") {
+          const result = await previewGenomeByAccession(acc, controller.signal);
+          setPreview(result);
+        } else {
+          const text = await efetchGenbank(acc, { signal: controller.signal });
+          efetchTextRef.current = text;
+          setEfetchPreview(parseEfetchPreview(text));
+        }
+        setPhase("preview");
       }
-      setPreview(result);
-      setPhase("preview");
     } catch (e) {
       if ((e as Error)?.name === "AbortError") {
         setPhase("form");
         return;
       }
       setError(
-        e instanceof NcbiDatasetsError
+        e instanceof NcbiDatasetsError || e instanceof EfetchError
           ? e.message
           : "Could not look that up on NCBI. Check your entry and try again.",
       );
@@ -206,46 +296,107 @@ export default function NcbiDownloadDialog({
     }
   }, [tab, geneSymbol, organism, genomeAcc, accession]);
 
-  // Download -> unzip -> parse -> hand back to the page.
+  // Best-effort named-lineage resolve. Resolved ONCE per import (every record
+  // shares one organism), drops only the lineage on failure, never blocks the
+  // import, and re-raises an abort so a cancel stops cleanly.
+  const resolveLineage = useCallback(
+    async (
+      taxQuery: string | undefined,
+      signal: AbortSignal,
+    ): Promise<NcbiImportedSequence["provenance"]["tax_lineage"]> => {
+      const q = (taxQuery || "").trim();
+      if (!q) return undefined;
+      try {
+        const tax = await resolveTaxonomy(q, { signal });
+        return tax.lineage;
+      } catch (e) {
+        if ((e as Error)?.name === "AbortError") throw e;
+        return undefined;
+      }
+    },
+    [],
+  );
+
+  // Download an annotated efetch record (already fetched at preview, or fetched
+  // here for the annotated gene path) and hand the parsed sequences back.
+  const importEfetchRecord = useCallback(
+    async (
+      genbank: string,
+      accessionId: string,
+      signal: AbortSignal,
+    ): Promise<void> => {
+      const previewInfo = parseEfetchPreview(genbank);
+      const taxLineage = await resolveLineage(previewInfo.organism, signal);
+      setProgress("Reading the annotated record...");
+      const imports = await efetchGenbankToImports(genbank, {
+        source: "ncbi-efetch",
+        ncbi_accession: accessionId,
+        organism: previewInfo.organism,
+        tax_lineage: taxLineage,
+      });
+      await onImported(imports);
+    },
+    [onImported, resolveLineage],
+  );
+
+  // Download a Datasets ZIP package (genome assembly, or the gene FASTA bulk
+  // path) and hand the parsed sequences back.
+  const importDatasetsPackage = useCallback(
+    async (target: NcbiPreview, signal: AbortSignal): Promise<void> => {
+      setProgress("Downloading from NCBI...");
+      const zip = await downloadPackage({
+        kind: target.kind,
+        id: target.accession,
+        include: includeForKind(target.kind),
+        signal,
+      });
+      const taxLineage = await resolveLineage(target.taxId, signal);
+      setProgress("Unpacking and reading the sequence...");
+      const imports = await ncbiPackageToImports(zip, {
+        source: "ncbi-datasets",
+        ncbi_accession: target.accession,
+        organism: target.organism,
+        tax_id: target.taxId,
+        tax_lineage: taxLineage,
+      });
+      await onImported(imports);
+    },
+    [onImported, resolveLineage],
+  );
+
+  // Download -> import -> hand back to the page. Routes by which preview is live
+  // and, for the gene tab, by the "Sequence only" toggle.
   const handleDownload = useCallback(async () => {
-    if (!preview || !capCheck.ok) return;
+    if (!capCheck.ok) return;
     setError(null);
+    setNote(null);
     const controller = new AbortController();
     abortRef.current = controller;
     setPhase("downloading");
     try {
-      setProgress("Downloading from NCBI...");
-      const zip = await downloadPackage({
-        kind: preview.kind,
-        id: preview.accession,
-        include: includeForKind(preview.kind),
-        signal: controller.signal,
-      });
-      // Auto-fill the named taxonomy lineage when the preview carried a tax id.
-      // Best-effort and resolved ONCE for the whole download (every record in a
-      // genome package shares the organism), so a multi-record import never fans
-      // out to N taxonomy calls. A failed resolve keeps organism / tax id and
-      // drops only the lineage; it never blocks the import.
-      let taxLineage: NcbiImportedSequence["provenance"]["tax_lineage"];
-      if (preview.taxId) {
-        try {
-          const tax = await resolveTaxonomy(preview.taxId, {
-            signal: controller.signal,
-          });
-          taxLineage = tax.lineage;
-        } catch (e) {
-          if ((e as Error)?.name === "AbortError") throw e;
-        }
+      if (efetchPreview && efetchTextRef.current) {
+        // Accession tab, an individual annotated record fetched at preview.
+        await importEfetchRecord(
+          efetchTextRef.current,
+          efetchPreview.name,
+          controller.signal,
+        );
+      } else if (preview && tab === "gene" && !geneSequenceOnly && geneNgAccession) {
+        // Gene tab, annotated default: the RefSeqGene NG_ was resolved at
+        // preview, so efetch it directly for the whole annotated gene record.
+        setProgress("Downloading the annotated gene from NCBI...");
+        const text = await efetchGenbank(geneNgAccession, {
+          signal: controller.signal,
+        });
+        await importEfetchRecord(text, geneNgAccession, controller.signal);
+      } else if (preview) {
+        // Genome accession, the gene tab with "Sequence only" on, or a gene with
+        // no RefSeqGene record (the annotated path falls back to bulk FASTA).
+        // Genome accession, or the gene tab with "Sequence only" on.
+        await importDatasetsPackage(preview, controller.signal);
+      } else {
+        return;
       }
-      setProgress("Unpacking and reading the sequence...");
-      const imports = await ncbiPackageToImports(zip, {
-        source: "ncbi-datasets",
-        ncbi_accession: preview.accession,
-        organism: preview.organism,
-        tax_id: preview.taxId,
-        tax_lineage: taxLineage,
-      });
-      await onImported(imports);
       handleClose();
     } catch (e) {
       if ((e as Error)?.name === "AbortError") {
@@ -254,7 +405,7 @@ export default function NcbiDownloadDialog({
         return;
       }
       setError(
-        e instanceof NcbiDatasetsError
+        e instanceof NcbiDatasetsError || e instanceof EfetchError
           ? e.message
           : (e as Error)?.message ||
               "The download could not be completed. Try again.",
@@ -264,7 +415,17 @@ export default function NcbiDownloadDialog({
     } finally {
       abortRef.current = null;
     }
-  }, [preview, capCheck.ok, onImported, handleClose]);
+  }, [
+    capCheck.ok,
+    preview,
+    efetchPreview,
+    tab,
+    geneSequenceOnly,
+    geneNgAccession,
+    importEfetchRecord,
+    importDatasetsPackage,
+    handleClose,
+  ]);
 
   const cancelInFlight = useCallback(() => {
     abortRef.current?.abort();
@@ -359,6 +520,22 @@ export default function NcbiDownloadDialog({
                   onChange={setOrganism}
                   disabled={busy}
                 />
+                <label className="flex items-start gap-2 pt-0.5">
+                  <input
+                    type="checkbox"
+                    checked={geneSequenceOnly}
+                    disabled={busy}
+                    onChange={(e) => {
+                      setGeneSequenceOnly(e.target.checked);
+                      resetState();
+                    }}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-200 disabled:opacity-50"
+                  />
+                  <span className="text-meta leading-relaxed text-gray-600">
+                    Sequence only. Skip the annotated whole-gene record and
+                    download the gene, RNA, protein, and CDS FASTA instead.
+                  </span>
+                </label>
               </>
             ) : tab === "genome" ? (
               <Field
@@ -371,7 +548,7 @@ export default function NcbiDownloadDialog({
             ) : (
               <Field
                 label="Accession"
-                placeholder="A genome (GCF_ / GCA_) or gene (NM_, NG_, ...) accession"
+                placeholder="Any accession (NG_, NM_, NP_, NC_, a plasmid, or GCF_ / GCA_)"
                 value={accession}
                 onChange={setAccession}
                 disabled={busy}
@@ -390,6 +567,44 @@ export default function NcbiDownloadDialog({
             <div className="mt-3 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5">
               <WarnIcon className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
               <p className="text-meta leading-relaxed text-rose-700">{error}</p>
+            </div>
+          ) : null}
+
+          {/* Calm note (not an error), e.g. a gene with no RefSeqGene record. */}
+          {note ? (
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2.5">
+              <InfoIcon className="mt-0.5 h-4 w-4 shrink-0 text-sky-500" />
+              <p className="text-meta leading-relaxed text-sky-800">{note}</p>
+            </div>
+          ) : null}
+
+          {/* efetch preview card (an individual annotated record). */}
+          {efetchPreview && (phase === "preview" || phase === "downloading") ? (
+            <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+              <div className="flex items-baseline justify-between gap-3">
+                <h3 className="truncate text-body font-semibold text-gray-900">
+                  {efetchPreview.name}
+                </h3>
+                <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-meta font-medium uppercase tracking-wide text-emerald-700">
+                  Annotated
+                </span>
+              </div>
+              <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-meta">
+                {efetchPreview.organism ? (
+                  <PreviewRow label="Organism" value={efetchPreview.organism} />
+                ) : null}
+                <PreviewRow label="Accession" value={efetchPreview.name} />
+                {formatBp(efetchPreview.lengthBp) ? (
+                  <PreviewRow
+                    label="Length"
+                    value={formatBp(efetchPreview.lengthBp)!}
+                  />
+                ) : null}
+                <PreviewRow
+                  label="Features"
+                  value={efetchPreview.featureCount.toLocaleString()}
+                />
+              </dl>
             </div>
           ) : null}
 
@@ -418,6 +633,12 @@ export default function NcbiDownloadDialog({
                 ) : null}
                 {preview.assemblyLevel ? (
                   <PreviewRow label="Assembly" value={preview.assemblyLevel} />
+                ) : null}
+                {tab === "gene" && !geneSequenceOnly && geneNgAccession ? (
+                  <PreviewRow
+                    label="Annotated record"
+                    value={geneNgAccession}
+                  />
                 ) : null}
               </dl>
 
@@ -462,7 +683,7 @@ export default function NcbiDownloadDialog({
             </button>
           )}
 
-          {phase === "preview" && preview ? (
+          {phase === "preview" && (preview || efetchPreview) ? (
             <button
               type="button"
               onClick={handleDownload}

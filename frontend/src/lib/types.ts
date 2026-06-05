@@ -2594,7 +2594,9 @@ export interface SequenceMeta {
   // native / file-imported sequence has none of these and the NCBI badge
   // self-hides. Same additive, sidecar-only, no-migration pattern as
   // received_from above (a record simply lacks them).
-  source?: "ncbi-datasets";  // set only on an NCBI-downloaded sequence
+  // "ncbi-datasets" is a Datasets package import; "ncbi-efetch" is an annotated
+  // efetch GenBank import (a gene by symbol, or any accession). See ncbi-efetch.ts.
+  source?: "ncbi-datasets" | "ncbi-efetch";  // set only on an NCBI-downloaded sequence
   ncbi_accession?: string;   // GCF_..., a gene id, etc.
   organism?: string;         // source organism name from the dataset report
   tax_id?: string;           // NCBI taxonomy id
@@ -2652,7 +2654,7 @@ export interface SequenceRecord {
   // NCBI Datasets provenance, carried through from the sidecar so the library
   // row + viewer can render the "From NCBI" badge. Absent on a native / file-
   // imported sequence (the badge self-hides).
-  source?: "ncbi-datasets";
+  source?: "ncbi-datasets" | "ncbi-efetch";
   ncbi_accession?: string;
   organism?: string;
   tax_id?: string;
@@ -2706,7 +2708,7 @@ export interface SequenceCreate {
   // NCBI Datasets provenance, set only by the "Download from NCBI" import so the
   // created sequence's sidecar carries the source / accession / organism. Absent
   // for a native or file-imported create (the fields stay undefined).
-  source?: "ncbi-datasets";
+  source?: "ncbi-datasets" | "ncbi-efetch";
   ncbi_accession?: string;
   organism?: string;
   tax_id?: string;
