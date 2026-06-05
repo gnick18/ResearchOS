@@ -80,6 +80,15 @@ export interface CollabProviderOptions {
   expectedPeerEd25519PublicKey?: Uint8Array;
   /** The transport that carries encrypted frames to/from the relay. */
   transport: CollabTransport;
+  /**
+   * Called the FIRST TIME a remote peer's doc commit arrives via doc.import.
+   *
+   * Receives the Loro PeerID string and the sender's Ed25519 public key bytes
+   * so the caller can record the peer -> identity mapping in the actors map
+   * (Phase 3 chunk 5b). Fires at most once per remote peer per provider
+   * instance. Best-effort: errors from this callback are caught and logged.
+   */
+  onFirstRemotePeer?: (peerId: string, senderPubKey: Uint8Array) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -112,7 +121,17 @@ export function createCollabProvider(opts: CollabProviderOptions): CollabProvide
     senderEd25519PublicKey,
     expectedPeerEd25519PublicKey,
     transport,
+    onFirstRemotePeer,
   } = opts;
+
+  // Track which remote peer IDs we have already reported to onFirstRemotePeer
+  // so the callback fires at most once per peer per provider instance.
+  const reportedRemotePeers = new Set<string>();
+
+  // The local peer's own PeerID string. Remote peers have different IDs.
+  // Captured once at construction so we can filter it out in the first-commit
+  // subscription without calling doc.peerIdStr inside a hot callback.
+  const localPeerIdStr: string = doc.peerIdStr;
 
   // Shared sealFrame parameters for this provider instance.
   const sealParams = {
@@ -156,9 +175,36 @@ export function createCollabProvider(opts: CollabProviderOptions): CollabProvide
     if (!opened) return;
 
     if (opened.kind === "doc") {
+      // Phase 3 chunk 5b: detect new remote peers by comparing the peer set
+      // before and after doc.import. We use ImportStatus.success (the map of
+      // peer ids the import carried) rather than subscribeFirstCommitFromPeer,
+      // because that API fires only on LOCAL commits, not on doc.import calls.
+      //
+      // Snapshot the known peer ids BEFORE the import. We only report a peer
+      // once per provider instance (reportedRemotePeers guards re-firing).
+      const knownPeersBefore = onFirstRemotePeer
+        ? new Set<string>(doc.getAllChanges().keys())
+        : null;
+
       // CRDT-merge the remote update. Idempotent: re-applying an already-known
       // update is a no-op in Loro. Does NOT fire our doc subscribeLocalUpdates.
-      doc.import(opened.plaintext);
+      const status = doc.import(opened.plaintext);
+
+      // After the import, check ImportStatus.success for any peer IDs that
+      // were NOT known before the import and are NOT the local peer.
+      if (onFirstRemotePeer && knownPeersBefore !== null) {
+        for (const [peerId] of status.success) {
+          if (peerId === localPeerIdStr) continue;
+          if (knownPeersBefore.has(peerId)) continue;
+          if (reportedRemotePeers.has(peerId)) continue;
+          reportedRemotePeers.add(peerId);
+          try {
+            onFirstRemotePeer(peerId, opened.senderEd25519PublicKey);
+          } catch (err) {
+            console.warn("[relay-provider] onFirstRemotePeer callback threw:", err);
+          }
+        }
+      }
     } else {
       // Deliver cursor/presence bytes to the local ephemeral store.
       ephemeral.apply(opened.plaintext);

@@ -190,9 +190,15 @@ export default function NoteDetailPopup({
   // Loro Phase 3, chunk 4: live-collab session (flag-gated).
   // useCollabSession is unconditionally called (Rules of Hooks) but is
   // permanently idle when LORO_PILOT_ENABLED is false or the handle is null.
+  // Phase 3 chunk 5b: pass owner + collaboratorUsername so the hook records
+  // the remote collaborator in the actors map when their first commit arrives.
+  // For the same-user two-tab MVP the collaborator is the same user (currentUser).
+  const collabOwner = (note.username || currentUser) ?? undefined;
   const collab = useCollabSession({
     doc: loroHandle?.doc ?? null,
     enabled: LORO_PILOT_ENABLED,
+    owner: collabOwner,
+    collaboratorUsername: currentUser ?? undefined,
   });
 
   // Phase 3 chunk 5a: derive the local peer's cursor identity.
@@ -1765,7 +1771,18 @@ export default function NoteDetailPopup({
                       )}
                       <Tooltip label="Stop collaborating" placement="top">
                         <button
-                          onClick={collab.stop}
+                          onClick={() => {
+                            // Phase 3 chunk 5b: use retireSession when both the
+                            // handle and owner are available so the session ends
+                            // with a provenance commit in the version history.
+                            // Fall back to plain stop when the handle is missing
+                            // (race: handle closed before button pressed).
+                            if (loroHandle && collabOwner) {
+                              void collab.retireSession(loroHandle, collabOwner, note);
+                            } else {
+                              collab.stop();
+                            }
+                          }}
                           className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-body bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
                           aria-label="Stop collaborating"
                         >

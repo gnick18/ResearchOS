@@ -4,12 +4,17 @@
 // Updated in chunk 5a: EphemeralStore is now a real shared instance, not a
 // throwaway, so live-cursor data produced by LoroEphemeralPlugin flows through
 // the relay to the remote peer.
+// Updated in chunk 5b: retireSession() ends the session cleanly, recording the
+// remote collaborator in the actors map and writing a "collab-session-ended"
+// forward commit so the note's version history carries co-author provenance.
 //
 // PURPOSE. Keeps NoteDetailPopup thin. This hook manages:
 //   - start(): generate a sessionId + key, open the WebSocket transport to the
 //     relay, wire the relay provider, expose a copy-able join link.
 //   - join(link): decode a pasted link and connect to that session.
 //   - stop(): destroy the provider and close the transport.
+//   - retireSession(handle, owner, base): flush actors, write the history
+//     marker commit, persist, then stop. Either collaborator can call this.
 //
 // CRYPTO. We load the local Ed25519 identity from IndexedDB (loadIdentity).
 // For the two-tab MVP both tabs are the same user, so BOTH sides sign with the
@@ -22,10 +27,17 @@
 // provider AND the editor's LoroEphemeralPlugin receive the SAME instance, so
 // cursor data produced locally by CM6 is relayed to the remote peer.
 //
+// REMOTE PEER ATTRIBUTION. The relay provider fires onFirstRemotePeer the
+// first time a new peer's commit arrives via doc.import. This hook wires that
+// callback to recordActor (the Phase 2 actors map), so the remote collaborator
+// is attributable in the note's version history. The collaboratorUsername
+// option lets the caller pass the invited user's display name; it falls back
+// to a hex fingerprint of their Ed25519 public key when absent.
+//
 // STATUS TRANSITIONS.
 //   idle -> connecting (start/join called)
 //   connecting -> live (WebSocket opened)
-//   live -> stopped (stop called)
+//   live -> stopped (stop called or retireSession called)
 //   Any error during connect stays at stopped (with an error note in the
 //   console; we could surface a fine-grained error string but the MVP doesn't
 //   need it).
@@ -41,6 +53,10 @@ import { createWebSocketTransport } from "./websocket-transport";
 import { encodeSessionLink, decodeSessionLink } from "./session-link";
 import { loadIdentity } from "@/lib/sharing/identity/storage";
 import { COLLAB_RELAY_URL } from "@/lib/loro/config";
+import { recordActor } from "@/lib/loro/actors";
+import { persistNote } from "@/lib/loro/sidecar-store";
+import type { NoteHandle } from "@/lib/loro/store";
+import type { Note } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // Public types.
@@ -72,8 +88,23 @@ export interface CollabSessionApi {
   start(): void;
   /** Decode a pasted join link and connect to that session. */
   join(link: string): void;
-  /** Destroy the provider and close the transport. */
+  /** Destroy the provider and close the transport (no provenance commit). */
   stop(): void;
+  /**
+   * End the session cleanly with provenance.
+   *
+   * Writes a "collab-session-ended" forward commit into the note's Loro doc
+   * (using the same forward-commit pattern as restore.ts), persists the
+   * sidecar + mirror, then disconnects. Either collaborator can call this.
+   *
+   * Pass the live NoteHandle, the note owner's username, and the current Note
+   * so the commit and persist have the right context. The caller is responsible
+   * for ensuring the handle is still open when retireSession is called.
+   *
+   * Best-effort: if the commit or persist fails, the session is still stopped.
+   * Flag-gated at the call site; not called when LORO_PILOT_ENABLED is false.
+   */
+  retireSession(handle: NoteHandle, owner: string, base: Note): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -98,12 +129,20 @@ const IDLE_STATE: CollabState = {
  *   handle is still opening; start/join will no-op until doc is present.
  * @param args.enabled - Must be true (LORO_PILOT_ENABLED) or this hook is
  *   permanently idle with zero side-effects.
+ * @param args.owner - The note owner's username (for recordActor calls).
+ * @param args.collaboratorUsername - Optional display name for the remote
+ *   collaborator. When provided it is stored in the actors map when the first
+ *   remote peer commit arrives so the version history shows a real name. When
+ *   absent the recording falls back to a hex fingerprint of their Ed25519 key.
+ *   For the same-user two-tab MVP, pass the local user's username here too.
  */
 export function useCollabSession(args: {
   doc: LoroDoc | null;
   enabled: boolean;
+  owner?: string;
+  collaboratorUsername?: string;
 }): CollabSessionApi {
-  const { doc, enabled } = args;
+  const { doc, enabled, owner, collaboratorUsername } = args;
 
   const [state, setState] = useState<CollabState>(IDLE_STATE);
 
@@ -115,6 +154,15 @@ export function useCollabSession(args: {
   const ephemeralRef = useRef<EphemeralStore<EphemeralState>>(
     new EphemeralStore<EphemeralState>(30_000),
   );
+
+  // Stable refs for owner + collaboratorUsername so the onFirstRemotePeer
+  // callback can access the latest values without re-creating connectSession.
+  const ownerRef = useRef<string | undefined>(owner);
+  const collaboratorUsernameRef = useRef<string | undefined>(collaboratorUsername);
+  useEffect(() => {
+    ownerRef.current = owner;
+    collaboratorUsernameRef.current = collaboratorUsername;
+  });
 
   // Stable ref so cleanup functions always reach the latest provider instance
   // without re-creating callbacks.
@@ -196,6 +244,23 @@ export function useCollabSession(args: {
         // peer's key from the directory invite.
         expectedPeerEd25519PublicKey: undefined,
         transport,
+        // Phase 3 chunk 5b: record the remote collaborator in the actors map
+        // the first time their commit arrives. This is the durable artifact that
+        // lets version-history rows attribute remote edits to a real person.
+        onFirstRemotePeer: (peerId: string, senderPubKey: Uint8Array) => {
+          const recordOwner = ownerRef.current;
+          if (!recordOwner) return;
+          // Resolve the display name: explicit collaboratorUsername wins, then
+          // fall back to the first 8 hex chars of the sender's pubkey so at
+          // least something human-readable appears in the history.
+          const username =
+            collaboratorUsernameRef.current ??
+            Array.from(senderPubKey.slice(0, 4))
+              .map((b) => b.toString(16).padStart(2, "0"))
+              .join("") +
+              "...";
+          void recordActor(recordOwner, BigInt(peerId), username);
+        },
       });
 
       providerRef.current = provider;
@@ -296,6 +361,60 @@ export function useCollabSession(args: {
     }));
   }, [destroyProvider]);
 
+  /**
+   * End the session cleanly with provenance (Phase 3 chunk 5b).
+   *
+   * Writes a "collab-session-ended" forward commit into the Loro doc (the same
+   * forward-commit pattern as restore.ts `restore-vN`), then persists the
+   * sidecar + mirror so the history is on disk, then disconnects.
+   *
+   * This is the durable artifact: the version history row with message
+   * "collab-session-ended" signals that this note was collaboratively edited
+   * with at least one other person whose edits are attributed via the actors
+   * map (recorded in onFirstRemotePeer above).
+   *
+   * Either collaborator can call this. If the doc commit or persist fails,
+   * the session is still stopped (best-effort, consistent with the rest of the
+   * Loro error-handling posture).
+   */
+  const retireSession = useCallback(
+    async (handle: NoteHandle, retireOwner: string, base: Note) => {
+      if (!enabled) {
+        stop();
+        return;
+      }
+
+      try {
+        // Write a retire marker into the doc's meta map so the commit is
+        // non-empty (doc.commit is a no-op when nothing is dirty). The
+        // "meta" map is the Loro doc's root metadata map (see note-doc.ts);
+        // the key "collab_retired_at" is a new Loro-internal key that lives
+        // only in the CRDT sidecar, not in the Note JSON mirror (projectToNote
+        // reads only the known meta keys: title/description/is_running_log/
+        // created_at). It carries the ISO timestamp of the retire event.
+        //
+        // FLAG: new Loro meta map key "collab_retired_at" (ISO timestamp string).
+        // Stored in the Loro sidecar only; not in Note JSON. See report section 3.
+        handle.doc.getMap("meta").set("collab_retired_at", new Date().toISOString());
+        // Forward commit stamping the retire event. Matches the pattern in
+        // restore.ts: `handle.doc.commit({ message: "restore-vN" })`.
+        handle.doc.commit({ message: "collab-session-ended" });
+        // Persist sidecar + mirror so the commit lands on disk before we close
+        // the WebSocket. Matches the persistNote call in restore.ts.
+        await persistNote(retireOwner, handle.doc, base);
+      } catch (err) {
+        // Best-effort: log but do not block the disconnect. A failed persist is
+        // consistent with the rest of the Loro error posture (the sidecar
+        // re-persists on the next debounced commit if the handle is still open).
+        console.warn("[useCollabSession] retireSession persist failed:", err);
+      }
+
+      // Disconnect regardless of whether the commit/persist succeeded.
+      stop();
+    },
+    [enabled, stop],
+  );
+
   // Cleanup on unmount: destroy any live provider so the transport closes and
   // the relay room loses this peer.
   useEffect(() => {
@@ -304,5 +423,5 @@ export function useCollabSession(args: {
     };
   }, [destroyProvider]);
 
-  return { state, ephemeral: ephemeralRef.current, start, join, stop };
+  return { state, ephemeral: ephemeralRef.current, start, join, stop, retireSession };
 }
