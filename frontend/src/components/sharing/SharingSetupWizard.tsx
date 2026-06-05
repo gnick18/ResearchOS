@@ -38,6 +38,7 @@ import {
   GitHubIcon,
   GoogleIcon,
   KeyIcon,
+  LinkedInIcon,
   MailIcon,
   WarningIcon,
 } from "./icons";
@@ -66,6 +67,11 @@ type Step =
 // Whether the email-bind path or the oauth-bind path was used, so the publish
 // step knows which directory route to call.
 type VerifiedVia = "google" | "github" | "email" | null;
+
+// The OAuth providers wired into the choose step. These strings are the Auth.js
+// provider ids (see @/lib/sharing/auth), passed straight to signIn() and used to
+// build the /api/auth/callback/<id> redirect, so they must match exactly.
+type OAuthProvider = "google" | "github" | "microsoft-entra-id" | "linkedin";
 
 export default function SharingSetupWizard({
   username,
@@ -142,7 +148,7 @@ export default function SharingSetupWizard({
     };
   }, []);
 
-  const startOAuth = useCallback((provider: "google" | "github") => {
+  const startOAuth = useCallback((provider: OAuthProvider) => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
     url.searchParams.set(CLAIM_QUERY_PARAM, "1");
@@ -434,7 +440,7 @@ function ChooseStep({
   onOAuth,
   onEmail,
 }: {
-  onOAuth: (provider: "google" | "github") => void;
+  onOAuth: (provider: OAuthProvider) => void;
   onEmail: () => void;
 }) {
   return (
@@ -460,6 +466,18 @@ function ChooseStep({
         >
           <GitHubIcon className="w-4 h-4" />
           Continue with GitHub
+        </button>
+        {/* Microsoft button is deferred until the Entra app registration
+            exists. The provider is gated on AUTH_MICROSOFT_ENTRA_ID_ID in
+            @/lib/sharing/auth, so re-add this button (and MicrosoftIcon) once
+            those credentials are set. */}
+        <button
+          type="button"
+          onClick={() => onOAuth("linkedin")}
+          className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-[#0A66C2] text-white hover:bg-[#004182] font-medium transition-colors"
+        >
+          <LinkedInIcon className="w-4 h-4" />
+          Continue with LinkedIn
         </button>
         <button
           type="button"
