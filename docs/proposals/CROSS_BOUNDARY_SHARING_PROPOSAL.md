@@ -238,6 +238,119 @@ Relay and prior art. Firefox Send (Mozilla blog, Wikipedia, ITPro), magic-wormho
 
 Infra and cost. Vercel Blob client-upload and pricing, Cloudflare R2 pricing and presigned URLs, Neon pricing, Upstash Redis and ratelimit, Auth.js Resend provider, Clerk pricing, Resend pricing, Vercel Cron pricing.
 
+---
+
+## 17. Searchable profile directory (addendum, 2026-06-04)
+
+**Recommendation: a second, opt-in public surface that sits beside the private binding, keyed by public-key fingerprint, never by email, so researchers can find each other by name and institution without anyone's address ever being searchable.**
+
+The motivation is collaboration discovery. Today the only way to reach someone is to already know their email (section 8). For the collab feature we want a user to type "people at UW-Madison" and find colleagues to send to. That is genuinely useful, but it is the exact opposite of the property section 6 was built around, so it needs to be designed as a separate thing, not bolted onto the binding.
+
+### 17.1 The tension, stated honestly
+
+Section 6's directory is deliberately **non-enumerable**. It stores only `HMAC-SHA256(pepper, email)`, and lookup is exact-hash only "never prefix or substring", so the directory cannot be used to harvest who has an account. A searchable profile is enumerable by definition. We do not weaken the binding to get there. Instead we add a distinct table that holds only what a user explicitly chooses to publish, and we make the searchable key the **fingerprint** (already public, derived from the Ed25519 key), never the email or the email-hash.
+
+### 17.2 Two surfaces, one identity
+
+- **Private binding (unchanged).** `directory_identities`, keyed by `email_hash`, holds the public keys. Still non-enumerable, still exact-hash lookup, still the thing that proves "this email owns these keys."
+- **Public profile (new, opt-in).** `directory_profiles`, keyed by `fingerprint`, holds the display fields. Deliberately searchable. Contains no email and no email_hash. It references the binding by fingerprint so a search result carries everything needed to send an encrypted bundle (name, affiliation, fingerprint, and via the fingerprint the public keys) while exposing **zero contact address**. You can find and send to a person without ever learning their email.
+
+```sql
+CREATE TABLE IF NOT EXISTS directory_profiles (
+  fingerprint        text primary key references directory_identities(fingerprint),
+  display_name       text not null,
+  affiliation        text,            -- free text, user-entered
+  affiliation_domain text,            -- the verified institutional domain, or null
+  orcid              text,            -- optional, format-validated only
+  updated_at         timestamptz default now()
+);
+-- search index on lowered name + affiliation; never on anything email-derived
+```
+
+### 17.3 The write gate (this is the "locked behind their third-party login" part)
+
+Publishing or editing a profile reuses the [oauth-bind](frontend/src/app/api/directory/oauth-bind/route.ts) pattern exactly, two locks:
+
+1. **OAuth session.** The route reads `session.user.email` (proven by Google / GitHub / Microsoft / LinkedIn, the providers added 2026-06-04), derives the email_hash, and finds the binding. No session, no write.
+2. **Ed25519 signature.** The request carries a signature over the canonical profile payload, verified against the bound key, so only the key-holder can edit their own row. The email never comes from the client, only from the session.
+
+So a profile is editable only by someone who both controls the email and holds the private key. Nobody can write or overwrite anyone else's profile.
+
+### 17.4 Verified affiliation (the payoff of institutional OAuth)
+
+Affiliation is **free text with a verified badge** (locked below). Anyone can type "Harvard." Separately, if the OAuth session email is on an institutional domain (not a consumer domain on the blocklist: gmail, outlook, hotmail, yahoo, icloud, proton, etc.), the route records that domain as `affiliation_domain` and the profile shows a "verified at wisc.edu" badge sourced from the proven login, not from the typed text. A Gmail login leaves the affiliation unverified but still searchable. This is what makes "search by school" trustworthy and blocks "I'm at MIT" impersonation, and it is the direct reward for having added Microsoft and Google institutional sign-in. Microsoft and Google institutional logins earn the badge; GitHub and LinkedIn (usually personal email) typically do not, which is correct.
+
+### 17.5 Search
+
+- **Logged-in researchers only** (locked below). Search requires a verified OAuth session of your own. This keeps it "researchers find researchers," not an open scrape target, and lets us attribute and rate-limit every query.
+- Results return `display_name`, `affiliation` (+ verified badge), `fingerprint`, and the public keys. **Never an email.**
+- Rate-limited per session and per IP via the existing [ratelimit](frontend/src/lib/sharing/directory/ratelimit.ts) infra, plus Vercel BotID on the search route, so the researcher list cannot be harvested even though it is browsable.
+
+### 17.6 Guardrails
+
+- **Opt-in, explicit consent.** Default stays invisible (the section 6 behavior). Creating a profile is a separate, clearly-labelled "make me searchable" action. No profile is created at signup.
+- **Coarse fields only.** Name, institution, optional ORCID. Nothing the user did not type, never an email, length-capped and sanitized.
+- **Signed delete route.** Removing the searchable row is a signed request like the write; it deletes the profile but leaves the binding intact, so existing shares still resolve.
+- **PII posture.** Per the section 12 GDPR stance, profile rows are personal data with their own consent basis and are deleted on account deletion. The privacy policy gains one line: published profiles are publicly searchable to logged-in users.
+
+### 17.7 Decisions (locked with Grant, 2026-06-04)
+
+1. **Search is for logged-in researchers only.** A verified OAuth session is required to search. No public/anonymous search surface.
+2. **Affiliation is free text plus a verified badge.** Anyone can claim an affiliation; an institutional OAuth login earns a domain-verified badge. Inclusive of users on personal email, who stay searchable but unverified.
+3. **Profiles are opt-in and keyed by fingerprint, never email.** The private binding of section 6 is unchanged and stays non-enumerable.
+
+### 17.8 Build phasing
+
+Slots into the section 14 plan without disturbing it. The `directory_profiles` table and the signed write/delete routes extend **Phase 1 (identity)**; search UI and the verified-affiliation badge land in **Phase 3 (polish)**, since they depend on the binding and the OAuth providers already being in place. The schema addition is the pre-flagged data-shape change for this surface.
+
+---
+
+## 18. Profile enrichment and research-tool integrations (addendum, 2026-06-04)
+
+**Recommendation: layer a researcher's actual body of work onto the section 17 profile by linking ORCID (publications) and Zenodo (deposits), with every linked credential held client-side and only public identifiers on the profile. This is the path toward a mini internal ResearchOS, a profile and discovery layer for the ecosystem, built in slices, not committed to as a network in v1.**
+
+Section 17 makes a profile searchable. This section makes it worth finding. The motivation is collaboration discovery, a colleague should be able to see who you are, where you are, and what you have published or deposited, then reach you. The identity backbone (sections 5 and 6) and the OAuth providers (Google, GitHub, Microsoft, LinkedIn, added 2026-06-04) are the foundation, so this is enrichment, not new infrastructure.
+
+### 18.1 ORCID-linked publications (the cheapest, highest-value piece)
+
+ORCID is a poor email-prover (its email is private by default, which is why it is not a sign-in button), but for profile linking it is exactly right. A **"Link ORCID"** action on the profile runs ORCID OAuth, which proves the user owns that ORCID iD. With the verified iD in hand we fetch their **public works from the ORCID public API** (`/works`), no token storage required because the works are already public. The profile then renders their publication list, auto-pulled and refreshable.
+
+This reuses the section 17 trust pattern exactly. A typed ORCID iD shows works with an "unverified" note (it could be anyone's iD); an OAuth-linked iD earns a verified badge. So the profile never lets someone attach a famous researcher's publication list to their own name without proving they own the iD.
+
+### 18.2 Zenodo account linking and deposit (locked, token stays client-side)
+
+ResearchOS already deposits to Zenodo browser-direct (the API is CORS-open, section reference in [[reference_zenodo_figshare_cors]] and the NIH initiative [[project_nih_sharing_initiative]]). Linking the account adds persistence and one-click push, and surfaces a researcher's deposits on their profile.
+
+The load-bearing decision (Grant, 2026-06-04), **the Zenodo token never touches our database.** The OAuth code-to-token exchange runs through a thin server route so the client secret stays server-side, but the resulting user token is returned to the browser and stored only in the user's **encrypted identity sidecar**, the same place the key backup lives. The browser pushes deposits directly to Zenodo with that token. The profile stores only the user's **public Zenodo identifier** (username), never the credential, so others can see "this researcher deposits here" without ResearchOS ever being a credential custodian. This is the only model that preserves the store-nothing-sensitive posture (section 12). A "paste a personal access token" path is a viable fully-local fallback if the OAuth round trip is not worth a server route in the first cut.
+
+### 18.3 The trust and credential rules (all mirror section 17)
+
+- **Verified links get a badge, typed ones do not.** OAuth-proven ORCID and Zenodo links are badged; anything hand-entered is shown but marked unverified.
+- **Third-party tokens stay client-side**, in the encrypted sidecar, never in our DB. The profile row holds only public identifiers (ORCID iD, Zenodo username).
+- **Opt-in**, same consent posture as section 17. Surfacing your publications and deposits is a choice, even though the underlying data is already public.
+
+### 18.4 The north star, a mini internal ResearchOS
+
+The destination is a research profile and discovery layer, find people by school, see their verified identity, publications, and deposits, then collaborate. This ties directly into Collaborate Mode (the live shared-session idea on the roadmap). It is a real product direction and is named here so it is on record, but it is a multi-phase build, not a v1 commitment. We build toward it in slices and never let the social-network framing pull the first profile release out of scope.
+
+### 18.5 Decisions (locked with Grant, 2026-06-04)
+
+1. **Zenodo token stays client-side.** Thin server route for the OAuth exchange, token stored only in the encrypted sidecar, browser pushes deposits direct, profile holds only the public Zenodo username.
+2. **ORCID is a profile-link action, not a sign-in button**, and its publications come from the public works API with no token storage.
+3. **Linked accounts follow the section 17 verified-badge model**, and the mini-ResearchOS network is a staged north star, not a v1 feature.
+
+### 18.6 Staging
+
+- **Profile v1.** Section 17 (name, affiliation, search) plus ORCID-linked publications. Read-only, no credential storage, lowest risk.
+- **Profile v2.** Zenodo link, deposit surfacing, one-click push from the client-side token.
+- **Discovery and network features.** The longer build toward the mini-ResearchOS, coordinated with Collaborate Mode.
+
+---
+
+## 19. Sources (addenda)
+
+Profiles and integrations. ORCID Public API and works endpoint, ORCID OAuth scopes, Zenodo REST API and OAuth applications, InvenioRDM, FTC 2024 hashed-data guidance (re-cited for profile PII).
+
 Legal. GDPR Articles 3, 6, 13, 27 and Recital 23, UW-Madison GDPR notice, 18 U.S.C. 2258A and 2258B and the 2024 REPORT Act, EU DSA Article 16, AGPLv3 and the GNU license FAQ, Matthew Green on client-side scanning.
 
 Migration and academic norms. VS Code Settings Sync, progressive-profiling literature, 1Password 8 migration, Keybase park-by-email and Seitan tokens, Ink and Switch local-first essay, antiSMASH FAQ and standalone, BLAST developer info, Galaxy admin and Galaxy Australia data policy.
