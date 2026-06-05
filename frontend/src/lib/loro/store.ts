@@ -27,6 +27,9 @@ import { recordActor } from "./actors";
 import { getEntryContentText, syncNoteMetadataToDoc, syncEntrySet } from "./note-doc";
 import { projectToNote } from "./mirror";
 import { safeLoroEphemeralPlugin } from "./collab/safe-ephemeral-plugin";
+import { LORO_PILOT_ENABLED } from "./config";
+import { getCollabDocId } from "@/lib/collab/client/doc-id";
+import { reconcileOnOpen, attachPushOnEdit } from "@/lib/collab/client/sync-hooks";
 import type { Note } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -99,6 +102,13 @@ export interface NoteHandle {
    * the relay outbound sender attaches here in Phase 3.
    */
   subscribe(cb: () => void): () => void;
+
+  /**
+   * Register an unsubscribe/cleanup function that will be called on close().
+   * Used internally by the Phase 3c push-on-edit wiring to ensure the push
+   * subscriber is torn down when the note closes.
+   */
+  _registerUnsub(unsub: () => void): void;
 
   /**
    * Flush any pending commit, unsubscribe internal listeners, drop from cache.
@@ -343,6 +353,14 @@ class NoteHandleImpl implements NoteHandle {
   private _externalSubscriberCallbacks: Array<() => void> = [];
 
   // ---------------------------------------------------------------------------
+  // _registerUnsub (Phase 3c chunk 2)
+  // ---------------------------------------------------------------------------
+
+  _registerUnsub(unsub: () => void): void {
+    this._externalUnsubs.push(unsub);
+  }
+
+  // ---------------------------------------------------------------------------
   // Close
   // ---------------------------------------------------------------------------
 
@@ -431,6 +449,27 @@ export async function openNote(base: Note, owner: string): Promise<NoteHandle> {
   // Phase 1/2 is single-user, so `owner` is the editing user; Phase 3 passes
   // the real editing identity instead of the note owner.
   void recordActor(owner, getDevicePeerId(), owner);
+
+  // Phase 3c chunk 2: Neon persistence path.
+  // When the flag is on and the note has a collab doc id (i.e. it is shared),
+  // reconcile against the server's canonical state and attach the push-on-edit
+  // subscriber. Both are best-effort: failures never block local editing.
+  if (LORO_PILOT_ENABLED) {
+    const collabDocId = getCollabDocId(doc);
+    if (collabDocId) {
+      // Reconcile: pull snapshot + updates from Neon and CRDT-merge into doc.
+      // Fire-and-forget so openNote does not block on the network call.
+      // The editor mounts after this resolves because NoteDetailPopup gates
+      // on loroHandle !== null, and we resolve below; any reconcile change
+      // lands before the first keystroke.
+      void reconcileOnOpen(doc, collabDocId, owner);
+
+      // Push on edit: subscribe to changes and push each update to Neon.
+      // The returned unsub is registered so handle.close() cleans it up.
+      const unsub = attachPushOnEdit(handle, collabDocId, owner);
+      handle._registerUnsub(unsub);
+    }
+  }
 
   return handle;
 }

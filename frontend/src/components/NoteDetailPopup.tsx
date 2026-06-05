@@ -47,6 +47,7 @@ import NoteVersionHistorySidebar, {
 import VersionDiffView from "@/components/history/VersionDiffView";
 import { useCollabSession } from "@/lib/loro/collab/use-collab-session";
 import { peerColorClass } from "@/lib/loro/collab/safe-ephemeral-plugin";
+import { grantCollabOnShare } from "@/lib/collab/client/grant-on-share";
 
 interface NoteDetailPopupProps {
   note: Note;
@@ -162,6 +163,9 @@ export default function NoteDetailPopup({
   // is_shared Private / Shared toggle for notes. The "Outside your lab" tab is
   // the cross-boundary encrypted-copy send that used to be a separate button.
   const [showShare, setShowShare] = useState(false);
+  // Phase 3c chunk 2: snapshot the shared_with list at dialog-open time so the
+  // grant-on-share callback can diff previous vs new members.
+  const sharedWithBeforeShareRef = useRef<import("@/lib/types").SharedUser[]>([]);
   const [showNewEntryForm, setShowNewEntryForm] = useState(false);
   const [newEntryTitle, setNewEntryTitle] = useState("");
   const [newEntryDate, setNewEntryDate] = useState(
@@ -1242,7 +1246,19 @@ export default function NoteDetailPopup({
         onShared={() => {
           // Refetch the note so the chips + provenance reflect the new ACL.
           notesApi.get(note.id).then((updated) => {
-            if (updated) onUpdate(updated);
+            if (updated) {
+              onUpdate(updated);
+              // Phase 3c chunk 2: grant newly-added members on the collab server
+              // so their openCollabDoc call succeeds. Best-effort, never throws.
+              if (LORO_PILOT_ENABLED && loroHandle && currentUser) {
+                void grantCollabOnShare({
+                  doc: loroHandle.doc,
+                  ownerEmail: currentUser,
+                  previousSharedWith: sharedWithBeforeShareRef.current,
+                  nextSharedWith: updated.shared_with ?? [],
+                });
+              }
+            }
           });
         }}
       />
@@ -1639,7 +1655,12 @@ export default function NoteDetailPopup({
                   toggle AND the separate "Share outside this folder" button. */}
               <Tooltip label="Share" placement="top">
                 <button
-                  onClick={() => setShowShare(true)}
+                  onClick={() => {
+                    // Snapshot the current shared_with before opening the dialog
+                    // so the grant-on-share callback can compute the diff.
+                    sharedWithBeforeShareRef.current = note.shared_with ?? [];
+                    setShowShare(true);
+                  }}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-body bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                   aria-label="Share"
                 >

@@ -134,6 +134,7 @@ function makeFakeHandle(entryText = "hello world"): NoteHandle & { _commitSpy: R
         return () => {};
       }),
     _commitSpy: commitSpy,
+    _registerUnsub: vi.fn(),
   };
 }
 

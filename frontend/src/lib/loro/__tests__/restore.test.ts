@@ -131,6 +131,8 @@ function makeHandle(doc: LoroDoc): NoteHandle {
       cb(false);
       return () => {};
     },
+    // Phase 3c chunk 2: no-op in tests.
+    _registerUnsub: () => {},
   };
 }
 
