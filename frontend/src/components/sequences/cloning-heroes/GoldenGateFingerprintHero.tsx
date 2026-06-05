@@ -12,6 +12,7 @@
 //
 // No emojis (inline SVG only), no em-dashes, no mid-sentence colons.
 
+import Tooltip from "@/components/Tooltip";
 import type { LigationProduct } from "@/lib/sequences/cut-ligate";
 import { checkFusionUniqueness } from "@/lib/sequences/cloning-hero-helpers";
 import { FEATURE_COLOR_SWATCHES } from "@/lib/sequences/feature-colors";
@@ -87,14 +88,14 @@ export default function GoldenGateFingerprintHero({ product, enzymeNames }: Prop
       {/* The fusion overhangs, color-coded; a clash shows two chips the same color. */}
       <div className="flex flex-wrap gap-1.5">
         {overhangs.map((oh, i) => (
-          <span
-            key={i}
-            className="rounded px-1.5 py-0.5 font-mono text-meta font-medium text-white"
-            style={{ backgroundColor: oh === "" ? "#9ca3af" : colors.get(oh) }}
-            title={`Junction ${i + 1}`}
-          >
-            {oh === "" ? "blunt" : oh}
-          </span>
+          <Tooltip key={i} label={`Junction ${i + 1}`}>
+            <span
+              className="rounded px-1.5 py-0.5 font-mono text-meta font-medium text-white"
+              style={{ backgroundColor: oh === "" ? "#9ca3af" : colors.get(oh) }}
+            >
+              {oh === "" ? "blunt" : oh}
+            </span>
+          </Tooltip>
         ))}
       </div>
 
@@ -109,7 +110,7 @@ export default function GoldenGateFingerprintHero({ product, enzymeNames }: Prop
           <div className="space-y-1 rounded bg-rose-50 px-2 py-1.5 text-meta text-rose-700">
             <div className="flex items-center gap-1.5 font-medium">
               <WarnIcon className="h-3.5 w-3.5 shrink-0" />
-              <span>Ambiguous order: shared fusion overhangs.</span>
+              <span>Ambiguous order from shared fusion overhangs.</span>
             </div>
             {uniqueness.clashes.map((c, i) => (
               <div key={i} className="pl-5 font-mono text-meta">

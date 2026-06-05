@@ -69,7 +69,7 @@ export default function StickyEndLadderHero({ product, pieces, enzymeNames }: Pr
                 <div className="mb-1 text-meta text-gray-500">
                   Junction {i + 1} · {KIND_LABEL[jn.kind]}
                 </div>
-                <div className="rounded bg-gray-50 px-2 py-1 font-mono text-[12px] leading-tight text-gray-700">
+                <div className="rounded bg-gray-50 px-2 py-1 font-mono text-meta leading-tight text-gray-700">
                   <div className="whitespace-pre">
                     <span className="text-gray-400">5' </span>
                     {seam.top}
