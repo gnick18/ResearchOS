@@ -27,6 +27,7 @@ import {
   deleteTask,
   ensureBusinessSchema,
   getEntity,
+  listBusinessEmails,
   listLedger,
   listTasks,
   setTaskDone,
@@ -49,10 +50,11 @@ export async function GET(): Promise<Response> {
 
   await ensureBusinessSchema();
   try {
-    const [entity, ledger, tasks, capacity] = await Promise.all([
+    const [entity, ledger, tasks, emails, capacity] = await Promise.all([
       getEntity(),
       listLedger(),
       listTasks(),
+      listBusinessEmails(),
       // Resilient (per-service null fallback) and wrapped, so a measurement
       // hiccup never sinks the page; the estimate just reads zero.
       getCapacityMetrics().catch(() => null),
@@ -63,7 +65,15 @@ export async function GET(): Promise<Response> {
       capacity?.neon.usedBytes ?? null,
       capacity?.r2.usedBytes ?? null,
     );
-    return json(200, { entity, ledger, tasks, summary, deadlines, infraEstimate });
+    return json(200, {
+      entity,
+      ledger,
+      tasks,
+      emails,
+      summary,
+      deadlines,
+      infraEstimate,
+    });
   } catch {
     return json(500, { error: "business read failed" });
   }

@@ -4,10 +4,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   computeSummary,
+  emailArchiveMarkdown,
   formatUSD,
   nextFederalEstimate,
   nextWisconsinAnnualReport,
   upcomingDeadlines,
+  type BusinessEmail,
   type EntityConfig,
   type LedgerEntry,
 } from "../calc";
@@ -110,6 +112,34 @@ describe("upcomingDeadlines", () => {
     const noDate = { ...withDate, formationDate: null };
     const list2 = upcomingDeadlines(noDate, new Date("2026-05-01T00:00:00Z"));
     expect(list2.map((d) => d.key)).toEqual(["fed-estimate"]);
+  });
+});
+
+describe("emailArchiveMarkdown", () => {
+  const emails: BusinessEmail[] = [
+    {
+      id: 2,
+      kind: "deadline-reminder",
+      toEmail: "grant@example.com",
+      subject: "Reminder: WI annual report due in 3 days",
+      body: "It is due on 2026-09-30.",
+      sentAt: "2026-09-27T13:00:00.000Z",
+    },
+  ];
+
+  it("renders a titled record with the count, recipient, subject, and body", () => {
+    const md = emailArchiveMarkdown(emails, "ResearchOS LLC");
+    expect(md).toContain("# ResearchOS LLC email records");
+    expect(md).toContain("1 record");
+    expect(md).toContain("grant@example.com");
+    expect(md).toContain("Reminder: WI annual report due in 3 days");
+    expect(md).toContain("It is due on 2026-09-30.");
+  });
+
+  it("falls back to a default name and pluralizes", () => {
+    const md = emailArchiveMarkdown([], "");
+    expect(md).toContain("# ResearchOS LLC email records");
+    expect(md).toContain("0 records");
   });
 });
 

@@ -15,6 +15,7 @@ import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 
 import {
   DEFAULT_ENTITY,
+  type BusinessEmail,
   type BusinessTask,
   type EntityConfig,
   type LedgerDirection,
@@ -82,6 +83,16 @@ export async function ensureBusinessSchema(): Promise<void> {
       sort int not null default 0,
       created_at timestamptz default now(),
       done_at timestamptz
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS business_emails (
+      id bigserial primary key,
+      kind text not null,
+      to_email text not null,
+      subject text not null default '',
+      body text not null default '',
+      sent_at timestamptz default now()
     )
   `;
   await seedDefaultsOnce(sql);
@@ -241,6 +252,56 @@ export async function setTaskDone(id: number, done: boolean): Promise<void> {
 export async function deleteTask(id: number): Promise<void> {
   const sql = getSql();
   await sql`DELETE FROM business_tasks WHERE id = ${id}`;
+}
+
+type EmailRow = {
+  id: string | number;
+  kind: string;
+  to_email: string;
+  subject: string;
+  body: string;
+  sent_at: string;
+};
+
+function rowToEmail(r: EmailRow): BusinessEmail {
+  return {
+    id: Number(r.id),
+    kind: r.kind,
+    toEmail: r.to_email,
+    subject: r.subject,
+    body: r.body,
+    sentAt: r.sent_at,
+  };
+}
+
+/**
+ * Archives one business email as an LLC record. Business correspondence only
+ * (deadline reminders, receipts), never OTP codes or share invites. Best-effort
+ * at the call site, a failed archive must never fail a delivered email.
+ */
+export async function recordBusinessEmail(params: {
+  kind: string;
+  toEmail: string;
+  subject: string;
+  body: string;
+}): Promise<void> {
+  const sql = getSql();
+  await sql`
+    INSERT INTO business_emails (kind, to_email, subject, body)
+    VALUES (${params.kind}, ${params.toEmail}, ${params.subject}, ${params.body})
+  `;
+}
+
+/** The archived business emails, newest first, capped for the page. */
+export async function listBusinessEmails(limit = 500): Promise<BusinessEmail[]> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT id, kind, to_email, subject, body, sent_at
+    FROM business_emails
+    ORDER BY sent_at DESC, id DESC
+    LIMIT ${limit}
+  `) as EmailRow[];
+  return rows.map(rowToEmail);
 }
 
 type LedgerRow = {

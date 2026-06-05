@@ -17,7 +17,11 @@
 import { adminEmails } from "@/lib/sharing/admin";
 import { isSharingEnabled } from "@/lib/sharing/directory/guard";
 import { upcomingDeadlines } from "@/lib/business/calc";
-import { ensureBusinessSchema, getEntity } from "@/lib/business/db";
+import {
+  ensureBusinessSchema,
+  getEntity,
+  recordBusinessEmail,
+} from "@/lib/business/db";
 import { sendReminderEmail } from "@/lib/business/mailer";
 import {
   dueForReminder,
@@ -56,6 +60,18 @@ export async function GET(request: Request): Promise<Response> {
       try {
         await sendReminderEmail(to, subject, text);
         sent += 1;
+        // Archive as an LLC record. A failed archive must never fail a
+        // delivered email, so it is swallowed.
+        try {
+          await recordBusinessEmail({
+            kind: "deadline-reminder",
+            toEmail: to,
+            subject,
+            body: text,
+          });
+        } catch {
+          // ignore
+        }
       } catch {
         // One failed recipient must not stop the rest.
       }

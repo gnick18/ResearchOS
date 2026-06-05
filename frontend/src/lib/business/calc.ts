@@ -34,6 +34,49 @@ export interface BusinessTask {
   doneAt: string | null;
 }
 
+/**
+ * An archived copy of a business email the site sent (deadline reminders now,
+ * payment receipts later). Business correspondence only, never OTP codes or
+ * share invites. Kept as an LLC record and exportable to the document folder.
+ */
+export interface BusinessEmail {
+  id: number;
+  kind: string;
+  toEmail: string;
+  subject: string;
+  body: string;
+  /** ISO timestamp when sent. */
+  sentAt: string;
+}
+
+/** Serializes the email archive into a single Markdown record for the folder. */
+export function emailArchiveMarkdown(
+  emails: BusinessEmail[],
+  entityName: string,
+): string {
+  const head = [
+    `# ${entityName || "ResearchOS LLC"} email records`,
+    "",
+    `Business correspondence the site sent. ${emails.length} record${emails.length === 1 ? "" : "s"}, newest first.`,
+    "Generated from the business tracker. Save into the LLC document folder.",
+    "",
+  ];
+  const blocks = emails.map((e) =>
+    [
+      `## ${e.sentAt} - ${e.subject}`,
+      "",
+      `- Kind: ${e.kind}`,
+      `- To: ${e.toEmail}`,
+      "",
+      e.body,
+      "",
+      "---",
+      "",
+    ].join("\n"),
+  );
+  return head.concat(blocks).join("\n");
+}
+
 export type LedgerDirection = "in" | "out";
 
 /** One money-in or money-out entry. amountCents is a positive integer. */

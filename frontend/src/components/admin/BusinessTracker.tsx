@@ -16,8 +16,10 @@ import Link from "next/link";
 import AppFooter from "@/components/AppFooter";
 import {
   computeSummary,
+  emailArchiveMarkdown,
   formatUSD,
   upcomingDeadlines,
+  type BusinessEmail,
   type BusinessSummary,
   type BusinessTask,
   type Deadline,
@@ -31,6 +33,7 @@ interface BusinessData {
   entity: EntityConfig;
   ledger: LedgerEntry[];
   tasks: BusinessTask[];
+  emails: BusinessEmail[];
   summary: BusinessSummary;
   deadlines: Deadline[];
   infraEstimate: InfraCostEstimate;
@@ -547,6 +550,76 @@ function Checklist({
   );
 }
 
+function Correspondence({
+  emails,
+  entityName,
+}: {
+  emails: BusinessEmail[];
+  entityName: string;
+}) {
+  const download = () => {
+    const md = emailArchiveMarkdown(emails, entityName);
+    const blob = new Blob([md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "researchos-llc-email-records.md";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-meta text-gray-400">
+          {emails.length} archived {emails.length === 1 ? "email" : "emails"}.
+          Business correspondence only, never OTP codes or share invites.
+        </p>
+        <button
+          type="button"
+          disabled={emails.length === 0}
+          onClick={download}
+          className="rounded-lg border border-gray-300 px-4 py-2 text-body font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+        >
+          Download records
+        </button>
+      </div>
+
+      {emails.length === 0 ? (
+        <p className="mt-3 text-body text-gray-500">
+          Nothing yet. Deadline reminders (and later, payment receipts) are
+          archived here as they are sent.
+        </p>
+      ) : (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-left text-meta">
+            <thead>
+              <tr className="border-b border-gray-200 text-gray-500">
+                <th className="px-2 py-2 font-semibold">Sent</th>
+                <th className="px-2 py-2 font-semibold">Kind</th>
+                <th className="px-2 py-2 font-semibold">To</th>
+                <th className="px-2 py-2 font-semibold">Subject</th>
+              </tr>
+            </thead>
+            <tbody>
+              {emails.map((e) => (
+                <tr key={e.id} className="border-b border-gray-100 last:border-0">
+                  <td className="px-2 py-2 text-gray-500">
+                    {e.sentAt.slice(0, 10)}
+                  </td>
+                  <td className="px-2 py-2 text-gray-600">{e.kind}</td>
+                  <td className="px-2 py-2 text-gray-600">{e.toEmail}</td>
+                  <td className="px-2 py-2 text-gray-800">{e.subject}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SectionTitle({ children, sub }: { children: React.ReactNode; sub?: string }) {
   return (
     <div className="mb-3 mt-10 first:mt-0">
@@ -686,7 +759,8 @@ export default function BusinessTracker() {
     );
   }
 
-  const { entity, ledger, tasks, summary, deadlines, infraEstimate } = state.data;
+  const { entity, ledger, tasks, emails, summary, deadlines, infraEstimate } =
+    state.data;
 
   return (
     <Shell>
@@ -767,6 +841,11 @@ export default function BusinessTracker() {
         Ledger
       </SectionTitle>
       <Ledger ledger={ledger} onAdd={addEntry} onDelete={deleteEntry} />
+
+      <SectionTitle sub="Business emails the site sent (deadline reminders now, payment receipts later), kept as LLC records. Download them and drop the file in the document folder. OTP codes and share invites are never archived here.">
+        Correspondence
+      </SectionTitle>
+      <Correspondence emails={emails} entityName={entity.legalName} />
 
       <p className="mt-8 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-meta text-gray-500 leading-relaxed">
         This tracker is an organizer, not a legal or tax service. It is not the
