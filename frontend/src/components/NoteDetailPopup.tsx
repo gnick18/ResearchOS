@@ -412,6 +412,70 @@ export default function NoteDetailPopup({
   // change after mount), and we only want this to fire when the handle opens
   // (loroHandle identity change) or the session returns to idle after a stop.
 
+  // Phase 3c shared-collab: lazy collab bootstrap for shared-NOTEBOOK notes.
+  //
+  // Shared-notebook notes are created with `shared_with = pairingSharedWith(...)`
+  // (both members at "edit") but they never go through the Share dialog's
+  // onShared callback, so grantCollabOnShare is never called for them and they
+  // never get a collab_doc_id or a server-side grant. Without those two things
+  // the auto-connect effect above is a no-op (no docId -> no connect).
+  //
+  // This effect fills that gap: the FIRST time either member opens a shared-
+  // notebook note with LORO_PILOT_ENABLED, it mints the collab_doc_id into the
+  // shared Loro sidecar (in the creator's folder, readable+writable by both via
+  // the FSA data folder) and grants both members on the server. The auto-connect
+  // then fires via collab.connectFromDocId below (since the auto-connect effect
+  // already ran and the session is still idle, we connect here directly).
+  //
+  // Guard conditions:
+  //   - LORO_PILOT_ENABLED (flag off = no side effects)
+  //   - loroHandle is open
+  //   - note.notebook_id is set (shared-notebook note, not a personal note)
+  //   - currentUser is known (for ownerEmail signing)
+  //   - no collab_doc_id already in the Loro meta (first open only; subsequent
+  //     opens will have it and fall through to the existing auto-connect effect)
+  //   - collab session is idle (avoid racing a connecting/live session)
+  //
+  // Idempotent: grantCollabOnShare calls getOrMintCollabDocId (which only
+  // mints when absent) and grantCollabMember (the server accepts duplicate
+  // grants silently). If both members open simultaneously the second opener
+  // sees the id already in the sidecar and skips the mint.
+  //
+  // FLAG (data-shape): writes collab_doc_id into the Loro meta map (the shared
+  // sidecar at users/<creator>/.researchos/notes/<id>.loro). This is the same
+  // data-shape as Phase 3c chunk 2 (same key, same semantics).
+  useEffect(() => {
+    if (!LORO_PILOT_ENABLED) return;
+    if (!loroHandle) return;
+    if (!note.notebook_id) return;
+    if (!currentUser) return;
+    if (collab.state.status !== "idle") return;
+    // If there is already a collab_doc_id the auto-connect effect above handles
+    // the connect; skip here to avoid a redundant grant/push on every open.
+    if (getCollabDocId(loroHandle.doc)) return;
+
+    // No collab_doc_id yet: this is the first open for this notebook note.
+    // Mint + grant best-effort, then connect once the docId is available.
+    void grantCollabOnShare({
+      doc: loroHandle.doc,
+      ownerEmail: currentUser,
+      // Treat the whole shared_with list as newly-added so both members and the
+      // granting user (as "owner") get registered on the server.
+      previousSharedWith: [],
+      nextSharedWith: note.shared_with ?? [],
+    }).then((docId) => {
+      if (docId && collab.state.status === "idle") {
+        collab.connectFromDocId(docId);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loroHandle, note.notebook_id, currentUser]);
+  // Intentional deps: fire when the handle opens (loroHandle identity change)
+  // or the notebook association changes. collab.state.status and
+  // collab.connectFromDocId are read inside the void-async body after the
+  // initial guard; not listed as deps to avoid re-firing on every status flip
+  // (the guard at the top of the effect short-circuits when collab is not idle).
+
   // Track unsaved content (pending writes that haven't been manually saved
   // yet). Still drives the close + SPA-nav safety nets even though we no
   // longer auto-save: a user can navigate away mid-edit and we flush these.
