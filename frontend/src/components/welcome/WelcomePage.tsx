@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * `/welcome-preview`, the from-scratch, video-driven welcome page (TEMP route).
+ * The `/welcome` page: video-driven sell page (2026-06-04 rebuild).
  *
  * This is the modern rebuild of the welcome / sell page, built on a temporary
  * route so the live `/welcome` (LandingPage.tsx) stays untouched while we
@@ -209,7 +209,7 @@ function ComparisonRow({
 
 /* ========================================================================== */
 
-export default function WelcomePreviewPage() {
+export default function WelcomePage() {
   const router = useRouter();
 
   // Hi-wave greeting: BeakerBot waves on land then settles into the living

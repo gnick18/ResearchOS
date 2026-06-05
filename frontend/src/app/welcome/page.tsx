@@ -1,22 +1,22 @@
 import type { Metadata } from "next";
-import LandingPage from "@/components/landing/LandingPage";
+import WelcomePage from "@/components/welcome/WelcomePage";
 
 /**
- * Standalone `/welcome` route. Renders the first-time-visitor landing page
- * for everyone, regardless of connection state. This is the surface the
- * Settings "View the welcome page" link points at (so a connected user can
- * revisit the marketing page that is otherwise gated to truly-new visitors),
- * and the URL the wiki-screenshot capture shoots `landing.png` from.
+ * The `/welcome` route. Renders the video-driven welcome/sell page for every
+ * visitor regardless of connection state. Linked from Settings ("View the
+ * welcome page") and the DevForceLandingButton. Also the target of the
+ * first-visit redirect in providers.tsx.
  *
- * No `onGetStarted` prop here, so LandingPage's primary CTA navigates to
- * /?connect=1 instead of dismissing an inline gate.
+ * The page itself is a client component (WelcomePage) that renders the full
+ * video-led layout. This server wrapper exists solely so Next.js can export
+ * the metadata block, which is not allowed in client components.
  */
 export const metadata: Metadata = {
   title: "Welcome to ResearchOS",
   description:
-    "A free, local-first electronic lab notebook. Your data lives as a plain folder on your own machine: private, version-controlled, and yours to keep.",
+    "A free, local-first electronic lab notebook for research labs. Plan experiments, run protocols, design plasmids, and write it all up. Your data stays a plain folder on your own machine.",
 };
 
-export default function WelcomePage() {
-  return <LandingPage />;
+export default function WelcomeRoute() {
+  return <WelcomePage />;
 }

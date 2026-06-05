@@ -137,19 +137,11 @@ function AppContent({ children }: { children: ReactNode }) {
   // any future client-rendered queries inside the wiki work.
   const isWikiRoute = pathname?.startsWith("/wiki");
 
-  // The `/welcome` route renders the marketing landing standalone (the
-  // "revisit the welcome page" path from Settings, and the surface the
-  // wiki-screenshot capture shoots `landing.png` from). It must render for
-  // EVERY visitor regardless of connection state, so it bypasses the
-  // truly-new gate below the same way `/wiki/*` does. The page itself is
-  // <LandingPage> with no `onGetStarted`, so its primary CTA navigates to
-  // /?connect=1 rather than dismissing an inline gate.
-  //
-  // `/welcome-preview` is the TEMP video-driven welcome rebuild (kept on its
-  // own route so the live `/welcome` stays untouched while we iterate). It is
-  // standalone the same way `/welcome` is, so it bypasses the gate too.
-  const isWelcomeRoute =
-    pathname === "/welcome" || pathname === "/welcome-preview";
+  // The `/welcome` route renders the video-driven welcome/sell page standalone
+  // for every visitor regardless of connection state (the "revisit" path from
+  // Settings, the first-visit redirect target, and the wiki-screenshot capture
+  // surface). Bypasses every gate below the same way `/wiki/*` does.
+  const isWelcomeRoute = pathname === "/welcome";
 
   // QueryClient is a module-level singleton (see `appQueryClient` below)
   // so non-React-tree consumers (e.g. the onboarding-v4 cursor scripts
