@@ -56,6 +56,15 @@ interface FileSystemState {
   availableUsers: string[];
   needsInitialization: boolean;
   lastConnectedFolder: string | null;
+  /**
+   * True when a `?wikiCapture=…` install was REFUSED because a real,
+   * non-sentinel folder + a real signed-in user were already present
+   * (the real-user shadowing guard fired and fell through to the normal
+   * reconnect path). Consumed by `<WikiCaptureRefusedBanner>` to warn the
+   * person that capture mode did NOT engage and their real data is on
+   * screen. Never set in normal use, true fixture installs, or `/demo`.
+   */
+  captureRefused: boolean;
 }
 
 interface FileSystemContextValue extends FileSystemState {
@@ -104,6 +113,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     availableUsers: [],
     needsInitialization: false,
     lastConnectedFolder: null,
+    captureRefused: false,
   });
 
   // edit-session bleed fix 2026-05-24: shadow the currentUser into a ref
@@ -511,6 +521,12 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
               console.warn(
                 "[FileSystemProvider] Refusing ?wikiCapture install: real user already signed in.",
               );
+              // Surface a VISIBLE warning (not just this console line) so a
+              // would-be screenshotter knows capture mode did not engage and
+              // their real data is on screen. `<WikiCaptureRefusedBanner>`
+              // watches this flag. This is the only place it is ever set, so
+              // it never fires in normal use, true fixture installs, or /demo.
+              setState((prev) => ({ ...prev, captureRefused: true }));
               // Fall through to the normal stored-handle reconnect path
               // below by NOT entering the fixture branch.
             } else {
@@ -1013,6 +1029,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
       availableUsers: [],
       needsInitialization: false,
       lastConnectedFolder: null,
+      captureRefused: false,
     });
   }, []);
 

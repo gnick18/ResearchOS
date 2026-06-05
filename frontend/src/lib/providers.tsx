@@ -23,6 +23,7 @@ import StagedLoadingScreen from "@/components/StagedLoadingScreen";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import GlobalDropGuard from "@/components/GlobalDropGuard";
 import FloatingLeaveDemoButton from "@/components/FloatingLeaveDemoButton";
+import WikiCaptureRefusedBanner from "@/components/WikiCaptureRefusedBanner";
 import OpenDocsButton from "@/components/OpenDocsButton";
 import SceneTriggerHost from "@/components/SceneTriggerHost";
 import AutoErrorConfirmHost from "@/components/AutoErrorConfirmHost";
@@ -430,6 +431,12 @@ export function Providers({ children }: { children: ReactNode }) {
     <ErrorBoundary>
       <FileSystemProvider>
         <GlobalDropGuard />
+        {/* Privacy guard: when `?wikiCapture=…` is refused because a real
+            folder is already connected, warn the person (visibly, not just
+            in the console) that their real data is on screen. Reads the
+            `captureRefused` flag off FileSystemProvider, so it must sit
+            inside it. No-op in normal use / true fixtures / demo. */}
+        <WikiCaptureRefusedBanner />
         <FloatingLeaveDemoButton />
         <OpenDocsButton />
         {/* Global host for fire-and-forget easter-egg scenes (BugStomp,
