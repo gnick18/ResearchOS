@@ -525,15 +525,89 @@ export default function WelcomePage() {
           </div>
         </section>
 
-        {/* ── Credibility strip ───────────────────────────────────────── */}
-        <section className="px-6 pb-4 pt-8 text-center sm:px-12">
-          <p className="mx-auto max-w-[70ch] text-body leading-relaxed text-[#475569]">
-            <span className="font-semibold text-[#0e1726]">
+        {/* ── Credibility pillars ─────────────────────────────────────────
+            Four concrete, verifiable trust signals. The transparency and
+            open-source pillars link out so the claims are checkable, not just
+            asserted. */}
+        <section className="px-6 py-14 sm:px-12">
+          <div className="mx-auto max-w-[1080px]">
+            <p className="text-center text-title font-bold text-[#0e1726]">
               Built by PhD researchers, for researchers.
-            </span>{" "}
-            Free and open source, backed by a UW-Madison university fellowship.
-            Your work stays on your own machine, auditable and yours to keep.
-          </p>
+            </p>
+            <div className="mt-9 grid grid-cols-2 gap-x-8 gap-y-9 md:grid-cols-4">
+              {/* Open source (links to the credits page). */}
+              <a
+                href="/open-source"
+                className="group flex flex-col items-center text-center"
+              >
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden>
+                    <path d="M8 6l-5 6 5 6M16 6l5 6-5 6" />
+                  </svg>
+                </span>
+                <h3 className="mt-3 text-body font-bold text-[#0e1726] group-hover:text-sky-700">
+                  Open source
+                </h3>
+                <p className="mt-1 text-meta leading-snug text-[#475569]">
+                  AGPLv3 and fully auditable. No lock-in, ever.
+                </p>
+              </a>
+
+              {/* Fellowship-backed (static). */}
+              <div className="flex flex-col items-center text-center">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden>
+                    <path d="M22 10L12 5 2 10l10 5 10-5z" />
+                    <path d="M6 12v4c0 1.1 2.7 2.5 6 2.5s6-1.4 6-2.5v-4" />
+                  </svg>
+                </span>
+                <h3 className="mt-3 text-body font-bold text-[#0e1726]">
+                  Fellowship-backed
+                </h3>
+                <p className="mt-1 text-meta leading-snug text-[#475569]">
+                  Funded by a UW-Madison fellowship, so it stays free for every
+                  lab.
+                </p>
+              </div>
+
+              {/* Science you can check (links to /transparency). */}
+              <a
+                href="/transparency"
+                className="group flex flex-col items-center text-center"
+              >
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden>
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M8 12l3 3 5-6" />
+                  </svg>
+                </span>
+                <h3 className="mt-3 text-body font-bold text-[#0e1726] group-hover:text-sky-700">
+                  Science you can check
+                </h3>
+                <p className="mt-1 text-meta leading-snug text-[#475569]">
+                  Every result verified against Biopython and primer3.
+                </p>
+                <span className="mt-1 text-meta font-semibold text-sky-600 group-hover:text-sky-700">
+                  See the proof
+                </span>
+              </a>
+
+              {/* You own your data (static). */}
+              <div className="flex flex-col items-center text-center">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden>
+                    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+                  </svg>
+                </span>
+                <h3 className="mt-3 text-body font-bold text-[#0e1726]">
+                  You own your data
+                </h3>
+                <p className="mt-1 text-meta leading-snug text-[#475569]">
+                  Your work is a plain folder on your own machine.
+                </p>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* ── Bento feature grid ──────────────────────────────────────── */}
