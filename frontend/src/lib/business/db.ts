@@ -127,7 +127,23 @@ async function seedDefaultsOnce(
   sql: NeonQueryFunction<false, false>,
 ): Promise<void> {
   const existing = (await sql`SELECT 1 FROM business_entity WHERE id = 1`) as unknown[];
-  if (existing.length > 0) return; // already initialized, never re-seed
+  if (existing.length > 0) {
+    // The row predates some known facts (it was seeded by an earlier version or
+    // started blank). Backfill ONLY the stable identifiers that are still blank,
+    // using COALESCE / a blank check, so nothing entered in the UI is ever
+    // overwritten. The mutable fields (agent, bank, reserve, tasks) are left
+    // exactly as they are.
+    await sql`
+      UPDATE business_entity SET
+        legal_name = CASE WHEN legal_name IS NULL OR legal_name = ''
+                          THEN ${SEED_ENTITY.legalName} ELSE legal_name END,
+        entity_id = COALESCE(entity_id, ${SEED_ENTITY.entityId}),
+        ein = COALESCE(ein, ${SEED_ENTITY.ein}),
+        formation_date = COALESCE(formation_date, ${SEED_ENTITY.formationDate}::date)
+      WHERE id = 1
+    `;
+    return;
+  }
   await sql`
     INSERT INTO business_entity
       (id, legal_name, state, entity_id, formation_date, ein, registered_agent,
