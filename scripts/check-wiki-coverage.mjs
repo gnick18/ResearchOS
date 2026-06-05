@@ -49,6 +49,7 @@ const EXCLUDED_PREFIXES = [
   "/open-source", // "Built on open source" credits + attribution page (legal/informational, no AppShell, not a documented app feature; like /welcome)
   "/transparency", // "Transparency of tests": bioinformatic-tool comparisons vs Biopython/primer3, build-time computed + vitest-gated (trust/informational, no AppShell, not a documented app feature; like /open-source)
   "/sharing-setup-test", // dev-only test harness for the cross-boundary sharing setup wizard (NODE_ENV=development gated, renders "not available" in prod); not a user feature
+  "/privacy", // privacy policy (legal/informational, no AppShell, not a documented app feature; like /open-source). OAuth providers require a privacy-policy URL
 ];
 
 /** Next.js conventions to ignore when walking app/. */

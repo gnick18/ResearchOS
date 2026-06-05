@@ -69,6 +69,14 @@ export default function AppFooter({ className = "" }: { className?: string }) {
           >
             Transparency of tests
           </Link>
+          <span aria-hidden="true">·</span>
+          <Link
+            href="/privacy"
+            className="underline-offset-2 hover:text-gray-600 hover:underline"
+            data-testid="app-footer-privacy"
+          >
+            Privacy
+          </Link>
         </div>
       </div>
     </footer>
