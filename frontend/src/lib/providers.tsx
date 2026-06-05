@@ -144,7 +144,12 @@ function AppContent({ children }: { children: ReactNode }) {
   // truly-new gate below the same way `/wiki/*` does. The page itself is
   // <LandingPage> with no `onGetStarted`, so its primary CTA navigates to
   // /?connect=1 rather than dismissing an inline gate.
-  const isWelcomeRoute = pathname === "/welcome";
+  //
+  // `/welcome-preview` is the TEMP video-driven welcome rebuild (kept on its
+  // own route so the live `/welcome` stays untouched while we iterate). It is
+  // standalone the same way `/welcome` is, so it bypasses the gate too.
+  const isWelcomeRoute =
+    pathname === "/welcome" || pathname === "/welcome-preview";
 
   // QueryClient is a module-level singleton (see `appQueryClient` below)
   // so non-React-tree consumers (e.g. the onboarding-v4 cursor scripts
