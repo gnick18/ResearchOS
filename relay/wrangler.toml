@@ -1,0 +1,17 @@
+# ResearchOS notes collaboration relay worker.
+# Run locally with `npm run dev` (no Cloudflare account needed for local dev).
+name = "researchos-collab-relay"
+main = "src/worker.ts"
+
+# 2024-12-01 enables the WebSocket Hibernation API + SQLite-backed DOs.
+compatibility_date = "2024-12-01"
+
+[[durable_objects.bindings]]
+name = "COLLAB_ROOM"
+class_name = "CollabRoom"
+
+# new_sqlite_classes is required for the WebSocket Hibernation API on a fresh
+# DO class (SQLite-backed DOs are the current default storage backend).
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["CollabRoom"]
