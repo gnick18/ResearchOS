@@ -50,6 +50,7 @@ const EXCLUDED_PREFIXES = [
   "/transparency", // "Transparency of tests": bioinformatic-tool comparisons vs Biopython/primer3, build-time computed + vitest-gated (trust/informational, no AppShell, not a documented app feature; like /open-source)
   "/sharing-setup-test", // dev-only test harness for the cross-boundary sharing setup wizard (NODE_ENV=development gated, renders "not available" in prod); not a user feature
   "/privacy", // privacy policy (legal/informational, no AppShell, not a documented app feature; like /open-source). OAuth providers require a privacy-policy URL
+  "/welcome-preview", // internal design preview for the welcome page redesign, not a documented user feature
 ];
 
 /** Next.js conventions to ignore when walking app/. */
