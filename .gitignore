@@ -50,6 +50,8 @@ frontend/scratch-parse-output.json
 scripts/.dna-feature-cache/
 .vercel
 .env*
+# ...but keep the checked-in env template (placeholders only, no secrets).
+!frontend/.env.example
 
 # Raw demo screen recordings for the /welcome redesign (large, re-recordable; not tracked)
 demo-recordings/
