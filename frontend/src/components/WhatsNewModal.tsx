@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import BeakerBot from "./BeakerBot";
 import BeakerBotMouseWaveScene from "./BeakerBotMouseWaveScene";
 import { GoogleIcon, GitHubIcon, LinkedInIcon } from "@/components/sharing/icons";
+import { FREE_STORAGE_BYTES, TTL_DAYS } from "@/lib/sharing/relay/limits";
 import { APP_CHANNEL } from "@/lib/version";
 import type { ReleaseNote } from "@/lib/release-notes";
 
@@ -142,54 +143,134 @@ function ReleaseBlock({ release }: { release: ReleaseNote }) {
   );
 }
 
-/** The sign-in fork shown in the footer when the headline release sets
- *  `signInChoice`. Three compact OAuth buttons (each redirects the browser via
- *  `signIn`, so no local dismiss is needed on that path) plus a "Keep using
- *  locally" button that runs the normal dismiss. `signIn` works without a
- *  SessionProvider; this app mounts none, so we call the function directly. */
-function SignInChoiceFooter({ onDismiss }: { onDismiss: () => void }) {
+/** Sky-blue check glyph for the choice-card bullets (copied from the welcome
+ *  page so the popup cards read identically). */
+function ChoiceCheck() {
   return (
-    <div className="px-6 py-4 space-y-3">
-      <p className="text-meta text-gray-500 text-center">
-        Sign in to enable sharing, or keep using ResearchOS exactly as you do.
-      </p>
-      <div className="grid grid-cols-3 gap-2">
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="mt-0.5 flex-none text-sky-600"
+      aria-hidden
+    >
+      <path d="M4 10.5l3.5 3.5L16 5.5" />
+    </svg>
+  );
+}
+
+/** The full two-path account chooser, the SAME "Free / Also free" cards as the
+ *  welcome page, shown in the v0.5 accounts popup so an existing user makes the
+ *  same informed choice. The local card dismisses (keep your folder, nothing
+ *  changes); the sign-in buttons run `signIn` directly (they already have a
+ *  folder connected). `signIn` works without a SessionProvider, which this app
+ *  does not mount. The inbox numbers come from the relay limits so they never
+ *  drift from what the server enforces. */
+function SignInChoiceCards({ onKeepLocal }: { onKeepLocal: () => void }) {
+  const inboxGb = Math.round(FREE_STORAGE_BYTES / 1024 ** 3);
+  const oauthBtn =
+    "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 text-meta font-semibold transition-transform hover:scale-[1.03]";
+  return (
+    <div className="grid w-full gap-4 text-left md:grid-cols-2">
+      {/* Path A: keep using locally. Nothing changes for the existing user. */}
+      <div className="flex flex-col rounded-2xl border border-[#d3deec] bg-white p-5 shadow-[0_2px_12px_rgba(15,40,80,0.06)]">
+        <div className="font-mono text-meta font-semibold uppercase tracking-[0.1em] text-[#1283c9]">
+          // free
+        </div>
+        <h3 className="mt-1.5 text-heading font-extrabold tracking-tight text-[#0e1726]">
+          Use it locally
+        </h3>
+        <ul className="mt-4 flex-1 space-y-2.5">
+          <li className="flex items-start gap-2 text-body font-semibold leading-snug text-[#0e1726]">
+            <ChoiceCheck /> 100% of the features, free. Solo users get the whole app, nothing held back.
+          </li>
+          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
+            <ChoiceCheck /> Works offline, private, on your own machine.
+          </li>
+          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
+            <ChoiceCheck /> Free, and yours to keep forever.
+          </li>
+        </ul>
         <button
           type="button"
-          onClick={() => void signIn("google", { callbackUrl: "/" })}
-          data-testid="whats-new-signin-google"
-          className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-body font-medium hover:bg-gray-50 transition-colors"
+          onClick={onKeepLocal}
+          data-testid="whats-new-keep-local"
+          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0e1726] px-5 py-3 text-body font-bold text-white shadow-[0_10px_26px_rgba(15,40,80,0.20)] transition-transform hover:scale-[1.01]"
         >
-          <GoogleIcon className="w-4 h-4 flex-none" />
-          Google
+          Keep using locally
         </button>
-        <button
-          type="button"
-          onClick={() => void signIn("github", { callbackUrl: "/" })}
-          data-testid="whats-new-signin-github"
-          className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg bg-[#181717] text-white text-body font-medium hover:opacity-90 transition-opacity"
-        >
-          <GitHubIcon className="w-4 h-4 flex-none" />
-          GitHub
-        </button>
-        <button
-          type="button"
-          onClick={() => void signIn("linkedin", { callbackUrl: "/" })}
-          data-testid="whats-new-signin-linkedin"
-          className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg bg-[#0A66C2] text-white text-body font-medium hover:opacity-90 transition-opacity"
-        >
-          <LinkedInIcon className="w-4 h-4 flex-none" />
-          LinkedIn
-        </button>
+        <p className="mt-2 text-center text-meta text-[#8593a8]">
+          Nothing changes. Your folder stays yours.
+        </p>
       </div>
-      <button
-        type="button"
-        onClick={onDismiss}
-        data-testid="whats-new-keep-local"
-        className="w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-700 text-white text-body font-medium rounded-lg transition-colors"
-      >
-        Keep using locally
-      </button>
+
+      {/* Path B: sign in to add sharing. Existing user, so signIn directly. */}
+      <div className="flex flex-col rounded-2xl border border-[#cfe0f2] bg-[#f5faff] p-5 shadow-[0_2px_12px_rgba(15,40,80,0.06)]">
+        <div className="font-mono text-meta font-semibold uppercase tracking-[0.1em] text-[#1283c9]">
+          // also free
+        </div>
+        <h3 className="mt-1.5 text-heading font-extrabold tracking-tight text-[#0e1726]">
+          Sign in to share
+        </h3>
+        <ul className="mt-4 flex-1 space-y-2.5">
+          <li className="flex items-start gap-2 text-body font-semibold leading-snug text-[#0e1726]">
+            <ChoiceCheck /> + Use it locally. Your notebook still lives on your machine.
+          </li>
+          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
+            <ChoiceCheck /> Send notes, methods, and projects to anyone by email.
+          </li>
+          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
+            <ChoiceCheck /> A {inboxGb} GB encrypted inbox for work others send you, held {TTL_DAYS} days.
+          </li>
+          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
+            <ChoiceCheck /> Cross-lab sharing, no shared folder needed.
+          </li>
+          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
+            <ChoiceCheck /> Find other ResearchOS users to share with, coming soon.
+          </li>
+          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
+            <ChoiceCheck /> Live collaboration, coming soon.
+          </li>
+        </ul>
+        <div className="mt-5 flex gap-2">
+          <button
+            type="button"
+            onClick={() => void signIn("google", { callbackUrl: "/" })}
+            data-testid="whats-new-signin-google"
+            className={`${oauthBtn} border-[#d7dde5] bg-white text-gray-800`}
+          >
+            <GoogleIcon className="h-4 w-4 shrink-0" />
+            Google
+          </button>
+          <button
+            type="button"
+            onClick={() => void signIn("github", { callbackUrl: "/" })}
+            data-testid="whats-new-signin-github"
+            className={`${oauthBtn} border-[#181717] bg-[#181717] text-white`}
+          >
+            <GitHubIcon className="h-4 w-4 shrink-0" />
+            GitHub
+          </button>
+          <button
+            type="button"
+            onClick={() => void signIn("linkedin", { callbackUrl: "/" })}
+            data-testid="whats-new-signin-linkedin"
+            className={`${oauthBtn} border-[#0A66C2] bg-[#0A66C2] text-white hover:bg-[#004182]`}
+          >
+            <LinkedInIcon className="h-4 w-4 shrink-0" />
+            LinkedIn
+          </button>
+        </div>
+        <p className="mt-2 text-meta leading-snug text-[#8593a8]">
+          Sign-in only verifies your email. Your notebook still lives on your
+          machine.
+        </p>
+      </div>
     </div>
   );
 }
@@ -247,7 +328,7 @@ export default function WhatsNewModal({
           aria-modal="true"
           aria-labelledby="whats-new-title"
           data-testid="whats-new-modal"
-          className="relative w-full max-w-md rounded-2xl bg-white border border-gray-200 shadow-2xl overflow-hidden"
+          className={`relative w-full ${offerSignInChoice ? "max-w-2xl" : "max-w-md"} rounded-2xl bg-white border border-gray-200 shadow-2xl overflow-hidden`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header: BeakerBot waving over a soft sky wash. */}
@@ -290,8 +371,14 @@ export default function WhatsNewModal({
             </p>
           </div>
 
-          {/* Body: the headline release, then (optionally) the rest. */}
-          <div className="px-6 pb-2 space-y-5 max-h-[50vh] overflow-y-auto">
+          {/* Body: the headline release, then (optionally) the rest. On the
+              accounts release the two-path chooser cards live here too, under
+              the message, so the whole thing scrolls as one block. */}
+          <div
+            className={`px-6 space-y-5 overflow-y-auto ${
+              offerSignInChoice ? "pb-6 max-h-[72vh]" : "pb-2 max-h-[50vh]"
+            }`}
+          >
             <ReleaseBlock release={headline} />
 
             {extra > 0 && !showAllExpanded && !expanded && (
@@ -315,13 +402,15 @@ export default function WhatsNewModal({
                   <ReleaseBlock release={r} />
                 </div>
               ))}
+
+            {offerSignInChoice && (
+              <SignInChoiceCards onKeepLocal={onDismiss} />
+            )}
           </div>
 
-          {/* Footer: a sign-in fork on the accounts release, otherwise the
-              single dismiss button. */}
-          {offerSignInChoice ? (
-            <SignInChoiceFooter onDismiss={onDismiss} />
-          ) : (
+          {/* Footer: a single dismiss button on a normal release. The accounts
+              release puts its actions inside the chooser cards instead. */}
+          {!offerSignInChoice && (
             <div className="px-6 py-4">
               <button
                 type="button"
