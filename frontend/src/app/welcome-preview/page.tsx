@@ -380,16 +380,11 @@ export default function WelcomePreviewPage() {
 
         {/* ── Bento feature grid ──────────────────────────────────────── */}
         <section className="px-6 py-16 sm:px-12">
-          <div className="mx-auto mb-8 max-w-[1320px]">
-            <Kicker>// the few that matter</Kicker>
+          <div className="mx-auto mb-8 max-w-[1180px]">
+            <Kicker>// the toolkit</Kicker>
             <h2 className="mt-2.5 max-w-[22ch] text-3xl font-extrabold leading-tight tracking-tight text-[#0e1726] md:text-[36px]">
               The tools that make you want to try it
             </h2>
-            <p className="mt-3 max-w-[60ch] text-title leading-relaxed text-[#475569]">
-              We do not list every feature. We lead with the handful that make a
-              researcher go &ldquo;I have to try this,&rdquo; and trust you to
-              discover the rest once you are in.
-            </p>
           </div>
 
           {/* The sequence-editor clip leads the HERO, and own-your-data has its
