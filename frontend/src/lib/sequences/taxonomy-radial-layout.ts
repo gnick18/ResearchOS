@@ -303,26 +303,188 @@ export function isNodeVisibleAtZoom(
 }
 
 /**
- * Filter a laid-out tree to the nodes visible at the current zoom, preserving
- * the input order and never orphaning a visible node (a node is kept only when
- * its parent is also kept, so links always connect). Pure helper for the render
- * pass and its test.
+ * A rectangle in the LAYOUT coordinate space (the same space polarToCartesian
+ * returns). The render layer computes it by inverse-transforming the on-screen
+ * viewport through the current d3-zoom transform, so it is the slice of the tree
+ * the user can actually see. Used to bound the drawn node count at any zoom.
+ */
+export interface ViewportRect {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+/** Default viewport-cull options. The margin is a fraction of the rect's larger
+ *  side, so panning a little does not pop nodes in. The cap is a hard ceiling on
+ *  the drawn node count, a safety net against a pathological zoom. */
+const VIEWPORT_DEFAULTS = {
+  /** Padding as a fraction of the viewport's larger side (15 percent). */
+  marginFraction: 0.15,
+  /** Never draw more than this many nodes, whatever the filters pass. */
+  hardCap: 2500,
+};
+
+/**
+ * Whether a laid-out node's on-screen position falls within the visible viewport
+ * (expanded by a margin so a small pan does not pop nodes). The viewport is given
+ * in LAYOUT coordinates (already inverse-transformed by the caller), so this is a
+ * plain rectangle test on the node's cartesian position. Pure and exported so a
+ * test can pin the inside / outside / near-edge behavior.
+ *
+ * @param node    a laid-out node
+ * @param rect    the visible rectangle in layout coordinates
+ * @param margin  absolute padding added to every side, in layout units
+ */
+export function isNodeInViewport(
+  node: RadialLaidOutNode,
+  rect: ViewportRect,
+  margin = 0,
+): boolean {
+  const { x, y } = polarToCartesian(node.angle, node.radius);
+  return (
+    x >= rect.minX - margin &&
+    x <= rect.maxX + margin &&
+    y >= rect.minY - margin &&
+    y <= rect.maxY + margin
+  );
+}
+
+/** Options for visibleNodesAtZoom's viewport-aware path. All optional, so the
+ *  legacy size-only call (zoomScale + minPixels) still works unchanged. */
+export interface VisibleNodesOptions {
+  /** The visible rectangle in layout coordinates. When given, a node must fall
+   *  inside it (plus the margin) on top of clearing the size threshold. */
+  viewport?: ViewportRect;
+  /** Padding fraction of the viewport's larger side. Defaults to 15 percent. */
+  marginFraction?: number;
+  /** Hard ceiling on the drawn node count. Defaults to 2500. When more nodes
+   *  pass the filters, the largest-footprint ones win (priority by on-screen
+   *  arc / thickness), so a pathological zoom cannot explode the DOM. */
+  hardCap?: number;
+}
+
+/** The on-screen footprint of a node at a zoom, the same measure the size cull
+ *  uses (max of the wedge's tangential arc and its thickness, times the zoom).
+ *  Exposed only to rank nodes for the hard cap. */
+function nodeFootprint(node: RadialLaidOutNode, zoomScale: number): number {
+  const arcPixels = node.angularWidth * node.radius * zoomScale;
+  const thicknessPixels = node.thickness * zoomScale;
+  return Math.max(arcPixels, thicknessPixels);
+}
+
+/**
+ * Filter a laid-out tree to the nodes worth drawing at the current zoom,
+ * preserving the input order and never orphaning a node (a kept node always has
+ * its ancestors kept, so links always connect to a drawn parent).
+ *
+ * Two filters stack:
+ *  1. SIZE. A node's on-screen footprint must clear minPixels (the legacy cull).
+ *  2. VIEWPORT (optional). The node's on-screen position must fall inside the
+ *     visible rectangle plus a margin. This is what bounds the count at high
+ *     zoom, because zooming in shrinks the visible tree-space rectangle even as
+ *     the size footprint grows.
+ *
+ * Ancestors of any kept node are force-kept so links never orphan, even when an
+ * ancestor sits just outside the viewport. Finally a HARD CAP trims to the
+ * largest-footprint nodes (root and the forced ancestors are always retained so
+ * the fan stays connected), a safety net against a pathological zoom.
+ *
+ * Backward compatible: called as visibleNodesAtZoom(laidOut, zoom, minPixels)
+ * with no options, it is the old size-only cull.
  */
 export function visibleNodesAtZoom(
   laidOut: RadialLaidOutNode[],
   zoomScale: number,
   minPixels: number,
+  options: VisibleNodesOptions = {},
 ): RadialLaidOutNode[] {
-  const kept = new Set<string>();
-  const out: RadialLaidOutNode[] = [];
+  const viewport = options.viewport;
+  const marginFraction = options.marginFraction ?? VIEWPORT_DEFAULTS.marginFraction;
+  const hardCap = options.hardCap ?? VIEWPORT_DEFAULTS.hardCap;
+
+  // Absolute margin in layout units, a fraction of the viewport's larger side so
+  // the padding tracks how zoomed in we are (a small viewport gets a small ring
+  // of slack, one node-ring or so).
+  const margin = viewport
+    ? Math.max(viewport.maxX - viewport.minX, viewport.maxY - viewport.minY) * marginFraction
+    : 0;
+
+  // Index by id so the ancestor walk can resolve parents.
+  const byId = new Map<string, RadialLaidOutNode>();
+  for (const n of laidOut) byId.set(n.id, n);
+
+  // Without a viewport this is the LEGACY size-only cull, in input order, never
+  // orphaning a visible node (a node is kept only when its parent is also kept,
+  // so links always connect). Preserved exactly so the old contract holds.
+  if (!viewport) {
+    const keptLegacy = new Set<string>();
+    const outLegacy: RadialLaidOutNode[] = [];
+    for (const node of laidOut) {
+      const selfVisible = isNodeVisibleAtZoom(node, zoomScale, minPixels);
+      const parentKept = node.parentId === null || keptLegacy.has(node.parentId);
+      if (selfVisible && parentKept) {
+        keptLegacy.add(node.id);
+        outLegacy.push(node);
+      }
+    }
+    return outLegacy;
+  }
+
+  // VIEWPORT path. First pass: a node passes the FILTERS when it clears the size
+  // threshold and sits inside the padded rectangle. The root always passes (it
+  // anchors the view).
+  const passes = new Set<string>();
   for (const node of laidOut) {
-    const selfVisible = isNodeVisibleAtZoom(node, zoomScale, minPixels);
-    const parentKept = node.parentId === null || kept.has(node.parentId);
-    if (selfVisible && parentKept) {
-      kept.add(node.id);
-      out.push(node);
+    if (node.parentId === null) {
+      passes.add(node.id);
+      continue;
+    }
+    const sizeOk = isNodeVisibleAtZoom(node, zoomScale, minPixels);
+    const viewportOk = isNodeInViewport(node, viewport, margin);
+    if (sizeOk && viewportOk) passes.add(node.id);
+  }
+
+  // Force-keep the ancestors of every passing node so a kept node never orphans
+  // (its link always reaches a drawn parent), even if an ancestor sits just
+  // outside the viewport. Walk each passing node up to the root.
+  const kept = new Set<string>();
+  for (const id of passes) {
+    let cursor: string | null = id;
+    const guard = new Set<string>();
+    while (cursor && !guard.has(cursor)) {
+      guard.add(cursor);
+      kept.add(cursor);
+      const node = byId.get(cursor);
+      cursor = node ? node.parentId : null;
     }
   }
+
+  // The kept set in input order. If it is within the cap, we are done.
+  let out = laidOut.filter((n) => kept.has(n.id));
+  if (out.length <= hardCap) return out;
+
+  // Over the cap: keep the largest-footprint nodes, but always retain the root
+  // and the FORCED ancestors (nodes kept only to connect a child), so trimming
+  // never orphans a survivor. The forced ancestors are the kept nodes that did
+  // not pass the filters on their own.
+  const mandatory = new Set<string>();
+  for (const n of out) {
+    if (n.parentId === null || !passes.has(n.id)) mandatory.add(n.id);
+  }
+
+  // Candidates are the on-their-own-merit nodes, ranked by footprint descending.
+  const candidates = out
+    .filter((n) => !mandatory.has(n.id))
+    .sort((a, b) => nodeFootprint(b, zoomScale) - nodeFootprint(a, zoomScale));
+
+  const room = Math.max(0, hardCap - mandatory.size);
+  const capped = new Set<string>(mandatory);
+  for (let i = 0; i < candidates.length && capped.size < mandatory.size + room; i += 1) {
+    capped.add(candidates[i].id);
+  }
+
+  out = laidOut.filter((n) => capped.has(n.id));
   return out;
 }
 
@@ -338,6 +500,39 @@ export function isLabelVisibleAtZoom(
 ): boolean {
   const arcPixels = node.angularWidth * node.radius * zoomScale;
   return arcPixels >= minLabelPixels;
+}
+
+/**
+ * The visible viewport in LAYOUT coordinates from a d3-zoom transform and the
+ * on-screen drawing box. d3-zoom maps a layout point to screen as
+ *   screen = k * layout + [tx, ty]
+ * so the inverse of a screen point is (screen - [tx, ty]) / k. We invert the two
+ * opposite corners of the [0, viewSize] square (the SVG viewBox) to get the tree
+ * slice on screen. Pure, so a test can pin the rect math without a real d3
+ * transform. The render layer passes k / tx / ty straight off event.transform.
+ *
+ * @param k        the zoom scale (event.transform.k)
+ * @param tx       the x translation (event.transform.x)
+ * @param ty       the y translation (event.transform.y)
+ * @param viewSize the SVG drawing box side, in screen units
+ */
+export function viewportRectFromTransform(
+  k: number,
+  tx: number,
+  ty: number,
+  viewSize: number,
+): ViewportRect {
+  const safeK = k === 0 ? 1 : k;
+  const x0 = (0 - tx) / safeK;
+  const y0 = (0 - ty) / safeK;
+  const x1 = (viewSize - tx) / safeK;
+  const y1 = (viewSize - ty) / safeK;
+  return {
+    minX: Math.min(x0, x1),
+    minY: Math.min(y0, y1),
+    maxX: Math.max(x0, x1),
+    maxY: Math.max(y0, y1),
+  };
 }
 
 /** Convert a laid-out node's polar position to cartesian, the render layer's

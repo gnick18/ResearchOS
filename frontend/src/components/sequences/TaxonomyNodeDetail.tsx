@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tooltip from "@/components/Tooltip";
 import { fetchAssembliesCount } from "@/lib/sequences/taxonomy-explorer";
+import { SYNTHETIC_ROOT_ID } from "@/lib/sequences/taxonomy-radial-source";
 
 /** What the import jump prefills, handed up to the page. */
 export interface TaxonomyImportPrefill {
@@ -166,6 +167,12 @@ export default function TaxonomyNodeDetail({
     });
   }, [assemblies, node.taxId]);
 
+  // The synthetic root is the artificial center that ties the backbone roots
+  // (cellular organisms + Viruses) under one point. It is not a real taxon, so
+  // its detail reads as the whole tree, no tax id line and no count badge (the
+  // count would be a meaningless sum across the backbone roots).
+  const isSyntheticRoot = node.taxId === SYNTHETIC_ROOT_ID;
+
   const countText = useMemo(() => {
     if (countMode === "species") {
       const n = node.speciesCount;
@@ -188,9 +195,11 @@ export default function TaxonomyNodeDetail({
           <h3 className="truncate text-title font-semibold text-gray-900">{node.name}</h3>
           <div className="mt-1 flex items-center gap-2">
             <span className="rounded-full bg-sky-100 px-2 py-0.5 text-meta font-medium uppercase tracking-wide text-sky-700">
-              {rankLabel(node.rank)}
+              {isSyntheticRoot ? "Root" : rankLabel(node.rank)}
             </span>
-            <span className="text-meta text-gray-400">taxon {node.taxId}</span>
+            {isSyntheticRoot ? null : (
+              <span className="text-meta text-gray-400">taxon {node.taxId}</span>
+            )}
           </div>
         </div>
         <Tooltip label="Close details">
@@ -205,7 +214,9 @@ export default function TaxonomyNodeDetail({
         </Tooltip>
       </div>
 
-      {/* Count badge, toggleable between species and assemblies. */}
+      {/* Count badge, toggleable between species and assemblies. Hidden for the
+          synthetic root, which has no real count of its own. */}
+      {isSyntheticRoot ? null : (
       <Tooltip
         label={
           countMode === "species"
@@ -224,6 +235,7 @@ export default function TaxonomyNodeDetail({
           {countText}
         </button>
       </Tooltip>
+      )}
 
       <div className="flex flex-col gap-2">
         {/* Center the radial view on this node. */}
@@ -250,9 +262,11 @@ export default function TaxonomyNodeDetail({
       </div>
 
       <p className="mt-auto text-meta leading-relaxed text-gray-400">
-        {node.origin === "backbone"
-          ? "From the offline taxonomy backbone."
-          : "Loaded live from the NCBI taxonomy."}
+        {isSyntheticRoot
+          ? "The center of the tree, where every domain of life branches out."
+          : node.origin === "backbone"
+            ? "From the offline taxonomy backbone."
+            : "Loaded live from the NCBI taxonomy."}
       </p>
     </div>
   );

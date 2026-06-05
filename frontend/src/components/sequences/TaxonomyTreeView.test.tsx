@@ -115,10 +115,13 @@ describe("TaxonomyTreeView", () => {
       expect(svg.querySelectorAll("circle").length).toBeGreaterThan(0);
     });
     const circles = Array.from(svg.querySelectorAll("circle"));
-    // Click each until the detail opens (the root marker may be first).
+    // Click each until a real taxon detail opens. The synthetic root opens a
+    // detail without a count badge, so skip it and keep clicking until a node
+    // with a species / assemblies count shows.
     for (const c of circles) {
       fireEvent.click(c);
-      if (screen.queryByTestId("taxonomy-node-detail")) break;
+      const open = screen.queryByTestId("taxonomy-node-detail");
+      if (open && /species|assemblies/i.test(open.textContent ?? "")) break;
     }
 
     const detail = await screen.findByTestId("taxonomy-node-detail");

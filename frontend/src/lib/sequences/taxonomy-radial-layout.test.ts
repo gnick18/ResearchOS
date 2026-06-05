@@ -10,9 +10,12 @@ import {
   isNodeVisibleAtZoom,
   visibleNodesAtZoom,
   isLabelVisibleAtZoom,
+  isNodeInViewport,
+  viewportRectFromTransform,
   polarToCartesian,
   type RadialInputNode,
   type RadialLaidOutNode,
+  type ViewportRect,
 } from "./taxonomy-radial-layout";
 
 // A small synthetic tree: a root with a FAT clade (1,000,000 species) and a
@@ -200,6 +203,132 @@ describe("label culling", () => {
     expect(isLabelVisibleAtZoom(node, 1, 40)).toBe(false);
     // Zoom in 5x: arcPixels = 50 >= 40, label appears.
     expect(isLabelVisibleAtZoom(node, 5, 40)).toBe(true);
+  });
+});
+
+describe("viewport culling", () => {
+  // A node helper positioned by its cartesian target. We pick angle 0 (straight
+  // up, so cartesian is (0, -radius)) and angle PI/2 (to the right, (radius, 0))
+  // to place nodes at known points without fighting the trig.
+  function nodeUp(id: string, radius: number, parentId: string | null = "p"): RadialLaidOutNode {
+    return {
+      id, name: id, rank: "family", speciesCount: 10, depth: 2,
+      angle: 0, angularWidth: 0.5, radius, thickness: 5, parentId, weight: 5,
+    };
+  }
+  function nodeRight(id: string, radius: number, parentId: string | null = "p"): RadialLaidOutNode {
+    return {
+      id, name: id, rank: "family", speciesCount: 10, depth: 2,
+      angle: Math.PI / 2, angularWidth: 0.5, radius, thickness: 5, parentId, weight: 5,
+    };
+  }
+
+  const rect: ViewportRect = { minX: -100, minY: -100, maxX: 100, maxY: 100 };
+
+  it("keeps a node whose position falls inside the rect", () => {
+    // angle 0, radius 50 -> cartesian (0, -50), inside [-100, 100].
+    expect(isNodeInViewport(nodeUp("inside", 50), rect, 0)).toBe(true);
+  });
+
+  it("drops a node well outside the rect", () => {
+    // angle 0, radius 500 -> cartesian (0, -500), far above the rect top.
+    expect(isNodeInViewport(nodeUp("outside", 500), rect, 0)).toBe(false);
+  });
+
+  it("includes a near-edge node once the margin is applied", () => {
+    // angle PI/2, radius 120 -> cartesian (120, 0). Just outside maxX 100 with no
+    // margin, but inside once a 30-unit margin pads the rect.
+    expect(isNodeInViewport(nodeRight("edge", 120), rect, 0)).toBe(false);
+    expect(isNodeInViewport(nodeRight("edge", 120), rect, 30)).toBe(true);
+  });
+
+  it("viewportRectFromTransform inverts the screen box into layout space", () => {
+    // Identity-ish: k=1, translate (500, 500), a 1000 box -> layout rect is
+    // [-500, 500] on both axes (the box minus the translation, over k).
+    const r = viewportRectFromTransform(1, 500, 500, 1000);
+    expect(r.minX).toBeCloseTo(-500, 6);
+    expect(r.maxX).toBeCloseTo(500, 6);
+    expect(r.minY).toBeCloseTo(-500, 6);
+    expect(r.maxY).toBeCloseTo(500, 6);
+  });
+
+  it("viewportRectFromTransform shrinks the layout rect as zoom (k) grows", () => {
+    // At k=10, centered, the visible layout slice is ten times smaller.
+    const r = viewportRectFromTransform(10, 500, 500, 1000);
+    const width = r.maxX - r.minX;
+    expect(width).toBeCloseTo(100, 6); // 1000 / 10
+  });
+
+  it("visibleNodesAtZoom drops nodes outside the viewport even when big enough", () => {
+    const laid: RadialLaidOutNode[] = [
+      { id: "root", name: "r", rank: "root", speciesCount: 0, depth: 0, angle: 0, angularWidth: 6.28, radius: 0, thickness: 5, parentId: null, weight: 1 },
+      // Inside the rect (cartesian (0, -50)), wide enough on size too.
+      nodeUp("near", 50, "root"),
+      // Outside the rect (cartesian (0, -2000)), but its size footprint is huge.
+      { id: "far", name: "far", rank: "family", speciesCount: 1e6, depth: 9, angle: 0, angularWidth: 1.5, radius: 2000, thickness: 12, parentId: "root", weight: 14 },
+    ];
+    const viewport: ViewportRect = { minX: -100, minY: -100, maxX: 100, maxY: 100 };
+    const out = visibleNodesAtZoom(laid, 5, 6, { viewport, marginFraction: 0 });
+    const ids = out.map((n) => n.id);
+    expect(ids).toContain("root");
+    expect(ids).toContain("near");
+    expect(ids).not.toContain("far");
+  });
+
+  it("never orphans: an in-viewport node keeps its out-of-viewport ancestors", () => {
+    // The child is inside the rect, but its parent sits just outside it. The
+    // parent must be force-kept so the link to the child connects.
+    const laid: RadialLaidOutNode[] = [
+      { id: "root", name: "r", rank: "root", speciesCount: 0, depth: 0, angle: 0, angularWidth: 6.28, radius: 0, thickness: 5, parentId: null, weight: 1 },
+      // Parent at (0, -200), outside a [-100,100] rect.
+      { id: "parent", name: "p", rank: "order", speciesCount: 10, depth: 1, angle: 0, angularWidth: 0.5, radius: 200, thickness: 5, parentId: "root", weight: 5 },
+      // Child at (0, -50), inside the rect.
+      { id: "child", name: "c", rank: "family", speciesCount: 10, depth: 2, angle: 0, angularWidth: 0.5, radius: 50, thickness: 5, parentId: "parent", weight: 5 },
+    ];
+    const viewport: ViewportRect = { minX: -100, minY: -100, maxX: 100, maxY: 100 };
+    const out = visibleNodesAtZoom(laid, 5, 6, { viewport, marginFraction: 0 });
+    const ids = out.map((n) => n.id);
+    expect(ids).toContain("child");
+    expect(ids).toContain("parent"); // force-kept so the link is not orphaned
+    expect(ids).toContain("root");
+  });
+
+  it("hard cap keeps the largest-footprint nodes plus the mandatory ancestors", () => {
+    // A root with many sibling children all inside the viewport. With a cap of 3
+    // (root + 2), only the two fattest children survive.
+    const root: RadialLaidOutNode = {
+      id: "root", name: "r", rank: "root", speciesCount: 0, depth: 0, angle: 0, angularWidth: 6.28, radius: 0, thickness: 5, parentId: null, weight: 1,
+    };
+    const kids: RadialLaidOutNode[] = [];
+    for (let i = 0; i < 10; i += 1) {
+      kids.push({
+        id: `k${i}`, name: `k${i}`, rank: "family", speciesCount: 10, depth: 1,
+        // All near the center (inside the rect), thickness grows with i so the
+        // last ones have the biggest footprint.
+        angle: 0, angularWidth: 0.1, radius: 10, thickness: 1 + i, parentId: "root", weight: 5,
+      });
+    }
+    const laid = [root, ...kids];
+    const viewport: ViewportRect = { minX: -100, minY: -100, maxX: 100, maxY: 100 };
+    const out = visibleNodesAtZoom(laid, 1, 0, { viewport, marginFraction: 0, hardCap: 3 });
+    expect(out.length).toBe(3);
+    const ids = out.map((n) => n.id);
+    expect(ids).toContain("root");
+    // The two fattest children (k9, k8) survive; a thin one (k0) does not.
+    expect(ids).toContain("k9");
+    expect(ids).toContain("k8");
+    expect(ids).not.toContain("k0");
+  });
+
+  it("with no viewport option, stays the legacy size-only cull", () => {
+    const laid: RadialLaidOutNode[] = [
+      { id: "root", name: "r", rank: "root", speciesCount: 0, depth: 0, angle: 0, angularWidth: 6.28, radius: 40, thickness: 5, parentId: null, weight: 1 },
+      { id: "mid", name: "m", rank: "order", speciesCount: 2, depth: 1, angle: 0, angularWidth: 0.0001, radius: 130, thickness: 1, parentId: "root", weight: 1 },
+    ];
+    const out = visibleNodesAtZoom(laid, 1, 30);
+    const ids = out.map((n) => n.id);
+    expect(ids).toContain("root");
+    expect(ids).not.toContain("mid");
   });
 });
 

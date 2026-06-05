@@ -44,6 +44,7 @@ import {
   visibleNodesAtZoom,
   isLabelVisibleAtZoom,
   polarToCartesian,
+  viewportRectFromTransform,
   type RadialLaidOutNode,
 } from "@/lib/sequences/taxonomy-radial-layout";
 import {
@@ -68,6 +69,12 @@ import TaxonomyNodeDetail, {
 // nudged after a live pass.
 const NODE_MIN_PX = 6;
 const LABEL_MIN_PX = 46;
+
+// The hard ceiling on drawn nodes, the safety net for a pathological zoom. The
+// viewport cull bounds the count on its own; this only fires if a degenerate
+// case slips past it. Kept near the default-zoom node count so the cap never
+// trims a normal view.
+const NODE_HARD_CAP = 2500;
 
 // The SVG drawing box. The view is centered, and d3-zoom transforms a single
 // inner group, so the numbers here are layout units, not screen pixels.
@@ -212,9 +219,12 @@ export default function TaxonomyTreeView({
   // tree, or a focused subtree). A focus re-roots the layout.
   const [focusId, setFocusId] = useState<string>(SYNTHETIC_ROOT_ID);
 
-  // The current d3-zoom scale, kept in React state so the level-of-detail and
-  // label culling recompute as the user zooms. Set by the zoom handler.
-  const [zoomScale, setZoomScale] = useState(1);
+  // The current d3-zoom transform, kept in React state so the level-of-detail,
+  // viewport culling, and label culling recompute as the user pans / zooms. The
+  // scale (k) drives the size cull; the translation (x, y) plus the scale give
+  // the visible rectangle for the viewport cull. Set by the zoom handler.
+  const [zoomTransform, setZoomTransform] = useState({ k: 1, x: VIEW_SIZE / 2, y: VIEW_SIZE / 2 });
+  const zoomScale = zoomTransform.k;
 
   // The selected node (drives the click-detail). Null hides the detail.
   const [selected, setSelected] = useState<TaxonomyDetailNode | null>(null);
@@ -292,10 +302,30 @@ export default function TaxonomyTreeView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pool, focusId, layoutVersion]);
 
-  // The visible subset at the current zoom (level-of-detail culling).
+  // The slice of the tree on screen, in layout coordinates, from the current
+  // zoom transform. The SVG viewBox is the [0, VIEW_SIZE] square, so we invert
+  // that box through the transform. This is what bounds the drawn count at high
+  // zoom, since zooming in shrinks the visible tree-space rectangle.
+  const viewport = useMemo(
+    () =>
+      viewportRectFromTransform(
+        zoomTransform.k,
+        zoomTransform.x,
+        zoomTransform.y,
+        VIEW_SIZE,
+      ),
+    [zoomTransform],
+  );
+
+  // The visible subset at the current zoom (size cull + viewport cull + a hard
+  // cap). The viewport keeps the count bounded however far the user zooms in.
   const visible = useMemo(
-    () => visibleNodesAtZoom(laidOut, zoomScale, NODE_MIN_PX),
-    [laidOut, zoomScale],
+    () =>
+      visibleNodesAtZoom(laidOut, zoomScale, NODE_MIN_PX, {
+        viewport,
+        hardCap: NODE_HARD_CAP,
+      }),
+    [laidOut, zoomScale, viewport],
   );
 
   // Wire d3-zoom to the svg once it is mounted. The zoom transforms the inner
@@ -312,14 +342,14 @@ export default function TaxonomyTreeView({
       .scaleExtent([0.3, 400])
       .on("zoom", (event) => {
         g.attr("transform", event.transform.toString());
-        setZoomScale(event.transform.k);
+        setZoomTransform({ k: event.transform.k, x: event.transform.x, y: event.transform.y });
       });
     zoomRef.current = behavior;
     svg.call(behavior);
     // Start centered with the root near the middle.
     const initial = zoomIdentity.translate(VIEW_SIZE / 2, VIEW_SIZE / 2).scale(1);
     svg.call(behavior.transform, initial);
-    setZoomScale(1);
+    setZoomTransform({ k: 1, x: VIEW_SIZE / 2, y: VIEW_SIZE / 2 });
 
     return () => {
       svg.on(".zoom", null);
