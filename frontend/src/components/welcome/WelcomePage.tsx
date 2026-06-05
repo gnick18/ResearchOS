@@ -938,14 +938,14 @@ export default function WelcomePage() {
             </p>
           </div>
 
-          {/* BeakerBot peeks over the ResearchOS column and cheers "us!", then
-              settles into a living idle. */}
+          {/* BeakerBot peeks over the ResearchOS column and cheers (no bubble,
+              the cheer over our column says it), then settles into a living
+              idle. */}
           <BeakerBotPeek
             anchor="top-left"
             edgeInset="33%"
             reactionPose="cheering"
             restPose="idle"
-            bubble="us!"
             size="h-24 w-24"
           >
             <div className="mx-auto max-w-[1320px] overflow-hidden rounded-2xl border border-[#e3eaf3] bg-white shadow-[0_1px_2px_rgba(15,40,80,0.04)]">
