@@ -1310,6 +1310,13 @@ export default function NoteDetailPopup({
                   ownerEmail: currentUser,
                   previousSharedWith: sharedWithBeforeShareRef.current,
                   nextSharedWith: updated.shared_with ?? [],
+                }).then((docId) => {
+                  // Go live right after sharing, not only on reopen: minting the
+                  // doc id does not change the auto-connect effect's deps, so
+                  // trigger the connect here when the session is still idle.
+                  if (docId && collab.state.status === "idle") {
+                    collab.connectFromDocId(docId);
+                  }
                 });
               }
             }

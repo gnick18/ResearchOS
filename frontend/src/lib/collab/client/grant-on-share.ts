@@ -57,8 +57,15 @@ export async function grantCollabOnShare(
 ): Promise<string | null> {
   const { doc, ownerEmail, previousSharedWith, nextSharedWith } = params;
 
-  // Skip when there are no new members.
+  // Not shared with anyone, nothing to do.
   if (nextSharedWith.length === 0) return null;
+
+  // The note IS shared (with anyone, including the whole-lab "*" sentinel), so
+  // it is a collaborative doc. Mint the doc id unconditionally and idempotently.
+  // This is what flips the note into auto-on-open collab. A whole-lab share has
+  // no specific member email, so the earlier "only mint for new named members"
+  // path skipped it and the note never got a doc id; minting here fixes that.
+  const docId = getOrMintCollabDocId(doc);
 
   // Compute newly-added usernames (present in next, absent in previous).
   const prevSet = new Set((previousSharedWith ?? []).map((s) => s.username));
@@ -67,13 +74,6 @@ export async function grantCollabOnShare(
     .filter((u) => u !== "*" && !prevSet.has(u)); // skip the whole-lab sentinel
 
   const isFirstShare = (previousSharedWith ?? []).length === 0;
-
-  // Nothing to grant if no real new members were added.
-  if (newMembers.length === 0 && !isFirstShare) return null;
-
-  // Mint the doc id if this is the first time the note is shared.
-  // getOrMintCollabDocId writes to the CRDT meta map and commits.
-  const docId = getOrMintCollabDocId(doc);
 
   // On first share, grant the owner themselves so they can push.
   if (isFirstShare) {
