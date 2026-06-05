@@ -396,9 +396,15 @@ export default function WelcomePage() {
               What we&apos;re building
             </button>
             {/* UW-Madison affiliation badge (the W crest from the official RISE
-                lockup + a short label). The full RISE logo lives in the footer;
-                the nav uses the compact crest so it reads at small size. */}
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#d3deec] bg-white px-3 py-1 text-meta font-semibold text-brand-ink">
+                lockup + a short label), linking to the RISE program that funds
+                the work. The full RISE logo lives in the footer; the nav uses
+                the compact crest so it reads at small size. */}
+            <a
+              href="https://rise.wisc.edu/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#d3deec] bg-white px-3 py-1 text-meta font-semibold text-brand-ink transition-colors hover:border-brand-action hover:bg-[#f5f9fd]"
+            >
               <Image
                 src="/credentials/uw-crest.png"
                 alt="University of Wisconsin-Madison crest"
@@ -408,7 +414,7 @@ export default function WelcomePage() {
                 className="h-4 w-auto"
               />
               Backed by UW-Madison
-            </span>
+            </a>
           </div>
         </nav>
 
