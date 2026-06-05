@@ -24,12 +24,14 @@ import {
   type LedgerDirection,
   type LedgerEntry,
 } from "@/lib/business/calc";
+import type { InfraCostEstimate } from "@/lib/sharing/capacity-shared";
 
 interface BusinessData {
   entity: EntityConfig;
   ledger: LedgerEntry[];
   summary: BusinessSummary;
   deadlines: Deadline[];
+  infraEstimate: InfraCostEstimate;
 }
 
 type State =
@@ -159,9 +161,13 @@ function EntityCard({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
+  // Re-sync the form when a fresh entity arrives (after a save/refetch), using
+  // the adjust-state-during-render pattern rather than an effect.
+  const [syncedFrom, setSyncedFrom] = useState(entity);
+  if (syncedFrom !== entity) {
+    setSyncedFrom(entity);
     setForm(entity);
-  }, [entity]);
+  }
 
   const field = (label: string, node: React.ReactNode) => (
     <label className="block">
@@ -447,30 +453,36 @@ function SectionTitle({ children, sub }: { children: React.ReactNode; sub?: stri
   );
 }
 
+/** Fetches the business data and maps it to a State, never calling setState. */
+async function fetchBusiness(): Promise<State> {
+  try {
+    const res = await fetch("/api/admin/business");
+    if (res.status === 404 || res.status === 401) return { phase: "denied" };
+    if (!res.ok) return { phase: "error" };
+    const data = (await res.json()) as BusinessData;
+    return { phase: "ready", data };
+  } catch {
+    return { phase: "error" };
+  }
+}
+
 export default function BusinessTracker() {
   const [state, setState] = useState<State>({ phase: "loading" });
 
   const load = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/business");
-      if (res.status === 404 || res.status === 401) {
-        setState({ phase: "denied" });
-        return;
-      }
-      if (!res.ok) {
-        setState({ phase: "error" });
-        return;
-      }
-      const data = (await res.json()) as BusinessData;
-      setState({ phase: "ready", data });
-    } catch {
-      setState({ phase: "error" });
-    }
+    setState(await fetchBusiness());
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    void (async () => {
+      const next = await fetchBusiness();
+      if (!cancelled) setState(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const saveEntity = async (entity: EntityConfig) => {
     await fetch("/api/admin/business", {
@@ -520,6 +532,16 @@ export default function BusinessTracker() {
     await load();
   };
 
+  const recordInfra = async (cents: number) => {
+    await addEntry({
+      date: new Date().toISOString().slice(0, 10),
+      direction: "out",
+      category: "Infrastructure (estimate)",
+      amountCents: cents,
+      note: "Auto-estimated storage cost from current usage",
+    });
+  };
+
   if (state.phase === "loading") {
     return (
       <Shell>
@@ -547,7 +569,7 @@ export default function BusinessTracker() {
     );
   }
 
-  const { entity, ledger, summary, deadlines } = state.data;
+  const { entity, ledger, summary, deadlines, infraEstimate } = state.data;
 
   return (
     <Shell>
@@ -583,6 +605,32 @@ export default function BusinessTracker() {
           value={formatUSD(summary.safeToDrawCents)}
           tone="good"
         />
+      </div>
+
+      <SectionTitle sub="A rough monthly storage cost from current Neon and R2 usage. Storage only, no compute or bandwidth. Record it to the ledger when the real invoice lands, or as a running estimate.">
+        Infrastructure cost
+      </SectionTitle>
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white p-5">
+        <div>
+          <p className="text-meta font-medium uppercase tracking-wide text-gray-400">
+            Estimated this month
+          </p>
+          <p className="mt-1 text-display font-bold tracking-tight text-gray-900">
+            {formatUSD(infraEstimate.totalCents)}
+          </p>
+          <p className="mt-1 text-meta text-gray-400">
+            Neon {formatUSD(infraEstimate.neonCents)} + R2{" "}
+            {formatUSD(infraEstimate.r2Cents)}
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={infraEstimate.totalCents <= 0}
+          onClick={() => recordInfra(infraEstimate.totalCents)}
+          className="rounded-lg border border-gray-300 px-4 py-2 text-body font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+        >
+          Record to ledger
+        </button>
       </div>
 
       <SectionTitle>Entity facts</SectionTitle>

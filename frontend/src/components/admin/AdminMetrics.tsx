@@ -22,7 +22,12 @@ import {
 } from "@/lib/sharing/capacity-shared";
 
 interface CapacityMetrics {
-  neon: { usedBytes: number | null; limitBytes: number };
+  neon: {
+    usedBytes: number | null;
+    limitBytes: number;
+    collabBytes: number | null;
+    collabBudgetBytes: number;
+  };
   r2: {
     usedBytes: number | null;
     objectCount: number | null;
@@ -105,12 +110,20 @@ function Shell({ children }: { children: React.ReactNode }) {
           <span className="text-body font-semibold text-gray-700">
             ResearchOS operator metrics
           </span>
-          <Link
-            href="/"
-            className="text-body font-medium text-sky-700 underline-offset-2 hover:underline"
-          >
-            Back to the app
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/admin/business"
+              className="text-body font-medium text-sky-700 underline-offset-2 hover:underline"
+            >
+              Business
+            </Link>
+            <Link
+              href="/"
+              className="text-body font-medium text-sky-700 underline-offset-2 hover:underline"
+            >
+              Back to the app
+            </Link>
+          </div>
         </div>
       </header>
       <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-10">
@@ -217,13 +230,19 @@ function Unavailable() {
 }
 
 /**
- * The two ceilings that can actually take cross-boundary sharing down: R2
- * storage (the sealed bundles in flight) and Resend's monthly send budget.
- * Both are rendered as ordinary service cards below, sitting among services
- * that self-clean (Neon, Upstash keys) or are console-only and are NOT the
- * binding constraint. This banner pulls the two binding ones to the top and
- * shouts when either crosses a watch or critical threshold, so the survival
- * signal does not get lost in a grid of equal-looking tiles.
+ * The ceilings that can actually take cross-boundary sharing and collab down,
+ * R2 storage (the sealed bundles in flight), Resend's monthly send budget, and
+ * Neon storage via collab (shared-doc content). All three are rendered as
+ * ordinary service cards below, sitting among services that self-clean (Upstash
+ * keys) or are console-only and are NOT the binding constraint. This banner
+ * pulls the binding ones to the top and shouts when any crosses a watch or
+ * critical threshold, so the survival signal does not get lost in a grid of
+ * equal-looking tiles.
+ *
+ * Neon is the most expensive tier to upgrade and its free 0.5 GB is the
+ * smallest, so once collab persists real shared-doc content it becomes a
+ * survival-critical signal alongside R2 and Resend. It reads near zero before
+ * collab ships, which is the point, the budget exists before users arrive.
  */
 function SurvivalRisk({ c }: { c: CapacityMetrics }) {
   const signals = [
@@ -235,6 +254,15 @@ function SurvivalRisk({ c }: { c: CapacityMetrics }) {
       detail: `${humanBytes(c.r2.usedBytes ?? 0)} of ${humanBytes(c.r2.limitBytes)} of sealed bundles in flight`,
       meaning:
         "Per-inbox caps bound each user, but the global free tier is the real ceiling. About ten full 1 GB inboxes reach it.",
+    },
+    {
+      key: "collab",
+      name: "Neon collab storage",
+      available: c.neon.collabBytes !== null,
+      pct: pctUsed(c.neon.collabBytes ?? 0, c.neon.collabBudgetBytes),
+      detail: `${humanBytes(c.neon.collabBytes ?? 0)} of ${humanBytes(c.neon.collabBudgetBytes)} of shared-doc content`,
+      meaning:
+        "Shared notes persist on Neon, the binding and most expensive tier. Per-doc and per-owner caps bound each user, about ten full owners reach this soft budget.",
     },
     {
       key: "resend",
@@ -268,16 +296,16 @@ function SurvivalRisk({ c }: { c: CapacityMetrics }) {
         ? "A survival-critical ceiling is worth watching."
         : anyUnavailable
           ? "One survival-critical ceiling could not be measured."
-          : "Both survival-critical ceilings are healthy.";
+          : "All survival-critical ceilings are healthy.";
 
   return (
     <div className={`mb-4 rounded-2xl border p-4 ${BOX[worst]}`}>
       <p className={`text-body font-semibold ${STATUS_TEXT[worst]}`}>{headline}</p>
       <p className="mt-1 text-meta text-gray-500 leading-relaxed">
-        These two ceilings are the ones that can take cross-boundary sharing
-        down. The other services below either self-clean (Neon rows, Upstash
-        keys all TTL out) or are only visible in the provider console, so they
-        are not the binding constraint.
+        These ceilings are the ones that can take cross-boundary sharing and
+        collab down. The other services below either self-clean (Upstash keys
+        all TTL out, relay rows expire) or are only visible in the provider
+        console, so they are not the binding constraint.
       </p>
       <ul className="mt-3 space-y-2">
         {signals.map((s) => {
@@ -478,18 +506,34 @@ export default function AdminMetrics() {
                 {/* Neon Postgres */}
                 <ServiceCard
                   name="Neon Postgres"
-                  sub="Accounts, profiles, relay metadata"
+                  sub="Accounts, profiles, relay metadata, collab docs"
                 >
                   {c.neon.usedBytes === null ? (
                     <Unavailable />
                   ) : (
-                    <UsageBar
-                      label="Database size"
-                      used={c.neon.usedBytes}
-                      limit={c.neon.limitBytes}
-                      usedLabel={humanBytes(c.neon.usedBytes)}
-                      limitLabel={humanBytes(c.neon.limitBytes)}
-                    />
+                    <div className="space-y-3">
+                      <UsageBar
+                        label="Database size"
+                        used={c.neon.usedBytes}
+                        limit={c.neon.limitBytes}
+                        usedLabel={humanBytes(c.neon.usedBytes)}
+                        limitLabel={humanBytes(c.neon.limitBytes)}
+                      />
+                      {c.neon.collabBytes !== null && (
+                        <UsageBar
+                          label="Of which collab docs"
+                          used={c.neon.collabBytes}
+                          limit={c.neon.collabBudgetBytes}
+                          usedLabel={humanBytes(c.neon.collabBytes)}
+                          limitLabel={`${humanBytes(c.neon.collabBudgetBytes)} budget`}
+                        />
+                      )}
+                      <p className="text-meta text-gray-400 leading-relaxed">
+                        Collab persists shared-doc content here, so it has its
+                        own soft budget inside the tier. Per-doc and per-owner
+                        caps keep any single user from filling it.
+                      </p>
+                    </div>
                   )}
                 </ServiceCard>
 

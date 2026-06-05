@@ -12,6 +12,8 @@
 import { auth } from "@/lib/sharing/auth";
 import { isAdminEmail } from "@/lib/sharing/admin";
 import { isSharingEnabled, json } from "@/lib/sharing/directory/guard";
+import { getCapacityMetrics } from "@/lib/sharing/capacity";
+import { estimateMonthlyInfraCostCents } from "@/lib/sharing/capacity-shared";
 import {
   computeSummary,
   upcomingDeadlines,
@@ -43,10 +45,20 @@ export async function GET(): Promise<Response> {
 
   await ensureBusinessSchema();
   try {
-    const [entity, ledger] = await Promise.all([getEntity(), listLedger()]);
+    const [entity, ledger, capacity] = await Promise.all([
+      getEntity(),
+      listLedger(),
+      // Resilient (per-service null fallback) and wrapped, so a measurement
+      // hiccup never sinks the page; the estimate just reads zero.
+      getCapacityMetrics().catch(() => null),
+    ]);
     const summary = computeSummary(ledger, entity.reservePct);
     const deadlines = upcomingDeadlines(entity, new Date());
-    return json(200, { entity, ledger, summary, deadlines });
+    const infraEstimate = estimateMonthlyInfraCostCents(
+      capacity?.neon.usedBytes ?? null,
+      capacity?.r2.usedBytes ?? null,
+    );
+    return json(200, { entity, ledger, summary, deadlines, infraEstimate });
   } catch {
     return json(500, { error: "business read failed" });
   }

@@ -47,3 +47,41 @@ export function capacityStatus(pct: number): CapacityStatus {
   if (pct >= 70) return "watch";
   return "ok";
 }
+
+/**
+ * Published storage unit prices (USD per GB-month), June 2026. Used to turn the
+ * measured usage into a rough monthly cost estimate for the business tracker.
+ * Storage only, these deliberately ignore compute and bandwidth, which the
+ * dashboard does not measure. Verify against the provider's current pricing.
+ */
+export const STORAGE_PRICE_USD_PER_GB_MONTH = {
+  neon: 0.35,
+  r2: 0.015,
+} as const;
+
+export interface InfraCostEstimate {
+  neonCents: number;
+  r2Cents: number;
+  totalCents: number;
+}
+
+/**
+ * A rough monthly storage cost from the measured byte totals. A null usage
+ * figure contributes zero (the service was unavailable), so the estimate never
+ * throws. Storage only, see STORAGE_PRICE_USD_PER_GB_MONTH.
+ */
+export function estimateMonthlyInfraCostCents(
+  neonBytes: number | null,
+  r2Bytes: number | null,
+): InfraCostEstimate {
+  const GB = 1024 ** 3;
+  const neonCents =
+    neonBytes == null
+      ? 0
+      : Math.round((neonBytes / GB) * STORAGE_PRICE_USD_PER_GB_MONTH.neon * 100);
+  const r2Cents =
+    r2Bytes == null
+      ? 0
+      : Math.round((r2Bytes / GB) * STORAGE_PRICE_USD_PER_GB_MONTH.r2 * 100);
+  return { neonCents, r2Cents, totalCents: neonCents + r2Cents };
+}

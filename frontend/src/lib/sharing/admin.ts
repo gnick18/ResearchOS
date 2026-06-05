@@ -17,3 +17,16 @@ export function isAdminEmail(email: string | null | undefined): boolean {
     .filter(Boolean);
   return allow.includes(email.trim().toLowerCase());
 }
+
+/**
+ * The ADMIN_EMAILS list, trimmed, in original case for delivery. Empty when
+ * unset. Used by the deadline-reminder cron to know who to email.
+ */
+export function adminEmails(): string[] {
+  const raw = process.env.ADMIN_EMAILS;
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean);
+}
