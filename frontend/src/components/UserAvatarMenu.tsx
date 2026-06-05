@@ -24,6 +24,7 @@ import Link from "@/components/FixtureLink";
 import Tooltip from "@/components/Tooltip";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import { compactFingerprint } from "@/lib/sharing/profile";
+import { useProfileModal } from "@/lib/sharing/profile-modal-store";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -74,7 +75,7 @@ function DropdownItem({
   children,
 }: {
   href?: string;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent) => void;
   children: React.ReactNode;
 }) {
   const cls =
@@ -168,13 +169,23 @@ export default function UserAvatarMenu({
   const containerRef = useRef<HTMLDivElement>(null);
   const sharing = useSharingIdentity();
 
-  // When the user has a published identity with a fingerprint, the profile
-  // link goes to their own shareable profile page; otherwise it points at the
+  // When the user has a published identity with a fingerprint, "My profile"
+  // opens the in-app popup over the current page; otherwise it links to the
   // profile editor card in Settings so they can create one.
+  const openProfile = useProfileModal((s) => s.open);
   const ownFingerprint = sharing.sidecar?.fingerprint ?? null;
-  const profileHref = ownFingerprint
-    ? `/researchers/${compactFingerprint(ownFingerprint)}`
-    : "/settings#researcher-profile";
+
+  const openOwnProfile = useCallback(
+    (e: React.MouseEvent) => {
+      setOpen(false);
+      if (!ownFingerprint) return;
+      openProfile(compactFingerprint(ownFingerprint), {
+        x: e.clientX,
+        y: e.clientY,
+      });
+    },
+    [ownFingerprint, openProfile],
+  );
 
   const close = useCallback(() => setOpen(false), []);
   const toggle = useCallback(() => setOpen((v) => !v), []);
@@ -277,10 +288,17 @@ export default function UserAvatarMenu({
 
           {/* Navigation items */}
           <div className="py-1">
-            <DropdownItem href={profileHref} onClick={close}>
-              <PersonIcon />
-              {ownFingerprint ? "My profile" : "Set up profile"}
-            </DropdownItem>
+            {ownFingerprint ? (
+              <DropdownItem onClick={openOwnProfile}>
+                <PersonIcon />
+                My profile
+              </DropdownItem>
+            ) : (
+              <DropdownItem href="/settings#researcher-profile" onClick={close}>
+                <PersonIcon />
+                Set up profile
+              </DropdownItem>
+            )}
             <DropdownItem href="/researchers" onClick={close}>
               <DirectoryIcon />
               Find researchers

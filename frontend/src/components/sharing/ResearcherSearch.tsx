@@ -20,13 +20,13 @@
 
 import { useCallback, useRef, useState } from "react";
 
-import Link from "next/link";
 import Tooltip from "@/components/Tooltip";
 import {
   type ProfileSearchResult,
   compactFingerprint,
   searchResearchers,
 } from "@/lib/sharing/profile";
+import { useProfileModal } from "@/lib/sharing/profile-modal-store";
 
 // ---------------------------------------------------------------------------
 // Icons (inline SVG, house style)
@@ -114,6 +114,7 @@ function CopyIcon({ className }: { className?: string }) {
 
 function ResultCard({ result }: { result: ProfileSearchResult }) {
   const [copied, setCopied] = useState(false);
+  const openProfile = useProfileModal((s) => s.open);
   const copyFingerprint = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(result.fingerprint);
@@ -126,10 +127,17 @@ function ResultCard({ result }: { result: ProfileSearchResult }) {
 
   return (
     <div className="relative flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4 transition-colors hover:border-sky-200 hover:bg-sky-50/40">
-      {/* Stretched link: covers the whole card so clicking anywhere (except the
-          copy button, which sits above it) opens the profile. */}
-      <Link
-        href={`/researchers/${compactFingerprint(result.fingerprint)}`}
+      {/* Stretched trigger: covers the whole card so clicking anywhere (except
+          the copy button, which sits above it) opens the profile popup over the
+          current page, animating out from the click point. */}
+      <button
+        type="button"
+        onClick={(e) =>
+          openProfile(compactFingerprint(result.fingerprint), {
+            x: e.clientX,
+            y: e.clientY,
+          })
+        }
         className="absolute inset-0 z-0 rounded-xl"
         aria-label={`View ${result.displayName}'s profile`}
       />

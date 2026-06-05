@@ -44,6 +44,7 @@ import { useOptionalTourController } from "@/components/onboarding/v4/TourContro
 import EditSessionBanner from "@/components/EditSessionBanner";
 import EditSessionTopNavChip from "@/components/EditSessionTopNavChip";
 import UserAvatarMenu from "@/components/UserAvatarMenu";
+import ResearcherProfileModal from "@/components/researchers/ResearcherProfileModal";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -551,6 +552,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
        *  soft-deleted sequences (single + bulk), driven by
        *  emitSequenceDeleted. */}
       <SequenceDeleteUndoToast />
+      {/* Researcher profile popup (2026-06-05): opens over the current page as
+       *  a living, blurred-backdrop popup when a profile is opened from the
+       *  avatar menu or a search result, driven by the profile-modal store. */}
+      <ResearcherProfileModal />
       <ReminderRunner />
 
       {/* Universal floating utility cluster — a single fixed flex row at
