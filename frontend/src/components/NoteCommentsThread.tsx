@@ -7,6 +7,7 @@ import type { Note } from "@/lib/types";
 
 interface NoteCommentsThreadProps {
   note: Note;
+  variant?: "inline" | "sidebar";
 }
 
 // Thin wrapper around the shared `CommentsThread` for Notes. The shared
@@ -14,7 +15,7 @@ interface NoteCommentsThreadProps {
 // Grant's clickable design lock) handles draft + collapse state + rendering;
 // this wrapper just wires the Note-specific mutation hooks + cache
 // invalidations.
-export default function NoteCommentsThread({ note }: NoteCommentsThreadProps) {
+export default function NoteCommentsThread({ note, variant = "inline" }: NoteCommentsThreadProps) {
   const queryClient = useQueryClient();
 
   const invalidateNotes = () => {
@@ -49,6 +50,7 @@ export default function NoteCommentsThread({ note }: NoteCommentsThreadProps) {
 
   return (
     <CommentsThread
+      variant={variant}
       entityKind="note"
       entityId={note.id}
       entityOwner={note.username}

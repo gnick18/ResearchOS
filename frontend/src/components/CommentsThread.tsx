@@ -45,6 +45,11 @@ interface CommentsThreadProps {
   // (`shared_permission === "view"` on tasks) where the receiver should
   // see comments but not modify them.
   readOnly?: boolean;
+  // Layout. "inline" (default) keeps the original collapsible block with its
+  // own "Lab comments" header. "sidebar" renders just the thread body (no
+  // border, no collapse chrome) for a docked right rail, where the rail itself
+  // provides the header and scroll container.
+  variant?: "inline" | "sidebar";
   // Async callbacks. The parent owns the mutation hooks + cache
   // invalidation; this component manages its own draft + pending state.
   //
@@ -100,6 +105,7 @@ export default function CommentsThread({
   readOnly = false,
   onAdd,
   onDelete,
+  variant = "inline",
 }: CommentsThreadProps) {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
@@ -168,6 +174,75 @@ export default function CommentsThread({
     }
   };
 
+  const threadBody = (
+    <>
+      {!isShared && notSharedHint && (
+        <div className="text-meta text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3">
+          {notSharedHint}
+        </div>
+      )}
+
+      {comments.length === 0 ? (
+        <p className="text-meta text-gray-400 mb-3">No comments yet.</p>
+      ) : (
+        <ul className="space-y-3 mb-3">
+          {sortedRoots.map((c) => {
+            const replies = tree.repliesByParent.get(c.id) ?? [];
+            return (
+              <CommentRow
+                key={c.id}
+                comment={c}
+                replies={replies}
+                currentAuthor={author}
+                profileMap={profileMap}
+                readOnly={readOnly}
+                isShared={isShared}
+                canComment={canComment}
+                deleting={deleting}
+                onDelete={handleDelete}
+                onAdd={onAdd}
+                replyingTo={replyingTo}
+                setReplyingTo={setReplyingTo}
+                entityKind={entityKind}
+                entityId={entityId}
+                entityOwner={entityOwner}
+              />
+            );
+          })}
+        </ul>
+      )}
+
+      {isShared && !readOnly && (
+        canComment ? (
+          <CommentComposer
+            placeholder={`Comment as ${author}…`}
+            author={author}
+            draftKey={makeCommentDraftKey({
+              author,
+              entityKind,
+              entityOwner,
+              entityId,
+              parentCommentId: null,
+            })}
+            onSubmit={async (text, mentions) => {
+              await onAdd(text, author, { mentions });
+            }}
+          />
+        ) : (
+          <div className="text-meta text-gray-500 bg-amber-50 border border-amber-200 rounded-lg p-3">
+            Set a main user to comment as yourself (Settings → Main User).
+          </div>
+        )
+      )}
+    </>
+  );
+
+  // Sidebar variant: the docked rail supplies its own header + scroll, so render
+  // the thread body directly with no inline collapse chrome.
+  if (variant === "sidebar") {
+    return <div className="px-4 py-4">{threadBody}</div>;
+  }
+
   return (
     <div className="border-t border-gray-200 mt-4 pt-4 px-4 pb-4">
       <button
@@ -198,68 +273,7 @@ export default function CommentsThread({
         </svg>
       </button>
 
-      {!collapsed && (
-        <div className="mt-3">
-          {!isShared && notSharedHint && (
-            <div className="text-meta text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3">
-              {notSharedHint}
-            </div>
-          )}
-
-          {comments.length === 0 ? (
-            <p className="text-meta text-gray-400 mb-3">No comments yet.</p>
-          ) : (
-            <ul className="space-y-3 mb-3">
-              {sortedRoots.map((c) => {
-                const replies = tree.repliesByParent.get(c.id) ?? [];
-                return (
-                  <CommentRow
-                    key={c.id}
-                    comment={c}
-                    replies={replies}
-                    currentAuthor={author}
-                    profileMap={profileMap}
-                    readOnly={readOnly}
-                    isShared={isShared}
-                    canComment={canComment}
-                    deleting={deleting}
-                    onDelete={handleDelete}
-                    onAdd={onAdd}
-                    replyingTo={replyingTo}
-                    setReplyingTo={setReplyingTo}
-                    entityKind={entityKind}
-                    entityId={entityId}
-                    entityOwner={entityOwner}
-                  />
-                );
-              })}
-            </ul>
-          )}
-
-          {isShared && !readOnly && (
-            canComment ? (
-              <CommentComposer
-                placeholder={`Comment as ${author}…`}
-                author={author}
-                draftKey={makeCommentDraftKey({
-                  author,
-                  entityKind,
-                  entityOwner,
-                  entityId,
-                  parentCommentId: null,
-                })}
-                onSubmit={async (text, mentions) => {
-                  await onAdd(text, author, { mentions });
-                }}
-              />
-            ) : (
-              <div className="text-meta text-gray-500 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                Set a main user to comment as yourself (Settings → Main User).
-              </div>
-            )
-          )}
-        </div>
-      )}
+      {!collapsed && <div className="mt-3">{threadBody}</div>}
     </div>
   );
 }

@@ -20,6 +20,7 @@ import { makeLoroHistoryEngine } from "@/lib/loro/history-engine";
 import { persistEntryContent } from "@/lib/notes/persist-entry-content";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import NoteCommentsThread from "./NoteCommentsThread";
+import CommentsSidebar from "./CommentsSidebar";
 import ReceivedFromBadge from "./ReceivedFromBadge";
 import Tooltip from "./Tooltip";
 import { useFileRenamePopup } from "./FileRenamePopup";
@@ -83,6 +84,10 @@ export default function NoteDetailPopup({
   // selected version's {before, after} diff into the document column. Closing
   // the sidebar ("Exit history") clears both and returns to the live record.
   const [historyOpen, setHistoryOpen] = useState(false);
+  // Lab comments live in a docked right rail (like the history sidebar). The two
+  // rails are mutually exclusive: opening one closes the other.
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const commentCount = note.comments?.length ?? 0;
   const [versionPreview, setVersionPreview] = useState<VersionPreview | null>(
     null,
   );
@@ -532,6 +537,8 @@ export default function NoteDetailPopup({
         setHistoryOpen(false);
         setVersionPreview(null);
         historyTriggerRef.current?.focus();
+      } else if (commentsOpen) {
+        setCommentsOpen(false);
       } else if (isExpanded) {
         setIsExpanded(false);
       } else {
@@ -540,7 +547,7 @@ export default function NoteDetailPopup({
     };
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [isExpanded, handleClose, historyOpen]);
+  }, [isExpanded, handleClose, historyOpen, commentsOpen]);
 
   // Save title
   const saveTitle = async () => {
@@ -1383,6 +1390,33 @@ export default function NoteDetailPopup({
                   right-sidebar version viewer; opening flips the document
                   column to read-only preview. No data-tour-target here so it
                   never collides with the v4 tour anchors. */}
+              <Tooltip label="Comments" placement="bottom">
+                <button
+                  onClick={() => {
+                    setCommentsOpen((open) => {
+                      const next = !open;
+                      if (next) setHistoryOpen(false);
+                      return next;
+                    });
+                  }}
+                  data-testid="note-comments-button"
+                  aria-pressed={commentsOpen}
+                  className={`relative p-2 rounded-lg transition-colors ${
+                    commentsOpen
+                      ? "text-emerald-600 bg-emerald-50"
+                      : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M7 8h10M7 12h6m-7 9l4-4h10a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h1v4z" />
+                  </svg>
+                  {commentCount > 0 ? (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-[10px] font-semibold text-white tabular-nums">
+                      {commentCount}
+                    </span>
+                  ) : null}
+                </button>
+              </Tooltip>
               <Tooltip label="Version history" placement="bottom">
                 <button
                   ref={historyTriggerRef}
@@ -1390,6 +1424,7 @@ export default function NoteDetailPopup({
                     if (historyOpen) {
                       closeHistory();
                     } else {
+                      setCommentsOpen(false);
                       setHistoryOpen(true);
                     }
                   }}
@@ -1872,12 +1907,17 @@ export default function NoteDetailPopup({
             engine={loroHistoryEngine}
           />
         )}
-        </div>
 
-        {/* Comments thread (#13): visible in both lab mode (readOnly=true)
-            and regular mode so the note's owner can see PI feedback. The
-            thread itself is the gate for whether commenting is enabled. */}
-        <NoteCommentsThread note={note} />
+        {/* Comments thread (#13): now a docked right rail (like the history
+            sidebar) instead of a full-width block below the editor. Visible in
+            both lab mode (readOnly=true) and regular mode so the note's owner can
+            see PI feedback. The thread itself gates whether commenting is on. */}
+        {commentsOpen && (
+          <CommentsSidebar count={commentCount} onClose={() => setCommentsOpen(false)}>
+            <NoteCommentsThread note={note} variant="sidebar" />
+          </CommentsSidebar>
+        )}
+        </div>
 
         {/* Footer */}
         {!readOnly && (

@@ -20,6 +20,7 @@ import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
 import SharingChips from "@/components/sharing/SharingChips";
 import { StampsRow } from "@/components/AttributionChip";
 import CommentsThread from "./CommentsThread";
+import CommentsSidebar from "./CommentsSidebar";
 import ReceivedFromBadge from "./ReceivedFromBadge";
 import Tooltip from "./Tooltip";
 import { useAppStore } from "@/lib/store";
@@ -189,6 +190,10 @@ export default function TaskDetailPopup({
   // the selected version's {before, after} diff. Closing returns to the live
   // tabbed view.
   const [historyOpen, setHistoryOpen] = useState(false);
+  // Lab comments now dock as a right rail, mutually exclusive with the history
+  // sidebar (opening one closes the other).
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const commentCount = task.comments?.length ?? 0;
   const [versionPreview, setVersionPreview] = useState<VersionPreview | null>(
     null,
   );
@@ -729,6 +734,10 @@ export default function TaskDetailPopup({
         historyTriggerRef.current?.focus();
         return;
       }
+      if (commentsOpen) {
+        setCommentsOpen(false);
+        return;
+      }
       if (isExpanded) {
         // Branch 2: shrink before closing so the fullscreen state can
         // persist across multi-step demos. A second Esc closes.
@@ -740,7 +749,7 @@ export default function TaskDetailPopup({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isExpanded, onClose, historyOpen]);
+  }, [isExpanded, onClose, historyOpen, commentsOpen]);
 
   // Orphan-items probe: non-purchase tasks can still have purchase_items
   // attached (the "Items on non-purchase tasks" surface on the spending
@@ -1341,6 +1350,35 @@ export default function TaskDetailPopup({
                   anyone with read access (the popup only opens on readable
                   tasks). Toggles the right-sidebar version viewer; opening flips
                   the body to a read-only diff preview. Mirrors NoteDetailPopup. */}
+              {isExperiment && (
+                <Tooltip label="Comments" placement="bottom">
+                  <button
+                    onClick={() => {
+                      setCommentsOpen((open) => {
+                        const next = !open;
+                        if (next) setHistoryOpen(false);
+                        return next;
+                      });
+                    }}
+                    data-testid="task-comments-button"
+                    aria-pressed={commentsOpen}
+                    className={`relative p-1.5 rounded-lg transition-colors ${
+                      commentsOpen
+                        ? "text-emerald-600 bg-emerald-50"
+                        : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M7 8h10M7 12h6m-7 9l4-4h10a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h1v4z" />
+                    </svg>
+                    {commentCount > 0 ? (
+                      <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-[10px] font-semibold text-white tabular-nums">
+                        {commentCount}
+                      </span>
+                    ) : null}
+                  </button>
+                </Tooltip>
+              )}
               <Tooltip label="Version history" placement="bottom">
                 <button
                   ref={historyTriggerRef}
@@ -1348,6 +1386,7 @@ export default function TaskDetailPopup({
                     if (historyOpen) {
                       closeHistory();
                     } else {
+                      setCommentsOpen(false);
                       setHistoryOpen(true);
                     }
                   }}
@@ -1706,39 +1745,39 @@ export default function TaskDetailPopup({
               onRestore={handleRestore}
             />
           )}
-        </div>
 
-        {/* Lab comments (per-task, mirrors NoteCommentsThread). Mounted
-            outside the tab-content scroll area so it stays visible regardless
-            of which tab is active. Experiments only — purchase/list tasks
-            don't have a lab-comment use case in v1 per Grant's clickable
-            ("Add to experiments — same component, mount on
-            TaskDetailPopup"). */}
-        {isExperiment && (
-          <CommentsThread
-            entityKind="task"
-            entityId={task.id}
-            entityOwner={task.owner}
-            comments={task.comments ?? []}
-            isShared={(task.shared_with?.length ?? 0) > 0 || !!task.is_shared_with_me}
-            notSharedHint="This task isn't shared with the lab. Share it to let lab mates comment."
-            readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")}
-            onAdd={async (text, author, options) => {
-              await tasksApi.addComment(task.id, text, author, options);
-              await Promise.all([
-                queryClient.refetchQueries({ queryKey: ["tasks"] }),
-                queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
-              ]);
-            }}
-            onDelete={async (commentId) => {
-              await tasksApi.deleteComment(task.id, commentId);
-              await Promise.all([
-                queryClient.refetchQueries({ queryKey: ["tasks"] }),
-                queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
-              ]);
-            }}
-          />
-        )}
+          {/* Lab comments: now a docked right rail (mirrors NoteDetailPopup),
+              mutually exclusive with the history sidebar. Experiments only;
+              purchase/list tasks have no lab-comment use case in v1. */}
+          {commentsOpen && isExperiment && (
+            <CommentsSidebar count={commentCount} onClose={() => setCommentsOpen(false)}>
+              <CommentsThread
+                variant="sidebar"
+                entityKind="task"
+                entityId={task.id}
+                entityOwner={task.owner}
+                comments={task.comments ?? []}
+                isShared={(task.shared_with?.length ?? 0) > 0 || !!task.is_shared_with_me}
+                notSharedHint="This task isn't shared with the lab. Share it to let lab mates comment."
+                readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")}
+                onAdd={async (text, author, options) => {
+                  await tasksApi.addComment(task.id, text, author, options);
+                  await Promise.all([
+                    queryClient.refetchQueries({ queryKey: ["tasks"] }),
+                    queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
+                  ]);
+                }}
+                onDelete={async (commentId) => {
+                  await tasksApi.deleteComment(task.id, commentId);
+                  await Promise.all([
+                    queryClient.refetchQueries({ queryKey: ["tasks"] }),
+                    queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] }),
+                  ]);
+                }}
+              />
+            </CommentsSidebar>
+          )}
+        </div>
 
         {universalDropToast && (
           <div
