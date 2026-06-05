@@ -379,7 +379,9 @@ export default function WelcomePreviewPage() {
         </section>
 
         {/* ── Bento feature grid ──────────────────────────────────────── */}
-        <section className="px-6 py-16 sm:px-12">
+        {/* Tinted band so the white cards read as cards, not a white-on-white
+            blur. */}
+        <section className="border-y border-[#dce6f3] bg-[#eef4fb] px-6 py-20 sm:px-12">
           <div className="mx-auto mb-8 max-w-[1180px]">
             <Kicker>// the toolkit</Kicker>
             <h2 className="mt-2.5 max-w-[22ch] text-3xl font-extrabold leading-tight tracking-tight text-[#0e1726] md:text-[36px]">
@@ -815,7 +817,7 @@ function BentoCell({
         : "md:col-span-2";
   return (
     <div
-      className={`flex flex-col overflow-hidden rounded-2xl border border-[#e3eaf3] bg-white p-6 shadow-[0_1px_2px_rgba(15,40,80,0.04)] ${spanCls}`}
+      className={`flex flex-col overflow-hidden rounded-2xl border border-[#dbe6f3] bg-white p-6 shadow-[0_1px_3px_rgba(15,40,80,0.06),0_16px_36px_-14px_rgba(15,40,80,0.22)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#cdddee] hover:shadow-[0_2px_5px_rgba(15,40,80,0.08),0_26px_50px_-16px_rgba(15,40,80,0.28)] ${spanCls}`}
     >
       <div className="font-mono text-[12px] font-semibold tracking-[0.04em] text-[#1283c9]">
         {num}
