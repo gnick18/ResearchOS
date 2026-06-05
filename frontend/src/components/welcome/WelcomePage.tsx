@@ -86,8 +86,8 @@ function SignInRow({
           Use it locally
         </h3>
         <ul className="mt-4 flex-1 space-y-2.5">
-          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
-            <CheckGlyph /> Your full notebook and every tool.
+          <li className="flex items-start gap-2 text-body font-semibold leading-snug text-[#0e1726]">
+            <CheckGlyph /> 100% of the features, free. Solo users get the whole app, nothing held back.
           </li>
           <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
             <CheckGlyph /> Works offline, private, on your own machine.
@@ -127,8 +127,10 @@ function SignInRow({
         <h3 className="mt-1.5 text-heading font-extrabold tracking-tight text-[#0e1726]">
           Sign in to share
         </h3>
-        <p className="mt-1 text-meta text-[#64748b]">Everything local, plus:</p>
-        <ul className="mt-3 flex-1 space-y-2.5">
+        <ul className="mt-4 flex-1 space-y-2.5">
+          <li className="flex items-start gap-2 text-body font-semibold leading-snug text-[#0e1726]">
+            <CheckGlyph /> + Use it locally. Your notebook still lives on your machine.
+          </li>
           <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
             <CheckGlyph /> Send notes, methods, and projects to anyone by email.
           </li>
