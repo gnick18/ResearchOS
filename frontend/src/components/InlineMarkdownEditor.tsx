@@ -321,6 +321,11 @@ export default function InlineMarkdownEditor({
   // which already builds with the correct editability).
   const prevDisabledRef = useRef(disabled);
 
+  // Tracks whether a collab session is currently wired into this editor, so the
+  // collab-reconfigure effect below fires only when the session turns on/off
+  // (not on the initial mount).
+  const prevCollabActiveRef = useRef<boolean>(!!collabEphemeral && !!collabUser);
+
   const setDirty = useCallback((next: boolean) => {
     if (dirtyRef.current !== next) {
       dirtyRef.current = next;
@@ -619,6 +624,27 @@ export default function InlineMarkdownEditor({
     if (!view || !mods) return;
     view.setState(makeState(mods, view.state.doc.toString(), !disabled));
   }, [disabled, loaded, makeState]);
+
+  // Reflect a collab session turning ON or OFF into the live editor. The
+  // editor's extensions (LoroSyncPlugin, and now LoroEphemeralPlugin for
+  // cursors) are built once in makeState at mount, when no session exists yet.
+  // A session goes live AFTER mount (the user clicks Collaborate / Join), which
+  // updates collabEphemeralRef/collabUserRef but does NOT rebuild the CM6 state,
+  // so the cursor plugin would never be installed. This effect rebuilds the
+  // state when the collab-active flag flips, so bindEditorExtension re-runs and
+  // adds (or drops, on Stop) the ephemeral cursor layer. Same reconfigure shape
+  // as the disabled effect above: it preserves the live document and is a
+  // deliberate mode change, so the CM6 undo stack reset is acceptable.
+  const collabActive = !!collabEphemeral && !!collabUser;
+  useEffect(() => {
+    if (!loaded) return;
+    if (prevCollabActiveRef.current === collabActive) return;
+    prevCollabActiveRef.current = collabActive;
+    const view = viewRef.current;
+    const mods = modsRef.current;
+    if (!view || !mods) return;
+    view.setState(makeState(mods, view.state.doc.toString(), !disabled));
+  }, [collabActive, disabled, loaded, makeState]);
 
   return (
     <div className="h-full overflow-y-auto p-4">
