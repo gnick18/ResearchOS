@@ -3,6 +3,17 @@
 Author: sequence editor master, 2026-06-05. Status: DESIGN DRAFT. Grant: a CDD-style
 protein-domain bar in the protein drawer, design doc first.
 
+## Decisions (Grant, 2026-06-05)
+
+- Block color: PER-FAMILY deterministic palette (each Pfam family a distinct hue).
+- Click a block: SELECTS + scrolls to the corresponding DNA feature on the map
+  (cross-link protein view -> DNA view). Hover still shows the tooltip.
+- Live preview: YES in v1. During the Annotate-domains review, the bar shows the
+  CANDIDATE hits (before accepting), visually distinct from accepted domains. So
+  the bar renders two states: accepted domains (the features) solid, and
+  in-review candidates pending (e.g. dashed / lighter). Clicking an accepted block
+  selects its feature; a candidate block has no feature yet (highlight only).
+
 ## The gap this fills
 
 Today, annotated domains exist only as `domain`-type FEATURES on the DNA (they
