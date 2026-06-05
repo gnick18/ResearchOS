@@ -34,6 +34,20 @@ function resolveCommitSha(): string | undefined {
 const COMMIT_SHA = resolveCommitSha();
 
 /**
+ * Resolve the collab relay origin for the CSP connect-src allowlist.
+ *
+ * The notes collaboration provider opens a WebSocket to the relay (Phase 3).
+ * The client connect URL comes from NEXT_PUBLIC_COLLAB_RELAY_URL and defaults
+ * to the local wrangler dev server. CSP connect-src needs the ORIGIN
+ * (scheme://host:port) without the /ws path, and the value is already an
+ * origin, so we pass it through. Deriving it from the same env var means a
+ * deployed wss:// relay is auto-allowed once that var is set, with no second
+ * place to update.
+ */
+const COLLAB_RELAY_ORIGIN =
+  process.env.NEXT_PUBLIC_COLLAB_RELAY_URL ?? "ws://localhost:8787";
+
+/**
  * Content-Security-Policy locked to the surface ResearchOS actually uses.
  *
  *   script-src 'unsafe-inline': Next.js dev (and prod, for now) emits inline
@@ -84,6 +98,11 @@ const COMMIT_SHA = resolveCommitSha();
  *     no Worker) and NO 'unsafe-eval' (its WASM init only needs the
  *     'wasm-unsafe-eval' already granted above); verified against react-pdf
  *     4.5.1 in a production build. See AGENTS.md §6 trap entry.
+ *   connect-src ${COLLAB_RELAY_ORIGIN}: the notes collaboration provider opens
+ *     a WebSocket to the relay (Phase 3, lib/loro/collab/websocket-transport.ts).
+ *     Defaults to the local wrangler dev origin ws://localhost:8787; a deployed
+ *     wss:// relay is picked up from NEXT_PUBLIC_COLLAB_RELAY_URL. The relay
+ *     fans only sealed ciphertext, so it never sees note plaintext.
  *   frame-src blob:: PDF previews render via <iframe src=blob:...>.
  *   frame-ancestors 'none': blocks clickjacking via third-party embedding.
  */
@@ -95,7 +114,7 @@ const CSP = [
   // Vercel Blob CDN for the welcome-page demo loop videos and their posters.
   "media-src 'self' https://*.public.blob.vercel-storage.com",
   "font-src 'self' data:",
-  "connect-src 'self' https://api.telegram.org https://vitals.vercel-insights.com https://*.r2.cloudflarestorage.com data:",
+  `connect-src 'self' https://api.telegram.org https://vitals.vercel-insights.com https://*.r2.cloudflarestorage.com data: ${COLLAB_RELAY_ORIGIN}`,
   "frame-src 'self' blob:",
   "frame-ancestors 'none'",
   "object-src 'none'",

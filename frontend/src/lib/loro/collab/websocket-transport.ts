@@ -7,19 +7,39 @@
 // may call send() before the socket is actually open. We queue those frames and
 // flush them all once "open" fires so no early edit is lost.
 //
+// MULTIPLE LISTENERS. onOpen and onMessage register into arrays, not single
+// slots. Both the relay provider AND the session hook register an onOpen
+// handler (the provider broadcasts its catch-up snapshot, the hook flips the UI
+// to "live"). A single-slot store would let the second registration clobber the
+// first, dropping the snapshot broadcast so a late-joiner never receives the
+// existing note text. Arrays keep both.
+//
+// FAILURE SURFACING. The interface adds onError / onClose so a blocked or
+// dropped connection is observable. Without them a failed connect (for example
+// a CSP block, or the relay being down) would never fire "open" and the UI
+// would spin on "connecting" forever with no signal.
+//
 // Binary protocol. ws.binaryType is set to "arraybuffer" so every inbound
 // message.data is already an ArrayBuffer; we wrap it in Uint8Array before
 // delivering to the callback. Outbound frames are Uint8Array; WebSocket.send()
 // accepts Uint8Array directly.
 //
-// Browser-only. This module imports nothing and references the global WebSocket
-// constructor, so it only works in a browser (or jsdom). Do not import from
-// Node test helpers that lack a WebSocket global; see websocket-transport.test.ts
-// for the stub approach.
+// Browser-only. This module references the global WebSocket constructor, so it
+// only works in a browser (or jsdom with a stub). See the test for the stub.
 
 import type { CollabTransport } from "./relay-provider";
 
-export type { CollabTransport };
+/**
+ * The WebSocket transport adds failure callbacks on top of the base
+ * CollabTransport. The relay provider only needs the base interface; the
+ * session hook uses onError / onClose to surface a failed connection.
+ */
+export interface WebSocketCollabTransport extends CollabTransport {
+  /** Fired when the socket emits an error event (connection refused, blocked, etc.). */
+  onError(cb: () => void): void;
+  /** Fired when the socket closes. Carries the close code so the caller can tell clean from abnormal. */
+  onClose(cb: (code: number) => void): void;
+}
 
 /**
  * Wraps a real browser WebSocket in the CollabTransport interface expected by
@@ -28,7 +48,7 @@ export type { CollabTransport };
  *
  * @param url - The full ws:// or wss:// URL to connect to.
  */
-export function createWebSocketTransport(url: string): CollabTransport {
+export function createWebSocketTransport(url: string): WebSocketCollabTransport {
   const ws = new WebSocket(url);
   ws.binaryType = "arraybuffer";
 
@@ -37,10 +57,12 @@ export function createWebSocketTransport(url: string): CollabTransport {
   const preopenBuffer: Uint8Array[] = [];
   let opened = false;
 
-  // Registered callbacks. The relay provider calls onMessage and onOpen exactly
-  // once to register its handlers; we store them here and invoke on events.
-  let messageCallback: ((frame: Uint8Array) => void) | null = null;
-  let openCallback: (() => void) | null = null;
+  // Listener arrays. onOpen and onMessage may each be registered by more than
+  // one caller (see the MULTIPLE LISTENERS note above), so we fan to all.
+  const openCallbacks: Array<() => void> = [];
+  const messageCallbacks: Array<(frame: Uint8Array) => void> = [];
+  let errorCallback: (() => void) | null = null;
+  let closeCallback: ((code: number) => void) | null = null;
 
   ws.addEventListener("open", () => {
     opened = true;
@@ -51,15 +73,22 @@ export function createWebSocketTransport(url: string): CollabTransport {
     }
     preopenBuffer.length = 0;
 
-    // Notify the relay provider that the connection is established. The
-    // provider uses this to broadcast a full doc snapshot to the just-joined
-    // peer.
-    if (openCallback) openCallback();
+    // Notify every registered open handler. The provider uses this to broadcast
+    // a full doc snapshot; the hook uses it to flip the UI to live.
+    for (const cb of openCallbacks) cb();
   });
 
   ws.addEventListener("message", (e: MessageEvent) => {
-    if (!messageCallback) return;
-    messageCallback(new Uint8Array(e.data as ArrayBuffer));
+    const frame = new Uint8Array(e.data as ArrayBuffer);
+    for (const cb of messageCallbacks) cb(frame);
+  });
+
+  ws.addEventListener("error", () => {
+    if (errorCallback) errorCallback();
+  });
+
+  ws.addEventListener("close", (e: CloseEvent) => {
+    if (closeCallback) closeCallback(e.code);
   });
 
   return {
@@ -69,23 +98,28 @@ export function createWebSocketTransport(url: string): CollabTransport {
       } else {
         // Buffer until open. This covers the window between createTransport and
         // the "open" event, which includes the relay provider's own onOpen
-        // re-broadcast of the full doc snapshot that it fires synchronously in
-        // the onOpen callback.
+        // re-broadcast of the full doc snapshot.
         preopenBuffer.push(frame);
       }
     },
 
     onMessage(cb: (frame: Uint8Array) => void): void {
-      messageCallback = cb;
+      messageCallbacks.push(cb);
     },
 
     onOpen(cb: () => void): void {
-      openCallback = cb;
+      openCallbacks.push(cb);
       // If the socket happened to open before onOpen() was called (race in
-      // tests or very fast local relay), invoke the callback immediately.
-      if (opened) {
-        cb();
-      }
+      // tests or a very fast local relay), invoke the callback immediately.
+      if (opened) cb();
+    },
+
+    onError(cb: () => void): void {
+      errorCallback = cb;
+    },
+
+    onClose(cb: (code: number) => void): void {
+      closeCallback = cb;
     },
 
     close(): void {

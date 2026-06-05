@@ -196,6 +196,48 @@ export default function NoteDetailPopup({
   // Tracks the text the user is typing into the "join session" input field.
   const [joinLinkInput, setJoinLinkInput] = useState("");
 
+  // "Copied!" feedback for the collab join-link button. Resets after a beat so
+  // the button returns to its normal label.
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  // Copy the join link with a clipboard-API-first, execCommand fallback. The
+  // async clipboard write can reject silently (focus quirks, headered
+  // contexts), so we fall back to a hidden textarea + execCommand("copy") and
+  // only show the confirmation once a copy actually succeeds.
+  const handleCopyJoinLink = useCallback(async () => {
+    const link = collab.state.link;
+    if (!link) return;
+
+    const confirmCopied = () => {
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 1600);
+    };
+
+    try {
+      await navigator.clipboard.writeText(link);
+      confirmCopied();
+      return;
+    } catch {
+      // Fall through to the legacy path below.
+    }
+
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = link;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      if (ok) confirmCopied();
+    } catch {
+      // Both paths failed; leave the button unchanged so the user can retry or
+      // select the link manually.
+    }
+  }, [collab.state.link]);
+
   // Per-note attachment folder. Mirrors how tasks use
   // `users/{owner}/results/task-{id}/`. Falls back to the note's own
   // `username` when there's no signed-in user (read-only / lab-mode views),
@@ -1649,28 +1691,48 @@ export default function NoteDetailPopup({
                         Live
                       </span>
                       {collab.state.link && (
-                        <Tooltip label="Copy join link for the other tab" placement="top">
+                        <Tooltip
+                          label={linkCopied ? "Copied" : "Copy join link for the other tab"}
+                          placement="top"
+                        >
                           <button
-                            onClick={() => {
-                              void navigator.clipboard.writeText(collab.state.link!);
-                            }}
-                            className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-body bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors font-mono text-xs"
+                            onClick={() => void handleCopyJoinLink()}
+                            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-body transition-all font-mono text-xs active:scale-95 ${
+                              linkCopied
+                                ? "bg-emerald-50 text-emerald-600"
+                                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                            }`}
                             aria-label="Copy join link"
                           >
-                            <svg
-                              className="w-3.5 h-3.5 shrink-0"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              aria-hidden="true"
-                            >
-                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                            </svg>
-                            Copy link
+                            {linkCopied ? (
+                              <svg
+                                className="w-3.5 h-3.5 shrink-0"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth={2}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                              >
+                                <path d="M20 6 9 17l-5-5" />
+                              </svg>
+                            ) : (
+                              <svg
+                                className="w-3.5 h-3.5 shrink-0"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth={2}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                              >
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                              </svg>
+                            )}
+                            {linkCopied ? "Copied!" : "Copy link"}
                           </button>
                         </Tooltip>
                       )}

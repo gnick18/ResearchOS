@@ -180,13 +180,45 @@ export function useCollabSession(args: {
       // the same-identity MVP; no X25519 wrapping yet.
       const link = encodeSessionLink({ sessionId, sessionKey });
 
-      // Transition to "live" once the WebSocket opens. The relay provider
-      // broadcasts the full doc snapshot at this point (its onOpen handler),
-      // so the peer catches up automatically.
+      // Transition to "live" once the WebSocket opens. The relay provider also
+      // registers its own onOpen (to broadcast the full doc snapshot for peer
+      // catch-up); the transport fans to both, so neither clobbers the other.
       transport.onOpen(() => {
         setState((prev) =>
           prev.sessionId === sessionId
             ? { status: "live", link, sessionId, errorMessage: null }
+            : prev,
+        );
+      });
+
+      // Surface a failed connection instead of spinning on "connecting" forever.
+      // A blocked socket (CSP, relay down) fires "error" before it ever opens.
+      transport.onError(() => {
+        setState((prev) =>
+          prev.sessionId === sessionId && prev.status === "connecting"
+            ? {
+                status: "stopped",
+                link: null,
+                sessionId,
+                errorMessage:
+                  "Could not reach the relay. Is the collab server running?",
+              }
+            : prev,
+        );
+      });
+
+      // A close while live means the peer/relay dropped. Code 1000/1005 is a
+      // clean local close from stop(), which should leave the state alone.
+      transport.onClose((code) => {
+        if (code === 1000 || code === 1005) return;
+        setState((prev) =>
+          prev.sessionId === sessionId && prev.status === "live"
+            ? {
+                status: "stopped",
+                link: null,
+                sessionId,
+                errorMessage: "Collab connection closed.",
+              }
             : prev,
         );
       });

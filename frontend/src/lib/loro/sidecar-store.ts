@@ -123,18 +123,51 @@ export async function loadOrRebuild(
 // ---------------------------------------------------------------------------
 
 /**
+ * True for the file-system errors that a concurrent writer races into.
+ *
+ * When two clients write the same note files at once (for example a live
+ * collab session with both peers pointed at the same data folder, or two tabs
+ * on one folder during testing), the shared atomic tmp file collides: one
+ * client moves it into place, the other then finds it gone (NotFoundError) or
+ * locked (NoModificationAllowedError). We match by DOMException name rather
+ * than instanceof so it holds across realms and test environments.
+ */
+function isConcurrentWriteError(err: unknown): boolean {
+  const name = (err as { name?: string } | null)?.name;
+  return name === "NotFoundError" || name === "NoModificationAllowedError";
+}
+
+/**
  * Write both the sidecar AND the readable mirror in one call.
  *
  * Sidecar-before-mirror ordering is intentional: if the process crashes
  * between the two writes, the authoritative CRDT is on disk and the mirror
  * can be re-projected from it. The mirror is always a derivable projection,
  * never the source of truth for merge or history.
+ *
+ * Concurrent-writer tolerance: a racing write from another client surfaces as
+ * a NotFoundError / lock on the shared atomic tmp file. We swallow ONLY those
+ * (anything else, quota, revoked permission, still propagates). It is safe to
+ * drop a racing write because the sidecar is authoritative and idempotent and
+ * re-persisted on the next debounced commit, so the converged CRDT lands on
+ * disk regardless of which writer wins this round.
  */
 export async function persistNote(
   owner: string,
   doc: LoroDoc,
   base: Note,
 ): Promise<void> {
-  await persistSidecar(owner, base.id, doc);
-  await writeMirror(owner, doc, base);
+  try {
+    await persistSidecar(owner, base.id, doc);
+    await writeMirror(owner, doc, base);
+  } catch (err) {
+    if (isConcurrentWriteError(err)) {
+      console.warn(
+        "[loro] note persist raced another writer; the sidecar re-persists on the next commit",
+        err,
+      );
+      return;
+    }
+    throw err;
+  }
 }
