@@ -19,6 +19,7 @@ import {
   formatUSD,
   upcomingDeadlines,
   type BusinessSummary,
+  type BusinessTask,
   type Deadline,
   type EntityConfig,
   type LedgerDirection,
@@ -29,6 +30,7 @@ import type { InfraCostEstimate } from "@/lib/sharing/capacity-shared";
 interface BusinessData {
   entity: EntityConfig;
   ledger: LedgerEntry[];
+  tasks: BusinessTask[];
   summary: BusinessSummary;
   deadlines: Deadline[];
   infraEstimate: InfraCostEstimate;
@@ -197,6 +199,15 @@ function EntityCard({
           />,
         )}
         {field(
+          "Entity ID (state filing)",
+          <input
+            className={input}
+            placeholder="R098462"
+            value={form.entityId ?? ""}
+            onChange={(e) => setForm({ ...form, entityId: e.target.value || null })}
+          />,
+        )}
+        {field(
           "Formation date",
           <input
             type="date"
@@ -233,6 +244,15 @@ function EntityCard({
             placeholder="e.g. Mercury checking (not the number)"
             value={form.bankLabel ?? ""}
             onChange={(e) => setForm({ ...form, bankLabel: e.target.value || null })}
+          />,
+        )}
+        {field(
+          "Documents folder",
+          <input
+            className={input}
+            placeholder="ResearchOS_LLC/"
+            value={form.docsFolder ?? ""}
+            onChange={(e) => setForm({ ...form, docsFolder: e.target.value || null })}
           />,
         )}
         {field(
@@ -444,6 +464,89 @@ function Ledger({
   );
 }
 
+function Checklist({
+  tasks,
+  onAdd,
+  onToggle,
+  onDelete,
+}: {
+  tasks: BusinessTask[];
+  onAdd: (label: string) => Promise<void>;
+  onToggle: (id: number, done: boolean) => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
+}) {
+  const [label, setLabel] = useState("");
+  const [busy, setBusy] = useState(false);
+  const doneCount = tasks.filter((t) => t.done).length;
+
+  const submit = async () => {
+    const v = label.trim();
+    if (!v) return;
+    setBusy(true);
+    try {
+      await onAdd(v);
+      setLabel("");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-5">
+      {tasks.length > 0 ? (
+        <p className="mb-3 text-meta text-gray-400">
+          {doneCount} of {tasks.length} done
+        </p>
+      ) : null}
+      <ul className="space-y-2">
+        {tasks.map((t) => (
+          <li key={t.id} className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              checked={t.done}
+              onChange={() => onToggle(t.id, !t.done)}
+              className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300"
+            />
+            <span
+              className={`flex-1 text-body ${
+                t.done ? "text-gray-400 line-through" : "text-gray-800"
+              }`}
+            >
+              {t.label}
+            </span>
+            <button
+              type="button"
+              onClick={() => onDelete(t.id)}
+              className="text-meta text-gray-400 hover:text-rose-600"
+            >
+              Delete
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-4 flex items-center gap-2">
+        <input
+          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-body"
+          placeholder="Add an action item..."
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void submit();
+          }}
+        />
+        <button
+          type="button"
+          disabled={busy}
+          onClick={submit}
+          className="rounded-lg border border-gray-300 px-4 py-2 text-body font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        >
+          Add
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function SectionTitle({ children, sub }: { children: React.ReactNode; sub?: string }) {
   return (
     <div className="mb-3 mt-10 first:mt-0">
@@ -542,6 +645,20 @@ export default function BusinessTracker() {
     });
   };
 
+  const postAction = async (payload: Record<string, unknown>) => {
+    await fetch("/api/admin/business", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    await load();
+  };
+
+  const addTask = (label: string) => postAction({ action: "addTask", label });
+  const toggleTask = (id: number, done: boolean) =>
+    postAction({ action: "toggleTask", id, done });
+  const deleteTask = (id: number) => postAction({ action: "deleteTask", id });
+
   if (state.phase === "loading") {
     return (
       <Shell>
@@ -569,7 +686,7 @@ export default function BusinessTracker() {
     );
   }
 
-  const { entity, ledger, summary, deadlines, infraEstimate } = state.data;
+  const { entity, ledger, tasks, summary, deadlines, infraEstimate } = state.data;
 
   return (
     <Shell>
@@ -587,6 +704,16 @@ export default function BusinessTracker() {
         </SectionTitle>
         <DeadlineStrip deadlines={deadlines} />
       </div>
+
+      <SectionTitle sub="The open setup and compliance steps, mirrored from the ResearchOS_LLC document folder. Check them off as you finish, the files go in the matching numbered subfolder.">
+        Setup checklist
+      </SectionTitle>
+      <Checklist
+        tasks={tasks}
+        onAdd={addTask}
+        onToggle={toggleTask}
+        onDelete={deleteTask}
+      />
 
       <SectionTitle sub="Money in minus money out, then the tax reserve held back, then what is safe to draw.">
         Where things stand

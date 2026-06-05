@@ -22,10 +22,14 @@ import {
 } from "@/lib/business/calc";
 import {
   addLedgerEntry,
+  addTask,
   deleteLedgerEntry,
+  deleteTask,
   ensureBusinessSchema,
   getEntity,
   listLedger,
+  listTasks,
+  setTaskDone,
   upsertEntity,
 } from "@/lib/business/db";
 
@@ -45,9 +49,10 @@ export async function GET(): Promise<Response> {
 
   await ensureBusinessSchema();
   try {
-    const [entity, ledger, capacity] = await Promise.all([
+    const [entity, ledger, tasks, capacity] = await Promise.all([
       getEntity(),
       listLedger(),
+      listTasks(),
       // Resilient (per-service null fallback) and wrapped, so a measurement
       // hiccup never sinks the page; the estimate just reads zero.
       getCapacityMetrics().catch(() => null),
@@ -58,7 +63,7 @@ export async function GET(): Promise<Response> {
       capacity?.neon.usedBytes ?? null,
       capacity?.r2.usedBytes ?? null,
     );
-    return json(200, { entity, ledger, summary, deadlines, infraEstimate });
+    return json(200, { entity, ledger, tasks, summary, deadlines, infraEstimate });
   } catch {
     return json(500, { error: "business read failed" });
   }
@@ -84,10 +89,12 @@ function parseEntity(raw: unknown): EntityConfig | null {
   return {
     legalName: asString(o.legalName),
     state: asString(o.state) || "Wisconsin",
+    entityId: o.entityId == null ? null : asString(o.entityId),
     formationDate,
     ein: o.ein == null ? null : asString(o.ein),
     registeredAgent: o.registeredAgent == null ? null : asString(o.registeredAgent),
     bankLabel: o.bankLabel == null ? null : asString(o.bankLabel),
+    docsFolder: o.docsFolder == null ? null : asString(o.docsFolder),
     reservePct,
   };
 }
@@ -141,6 +148,27 @@ export async function POST(request: Request): Promise<Response> {
       const id = Math.round(Number(body.id));
       if (!Number.isFinite(id) || id <= 0) return json(400, { error: "invalid id" });
       await deleteLedgerEntry(id);
+      return json(200, { ok: true });
+    }
+
+    if (action === "addTask") {
+      const label = asString(body.label).trim();
+      if (!label) return json(400, { error: "empty task" });
+      const task = await addTask(label);
+      return json(200, { task });
+    }
+
+    if (action === "toggleTask") {
+      const id = Math.round(Number(body.id));
+      if (!Number.isFinite(id) || id <= 0) return json(400, { error: "invalid id" });
+      await setTaskDone(id, Boolean(body.done));
+      return json(200, { ok: true });
+    }
+
+    if (action === "deleteTask") {
+      const id = Math.round(Number(body.id));
+      if (!Number.isFinite(id) || id <= 0) return json(400, { error: "invalid id" });
+      await deleteTask(id);
       return json(200, { ok: true });
     }
 

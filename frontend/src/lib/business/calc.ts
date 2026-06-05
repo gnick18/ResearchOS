@@ -11,14 +11,27 @@
 export interface EntityConfig {
   legalName: string;
   state: string;
+  /** The state entity / filing ID (Wisconsin DFI), e.g. "R098462". */
+  entityId: string | null;
   /** ISO date, "YYYY-MM-DD", or null if not entered yet. */
   formationDate: string | null;
   ein: string | null;
   registeredAgent: string | null;
   /** A label for the business bank account, never the account number. */
   bankLabel: string | null;
+  /** Where the actual filed documents live on disk (the ResearchOS_LLC folder). */
+  docsFolder: string | null;
   /** Tax reserve percentage, 0..100. A placeholder until an accountant sets it. */
   reservePct: number;
+}
+
+/** One setup / compliance action item. */
+export interface BusinessTask {
+  id: number;
+  label: string;
+  done: boolean;
+  /** ISO timestamp when marked done, or null. */
+  doneAt: string | null;
 }
 
 export type LedgerDirection = "in" | "out";
@@ -69,10 +82,12 @@ export interface Deadline {
 export const DEFAULT_ENTITY: EntityConfig = {
   legalName: "",
   state: "Wisconsin",
+  entityId: null,
   formationDate: null,
   ein: null,
   registeredAgent: null,
   bankLabel: null,
+  docsFolder: null,
   reservePct: 25,
 };
 

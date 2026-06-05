@@ -94,10 +94,12 @@ describe("upcomingDeadlines", () => {
     const withDate: EntityConfig = {
       legalName: "x",
       state: "Wisconsin",
+      entityId: null,
       formationDate: "2025-02-14",
       ein: null,
       registeredAgent: null,
       bankLabel: null,
+      docsFolder: null,
       reservePct: 25,
     };
     const list = upcomingDeadlines(withDate, new Date("2026-05-01T00:00:00Z"));

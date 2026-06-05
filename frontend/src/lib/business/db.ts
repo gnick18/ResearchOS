@@ -15,6 +15,7 @@ import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 
 import {
   DEFAULT_ENTITY,
+  type BusinessTask,
   type EntityConfig,
   type LedgerDirection,
   type LedgerEntry,
@@ -46,15 +47,21 @@ export async function ensureBusinessSchema(): Promise<void> {
       id int primary key default 1,
       legal_name text default '',
       state text default 'Wisconsin',
+      entity_id text,
       formation_date date,
       ein text,
       registered_agent text,
       bank_label text,
+      docs_folder text,
       reserve_pct numeric not null default 25,
       updated_at timestamptz default now(),
       CONSTRAINT business_entity_singleton CHECK (id = 1)
     )
   `;
+  // Additive columns for a business_entity table created by v1 (before the
+  // document-folder integration). ADD COLUMN IF NOT EXISTS is idempotent.
+  await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS entity_id text`;
+  await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS docs_folder text`;
   await sql`
     CREATE TABLE IF NOT EXISTS business_ledger (
       id bigserial primary key,
@@ -67,15 +74,72 @@ export async function ensureBusinessSchema(): Promise<void> {
       created_at timestamptz default now()
     )
   `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS business_tasks (
+      id bigserial primary key,
+      label text not null,
+      done boolean not null default false,
+      sort int not null default 0,
+      created_at timestamptz default now(),
+      done_at timestamptz
+    )
+  `;
+  await seedDefaultsOnce(sql);
+}
+
+// The known facts (from the filed Articles, entity ID R098462, and the
+// ResearchOS_LLC document folder the other agent organized) plus the open
+// action items from that folder's README. Seeded ONCE, the first time the
+// entity row is created, so re-running the schema never overwrites edits and
+// deleting tasks never re-seeds them.
+const SEED_ENTITY = {
+  legalName: "ResearchOS LLC",
+  state: "Wisconsin",
+  entityId: "R098462",
+  formationDate: "2026-06-01",
+  registeredAgent:
+    "Northwest Registered Agent (changing to self via WI DFI Corp Form 13)",
+  docsFolder: "ResearchOS_LLC/",
+  reservePct: 25,
+};
+
+const SEED_TASKS = [
+  "Sign the operating agreement (02_Governance/Operating_Agreement_NEEDS_SIGNATURE.pdf)",
+  "Get the federal EIN from the IRS and save the CP575 to 03_EIN_Federal_Tax/",
+  "File WI DFI Corp Form 13 to change the registered agent to yourself",
+  "Cancel the Northwest registered-agent service",
+  "Open the business bank account (needs the EIN + Articles)",
+  "Set the tax reserve percentage with an accountant",
+];
+
+async function seedDefaultsOnce(
+  sql: NeonQueryFunction<false, false>,
+): Promise<void> {
+  const existing = (await sql`SELECT 1 FROM business_entity WHERE id = 1`) as unknown[];
+  if (existing.length > 0) return; // already initialized, never re-seed
+  await sql`
+    INSERT INTO business_entity
+      (id, legal_name, state, entity_id, formation_date, registered_agent, docs_folder, reserve_pct)
+    VALUES
+      (1, ${SEED_ENTITY.legalName}, ${SEED_ENTITY.state}, ${SEED_ENTITY.entityId},
+       ${SEED_ENTITY.formationDate}, ${SEED_ENTITY.registeredAgent},
+       ${SEED_ENTITY.docsFolder}, ${SEED_ENTITY.reservePct})
+    ON CONFLICT (id) DO NOTHING
+  `;
+  for (let i = 0; i < SEED_TASKS.length; i += 1) {
+    await sql`INSERT INTO business_tasks (label, sort) VALUES (${SEED_TASKS[i]}, ${i})`;
+  }
 }
 
 type EntityRow = {
   legal_name: string | null;
   state: string | null;
+  entity_id: string | null;
   formation_date: string | null;
   ein: string | null;
   registered_agent: string | null;
   bank_label: string | null;
+  docs_folder: string | null;
   reserve_pct: string | number | null;
 };
 
@@ -83,10 +147,12 @@ function rowToEntity(r: EntityRow): EntityConfig {
   return {
     legalName: r.legal_name ?? "",
     state: r.state ?? "Wisconsin",
+    entityId: r.entity_id ?? null,
     formationDate: r.formation_date ?? null,
     ein: r.ein ?? null,
     registeredAgent: r.registered_agent ?? null,
     bankLabel: r.bank_label ?? null,
+    docsFolder: r.docs_folder ?? null,
     reservePct: r.reserve_pct == null ? DEFAULT_ENTITY.reservePct : Number(r.reserve_pct),
   };
 }
@@ -95,7 +161,8 @@ function rowToEntity(r: EntityRow): EntityConfig {
 export async function getEntity(): Promise<EntityConfig> {
   const sql = getSql();
   const rows = (await sql`
-    SELECT legal_name, state, formation_date, ein, registered_agent, bank_label, reserve_pct
+    SELECT legal_name, state, entity_id, formation_date, ein, registered_agent,
+           bank_label, docs_folder, reserve_pct
     FROM business_entity WHERE id = 1
   `) as EntityRow[];
   if (!rows.length) return { ...DEFAULT_ENTITY };
@@ -107,21 +174,73 @@ export async function upsertEntity(config: EntityConfig): Promise<EntityConfig> 
   const sql = getSql();
   await sql`
     INSERT INTO business_entity
-      (id, legal_name, state, formation_date, ein, registered_agent, bank_label, reserve_pct, updated_at)
+      (id, legal_name, state, entity_id, formation_date, ein, registered_agent,
+       bank_label, docs_folder, reserve_pct, updated_at)
     VALUES
-      (1, ${config.legalName}, ${config.state}, ${config.formationDate},
-       ${config.ein}, ${config.registeredAgent}, ${config.bankLabel}, ${config.reservePct}, now())
+      (1, ${config.legalName}, ${config.state}, ${config.entityId},
+       ${config.formationDate}, ${config.ein}, ${config.registeredAgent},
+       ${config.bankLabel}, ${config.docsFolder}, ${config.reservePct}, now())
     ON CONFLICT (id) DO UPDATE SET
       legal_name = EXCLUDED.legal_name,
       state = EXCLUDED.state,
+      entity_id = EXCLUDED.entity_id,
       formation_date = EXCLUDED.formation_date,
       ein = EXCLUDED.ein,
       registered_agent = EXCLUDED.registered_agent,
       bank_label = EXCLUDED.bank_label,
+      docs_folder = EXCLUDED.docs_folder,
       reserve_pct = EXCLUDED.reserve_pct,
       updated_at = now()
   `;
   return getEntity();
+}
+
+type TaskRow = {
+  id: string | number;
+  label: string;
+  done: boolean;
+  done_at: string | null;
+};
+
+function rowToTask(r: TaskRow): BusinessTask {
+  return { id: Number(r.id), label: r.label, done: r.done, doneAt: r.done_at };
+}
+
+/** Every task, open ones first, then by sort order. */
+export async function listTasks(): Promise<BusinessTask[]> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT id, label, done, done_at FROM business_tasks
+    ORDER BY done ASC, sort ASC, id ASC
+  `) as TaskRow[];
+  return rows.map(rowToTask);
+}
+
+/** Appends a task at the end of the sort order. */
+export async function addTask(label: string): Promise<BusinessTask> {
+  const sql = getSql();
+  const rows = (await sql`
+    INSERT INTO business_tasks (label, sort)
+    VALUES (${label}, COALESCE((SELECT MAX(sort) + 1 FROM business_tasks), 0))
+    RETURNING id, label, done, done_at
+  `) as TaskRow[];
+  return rowToTask(rows[0]);
+}
+
+/** Sets a task's done flag, stamping done_at when completing. */
+export async function setTaskDone(id: number, done: boolean): Promise<void> {
+  const sql = getSql();
+  await sql`
+    UPDATE business_tasks
+    SET done = ${done}, done_at = ${done ? new Date().toISOString() : null}::timestamptz
+    WHERE id = ${id}
+  `;
+}
+
+/** Removes a task. */
+export async function deleteTask(id: number): Promise<void> {
+  const sql = getSql();
+  await sql`DELETE FROM business_tasks WHERE id = ${id}`;
 }
 
 type LedgerRow = {
