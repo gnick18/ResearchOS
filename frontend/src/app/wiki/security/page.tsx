@@ -58,7 +58,7 @@ export default function SecurityPage() {
         <summary className="cursor-pointer font-medium text-gray-800">
           Show me the exact file layout
         </summary>
-        <pre className="text-xs overflow-x-auto">
+        <pre className="text-meta overflow-x-auto">
           <code>
 {`<your data folder>/
   .gitignore                     app-managed, auto-appended for sensitive sidecars

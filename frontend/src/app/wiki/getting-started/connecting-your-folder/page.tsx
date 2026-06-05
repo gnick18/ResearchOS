@@ -208,7 +208,7 @@ export default function ConnectingYourFolderPage() {
       <p>
         ResearchOS creates a simple tree the first time you connect:
       </p>
-      <pre className="my-3 rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 overflow-x-auto text-[12px] text-gray-700 font-mono leading-relaxed">{`your-folder/
+      <pre className="my-3 rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 overflow-x-auto text-meta text-gray-700 font-mono leading-relaxed">{`your-folder/
 ├── users/
 │   ├── <your-username>/
 │   │   ├── projects/

@@ -396,7 +396,7 @@ export default function MarkdownEditorPage() {
       </p>
 
       <h3>PCR reaction setup</h3>
-      <pre className="text-xs bg-gray-100 rounded p-3 overflow-x-auto">
+      <pre className="text-meta bg-gray-100 rounded p-3 overflow-x-auto">
         <code>{`## PCR reaction (25 uL, Q5)
 
 | Reagent              | Stock     | Final     | Volume (uL) |
@@ -413,7 +413,7 @@ Variation: dropped extension to 30 s, single template lot.`}</code>
       </pre>
 
       <h3>Plasmid metadata</h3>
-      <pre className="text-xs bg-gray-100 rounded p-3 overflow-x-auto">
+      <pre className="text-meta bg-gray-100 rounded p-3 overflow-x-auto">
         <code>{`## pGN-027  (parent: pGN-012)
 
 - Resistance: Kan (50 ug/mL)
@@ -425,7 +425,7 @@ Variation: dropped extension to 30 s, single template lot.`}</code>
       </pre>
 
       <h3>Sample measurement record</h3>
-      <pre className="text-xs bg-gray-100 rounded p-3 overflow-x-auto">
+      <pre className="text-meta bg-gray-100 rounded p-3 overflow-x-auto">
         <code>{`## OD600 readings, 2026-05-22 08:14 CT
 
 Instrument: BioTek Synergy H1 (SN 19F-3204)
@@ -442,7 +442,7 @@ A3 looks suspect, repeat tomorrow morning.`}</code>
       </pre>
 
       <h3>Equipment log</h3>
-      <pre className="text-xs bg-gray-100 rounded p-3 overflow-x-auto">
+      <pre className="text-meta bg-gray-100 rounded p-3 overflow-x-auto">
         <code>{`## Centrifuge 5424R service log
 
 - Serial: 5424R-7831
