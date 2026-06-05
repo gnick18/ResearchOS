@@ -52,6 +52,9 @@ interface NoteDetailPopupProps {
   onUpdate: (note: Note) => void;
   onDelete: (noteId: number) => void;
   readOnly?: boolean;
+  // Open with the comments rail already expanded + composer focused (used by the
+  // right-click "Add a comment" action).
+  initialCommentsOpen?: boolean;
 }
 
 export default function NoteDetailPopup({
@@ -60,6 +63,7 @@ export default function NoteDetailPopup({
   onUpdate,
   onDelete,
   readOnly: propReadOnly = false,
+  initialCommentsOpen = false,
 }: NoteDetailPopupProps) {
   // Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23): wrap the
   // prop-passed readOnly flag with the PI edit-mode gate. When the active
@@ -86,7 +90,7 @@ export default function NoteDetailPopup({
   const [historyOpen, setHistoryOpen] = useState(false);
   // Lab comments live in a docked right rail (like the history sidebar). The two
   // rails are mutually exclusive: opening one closes the other.
-  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(initialCommentsOpen);
   const commentCount = note.comments?.length ?? 0;
   const [versionPreview, setVersionPreview] = useState<VersionPreview | null>(
     null,
@@ -1914,7 +1918,7 @@ export default function NoteDetailPopup({
             see PI feedback. The thread itself gates whether commenting is on. */}
         {commentsOpen && (
           <CommentsSidebar count={commentCount} onClose={() => setCommentsOpen(false)}>
-            <NoteCommentsThread note={note} variant="sidebar" />
+            <NoteCommentsThread note={note} variant="sidebar" autoFocusComposer={initialCommentsOpen} />
           </CommentsSidebar>
         )}
         </div>

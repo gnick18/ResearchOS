@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { usersApi } from "@/lib/local-api";
 import UserAvatar from "@/components/UserAvatar";
@@ -50,6 +50,8 @@ interface CommentsThreadProps {
   // border, no collapse chrome) for a docked right rail, where the rail itself
   // provides the header and scroll container.
   variant?: "inline" | "sidebar";
+  // Focus the top-level comment composer on mount (right-click "Add a comment").
+  autoFocusComposer?: boolean;
   // Async callbacks. The parent owns the mutation hooks + cache
   // invalidation; this component manages its own draft + pending state.
   //
@@ -106,6 +108,7 @@ export default function CommentsThread({
   onAdd,
   onDelete,
   variant = "inline",
+  autoFocusComposer = false,
 }: CommentsThreadProps) {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
@@ -217,6 +220,7 @@ export default function CommentsThread({
           <CommentComposer
             placeholder={`Comment as ${author}…`}
             author={author}
+            autoFocus={autoFocusComposer}
             draftKey={makeCommentDraftKey({
               author,
               entityKind,
@@ -522,6 +526,9 @@ interface CommentComposerProps {
   draftKey: string;
   onSubmit: (text: string, mentions: string[]) => Promise<void>;
   onCancel?: () => void;
+  // Focus the textarea on mount. Used when the comments rail is opened via the
+  // right-click "Add a comment" action so the user can type immediately.
+  autoFocus?: boolean;
 }
 
 function CommentComposer({
@@ -530,10 +537,17 @@ function CommentComposer({
   draftKey,
   onSubmit,
   onCancel,
+  autoFocus = false,
 }: CommentComposerProps) {
   const [draft, setDraft] = useState("");
   const [posting, setPosting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (autoFocus) textareaRef.current?.focus();
+    // Focus once on mount; not on every autoFocus change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Draft persistence: write the typed body to sessionStorage on every
   // keystroke (debounced inside the hook) so a refresh / SPA nav / tab

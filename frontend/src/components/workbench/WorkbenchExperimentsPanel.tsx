@@ -11,6 +11,7 @@ import { useAppStore } from "@/lib/store";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { matchesAnyProjectFilter } from "@/lib/search/filterKey";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
+import ContextMenu from "@/components/ContextMenu";
 import TaskModal from "@/components/TaskModal";
 import Tooltip from "@/components/Tooltip";
 import SharedFromPill from "@/components/workbench/SharedFromPill";
@@ -144,6 +145,13 @@ interface Props {
 
 export default function WorkbenchExperimentsPanel({ projects }: Props) {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  // Right-click "Add a comment": opens the popup with the comments rail expanded.
+  const [commentIntent, setCommentIntent] = useState(false);
+  const [tileMenu, setTileMenu] = useState<{ x: number; y: number; task: Task } | null>(null);
+  const openTaskComments = (t: Task) => {
+    setSelectedTask(t);
+    setCommentIntent(true);
+  };
   const [earlierLayout, setEarlierLayout] = useState<"flat" | "grouped">(
     "flat",
   );
@@ -444,6 +452,11 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
         key={taskKey(t)}
         className="flex flex-col gap-2"
         data-tour-target={labTourTarget}
+        data-testid="experiment-board-card"
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setTileMenu({ x: e.clientX, y: e.clientY, task: t });
+        }}
       >
         <ExperimentResultCard
           task={{
@@ -875,6 +888,25 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
       )}
 
       {/* Task Detail Popup */}
+      {tileMenu && (
+        <ContextMenu
+          x={tileMenu.x}
+          y={tileMenu.y}
+          onClose={() => setTileMenu(null)}
+          items={[
+            {
+              label: tileMenu.task.comments?.length ? "View / add comment" : "Add a comment",
+              icon: (
+                <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M7 8h10M7 12h6m-7 9l4-4h10a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h1v4z" />
+                </svg>
+              ),
+              onClick: () => openTaskComments(tileMenu.task),
+            },
+          ]}
+        />
+      )}
+
       {selectedTask && (
         <TaskDetailPopup
           task={selectedTask}
@@ -883,8 +915,15 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
               p.id === selectedTask.project_id &&
               p.owner === selectedTask.owner,
           )}
-          onClose={() => setSelectedTask(null)}
-          onNavigateToTask={(task) => setSelectedTask(task)}
+          onClose={() => {
+            setSelectedTask(null);
+            setCommentIntent(false);
+          }}
+          onNavigateToTask={(task) => {
+            setSelectedTask(task);
+            setCommentIntent(false);
+          }}
+          initialCommentsOpen={commentIntent}
         />
       )}
 

@@ -7,6 +7,7 @@ import type { Note, NoteCreate, LabNote, SharedNotebook } from "@/lib/types";
 import NoteCard from "./NoteCard";
 import NoteListRow from "./NoteListRow";
 import NoteDetailPopup from "./NoteDetailPopup";
+import ContextMenu from "./ContextMenu";
 import { emitNoteDeleted } from "@/lib/notes/delete-toast-bus";
 import SharedNotebookView from "./notebooks/SharedNotebookView";
 import StartSharedNotebookDialog from "./notebooks/StartSharedNotebookDialog";
@@ -82,6 +83,13 @@ export default function NotesPanel({
   const queryClient = useQueryClient();
   const { currentUser } = useCurrentUser();
   const [selectedNote, setSelectedNote] = useState<Note | LabNote | null>(null);
+  // Right-click "Add a comment": opens the note popup with the comments rail open.
+  const [noteCommentIntent, setNoteCommentIntent] = useState(false);
+  const [noteMenu, setNoteMenu] = useState<{ x: number; y: number; note: Note | LabNote } | null>(null);
+  const openNoteComments = (note: Note | LabNote) => {
+    setSelectedNote(note);
+    setNoteCommentIntent(true);
+  };
   const [showNewNoteDropdown, setShowNewNoteDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<"all" | "single" | "running">("all");
@@ -508,24 +516,30 @@ export default function NotesPanel({
       isLabMode && viewMode === "grid" && globalIndex === 0
         ? "lab-mode-notes-first-card"
         : undefined;
+    const onTileContextMenu = (e: React.MouseEvent) => {
+      e.preventDefault();
+      setNoteMenu({ x: e.clientX, y: e.clientY, note });
+    };
     if (viewMode === "list") {
       return (
-        <NoteListRow
-          key={`${note.username}:${note.id}`}
-          note={note}
-          onClick={() => setSelectedNote(note)}
-          isLabMode={isLabMode}
-        />
+        <div key={`${note.username}:${note.id}`} onContextMenu={onTileContextMenu}>
+          <NoteListRow
+            note={note}
+            onClick={() => setSelectedNote(note)}
+            isLabMode={isLabMode}
+          />
+        </div>
       );
     }
     return (
-      <NoteCard
-        key={`${note.username}:${note.id}`}
-        note={note}
-        onClick={() => setSelectedNote(note)}
-        isLabMode={isLabMode}
-        tourTarget={tourTarget}
-      />
+      <div key={`${note.username}:${note.id}`} onContextMenu={onTileContextMenu}>
+        <NoteCard
+          note={note}
+          onClick={() => setSelectedNote(note)}
+          isLabMode={isLabMode}
+          tourTarget={tourTarget}
+        />
+      </div>
     );
   };
 
@@ -863,13 +877,36 @@ export default function NotesPanel({
       )}
 
       {/* Note Detail Popup */}
+      {noteMenu && (
+        <ContextMenu
+          x={noteMenu.x}
+          y={noteMenu.y}
+          onClose={() => setNoteMenu(null)}
+          items={[
+            {
+              label: (noteMenu.note.comments?.length ?? 0) > 0 ? "View / add comment" : "Add a comment",
+              icon: (
+                <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M7 8h10M7 12h6m-7 9l4-4h10a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h1v4z" />
+                </svg>
+              ),
+              onClick: () => openNoteComments(noteMenu.note),
+            },
+          ]}
+        />
+      )}
+
       {selectedNote && (
         <NoteDetailPopup
           note={selectedNote as Note}
-          onClose={() => setSelectedNote(null)}
+          onClose={() => {
+            setSelectedNote(null);
+            setNoteCommentIntent(false);
+          }}
           onUpdate={handleNoteUpdate}
           onDelete={handleNoteDelete}
           readOnly={isLabMode}
+          initialCommentsOpen={noteCommentIntent}
         />
       )}
 

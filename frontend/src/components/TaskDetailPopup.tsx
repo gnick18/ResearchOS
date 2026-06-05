@@ -103,6 +103,9 @@ interface TaskDetailPopupProps {
    *  purchase tasks and "details" otherwise. Used by the /results route to
    *  open straight into the Results tab. */
   initialTab?: Tab;
+  /** Open with the comments rail already expanded + composer focused (used by
+   *  the right-click "Add a comment" action). Experiment tasks only. */
+  initialCommentsOpen?: boolean;
 }
 
 type Tab = "details" | "notes" | "method" | "results" | "purchases";
@@ -115,6 +118,7 @@ export default function TaskDetailPopup({
   readOnly: propReadOnly = false,
   username,
   initialTab,
+  initialCommentsOpen = false,
 }: TaskDetailPopupProps) {
   const queryClient = useQueryClient();
   // Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23): wrap the
@@ -192,7 +196,7 @@ export default function TaskDetailPopup({
   const [historyOpen, setHistoryOpen] = useState(false);
   // Lab comments now dock as a right rail, mutually exclusive with the history
   // sidebar (opening one closes the other).
-  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(initialCommentsOpen && isExperiment);
   const commentCount = task.comments?.length ?? 0;
   const [versionPreview, setVersionPreview] = useState<VersionPreview | null>(
     null,
@@ -1753,6 +1757,7 @@ export default function TaskDetailPopup({
             <CommentsSidebar count={commentCount} onClose={() => setCommentsOpen(false)}>
               <CommentsThread
                 variant="sidebar"
+                autoFocusComposer={initialCommentsOpen}
                 entityKind="task"
                 entityId={task.id}
                 entityOwner={task.owner}
