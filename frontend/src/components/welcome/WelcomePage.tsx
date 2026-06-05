@@ -820,8 +820,17 @@ export default function WelcomePage() {
 
         {/* ── Live collaboration coming-soon teaser ───────────────────── */}
         <section className="px-6 py-16 sm:px-12">
-          <div className="mx-auto max-w-[1320px] overflow-hidden rounded-2xl border border-[#e3eaf3] bg-white shadow-[0_1px_2px_rgba(15,40,80,0.04)]">
-            <div className="grid items-center gap-8 p-8 md:grid-cols-[1.1fr_1fr] md:p-12">
+          {/* BeakerBot waves a friendly hello over the top-left of the collab
+              teaser, then settles into a living idle. */}
+          <BeakerBotPeek
+            anchor="top-left"
+            reactionPose="waving"
+            restPose="idle"
+            bubble="hi!"
+            size="h-24 w-24"
+          >
+            <div className="mx-auto max-w-[1320px] overflow-hidden rounded-2xl border border-[#e3eaf3] bg-white shadow-[0_1px_2px_rgba(15,40,80,0.04)]">
+              <div className="grid items-center gap-8 p-8 md:grid-cols-[1.1fr_1fr] md:p-12">
               <div>
                 <span className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-meta font-semibold text-sky-700">
                   On the roadmap
@@ -871,7 +880,8 @@ export default function WelcomePage() {
                 </div>
               </div>
             </div>
-          </div>
+            </div>
+          </BeakerBotPeek>
         </section>
 
         {/* ── What we're building chip (above comparison table) ───────── */}
@@ -928,8 +938,18 @@ export default function WelcomePage() {
             </p>
           </div>
 
-          <div className="mx-auto max-w-[1320px] overflow-hidden rounded-2xl border border-[#e3eaf3] bg-white shadow-[0_1px_2px_rgba(15,40,80,0.04)]">
-            <div className="overflow-x-auto">
+          {/* BeakerBot peeks over the ResearchOS column and cheers "us!", then
+              settles into a living idle. */}
+          <BeakerBotPeek
+            anchor="top-left"
+            edgeInset="33%"
+            reactionPose="cheering"
+            restPose="idle"
+            bubble="us!"
+            size="h-24 w-24"
+          >
+            <div className="mx-auto max-w-[1320px] overflow-hidden rounded-2xl border border-[#e3eaf3] bg-white shadow-[0_1px_2px_rgba(15,40,80,0.04)]">
+              <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] border-collapse text-left">
                 <thead>
                   <tr className="border-b border-[#e3eaf3]">
@@ -1025,8 +1045,9 @@ export default function WelcomePage() {
                   />
                 </tbody>
               </table>
+              </div>
             </div>
-          </div>
+          </BeakerBotPeek>
 
           <p className="mx-auto mt-6 max-w-[60ch] text-center text-body leading-relaxed text-[#64748b]">
             SnapGene genuinely leads on deep cloning and sequence visualization.

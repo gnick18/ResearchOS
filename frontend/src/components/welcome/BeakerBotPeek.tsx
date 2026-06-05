@@ -97,6 +97,9 @@ export interface BeakerBotPeekProps {
   size?: string;
   /** How long the reaction pose holds before settling, ms. Default 1100. */
   reactionMs?: number;
+  /** Override the horizontal inset for the top-* anchors (e.g. "35%" to park
+   *  him over a specific column). Ignored by the left/right anchors. */
+  edgeInset?: string;
   /** Extra classes on the relative wrapper. */
   className?: string;
 }
@@ -109,6 +112,7 @@ export default function BeakerBotPeek({
   bubble,
   size = "h-20 w-20",
   reactionMs = 1100,
+  edgeInset,
   className,
 }: BeakerBotPeekProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -148,7 +152,14 @@ export default function BeakerBotPeek({
     };
   }, [reactionMs]);
 
-  const spec = ANCHORS[anchor];
+  const base = ANCHORS[anchor];
+  // Apply an optional horizontal-inset override for the top-* anchors.
+  const spec: AnchorSpec =
+    edgeInset && anchor === "top-left"
+      ? { ...base, pos: { ...base.pos, left: edgeInset } }
+      : edgeInset && anchor === "top-right"
+        ? { ...base, pos: { ...base.pos, right: edgeInset } }
+        : base;
   const visible = phase !== "hidden";
   // Reduced motion: skip the slide, just sit at the peek position statically.
   const transform = reduced ? spec.peek : visible ? spec.peek : spec.hidden;
