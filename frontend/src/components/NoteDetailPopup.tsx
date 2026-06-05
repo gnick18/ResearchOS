@@ -15,6 +15,7 @@ import {
 import { useAppStore } from "@/lib/store";
 import { LORO_PILOT_ENABLED } from "@/lib/loro/config";
 import { openNote, type NoteHandle } from "@/lib/loro/store";
+import { restoreLoroVersion, undoLoroRestore } from "@/lib/loro/restore";
 import { makeLoroHistoryEngine } from "@/lib/loro/history-engine";
 import { persistEntryContent } from "@/lib/notes/persist-entry-content";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
@@ -1018,6 +1019,70 @@ export default function NoteDetailPopup({
     onAfterRestore: closeHistory,
   });
 
+  // Phase 2 chunk 5: Loro-path restore + undo, flag-gated.
+  // When the flag is on and loroHandle is ready, onRestore and the undo
+  // affordance call these instead of the legacy useVersionRestore handlers.
+  // The legacy path is completely unchanged when the flag is off.
+  const [loroRestoreBusy, setLoroRestoreBusy] = useState(false);
+
+  const handleLoroRestore = useCallback(
+    async (targetVersion: number) => {
+      if (!loroHandle || loroRestoreBusy) return;
+      setLoroRestoreBusy(true);
+      try {
+        const owner = note.username || currentUser || "";
+        const result = await restoreLoroVersion(
+          loroHandle,
+          owner,
+          note,
+          targetVersion,
+          currentUser ?? "",
+        );
+        // Clear any in-flight unsaved edits: the Loro doc is now the
+        // authoritative source of truth for content after the restore.
+        unsavedContentRef.current.clear();
+        reflectRestoredNote(result);
+        closeHistory();
+      } catch (err) {
+        console.error("[NoteDetailPopup] Loro restore failed:", err);
+      } finally {
+        setLoroRestoreBusy(false);
+      }
+    },
+    [loroHandle, loroRestoreBusy, note, currentUser, reflectRestoredNote, closeHistory],
+  );
+
+  const handleLoroUndoRestore = useCallback(async () => {
+    if (!loroHandle || loroRestoreBusy) return;
+    if (!note.revert_undo_window) return;
+    setLoroRestoreBusy(true);
+    try {
+      const owner = note.username || currentUser || "";
+      const result = await undoLoroRestore(
+        loroHandle,
+        owner,
+        note,
+        note.revert_undo_window.from_version,
+        currentUser ?? "",
+      );
+      unsavedContentRef.current.clear();
+      reflectRestoredNote(result);
+    } catch (err) {
+      console.error("[NoteDetailPopup] Loro undo restore failed:", err);
+    } finally {
+      setLoroRestoreBusy(false);
+    }
+  }, [loroHandle, loroRestoreBusy, note, currentUser, reflectRestoredNote]);
+
+  // Branched restore + undo handlers: Loro when flag+handle are ready,
+  // legacy otherwise. The sidebar onRestore and the undo button use these.
+  const activeHandleRestore =
+    LORO_PILOT_ENABLED && loroHandle ? handleLoroRestore : handleRestore;
+  const activeHandleUndoRestore =
+    LORO_PILOT_ENABLED && loroHandle ? handleLoroUndoRestore : handleUndoRestore;
+  const activeRestoreBusy =
+    LORO_PILOT_ENABLED && loroHandle ? loroRestoreBusy : restoreBusy;
+
   // Format date for display
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "";
@@ -1261,7 +1326,7 @@ export default function NoteDetailPopup({
                     label={
                       restoreNeedsUnlock
                         ? "Unlock edit mode (PI passcode) to undo the restore"
-                        : restoreBusy
+                        : activeRestoreBusy
                           ? "Undoing the restore..."
                           : "Undo the restore (returns the note to its pre-restore version)"
                     }
@@ -1269,16 +1334,16 @@ export default function NoteDetailPopup({
                   >
                     <button
                       onClick={
-                        canRestore && !restoreBusy ? handleUndoRestore : undefined
+                        canRestore && !activeRestoreBusy ? activeHandleUndoRestore : undefined
                       }
                       // Disable while a restore / undo is in flight so a
                       // distracted double click cannot fire two concurrent
                       // undo-revert writes. The hook also early-returns when
                       // busy; this is the UX layer over that guard.
-                      disabled={!canRestore || restoreBusy}
+                      disabled={!canRestore || activeRestoreBusy}
                       data-testid="note-undo-restore-button"
                       className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-meta font-medium rounded-lg transition-colors ${
-                        canRestore && !restoreBusy
+                        canRestore && !activeRestoreBusy
                           ? "text-amber-700 bg-amber-50 hover:bg-amber-100"
                           : "text-gray-400 bg-gray-50 cursor-not-allowed"
                       }`}
@@ -1296,7 +1361,7 @@ export default function NoteDetailPopup({
                         <path d="M9 14L4 9l5-5" />
                         <path d="M4 9h11a4 4 0 0 1 0 8h-1" />
                       </svg>
-                      {restoreBusy ? "Undoing..." : "Undo restore"}
+                      {activeRestoreBusy ? "Undoing..." : "Undo restore"}
                     </button>
                   </Tooltip>
                 )}
@@ -1776,7 +1841,7 @@ export default function NoteDetailPopup({
             // is ON, the three-way PI gate grants restore rights, AND a non-HEAD
             // version is selected (the sidebar enforces the last condition).
             canRestore={RESTORE_ENABLED && canRestore}
-            onRestore={handleRestore}
+            onRestore={activeHandleRestore}
             // Phase 2 chunk 4: when the flag is on, drive the sidebar from the
             // Loro native history instead of the legacy delta store. undefined
             // when flag is off (legacy engine used, unchanged).
