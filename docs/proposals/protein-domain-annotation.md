@@ -76,6 +76,41 @@ Pfam retired its own site around 2023 and now lives inside InterPro at EBI.
   run and pay for per query, AND it sends the user's protein off-device. Only an
   opt-in fallback (see below), not the default.
 
+## Phase 0 spike RESULT (2026-06-05): YELLOW, and EBI is seamless
+
+Spike run, full writeup in `docs/spikes/hmmer-wasm-spike-result.md`. Headlines:
+
+- NO ready-made in-browser HMMER exists (not in biowasm's 41-tool catalog, npm,
+  GitHub, or Pyodide). HMMER3's hot loops are hand-written SIMD (`impl_sse` /
+  `impl_neon` / `impl_vmx`) with NO scalar fallback and no `impl_wasm`, which is
+  exactly why biowasm skipped it. A WASM build means porting a SIMD backend to
+  WASM-SIMD + Emscripten wrapping. Multi-day specialist work, not a plain
+  `emcc make`. (Correction to this doc's earlier "biowasm makes it easy" line.)
+- CORRECTNESS / SPEED / MEMORY are NOT the risk (measured on native 3.3.2 as the
+  proxy). CDK2 vs Pkinase returns PF00069 at E=2.5e-81 over the right residues;
+  the search is sub-millisecond and barely grows with library size; ~6 MB RSS;
+  ~70 KB per pressed HMM (so a 30 MB subset holds ~440 HMMs, full Pfam-A ~1.4 GB,
+  confirming the curated-subset call). WASM SIMD is supported in Chrome / Edge
+  (our only browsers), so no compatibility blocker. The only real cost is the
+  SIMD port itself.
+- EBI INTERPROSCAN IS BROWSER-DIRECT SEAMLESS. Confirmed live: `iprscan5` returns
+  `access-control-allow-origin: *` on GET and the OPTIONS preflight for POST
+  `/run`. This is the Zenodo case, not Figshare. A browser can submit / poll /
+  parse and auto-add features with NO proxy. So the "drop the handoff if CORS
+  blocks" branch does NOT trigger, and decision 3's seamlessness condition is MET:
+  the opt-in EBI handoff is seamless and shippable now, full Pfam coverage.
+
+### Revised plan from the spike
+
+- The EBI seamless handoff is no longer just a fallback; it is the FAST PATH to
+  ship full-coverage, auto-annotating domain detection NOW (opt-in + privacy
+  notice, since it sends the protein to EBI off-device).
+- The on-device WASM build stays the prize (zero upload, fully local) but is a
+  real SIMD-backend port; make it a fast-follow with its own build-and-validate
+  sub-gate against the native oracle.
+- Either way the feature ships; the two paths share the same feature-mapping +
+  unified filterable label.
+
 ## The feasibility gate (Phase 0 spike): in-browser HMMER
 
 The single make-or-break question, to answer empirically before building, exactly
