@@ -67,53 +67,79 @@ function SignInRow({
   onLocal: () => void;
   tone?: "dark" | "light";
 }) {
-  const googleCls =
-    "inline-flex items-center justify-center gap-2.5 rounded-xl border border-[#d7dde5] bg-white px-5 py-3 text-body font-semibold text-gray-800 shadow-[0_6px_18px_rgba(0,0,0,0.10)] transition-transform hover:scale-[1.02]";
-  const githubCls =
-    "inline-flex items-center justify-center gap-2.5 rounded-xl border border-[#181717] bg-[#181717] px-5 py-3 text-body font-semibold text-white transition-transform hover:scale-[1.02]";
-  const linkedInCls =
-    "inline-flex items-center justify-center gap-2.5 rounded-xl border border-[#0A66C2] bg-[#0A66C2] px-5 py-3 text-body font-semibold text-white transition-transform hover:scale-[1.02] hover:bg-[#004182]";
-  const localCls =
-    "text-meta font-medium text-sky-700 underline underline-offset-2 transition-colors hover:text-sky-800";
+  // OAuth buttons are the SECONDARY path (sharing only). The primary action is
+  // using the notebook locally with no account, the core local-first promise,
+  // so it gets the big prominent button and the providers sit below a divider.
+  const oauthBase =
+    "inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-body font-semibold transition-transform hover:scale-[1.02]";
   return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="flex flex-col items-center gap-3 sm:flex-row">
+    <div className="flex w-full flex-col items-center gap-5">
+      {/* PRIMARY: use it locally. No account, ever. The headline action. */}
+      <div className="flex flex-col items-center gap-2.5">
+        <button
+          type="button"
+          onClick={onLocal}
+          data-testid="welcome-signin-local"
+          className="inline-flex items-center justify-center gap-2.5 rounded-2xl bg-[#0e1726] px-8 py-4 text-title font-bold text-white shadow-[0_14px_34px_rgba(15,40,80,0.22)] transition-transform hover:scale-[1.02]"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-5 w-5 shrink-0"
+            aria-hidden
+          >
+            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+          </svg>
+          Open your notebook, no account needed
+        </button>
+        <p className="text-meta text-[#64748b]">
+          Free, works fully offline, and yours to keep. No sign-up, ever.
+        </p>
+      </div>
+
+      {/* Divider into the optional sign-in path. */}
+      <div className="flex w-full max-w-sm items-center gap-3">
+        <span className="h-px flex-1 bg-[#dbe6f3]" />
+        <span className="whitespace-nowrap text-meta font-medium text-[#8593a8]">
+          or sign in to enable sharing
+        </span>
+        <span className="h-px flex-1 bg-[#dbe6f3]" />
+      </div>
+
+      {/* SECONDARY: OAuth providers, only for sharing, inbox, collaboration. */}
+      <div className="flex flex-col items-center gap-2.5 sm:flex-row">
         <button
           type="button"
           onClick={onGoogle}
           data-testid="welcome-preview-signin-google"
-          className={googleCls}
+          className={`${oauthBase} border-[#d7dde5] bg-white text-gray-800 shadow-[0_4px_12px_rgba(0,0,0,0.08)]`}
         >
-          <GoogleIcon className="h-5 w-5 shrink-0" />
-          Sign in with Google
+          <GoogleIcon className="h-4 w-4 shrink-0" />
+          Google
         </button>
         <button
           type="button"
           onClick={onGitHub}
           data-testid="welcome-preview-signin-github"
-          className={githubCls}
+          className={`${oauthBase} border-[#181717] bg-[#181717] text-white`}
         >
-          <GitHubIcon className="h-5 w-5 shrink-0" />
-          Sign in with GitHub
+          <GitHubIcon className="h-4 w-4 shrink-0" />
+          GitHub
         </button>
         <button
           type="button"
           onClick={onLinkedIn}
           data-testid="welcome-preview-signin-linkedin"
-          className={linkedInCls}
+          className={`${oauthBase} border-[#0A66C2] bg-[#0A66C2] text-white hover:bg-[#004182]`}
         >
-          <LinkedInIcon className="h-5 w-5 shrink-0" />
-          Sign in with LinkedIn
+          <LinkedInIcon className="h-4 w-4 shrink-0" />
+          LinkedIn
         </button>
       </div>
-      <button
-        type="button"
-        onClick={onLocal}
-        data-testid="welcome-preview-continue-local"
-        className={localCls}
-      >
-        Use locally without an account
-      </button>
     </div>
   );
 }
@@ -365,10 +391,6 @@ export default function WelcomePage() {
                 tone="light"
               />
             </div>
-            <p className="mt-3 max-w-[52ch] text-meta text-[#8593a8]">
-              The notebook needs no account. Sign-in is only for sharing, inbox,
-              and collaboration.
-            </p>
           </div>
         </header>
 
