@@ -12,7 +12,7 @@
 //   1. SharingIdentitySection  - the identity itself, branching on the four
 //      useSharingIdentity status values (loading / none / ready / needs-restore).
 //   2. InboxStorageSection      - the relay budget, pending count + bytes used
-//      against the 5 GB / 100-share ceilings, the 30-day policy, a jump to the
+//      against the 1 GB / 100-share ceilings, the 30-day policy, a jump to the
 //      inbox. Renders a "set up sharing" stub until status === "ready".
 //
 // The sections do NOT use the settings/update contract, the identity link is not

@@ -6,10 +6,18 @@
 // display and the send route's enforcement both read these exact values, so
 // what a user sees and what the server enforces can never drift.
 //
-// These are the FINAL numbers (Grant, 2026-06-03). The generous 5 GB budget is
-// paired with the operator usage tracker (scripts/relay-usage.mjs) so real
-// consumption can be watched and the budget adjusted later. Changing a number
-// here changes both the enforcement and the display in one place.
+// These numbers are paired with the operator usage tracker
+// (scripts/relay-usage.mjs) so real consumption can be watched and the budget
+// adjusted later. Changing a number here changes both the enforcement and the
+// display in one place.
+//
+// The per-inbox byte budget was lowered from 5 GB to 1 GB (Grant, 2026-06-05).
+// The bundles live on Cloudflare R2, whose free tier is 10 GB, so a 5 GB
+// per-inbox cap meant just two full inboxes exhausted the free tier. 1 GB is
+// still generous for UNIMPORTED pending shares (the inbox is a staging area,
+// not storage) and stretches the free tier to roughly ten full inboxes before
+// any paid R2 is needed. R2 storage is cheap (about $0.015/GB-month, no egress)
+// so this is runway, not a hard wall.
 
 /**
  * Maximum pending shares a single recipient mailbox may hold at once. Counting
@@ -19,12 +27,13 @@
 export const PENDING_SHARE_CAP = 100;
 
 /**
- * Free total stored-bytes budget per recipient mailbox, 5 GB. The relay sums the
+ * Free total stored-bytes budget per recipient mailbox, 1 GB. The relay sums the
  * sizeBytes of a recipient's non-expired pending rows and rejects a new send when
  * the incoming bundle would push the total over this budget. The display in
- * Settings shows the same total against this same number.
+ * Settings shows the same total against this same number. See the file header
+ * for why this is 1 GB and not 5 GB.
  */
-export const FREE_STORAGE_BYTES = 5 * 1024 * 1024 * 1024;
+export const FREE_STORAGE_BYTES = 1 * 1024 * 1024 * 1024;
 
 /**
  * Pending-share lifetime, 30 days in milliseconds. After this a pending share is

@@ -234,7 +234,7 @@ function SurvivalRisk({ c }: { c: CapacityMetrics }) {
       pct: pctUsed(c.r2.usedBytes ?? 0, c.r2.limitBytes),
       detail: `${humanBytes(c.r2.usedBytes ?? 0)} of ${humanBytes(c.r2.limitBytes)} of sealed bundles in flight`,
       meaning:
-        "Per-inbox caps bound each user, but the global free tier is the real ceiling. Two full 5 GB inboxes already reach it.",
+        "Per-inbox caps bound each user, but the global free tier is the real ceiling. About ten full 1 GB inboxes reach it.",
     },
     {
       key: "resend",

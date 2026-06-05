@@ -1,8 +1,8 @@
 // Cross-boundary sharing, relay send route, byte-budget + count-cap enforcement.
 //
-// Pins the two independent ceilings the send route enforces with the FINAL
-// 5 GB / 100 constants (Grant, 2026-06-03), the per-recipient pending COUNT cap
-// (PENDING_SHARE_CAP) and the total stored-BYTES budget (FREE_STORAGE_BYTES), and
+// Pins the two independent ceilings the send route enforces (the per-recipient
+// pending COUNT cap PENDING_SHARE_CAP and the total stored-BYTES budget
+// FREE_STORAGE_BYTES, read symbolically so the 5 GB -> 1 GB change is covered), and
 // proves a normal send still reserves a bundle. Every dependency is mocked so no
 // Neon, no R2, no rate limiter, no crypto verification runs, the test exercises
 // the route's branching only.

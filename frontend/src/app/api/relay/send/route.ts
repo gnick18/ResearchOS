@@ -58,7 +58,8 @@ const GENERIC_FAILURE = { error: "send failed" } as const;
 // The pending-count cap, the byte budget, and the TTL are shared constants in
 // relay/limits.ts so this enforcement and the Settings "Inbox and storage"
 // display can never drift. PENDING_SHARE_CAP replaces the former in-file
-// RECIPIENT_QUOTA (bumped 50 -> 100 with the 5 GB budget, Grant 2026-06-03).
+// RECIPIENT_QUOTA (bumped 50 -> 100, Grant 2026-06-03; byte budget later
+// lowered 5 GB -> 1 GB, Grant 2026-06-05).
 
 export async function POST(request: Request): Promise<Response> {
   if (!isSharingEnabled()) {

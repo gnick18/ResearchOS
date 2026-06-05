@@ -79,7 +79,7 @@ export const RELEASE_NOTES: ReadonlyArray<ReleaseNote> = [
       "Free accounts, and completely optional. Your notebook stays fully local and free, no account needed.",
       "A full cloning workbench with Gibson, Golden Gate, Gateway, and restriction, plus junction primers designed for you",
       "A public Transparency page that checks our science against Biopython and primer3",
-      "Sign in to share notes, methods, and projects by email, with a 5 GB encrypted inbox",
+      "Sign in to share notes, methods, and projects by email, with a 1 GB encrypted inbox",
       "Redesigned welcome page, a roadmap, LinkedIn sign-in, and a BeakerBot rainbow color",
       "Coming soon with an account, live collaboration and finding other ResearchOS users",
     ],

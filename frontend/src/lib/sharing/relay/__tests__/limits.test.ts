@@ -1,7 +1,8 @@
 // Cross-boundary sharing, relay budget constants.
 //
-// Pins the FINAL numbers (Grant, 2026-06-03) so a stray edit that drifts the
-// display from the enforcement, or silently shrinks the budget, fails loudly.
+// Pins the budget numbers so a stray edit that drifts the display from the
+// enforcement, or silently changes the budget, fails loudly. The per-inbox byte
+// budget was lowered 5 GB -> 1 GB (Grant, 2026-06-05); see relay/limits.ts.
 
 import { describe, expect, it } from "vitest";
 
@@ -17,9 +18,9 @@ describe("relay limits", () => {
     expect(PENDING_SHARE_CAP).toBe(100);
   });
 
-  it("free storage budget is exactly 5 GiB", () => {
-    expect(FREE_STORAGE_BYTES).toBe(5 * 1024 * 1024 * 1024);
-    expect(FREE_STORAGE_BYTES).toBe(5368709120);
+  it("free storage budget is exactly 1 GiB", () => {
+    expect(FREE_STORAGE_BYTES).toBe(1 * 1024 * 1024 * 1024);
+    expect(FREE_STORAGE_BYTES).toBe(1073741824);
   });
 
   it("TTL is 30 days, in days and in milliseconds", () => {
