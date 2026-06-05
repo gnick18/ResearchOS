@@ -37,6 +37,7 @@ import { useRouter } from "next/navigation";
 import BeakerBot from "@/components/BeakerBot";
 import DemoLoop, { DemoLoopPlaceholder } from "@/components/welcome/DemoLoop";
 import { GoogleIcon, GitHubIcon, LinkedInIcon } from "@/components/sharing/icons";
+import { FREE_STORAGE_BYTES, TTL_DAYS } from "@/lib/sharing/relay/limits";
 import RoadmapModal from "@/components/RoadmapModal";
 
 /** The rainbow ribbon gradient (pastel), for the top ribbon and the soft bloom. */
@@ -67,20 +68,39 @@ function SignInRow({
   onLocal: () => void;
   tone?: "dark" | "light";
 }) {
-  // OAuth buttons are the SECONDARY path (sharing only). The primary action is
-  // using the notebook locally with no account, the core local-first promise,
-  // so it gets the big prominent button and the providers sit below a divider.
-  const oauthBase =
-    "inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-body font-semibold transition-transform hover:scale-[1.02]";
+  // Two informed paths, side by side. NO account gives the full local notebook.
+  // A FREE account adds sharing, inbox, and collaboration. The storage + TTL
+  // numbers are imported from the relay limits so the page can never drift from
+  // what the server actually enforces.
+  const inboxGb = Math.round(FREE_STORAGE_BYTES / 1024 ** 3);
+  const oauthBtn =
+    "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 text-meta font-semibold transition-transform hover:scale-[1.03]";
   return (
-    <div className="flex w-full flex-col items-center gap-5">
-      {/* PRIMARY: use it locally. No account, ever. The headline action. */}
-      <div className="flex flex-col items-center gap-2.5">
+    <div className="mx-auto grid w-full max-w-3xl gap-4 text-left md:grid-cols-2">
+      {/* Path A: no account, the full local notebook. */}
+      <div className="flex flex-col rounded-2xl border border-[#d3deec] bg-white p-6 shadow-[0_2px_12px_rgba(15,40,80,0.06)]">
+        <div className="font-mono text-meta font-semibold uppercase tracking-[0.1em] text-[#1283c9]">
+          // no account
+        </div>
+        <h3 className="mt-1.5 text-heading font-extrabold tracking-tight text-[#0e1726]">
+          Use it locally
+        </h3>
+        <ul className="mt-4 flex-1 space-y-2.5">
+          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
+            <CheckGlyph /> Your full notebook and every tool.
+          </li>
+          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
+            <CheckGlyph /> Works offline, private, on your own machine.
+          </li>
+          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
+            <CheckGlyph /> Free, and yours to keep forever.
+          </li>
+        </ul>
         <button
           type="button"
           onClick={onLocal}
           data-testid="welcome-signin-local"
-          className="inline-flex items-center justify-center gap-2.5 rounded-2xl bg-[#0e1726] px-8 py-4 text-title font-bold text-white shadow-[0_14px_34px_rgba(15,40,80,0.22)] transition-transform hover:scale-[1.02]"
+          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0e1726] px-5 py-3 text-body font-bold text-white shadow-[0_10px_26px_rgba(15,40,80,0.20)] transition-transform hover:scale-[1.01]"
         >
           <svg
             viewBox="0 0 24 24"
@@ -89,56 +109,77 @@ function SignInRow({
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="h-5 w-5 shrink-0"
+            className="h-4 w-4 shrink-0"
             aria-hidden
           >
             <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
           </svg>
-          Open your notebook, no account needed
+          Open your notebook
         </button>
-        <p className="text-meta text-[#64748b]">
-          Free, works fully offline, and yours to keep. No sign-up, ever.
+        <p className="mt-2 text-center text-meta text-[#8593a8]">No sign-up, ever.</p>
+      </div>
+
+      {/* Path B: free account, adds sharing + inbox + collaboration. */}
+      <div className="flex flex-col rounded-2xl border border-[#cfe0f2] bg-[#f5faff] p-6 shadow-[0_2px_12px_rgba(15,40,80,0.06)]">
+        <div className="flex items-center justify-between">
+          <div className="font-mono text-meta font-semibold uppercase tracking-[0.1em] text-[#1283c9]">
+            // free account
+          </div>
+          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-meta font-semibold text-sky-700">
+            Also free
+          </span>
+        </div>
+        <h3 className="mt-1.5 text-heading font-extrabold tracking-tight text-[#0e1726]">
+          Sign in to share
+        </h3>
+        <p className="mt-1 text-meta text-[#64748b]">Everything local, plus:</p>
+        <ul className="mt-3 flex-1 space-y-2.5">
+          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
+            <CheckGlyph /> Send notes, methods, and projects to anyone by email.
+          </li>
+          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
+            <CheckGlyph /> A {inboxGb} GB encrypted inbox for work others send you, held {TTL_DAYS} days.
+          </li>
+          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
+            <CheckGlyph /> Cross-lab sharing, no shared folder needed.
+          </li>
+          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
+            <CheckGlyph /> Live collaboration, coming soon.
+          </li>
+        </ul>
+        <div className="mt-5 flex gap-2">
+          <button
+            type="button"
+            onClick={onGoogle}
+            data-testid="welcome-preview-signin-google"
+            className={`${oauthBtn} border-[#d7dde5] bg-white text-gray-800`}
+          >
+            <GoogleIcon className="h-4 w-4 shrink-0" />
+            Google
+          </button>
+          <button
+            type="button"
+            onClick={onGitHub}
+            data-testid="welcome-preview-signin-github"
+            className={`${oauthBtn} border-[#181717] bg-[#181717] text-white`}
+          >
+            <GitHubIcon className="h-4 w-4 shrink-0" />
+            GitHub
+          </button>
+          <button
+            type="button"
+            onClick={onLinkedIn}
+            data-testid="welcome-preview-signin-linkedin"
+            className={`${oauthBtn} border-[#0A66C2] bg-[#0A66C2] text-white hover:bg-[#004182]`}
+          >
+            <LinkedInIcon className="h-4 w-4 shrink-0" />
+            LinkedIn
+          </button>
+        </div>
+        <p className="mt-2 text-meta leading-snug text-[#8593a8]">
+          Sign-in only verifies your email. Your notebook still lives on your
+          machine.
         </p>
-      </div>
-
-      {/* Divider into the optional sign-in path. */}
-      <div className="flex w-full max-w-sm items-center gap-3">
-        <span className="h-px flex-1 bg-[#dbe6f3]" />
-        <span className="whitespace-nowrap text-meta font-medium text-[#8593a8]">
-          or sign in to enable sharing
-        </span>
-        <span className="h-px flex-1 bg-[#dbe6f3]" />
-      </div>
-
-      {/* SECONDARY: OAuth providers, only for sharing, inbox, collaboration. */}
-      <div className="flex flex-col items-center gap-2.5 sm:flex-row">
-        <button
-          type="button"
-          onClick={onGoogle}
-          data-testid="welcome-preview-signin-google"
-          className={`${oauthBase} border-[#d7dde5] bg-white text-gray-800 shadow-[0_4px_12px_rgba(0,0,0,0.08)]`}
-        >
-          <GoogleIcon className="h-4 w-4 shrink-0" />
-          Google
-        </button>
-        <button
-          type="button"
-          onClick={onGitHub}
-          data-testid="welcome-preview-signin-github"
-          className={`${oauthBase} border-[#181717] bg-[#181717] text-white`}
-        >
-          <GitHubIcon className="h-4 w-4 shrink-0" />
-          GitHub
-        </button>
-        <button
-          type="button"
-          onClick={onLinkedIn}
-          data-testid="welcome-preview-signin-linkedin"
-          className={`${oauthBase} border-[#0A66C2] bg-[#0A66C2] text-white hover:bg-[#004182]`}
-        >
-          <LinkedInIcon className="h-4 w-4 shrink-0" />
-          LinkedIn
-        </button>
       </div>
     </div>
   );
