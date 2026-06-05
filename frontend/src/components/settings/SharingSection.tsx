@@ -66,6 +66,13 @@ import {
   PENDING_SHARE_CAP,
   TTL_DAYS,
 } from "@/lib/sharing/relay/limits";
+import {
+  type PublishedProfile,
+  fetchMyProfile,
+  publishProfile,
+  unpublishProfile,
+} from "@/lib/sharing/profile";
+import ResearcherSearch from "@/components/sharing/ResearcherSearch";
 
 // ---------------------------------------------------------------------------
 // Shared helpers.
@@ -129,6 +136,7 @@ export default function SharingSection({
         onDisconnect={onDisconnect}
       />
       <InboxStorageSection sharing={sharing} onSetUp={onSetUp} />
+      <ProfileSection sharing={sharing} />
       {/* currentUser is threaded through to the modals by SettingsBody, not used
           directly here, named in the props so the wiring reads cleanly. */}
       {currentUser ? null : null}
@@ -577,6 +585,306 @@ function InboxStorageReady({ email }: { email: string }) {
           </div>
         </>
       )}
+    </Card>
+  );
+}
+
+// ===========================================================================
+// Section 3, Researcher profile (opt-in searchable directory, section 17).
+// ===========================================================================
+
+/** ORCID iD format validator — 16 digits in 4 groups, last char may be X. */
+function isValidOrcid(v: string): boolean {
+  return /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/.test(v);
+}
+
+function ProfileSection({
+  sharing,
+}: {
+  sharing: UseSharingIdentityResult;
+}) {
+  // Only shown when the identity is ready and a key is on this device.
+  if (sharing.status !== "ready") return null;
+
+  return (
+    <>
+      <ProfileEditorCard />
+      <ResearcherDirectoryCard />
+    </>
+  );
+}
+
+function ProfileEditorCard() {
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [profile, setProfile] = useState<PublishedProfile | null | undefined>(
+    undefined,
+  ); // undefined = not loaded yet
+
+  // Draft fields
+  const [draftName, setDraftName] = useState("");
+  const [draftAffiliation, setDraftAffiliation] = useState("");
+  const [draftOrcid, setDraftOrcid] = useState("");
+
+  // Load on mount
+  useEffect(() => {
+    let cancelled = false;
+    fetchMyProfile().then((p) => {
+      if (!cancelled) setProfile(p);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const openEdit = useCallback(() => {
+    setDraftName(profile?.displayName ?? "");
+    setDraftAffiliation(profile?.affiliation ?? "");
+    setDraftOrcid(profile?.orcid ?? "");
+    setError(null);
+    setEditing(true);
+  }, [profile]);
+
+  const save = useCallback(async () => {
+    const name = draftName.trim();
+    if (!name) {
+      setError("A display name is required.");
+      return;
+    }
+    if (name.length > 100) {
+      setError("Display name must be 100 characters or fewer.");
+      return;
+    }
+    const affiliation = draftAffiliation.trim() || null;
+    if (affiliation && affiliation.length > 200) {
+      setError("Affiliation must be 200 characters or fewer.");
+      return;
+    }
+    const orcid = draftOrcid.trim() || null;
+    if (orcid && !isValidOrcid(orcid)) {
+      setError(
+        "ORCID iD format is 0000-0002-1825-0097. Check the value and try again.",
+      );
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    const result = await publishProfile({ displayName: name, affiliation, orcid });
+    setBusy(false);
+
+    if (!result.ok) {
+      setError(result.error ?? "Could not save your profile. Try again.");
+      return;
+    }
+
+    // Refresh from server so affiliationDomain reflects what the server set.
+    const updated = await fetchMyProfile();
+    setProfile(updated);
+    setEditing(false);
+  }, [draftName, draftAffiliation, draftOrcid]);
+
+  const remove = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    const result = await unpublishProfile();
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error ?? "Could not remove your profile. Try again.");
+      return;
+    }
+    setProfile(null);
+  }, []);
+
+  const loading = profile === undefined;
+
+  return (
+    <Card
+      id="researcher-profile"
+      title="Researcher profile"
+      description="Make yourself findable to other ResearchOS users by name or institution. Only you control what is shown, and it is off by default."
+    >
+      {loading && (
+        <p className="text-body text-gray-500">Loading your profile…</p>
+      )}
+
+      {!loading && !editing && profile === null && (
+        <div className="flex items-start justify-between gap-4">
+          <p className="text-body text-gray-700 leading-relaxed max-w-prose">
+            You have not published a profile yet. Add your name and institution
+            so colleagues can find you in the researcher directory.
+          </p>
+          <button
+            type="button"
+            onClick={openEdit}
+            className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+          >
+            Create profile
+          </button>
+        </div>
+      )}
+
+      {!loading && !editing && profile !== null && profile !== undefined && (
+        <div className="space-y-3">
+          <InfoRow label="Display name">
+            <span className="font-medium">{profile.displayName}</span>
+          </InfoRow>
+
+          {profile.affiliation && (
+            <InfoRow label="Affiliation">
+              <div className="flex flex-wrap items-center gap-2">
+                <span>{profile.affiliation}</span>
+                {profile.affiliationDomain && (
+                  <Tooltip
+                    label={`Verified from your ${profile.affiliationDomain} login`}
+                    placement="top"
+                  >
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-meta font-medium text-emerald-700">
+                      Verified
+                    </span>
+                  </Tooltip>
+                )}
+              </div>
+            </InfoRow>
+          )}
+
+          {profile.orcid && (
+            <InfoRow label="ORCID iD">
+              <a
+                href={`https://orcid.org/${profile.orcid}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-sky-700 hover:underline underline-offset-2"
+              >
+                {profile.orcid}
+              </a>
+            </InfoRow>
+          )}
+
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <button
+              type="button"
+              onClick={openEdit}
+              className="px-3 py-1.5 text-body bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg"
+            >
+              Edit profile
+            </button>
+            <button
+              type="button"
+              onClick={remove}
+              disabled={busy}
+              className="px-3 py-1.5 text-body bg-gray-100 hover:bg-gray-200 text-red-600 rounded-lg disabled:opacity-50"
+            >
+              {busy ? "Removing…" : "Remove from directory"}
+            </button>
+          </div>
+
+          {error && (
+            <p className="text-meta text-red-600 leading-relaxed">{error}</p>
+          )}
+        </div>
+      )}
+
+      {!loading && editing && (
+        <div className="space-y-4">
+          <div className="space-y-3">
+            <div>
+              <label className="block text-meta font-medium text-gray-700 mb-1">
+                Display name
+                <span className="text-red-500 ml-0.5" aria-label="required">
+                  *
+                </span>
+              </label>
+              <input
+                type="text"
+                value={draftName}
+                onChange={(e) => setDraftName(e.target.value)}
+                placeholder="Your name as other researchers will see it"
+                maxLength={100}
+                disabled={busy}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-body text-gray-900 placeholder-gray-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-meta font-medium text-gray-700 mb-1">
+                Affiliation
+              </label>
+              <input
+                type="text"
+                value={draftAffiliation}
+                onChange={(e) => setDraftAffiliation(e.target.value)}
+                placeholder="University, institution, or lab"
+                maxLength={200}
+                disabled={busy}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-body text-gray-900 placeholder-gray-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-50"
+              />
+              <p className="mt-1 text-meta text-gray-400 leading-relaxed">
+                If you sign in with an institutional account, your email domain
+                will be shown as verified on your profile automatically.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-meta font-medium text-gray-700 mb-1">
+                ORCID iD
+              </label>
+              <input
+                type="text"
+                value={draftOrcid}
+                onChange={(e) => setDraftOrcid(e.target.value)}
+                placeholder="0000-0002-1825-0097"
+                maxLength={19}
+                disabled={busy}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-body text-gray-900 placeholder-gray-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-50"
+              />
+              <p className="mt-1 text-meta text-gray-400 leading-relaxed">
+                Optional. Your ORCID iD is shown on your profile as a public
+                identifier, not verified here.
+              </p>
+            </div>
+          </div>
+
+          {error && (
+            <p className="text-meta text-red-600 leading-relaxed">{error}</p>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(false);
+                setError(null);
+              }}
+              disabled={busy}
+              className="flex-1 px-3 py-2 text-body bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={save}
+              disabled={busy}
+              className="flex-1 px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50"
+            >
+              {busy ? "Saving…" : "Save profile"}
+            </button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function ResearcherDirectoryCard() {
+  return (
+    <Card
+      id="researcher-directory"
+      title="Find researchers"
+      description="Search for other ResearchOS users by name or institution to confirm their fingerprint before sharing."
+    >
+      <ResearcherSearch />
     </Card>
   );
 }
