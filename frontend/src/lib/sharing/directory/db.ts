@@ -168,3 +168,177 @@ export async function appendKeyHistory(
     VALUES (${emailHash}, ${x25519PublicKey}, ${ed25519PublicKey})
   `;
 }
+
+// ---------------------------------------------------------------------------
+// Profile table (section 17, opt-in public directory)
+// ---------------------------------------------------------------------------
+
+/**
+ * A researcher profile row. Keyed by fingerprint (the public Ed25519 key
+ * fingerprint), never by email. The affiliationDomain field carries the
+ * verified institutional email domain (e.g. wisc.edu), or null when the OAuth
+ * session email is a consumer provider.
+ */
+export interface DirectoryProfile {
+  fingerprint: string;
+  displayName: string;
+  affiliation: string | null;
+  affiliationDomain: string | null;
+  orcid: string | null;
+  updatedAt?: string;
+}
+
+/**
+ * A profile search result extends the profile row with the public key material
+ * the caller needs to seal a message to the researcher.
+ */
+export interface ProfileSearchResult extends DirectoryProfile {
+  x25519PublicKey: string;
+  ed25519PublicKey: string;
+}
+
+/**
+ * Creates the directory_profiles table and the pg_trgm-backed trigram search
+ * index. Idempotent, safe to call on every request. Must be called AFTER
+ * ensureSchema because directory_profiles has a FK to directory_identities.
+ */
+export async function ensureProfileSchema(): Promise<void> {
+  const sql = getSql();
+  await sql`CREATE EXTENSION IF NOT EXISTS pg_trgm`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS directory_profiles (
+      fingerprint        text primary key references directory_identities(fingerprint) on delete cascade,
+      display_name       text not null,
+      affiliation        text,
+      affiliation_domain text,
+      orcid              text,
+      updated_at         timestamptz default now()
+    )
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_profiles_search ON directory_profiles
+      USING GIN ((lower(display_name) || ' ' || lower(coalesce(affiliation,''))) gin_trgm_ops)
+  `;
+}
+
+/**
+ * Inserts or updates the profile row for a fingerprint. The affiliation_domain
+ * is set by the server from the OAuth session email, the caller cannot inject
+ * an arbitrary value.
+ */
+export async function upsertProfile(profile: DirectoryProfile): Promise<void> {
+  const sql = getSql();
+  await sql`
+    INSERT INTO directory_profiles
+      (fingerprint, display_name, affiliation, affiliation_domain, orcid, updated_at)
+    VALUES
+      (${profile.fingerprint}, ${profile.displayName}, ${profile.affiliation},
+       ${profile.affiliationDomain}, ${profile.orcid}, now())
+    ON CONFLICT (fingerprint) DO UPDATE SET
+      display_name       = EXCLUDED.display_name,
+      affiliation        = EXCLUDED.affiliation,
+      affiliation_domain = EXCLUDED.affiliation_domain,
+      orcid              = EXCLUDED.orcid,
+      updated_at         = now()
+  `;
+}
+
+/**
+ * Removes a profile row. The binding row in directory_identities is NOT
+ * removed; the user keeps their registered identity but opts out of the public
+ * directory.
+ */
+export async function deleteProfile(fp: string): Promise<void> {
+  const sql = getSql();
+  await sql`
+    DELETE FROM directory_profiles WHERE fingerprint = ${fp}
+  `;
+}
+
+/**
+ * Trigram-similarity search over the lowered display_name + affiliation index.
+ * Returns at most limit rows (default 20). Joins to directory_identities to
+ * include the public key material without a second query. Email is never
+ * returned.
+ */
+export async function searchProfiles(
+  query: string,
+  limit: number = 20,
+): Promise<ProfileSearchResult[]> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      p.fingerprint,
+      p.display_name,
+      p.affiliation,
+      p.affiliation_domain,
+      p.orcid,
+      p.updated_at,
+      i.x25519_pub,
+      i.ed25519_pub
+    FROM directory_profiles p
+    JOIN directory_identities i USING (fingerprint)
+    WHERE (lower(p.display_name) || ' ' || lower(coalesce(p.affiliation, '')))
+          % lower(${query})
+    ORDER BY
+      similarity(
+        lower(p.display_name) || ' ' || lower(coalesce(p.affiliation, '')),
+        lower(${query})
+      ) DESC
+    LIMIT ${limit}
+  `) as Array<{
+    fingerprint: string;
+    display_name: string;
+    affiliation: string | null;
+    affiliation_domain: string | null;
+    orcid: string | null;
+    updated_at: string;
+    x25519_pub: string;
+    ed25519_pub: string;
+  }>;
+
+  return rows.map((r) => ({
+    fingerprint: r.fingerprint,
+    displayName: r.display_name,
+    affiliation: r.affiliation,
+    affiliationDomain: r.affiliation_domain,
+    orcid: r.orcid,
+    updatedAt: r.updated_at,
+    x25519PublicKey: r.x25519_pub,
+    ed25519PublicKey: r.ed25519_pub,
+  }));
+}
+
+/**
+ * Fetches a single profile by fingerprint, or null if no profile exists.
+ * Does not return public key material; this is typically used to GET the
+ * session user's own profile.
+ */
+export async function getProfileByFingerprint(
+  fp: string,
+): Promise<DirectoryProfile | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT fingerprint, display_name, affiliation, affiliation_domain, orcid, updated_at
+    FROM directory_profiles
+    WHERE fingerprint = ${fp}
+    LIMIT 1
+  `) as Array<{
+    fingerprint: string;
+    display_name: string;
+    affiliation: string | null;
+    affiliation_domain: string | null;
+    orcid: string | null;
+    updated_at: string;
+  }>;
+  if (rows.length === 0) return null;
+  const r = rows[0];
+  return {
+    fingerprint: r.fingerprint,
+    displayName: r.display_name,
+    affiliation: r.affiliation,
+    affiliationDomain: r.affiliation_domain,
+    orcid: r.orcid,
+    updatedAt: r.updated_at,
+  };
+}

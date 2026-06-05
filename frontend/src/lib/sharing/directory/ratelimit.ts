@@ -26,6 +26,7 @@ let relayIpBackstopSingleton: RatelimitClient | null = null;
 let relayIdentityLimiterSingleton: RatelimitClient | null = null;
 let signupLimiterSingleton: RatelimitClient | null = null;
 let inviteLimiterSingleton: RatelimitClient | null = null;
+let searchLimiterSingleton: RatelimitClient | null = null;
 
 /** The OTP TTL in seconds, the 15-minute expiry from the proposal. */
 export const OTP_TTL_SECONDS = 900;
@@ -143,6 +144,21 @@ export function getInviteLimiter(): RatelimitClient {
     prefix: "relay:invite",
   });
   return inviteLimiterSingleton;
+}
+
+/**
+ * Per-IP search limiter, 30 searches per minute. Applied to the profile search
+ * route in addition to the shared IP limiter to cap how fast a single source
+ * can enumerate the public directory.
+ */
+export function getSearchLimiter(): RatelimitClient {
+  if (searchLimiterSingleton) return searchLimiterSingleton;
+  searchLimiterSingleton = new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(30, "60 s"),
+    prefix: "directory:search",
+  });
+  return searchLimiterSingleton;
 }
 
 /** The Redis key holding the pending OTP record for an email hash. */

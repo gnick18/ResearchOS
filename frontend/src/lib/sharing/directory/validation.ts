@@ -232,3 +232,90 @@ export function shapeLookupResult(binding: {
     fingerprint: binding.fingerprint,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Profile body validation (section 17)
+// ---------------------------------------------------------------------------
+
+/** ORCID iD format: 4 groups of 4 digits, last char may be X. */
+const ORCID_RE = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/;
+
+/**
+ * The body a client sends when creating or updating a researcher profile.
+ * The signature covers the profile payload so only the key-holder can publish
+ * their own row. The server derives affiliationDomain from the OAuth session
+ * email, so it is not in this body.
+ */
+export interface ProfileBody {
+  displayName: string;
+  affiliation: string | null;
+  orcid: string | null;
+  signature: string;
+  issuedAt: string;
+}
+
+/**
+ * Validates a profile body. Returns null on any shape or constraint failure so
+ * the route returns a single generic error. Rules:
+ *   displayName: required, max 100 chars.
+ *   affiliation: optional, max 200 chars if present.
+ *   orcid: optional, must match ORCID format if present.
+ *   signature: required, lowercase hex, exactly 128 chars (64-byte Ed25519 sig).
+ *   issuedAt: required, round-tripping ISO-8601.
+ */
+export function parseProfileBody(body: unknown): ProfileBody | null {
+  if (typeof body !== "object" || body === null) return null;
+  const b = body as Record<string, unknown>;
+
+  if (!isNonEmptyString(b.displayName)) return null;
+  const displayName = (b.displayName as string).trim();
+  if (displayName.length === 0 || displayName.length > 100) return null;
+
+  let affiliation: string | null = null;
+  if (b.affiliation !== undefined && b.affiliation !== null) {
+    if (!isNonEmptyString(b.affiliation)) return null;
+    const trimmed = (b.affiliation as string).trim();
+    if (trimmed.length > 200) return null;
+    affiliation = trimmed;
+  }
+
+  let orcid: string | null = null;
+  if (b.orcid !== undefined && b.orcid !== null) {
+    if (!isNonEmptyString(b.orcid)) return null;
+    const trimmed = (b.orcid as string).trim();
+    if (!ORCID_RE.test(trimmed)) return null;
+    orcid = trimmed;
+  }
+
+  if (
+    !isNonEmptyString(b.signature) ||
+    !HEX_RE.test(b.signature as string) ||
+    (b.signature as string).length !== 128
+  ) {
+    return null;
+  }
+
+  if (!isNonEmptyString(b.issuedAt) || !isIsoTimestamp(b.issuedAt as string)) {
+    return null;
+  }
+
+  return {
+    displayName,
+    affiliation,
+    orcid,
+    signature: b.signature as string,
+    issuedAt: b.issuedAt as string,
+  };
+}
+
+/**
+ * Validates the ?q= search query parameter. Returns the trimmed string on
+ * success, or null if the value is absent, too short (< 2 chars), or too long
+ * (> 100 chars).
+ */
+export function parseSearchQuery(q: unknown): string | null {
+  if (typeof q !== "string") return null;
+  const trimmed = q.trim();
+  if (trimmed.length < 2 || trimmed.length > 100) return null;
+  return trimmed;
+}

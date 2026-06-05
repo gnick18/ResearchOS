@@ -94,3 +94,46 @@ export function verifyBindingSignature(
     return false;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Profile payload (section 17)
+// ---------------------------------------------------------------------------
+
+// Bumped only when the field set or encoding changes. An old signature under
+// v1 will not verify against a v2 payload (intended fail-closed behavior).
+const PROFILE_VERSION = "researchos.directory.profile.v1";
+
+/**
+ * The fields a user signs when publishing or deleting their researcher profile.
+ *
+ * - action: "profile" for upsert, "delete-profile" for removal.
+ * - displayName / affiliation / orcid: profile fields (omitted or null for delete).
+ * - issuedAt: ISO-8601 timestamp the server uses to reconstruct the exact
+ *   signed bytes and to reject replayed requests.
+ */
+export interface ProfilePayloadInput {
+  action: "profile" | "delete-profile";
+  displayName?: string;
+  affiliation?: string | null;
+  orcid?: string | null;
+  issuedAt: string;
+}
+
+/**
+ * Builds the canonical byte encoding of a profile action payload.
+ *
+ * Format mirrors buildBindingPayload: a version line followed by fixed-order
+ * "key=value" lines joined by newlines, UTF-8 encoded. Null / undefined fields
+ * are encoded as the literal string "null" so the encoding is always stable.
+ */
+export function buildProfilePayload(input: ProfilePayloadInput): Uint8Array {
+  const lines = [
+    PROFILE_VERSION,
+    `action=${input.action}`,
+    `displayName=${input.displayName ?? "null"}`,
+    `affiliation=${input.affiliation ?? "null"}`,
+    `orcid=${input.orcid ?? "null"}`,
+    `issuedAt=${input.issuedAt}`,
+  ];
+  return utf8ToBytes(lines.join("\n"));
+}
