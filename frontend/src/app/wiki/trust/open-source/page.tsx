@@ -20,7 +20,7 @@ export default function OpenSourcePage() {
         </li>
         <li>
           <strong>Fork it.</strong> You can take the code, change it, and build
-          the version your lab needs. You are not waiting on a vendor's
+          the version your lab needs. You are not waiting on a vendor&apos;s
           roadmap.
         </li>
         <li>

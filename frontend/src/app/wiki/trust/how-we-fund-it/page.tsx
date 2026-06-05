@@ -43,7 +43,7 @@ export default function HowWeFundItPage() {
       <p>
         A per-seat ELN subscription is a real barrier. For a small lab, a
         teaching lab, a lab at an under-resourced institution, or a researcher
-        in a setting where the field's standard tools are simply out of budget,
+        in a setting where the field&apos;s standard tools are simply out of budget,
         the price is often the reason good data management never happens.
         Grant funding removes that barrier at the point of use. The lab that
         most needs a free tool is the lab least able to argue for a software
