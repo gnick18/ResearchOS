@@ -57,6 +57,14 @@ export default function LabInboxCommentsPage() {
         rail is open, which drops you back to the full-width record without
         closing the popup itself.
       </p>
+      <p>
+        You can also start a comment without opening the record first.{" "}
+        <strong>Right-click an experiment card or a note card</strong> and
+        choose <strong>Add a comment</strong> (or <strong>View / add comment</strong>{" "}
+        when a thread already exists). That opens the record with the comments
+        rail already expanded and the cursor in the composer, so a quick note
+        to a labmate is two clicks from the board.
+      </p>
       {/* SCREENSHOT TODO: fresh capture of the comments rail docked open on the
           right of an experiment (task) popup, with a short thread visible and the
           header comment button showing its count badge. Fixture: ?wikiCapture=1,

@@ -209,7 +209,7 @@ export const WIKI_NAV: WikiNode[] = [
           {
             href: "/wiki/features/method-catalog",
             label: "Template Library",
-            blurb: "91 ready-to-use protocol templates by lab task; 33 bundle the verifiable source PDF (rolling out).",
+            blurb: "91 ready-to-use protocol templates by lab task; 52 bundle the verifiable source PDF (rolling out).",
           },
         ],
       },
@@ -217,6 +217,26 @@ export const WIKI_NAV: WikiNode[] = [
         href: "/wiki/features/sequences",
         label: "Sequences",
         blurb: "View, edit, annotate, and clone DNA, RNA, and protein sequences. Your plasmid library lives alongside your notes and experiments.",
+      },
+      {
+        href: "/wiki/features/cloning",
+        label: "Cloning",
+        blurb: "In-silico assembly: Gibson and NEBuilder overlap, Golden Gate, restriction-ligation, and Gateway, with a review step before anything is saved.",
+      },
+      {
+        href: "/wiki/features/restriction-digest",
+        label: "Restriction digest",
+        blurb: "Find where enzymes cut on both strands, with fragment sizes for linear and circular molecules.",
+      },
+      {
+        href: "/wiki/features/lab-calculators",
+        label: "Lab calculators",
+        blurb: "Molarity, dilution, primer Tm, nucleic-acid mass, protein properties, and a scientific calculator, computed live in your browser.",
+      },
+      {
+        href: "/wiki/features/image-annotation",
+        label: "Image annotation",
+        blurb: "Mark up gels and micrographs without touching the original image. Annotations live in a sidecar you can delete to revert.",
       },
       {
         href: "/wiki/features/purchases",
@@ -355,12 +375,39 @@ export const WIKI_NAV: WikiNode[] = [
         label: "ResearchOS vs LabArchives",
         blurb: "An honest side-by-side: where ResearchOS wins, where LabArchives is still ahead.",
       },
+      {
+        href: "/wiki/compliance/depositing-to-a-repository",
+        label: "Depositing to a repository",
+        blurb: "Guided deposit to Zenodo or Figshare with prefilled DataCite metadata. You control the final publish.",
+      },
     ],
   },
   {
     href: "/wiki/security",
     label: "Security",
     blurb: "What stays on your computer, what briefly touches our server, and what we never collect.",
+  },
+  {
+    href: "/wiki/trust",
+    label: "Trust",
+    blurb: "Why you can trust ResearchOS: your data stays local, the science is validated against the tools labs already trust, the code is open, and the funding is clean.",
+    children: [
+      {
+        href: "/wiki/trust/method-validation",
+        label: "Method validation",
+        blurb: "Every sequence and lab calculation is checked against Biopython, primer3, and pydna on every commit.",
+      },
+      {
+        href: "/wiki/trust/open-source",
+        label: "Open source and license",
+        blurb: "AGPLv3 lets a lab read, fork, and self-host the code; the credits page carries the attribution we owe.",
+      },
+      {
+        href: "/wiki/trust/how-we-fund-it",
+        label: "How it stays free",
+        blurb: "Grant-funded through a UW-Madison RISE fellowship, no paid tier, no per-seat fees.",
+      },
+    ],
   },
 ];
 
