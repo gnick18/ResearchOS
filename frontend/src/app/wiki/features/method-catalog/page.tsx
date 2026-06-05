@@ -76,7 +76,7 @@ export default function MethodCatalogPage() {
       <h2>The verifiable source PDF</h2>
       <p>
         Here is the part that makes these templates trustworthy rather than just
-        convenient. A growing subset of the library, <strong>33 of the 91
+        convenient. A growing subset of the library, <strong>52 of the 91
         templates today</strong> and rolling out further, <strong>bundles the
         actual vendor document</strong> the protocol was transcribed from: the
         kit insert, the manufacturer handbook, the published method PDF. The file
@@ -97,7 +97,7 @@ export default function MethodCatalogPage() {
         caption="The money shot: the structured template beside the vendor PDF it came from. Any value in the template can be checked against the original."
       />
       <Callout variant="info" title="Not every template, and that is honest">
-        Source-PDF bundling is a rollout, not a finished state: 33 of the 91
+        Source-PDF bundling is a rollout, not a finished state: 52 of the 91
         templates carry their document today. Templates without a bundled PDF
         still cite their source in the protocol text (a URL and a reference), so
         you always know where a procedure came from, even when the document is
@@ -120,7 +120,7 @@ export default function MethodCatalogPage() {
         </Step>
         <Step>
           <strong>Select a template</strong> to preview it in the detail pane:
-          the full protocol body, the structured fields, and, for the 33 with a
+          the full protocol body, the structured fields, and, for the 52 with a
           bundled document, the source PDF you can open and read.
         </Step>
         <Step>

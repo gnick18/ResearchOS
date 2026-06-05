@@ -70,9 +70,11 @@ export default function SequencesFeaturePage() {
       <p>
         There are three ways to add a sequence. The New Sequence dialog creates a
         sequence from scratch: you name it, pick a type and topology, and type or
-        paste the bases directly. The Import path accepts GenBank (.gb, .gbk),
-        FASTA (.fa, .fasta), and plain-sequence text files by dragging them onto
-        the library panel or using the file picker. A paste-from-clipboard option
+        paste the bases directly. The Import path accepts SnapGene files
+        (.dna, .prot), GenBank (.gb, .gbk), FASTA (.fa, .fasta, including
+        multi-record FASTA where each record lands as its own sequence), and
+        plain-sequence text files by dragging them onto the library panel or
+        using the file picker. A paste-from-clipboard option
         in the New Sequence dialog accepts raw base strings and auto-detects the
         type from the characters. Importing a GenBank file preserves the feature
         annotations, qualifiers, and topology flags the file carries, so a

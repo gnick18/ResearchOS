@@ -89,8 +89,10 @@ export default function PCRFeaturePage() {
       <h2>Build a protocol step by step</h2>
       <Steps>
         <Step>
-          Click <strong>+ New Protocol</strong> in the top-right of the PCR
-          page. Type a name into the <strong>Protocol Name</strong> field at
+          Go to <Link href="/wiki/features/methods">Methods</Link> and click{" "}
+          <strong>+ New Method</strong>. In the type picker that opens, choose
+          the <strong>PCR</strong> type. That drops you into the protocol
+          editor. Type a name into the <strong>Protocol Name</strong> field at
           the top of the popup.
         </Step>
         <Step>

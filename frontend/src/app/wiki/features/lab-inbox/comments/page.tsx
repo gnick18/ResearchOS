@@ -32,11 +32,36 @@ export default function LabInboxCommentsPage() {
         <li><strong>Purchases</strong> (individual line items inside a purchase order).</li>
       </ul>
       <p>
-        Open any of those records and the comments panel sits at the bottom
-        of the popup. The Lab Inbox is the aggregator: the same comments
-        appear in the inbox stream so you can scan everything written today
-        without opening each record one at a time.
+        Open any of those records and comments live in a docked rail on the
+        right side of the popup, the way Google Docs and Word park comments
+        beside the document instead of below it. The thread sits next to the
+        record you are reading, so you keep the recipe or the note in view
+        while you scan the conversation about it. The Lab Inbox is the
+        aggregator. The same comments appear in the inbox stream so you can
+        read everything written today without opening each record one at a
+        time.
       </p>
+
+      <h2>Opening the comments rail</h2>
+      <p>
+        Each record popup has a <strong>comment button</strong> in its header.
+        Click it to slide the rail open on the right. When a record already
+        has comments, the button wears a small <strong>count badge</strong> so
+        you can tell at a glance whether a thread is waiting before you open
+        anything.
+      </p>
+      <p>
+        The comments rail and the version-history rail share the same docked
+        spot, so they are <strong>mutually exclusive</strong>. Opening one
+        closes the other. Press <strong>Escape</strong> to close whichever
+        rail is open, which drops you back to the full-width record without
+        closing the popup itself.
+      </p>
+      {/* SCREENSHOT TODO: fresh capture of the comments rail docked open on the
+          right of an experiment (task) popup, with a short thread visible and the
+          header comment button showing its count badge. Fixture: ?wikiCapture=1,
+          desktop 1440x900. Save to:
+          frontend/public/wiki/screenshots/lab-inbox-comments-rail.png */}
 
       <h2>Threading: one level deep</h2>
       <p>
@@ -88,8 +113,9 @@ export default function LabInboxCommentsPage() {
       </p>
       <p>
         The same affordance works the other way around. Open a task from any
-        other surface (Gantt, Workbench, Home), scroll to the comments panel,
-        and the same comment object is there with the same thread.
+        other surface (Gantt, Workbench, Home), click the header comment
+        button to open the rail, and the same comment object is there with the
+        same thread.
       </p>
 
       <h2>Cross-owner read access</h2>
