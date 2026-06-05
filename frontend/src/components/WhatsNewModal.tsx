@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { signIn } from "next-auth/react";
 import BeakerBot from "./BeakerBot";
 import BeakerBotMouseWaveScene from "./BeakerBotMouseWaveScene";
+import { GoogleIcon, GitHubIcon, LinkedInIcon } from "@/components/sharing/icons";
 import { APP_CHANNEL } from "@/lib/version";
 import type { ReleaseNote } from "@/lib/release-notes";
 
@@ -140,6 +142,58 @@ function ReleaseBlock({ release }: { release: ReleaseNote }) {
   );
 }
 
+/** The sign-in fork shown in the footer when the headline release sets
+ *  `signInChoice`. Three compact OAuth buttons (each redirects the browser via
+ *  `signIn`, so no local dismiss is needed on that path) plus a "Keep using
+ *  locally" button that runs the normal dismiss. `signIn` works without a
+ *  SessionProvider; this app mounts none, so we call the function directly. */
+function SignInChoiceFooter({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <div className="px-6 py-4 space-y-3">
+      <p className="text-meta text-gray-500 text-center">
+        Sign in to enable sharing, or keep using ResearchOS exactly as you do.
+      </p>
+      <div className="grid grid-cols-3 gap-2">
+        <button
+          type="button"
+          onClick={() => void signIn("google", { callbackUrl: "/" })}
+          data-testid="whats-new-signin-google"
+          className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-body font-medium hover:bg-gray-50 transition-colors"
+        >
+          <GoogleIcon className="w-4 h-4 flex-none" />
+          Google
+        </button>
+        <button
+          type="button"
+          onClick={() => void signIn("github", { callbackUrl: "/" })}
+          data-testid="whats-new-signin-github"
+          className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg bg-[#181717] text-white text-body font-medium hover:opacity-90 transition-opacity"
+        >
+          <GitHubIcon className="w-4 h-4 flex-none" />
+          GitHub
+        </button>
+        <button
+          type="button"
+          onClick={() => void signIn("linkedin", { callbackUrl: "/" })}
+          data-testid="whats-new-signin-linkedin"
+          className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg bg-[#0A66C2] text-white text-body font-medium hover:opacity-90 transition-opacity"
+        >
+          <LinkedInIcon className="w-4 h-4 flex-none" />
+          LinkedIn
+        </button>
+      </div>
+      <button
+        type="button"
+        onClick={onDismiss}
+        data-testid="whats-new-keep-local"
+        className="w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-700 text-white text-body font-medium rounded-lg transition-colors"
+      >
+        Keep using locally
+      </button>
+    </div>
+  );
+}
+
 export default function WhatsNewModal({
   releases,
   onDismiss,
@@ -162,6 +216,9 @@ export default function WhatsNewModal({
 
   const [headline, ...rest] = releases;
   const extra = rest.length;
+  // Releases are newest-first, so the headline drives whether the footer
+  // offers the explicit sign-in fork.
+  const offerSignInChoice = headline.signInChoice === true;
   // In the catch-up view the older missed releases hide behind the
   // expander; in the full-history view they are always shown.
   const showRest = showAllExpanded || expanded;
@@ -260,17 +317,22 @@ export default function WhatsNewModal({
               ))}
           </div>
 
-          {/* Footer: single dismiss button. */}
-          <div className="px-6 py-4">
-            <button
-              type="button"
-              onClick={onDismiss}
-              data-testid="whats-new-got-it"
-              className="w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-700 text-white text-body font-medium rounded-lg transition-colors"
-            >
-              Got it
-            </button>
-          </div>
+          {/* Footer: a sign-in fork on the accounts release, otherwise the
+              single dismiss button. */}
+          {offerSignInChoice ? (
+            <SignInChoiceFooter onDismiss={onDismiss} />
+          ) : (
+            <div className="px-6 py-4">
+              <button
+                type="button"
+                onClick={onDismiss}
+                data-testid="whats-new-got-it"
+                className="w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-700 text-white text-body font-medium rounded-lg transition-colors"
+              >
+                Got it
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </>
