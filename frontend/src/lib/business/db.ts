@@ -54,15 +54,19 @@ export async function ensureBusinessSchema(): Promise<void> {
       registered_agent text,
       bank_label text,
       docs_folder text,
-      reserve_pct numeric not null default 25,
+      sales_tax_status text not null default 'pending',
+      sales_tax_note text,
+      reserve_pct numeric not null default 30,
       updated_at timestamptz default now(),
       CONSTRAINT business_entity_singleton CHECK (id = 1)
     )
   `;
-  // Additive columns for a business_entity table created by v1 (before the
-  // document-folder integration). ADD COLUMN IF NOT EXISTS is idempotent.
+  // Additive columns for a business_entity table created by an earlier version.
+  // ADD COLUMN IF NOT EXISTS is idempotent.
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS entity_id text`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS docs_folder text`;
+  await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS sales_tax_status text`;
+  await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS sales_tax_note text`;
   await sql`
     CREATE TABLE IF NOT EXISTS business_ledger (
       id bigserial primary key,
@@ -110,17 +114,21 @@ const SEED_ENTITY = {
   formationDate: "2026-06-01",
   ein: "REDACTED-EIN",
   registeredAgent: "Grant R. Nickles (self; WI Form 13 filed, Northwest cancelled)",
-  bankLabel: "Mercury (business checking, in review 2026-06-05)",
+  bankLabel: "Mercury Checking ••XXXX (Stripe payouts, weekly Mon)",
   docsFolder: "~/Documents/ResearchOS_LLC/",
-  reservePct: 25,
+  salesTaxStatus: "pending",
+  salesTaxNote:
+    "WI DOR sales-tax inquiry filed 2026-06-05 (DORSalesandUse@wisconsin.gov), reply expected ~1 week. Do not bill a real customer until it lands.",
+  reservePct: 30,
 };
 
-// The open items as of 2026-06-05. The formation, EIN, operating agreement, and
-// registered-agent change are done, so they are not seeded as open tasks.
+// The open items as of 2026-06-05. Formation, EIN, operating agreement, the
+// registered-agent change, Mercury, and the Stripe account are done, so they
+// are not seeded as open tasks.
 const SEED_TASKS = [
-  "Get Mercury approval, then fund the account via Schwab ACH (capital contribution)",
-  "Once Mercury is live, point Stripe payouts and the Neon / R2 bills at the LLC account",
-  "Set the tax reserve percentage with an accountant",
+  "HARD GATE: wait for the WI DOR sales-tax reply (filed 2026-06-05) before billing any real customer",
+  "On the DOR reply, set the sales-tax status below and register with WI if taxable",
+  "At go-live, put the live Stripe keys + hosted webhook + live price in Vercel Production and flip BILLING_ENABLED",
 ];
 
 async function seedDefaultsOnce(
@@ -139,7 +147,8 @@ async function seedDefaultsOnce(
                           THEN ${SEED_ENTITY.legalName} ELSE legal_name END,
         entity_id = COALESCE(entity_id, ${SEED_ENTITY.entityId}),
         ein = COALESCE(ein, ${SEED_ENTITY.ein}),
-        formation_date = COALESCE(formation_date, ${SEED_ENTITY.formationDate}::date)
+        formation_date = COALESCE(formation_date, ${SEED_ENTITY.formationDate}::date),
+        sales_tax_status = COALESCE(sales_tax_status, ${SEED_ENTITY.salesTaxStatus})
       WHERE id = 1
     `;
     return;
@@ -147,11 +156,12 @@ async function seedDefaultsOnce(
   await sql`
     INSERT INTO business_entity
       (id, legal_name, state, entity_id, formation_date, ein, registered_agent,
-       bank_label, docs_folder, reserve_pct)
+       bank_label, docs_folder, sales_tax_status, sales_tax_note, reserve_pct)
     VALUES
       (1, ${SEED_ENTITY.legalName}, ${SEED_ENTITY.state}, ${SEED_ENTITY.entityId},
        ${SEED_ENTITY.formationDate}, ${SEED_ENTITY.ein}, ${SEED_ENTITY.registeredAgent},
-       ${SEED_ENTITY.bankLabel}, ${SEED_ENTITY.docsFolder}, ${SEED_ENTITY.reservePct})
+       ${SEED_ENTITY.bankLabel}, ${SEED_ENTITY.docsFolder}, ${SEED_ENTITY.salesTaxStatus},
+       ${SEED_ENTITY.salesTaxNote}, ${SEED_ENTITY.reservePct})
     ON CONFLICT (id) DO NOTHING
   `;
   for (let i = 0; i < SEED_TASKS.length; i += 1) {
@@ -168,8 +178,14 @@ type EntityRow = {
   registered_agent: string | null;
   bank_label: string | null;
   docs_folder: string | null;
+  sales_tax_status: string | null;
+  sales_tax_note: string | null;
   reserve_pct: string | number | null;
 };
+
+function normalizeSalesTaxStatus(v: string | null): EntityConfig["salesTaxStatus"] {
+  return v === "taxable" || v === "exempt" ? v : "pending";
+}
 
 function rowToEntity(r: EntityRow): EntityConfig {
   return {
@@ -181,6 +197,8 @@ function rowToEntity(r: EntityRow): EntityConfig {
     registeredAgent: r.registered_agent ?? null,
     bankLabel: r.bank_label ?? null,
     docsFolder: r.docs_folder ?? null,
+    salesTaxStatus: normalizeSalesTaxStatus(r.sales_tax_status),
+    salesTaxNote: r.sales_tax_note ?? null,
     reservePct: r.reserve_pct == null ? DEFAULT_ENTITY.reservePct : Number(r.reserve_pct),
   };
 }
@@ -190,7 +208,7 @@ export async function getEntity(): Promise<EntityConfig> {
   const sql = getSql();
   const rows = (await sql`
     SELECT legal_name, state, entity_id, formation_date, ein, registered_agent,
-           bank_label, docs_folder, reserve_pct
+           bank_label, docs_folder, sales_tax_status, sales_tax_note, reserve_pct
     FROM business_entity WHERE id = 1
   `) as EntityRow[];
   if (!rows.length) return { ...DEFAULT_ENTITY };
@@ -203,11 +221,12 @@ export async function upsertEntity(config: EntityConfig): Promise<EntityConfig> 
   await sql`
     INSERT INTO business_entity
       (id, legal_name, state, entity_id, formation_date, ein, registered_agent,
-       bank_label, docs_folder, reserve_pct, updated_at)
+       bank_label, docs_folder, sales_tax_status, sales_tax_note, reserve_pct, updated_at)
     VALUES
       (1, ${config.legalName}, ${config.state}, ${config.entityId},
        ${config.formationDate}, ${config.ein}, ${config.registeredAgent},
-       ${config.bankLabel}, ${config.docsFolder}, ${config.reservePct}, now())
+       ${config.bankLabel}, ${config.docsFolder}, ${config.salesTaxStatus},
+       ${config.salesTaxNote}, ${config.reservePct}, now())
     ON CONFLICT (id) DO UPDATE SET
       legal_name = EXCLUDED.legal_name,
       state = EXCLUDED.state,
@@ -217,6 +236,8 @@ export async function upsertEntity(config: EntityConfig): Promise<EntityConfig> 
       registered_agent = EXCLUDED.registered_agent,
       bank_label = EXCLUDED.bank_label,
       docs_folder = EXCLUDED.docs_folder,
+      sales_tax_status = EXCLUDED.sales_tax_status,
+      sales_tax_note = EXCLUDED.sales_tax_note,
       reserve_pct = EXCLUDED.reserve_pct,
       updated_at = now()
   `;

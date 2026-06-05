@@ -21,9 +21,20 @@ export interface EntityConfig {
   bankLabel: string | null;
   /** Where the actual filed documents live on disk (the ResearchOS_LLC folder). */
   docsFolder: string | null;
-  /** Tax reserve percentage, 0..100. A placeholder until an accountant sets it. */
+  /**
+   * Whether metered cloud storage is taxable in Wisconsin. "pending" until the
+   * WI DOR replies to the filed inquiry. This is a HARD GATE, no real customer
+   * is billed while it is "pending". "taxable" means register before charging,
+   * "exempt" means clear to charge.
+   */
+  salesTaxStatus: SalesTaxStatus;
+  /** Free-text note on the sales-tax determination (the DOR filing, the reply). */
+  salesTaxNote: string | null;
+  /** Tax reserve percentage, 0..100. A placeholder until confirmed. */
   reservePct: number;
 }
+
+export type SalesTaxStatus = "pending" | "taxable" | "exempt";
 
 /** One setup / compliance action item. */
 export interface BusinessTask {
@@ -131,7 +142,9 @@ export const DEFAULT_ENTITY: EntityConfig = {
   registeredAgent: null,
   bankLabel: null,
   docsFolder: null,
-  reservePct: 25,
+  salesTaxStatus: "pending",
+  salesTaxNote: null,
+  reservePct: 30,
 };
 
 // --- date helpers, all in UTC so a timezone never shifts a due date ---

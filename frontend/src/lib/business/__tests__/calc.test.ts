@@ -102,7 +102,9 @@ describe("upcomingDeadlines", () => {
       registeredAgent: null,
       bankLabel: null,
       docsFolder: null,
-      reservePct: 25,
+      salesTaxStatus: "pending",
+      salesTaxNote: null,
+      reservePct: 30,
     };
     const list = upcomingDeadlines(withDate, new Date("2026-05-01T00:00:00Z"));
     expect(list.map((d) => d.key)).toEqual(["fed-estimate", "wi-annual-report"]);

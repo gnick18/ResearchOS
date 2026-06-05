@@ -13,6 +13,7 @@ import { json } from "@/lib/sharing/directory/guard";
 import { isBillingEnabled } from "@/lib/billing/config";
 import { ownerKeyForEmail } from "@/lib/billing/owner";
 import { getStoragePriceId, getStripe } from "@/lib/billing/stripe";
+import { ensureBusinessSchema, getEntity } from "@/lib/business/db";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,27 @@ export async function POST(request: Request): Promise<Response> {
   const session = await auth();
   const email = session?.user?.email;
   if (!email) return json(401, { error: "sign in required" });
+
+  // HARD GATE (sharing infra handoff 2026-06-05): never charge a REAL customer
+  // until the WI DOR sales-tax determination lands. Test-mode checkout (sk_test_)
+  // is unaffected so the flow can be built and tested; a LIVE key with the
+  // determination still "pending" is refused.
+  const isLive = process.env.STRIPE_SECRET_KEY?.startsWith("sk_live_") ?? false;
+  if (isLive) {
+    try {
+      await ensureBusinessSchema();
+      const entity = await getEntity();
+      if (entity.salesTaxStatus === "pending") {
+        return json(409, {
+          error:
+            "Billing is blocked until the Wisconsin sales-tax determination is resolved. Set the status in the business tracker once the WI DOR replies.",
+        });
+      }
+    } catch {
+      // Fail closed: if we cannot confirm the determination, do not charge.
+      return json(409, { error: "sales-tax status unavailable" });
+    }
+  }
 
   const ownerKey = ownerKeyForEmail(email);
 

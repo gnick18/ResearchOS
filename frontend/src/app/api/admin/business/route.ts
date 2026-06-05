@@ -96,6 +96,9 @@ function parseEntity(raw: unknown): EntityConfig | null {
   const reservePct = Number.isFinite(reservePctRaw)
     ? Math.min(Math.max(reservePctRaw, 0), 100)
     : 25;
+  const stRaw = asString(o.salesTaxStatus);
+  const salesTaxStatus =
+    stRaw === "taxable" || stRaw === "exempt" ? stRaw : "pending";
   return {
     legalName: asString(o.legalName),
     state: asString(o.state) || "Wisconsin",
@@ -105,6 +108,8 @@ function parseEntity(raw: unknown): EntityConfig | null {
     registeredAgent: o.registeredAgent == null ? null : asString(o.registeredAgent),
     bankLabel: o.bankLabel == null ? null : asString(o.bankLabel),
     docsFolder: o.docsFolder == null ? null : asString(o.docsFolder),
+    salesTaxStatus,
+    salesTaxNote: o.salesTaxNote == null ? null : asString(o.salesTaxNote),
     reservePct,
   };
 }

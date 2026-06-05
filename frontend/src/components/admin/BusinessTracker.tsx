@@ -259,6 +259,23 @@ function EntityCard({
           />,
         )}
         {field(
+          "WI sales-tax status",
+          <select
+            className={input}
+            value={form.salesTaxStatus}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                salesTaxStatus: e.target.value as EntityConfig["salesTaxStatus"],
+              })
+            }
+          >
+            <option value="pending">Pending (awaiting WI DOR)</option>
+            <option value="exempt">Exempt (not taxable)</option>
+            <option value="taxable">Taxable (register first)</option>
+          </select>,
+        )}
+        {field(
           "Tax reserve %",
           <input
             type="number"
@@ -272,6 +289,15 @@ function EntityCard({
           />,
         )}
       </div>
+      <label className="mt-4 block">
+        <span className="text-meta font-medium text-gray-500">Sales-tax note</span>
+        <input
+          className={`${input} mt-1`}
+          placeholder="DOR filing / reply details"
+          value={form.salesTaxNote ?? ""}
+          onChange={(e) => setForm({ ...form, salesTaxNote: e.target.value || null })}
+        />
+      </label>
       <div className="mt-4 flex items-center gap-3">
         <button
           type="button"
@@ -620,6 +646,48 @@ function Correspondence({
   );
 }
 
+function SalesTaxBanner({
+  status,
+  note,
+}: {
+  status: EntityConfig["salesTaxStatus"];
+  note: string | null;
+}) {
+  if (status === "exempt") {
+    return (
+      <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+        <p className="text-body font-semibold text-emerald-800">
+          Wisconsin sales tax: exempt. Clear to charge.
+        </p>
+        {note ? <p className="mt-1 text-meta text-emerald-700">{note}</p> : null}
+      </div>
+    );
+  }
+  const taxable = status === "taxable";
+  return (
+    <div
+      className={`mb-4 rounded-xl border px-4 py-3 ${
+        taxable ? "border-amber-300 bg-amber-50" : "border-rose-300 bg-rose-50"
+      }`}
+    >
+      <p
+        className={`text-body font-semibold ${
+          taxable ? "text-amber-800" : "text-rose-800"
+        }`}
+      >
+        {taxable
+          ? "Wisconsin taxable. Register with the WI DOR before charging a real customer."
+          : "Hard gate: sales-tax determination pending. Do not bill a real customer until the WI DOR replies."}
+      </p>
+      {note ? (
+        <p className={`mt-1 text-meta ${taxable ? "text-amber-700" : "text-rose-700"}`}>
+          {note}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function SectionTitle({ children, sub }: { children: React.ReactNode; sub?: string }) {
   return (
     <div className="mb-3 mt-10 first:mt-0">
@@ -772,7 +840,11 @@ export default function BusinessTracker() {
         operator-only, never shown to any user.
       </p>
 
-      <div className="mt-8">
+      <div className="mt-6">
+        <SalesTaxBanner status={entity.salesTaxStatus} note={entity.salesTaxNote} />
+      </div>
+
+      <div className="mt-2">
         <SectionTitle sub="The next obligations, soonest first. Verify the exact dates and fees with the WI DFI and your accountant.">
           Deadlines
         </SectionTitle>
