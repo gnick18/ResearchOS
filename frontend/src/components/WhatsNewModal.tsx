@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import BeakerBot from "./BeakerBot";
 import BeakerBotMouseWaveScene from "./BeakerBotMouseWaveScene";
-import { GoogleIcon, GitHubIcon, LinkedInIcon } from "@/components/sharing/icons";
+import { GoogleIcon, GitHubIcon, LinkedInIcon, OrcidIcon } from "@/components/sharing/icons";
 import { FREE_STORAGE_BYTES, TTL_DAYS } from "@/lib/sharing/relay/limits";
 import { APP_CHANNEL } from "@/lib/version";
 import type { ReleaseNote } from "@/lib/release-notes";
@@ -36,11 +36,19 @@ interface Props {
   releases: ReadonlyArray<ReleaseNote>;
   /** Called when the user dismisses (Got it / close / Escape / backdrop). */
   onDismiss: () => void;
-  /** Start real sharing-account creation for the picked provider (the v0.5
-   *  accounts popup only). The manager records the announcement as seen, then
-   *  kicks off the OAuth claim flow. When absent, the sign-in cards render but
-   *  the provider buttons are inert (the manager always wires this). */
-  onStartAccount?: (provider: "google" | "github" | "linkedin") => void;
+  /** Start real sharing-account creation for the picked OAuth provider (the
+   *  v0.5 accounts popup only). The manager records the announcement as seen,
+   *  then kicks off the OAuth claim flow. ORCID rides the same path as the
+   *  other providers. When absent, the sign-in cards render but the provider
+   *  buttons are inert (the manager always wires this). */
+  onStartAccount?: (
+    provider: "orcid" | "google" | "github" | "linkedin",
+  ) => void;
+  /** Start the email-verification path (the v0.5 accounts popup only). Unlike
+   *  the OAuth providers this does not redirect: the manager records the
+   *  announcement as seen, then opens the SharingSetupWizard straight on its
+   *  email step. When absent, the email link renders inert. */
+  onStartEmail?: () => void;
   /** When true, every release is shown expanded from the start (the
    *  Settings "full history" view). Default false (catch-up view, which
    *  starts collapsed to the headline release with an expander). */
@@ -179,9 +187,13 @@ function ChoiceCheck() {
 function SignInChoiceCards({
   onKeepLocal,
   onStartAccount,
+  onStartEmail,
 }: {
   onKeepLocal: () => void;
-  onStartAccount?: (provider: "google" | "github" | "linkedin") => void;
+  onStartAccount?: (
+    provider: "orcid" | "google" | "github" | "linkedin",
+  ) => void;
+  onStartEmail?: () => void;
 }) {
   const inboxGb = Math.round(FREE_STORAGE_BYTES / 1024 ** 3);
   const oauthBtn =
@@ -248,7 +260,20 @@ function SignInChoiceCards({
             <ChoiceCheck /> Live collaboration, coming soon.
           </li>
         </ul>
-        <div className="mt-5 flex gap-2">
+        {/* ORCID gets visual priority as the academic identity, full-width on
+            top in its brand green, with Google / GitHub / LinkedIn in a row
+            below and a small email-verify link under those. Matches the
+            welcome-page account card. */}
+        <button
+          type="button"
+          onClick={() => onStartAccount?.("orcid")}
+          data-testid="whats-new-signin-orcid"
+          className="mt-5 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#A6CE39] px-2 py-2.5 text-meta font-semibold text-slate-900 transition-colors hover:bg-[#8fb82e]"
+        >
+          <OrcidIcon className="h-4 w-4 shrink-0" />
+          Sign in with ORCID
+        </button>
+        <div className="mt-2 flex gap-2">
           <button
             type="button"
             onClick={() => onStartAccount?.("google")}
@@ -277,6 +302,14 @@ function SignInChoiceCards({
             LinkedIn
           </button>
         </div>
+        <button
+          type="button"
+          onClick={() => onStartEmail?.()}
+          data-testid="whats-new-signin-email"
+          className="mt-3 w-full text-center text-meta font-medium text-sky-600 transition-colors hover:text-sky-700 hover:underline"
+        >
+          or verify with email instead
+        </button>
         <p className="mt-2 text-meta leading-snug text-[#8593a8]">
           Sign-in only verifies your email. Your notebook still lives on your
           machine.
@@ -290,6 +323,7 @@ export default function WhatsNewModal({
   releases,
   onDismiss,
   onStartAccount,
+  onStartEmail,
   showAllExpanded = false,
   waveOnOpen = true,
 }: Props) {
@@ -419,6 +453,7 @@ export default function WhatsNewModal({
               <SignInChoiceCards
                 onKeepLocal={onDismiss}
                 onStartAccount={onStartAccount}
+                onStartEmail={onStartEmail}
               />
             )}
           </div>

@@ -54,6 +54,11 @@ interface SharingSetupWizardProps {
   onComplete: (result: { fingerprint: string }) => void;
   /** Dismiss the wizard without finishing. */
   onClose: () => void;
+  /** Which step to open on. Defaults to "choose". A caller that already wants
+   *  the email path (the welcome page and the v0.5 popup "verify with email"
+   *  links) passes "email-enter" to skip the provider chooser and land straight
+   *  on email entry. */
+  initialStep?: "choose" | "email-enter";
 }
 
 // The query flag the OAuth callbackUrl carries so we know the page reloaded
@@ -81,8 +86,9 @@ export default function SharingSetupWizard({
   username,
   onComplete,
   onClose,
+  initialStep = "choose",
 }: SharingSetupWizardProps) {
-  const [step, setStep] = useState<Step>("choose");
+  const [step, setStep] = useState<Step>(initialStep);
   const [verifiedVia, setVerifiedVia] = useState<VerifiedVia>(null);
 
   // Escape closes this wizard (app-wide convention).

@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import WhatsNewModal from "./WhatsNewModal";
+import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
 import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
 import { useLastSeenAnnouncementVersion } from "@/hooks/useLastSeenAnnouncementVersion";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
@@ -63,12 +65,17 @@ type Phase =
 
 export default function WhatsNewManager({ username }: Props) {
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
+  // When the user picks "or verify with email instead", we open the
+  // SharingSetupWizard straight on its email step instead of redirecting
+  // through an OAuth provider.
+  const [emailWizardOpen, setEmailWizardOpen] = useState(false);
   // One decision per username per mount. Flips true the moment we either
   // open the modal OR silently record a first-load version, so the seed
   // effect can't double-fire (StrictMode, re-renders). Reset on username
   // change via the effect's own guard below.
   const [decidedFor, setDecidedFor] = useState<string | null>(null);
 
+  const router = useRouter();
   const tour = useOptionalTourController();
   const tourActive = tour !== null && tour.tourMode !== null;
   const captureMode = isDemoOrWikiCapture();
@@ -141,7 +148,7 @@ export default function WhatsNewManager({ username }: Props) {
   // claim flow with ?sharingClaim=1 so the global SharingClaimResume mount
   // finishes real account creation when the user comes back.
   const handleStartAccount = useCallback(
-    async (provider: "google" | "github" | "linkedin") => {
+    async (provider: "orcid" | "google" | "github" | "linkedin") => {
       setPhase({ kind: "idle" });
       if (username) {
         const latest = latestReleaseVersion();
@@ -163,14 +170,60 @@ export default function WhatsNewManager({ username }: Props) {
     [username],
   );
 
+  // ------- Start email: record-seen, THEN open the wizard at email ----
+  // The "or verify with email instead" link lands here. Like handleStartAccount
+  // we record the announcement as seen first (awaited) so the popup does not
+  // re-pop, then open the SharingSetupWizard on its email step. No OAuth
+  // redirect happens on this path, so the global SharingClaimResume mount is
+  // not involved; the wizard finishes the claim in place.
+  const handleStartEmail = useCallback(async () => {
+    setPhase({ kind: "idle" });
+    if (username) {
+      const latest = latestReleaseVersion();
+      if (latest) {
+        try {
+          await patchUserSettings(username, {
+            lastSeenAnnouncementVersion: latest,
+          });
+        } catch (err) {
+          console.warn(
+            "[WhatsNewManager] failed to record version before email setup",
+            err,
+          );
+        }
+      }
+    }
+    setEmailWizardOpen(true);
+  }, [username]);
+
   if (!username) return null;
-  if (phase.kind !== "showing") return null;
+
+  // The email-path wizard can outlive the modal (opening it records-seen and
+  // closes the popup), so render it as a peer of the modal rather than inside
+  // the showing branch. On complete or close we clear the flag and refresh.
+  const emailWizard = emailWizardOpen ? (
+    <SharingSetupWizard
+      username={username}
+      initialStep="email-enter"
+      onComplete={() => {
+        setEmailWizardOpen(false);
+        router.refresh();
+      }}
+      onClose={() => setEmailWizardOpen(false)}
+    />
+  ) : null;
+
+  if (phase.kind !== "showing") return emailWizard;
 
   return (
-    <WhatsNewModal
-      releases={phase.missed}
-      onDismiss={handleDismiss}
-      onStartAccount={handleStartAccount}
-    />
+    <>
+      <WhatsNewModal
+        releases={phase.missed}
+        onDismiss={handleDismiss}
+        onStartAccount={handleStartAccount}
+        onStartEmail={handleStartEmail}
+      />
+      {emailWizard}
+    </>
   );
 }

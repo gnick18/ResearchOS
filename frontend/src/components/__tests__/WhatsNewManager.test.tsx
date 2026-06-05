@@ -48,6 +48,19 @@ vi.mock("@/lib/file-system/user-metadata", () => ({
   setUserMetadataColors: vi.fn(async () => {}),
 }));
 
+// The manager calls useRouter() (to refresh after the email-path wizard
+// finishes). jsdom has no App Router context, so stub the hook.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    refresh: vi.fn(),
+    push: vi.fn(),
+    replace: vi.fn(),
+    prefetch: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+  }),
+}));
+
 const tourState: { mode: "in-product-walkthrough" | null } = { mode: null };
 vi.mock("@/components/onboarding/v4/TourController", () => ({
   useOptionalTourController: () =>

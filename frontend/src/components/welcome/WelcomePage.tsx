@@ -36,7 +36,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import BeakerBot from "@/components/BeakerBot";
 import DemoLoop, { DemoLoopPlaceholder } from "@/components/welcome/DemoLoop";
-import { GoogleIcon, GitHubIcon, LinkedInIcon } from "@/components/sharing/icons";
+import { GoogleIcon, GitHubIcon, LinkedInIcon, OrcidIcon } from "@/components/sharing/icons";
 import { FREE_STORAGE_BYTES, TTL_DAYS } from "@/lib/sharing/relay/limits";
 import RoadmapModal from "@/components/RoadmapModal";
 
@@ -57,14 +57,18 @@ const RAINBOW_TEXT =
  * The tone prop is kept for callers but no longer flips a dark variant.
  * -------------------------------------------------------------------------- */
 function SignInRow({
+  onOrcid,
   onGoogle,
   onGitHub,
   onLinkedIn,
+  onEmail,
   onLocal,
 }: {
+  onOrcid: () => void;
   onGoogle: () => void;
   onGitHub: () => void;
   onLinkedIn: () => void;
+  onEmail: () => void;
   onLocal: () => void;
   tone?: "dark" | "light";
 }) {
@@ -147,7 +151,19 @@ function SignInRow({
             <CheckGlyph /> Live collaboration, coming soon.
           </li>
         </ul>
-        <div className="mt-5 flex gap-2">
+        {/* ORCID gets visual priority as the academic identity, full-width on
+            top in its brand green, with Google / GitHub / LinkedIn in a row
+            below and a small email-verify link under those. */}
+        <button
+          type="button"
+          onClick={onOrcid}
+          data-testid="welcome-preview-signin-orcid"
+          className="mt-5 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#A6CE39] px-2 py-2.5 text-meta font-semibold text-slate-900 transition-colors hover:bg-[#8fb82e]"
+        >
+          <OrcidIcon className="h-4 w-4 shrink-0" />
+          Sign in with ORCID
+        </button>
+        <div className="mt-2 flex gap-2">
           <button
             type="button"
             onClick={onGoogle}
@@ -176,6 +192,14 @@ function SignInRow({
             LinkedIn
           </button>
         </div>
+        <button
+          type="button"
+          onClick={onEmail}
+          data-testid="welcome-preview-signin-email"
+          className="mt-3 w-full text-center text-meta font-medium text-sky-600 transition-colors hover:text-sky-700 hover:underline"
+        >
+          or verify with email instead
+        </button>
         <p className="mt-2 text-meta leading-snug text-[#8593a8]">
           Sign-in only verifies your email. Your notebook still lives on your
           machine. Inbox size and hold time may grow or change as funding and
@@ -313,10 +337,16 @@ export default function WelcomePage() {
   // Roadmap modal state.
   const [roadmapOpen, setRoadmapOpen] = useState(false);
 
-  // Three-path sign-in, plain router.push (no SessionProvider in this app).
+  // Multi-path sign-in, plain router.push (no SessionProvider in this app).
+  // ORCID rides the same OAuth-resume path as Google/GitHub/LinkedIn (the
+  // setup component reads ?signIn and fires signIn() after the folder is
+  // connected). Email is special: ?signIn=email opens the SharingSetupWizard
+  // straight on its email step instead of an OAuth redirect.
+  const handleOrcid = () => router.push("/?connect=1&signIn=orcid");
   const handleGoogle = () => router.push("/?connect=1&signIn=google");
   const handleGitHub = () => router.push("/?connect=1&signIn=github");
   const handleLinkedIn = () => router.push("/?connect=1&signIn=linkedin");
+  const handleEmail = () => router.push("/?connect=1&signIn=email");
   const handleLocal = () => router.push("/?connect=1");
 
   return (
@@ -426,9 +456,11 @@ export default function WelcomePage() {
 
             <div className="mt-8">
               <SignInRow
+                onOrcid={handleOrcid}
                 onGoogle={handleGoogle}
                 onGitHub={handleGitHub}
                 onLinkedIn={handleLinkedIn}
+                onEmail={handleEmail}
                 onLocal={handleLocal}
                 tone="light"
               />
@@ -918,9 +950,11 @@ export default function WelcomePage() {
             </p>
             <div className="mt-7">
               <SignInRow
+                onOrcid={handleOrcid}
                 onGoogle={handleGoogle}
                 onGitHub={handleGitHub}
                 onLinkedIn={handleLinkedIn}
+                onEmail={handleEmail}
                 onLocal={handleLocal}
                 tone="light"
               />
