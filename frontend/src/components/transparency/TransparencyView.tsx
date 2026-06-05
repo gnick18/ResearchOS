@@ -25,13 +25,13 @@ export default function TransparencyView() {
   const total = report.totals.pass + report.totals.warn + report.totals.fail;
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="mx-auto max-w-5xl px-6 py-16">
+    <div className="min-h-screen bg-gray-50">
+      <div className="mx-auto max-w-5xl px-6 py-12">
         <Link href="/" className="text-body font-medium text-gray-500 underline-offset-2 hover:text-gray-800 hover:underline">
           ← ResearchOS
         </Link>
 
-        <header className="mt-8 mb-12">
+        <header className="mt-6 rounded-2xl border border-gray-200 bg-white p-8 shadow-sm sm:p-10">
           <p className="mb-3 text-body font-semibold uppercase tracking-wide text-sky-600">Method validation</p>
           <h1 className="mb-5 text-display font-bold tracking-tight text-gray-900 sm:text-4xl">
             Validation of bioinformatic calculations against peer-reviewed alternatives
@@ -52,7 +52,9 @@ export default function TransparencyView() {
           </div>
         </header>
 
-        <TransparencyTabs domains={report.domains} />
+        <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
+          <TransparencyTabs domains={report.domains} />
+        </div>
       </div>
 
       <AppFooter />

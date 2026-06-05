@@ -96,7 +96,7 @@ function OracleCitation({ oracle }: { oracle: OracleRef }) {
 function CaseVisualCard({ domain, c }: { domain: DomainReport; c: CaseResult }) {
   const v = c.visual;
   return (
-    <div className="rounded-xl border border-gray-200 p-4">
+    <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <span className="text-body font-medium text-gray-800">{c.label}</span>
         <StatusPill status={c.status} exact={c.comparisons.every((cmp) => cmp.delta === 0)} />
@@ -254,7 +254,7 @@ export default function TransparencyTabs({ domains }: { domains: DomainReport[] 
               onClick={() => setActiveId(d.id)}
               className={`-mb-px flex items-center gap-2 rounded-t-lg border border-b-2 px-4 py-2.5 text-body font-medium transition ${
                 selected
-                  ? "border-gray-200 border-b-sky-600 bg-white text-sky-700"
+                  ? "border-sky-200 border-b-sky-600 bg-sky-50/70 text-sky-700"
                   : "border-transparent border-b-transparent text-gray-500 hover:border-b-gray-300 hover:text-gray-800"
               }`}
             >
