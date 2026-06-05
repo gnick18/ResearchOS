@@ -40,6 +40,7 @@ import {
   CloseIcon,
   CopyIcon,
   KeyIcon,
+  UploadIcon,
   WarningIcon,
 } from "@/components/sharing/icons";
 import {
@@ -53,6 +54,10 @@ import {
   restoreFromRecoveryWords,
 } from "@/lib/sharing/identity/setup";
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
+import {
+  parseRecoveryKit,
+  type RecoveryKitData,
+} from "@/lib/sharing/identity/recovery-kit";
 import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
 import {
   clearIdentity,
@@ -1051,6 +1056,63 @@ async function fetchBackupBlob(
 // ---------------------------------------------------------------------------
 
 type RestoreStep = "intro" | "code" | "verifying" | "done";
+type RestoreMode = "email" | "kit";
+
+/**
+ * Unwraps a backup blob with the entered words, verifies the recovered identity
+ * matches the sidecar, persists the private keys to this device, and marks
+ * recovery confirmed. Shared by the email-OTP path and the offline Recovery Kit
+ * path, so both end the same way. Returns null on success or a user-facing error
+ * message on failure (a bad phrase, or a phrase that belongs to a different
+ * identity).
+ */
+async function finalizeRestore(
+  blob: string,
+  words: string,
+  sidecar: SharingIdentitySidecar,
+  username: string,
+): Promise<string | null> {
+  // Unwrap with the entered words. A wrong phrase throws (Poly1305).
+  let restored;
+  try {
+    restored = restoreFromRecoveryWords(normalizeWords(words), blob);
+  } catch {
+    return "Those words do not match this identity. Check them and try again.";
+  }
+
+  // The recovered keys must match the published identity, otherwise the words
+  // belong to a different identity.
+  if (restored.ed25519PublicKey !== sidecar.ed25519PublicKey) {
+    return "Those words do not match this identity. Check them and try again.";
+  }
+
+  await saveIdentity({
+    keys: {
+      encryption: {
+        publicKey: decodePublicKey(restored.x25519PublicKey),
+        privateKey: restored.x25519PrivateKey,
+      },
+      signing: {
+        publicKey: decodePublicKey(restored.ed25519PublicKey),
+        privateKey: restored.ed25519PrivateKey,
+      },
+    },
+    deviceSalt: generateDeviceSalt(),
+  });
+
+  // Mark recovery confirmed, the user just proved they hold the words.
+  try {
+    await writeSharingIdentity(username, {
+      ...sidecar,
+      recoveryConfirmedAt:
+        sidecar.recoveryConfirmedAt ?? new Date().toISOString(),
+    });
+  } catch {
+    // The key is restored even if the sidecar rewrite fails, do not block.
+  }
+
+  return null;
+}
 
 export function RestoreIdentityPopup({
   username,
@@ -1062,10 +1124,13 @@ export function RestoreIdentityPopup({
   onClose: () => void;
 }) {
   const [step, setStep] = useState<RestoreStep>("intro");
+  const [mode, setMode] = useState<RestoreMode>("email");
   const [words, setWords] = useState("");
   const [otp, setOtp] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The parsed Recovery Kit, when the user uploads or pastes one.
+  const [kit, setKit] = useState<RecoveryKitData | null>(null);
 
   const email = sidecar?.email ?? "";
 
@@ -1112,46 +1177,16 @@ export function RestoreIdentityPopup({
         return;
       }
 
-      // Unwrap with the entered words. A wrong phrase throws (Poly1305).
-      let restored;
-      try {
-        restored = restoreFromRecoveryWords(normalizeWords(words), fetched.blob);
-      } catch {
-        setError("Those words do not match this identity. Check them and try again.");
+      const failure = await finalizeRestore(
+        fetched.blob,
+        words,
+        sidecar,
+        username,
+      );
+      if (failure) {
+        setError(failure);
         setStep("code");
         return;
-      }
-
-      // The recovered keys must match the published identity, otherwise the words
-      // belong to a different identity.
-      if (restored.ed25519PublicKey !== sidecar.ed25519PublicKey) {
-        setError("Those words do not match this identity. Check them and try again.");
-        setStep("code");
-        return;
-      }
-
-      await saveIdentity({
-        keys: {
-          encryption: {
-            publicKey: decodePublicKey(restored.x25519PublicKey),
-            privateKey: restored.x25519PrivateKey,
-          },
-          signing: {
-            publicKey: decodePublicKey(restored.ed25519PublicKey),
-            privateKey: restored.ed25519PrivateKey,
-          },
-        },
-        deviceSalt: generateDeviceSalt(),
-      });
-
-      // Mark recovery confirmed, the user just proved they hold the words.
-      try {
-        await writeSharingIdentity(username, {
-          ...sidecar,
-          recoveryConfirmedAt: sidecar.recoveryConfirmedAt ?? new Date().toISOString(),
-        });
-      } catch {
-        // The key is restored even if the sidecar rewrite fails, do not block.
       }
 
       setStep("done");
@@ -1160,9 +1195,73 @@ export function RestoreIdentityPopup({
     }
   }, [sidecar, email, otp, words, username]);
 
+  // ---- Recovery Kit path (offline, no email, no network) -------------------
+
+  // Reads a chosen kit file and parses it. We accept the SAME kit whichever way
+  // it arrives (file upload or paste), so this just hands the text to the parser.
+  const loadKitText = useCallback((text: string) => {
+    setError(null);
+    const parsed = parseRecoveryKit(text);
+    if (!parsed) {
+      setKit(null);
+      setError(
+        "That file is not a ResearchOS Recovery Kit. Choose the kit you downloaded when you set up sharing.",
+      );
+      return;
+    }
+    setKit(parsed);
+  }, []);
+
+  const onKitFile = useCallback(
+    async (file: File | null | undefined) => {
+      if (!file) return;
+      try {
+        const text = await file.text();
+        loadKitText(text);
+      } catch {
+        setError("Could not read that file. Try choosing it again.");
+      }
+    },
+    [loadKitText],
+  );
+
+  const restoreFromKit = useCallback(async () => {
+    if (!sidecar || !kit) return;
+    setError(null);
+    if (wordCount(words) !== 12) {
+      setError("Enter all 12 recovery words.");
+      return;
+    }
+    setStep("verifying");
+    setBusy(true);
+    try {
+      const failure = await finalizeRestore(
+        kit.backupBlob,
+        words,
+        sidecar,
+        username,
+      );
+      if (failure) {
+        setError(failure);
+        setStep("intro");
+        return;
+      }
+      setStep("done");
+    } finally {
+      setBusy(false);
+    }
+  }, [sidecar, kit, words, username]);
+
+  const switchMode = useCallback((next: RestoreMode) => {
+    setMode(next);
+    setError(null);
+    setOtp("");
+    setStep("intro");
+  }, []);
+
   return (
     <ModalShell title="Restore your sharing identity" subtitle={`for ${username}`} onClose={onClose}>
-      {step === "intro" && (
+      {step === "intro" && mode === "email" && (
         <div className="space-y-4">
           <p className="text-body text-slate-300 leading-relaxed">
             Restore your sharing identity on this device. Enter the 12 recovery
@@ -1183,6 +1282,77 @@ export function RestoreIdentityPopup({
             before handing back your encrypted key backup. Only your words can
             unlock it.
           </p>
+          <button
+            type="button"
+            onClick={() => switchMode("kit")}
+            className="text-meta text-blue-400 hover:text-blue-300 underline underline-offset-2"
+          >
+            No access to your email? Use your Recovery Kit
+          </button>
+        </div>
+      )}
+
+      {step === "intro" && mode === "kit" && (
+        <div className="space-y-4">
+          <p className="text-body text-slate-300 leading-relaxed">
+            Restore offline with the Recovery Kit you downloaded. Upload or paste
+            the kit, then enter your 12 recovery words. No email and no network are
+            needed.
+          </p>
+
+          <div className="space-y-2">
+            <label className="block">
+              <span className="sr-only">Choose your Recovery Kit file</span>
+              <input
+                type="file"
+                accept=".html,text/html,application/json,.json"
+                disabled={busy}
+                onChange={(e) => {
+                  void onKitFile(e.target.files?.[0]);
+                  // Reset so re-choosing the same file fires onChange again.
+                  e.target.value = "";
+                }}
+                className="block w-full text-meta text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-body file:font-medium file:text-white hover:file:bg-blue-700 disabled:opacity-50"
+              />
+            </label>
+            <textarea
+              onChange={(e) => loadKitText(e.target.value)}
+              disabled={busy}
+              rows={2}
+              placeholder="Or paste the contents of your Recovery Kit file here"
+              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-meta font-mono disabled:opacity-50"
+            />
+          </div>
+
+          {kit && (
+            <div className="flex items-start gap-2 p-2 bg-emerald-500/10 border border-emerald-400/25 rounded-lg">
+              <span className="text-emerald-300 mt-0.5">
+                <CheckIcon className="w-4 h-4" />
+              </span>
+              <p className="text-meta text-emerald-200 leading-relaxed break-all">
+                Kit loaded for {kit.email}.
+              </p>
+            </div>
+          )}
+
+          <WordsInput value={words} onChange={setWords} disabled={busy} />
+          {error && <ErrorNotice message={error} />}
+          <button
+            type="button"
+            onClick={restoreFromKit}
+            disabled={busy || !kit}
+            className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 inline-flex items-center justify-center gap-2"
+          >
+            <UploadIcon className="w-4 h-4" />
+            Restore my key
+          </button>
+          <button
+            type="button"
+            onClick={() => switchMode("email")}
+            className="text-meta text-blue-400 hover:text-blue-300 underline underline-offset-2"
+          >
+            Use email instead
+          </button>
         </div>
       )}
 

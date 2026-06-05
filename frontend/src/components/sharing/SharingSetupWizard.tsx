@@ -23,6 +23,7 @@ import {
   type IdentityMaterial,
 } from "@/lib/sharing/identity/setup";
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
+import { downloadRecoveryKit } from "@/lib/sharing/identity/recovery-kit";
 import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
 import { saveIdentity } from "@/lib/sharing/identity/storage";
 import {
@@ -35,6 +36,7 @@ import {
   CheckIcon,
   CloseIcon,
   CopyIcon,
+  DownloadIcon,
   GitHubIcon,
   GoogleIcon,
   KeyIcon,
@@ -408,6 +410,7 @@ export default function SharingSetupWizard({
           {step === "generate" && (
             <GenerateStep
               material={material}
+              email={email}
               error={error}
               recoverySaved={recoverySaved}
               setRecoverySaved={setRecoverySaved}
@@ -646,6 +649,7 @@ function EmailCodeStep({
 
 function GenerateStep({
   material,
+  email,
   error,
   recoverySaved,
   setRecoverySaved,
@@ -654,6 +658,7 @@ function GenerateStep({
   onContinue,
 }: {
   material: IdentityMaterial | null;
+  email: string;
   error: string | null;
   recoverySaved: boolean;
   setRecoverySaved: (v: boolean) => void;
@@ -729,6 +734,30 @@ function GenerateStep({
           </>
         )}
       </button>
+
+      <div className="rounded-lg border border-white/10 bg-slate-900/40 p-3 space-y-2">
+        <p className="text-meta text-slate-400 leading-relaxed">
+          You can also download a Recovery Kit. It is your encrypted key backup in
+          a single file, so you can restore on a new device with just your words,
+          even if you lose access to your email. The kit does not contain your
+          words, so it is safe to keep. It is useless to anyone without them.
+        </p>
+        <button
+          type="button"
+          onClick={() =>
+            downloadRecoveryKit({
+              email,
+              fingerprint: material.fingerprint,
+              backupBlob: material.backupBlob,
+              createdAt: new Date().toISOString(),
+            })
+          }
+          className="flex items-center gap-1.5 text-meta font-medium text-blue-400 hover:text-blue-300"
+        >
+          <DownloadIcon className="w-3.5 h-3.5" />
+          Download Recovery Kit
+        </button>
+      </div>
 
       <label className="flex items-start gap-2 cursor-pointer select-none">
         <input
