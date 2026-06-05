@@ -1165,31 +1165,26 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                 saving={saving}
               />
 
-              {/* Junctions */}
+              {/* Junction primers. The overlap sequence + Tm live in the
+                  HOMOLOGY JUNCTIONS hero above (the "will it anneal" check), so
+                  this section is purely the oligos to order: the two designed
+                  primers per seam, each a 5' homology tail + 3' annealing region. */}
               <div>
-                <SectionLabel>Junctions ({result.junctions.length})</SectionLabel>
+                <SectionLabel>Junction primers ({result.junctions.length})</SectionLabel>
                 <div className="space-y-3">
                   {result.junctions.map((jn, i) => {
                     const up = result.primers[jn.fragmentIndex];
                     const down = result.primers[jn.nextFragmentIndex];
                     return (
                       <div key={i} className="rounded-md border border-gray-200 p-3">
-                        <div className="mb-2 flex items-center justify-between">
-                          <span className="text-body font-medium text-gray-800">
-                            {up?.fragmentName} <span className="text-gray-400">-&gt;</span> {down?.fragmentName}
-                          </span>
-                          <span className="text-meta text-gray-500">
-                            overlap {jn.overlapBp} bp · Tm {Number.isFinite(jn.overlapTm) ? jn.overlapTm.toFixed(1) : "—"} °C
-                          </span>
+                        <div className="mb-2 text-body font-medium text-gray-800">
+                          {up?.fragmentName} <span className="text-gray-400">-&gt;</span> {down?.fragmentName}
                         </div>
                         {jn.warning ? (
                           <div className="mb-2 flex items-start gap-1.5 rounded bg-amber-50 px-2 py-1 text-meta text-amber-700">
                             <WarnIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {jn.warning}
                           </div>
                         ) : null}
-                        <div className="mb-2 rounded bg-gray-50 px-2 py-1 font-mono text-meta text-gray-600 break-all">
-                          overlap: {jn.overlapSeq || "—"}
-                        </div>
                         <div className="grid grid-cols-2 gap-2 text-meta">
                           <PrimerCell label={`${down?.fragmentName} forward`} primer={down?.forward} />
                           <PrimerCell label={`${up?.fragmentName} reverse`} primer={up?.reverse} />
