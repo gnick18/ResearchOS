@@ -1,0 +1,264 @@
+"use client";
+
+// User avatar chip for the top-right of AppShell. Replaces the settings gear
+// with a circular avatar that shows the current user's initial and color, plus
+// a dropdown with links to their researcher profile and settings.
+//
+// The avatar always reflects the FOLDER-LOCAL user (no sharing identity
+// required), so it is always visible once a user is active. When a sharing
+// identity + researcher profile exist, the profile link leads there; until the
+// /researchers/[fingerprint] page is built it anchors to the profile card in
+// settings.
+//
+// The tour gate mirrors the gear: during the walkthrough the avatar is a
+// disabled button so a mid-tour click cannot navigate away from the current
+// step.
+//
+// House style: no em-dashes, no emojis, no mid-sentence colons. Every icon is
+// an inline SVG. Tooltip on the avatar itself; items inside the dropdown use
+// text labels only.
+
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import Link from "@/components/FixtureLink";
+import Tooltip from "@/components/Tooltip";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface UserAvatarMenuProps {
+  /** The folder-local username (used for initial + aria labels). */
+  currentUser: string;
+  /** The user's primary brand color (hex), from useUserColors. */
+  primaryColor: string;
+  /** Whether the header is currently tinted (colored header opt-in). */
+  tinted: boolean;
+  /** Whether navigation is disabled by the onboarding walkthrough. */
+  navDisabledByTour: boolean;
+  /** Current pathname for active-state styling. */
+  pathname: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Small helpers
+// ---------------------------------------------------------------------------
+
+/** First character of the username, uppercased. Falls back to "?" if empty. */
+function initial(username: string): string {
+  return (username[0] ?? "?").toUpperCase();
+}
+
+/**
+ * Picks black or white foreground for legibility on a hex background.
+ * Uses the W3C relative luminance formula (simplified sRGB coefficients).
+ */
+function contrastColor(hex: string): "white" | "black" {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16) / 255;
+  const g = parseInt(h.slice(2, 4), 16) / 255;
+  const b = parseInt(h.slice(4, 6), 16) / 255;
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 0.45 ? "black" : "white";
+}
+
+// ---------------------------------------------------------------------------
+// Dropdown
+// ---------------------------------------------------------------------------
+
+function DropdownItem({
+  href,
+  onClick,
+  children,
+}: {
+  href?: string;
+  onClick?: () => void;
+  children: React.ReactNode;
+}) {
+  const cls =
+    "flex items-center gap-2 w-full px-4 py-2.5 text-body text-gray-700 hover:bg-gray-50 transition-colors text-left";
+
+  if (href) {
+    return (
+      <Link href={href} className={cls} onClick={onClick}>
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" onClick={onClick} className={cls}>
+      {children}
+    </button>
+  );
+}
+
+function PersonIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="w-4 h-4 shrink-0 text-gray-400"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+    </svg>
+  );
+}
+
+function GearIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="w-4 h-4 shrink-0 text-gray-400"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9" />
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+
+export default function UserAvatarMenu({
+  currentUser,
+  primaryColor,
+  tinted,
+  navDisabledByTour,
+  pathname,
+}: UserAvatarMenuProps) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const close = useCallback(() => setOpen(false), []);
+  const toggle = useCallback(() => setOpen((v) => !v), []);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return;
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [open]);
+
+  const fg = contrastColor(primaryColor);
+  const avatarStyle = { backgroundColor: primaryColor, color: fg === "white" ? "#fff" : "#111" };
+
+  // Tour-disabled state: render a non-interactive button matching the gear's
+  // disabled treatment so the walkthrough spotlight area is consistent.
+  if (navDisabledByTour) {
+    return (
+      <button
+        type="button"
+        disabled
+        aria-disabled="true"
+        aria-label="Account (disabled during walkthrough)"
+        className={`w-7 h-7 rounded-full flex items-center justify-center text-meta font-semibold cursor-not-allowed opacity-50 ${
+          tinted ? "ring-2 ring-white/40" : ""
+        }`}
+        style={avatarStyle}
+      >
+        {initial(currentUser)}
+      </button>
+    );
+  }
+
+  const onSettings = pathname === "/settings";
+
+  return (
+    <div ref={containerRef} className="relative">
+      <Tooltip label={open ? "" : `${currentUser} — account & profile`} placement="bottom">
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label={`${currentUser} — account menu`}
+          aria-expanded={open}
+          className={`w-7 h-7 rounded-full flex items-center justify-center text-meta font-semibold transition-all select-none ${
+            tinted
+              ? open || onSettings
+                ? "ring-2 ring-white shadow"
+                : "ring-2 ring-white/40 hover:ring-white/80"
+              : open || onSettings
+              ? "ring-2 ring-blue-500"
+              : "hover:ring-2 hover:ring-gray-300"
+          }`}
+          style={avatarStyle}
+        >
+          {initial(currentUser)}
+        </button>
+      </Tooltip>
+
+      {open && (
+        <div
+          className="absolute right-0 top-[calc(100%+8px)] z-[300] w-52 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden"
+          role="menu"
+        >
+          {/* Username header */}
+          <div className="px-4 py-3 border-b border-gray-100">
+            <div className="flex items-center gap-2.5">
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-body font-semibold shrink-0"
+                style={avatarStyle}
+                aria-hidden="true"
+              >
+                {initial(currentUser)}
+              </div>
+              <div className="min-w-0">
+                <p className="text-body font-semibold text-gray-900 truncate">
+                  {currentUser}
+                </p>
+                <p className="text-meta text-gray-400">ResearchOS</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Navigation items */}
+          <div className="py-1">
+            <DropdownItem
+              href="/settings#researcher-profile"
+              onClick={close}
+            >
+              <PersonIcon />
+              Researcher profile
+            </DropdownItem>
+            <DropdownItem href="/settings" onClick={close}>
+              <GearIcon />
+              Settings
+            </DropdownItem>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
