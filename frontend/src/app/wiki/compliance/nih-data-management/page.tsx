@@ -211,11 +211,19 @@ export default function NihDataManagementPage() {
         repository such as Zenodo, Figshare, Dryad, or Vivli otherwise.
       </p>
       <p>
-        ResearchOS gets you to that handoff cleanly. You export the curated
-        experiment or dataset, then upload it to the repository your plan
-        names. The repository is what mints the DOI or other persistent
-        identifier and hosts the public copy. Because your ResearchOS data is
-        already in open formats, there is nothing to unpack or convert first.
+        ResearchOS gets you to that handoff cleanly with a{" "}
+        <strong>guided deposit</strong> dialog. You pick the repository (Zenodo,
+        Figshare, or another of your choice), and ResearchOS prefills the
+        deposit metadata in the DataCite shape repositories expect (title,
+        creator with ORCID, abstract, license, keywords, and the funder and
+        award pulled from the grant you linked), bundles the curated data, and
+        opens that repository&apos;s own upload page so you drop the bundle in and
+        the repository mints the DOI. Because your ResearchOS data is already in
+        open formats, there is nothing to unpack or convert first. See{" "}
+        <Link href="/wiki/compliance/depositing-to-a-repository">
+          Depositing to a repository
+        </Link>{" "}
+        for the step-by-step.
       </p>
 
       <h2>Honest limits worth knowing about</h2>
@@ -225,11 +233,15 @@ export default function NihDataManagementPage() {
         block compliance, but you should know them before you write your
         plan.
       </p>
-      <Callout variant="warning" title="No built-in repository or DOI integration">
-        ResearchOS does not push directly to Zenodo or Figshare and does not
-        mint DOIs itself. You export, then deposit into the repository
-        yourself, and the repository issues the identifier. This is one extra
-        manual step compared to LabArchives&apos; Figshare and DOI buttons.
+      <Callout variant="info" title="Guided deposit now, one-click coming soon">
+        ResearchOS has a <strong>guided deposit</strong> dialog today: it
+        prefills your DataCite-shaped metadata, bundles the data, and opens the
+        repository&apos;s own upload page, where the repository mints the DOI.
+        What is not shipped yet is the <strong>fully automated one-click</strong>{" "}
+        path, where ResearchOS publishes straight to Zenodo from the browser and
+        the DOI comes back without you leaving the app. That is Phase 2. For now
+        you finish the last step on the repository&apos;s page, so the deposit is
+        guided rather than one-click.
       </Callout>
       <Callout variant="info" title="Per-entry version history with restore ships today">
         Alongside the append-only PI audit log and soft-delete Trash,
@@ -241,12 +253,13 @@ export default function NihDataManagementPage() {
         complete versioned history of those two record types, account for that
         narrower gap now.
       </Callout>
-      <Callout variant="info" title="Structured grant and ORCID fields are in">
-        ResearchOS now has first-class fields for your ORCID iD (on your
-        profile) and for funder and award numbers (on each funding account),
-        named to match the DataCite schema a DOI deposit uses. The remaining
-        piece is the one-click deposit that reads them automatically; until
-        that lands you enter the deposit metadata at upload time.
+      <Callout variant="info" title="Structured grant and ORCID fields feed the deposit">
+        ResearchOS has first-class fields for your ORCID iD (on your profile) and
+        for funder and award numbers (on each funding account), named to match
+        the DataCite schema a DOI deposit uses. The guided deposit dialog reads
+        them automatically and prefills the metadata for you, so you confirm the
+        details rather than retyping them at upload time. The remaining piece is
+        the one-click publish that finishes the deposit without leaving the app.
       </Callout>
       <Callout variant="warning" title="No third-party security certifications">
         ResearchOS holds no FedRAMP, SOC 2, ISO 27001, or 21 CFR Part 11

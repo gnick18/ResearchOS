@@ -14,13 +14,13 @@ export default function SharingAndPermissionsPage() {
           Fixture: ?wikiCapture=1
           Viewport: desktop 1440x900
           State: any user fixture; share dialog mounted with one explicit username chip
-                 and the All Lab Users sentinel as a separate option
+                 plus the whole-lab toggle
           Save to: frontend/public/wiki/screenshots/sharing-method-share-dialog.png
       */}
       <Screenshot
         src="/wiki/screenshots/sharing-method-share-dialog.png"
-        alt="A share dialog over a method popup, showing a list of usernames already in shared_with plus the All Lab Users sentinel option."
-        caption="The share dialog. Add explicit usernames at a read or edit level, or pick All Lab Users to set the whole-lab sentinel."
+        alt="The In your lab tab of the share dialog over a method popup, showing recipient rows each with a read/edit toggle, plus a Share with the whole lab toggle below."
+        caption="The In your lab tab of the share dialog. Each recipient has its own read or edit toggle, and a Share with the whole lab toggle covers present and future members at read-only by default."
       />
 
       <h2>The shared_with array</h2>
@@ -76,12 +76,15 @@ shared_with: SharedUser[];`}</code>
         <code>WHOLE_LAB_SENTINEL</code> with the value{" "}
         <code>&quot;*&quot;</code>, can appear in any entry where a real
         username would. It means &quot;every user in this lab folder,
-        present and future.&quot; When you click <strong>Share with All
-        Lab Users</strong> in any share dialog, the affordance writes one
-        entry, <code>{`{ username: "*", level: "read" }`}</code> (or{" "}
-        <code>level: &quot;edit&quot;</code> for whole-lab edit), rather
+        present and future.&quot; When you flip the{" "}
+        <strong>Share with the whole lab</strong> toggle in the{" "}
+        <em>In your lab</em> tab of any share dialog, the affordance writes one
+        entry, <code>{`{ username: "*", level: "read" }`}</code>, rather
         than enumerating every current member (which would silently exclude
-        anyone who joins later).
+        anyone who joins later). Whole-lab shares default to{" "}
+        <strong>read-only</strong>. Bump that one entry to{" "}
+        <code>level: &quot;edit&quot;</code> the same way you would any other
+        recipient row if you want the whole lab to be able to edit.
       </p>
       <p>
         The sentinel is comparable to a Unix <code>everyone</code> group:
@@ -208,6 +211,41 @@ shared_with: SharedUser[];`}</code>
         </li>
       </ul>
 
+      <h2>When someone shares with you</h2>
+      <p>
+        Sharing is not silent on the receiving end. When a labmate adds you to a
+        record, it shows up in your <strong>Inbox</strong> under the{" "}
+        <strong>Shared with me</strong> segment, the running list of everything
+        people in your folder have shared to you, newest first. The Inbox badge
+        carries a count so you can tell at a glance that something new is waiting,
+        and the bell-style notification surfaces the share without you having to
+        go looking for it. Opening the item from the Inbox takes you straight to
+        the live record in the owner&apos;s data, so what you read is always their
+        current copy, edits and all. See{" "}
+        <Link href="/wiki/features/notifications">Notifications</Link> for how the
+        Inbox and its badge behave.
+      </p>
+
+      <h2>Hosting a labmate&apos;s task in your project</h2>
+      <p>
+        Sharing a task one way is read or edit access on that task. Hosting goes a
+        step further: a labmate can let one of their tasks{" "}
+        <strong>also appear inside your project</strong>, so the experiment lives
+        in your project board alongside your own tasks without ever leaving its
+        original owner&apos;s folder. The task file stays where it started (so the
+        owner keeps editability), and your project keeps a small sidecar manifest
+        listing every foreign task hosted into it.
+      </p>
+      <p>
+        The link is <strong>bidirectional</strong>: the task points at your
+        project and your project points back at the task, and both sides have to
+        agree for the host to count. If the two ever drift apart (a task gets
+        deleted, or the reference goes stale), ResearchOS{" "}
+        <strong>self-heals</strong> the mismatch on read and through a background
+        sweep, dropping orphaned entries so the board never shows a phantom task.
+        The repair is automatic, so hosting feels seamless from both ends.
+      </p>
+
       <h2>Cross-link map</h2>
       <p>
         Pages elsewhere in the wiki that touch sharing decisions:
@@ -228,6 +266,11 @@ shared_with: SharedUser[];`}</code>
         <li>
           <Link href="/wiki/features/lab-head">PI</Link> covers the
           implicit view-all rule.
+        </li>
+        <li>
+          <Link href="/wiki/features/notifications">Notifications</Link> covers
+          the Inbox, the Shared with me segment, and the badge that flags a new
+          share.
         </li>
         <li>
           <Link href="/wiki/security">Security</Link> covers what the gate

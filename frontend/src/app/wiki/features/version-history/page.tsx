@@ -7,15 +7,17 @@ export default function VersionHistoryPage() {
   return (
     <WikiPage
       title="Version History"
-      intro="Every time you save a note, ResearchOS quietly records what changed, when, and who changed it. Open the version history sidebar and you can scroll back through that timeline, see each edit highlighted in place, and (in the restore pilot) roll the note back to any earlier state. It is the experimental record keeping its own audit trail, automatically."
+      intro="Every time you save a note, ResearchOS quietly records what changed, when, and who changed it. Open the version history sidebar and you can scroll back through that timeline, see each edit highlighted in place, and roll the note back to any earlier state. It is the experimental record keeping its own audit trail, automatically."
     >
-      <Callout variant="info" title="A Notes pilot, rolling out">
-        Version history is live today on free-form <strong>Notes</strong>, the
-        first surface in the rollout. The read-only timeline and diff viewer
-        described below are on now. Restore and 24-hour undo are a separate,
-        default-off pilot that a lab turns on deliberately (see{" "}
-        <a href="#restore">Restoring a version</a>). Other entity types (tasks,
-        results, methods) are on the roadmap, not shipped.
+      <Callout variant="info" title="What has version history today">
+        Version history, including restore and the 24-hour undo, is on for
+        everyone on free-form <strong>Notes</strong>, <strong>Tasks</strong>, and{" "}
+        <strong>Projects</strong>. Nothing to turn on. The same timeline,
+        diff, and restore also power the{" "}
+        <Link href="/wiki/features/sequences">Sequences history tab</Link>.
+        Results and methods are still on the roadmap. The page below uses Notes
+        as the worked example, but the behavior is the same on every surface that
+        has it.
       </Callout>
 
       <h2>What a version is</h2>
@@ -48,7 +50,7 @@ export default function VersionHistoryPage() {
 
       <h2>Where you find it</h2>
       <p>
-        Open any note in the Notes pilot and look for the clock-arrow{" "}
+        Open any note and look for the clock-arrow{" "}
         <strong>history</strong> control on the note popup. Click it and a
         <strong> version history sidebar</strong> slides in on the right while the
         note body stays on the left. The sidebar is the timeline; the body
@@ -164,16 +166,9 @@ export default function VersionHistoryPage() {
         for the full read/write model.
       </p>
 
-      <h2 id="restore">Restoring a version (restore pilot)</h2>
-      <Callout variant="warning" title="Default off">
-        Restore and 24-hour undo are a separate, <strong>default-off</strong>{" "}
-        pilot. The read-only timeline and diff above are on for everyone in the
-        Notes pilot; the restore affordances appear only once a lab deliberately
-        turns the restore pilot on. With it off, the sidebar is a viewer and
-        nothing in it can change your note.
-      </Callout>
+      <h2 id="restore">Restoring a version</h2>
       <p>
-        When the restore pilot is on, selecting any earlier version reveals a{" "}
+        Selecting any earlier version reveals a{" "}
         <strong>Restore this version</strong> button in a sticky footer at the
         bottom of the sidebar (the current version has nothing to restore to, so
         it never shows the button). Clicking it asks for an inline confirmation
@@ -183,7 +178,7 @@ export default function VersionHistoryPage() {
       <Screenshot
         src="/wiki/screenshots/version-history-restore.png"
         alt="The version history sidebar with an earlier version selected and a green Restore this version button in a sticky footer, plus the inline confirm and cancel prompt."
-        caption="With the restore pilot on, an earlier version offers a Restore button. The confirm step is inline, not a native dialog."
+        caption="An earlier version offers a Restore button. The confirm step is inline, not a native dialog."
       />
       <p>
         Restoring does not erase anything. The note&apos;s current state is kept

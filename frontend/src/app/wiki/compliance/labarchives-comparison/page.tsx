@@ -178,9 +178,11 @@ export default function LabArchivesComparisonPage() {
                 <strong>Repository deposit and DOI</strong>
               </td>
               <td>
-                <No>
-                  Export then deposit yourself; the repository mints the DOI.
-                </No>
+                <Partial>
+                  Guided deposit prefills the metadata, bundles the data, and
+                  opens the repository&apos;s upload page, where the repository
+                  mints the DOI.
+                </Partial>
                 <ComingSoon />
               </td>
               <td>
@@ -305,9 +307,15 @@ export default function LabArchivesComparisonPage() {
       </p>
       <ul>
         <li>
-          <strong>One-click sharing endpoint.</strong> Built-in Figshare
-          export and DOI minting. In ResearchOS you export and deposit into a
-          repository yourself.
+          <strong>Fully automated one-click deposit.</strong> Built-in Figshare
+          export and direct DOI minting from inside the app. ResearchOS has a{" "}
+          <em>guided</em> deposit today (it prefills the metadata, bundles the
+          data, and opens the repository&apos;s upload page where the DOI is
+          minted), and the fully automated one-click publish is coming. See{" "}
+          <Link href="/wiki/compliance/depositing-to-a-repository">
+            Depositing to a repository
+          </Link>
+          .
         </li>
         <li>
           <strong>Complete per-entry revision history.</strong> ResearchOS now
