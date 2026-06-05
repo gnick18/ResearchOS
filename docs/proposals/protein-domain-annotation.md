@@ -22,13 +22,31 @@ These refine the architecture below; where they differ, these win.
    hits as features", with Pfam as the first database, not the only one. Why stop
    at Pfam: the same path serves TIGRFAM, custom labs' HMM sets, and the user's
    own. The UI talks about "domain / HMM databases", and Pfam is one entry.
-2. DATABASE SOURCES (all feed the same engine):
-   a. a curated common-molbio subset WE HOST (tens of MB, download once, cached) -
-      the zero-setup default.
-   b. BRING YOUR OWN: the user points at their OWN local Pfam / HMM library file
-      (or folder) and runs against it with NO download from us. Many labs already
-      have Pfam on disk; honor that.
-   c. (optional) the full Pfam-A library as a larger on-device download from us.
+2. DATABASE SOURCES (all feed the same engine). KEY INSIGHT: to run the search
+   on the user's CPU, the DB bytes must live in the user's BROWSER memory (compute
+   and data co-locate; the WASM inner loop cannot read our server per-profile).
+   So "we host the DB" and "use the user's CPU" are compatible, they just mean the
+   DB is downloaded to the browser ONCE and cached. Requiring a pre-installed DB is
+   NOT a real requirement; it is only the no-download option. Sources, default
+   first:
+   a. DEFAULT (zero setup): a curated common-molbio subset WE HOST (tens of MB).
+      The browser auto-downloads it once, caches it (Cache API / IndexedDB), and
+      runs locally forever after. No HMMER, no DB file, nothing for the user to do.
+   b. BRING YOUR OWN (optional, power user / privacy-max / full coverage with no
+      download): the user points at their OWN local Pfam / HMM file via the File
+      System Access API and runs against it with ZERO transfer from us.
+   c. (optional) the full Pfam-A library as a larger on-device download from us,
+      for full coverage without a local file (heavy first download, cached).
+
+   The only real cost of hosting the DB is the one-time download SIZE. A full-DB
+   HMMER search scans every profile, so you cannot fetch "just the needed part";
+   the only lever is DB size (curated subset) or accepting the cached download.
+
+   FRAMING (two coupled axes, whose CPU x where the DB lives):
+   - someone else's CPU + remote DB = the EBI handoff (Phase 1, shipped). The DB
+     never touches the user's machine, but the protein goes to EBI.
+   - the user's CPU + DB in the browser = this on-device engine. Either the hosted
+     subset (downloaded once) or a local file (BYO).
 3. EBI HANDOFF ONLY IF SEAMLESS. An opt-in InterProScan handoff is worth it ONLY
    if it is truly seamless (submit -> poll -> parse -> auto-add features, no tab
    bounce). That requires EBI to allow browser-direct CORS (verify it, the way
