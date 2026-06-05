@@ -2,7 +2,7 @@
 
 // sequence editor master. The opt-in "Enrich from NCBI" dialog for a sequence.
 //
-// It resolves the organism for this sequence in order: the sequence's own parsed
+// It resolves the organism for this sequence in order, from the sequence's own parsed
 // GenBank ACCESSION, else its ncbi_accession provenance, else a user-typed
 // organism name or accession. It PREVIEWS the organism, tax id, and named
 // major-rank lineage, then lets the user APPLY. On apply it hands the resolved

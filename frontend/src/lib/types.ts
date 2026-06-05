@@ -2656,7 +2656,7 @@ export interface SequenceRecord {
   ncbi_accession?: string;
   organism?: string;
   tax_id?: string;
-  // NCBI taxonomy enrichment (Phase 2): the named lineage, carried through from
+  // NCBI taxonomy enrichment (Phase 2). The named lineage, carried through from
   // the sidecar so the viewer can render the calm lineage line. Absent on a
   // non-enriched sequence (the line self-hides).
   tax_lineage?: SequenceTaxonNode[];
@@ -2710,7 +2710,7 @@ export interface SequenceCreate {
   ncbi_accession?: string;
   organism?: string;
   tax_id?: string;
-  // NCBI taxonomy enrichment (Phase 2): the named lineage, set on an NCBI import
+  // NCBI taxonomy enrichment (Phase 2). The named lineage, set on an NCBI import
   // (auto-fill) so the created sidecar carries it. Undefined for a native or
   // file create.
   tax_lineage?: SequenceTaxonNode[];
@@ -2732,7 +2732,7 @@ export interface SequenceUpdate {
   project_ids?: string[];
   seq_type?: SeqType;
   genbank?: string;
-  // NCBI taxonomy enrichment (Phase 2): the opt-in "Enrich from NCBI" apply
+  // NCBI taxonomy enrichment (Phase 2). The opt-in "Enrich from NCBI" apply
   // writes organism / tax id / named lineage onto the sidecar. Additive +
   // optional, only set by the enrich flow.
   organism?: string;
