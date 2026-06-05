@@ -29,9 +29,9 @@ import {
   type EphemeralState,
 } from "loro-codemirror";
 import {
+  EditorView,
   layer,
   RectangleMarker,
-  type EditorView,
   type ViewUpdate,
 } from "@codemirror/view";
 import {
@@ -144,6 +144,11 @@ export function safeLoroEphemeralPlugin(
     base[1], // cursorLayer (already clamps via RemoteCursorMarker)
     createSafeSelectionLayer(stateField), // safe selection layer
     ...base.slice(3), // EphemeralPlugin ViewPlugin + loroCursorTheme
+    // The per-peer COLOR rules. loro-codemirror's own theme only draws the base
+    // .loro-cursor shape; the .loro-peer-* color classes have no CSS without
+    // this. Bundled into the plugin's return (not left to the caller) so the
+    // caret + name label are always colored when cursors are active.
+    EditorView.baseTheme(COLLAB_CURSOR_THEME),
   ];
 }
 

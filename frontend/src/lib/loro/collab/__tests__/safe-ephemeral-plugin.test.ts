@@ -10,7 +10,7 @@
 // These tests exercise the clamping logic in isolation using the exported
 // peerColorClass helper and the shape contracts, then use the LoroDoc +
 // EphemeralStore pair to confirm that the plugin array has the correct
-// structure (5 extensions: stateField, cursorLayer, SAFE-selectionLayer,
+// structure (6 extensions: stateField, cursorLayer, SAFE-selectionLayer,
 // ephemeralPlugin, theme) -- and that the safe selection layer's markers
 // function does not throw when asked to render out-of-range positions.
 //
@@ -146,13 +146,13 @@ describe("safe selection layer clamping math", () => {
 // ---------------------------------------------------------------------------
 // safeLoroEphemeralPlugin -- structure contract.
 //
-// We import the plugin builder and verify it returns exactly 5 extensions
+// We import the plugin builder and verify it returns exactly 6 extensions
 // without throwing. We cannot call the layer markers() function in jsdom
 // (no DOM layout), but the array structure is the integration contract.
 // ---------------------------------------------------------------------------
 
 describe("safeLoroEphemeralPlugin structure", () => {
-  it("returns a 5-element extension array without throwing", async () => {
+  it("returns a 6-element extension array without throwing", async () => {
     const { safeLoroEphemeralPlugin } = await import("../safe-ephemeral-plugin");
     const { LoroDoc, EphemeralStore } = await import("loro-crdt");
 
@@ -165,8 +165,9 @@ describe("safeLoroEphemeralPlugin structure", () => {
       extensions = safeLoroEphemeralPlugin(doc, ephemeral as never, user);
     }).not.toThrow();
 
-    // The plugin returns [stateField, cursorLayer, selectionLayer, plugin, theme] = 5 items.
-    expect(extensions!).toHaveLength(5);
+    // The plugin returns [stateField, cursorLayer, selectionLayer, plugin,
+    // loroCursorTheme, COLLAB_CURSOR_THEME color baseTheme] = 6 items.
+    expect(extensions!).toHaveLength(6);
     // Each element should be truthy (no nulls).
     for (const ext of extensions!) {
       expect(ext).toBeTruthy();
