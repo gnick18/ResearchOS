@@ -6,6 +6,20 @@ primers, protein properties, domain annotation, NCBI import, an on-device HMMER
 engine), should it live under a NEW top-level "Bioinformatics hub" tab, or stay
 under the existing Sequences area?
 
+## Decisions (Grant, 2026-06-05)
+
+- KEEP under Sequences; DEFER a separate Bioinformatics hub tab until 3+ genuinely
+  standalone tools exist (the trigger below).
+- BUILD an in-page tool launcher / overview inside `/sequences` (Edit / Assemble /
+  Align / Detect / Annotate domains / Get from NCBI) for discoverability.
+- ENRICH the in-page Sequences identity (a subtitle framing it as the
+  molecular-biology workbench); keep the nav label "Sequences".
+- Sequencing note: the launcher touches the `/sequences` surface, so it is built
+  AFTER the in-flight on-device-HMMER WebWorker wiring lands, to avoid two parallel
+  edits to the same page. The "Get from NCBI" launcher entry is forward-looking
+  until the NCBI Datasets import ships (show it as available-soon or omit until
+  then).
+
 ## The question, sharpened
 
 It is an information-architecture call, not a feature. The tools work regardless
