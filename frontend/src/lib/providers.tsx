@@ -185,6 +185,31 @@ function AppContent({ children }: { children: ReactNode }) {
     }
   }, [currentUser, queryClient]);
 
+  // First-visit landing redirect. Truly-new visitors are sent to /welcome.
+  // This MUST run in an effect, not in render: calling router.replace during
+  // render throws "Cannot update a component (Router) while rendering a
+  // different component". The guards mirror the render gate below exactly
+  // (wiki / welcome routes, demo / wiki-capture, and the still-loading window
+  // all skip it), so this never fires for a returning or connected user.
+  const wantsLandingRedirect =
+    !isWikiRoute &&
+    !isWelcomeRoute &&
+    !isLoading &&
+    !isDemoOrWikiCapture() &&
+    shouldShowLanding({
+      isConnected,
+      currentUser,
+      lastConnectedFolder,
+      availableUsers,
+      seen: landingDismissed || hasSeenLanding(),
+      connectBypass: hasConnectBypass(),
+    });
+  useEffect(() => {
+    if (wantsLandingRedirect) {
+      router.replace("/welcome");
+    }
+  }, [wantsLandingRedirect, router]);
+
   if (isWikiRoute) {
     // Wiki-pointer multi-beat redesign 2026-05-22 (Wiki pointer manager).
     // When a signed-in real user is mid-tour and the §6.12 wiki-pointer
@@ -285,24 +310,11 @@ function AppContent({ children }: { children: ReactNode }) {
   // routes already returned above, so they cannot reach this branch. The
   // landing is gated to supported browsers (the unsupported-browser screen
   // returns just above), so it never sells a tool the visitor cannot run.
-  if (
-    shouldShowLanding({
-      isConnected,
-      currentUser,
-      lastConnectedFolder,
-      availableUsers,
-      seen: landingDismissed || hasSeenLanding(),
-      connectBypass: hasConnectBypass(),
-    })
-  ) {
-    // Redirect truly-new visitors to /welcome rather than rendering the
-    // landing inline. markLandingSeen is called by the landing itself when
-    // the visitor clicks a CTA (Get Started / Sign in), so a page reload
-    // before any CTA re-shows /welcome as expected. The inline LandingPage
-    // path (onGetStarted prop) is retired for the main gate; /welcome renders
-    // the standalone route and handles its own seen-marking via CTAs that
-    // navigate to /?connect=1.
-    router.replace("/welcome");
+  // Truly-new visitors are redirected to /welcome by the effect above
+  // (wantsLandingRedirect). Render nothing here while that navigation
+  // resolves so the folder picker never flashes underneath it. The actual
+  // router.replace lives in the effect, never in render.
+  if (wantsLandingRedirect) {
     return null;
   }
 
