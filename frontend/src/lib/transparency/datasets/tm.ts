@@ -133,15 +133,16 @@ export const TM_CASES: TmCase[] = [
     bioTm: 31.8009,
   },
   // --- second batch (2026-06-05): distinct real-world + edge oligos, checked
-  // against Biopython 1.87 (gates reproduced the pinned 1.83 values exactly).
-  // primer3 has no loadable arm64 build on this machine, so these carry the
-  // Biopython (Tier-1, tight) oracle only.
+  // against Biopython 1.87 and primer3 2.3.0 (built from source for arm64; both
+  // recon gates reproduced the pinned values exactly). The palindromes below carry
+  // Biopython only, since primer3 has no self-complementary mode.
   {
     id: "m13_fwd",
     label: "17-mer M13 forward primer",
     seq: "GTAAAACGACGGCCAGT",
     opts: { oligoNanomolar: 250, na: 50 },
     bioTm: 51.6742,
+    p3Tm: 51.6742,
   },
   {
     id: "t7_promoter",
@@ -149,6 +150,7 @@ export const TM_CASES: TmCase[] = [
     seq: "TAATACGACTCACTATAGGG",
     opts: { oligoNanomolar: 250, na: 50 },
     bioTm: 46.7766,
+    p3Tm: 46.7766,
   },
   {
     id: "gc_rich_22",
@@ -156,6 +158,7 @@ export const TM_CASES: TmCase[] = [
     seq: "GGCAGCTGCGGCCGCAGGTGCC",
     opts: { oligoNanomolar: 250, na: 50 },
     bioTm: 71.6958,
+    p3Tm: 71.6958,
     wallaceTm: 80.0,
     gcTm: 66.1756,
   },
@@ -165,6 +168,7 @@ export const TM_CASES: TmCase[] = [
     seq: "TTAATTGACAATTTGACATA",
     opts: { oligoNanomolar: 250, na: 50 },
     bioTm: 42.3846,
+    p3Tm: 42.3846,
     wallaceTm: 48.0,
     gcTm: 38.1029,
   },
@@ -174,6 +178,7 @@ export const TM_CASES: TmCase[] = [
     seq: "TACCGGATCAGTGAATTCGCATGCTAGCTA",
     opts: { oligoNanomolar: 250, na: 50 },
     bioTm: 62.7326,
+    p3Tm: 62.7326,
   },
   {
     id: "m13_rev_24",
@@ -181,6 +186,7 @@ export const TM_CASES: TmCase[] = [
     seq: "CAGGAAACAGCTATGACCATGATT",
     opts: { oligoNanomolar: 250, na: 50 },
     bioTm: 55.0381,
+    p3Tm: 55.0381,
   },
   {
     id: "short_13",
@@ -188,6 +194,7 @@ export const TM_CASES: TmCase[] = [
     seq: "ACCTGCAGGTCAT",
     opts: { oligoNanomolar: 250, na: 50 },
     bioTm: 42.1761,
+    p3Tm: 42.1761,
   },
   {
     id: "long_45",
@@ -195,6 +202,7 @@ export const TM_CASES: TmCase[] = [
     seq: "ATGCGATCGTACGTAGCTAGCATCGATCGTACGATCGATCGTACGA",
     opts: { oligoNanomolar: 250, na: 50 },
     bioTm: 70.2062,
+    p3Tm: 70.2062,
   },
   {
     id: "m13rev_k50",
@@ -202,6 +210,7 @@ export const TM_CASES: TmCase[] = [
     seq: "CAGGAAACAGCTATGACCATGATT",
     opts: { oligoNanomolar: 50, na: 50, k: 50 },
     bioTm: 56.6147,
+    p3Tm: 56.6147,
   },
   {
     id: "m13rev_pcr",
@@ -209,6 +218,7 @@ export const TM_CASES: TmCase[] = [
     seq: "CAGGAAACAGCTATGACCATGATT",
     opts: { oligoNanomolar: 50, na: 50, mg: 1.5, dntps: 0.6 },
     bioTm: 59.1141,
+    p3Tm: 59.1141,
   },
   {
     id: "pal_ndei",
