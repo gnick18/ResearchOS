@@ -18,7 +18,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import Link from "next/link";
 import Tooltip from "@/components/Tooltip";
-import AppFooter from "@/components/AppFooter";
 import ProfileCard from "./ProfileCard";
 import {
   type OpenOrigin,
@@ -210,13 +209,6 @@ export default function ResearcherProfileModal() {
               </div>
             ) : (
               <ProfileCard profile={profile} />
-            )}
-
-            {/* UW-Madison RISE footer, kept at the bottom. */}
-            {profile && (
-              <div className="mt-6 overflow-hidden rounded-2xl bg-white/95 shadow-xl ring-1 ring-black/5">
-                <AppFooter />
-              </div>
             )}
           </div>
         </div>
