@@ -572,7 +572,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                     }
                   }}
                   disabled={isLoading}
-                  className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="flex-1 py-3 btn-brand text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {isLoading ? (
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
@@ -660,7 +660,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
               <button
                 onClick={() => reconnectWithStoredHandle()}
                 disabled={isLoading}
-                className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full py-3 btn-brand text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {isLoading ? (
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />

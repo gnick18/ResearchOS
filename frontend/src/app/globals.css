@@ -58,6 +58,22 @@
   }
 }
 
+@layer components {
+  /* Canonical primary CTA: the brand gradient, action blue (#1283c9) into
+   * channel purple (#5B47D6). Both stops are dark enough that white text reads
+   * at WCAG AA across the whole button, unlike the old blue-500 to purple-600
+   * gradient whose light end failed. Hover darkens uniformly so the two stops
+   * stay in step. Pair with the usual layout utilities (px/py/rounded/flex). */
+  .btn-brand {
+    background-image: linear-gradient(to right, #1283c9, #5b47d6);
+    color: #fff;
+    transition: filter 150ms ease;
+  }
+  .btn-brand:hover {
+    filter: brightness(0.93);
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

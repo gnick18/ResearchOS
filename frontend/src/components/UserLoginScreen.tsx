@@ -1001,7 +1001,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 <button
                   onClick={handleCreateUser}
                   disabled={loggingIn !== null}
-                  className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full py-3 btn-brand text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {loggingIn === "creating" ? (
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>

@@ -420,7 +420,7 @@ export default function WelcomePage() {
               <BeakerBot
                 pose={waveActive ? "waving" : "idle"}
                 alive
-                className="h-28 w-28 text-sky-500 md:h-32 md:w-32"
+                className="h-28 w-28 text-brand-sky md:h-32 md:w-32"
               />
             </div>
 
@@ -518,6 +518,12 @@ export default function WelcomePage() {
             asserted. */}
         <section className="px-6 py-14 sm:px-12">
           <div className="mx-auto max-w-[1080px]">
+            {/* Rainbow rule: a short brand-rainbow ornament echoing the top
+                ribbon, used as a quiet section break. */}
+            <div
+              aria-hidden
+              className="brand-rainbow-bg mx-auto mb-5 h-1 w-14 rounded-full"
+            />
             <p className="text-center text-title font-bold text-brand-ink">
               Built by PhD researchers, for researchers.
             </p>
@@ -992,11 +998,16 @@ export default function WelcomePage() {
         {/* ── Final CTA (lighter treatment) ───────────────────────────── */}
         <section className="border-t border-[#d8e3f1] bg-[#f4f8fd] px-6 py-20 text-center sm:px-12">
           <div className="mx-auto flex max-w-2xl flex-col items-center">
+            {/* Rainbow rule, mirroring the trust-pillars ornament. */}
+            <div
+              aria-hidden
+              className="brand-rainbow-bg mb-6 h-1 w-14 rounded-full"
+            />
             <BeakerBot
               pose="idle"
               alive
               ariaLabel="BeakerBot"
-              className="h-16 w-16 text-sky-500"
+              className="h-16 w-16 text-brand-sky"
             />
             <h2 className="mt-4 max-w-[18ch] text-3xl font-extrabold leading-[1.08] tracking-tight text-brand-ink md:text-4xl">
               Start your notebook in a minute
@@ -1029,7 +1040,7 @@ export default function WelcomePage() {
               pose="idle"
               animated={false}
               ariaLabel="ResearchOS"
-              className="h-5 w-5 text-sky-500"
+              className="h-5 w-5 text-brand-sky"
             />
             ResearchOS
           </div>
