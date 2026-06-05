@@ -22,7 +22,7 @@ import { LoroSyncPlugin } from "loro-codemirror";
 import type { Extension } from "@codemirror/state";
 import { loadOrRebuild, persistNote } from "./sidecar-store";
 import { classifyExternalEdit, ingestExternalEdit } from "./external-edit";
-import { getEntryContentText, syncNoteMetadataToDoc } from "./note-doc";
+import { getEntryContentText, syncNoteMetadataToDoc, syncEntrySet } from "./note-doc";
 import { projectToNote } from "./mirror";
 import type { Note } from "@/lib/types";
 
@@ -50,6 +50,15 @@ export interface NoteHandle {
    * entry switch).
    */
   bindEditorExtension(activeIndex: number): Extension;
+
+  /**
+   * Reconcile the doc's entry set to the note (add new entries, drop deleted
+   * ones), matched by id. Entry add/delete in a running-log note goes through
+   * the legacy UI, so the doc does not learn about a new entry on its own;
+   * binding to a missing entry crashes. The editor calls this before it binds
+   * a (possibly new) entry index. No-op when the set already matches.
+   */
+  ensureEntries(note: Note): void;
 
   /**
    * Debounced-to-idle commit (~600 ms trailing edge).
@@ -136,6 +145,12 @@ class NoteHandleImpl implements NoteHandle {
     );
   }
 
+  ensureEntries(note: Note): void {
+    if (syncEntrySet(this.doc, note)) {
+      this.doc.commit({ message: "reconcile-entries" });
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Commit (debounced ~600 ms trailing edge)
   // ---------------------------------------------------------------------------
@@ -187,13 +202,18 @@ class NoteHandleImpl implements NoteHandle {
       updated_at: new Date().toISOString(),
     };
 
+    // Keep the doc's entry SET in step with the note (entry add/delete goes
+    // through the legacy UI). Runs before the metadata sync so a removed entry
+    // is gone before we project, and a newly-added entry is captured.
+    const entrySetChanged = syncEntrySet(this.doc, stampedBase);
+
     // Phase 1: the note title/description/is_running_log and per-entry
     // title/date are edited through the legacy UI, not the Loro editor (only
     // the entry content text is Loro-bound). Push those legacy edits INTO the
     // CRDT before projecting, otherwise projectToNote would overwrite a rename
     // with the stale seeded value on the next content commit. Content is left
     // to the editor binding. Commit only when something actually changed.
-    if (syncNoteMetadataToDoc(this.doc, stampedBase)) {
+    if (syncNoteMetadataToDoc(this.doc, stampedBase) || entrySetChanged) {
       this.doc.commit({ message: "metadata-sync" });
     }
 

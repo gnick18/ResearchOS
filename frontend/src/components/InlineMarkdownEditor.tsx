@@ -425,7 +425,12 @@ export default function InlineMarkdownEditor({
       // text so the initial state matches Loro exactly. LoroSyncPlugin (inside
       // bindEditorExtension) keeps them in sync after mount; seeding from the
       // Loro text avoids an initial divergence that would cause a double-write.
+      // Reconcile the entry set first (defensive: the note may have gained an
+      // entry between openNote and this mount) so the bound index exists.
       // In normal mode, seed from the controlled `value` prop as before.
+      if (loroActive && loroBaseNoteRef.current) {
+        loroHandleRef.current!.ensureEntries(loroBaseNoteRef.current);
+      }
       const seedDoc = loroActive
         ? (getEntryContentText(loroHandleRef.current!.doc, loroEntryIndexRef.current)?.toString() ?? "")
         : value;
@@ -542,6 +547,10 @@ export default function InlineMarkdownEditor({
     if (!view || !mods) return;
     const handle = loroHandleRef.current;
     if (!handle) return;
+    // The target entry may be NEW (added via the legacy UI after this note's
+    // doc was seeded), in which case it is not in the doc yet and binding to it
+    // would crash. Reconcile the entry set first so the entry exists.
+    if (loroBaseNoteRef.current) handle.ensureEntries(loroBaseNoteRef.current);
     // Seed from the new entry's Loro text.
     const newSeed = getEntryContentText(handle.doc, loroEntryIndex)?.toString() ?? "";
     view.setState(makeState(mods, newSeed, !disabled));

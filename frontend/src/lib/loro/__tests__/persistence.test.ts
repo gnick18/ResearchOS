@@ -15,7 +15,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { LoroDoc } from "loro-crdt";
 import { seedNoteDoc, rebuildFromNote } from "../seed";
 import { projectToNote } from "../mirror";
-import { syncNoteMetadataToDoc, listEntries } from "../note-doc";
+import { syncNoteMetadataToDoc, syncEntrySet, listEntries, getEntryContentText } from "../note-doc";
 import { loadOrRebuild, persistNote, sidecarPath } from "../sidecar-store";
 import type { Note, NoteComment } from "@/lib/types";
 
@@ -295,5 +295,49 @@ describe("syncNoteMetadataToDoc: legacy title/metadata edits survive a content c
     doc.import(seedNoteDoc(note));
     // Syncing the same values the doc was seeded with is a no-op.
     expect(syncNoteMetadataToDoc(doc, note)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test: entry add/delete reconciles into the doc (running-log entry switch)
+// ---------------------------------------------------------------------------
+
+describe("syncEntrySet: a new entry is added to the doc so binding it does not crash", () => {
+  it("appends a newly-added entry and removes a deleted one, matched by id", () => {
+    const note = fixtureNote();
+    const doc = new LoroDoc();
+    doc.import(seedNoteDoc(note));
+    const seededCount = note.entries.length;
+
+    // A new entry was added through the legacy UI; the doc does not have it yet,
+    // so binding to its index would return undefined (the crash). Reconcile.
+    const withNew: Note = {
+      ...note,
+      entries: [
+        ...note.entries,
+        {
+          id: "entry-new",
+          title: "Entry 2",
+          date: "2026-06-05",
+          content: "fresh entry body",
+          created_at: "2026-06-05T00:00:00Z",
+          updated_at: "2026-06-05T00:00:00Z",
+        },
+      ],
+    };
+    expect(syncEntrySet(doc, withNew)).toBe(true);
+
+    // The new entry now exists in the doc at the appended index, with content.
+    const newIndex = seededCount; // appended after the existing entries
+    const text = getEntryContentText(doc, newIndex);
+    expect(text).toBeDefined();
+    expect(text!.toString()).toBe("fresh entry body");
+    expect(listEntries(doc).length).toBe(seededCount + 1);
+
+    // Deleting that entry from the note reconciles it back out of the doc.
+    expect(syncEntrySet(doc, note)).toBe(true);
+    expect(listEntries(doc).length).toBe(seededCount);
+    // Re-running with the same set is a no-op.
+    expect(syncEntrySet(doc, note)).toBe(false);
   });
 });

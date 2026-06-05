@@ -302,3 +302,62 @@ export function syncNoteMetadataToDoc(doc: LoroDoc, note: Note): boolean {
 
   return changed;
 }
+
+/**
+ * Reconcile the doc's entries MovableList so it contains exactly the note's
+ * entries (matched by id).
+ *
+ * Entry ADD / DELETE in a running-log note goes through the legacy UI, so a
+ * newly-added entry is NOT in the Loro doc. The editor binds to an entry by
+ * index, and binding to a missing entry crashes (getEntryContentText returns
+ * undefined and the Loro sync plugin reads `.toString()` on it). This appends
+ * any note entry missing from the doc (seeding its content from the note) and
+ * removes any doc entry no longer in the note. Existing entries keep their Loro
+ * Text + history. Reordering is not handled (running-log entries are append-
+ * mostly); the editor binds by index, which stays aligned across append+delete.
+ *
+ * Returns true if the entry set changed (so the caller can skip an empty commit).
+ */
+export function syncEntrySet(doc: LoroDoc, note: Note): boolean {
+  const list = doc.getMovableList("entries");
+  const noteIds = new Set(note.entries.map((e) => e.id));
+  let changed = false;
+
+  // Remove doc entries no longer in the note. Walk backwards so deleting one
+  // does not shift the indices we have yet to visit.
+  for (let i = (list.toArray() as unknown[]).length - 1; i >= 0; i--) {
+    const entryMap = list.get(i) as LoroMap;
+    if (entryMap && !noteIds.has(entryMap.get("id") as string)) {
+      list.delete(i, 1);
+      changed = true;
+    }
+  }
+
+  // Collect the ids the doc already has after the removal pass.
+  const docIds = new Set<string>();
+  const curLen = (list.toArray() as unknown[]).length;
+  for (let i = 0; i < curLen; i++) {
+    const entryMap = list.get(i) as LoroMap;
+    if (entryMap) docIds.add(entryMap.get("id") as string);
+  }
+
+  // Append note entries the doc is missing, in note order, seeding content
+  // (usually empty for a fresh entry) through the marks-aware path.
+  for (const entry of note.entries) {
+    if (docIds.has(entry.id)) continue;
+    const idx = (list.toArray() as unknown[]).length;
+    const entryMap = list.insertContainer(idx, new LoroMap());
+    entryMap.set("id", entry.id);
+    entryMap.set("title", entry.title ?? "");
+    entryMap.set("date", entry.date ?? "");
+    entryMap.set("created_at", entry.created_at ?? "");
+    entryMap.set("updated_at", entry.updated_at ?? "");
+    entryMap.setContainer("content", new LoroText());
+    if (entry.content) {
+      setEntryContent(doc, idx, entry.content);
+    }
+    changed = true;
+  }
+
+  return changed;
+}

@@ -120,6 +120,7 @@ function makeFakeHandle(entryText = "hello world"): NoteHandle & { _commitSpy: R
     doc: fakeDoc as never,
     // Returns an empty extension array so CM6 can mount without WASM.
     bindEditorExtension: vi.fn().mockReturnValue([]),
+    ensureEntries: vi.fn(),
     commit: commitSpy,
     flush: flushSpy,
     subscribe: vi.fn().mockReturnValue(() => {}),
