@@ -3,65 +3,50 @@ import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
 import Screenshot from "@/components/wiki/Screenshot";
 import { Steps, Step } from "@/components/wiki/Steps";
-import Kbd from "@/components/wiki/Kbd";
 
 export default function ProjectsFeaturePage() {
   return (
     <WikiPage
       title="Project Surface"
-      intro="Each project has two faces. The Home page card for quick stats and card-level actions, and a full route page that hosts the project's hypothesis prose, results, methods, goals, and activity."
+      intro="A project has two faces. A compact card on the Workbench Projects tab for quick stats and a way in, and a full route page that hosts the project's hypothesis prose, results, methods, sequences, goals, activity, and funding."
     >
-      <h2>Home page card anatomy</h2>
+      <h2>The project card on the Workbench</h2>
       <p>
-        Each project is represented by a card on the Home page grid. From top
-        to bottom, a card contains:
+        Your projects live on the{" "}
+        <Link href="/wiki/features/experiments">Workbench</Link>, in a responsive
+        grid on the <strong>Projects</strong> tab. That tab is the default
+        landing view, so a member who opens ResearchOS sees their projects
+        first, not a flat task list. Each project is a single card. From top to
+        bottom, a card carries:
       </p>
       <ul>
         <li>
-          <strong>Color stripe</strong> across the top edge, matching the
-          project&apos;s chosen color.
+          <strong>A &ldquo;Shared by&rdquo; pill</strong> at the very top, but
+          only on cards for projects a labmate shared with you. Your own cards
+          skip it.
         </li>
         <li>
-          <strong>Project name</strong>, with an optional{" "}
-          <strong>7-day</strong> badge when weekends are active on that
-          project.
+          <strong>Color dot and name.</strong> A small filled dot in the
+          project&apos;s chosen color sits next to the project name.
         </li>
         <li>
-          <strong>Progress bar</strong> showing completed tasks out of total,
-          with a percentage.
+          <strong>Completion bar.</strong> A thin bar showing the percentage of
+          this project&apos;s tasks that are complete, with an{" "}
+          <em>N of M complete</em> label and a percentage above it. A project
+          with no tasks yet reads <em>No tasks yet</em> at 0 percent.
         </li>
         <li>
-          <strong>Active / Overdue / Upcoming</strong> stats row.
-        </li>
-        <li>
-          <strong>Next Up</strong> task list (up to 5 upcoming tasks). Clicking
-          a task name here opens that task&apos;s detail popup directly.
-        </li>
-        <li>
-          <strong>Tag chips</strong> at the bottom for any tags attached to the
-          project.
-        </li>
-        <li>
-          <strong>Drag handle</strong> (own cards only). Own project cards show
-          a six-dot handle on the right for reordering. Cards for projects
-          shared to you have no handle and cannot be reordered.
-        </li>
-        <li>
-          <strong>Kebab menu</strong> (own and edit-permission cards). A
-          three-dots button appears in the top-right corner on hover (see
-          &ldquo;Card actions&rdquo; below).
+          <strong>Count chips.</strong> A row of small chips at the bottom
+          counting <strong>experiments</strong>, <strong>list tasks</strong>,
+          and (when the project has any) <strong>sequences</strong>.
         </li>
       </ul>
       <p>
-        Clicking anywhere on the card (other than a task name or the kebab)
-        navigates directly to the project&apos;s Workspace route at{" "}
+        The card has no drag handle and no menu button. Clicking anywhere on the
+        card navigates to the project&apos;s route at{" "}
         <code>/workbench/projects/&lt;id&gt;</code>. There is no popup
-        intermediate step.
-      </p>
-      <p>
-        Archived projects do not appear in the active grid. They show in a
-        separate <strong>Archived Projects</strong> section below the active
-        grid, rendered as muted cards with an archived-date badge.
+        intermediate step. Project-level actions (rename, share, archive,
+        delete) live on the route&apos;s top bar, covered below.
       </p>
 
       <Callout variant="info" title="Where the URL points">
@@ -72,68 +57,41 @@ export default function ProjectsFeaturePage() {
         across labmates.
       </Callout>
 
-      <h2>Card actions (kebab menu)</h2>
-      <p>
-        Hover any project card to reveal a three-dots kebab button in the
-        top-right corner. Clicking it opens a dropdown with the following
-        items:
-      </p>
-      <ul>
-        <li>
-          <strong>Edit</strong> opens the EditProjectModal, where you can
-          rename the project, change its color, edit tags, and toggle the
-          7-day schedule. Disabled (cursor-not-allowed) for view-only
-          receivers.
-        </li>
-        <li>
-          <strong>Share</strong> opens the share dialog so you can grant a
-          labmate access. This item is hidden entirely on projects that were
-          shared to you. Only the original owner can grant access.
-        </li>
-        <li>
-          <strong>Archive / Unarchive</strong> triggers an amber confirmation
-          dialog before archiving. Archived projects keep all their tasks but
-          move to the separate <strong>Archived Projects</strong> section
-          below the active grid. Their tasks stop showing in the Gantt and
-          the task sidebar. Unarchive from the same kebab menu whenever you
-          want them back. Disabled for view-only receivers.
-        </li>
-        <li>
-          <strong>Delete</strong> is disabled (grayed out) for any receiver,
-          view or edit permission. Only the original owner can destroy the
-          project file.
-        </li>
-      </ul>
-      <Callout variant="info" title="The Miscellaneous project is permanent">
-        A built-in project called <strong>Miscellaneous</strong> holds
-        standalone tasks that don&apos;t belong to a research project. The
-        kebab menu is suppressed entirely for Miscellaneous. Clicking the card
-        navigates to the project route, which shows progress, next-up tasks,
-        and activity, but Edit, Share, Archive, and Delete are not available.
-      </Callout>
-
-      <h2>The Workspace route</h2>
+      <h2>The project route</h2>
       <Screenshot
         src="/wiki/screenshots/projects-route-overview.png"
-        alt="The project route page with a color stripe, breadcrumb back to Projects, the project name, and a sticky anchor strip reading Overview Results Methods Activity."
-        caption="The Workspace at /workbench/projects/1, scrolled to Overview."
+        alt="The project route page with a color stripe, a breadcrumb back to Projects, the project name, top-bar action icons, and a row of tabs reading Overview Results Methods."
+        caption="The project route at /workbench/projects/1, opened on the Overview tab."
       />
+      {/* SCREENSHOT TODO: projects-route-overview.png predates the real-tabs
+          redesign — it may still show the old sticky scroll-anchor strip. Do
+          NOT capture here; recapture when the route UI settles. */}
       <p>
-        The Workspace is a single scrolling page with a sticky top bar. The
-        top bar carries the project&apos;s color stripe, a{" "}
-        <strong>&#8592; Projects</strong> breadcrumb back to Home, the project
-        name, and icon buttons for <strong>Edit</strong>,{" "}
-        <strong>Share</strong>, <strong>Archive</strong>, and{" "}
-        <strong>Delete</strong>. A <strong>View timeline &rarr;</strong> link
-        jumps you across to the Gantt prefiltered by this project.
+        The route opens with a color stripe across the top edge, then a sticky
+        top bar. The top bar carries a <strong>&#8592; Projects</strong>{" "}
+        breadcrumb back to the grid, the project name, and (on the right) a{" "}
+        <strong>View timeline &rarr;</strong> link that jumps to the Gantt
+        prefiltered to this project, plus a row of icon buttons for version
+        history, edit, share, deposit, archive, and delete.
       </p>
       <p>
-        Below the icons, a row of anchor links lets you jump between sections
-        without scrolling: <strong>Overview</strong> <Kbd>│</Kbd>{" "}
-        <strong>Results</strong> <Kbd>│</Kbd> <strong>Methods</strong>{" "}
-        <Kbd>│</Kbd> <strong>Activity</strong>. The anchor strip stays pinned
-        as you scroll, so the jump links are always within reach.
+        Below the top bar sits a row of <strong>tabs</strong>. These are real
+        tabs backed by app state, not scroll anchors, so only the active
+        section&apos;s content renders at a time. The full set is{" "}
+        <strong>Overview</strong>, <strong>Results</strong>,{" "}
+        <strong>Methods</strong>, <strong>Sequences</strong>,{" "}
+        <strong>Goals</strong>, <strong>Activity</strong>, and{" "}
+        <strong>Funding</strong>, but a tab only appears when it has something to
+        show. Overview always shows. Results, Methods, Sequences, and Activity
+        auto-hide when they are empty, and Goals appears only when you opted into
+        goals. So a brand-new project with just a hypothesis shows close to a
+        single Overview tab, never a tab that leads nowhere.
       </p>
+      <Callout variant="info" title="Empty sections hide themselves">
+        You will not see a Results or Methods tab until the project actually has
+        a result image or an attached method. The tab strip grows as the project
+        fills in, which keeps an early-stage project from looking broken.
+      </Callout>
 
       <h3>Overview</h3>
       <p>
@@ -192,21 +150,35 @@ export default function ProjectsFeaturePage() {
         see a <strong>via &lt;owner&gt;</strong> chip next to the row.
       </p>
 
+      <h3>Sequences</h3>
+      <p>
+        The Sequences section lists the plasmids and sequences from your{" "}
+        <Link href="/wiki/features/sequences">sequence library</Link> that are
+        linked to this project. Each row shows the sequence name, its length in
+        base pairs, and a type pill (DNA, RNA, or Protein). The tab appears only
+        when at least one sequence is linked, so a project with no constructs
+        never shows it.
+      </p>
+      <p>
+        This is a read-only roll-up, not the editor. Clicking a row, or the{" "}
+        <strong>Manage in the sequence library &rarr;</strong> link in the
+        section header, takes you to the full sequence library where you map,
+        annotate, and edit. To link a sequence to a project, set its project
+        membership in that library.
+      </p>
+
       <h3>Goals (opt-in)</h3>
       <p>
         If you turned <strong>Goals</strong> on during the{" "}
         <Link href="/wiki/getting-started/welcome-wizard">Welcome Wizard</Link>
-        , a fourth section slots in between Methods and Activity. It lists
-        every high-level goal whose <code>project_id</code> matches this
-        project, with active goals on top and completed ones below. Each row
-        shows the goal&apos;s color dot, name, date range, and SMART sub-goal
-        progress.
+        , a Goals tab appears just before Activity. It lists every high-level
+        goal whose <code>project_id</code> matches this project, with active
+        goals on top and completed ones below. Each row shows the goal&apos;s
+        color dot, name, date range, and SMART sub-goal progress.
       </p>
       <p>
-        Click a row to open the goal editor. The section heading reads{" "}
-        <strong>Goals</strong> with a sibling count badge to its right showing
-        the total number of goals on the project. If you skipped Goals during
-        the wizard, the section is hidden entirely. You can opt in later from{" "}
+        Click a row to open the goal editor. If you skipped Goals during the
+        wizard, the tab is hidden entirely. You can opt in later from{" "}
         <Link href="/wiki/features/settings">Settings</Link>.
       </p>
 
@@ -232,94 +204,169 @@ export default function ProjectsFeaturePage() {
         written.
       </p>
 
+      <h3>Funding</h3>
+      <p>
+        The Funding section ties a project to the grants that pay for it, which
+        is the backbone of an accurate data-management or grant report. It shows
+        two complementary things:
+      </p>
+      <ul>
+        <li>
+          <strong>Primary grant.</strong> The single funding account you linked
+          to the project in the Edit dialog. This is the project&apos;s declared
+          funding source. When nothing is linked, the section reads{" "}
+          <em>No primary grant linked</em>.
+        </li>
+        <li>
+          <strong>Grants charged in this project.</strong> The distinct set of
+          grants that purchases inside the project were actually charged to,
+          derived live from each purchase&apos;s funding line. This can differ
+          from the primary grant, which is the whole point. It surfaces where
+          the money really went. A charged line with no matching account in your
+          lab carries a small <em>(no matching account)</em> note.
+        </li>
+      </ul>
+      <p>
+        The section is read-only and self-hides when a project has no primary
+        link and no charged grants, so an unfunded project stays uncluttered.
+        For how the grant metadata flows into a deposit and a compliant report,
+        see{" "}
+        <Link href="/wiki/compliance/nih-data-management">
+          NIH data-management compliance
+        </Link>
+        .
+      </p>
+
+      <h2>Top-bar actions on the route</h2>
+      <p>
+        The project route&apos;s sticky top bar holds the project-level actions
+        as icon buttons on the right. Hover any icon for a tooltip naming it:
+      </p>
+      <ul>
+        <li>
+          <strong>Version history</strong> opens a side panel of saved versions.
+          Pick one to preview a read-only diff, and (when you can write the
+          project) restore it. After a restore an <strong>Undo restore</strong>{" "}
+          button appears in the top bar for a 24-hour window.
+        </li>
+        <li>
+          <strong>Edit</strong> opens the edit dialog, where you can rename the
+          project, change its color, edit tags, toggle the 7-day schedule, and
+          link a funding account. Disabled for view-only receivers.
+        </li>
+        <li>
+          <strong>Share</strong> opens the share dialog so you can grant a
+          labmate access. Hidden entirely on projects shared to you, since only
+          the original owner can grant access.
+        </li>
+        <li>
+          <strong>Deposit to a repository</strong> opens the deposit dialog for
+          publishing the project&apos;s outputs to a data repository.
+        </li>
+        <li>
+          <strong>Archive / Unarchive</strong> triggers an amber confirmation
+          before archiving. Archived projects keep all their tasks but drop out
+          of the active grid and the Gantt. Unarchive from the same button.
+          Disabled for view-only receivers.
+        </li>
+        <li>
+          <strong>Delete</strong> is owner-only. It is disabled for any
+          receiver, view or edit permission. Only the original owner can destroy
+          the project file.
+        </li>
+      </ul>
+      <Callout variant="info" title="The Miscellaneous project is permanent">
+        A built-in project called <strong>Miscellaneous</strong> holds
+        standalone tasks that don&apos;t belong to a research project. Its route
+        top bar hides every action button (edit, share, deposit, archive,
+        delete), and it can&apos;t be renamed or removed. The route still works
+        as a read-only progress view.
+      </Callout>
+
       <h2>Sharing and shared projects</h2>
       <p>
         When a labmate shares a project with you, the URL gains an{" "}
-        <code>?owner=&lt;username&gt;</code> query parameter so the Workspace
-        knows which user&apos;s files to read.
+        <code>?owner=&lt;username&gt;</code> query parameter so the route knows
+        which user&apos;s files to read.
       </p>
       <p>
         How much you can change depends on the permission you were granted:
       </p>
       <ul>
         <li>
-          <strong>View permission.</strong> In the kebab menu and the Workspace
-          top bar, Edit and Archive render disabled (cursor-not-allowed). The
-          Share item is omitted entirely from the kebab (not just disabled) for
-          any shared-in card. The Workspace still loads, and you can read the
-          overview, browse the results gallery, scan the methods inventory, and
+          <strong>View permission.</strong> The Edit and Archive buttons render
+          disabled (cursor-not-allowed), and the Share button is omitted
+          entirely. The route still loads, and you can read the overview, browse
+          the results gallery, scan the methods and sequences inventories, and
           read the activity feed. You cannot type into the overview textarea (it
-          renders as read-only).
+          renders read-only).
         </li>
         <li>
           <strong>Edit permission.</strong> The Edit and Archive actions are
-          live in both the kebab and the Workspace top bar. Your writes route
-          back to the owner&apos;s directory, so they reflect on their copy
-          too. The <strong>Delete</strong> action is still owner-only: only the
-          original owner can destroy the project file, and Delete is grayed out
-          for any receiver regardless of permission.
+          live. Your writes route back to the owner&apos;s directory, so they
+          reflect on their copy too. Delete is still owner-only, grayed out for
+          any receiver regardless of permission.
         </li>
       </ul>
       <p>
-        On the Workspace, a small <strong>Shared by &lt;owner&gt;</strong>{" "}
-        chip sits next to the project name so you always know whose namespace
-        you&apos;re reading from.
+        On the route, a small <strong>Shared by &lt;owner&gt;</strong> chip sits
+        next to the project name so you always know whose namespace you&apos;re
+        reading from.
       </p>
 
       <h2>The Miscellaneous bucket</h2>
       <p>
         ResearchOS ships with a built-in <strong>Miscellaneous</strong> project
         for standalone tasks that don&apos;t belong to a specific research
-        project. It is treated differently on every Project Surface:
+        project. It behaves differently from a real project:
       </p>
       <ul>
         <li>
-          The <strong>kebab menu is suppressed entirely</strong> for
-          Miscellaneous cards. Edit, Share, Archive, and Delete are not
-          available from the Home grid.
+          Its <strong>route top bar hides every action button</strong>. Edit,
+          Share, Deposit, Archive, and Delete are not available, because
+          Miscellaneous can&apos;t be renamed, shared, archived, or removed.
         </li>
         <li>
-          Clicking the card <strong>navigates to the project route</strong> at{" "}
-          <code>/workbench/projects/&lt;misc-id&gt;</code>, where you can see
-          progress, the next-up task list, and the activity feed. The route
-          top bar also hides Edit, Share, Archive, and Delete for Miscellaneous.
+          Clicking its card on the grid <strong>navigates to the route</strong>{" "}
+          at <code>/workbench/projects/&lt;misc-id&gt;</code>, where you can see
+          progress and the activity feed.
         </li>
         <li>
-          There is <strong>no Overview, Results, or Methods</strong> section
-          because Miscellaneous has no hypothesis, no experiments, and no
-          protocol inventory worth deduplicating.
+          There is <strong>no Overview, Results, Methods, or Sequences</strong>{" "}
+          to fill in, because Miscellaneous has no hypothesis, no experiments,
+          and no protocol or construct inventory worth deduplicating.
         </li>
       </ul>
       <Callout variant="info" title="Miscellaneous is a permanent catch-all">
         Miscellaneous holds ad-hoc tasks and can&apos;t be edited, shared,
-        archived, or deleted. The project route still works as a read-only
-        progress view.
+        archived, or deleted. Its route still works as a read-only progress
+        view.
       </Callout>
 
       <h2>Getting around the Surface</h2>
       <Steps>
         <Step>
-          From the Home grid, hover a project card to reveal the three-dots
-          kebab in the top-right corner. Use it for project-level CRUD (rename,
-          share, archive, delete).
+          Open the <strong>Projects</strong> tab on the{" "}
+          <Link href="/wiki/features/experiments">Workbench</Link> (it&apos;s
+          where you land by default) to see the grid of project cards.
         </Step>
         <Step>
-          Click anywhere else on the card (or a task name in the Next Up list
-          to open that task directly) to navigate to the Workspace route.
+          Click a card to navigate to that project&apos;s route. The card itself
+          has no menu; project-level actions live on the route&apos;s top bar.
         </Step>
         <Step>
-          On the Workspace, write into the Overview textarea, scroll for
-          Results, Methods, optional Goals, and Activity. Use the anchor strip
-          to jump between sections.
+          On the route, write into the Overview textarea and use the tab strip
+          to move between Results, Methods, Sequences, optional Goals, Activity,
+          and Funding. Only the tabs with content show.
         </Step>
         <Step>
           Use the <strong>&#8592; Projects</strong> breadcrumb in the top bar
-          to return to the Home grid.
+          to return to the grid.
         </Step>
       </Steps>
 
-      <Callout variant="tip" title="Bookmark the Workspace">
-        Project Workspaces are first-class URLs. Bookmark them, paste them into
+      <Callout variant="tip" title="Bookmark the project route">
+        Project routes are first-class URLs. Bookmark them, paste them into
         your lab notebook, or drop the link into a Slack thread. Anyone with
         view-or-edit access on a shared project lands on the same view when
         they open the URL.

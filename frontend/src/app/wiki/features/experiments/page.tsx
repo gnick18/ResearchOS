@@ -9,32 +9,41 @@ export default function ExperimentsFeaturePage() {
   return (
     <WikiPage
       title="The Workbench"
-      intro="The Workbench is where active research lives day to day. One page, three tabs (Experiments, Notes, Lists), each with its own way of grouping work. The URL is /workbench, and /experiments still redirects there for backwards compatibility."
+      intro="The Workbench is where active research lives day to day. One page, four tabs (Projects, Experiments, Notes, Lists), each with its own way of grouping work. The URL is /workbench, and /experiments still redirects there for backwards compatibility."
     >
+      {/* SCREENSHOT TODO: workbench-experiments.png predates the kanban
+          redesign — it still shows the old stacked-section layout and a
+          three-tab strip. Do NOT capture here; recapture once the kanban UI
+          settles. */}
       <Screenshot
         src="/wiki/screenshots/workbench-experiments.png"
-        alt="The Workbench page with the Experiments tab active, showing the three-tab strip, the project filter pills, and the stacked section headers."
-        caption="The Workbench in its default state: Experiments tab selected, sections stacked top-to-bottom."
+        alt="The Workbench page with the Experiments tab active, showing the tab strip, the project filter pills, and the experiment cards."
+        caption="The Workbench with the Experiments tab selected (screenshot predates the kanban redesign)."
       />
 
       <TryInDemo href="/workbench">Try the Workbench</TryInDemo>
 
-      <h2>Three tabs, three ways to slice the work</h2>
+      <h2>Four tabs, four ways to slice the work</h2>
       <p>
-        The Workbench packs three different views of your in-flight work
+        The Workbench packs four different views of your in-flight work
         into one page. The tab strip across the top names them and gives
         each a color identity:
+        <strong> Projects</strong> (indigo),
         <strong> Experiments</strong> (blue),
         <strong> Notes</strong> (emerald),
         <strong> Lists</strong> (violet).
-        The active tab fills with its color; the other two read as gray
-        text buttons.
+        The active tab fills with its color; the others read as gray
+        text buttons. <strong>Projects</strong> is the default landing tab,
+        so opening ResearchOS drops you on a grid of your projects rather than
+        a flat task list (see{" "}
+        <Link href="/wiki/features/projects">Project Surface</Link>).
       </p>
       <p>
-        Each tab uses a different organizing principle. The Experiments
-        tab groups protocols by where they sit in the run cycle (ready, blocked,
-        running, awaiting writeup, recent results, archive). The Lists
-        tab groups list tasks by how close their dates are to right now
+        Each tab uses a different organizing principle. The Projects tab
+        is a browsable grid of project cards. The Experiments tab arranges
+        protocols by where they sit in the run cycle on a kanban board (ready,
+        blocked, running, awaiting writeup), with a results zone below it. The
+        Lists tab groups list tasks by how close their dates are to right now
         (overdue, doing, upcoming, recently done, earlier). The Notes
         tab skips grouping entirely and offers a flat, search-driven
         list. So if you want to know &quot;what can I run today,&quot;
@@ -45,19 +54,19 @@ export default function ExperimentsFeaturePage() {
 
       <h2>The project filter pill strip</h2>
       <p>
-        Directly below the tab strip sits a row of colored pills, one
-        per project, plus an <strong>All projects</strong> pill on the
-        left. Click a pill to narrow the view to that project; click it
-        again (or pick a different one) to clear. The filter applies
-        across tabs: pick a project on Experiments and then switch to
-        Lists, and the Lists tab opens already narrowed to the same
-        project. That keeps a single research question coherent across
-        the three views.
+        On the Experiments and Lists tabs, a row of colored pills sits below the
+        tab strip, one per project, plus an <strong>All projects</strong> pill
+        on the left. Click a pill to narrow the view to that project, and click
+        it again (or pick a different one) to clear. The filter carries across
+        those two tabs, so picking a project on Experiments and switching to
+        Lists opens Lists already narrowed to the same project. That keeps a
+        single research question coherent across the two views.
       </p>
-      <Callout variant="info" title="Notes intentionally skips the project filter">
-        Notes aren&apos;t tied to any single project, so the pill strip
-        hides on this tab. To scope the note grid, use the search box at
-        the top of the tab and filter by content instead.
+      <Callout variant="info" title="Projects and Notes skip the filter strip">
+        The Projects tab hides the pills because the cards on it already are the
+        projects. The Notes tab hides them because notes aren&apos;t tied to any
+        single project. To scope the note grid, use the search box at the top of
+        that tab and filter by content instead.
       </Callout>
 
       <h3>Standalone tasks with no project</h3>
@@ -77,83 +86,94 @@ export default function ExperimentsFeaturePage() {
 
       <h2>The Experiments tab</h2>
       <p>
-        The Experiments tab organizes every experiment task in your
-        library by stage of the protocol. Six sections stack vertically,
-        always in this order:
+        The Experiments tab arranges every experiment task in your library by
+        stage of the protocol. The in-flight work sits on a{" "}
+        <strong>kanban board</strong> of four columns across the top, and the
+        finished work sits in two results zones below it. The four board columns
+        run side by side so you can scan the whole pipeline at a glance:
       </p>
 
-      <h3>1. Ready to start</h3>
+      <h3>Ready to start</h3>
       <p>
-        Experiments scheduled to begin today or recently, with no
-        incomplete upstream task blocking the start. These are the cards
-        you can pick up and run today, so the section sits at the top
-        and reads first.
+        Experiments scheduled to begin today or recently, with no incomplete
+        upstream task blocking the start. These are the cards you can pick up and
+        run today, so the column reads first on the left.
       </p>
 
-      <h3>2. Blocked</h3>
+      <h3>Blocked</h3>
       <p>
-        Experiments that depend on an upstream task that hasn&apos;t
-        finished yet. The blocking parent&apos;s name renders directly
-        under the card in a small amber strip so you know what
-        you&apos;re waiting on. Click the parent name to jump straight
-        to that task and unblock the chain.
+        Experiments that depend on an upstream task that hasn&apos;t finished
+        yet. The blocking parent&apos;s name renders directly under the card in a
+        small amber strip so you know what you&apos;re waiting on. Click the
+        parent name to jump straight to that task and unblock the chain.
       </p>
 
-      <h3>3. Running</h3>
+      <h3>Running</h3>
       <p>
-        Experiments where today falls between the start date and the end
-        date. Each card carries a <strong>Day N of M</strong> freshness
-        label, and (if the experiment is part of a chain) a gray
-        <strong> Next:</strong> pointer to the experiment that follows it
-        so you can step through a multi-day protocol without leaving the
-        Workbench.
+        Experiments where today falls between the start date and the end date.
+        Each card carries a <strong>Day N of M</strong> freshness label, and (if
+        the experiment is part of a chain) a gray <strong>Next:</strong> pointer
+        to the experiment that follows it so you can step through a multi-day
+        protocol without leaving the Workbench.
       </p>
 
-      <h3>4. Awaiting writeup</h3>
+      <h3>Awaiting writeup</h3>
       <p>
-        Experiments marked complete but with no results body or attached
-        images on disk yet. This section is your reminder pile: bench
-        work is done, the writeup is still owed. The header stays put
-        even when the section is empty, with a bordered emerald chip
-        reading &quot;All recent experiments have results logged&quot; in
-        its place.
+        Experiments marked complete but with no results body or attached images
+        on disk yet. This column is your reminder pile, the bench work is done
+        but the writeup is still owed. When the column is empty it shows a
+        bordered emerald chip reading &quot;All recent experiments have results
+        logged&quot; in place of cards.
       </p>
+      <Callout variant="info" title="Each column carries its own count">
+        Every board column has an uppercase header with a live count and a small
+        info icon. Hover the icon for a one-line reminder of the rule that puts a
+        card there (for Running, &quot;Today falls between start and end
+        date&quot;). When all four columns are empty the board collapses to a
+        single quiet &quot;No in-flight experiments&quot; line, and the results
+        zones below still render.
+      </Callout>
 
-      <h3>5. Recent results</h3>
+      <h3>Recent results</h3>
       <p>
-        Completed experiments with results landed in the last 30 days.
-        When you have results across two or more projects, this section
-        sub-groups them by project (a small colored dot per project
-        header) so a busy month doesn&apos;t collapse into one
-        undifferentiated grid.
+        Below the board, the Recent results zone holds completed experiments with
+        results landed in the last 30 days, in a wide full-card grid. When you
+        have results across two or more projects, the zone sub-groups them by
+        project (a small colored dot per project header) so a busy month
+        doesn&apos;t collapse into one undifferentiated grid.
       </p>
 
-      <h3>6. Earlier results</h3>
+      <h3>Earlier results</h3>
       <p>
-        The archive: completed experiments older than 30 days. The
-        section header carries a <strong>Flat</strong> / <strong>By project</strong>{" "}
-        toggle so you can flip between a single time-ordered grid and
-        one block per project. There&apos;s no time cap, so the whole
-        completion history is reachable from one place.
+        The archive at the bottom, completed experiments older than 30 days. The
+        zone header carries a <strong>Flat</strong> / <strong>By project</strong>{" "}
+        toggle so you can flip between a single time-ordered grid and one block
+        per project. There&apos;s no time cap, so the whole completion history is
+        reachable from one place. Long archives page in behind a{" "}
+        <strong>Show more</strong> control, and by-project groups start
+        collapsed.
       </p>
 
+      {/* SCREENSHOT TODO: workbench-experiments-sections.png predates the kanban
+          redesign — it shows stacked vertical section headers, not the
+          four-column board. Do NOT capture here; recapture once the kanban UI
+          settles. */}
       <Screenshot
         src="/wiki/screenshots/workbench-experiments-sections.png"
-        alt="The Experiments tab scrolled to show several stacked section headers (Ready to start, Blocked, Running, Awaiting writeup) with cards underneath each."
-        caption="Each section reads as an uppercase header with a count, plus a one-line helper on the right summarizing the rule (e.g., 'Today falls between start and end date')."
+        alt="The Experiments tab showing the four-column kanban board (Ready to start, Blocked, Running, Awaiting writeup) with cards underneath each column."
+        caption="The four board columns run side by side, each with an uppercase header and a count (screenshot predates the kanban redesign)."
       />
 
-      <h3>Cards and chain stacks</h3>
+      <h3>Cards and chains</h3>
       <p>
-        Each card carries the experiment name, a project pill, the
-        project color along the edge, a hero image (if the writeup has
-        one), a method chip strip, and a freshness label keyed to the
-        section it&apos;s in. When two or more experiments are linked by
-        a dependency, they collapse into a single stacked card labeled
-        <strong> N tasks</strong>. Clicking the stack opens the{" "}
-        <em>root</em> experiment&apos;s popup. The{" "}
-        <Link href="/wiki/features/gantt">Gantt page</Link> is where you
-        walk a chain step-by-step.
+        Each card carries the experiment name, a project pill, the project color
+        along the edge, a hero image (if the writeup has one), a method chip
+        strip, and a freshness label keyed to the column it sits in. When an
+        experiment is part of a dependency chain, the Running card shows a gray{" "}
+        <strong>Next:</strong> pointer to the experiment that follows it, and a
+        blocked card shows the parent it&apos;s waiting on. The{" "}
+        <Link href="/wiki/features/gantt">Gantt page</Link> is where you walk a
+        chain step-by-step.
       </p>
 
       <h3>+ New Experiment</h3>
@@ -417,6 +437,38 @@ export default function ExperimentsFeaturePage() {
         the protocol&apos;s defaults, and <strong>Save Changes</strong>{" "}
         writes them to this task only.
       </p>
+
+      <h2>The deviation log</h2>
+      <p>
+        Sometimes a run drifts from the protocol in a way worth recording on its
+        own, not just a tweak but a real deviation. When a task carries a
+        deviation note it renders in an amber box on the experiment&apos;s
+        Details tab, so the next person to read the experiment sees exactly what
+        was different.
+      </p>
+      <p>
+        The <strong>Note Deviations</strong> dialog is where you write one. You
+        describe what changed during the run, then choose what to do with it:
+      </p>
+      <ul>
+        <li>
+          <strong>Save to task results only.</strong> The deviation is recorded
+          in this task&apos;s log and the underlying method stays untouched. Use
+          this for a one-off change that only mattered for this run.
+        </li>
+        <li>
+          <strong>Fork as new method.</strong> The deviation becomes the seed of
+          a brand-new method file, created as a child of the original with the
+          deviation baked into its text. Use this when the change is good enough
+          to keep as its own protocol going forward.
+        </li>
+      </ul>
+      <Callout variant="tip" title="Save the run, or grow a new protocol">
+        Reach for <strong>Save to task results only</strong> when the deviation
+        belongs to this one experiment. Reach for <strong>Fork as new
+        method</strong> when you&apos;ve found a better recipe and want it in the{" "}
+        <Link href="/wiki/features/methods">Method Library</Link> for next time.
+      </Callout>
 
       <h2>Export an experiment</h2>
       <p>
