@@ -91,7 +91,9 @@ const CSP = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://va.vercel-scripts.com",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' blob: data:",
+  "img-src 'self' blob: data: https://*.public.blob.vercel-storage.com",
+  // Vercel Blob CDN for the welcome-page demo loop videos and their posters.
+  "media-src 'self' https://*.public.blob.vercel-storage.com",
   "font-src 'self' data:",
   "connect-src 'self' https://api.telegram.org https://vitals.vercel-insights.com https://*.r2.cloudflarestorage.com data:",
   "frame-src 'self' blob:",
