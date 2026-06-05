@@ -42,6 +42,7 @@ import {
   KeyIcon,
   LinkedInIcon,
   MailIcon,
+  OrcidIcon,
   WarningIcon,
 } from "./icons";
 
@@ -73,7 +74,7 @@ type VerifiedVia = "google" | "github" | "email" | null;
 // The OAuth providers wired into the choose step. These strings are the Auth.js
 // provider ids (see @/lib/sharing/auth), passed straight to signIn() and used to
 // build the /api/auth/callback/<id> redirect, so they must match exactly.
-type OAuthProvider = "google" | "github" | "microsoft-entra-id" | "linkedin";
+type OAuthProvider = "google" | "github" | "microsoft-entra-id" | "linkedin" | "orcid";
 
 export default function SharingSetupWizard({
   username,
@@ -94,6 +95,10 @@ export default function SharingSetupWizard({
   const [material, setMaterial] = useState<IdentityMaterial | null>(null);
   const [recoverySaved, setRecoverySaved] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // True when the user signed in via ORCID (which returns no email) and has
+  // been routed to the email-enter step to prove an email via OTP.
+  const [orcidLinked, setOrcidLinked] = useState(false);
 
   // Result + error surfaces.
   const [error, setError] = useState<string | null>(null);
@@ -120,8 +125,10 @@ export default function SharingSetupWizard({
         });
         const session = (await res.json()) as {
           user?: { email?: string | null } | null;
+          orcidId?: string | null;
         } | null;
         const sessionEmail = session?.user?.email;
+        const sessionOrcidId = session?.orcidId;
         if (cancelled) return;
         if (sessionEmail) {
           setEmail(sessionEmail);
@@ -133,6 +140,19 @@ export default function SharingSetupWizard({
           // Strip the flag only AFTER a successful resume, so a later refresh
           // does not re-run keygen. We deliberately do NOT strip on a cancelled
           // or failed run, so Strict Mode's second mount still gets a real try.
+          url.searchParams.delete(CLAIM_QUERY_PARAM);
+          window.history.replaceState(
+            null,
+            "",
+            url.pathname + url.search + url.hash,
+          );
+        } else if (sessionOrcidId) {
+          // ORCID never returns an email. Mark the session as ORCID-linked and
+          // route to the email-enter step so the user can prove an email via OTP.
+          // The verify route will read the still-active ORCID session server-side
+          // and record the orcid_id -> email_hash link automatically.
+          setOrcidLinked(true);
+          setStep("email-enter");
           url.searchParams.delete(CLAIM_QUERY_PARAM);
           window.history.replaceState(
             null,
@@ -383,9 +403,11 @@ export default function SharingSetupWizard({
               setEmail={setEmail}
               busy={emailBusy}
               error={error}
+              orcidLinked={orcidLinked}
               onSubmit={requestCode}
               onBack={() => {
                 setError(null);
+                setOrcidLinked(false);
                 setStep("choose");
               }}
             />
@@ -456,6 +478,14 @@ function ChooseStep({
       <div className="space-y-2">
         <button
           type="button"
+          onClick={() => onOAuth("orcid")}
+          className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-[#A6CE39] text-slate-900 hover:bg-[#8fb82e] font-medium transition-colors"
+        >
+          <OrcidIcon className="w-4 h-4" />
+          Sign in with ORCID
+        </button>
+        <button
+          type="button"
           onClick={() => onOAuth("google")}
           className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-white text-slate-800 hover:bg-slate-100 font-medium transition-colors"
         >
@@ -508,6 +538,7 @@ function EmailEnterStep({
   setEmail,
   busy,
   error,
+  orcidLinked,
   onSubmit,
   onBack,
 }: {
@@ -515,11 +546,18 @@ function EmailEnterStep({
   setEmail: (v: string) => void;
   busy: boolean;
   error: string | null;
+  orcidLinked: boolean;
   onSubmit: () => void;
   onBack: () => void;
 }) {
   return (
     <div className="space-y-4">
+      {orcidLinked && (
+        <div className="px-3 py-2 rounded-lg bg-[#A6CE39]/15 border border-[#A6CE39]/30 text-meta text-slate-200 leading-relaxed">
+          Signed in with ORCID. Confirm your email so collaborators can reach
+          you.
+        </div>
+      )}
       <p className="text-body text-slate-300 leading-relaxed">
         Enter the email you want others to find you by. We send a 6-digit code to
         confirm you own it.

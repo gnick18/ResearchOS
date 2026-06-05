@@ -4,15 +4,18 @@
 //                                or 404 if they have not published one.
 // POST /api/directory/profile  — creates or updates the profile.
 //   Body: { displayName, affiliation?, orcid?, signature, issuedAt }
-//   Gate: OAuth session (proven email) + Ed25519 signature over the profile payload.
+//   Gate: OAuth session (proven email OR ORCID iD) + Ed25519 signature over the
+//         profile payload.
 // DELETE /api/directory/profile — removes the profile (binding stays intact).
 //   Body: { signature, issuedAt }
 //   Gate: same two-lock pattern as POST.
 //
-// The route reads the Auth.js session email (never from the body), derives the
-// email_hash, looks up the binding to get the fingerprint and stored Ed25519 key,
+// The route reads the Auth.js session email or orcidId (never from the body),
+// derives the email_hash (either directly from the email or via the ORCID link
+// table), looks up the binding to get the fingerprint and stored Ed25519 key,
 // then verifies the client's Ed25519 signature before any write. The
-// affiliation_domain badge is derived server-side from the session email domain.
+// affiliation_domain badge is derived server-side from the session email domain;
+// for ORCID-only sessions there is no email so affiliationDomain stays null.
 // Email never appears in any response.
 //
 // Reads env: SHARING_ENABLED, DIRECTORY_HMAC_PEPPER, DATABASE_URL,
@@ -28,9 +31,11 @@ import {
 } from "@/lib/sharing/directory/signature";
 import {
   deleteProfile,
+  ensureOrcidSchema,
   ensureProfileSchema,
   ensureSchema,
   getBindingByHash,
+  getEmailHashByOrcid,
   getProfileByFingerprint,
   upsertProfile,
 } from "@/lib/sharing/directory/db";
@@ -43,12 +48,35 @@ import {
 } from "@/lib/sharing/directory/guard";
 import { parseProfileBody } from "@/lib/sharing/directory/validation";
 import { extractVerifiedDomain } from "@/lib/sharing/directory/affiliationDomain";
+import type { Session } from "next-auth";
 
 export const runtime = "nodejs";
 
 // One generic failure for any rejected write, the caller cannot distinguish
 // a malformed body from a bad signature from a missing binding.
 const GENERIC_FAILURE = { error: "profile update failed" } as const;
+
+// ---------------------------------------------------------------------------
+// resolveEmailHash — shared by GET, POST, and DELETE.
+//
+// An email session resolves directly (hash the email). An ORCID-only session
+// looks up the ORCID link table. Returns null when the session has neither.
+// ---------------------------------------------------------------------------
+
+export async function resolveEmailHash(
+  session: Session | null,
+): Promise<string | null> {
+  const sessionEmail = session?.user?.email;
+  if (sessionEmail) {
+    return hashEmail(canonicalizeEmail(sessionEmail), getPepper());
+  }
+  const orcidId = session?.orcidId;
+  if (orcidId) {
+    await ensureOrcidSchema();
+    return getEmailHashByOrcid(orcidId);
+  }
+  return null;
+}
 
 // ---------------------------------------------------------------------------
 // GET — return the session user's own profile
@@ -60,13 +88,14 @@ export async function GET(_request: Request): Promise<Response> {
   }
 
   const session = await auth();
-  const sessionEmail = session?.user?.email;
-  if (!sessionEmail) {
+  if (!session?.user?.email && !session?.orcidId) {
     return json(401, { error: "unauthorized" });
   }
 
-  const canonical = canonicalizeEmail(sessionEmail);
-  const emailHash = hashEmail(canonical, getPepper());
+  const emailHash = await resolveEmailHash(session);
+  if (!emailHash) {
+    return json(401, { error: "unauthorized" });
+  }
 
   await ensureSchema();
   const binding = await getBindingByHash(emailHash);
@@ -93,8 +122,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const session = await auth();
-  const sessionEmail = session?.user?.email;
-  if (!sessionEmail) {
+  if (!session?.user?.email && !session?.orcidId) {
     return json(401, { error: "unauthorized" });
   }
 
@@ -115,8 +143,10 @@ export async function POST(request: Request): Promise<Response> {
     return json(400, GENERIC_FAILURE);
   }
 
-  const canonical = canonicalizeEmail(sessionEmail);
-  const emailHash = hashEmail(canonical, getPepper());
+  const emailHash = await resolveEmailHash(session);
+  if (!emailHash) {
+    return json(401, { error: "unauthorized" });
+  }
 
   await ensureSchema();
   const binding = await getBindingByHash(emailHash);
@@ -149,8 +179,13 @@ export async function POST(request: Request): Promise<Response> {
     return json(400, GENERIC_FAILURE);
   }
 
-  // Derive the verified domain from the session email server-side.
-  const affiliationDomain = extractVerifiedDomain(sessionEmail);
+  // Derive the verified domain from the session email server-side. For ORCID-
+  // only sessions there is no session email so affiliationDomain stays null;
+  // the user can still type an affiliation but it will be unverified.
+  const sessionEmail = session?.user?.email ?? null;
+  const affiliationDomain = sessionEmail
+    ? extractVerifiedDomain(sessionEmail)
+    : null;
 
   await ensureProfileSchema();
   await upsertProfile({
@@ -174,8 +209,7 @@ export async function DELETE(request: Request): Promise<Response> {
   }
 
   const session = await auth();
-  const sessionEmail = session?.user?.email;
-  if (!sessionEmail) {
+  if (!session?.user?.email && !session?.orcidId) {
     return json(401, { error: "unauthorized" });
   }
 
@@ -206,8 +240,10 @@ export async function DELETE(request: Request): Promise<Response> {
     return json(400, GENERIC_FAILURE);
   }
 
-  const canonical = canonicalizeEmail(sessionEmail);
-  const emailHash = hashEmail(canonical, getPepper());
+  const emailHash = await resolveEmailHash(session);
+  if (!emailHash) {
+    return json(401, { error: "unauthorized" });
+  }
 
   await ensureSchema();
   const binding = await getBindingByHash(emailHash);

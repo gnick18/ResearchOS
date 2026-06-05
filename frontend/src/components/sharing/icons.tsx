@@ -231,6 +231,28 @@ export function LinkedInIcon({ className }: IconProps) {
   );
 }
 
+/**
+ * ORCID iD circle mark. The circle and "iD" lettering are filled with the
+ * official ORCID brand green (#A6CE39). This is an inline SVG so no external
+ * library is needed.
+ */
+export function OrcidIcon({ className }: IconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 256 256"
+      className={className}
+      aria-hidden="true"
+    >
+      <circle cx="128" cy="128" r="128" fill="#A6CE39" />
+      <path
+        fill="#fff"
+        d="M86.3 186.2H70.9V79.1h15.4v107.1zM108.9 79.1h41.6c39.6 0 57 28.3 57 53.6 0 27.5-21.5 53.6-56.8 53.6h-41.8V79.1zm15.4 93.3h24.5c34.9 0 42.9-26.5 42.9-39.7C191.7 99.5 178 93 148.5 93h-24.2v79.4zM88.7 56.8c0 5.5-4.5 10.1-10.1 10.1s-10.1-4.6-10.1-10.1c0-5.6 4.5-10.1 10.1-10.1s10.1 4.5 10.1 10.1z"
+      />
+    </svg>
+  );
+}
+
 /** Mail glyph for the email-instead option. */
 export function MailIcon({ className }: IconProps) {
   return (

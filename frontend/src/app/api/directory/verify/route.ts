@@ -12,6 +12,7 @@
 
 import { hexToBytes } from "@noble/hashes/utils.js";
 
+import { auth } from "@/lib/sharing/auth";
 import { canonicalizeEmail, hashEmail } from "@/lib/sharing/directory/email";
 import { verifyOtp } from "@/lib/sharing/directory/otp";
 import {
@@ -21,7 +22,9 @@ import {
 import { fingerprint } from "@/lib/sharing/identity/keys";
 import {
   appendKeyHistory,
+  ensureOrcidSchema,
   ensureSchema,
+  linkOrcid,
   upsertBinding,
 } from "@/lib/sharing/directory/db";
 import {
@@ -141,6 +144,20 @@ export async function POST(request: Request): Promise<Response> {
     parsed.x25519PublicKey,
     parsed.ed25519PublicKey,
   );
+
+  // Best-effort ORCID link. If the user reached this route after signing in
+  // with ORCID (which carries no email), the still-active Auth.js session holds
+  // an orcidId. Record the orcid_id -> email_hash link so future ORCID sign-ins
+  // can resolve to this account. Failures never abort the bind.
+  try {
+    const session = await auth();
+    if (session?.orcidId) {
+      await ensureOrcidSchema();
+      await linkOrcid(session.orcidId, emailHash);
+    }
+  } catch {
+    // Link is best-effort; do not fail the bind if the ORCID step errors.
+  }
 
   // Single-use code, burn it on success.
   await consumeOtp(emailHash);

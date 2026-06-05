@@ -170,6 +170,70 @@ export async function appendKeyHistory(
 }
 
 // ---------------------------------------------------------------------------
+// ORCID link table (section 18.7, hybrid ORCID login)
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates the directory_orcid_links table and its index if they do not exist.
+ * Idempotent; safe to call on every request. Must be called after ensureSchema
+ * because the table is standalone (no FK), but call order is consistent with
+ * the routes that use it.
+ *
+ * The ORCID iD is a public identifier stored as-is. The table never holds a
+ * plaintext email, only the peppered email hash, so it is consistent with the
+ * privacy posture of the rest of the directory.
+ */
+export async function ensureOrcidSchema(): Promise<void> {
+  const sql = getSql();
+  await sql`
+    CREATE TABLE IF NOT EXISTS directory_orcid_links (
+      orcid_id   text primary key,
+      email_hash text not null,
+      created_at timestamptz default now()
+    )
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_orcid_links_email_hash
+      ON directory_orcid_links(email_hash)
+  `;
+}
+
+/**
+ * Links an ORCID iD to an email hash. On conflict (same orcid_id) the email
+ * hash is updated to the new value, so a user who changes their primary email
+ * and re-verifies stays linked correctly.
+ */
+export async function linkOrcid(
+  orcidId: string,
+  emailHash: string,
+): Promise<void> {
+  const sql = getSql();
+  await sql`
+    INSERT INTO directory_orcid_links (orcid_id, email_hash)
+    VALUES (${orcidId}, ${emailHash})
+    ON CONFLICT (orcid_id) DO UPDATE SET email_hash = EXCLUDED.email_hash
+  `;
+}
+
+/**
+ * Resolves the email hash for a given ORCID iD, or null if no link exists.
+ * Exact primary-key match only, never a prefix or LIKE.
+ */
+export async function getEmailHashByOrcid(
+  orcidId: string,
+): Promise<string | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT email_hash
+    FROM directory_orcid_links
+    WHERE orcid_id = ${orcidId}
+    LIMIT 1
+  `) as Array<{ email_hash: string }>;
+  if (rows.length === 0) return null;
+  return rows[0].email_hash;
+}
+
+// ---------------------------------------------------------------------------
 // Profile table (section 17, opt-in public directory)
 // ---------------------------------------------------------------------------
 

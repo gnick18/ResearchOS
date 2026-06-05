@@ -38,8 +38,10 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   // Require an authenticated session. Anonymous search is not allowed.
+  // An ORCID-only session (no email) is also accepted, since ORCID proves
+  // identity even without an email claim.
   const session = await auth();
-  if (!session?.user?.email) {
+  if (!session?.user?.email && !session?.orcidId) {
     return json(401, { error: "unauthorized" });
   }
 
