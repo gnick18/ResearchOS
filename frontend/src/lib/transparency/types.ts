@@ -1,0 +1,201 @@
+/**
+ * Transparency-of-tests data model.
+ *
+ * Every value the /transparency page shows comes from `buildTransparencyReport()`
+ * in `run.ts`, which executes a ResearchOS bioinformatic implementation against a
+ * curated showcase case and compares the result to a pinned third-party oracle
+ * value (Biopython, primer3). The same function backs both the page (server
+ * component, build-time) and the gate test (`report.test.ts`, CI), so the page
+ * can never advertise a comparison the test is not enforcing.
+ *
+ * No DOM, no React, no third-party deps. Pure data + pure functions only.
+ */
+
+/** Pass/warn/fail verdict for a single comparison against its oracle. */
+export type Status = "pass" | "warn" | "fail";
+
+/**
+ * A third-party reference implementation we check ourselves against. The
+ * provenance fields are what make the page honest: a reader can see exactly which
+ * tool, which version, which published parameter set, and which committed script
+ * produced the numbers, then reproduce them.
+ */
+export interface OracleRef {
+  /** Short id used to key oracle metadata, e.g. "biopython", "primer3". */
+  id: string;
+  /** Display name, e.g. "Biopython". */
+  name: string;
+  /** Pinned version the golden values were generated against. */
+  version: string;
+  /** The specific module / function used, e.g. "Bio.SeqUtils.MeltingTemp.Tm_NN". */
+  entrypoint: string;
+  /** One-line published-method citation (author/year + table). */
+  citation: string;
+  /** Committed script that re-derives the pinned values (repo-relative). */
+  generator: string;
+  /** Optional URL to the tool's docs/source. */
+  url?: string;
+}
+
+/**
+ * A tolerance band: how close our value must be to the oracle to count as
+ * agreement, and a short reason. A "tight" tolerance means a faithful port that
+ * must match to floating-point precision (any miss is a bug). A "loose" tolerance
+ * encodes a known, explained ecosystem difference (e.g. primer3 uses a different
+ * nearest-neighbor table, so a small systematic offset is expected, not a bug).
+ */
+export interface Tolerance {
+  /** Maximum |delta| that still counts as "pass". */
+  pass: number;
+  /** Maximum |delta| that counts as "warn" (above pass, at/below this). */
+  warn: number;
+  /** Unit label for the delta, e.g. "C", "bp", "%". */
+  unit: string;
+  /** Why this tolerance is what it is. Shown on the page. */
+  rationale: string;
+  /** "tight" = faithful-port parity; "loose" = explained ecosystem offset. */
+  kind: "tight" | "loose";
+}
+
+/**
+ * One scalar comparison: our number vs the oracle's number. Used for domains
+ * whose headline result is a single value per case (Tm, fragment count, identity).
+ * Domains with a richer visual carry that payload in `CaseResult.visual`.
+ */
+export interface ScalarComparison {
+  /** Which oracle this comparison is against. */
+  oracleId: string;
+  /** The value ResearchOS computed. */
+  ours: number;
+  /** The pinned oracle value. */
+  theirs: number;
+  /** |ours - theirs|. */
+  delta: number;
+  /** Tolerance applied. */
+  tolerance: Tolerance;
+  /** Verdict from delta vs tolerance. */
+  status: Status;
+}
+
+/**
+ * Domain-specific visual payloads carried on a case so the page can draw the
+ * signature picture for that tool (an actual alignment, a homology map, a gel
+ * ladder). Scalar domains (Tm) carry no visual and fall back to the agreement
+ * scatter. Each variant is discriminated by `kind`.
+ */
+export type CaseVisual =
+  | {
+      kind: "alignment-columns";
+      /** Gapped top strand (ResearchOS output). */
+      alignedA: string;
+      /** Gapped bottom strand. */
+      alignedB: string;
+      /** Mode label, e.g. "global" / "local". */
+      mode: string;
+    }
+  | {
+      kind: "homology-map";
+      /** Length of sequence A (bp). */
+      aLen: number;
+      /** Length of sequence B (bp). */
+      bLen: number;
+      /** The recovered shared region. */
+      region: {
+        aStart: number;
+        aEnd: number;
+        bStart: number;
+        bEnd: number;
+        strand: 1 | -1;
+        identity: number;
+      };
+    }
+  | {
+      kind: "fragment-ladder";
+      /** Fragment sizes (bp) ResearchOS produced, descending. */
+      ours: number[];
+      /** Fragment sizes the oracle produced. */
+      theirs: number[];
+      /** Enzyme set applied. */
+      enzymes: string[];
+    }
+  | {
+      kind: "codon-track";
+      /** The DNA codons in frame. */
+      codons: string[];
+      /** Our one-letter amino acids, aligned to codons. */
+      ours: string;
+      /** The oracle's one-letter amino acids. */
+      theirs: string;
+    };
+
+/** One showcase case within a domain (e.g. a single oligo, a single pair). */
+export interface CaseResult {
+  /** Stable id, e.g. "mid25_realistic". */
+  id: string;
+  /** Human label, e.g. "25-mer realistic primer". */
+  label: string;
+  /** The input as a readable string (sequence, pair, enzyme set, etc.). */
+  input: string;
+  /** Scalar comparisons for this case (one per oracle). */
+  comparisons: ScalarComparison[];
+  /** Worst status across this case's comparisons (drives the row pill). */
+  status: Status;
+  /** Optional domain-specific visual payload (alignment columns, bands, etc.). */
+  visual?: CaseVisual;
+}
+
+/** A bioinformatic capability we expose and verify (Tm, alignment, ...). */
+export interface DomainReport {
+  /** Stable id, e.g. "tm". */
+  id: string;
+  /** Display title, e.g. "Primer melting temperature". */
+  title: string;
+  /** One-paragraph plain-language description of what the tool does. */
+  summary: string;
+  /** The ResearchOS module under test (repo-relative), shown for transparency. */
+  impl: string;
+  /** Oracles this domain is checked against. */
+  oracles: OracleRef[];
+  /** Per-case results. */
+  cases: CaseResult[];
+  /** Counts rolled up from cases. */
+  totals: { pass: number; warn: number; fail: number };
+  /** Worst status across all cases (drives the domain pill). */
+  status: Status;
+}
+
+/** The whole page in one object. */
+export interface TransparencyReport {
+  /** ISO date the report shape/content was last meaningfully revised. */
+  generatedNote: string;
+  domains: DomainReport[];
+  totals: { pass: number; warn: number; fail: number };
+  status: Status;
+}
+
+/** Classify a |delta| against a tolerance band. */
+export function classify(delta: number, tol: Tolerance): Status {
+  if (delta <= tol.pass) return "pass";
+  if (delta <= tol.warn) return "warn";
+  return "fail";
+}
+
+/** The more severe of two statuses (fail > warn > pass). */
+export function worst(a: Status, b: Status): Status {
+  const rank: Record<Status, number> = { pass: 0, warn: 1, fail: 2 };
+  return rank[a] >= rank[b] ? a : b;
+}
+
+/** Roll a list of statuses up to one, plus counts. */
+export function rollup(statuses: Status[]): {
+  status: Status;
+  totals: { pass: number; warn: number; fail: number };
+} {
+  const totals = { pass: 0, warn: 0, fail: 0 };
+  let status: Status = "pass";
+  for (const s of statuses) {
+    totals[s] += 1;
+    status = worst(status, s);
+  }
+  return { status, totals };
+}

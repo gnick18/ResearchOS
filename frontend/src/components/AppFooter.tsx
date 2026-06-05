@@ -49,16 +49,27 @@ export default function AppFooter({ className = "" }: { className?: string }) {
         <p className="text-meta text-gray-400" data-testid="app-footer-author">
           Built by Dr. Grant R. Nickles, PhD.
         </p>
-        {/* Subtle credit link: ResearchOS stands on a lot of open-source work
-            and published science. The /open-source page thanks the community
-            and carries the full attribution. */}
-        <Link
-          href="/open-source"
-          className="text-meta text-gray-400 underline-offset-2 hover:text-gray-600 hover:underline"
-          data-testid="app-footer-open-source"
-        >
-          Built on open source
-        </Link>
+        {/* Subtle credit + trust links: the /open-source page thanks the
+            community and carries the full attribution; the /transparency page
+            shows our bioinformatic tools checked against Biopython and primer3
+            on every code change. */}
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-meta text-gray-400">
+          <Link
+            href="/open-source"
+            className="underline-offset-2 hover:text-gray-600 hover:underline"
+            data-testid="app-footer-open-source"
+          >
+            Built on open source
+          </Link>
+          <span aria-hidden="true">·</span>
+          <Link
+            href="/transparency"
+            className="underline-offset-2 hover:text-gray-600 hover:underline"
+            data-testid="app-footer-transparency"
+          >
+            Transparency of tests
+          </Link>
+        </div>
       </div>
     </footer>
   );

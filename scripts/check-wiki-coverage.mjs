@@ -47,6 +47,7 @@ const EXCLUDED_PREFIXES = [
   "/showcase", // hidden, unlinked BeakerBot showcase Easter egg (URL / brand-mark unlock only, never in nav); not a documented feature
   "/sequences", // pending wiki page (sequence editor Phase 4)
   "/open-source", // "Built on open source" credits + attribution page (legal/informational, no AppShell, not a documented app feature; like /welcome)
+  "/transparency", // "Transparency of tests": bioinformatic-tool comparisons vs Biopython/primer3, build-time computed + vitest-gated (trust/informational, no AppShell, not a documented app feature; like /open-source)
   "/sharing-setup-test", // dev-only test harness for the cross-boundary sharing setup wizard (NODE_ENV=development gated, renders "not available" in prod); not a user feature
 ];
 
