@@ -52,17 +52,21 @@ function Glyph({ status }: { status: Status }) {
 export default function StatusPill({
   status,
   label,
+  exact,
 }: {
   status: Status;
   label?: string;
+  /** When true and the status is a pass, the pill reads "Exact" (delta is 0). */
+  exact?: boolean;
 }) {
   const s = STYLES[status];
+  const text = label ?? (exact && status === "pass" ? "Exact" : s.label);
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-meta font-semibold ring-1 ring-inset ${s.bg} ${s.text} ${s.ring}`}
     >
       <Glyph status={status} />
-      {label ?? s.label}
+      {text}
     </span>
   );
 }

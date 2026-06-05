@@ -44,7 +44,7 @@ export default function PropertyTable({ rows }: { rows: PropertyRow[] }) {
                 <td className="px-3 py-2 text-right font-mono text-gray-600">{r.theirs}</td>
                 <td className="px-3 py-2 text-right font-mono text-gray-500">{r.delta}</td>
                 <td className="px-3 py-2">
-                  <StatusPill status={r.status} />
+                  <StatusPill status={r.status} exact={r.delta === 0} />
                 </td>
               </tr>
             ))}

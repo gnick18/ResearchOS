@@ -41,7 +41,7 @@ export default function ScalarMixedTable({ domain }: { domain: DomainReport }) {
                   </td>
                   <td className="px-3 py-2 text-right font-mono text-gray-500">{cmp.delta}</td>
                   <td className="px-3 py-2">
-                    <StatusPill status={cmp.status} />
+                    <StatusPill status={cmp.status} exact={cmp.delta === 0} />
                   </td>
                 </tr>
               );

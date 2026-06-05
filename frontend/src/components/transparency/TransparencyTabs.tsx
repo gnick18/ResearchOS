@@ -99,7 +99,7 @@ function CaseVisualCard({ domain, c }: { domain: DomainReport; c: CaseResult }) 
     <div className="rounded-xl border border-gray-200 p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <span className="text-body font-medium text-gray-800">{c.label}</span>
-        <StatusPill status={c.status} />
+        <StatusPill status={c.status} exact={c.comparisons.every((cmp) => cmp.delta === 0)} />
       </div>
 
       {v?.kind === "alignment-columns" ? (
@@ -166,7 +166,7 @@ function ScalarTable({ domain, unit }: { domain: DomainReport; unit: string }) {
                 <td className="px-3 py-2 text-right font-mono text-gray-600">{cmp.theirs}</td>
                 <td className="px-3 py-2 text-right font-mono text-gray-500">{cmp.delta}</td>
                 <td className="px-3 py-2">
-                  <StatusPill status={cmp.status} />
+                  <StatusPill status={cmp.status} exact={cmp.delta === 0} />
                 </td>
               </tr>
             )),
