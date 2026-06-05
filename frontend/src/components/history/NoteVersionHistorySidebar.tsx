@@ -14,6 +14,7 @@
 
 import EntityVersionHistorySidebar, {
   type VersionPreview,
+  type VersionHistorySource,
 } from "@/components/history/EntityVersionHistorySidebar";
 import { notesAdapter } from "@/lib/history/notes-viewer";
 
@@ -53,6 +54,13 @@ interface NoteVersionHistorySidebarProps {
    * after-restore exit, so the sidebar only surfaces the intent.
    */
   onRestore?: (versionIndex: number) => void | Promise<void>;
+  /**
+   * Phase 2 chunk 4: injectable version-history engine. When absent, the
+   * sidebar falls back to the legacy delta engine (unchanged). NoteDetailPopup
+   * passes makeLoroHistoryEngine(note) here when LORO_PILOT_ENABLED is on so
+   * the version list + diffs read Loro native history instead of the delta store.
+   */
+  engine?: VersionHistorySource;
 }
 
 export default function NoteVersionHistorySidebar({
@@ -64,6 +72,7 @@ export default function NoteVersionHistorySidebar({
   headCanonical,
   canRestore = false,
   onRestore,
+  engine,
 }: NoteVersionHistorySidebarProps) {
   return (
     <EntityVersionHistorySidebar
@@ -77,6 +86,7 @@ export default function NoteVersionHistorySidebar({
       headCanonical={headCanonical}
       canRestore={canRestore}
       onRestore={onRestore}
+      engine={engine}
     />
   );
 }

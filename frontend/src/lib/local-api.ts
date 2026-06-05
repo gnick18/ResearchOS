@@ -9,6 +9,9 @@ import {
 import { recordProjectActivity } from "./project-activity/event-log";
 import { HISTORY_ENGINE_ENABLED, recordNoteHistory, recordTaskHistory, recordProjectHistory } from "./history";
 import type { HistoryEditKind } from "./history";
+// Phase 2 chunk 4: when the Loro pilot is on, the note's Loro doc IS the
+// history store; the legacy delta writer is suppressed to avoid double-writing.
+import { LORO_PILOT_ENABLED } from "./loro/config";
 import { getCurrentUser, getMainUser, storeCurrentUser, storeMainUser, clearCurrentUser, clearMainUser } from "./file-system/indexeddb-store";
 import { shiftTask } from "./engine/shift";
 import { formatDate, parseDate } from "./engine/dates";
@@ -4061,6 +4064,9 @@ async function recordEntryHistory(
   nextState: Note | null,
 ): Promise<void> {
   if (!HISTORY_ENGINE_ENABLED || !nextState) return;
+  // When the Loro pilot is on, the Loro doc's native history is the sole
+  // notes history source (no double-write; the sidebar reads from makeLoroHistoryEngine).
+  if (LORO_PILOT_ENABLED) return;
   // `owner` is the note OWNER's folder (the history file lives there); for a
   // self-edit it falls back to the signed-in user. `actor` is WHO made the edit
   // (the signed-in user), mirroring notesApi.update's actor resolution so a PI
@@ -4212,8 +4218,11 @@ export const notesApi = {
     }
     // Best-effort history append AFTER the live record is persisted. Failures
     // never throw into the save path (recordNoteHistory swallows). No-op when
-    // the flag is off, so Phase 0 cherry-picks inertly (no _history/ writes).
-    if (HISTORY_ENGINE_ENABLED && updated) {
+    // HISTORY_ENGINE_ENABLED is off, so Phase 0 cherry-picks inertly (no
+    // _history/ writes). Also suppressed when LORO_PILOT_ENABLED: the Loro
+    // doc's native history is the sole notes history source under the flag
+    // (the sidebar reads from makeLoroHistoryEngine; no double-write).
+    if (HISTORY_ENGINE_ENABLED && !LORO_PILOT_ENABLED && updated) {
       const effectiveOwner = owner ?? (await getCurrentUserCached()) ?? "";
       await recordNoteHistory({
         type: historyMeta.kind,

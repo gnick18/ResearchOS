@@ -15,6 +15,7 @@ import {
 import { useAppStore } from "@/lib/store";
 import { LORO_PILOT_ENABLED } from "@/lib/loro/config";
 import { openNote, type NoteHandle } from "@/lib/loro/store";
+import { makeLoroHistoryEngine } from "@/lib/loro/history-engine";
 import { persistEntryContent } from "@/lib/notes/persist-entry-content";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import NoteCommentsThread from "./NoteCommentsThread";
@@ -979,6 +980,20 @@ export default function NoteDetailPopup({
   // agree byte-for-byte.
   const liveNoteCanonical = useMemo(() => canonicalize(note), [note]);
 
+  // Phase 2 chunk 4: Loro-backed history engine for the version-history sidebar.
+  // Keyed on note.id + note.username (not the whole note object) so the memo
+  // stays stable across content edits -- the history sidebar opens in read-only
+  // preview mode, and a base captured at note-identity time is correct for
+  // Loro doc reconstruction. When the flag is off, loroHistoryEngine is undefined
+  // and the sidebar falls back to the legacy delta engine, unchanged.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const loroHistoryEngine = useMemo(
+    () => (LORO_PILOT_ENABLED ? makeLoroHistoryEngine(note) : undefined),
+    // Intentionally keyed on note.id + note.username, not the full note object.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [note.id, note.username],
+  );
+
   const {
     handleRestore,
     handleUndoRestore,
@@ -1762,6 +1777,10 @@ export default function NoteDetailPopup({
             // version is selected (the sidebar enforces the last condition).
             canRestore={RESTORE_ENABLED && canRestore}
             onRestore={handleRestore}
+            // Phase 2 chunk 4: when the flag is on, drive the sidebar from the
+            // Loro native history instead of the legacy delta store. undefined
+            // when flag is off (legacy engine used, unchanged).
+            engine={loroHistoryEngine}
           />
         )}
         </div>
