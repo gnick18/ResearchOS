@@ -37,6 +37,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import BeakerBot from "@/components/BeakerBot";
 import BeakerBotSpeechBubble from "@/components/beakerbot/SpeechBubble";
+import BeakerBotPeek from "@/components/welcome/BeakerBotPeek";
 import Wordmark from "@/components/Wordmark";
 import DemoLoop, { DemoLoopPlaceholder } from "@/components/welcome/DemoLoop";
 import { GoogleIcon, GitHubIcon, LinkedInIcon, OrcidIcon } from "@/components/sharing/icons";
@@ -532,13 +533,22 @@ export default function WelcomePage() {
                 </li>
               </ul>
             </div>
-            <DemoLoop
-              src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-editor-a.mp4"
-              poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-editor-a.poster.jpg"
-              label="A circular plasmid map rendering in the ResearchOS sequence editor, with annotated feature arcs"
-              framed
-              frameUrl="research-os.app/sequences"
-            />
+            {/* BeakerBot peeks over the top-right of the demo frame and watches
+                the cloning animation, amazed, then settles into a living idle. */}
+            <BeakerBotPeek
+              anchor="top-right"
+              reactionPose="amazed"
+              bubble="whoa!"
+              size="h-24 w-24"
+            >
+              <DemoLoop
+                src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-editor-a.mp4"
+                poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-editor-a.poster.jpg"
+                label="A circular plasmid map rendering in the ResearchOS sequence editor, with annotated feature arcs"
+                framed
+                frameUrl="research-os.app/sequences"
+              />
+            </BeakerBotPeek>
           </div>
         </section>
 
