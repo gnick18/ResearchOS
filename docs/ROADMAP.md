@@ -89,15 +89,21 @@ The ask, connect ResearchOS with Quartzy, the online lab inventory and ordering 
 
 Integrate or replace, the leaning is INTEGRATE first. Integration is the easiest path to adoption because a lab does not have to abandon the tool and history it already relies on. A from-scratch ResearchOS ordering/inventory feature (see the separate "Lab inventory + barcode scan" idea) could come later or in parallel, but the connection is the lower-friction win.
 
+Two tiers, with very different effort and dependency (refined with the labmate 2026-06-05):
+
+1. Export-and-import migration (LOW BAR, near-term, needs NO Quartzy API). If Quartzy lets a user export their inventory/order list (a CSV or similar), ResearchOS can ingest it with a custom importer. We already proved this pattern, the existing custom "import from LabArchives" feature does exactly this for notebooks, so an inventory importer is the same shape. This alone makes migrating off Quartzy (the "replace" path) easy, without depending on Quartzy at all. The first thing to confirm is simply, does Quartzy have an export feature (Grant is checking).
+
+2. Live info-connected sync (RICHER, depends on Quartzy's API). The user links their Quartzy account and ResearchOS pulls and pushes data both ways, so they can view their Quartzy inventory and order status, and ping requests or modifications back and forth, all while working inside ResearchOS. This is the better experience but it is gated on Quartzy exposing good public API calls. As Grant put it, that part is "on them," it depends on Quartzy being a good company with a usable API; he will research what they offer.
+
 What this could include:
-- A plug-in style connection, the user links their Quartzy account and ResearchOS pulls and pushes data both ways (orders, receipts, current inventory, ordering history).
 - Surface a lab's Quartzy inventory and order status inside ResearchOS so ordering context lives next to the experiments and methods that consume the reagents.
 - Mark receipt or kick off a request from inside ResearchOS and have it reflected in Quartzy, so the two stay in sync.
+- A one-time import of an exported Quartzy inventory for labs that want to move their list into ResearchOS outright.
 
 Why it fits ResearchOS, ordering and inventory are a real daily lab workflow that currently lives in a separate tab; pulling it next to the bench work (experiments, methods, the reagents a protocol calls for) is the kind of consolidation the product is about, and it pairs naturally with the barcode-scan inventory idea and the mobile app.
 
 Feasibility notes (not a commitment):
-- Quartzy is a private company, not open source, so this depends on whether they expose a public API or partner integration. Accounts are free to make, which helps, but the integration surface (API availability, auth, rate limits, terms) is the first thing to confirm before any scoping. Closed commercial tools are harder to integrate than open standards (contrast with the Zenodo browser-direct deposit, which works because Zenodo is open and CORS-friendly).
-- If no usable API exists, the fallback is the "replace" path, a native ResearchOS ordering/inventory surface, which is a bigger build.
+- Quartzy is a private company, not open source, so the LIVE sync depends on whether they expose a public API or partner integration. Accounts are free to make, which helps, but the integration surface (API availability, auth, rate limits, terms) is the first thing to confirm before scoping tier 2. Closed commercial tools are harder to integrate than open standards (contrast with the Zenodo browser-direct deposit, which works because Zenodo is open and CORS-friendly).
+- The export-import migration (tier 1) sidesteps the API question entirely, it only needs Quartzy to have an export, and reuses the LabArchives-import machinery. That is the pragmatic first deliverable while the API path is researched.
 
 Open questions for whenever this gets scoped, does Quartzy offer a public API or OAuth integration at all; integrate vs build-native vs both; and how account linking and the data sync (one-way pull vs two-way push) should work without ResearchOS becoming a custodian of a lab's ordering data.
