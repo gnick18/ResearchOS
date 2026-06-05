@@ -9,6 +9,27 @@ import {
 } from "react";
 import { historyEngine } from "@/lib/history";
 import type { HistoryRow } from "@/lib/history";
+
+/**
+ * Minimal interface that any version-history engine must implement to drive
+ * EntityVersionHistorySidebar. The legacy historyEngine satisfies this as-is;
+ * the Loro-backed engine (history-engine.ts) satisfies it too, so the sidebar
+ * is engine-agnostic via the optional `engine` prop below.
+ *
+ * The optional headCanonical parameter on reconstructState mirrors the legacy
+ * engine signature (it is used only by the legacy engine's bare-genesis anchor
+ * resolution; the Loro engine ignores it but must accept it for type compat).
+ */
+export interface VersionHistorySource {
+  readHistory(entityType: string, owner: string, id: number): Promise<HistoryRow[]>;
+  reconstructState(
+    entityType: string,
+    owner: string,
+    id: number,
+    versionIndex: number,
+    headCanonical?: string,
+  ): Promise<string>;
+}
 import {
   buildVersionList,
   sessionRangeLabel,
@@ -102,6 +123,14 @@ interface EntityVersionHistorySidebarProps<P extends EntityProjection> {
    * after-restore exit, so the sidebar only surfaces the intent.
    */
   onRestore?: (versionIndex: number) => void | Promise<void>;
+  /**
+   * Phase 2 chunk 3: injectable version-history engine. Defaults to the legacy
+   * historyEngine so every existing caller (notes, tasks, projects, sequences)
+   * is byte-for-byte unchanged when this prop is absent. Pass a
+   * makeLoroHistoryEngine(note) return value to drive the sidebar from Loro
+   * native history instead of the delta-store (chunk 5 wiring).
+   */
+  engine?: VersionHistorySource;
 }
 
 export default function EntityVersionHistorySidebar<P extends EntityProjection>({
@@ -115,7 +144,15 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
   headCanonical,
   canRestore = false,
   onRestore,
+  engine: engineProp,
 }: EntityVersionHistorySidebarProps<P>) {
+  // Resolve the engine: caller-supplied Loro engine OR legacy delta engine.
+  // Captured in a stable ref so the effects below do not re-run purely because
+  // the caller passed a new object reference on every render.
+  const engineRef = useRef<VersionHistorySource>(engineProp ?? historyEngine);
+  useEffect(() => {
+    engineRef.current = engineProp ?? historyEngine;
+  }, [engineProp]);
   const profileMap = useLabUserProfileMap();
   const [rows, setRows] = useState<HistoryRow[] | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -144,7 +181,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
     let cancelled = false;
     (async () => {
       try {
-        const read = await historyEngine.readHistory(entityType, owner, id);
+        const read = await engineRef.current.readHistory(entityType, owner, id);
         if (!cancelled) {
           setRows(read);
           setLoadError(false);
@@ -194,7 +231,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
           // bare-genesis anchor (the create-then-edit case). It is harmless for
           // a fresh-record history, which resolves its anchor from the empty-doc
           // pre-image and never consults headCanonical.
-          canonical = await historyEngine.reconstructState(
+          canonical = await engineRef.current.reconstructState(
             entityType,
             owner,
             id,
