@@ -1,6 +1,9 @@
 "use client";
 
 // Loro Phase 3, chunk 4: React hook owning the collab session lifecycle.
+// Updated in chunk 5a: EphemeralStore is now a real shared instance, not a
+// throwaway, so live-cursor data produced by LoroEphemeralPlugin flows through
+// the relay to the remote peer.
 //
 // PURPOSE. Keeps NoteDetailPopup thin. This hook manages:
 //   - start(): generate a sessionId + key, open the WebSocket transport to the
@@ -14,9 +17,10 @@
 // signed frame from our own key). A later chunk adds X25519 key-wrapping and
 // pins the peer's key from the directory invite.
 //
-// EPHEMERAL. The relay provider needs an EphemeralStore even though we relay no
-// cursor data yet (no LoroEphemeralPlugin). We create a throwaway instance here
-// just to satisfy the provider's type. It stays empty for this chunk.
+// EPHEMERAL. One EphemeralStore<EphemeralState> is created per hook instance
+// (not per connect call) and exposed on the return value. Both the relay
+// provider AND the editor's LoroEphemeralPlugin receive the SAME instance, so
+// cursor data produced locally by CM6 is relayed to the remote peer.
 //
 // STATUS TRANSITIONS.
 //   idle -> connecting (start/join called)
@@ -29,7 +33,8 @@
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LoroDoc, EphemeralStore, type Value } from "loro-crdt";
+import { LoroDoc, EphemeralStore } from "loro-crdt";
+import type { EphemeralState } from "loro-codemirror";
 import { generateSessionKey } from "./envelope";
 import { createCollabProvider, type CollabProvider } from "./relay-provider";
 import { createWebSocketTransport } from "./websocket-transport";
@@ -54,6 +59,15 @@ export interface CollabState {
 
 export interface CollabSessionApi {
   state: CollabState;
+  /**
+   * The shared EphemeralStore for this session.
+   *
+   * Both the relay provider and the editor's LoroEphemeralPlugin receive this
+   * SAME instance so cursor/presence data flows through the relay. The store
+   * is created once per hook instance and never re-created on reconnect, so
+   * the editor plugin never needs to be remounted when start/join is called.
+   */
+  ephemeral: EphemeralStore<EphemeralState>;
   /** Generate a new sessionId + key, connect, and surface a copy-able link. */
   start(): void;
   /** Decode a pasted join link and connect to that session. */
@@ -92,6 +106,15 @@ export function useCollabSession(args: {
   const { doc, enabled } = args;
 
   const [state, setState] = useState<CollabState>(IDLE_STATE);
+
+  // One EphemeralStore per hook instance. Created once here (not inside
+  // connectSession) so it survives stop-and-restart cycles. Both the relay
+  // provider and the editor's LoroEphemeralPlugin receive this same instance:
+  // cursor data written by CM6 flows directly through the relay without any
+  // extra plumbing. The 30-second TTL matches the upstream default.
+  const ephemeralRef = useRef<EphemeralStore<EphemeralState>>(
+    new EphemeralStore<EphemeralState>(30_000),
+  );
 
   // Stable ref so cleanup functions always reach the latest provider instance
   // without re-creating callbacks.
@@ -152,10 +175,12 @@ export function useCollabSession(args: {
       const relayUrl = `${COLLAB_RELAY_URL}/ws?session=${encodeURIComponent(sessionId)}`;
       const transport = createWebSocketTransport(relayUrl);
 
-      // Throwaway EphemeralStore. We create it here purely to satisfy the
-      // relay-provider type. No LoroEphemeralPlugin is installed (Phase 3
-      // chunk 5 concern), so this store stays permanently empty.
-      const ephemeral = new EphemeralStore<Record<string, Value>>(30_000);
+      // Reuse the stable EphemeralStore created once for this hook instance.
+      // The same store is exposed on the return value so the editor's
+      // LoroEphemeralPlugin can use it directly. Local cursor writes by CM6
+      // trigger ephemeral.subscribeLocalUpdates inside the relay provider and
+      // are relayed as encrypted ephemeral frames to the remote peer.
+      const ephemeral = ephemeralRef.current;
 
       // Wire the provider. It subscribes to local doc updates and installs the
       // inbound message handler on the transport.
@@ -279,5 +304,5 @@ export function useCollabSession(args: {
     };
   }, [destroyProvider]);
 
-  return { state, start, join, stop };
+  return { state, ephemeral: ephemeralRef.current, start, join, stop };
 }

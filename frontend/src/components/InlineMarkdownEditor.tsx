@@ -4,6 +4,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import type { EditorState as EditorStateType } from "@codemirror/state";
 import type { NoteHandle } from "@/lib/loro/store";
 import type { Note } from "@/lib/types";
+import type { EphemeralStore } from "loro-crdt";
+import type { UserState, EphemeralState } from "loro-codemirror";
 import { getEntryContentText } from "@/lib/loro/note-doc";
 
 /**
@@ -104,6 +106,29 @@ interface InlineMarkdownEditorProps {
   /** The live Note object. The commit() call reads it from a ref so a
    *  per-render-new identity never destabilises the updateListener. */
   loroBaseNote?: Note;
+
+  // ---------------------------------------------------------------------------
+  // Live collab cursors (Phase 3 chunk 5a; additive; absent = sync-only mode)
+  // ---------------------------------------------------------------------------
+  /**
+   * The shared EphemeralStore for the live collab session.
+   *
+   * When provided alongside `collabUser`, LoroEphemeralPlugin is installed
+   * next to LoroSyncPlugin so local cursor movements are relayed to remote
+   * peers and remote cursors are rendered in the editor. When absent (no live
+   * session, or flag off) the editor is sync-only with zero change to behavior.
+   *
+   * Must be the SAME instance exposed by useCollabSession, so the relay
+   * provider and the editor plugin share one store.
+   */
+  collabEphemeral?: EphemeralStore<EphemeralState>;
+  /**
+   * User info for this peer's cursor label and color.
+   *
+   * Must be provided together with collabEphemeral. Shape matches UserState
+   * from loro-codemirror: { name: string; colorClassName: string }.
+   */
+  collabUser?: UserState;
 }
 
 /**
@@ -215,6 +240,8 @@ export default function InlineMarkdownEditor({
   loroHandle,
   loroEntryIndex = 0,
   loroBaseNote,
+  collabEphemeral,
+  collabUser,
 }: InlineMarkdownEditorProps) {
   // loroActive is stable after mount: when a handle is provided, the editor is
   // in Loro mode for its entire lifetime. We compute it once from the prop
@@ -245,6 +272,12 @@ export default function InlineMarkdownEditor({
   const loroHandleRef = useRef(loroHandle);
   const loroEntryIndexRef = useRef(loroEntryIndex);
   const loroBaseNoteRef = useRef(loroBaseNote);
+  // Live collab cursor refs. The EphemeralStore instance is stable (created once
+  // by useCollabSession and never re-created), so it is safe to hold in a ref
+  // and read at makeState call time without the buildExtensions callback needing
+  // to change. collabUser carries a stable shape (name + colorClassName).
+  const collabEphemeralRef = useRef(collabEphemeral);
+  const collabUserRef = useRef(collabUser);
   // Track the previous entry index to skip the initial-mount fire in the
   // entry-switch effect.
   const prevEntryIndexRef = useRef(loroEntryIndex);
@@ -266,6 +299,11 @@ export default function InlineMarkdownEditor({
   loroHandleRef.current = loroHandle;
   loroEntryIndexRef.current = loroEntryIndex;
   loroBaseNoteRef.current = loroBaseNote;
+  // Keep collab refs in sync. The EphemeralStore instance is stable across
+  // renders (never re-created by useCollabSession), so this is just belt-and-
+  // suspenders for the session-stop case where collabEphemeral goes undefined.
+  collabEphemeralRef.current = collabEphemeral;
+  collabUserRef.current = collabUser;
 
   // Dirty flag: flips true on the first user edit after a mount / external
   // value swap / save.
@@ -345,13 +383,19 @@ export default function InlineMarkdownEditor({
         },
       ]);
 
-      // In Loro mode, append the Loro extension (LoroSyncPlugin + ephemeral +
-      // LoroUndoPlugin) after the base extensions. This binds the editor to the
-      // active entry's LoroText. The entry index at build time comes from the
-      // ref's current value, which is kept in sync on every render.
+      // In Loro mode, append the Loro extension after the base extensions.
+      // LoroSyncPlugin is always included when a handle is present.
+      // LoroEphemeralPlugin (via safeLoroEphemeralPlugin inside bindEditorExtension)
+      // is included only when both collabEphemeral and collabUser are present,
+      // meaning a live collab session is active. Flag-off or no-session means the
+      // ephemeral refs are undefined and bindEditorExtension falls back to sync-only.
       const loroExtension =
         loroHandleRef.current
-          ? [loroHandleRef.current.bindEditorExtension(loroEntryIndexRef.current)]
+          ? [loroHandleRef.current.bindEditorExtension(
+              loroEntryIndexRef.current,
+              collabEphemeralRef.current,
+              collabUserRef.current,
+            )]
           : [];
 
       return mods.EditorState.create({

@@ -46,6 +46,7 @@ import NoteVersionHistorySidebar, {
 } from "@/components/history/NoteVersionHistorySidebar";
 import VersionDiffView from "@/components/history/VersionDiffView";
 import { useCollabSession } from "@/lib/loro/collab/use-collab-session";
+import { peerColorClass } from "@/lib/loro/collab/safe-ephemeral-plugin";
 
 interface NoteDetailPopupProps {
   note: Note;
@@ -193,6 +194,32 @@ export default function NoteDetailPopup({
     doc: loroHandle?.doc ?? null,
     enabled: LORO_PILOT_ENABLED,
   });
+
+  // Phase 3 chunk 5a: derive the local peer's cursor identity.
+  // The EphemeralStore is stable (never re-created by useCollabSession) and is
+  // passed to both InlineMarkdownEditor instances below so their CM6 bindings
+  // share one store with the relay provider. collabUser is derived from the
+  // signed-in user name + a deterministic color derived from the doc's peer id
+  // string. Both are stable after the handle opens and change only when the
+  // user identity changes (which means the popup would unmount anyway).
+  //
+  // The LoroEphemeralPlugin is only installed when the session is LIVE -- see
+  // the `collabActive` gate passed to the editors.
+  const collabActive = LORO_PILOT_ENABLED && collab.state.status === "live";
+  // Build a collabUser lazily: only when the flag is on and the handle is open.
+  // peerColorClass is a pure deterministic hash of the peer id string so each
+  // device/tab gets a stable, distinct color. Both fields are stable after
+  // the handle opens.
+  const collabUser = useMemo(() => {
+    if (!LORO_PILOT_ENABLED || !loroHandle) return undefined;
+    return {
+      name: currentUser ?? "collaborator",
+      colorClassName: peerColorClass(loroHandle.doc.peerIdStr),
+    };
+  // peerColorClass is stable; only recompute on user/handle identity change.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loroHandle?.doc.peerIdStr, currentUser]);
+
   // Tracks the text the user is typing into the "join session" input field.
   const [joinLinkInput, setJoinLinkInput] = useState("");
 
@@ -2049,6 +2076,11 @@ export default function NoteDetailPopup({
                   loroHandle={LORO_PILOT_ENABLED ? (loroHandle ?? undefined) : undefined}
                   loroEntryIndex={LORO_PILOT_ENABLED ? entries.findIndex((e) => e.id === activeTab) : undefined}
                   loroBaseNote={LORO_PILOT_ENABLED ? note : undefined}
+                  // Phase 3 chunk 5a: live collab cursors. Only active when a
+                  // session is live AND the pilot flag is on. Absent = sync-only,
+                  // no regression for single-user editing or the undo behavior.
+                  collabEphemeral={collabActive ? collab.ephemeral : undefined}
+                  collabUser={collabActive ? collabUser : undefined}
                 />
                 )
               ) : (
@@ -2089,6 +2121,9 @@ export default function NoteDetailPopup({
                   loroHandle={LORO_PILOT_ENABLED ? (loroHandle ?? undefined) : undefined}
                   loroEntryIndex={LORO_PILOT_ENABLED ? 0 : undefined}
                   loroBaseNote={LORO_PILOT_ENABLED ? note : undefined}
+                  // Phase 3 chunk 5a: live collab cursors (see running-log branch).
+                  collabEphemeral={collabActive ? collab.ephemeral : undefined}
+                  collabUser={collabActive ? collabUser : undefined}
                 />
                 )
               )

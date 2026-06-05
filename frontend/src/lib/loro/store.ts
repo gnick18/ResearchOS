@@ -17,8 +17,8 @@
  *     eventually the relay; Phase 3 attaches its outbound sender here.
  */
 
-import { LoroDoc } from "loro-crdt";
-import { LoroSyncPlugin } from "loro-codemirror";
+import { LoroDoc, type EphemeralStore } from "loro-crdt";
+import { LoroSyncPlugin, type UserState, type EphemeralState } from "loro-codemirror";
 import type { Extension } from "@codemirror/state";
 import { loadOrRebuild, persistNote } from "./sidecar-store";
 import { classifyExternalEdit, ingestExternalEdit } from "./external-edit";
@@ -26,6 +26,7 @@ import { getDevicePeerId } from "./device-peer";
 import { recordActor } from "./actors";
 import { getEntryContentText, syncNoteMetadataToDoc, syncEntrySet } from "./note-doc";
 import { projectToNote } from "./mirror";
+import { safeLoroEphemeralPlugin } from "./collab/safe-ephemeral-plugin";
 import type { Note } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -50,8 +51,16 @@ export interface NoteHandle {
    * rebind API, so we tear down and recreate the EditorView. This matches
    * the existing LiveMarkdownEditor behavior (it already fully remounts on
    * entry switch).
+   *
+   * When `collabEphemeral` and `collabUser` are provided (a live collab session
+   * is active), LoroEphemeralPlugin is also installed alongside LoroSyncPlugin.
+   * When absent the editor is sync-only (single-user, unchanged behavior).
    */
-  bindEditorExtension(activeIndex: number): Extension;
+  bindEditorExtension(
+    activeIndex: number,
+    collabEphemeral?: EphemeralStore<EphemeralState>,
+    collabUser?: UserState,
+  ): Extension;
 
   /**
    * Reconcile the doc's entry set to the note (add new entries, drop deleted
@@ -126,25 +135,39 @@ class NoteHandleImpl implements NoteHandle {
   // Editor binding
   // ---------------------------------------------------------------------------
 
-  bindEditorExtension(activeIndex: number): Extension {
-    // Phase 1 (single-user) binds ONLY the Loro sync plugin, so Loro owns the
-    // document content (for persistence, history-from-CRDT, and future collab)
-    // while CodeMirror keeps its NATIVE undo (history()) and native cursor.
+  bindEditorExtension(
+    activeIndex: number,
+    collabEphemeral?: EphemeralStore<EphemeralState>,
+    collabUser?: UserState,
+  ): Extension {
+    // Always bind LoroSyncPlugin so Loro owns document content.
+    // CM6 keeps its NATIVE undo (we do NOT use LoroUndoPlugin) because
+    // LoroUndoPlugin throws "No tile at position N" when a stored cursor maps
+    // past the shortened text after an undo or concurrent remote delete.
     //
-    // We deliberately do NOT use LoroExtensions' bundled LoroUndoPlugin or
-    // LoroEphemeralPlugin here. Both reconstruct Loro text cursors and throw
-    // "No tile at position N" from the text rope when a stored cursor maps past
-    // the shortened text on undo. Neither is needed without live collaborators:
-    // remote-cursor awareness and collab-aware undo are Phase 3 concerns. CM6's
-    // own history + cursor are robust and handle the single-user case cleanly.
+    // LoroEphemeralPlugin is added ONLY when a live collab session is active
+    // (collabEphemeral + collabUser both provided). It is guarded by
+    // safeLoroEphemeralPlugin which clamps out-of-range remote cursor positions
+    // before CM6's RectangleMarker.forRange sees them, preventing that same
+    // "No tile" crash from the cursor/selection layer.
     //
-    // The custom text accessor binds the editor to the SPECIFIC entry's nested
-    // LoroText (not the default "codemirror" root), so one note-doc serves
-    // multiple entries by rebinding the active entry's Text on entry switch.
-    return LoroSyncPlugin(
-      this.doc,
-      (d) => getEntryContentText(d, activeIndex)!,
-    );
+    // Flag-off and no-session = sync-only, zero regression for single-user.
+    const textAccessor = (d: LoroDoc) => getEntryContentText(d, activeIndex)!;
+    const syncExtension = LoroSyncPlugin(this.doc, textAccessor);
+
+    if (collabEphemeral && collabUser) {
+      return [
+        syncExtension,
+        ...safeLoroEphemeralPlugin(
+          this.doc,
+          collabEphemeral,
+          collabUser,
+          textAccessor,
+        ),
+      ];
+    }
+
+    return syncExtension;
   }
 
   ensureEntries(note: Note): void {

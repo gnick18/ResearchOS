@@ -225,6 +225,13 @@ interface LiveMarkdownEditorProps {
   loroEntryIndex?: number;
   /** The live Note object for debounced-commit stamping. */
   loroBaseNote?: Note;
+  /**
+   * The shared EphemeralStore for the live collab session.
+   * Forwarded to InlineMarkdownEditor; when absent the editor is sync-only.
+   */
+  collabEphemeral?: import("loro-crdt").EphemeralStore<import("loro-codemirror").EphemeralState>;
+  /** Cursor identity for this peer (name + colorClassName). */
+  collabUser?: import("loro-codemirror").UserState;
 }
 
 /**
@@ -260,6 +267,8 @@ export default function LiveMarkdownEditor({
   loroHandle,
   loroEntryIndex,
   loroBaseNote,
+  collabEphemeral,
+  collabUser,
 }: LiveMarkdownEditorProps) {
   // Internal mode state (used if onModeChange is not provided)
   const [internalMode, setInternalMode] = useState<EditorMode>(mode);
@@ -2324,6 +2333,8 @@ export default function LiveMarkdownEditor({
                   loroHandle={loroHandle}
                   loroEntryIndex={loroEntryIndex}
                   loroBaseNote={loroBaseNote}
+                  collabEphemeral={collabEphemeral}
+                  collabUser={collabUser}
                 />
               </div>
             </div>

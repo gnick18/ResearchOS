@@ -208,9 +208,10 @@ describe("buildExtensions: history() presence/absence", () => {
       await new Promise((r) => setTimeout(r, 200));
     });
 
-    // bindEditorExtension should have been called once with index 0, proving
-    // the Loro extension was included in the EditorState.
-    expect(handle.bindEditorExtension).toHaveBeenCalledWith(0);
+    // bindEditorExtension should have been called once with index 0 and
+    // undefined collab args (no live session), proving the Loro sync extension
+    // was included in the EditorState and the collab path was not active.
+    expect(handle.bindEditorExtension).toHaveBeenCalledWith(0, undefined, undefined);
 
     unmount();
   });
