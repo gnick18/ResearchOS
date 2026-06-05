@@ -7,6 +7,8 @@
 
 import { Resend } from "resend";
 
+import { recordEmailSent } from "./db";
+
 let resendSingleton: Resend | null = null;
 
 const FROM_ADDRESS = "ResearchOS <onboarding@resend.dev>";
@@ -44,5 +46,12 @@ export async function sendOtpEmail(toEmail: string, code: string): Promise<void>
   });
   if (error) {
     throw new Error(`Resend failed to send the OTP email: ${error.message}`);
+  }
+  // Best-effort send accounting for the operator dashboard. A logging failure
+  // must never turn a delivered email into a reported failure, so swallow it.
+  try {
+    await recordEmailSent("otp");
+  } catch {
+    // ignore
   }
 }

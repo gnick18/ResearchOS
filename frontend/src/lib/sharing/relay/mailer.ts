@@ -23,6 +23,8 @@
 
 import { Resend } from "resend";
 
+import { recordEmailSent } from "../directory/db";
+
 let resendSingleton: Resend | null = null;
 
 /**
@@ -279,5 +281,13 @@ export async function sendInviteEmail(params: InviteEmailParams): Promise<void> 
   });
   if (error) {
     throw new Error(`Resend failed to send the invite email: ${error.message}`);
+  }
+  // Best-effort send accounting for the operator dashboard (same table as the
+  // OTP sends). A logging failure must never turn a delivered email into a
+  // reported failure, so swallow it.
+  try {
+    await recordEmailSent("share_invite");
+  } catch {
+    // ignore
   }
 }

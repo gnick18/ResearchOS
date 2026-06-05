@@ -489,3 +489,90 @@ export async function getDirectoryMetrics(): Promise<DirectoryMetrics> {
     })),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Capacity / cost planning (powers the /admin "Infrastructure" panel)
+// ---------------------------------------------------------------------------
+
+/**
+ * Total on-disk size of the Neon database in bytes (directory + relay tables
+ * share one DATABASE_URL, so this is the whole Neon usage). Used to show how
+ * much of the Neon storage ceiling is left before an upgrade is needed.
+ */
+export async function getDatabaseSizeBytes(): Promise<number> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT pg_database_size(current_database()) AS bytes
+  `) as Array<{ bytes: string | number }>;
+  return Number(rows[0]?.bytes ?? 0);
+}
+
+/**
+ * Append-only log of outbound emails, one row per successful send. We keep only
+ * a coarse kind plus a timestamp, never the recipient, so we can report send
+ * volume against the Resend free-tier limits (per-day and per-month) without
+ * storing any address. Idempotent so every send site can call it on demand.
+ */
+export async function ensureEmailLogSchema(): Promise<void> {
+  const sql = getSql();
+  await sql`
+    CREATE TABLE IF NOT EXISTS directory_email_log (
+      id BIGSERIAL PRIMARY KEY,
+      kind TEXT NOT NULL,
+      sent_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `;
+}
+
+/**
+ * Records one successful outbound email. Best-effort: a logging failure must
+ * never break the actual send, so callers wrap this in a try/catch and ignore
+ * errors. `kind` is a coarse bucket like "otp" or "share_invite".
+ */
+export async function recordEmailSent(kind: string): Promise<void> {
+  const sql = getSql();
+  await ensureEmailLogSchema();
+  await sql`INSERT INTO directory_email_log (kind) VALUES (${kind})`;
+}
+
+export interface EmailMetrics {
+  sentToday: number;
+  sentLast30Days: number;
+  byKind: { kind: string; count: number }[];
+}
+
+/**
+ * Outbound email volume for the operator dashboard. "Today" is the trailing
+ * 24h (what Resend's per-day cap applies to) and "last 30 days" approximates
+ * the monthly cap. Counts only, never any recipient.
+ */
+export async function getEmailMetrics(): Promise<EmailMetrics> {
+  const sql = getSql();
+  await ensureEmailLogSchema();
+
+  const todayRows = (await sql`
+    SELECT count(*)::int AS n
+    FROM directory_email_log
+    WHERE sent_at >= now() - interval '24 hours'
+  `) as Array<{ n: number }>;
+
+  const monthRows = (await sql`
+    SELECT count(*)::int AS n
+    FROM directory_email_log
+    WHERE sent_at >= now() - interval '30 days'
+  `) as Array<{ n: number }>;
+
+  const kindRows = (await sql`
+    SELECT kind, count(*)::int AS count
+    FROM directory_email_log
+    WHERE sent_at >= now() - interval '30 days'
+    GROUP BY kind
+    ORDER BY count DESC, kind ASC
+  `) as Array<{ kind: string; count: number }>;
+
+  return {
+    sentToday: todayRows[0]?.n ?? 0,
+    sentLast30Days: monthRows[0]?.n ?? 0,
+    byKind: kindRows.map((r) => ({ kind: r.kind, count: r.count })),
+  };
+}

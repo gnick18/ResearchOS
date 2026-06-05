@@ -17,6 +17,7 @@
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -61,6 +62,36 @@ function getBucket(): string {
     throw new Error("R2_BUCKET is not set. The relay has no bucket to use.");
   }
   return bucket;
+}
+
+/**
+ * Walks the whole bucket and sums object sizes for the operator dashboard. This
+ * is the true R2 storage figure (including any bundles still mid-flight or not
+ * yet swept), not a DB estimate, so the dashboard can show real headroom against
+ * the R2 free-tier ceiling. Paginates with the continuation token so a bucket
+ * over 1000 keys is counted fully. The relay never reads object bytes, only the
+ * key list and sizes.
+ */
+export async function getBucketUsage(): Promise<{
+  objectCount: number;
+  totalBytes: number;
+}> {
+  const s3 = getS3();
+  const bucket = getBucket();
+  let objectCount = 0;
+  let totalBytes = 0;
+  let token: string | undefined;
+  do {
+    const out = await s3.send(
+      new ListObjectsV2Command({ Bucket: bucket, ContinuationToken: token }),
+    );
+    for (const obj of out.Contents ?? []) {
+      objectCount += 1;
+      totalBytes += obj.Size ?? 0;
+    }
+    token = out.IsTruncated ? out.NextContinuationToken : undefined;
+  } while (token);
+  return { objectCount, totalBytes };
 }
 
 /**

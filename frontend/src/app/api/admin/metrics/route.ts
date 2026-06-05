@@ -12,7 +12,9 @@
 
 import { auth } from "@/lib/sharing/auth";
 import { isAdminEmail } from "@/lib/sharing/admin";
+import { getCapacityMetrics } from "@/lib/sharing/capacity";
 import {
+  ensureEmailLogSchema,
   ensureOrcidSchema,
   ensureProfileSchema,
   ensureSchema,
@@ -38,17 +40,22 @@ export async function GET(): Promise<Response> {
   await ensureProfileSchema();
   await ensureOrcidSchema();
   await ensureRelaySchema();
+  await ensureEmailLogSchema();
 
   let directory;
   let relay;
+  let capacity;
   try {
-    [directory, relay] = await Promise.all([
+    [directory, relay, capacity] = await Promise.all([
       getDirectoryMetrics(),
       getRelayMetrics(),
+      // getCapacityMetrics is internally resilient (per-service null fallback),
+      // so it does not throw and never sinks the whole request.
+      getCapacityMetrics(),
     ]);
   } catch {
     return json(500, { error: "metrics failed" });
   }
 
-  return json(200, { directory, relay });
+  return json(200, { directory, relay, capacity });
 }

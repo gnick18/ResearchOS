@@ -54,6 +54,17 @@ function getRedis(): RedisClient {
 }
 
 /**
+ * Number of keys currently in the Upstash Redis store. Keys here are short-lived
+ * (rate-limit windows and OTP codes, all TTL'd), so this is a small, bouncy
+ * number, a rough proxy for Redis storage use. The real Upstash free-tier limit
+ * is monthly command count, which is only visible in the Upstash console, so the
+ * dashboard pairs this with a pointer there.
+ */
+export async function getRedisKeyCount(): Promise<number> {
+  return getRedis().dbsize();
+}
+
+/**
  * Per-IP sliding-window limiter, 20 requests per minute. Applied to every
  * directory route to cap how fast a single source can probe or spam.
  */

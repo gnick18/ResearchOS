@@ -14,6 +14,33 @@ import { useEffect, useState } from "react";
 
 import Link from "next/link";
 import AppFooter from "@/components/AppFooter";
+import BeakerBotGreeting from "@/components/admin/BeakerBotGreeting";
+import {
+  capacityStatus,
+  pctUsed,
+  type CapacityStatus,
+} from "@/lib/sharing/capacity-shared";
+
+interface CapacityMetrics {
+  neon: { usedBytes: number | null; limitBytes: number };
+  r2: {
+    usedBytes: number | null;
+    objectCount: number | null;
+    limitBytes: number;
+  };
+  upstash: {
+    keyCount: number | null;
+    storageLimitBytes: number;
+    commandsPerMonthLimit: number;
+  };
+  resend: {
+    sentToday: number | null;
+    sentLast30Days: number | null;
+    byKind: { kind: string; count: number }[];
+    perDayLimit: number;
+    perMonthLimit: number;
+  };
+}
 
 interface Metrics {
   directory: {
@@ -28,6 +55,7 @@ interface Metrics {
     pendingBytes: number;
     totalEverSent: number;
   };
+  capacity?: CapacityMetrics;
 }
 
 function humanBytes(bytes: number): string {
@@ -71,6 +99,88 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
         {value}
       </p>
     </div>
+  );
+}
+
+function fmtInt(n: number): string {
+  return n.toLocaleString();
+}
+
+const STATUS_BAR: Record<CapacityStatus, string> = {
+  ok: "bg-emerald-500",
+  watch: "bg-amber-500",
+  critical: "bg-rose-500",
+};
+
+const STATUS_TEXT: Record<CapacityStatus, string> = {
+  ok: "text-emerald-700",
+  watch: "text-amber-700",
+  critical: "text-rose-600",
+};
+
+/** A labelled used/limit progress bar, coloured by how close to the ceiling. */
+function UsageBar({
+  label,
+  used,
+  limit,
+  usedLabel,
+  limitLabel,
+}: {
+  label: string;
+  used: number;
+  limit: number;
+  usedLabel: string;
+  limitLabel: string;
+}) {
+  const pct = pctUsed(used, limit);
+  const status = capacityStatus(pct);
+  return (
+    <div>
+      <div className="flex items-baseline justify-between">
+        <span className="text-meta text-gray-500">{label}</span>
+        <span className={`text-meta font-semibold ${STATUS_TEXT[status]}`}>
+          {pct < 10 ? pct.toFixed(1) : Math.round(pct)}%
+        </span>
+      </div>
+      <span className="mt-1 block h-2 overflow-hidden rounded-full bg-gray-100">
+        <span
+          className={`block h-full rounded-full ${STATUS_BAR[status]}`}
+          style={{ width: `${Math.max(pct, 1.5)}%` }}
+        />
+      </span>
+      <p className="mt-1 text-meta text-gray-400">
+        {usedLabel} of {limitLabel}
+      </p>
+    </div>
+  );
+}
+
+/** One service tile in the capacity grid. */
+function ServiceCard({
+  name,
+  sub,
+  children,
+}: {
+  name: string;
+  sub: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-5">
+      <div className="mb-3">
+        <p className="text-body font-semibold text-gray-900">{name}</p>
+        <p className="text-meta text-gray-400">{sub}</p>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Unavailable() {
+  return (
+    <p className="text-meta text-gray-400 leading-relaxed">
+      Measurement unavailable, the service is not configured or did not respond.
+    </p>
   );
 }
 
@@ -150,9 +260,14 @@ export default function AdminMetrics() {
 
   return (
     <Shell>
-      <h1 className="mb-6 text-display font-bold tracking-tight text-gray-900">
-        Operator metrics
-      </h1>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <h1 className="text-display font-bold tracking-tight text-gray-900">
+          Operator metrics
+        </h1>
+        <div className="shrink-0 pt-1">
+          <BeakerBotGreeting metrics={state.data} />
+        </div>
+      </div>
 
       {/* Headline counts */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -218,6 +333,119 @@ export default function AdminMetrics() {
           )}
         </section>
       </div>
+
+      {/* Infrastructure capacity / cost planning */}
+      {state.data.capacity && (
+        <section className="mt-10">
+          <h2 className="text-title font-semibold text-gray-900">
+            Infrastructure capacity
+          </h2>
+          <p className="mb-4 mt-1 text-meta text-gray-400 leading-relaxed">
+            How much of each service&apos;s free-tier ceiling is in use, so you
+            can see what (if anything) needs a paid upgrade and when. Ceilings are
+            the published free-tier limits as of 2026-06-05, verify against your
+            actual plan since they change.
+          </p>
+          {(() => {
+            const c = state.data.capacity;
+            return (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {/* Neon Postgres */}
+                <ServiceCard
+                  name="Neon Postgres"
+                  sub="Accounts, profiles, relay metadata"
+                >
+                  {c.neon.usedBytes === null ? (
+                    <Unavailable />
+                  ) : (
+                    <UsageBar
+                      label="Database size"
+                      used={c.neon.usedBytes}
+                      limit={c.neon.limitBytes}
+                      usedLabel={humanBytes(c.neon.usedBytes)}
+                      limitLabel={humanBytes(c.neon.limitBytes)}
+                    />
+                  )}
+                </ServiceCard>
+
+                {/* Cloudflare R2 */}
+                <ServiceCard
+                  name="Cloudflare R2"
+                  sub="Encrypted share bundles in flight"
+                >
+                  {c.r2.usedBytes === null ? (
+                    <Unavailable />
+                  ) : (
+                    <>
+                      <UsageBar
+                        label="Object storage"
+                        used={c.r2.usedBytes}
+                        limit={c.r2.limitBytes}
+                        usedLabel={humanBytes(c.r2.usedBytes)}
+                        limitLabel={humanBytes(c.r2.limitBytes)}
+                      />
+                      <p className="mt-2 text-meta text-gray-400">
+                        {fmtInt(c.r2.objectCount ?? 0)}{" "}
+                        {c.r2.objectCount === 1 ? "bundle" : "bundles"} parked.
+                        Bundles auto-expire, so this stays low.
+                      </p>
+                    </>
+                  )}
+                </ServiceCard>
+
+                {/* Upstash Redis */}
+                <ServiceCard
+                  name="Upstash Redis"
+                  sub="Rate-limit windows + OTP codes"
+                >
+                  {c.upstash.keyCount === null ? (
+                    <Unavailable />
+                  ) : (
+                    <>
+                      <p className="text-display font-bold tracking-tight text-gray-900">
+                        {fmtInt(c.upstash.keyCount)}
+                      </p>
+                      <p className="text-meta text-gray-400">live keys</p>
+                      <p className="mt-2 text-meta text-gray-400 leading-relaxed">
+                        All keys are short-lived and TTL&apos;d, so storage stays
+                        tiny. The free-tier limit that actually bites is{" "}
+                        {fmtInt(c.upstash.commandsPerMonthLimit)} commands/month,
+                        which is only visible in the Upstash console.
+                      </p>
+                    </>
+                  )}
+                </ServiceCard>
+
+                {/* Resend email */}
+                <ServiceCard name="Resend email" sub="OTP codes + share invites">
+                  {c.resend.sentToday === null ? (
+                    <Unavailable />
+                  ) : (
+                    <div className="space-y-3">
+                      <UsageBar
+                        label="Today"
+                        used={c.resend.sentToday}
+                        limit={c.resend.perDayLimit}
+                        usedLabel={`${fmtInt(c.resend.sentToday)} sent`}
+                        limitLabel={`${fmtInt(c.resend.perDayLimit)}/day`}
+                      />
+                      <UsageBar
+                        label="Last 30 days"
+                        used={c.resend.sentLast30Days ?? 0}
+                        limit={c.resend.perMonthLimit}
+                        usedLabel={`${fmtInt(
+                          c.resend.sentLast30Days ?? 0,
+                        )} sent`}
+                        limitLabel={`${fmtInt(c.resend.perMonthLimit)}/month`}
+                      />
+                    </div>
+                  )}
+                </ServiceCard>
+              </div>
+            );
+          })()}
+        </section>
+      )}
 
       {/* Page-usage pointer */}
       <p className="mt-8 text-meta text-gray-400 leading-relaxed">
