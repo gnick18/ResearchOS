@@ -191,6 +191,9 @@ These five are the standard preamble; paste them into every worktree brief.
 - Typecheck after every significant change: `cd frontend && npx tsc --noEmit`. The bar is exit 0.
 - ESLint warnings are fine; new errors are not.
 - **Icon-only buttons** → wrap in `<Tooltip>` from `frontend/src/components/Tooltip.tsx`. Native HTML `title=` is functionally invisible in this app (custom rendering layer hides it) — never use it for tooltips on new code. The native-tooltip migration sweep is mostly done; any new component should default to `<Tooltip>`.
+- **Brand tokens, not raw hex/sky utilities** (2026-06-05). Colors are tokenized in `frontend/src/app/globals.css`: use `brand-sky` (#1AA0E6, identity blue — BeakerBot + large marks only, fails AA for small text), `brand-action` (#1283C9, the accessible UI accent — text/links/small accents), `brand-ink` (#111827, headings/wordmark), `brand-purple` (#5B47D6). The rainbow lives in `--brand-rainbow{,-vertical,-vivid}` + the `.brand-rainbow-bg` / `.brand-rainbow-text` utilities. Don't hand-roll `#1283c9` / `text-sky-600` for new accents.
+  - **The "ResearchOS" lockup** → use `<Wordmark>` from `frontend/src/components/Wordmark.tsx` (mark + wordmark, weight 800, brand-sky mark, brand-ink text). Never hand-roll `<BeakerBot> + <h1>ResearchOS</h1>`; that is how it drifted into three different weights/blues before.
+  - **Primary CTA buttons** → use the `.btn-brand` class (the brand action→purple gradient, AA white text). When your arc touches a feature with `bg-sky-600` primary buttons, convert them to `.btn-brand` as part of that work (the app-wide sweep is deliberately per-arc, not a blind global pass). Leave toggles / segmented controls / calculator keys on their existing fills — `.btn-brand` is for prominent primary actions only.
 
 ### Bot-driven UI verification (2026-05-13)
 
