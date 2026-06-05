@@ -119,14 +119,34 @@ function isPreprintWork(w: OrcidWork): boolean {
   return false;
 }
 
+/** A correction/corrigendum/erratum notice (it points at another paper). */
+const CORRECTION_RE = /^\s*(author\s+|publisher\s+)?(correction|corrigendum|erratum)\b/i;
+
+function isCorrection(w: OrcidWork): boolean {
+  return CORRECTION_RE.test(w.title);
+}
+
+/** The body of a correction title, the part after the "Correction:" prefix. */
+function correctionBody(title: string): string {
+  const colon = title.indexOf(":");
+  const rest = colon >= 0 ? title.slice(colon + 1) : title.replace(CORRECTION_RE, "");
+  return normalizeTitle(rest);
+}
+
 /**
- * Collapses obvious preprint/published pairs, works that share an effectively
- * identical title. Within such a group we keep the single most canonical
- * version, preferring a non-preprint over a preprint, then one that has a
- * journal, then the most recent year. Works with distinct titles (including a
- * separate "Correction:" record, whose title differs) are all kept.
+ * Collapses obvious duplicates so a profile shows one entry per paper:
+ *   1. Preprint/published pairs that share an effectively identical title, we
+ *      keep the most canonical version (non-preprint over preprint, then one
+ *      with a journal, then the most recent year).
+ *   2. A "Correction:/Corrigendum:/Erratum:" record when the main paper it
+ *      refers to is also present, the main paper's full title appears inside
+ *      the correction title, so we drop the correction and show only the paper.
+ * Only obvious matches collapse, an exact normalized title for pass 1, and the
+ * whole main title contained in the correction for pass 2, so distinct papers
+ * are never merged, and an orphan correction (no main paper present) is kept.
  */
 function dedupeWorks(works: OrcidWork[]): OrcidWork[] {
+  // Pass 1, exact-title collapse.
   const groups = new Map<string, OrcidWork[]>();
   for (const w of works) {
     const key = normalizeTitle(w.title);
@@ -135,13 +155,16 @@ function dedupeWorks(works: OrcidWork[]): OrcidWork[] {
     else groups.set(key, [w]);
   }
 
-  const kept: OrcidWork[] = [];
+  let kept: OrcidWork[] = [];
   for (const group of groups.values()) {
     if (group.length === 1) {
       kept.push(group[0]);
       continue;
     }
     group.sort((a, b) => {
+      const ca = isCorrection(a) ? 1 : 0;
+      const cb = isCorrection(b) ? 1 : 0;
+      if (ca !== cb) return ca - cb; // corrections last
       const pa = isPreprintWork(a) ? 1 : 0;
       const pb = isPreprintWork(b) ? 1 : 0;
       if (pa !== pb) return pa - pb; // non-preprint first
@@ -152,6 +175,18 @@ function dedupeWorks(works: OrcidWork[]): OrcidWork[] {
     });
     kept.push(group[0]);
   }
+
+  // Pass 2, drop a correction whose main paper is also present.
+  const mainTitles = kept
+    .filter((w) => !isCorrection(w))
+    .map((w) => normalizeTitle(w.title))
+    .filter((t) => t.length >= 12);
+  kept = kept.filter((w) => {
+    if (!isCorrection(w)) return true;
+    const body = correctionBody(w.title);
+    return !mainTitles.some((t) => body.includes(t)); // drop if it corrects a shown paper
+  });
+
   return kept;
 }
 

@@ -130,14 +130,18 @@ describe("parseOrcidWorks", () => {
     expect(works[0].doi).toBe("10.1093/nar/gkad573");
   });
 
-  it("does NOT collapse a Correction record (different title)", () => {
+  it("collapses a Correction into its main paper, even with an author prefix", () => {
     const works = parseOrcidWorks({
       group: [
         {
           "work-summary": [
             {
               "put-code": 20,
-              title: { title: { value: "A Timeline of Discovery" } },
+              title: {
+                title: {
+                  value: "A Timeline of Biosynthetic Gene Cluster Discovery in Aspergillus fumigatus",
+                },
+              },
               "journal-title": { value: "Journal of Fungi" },
               "publication-date": { year: { value: "2024" } },
             },
@@ -147,7 +151,12 @@ describe("parseOrcidWorks", () => {
           "work-summary": [
             {
               "put-code": 21,
-              title: { title: { value: "Correction: A Timeline of Discovery" } },
+              title: {
+                title: {
+                  value:
+                    "Correction: Seo et al. A Timeline of Biosynthetic Gene Cluster Discovery in Aspergillus fumigatus",
+                },
+              },
               "journal-title": { value: "Journal of Fungi" },
               "publication-date": { year: { value: "2024" } },
             },
@@ -155,7 +164,28 @@ describe("parseOrcidWorks", () => {
         },
       ],
     });
-    expect(works).toHaveLength(2);
+    expect(works).toHaveLength(1);
+    expect(works[0].title).toBe(
+      "A Timeline of Biosynthetic Gene Cluster Discovery in Aspergillus fumigatus",
+    );
+  });
+
+  it("keeps an orphan correction whose main paper is not present", () => {
+    const works = parseOrcidWorks({
+      group: [
+        {
+          "work-summary": [
+            {
+              "put-code": 30,
+              title: { title: { value: "Correction: Some Paper We Do Not Otherwise List" } },
+              "journal-title": { value: "Journal of Fungi" },
+              "publication-date": { year: { value: "2024" } },
+            },
+          ],
+        },
+      ],
+    });
+    expect(works).toHaveLength(1);
   });
 
   it("returns an empty array for malformed or empty input", () => {
