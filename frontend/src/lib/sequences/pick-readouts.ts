@@ -149,6 +149,51 @@ export function classifyGatewaySubstrate(
 }
 
 // ============================================================================
+// 2b. GATEWAY: floating att-flanked substrates to the top of the picker
+// ============================================================================
+
+/** A library record carrying enough to render a picker row, plus the bases the
+ *  classifier needs. The picker passes its SequenceRecord summaries through as
+ *  `T`; `seq` is resolved on demand (empty string when not yet resolved). */
+export interface GatewayPickerInput<T> {
+  rec: T;
+  /** Resolved top-strand bases, or "" when still resolving (treated as unknown). */
+  seq: string;
+  /** Topology of the substrate; passed straight to the classifier. */
+  circular: boolean;
+}
+
+/** The two picker groups: att-flanked candidates (tagged) first, then the rest. */
+export interface GatewayPickerGroups<T> {
+  att: { rec: T; kind: GatewayKind; label: string }[];
+  other: T[];
+}
+
+/**
+ * Split a filtered Gateway picker list into att-flanked candidates and the rest,
+ * preserving input order within each group. A record whose resolved bases yield a
+ * directional att pair (via classifyGatewaySubstrate) goes to `att` with its
+ * detected kind/label; everything else (including not-yet-resolved rows) goes to
+ * `other`, still selectable.
+ *
+ * Pure. REUSES classifyGatewaySubstrate for att detection (no reimplementation).
+ */
+export function groupGatewayPicker<T>(
+  inputs: GatewayPickerInput<T>[],
+): GatewayPickerGroups<T> {
+  const att: { rec: T; kind: GatewayKind; label: string }[] = [];
+  const other: T[] = [];
+  for (const { rec, seq, circular } of inputs) {
+    const cls = seq
+      ? classifyGatewaySubstrate({ name: "", seq, circular })
+      : null;
+    if (cls && cls.kind !== "unknown") att.push({ rec, kind: cls.kind, label: cls.label });
+    else other.push(rec);
+  }
+  return { att, other };
+}
+
+// ============================================================================
 // 3. GATEWAY: reaction <-> substrate match check
 // ============================================================================
 

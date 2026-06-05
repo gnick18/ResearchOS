@@ -51,9 +51,15 @@ import {
 import {
   fragmentSiteSummary,
   checkGatewayMatch,
+  groupGatewayPicker,
   type FragmentSiteSummary,
   type GatewayMatch,
+  type GatewayKind,
 } from "@/lib/sequences/pick-readouts";
+import {
+  filterLibrary,
+  type TopologyFilter,
+} from "@/lib/sequences/library-filter";
 import type { SequenceRecord } from "@/lib/types";
 import CloningProductPreview from "./CloningProductPreview";
 import type { RibbonJunction } from "./FragmentRibbon";
@@ -73,6 +79,19 @@ const METHOD_LABEL: Record<CloneMethod, string> = {
   restriction: "Restriction",
   "golden-gate": "Golden Gate",
   gateway: "Gateway",
+};
+
+// Method-aware DEFAULT for the library topology filter. Overlap fragments are
+// LINEAR pieces (a raw circular plasmid added to a Gibson assembly is wrong; the
+// engine treats the ring as a linear body, so you linearize first), so Overlap
+// hides circular by default. Cut (restriction / Golden Gate) and recombine
+// (Gateway) accept both topologies, so they default to "all". The user can
+// always switch after the default is applied.
+const DEFAULT_TOPOLOGY_FILTER: Record<CloneMethod, TopologyFilter> = {
+  overlap: "linear",
+  restriction: "all",
+  "golden-gate": "all",
+  gateway: "all",
 };
 
 /** Type IIS enzymes offered for Golden Gate, and common cutters for restriction. */
@@ -105,6 +124,9 @@ function CopyIcon({ className }: { className?: string }) {
 }
 function CheckIcon({ className }: { className?: string }) {
   return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>);
+}
+function SearchIcon({ className }: { className?: string }) {
+  return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>);
 }
 
 // --- types for the workspace's working state --------------------------------
@@ -153,6 +175,11 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteName, setPasteName] = useState("");
   const [pasteSeq, setPasteSeq] = useState("");
+  // Library picker filtering. Search is a display_name substring; topologyFilter
+  // is method-aware (Overlap defaults to "linear", since raw Gibson fragments are
+  // linear; cut/recombine methods default to "all"). Both stay user-switchable.
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [topologyFilter, setTopologyFilter] = useState<TopologyFilter>("linear");
 
   const { data: library = [] } = useQuery({
     queryKey: ["sequences"],
@@ -163,6 +190,11 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
   const dnaLibrary = useMemo(
     () => library.filter((s: SequenceRecord) => s.seq_type === "dna"),
     [library],
+  );
+  // The picker list after the topology + search filter. Pure (library-filter.ts).
+  const filteredLibrary = useMemo(
+    () => filterLibrary(dnaLibrary, topologyFilter, librarySearch),
+    [dnaLibrary, topologyFilter, librarySearch],
   );
 
   // Reset when opened.
@@ -186,6 +218,14 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
     }
   }, [open]);
 
+  // Re-apply the method-aware topology default whenever the method changes, and
+  // reset the search so the picker starts clean on each chemistry. The control
+  // stays switchable; this only seeds the default the user can override.
+  useEffect(() => {
+    setTopologyFilter(DEFAULT_TOPOLOGY_FILTER[method]);
+    setLibrarySearch("");
+  }, [method]);
+
 
   // Resolve the full bases + features of every picked LIBRARY fragment (pasted
   // ones already carry their seq). Keyed on the picked id list so it refetches
@@ -208,6 +248,44 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
       return map;
     },
   });
+
+  // GATEWAY att-relevance for the PICKER (gateway tab only). classifyGatewaySubstrate
+  // needs the substrate SEQUENCE, which the library summaries do not carry, so on
+  // the Gateway tab we resolve the bases of the topology+search-filtered DNA library
+  // (already narrowed, so we never resolve the whole library) and classify each.
+  // Keyed on the filtered id list so the query cache prevents refetch on re-render.
+  const gatewayPickerIds = useMemo(
+    () => (method === "gateway" ? filteredLibrary.map((s) => s.id) : []),
+    [method, filteredLibrary],
+  );
+  const { data: gatewayBases, isFetching: gatewayResolving } = useQuery({
+    queryKey: ["gateway-picker-bases", gatewayPickerIds],
+    enabled: open && method === "gateway" && gatewayPickerIds.length > 0,
+    queryFn: async () => {
+      const map = new Map<number, string>();
+      for (const id of gatewayPickerIds) {
+        const detail = await sequencesApi.get(id);
+        if (detail) map.set(id, detail.seq);
+      }
+      return map;
+    },
+  });
+
+  // Split the (filtered) Gateway picker into att-flanked candidates (sorted to the
+  // top, each tagged with its detected kind/label) and the rest. Other tabs keep a
+  // flat list. Classification reuses the Phase C classifier on the resolved bases.
+  const gatewayPickerGroups = useMemo(() => {
+    if (method !== "gateway") {
+      return { att: [] as { rec: SequenceRecord; kind: GatewayKind; label: string }[], other: filteredLibrary };
+    }
+    return groupGatewayPicker(
+      filteredLibrary.map((rec) => ({
+        rec,
+        seq: gatewayBases?.get(rec.id) ?? "",
+        circular: rec.circular,
+      })),
+    );
+  }, [method, filteredLibrary, gatewayBases]);
 
   // Build the engine's Fragment[] from the picked list + resolved bases.
   const fragments: Fragment[] = useMemo(() => {
@@ -933,13 +1011,63 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
             <div className="border-b border-gray-100 px-4 py-3">
               <h2 className="text-body font-semibold text-gray-700">Your DNA library</h2>
               <p className="mt-0.5 text-meta text-gray-500">Click to add a fragment in order.</p>
+
+              {/* Search by name. */}
+              <div className="relative mt-2.5">
+                <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={librarySearch}
+                  onChange={(e) => setLibrarySearch(e.target.value)}
+                  placeholder="Search by name"
+                  aria-label="Search the DNA library by name"
+                  className="w-full rounded-md border border-gray-200 py-1.5 pl-8 pr-2.5 text-meta focus:border-sky-400 focus:outline-none"
+                />
+              </div>
+
+              {/* Topology segmented control. Defaults per method (Overlap ->
+                  Linear, since raw Gibson fragments are linear; cut/recombine
+                  methods -> All), then stays user-switchable. */}
+              <div className="mt-2 flex rounded-md border border-gray-200 p-0.5">
+                {(["all", "circular", "linear"] as TopologyFilter[]).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTopologyFilter(t)}
+                    aria-pressed={topologyFilter === t}
+                    className={`flex-1 rounded px-2 py-1 text-meta font-medium capitalize ${
+                      topologyFilter === t
+                        ? "bg-sky-100 text-sky-700"
+                        : "text-gray-600 hover:bg-gray-100"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+
+              {/* Overlap-only calm note when the Linear default is hiding
+                  circular plasmids, pointing at how to use one (linearize first). */}
+              {method === "overlap" && topologyFilter === "linear" ? (
+                <p className="mt-2 text-meta text-gray-400">
+                  Gibson fragments are linear. Linearize a plasmid (PCR or restriction) before using it here.
+                </p>
+              ) : null}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               {dnaLibrary.length === 0 ? (
                 <div className="px-4 py-6 text-body text-gray-400">No DNA sequences in your library yet.</div>
+              ) : filteredLibrary.length === 0 ? (
+                <div className="px-4 py-6 text-body text-gray-400">No matching sequences.</div>
+              ) : method === "gateway" ? (
+                <GatewayLibraryList
+                  groups={gatewayPickerGroups}
+                  resolving={gatewayResolving}
+                  onAdd={addLibrary}
+                />
               ) : (
                 <ul>
-                  {dnaLibrary.map((s) => (
+                  {filteredLibrary.map((s) => (
                     <li key={s.id}>
                       <button type="button" onClick={() => addLibrary(s)} className="flex w-full items-center justify-between gap-2 border-b border-gray-50 px-4 py-2 text-left hover:bg-sky-50">
                         <span className="min-w-0">
@@ -1375,6 +1503,90 @@ function GatewaySubstrateChip({ kind, label }: { kind: string; label: string }) 
         {recognized ? <CheckIcon className="h-3 w-3 shrink-0" /> : <WarnIcon className="h-3 w-3 shrink-0" />}
         {label}
       </span>
+    </div>
+  );
+}
+
+/** One picker row for a library sequence. Click adds it as the next fragment.
+ *  The optional att chip names the detected Gateway kind on the Gateway tab. */
+function LibraryPickerRow({
+  rec,
+  attLabel,
+  onAdd,
+}: {
+  rec: SequenceRecord;
+  attLabel?: string;
+  onAdd: (rec: SequenceRecord) => void;
+}) {
+  return (
+    <button type="button" onClick={() => onAdd(rec)} className="flex w-full items-center justify-between gap-2 border-b border-gray-50 px-4 py-2 text-left hover:bg-sky-50">
+      <span className="min-w-0">
+        <span className="block truncate text-body font-medium text-gray-800">{rec.display_name}</span>
+        <span className="block text-meta text-gray-400">{rec.length.toLocaleString()} bp{rec.circular ? " · circular" : ""}</span>
+        {attLabel ? (
+          <span className="mt-1 inline-flex items-center gap-1 rounded bg-sky-50 px-1.5 py-0.5 text-meta font-medium text-sky-700">
+            <CheckIcon className="h-3 w-3 shrink-0" />
+            {attLabel}
+          </span>
+        ) : null}
+      </span>
+      <span className="text-lg leading-none text-sky-500">+</span>
+    </button>
+  );
+}
+
+/** Gateway-tab picker list. att-flanked substrates (attL / attR / attB / attP)
+ *  float to the top under an "att-flanked substrates" sub-header, each tagged
+ *  with its detected kind, then the rest under a muted "Other sequences" header
+ *  (still selectable). Reuses the Phase C classifier (via gatewayPickerGroups).
+ *  Shows a calm "Checking att sites…" line while the bases resolve. */
+function GatewayLibraryList({
+  groups,
+  resolving,
+  onAdd,
+}: {
+  groups: { att: { rec: SequenceRecord; kind: GatewayKind; label: string }[]; other: SequenceRecord[] };
+  resolving: boolean;
+  onAdd: (rec: SequenceRecord) => void;
+}) {
+  // Strip the " detected" suffix the classifier adds, so the picker chip reads as
+  // the kind label itself (e.g. "attL entry clone"), matching the brief wording.
+  const chip = (label: string) => label.replace(/ detected$/, "");
+  return (
+    <div>
+      {resolving ? (
+        <div className="border-b border-gray-50 px-4 py-2 text-meta text-gray-400">Checking att sites…</div>
+      ) : null}
+      {groups.att.length > 0 ? (
+        <>
+          <div className="bg-sky-50/60 px-4 py-1.5 text-meta font-medium uppercase tracking-wide text-sky-700">
+            att-flanked substrates
+          </div>
+          <ul>
+            {groups.att.map(({ rec, label }) => (
+              <li key={rec.id}>
+                <LibraryPickerRow rec={rec} attLabel={chip(label)} onAdd={onAdd} />
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+      {groups.other.length > 0 ? (
+        <>
+          {groups.att.length > 0 ? (
+            <div className="bg-gray-50 px-4 py-1.5 text-meta font-medium uppercase tracking-wide text-gray-400">
+              Other sequences
+            </div>
+          ) : null}
+          <ul>
+            {groups.other.map((rec) => (
+              <li key={rec.id}>
+                <LibraryPickerRow rec={rec} onAdd={onAdd} />
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
     </div>
   );
 }
