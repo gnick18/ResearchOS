@@ -48,6 +48,9 @@ frontend/scratch-parse-output.json
 
 # DNA feature DB build cache (re-fetchable from NCBI; not tracked)
 scripts/.dna-feature-cache/
+
+# Taxonomy backbone build temp (the raw NCBI taxdump zip + dmp files; re-downloadable, not tracked)
+tools/taxonomy-backbone/.taxdump-tmp/
 .vercel
 .env*
 # ...but keep the checked-in env template (placeholders only, no secrets).

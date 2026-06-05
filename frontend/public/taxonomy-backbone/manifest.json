@@ -1,0 +1,30 @@
+{
+  "builtAt": "2026-06-05T21:12:45.445Z",
+  "taxdumpLastModified": "2026-06-05T20:39:25.000Z",
+  "nodeCount": 16410,
+  "rankCounts": {
+    "domain": 3,
+    "order": 2127,
+    "family": 11500,
+    "phylum": 335,
+    "class": 620,
+    "suborder": 379,
+    "subclass": 169,
+    "kingdom": 22,
+    "subphylum": 36,
+    "superfamily": 943,
+    "infraorder": 144,
+    "infraclass": 17,
+    "superorder": 57,
+    "superclass": 6,
+    "parvorder": 33,
+    "acellular root": 1,
+    "subcohort": 3,
+    "cohort": 5,
+    "cellular root": 1,
+    "subkingdom": 1,
+    "superphylum": 1,
+    "realm": 7
+  },
+  "schemaVersion": 1
+}
