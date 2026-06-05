@@ -178,7 +178,8 @@ function SignInRow({
         </div>
         <p className="mt-2 text-meta leading-snug text-[#8593a8]">
           Sign-in only verifies your email. Your notebook still lives on your
-          machine.
+          machine. Inbox size and hold time may grow or change as funding and
+          demand allow.
         </p>
       </div>
     </div>
