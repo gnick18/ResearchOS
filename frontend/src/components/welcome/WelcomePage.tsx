@@ -39,6 +39,7 @@ import DemoLoop, { DemoLoopPlaceholder } from "@/components/welcome/DemoLoop";
 import { GoogleIcon, GitHubIcon, LinkedInIcon, OrcidIcon } from "@/components/sharing/icons";
 import { FREE_STORAGE_BYTES, TTL_DAYS } from "@/lib/sharing/relay/limits";
 import RoadmapModal from "@/components/RoadmapModal";
+import { markLandingSeen } from "@/lib/landing/landing-gate";
 
 /** The rainbow ribbon gradient (pastel), for the top ribbon and the soft bloom. */
 const RAINBOW =
@@ -342,12 +343,22 @@ export default function WelcomePage() {
   // setup component reads ?signIn and fires signIn() after the folder is
   // connected). Email is special: ?signIn=email opens the SharingSetupWizard
   // straight on its email step instead of an OAuth redirect.
-  const handleOrcid = () => router.push("/?connect=1&signIn=orcid");
-  const handleGoogle = () => router.push("/?connect=1&signIn=google");
-  const handleGitHub = () => router.push("/?connect=1&signIn=github");
-  const handleLinkedIn = () => router.push("/?connect=1&signIn=linkedin");
-  const handleEmail = () => router.push("/?connect=1&signIn=email");
-  const handleLocal = () => router.push("/?connect=1");
+  // Every CTA that enters the connect flow MUST mark the landing seen first.
+  // Without it, the first-visit redirect in providers.tsx re-fires during the
+  // connect transition (the moment ?connect=1 is dropped before isConnected has
+  // propagated) and bounces the visitor straight back to /welcome, a soft-lock.
+  // The seen flag makes shouldShowLanding return false for this browser, so the
+  // user can complete folder setup without being yanked back here.
+  const goConnect = (href: string) => {
+    markLandingSeen();
+    router.push(href);
+  };
+  const handleOrcid = () => goConnect("/?connect=1&signIn=orcid");
+  const handleGoogle = () => goConnect("/?connect=1&signIn=google");
+  const handleGitHub = () => goConnect("/?connect=1&signIn=github");
+  const handleLinkedIn = () => goConnect("/?connect=1&signIn=linkedin");
+  const handleEmail = () => goConnect("/?connect=1&signIn=email");
+  const handleLocal = () => goConnect("/?connect=1");
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-[#fbfcfe] text-[#0e1726]">
