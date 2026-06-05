@@ -47,6 +47,13 @@ export interface ProfileSearchResult extends PublishedProfile {
   ed25519PublicKey: string;
 }
 
+// Re-export the OrcidWork type for the client. The runtime module
+// (lib/orcid/works) is server-only (uses process.env + the ORCID API), but a
+// `type`-only import is erased at compile time, so no server code ships to the
+// browser.
+import type { OrcidWork } from "@/lib/orcid/works";
+export type { OrcidWork };
+
 // ---------------------------------------------------------------------------
 // Payload builder — must stay in sync with the server's buildProfilePayload()
 // ---------------------------------------------------------------------------
@@ -248,6 +255,30 @@ export async function unpublishProfile(): Promise<ProfileResult> {
     return { ok: true };
   } catch {
     return { ok: false, error: "Network error. Check your connection." };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ORCID publications (public works, via the /api/orcid/works proxy)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches a researcher's public ORCID works through our server proxy (ORCID's
+ * API is not CORS-open, so the browser cannot call it directly). Returns an
+ * empty list on any error, publications are a nice-to-have, never load-bearing.
+ */
+export async function fetchOrcidPublications(
+  orcid: string,
+): Promise<OrcidWork[]> {
+  try {
+    const res = await fetch(
+      `/api/orcid/works?orcid=${encodeURIComponent(orcid)}`,
+    );
+    if (!res.ok) return [];
+    const data = (await res.json()) as { works?: OrcidWork[] };
+    return data.works ?? [];
+  } catch {
+    return [];
   }
 }
 

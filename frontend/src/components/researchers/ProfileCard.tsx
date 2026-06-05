@@ -15,6 +15,7 @@ import { useState } from "react";
 
 import Tooltip from "@/components/Tooltip";
 import { type PublishedProfile, expandFingerprint } from "@/lib/sharing/profile";
+import OrcidPublications from "./OrcidPublications";
 
 function BadgeCheckIcon({ className }: { className?: string }) {
   return (
@@ -160,6 +161,9 @@ export default function ProfileCard({
               </p>
             )}
           </div>
+
+          {/* Auto-pulled public works when an ORCID iD is linked (section 18.1). */}
+          {profile.orcid && <OrcidPublications orcid={profile.orcid} />}
 
           {/* Fingerprint */}
           <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-4">
