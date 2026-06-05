@@ -417,15 +417,20 @@ export default function RoadmapModal({ open, onClose }: RoadmapModalProps) {
             </div>
           </div>
 
-          {/* Footer note */}
-          <p className="mt-4 text-center text-[12px] leading-relaxed text-[#94a3b8]">
-            Have a feature request?{" "}
+          {/* Feature request button */}
+          <div className="mt-4 flex justify-center">
             <a
-              href="mailto:gnickles@wisc.edu"
-              className="font-medium text-[#1283c9] underline underline-offset-2 hover:text-sky-700"
+              href="mailto:gnickles@wisc.edu?subject=ResearchOS%20feature%20request"
+              className="inline-flex items-center gap-2 rounded-xl border border-[#d3deec] bg-white px-5 py-2.5 text-body font-semibold text-[#0e1726] shadow-sm transition-all hover:border-[#1283c9] hover:text-[#1283c9] hover:shadow-md"
             >
-              gnickles@wisc.edu
+              Request a feature
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0" aria-hidden>
+                <path d="M3 8h10M9 4l4 4-4 4" />
+              </svg>
             </a>
+          </div>
+          <p className="mt-2 text-center text-[11px] text-[#b0bac8]">
+            Shaped by what labs ask for. We read every request.
           </p>
         </div>
       </div>
