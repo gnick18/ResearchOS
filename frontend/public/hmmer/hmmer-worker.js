@@ -3,7 +3,7 @@
 // Runs hmmsearch ENTIRELY on the user's machine. The page posts the bytes of the
 // user's Pfam .hmm and the translated CDS protein (as FASTA); this worker loads
 // the Emscripten module, writes both into the in-memory (MEMFS) filesystem, runs
-// hmmsearch with --max + --domtblout, reads the table back, and posts it home.
+// hmmsearch with --domtblout (default mode; prefilter fixed), reads the table back, and posts it home.
 // Nothing is sent over the network beyond the one-time static fetch of the
 // engine itself (hmmsearch.js + hmmsearch.wasm), which the browser caches.
 //
