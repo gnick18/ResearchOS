@@ -333,7 +333,7 @@ export default function WelcomePage() {
                 aria-hidden
                 className="h-[7px] w-[7px] rounded-full bg-sky-500 shadow-[0_0_0_4px_rgba(54,179,245,0.12)]"
               />
-              Free and open, built by a researcher for academic labs
+              Built by PhD researchers, for researchers.
             </span>
 
             <h1 className="mt-6 max-w-[17ch] text-4xl font-extrabold leading-[1.05] tracking-tight text-[#0e1726] md:text-6xl">
@@ -422,7 +422,7 @@ export default function WelcomePage() {
         <section className="px-6 pb-4 pt-8 text-center sm:px-12">
           <p className="mx-auto max-w-[70ch] text-body leading-relaxed text-[#475569]">
             <span className="font-semibold text-[#0e1726]">
-              Built by a researcher, for researchers.
+              Built by PhD researchers, for researchers.
             </span>{" "}
             Free and open source, backed by a UW-Madison university fellowship.
             Your work stays on your own machine, auditable and yours to keep.
