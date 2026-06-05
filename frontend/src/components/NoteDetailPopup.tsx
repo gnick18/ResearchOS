@@ -45,6 +45,7 @@ import NoteVersionHistorySidebar, {
   type VersionPreview,
 } from "@/components/history/NoteVersionHistorySidebar";
 import VersionDiffView from "@/components/history/VersionDiffView";
+import { useCollabSession } from "@/lib/loro/collab/use-collab-session";
 
 interface NoteDetailPopupProps {
   note: Note;
@@ -184,6 +185,16 @@ export default function NoteDetailPopup({
   // True when the async Loro open failed for this note. Lets the editor fall
   // back to the normal (non-Loro) surface instead of blocking on a loader.
   const [loroOpenFailed, setLoroOpenFailed] = useState(false);
+
+  // Loro Phase 3, chunk 4: live-collab session (flag-gated).
+  // useCollabSession is unconditionally called (Rules of Hooks) but is
+  // permanently idle when LORO_PILOT_ENABLED is false or the handle is null.
+  const collab = useCollabSession({
+    doc: loroHandle?.doc ?? null,
+    enabled: LORO_PILOT_ENABLED,
+  });
+  // Tracks the text the user is typing into the "join session" input field.
+  const [joinLinkInput, setJoinLinkInput] = useState("");
 
   // Per-note attachment folder. Mirrors how tasks use
   // `users/{owner}/results/task-{id}/`. Falls back to the note's own
@@ -1550,6 +1561,144 @@ export default function NoteDetailPopup({
                   Share
                 </button>
               </Tooltip>
+
+              {/* Loro Phase 3, chunk 4: live-collab session control.
+                  Only rendered when LORO_PILOT_ENABLED and the Loro handle is
+                  open. Flag-off = zero new surface. No emojis, no em-dashes,
+                  custom inline SVGs only, Tooltip for icon-only buttons. */}
+              {LORO_PILOT_ENABLED && !!loroHandle && (
+                <div className="flex items-center gap-2">
+                  {collab.state.status === "idle" || collab.state.status === "stopped" ? (
+                    <>
+                      {/* Start a new session */}
+                      <Tooltip label="Start a live collab session" placement="top">
+                        <button
+                          onClick={collab.start}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                          aria-label="Collaborate live"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <circle cx="9" cy="7" r="4" />
+                            <path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
+                            <path d="M16 11h6m-3-3v6" />
+                          </svg>
+                          Collaborate live
+                        </button>
+                      </Tooltip>
+                      {/* Paste a join link */}
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          value={joinLinkInput}
+                          onChange={(e) => setJoinLinkInput(e.target.value)}
+                          placeholder="Paste join link"
+                          className="w-36 px-2 py-1.5 rounded-lg text-body border border-gray-200 bg-white text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-400 text-xs"
+                          aria-label="Join session link"
+                        />
+                        <Tooltip label="Join session" placement="top">
+                          <button
+                            onClick={() => {
+                              if (joinLinkInput.trim()) {
+                                collab.join(joinLinkInput.trim());
+                                setJoinLinkInput("");
+                              }
+                            }}
+                            disabled={!joinLinkInput.trim()}
+                            className="px-2 py-1.5 rounded-lg text-body bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-40"
+                            aria-label="Join"
+                          >
+                            Join
+                          </button>
+                        </Tooltip>
+                      </div>
+                      {collab.state.errorMessage && (
+                        <span className="text-meta text-red-500">
+                          {collab.state.errorMessage}
+                        </span>
+                      )}
+                    </>
+                  ) : collab.state.status === "connecting" ? (
+                    <span className="text-meta text-gray-500 flex items-center gap-1.5">
+                      <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Connecting...
+                    </span>
+                  ) : (
+                    /* status === "live" */
+                    <>
+                      <span className="flex items-center gap-1.5 text-body text-emerald-600 font-medium">
+                        <svg
+                          className="w-3.5 h-3.5"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                          aria-hidden="true"
+                        >
+                          <circle cx="12" cy="12" r="5" />
+                        </svg>
+                        Live
+                      </span>
+                      {collab.state.link && (
+                        <Tooltip label="Copy join link for the other tab" placement="top">
+                          <button
+                            onClick={() => {
+                              void navigator.clipboard.writeText(collab.state.link!);
+                            }}
+                            className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-body bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors font-mono text-xs"
+                            aria-label="Copy join link"
+                          >
+                            <svg
+                              className="w-3.5 h-3.5 shrink-0"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
+                            >
+                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                            Copy link
+                          </button>
+                        </Tooltip>
+                      )}
+                      <Tooltip label="Stop collaborating" placement="top">
+                        <button
+                          onClick={collab.stop}
+                          className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-body bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                          aria-label="Stop collaborating"
+                        >
+                          <svg
+                            className="w-3.5 h-3.5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <rect x="3" y="3" width="18" height="18" rx="2" />
+                          </svg>
+                          Stop
+                        </button>
+                      </Tooltip>
+                    </>
+                  )}
+                </div>
+              )}
 
               <button
                 onClick={() => fileInputRef.current?.click()}

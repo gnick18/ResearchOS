@@ -1,0 +1,251 @@
+"use client";
+
+// Loro Phase 3, chunk 4: React hook owning the collab session lifecycle.
+//
+// PURPOSE. Keeps NoteDetailPopup thin. This hook manages:
+//   - start(): generate a sessionId + key, open the WebSocket transport to the
+//     relay, wire the relay provider, expose a copy-able join link.
+//   - join(link): decode a pasted link and connect to that session.
+//   - stop(): destroy the provider and close the transport.
+//
+// CRYPTO. We load the local Ed25519 identity from IndexedDB (loadIdentity).
+// For the two-tab MVP both tabs are the same user, so BOTH sides sign with the
+// same key and expectedPeerEd25519PublicKey is left undefined (accept any valid
+// signed frame from our own key). A later chunk adds X25519 key-wrapping and
+// pins the peer's key from the directory invite.
+//
+// EPHEMERAL. The relay provider needs an EphemeralStore even though we relay no
+// cursor data yet (no LoroEphemeralPlugin). We create a throwaway instance here
+// just to satisfy the provider's type. It stays empty for this chunk.
+//
+// STATUS TRANSITIONS.
+//   idle -> connecting (start/join called)
+//   connecting -> live (WebSocket opened)
+//   live -> stopped (stop called)
+//   Any error during connect stays at stopped (with an error note in the
+//   console; we could surface a fine-grained error string but the MVP doesn't
+//   need it).
+//
+// No emojis, no em-dashes, no mid-sentence colons.
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { LoroDoc, EphemeralStore, type Value } from "loro-crdt";
+import { generateSessionKey } from "./envelope";
+import { createCollabProvider, type CollabProvider } from "./relay-provider";
+import { createWebSocketTransport } from "./websocket-transport";
+import { encodeSessionLink, decodeSessionLink } from "./session-link";
+import { loadIdentity } from "@/lib/sharing/identity/storage";
+import { COLLAB_RELAY_URL } from "@/lib/loro/config";
+
+// ---------------------------------------------------------------------------
+// Public types.
+// ---------------------------------------------------------------------------
+
+export type CollabStatus = "idle" | "connecting" | "live" | "stopped";
+
+export interface CollabState {
+  status: CollabStatus;
+  /** Copy-able join link (set once the session is live). */
+  link: string | null;
+  sessionId: string | null;
+  /** Non-null when connection failed, to surface in the UI. */
+  errorMessage: string | null;
+}
+
+export interface CollabSessionApi {
+  state: CollabState;
+  /** Generate a new sessionId + key, connect, and surface a copy-able link. */
+  start(): void;
+  /** Decode a pasted join link and connect to that session. */
+  join(link: string): void;
+  /** Destroy the provider and close the transport. */
+  stop(): void;
+}
+
+// ---------------------------------------------------------------------------
+// Idle/stopped state sentinel.
+// ---------------------------------------------------------------------------
+
+const IDLE_STATE: CollabState = {
+  status: "idle",
+  link: null,
+  sessionId: null,
+  errorMessage: null,
+};
+
+// ---------------------------------------------------------------------------
+// useCollabSession
+// ---------------------------------------------------------------------------
+
+/**
+ * Manages a live collab session for one LoroDoc.
+ *
+ * @param args.doc - The live LoroDoc from the NoteHandle. Pass null while the
+ *   handle is still opening; start/join will no-op until doc is present.
+ * @param args.enabled - Must be true (LORO_PILOT_ENABLED) or this hook is
+ *   permanently idle with zero side-effects.
+ */
+export function useCollabSession(args: {
+  doc: LoroDoc | null;
+  enabled: boolean;
+}): CollabSessionApi {
+  const { doc, enabled } = args;
+
+  const [state, setState] = useState<CollabState>(IDLE_STATE);
+
+  // Stable ref so cleanup functions always reach the latest provider instance
+  // without re-creating callbacks.
+  const providerRef = useRef<CollabProvider | null>(null);
+
+  // Cleanup helper: destroy the provider if one is live and reset state.
+  const destroyProvider = useCallback(() => {
+    if (providerRef.current) {
+      providerRef.current.destroy();
+      providerRef.current = null;
+    }
+  }, []);
+
+  // Shared connect implementation used by both start() and join().
+  const connectSession = useCallback(
+    async (sessionId: string, sessionKey: Uint8Array) => {
+      if (!enabled || !doc) return;
+
+      setState({
+        status: "connecting",
+        link: null,
+        sessionId,
+        errorMessage: null,
+      });
+
+      // Load the local signing keypair. If the identity does not exist yet
+      // (first run before the sharing setup flow) generate a runtime-only
+      // ephemeral key so the session still works for the same-user two-tab test
+      // (no signature pinning in the MVP).
+      let secretKey: Uint8Array;
+      let publicKey: Uint8Array;
+      try {
+        const identity = await loadIdentity();
+        if (identity) {
+          secretKey = identity.keys.signing.privateKey;
+          publicKey = identity.keys.signing.publicKey;
+        } else {
+          // Fallback: generate a transient keypair for this session. The two
+          // tabs can still sync because expectedPeerEd25519PublicKey is left
+          // undefined, so frames from any valid signature are accepted.
+          const { ed25519 } = await import("@noble/curves/ed25519.js");
+          const kp = ed25519.keygen();
+          secretKey = kp.secretKey;
+          publicKey = kp.publicKey;
+        }
+      } catch (err) {
+        console.error("[useCollabSession] Failed to load identity:", err);
+        setState({
+          status: "stopped",
+          link: null,
+          sessionId,
+          errorMessage: "Could not load signing identity",
+        });
+        return;
+      }
+
+      // Build the relay URL: relay's /ws endpoint, session capability in query.
+      const relayUrl = `${COLLAB_RELAY_URL}/ws?session=${encodeURIComponent(sessionId)}`;
+      const transport = createWebSocketTransport(relayUrl);
+
+      // Throwaway EphemeralStore. We create it here purely to satisfy the
+      // relay-provider type. No LoroEphemeralPlugin is installed (Phase 3
+      // chunk 5 concern), so this store stays permanently empty.
+      const ephemeral = new EphemeralStore<Record<string, Value>>(30_000);
+
+      // Wire the provider. It subscribes to local doc updates and installs the
+      // inbound message handler on the transport.
+      const provider = createCollabProvider({
+        doc,
+        ephemeral,
+        sessionKey,
+        sessionId,
+        senderEd25519SecretKey: secretKey,
+        senderEd25519PublicKey: publicKey,
+        // Leave expectedPeerEd25519PublicKey undefined for the MVP same-identity
+        // two-tab test: accept frames signed by any key. A later chunk pins the
+        // peer's key from the directory invite.
+        expectedPeerEd25519PublicKey: undefined,
+        transport,
+      });
+
+      providerRef.current = provider;
+
+      // Build the join link now (before onOpen fires) so the UI can show it
+      // immediately in the "connecting" state. The link encodes the raw key for
+      // the same-identity MVP; no X25519 wrapping yet.
+      const link = encodeSessionLink({ sessionId, sessionKey });
+
+      // Transition to "live" once the WebSocket opens. The relay provider
+      // broadcasts the full doc snapshot at this point (its onOpen handler),
+      // so the peer catches up automatically.
+      transport.onOpen(() => {
+        setState((prev) =>
+          prev.sessionId === sessionId
+            ? { status: "live", link, sessionId, errorMessage: null }
+            : prev,
+        );
+      });
+    },
+    [enabled, doc, destroyProvider],
+  );
+
+  // ---------------------------------------------------------------------------
+  // Public API.
+  // ---------------------------------------------------------------------------
+
+  const start = useCallback(() => {
+    if (!enabled || !doc) return;
+    destroyProvider();
+
+    const sessionId = crypto.randomUUID();
+    const sessionKey = generateSessionKey();
+
+    void connectSession(sessionId, sessionKey);
+  }, [enabled, doc, destroyProvider, connectSession]);
+
+  const join = useCallback(
+    (link: string) => {
+      if (!enabled || !doc) return;
+      destroyProvider();
+
+      const decoded = decodeSessionLink(link);
+      if (!decoded) {
+        setState({
+          status: "stopped",
+          link: null,
+          sessionId: null,
+          errorMessage: "Invalid session link",
+        });
+        return;
+      }
+
+      void connectSession(decoded.sessionId, decoded.sessionKey);
+    },
+    [enabled, doc, destroyProvider, connectSession],
+  );
+
+  const stop = useCallback(() => {
+    destroyProvider();
+    setState((prev) => ({
+      status: "stopped",
+      link: null,
+      sessionId: prev.sessionId,
+      errorMessage: null,
+    }));
+  }, [destroyProvider]);
+
+  // Cleanup on unmount: destroy any live provider so the transport closes and
+  // the relay room loses this peer.
+  useEffect(() => {
+    return () => {
+      destroyProvider();
+    };
+  }, [destroyProvider]);
+
+  return { state, start, join, stop };
+}
