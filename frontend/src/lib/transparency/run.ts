@@ -16,18 +16,29 @@
 import { alignGlobal, alignLocal } from "@/lib/align/core";
 import { findSharedRegions } from "@/lib/align/local-homology";
 import { nearestNeighborTm } from "@/lib/calculators/tm-nn";
+import { analyzeProtein, type ProteinResult } from "@/lib/calculators/protein";
 import { digestEnzymes, fragmentSizes } from "@/lib/sequences/enzyme-filters";
 import { translate } from "@/vendor/seqviz/sequence";
 
 import { HOMOLOGY_CASES, PAIRWISE_CASES } from "./datasets/alignment";
+import { CALC_CASES } from "./datasets/calculators";
+import { CLONING_CASES } from "./datasets/cloning";
 import { DIGEST_CASES } from "./datasets/digest";
+import {
+  PROTEIN_CASES,
+  PROTEIN_METRICS,
+  type ProteinExpect,
+} from "./datasets/protein";
 import { TM_CASES } from "./datasets/tm";
 import { TRANSLATE_CASES } from "./datasets/translation";
 import {
   BIOPYTHON,
   BIOPYTHON_ALIGN,
   BIOPYTHON_DIGEST,
+  BIOPYTHON_PROTEIN,
   BIOPYTHON_TRANSLATE,
+  EXACT_DEFINITIONS,
+  ORACLES,
   PRIMER3,
 } from "./oracles";
 import {
@@ -36,6 +47,7 @@ import {
   type CaseResult,
   type DomainReport,
   type ScalarComparison,
+  type Status,
   type Tolerance,
   type TransparencyReport,
 } from "./types";
@@ -411,6 +423,222 @@ function buildTranslationDomain(): DomainReport {
   };
 }
 
+/* ---------------------------------------------------------- protein domain */
+
+/** Pull each golden metric from a ProteinResult. */
+const PROTEIN_GET: Record<keyof ProteinExpect, (r: ProteinResult) => number> = {
+  mw: (r) => r.molecularWeight,
+  pi: (r) => r.isoelectricPoint,
+  epsReduced: (r) => r.extinctionReduced,
+  epsOxidized: (r) => r.extinctionOxidized,
+  instability: (r) => r.instabilityIndex,
+  gravy: (r) => r.gravy,
+  aliphatic: (r) => r.aliphaticIndex,
+};
+
+function buildProteinDomain(): DomainReport {
+  const cases: CaseResult[] = PROTEIN_CASES.map((c) => {
+    const r = analyzeProtein(c.seq);
+    if (!r) throw new Error(`transparency: analyzeProtein returned null for ${c.id}`);
+
+    const comparisons: ScalarComparison[] = [];
+    const rows: {
+      metric: string;
+      ours: number;
+      theirs: number;
+      delta: number;
+      unit: string;
+      status: Status;
+    }[] = [];
+
+    for (const m of PROTEIN_METRICS) {
+      const ours = round(PROTEIN_GET[m.key](r), 4);
+      const theirs = c.bio[m.key];
+      const delta = round(Math.abs(ours - theirs), 4);
+      const tol: Tolerance = {
+        pass: m.pass,
+        warn: m.warn,
+        unit: m.unit,
+        kind: "tight",
+        rationale:
+          "ResearchOS ports the Biopython ProtParam algorithm with its verbatim "
+          + "constant tables, so this value must match Biopython to floating-point "
+          + "precision.",
+      };
+      const status = classify(delta, tol);
+      comparisons.push({ oracleId: BIOPYTHON_PROTEIN.id, metric: m.label, ours, theirs, delta, tolerance: tol, status });
+      rows.push({ metric: m.label, ours, theirs, delta, unit: m.unit, status });
+    }
+
+    const { status } = rollup(comparisons.map((cmp) => cmp.status));
+    return {
+      id: c.id,
+      label: c.label,
+      input: c.seq,
+      comparisons,
+      status,
+      visual: { kind: "property-table", rows },
+    };
+  });
+
+  const { status, totals } = rollup(
+    cases.flatMap((c) => c.comparisons.map((cmp) => cmp.status)),
+  );
+
+  return {
+    id: "protein",
+    title: "Protein parameters",
+    summary:
+      "From a protein sequence ResearchOS computes molecular weight, isoelectric "
+      + "point, molar extinction coefficient (and the A280 of a 1 g/L solution), "
+      + "the Guruprasad instability index, Kyte-Doolittle GRAVY, and the Ikai "
+      + "aliphatic index. Each is compared against Biopython ProtParam, the engine "
+      + "behind the ExPASy ProtParam web tool.",
+    impl: "frontend/src/lib/calculators/protein.ts",
+    oracles: [BIOPYTHON_PROTEIN],
+    cases,
+    totals,
+    status,
+  };
+}
+
+/* ------------------------------------------------------ calculators domain */
+
+function buildCalculatorsDomain(): DomainReport {
+  const cases: CaseResult[] = CALC_CASES.map((c) => {
+    const raw = c.compute();
+    if (raw == null || !Number.isFinite(raw)) {
+      throw new Error(`transparency: calculator returned null for ${c.id}`);
+    }
+    const deltaFull = Math.abs(raw - c.oracle);
+    const tol: Tolerance = {
+      pass: Math.max(Math.abs(c.oracle) * 1e-9, 1e-12),
+      warn: Math.max(Math.abs(c.oracle) * 1e-6, 1e-9),
+      unit: c.unit,
+      kind: "tight",
+      rationale:
+        "The result follows from exact algebra (molarity, C1V1 = C2V2, serial "
+        + "dilution) and the cited average-mass and spectrophotometry constants, "
+        + "so it must reproduce the closed-form value to floating-point precision.",
+    };
+    const status = classify(deltaFull, tol);
+
+    return {
+      id: c.id,
+      label: c.label,
+      input: c.input,
+      comparisons: [
+        {
+          oracleId: EXACT_DEFINITIONS.id,
+          ours: round(raw, 4),
+          theirs: round(c.oracle, 4),
+          delta: round(deltaFull, 6),
+          tolerance: tol,
+          status,
+        },
+      ],
+      status,
+    };
+  });
+
+  const { status, totals } = rollup(
+    cases.flatMap((c) => c.comparisons.map((cmp) => cmp.status)),
+  );
+
+  return {
+    id: "calculators",
+    title: "Lab calculators",
+    summary:
+      "Molarity, dilution (C1V1 = C2V2), serial dilution, nucleic-acid mass-to-mole "
+      + "conversion, and concentration from A260. These follow from exact algebra "
+      + "and cited constants (average nucleotide masses 650 and 330 g/mol per base, "
+      + "and the 50, 33, and 40 ng/uL per A260 spectrophotometry factors) rather "
+      + "than a peer software package, so each result is checked against its "
+      + "closed-form value.",
+    impl: "frontend/src/lib/calculators/calculators.ts",
+    oracles: [EXACT_DEFINITIONS],
+    cases,
+    totals,
+    status,
+  };
+}
+
+/* --------------------------------------------------------- cloning domain */
+
+/** A cloning product is correct only if it equals the expected molecule exactly. */
+const CLONING_MATCH: Tolerance = {
+  pass: 0,
+  warn: 0,
+  unit: "match",
+  kind: "tight",
+  rationale:
+    "Assembled products are compared as canonical circular molecules (rotation "
+    + "and strand invariant). The product either equals the one the oracle "
+    + "reports or it does not; there is no partial credit.",
+};
+
+/** Short head ... tail preview of a sequence for the card. */
+function previewSeq(seq: string): string {
+  if (seq.length <= 44) return seq;
+  return `${seq.slice(0, 22)} ... ${seq.slice(-18)}`;
+}
+
+function buildCloningDomain(): DomainReport {
+  const cases: CaseResult[] = CLONING_CASES.map((c) => {
+    const { product, expected } = c.build();
+    const matches = product !== null && product === expected;
+    const delta = matches ? 0 : 1;
+    const status = classify(delta, CLONING_MATCH);
+
+    return {
+      id: c.id,
+      label: c.label,
+      input: c.method,
+      comparisons: [
+        {
+          oracleId: c.oracleId,
+          ours: product ? product.length : 0,
+          theirs: expected.length,
+          delta,
+          tolerance: CLONING_MATCH,
+          status,
+        },
+      ],
+      status,
+      visual: {
+        kind: "sequence-match",
+        method: c.method,
+        length: expected.length,
+        matches,
+        preview: previewSeq(expected),
+      },
+    };
+  });
+
+  const oracleIds = Array.from(new Set(CLONING_CASES.map((c) => c.oracleId)));
+  const oracles = oracleIds.map((id) => ORACLES[id]).filter(Boolean);
+
+  const { status, totals } = rollup(
+    cases.flatMap((c) => c.comparisons.map((cmp) => cmp.status)),
+  );
+
+  return {
+    id: "cloning",
+    title: "Cloning assembly",
+    summary:
+      "ResearchOS simulates restriction-ligation, Type IIS Golden Gate assembly, "
+      + "and Gateway recombination, then reports the assembled construct. The "
+      + "restriction and Golden Gate products are compared against pydna, an "
+      + "established in-silico cloning package, and the Gateway product against "
+      + "the published attB site sequence.",
+    impl: "frontend/src/lib/sequences/cut-ligate.ts, cloning-gateway.ts",
+    oracles,
+    cases,
+    totals,
+    status,
+  };
+}
+
 /* ------------------------------------------------------------- aggregation */
 
 /**
@@ -423,6 +651,9 @@ export function buildTransparencyReport(): TransparencyReport {
     buildAlignmentDomain(),
     buildDigestDomain(),
     buildTranslationDomain(),
+    buildProteinDomain(),
+    buildCalculatorsDomain(),
+    buildCloningDomain(),
   ];
 
   const { status, totals } = rollup(

@@ -65,6 +65,12 @@ export interface Tolerance {
 export interface ScalarComparison {
   /** Which oracle this comparison is against. */
   oracleId: string;
+  /**
+   * Optional metric name, for domains that compare several quantities against
+   * one oracle (e.g. protein parameters: molecular weight, pI, GRAVY). When set,
+   * tables show the metric rather than the oracle name.
+   */
+  metric?: string;
   /** The value ResearchOS computed. */
   ours: number;
   /** The pinned oracle value. */
@@ -126,6 +132,29 @@ export type CaseVisual =
       ours: string;
       /** The oracle's one-letter amino acids. */
       theirs: string;
+    }
+  | {
+      kind: "property-table";
+      /** One row per computed property (e.g. molecular weight, pI). */
+      rows: {
+        metric: string;
+        ours: number;
+        theirs: number;
+        delta: number;
+        unit: string;
+        status: Status;
+      }[];
+    }
+  | {
+      kind: "sequence-match";
+      /** Assembly / reaction type, e.g. "Gateway LR", "Gibson". */
+      method: string;
+      /** Product length in bp. */
+      length: number;
+      /** Whether the product equals the published reference exactly. */
+      matches: boolean;
+      /** A short, readable slice of the product (head ... tail) for display. */
+      preview: string;
     };
 
 /** One showcase case within a domain (e.g. a single oligo, a single pair). */

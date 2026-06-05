@@ -2,12 +2,21 @@
 
 Status: v1 built (all four launch domains live), 2026-06-04. Owner: transparency-page arc.
 
-v1 landed: Tm (Biopython + primer3), pairwise + long-homology alignment
-(Biopython), restriction digest (Biopython), and translation (Biopython), each
-with a signature visual (agreement scatter, alignment columns + homology map,
-gel-style fragment ladder, codon-to-amino-acid track). 39 comparisons enforced by
-the vitest gate. Remaining: link-in from /welcome, plus optional later domains
-(protein params, primer design) and a Python oracle-refresh CI job if wanted.
+Seven domains live, presented as tabs (one panel at a time):
+
+  Tm            vs Biopython Tm_NN + primer3      agreement scatter
+  Alignment     vs Biopython PairwiseAligner      alignment columns + homology map
+  Digest        vs Biopython Bio.Restriction      gel-style fragment ladder
+  Translation   vs Biopython Seq.translate        codon-to-amino-acid track
+  Protein       vs Biopython ProtParam            per-property comparison table
+  Lab calc      vs exact algebra + cited consts   mixed-unit comparison table
+  Cloning       vs pydna + published att sites    sequence-match card
+
+All comparisons enforced by the vitest gate (`report.test.ts`). The intro copy is
+generalized to cover the three oracle kinds (peer software, published sequence,
+exact algebra). The page is tabbed via a client `TransparencyTabs` that takes the
+server-computed report as plain data. Remaining optional: primer design domain, a
+Python oracle-refresh CI job.
 
 ## Goal
 

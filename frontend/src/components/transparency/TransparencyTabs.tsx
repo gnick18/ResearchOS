@@ -22,6 +22,9 @@ import CodonTrack from "./CodonTrack";
 import FragmentLadder from "./FragmentLadder";
 import HomologyMap from "./HomologyMap";
 import ParityScatter, { type ParityPoint } from "./ParityScatter";
+import PropertyTable from "./PropertyTable";
+import ScalarMixedTable from "./ScalarMixedTable";
+import SequenceMatch from "./SequenceMatch";
 import StatusPill from "./StatusPill";
 
 /** Stable accent colors per oracle for the scatter + legend. */
@@ -111,17 +114,25 @@ function CaseVisualCard({ domain, c }: { domain: DomainReport; c: CaseResult }) 
       {v?.kind === "codon-track" ? (
         <CodonTrack codons={v.codons} ours={v.ours} theirs={v.theirs} />
       ) : null}
+      {v?.kind === "property-table" ? <PropertyTable rows={v.rows} /> : null}
+      {v?.kind === "sequence-match" ? (
+        <SequenceMatch method={v.method} length={v.length} matches={v.matches} preview={v.preview} />
+      ) : null}
 
-      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-meta">
-        {c.comparisons.map((cmp) => (
-          <span key={cmp.oracleId} className="text-gray-500">
-            vs {oracleName(domain.oracles, cmp.oracleId)}: ResearchOS{" "}
-            <span className="font-mono text-gray-800">{cmp.ours}</span>, reference{" "}
-            <span className="font-mono text-gray-700">{cmp.theirs}</span>{" "}
-            <span className="text-gray-400">(Δ {cmp.delta} {cmp.tolerance.unit})</span>
-          </span>
-        ))}
-      </div>
+      {/* property-table and sequence-match already show their own numbers; the
+          generic footer would duplicate them. Other visuals get the one-liner. */}
+      {v?.kind === "property-table" || v?.kind === "sequence-match" ? null : (
+        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-meta">
+          {c.comparisons.map((cmp) => (
+            <span key={cmp.oracleId} className="text-gray-500">
+              vs {oracleName(domain.oracles, cmp.oracleId)}: ResearchOS{" "}
+              <span className="font-mono text-gray-800">{cmp.ours}</span>, reference{" "}
+              <span className="font-mono text-gray-700">{cmp.theirs}</span>{" "}
+              <span className="text-gray-400">(Δ {cmp.delta} {cmp.tolerance.unit})</span>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -169,6 +180,12 @@ function ScalarTable({ domain, unit }: { domain: DomainReport; unit: string }) {
 function DomainPanel({ domain }: { domain: DomainReport }) {
   const unit = domain.cases[0]?.comparisons[0]?.tolerance.unit ?? "";
   const hasVisuals = domain.cases.some((c) => c.visual);
+  const distinctUnits = new Set(
+    domain.cases.flatMap((c) => c.comparisons.map((cmp) => cmp.tolerance.unit)),
+  );
+  // Scatter only makes sense for a scalar domain sharing one unit; a domain with
+  // mixed units (the lab calculators) gets a per-row table instead.
+  const mixedUnits = !hasVisuals && distinctUnits.size > 1;
   const oracleStyles = domain.oracles.map((o) => ({ id: o.id, name: o.name, color: colorFor(o.id) }));
   const points: ParityPoint[] = domain.cases.flatMap((c) =>
     c.comparisons.map((cmp) => ({
@@ -197,6 +214,8 @@ function DomainPanel({ domain }: { domain: DomainReport }) {
             <CaseVisualCard key={c.id} domain={domain} c={c} />
           ))}
         </div>
+      ) : mixedUnits ? (
+        <ScalarMixedTable domain={domain} />
       ) : (
         <div className="grid gap-8 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)]">
           <ParityScatter points={points} oracles={oracleStyles} unit={unit} />

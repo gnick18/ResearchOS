@@ -37,12 +37,13 @@ export default function TransparencyView() {
             Validation of bioinformatic calculations against peer-reviewed alternatives
           </h1>
           <p className="max-w-2xl text-body text-gray-600">
-            ResearchOS performs sequence-analysis calculations client-side. Each calculation listed
-            below is evaluated over a fixed set of test inputs and compared against an established
-            peer-reviewed alternative (Biopython, primer3) under matched parameters. Reference values
-            are pinned from the cited tool versions and reproducible with the listed generator scripts.
-            The comparisons are recomputed from source on every commit as an automated test; a result
-            exceeding its stated tolerance fails the build.
+            ResearchOS performs sequence-analysis and lab calculations client-side. Each calculation
+            listed below is evaluated over a fixed set of test inputs and compared against an
+            independent reference, a peer-reviewed software package (Biopython, primer3, pydna), a
+            published sequence, or the closed-form result of exact algebra. Reference values are pinned
+            from the cited sources and reproducible with the listed generator scripts. The comparisons
+            are recomputed from source on every commit as an automated test; a result exceeding its
+            stated tolerance fails the build.
           </p>
 
           <div className="mt-8 inline-flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-5 py-3">

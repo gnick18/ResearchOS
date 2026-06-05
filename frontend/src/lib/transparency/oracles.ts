@@ -59,6 +59,44 @@ export const BIOPYTHON_TRANSLATE: OracleRef = {
   url: "https://biopython.org/docs/latest/api/Bio.Seq.html",
 };
 
+export const BIOPYTHON_PROTEIN: OracleRef = {
+  id: "biopython-protein",
+  name: "Biopython",
+  version: "1.83",
+  entrypoint: "Bio.SeqUtils.ProtParam.ProteinAnalysis (the engine behind ExPASy ProtParam)",
+  citation: "Kyte-Doolittle GRAVY, Guruprasad instability, Ikai aliphatic, Lobry aromaticity",
+  generator: "frontend/scripts/gen-protein-golden.py",
+  url: "https://biopython.org/docs/latest/api/Bio.SeqUtils.ProtParam.html",
+};
+
+export const EXACT_DEFINITIONS: OracleRef = {
+  id: "exact",
+  name: "Exact definitions and published constants",
+  version: "n/a",
+  entrypoint: "SI unit definitions; dsDNA 650 g/mol per bp, ssDNA/RNA 330 g/mol per nt",
+  citation: "SI prefixes (BIPM SI brochure) and standard average nucleotide masses",
+  generator: "frontend/scripts/gen-calc-golden.py",
+};
+
+export const PUBLISHED_SEQUENCES: OracleRef = {
+  id: "published-seq",
+  name: "Published reference sequences",
+  version: "n/a",
+  entrypoint: "Gateway att-site sequences; hand-traced recombination products",
+  citation: "Landy 1989 / Gateway att-site cores; hand-verified junction sequences",
+  generator: "frontend/scripts/gen-cloning-golden.py",
+};
+
+export const PYDNA: OracleRef = {
+  id: "pydna",
+  name: "pydna",
+  version: "5.5.13",
+  entrypoint: "restriction-ligation and Golden Gate (Type IIS) assembly simulation",
+  citation: "Pereira et al. 2015, in-silico cloning simulation",
+  generator: "frontend/scripts/gen-cloning-golden.py",
+  url: "https://github.com/BjornFJohansson/pydna",
+};
+
 /** Lookup by id, for resolving an oracle from a case's comparison. */
 export const ORACLES: Record<string, OracleRef> = {
   [BIOPYTHON.id]: BIOPYTHON,
@@ -66,4 +104,8 @@ export const ORACLES: Record<string, OracleRef> = {
   [BIOPYTHON_ALIGN.id]: BIOPYTHON_ALIGN,
   [BIOPYTHON_DIGEST.id]: BIOPYTHON_DIGEST,
   [BIOPYTHON_TRANSLATE.id]: BIOPYTHON_TRANSLATE,
+  [BIOPYTHON_PROTEIN.id]: BIOPYTHON_PROTEIN,
+  [EXACT_DEFINITIONS.id]: EXACT_DEFINITIONS,
+  [PUBLISHED_SEQUENCES.id]: PUBLISHED_SEQUENCES,
+  [PYDNA.id]: PYDNA,
 };

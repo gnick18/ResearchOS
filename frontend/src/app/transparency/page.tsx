@@ -21,7 +21,7 @@ import TransparencyView from "@/components/transparency/TransparencyView";
 export const metadata: Metadata = {
   title: "Method validation | ResearchOS",
   description:
-    "Bioinformatic calculations in ResearchOS (melting temperature, alignment, restriction digest, translation) compared against peer-reviewed alternatives (Biopython and primer3), recomputed on every commit.",
+    "Bioinformatic and lab calculations in ResearchOS (melting temperature, alignment, digest, translation, protein parameters, lab calculators, cloning) compared against peer-reviewed alternatives (Biopython, primer3, pydna) and published references, recomputed on every commit.",
 };
 
 export default function TransparencyPage() {
