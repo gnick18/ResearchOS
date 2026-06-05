@@ -464,6 +464,49 @@ export default function SecurityPage() {
         email the maintainer directly. We&apos;d much rather hear about a
         problem early.
       </p>
+
+      <h2>Atomic-write safety</h2>
+      <p>
+        A subtler kind of data loss has nothing to do with the network and
+        everything to do with timing. If an app is halfway through writing a
+        file when the tab closes, the laptop sleeps, or the process crashes,
+        a naive implementation can leave the file zero-byte or truncated, and
+        the good version you had a second ago is gone. ResearchOS is built so
+        that cannot happen.
+      </p>
+      <p>
+        Every save writes to a temporary <code>.tmp</code> file first, lets
+        that file finish landing durably on disk, and only then atomically
+        moves it into place over the real file. The move is the kind of
+        operation that either fully happens or does not happen at all, with
+        no in-between state on disk. So if a crash interrupts a save, the
+        worst case is that your previous good version survives untouched. You
+        can never be left with a half-written or empty file in place of your
+        data. The implementation is in{" "}
+        <code>frontend/src/lib/file-system/file-service.ts</code> if you want
+        to read the exact sequence.
+      </p>
+      <Callout variant="tip" title="The worst case is your last good save">
+        A torn write can only ever leave the old file contents intact, never
+        a corrupt or empty one. The atomic move is the whole point. Either the
+        new version replaces the old one cleanly, or the old one is still
+        there.
+      </Callout>
+
+      <h2>Tested on every commit</h2>
+      <p>
+        A trust claim is only as good as the thing that keeps it true over
+        time. The whole app is gated by automated tests that run on every
+        commit and every pull request to <code>main</code>: linting, a full
+        TypeScript typecheck, the Vitest unit and integration suite with
+        coverage, and Playwright end-to-end tests in a real browser. The
+        workflow lives in <code>.github/workflows/ci.yml</code>. If any of
+        those gates fail, the change does not ship. That same machinery is
+        what keeps the scientific calculations honest, which is its own page:{" "}
+        <a href="/wiki/trust/method-validation">Method validation</a> explains
+        how every sequence and lab calculation is re-checked against the
+        reference tools the field trusts, on every commit.
+      </p>
     </WikiPage>
   );
 }
