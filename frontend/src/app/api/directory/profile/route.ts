@@ -162,6 +162,8 @@ export async function POST(request: Request): Promise<Response> {
     displayName: parsed.displayName,
     affiliation: parsed.affiliation,
     orcid: parsed.orcid,
+    pinnedWorks: parsed.pinnedWorks,
+    hiddenWorks: parsed.hiddenWorks,
     issuedAt: parsed.issuedAt,
   });
 
@@ -194,6 +196,8 @@ export async function POST(request: Request): Promise<Response> {
     affiliation: parsed.affiliation,
     affiliationDomain,
     orcid: parsed.orcid,
+    pinnedWorks: parsed.pinnedWorks,
+    hiddenWorks: parsed.hiddenWorks,
   });
 
   return json(200, { ok: true });

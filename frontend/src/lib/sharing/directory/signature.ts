@@ -116,6 +116,8 @@ export interface ProfilePayloadInput {
   displayName?: string;
   affiliation?: string | null;
   orcid?: string | null;
+  pinnedWorks?: string[];
+  hiddenWorks?: string[];
   issuedAt: string;
 }
 
@@ -133,6 +135,8 @@ export function buildProfilePayload(input: ProfilePayloadInput): Uint8Array {
     `displayName=${input.displayName ?? "null"}`,
     `affiliation=${input.affiliation ?? "null"}`,
     `orcid=${input.orcid ?? "null"}`,
+    `pinned=${(input.pinnedWorks ?? []).join(",")}`,
+    `hidden=${(input.hiddenWorks ?? []).join(",")}`,
     `issuedAt=${input.issuedAt}`,
   ];
   return utf8ToBytes(lines.join("\n"));

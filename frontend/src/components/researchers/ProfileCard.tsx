@@ -163,7 +163,13 @@ export default function ProfileCard({
           </div>
 
           {/* Auto-pulled public works when an ORCID iD is linked (section 18.1). */}
-          {profile.orcid && <OrcidPublications orcid={profile.orcid} />}
+          {profile.orcid && (
+            <OrcidPublications
+              orcid={profile.orcid}
+              hiddenWorks={profile.hiddenWorks}
+              pinnedWorks={profile.pinnedWorks}
+            />
+          )}
 
           {/* Fingerprint */}
           <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-4">

@@ -32,6 +32,8 @@ export interface ProfileData {
   displayName: string;
   affiliation: string | null;
   orcid: string | null;
+  pinnedWorks: string[];
+  hiddenWorks: string[];
 }
 
 export interface PublishedProfile extends ProfileData {
@@ -69,6 +71,8 @@ function buildProfilePayloadBytes(
     displayName?: string;
     affiliation?: string | null;
     orcid?: string | null;
+    pinnedWorks?: string[];
+    hiddenWorks?: string[];
     issuedAt: string;
   },
 ): Uint8Array {
@@ -80,6 +84,8 @@ function buildProfilePayloadBytes(
     `displayName=${enc(data.displayName)}`,
     `affiliation=${enc(data.affiliation)}`,
     `orcid=${enc(data.orcid)}`,
+    `pinned=${(data.pinnedWorks ?? []).join(",")}`,
+    `hidden=${(data.hiddenWorks ?? []).join(",")}`,
     `issuedAt=${data.issuedAt}`,
   ];
   return new TextEncoder().encode(lines.join("\n"));
@@ -195,6 +201,8 @@ export async function publishProfile(
         displayName: data.displayName,
         affiliation: data.affiliation ?? null,
         orcid: data.orcid ?? null,
+        pinnedWorks: data.pinnedWorks,
+        hiddenWorks: data.hiddenWorks,
         signature,
         issuedAt,
       }),

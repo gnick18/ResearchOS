@@ -249,6 +249,8 @@ export interface DirectoryProfile {
   affiliation: string | null;
   affiliationDomain: string | null;
   orcid: string | null;
+  pinnedWorks: string[];
+  hiddenWorks: string[];
   updatedAt?: string;
 }
 
@@ -259,6 +261,11 @@ export interface DirectoryProfile {
 export interface ProfileSearchResult extends DirectoryProfile {
   x25519PublicKey: string;
   ed25519PublicKey: string;
+}
+
+/** Splits a nullable comma-joined put-code string into an array, filtering empty. */
+function splitCodes(v: string | null): string[] {
+  return v ? v.split(",").filter(Boolean) : [];
 }
 
 /**
@@ -283,6 +290,9 @@ export async function ensureProfileSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_profiles_search ON directory_profiles
       USING GIN ((lower(display_name) || ' ' || lower(coalesce(affiliation,''))) gin_trgm_ops)
   `;
+  // Additive migrations for columns that may not exist on older tables.
+  await sql`ALTER TABLE directory_profiles ADD COLUMN IF NOT EXISTS hidden_works text`;
+  await sql`ALTER TABLE directory_profiles ADD COLUMN IF NOT EXISTS pinned_works text`;
 }
 
 /**
@@ -294,15 +304,19 @@ export async function upsertProfile(profile: DirectoryProfile): Promise<void> {
   const sql = getSql();
   await sql`
     INSERT INTO directory_profiles
-      (fingerprint, display_name, affiliation, affiliation_domain, orcid, updated_at)
+      (fingerprint, display_name, affiliation, affiliation_domain, orcid,
+       hidden_works, pinned_works, updated_at)
     VALUES
       (${profile.fingerprint}, ${profile.displayName}, ${profile.affiliation},
-       ${profile.affiliationDomain}, ${profile.orcid}, now())
+       ${profile.affiliationDomain}, ${profile.orcid},
+       ${profile.hiddenWorks.join(",")}, ${profile.pinnedWorks.join(",")}, now())
     ON CONFLICT (fingerprint) DO UPDATE SET
       display_name       = EXCLUDED.display_name,
       affiliation        = EXCLUDED.affiliation,
       affiliation_domain = EXCLUDED.affiliation_domain,
       orcid              = EXCLUDED.orcid,
+      hidden_works       = EXCLUDED.hidden_works,
+      pinned_works       = EXCLUDED.pinned_works,
       updated_at         = now()
   `;
 }
@@ -337,6 +351,8 @@ export async function searchProfiles(
       p.affiliation,
       p.affiliation_domain,
       p.orcid,
+      p.hidden_works,
+      p.pinned_works,
       p.updated_at,
       i.x25519_pub,
       i.ed25519_pub
@@ -356,6 +372,8 @@ export async function searchProfiles(
     affiliation: string | null;
     affiliation_domain: string | null;
     orcid: string | null;
+    hidden_works: string | null;
+    pinned_works: string | null;
     updated_at: string;
     x25519_pub: string;
     ed25519_pub: string;
@@ -367,6 +385,8 @@ export async function searchProfiles(
     affiliation: r.affiliation,
     affiliationDomain: r.affiliation_domain,
     orcid: r.orcid,
+    hiddenWorks: splitCodes(r.hidden_works),
+    pinnedWorks: splitCodes(r.pinned_works),
     updatedAt: r.updated_at,
     x25519PublicKey: r.x25519_pub,
     ed25519PublicKey: r.ed25519_pub,
@@ -383,7 +403,8 @@ export async function getProfileByFingerprint(
 ): Promise<DirectoryProfile | null> {
   const sql = getSql();
   const rows = (await sql`
-    SELECT fingerprint, display_name, affiliation, affiliation_domain, orcid, updated_at
+    SELECT fingerprint, display_name, affiliation, affiliation_domain, orcid,
+           hidden_works, pinned_works, updated_at
     FROM directory_profiles
     WHERE fingerprint = ${fp}
     LIMIT 1
@@ -393,6 +414,8 @@ export async function getProfileByFingerprint(
     affiliation: string | null;
     affiliation_domain: string | null;
     orcid: string | null;
+    hidden_works: string | null;
+    pinned_works: string | null;
     updated_at: string;
   }>;
   if (rows.length === 0) return null;
@@ -403,6 +426,8 @@ export async function getProfileByFingerprint(
     affiliation: r.affiliation,
     affiliationDomain: r.affiliation_domain,
     orcid: r.orcid,
+    hiddenWorks: splitCodes(r.hidden_works),
+    pinnedWorks: splitCodes(r.pinned_works),
     updatedAt: r.updated_at,
   };
 }

@@ -190,6 +190,28 @@ function dedupeWorks(works: OrcidWork[]): OrcidWork[] {
   return kept;
 }
 
+/**
+ * Orders works for display: pinned codes float to the top in pin order,
+ * hidden codes are excluded entirely, and the remainder is sorted newest first.
+ */
+export function orderWorks(
+  works: OrcidWork[],
+  pinned: string[],
+  hidden: string[],
+): OrcidWork[] {
+  const hiddenSet = new Set(hidden);
+  const pinIndex = new Map(pinned.map((pc, i) => [pc, i] as const));
+  return works
+    .filter((w) => !hiddenSet.has(w.putCode))
+    .slice()
+    .sort((a, b) => {
+      const pa = pinIndex.has(a.putCode) ? pinIndex.get(a.putCode)! : Infinity;
+      const pb = pinIndex.has(b.putCode) ? pinIndex.get(b.putCode)! : Infinity;
+      if (pa !== pb) return pa - pb; // pinned first, in pin order
+      return (b.year ?? "0000").localeCompare(a.year ?? "0000"); // else newest first
+    });
+}
+
 export function parseOrcidWorks(raw: unknown): OrcidWork[] {
   if (!raw || typeof raw !== "object") return [];
 

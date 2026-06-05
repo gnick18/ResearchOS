@@ -73,8 +73,10 @@ import {
   TTL_DAYS,
 } from "@/lib/sharing/relay/limits";
 import {
+  type OrcidWork,
   type PublishedProfile,
   fetchMyProfile,
+  fetchOrcidPublications,
   publishProfile,
   unpublishProfile,
 } from "@/lib/sharing/profile";
@@ -596,6 +598,221 @@ function InboxStorageReady({ email }: { email: string }) {
 }
 
 // ===========================================================================
+// PublicationManager — inline sub-component for pin/hide management.
+// ===========================================================================
+
+function PinIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <line x1="12" y1="17" x2="12" y2="22" />
+      <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17" />
+    </svg>
+  );
+}
+
+function EyeOffIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  );
+}
+
+function EyeIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function PublicationManager({
+  orcid,
+  pinned,
+  hidden,
+  onChange,
+}: {
+  orcid: string;
+  pinned: string[];
+  hidden: string[];
+  onChange: (pinned: string[], hidden: string[]) => void;
+}) {
+  const [works, setWorks] = useState<OrcidWork[] | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchOrcidPublications(orcid).then((w) => {
+      if (!cancelled) setWorks(w);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [orcid]);
+
+  const pinnedSet = new Set(pinned);
+  const hiddenSet = new Set(hidden);
+
+  const togglePin = useCallback(
+    (putCode: string) => {
+      if (pinnedSet.has(putCode)) {
+        onChange(
+          pinned.filter((pc) => pc !== putCode),
+          hidden,
+        );
+      } else {
+        onChange([...pinned, putCode], hidden);
+      }
+    },
+    [pinned, hidden, pinnedSet, onChange],
+  );
+
+  const toggleHide = useCallback(
+    (putCode: string) => {
+      if (hiddenSet.has(putCode)) {
+        onChange(pinned, hidden.filter((pc) => pc !== putCode));
+      } else {
+        // Hiding a work that was pinned also removes it from pins.
+        onChange(
+          pinned.filter((pc) => pc !== putCode),
+          [...hidden, putCode],
+        );
+      }
+    },
+    [pinned, hidden, hiddenSet, onChange],
+  );
+
+  if (works === undefined) {
+    return (
+      <p className="text-meta text-gray-400">Loading publications from ORCID...</p>
+    );
+  }
+
+  if (works.length === 0) {
+    return (
+      <p className="text-meta text-gray-400">
+        No public works found on ORCID for this iD.
+      </p>
+    );
+  }
+
+  // Show pinned works first, then the rest.
+  const sorted = [...works].sort((a, b) => {
+    const ia = pinned.indexOf(a.putCode);
+    const ib = pinned.indexOf(b.putCode);
+    const pa = ia >= 0 ? ia : Infinity;
+    const pb = ib >= 0 ? ib : Infinity;
+    if (pa !== pb) return pa - pb;
+    return (b.year ?? "0000").localeCompare(a.year ?? "0000");
+  });
+
+  return (
+    <div className="space-y-1.5">
+      {sorted.map((w) => {
+        const isPinned = pinnedSet.has(w.putCode);
+        const isHidden = hiddenSet.has(w.putCode);
+        return (
+          <div
+            key={w.putCode}
+            className={`flex items-start gap-2 rounded-lg border px-3 py-2 ${
+              isHidden
+                ? "border-gray-100 bg-gray-50 opacity-50"
+                : isPinned
+                ? "border-sky-200 bg-sky-50"
+                : "border-gray-100 bg-white"
+            }`}
+          >
+            <div className="min-w-0 flex-1">
+              <p
+                className={`text-meta leading-snug font-medium ${
+                  isHidden ? "line-through text-gray-400" : "text-gray-800"
+                }`}
+              >
+                {w.title}
+              </p>
+              {(w.journal || w.year) && (
+                <p className="text-meta text-gray-400">
+                  {[w.journal, w.year].filter(Boolean).join(" · ")}
+                </p>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              <Tooltip
+                label={isPinned ? "Unpin" : "Pin to top"}
+                placement="top"
+              >
+                <button
+                  type="button"
+                  onClick={() => togglePin(w.putCode)}
+                  disabled={isHidden}
+                  className={`rounded p-1 transition-colors disabled:cursor-not-allowed disabled:opacity-30 ${
+                    isPinned
+                      ? "text-sky-600 hover:text-sky-800"
+                      : "text-gray-300 hover:text-sky-500"
+                  }`}
+                  aria-pressed={isPinned}
+                >
+                  <PinIcon className="h-3.5 w-3.5" />
+                </button>
+              </Tooltip>
+              <Tooltip
+                label={isHidden ? "Show" : "Hide from profile"}
+                placement="top"
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleHide(w.putCode)}
+                  className={`rounded p-1 transition-colors ${
+                    isHidden
+                      ? "text-gray-500 hover:text-gray-700"
+                      : "text-gray-300 hover:text-gray-500"
+                  }`}
+                  aria-pressed={isHidden}
+                >
+                  {isHidden ? (
+                    <EyeIcon className="h-3.5 w-3.5" />
+                  ) : (
+                    <EyeOffIcon className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              </Tooltip>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ===========================================================================
 // Section 3, Researcher profile (opt-in searchable directory, section 17).
 // ===========================================================================
 
@@ -632,6 +849,8 @@ function ProfileEditorCard() {
   const [draftName, setDraftName] = useState("");
   const [draftAffiliation, setDraftAffiliation] = useState("");
   const [draftOrcid, setDraftOrcid] = useState("");
+  const [draftPinned, setDraftPinned] = useState<string[]>([]);
+  const [draftHidden, setDraftHidden] = useState<string[]>([]);
 
   // Load on mount
   useEffect(() => {
@@ -648,9 +867,19 @@ function ProfileEditorCard() {
     setDraftName(profile?.displayName ?? "");
     setDraftAffiliation(profile?.affiliation ?? "");
     setDraftOrcid(profile?.orcid ?? "");
+    setDraftPinned(profile?.pinnedWorks ?? []);
+    setDraftHidden(profile?.hiddenWorks ?? []);
     setError(null);
     setEditing(true);
   }, [profile]);
+
+  const handlePublicationChange = useCallback(
+    (pinned: string[], hidden: string[]) => {
+      setDraftPinned(pinned);
+      setDraftHidden(hidden);
+    },
+    [],
+  );
 
   const save = useCallback(async () => {
     const name = draftName.trim();
@@ -677,7 +906,13 @@ function ProfileEditorCard() {
 
     setBusy(true);
     setError(null);
-    const result = await publishProfile({ displayName: name, affiliation, orcid });
+    const result = await publishProfile({
+      displayName: name,
+      affiliation,
+      orcid,
+      pinnedWorks: draftPinned,
+      hiddenWorks: draftHidden,
+    });
     setBusy(false);
 
     if (!result.ok) {
@@ -689,7 +924,7 @@ function ProfileEditorCard() {
     const updated = await fetchMyProfile();
     setProfile(updated);
     setEditing(false);
-  }, [draftName, draftAffiliation, draftOrcid]);
+  }, [draftName, draftAffiliation, draftOrcid, draftPinned, draftHidden]);
 
   const remove = useCallback(async () => {
     setBusy(true);
@@ -850,6 +1085,24 @@ function ProfileEditorCard() {
                 identifier, not verified here.
               </p>
             </div>
+
+            {isValidOrcid(draftOrcid.trim()) && (
+              <div>
+                <p className="text-meta font-medium text-gray-700 mb-1.5">
+                  Manage publications
+                </p>
+                <p className="mb-2 text-meta text-gray-400 leading-relaxed">
+                  Pin papers to show them first, or hide ones you prefer not to
+                  display. Changes take effect when you save.
+                </p>
+                <PublicationManager
+                  orcid={draftOrcid.trim()}
+                  pinned={draftPinned}
+                  hidden={draftHidden}
+                  onChange={handlePublicationChange}
+                />
+              </div>
+            )}
           </div>
 
           {error && (

@@ -307,6 +307,8 @@ describe("upsertProfile / deleteProfile shape", () => {
           affiliation: "UW-Madison",
           affiliationDomain: "wisc.edu",
           orcid: null,
+          pinnedWorks: [],
+          hiddenWorks: [],
         }),
       ).resolves.toBeUndefined();
     } finally {

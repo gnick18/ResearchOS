@@ -15,6 +15,7 @@ import {
   type OrcidWork,
   fetchOrcidPublications,
 } from "@/lib/sharing/profile";
+import { orderWorks } from "@/lib/orcid/works";
 
 function ExternalIcon({ className }: { className?: string }) {
   return (
@@ -35,7 +36,15 @@ function ExternalIcon({ className }: { className?: string }) {
 
 const SHOWN = 8;
 
-export default function OrcidPublications({ orcid }: { orcid: string }) {
+export default function OrcidPublications({
+  orcid,
+  pinnedWorks = [],
+  hiddenWorks = [],
+}: {
+  orcid: string;
+  pinnedWorks?: string[];
+  hiddenWorks?: string[];
+}) {
   const [works, setWorks] = useState<OrcidWork[] | undefined>(undefined);
 
   useEffect(() => {
@@ -60,11 +69,14 @@ export default function OrcidPublications({ orcid }: { orcid: string }) {
     );
   }
 
-  // No public works, render nothing so the card stays clean.
-  if (works.length === 0) return null;
+  // Apply pin/hide ordering before slicing.
+  const ordered = orderWorks(works, pinnedWorks, hiddenWorks);
 
-  const shown = works.slice(0, SHOWN);
-  const extra = works.length - shown.length;
+  // No visible works after applying filters, render nothing.
+  if (ordered.length === 0) return null;
+
+  const shown = ordered.slice(0, SHOWN);
+  const extra = ordered.length - shown.length;
 
   return (
     <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-4">

@@ -250,6 +250,8 @@ export interface ProfileBody {
   displayName: string;
   affiliation: string | null;
   orcid: string | null;
+  pinnedWorks: string[];
+  hiddenWorks: string[];
   signature: string;
   issuedAt: string;
 }
@@ -287,6 +289,25 @@ export function parseProfileBody(body: unknown): ProfileBody | null {
     orcid = trimmed;
   }
 
+  // pinnedWorks and hiddenWorks: optional, default to []. When present must be
+  // an array of numeric-string put-codes, max 200 entries each.
+  const PUT_CODE_RE = /^\d+$/;
+  let pinnedWorks: string[] = [];
+  if (Array.isArray(b.pinnedWorks)) {
+    const arr = b.pinnedWorks as unknown[];
+    if (arr.length <= 200 && arr.every((v) => typeof v === "string" && PUT_CODE_RE.test(v as string))) {
+      pinnedWorks = arr as string[];
+    }
+  }
+
+  let hiddenWorks: string[] = [];
+  if (Array.isArray(b.hiddenWorks)) {
+    const arr = b.hiddenWorks as unknown[];
+    if (arr.length <= 200 && arr.every((v) => typeof v === "string" && PUT_CODE_RE.test(v as string))) {
+      hiddenWorks = arr as string[];
+    }
+  }
+
   if (
     !isNonEmptyString(b.signature) ||
     !HEX_RE.test(b.signature as string) ||
@@ -303,6 +324,8 @@ export function parseProfileBody(body: unknown): ProfileBody | null {
     displayName,
     affiliation,
     orcid,
+    pinnedWorks,
+    hiddenWorks,
     signature: b.signature as string,
     issuedAt: b.issuedAt as string,
   };

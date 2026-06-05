@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 
-import { parseOrcidWorks } from "../works";
+import { parseOrcidWorks, orderWorks } from "../works";
+import type { OrcidWork } from "../works";
 
 // A realistic ORCID Public API v3.0 /works payload: one fully-populated
 // journal article (title, journal, year, DOI), one sparse work (no journal,
@@ -194,5 +195,69 @@ describe("parseOrcidWorks", () => {
     expect(parseOrcidWorks("garbage")).toEqual([]);
     expect(parseOrcidWorks({})).toEqual([]);
     expect(parseOrcidWorks({ group: [] })).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// orderWorks
+// ---------------------------------------------------------------------------
+
+function makeWork(putCode: string, year: string | null = null): OrcidWork {
+  return { putCode, title: `Work ${putCode}`, journal: null, year, type: null, doi: null, url: null };
+}
+
+describe("orderWorks", () => {
+  it("returns year-desc order when pinned and hidden are empty", () => {
+    const works = [
+      makeWork("1", "2021"),
+      makeWork("2", "2023"),
+      makeWork("3", "2022"),
+    ];
+    const result = orderWorks(works, [], []);
+    expect(result.map((w) => w.putCode)).toEqual(["2", "3", "1"]);
+  });
+
+  it("pinned codes float to the top in pin order", () => {
+    const works = [
+      makeWork("1", "2023"),
+      makeWork("2", "2022"),
+      makeWork("3", "2021"),
+    ];
+    const result = orderWorks(works, ["3", "1"], []);
+    // "3" pinned first, then "1" pinned second, then "2" unpinned
+    expect(result.map((w) => w.putCode)).toEqual(["3", "1", "2"]);
+  });
+
+  it("hidden codes are excluded entirely", () => {
+    const works = [
+      makeWork("1", "2023"),
+      makeWork("2", "2022"),
+      makeWork("3", "2021"),
+    ];
+    const result = orderWorks(works, [], ["2"]);
+    expect(result.map((w) => w.putCode)).toEqual(["1", "3"]);
+    expect(result.find((w) => w.putCode === "2")).toBeUndefined();
+  });
+
+  it("empty pinned and hidden is a no-op (returns same year-desc order)", () => {
+    const works = [
+      makeWork("a", "2020"),
+      makeWork("b", "2024"),
+      makeWork("c", "2019"),
+    ];
+    const result = orderWorks(works, [], []);
+    expect(result.map((w) => w.putCode)).toEqual(["b", "a", "c"]);
+  });
+
+  it("unpinned works remain year-desc after the pinned block", () => {
+    const works = [
+      makeWork("10", "2020"),
+      makeWork("20", "2022"),
+      makeWork("30", "2018"),
+      makeWork("40", "2024"),
+    ];
+    const result = orderWorks(works, ["30"], []);
+    // "30" pinned first, then the rest newest-first: "40", "20", "10"
+    expect(result.map((w) => w.putCode)).toEqual(["30", "40", "20", "10"]);
   });
 });
