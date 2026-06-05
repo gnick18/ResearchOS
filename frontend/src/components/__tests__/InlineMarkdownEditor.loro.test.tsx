@@ -152,14 +152,16 @@ describe("InlineMarkdownEditor default path (no loro props)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Test 2: makeState wiring -- history() omission in Loro mode
+// Test 2: makeState wiring -- the Loro sync extension is bound in Loro mode
 //
-// We use CM6 directly (not the React component) to validate the extension list
-// produced by buildExtensions under omitHistory=true vs false.
+// Phase 1 binds ONLY LoroSyncPlugin (no LoroUndoPlugin / LoroEphemeralPlugin),
+// so CM6 history() stays ON in both modes and CodeMirror owns undo + cursor.
+// We can only assert structurally here (bindEditorExtension is mocked; the real
+// sync loop needs WASM jsdom cannot run).
 // ---------------------------------------------------------------------------
 
 describe("buildExtensions: history() presence/absence", () => {
-  it("includes history() when omitHistory is false (normal mode)", () => {
+  it("includes history() and produces a valid state", () => {
     // Verify that history() compiles and produces a state without throwing.
     // We cannot access EditorState.values (internal), so we assert that
     // EditorState.create with history() succeeds and the doc is intact.
@@ -170,11 +172,10 @@ describe("buildExtensions: history() presence/absence", () => {
     expect(state.doc.toString()).toBe("test document");
   });
 
-  it("InlineMarkdownEditor in Loro mode passes omitHistory=true to buildExtensions (structural)", async () => {
+  it("InlineMarkdownEditor in Loro mode binds the Loro sync extension (structural)", async () => {
     // We cannot invoke makeState directly (it's private), but we CAN observe
-    // the effect: in Loro mode, undo (Ctrl+Z) should NOT be handled by CM6
-    // history (LoroUndoPlugin would own it). We mount with the fake handle and
-    // verify bindEditorExtension was called (proving the Loro extension path ran).
+    // the effect: in Loro mode bindEditorExtension is called (proving the Loro
+    // sync extension was added to the EditorState). Undo stays with CM6 history.
     const InlineMarkdownEditor = (await import("@/components/InlineMarkdownEditor")).default;
     const note = fixtureNote();
     const handle = makeFakeHandle();

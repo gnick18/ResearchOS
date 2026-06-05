@@ -17,8 +17,8 @@
  *     eventually the relay; Phase 3 attaches its outbound sender here.
  */
 
-import { EphemeralStore, LoroDoc, UndoManager } from "loro-crdt";
-import { LoroExtensions } from "loro-codemirror";
+import { LoroDoc } from "loro-crdt";
+import { LoroSyncPlugin } from "loro-codemirror";
 import type { Extension } from "@codemirror/state";
 import { loadOrRebuild, persistNote } from "./sidecar-store";
 import { classifyExternalEdit, ingestExternalEdit } from "./external-edit";
@@ -116,21 +116,22 @@ class NoteHandleImpl implements NoteHandle {
   // ---------------------------------------------------------------------------
 
   bindEditorExtension(activeIndex: number): Extension {
-    // Build a fresh EphemeralStore and UndoManager for each EditorView
-    // instance. These are view-scoped; the doc is note-scoped. When the
-    // entry switches we tear down the view (and its ephemeral/undo) and
-    // build a new one via a new bindEditorExtension call.
-    const ephemeral = new EphemeralStore();
-    const undoManager = new UndoManager(this.doc, {});
-
-    return LoroExtensions(
+    // Phase 1 (single-user) binds ONLY the Loro sync plugin, so Loro owns the
+    // document content (for persistence, history-from-CRDT, and future collab)
+    // while CodeMirror keeps its NATIVE undo (history()) and native cursor.
+    //
+    // We deliberately do NOT use LoroExtensions' bundled LoroUndoPlugin or
+    // LoroEphemeralPlugin here. Both reconstruct Loro text cursors and throw
+    // "No tile at position N" from the text rope when a stored cursor maps past
+    // the shortened text on undo. Neither is needed without live collaborators:
+    // remote-cursor awareness and collab-aware undo are Phase 3 concerns. CM6's
+    // own history + cursor are robust and handle the single-user case cleanly.
+    //
+    // The custom text accessor binds the editor to the SPECIFIC entry's nested
+    // LoroText (not the default "codemirror" root), so one note-doc serves
+    // multiple entries by rebinding the active entry's Text on entry switch.
+    return LoroSyncPlugin(
       this.doc,
-      { ephemeral, user: { name: "local", colorClassName: "user-local" } },
-      undoManager,
-      // Custom text accessor: bind the editor to the SPECIFIC entry's nested
-      // LoroText rather than the default "codemirror" root container. This is
-      // the key that lets one note-doc serve multiple entries by rebinding the
-      // active entry's Text on entry switch.
       (d) => getEntryContentText(d, activeIndex)!,
     );
   }

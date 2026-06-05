@@ -359,7 +359,9 @@ export default function InlineMarkdownEditor({
         extensions: [
           saveKeymap,
           updateListener,
-          ...buildExtensions(mods, editable, imageBasePathRef.current, loroActive),
+          // CM6 history() stays ON in Loro mode too: the Loro binding is
+          // sync-only (no LoroUndoPlugin), so CodeMirror owns undo.
+          ...buildExtensions(mods, editable, imageBasePathRef.current),
           ...loroExtension,
         ],
       });
