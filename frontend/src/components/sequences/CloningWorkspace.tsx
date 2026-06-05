@@ -127,6 +127,8 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
   const [overlapTm, setOverlapTm] = useState(48);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [name, setName] = useState("");
+  // Whether to carry feature annotations from source fragments into the product.
+  const [carryAnnotations, setCarryAnnotations] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -161,6 +163,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
       setOverlapBp(DEFAULT_OVERLAP_BP);
       setOverlapTm(48);
       setShowAdvanced(false);
+      setCarryAnnotations(true);
       setName("");
       setSaveError(null);
       setCopied(false);
@@ -198,9 +201,13 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
         return { name: p.name, seq: p.seq, features: [] };
       }
       const r = resolved?.get(p.id);
-      return { name: p.name, seq: r?.seq ?? "", features: r?.features ?? [] };
+      return {
+        name: p.name,
+        seq: r?.seq ?? "",
+        features: carryAnnotations ? (r?.features ?? []) : [],
+      };
     });
-  }, [picked, resolved]);
+  }, [picked, resolved, carryAnnotations]);
 
   const overlap: OverlapMode = useMemo(
     () =>
@@ -464,7 +471,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-white" role="dialog" aria-modal="true" aria-label="Assemble construct">
+    <div className="fixed inset-0 z-[60] flex flex-col bg-white" role="dialog" aria-modal="true" aria-label="Assemble construct">
       {/* Header */}
       <header className="flex items-center justify-between border-b border-gray-200 px-5 py-3">
         <div className="min-w-0">
@@ -695,6 +702,24 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                 </div>
                 <p className="mt-1 text-meta text-gray-400">
                   {circular ? "The last fragment joins back to the first, closing the loop." : "An open construct; the two ends are not joined."}
+                </p>
+              </div>
+
+              <div>
+                <span className="mb-1.5 block text-meta font-medium uppercase tracking-wide text-gray-400">Annotations</span>
+                <label className="flex cursor-pointer items-center gap-2 text-body text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={carryAnnotations}
+                    onChange={(e) => setCarryAnnotations(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                  />
+                  Carry annotations from source sequences
+                </label>
+                <p className="mt-1 text-meta text-gray-400">
+                  {carryAnnotations
+                    ? "Features from each fragment are rebased into the assembled product."
+                    : "The product will have no annotations."}
                 </p>
               </div>
 
