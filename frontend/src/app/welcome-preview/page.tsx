@@ -469,19 +469,45 @@ export default function WelcomePreviewPage() {
                 className="mt-4 flex-1"
               />
             </BentoCell>
+          </div>
+        </section>
 
-            {/* Small 8: NIH compliance + Zenodo (placeholder). */}
-            <BentoCell num="08" span="small" title="NIH compliance and Zenodo deposit">
-              <p className="text-body leading-relaxed text-slate-300">
-                Meet your data-management plan and deposit to Zenodo with grant
-                and ORCID metadata filled in.
-              </p>
-              <DemoLoopPlaceholder
-                tag="Zenodo deposit"
-                claim="The Zenodo deposit flow with grant and ORCID metadata."
-                className="mt-4 flex-1"
-              />
-            </BentoCell>
+        {/* ── NIH data-management compliance band ───────────────────────
+            Grant's pick: reuse the existing NIH banner from the live welcome
+            here instead of a demo video. Sky-gradient band, ported copy with
+            the mid-sentence colon recast to a period split. */}
+        <section className="bg-gradient-to-br from-sky-600 to-sky-700 py-20 text-white">
+          <div className="mx-auto max-w-4xl px-6 text-center">
+            <span className="text-body font-semibold uppercase tracking-wide text-sky-100">
+              Built for grant-funded labs
+            </span>
+            <h2 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
+              Supports your NIH Data Management and Sharing Plan
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-title leading-relaxed text-sky-50">
+              You are a research lab, not an enterprise. No electronic notebook
+              is &ldquo;NIH certified&rdquo; (there is no such thing), yet the
+              big cloud vendors charge enterprise prices for compliance badges
+              your grant never asked you to buy. ResearchOS is shaped around how
+              an academic lab actually works and gives you what the policy
+              really wants. Organized records you own, with real version history
+              and clean exports, without the enterprise price tag.
+            </p>
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <a
+                href="/wiki/compliance/nih-data-management"
+                data-testid="welcome-preview-nih-compliance"
+                className="rounded-xl bg-white px-6 py-3 text-title font-semibold text-sky-700 shadow-lg transition-all hover:scale-[1.02] hover:bg-sky-50"
+              >
+                How ResearchOS supports NIH compliance
+              </a>
+              <a
+                href="/wiki/compliance/labarchives-comparison"
+                className="rounded-xl border border-white/40 px-6 py-3 text-title font-semibold text-white transition-all hover:bg-white/10"
+              >
+                Compare to LabArchives
+              </a>
+            </div>
           </div>
         </section>
 
