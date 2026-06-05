@@ -576,3 +576,117 @@ export async function getEmailMetrics(): Promise<EmailMetrics> {
     byKind: kindRows.map((r) => ({ kind: r.kind, count: r.count })),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Anonymous feature-usage events (powers the /admin "Feature usage" panel)
+// ---------------------------------------------------------------------------
+//
+// One row per anonymous usage event (share sent, profile published, ...). The
+// name + props are pre-validated against event-contract.ts before they ever
+// reach here, so props only ever holds allow-listed, low-cardinality enum /
+// boolean values, never anything per-user. props is jsonb so a new event's
+// dimensions need no migration.
+
+export async function ensureEventLogSchema(): Promise<void> {
+  const sql = getSql();
+  await sql`
+    CREATE TABLE IF NOT EXISTS directory_event_log (
+      id BIGSERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      props JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `;
+}
+
+/**
+ * Records one anonymous usage event. `props` must already be sanitized by
+ * sanitizeEvent (the route does this). Best-effort, the caller swallows errors
+ * so a metrics write can never break the user action that triggered it.
+ */
+export async function recordAnalyticsEvent(
+  name: string,
+  props: Record<string, string | boolean>,
+): Promise<void> {
+  const sql = getSql();
+  await ensureEventLogSchema();
+  await sql`
+    INSERT INTO directory_event_log (name, props)
+    VALUES (${name}, ${JSON.stringify(props)}::jsonb)
+  `;
+}
+
+export interface EventMetrics {
+  windowDays: number;
+  shareSent: {
+    total: number;
+    byKind: { kind: string; count: number }[];
+    byDestination: { destination: string; count: number }[];
+  };
+  profilePublished: {
+    total: number;
+    withOrcid: number;
+    withAffiliation: number;
+  };
+  identityCreated: number;
+}
+
+/**
+ * Aggregates the last 30 days of usage events for the operator dashboard. Counts
+ * and breakdowns only, never any per-user data (there is none in the table).
+ */
+export async function getEventMetrics(): Promise<EventMetrics> {
+  const sql = getSql();
+  await ensureEventLogSchema();
+
+  const byKind = (await sql`
+    SELECT props->>'kind' AS kind, count(*)::int AS count
+    FROM directory_event_log
+    WHERE name = 'share_sent' AND created_at >= now() - interval '30 days'
+    GROUP BY 1
+    ORDER BY count DESC, kind ASC
+  `) as Array<{ kind: string | null; count: number }>;
+
+  const byDestination = (await sql`
+    SELECT props->>'destination' AS destination, count(*)::int AS count
+    FROM directory_event_log
+    WHERE name = 'share_sent' AND created_at >= now() - interval '30 days'
+    GROUP BY 1
+    ORDER BY count DESC, destination ASC
+  `) as Array<{ destination: string | null; count: number }>;
+
+  const profileRows = (await sql`
+    SELECT
+      count(*)::int AS total,
+      count(*) FILTER (WHERE props->>'has_orcid' = 'true')::int AS with_orcid,
+      count(*) FILTER (WHERE props->>'has_affiliation' = 'true')::int AS with_affiliation
+    FROM directory_event_log
+    WHERE name = 'profile_published' AND created_at >= now() - interval '30 days'
+  `) as Array<{ total: number; with_orcid: number; with_affiliation: number }>;
+
+  const identityRows = (await sql`
+    SELECT count(*)::int AS n
+    FROM directory_event_log
+    WHERE name = 'identity_created' AND created_at >= now() - interval '30 days'
+  `) as Array<{ n: number }>;
+
+  const shareTotal = byDestination.reduce((sum, r) => sum + r.count, 0);
+
+  return {
+    windowDays: 30,
+    shareSent: {
+      total: shareTotal,
+      byKind: byKind.map((r) => ({ kind: r.kind ?? "unknown", count: r.count })),
+      byDestination: byDestination.map((r) => ({
+        destination: r.destination ?? "unknown",
+        count: r.count,
+      })),
+    },
+    profilePublished: {
+      total: profileRows[0]?.total ?? 0,
+      withOrcid: profileRows[0]?.with_orcid ?? 0,
+      withAffiliation: profileRows[0]?.with_affiliation ?? 0,
+    },
+    identityCreated: identityRows[0]?.n ?? 0,
+  };
+}

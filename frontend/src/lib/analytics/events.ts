@@ -50,9 +50,46 @@ function emit(
   if (typeof window === "undefined") return;
   try {
     if (useAppStore.getState().offlineMode) return;
+    // Two anonymous sinks: Vercel Web Analytics (the rich dashboard) and our own
+    // /api/analytics/event (which the operator /admin panel aggregates). Both
+    // get the same allow-listed, low-cardinality payload.
     track(name, props);
+    reportToSelf(name, props);
   } catch {
     // Telemetry is best-effort and must never break the calling flow.
+  }
+}
+
+/**
+ * Beacons the event to our own endpoint so the /admin dashboard can show usage
+ * without depending on Vercel's analytics API. sendBeacon is fire-and-forget and
+ * survives the page unload that often follows an action; a plain keepalive fetch
+ * is the fallback. The server re-validates against the same contract, so this is
+ * a best-effort hint, never trusted input.
+ */
+function reportToSelf(
+  name: string,
+  props?: Record<string, string | number | boolean>,
+): void {
+  try {
+    const body = JSON.stringify({ name, props: props ?? {} });
+    if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+      navigator.sendBeacon(
+        "/api/analytics/event",
+        new Blob([body], { type: "application/json" }),
+      );
+    } else {
+      // .catch swallows the async rejection too (the synchronous try/catch
+      // below only covers the throw, not the returned promise).
+      void fetch("/api/analytics/event", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body,
+        keepalive: true,
+      }).catch(() => {});
+    }
+  } catch {
+    // Best-effort.
   }
 }
 

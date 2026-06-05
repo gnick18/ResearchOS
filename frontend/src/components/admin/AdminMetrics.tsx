@@ -42,6 +42,21 @@ interface CapacityMetrics {
   };
 }
 
+interface EventMetrics {
+  windowDays: number;
+  shareSent: {
+    total: number;
+    byKind: { kind: string; count: number }[];
+    byDestination: { destination: string; count: number }[];
+  };
+  profilePublished: {
+    total: number;
+    withOrcid: number;
+    withAffiliation: number;
+  };
+  identityCreated: number;
+}
+
 interface Metrics {
   directory: {
     totalIdentities: number;
@@ -56,7 +71,24 @@ interface Metrics {
     totalEverSent: number;
   };
   capacity?: CapacityMetrics;
+  events?: EventMetrics;
 }
+
+const SHARE_KIND_LABELS: Record<string, string> = {
+  note: "Notes",
+  experiment: "Experiments",
+  method: "Methods",
+  project: "Projects",
+  sequence: "Sequences",
+  other: "Other",
+  unknown: "Unspecified",
+};
+
+const SHARE_DESTINATION_LABELS: Record<string, string> = {
+  existing_user: "To existing users",
+  email_invite: "Email invites to non-users",
+  unknown: "Unspecified",
+};
 
 function humanBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -535,6 +567,130 @@ export default function AdminMetrics() {
                   )}
                 </ServiceCard>
                 </div>
+              </>
+            );
+          })()}
+        </section>
+      )}
+
+      {/* Feature usage (anonymous custom events) */}
+      {state.data.events && (
+        <section className="mt-10">
+          <h2 className="text-title font-semibold text-gray-900">
+            Feature usage
+          </h2>
+          <p className="mb-4 mt-1 text-meta text-gray-400 leading-relaxed">
+            Anonymous counts of how often key features are used over the last{" "}
+            {state.data.events.windowDays} days, totals only, never per-user.
+            Captured from our own event log; the Vercel dashboard below has the
+            same events plus page traffic.
+          </p>
+          {(() => {
+            const e = state.data.events;
+            const hasShareDetail =
+              e.shareSent.byKind.length > 0 ||
+              e.shareSent.byDestination.length > 0;
+            return (
+              <>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                  <StatCard label="Shares sent" value={e.shareSent.total} />
+                  <StatCard
+                    label="Profiles published"
+                    value={e.profilePublished.total}
+                  />
+                  <StatCard
+                    label="Identities created"
+                    value={e.identityCreated}
+                  />
+                </div>
+
+                {(hasShareDetail || e.profilePublished.total > 0) && (
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    {/* Shares, by item type and destination */}
+                    <div className="rounded-2xl border border-gray-200 bg-white p-5">
+                      <p className="text-body font-semibold text-gray-900">
+                        Shares by type
+                      </p>
+                      {e.shareSent.byKind.length === 0 ? (
+                        <p className="mt-2 text-meta text-gray-400">
+                          No shares in this window.
+                        </p>
+                      ) : (
+                        <ul className="mt-2 space-y-1.5">
+                          {e.shareSent.byKind.map((row) => (
+                            <li
+                              key={row.kind}
+                              className="flex items-center justify-between text-body"
+                            >
+                              <span className="text-gray-700">
+                                {SHARE_KIND_LABELS[row.kind] ?? row.kind}
+                              </span>
+                              <span className="tabular-nums text-gray-500">
+                                {fmtInt(row.count)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {e.shareSent.byDestination.length > 0 && (
+                        <>
+                          <p className="mt-4 text-meta font-medium uppercase tracking-wide text-gray-400">
+                            By destination
+                          </p>
+                          <ul className="mt-1.5 space-y-1.5">
+                            {e.shareSent.byDestination.map((row) => (
+                              <li
+                                key={row.destination}
+                                className="flex items-center justify-between text-body"
+                              >
+                                <span className="text-gray-700">
+                                  {SHARE_DESTINATION_LABELS[row.destination] ??
+                                    row.destination}
+                                </span>
+                                <span className="tabular-nums text-gray-500">
+                                  {fmtInt(row.count)}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Published-profile composition */}
+                    <div className="rounded-2xl border border-gray-200 bg-white p-5">
+                      <p className="text-body font-semibold text-gray-900">
+                        Published profiles
+                      </p>
+                      {e.profilePublished.total === 0 ? (
+                        <p className="mt-2 text-meta text-gray-400">
+                          No profiles published in this window.
+                        </p>
+                      ) : (
+                        <ul className="mt-2 space-y-1.5 text-body">
+                          <li className="flex items-center justify-between">
+                            <span className="text-gray-700">
+                              With an ORCID linked
+                            </span>
+                            <span className="tabular-nums text-gray-500">
+                              {fmtInt(e.profilePublished.withOrcid)} of{" "}
+                              {fmtInt(e.profilePublished.total)}
+                            </span>
+                          </li>
+                          <li className="flex items-center justify-between">
+                            <span className="text-gray-700">
+                              With an affiliation
+                            </span>
+                            <span className="tabular-nums text-gray-500">
+                              {fmtInt(e.profilePublished.withAffiliation)} of{" "}
+                              {fmtInt(e.profilePublished.total)}
+                            </span>
+                          </li>
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                )}
               </>
             );
           })()}
