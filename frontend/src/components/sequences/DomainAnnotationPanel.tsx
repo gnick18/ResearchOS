@@ -111,6 +111,7 @@ export default function DomainAnnotationPanel({
   disabled,
   disabledReason,
   onAddDomains,
+  onCandidatesChange,
 }: {
   /** The selected CDS feature (for strand + exon joins). */
   feature: EditFeature;
@@ -124,9 +125,36 @@ export default function DomainAnnotationPanel({
   disabledReason?: string;
   /** Apply accepted domains as features in one undoable edit. */
   onAddDomains: (drafts: FeatureDraft[]) => void;
+  /** LIVE PREVIEW: report the CURRENTLY-SELECTED review candidates (the in-review
+   *  hits the user has checked) up to the drawer, so the protein domain bar can
+   *  draw them pending before they are accepted. Empty when not in review. */
+  onCandidatesChange?: (hits: DomainHit[]) => void;
 }) {
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const abortRef = useRef<AbortController | null>(null);
+
+  // Surface the current review candidates (the SELECTED rows in the results
+  // phase) to the drawer for the live bar preview. Any non-results phase reports
+  // an empty list, so closing / accepting / cancelling clears the pending blocks.
+  // Kept in an effect so it tracks every row toggle, not just the first render.
+  useEffect(() => {
+    if (!onCandidatesChange) return;
+    const hits =
+      phase.kind === "results"
+        ? phase.rows.filter((r) => r.selected).map((r) => r.hit)
+        : [];
+    onCandidatesChange(hits);
+  }, [phase, onCandidatesChange]);
+
+  // On unmount (drawer closed / feature changed -> panel remounts), clear any
+  // pending preview so it does not leak onto the next CDS's bar.
+  useEffect(() => {
+    return () => {
+      onCandidatesChange?.([]);
+    };
+    // Run only on unmount; onCandidatesChange identity is stable from the drawer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Abort any in-flight job when the panel unmounts (drawer closed). The PANEL
   // IS KEYED BY THE SELECTED FEATURE in the drawer, so a feature change remounts

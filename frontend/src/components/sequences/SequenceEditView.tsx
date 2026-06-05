@@ -3625,10 +3625,14 @@ export default function SequenceEditView({
             feature={selFeat}
             featureIndex={selectedFeatureIdx}
             seq={doc.seq}
+            features={doc.features}
             readOnly={readOnly}
             onClose={() => setProteinDrawerDismissedIdx(selectedFeatureIdx)}
             onEditFeature={openEditFeature}
             onAddDomains={readOnly ? undefined : addDomainFeatures}
+            // Click a domain block in the bar -> select + scroll its DNA feature
+            // on the map (the protein-view -> DNA-view cross-link).
+            onSelectDomain={selectFeature}
           />
         ) : null}
       </div>

@@ -27,6 +27,12 @@ import type { DomainHit } from "./interproscan";
  *  flyout's typeKey() and the color-table key. */
 export const DOMAIN_FEATURE_TYPE = "domain";
 
+/** The `/note` prefix that carries a domain feature's PROTEIN residue range,
+ *  1-based inclusive, e.g. `/note="aa_range:4..286"`. Stored at annotation time
+ *  by domainHitToFeature so the protein domain bar reads the span directly. A
+ *  domain feature lacking it falls back to inverting the DNA->aa mapping. */
+export const AA_RANGE_NOTE_PREFIX = "aa_range:";
+
 /** The exon spans of a feature in TRANSCRIPT order (the order translateFeature
  *  concatenates them in before any reverse-complement). For a single-span
  *  feature this is one entry; for a join() it is the locations sorted by start.
@@ -163,6 +169,15 @@ export function domainHitToFeature(
   // Carry the source database so a future per-source filter survives a GenBank
   // round-trip (decision 4). A dedicated qualifier, not the visible note text.
   qualifiers.push({ key: "note", value: `Domain database ${hit.db}` });
+  // Persist the PROTEIN aa range (1-based inclusive) on the feature so the
+  // protein domain bar reads the residue span directly, with no inverse DNA->aa
+  // math. Additive `/note` that round-trips in GenBank; a feature lacking it (an
+  // imported / pre-existing domain) falls back to inverting the DNA->aa mapping
+  // (see aaRangeForDomainFeature). See AA_RANGE_NOTE_PREFIX.
+  qualifiers.push({
+    key: "note",
+    value: `${AA_RANGE_NOTE_PREFIX}${Math.max(1, hit.start)}..${hit.end}`,
+  });
 
   return {
     name: hit.name || hit.accession,
@@ -174,4 +189,279 @@ export function domainHitToFeature(
     segments: spans.length > 1 ? spans.map((s) => ({ start: s.start, end: s.end })) : undefined,
     qualifiers,
   };
+}
+
+// --- PROTEIN PROJECTION (DNA domain feature -> aa residue span) -------------
+//
+// The protein domain bar draws domains in PROTEIN coordinates. The cheap, exact
+// path reads the aa_range note domainHitToFeature now stores. The fallback (an
+// imported / pre-existing domain with no aa_range) INVERTS the forward DNA->aa
+// mapping above so the bar still works. The inverse must agree with the forward
+// transcriptSpanToDna exactly (strand + exon joins), which the unit tests pin.
+
+/** A domain projected into the protein's aa coordinates, ready for the bar. */
+export interface DomainBlock {
+  /** Family / domain display name (e.g. "Pkinase"). */
+  name: string;
+  /** The family accession (e.g. "PF00069"); "" when unknown. */
+  accession: string;
+  /** 1-based inclusive residue start. */
+  aaStart: number;
+  /** 1-based inclusive residue end. */
+  aaEnd: number;
+  /** The per-family block color (deterministic, keyed on the accession). */
+  color: string;
+  /** Bit score, when the feature recorded one. */
+  score?: number;
+  /** E-value, when the feature recorded one. */
+  evalue?: number;
+  /** Index of the source feature in doc.features, for click-to-select. */
+  featureIndex: number;
+}
+
+/** A feature whose aa range we can recover: its forward DNA geometry + strand +
+ *  the parsed notes. Matches the EditFeature shape the editor holds. */
+interface DomainFeatureLike {
+  name?: string;
+  type?: string;
+  start: number;
+  end: number;
+  strand?: 1 | -1;
+  locations?: { start: number; end: number }[];
+  notes?: Record<string, unknown>;
+}
+
+/** Pull every string value out of a parsed note (bio-parsers stores notes as
+ *  arrays of strings; be defensive about plain strings too). */
+function noteStrings(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((v): v is string => typeof v === "string");
+  }
+  if (typeof value === "string") return [value];
+  return [];
+}
+
+/** Read the stored aa range (1-based inclusive) from a domain feature's notes,
+ *  or null when no `aa_range:` note is present. */
+export function readAaRangeNote(
+  notes: Record<string, unknown> | undefined,
+): { aaStart: number; aaEnd: number } | null {
+  if (!notes) return null;
+  for (const value of noteStrings(notes.note)) {
+    const trimmed = value.trim();
+    if (!trimmed.startsWith(AA_RANGE_NOTE_PREFIX)) continue;
+    const m = trimmed.slice(AA_RANGE_NOTE_PREFIX.length).match(/^(\d+)\.\.(\d+)$/);
+    if (!m) continue;
+    const aaStart = parseInt(m[1], 10);
+    const aaEnd = parseInt(m[2], 10);
+    if (Number.isFinite(aaStart) && Number.isFinite(aaEnd) && aaEnd >= aaStart) {
+      return { aaStart, aaEnd };
+    }
+  }
+  return null;
+}
+
+/** Read the family accession from a feature's `/db_xref="Db:ACC"` note. Returns
+ *  the bare accession (e.g. "PF00069"), or "" when absent. */
+export function readAccessionNote(notes: Record<string, unknown> | undefined): string {
+  if (!notes) return "";
+  for (const value of noteStrings(notes.db_xref)) {
+    const idx = value.indexOf(":");
+    const acc = idx >= 0 ? value.slice(idx + 1) : value;
+    if (acc.trim()) return acc.trim();
+  }
+  return "";
+}
+
+/** Read a stored E-value / bit score from the feature's score `/note` (the line
+ *  domainHitToFeature writes, e.g. "E-value 3.8e-74, bit score 260.9"). */
+function readScoreNote(notes: Record<string, unknown> | undefined): {
+  score?: number;
+  evalue?: number;
+} {
+  const out: { score?: number; evalue?: number } = {};
+  if (!notes) return out;
+  for (const value of noteStrings(notes.note)) {
+    const e = value.match(/E-value\s+([0-9.eE+-]+)/);
+    if (e) {
+      const v = Number(e[1]);
+      if (Number.isFinite(v)) out.evalue = v;
+    }
+    const s = value.match(/bit score\s+([0-9.eE+-]+)/);
+    if (s) {
+      const v = Number(s[1]);
+      if (Number.isFinite(v)) out.score = v;
+    }
+  }
+  return out;
+}
+
+/**
+ * INVERSE of transcriptSpanToDna for a single contiguous FORWARD genomic span:
+ * map a forward genomic position `g` (which must lie inside one of the exons) to
+ * its TRANSCRIPT offset, honoring strand. On the forward strand the transcript
+ * offset is the forward-exon offset; on the minus strand it is `total - that`.
+ * Returns null when `g` falls outside every exon.
+ */
+function genomicToTranscriptOffset(
+  exons: { start: number; end: number }[],
+  strand: 1 | -1,
+  total: number,
+  g: number,
+): number | null {
+  let cursor = 0;
+  for (const e of exons) {
+    const len = e.end - e.start;
+    if (g >= e.start && g <= e.end) {
+      const fwdOffset = cursor + (g - e.start);
+      return strand === -1 ? total - fwdOffset : fwdOffset;
+    }
+    cursor += len;
+  }
+  return null;
+}
+
+/**
+ * Recover the PROTEIN aa range (1-based inclusive) a `domain` feature occupies on
+ * `cdsFeature`, by inverting the DNA->aa mapping. We take the domain feature's
+ * forward genomic span (its overall [start, end) or its join() segments), map the
+ * span's two genomic endpoints back into transcript offsets through the CDS exons
+ * (strand-aware), and convert the resulting half-open transcript window to
+ * residues. Returns null when the domain does not overlap the CDS exons at all.
+ *
+ * This is the exact inverse of domainHitToFeature's forward path, so a freshly
+ * annotated domain recovers its original hit.start..hit.end even without the
+ * aa_range note (the note is just the fast path).
+ */
+export function inverseDomainAaRange(
+  cdsFeature: DomainFeatureLike,
+  domainFeature: DomainFeatureLike,
+): { aaStart: number; aaEnd: number } | null {
+  const exons = transcriptExons(cdsFeature);
+  const strand: 1 | -1 = cdsFeature.strand === -1 ? -1 : 1;
+  const total = exons.reduce((n, e) => n + (e.end - e.start), 0);
+  if (total <= 0) return null;
+
+  // The domain's forward genomic spans: its join() segments, else the overall
+  // [start, end). Coordinates are 0-based half-open on the forward strand.
+  const domainSpans =
+    domainFeature.locations && domainFeature.locations.length > 1
+      ? domainFeature.locations.map((s) => ({
+          start: Math.min(s.start, s.end),
+          end: Math.max(s.start, s.end),
+        }))
+      : [
+          {
+            start: Math.min(domainFeature.start, domainFeature.end),
+            end: Math.max(domainFeature.start, domainFeature.end),
+          },
+        ];
+
+  // Collect every transcript offset the domain's span endpoints map to. Each span
+  // contributes its left genomic edge and its right genomic edge (half-open, so
+  // the right edge is the exclusive end). We map both into transcript space and
+  // take the overall [min, max) window.
+  let tLo = Infinity;
+  let tHi = -Infinity;
+  for (const span of domainSpans) {
+    // Clamp the genomic span into the CDS extent so an endpoint sitting exactly on
+    // an intron boundary still resolves through genomicToTranscriptOffset.
+    const left = genomicToTranscriptOffset(exons, strand, total, span.start);
+    const right = genomicToTranscriptOffset(exons, strand, total, span.end);
+    for (const t of [left, right]) {
+      if (t === null) continue;
+      if (t < tLo) tLo = t;
+      if (t > tHi) tHi = t;
+    }
+  }
+  if (!Number.isFinite(tLo) || !Number.isFinite(tHi) || tHi <= tLo) return null;
+
+  // Half-open transcript window [tLo, tHi) -> 1-based inclusive residues. Residue
+  // r occupies transcript bases [(r-1)*3, r*3), so the start residue is the codon
+  // containing tLo and the end residue is the codon containing the last base
+  // (tHi - 1).
+  const aaStart = Math.floor(tLo / 3) + 1;
+  const aaEnd = Math.floor((tHi - 1) / 3) + 1;
+  if (aaEnd < aaStart) return null;
+  return { aaStart, aaEnd };
+}
+
+/** Deterministic per-family hue for a domain block, keyed on the Pfam accession
+ *  (so the same family always reads the same color, and different families read
+ *  distinctly). Falls back to the feature name when there is no accession, and to
+ *  a fixed index when both are blank. HSL chosen mid-saturation / mid-lightness so
+ *  it reads in both light and dark mode (same intent as feature-colors). */
+export function familyColor(accession: string, fallbackKey = ""): string {
+  const key = (accession || fallbackKey || "domain").trim().toLowerCase();
+  // FNV-1a, a small stable string hash, so the hue is deterministic across runs.
+  let h = 0x811c9dc5;
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  const hue = (h >>> 0) % 360;
+  return `hsl(${hue}, 62%, 58%)`;
+}
+
+/** Is a feature a `domain`-type annotation? Case-insensitive on the type. */
+function isDomainFeature(f: DomainFeatureLike): boolean {
+  return (f.type || "").trim().toLowerCase() === DOMAIN_FEATURE_TYPE;
+}
+
+/** Does a domain feature's forward DNA span overlap the CDS's forward extent? A
+ *  cheap pre-filter so we only project domains that belong to this CDS. */
+function overlapsCds(cds: DomainFeatureLike, dom: DomainFeatureLike): boolean {
+  const cLo = Math.min(cds.start, cds.end);
+  const cHi = Math.max(cds.start, cds.end);
+  const dLo = Math.min(dom.start, dom.end);
+  const dHi = Math.max(dom.start, dom.end);
+  return dHi > cLo && dLo < cHi;
+}
+
+/**
+ * Project every `domain`-type feature overlapping `cdsFeature` into the protein's
+ * aa coordinates, returning the display list the bar renders. The aa range comes
+ * from the stored `aa_range` note when present (exact, no math), else from
+ * inverting the DNA->aa mapping. Out-of-range residues are clamped into
+ * [1, aaLength]; a domain that cannot be placed is dropped.
+ *
+ * `features` is the molecule's full feature list (so featureIndex is the real
+ * doc.features index the click-to-select path needs).
+ */
+export function domainsForCds(
+  cdsFeature: DomainFeatureLike,
+  features: DomainFeatureLike[],
+  aaLength: number,
+): DomainBlock[] {
+  const out: DomainBlock[] = [];
+  features.forEach((f, featureIndex) => {
+    if (!isDomainFeature(f)) return;
+    if (!overlapsCds(cdsFeature, f)) return;
+    const stored = readAaRangeNote(f.notes);
+    const range = stored ?? inverseDomainAaRange(cdsFeature, f);
+    if (!range) return;
+    const aaStart = Math.max(1, Math.min(range.aaStart, aaLength));
+    const aaEnd = Math.max(aaStart, Math.min(range.aaEnd, aaLength));
+    const accession = readAccessionNote(f.notes);
+    const { score, evalue } = readScoreNote(f.notes);
+    out.push({
+      name: f.name || accession || "domain",
+      accession,
+      aaStart,
+      aaEnd,
+      color: familyColor(accession, f.name || ""),
+      score,
+      evalue,
+      featureIndex,
+    });
+  });
+  // Stable order: by start, then end, then name, so the bar + tests are
+  // deterministic regardless of feature-list order.
+  out.sort(
+    (a, b) =>
+      a.aaStart - b.aaStart ||
+      a.aaEnd - b.aaEnd ||
+      (a.name < b.name ? -1 : a.name > b.name ? 1 : 0),
+  );
+  return out;
 }

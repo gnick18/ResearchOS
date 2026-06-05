@@ -31,8 +31,15 @@ import {
   trimTrailingStop,
 } from "@/lib/sequences/feature-protein";
 import type { FeatureDraft } from "@/lib/sequences/feature-edit";
+import {
+  domainsForCds,
+  familyColor,
+  type DomainBlock,
+} from "@/lib/sequences/domain-features";
+import type { DomainHit } from "@/lib/sequences/interproscan";
 import Tooltip from "@/components/Tooltip";
 import ProteinPropertiesView, { NonStandardNotice } from "./ProteinPropertiesView";
+import ProteinDomainBar from "./ProteinDomainBar";
 import DomainAnnotationPanel from "./DomainAnnotationPanel";
 
 /** Fixed drawer width. Wide enough for the four stats + the composition grid on
@@ -120,10 +127,12 @@ export default function ProteinPropertiesDrawer({
   feature,
   featureIndex,
   seq,
+  features,
   readOnly,
   onClose,
   onEditFeature,
   onAddDomains,
+  onSelectDomain,
 }: {
   /** The selected coding feature to analyze. */
   feature: EditFeature;
@@ -131,6 +140,10 @@ export default function ProteinPropertiesDrawer({
   featureIndex: number;
   /** The molecule's DNA / RNA bases. */
   seq: string;
+  /** The molecule's full feature list, so the Domains section can find the
+   *  `domain` features overlapping this CDS and project them into aa space. The
+   *  index into this list is the real doc.features index onSelectDomain needs. */
+  features: EditFeature[];
   /** Hide the Edit feature action on a read-only surface. */
   readOnly: boolean;
   /** Hide the drawer (keeps the feature selected/highlighted). */
@@ -140,8 +153,16 @@ export default function ProteinPropertiesDrawer({
   /** Apply accepted domain hits as features in ONE undoable edit. Omitted on a
    *  read-only surface, which hides the "Annotate domains" action. */
   onAddDomains?: (drafts: FeatureDraft[]) => void;
+  /** Select + scroll a domain's DNA feature on the map (cross-link from the bar's
+   *  click). Receives the feature's index in `features`. */
+  onSelectDomain?: (featureIndex: number) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  // LIVE PREVIEW: the annotate review reports its current candidate hits up here,
+  // so the bar can draw them PENDING (before the user accepts). Cleared when the
+  // review closes or the user accepts (the accepted ones become features and the
+  // bar shows them solid via `features`).
+  const [candidateHits, setCandidateHits] = useState<DomainHit[]>([]);
 
   // Respect the OS reduced-motion preference: no slide-in transition when set.
   const reducedMotion =
@@ -160,6 +181,40 @@ export default function ProteinPropertiesDrawer({
   // "Not a clean ORF" when the translation carries an internal stop (a * before
   // the end), which usually means the wrong frame / range rather than a protein.
   const hasInternalStop = aa.replace(/\*+$/, "").includes("*");
+
+  // The protein length the bar draws in residue coordinates (the trimmed peptide,
+  // minus any trailing stop, so it matches the protein the panel submits).
+  const aaLength = aa.replace(/\*+$/, "").length;
+
+  // ACCEPTED domains: the `domain`-type features overlapping this CDS, projected
+  // into aa space (stored aa_range note, fallback inverse-map). The bar draws them
+  // solid + clickable.
+  const acceptedDomains = useMemo<DomainBlock[]>(
+    () => (aaLength > 0 ? domainsForCds(feature, features, aaLength) : []),
+    [feature, features, aaLength],
+  );
+
+  // CANDIDATE domains (in-review): map the panel's reported hits straight to aa
+  // blocks (the hit already carries 1-based residues). featureIndex -1 marks them
+  // as not-yet-a-feature, so the bar draws them pending + highlight-only.
+  const candidateBlocks = useMemo<DomainBlock[]>(
+    () =>
+      candidateHits.map((h) => {
+        const aaStart = Math.max(1, Math.min(h.start, aaLength || h.end));
+        const aaEnd = Math.max(aaStart, Math.min(h.end, aaLength || h.end));
+        return {
+          name: h.name || h.accession,
+          accession: h.accession,
+          aaStart,
+          aaEnd,
+          color: familyColor(h.accession, h.name || ""),
+          score: h.score,
+          evalue: h.evalue,
+          featureIndex: -1,
+        };
+      }),
+    [candidateHits, aaLength],
+  );
 
   const name = feature.name || feature.type || "Feature";
   const typeLabel = (feature.type || "feature").toLowerCase();
@@ -251,6 +306,24 @@ export default function ProteinPropertiesDrawer({
               <NonStandardNotice chars={result.nonStandardChars} />
             </div>
 
+            {/* DOMAINS — the CDD-style protein bar. Sits between the at-a-glance
+                stats and the Full-properties / Annotate-domains actions, so the
+                flow reads properties, the domains you have, the action to find
+                more. Accepted domains draw solid (click to select the DNA feature
+                on the map); in-review candidates from the annotate panel draw
+                pending so the user previews what accepting would add. */}
+            <div className="mt-4">
+              <h4 className="mb-1.5 text-meta font-medium uppercase tracking-wide text-gray-400">
+                Domains
+              </h4>
+              <ProteinDomainBar
+                aaLength={aaLength}
+                domains={acceptedDomains}
+                candidates={candidateBlocks}
+                onSelectDomain={onSelectDomain}
+              />
+            </div>
+
             {/* Full properties disclosure, collapsed by default. */}
             <button
               type="button"
@@ -292,6 +365,9 @@ export default function ProteinPropertiesDrawer({
                   : "This translation has an internal stop, so it is not a clean protein to search."
               }
               onAddDomains={onAddDomains}
+              // LIVE PREVIEW: the panel reports its current review candidates up
+              // here so the bar can draw them pending; clears on accept / close.
+              onCandidatesChange={setCandidateHits}
             />
           ) : null}
           <button

@@ -31,6 +31,7 @@ describe("ProteinPropertiesDrawer", () => {
     render(
       <ProteinPropertiesDrawer
         feature={codingFeature}
+        features={[codingFeature]}
         featureIndex={0}
         seq={SEQ}
         readOnly={false}
@@ -54,6 +55,7 @@ describe("ProteinPropertiesDrawer", () => {
     render(
       <ProteinPropertiesDrawer
         feature={codingFeature}
+        features={[codingFeature]}
         featureIndex={0}
         seq={SEQ}
         readOnly={false}
@@ -72,6 +74,7 @@ describe("ProteinPropertiesDrawer", () => {
     render(
       <ProteinPropertiesDrawer
         feature={codingFeature}
+        features={[codingFeature]}
         featureIndex={0}
         seq={SEQ}
         readOnly={false}
@@ -88,6 +91,7 @@ describe("ProteinPropertiesDrawer", () => {
     render(
       <ProteinPropertiesDrawer
         feature={codingFeature}
+        features={[codingFeature]}
         featureIndex={3}
         seq={SEQ}
         readOnly={false}
@@ -103,6 +107,7 @@ describe("ProteinPropertiesDrawer", () => {
     render(
       <ProteinPropertiesDrawer
         feature={codingFeature}
+        features={[codingFeature]}
         featureIndex={0}
         seq={SEQ}
         readOnly={true}
@@ -127,6 +132,7 @@ describe("ProteinPropertiesDrawer", () => {
     render(
       <ProteinPropertiesDrawer
         feature={empty}
+        features={[empty]}
         featureIndex={0}
         seq={SEQ}
         readOnly={false}

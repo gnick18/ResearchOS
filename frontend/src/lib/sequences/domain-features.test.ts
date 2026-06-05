@@ -52,6 +52,20 @@ describe("domainHitToFeature - forward single-segment CDS", () => {
     expect(quals.some((q) => q.key === "note" && /E-value/.test(q.value))).toBe(true);
     expect(quals).toContainEqual({ key: "note", value: "Domain database Pfam" });
   });
+
+  it("persists the protein aa range as an additive note qualifier (1-based)", () => {
+    const cds: EditFeature = { name: "CDK2", type: "CDS", strand: 1, start: 100, end: 1000 };
+    const draft = domainHitToFeature(hit(4, 286), cds, 5000)!;
+    const quals = draft.qualifiers ?? [];
+    expect(quals).toContainEqual({ key: "note", value: "aa_range:4..286" });
+  });
+
+  it("clamps a sub-1 start to residue 1 in the aa_range note", () => {
+    const cds: EditFeature = { name: "c", type: "CDS", strand: 1, start: 0, end: 900 };
+    const draft = domainHitToFeature(hit(0, 10), cds, 5000)!;
+    const quals = draft.qualifiers ?? [];
+    expect(quals).toContainEqual({ key: "note", value: "aa_range:1..10" });
+  });
 });
 
 describe("domainHitToFeature - reverse single-segment CDS", () => {
