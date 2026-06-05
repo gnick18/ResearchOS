@@ -14,6 +14,8 @@ import { extractUserContent } from "@/lib/stamp-utils";
 import { attachmentsApi } from "@/lib/local-api";
 import HybridMarkdownEditor from "./HybridMarkdownEditor";
 import InlineMarkdownEditor from "./InlineMarkdownEditor";
+import type { NoteHandle } from "@/lib/loro/store";
+import type { Note } from "@/lib/types";
 import MarkdownShortcutsSidebar from "./MarkdownShortcutsSidebar";
 import { blobUrlResolver, encodeAttachmentRefPath } from "@/lib/utils/blob-url-resolver";
 import { fileService } from "@/lib/file-system/file-service";
@@ -226,6 +228,17 @@ interface LiveMarkdownEditorProps {
    *  New uploads never write here; this is read-only legacy. Only the task
    *  popup sets it; other mount sites leave it undefined. */
   legacyAttachmentsDir?: string;
+
+  // ---------------------------------------------------------------------------
+  // Loro CRDT pilot pass-through props (forwarded to InlineMarkdownEditor only)
+  // When absent, behavior is entirely unchanged. Never passed to HybridMarkdownEditor.
+  // ---------------------------------------------------------------------------
+  /** Loro note handle; when set, InlineMarkdownEditor runs in Loro mode. */
+  loroHandle?: NoteHandle;
+  /** Active entry index within the Loro doc. Defaults to 0. */
+  loroEntryIndex?: number;
+  /** The live Note object for debounced-commit stamping. */
+  loroBaseNote?: Note;
 }
 
 /**
@@ -259,6 +272,9 @@ export default function LiveMarkdownEditor({
   enableInlineMode = true,
   toolbarTrailing,
   legacyAttachmentsDir,
+  loroHandle,
+  loroEntryIndex,
+  loroBaseNote,
 }: LiveMarkdownEditorProps) {
   // Internal mode state (used if onModeChange is not provided)
   const [internalMode, setInternalMode] = useState<EditorMode>(mode);
@@ -2335,6 +2351,9 @@ export default function LiveMarkdownEditor({
                   onExplicitSave={onExplicitSave}
                   onDirtyChange={onDirtyChange}
                   measureClass={measureClass}
+                  loroHandle={loroHandle}
+                  loroEntryIndex={loroEntryIndex}
+                  loroBaseNote={loroBaseNote}
                 />
               </div>
             </div>

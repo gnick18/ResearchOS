@@ -14,7 +14,7 @@ import {
 } from "@/lib/history/useVersionRestore";
 import { useAppStore } from "@/lib/store";
 import { LORO_PILOT_ENABLED } from "@/lib/loro/config";
-import LoroNoteEditor from "@/components/loro/LoroNoteEditor";
+import { openNote, type NoteHandle } from "@/lib/loro/store";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import NoteCommentsThread from "./NoteCommentsThread";
 import ReceivedFromBadge from "./ReceivedFromBadge";
@@ -165,6 +165,11 @@ export default function NoteDetailPopup({
     useDuplicateResolver();
   const { currentUser } = useCurrentUser();
 
+  // Loro pilot: one handle per note (keyed on note.id + owner). Opened once;
+  // closed on note identity change or unmount. Null when flag is off or while
+  // the async open is in flight.
+  const [loroHandle, setLoroHandle] = useState<NoteHandle | null>(null);
+
   // Per-note attachment folder. Mirrors how tasks use
   // `users/{owner}/results/task-{id}/`. Falls back to the note's own
   // `username` when there's no signed-in user (read-only / lab-mode views),
@@ -192,6 +197,34 @@ export default function NoteDetailPopup({
     setActiveNote({ id: note.id, owner, title: note.title });
     return () => setActiveNote(null);
   }, [setActiveNote, note.id, note.username, note.title, currentUser]);
+
+  // Loro pilot: open / close the handle when note identity changes.
+  // When the flag is off this effect is a no-op (all branches return early).
+  useEffect(() => {
+    if (!LORO_PILOT_ENABLED) return;
+
+    let active = true;
+    const ownerValue = note.username || currentUser || "";
+
+    openNote(note, ownerValue)
+      .then((handle) => {
+        if (!active) return;
+        setLoroHandle(handle);
+      })
+      .catch((err) => {
+        console.error("[NoteDetailPopup] Loro openNote failed:", err);
+      });
+
+    return () => {
+      active = false;
+      setLoroHandle((prev) => {
+        if (prev) void prev.close();
+        return null;
+      });
+    };
+    // Keyed on note identity + owner only, matching LoroNoteEditor Effect 1.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note.id, note.username, currentUser]);
 
   // Track unsaved content (pending writes that haven't been manually saved
   // yet). Still drives the close + SPA-nav safety nets even though we no
@@ -1588,45 +1621,39 @@ export default function NoteDetailPopup({
               </div>
             ) : note.is_running_log ? (
               currentEntry ? (
-                LORO_PILOT_ENABLED ? (
-                  // Note: when the flag is ON, the Loro handle owns disk
-                  // persistence via persistNote. The legacy explicit-save path
-                  // (saveEntryContent) may still fire on Cmd+S and write the
-                  // same projected content again. Full save-path unification is
-                  // a later follow-up; default-off keeps production unaffected.
-                  <LoroNoteEditor
-                    note={note}
-                    owner={note.username || currentUser || ""}
-                    entryIndex={entries.findIndex((e) => e.id === activeTab)}
-                    onChange={updateEntryContent}
-                    readOnly={readOnly}
-                  />
-                ) : (
-                  <LiveMarkdownEditor
-                    value={currentEntry.content}
-                    onChange={updateEntryContent}
-                    placeholder="Write your meeting notes in Markdown..."
-                    disabled={readOnly}
-                    allowAnyFileType={true}
-                    onImageDrop={handleImageUpload}
-                    onFileDrop={handleFileUpload}
-                    imageBasePath={basePath}
-                    recordType="note"
-                    // note-save (note-save manager): the popup owns its own
-                    // version-controlled "Save note" button above, so hide the
-                    // editor's internal buffer-commit button. saveRef lets that
-                    // button flush the live buffer; onExplicitSave routes Cmd+S
-                    // to disk; onDirtyChange keeps the button lit while mid-edit.
-                    hideSaveButton
-                    saveRef={editorSaveRef}
-                    onExplicitSave={(v) => { if (activeTab) void saveEntryContent(activeTab, v); }}
-                    onDirtyChange={setEditorDirty}
-                    // Typora editor chip 1: standalone Notes is the pilot
-                    // surface, so surface the opt-in CodeMirror 6 "Inline" mode
-                    // pill. No other surface passes this.
-                    enableInlineMode
-                  />
-                )
+                // Loro pilot: when the flag is on AND the handle is ready, pass
+                // loroHandle/entryIndex/baseNote into LiveMarkdownEditor so
+                // InlineMarkdownEditor runs in Loro mode. When the flag is off OR
+                // the handle is still opening (null), the extra props are absent and
+                // the editor behaves exactly as before.
+                <LiveMarkdownEditor
+                  value={currentEntry.content}
+                  onChange={updateEntryContent}
+                  placeholder="Write your meeting notes in Markdown..."
+                  disabled={readOnly}
+                  allowAnyFileType={true}
+                  onImageDrop={handleImageUpload}
+                  onFileDrop={handleFileUpload}
+                  imageBasePath={basePath}
+                  recordType="note"
+                  // note-save (note-save manager): the popup owns its own
+                  // version-controlled "Save note" button above, so hide the
+                  // editor's internal buffer-commit button. saveRef lets that
+                  // button flush the live buffer; onExplicitSave routes Cmd+S
+                  // to disk; onDirtyChange keeps the button lit while mid-edit.
+                  hideSaveButton
+                  saveRef={editorSaveRef}
+                  onExplicitSave={(v) => { if (activeTab) void saveEntryContent(activeTab, v); }}
+                  onDirtyChange={setEditorDirty}
+                  // Typora editor chip 1: standalone Notes is the pilot
+                  // surface, so surface the opt-in CodeMirror 6 "Inline" mode
+                  // pill. No other surface passes this.
+                  enableInlineMode
+                  // Loro pilot props (forwarded to InlineMarkdownEditor; absent = no-op).
+                  loroHandle={LORO_PILOT_ENABLED ? (loroHandle ?? undefined) : undefined}
+                  loroEntryIndex={LORO_PILOT_ENABLED ? entries.findIndex((e) => e.id === activeTab) : undefined}
+                  loroBaseNote={LORO_PILOT_ENABLED ? note : undefined}
+                />
               ) : (
                 <div className="flex items-center justify-center h-full text-gray-400">
                   <p>No entries yet. Click &quot;Add Entry&quot; to get started.</p>
@@ -1635,48 +1662,33 @@ export default function NoteDetailPopup({
             ) : (
               // Single note - use the first (and only) entry
               entries[0] && (
-                LORO_PILOT_ENABLED ? (
-                  // Note: when the flag is ON, the Loro handle owns disk
-                  // persistence via persistNote. The legacy explicit-save path
-                  // may still fire a redundant write of the same projected
-                  // content. Full save-path unification is a later follow-up;
-                  // default-off keeps production unaffected.
-                  <LoroNoteEditor
-                    note={note}
-                    owner={note.username || currentUser || ""}
-                    entryIndex={0}
-                    onChange={(content) => {
-                      if (entries[0]) {
-                        updateEntryContent(content);
-                      }
-                    }}
-                    readOnly={readOnly}
-                  />
-                ) : (
-                  <LiveMarkdownEditor
-                    value={entries[0].content}
-                    onChange={(content) => {
-                      if (entries[0]) {
-                        updateEntryContent(content);
-                      }
-                    }}
-                    placeholder="Write your meeting notes in Markdown..."
-                    disabled={readOnly}
-                    allowAnyFileType={true}
-                    onImageDrop={handleImageUpload}
-                    onFileDrop={handleFileUpload}
-                    imageBasePath={basePath}
-                    recordType="note"
-                    // note-save (note-save manager): see running-log branch.
-                    hideSaveButton
-                    saveRef={editorSaveRef}
-                    onExplicitSave={(v) => { if (activeTab) void saveEntryContent(activeTab, v); }}
-                    onDirtyChange={setEditorDirty}
-                    // Typora editor chip 1: Notes pilot opt-in (see running-log
-                    // branch). No other surface passes this.
-                    enableInlineMode
-                  />
-                )
+                <LiveMarkdownEditor
+                  value={entries[0].content}
+                  onChange={(content) => {
+                    if (entries[0]) {
+                      updateEntryContent(content);
+                    }
+                  }}
+                  placeholder="Write your meeting notes in Markdown..."
+                  disabled={readOnly}
+                  allowAnyFileType={true}
+                  onImageDrop={handleImageUpload}
+                  onFileDrop={handleFileUpload}
+                  imageBasePath={basePath}
+                  recordType="note"
+                  // note-save (note-save manager): see running-log branch.
+                  hideSaveButton
+                  saveRef={editorSaveRef}
+                  onExplicitSave={(v) => { if (activeTab) void saveEntryContent(activeTab, v); }}
+                  onDirtyChange={setEditorDirty}
+                  // Typora editor chip 1: Notes pilot opt-in (see running-log
+                  // branch). No other surface passes this.
+                  enableInlineMode
+                  // Loro pilot props (forwarded to InlineMarkdownEditor; absent = no-op).
+                  loroHandle={LORO_PILOT_ENABLED ? (loroHandle ?? undefined) : undefined}
+                  loroEntryIndex={LORO_PILOT_ENABLED ? 0 : undefined}
+                  loroBaseNote={LORO_PILOT_ENABLED ? note : undefined}
+                />
               )
             )}
           </div>

@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { EditorState as EditorStateType } from "@codemirror/state";
+import type { NoteHandle } from "@/lib/loro/store";
+import type { Note } from "@/lib/types";
+import { getEntryContentText } from "@/lib/loro/note-doc";
 
 /**
  * Inline ("Typora-style") Markdown editor — Typora editor chip 1 (T1 + T2).
@@ -93,6 +96,19 @@ interface InlineMarkdownEditorProps {
    *  so the inline image widget mints the same blob URL the preview does. When
    *  unset the blobUrlResolver falls back to the data root (wrapper parity). */
   imageBasePath?: string;
+
+  // ---------------------------------------------------------------------------
+  // Loro CRDT pilot (additive; when absent the editor behaves exactly as today)
+  // ---------------------------------------------------------------------------
+  /** When set, the editor runs in Loro mode: seeds from the Loro text, binds
+   *  LoroExtensions (sync + ephemeral + undo), drops CM6 history(), and commits
+   *  through the handle on every change. When absent, no behaviour changes. */
+  loroHandle?: NoteHandle;
+  /** Which entry inside the note doc to bind. Defaults to 0. */
+  loroEntryIndex?: number;
+  /** The live Note object. The commit() call reads it from a ref so a
+   *  per-render-new identity never destabilises the updateListener. */
+  loroBaseNote?: Note;
 }
 
 /**
@@ -105,6 +121,9 @@ function buildExtensions(
   mods: CMModules,
   editable: boolean,
   imageBasePath: string | undefined,
+  // When true, omit history() + historyKeymap because LoroUndoPlugin (bundled
+  // inside bindEditorExtension) owns undo. Running both double-applies undo.
+  omitHistory = false,
 ) {
   const {
     EditorState,
@@ -164,7 +183,8 @@ function buildExtensions(
   });
 
   return [
-    history(),
+    // history() is omitted when Loro mode is active; LoroUndoPlugin owns undo.
+    ...(omitHistory ? [] : [history()]),
     drawSelection(),
     highlightActiveLine(),
     // GFM base so the inline-reveal walk sees Strikethrough / Table nodes.
@@ -181,7 +201,8 @@ function buildExtensions(
     theme,
     EditorState.readOnly.of(!editable),
     EditorView.editable.of(editable),
-    keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+    // historyKeymap is omitted in Loro mode (no CM6 undo stack to drive).
+    keymap.of(omitHistory ? [...defaultKeymap, indentWithTab] : [...defaultKeymap, ...historyKeymap, indentWithTab]),
   ];
 }
 
@@ -196,7 +217,14 @@ export default function InlineMarkdownEditor({
   onDirtyChange,
   measureClass,
   imageBasePath,
+  loroHandle,
+  loroEntryIndex = 0,
+  loroBaseNote,
 }: InlineMarkdownEditorProps) {
+  // loroActive is stable after mount: when a handle is provided, the editor is
+  // in Loro mode for its entire lifetime. We compute it once from the prop
+  // (truthy/falsy) rather than re-reading the ref, so React sees a stable bool.
+  const loroActive = !!loroHandle;
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<import("@codemirror/view").EditorView | null>(null);
   const modsRef = useRef<CMModules | null>(null);
@@ -212,6 +240,20 @@ export default function InlineMarkdownEditor({
   // read the current value (and the disabled-reconfigure picks up a later swap)
   // without re-binding the whole editor or destabilizing makeState.
   const imageBasePathRef = useRef(imageBasePath);
+
+  // Loro mode: hold all Loro props in latest-value refs so the updateListener
+  // (created once at mount) and the entry-switch effect always read fresh values
+  // without their unstable per-render identities appearing in dep arrays. The
+  // same class of bug fixed in LoroNoteEditor (rebuild-on-keystroke hang) would
+  // recur if the updateListener captured loroBaseNote by closure -- it changes
+  // identity on every render as the parent rebuilds the note object on each key.
+  const loroHandleRef = useRef(loroHandle);
+  const loroEntryIndexRef = useRef(loroEntryIndex);
+  const loroBaseNoteRef = useRef(loroBaseNote);
+  // Track the previous entry index to skip the initial-mount fire in the
+  // entry-switch effect.
+  const prevEntryIndexRef = useRef(loroEntryIndex);
+
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
@@ -224,6 +266,11 @@ export default function InlineMarkdownEditor({
   useEffect(() => {
     imageBasePathRef.current = imageBasePath;
   }, [imageBasePath]);
+  // Keep Loro refs in sync on every render (same pattern as onChangeRef).
+  // Mutating refs during render is safe: refs do not trigger re-renders.
+  loroHandleRef.current = loroHandle;
+  loroEntryIndexRef.current = loroEntryIndex;
+  loroBaseNoteRef.current = loroBaseNote;
 
   // Dirty flag (this editor owns it; NOT shared with the hybrid buffer). Flips
   // true on the first user edit after a mount / external value swap / save.
@@ -253,10 +300,22 @@ export default function InlineMarkdownEditor({
   // `disabled` reconfigure so the two paths never drift. All closed-over
   // dependencies are stable refs / the stable setDirty, so this callback is
   // itself stable.
+  //
+  // In Loro mode (loroActive):
+  //   - `doc` is seeded from the Loro text (caller passes the result of
+  //     getEntryContentText().toString()) so the initial state matches Loro and
+  //     LoroSyncPlugin sees no divergence on first sync.
+  //   - loroHandle.bindEditorExtension() is appended; it bundles LoroSyncPlugin +
+  //     LoroEphemeralPlugin + LoroUndoPlugin.
+  //   - history() + historyKeymap are omitted; LoroUndoPlugin owns undo.
+  //   - The updateListener also debounced-commits through the handle.
+  //   - Cmd+S additionally flushes the handle so an explicit save drains immediately.
   const makeState = useCallback(
     (mods: CMModules, doc: string, editable: boolean): EditorStateType => {
       // updateListener drives the manual-save contract: fire onChange + dirty
       // ONLY on a real doc change that WE did not initiate as an echo.
+      // In Loro mode, additionally kick the debounced persist through the handle.
+      // Do NOT add a second updateListener for the Loro path; extend this one.
       const updateListener = mods.EditorView.updateListener.of((update) => {
         if (!update.docChanged) return;
         if (echoingRef.current) return;
@@ -264,10 +323,16 @@ export default function InlineMarkdownEditor({
         lastAcceptedRef.current = next;
         setDirty(true);
         onChangeRef.current?.(next);
+        // Loro mode: debounced-commit. loroBaseNoteRef holds the latest Note
+        // identity without appearing in the dep array (see ref comment above).
+        if (loroHandleRef.current && loroBaseNoteRef.current) {
+          void loroHandleRef.current.commit(loroBaseNoteRef.current);
+        }
       });
       // Cmd/Ctrl+S -> explicit save. CM6 keymaps receive the EditorView; read
       // the document straight off state and clear dirty. Returning true marks
       // the key handled (so the browser Save dialog never opens).
+      // In Loro mode, also flush the handle so the pending debounce drains now.
       const saveKeymap = mods.keymap.of([
         {
           key: "Mod-s",
@@ -277,20 +342,36 @@ export default function InlineMarkdownEditor({
             lastAcceptedRef.current = d;
             setDirty(false);
             onExplicitSaveRef.current?.(d);
+            if (loroHandleRef.current) {
+              void loroHandleRef.current.flush();
+            }
             return true;
           },
         },
       ]);
+
+      // In Loro mode, append the Loro extension (LoroSyncPlugin + ephemeral +
+      // LoroUndoPlugin) after the base extensions. This binds the editor to the
+      // active entry's LoroText. The entry index at build time comes from the
+      // ref's current value, which is kept in sync on every render.
+      const loroExtension =
+        loroHandleRef.current
+          ? [loroHandleRef.current.bindEditorExtension(loroEntryIndexRef.current)]
+          : [];
+
       return mods.EditorState.create({
         doc,
         extensions: [
           saveKeymap,
           updateListener,
-          ...buildExtensions(mods, editable, imageBasePathRef.current),
+          ...buildExtensions(mods, editable, imageBasePathRef.current, loroActive),
+          ...loroExtension,
         ],
       });
     },
-    [setDirty],
+    // loroActive is stable for the lifetime of the component (determined at
+    // mount from whether loroHandle is provided); safe to include in deps.
+    [setDirty, loroActive],
   );
 
   // Dynamically import the CM6 packages, then mount the EditorView. The whole
@@ -343,12 +424,21 @@ export default function InlineMarkdownEditor({
       const host = hostRef.current;
       if (!host) return;
 
+      // In Loro mode, seed the EditorState doc from the active entry's Loro
+      // text so the initial state matches Loro exactly. LoroSyncPlugin (inside
+      // bindEditorExtension) keeps them in sync after mount; seeding from the
+      // Loro text avoids an initial divergence that would cause a double-write.
+      // In normal mode, seed from the controlled `value` prop as before.
+      const seedDoc = loroActive
+        ? (getEntryContentText(loroHandleRef.current!.doc, loroEntryIndexRef.current)?.toString() ?? "")
+        : value;
+
       const view = new mods.EditorView({
-        state: makeState(mods, value, !disabled),
+        state: makeState(mods, seedDoc, !disabled),
         parent: host,
       });
       viewRef.current = view;
-      lastAcceptedRef.current = value;
+      lastAcceptedRef.current = seedDoc;
       prevDisabledRef.current = disabled;
       setLoaded(true);
     })();
@@ -410,7 +500,13 @@ export default function InlineMarkdownEditor({
   // note tab switched), replace the document. The echo guard prevents our own
   // updateListener from treating this dispatch as a user edit. Skipping when
   // value === lastAccepted avoids re-dispatching our own emitted value.
+  //
+  // SKIPPED in Loro mode: LoroSyncPlugin owns the document and is the single
+  // source of truth. Dispatching an external `value` into a Loro-bound editor
+  // would fight LoroSyncPlugin (it would immediately revert the dispatch to
+  // match the Loro text). The guard runs AFTER all hooks so hook order is stable.
   useEffect(() => {
+    if (loroActive) return;
     if (!loaded) return;
     const view = viewRef.current;
     if (!view) return;
@@ -432,6 +528,30 @@ export default function InlineMarkdownEditor({
     setDirty(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, loaded]);
+
+  // Entry-switch effect (Loro mode only): when loroEntryIndex changes after
+  // mount, rebuild the EditorState so the editor rebinds to the new entry's
+  // LoroText. We call makeState with the new entry's seed text and the current
+  // editability, mirroring the disabled-reconfigure effect above.
+  // Deps: ONLY [loroEntryIndex, loaded] -- NOT loroBaseNote or onChange (those
+  // are read from refs inside makeState/updateListener to avoid the rebuild-hang).
+  useEffect(() => {
+    if (!loroActive) return;
+    if (!loaded) return;
+    // Skip the initial mount (prevEntryIndexRef starts at loroEntryIndex).
+    if (prevEntryIndexRef.current === loroEntryIndex) return;
+    prevEntryIndexRef.current = loroEntryIndex;
+    const view = viewRef.current;
+    const mods = modsRef.current;
+    if (!view || !mods) return;
+    const handle = loroHandleRef.current;
+    if (!handle) return;
+    // Seed from the new entry's Loro text.
+    const newSeed = getEntryContentText(handle.doc, loroEntryIndex)?.toString() ?? "";
+    view.setState(makeState(mods, newSeed, !disabled));
+    lastAcceptedRef.current = newSeed;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loroEntryIndex, loaded]);
 
   // Reflect a CHANGE to `disabled` into CM6's editable state without
   // remounting the component (which would wipe this editor's own undo stack).
