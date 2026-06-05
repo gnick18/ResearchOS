@@ -90,6 +90,48 @@ export const PAIRWISE_CASES: PairwiseCase[] = [
     b: "TGTTACGG",
     bioScore: 6,
   },
+  // --- second batch (2026-06-05): distinct pairs, optimal scores from
+  // Biopython 1.87 PairwiseAligner under our matched scoring + affine gaps.
+  {
+    id: "global_two_mismatch",
+    label: "Global, two point mismatches",
+    mode: "global",
+    a: "ACGTACGTACGT",
+    b: "ACGTTCGTACGA",
+    bioScore: 18,
+  },
+  {
+    id: "global_del3",
+    label: "Global, internal 3-base deletion",
+    mode: "global",
+    a: "TGCAAAGGGCCCTTTACG",
+    b: "TGCAAAGGGTTTACG",
+    bioScore: 22,
+  },
+  {
+    id: "local_motif",
+    label: "Local, shared motif in unrelated flanks",
+    mode: "local",
+    a: "GGGGGTGCAGTCATGGGGG",
+    b: "AAAATGCAGTCATAAAA",
+    bioScore: 18,
+  },
+  {
+    id: "local_sw_offset",
+    label: "Local, short Smith-Waterman pair with offset",
+    mode: "local",
+    a: "ACGTTGACCAG",
+    b: "TTGACCTAAA",
+    bioScore: 12,
+  },
+  {
+    id: "global_gc_gap",
+    label: "Global, GC-rich pair with one gap",
+    mode: "global",
+    a: "GCGCGGCCGCGC",
+    b: "GCGCGCCGCGC",
+    bioScore: 16,
+  },
 ];
 
 /* ---------------------------------- homology ------------------------------ */
@@ -116,6 +158,35 @@ export const HOMOLOGY_CASES: HomologyCase[] = [
       };
     },
     bioScore: 1600, // 800 matches * 2
+    bioIdentity: 1.0,
+  },
+  // --- second batch (2026-06-05): different block lengths + seeds. An identical
+  // planted block in non-homologous flanks aligns at identity 1.0 (Biopython
+  // local), independent of length; the sequences differ from the 800 bp case.
+  {
+    id: "homology_600bp",
+    label: "Long alignment, 600 bp homologous block in ~9 kb sequences",
+    build: () => {
+      const block = sharedBlock(600, 7);
+      return {
+        a: randomDna(3_000, 31) + block + randomDna(3_000, 32),
+        b: randomDna(2_500, 41) + block + randomDna(3_500, 42),
+      };
+    },
+    bioScore: 1200,
+    bioIdentity: 1.0,
+  },
+  {
+    id: "homology_400bp",
+    label: "Long alignment, 400 bp homologous block in ~6 kb sequences",
+    build: () => {
+      const block = sharedBlock(400, 3);
+      return {
+        a: randomDna(2_000, 51) + block + randomDna(2_000, 52),
+        b: randomDna(1_500, 61) + block + randomDna(2_500, 62),
+      };
+    },
+    bioScore: 800,
     bioIdentity: 1.0,
   },
 ];

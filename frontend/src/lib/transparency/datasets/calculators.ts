@@ -15,6 +15,7 @@ import {
   concFromA260,
   concFromMolesVolume,
   dilutionV1,
+  dilutionV2,
   massFromConcVolumeMw,
   molesFromMass,
   naMolesFromMass,
@@ -93,5 +94,64 @@ export const CALC_CASES: LabCalcCase[] = [
     unit: "ng/uL",
     compute: () => concFromA260(1.0, "dsDNA"),
     oracle: 50,
+  },
+  // --- second batch (2026-06-05): more reagents, dilution directions, and
+  // nucleic-acid kinds; oracles are the closed-form values.
+  {
+    id: "nacl_moles",
+    label: "Moles from mass (NaCl)",
+    input: "25 mg NaCl, 58.44 g/mol",
+    unit: "mmol",
+    compute: () => {
+      const m = molesFromMass(25e-3, 58.44);
+      return m == null ? null : m * 1e3;
+    },
+    oracle: (25e-3 / 58.44) * 1e3,
+  },
+  {
+    id: "tris_mass",
+    label: "Mass to make a buffer",
+    input: "50 mM x 0.5 L x 121.14 g/mol Tris",
+    unit: "g",
+    compute: () => massFromConcVolumeMw(0.05, 0.5, 121.14),
+    oracle: 0.05 * 0.5 * 121.14,
+  },
+  {
+    id: "dilution_v2",
+    label: "Final volume of a dilution",
+    input: "2 mL of 100 uM down to 5 uM (C1V1 = C2V2)",
+    unit: "mL",
+    compute: () => {
+      const v = dilutionV2(100e-6, 2e-3, 5e-6);
+      return v == null ? null : v * 1e3;
+    },
+    oracle: ((100e-6 * 2e-3) / 5e-6) * 1e3,
+  },
+  {
+    id: "serial_2fold",
+    label: "Serial dilution endpoint (2-fold)",
+    input: "2-fold from 1000 nM, step 4",
+    unit: "nM",
+    compute: () => serialDilution(1000, 2, 4, 200)[3]?.concentration ?? null,
+    oracle: 1000 / 2 ** 4,
+  },
+  {
+    id: "ssdna_mass_mole",
+    label: "ssDNA mass to moles",
+    input: "50 ng of a 20 nt oligo (330 g/mol per nt)",
+    unit: "pmol",
+    compute: () => {
+      const m = naMolesFromMass(50e-9, 20, "ssDNA");
+      return m == null ? null : m * 1e12;
+    },
+    oracle: (50e-9 / (20 * 330)) * 1e12,
+  },
+  {
+    id: "a260_rna",
+    label: "RNA concentration from A260",
+    input: "RNA, A260 = 2.0 (40 ng/uL per A260)",
+    unit: "ng/uL",
+    compute: () => concFromA260(2.0, "RNA"),
+    oracle: 80,
   },
 ];

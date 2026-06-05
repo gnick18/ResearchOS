@@ -116,4 +116,92 @@ export const TM_CASES: TmCase[] = [
     opts: { oligoNanomolar: 250, na: 50, selfComplementary: true },
     bioTm: 31.8009,
   },
+  // --- second batch (2026-06-05): distinct real-world + edge oligos, checked
+  // against Biopython 1.87 (gates reproduced the pinned 1.83 values exactly).
+  // primer3 has no loadable arm64 build on this machine, so these carry the
+  // Biopython (Tier-1, tight) oracle only.
+  {
+    id: "m13_fwd",
+    label: "17-mer M13 forward primer",
+    seq: "GTAAAACGACGGCCAGT",
+    opts: { oligoNanomolar: 250, na: 50 },
+    bioTm: 51.6742,
+  },
+  {
+    id: "t7_promoter",
+    label: "20-mer T7 promoter primer",
+    seq: "TAATACGACTCACTATAGGG",
+    opts: { oligoNanomolar: 250, na: 50 },
+    bioTm: 46.7766,
+  },
+  {
+    id: "gc_rich_22",
+    label: "22-mer, very high GC",
+    seq: "GGCAGCTGCGGCCGCAGGTGCC",
+    opts: { oligoNanomolar: 250, na: 50 },
+    bioTm: 71.6958,
+  },
+  {
+    id: "at_rich_20",
+    label: "20-mer, AT-rich",
+    seq: "TTAATTGACAATTTGACATA",
+    opts: { oligoNanomolar: 250, na: 50 },
+    bioTm: 42.3846,
+  },
+  {
+    id: "balanced_30",
+    label: "30-mer, mixed composition",
+    seq: "TACCGGATCAGTGAATTCGCATGCTAGCTA",
+    opts: { oligoNanomolar: 250, na: 50 },
+    bioTm: 62.7326,
+  },
+  {
+    id: "m13_rev_24",
+    label: "24-mer M13 reverse primer",
+    seq: "CAGGAAACAGCTATGACCATGATT",
+    opts: { oligoNanomolar: 250, na: 50 },
+    bioTm: 55.0381,
+  },
+  {
+    id: "short_13",
+    label: "13-mer, short oligo",
+    seq: "ACCTGCAGGTCAT",
+    opts: { oligoNanomolar: 250, na: 50 },
+    bioTm: 42.1761,
+  },
+  {
+    id: "long_45",
+    label: "45-mer, long oligo",
+    seq: "ATGCGATCGTACGTAGCTAGCATCGATCGTACGATCGATCGTACGA",
+    opts: { oligoNanomolar: 250, na: 50 },
+    bioTm: 70.2062,
+  },
+  {
+    id: "m13rev_k50",
+    label: "24-mer M13 reverse, with 50 mM K+ added",
+    seq: "CAGGAAACAGCTATGACCATGATT",
+    opts: { oligoNanomolar: 50, na: 50, k: 50 },
+    bioTm: 56.6147,
+  },
+  {
+    id: "m13rev_pcr",
+    label: "24-mer M13 reverse, full PCR buffer (Mg + dNTP)",
+    seq: "CAGGAAACAGCTATGACCATGATT",
+    opts: { oligoNanomolar: 50, na: 50, mg: 1.5, dntps: 0.6 },
+    bioTm: 59.1141,
+  },
+  {
+    id: "pal_ndei",
+    label: "10-mer NdeI-centered palindrome, self-complementary",
+    seq: "GGCATATGCC",
+    opts: { oligoNanomolar: 250, na: 50, selfComplementary: true },
+    bioTm: 29.3784,
+  },
+  {
+    id: "pal_xhoi",
+    label: "8-mer XhoI palindrome, self-complementary",
+    seq: "CCTCGAGG",
+    opts: { oligoNanomolar: 250, na: 50, selfComplementary: true },
+    bioTm: 19.2883,
+  },
 ];

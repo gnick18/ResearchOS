@@ -68,4 +68,48 @@ export const TRANSLATE_CASES: TranslateCase[] = [
     seq: "ACCATGTAA",
     bioProtein: "TM*",
   },
+  // --- second batch (2026-06-05): distinct coding sequences, Biopython 1.87
+  // table=1 (the hand-check ATG GCC -> MA reproduced exactly).
+  {
+    id: "gfp_nterm",
+    label: "GFP N-terminus",
+    seq: "ATGAGTAAAGGAGAAGAACTTTTCACT",
+    bioProtein: "MSKGEELFT",
+  },
+  {
+    id: "his_tag",
+    label: "His6 affinity tag with stop",
+    seq: "ATGCATCATCATCATCATCACTAA",
+    bioProtein: "MHHHHHH*",
+  },
+  {
+    id: "lac_frag",
+    label: "lacZ fragment",
+    seq: "ATGACCATGATTACGGATTCACTGG",
+    bioProtein: "MTMITDSL",
+  },
+  {
+    id: "ytr_ggn",
+    label: "Two degenerate codons that each resolve (YTR, GGN)",
+    seq: "ATGYTRGGNTAA",
+    bioProtein: "MLG*",
+  },
+  {
+    id: "n_codon_mid",
+    label: "Single ambiguous codon mid-sequence (NNN to X)",
+    seq: "ATGAAANNNCCCTAA",
+    bioProtein: "MKXP*",
+  },
+  {
+    id: "long_orf",
+    label: "39-mer open reading frame, no stop",
+    seq: "ATGGCTAGCAAAGGTGAAGAATTGTTCACTGGTGTTGTC",
+    bioProtein: "MASKGEELFTGVV",
+  },
+  {
+    id: "double_stop",
+    label: "Tryptophan followed by consecutive stops",
+    seq: "ATGTGGTAGTAATGA",
+    bioProtein: "MW***",
+  },
 ];

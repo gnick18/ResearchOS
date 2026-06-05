@@ -56,6 +56,32 @@ export const PROTEIN_CASES: ProteinCase[] = [
     seq: "ACACACACAC",
     bio: { mw: 889.1193, pi: 5.5307, epsReduced: 0, epsOxidized: 250, instability: 228.7, gravy: 2.15, aliphatic: 50.0 },
   },
+  // --- second batch (2026-06-05): real peptides, Biopython 1.87 ProtParam
+  // (the dipeptide-MW reconciliation gate reproduced 146.1445 exactly).
+  {
+    id: "insulin_a",
+    label: "Insulin A chain (Cys + Tyr, acidic)",
+    seq: "GIVEQCCTSICSLYQLENYCN",
+    bio: { mw: 2383.6961, pi: 4.05, epsReduced: 2980, epsOxidized: 3230, instability: 22.542857, gravy: 0.214286, aliphatic: 88.0952 },
+  },
+  {
+    id: "melittin",
+    label: "Melittin (basic, high pI, high aliphatic)",
+    seq: "GIGAVLKVLTTGLPALISWIKRKRQQ",
+    bio: { mw: 2847.4471, pi: 12.0, epsReduced: 5500, epsOxidized: 5500, instability: 44.730769, gravy: 0.273077, aliphatic: 135.0 },
+  },
+  {
+    id: "abeta_n",
+    label: "Amyloid-beta N-terminus (acidic, low aliphatic)",
+    seq: "DAEFRHDSGYEVHHQK",
+    bio: { mw: 1955.0077, pi: 5.7558, epsReduced: 1490, epsOxidized: 1490, instability: 23.43125, gravy: -1.825, aliphatic: 24.375 },
+  },
+  {
+    id: "trp_cage",
+    label: "Trp-cage miniprotein (Trp + Tyr, unstable)",
+    seq: "NLYIQWLKDGGPSSGRPPPS",
+    bio: { mw: 2169.395, pi: 8.5898, epsReduced: 6990, epsOxidized: 6990, instability: 75.375, gravy: -0.95, aliphatic: 58.5 },
+  },
 ];
 
 /** Metric definitions: how to pull each quantity and how tightly it must match. */

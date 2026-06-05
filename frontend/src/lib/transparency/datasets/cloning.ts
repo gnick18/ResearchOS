@@ -18,8 +18,11 @@
 
 import {
   ATTB1,
+  ATTB2,
   ATTL1,
+  ATTL2,
   ATTR1,
+  ATTR2,
   crossoverAtt,
 } from "@/lib/sequences/cloning-gateway";
 import { cutAndLigate } from "@/lib/sequences/cut-ligate";
@@ -33,6 +36,13 @@ const GG_BACKBONE = "ttGGTCTCaGGACCATCATCATGGTTAAAATGtGAGACCtt";
 const GG_INSERT1 = "ttGGTCTCaAATGGGGAAACCCTTTAAATTCTtGAGACCtt";
 const GG_INSERT2 = "ttGGTCTCaTTCTTGTGTGCACACAGAGGGACtGAGACCtt";
 const GG_PRODUCT_CANON = "AAAATGGGGAAACCCTTTAAATTCTTGTGTGCACACAGAGGGACCATCATCATGGTT";
+
+// BamHI restriction-ligation (2026-06-05). Vector + insert designed like the
+// EcoRI pair but with BamHI (GGATCC) sites; desired circle canonical product
+// from pydna 5.5.14 (the EcoRI hand-reconciliation gate reproduced exactly).
+const BAM_VECTOR = "ttGGATCCgggcccaaatttgggcccGGATCCtt";
+const BAM_INSERT = "aaGGATCCATGCATCATCATTAAGGATCCaa";
+const BAM_DESIRED_CANON = "AAATTTGGGCCCGGATCCATGCATCATCATTAAGGATCCGGGCCC";
 
 export interface CloningCase {
   id: string;
@@ -89,6 +99,33 @@ export const CLONING_CASES: CloningCase[] = [
     build: () => {
       const product = crossoverAtt(ATTR1, ATTL1, 1, "attB1", "B");
       return { product: product?.seq ?? null, expected: ATTB1 };
+    },
+  },
+  {
+    id: "restriction_ligation_bamhi",
+    label: "BamHI vector + insert ligation",
+    method: "Restriction-ligation (BamHI)",
+    oracleId: "pydna",
+    build: () => {
+      const res = cutAndLigate(
+        [
+          { name: "vector", seq: BAM_VECTOR },
+          { name: "insert", seq: BAM_INSERT },
+        ],
+        { enzymeNames: ["bamhi"], mode: "restriction", circularOnly: true, allowBlunt: false },
+      );
+      const set = new Set(res.products.map((p) => p.seq));
+      return { product: set.has(BAM_DESIRED_CANON) ? BAM_DESIRED_CANON : null, expected: BAM_DESIRED_CANON };
+    },
+  },
+  {
+    id: "gateway_lr2",
+    label: "Gateway LR recombination, site 2",
+    method: "Gateway LR (attL2 x attR2 -> attB2)",
+    oracleId: "published-seq",
+    build: () => {
+      const product = crossoverAtt(ATTL2, ATTR2, 2, "attB2", "B");
+      return { product: product?.seq ?? null, expected: ATTB2 };
     },
   },
 ];
