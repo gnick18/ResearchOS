@@ -247,7 +247,12 @@ function SendForm({
     setState({ phase: "sending" });
     try {
       const payload = await buildProjectSendPayload(project, ownerUsername);
-      await sendRawShare({ email: senderEmail, recipientEmail, payload });
+      await sendRawShare({
+        email: senderEmail,
+        recipientEmail,
+        payload,
+        kind: "project",
+      });
       setState({ phase: "sent", recipient: recipientEmail });
     } catch (err) {
       // Surface the real cause, the generic fallback below otherwise swallows it.

@@ -227,7 +227,12 @@ function SendForm({
       const seq = await sequencesApi.get(id);
       if (!seq) return false; // deleted between select and send, skip it
       const payload = await buildSequenceSendPayload(seq, ownerUsername);
-      await sendRawShare({ email: fromEmail, recipientEmail, payload });
+      await sendRawShare({
+        email: fromEmail,
+        recipientEmail,
+        payload,
+        kind: "sequence",
+      });
       return true;
     },
     [ownerUsername],

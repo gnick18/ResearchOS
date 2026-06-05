@@ -75,6 +75,7 @@ import {
 } from "@/lib/sharing/encryption";
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
 import { loadIdentity } from "@/lib/sharing/identity/storage";
+import { trackShareSent } from "@/lib/analytics/events";
 
 // ---------------------------------------------------------------------------
 // Errors. Typed so the UI can branch on the failure instead of parsing strings.
@@ -281,6 +282,9 @@ export async function sendShare(
   );
   await postJson<{ ok: true }>("/api/relay/confirm", confirmBody);
 
+  // sendShare is the RO-Crate note path; experiments/methods/etc. go via
+  // sendRawShare. Anonymous feature counter only, no recipient or content.
+  trackShareSent("note", "existing_user");
   return { bundleId: reserved.bundleId, expiresAt: reserved.expiresAt };
 }
 
@@ -305,6 +309,10 @@ export interface SendRawShareParams {
   recipientEmail: string;
   /** The raw payload bytes to seal and relay verbatim (e.g. an export zip). */
   payload: Uint8Array;
+  /** Item kind, used only for the anonymous share_sent usage counter. The
+   *  transport stays byte-agnostic, this never affects how the payload is
+   *  relayed. Omit and it counts as "other". */
+  kind?: InviteItemKind;
 }
 
 /**
@@ -369,6 +377,8 @@ export async function sendRawShare(
   );
   await postJson<{ ok: true }>("/api/relay/confirm", confirmBody);
 
+  // Anonymous feature counter only, no recipient or content. kind is optional.
+  trackShareSent(params.kind ?? "other", "existing_user");
   return { bundleId: reserved.bundleId, expiresAt: reserved.expiresAt };
 }
 
@@ -725,6 +735,8 @@ export async function inviteShare(
     ...(params.itemKind ? { itemKind: params.itemKind } : {}),
   });
 
+  // Anonymous feature counter only, no recipient or content.
+  trackShareSent(params.itemKind ?? "note", "email_invite");
   return { inviteId: reserved.inviteId, expiresAt: reserved.expiresAt };
 }
 
@@ -822,6 +834,8 @@ export async function inviteRawShare(
     itemKind: params.itemKind,
   });
 
+  // Anonymous feature counter only, no recipient or content.
+  trackShareSent(params.itemKind ?? "note", "email_invite");
   return { inviteId: reserved.inviteId, expiresAt: reserved.expiresAt };
 }
 

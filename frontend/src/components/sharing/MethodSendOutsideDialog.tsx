@@ -278,7 +278,12 @@ function SendForm({
       // the build for parity with the experiment path; the method read keys on
       // method.owner.
       const payload = await buildMethodSendPayload(method, ownerUsername);
-      await sendRawShare({ email: senderEmail, recipientEmail, payload });
+      await sendRawShare({
+        email: senderEmail,
+        recipientEmail,
+        payload,
+        kind: "method",
+      });
       setState({ phase: "sent", recipient: recipientEmail });
     } catch (err) {
       if (err instanceof CompoundMethodNotSupportedError) {

@@ -81,6 +81,7 @@ import {
   unpublishProfile,
 } from "@/lib/sharing/profile";
 import ResearcherSearch from "@/components/sharing/ResearcherSearch";
+import { trackProfilePublished } from "@/lib/analytics/events";
 
 // ---------------------------------------------------------------------------
 // Shared helpers.
@@ -919,6 +920,12 @@ function ProfileEditorCard() {
       setError(result.error ?? "Could not save your profile. Try again.");
       return;
     }
+
+    // Anonymous adoption counter, booleans only (no name, institution, ORCID).
+    trackProfilePublished({
+      hasOrcid: !!orcid,
+      hasAffiliation: !!affiliation,
+    });
 
     // Refresh from server so affiliationDomain reflects what the server set.
     const updated = await fetchMyProfile();

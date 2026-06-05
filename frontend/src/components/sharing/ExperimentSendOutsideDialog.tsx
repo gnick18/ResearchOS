@@ -237,7 +237,12 @@ function SendForm({
       // and relay the sealed bytes with entityType "experiment". ownerUsername
       // threads into the export so it reads the task's content off disk.
       const payload = await buildExperimentSendPayload(task, ownerUsername);
-      await sendRawShare({ email: senderEmail, recipientEmail, payload });
+      await sendRawShare({
+        email: senderEmail,
+        recipientEmail,
+        payload,
+        kind: "experiment",
+      });
       setState({ phase: "sent", recipient: recipientEmail });
     } catch (err) {
       // Recipient-missing is no longer a dead-end. Both the typed

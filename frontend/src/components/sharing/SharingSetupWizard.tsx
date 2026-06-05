@@ -31,6 +31,7 @@ import {
   type SharingIdentitySidecar,
 } from "@/lib/sharing/identity/sidecar";
 import { canonicalizeEmail } from "@/lib/sharing/directory/email";
+import { trackIdentityCreated } from "@/lib/analytics/events";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import Tooltip from "@/components/Tooltip";
 import {
@@ -315,6 +316,8 @@ export default function SharingSetupWizard({
       // Fall back to the locally computed fingerprint if the server omits it;
       // both are derived from the same Ed25519 key so they agree.
       publishedFingerprint = data.fingerprint ?? material.fingerprint;
+      // Anonymous adoption counter, bare count (no email, fingerprint, or path).
+      trackIdentityCreated();
     } catch {
       setError("Network error while publishing. Try again.");
       setStep(isEmailPath ? "email-code" : "generate");

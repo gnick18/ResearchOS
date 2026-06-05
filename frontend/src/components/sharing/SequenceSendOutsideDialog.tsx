@@ -238,7 +238,12 @@ function SendForm({
       // the meta the recipient needs, marked kind: "sequence", and relay the
       // sealed bytes. ownerUsername is read to stamp the verified sender block.
       const payload = await buildSequenceSendPayload(sequence, ownerUsername);
-      await sendRawShare({ email: senderEmail, recipientEmail, payload });
+      await sendRawShare({
+        email: senderEmail,
+        recipientEmail,
+        payload,
+        kind: "sequence",
+      });
       setState({ phase: "sent", recipient: recipientEmail });
     } catch (err) {
       // Recipient-missing is not a dead-end. Both the typed RecipientNotFoundError
