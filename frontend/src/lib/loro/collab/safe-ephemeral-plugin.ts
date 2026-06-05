@@ -168,57 +168,49 @@ export function safeLoroEphemeralPlugin(
 // cursors.
 // ---------------------------------------------------------------------------
 
-// Six visually distinct color slots. Adding more is additive.
-const COLLAB_COLORS: string[] = [
-  "loro-peer-teal",
-  "loro-peer-amber",
-  "loro-peer-violet",
-  "loro-peer-rose",
-  "loro-peer-cyan",
-  "loro-peer-lime",
-];
+// Number of distinct hue buckets a peer can map to. With N buckets, two
+// independent peers collide on the same color only about 1/N of the time, so a
+// larger N keeps collaborators visually distinct. 24 hues (every 15 degrees)
+// are all easily distinguishable and make a 2-person collision rare (~4%).
+// loro-codemirror applies colorClassName as a plain CSS class (no inline
+// style), so we cannot inject an arbitrary per-peer hue; instead we pre-generate
+// one bucket class per hue in COLLAB_CURSOR_THEME below.
+const COLLAB_HUE_BUCKETS = 24;
 
 /**
  * Deterministic color class name for a given peer id string.
  *
- * Uses a simple djb2-style hash so the same peer always gets the same color
- * in the same session, and different peers (with different random peer ids)
- * get different colors.
+ * A djb2-style hash maps the peer id into one of COLLAB_HUE_BUCKETS hue
+ * buckets, so the same peer always gets the same color in a session and
+ * different peers almost always differ. Returns e.g. "loro-peer-h7".
  */
 export function peerColorClass(peerId: string): string {
   let hash = 5381;
   for (let i = 0; i < peerId.length; i++) {
     hash = ((hash << 5) + hash + peerId.charCodeAt(i)) >>> 0;
   }
-  return COLLAB_COLORS[hash % COLLAB_COLORS.length];
+  return `loro-peer-h${hash % COLLAB_HUE_BUCKETS}`;
 }
 
 /**
- * A CM6 baseTheme snippet that gives color to the .loro-peer-* classes.
- * Mount this alongside safeLoroEphemeralPlugin so cursors are visible.
+ * A CM6 baseTheme that colors each hue bucket's caret, name label, and
+ * selection. Generated from COLLAB_HUE_BUCKETS rather than hand-listed so the
+ * bucket count is a one-line tune. Bundled into safeLoroEphemeralPlugin's
+ * return so it always loads with cursors. The selection wash is translucent so
+ * the text underneath stays readable.
  */
-export const COLLAB_CURSOR_THEME = {
-  ".loro-peer-teal.loro-cursor":    { borderLeft: "2px solid #0d9488", backgroundColor: "#0d9488" },
-  ".loro-peer-teal::before":        { backgroundColor: "#0d9488", color: "#fff" },
-  ".loro-peer-teal.loro-selection": { backgroundColor: "#0d9488" },
-
-  ".loro-peer-amber.loro-cursor":    { borderLeft: "2px solid #d97706", backgroundColor: "#d97706" },
-  ".loro-peer-amber::before":        { backgroundColor: "#d97706", color: "#fff" },
-  ".loro-peer-amber.loro-selection": { backgroundColor: "#d97706" },
-
-  ".loro-peer-violet.loro-cursor":    { borderLeft: "2px solid #7c3aed", backgroundColor: "#7c3aed" },
-  ".loro-peer-violet::before":        { backgroundColor: "#7c3aed", color: "#fff" },
-  ".loro-peer-violet.loro-selection": { backgroundColor: "#7c3aed" },
-
-  ".loro-peer-rose.loro-cursor":    { borderLeft: "2px solid #e11d48", backgroundColor: "#e11d48" },
-  ".loro-peer-rose::before":        { backgroundColor: "#e11d48", color: "#fff" },
-  ".loro-peer-rose.loro-selection": { backgroundColor: "#e11d48" },
-
-  ".loro-peer-cyan.loro-cursor":    { borderLeft: "2px solid #0891b2", backgroundColor: "#0891b2" },
-  ".loro-peer-cyan::before":        { backgroundColor: "#0891b2", color: "#fff" },
-  ".loro-peer-cyan.loro-selection": { backgroundColor: "#0891b2" },
-
-  ".loro-peer-lime.loro-cursor":    { borderLeft: "2px solid #65a30d", backgroundColor: "#65a30d" },
-  ".loro-peer-lime::before":        { backgroundColor: "#65a30d", color: "#fff" },
-  ".loro-peer-lime.loro-selection": { backgroundColor: "#65a30d" },
-};
+export const COLLAB_CURSOR_THEME: Record<string, Record<string, string>> = (() => {
+  const theme: Record<string, Record<string, string>> = {};
+  for (let b = 0; b < COLLAB_HUE_BUCKETS; b++) {
+    const hue = Math.round((b * 360) / COLLAB_HUE_BUCKETS);
+    const solid = `hsl(${hue}, 65%, 45%)`;
+    const wash = `hsla(${hue}, 65%, 45%, 0.3)`;
+    theme[`.loro-peer-h${b}.loro-cursor`] = {
+      borderLeft: `2px solid ${solid}`,
+      backgroundColor: solid,
+    };
+    theme[`.loro-peer-h${b}::before`] = { backgroundColor: solid, color: "#fff" };
+    theme[`.loro-peer-h${b}.loro-selection`] = { backgroundColor: wash };
+  }
+  return theme;
+})();

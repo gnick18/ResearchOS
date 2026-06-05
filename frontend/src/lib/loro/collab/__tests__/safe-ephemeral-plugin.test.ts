@@ -40,16 +40,8 @@ describe("peerColorClass", () => {
     expect(peerColorClass(id)).toBe(peerColorClass(id));
   });
 
-  it("returns one of the documented color class names", () => {
-    const allowed = new Set([
-      "loro-peer-teal",
-      "loro-peer-amber",
-      "loro-peer-violet",
-      "loro-peer-rose",
-      "loro-peer-cyan",
-      "loro-peer-lime",
-    ]);
-    // Sample several peer ids to confirm all map into the allowed set.
+  it("returns a hue-bucket class name in range", () => {
+    // Every result matches loro-peer-h<bucket> with bucket in [0, 23].
     const samples = [
       "11111111",
       "22222222",
@@ -60,16 +52,20 @@ describe("peerColorClass", () => {
       "77777777",
     ];
     for (const id of samples) {
-      expect(allowed.has(peerColorClass(id))).toBe(true);
+      const cls = peerColorClass(id);
+      const match = /^loro-peer-h(\d+)$/.exec(cls);
+      expect(match).not.toBeNull();
+      const bucket = Number(match![1]);
+      expect(bucket).toBeGreaterThanOrEqual(0);
+      expect(bucket).toBeLessThan(24);
     }
   });
 
-  it("distributes across multiple color slots for distinct peer ids", () => {
-    // With 7 samples and 6 slots, not all can be the same slot.
+  it("distributes across many color slots for distinct peer ids", () => {
+    // 24 hue buckets, so 20 distinct peer ids should spread across several.
     const ids = Array.from({ length: 20 }, (_, i) => `peer-${i}`);
     const colors = new Set(ids.map(peerColorClass));
-    // Expect at least 2 distinct colors across 20 samples.
-    expect(colors.size).toBeGreaterThanOrEqual(2);
+    expect(colors.size).toBeGreaterThanOrEqual(4);
   });
 });
 
