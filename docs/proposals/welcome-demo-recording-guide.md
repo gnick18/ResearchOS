@@ -10,7 +10,7 @@ Heroes:
 - [x] Sequence editor, Clip A (plasmid map) — recorded + encoded 2026-06-04
 - [ ] Sequence editor, Clip B (Assemble / Gibson cloning)
 - [x] You own your data — recorded + encoded 2026-06-04
-- [ ] Replaces 5 tools — first take deleted, re-recording
+- [x] Replaces 5 tools — re-recorded + encoded 2026-06-04 (GANTT/Purchases sweep)
 - [x] Preloaded methods library — recorded + encoded 2026-06-04
 
 Secondary:
