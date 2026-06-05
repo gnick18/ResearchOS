@@ -543,3 +543,130 @@ export function polarToCartesian(angle: number, radius: number): { x: number; y:
   const a = angle - Math.PI / 2;
   return { x: Math.cos(a) * radius, y: Math.sin(a) * radius };
 }
+
+/**
+ * The screen-space center point of the SVG viewport, the anchor the +/- buttons
+ * zoom AROUND. d3-zoom's scaleBy(selection, k, point) keeps `point` fixed while
+ * it scales, so passing the center of what is on screen makes a button-zoom grow
+ * or shrink whatever the user has centered, instead of flying toward the fixed
+ * tree origin. The point is in the SVG's own coordinate system (the viewBox), so
+ * for a square [0, viewSize] viewBox it is simply the middle of that box. Pure
+ * and exported so a test can pin it without a live d3 selection.
+ *
+ * @param viewSize the SVG drawing box side (the viewBox is [0, viewSize])
+ */
+export function viewportCenterPoint(viewSize: number): [number, number] {
+  return [viewSize / 2, viewSize / 2];
+}
+
+/**
+ * The cartesian bounding box of a node and its laid-out descendants, in LAYOUT
+ * coordinates (the polarToCartesian space). This is what a click-to-dive frames
+ * so the clicked clade fills the view. The box spans every descendant's marker
+ * position. Pure, so a test can pin it; the caller turns it into a zoom
+ * transform with fitTransform.
+ *
+ * Returns null when the node is not present (an empty box is meaningless).
+ *
+ * @param laidOut a flat laid-out tree (the layout output)
+ * @param rootId  the node to bound (its whole subtree is included)
+ */
+export function subtreeBounds(
+  laidOut: RadialLaidOutNode[],
+  rootId: string,
+): ViewportRect | null {
+  const byId = new Map<string, RadialLaidOutNode>();
+  const childrenOf = new Map<string, RadialLaidOutNode[]>();
+  for (const n of laidOut) {
+    byId.set(n.id, n);
+    if (n.parentId) {
+      const arr = childrenOf.get(n.parentId);
+      if (arr) arr.push(n);
+      else childrenOf.set(n.parentId, [n]);
+    }
+  }
+  const root = byId.get(rootId);
+  if (!root) return null;
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  const stack: RadialLaidOutNode[] = [root];
+  const guard = new Set<string>();
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if (guard.has(node.id)) continue;
+    guard.add(node.id);
+    const { x, y } = polarToCartesian(node.angle, node.radius);
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+    for (const child of childrenOf.get(node.id) ?? []) stack.push(child);
+  }
+  return { minX, minY, maxX, maxY };
+}
+
+/** A d3-zoom transform as plain numbers, the shape the render layer hands to
+ *  zoomIdentity.translate(x, y).scale(k). Kept framework-free so the fit math is
+ *  unit-tested without a real d3 transform. */
+export interface ZoomTransformParts {
+  k: number;
+  x: number;
+  y: number;
+}
+
+/**
+ * A zoom transform that FRAMES a layout-space rectangle inside the SVG viewport,
+ * the math behind click-to-dive and search-zoom. The rectangle (a subtree's
+ * bounds) is centered in the [0, viewSize] box and scaled so it fills a
+ * comfortable fraction of the view (padding leaves breathing room around the
+ * clade). A degenerate (zero-area) box, a single leaf, falls back to a readable
+ * default scale centered on the box. Pure, so a test can pin the centering and
+ * the fill fraction without driving d3.
+ *
+ * d3-zoom maps layout to screen as screen = k * layout + [x, y]. To center the
+ * box center C at the viewport center V at scale k, we need x = V - k * C.
+ *
+ * @param rect       the layout-space rectangle to frame (e.g. subtreeBounds)
+ * @param viewSize   the SVG drawing box side
+ * @param opts.padding   fraction of the view to leave as margin (0.1 = 10 percent each side)
+ * @param opts.maxScale  the largest scale a tiny box is allowed to reach
+ * @param opts.minScale  the smallest scale the fit will use
+ * @param opts.fallbackScale  the scale for a zero-area box (a single leaf)
+ */
+export function fitTransform(
+  rect: ViewportRect,
+  viewSize: number,
+  opts: {
+    padding?: number;
+    maxScale?: number;
+    minScale?: number;
+    fallbackScale?: number;
+  } = {},
+): ZoomTransformParts {
+  const padding = opts.padding ?? 0.12;
+  const maxScale = opts.maxScale ?? 18;
+  const minScale = opts.minScale ?? 0.3;
+  const fallbackScale = opts.fallbackScale ?? 6;
+
+  const cx = (rect.minX + rect.maxX) / 2;
+  const cy = (rect.minY + rect.maxY) / 2;
+  const width = rect.maxX - rect.minX;
+  const height = rect.maxY - rect.minY;
+  const usable = viewSize * (1 - 2 * padding);
+
+  let k: number;
+  if (width <= 1e-6 && height <= 1e-6) {
+    // A single point (a leaf): no extent to fit, use the readable default.
+    k = fallbackScale;
+  } else {
+    const span = Math.max(width, height);
+    k = usable / span;
+  }
+  k = Math.min(maxScale, Math.max(minScale, k));
+
+  const center = viewSize / 2;
+  return { k, x: center - k * cx, y: center - k * cy };
+}

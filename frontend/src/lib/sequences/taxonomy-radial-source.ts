@@ -164,6 +164,145 @@ export function findPoolNode(pool: RadialPool, taxId: string): RadialPoolNode | 
   return pool.byId.get(String(taxId));
 }
 
+/** One step of a resolved lineage, the minimal shape the splice needs. The
+ *  search-zoom resolver fills these from live getTaxonNode calls (id + name +
+ *  rank), and the splice threads each step under the one above it. */
+export interface LineageStep {
+  id: string;
+  name: string;
+  rank: string;
+}
+
+/**
+ * Splice a LINEAGE PATH of below-family nodes into the pool under an ancestor
+ * that is already present. Given the in-pool anchor id and the ordered steps
+ * from the anchor's first missing child down to the target (root-first), this
+ * inserts each missing node as a live pool node and wires the parent / child
+ * links so the layout reaches the target. Mutates `pool` in place and returns
+ * the ids it actually added (already-present ids are skipped, so a re-splice is
+ * a no-op for them).
+ *
+ * Pure given the resolved steps (no network), so the lineage-to-pool wiring is
+ * unit-tested without mocking the live fetch. The network walk that produces the
+ * steps lives in resolveLineageToPool.
+ *
+ * @param pool    the growable pool to mutate
+ * @param anchorId an id already in the pool (the nearest present ancestor)
+ * @param steps   the ordered descendants from just under the anchor to the
+ *                target (root-first), each a LineageStep
+ */
+export function spliceLineagePath(
+  pool: RadialPool,
+  anchorId: string,
+  steps: LineageStep[],
+): string[] {
+  const anchor = pool.byId.get(String(anchorId));
+  if (!anchor || steps.length === 0) return [];
+
+  const added: string[] = [];
+  let parent = anchor;
+  for (const step of steps) {
+    const stepId = String(step.id);
+    if (!pool.byId.has(stepId)) {
+      pool.byId.set(stepId, {
+        id: stepId,
+        name: step.name || `Taxon ${stepId}`,
+        rank: step.rank || "",
+        speciesCount: LIVE_LEAF_SPECIES,
+        childIds: [],
+        // The target keeps childrenLoaded false so a dive can still drill below
+        // it; an interior step we just threaded has no loaded children either.
+        origin: "live",
+        childrenLoaded: false,
+      });
+      added.push(stepId);
+    }
+    // Wire the step under its parent without disturbing the parent's other
+    // children. The anchor / interior nodes now hold at least this child, so the
+    // layout walks down to the target.
+    if (!parent.childIds.includes(stepId)) {
+      parent.childIds = [...parent.childIds, stepId];
+    }
+    // An interior lineage node is a real branch we have placed, so its single
+    // known child is loaded enough for the path; mark it so a later full dive
+    // still re-drills its complete child set (childrenLoaded false leaves that
+    // door open). We intentionally leave childrenLoaded false on every threaded
+    // node so a subsequent dive loads the FULL sibling set, not just this path.
+    parent = pool.byId.get(stepId)!;
+  }
+  return added;
+}
+
+/**
+ * Resolve a below-family search target into the pool and return the in-pool
+ * anchor plus the spliced path, so the caller can re-layout and zoom to it.
+ *
+ * Walks the target's live ancestor lineage (getTaxonNode gives ancestorIds
+ * root-first), finds the deepest ancestor ALREADY in the pool (a backbone
+ * family, usually), names the missing chain in one batch, and splices it under
+ * that anchor with spliceLineagePath. Returns the anchor id and the target id so
+ * the caller knows what to frame. Returns null when the target has no in-pool
+ * ancestor at all (it sits outside our backbone entirely).
+ *
+ * Bounded: the below-family lineage is shallow (family to species is a few
+ * levels), and the missing chain is named in a single resolveTaxonNames call.
+ * Network-bound, so it is exercised through mocked getTaxonNode / resolveTaxonNames.
+ */
+export async function resolveLineageToPool(
+  pool: RadialPool,
+  taxId: string,
+  opts: { signal?: AbortSignal } = {},
+): Promise<{ anchorId: string; targetId: string; added: string[] } | null> {
+  const targetId = String(taxId);
+  // Already present (it may have been drilled into the pool earlier): nothing to
+  // splice, the caller just frames it.
+  if (pool.byId.has(targetId)) {
+    return { anchorId: targetId, targetId, added: [] };
+  }
+
+  const target = await getTaxonNode(targetId, { signal: opts.signal });
+  // ancestorIds is root-first and excludes self. The lineage from root to the
+  // target is [...ancestorIds, targetId].
+  const lineage = [...target.ancestorIds.map(String), targetId];
+
+  // Find the deepest lineage entry already in the pool (the anchor). Everything
+  // below it is the missing chain we must splice.
+  let anchorIndex = -1;
+  for (let i = lineage.length - 1; i >= 0; i -= 1) {
+    if (pool.byId.has(lineage[i])) {
+      anchorIndex = i;
+      break;
+    }
+  }
+  if (anchorIndex === -1) return null; // no in-pool ancestor, off our backbone
+
+  const anchorId = lineage[anchorIndex];
+  const missingIds = lineage.slice(anchorIndex + 1);
+  if (missingIds.length === 0) {
+    return { anchorId, targetId, added: [] };
+  }
+
+  // Name the missing chain in one batch. A names failure degrades to id labels
+  // so the zoom still lands. The target's own name / rank come from its report.
+  let nameMap: Map<string, { taxId: string; name: string; rank: string }>;
+  try {
+    nameMap = await resolveTaxonNames(missingIds, { signal: opts.signal });
+  } catch (e) {
+    if ((e as Error)?.name === "AbortError") throw e;
+    nameMap = new Map();
+  }
+  // The target's own name / rank are authoritative from its report.
+  nameMap.set(targetId, { taxId: targetId, name: target.name, rank: target.rank });
+
+  const steps: LineageStep[] = missingIds.map((id) => {
+    const named = nameMap.get(id);
+    return { id, name: named?.name ?? `Taxon ${id}`, rank: named?.rank ?? "" };
+  });
+
+  const added = spliceLineagePath(pool, anchorId, steps);
+  return { anchorId, targetId, added };
+}
+
 /**
  * The ancestor PATH from the synthetic root down to a target id, as ids, or null
  * when the target is not reachable in the current pool. Used to know which

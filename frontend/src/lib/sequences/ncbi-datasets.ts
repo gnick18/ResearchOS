@@ -247,6 +247,10 @@ export interface ExplorerTaxonNode {
   /** The nearest ancestor's tax id (the last entry of the report parents), or
    *  null at a root. */
   parentId: string | null;
+  /** The full ancestor lineage as tax ids, root-first and excluding self (the
+   *  whole report parents array). The radial search-zoom walks this to splice a
+   *  below-family target down from the nearest in-pool ancestor. */
+  ancestorIds: string[];
   /** Direct child tax ids (resolved to names in a batch by the caller). */
   childIds: string[];
   /** Major rank -> name, for the breadcrumb (e.g. domain, phylum, family). */
@@ -337,6 +341,7 @@ export function parseExplorerNode(raw: unknown): ExplorerTaxonNode {
     name: readScientificName(tax.current_scientific_name, taxId),
     rank: (asString(tax.rank) || "").toLowerCase(),
     parentId: parents.length > 0 ? parents[parents.length - 1] : null,
+    ancestorIds: parents,
     childIds,
     classification: readClassification(tax.classification),
     counts: readCounts(tax.counts),

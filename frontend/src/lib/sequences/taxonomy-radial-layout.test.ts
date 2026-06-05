@@ -12,6 +12,9 @@ import {
   isLabelVisibleAtZoom,
   isNodeInViewport,
   viewportRectFromTransform,
+  viewportCenterPoint,
+  subtreeBounds,
+  fitTransform,
   polarToCartesian,
   type RadialInputNode,
   type RadialLaidOutNode,
@@ -343,5 +346,77 @@ describe("polarToCartesian", () => {
     const p = polarToCartesian(Math.PI / 2, 100);
     expect(p.x).toBeCloseTo(100, 6);
     expect(p.y).toBeCloseTo(0, 6);
+  });
+});
+
+describe("viewportCenterPoint", () => {
+  it("is the middle of the square viewBox (the +/- zoom anchor)", () => {
+    expect(viewportCenterPoint(1000)).toEqual([500, 500]);
+    expect(viewportCenterPoint(640)).toEqual([320, 320]);
+  });
+});
+
+describe("subtreeBounds", () => {
+  it("bounds a node and all its laid-out descendants", () => {
+    const laid = layoutRadialTree(syntheticTree(), "root");
+    const all = subtreeBounds(laid, "root")!;
+    const fat = subtreeBounds(laid, "fat")!;
+    // The fat clade's box must sit inside the whole-tree box.
+    expect(fat.minX).toBeGreaterThanOrEqual(all.minX - 1e-6);
+    expect(fat.maxX).toBeLessThanOrEqual(all.maxX + 1e-6);
+    expect(fat.minY).toBeGreaterThanOrEqual(all.minY - 1e-6);
+    expect(fat.maxY).toBeLessThanOrEqual(all.maxY + 1e-6);
+  });
+
+  it("a leaf bounds to its own point (zero area)", () => {
+    const laid = layoutRadialTree(syntheticTree(), "root");
+    const leaf = subtreeBounds(laid, "thinA")!;
+    const node = byId(laid).get("thinA")!;
+    const p = polarToCartesian(node.angle, node.radius);
+    expect(leaf.minX).toBeCloseTo(p.x, 6);
+    expect(leaf.maxX).toBeCloseTo(p.x, 6);
+    expect(leaf.minY).toBeCloseTo(p.y, 6);
+    expect(leaf.maxY).toBeCloseTo(p.y, 6);
+  });
+
+  it("returns null for a missing node", () => {
+    const laid = layoutRadialTree(syntheticTree(), "root");
+    expect(subtreeBounds(laid, "nope")).toBeNull();
+  });
+});
+
+describe("fitTransform", () => {
+  const VIEW = 1000;
+
+  it("centers the box center at the viewport center", () => {
+    // A box from (100,100) to (300,300) has center (200,200).
+    const rect: ViewportRect = { minX: 100, minY: 100, maxX: 300, maxY: 300 };
+    const t = fitTransform(rect, VIEW);
+    // screen of the box center must land at VIEW/2.
+    expect(t.k * 200 + t.x).toBeCloseTo(VIEW / 2, 6);
+    expect(t.k * 200 + t.y).toBeCloseTo(VIEW / 2, 6);
+  });
+
+  it("scales so the box fills the padded view (bigger box, smaller scale)", () => {
+    const small: ViewportRect = { minX: 0, minY: 0, maxX: 100, maxY: 100 };
+    const big: ViewportRect = { minX: 0, minY: 0, maxX: 800, maxY: 800 };
+    const ks = fitTransform(small, VIEW).k;
+    const kb = fitTransform(big, VIEW).k;
+    expect(ks).toBeGreaterThan(kb);
+  });
+
+  it("falls back to a readable scale for a zero-area box (a single leaf)", () => {
+    const point: ViewportRect = { minX: 250, minY: 250, maxX: 250, maxY: 250 };
+    const t = fitTransform(point, VIEW, { fallbackScale: 6 });
+    expect(t.k).toBe(6);
+    // Still centered on the point.
+    expect(t.k * 250 + t.x).toBeCloseTo(VIEW / 2, 6);
+  });
+
+  it("clamps scale to the min / max bounds", () => {
+    const huge: ViewportRect = { minX: -100000, minY: -100000, maxX: 100000, maxY: 100000 };
+    const tiny: ViewportRect = { minX: 0, minY: 0, maxX: 0.001, maxY: 0.001 };
+    expect(fitTransform(huge, VIEW, { minScale: 0.3 }).k).toBe(0.3);
+    expect(fitTransform(tiny, VIEW, { maxScale: 18 }).k).toBe(18);
   });
 });

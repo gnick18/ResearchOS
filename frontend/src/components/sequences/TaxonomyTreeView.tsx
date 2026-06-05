@@ -34,7 +34,7 @@ import {
 import { select } from "d3-selection";
 import { zoom as d3zoom, zoomIdentity, type ZoomBehavior } from "d3-zoom";
 // Side-effect import: registers selection.transition() so the zoom animations
-// (zoomToNode, nudgeZoom, resetView) work. d3-zoom pulls it in transitively, but
+// (flyToBounds, nudgeZoom, resetView) work. d3-zoom pulls it in transitively, but
 // we import it directly so the method exists and the dep is explicit.
 import "d3-transition";
 import Tooltip from "@/components/Tooltip";
@@ -45,12 +45,16 @@ import {
   isLabelVisibleAtZoom,
   polarToCartesian,
   viewportRectFromTransform,
+  viewportCenterPoint,
+  subtreeBounds,
+  fitTransform,
   type RadialLaidOutNode,
 } from "@/lib/sequences/taxonomy-radial-layout";
 import {
   loadRadialPool,
   drillNode,
   findPoolNode,
+  resolveLineageToPool,
   SYNTHETIC_ROOT_ID,
   type RadialPool,
 } from "@/lib/sequences/taxonomy-radial-source";
@@ -79,6 +83,24 @@ const NODE_HARD_CAP = 2500;
 // The SVG drawing box. The view is centered, and d3-zoom transforms a single
 // inner group, so the numbers here are layout units, not screen pixels.
 const VIEW_SIZE = 1000;
+
+// The dive / search-zoom animation length, the smooth flight to a clade. Kept in
+// the 500 to 700ms band so it reads as a glide, not a teleport. d3 transitions
+// are interruptible, so a quick second click cancels the first mid-flight.
+const DIVE_MS = 620;
+
+// The insertion-tween length, the grow-in of freshly drilled twigs. New nodes
+// interpolate from their parent's position (zero thickness) out to their laid-out
+// spot over this window, so a drill blooms rather than snapping. Driven by
+// requestAnimationFrame (no extra d3 dep), eased so it settles softly.
+const INSERT_MS = 520;
+
+// A soft ease for the insertion tween (ease-out cubic), so the twigs decelerate
+// into place. Pure, kept local since d3-ease is not a direct dependency.
+function easeOutCubic(t: number): number {
+  const c = Math.min(1, Math.max(0, t));
+  return 1 - Math.pow(1 - c, 3);
+}
 
 // Rank-aware branch coloring (calm, low-saturation). Unknown ranks fall to a
 // neutral slate. Optional per the brief, kept gentle so the shape reads first.
@@ -246,6 +268,15 @@ export default function TaxonomyTreeView({
   // focus. Bumped on every focus / drill that mutates the pool.
   const [layoutVersion, setLayoutVersion] = useState(0);
 
+  // The insertion tween. `ids` are the freshly spliced node ids growing in, and
+  // `t` runs 0 to 1 over INSERT_MS, driven by requestAnimationFrame. While t < 1,
+  // the render interpolates each of these nodes (and its link) from the parent
+  // position out to the laid-out spot, so only the new twigs animate and the
+  // existing tree stays put. An empty set means nothing is tweening.
+  const [insertIds, setInsertIds] = useState<Set<string>>(() => new Set());
+  const [insertT, setInsertT] = useState(1);
+  const insertRafRef = useRef<number | null>(null);
+
   const handleClose = useCallback(() => {
     loadAbortRef.current?.abort();
     suggestAbortRef.current?.abort();
@@ -357,28 +388,54 @@ export default function TaxonomyTreeView({
     };
   }, [open, pool]);
 
-  // Animate a zoom so a target node sits near the center at a readable scale.
-  const zoomToNode = useCallback((target: RadialLaidOutNode, scale = 6) => {
-    const svgEl = svgRef.current;
-    const behavior = zoomRef.current;
-    if (!svgEl || !behavior) return;
-    const { x, y } = polarToCartesian(target.angle, target.radius);
-    const transform = zoomIdentity
-      .translate(VIEW_SIZE / 2, VIEW_SIZE / 2)
-      .scale(scale)
-      .translate(-x, -y);
-    select(svgEl).transition().duration(650).call(behavior.transform, transform);
-  }, []);
+  // Animate the view to FRAME a layout-space rectangle (a clade and its
+  // subtree), the shared flight used by click-to-dive and search-zoom. The
+  // transform comes from the pure fitTransform helper, so the centering and the
+  // fill fraction are unit-tested. Interruptible, since a second call retargets
+  // the same d3 transition mid-flight.
+  const flyToBounds = useCallback(
+    (rect: { minX: number; minY: number; maxX: number; maxY: number }) => {
+      const svgEl = svgRef.current;
+      const behavior = zoomRef.current;
+      if (!svgEl || !behavior) return;
+      const { k, x, y } = fitTransform(rect, VIEW_SIZE);
+      const transform = zoomIdentity.translate(x, y).scale(k);
+      select(svgEl).transition().duration(DIVE_MS).call(behavior.transform, transform);
+    },
+    [],
+  );
 
-  // Manual zoom buttons (chrome). Scale around the view center.
+  // Frame a node's whole subtree, the primary dive gesture. We lay the focused
+  // tree out fresh from the pool (not the memoized laidOut, which may lag a just
+  // finished splice) and bound the clicked node's subtree, so a dive right after
+  // a drill flies into the freshly loaded children. Falls back to a point frame
+  // when the node has no laid-out descendants yet.
+  const flyToNodeSubtree = useCallback(
+    (taxId: string) => {
+      if (!pool) return;
+      const rootId = pool.byId.has(focusId) ? focusId : SYNTHETIC_ROOT_ID;
+      const tree = layoutRadialTree(pool.byId, rootId);
+      const bounds = subtreeBounds(tree, taxId);
+      if (!bounds) return;
+      flyToBounds(bounds);
+    },
+    [pool, focusId, flyToBounds],
+  );
+
+  // Manual zoom buttons (chrome). Scale around the CURRENT viewport center (the
+  // middle of what is on screen), not the fixed tree origin, so after a pan the
+  // plus button zooms into whatever the user has centered. The point passed to
+  // scaleBy is in the SVG coordinate system, where the viewport center is the
+  // constant middle of the square viewBox.
   const nudgeZoom = useCallback((factor: number) => {
     const svgEl = svgRef.current;
     const behavior = zoomRef.current;
     if (!svgEl || !behavior) return;
+    const center = viewportCenterPoint(VIEW_SIZE);
     select(svgEl)
       .transition()
       .duration(220)
-      .call(behavior.scaleBy, factor);
+      .call(behavior.scaleBy, factor, center);
   }, []);
 
   const resetView = useCallback(() => {
@@ -389,8 +446,52 @@ export default function TaxonomyTreeView({
     select(svgEl).transition().duration(450).call(behavior.transform, initial);
   }, []);
 
-  // Open the click-detail for a laid-out node, and lazy-drill a family leaf so
-  // its genera splice in (animated by the re-layout) when the user focuses it.
+  // Start the insertion tween for a batch of freshly spliced ids. They grow from
+  // their parent's position out to their laid-out spot over INSERT_MS, eased,
+  // driven by requestAnimationFrame (no extra d3 dep). Only these ids move, so
+  // the rest of the tree stays put. A new batch cancels any in-flight tween.
+  const startInsertTween = useCallback((ids: string[]) => {
+    if (insertRafRef.current !== null) {
+      cancelAnimationFrame(insertRafRef.current);
+      insertRafRef.current = null;
+    }
+    if (ids.length === 0) {
+      setInsertIds(new Set());
+      setInsertT(1);
+      return;
+    }
+    setInsertIds(new Set(ids));
+    setInsertT(0);
+    const start = performance.now();
+    const step = (now: number) => {
+      const raw = (now - start) / INSERT_MS;
+      const t = easeOutCubic(raw);
+      if (raw >= 1) {
+        setInsertT(1);
+        setInsertIds(new Set());
+        insertRafRef.current = null;
+        return;
+      }
+      setInsertT(t);
+      insertRafRef.current = requestAnimationFrame(step);
+    };
+    insertRafRef.current = requestAnimationFrame(step);
+  }, []);
+
+  // Cancel any running insertion tween when the view closes / unmounts.
+  useEffect(() => {
+    return () => {
+      if (insertRafRef.current !== null) {
+        cancelAnimationFrame(insertRafRef.current);
+        insertRafRef.current = null;
+      }
+    };
+  }, []);
+
+  // Open the click-detail for a laid-out node, FLY INTO its subtree (the primary
+  // exploration gesture), and lazy-drill it one level when its children are not
+  // loaded yet, so genus / species reveal as the user dives deeper (not capped at
+  // family). A leaf with no children just shows its detail and frames itself.
   const onNodeClick = useCallback(
     (n: RadialLaidOutNode) => {
       if (!pool) return;
@@ -404,13 +505,23 @@ export default function TaxonomyTreeView({
         origin: poolNode.origin,
       });
 
-      // If this is a backbone leaf (a family, no loaded children below it),
-      // drill it live so the next focus shows its genera.
+      // Dive: frame the clicked clade so it fills the view. This fires right away
+      // on what is already laid out, so the flight starts the moment the user
+      // clicks, even while a drill is still loading.
+      flyToNodeSubtree(poolNode.id);
+
+      // Deeper drill (not just family). When this node's children are not in the
+      // pool, load one level live, animate the new twigs growing in, then re-frame
+      // so the dive lands on the freshly loaded subtree. Guard against a re-load
+      // (childrenLoaded gates it; drillNode is also a no-op for a loaded node).
       if (!poolNode.childrenLoaded) {
         setNote(`Loading taxa under ${poolNode.name}...`);
         drillNode(pool, poolNode.id)
-          .then(() => {
+          .then((splicedIds) => {
             setLayoutVersion((v) => v + 1);
+            startInsertTween(splicedIds);
+            // Re-frame onto the now-loaded children so the dive shows them.
+            flyToNodeSubtree(poolNode.id);
             setNote(null);
           })
           .catch(() => {
@@ -418,7 +529,7 @@ export default function TaxonomyTreeView({
           });
       }
     },
-    [pool],
+    [pool, flyToNodeSubtree, startInsertTween],
   );
 
   // Focus / recenter the radial fan on a node (from the detail or a deep click).
@@ -456,8 +567,11 @@ export default function TaxonomyTreeView({
     return () => clearTimeout(t);
   }, [query]);
 
-  // Pick a search result: locate it in the current layout (drilling live first
-  // when it is below family), then animate a zoom to it.
+  // Pick a search result: locate it in the current layout, FLY to it, and open
+  // its detail. When the target is below family (not yet in the pool), resolve
+  // its lineage from the nearest in-pool ancestor, splice that chain in, then
+  // animate the twigs and fly to the target, so search lands on the result even
+  // deep below the backbone.
   const pickSuggestion = useCallback(
     async (s: TaxonSuggestion) => {
       setQuery("");
@@ -465,10 +579,33 @@ export default function TaxonomyTreeView({
       setSuggestOpen(false);
       if (!pool) return;
 
-      // Already in the laid-out fan: zoom straight to it.
-      const present = laidOut.find((n) => n.id === s.taxId);
+      // Already in the laid-out fan: fly straight to it.
+      const present = findPoolNode(pool, s.taxId);
       if (present) {
-        zoomToNode(present);
+        setSelected({
+          taxId: s.taxId,
+          name: s.name,
+          rank: s.rank,
+          speciesCount: present.speciesCount,
+          origin: present.origin,
+        });
+        flyToNodeSubtree(s.taxId);
+        return;
+      }
+
+      // Below family or off our backbone: resolve the lineage and splice the
+      // chain down from the nearest in-pool ancestor, then fly to it.
+      setNote(`Locating ${s.name}...`);
+      suggestAbortRef.current?.abort();
+      const controller = new AbortController();
+      suggestAbortRef.current = controller;
+      try {
+        const resolved = await resolveLineageToPool(pool, s.taxId, {
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted) return;
+        // Always open the detail, even when the target sits outside our backbone
+        // (no in-pool ancestor), so the user can still import / inspect it.
         setSelected({
           taxId: s.taxId,
           name: s.name,
@@ -476,30 +613,29 @@ export default function TaxonomyTreeView({
           speciesCount: findPoolNode(pool, s.taxId)?.speciesCount,
           origin: findPoolNode(pool, s.taxId)?.origin ?? "live",
         });
-        return;
-      }
-
-      // Below family or off-screen: focus the result so the layout re-roots and
-      // a subsequent drill reveals it. We focus on the suggestion id directly;
-      // the pool may not hold it yet, so resolve it into a detail and let the
-      // user drill from there.
-      setNote(`Locating ${s.name}...`);
-      try {
-        // Focusing an id the pool lacks falls back to the synthetic root in the
-        // layout, so instead we just open the detail and let the user import or
-        // drill. A full below-family zoom is a follow-up (noted in the report).
-        setSelected({
-          taxId: s.taxId,
-          name: s.name,
-          rank: s.rank,
-          speciesCount: findPoolNode(pool, s.taxId)?.speciesCount,
-          origin: "live",
-        });
+        if (resolved) {
+          // Re-layout for the spliced chain, animate the new twigs in, and fly to
+          // the target so the search visibly lands on the result.
+          setLayoutVersion((v) => v + 1);
+          startInsertTween(resolved.added);
+          flyToNodeSubtree(resolved.targetId);
+        }
+      } catch (e) {
+        if ((e as Error)?.name !== "AbortError") {
+          // A resolve failure still opens the detail (set above is skipped on a
+          // throw, so set it here) and leaves the tree where it was.
+          setSelected({
+            taxId: s.taxId,
+            name: s.name,
+            rank: s.rank,
+            origin: "live",
+          });
+        }
       } finally {
-        setNote(null);
+        if (!controller.signal.aborted) setNote(null);
       }
     },
-    [pool, laidOut, zoomToNode],
+    [pool, flyToNodeSubtree, startInsertTween],
   );
 
   // The links + nodes to draw, derived from the visible set. Links connect a
@@ -518,6 +654,31 @@ export default function TaxonomyTreeView({
     }
     return out;
   }, [visible, visibleById]);
+
+  // The DRAWN cartesian position of a node, accounting for the insertion tween.
+  // A freshly spliced node (in insertIds) is interpolated from its parent's spot
+  // out toward its laid-out spot by insertT, so it grows in from the branch it
+  // joined; its size scales by the same factor so it blooms from zero thickness.
+  // A settled node (the common case, insertIds empty) returns its true position
+  // and a grow factor of 1, so the rest of the tree is untouched.
+  const drawNode = useCallback(
+    (n: RadialLaidOutNode): { x: number; y: number; grow: number } => {
+      const here = polarToCartesian(n.angle, n.radius);
+      if (insertIds.size === 0 || !insertIds.has(n.id) || insertT >= 1) {
+        return { x: here.x, y: here.y, grow: 1 };
+      }
+      const parent = n.parentId ? visibleById.get(n.parentId) : undefined;
+      const from = parent
+        ? polarToCartesian(parent.angle, parent.radius)
+        : here;
+      return {
+        x: from.x + (here.x - from.x) * insertT,
+        y: from.y + (here.y - from.y) * insertT,
+        grow: insertT,
+      };
+    },
+    [insertIds, insertT, visibleById],
+  );
 
   if (!open) return null;
 
@@ -629,10 +790,12 @@ export default function TaxonomyTreeView({
               aria-label={`Radial tree of life, focused on ${focusName}`}
             >
               <g ref={gRef}>
-                {/* Links (branches) */}
+                {/* Links (branches). A link to a tweening node draws from the
+                    parent toward the node's growing position, so a new twig
+                    extends out of the branch it joined. */}
                 {links.map((l) => {
-                  const a = polarToCartesian(l.source.angle, l.source.radius);
-                  const b = polarToCartesian(l.target.angle, l.target.radius);
+                  const a = drawNode(l.source);
+                  const b = drawNode(l.target);
                   return (
                     <line
                       key={`link-${l.target.id}`}
@@ -641,7 +804,7 @@ export default function TaxonomyTreeView({
                       x2={b.x}
                       y2={b.y}
                       stroke={branchColor(l.target.rank)}
-                      strokeWidth={l.target.thickness}
+                      strokeWidth={l.target.thickness * b.grow}
                       strokeLinecap="round"
                       strokeOpacity={0.55}
                     />
@@ -650,7 +813,7 @@ export default function TaxonomyTreeView({
 
                 {/* Node markers + labels */}
                 {visible.map((n) => {
-                  const p = polarToCartesian(n.angle, n.radius);
+                  const p = drawNode(n);
                   const showLabel = isLabelVisibleAtZoom(n, zoomScale, LABEL_MIN_PX);
                   // Orient the label along the radius; flip the ones on the left
                   // half so text never reads upside down.
@@ -659,7 +822,7 @@ export default function TaxonomyTreeView({
                   const labelRotate = flip ? deg + 180 : deg;
                   const labelAnchor = flip ? "end" : "start";
                   const labelDx = flip ? -6 : 6;
-                  const markerR = Math.max(1.5, n.thickness / 2);
+                  const markerR = Math.max(1.5, n.thickness / 2) * p.grow;
                   return (
                     <g key={`node-${n.id}`}>
                       <circle
