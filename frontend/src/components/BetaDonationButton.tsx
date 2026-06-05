@@ -6,6 +6,11 @@ import Tooltip from "@/components/Tooltip";
 
 interface BetaDonationButtonProps {
   variant?: "floating" | "link";
+  /**
+   * Color tone for the `link` variant. "dark" (default) suits the dark
+   * onboarding / login screens; "light" suits light surfaces like Settings.
+   */
+  tone?: "dark" | "light";
 }
 
 /**
@@ -30,7 +35,10 @@ function HeartIcon({ className = "w-4 h-4" }: { className?: string }) {
   );
 }
 
-export default function BetaDonationButton({ variant = "floating" }: BetaDonationButtonProps) {
+export default function BetaDonationButton({
+  variant = "floating",
+  tone = "dark",
+}: BetaDonationButtonProps) {
   const [showModal, setShowModal] = useState(false);
 
   if (!DONATION_CONFIG.enabled || !isDonationConfigured()) {
@@ -38,12 +46,16 @@ export default function BetaDonationButton({ variant = "floating" }: BetaDonatio
   }
 
   if (variant === "link") {
+    const toneCls =
+      tone === "light"
+        ? "text-slate-500 hover:text-rose-600 focus-visible:ring-offset-white"
+        : "text-slate-500 hover:text-white focus-visible:ring-offset-slate-900";
     return (
       <>
         <button
           type="button"
           onClick={() => setShowModal(true)}
-          className="text-slate-500 hover:text-white text-meta transition-colors inline-flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 rounded"
+          className={`${toneCls} text-meta transition-colors inline-flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2 rounded`}
         >
           <HeartIcon className="w-3.5 h-3.5" />
           Support this project

@@ -17,7 +17,6 @@ import TelegramEncryptedRecoveryPrompt from "./TelegramEncryptedRecoveryPrompt";
 import IdlePasswordWipe from "./IdlePasswordWipe";
 import Tooltip from "./Tooltip";
 import FeedbackButton from "./FeedbackButton";
-import BetaDonationButton from "./BetaDonationButton";
 import CalculatorsButton from "./CalculatorsButton";
 import DevTestNotificationButton from "./DevTestNotificationButton";
 import DevDemoToggleButton from "./DevDemoToggleButton";
@@ -600,11 +599,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             config that belongs in Settings, so both moved to dedicated
             Settings sections (Data folder + Account → /settings). Nothing
             was removed — only relocated. The cluster now carries genuine
-            quick-actions only: Calculators, Report bug, Donate. */}
+            quick-actions only: Calculators, Report bug.
+
+            donation-relocation (2026-06-05): the Support / Donate heart left
+            the global cluster too. It was floating on every page; it now lives
+            on the Settings page (and the onboarding / welcome surfaces) so the
+            ask appears where it belongs, not over every workflow. */}
 
         <FeedbackButton onClick={openBugReport} />
-
-        <BetaDonationButton />
       </div>
 
       {/* Data-folder + Switch-user modals moved to /settings (floating-

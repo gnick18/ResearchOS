@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import AppFooter from "@/components/AppFooter";
+import BetaDonationButton from "@/components/BetaDonationButton";
 import AccountPasswordPopup from "@/components/AccountPasswordPopup";
 import DataSetupScreen from "@/components/DataSetupScreen";
 import UserLoginScreen from "@/components/UserLoginScreen";
@@ -654,7 +655,15 @@ function SettingsBody() {
           }}
         />
       )}
-      <AppFooter className="mt-auto" />
+      <div className="mt-auto">
+        {/* Support / Donate moved here from the global floating cluster
+            (2026-06-05): the ask now lives on Settings instead of floating
+            over every page. */}
+        <div className="flex justify-center pt-8 pb-1">
+          <BetaDonationButton variant="link" tone="light" />
+        </div>
+        <AppFooter />
+      </div>
     </div>
   );
 }
