@@ -252,7 +252,10 @@ export default function WelcomePreviewPage() {
         </nav>
 
         {/* ── Hero ────────────────────────────────────────────────────── */}
-        <header className="relative isolate px-6 pb-16 pt-2 text-center sm:px-12">
+        {/* Its own subtle band (white to pale blue) with a bottom edge, so the
+            hero reads as a distinct chunk and does not bleed into the content
+            below. */}
+        <header className="relative isolate border-b border-[#e3eaf3] bg-gradient-to-b from-white to-[#eaf2fb] px-6 pb-20 pt-2 text-center sm:px-12">
           {/* Soft rainbow radial bloom behind BeakerBot. */}
           <div
             aria-hidden
@@ -316,10 +319,44 @@ export default function WelcomePreviewPage() {
               and collaboration.
             </p>
           </div>
+        </header>
 
-          {/* Hero demo loop in a browser-chrome frame. The single most
-              important asset on the page: the sequence editor in motion. */}
-          <div className="relative z-10 mx-auto mt-12 max-w-[1020px]">
+        {/* ── Flagship showcase ─────────────────────────────────────────
+            A tinted band that pairs the hero loop with real explanatory copy,
+            so the first thing under the hero is substance, not a bare video.
+            The band's tint + borders give the page visual rhythm against the
+            white sections. */}
+        <section className="border-b border-[#dbe6f3] bg-gradient-to-b from-[#eef4fb] to-[#f5f9fd] px-6 py-20 sm:px-12">
+          <div className="mx-auto grid max-w-[1180px] items-center gap-12 md:grid-cols-[0.92fr_1.08fr]">
+            <div>
+              <Kicker>// the flagship</Kicker>
+              <h2 className="mt-3 max-w-[18ch] text-3xl font-extrabold leading-[1.1] tracking-tight text-[#0e1726] md:text-[38px]">
+                Design plasmids and run cloning, built in
+              </h2>
+              <p className="mt-4 max-w-[52ch] text-title leading-relaxed text-[#475569]">
+                A SnapGene-style sequence editor lives right inside your
+                notebook. Open a plasmid and its circular map renders with
+                annotated features and restriction sites. Run Gibson, Golden
+                Gate, or restriction cloning and it designs the primers for you.
+                Free, with no separate tool to license.
+              </p>
+              <ul className="mt-6 grid gap-3">
+                <li className="flex items-start gap-2.5 text-body leading-snug text-[#0f1b2e]">
+                  <CheckGlyph />
+                  Annotated circular and linear maps, with feature and enzyme
+                  tracks.
+                </li>
+                <li className="flex items-start gap-2.5 text-body leading-snug text-[#0f1b2e]">
+                  <CheckGlyph />
+                  Gibson, Golden Gate, Gateway, and restriction cloning in
+                  silico.
+                </li>
+                <li className="flex items-start gap-2.5 text-body leading-snug text-[#0f1b2e]">
+                  <CheckGlyph />
+                  Auto-designed junction primers with a copyable oligo order.
+                </li>
+              </ul>
+            </div>
             <DemoLoop
               src="/welcome-demos/sequence-editor.mp4"
               poster="/welcome-demos/sequence-editor.poster.jpg"
@@ -327,11 +364,8 @@ export default function WelcomePreviewPage() {
               framed
               frameUrl="research-os.app/sequences"
             />
-            <p className="mt-4 text-body text-[#64748b]">
-              Design plasmids and run cloning, built in.
-            </p>
           </div>
-        </header>
+        </section>
 
         {/* ── Credibility strip ───────────────────────────────────────── */}
         <section className="px-6 pb-4 pt-8 text-center sm:px-12">
