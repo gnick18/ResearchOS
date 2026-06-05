@@ -54,121 +54,119 @@ function StatusBadge({ status }: { status: Status }) {
 /* Feature icons (inline SVG, no lucide, no emojis)                           */
 /* -------------------------------------------------------------------------- */
 
-/** Two overlapping cursor arrows — live collaboration. */
+/** Two overlapping document pages with a cursor on top — live collaboration. */
 function CollabIcon() {
   return (
     <svg
       width="28"
       height="28"
-      viewBox="0 0 28 28"
+      viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.6"
+      strokeWidth="1.7"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
       className="text-sky-600"
     >
-      {/* Cursor A */}
-      <path d="M5 4l4.5 13.5 2.5-4.5 5 -0.5z" />
-      {/* Cursor B, offset */}
-      <path d="M13 10l4.5 13.5 2.5-4.5 5-0.5z" className="opacity-60" />
+      <rect x="3" y="4" width="11" height="14" rx="1.5" />
+      <rect x="10" y="7" width="11" height="14" rx="1.5" />
+      <path d="M14 14l2 6 1.5-2.5 2.5 1.5z" />
     </svg>
   );
 }
 
-/** Two people with an arrow between them — cross-lab sharing. */
+/** Envelope with an outbound arrow — cross-lab sharing. */
 function SharingIcon() {
   return (
     <svg
       width="28"
       height="28"
-      viewBox="0 0 28 28"
+      viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.6"
+      strokeWidth="1.7"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
       className="text-sky-600"
     >
-      <circle cx="7" cy="9" r="3" />
-      <path d="M1 22c0-4 2.5-6 6-6" />
-      <circle cx="21" cy="9" r="3" />
-      <path d="M27 22c0-4-2.5-6-6-6" />
-      <path d="M10.5 14.5h7m-2.5-2.5l2.5 2.5-2.5 2.5" />
+      <rect x="2" y="6" width="20" height="14" rx="2" />
+      <path d="M2 8l10 7 10-7" />
+      <path d="M16 3l3 3-3 3" />
+      <line x1="19" y1="6" x2="11" y2="6" />
     </svg>
   );
 }
 
-/** A cloud with an up-arrow — NIH / Zenodo deposit. */
+/** Document going up into a repository — NIH / Zenodo deposit. */
 function CloudUploadIcon() {
   return (
     <svg
       width="28"
       height="28"
-      viewBox="0 0 28 28"
+      viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.6"
+      strokeWidth="1.7"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
       className="text-sky-600"
     >
-      <path d="M20 18a5 5 0 000-10 7 7 0 00-13.5 2.5A4.5 4.5 0 006 20" />
-      <polyline points="12 14 14 12 16 14" />
-      <line x1="14" y1="12" x2="14" y2="20" />
+      <path d="M12 15V3m0 0l-3 3m3-3l3 3" />
+      <path d="M8 19H5a2 2 0 01-2-2v-1" />
+      <path d="M16 19h3a2 2 0 002-2v-1" />
+      <rect x="6" y="17" width="12" height="4" rx="1" />
     </svg>
   );
 }
 
-/** A barcode with a scan line — inventory / barcode scan. */
+/** Barcode with corner brackets — lab inventory and barcode scan. */
 function BarcodeIcon() {
   return (
     <svg
       width="28"
       height="28"
-      viewBox="0 0 28 28"
+      viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.6"
+      strokeWidth="1.7"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
       className="text-sky-600"
     >
-      {/* bars */}
-      <line x1="5" y1="7" x2="5" y2="19" />
-      <line x1="8" y1="7" x2="8" y2="19" strokeWidth="2.2" />
-      <line x1="11" y1="7" x2="11" y2="19" />
-      <line x1="14" y1="7" x2="14" y2="19" strokeWidth="2.2" />
-      <line x1="17" y1="7" x2="17" y2="19" />
-      <line x1="20" y1="7" x2="20" y2="19" strokeWidth="2.2" />
-      <line x1="23" y1="7" x2="23" y2="19" />
-      {/* scan line */}
-      <line x1="3" y1="13" x2="25" y2="13" strokeWidth="1" strokeDasharray="2 1" className="text-emerald-500" stroke="currentColor" />
+      <path d="M4 7V5h3" />
+      <path d="M17 5h3v2" />
+      <path d="M4 17v2h3" />
+      <path d="M17 19h3v-2" />
+      <line x1="7" y1="8" x2="7" y2="16" />
+      <line x1="10" y1="8" x2="10" y2="16" strokeWidth="2.5" />
+      <line x1="13" y1="8" x2="13" y2="16" />
+      <line x1="16" y1="8" x2="16" y2="16" strokeWidth="2.5" />
     </svg>
   );
 }
 
-/** A phone outline — mobile app. */
+/** Clean phone outline with home indicator — mobile app. */
 function PhoneIcon() {
   return (
     <svg
       width="28"
       height="28"
-      viewBox="0 0 28 28"
+      viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.6"
+      strokeWidth="1.7"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
       className="text-sky-600"
     >
-      <rect x="8" y="3" width="12" height="22" rx="2" />
-      <line x1="14" y1="20" x2="14" y2="20" strokeWidth="2" strokeLinecap="round" />
+      <rect x="7" y="2" width="10" height="20" rx="2.5" />
+      <line x1="12" y1="18" x2="12" y2="18" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="9" y1="6" x2="15" y2="6" />
     </svg>
   );
 }
@@ -228,7 +226,7 @@ const FEATURES: Feature[] = [
 
 function FeatureCard({ feature, isLast }: { feature: Feature; isLast: boolean }) {
   return (
-    <div className="relative flex flex-col gap-3">
+    <div className="relative flex h-full flex-col gap-3">
       {/* Connector line between cards on desktop (not on the last card) */}
       {!isLast && (
         <div
@@ -238,7 +236,7 @@ function FeatureCard({ feature, isLast }: { feature: Feature; isLast: boolean })
         />
       )}
 
-      <div className="flex flex-col gap-3 rounded-2xl border border-[#e3eaf3] bg-white p-5 shadow-[0_1px_3px_rgba(15,40,80,0.06)] transition-shadow hover:shadow-[0_4px_14px_rgba(15,40,80,0.10)]">
+      <div className="flex h-full flex-col gap-3 rounded-2xl border border-[#e3eaf3] bg-white p-5 shadow-[0_1px_3px_rgba(15,40,80,0.06)] transition-shadow hover:shadow-[0_4px_14px_rgba(15,40,80,0.10)]">
         <div className="flex items-start justify-between gap-2">
           <div className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-[#eef4fb]">
             {feature.icon}
@@ -356,7 +354,7 @@ export default function RoadmapModal({ open, onClose }: RoadmapModalProps) {
     >
       {/* Modal panel — stop propagation so clicks inside don't close */}
       <div
-        className="relative w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_rgba(0,0,0,0.18)] ring-1 ring-black/5"
+        className="relative w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_rgba(0,0,0,0.18)] ring-1 ring-black/5"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Header ────────────────────────────────────────────────── */}
@@ -373,22 +371,22 @@ export default function RoadmapModal({ open, onClose }: RoadmapModalProps) {
         </div>
 
         {/* ── Scrollable body ───────────────────────────────────────── */}
-        <div className="max-h-[80vh] overflow-y-auto px-6 pb-6 pt-5">
+        <div className="max-h-[80vh] overflow-y-auto px-8 pb-8 pt-6">
           {/* Section A: upcoming features */}
-          <div className="mb-5">
-            <p className="mb-3 font-mono text-meta font-semibold uppercase tracking-[0.1em] text-[#1283c9]">
+          <div className="mb-6">
+            <p className="mb-4 font-mono text-meta font-semibold uppercase tracking-[0.1em] text-[#1283c9]">
               // upcoming
             </p>
 
             {/* Desktop: horizontal strip connected by dashed lines.
                 On md+ we use a grid of equal columns. On mobile we stack. */}
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-5 md:gap-0">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-5 md:auto-rows-fr md:gap-0">
               {FEATURES.map((feature, i) => (
                 <div
                   key={feature.title}
                   className={`relative ${
                     i < FEATURES.length - 1
-                      ? "md:pr-6"
+                      ? "md:pr-5"
                       : ""
                   }`}
                 >
@@ -396,7 +394,7 @@ export default function RoadmapModal({ open, onClose }: RoadmapModalProps) {
                   {i < FEATURES.length - 1 && (
                     <div
                       aria-hidden
-                      className="absolute right-0 top-9 hidden h-px w-6 border-t border-dashed border-[#d3deec] md:block"
+                      className="absolute right-0 top-9 hidden h-px w-5 border-t border-dashed border-[#d3deec] md:block"
                     />
                   )}
                   <FeatureCard feature={feature} isLast={i === FEATURES.length - 1} />
@@ -406,11 +404,11 @@ export default function RoadmapModal({ open, onClose }: RoadmapModalProps) {
           </div>
 
           {/* Section B: recently shipped */}
-          <div className="rounded-xl border border-[#e8f0f8] bg-[#f6fbf6] px-4 py-4">
-            <p className="mb-2.5 font-mono text-meta font-semibold uppercase tracking-[0.1em] text-[#2d6a2d]">
+          <div className="rounded-xl border border-[#e8f0f8] bg-[#f6fbf6] px-5 py-5">
+            <p className="mb-3 font-mono text-meta font-semibold uppercase tracking-[0.1em] text-[#2d6a2d]">
               // recently shipped
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               {SHIPPED.map((label) => (
                 <ShippedChip key={label} label={label} />
               ))}
@@ -418,7 +416,7 @@ export default function RoadmapModal({ open, onClose }: RoadmapModalProps) {
           </div>
 
           {/* Feature request button */}
-          <div className="mt-4 flex justify-center">
+          <div className="mt-6 flex justify-center">
             <a
               href="mailto:gnickles@wisc.edu?subject=ResearchOS%20feature%20request"
               className="inline-flex items-center gap-2 rounded-xl border border-[#d3deec] bg-white px-5 py-2.5 text-body font-semibold text-[#0e1726] shadow-sm transition-all hover:border-[#1283c9] hover:text-[#1283c9] hover:shadow-md"

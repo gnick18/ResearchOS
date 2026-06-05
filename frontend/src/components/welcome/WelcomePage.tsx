@@ -277,21 +277,21 @@ export default function WelcomePage() {
               onClick={() => setRoadmapOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-full border border-[#d3deec] bg-white px-3 py-1 text-meta font-semibold text-[#0e1726] transition-colors hover:bg-[#eef4fb] hover:border-[#c5d6ea]"
             >
-              {/* Small flag/rocket icon */}
+              {/* 4-point asterisk / spark icon */}
               <svg
-                width="13"
-                height="13"
-                viewBox="0 0 14 14"
+                width="14"
+                height="14"
+                viewBox="0 0 16 16"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.8"
+                strokeWidth="2"
                 strokeLinecap="round"
-                strokeLinejoin="round"
                 aria-hidden
               >
-                <path d="M2 11.5c1.5-3 3-5 5-6.5 2.5-1.8 5-1.5 5-1.5s.3 2.5-1.5 5c-1.5 2-3.5 3.5-6.5 5z" />
-                <circle cx="7.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
-                <path d="M2 11.5L5 9" />
+                <line x1="8" y1="2" x2="8" y2="14" />
+                <line x1="2" y1="8" x2="14" y2="8" />
+                <line x1="3.5" y1="3.5" x2="12.5" y2="12.5" />
+                <line x1="12.5" y1="3.5" x2="3.5" y2="12.5" />
               </svg>
               What we&apos;re building
             </button>
@@ -682,20 +682,21 @@ export default function WelcomePage() {
             onClick={() => setRoadmapOpen(true)}
             className="inline-flex items-center gap-2 rounded-full border border-[#d3deec] bg-white px-4 py-2 text-meta font-semibold text-[#0e1726] shadow-sm transition-colors hover:bg-[#eef4fb] hover:border-[#c5d6ea]"
           >
+            {/* 4-point asterisk / spark icon */}
             <svg
               width="14"
               height="14"
-              viewBox="0 0 14 14"
+              viewBox="0 0 16 16"
               fill="none"
               stroke="currentColor"
-              strokeWidth="1.8"
+              strokeWidth="2"
               strokeLinecap="round"
-              strokeLinejoin="round"
               aria-hidden
             >
-              <path d="M2 11.5c1.5-3 3-5 5-6.5 2.5-1.8 5-1.5 5-1.5s.3 2.5-1.5 5c-1.5 2-3.5 3.5-6.5 5z" />
-              <circle cx="7.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
-              <path d="M2 11.5L5 9" />
+              <line x1="8" y1="2" x2="8" y2="14" />
+              <line x1="2" y1="8" x2="14" y2="8" />
+              <line x1="3.5" y1="3.5" x2="12.5" y2="12.5" />
+              <line x1="12.5" y1="3.5" x2="3.5" y2="12.5" />
             </svg>
             What we&apos;re building
             <svg
