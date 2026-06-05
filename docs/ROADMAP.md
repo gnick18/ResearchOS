@@ -102,8 +102,19 @@ What this could include:
 
 Why it fits ResearchOS, ordering and inventory are a real daily lab workflow that currently lives in a separate tab; pulling it next to the bench work (experiments, methods, the reagents a protocol calls for) is the kind of consolidation the product is about, and it pairs naturally with the barcode-scan inventory idea and the mobile app.
 
-Feasibility notes (not a commitment):
-- Quartzy is a private company, not open source, so the LIVE sync depends on whether they expose a public API or partner integration. Accounts are free to make, which helps, but the integration surface (API availability, auth, rate limits, terms) is the first thing to confirm before scoping tier 2. Closed commercial tools are harder to integrate than open standards (contrast with the Zenodo browser-direct deposit, which works because Zenodo is open and CORS-friendly).
-- The export-import migration (tier 1) sidesteps the API question entirely, it only needs Quartzy to have an export, and reuses the LabArchives-import machinery. That is the pragmatic first deliverable while the API path is researched.
+API research (prelim, orchestrator 2026-06-05), the good news, Quartzy HAS both a public API and an export, so BOTH tiers are real, not hypothetical.
 
-Open questions for whenever this gets scoped, does Quartzy offer a public API or OAuth integration at all; integrate vs build-native vs both; and how account linking and the data sync (one-way pull vs two-way push) should work without ResearchOS becoming a custodian of a lab's ordering data.
+Public API (docs at docs.quartzy.com/api, base `https://api.quartzy.com`):
+- Open to any user with an active Quartzy account (free accounts included). A user generates a per-user AccessToken from their Quartzy settings.
+- Auth, an `Access-Token` request header carrying that per-user token, OR OAuth2 as an alternative.
+- Resources cover read AND write for exactly what we want: Inventory Items (GET list/filter/retrieve, PUT update quantity), Order Requests (GET list, POST create, PUT update status), plus Labs (GET), Types (GET), User (GET), Webhooks (GET/POST/PUT), Health. So tier 2 two-way sync (view inventory/orders, push requests and modifications back) is fully supported by the API surface.
+- Webhooks, subscribe to `event_types` with signing keys for verification, the push channel to reflect Quartzy-side changes back into ResearchOS in near-real-time.
+- Pagination via a `page` query param. No rate limits documented (confirm before scoping).
+
+Export (tier 1 migration), Quartzy exports Inventory to Excel (per lab, not across all labs), plus purchase history and previously requested items, and it supports import-FROM-Excel too, so the column schema is known and an importer is the same shape as the existing LabArchives import. Tier 1 is unblocked.
+
+The one real architecture question for US, CORS / browser-direct. ResearchOS is browser-only (local-first, only thin proxy routes server-side). Quartzy's API is a header-token server API and its CORS posture is NOT documented, so unlike Zenodo (CORS-open, browser-direct) the browser probably canNOT call api.quartzy.com directly. Tier 2 likely needs a thin server proxy (the existing two-proxy pattern); payloads are small JSON so the Vercel 4.5 MB function cap is a non-issue. Privacy nuance, a proxy that forwards the user's Quartzy AccessToken means the token transits our server, it must be forward-and-forget, never stored. The token/credential still lives client-side at rest (encrypted sidecar), same posture as the planned Zenodo linking. OAuth2 is the cleaner alternative (no token copy-paste) but needs registering a ResearchOS OAuth app with Quartzy.
+
+Bottom line, tier 1 (export-import migration) is easy and unblocked. Tier 2 (live sync) is genuinely feasible, the API does everything needed; the open design decisions are AccessToken-paste vs OAuth2 for connecting, and browser-direct vs thin-proxy (likely proxy) for the calls.
+
+Open questions for whenever this gets scoped, AccessToken-paste vs OAuth2 for account linking; browser-direct vs a thin proxy (test Quartzy CORS); how far to take two-way write (read-only mirror first, or full create/update of requests from day one); webhook-driven freshness vs poll; and how to keep ResearchOS from becoming a custodian of a lab's ordering data (token forward-and-forget, no server-side storage of Quartzy data).
