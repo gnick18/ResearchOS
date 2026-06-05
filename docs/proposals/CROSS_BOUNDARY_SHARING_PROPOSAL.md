@@ -336,7 +336,7 @@ The destination is a research profile and discovery layer, find people by school
 ### 18.5 Decisions (locked with Grant, 2026-06-04)
 
 1. **Zenodo token stays client-side.** Thin server route for the OAuth exchange, token stored only in the encrypted sidecar, browser pushes deposits direct, profile holds only the public Zenodo username.
-2. **ORCID is a profile-link action, not a sign-in button**, and its publications come from the public works API with no token storage.
+2. **ORCID publications come from the public works API with no token storage.** (Revised 2026-06-05, see section 18.7: ORCID is now also a sign-in button via a hybrid email flow, not only a profile-link action.)
 3. **Linked accounts follow the section 17 verified-badge model**, and the mini-ResearchOS network is a staged north star, not a v1 feature.
 
 ### 18.6 Staging
@@ -344,6 +344,27 @@ The destination is a research profile and discovery layer, find people by school
 - **Profile v1.** Section 17 (name, affiliation, search) plus ORCID-linked publications. Read-only, no credential storage, lowest risk.
 - **Profile v2.** Zenodo link, deposit surfacing, one-click push from the client-side token.
 - **Discovery and network features.** The longer build toward the mini-ResearchOS, coordinated with Collaborate Mode.
+
+### 18.7 ORCID as a login, the email getaround (2026-06-05)
+
+**Recommendation: add ORCID as a sign-in button, and because ORCID returns no email, bootstrap the account once with a proven email, then let ORCID re-authenticate it afterward. ORCID is the most universal identity in academia, so this is worth the one hybrid-flow wrinkle.**
+
+ORCID cannot be a drop-in provider like Google or GitHub. Those return a verified email and flow straight through oauth-bind (section 6). ORCID's email is private by default, so it returns none, and the directory is keyed on the email hash (the relay routes on it). So ORCID uses a **hybrid claim flow**.
+
+**First-time claim (two proofs, once):**
+
+1. The user clicks Sign in with ORCID, which proves they control that ORCID iD.
+2. Because no email comes back, the wizard drops into the existing 6-digit email OTP step to prove an email. (If the user has made their ORCID email public, ORCID OIDC does return it, so we skip the OTP and treat it like Google.)
+3. We record the link, this ORCID iD belongs to this email-keyed identity. The email stays the directory's primary key, ORCID rides alongside it.
+
+**Re-authentication (the payoff):** after setup, Sign in with ORCID resolves straight to the account. ORCID proves the iD, we look up the linked identity, the user is in with no email re-entry. Given how universal ORCID is, this is a smoother repeat login than email OTP, and it makes the user's ORCID iD a verified-owned profile attribute for free (the section 18.3 verified badge, no separate link step).
+
+**Locked decisions (Grant, 2026-06-05):**
+
+1. **A new ORCID-iD to email-hash mapping is added to the directory.** Additive, set at claim time when both ORCID and the email are proven together. The ORCID iD is a public identifier, so it is stored as-is (or hashed for lookup), never an email. This is the pre-flagged data-shape change for this surface.
+2. **ORCID re-auth can sign in and write the profile, but NOT recover keys.** Key-backup recovery (handing back the encrypted blob) still requires the email OTP. This keeps the blast radius tight, a compromised ORCID account cannot reach the key backup, which stays gated on email control as today.
+
+**Build notes:** reuses almost everything already built, the email-OTP path, the directory, the binding. The new pieces are the ORCID OIDC provider (ORCID speaks OpenID Connect), the hybrid claim branch in the setup wizard (ORCID session with no email drops to the OTP step), the orcid-to-email-hash mapping plus an ORCID-resolves-to-account lookup for re-auth, and the recovery route staying email-only. Slots into Phase 1 (identity) alongside the section 17 profile work.
 
 ---
 
