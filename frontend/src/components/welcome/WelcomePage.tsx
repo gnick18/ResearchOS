@@ -534,7 +534,7 @@ export default function WelcomePage() {
             <p className="text-center text-title font-bold text-[#0e1726]">
               Built by PhD researchers, for researchers.
             </p>
-            <div className="mt-9 grid grid-cols-2 gap-x-8 gap-y-9 md:grid-cols-4">
+            <div className="mx-auto mt-9 grid max-w-[820px] grid-cols-1 gap-x-8 gap-y-9 sm:grid-cols-3">
               {/* Open source (links to the credits page). */}
               <a
                 href="/open-source"
@@ -591,21 +591,6 @@ export default function WelcomePage() {
                   See the proof
                 </span>
               </a>
-
-              {/* You own your data (static). */}
-              <div className="flex flex-col items-center text-center">
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden>
-                    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
-                  </svg>
-                </span>
-                <h3 className="mt-3 text-body font-bold text-[#0e1726]">
-                  You own your data
-                </h3>
-                <p className="mt-1 text-meta leading-snug text-[#475569]">
-                  Your work is a plain folder on your own machine.
-                </p>
-              </div>
             </div>
           </div>
         </section>
