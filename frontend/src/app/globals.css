@@ -74,6 +74,20 @@
   }
 }
 
+/* Fade + lift for the welcome hero's "Hi!" greeting bubble. The transform keeps
+ * the bubble horizontally centered (translateX -50%) while it rises into place,
+ * matching the pop the BeakerBot wave scenes use. */
+@keyframes brand-bubble-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

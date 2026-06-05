@@ -35,6 +35,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import BeakerBot from "@/components/BeakerBot";
+import BeakerBotSpeechBubble from "@/components/beakerbot/SpeechBubble";
 import Wordmark from "@/components/Wordmark";
 import DemoLoop, { DemoLoopPlaceholder } from "@/components/welcome/DemoLoop";
 import { GoogleIcon, GitHubIcon, LinkedInIcon, OrcidIcon } from "@/components/sharing/icons";
@@ -416,8 +417,24 @@ export default function WelcomePage() {
           <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center">
             <div
               aria-hidden
-              className="drop-shadow-[0_14px_30px_rgba(26,160,230,0.34)]"
+              className="relative drop-shadow-[0_14px_30px_rgba(26,160,230,0.34)]"
             >
+              {/* "Hi!" greeting bubble, the same primitive BeakerBot uses for
+                  its daily hello + the What's New corner wave. Pops in above
+                  the bot during the on-load wave, then unmounts when the wave
+                  settles. */}
+              {waveActive && (
+                <BeakerBotSpeechBubble
+                  tone="default"
+                  direction="down"
+                  position={{ bottom: "calc(100% + 10px)", left: "50%" }}
+                  style={{
+                    animation: "brand-bubble-in 260ms ease-out forwards",
+                  }}
+                >
+                  Hi!
+                </BeakerBotSpeechBubble>
+              )}
               <BeakerBot
                 pose={waveActive ? "waving" : "idle"}
                 alive
