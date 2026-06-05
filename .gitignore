@@ -50,3 +50,6 @@ frontend/scratch-parse-output.json
 scripts/.dna-feature-cache/
 .vercel
 .env*
+
+# Raw demo screen recordings for the /welcome redesign (large, re-recordable; not tracked)
+demo-recordings/
