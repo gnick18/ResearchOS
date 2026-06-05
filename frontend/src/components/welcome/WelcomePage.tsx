@@ -139,6 +139,9 @@ function SignInRow({
             <CheckGlyph /> Cross-lab sharing, no shared folder needed.
           </li>
           <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
+            <CheckGlyph /> Find other ResearchOS users to share with, coming soon.
+          </li>
+          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
             <CheckGlyph /> Live collaboration, coming soon.
           </li>
         </ul>
