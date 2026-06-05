@@ -51,10 +51,10 @@ export default function WikiCaptureRefusedBanner() {
           />
         </svg>
         <div className="flex-1">
-          <p className="text-sm font-semibold text-amber-900">
+          <p className="text-body font-semibold text-amber-900">
             Capture mode is unavailable while your real folder is connected
           </p>
-          <p className="mt-1 text-sm text-amber-800">
+          <p className="mt-1 text-body text-amber-800">
             Your real research data is showing, not the demo fixtures. To record
             with fixture data, open an incognito window or disconnect your folder
             first, then add the capture flag again.
@@ -62,7 +62,7 @@ export default function WikiCaptureRefusedBanner() {
           <button
             type="button"
             onClick={() => setAcknowledged(true)}
-            className="mt-3 rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-amber-700 focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2"
+            className="mt-3 rounded-lg bg-amber-600 px-3 py-1.5 text-body font-medium text-white transition-colors hover:bg-amber-700 focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2"
           >
             I understand
           </button>

@@ -816,7 +816,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                     />
                   </svg>
                 </div>
-                <h2 className="text-lg font-bold text-white">Link a folder</h2>
+                <h2 className="text-heading font-bold text-white">Link a folder</h2>
               </div>
               <p className="text-slate-400 text-body mb-4">
                 Point ResearchOS at a folder on your computer. It can be an

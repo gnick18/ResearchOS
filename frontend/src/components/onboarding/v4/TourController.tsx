@@ -2762,7 +2762,7 @@ function SetupSkipConfirmModal({
       className="fixed inset-0 z-[400] flex items-center justify-center bg-black/40 backdrop-blur-sm"
     >
       <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-[420px] max-w-[calc(100vw-2rem)] mx-4 p-6">
-        <h3 className="text-lg font-semibold text-gray-900">{heading}</h3>
+        <h3 className="text-heading font-semibold text-gray-900">{heading}</h3>
         <p className="mt-2 text-body text-gray-600 leading-relaxed">{body}</p>
         <div className="mt-5 flex items-center justify-end gap-3">
           <button

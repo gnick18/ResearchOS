@@ -269,7 +269,7 @@ export default function LabExperimentsPanel({
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-heading font-semibold text-gray-900">
             {viewMode === "compare" ? "Comparing by method" : "Experiments"}
           </h2>
           <p className="text-body text-gray-500">

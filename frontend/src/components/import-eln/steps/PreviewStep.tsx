@@ -147,7 +147,7 @@ function StatCard({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-lg border border-gray-200 bg-white px-3 py-2">
       <p className="text-meta uppercase tracking-wide text-gray-500 font-medium">{label}</p>
-      <p className="text-lg text-gray-900 font-semibold leading-tight">{value}</p>
+      <p className="text-heading text-gray-900 font-semibold leading-tight">{value}</p>
     </div>
   );
 }

@@ -1406,7 +1406,7 @@ export default function GanttChart({
       {showShiftConfirm && shiftResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
-            <h4 className="text-lg font-semibold text-orange-800 mb-2">
+            <h4 className="text-heading font-semibold text-orange-800 mb-2">
               This change will affect {shiftResult.affected_tasks.length} task(s)
             </h4>
             <p className="text-body text-gray-600 mb-3">
@@ -1468,7 +1468,7 @@ export default function GanttChart({
           data-tour-popup-occluding="gantt-dependency-dialog"
         >
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
-            <h4 className="text-lg font-semibold text-gray-900 mb-2">
+            <h4 className="text-heading font-semibold text-gray-900 mb-2">
               Create Dependency?
             </h4>
             <p className="text-body text-gray-600 mb-4">

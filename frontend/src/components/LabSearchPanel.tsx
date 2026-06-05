@@ -842,7 +842,7 @@ export default function LabSearchPanel({
           <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          <p className="text-lg text-gray-400 mb-2">Enter search criteria above</p>
+          <p className="text-title text-gray-400 mb-2">Enter search criteria above</p>
           <p className="text-body text-gray-300">
             Use keywords, dates, and filters to find tasks across all researchers
           </p>

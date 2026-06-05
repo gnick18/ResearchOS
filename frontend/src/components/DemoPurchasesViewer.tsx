@@ -342,7 +342,7 @@ export default function DemoPurchasesViewer({
           </div>
         ) : sortedTasks.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-lg text-gray-400 mb-2">
+            <p className="text-title text-gray-400 mb-2">
               No demo purchases available
             </p>
             <p className="text-body text-gray-300">

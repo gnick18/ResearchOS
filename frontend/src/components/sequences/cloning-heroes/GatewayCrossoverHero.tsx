@@ -41,7 +41,7 @@ function AttChip({ name, tone }: { name: string; tone: "substrate" | "clone" | "
         ? "bg-gray-100 text-gray-500 ring-gray-200"
         : "bg-sky-50 text-sky-700 ring-sky-200";
   return (
-    <span className={`rounded px-1.5 py-0.5 font-mono text-[12px] font-medium ring-1 ${cls}`}>
+    <span className={`rounded px-1.5 py-0.5 font-mono text-meta font-medium ring-1 ${cls}`}>
       {name}
     </span>
   );
@@ -69,7 +69,7 @@ export default function GatewayCrossoverHero({ reaction, clone, byproduct, subst
         <h4 className="text-meta font-semibold uppercase tracking-wide text-gray-500">
           {reaction} recombination
         </h4>
-        <span className="text-[11px] text-gray-500">
+        <span className="text-meta text-gray-500">
           {info.substrateA} x {info.substrateB} {"->"} {info.cloneFamily} + {info.byproductFamily}
         </span>
       </div>
@@ -80,7 +80,7 @@ export default function GatewayCrossoverHero({ reaction, clone, byproduct, subst
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           {/* Substrate column (what reacted, in). */}
           <div className="flex flex-col items-start gap-1.5">
-            <span className="text-[11px] text-gray-400">in</span>
+            <span className="text-meta text-gray-400">in</span>
             <div className="flex items-center gap-1.5">
               <span className="min-w-0 max-w-[8rem] truncate text-meta text-gray-600">{substrateNames[0]}</span>
               {substrateA.map((n, i) => (
@@ -104,7 +104,7 @@ export default function GatewayCrossoverHero({ reaction, clone, byproduct, subst
 
           {/* Product column (what comes out). */}
           <div className="flex flex-col items-end gap-1.5">
-            <span className="text-[11px] text-gray-400">out</span>
+            <span className="text-meta text-gray-400">out</span>
             <div className="flex items-center gap-1.5">
               {cloneAtts.map((n, i) => (
                 <AttChip key={i} name={n} tone="clone" />
@@ -125,7 +125,7 @@ export default function GatewayCrossoverHero({ reaction, clone, byproduct, subst
 
       {/* What in -> what out, in words, with the transferred gene highlighted via
           the clone's first fragment span (the transferred insert). */}
-      <div className="mt-2 text-[11px] text-gray-600">
+      <div className="mt-2 text-meta text-gray-600">
         <span className="font-medium text-gray-700">{substrateNames[0]}</span> + {" "}
         <span className="font-medium text-gray-700">{substrateNames[1]}</span>{" "}
         <span className="text-gray-300">{"->"}</span>{" "}

@@ -79,7 +79,7 @@ export default function PrivacyPolicy() {
           <h1 className="mb-6 text-display font-bold tracking-tight text-gray-900 sm:text-4xl">
             Your research stays yours
           </h1>
-          <div className="space-y-4 text-lg leading-relaxed text-gray-700">
+          <div className="space-y-4 text-title leading-relaxed text-gray-700">
             <p>
               ResearchOS is built so that your work lives on your own computer,
               not on ours. For the everyday app there is no account, no upload,

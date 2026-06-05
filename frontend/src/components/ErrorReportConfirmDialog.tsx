@@ -67,7 +67,7 @@ export default function ErrorReportConfirmDialog({
                 </svg>
               </div>
               <div>
-                <h2 className="text-lg font-bold text-gray-900">
+                <h2 className="text-heading font-bold text-gray-900">
                   Caught a bug
                 </h2>
                 <p className="text-meta text-gray-500">

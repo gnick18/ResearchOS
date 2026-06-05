@@ -485,7 +485,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
         data-tour-popup-occluding="task-modal-no-projects"
       >
         <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <h3 className="text-heading font-semibold text-gray-900 mb-4">
             Cannot Create Task
           </h3>
           <p className="text-body text-gray-600 mb-4">
@@ -522,7 +522,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
           data-tour-popup-occluding="task-modal-duplicate-warning"
         >
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
-            <h3 className="text-lg font-semibold text-red-600 mb-4">
+            <h3 className="text-heading font-semibold text-red-600 mb-4">
               Duplicate Task Name Detected
             </h3>
             <p className="text-body text-gray-600 mb-3">
@@ -578,7 +578,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
         onSubmit={handleSubmit}
         className="bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 p-6 max-h-[90vh] overflow-y-auto"
       >
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <h3 className="text-heading font-semibold text-gray-900 mb-4">
           {taskType === "experiment"
             ? "New Experiment"
             : taskType === "purchase"

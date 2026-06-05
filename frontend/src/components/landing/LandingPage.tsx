@@ -439,7 +439,7 @@ function Wordmark() {
         ariaLabel="ResearchOS BeakerBot logo"
         className="h-7 w-7 shrink-0 text-sky-500"
       />
-      <span className="text-lg font-bold tracking-tight text-gray-900">
+      <span className="text-heading font-bold tracking-tight text-gray-900">
         ResearchOS
       </span>
     </div>
@@ -1605,7 +1605,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-500 text-title font-bold text-white">
                 {step.n}
               </div>
-              <h3 className="mt-4 text-lg font-semibold text-gray-900">
+              <h3 className="mt-4 text-heading font-semibold text-gray-900">
                 {step.title}
               </h3>
               <p className="mt-2 text-body leading-relaxed text-gray-600">
@@ -1635,7 +1635,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
 
           <div className="grid gap-6 md:grid-cols-2">
             <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <h3 className="mb-4 flex items-center gap-2 text-heading font-semibold text-gray-900">
                 <svg
                   aria-hidden
                   className="h-5 w-5 text-emerald-500"
@@ -1701,7 +1701,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             </div>
 
             <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <h3 className="mb-4 flex items-center gap-2 text-heading font-semibold text-gray-900">
                 <svg
                   aria-hidden
                   className="h-5 w-5 text-sky-500"

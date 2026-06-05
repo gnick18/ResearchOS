@@ -407,7 +407,7 @@ export default function Phase4CleanupStep({
             <BeakerBot pose="pointing" alive className="w-12 h-12 text-sky-500" />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-heading font-semibold text-gray-900">
               Pick what to keep before we wrap up
             </h2>
             <p className="mt-1 text-body text-gray-600">{intro}</p>

@@ -191,7 +191,7 @@ export default function UserColorPickerPopup({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 py-4 border-b border-white/10">
-          <h3 className="text-lg font-semibold text-white">Pick your color</h3>
+          <h3 className="text-heading font-semibold text-white">Pick your color</h3>
           <p className="text-meta text-slate-400 mt-0.5">
             This is the color your initial bubble uses everywhere (lab views,
             comments, the login screen). You can change it later in Settings.

@@ -243,7 +243,7 @@ export default function PtoEditor({ username }: Props) {
                 className="flex items-center justify-between px-3 py-1.5"
               >
                 <span className="text-body text-gray-700">
-                  <span className="font-mono text-xs text-gray-400">{iso}</span>
+                  <span className="font-mono text-meta text-gray-400">{iso}</span>
                   <span className="ml-2 text-gray-600">
                     {formatRowLabel(iso)}
                   </span>

@@ -398,7 +398,7 @@ export default function DevForceWalkthroughButton({
                   <span className="text-meta font-medium text-gray-500 uppercase tracking-wide">
                     Dev only
                   </span>
-                  <h2 className="mt-1 text-lg font-semibold text-gray-900">
+                  <h2 className="mt-1 text-heading font-semibold text-gray-900">
                     {mode === "folder"
                       ? "Force the folder-setup walkthrough?"
                       : mode === "landing"

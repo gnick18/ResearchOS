@@ -1012,7 +1012,7 @@ export default function TaskDetailPopup({
           <div className="flex items-start min-w-0 flex-1">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-lg font-semibold text-gray-900 leading-tight truncate max-w-[60ch]">
+                <h3 className="text-heading font-semibold text-gray-900 leading-tight truncate max-w-[60ch]">
                   {task.name}
                 </h3>
                 <span

@@ -902,7 +902,7 @@ export default function MethodsPage() {
           className="mb-10"
         >
           <div className="flex items-baseline justify-between mb-3">
-            <h3 className="text-lg font-semibold text-gray-900">My Methods</h3>
+            <h3 className="text-heading font-semibold text-gray-900">My Methods</h3>
             <p className="text-meta text-gray-400">
               Methods you created, in your own categories.
             </p>
@@ -1006,7 +1006,7 @@ export default function MethodsPage() {
             their own categories or rename someone else's folders. */}
         <section data-tour-target="methods-section-shared" className="mt-8">
           <div className="flex items-baseline justify-between mb-3">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-heading font-semibold text-gray-900">
               Shared with Lab
             </h3>
             <p className="text-meta text-gray-400">
@@ -1047,7 +1047,7 @@ export default function MethodsPage() {
 
         {methods.length === 0 && !creating && (
           <div className="text-center py-16">
-            <p className="text-lg text-gray-400 mb-2">No methods yet</p>
+            <p className="text-title text-gray-400 mb-2">No methods yet</p>
             <p className="text-body text-gray-300 mb-6">
               Add your first protocol as Markdown or upload a PDF
             </p>

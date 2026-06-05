@@ -48,7 +48,7 @@ export default function DataSetupScreen({ isOpen, onClose }: DataSetupScreenProp
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
         <div className="flex items-center justify-between p-5 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900">Settings</h2>
+          <h2 className="text-heading font-semibold text-gray-900">Settings</h2>
           <Tooltip label="Close" placement="bottom">
             <button
               onClick={onClose}

@@ -219,7 +219,7 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
       >
         <div className="px-6 py-4 border-b border-white/10 flex items-start justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-white">Account password</h3>
+            <h3 className="text-heading font-semibold text-white">Account password</h3>
             <p className="text-meta text-slate-400 mt-0.5">for {username}</p>
           </div>
           <Tooltip label="Close" placement="bottom">
@@ -410,7 +410,7 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between mb-3">
-              <h3 className="text-lg font-semibold text-white">Forgot your password?</h3>
+              <h3 className="text-heading font-semibold text-white">Forgot your password?</h3>
               <Tooltip label="Close" placement="bottom">
                 <button
                   onClick={() => setShowForgot(false)}

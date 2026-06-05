@@ -526,7 +526,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
                 ← Projects
               </Link>
               <span className="text-gray-300">/</span>
-              <h1 className="text-lg font-semibold text-gray-900 truncate">
+              <h1 className="text-heading font-semibold text-gray-900 truncate">
                 {project.name}
               </h1>
               {project.is_archived && (
@@ -989,7 +989,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
             className="bg-white rounded-xl shadow-xl max-w-sm w-full mx-4 p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Archive project?</h3>
+            <h3 className="text-heading font-bold text-gray-900 mb-2">Archive project?</h3>
             <p className="text-body text-gray-600 mb-4">
               Are you sure you want to archive &quot;{project.name}&quot;?
             </p>
@@ -1034,7 +1034,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
             className="bg-white rounded-xl shadow-xl max-w-sm w-full mx-4 p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Delete project?</h3>
+            <h3 className="text-heading font-bold text-gray-900 mb-2">Delete project?</h3>
             <p className="text-body text-gray-600 mb-6">
               Are you sure you want to delete &quot;{project.name}&quot;? This will also
               delete all tasks associated with this project. This action cannot be
@@ -1286,7 +1286,7 @@ export function EditProjectModal({ project, onClose, onSave }: EditProjectModalP
         className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-lg font-bold text-gray-900 mb-4">Edit project</h3>
+        <h3 className="text-heading font-bold text-gray-900 mb-4">Edit project</h3>
         <div className="space-y-4">
           <div>
             <label className="block text-meta font-medium text-gray-500 mb-1">Name</label>

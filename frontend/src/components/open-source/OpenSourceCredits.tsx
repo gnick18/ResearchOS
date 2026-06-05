@@ -98,13 +98,13 @@ function LicensePill({ license }: { license: string }) {
 }
 
 function PackageLink({ name, repo }: { name: string; repo: string | null }) {
-  if (!repo) return <span className="font-mono text-sm text-gray-800">{name}</span>;
+  if (!repo) return <span className="font-mono text-body text-gray-800">{name}</span>;
   return (
     <a
       href={repo}
       target="_blank"
       rel="noopener noreferrer"
-      className="font-mono text-sm text-sky-700 underline-offset-2 hover:text-sky-900 hover:underline"
+      className="font-mono text-body text-sky-700 underline-offset-2 hover:text-sky-900 hover:underline"
     >
       {name}
       <ExternalIcon />
@@ -166,7 +166,7 @@ export default function OpenSourceCredits() {
           <h1 className="mb-6 text-display font-bold tracking-tight text-gray-900 sm:text-4xl">
             Built on open source
           </h1>
-          <div className="space-y-4 text-lg leading-relaxed text-gray-700">
+          <div className="space-y-4 text-title leading-relaxed text-gray-700">
             <p>
               ResearchOS exists because thousands of people gave their work
               away. Every screen here rests on open-source software written and
@@ -252,7 +252,7 @@ export default function OpenSourceCredits() {
                             </p>
                           </div>
                           <div className="flex flex-shrink-0 items-center gap-2 sm:ml-4">
-                            <span className="font-mono text-xs text-gray-400">
+                            <span className="font-mono text-meta text-gray-400">
                               {item.version}
                             </span>
                             <LicensePill license={item.license} />
@@ -366,7 +366,7 @@ export default function OpenSourceCredits() {
                       >
                         <PackageLink name={d.name} repo={d.repo} />
                         <div className="flex flex-shrink-0 items-center gap-2">
-                          <span className="font-mono text-xs text-gray-400">
+                          <span className="font-mono text-meta text-gray-400">
                             {d.version}
                           </span>
                           <LicensePill license={d.license} />

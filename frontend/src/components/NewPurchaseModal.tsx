@@ -555,7 +555,7 @@ export default function NewPurchaseModal({
         className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6"
         data-tour-target="purchases-form"
       >
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <h3 className="text-heading font-semibold text-gray-900 mb-4">
           New Purchase
         </h3>
 

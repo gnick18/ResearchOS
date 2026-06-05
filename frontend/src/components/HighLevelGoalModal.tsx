@@ -215,7 +215,7 @@ export default function HighLevelGoalModal({
         onSubmit={handleSubmit}
         className="bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 p-6 max-h-[90vh] overflow-y-auto"
       >
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <h3 className="text-heading font-semibold text-gray-900 mb-4">
           {isEditing ? "Edit High-Level Goal" : "New High-Level Goal"}
         </h3>
 

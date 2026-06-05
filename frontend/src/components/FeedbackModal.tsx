@@ -361,7 +361,7 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
                   </svg>
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">Last step: add your screenshots</h2>
+                  <h2 className="text-heading font-bold text-gray-900">Last step: add your screenshots</h2>
                   <p className="text-meta text-gray-500">The GitHub issue opened in a new tab</p>
                 </div>
               </div>
@@ -500,7 +500,7 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
                 )}
               </div>
               <div>
-                <h2 className="text-lg font-bold text-gray-900">{heading}</h2>
+                <h2 className="text-heading font-bold text-gray-900">{heading}</h2>
                 <p className="text-meta text-gray-500">Help us improve ResearchOS</p>
               </div>
             </div>

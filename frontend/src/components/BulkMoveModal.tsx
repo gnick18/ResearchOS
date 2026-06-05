@@ -43,7 +43,7 @@ export default function BulkMoveModal() {
       data-tour-popup-occluding="bulk-move-confirm"
     >
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+        <h3 className="text-heading font-semibold text-gray-900 mb-2">
           Confirm Bulk Move
         </h3>
 

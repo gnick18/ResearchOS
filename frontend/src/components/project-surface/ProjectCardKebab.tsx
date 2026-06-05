@@ -276,7 +276,7 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
             className="bg-white rounded-xl shadow-xl max-w-sm w-full mx-4 p-6"
             onClick={stop}
           >
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Archive project?</h3>
+            <h3 className="text-heading font-bold text-gray-900 mb-2">Archive project?</h3>
             <p className="text-body text-gray-600 mb-4">
               Are you sure you want to archive &quot;{project.name}&quot;?
             </p>
@@ -330,7 +330,7 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
             className="bg-white rounded-xl shadow-xl max-w-sm w-full mx-4 p-6"
             onClick={stop}
           >
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Delete project?</h3>
+            <h3 className="text-heading font-bold text-gray-900 mb-2">Delete project?</h3>
             <p className="text-body text-gray-600 mb-6">
               Are you sure you want to delete &quot;{project.name}&quot;? This will also
               delete all tasks associated with this project. This action cannot be

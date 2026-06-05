@@ -132,7 +132,7 @@ export default function UnifiedShareDialog({
         {/* Shared header chrome (title + record name + close). */}
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Share</h2>
+            <h2 className="text-heading font-semibold text-gray-900">Share</h2>
             <Tooltip label="Close" placement="bottom">
               <button
                 onClick={onClose}

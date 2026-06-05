@@ -225,7 +225,7 @@ export default function ResearcherProfile({
             </div>
 
             {profile.affiliation && (
-              <p className="text-lg text-gray-600">{profile.affiliation}</p>
+              <p className="text-title text-gray-600">{profile.affiliation}</p>
             )}
 
             {profile.affiliationDomain && (

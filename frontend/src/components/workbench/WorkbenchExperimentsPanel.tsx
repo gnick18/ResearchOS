@@ -547,7 +547,7 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
             </button>
           </div>
           <div className="text-center py-16">
-            <p className="text-lg text-gray-400 mb-2">No experiments yet</p>
+            <p className="text-title text-gray-400 mb-2">No experiments yet</p>
             <p className="text-body text-gray-300 mb-6">
               Create an experiment task to see it here
             </p>

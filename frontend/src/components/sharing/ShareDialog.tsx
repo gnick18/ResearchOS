@@ -465,7 +465,7 @@ export default function ShareDialog({
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-heading font-semibold text-gray-900">
               Share {labelForType(recordType)}
             </h2>
             <Tooltip label="Close" placement="bottom">

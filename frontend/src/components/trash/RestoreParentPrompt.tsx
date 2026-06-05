@@ -167,7 +167,7 @@ export function RestoreParentPromptHost() {
         <div className="space-y-1">
           <h2
             id="restore-parent-title"
-            className="text-lg font-semibold text-gray-900"
+            className="text-heading font-semibold text-gray-900"
           >
             Restore parent {parentTypeLabel} too?
           </h2>

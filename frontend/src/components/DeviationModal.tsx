@@ -95,7 +95,7 @@ export default function DeviationModal({
       data-tour-popup-occluding="deviation-modal"
     >
       <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-1">
+        <h3 className="text-heading font-semibold text-gray-900 mb-1">
           Note Deviations
         </h3>
         <p className="text-meta text-gray-400 mb-4">

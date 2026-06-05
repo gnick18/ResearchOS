@@ -227,7 +227,7 @@ export default function BulkSortScreen({ result, onDone }: BulkSortScreenProps) 
     <div className="fixed inset-0 z-[80] bg-white flex flex-col">
       <div className="border-b border-gray-200 px-6 py-4 flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-heading font-semibold text-gray-900">
             Bulk sort imported tasks
           </h2>
           <p className="text-meta text-gray-600 mt-1">

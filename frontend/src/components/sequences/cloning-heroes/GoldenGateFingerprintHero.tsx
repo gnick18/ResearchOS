@@ -80,7 +80,7 @@ export default function GoldenGateFingerprintHero({ product, enzymeNames }: Prop
           Fusion-site fingerprint
         </h4>
         {enzymeNames.length > 0 ? (
-          <span className="text-[11px] text-gray-500">{enzymeNames.join(", ")}</span>
+          <span className="text-meta text-gray-500">{enzymeNames.join(", ")}</span>
         ) : null}
       </div>
 
@@ -89,7 +89,7 @@ export default function GoldenGateFingerprintHero({ product, enzymeNames }: Prop
         {overhangs.map((oh, i) => (
           <span
             key={i}
-            className="rounded px-1.5 py-0.5 font-mono text-[12px] font-medium text-white"
+            className="rounded px-1.5 py-0.5 font-mono text-meta font-medium text-white"
             style={{ backgroundColor: oh === "" ? "#9ca3af" : colors.get(oh) }}
             title={`Junction ${i + 1}`}
           >
@@ -112,7 +112,7 @@ export default function GoldenGateFingerprintHero({ product, enzymeNames }: Prop
               <span>Ambiguous order: shared fusion overhangs.</span>
             </div>
             {uniqueness.clashes.map((c, i) => (
-              <div key={i} className="pl-5 font-mono text-[11px]">
+              <div key={i} className="pl-5 font-mono text-meta">
                 junctions {c.a + 1} and {c.b + 1} share {c.overhang}
               </div>
             ))}
@@ -122,7 +122,7 @@ export default function GoldenGateFingerprintHero({ product, enzymeNames }: Prop
 
       {/* Scarless confirmation. */}
       {scarless ? (
-        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-emerald-700">
+        <div className="mt-1.5 flex items-center gap-1.5 text-meta text-emerald-700">
           <CheckIcon className="h-3 w-3 shrink-0" />
           <span>Recognition sites removed (scarless).</span>
         </div>
@@ -130,7 +130,7 @@ export default function GoldenGateFingerprintHero({ product, enzymeNames }: Prop
 
       {/* Ordered assembly chain. */}
       {chain.length > 0 ? (
-        <div className="mt-2 flex flex-wrap items-center gap-1 text-[11px] text-gray-600">
+        <div className="mt-2 flex flex-wrap items-center gap-1 text-meta text-gray-600">
           {chain.map((name, i) => (
             <span key={i} className="flex items-center gap-1">
               <span className="rounded bg-white px-1.5 py-0.5 ring-1 ring-gray-200">{name}</span>

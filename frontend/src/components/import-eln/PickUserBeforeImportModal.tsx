@@ -143,7 +143,7 @@ export default function PickUserBeforeImportModal({
         <div className="p-6">
           <h2
             id="eln-pick-user-title"
-            className="text-lg font-bold text-white mb-1"
+            className="text-heading font-bold text-white mb-1"
           >
             Pick a user to own the imported notebook
           </h2>

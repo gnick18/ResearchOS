@@ -807,7 +807,7 @@ export default function SearchPage() {
         {/* Initial state */}
         {!hasSearched && (
           <div className="text-center py-16 bg-gray-50 rounded-lg">
-            <p className="text-lg text-gray-400 mb-2">Search to get started</p>
+            <p className="text-title text-gray-400 mb-2">Search to get started</p>
             <p className="text-body text-gray-300">
               Enter keywords, dates, or filters above
             </p>

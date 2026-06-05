@@ -369,7 +369,7 @@ export default function SpendingDashboard({
     <div className="mt-12 border-t-2 border-gray-200 pt-8">
       <div className="flex items-baseline justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">
+          <h3 className="text-heading font-semibold text-gray-900">
             Spending dashboard
           </h3>
           <p className="text-meta text-gray-400 mt-0.5">

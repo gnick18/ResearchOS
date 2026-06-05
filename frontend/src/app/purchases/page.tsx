@@ -750,7 +750,7 @@ export default function PurchasesPage() {
           if (purchaseTasks.length === 0) {
             return (
               <div className="text-center py-16">
-                <p className="text-lg text-gray-400 mb-2">No purchases yet</p>
+                <p className="text-title text-gray-400 mb-2">No purchases yet</p>
                 <p className="text-body text-gray-300">
                   Create a task with type &ldquo;Purchase&rdquo; to start
                   tracking orders

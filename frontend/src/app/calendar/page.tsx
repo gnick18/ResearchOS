@@ -271,7 +271,7 @@ export default function CalendarPage() {
                 </svg>
               </button>
             </Tooltip>
-            <h3 className="text-lg font-semibold text-gray-900 min-w-[180px]">
+            <h3 className="text-heading font-semibold text-gray-900 min-w-[180px]">
               {headingLabel}
             </h3>
             <Tooltip label={`Next ${view}`} placement="bottom">
@@ -500,7 +500,7 @@ export default function CalendarPage() {
             className="bg-white rounded-xl p-6 max-w-sm mx-4 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            <h3 className="text-heading font-semibold text-gray-900 mb-2">
               Delete Event?
             </h3>
             <p className="text-body text-gray-500 mb-4">
@@ -809,7 +809,7 @@ function EventModal({
                   </Tooltip>
                 )}
               </div>
-              <h4 className="text-lg font-semibold text-gray-900">{event.title}</h4>
+              <h4 className="text-heading font-semibold text-gray-900">{event.title}</h4>
               <p className="text-body text-gray-600">
                 {event.start_date}
                 {event.end_date && event.end_date !== event.start_date && (
@@ -1155,7 +1155,7 @@ function ExternalEventModal({
         </div>
 
         <div className="p-6 space-y-4">
-          <h4 className="text-lg font-semibold text-gray-900">{event.title}</h4>
+          <h4 className="text-heading font-semibold text-gray-900">{event.title}</h4>
           <p className="text-body text-gray-600">
             {event.start_date}
             {event.end_date && event.end_date !== event.start_date && (

@@ -468,7 +468,7 @@ export default function LabLinksPage() {
                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
               </svg>
             </div>
-            <p className="text-lg text-gray-400 mb-2">No links saved yet</p>
+            <p className="text-title text-gray-400 mb-2">No links saved yet</p>
             <p className="text-body text-gray-300">
               Add a link to save it here
             </p>
@@ -613,7 +613,7 @@ export default function LabLinksPage() {
         {deleteConfirmId && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setDeleteConfirmId(null)}>
             <div className="bg-white rounded-xl p-6 max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-heading font-semibold text-gray-900 mb-2">
                 Delete Link?
               </h3>
               <p className="text-body text-gray-500 mb-4">

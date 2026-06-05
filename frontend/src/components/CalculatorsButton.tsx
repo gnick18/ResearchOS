@@ -140,7 +140,7 @@ function CalculatorsModal({ onClose }: { onClose: () => void }) {
       <div className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[88vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+          <h2 className="text-heading font-bold text-gray-900 flex items-center gap-2">
             <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-sky-100 text-sky-600">
               <CalculatorIcon className="w-4 h-4" />
             </span>

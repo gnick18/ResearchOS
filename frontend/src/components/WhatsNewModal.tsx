@@ -224,7 +224,7 @@ export default function WhatsNewModal({
             />
             <p
               id="whats-new-title"
-              className="mt-2 text-lg font-bold text-gray-900"
+              className="mt-2 text-heading font-bold text-gray-900"
             >
               What&apos;s new
             </p>

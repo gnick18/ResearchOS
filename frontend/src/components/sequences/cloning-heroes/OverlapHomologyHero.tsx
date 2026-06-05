@@ -64,7 +64,7 @@ export default function OverlapHomologyHero({ junctions, primers, annealTargetTm
                   <span className="text-gray-400">5'</span> {bName}
                 </span>
                 <span
-                  className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ring-1 ${GRADE_CHIP[grade]}`}
+                  className={`shrink-0 rounded px-1.5 py-0.5 text-meta font-medium ring-1 ${GRADE_CHIP[grade]}`}
                 >
                   {jn.overlapBp} bp / Tm {Number.isFinite(jn.overlapTm) ? `${jn.overlapTm.toFixed(0)} C` : "n/a"}
                 </span>
@@ -93,7 +93,7 @@ export default function OverlapHomologyHero({ junctions, primers, annealTargetTm
               )}
 
               {jn.warning ? (
-                <div className="mt-1.5 flex items-start gap-1.5 text-[11px] text-amber-700">
+                <div className="mt-1.5 flex items-start gap-1.5 text-meta text-amber-700">
                   <WarnIcon className="mt-0.5 h-3 w-3 shrink-0" />
                   <span>{jn.warning}</span>
                 </div>
