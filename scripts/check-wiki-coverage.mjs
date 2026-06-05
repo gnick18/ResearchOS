@@ -52,6 +52,7 @@ const EXCLUDED_PREFIXES = [
   "/privacy", // privacy policy (legal/informational, no AppShell, not a documented app feature; like /open-source). OAuth providers require a privacy-policy URL
   "/welcome-preview", // internal design preview for the welcome page redesign, not a documented user feature
   "/researchers", // opt-in researcher directory (browse + standalone shareable profile pages); a sharing-network surface, documented under the sharing wiki, not its own page
+  "/admin", // operator-only metrics dashboard (gated on ADMIN_EMAILS, data 404s for non-admins); internal tool, not a documented user feature
 ];
 
 /** Next.js conventions to ignore when walking app/. */

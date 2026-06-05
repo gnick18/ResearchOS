@@ -431,3 +431,61 @@ export async function getProfileByFingerprint(
     updatedAt: r.updated_at,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Operator metrics (aggregate only, never per-user; powers /admin)
+// ---------------------------------------------------------------------------
+
+export interface DirectoryMetrics {
+  totalIdentities: number;
+  totalProfiles: number;
+  orcidLinks: number;
+  signupsByMonth: { month: string; count: number }[];
+  profilesByDomain: { domain: string; count: number }[];
+}
+
+/**
+ * Aggregate directory stats for the operator dashboard. Counts only, never any
+ * email or per-user data (the directory only stores peppered hashes anyway).
+ */
+export async function getDirectoryMetrics(): Promise<DirectoryMetrics> {
+  const sql = getSql();
+
+  const idRows = (await sql`
+    SELECT count(*)::int AS n FROM directory_identities
+  `) as Array<{ n: number }>;
+  const profRows = (await sql`
+    SELECT count(*)::int AS n FROM directory_profiles
+  `) as Array<{ n: number }>;
+  const orcidRows = (await sql`
+    SELECT count(*)::int AS n FROM directory_orcid_links
+  `) as Array<{ n: number }>;
+
+  const signupRows = (await sql`
+    SELECT to_char(date_trunc('month', created_at), 'YYYY-MM') AS month,
+           count(*)::int AS count
+    FROM directory_identities
+    GROUP BY 1
+    ORDER BY 1
+  `) as Array<{ month: string; count: number }>;
+
+  const domainRows = (await sql`
+    SELECT affiliation_domain AS domain, count(*)::int AS count
+    FROM directory_profiles
+    WHERE affiliation_domain IS NOT NULL
+    GROUP BY 1
+    ORDER BY count DESC, domain ASC
+    LIMIT 25
+  `) as Array<{ domain: string; count: number }>;
+
+  return {
+    totalIdentities: idRows[0]?.n ?? 0,
+    totalProfiles: profRows[0]?.n ?? 0,
+    orcidLinks: orcidRows[0]?.n ?? 0,
+    signupsByMonth: signupRows.map((r) => ({ month: r.month, count: r.count })),
+    profilesByDomain: domainRows.map((r) => ({
+      domain: r.domain,
+      count: r.count,
+    })),
+  };
+}

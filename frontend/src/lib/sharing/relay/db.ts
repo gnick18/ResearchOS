@@ -500,3 +500,34 @@ function mapRow(r: {
     expiresAt: r.expires_at,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Operator metrics (aggregate only; powers /admin)
+// ---------------------------------------------------------------------------
+
+export interface RelayMetrics {
+  /** Live pending shares (uploaded, not yet picked up, not expired). */
+  pendingShares: number;
+  /** Total bytes held by those live pending shares. */
+  pendingBytes: number;
+  /** Every inbox row ever created (cumulative sends, incl. picked-up/expired). */
+  totalEverSent: number;
+}
+
+/** Aggregate relay volume for the operator dashboard. No content, no metadata. */
+export async function getRelayMetrics(): Promise<RelayMetrics> {
+  const sql = getSql();
+  const liveRows = (await sql`
+    SELECT count(*)::int AS n, coalesce(sum(size_bytes), 0)::bigint AS bytes
+    FROM relay_inbox
+    WHERE status = 'ready' AND expires_at > now()
+  `) as Array<{ n: number; bytes: string | number }>;
+  const totalRows = (await sql`
+    SELECT count(*)::int AS n FROM relay_inbox
+  `) as Array<{ n: number }>;
+  return {
+    pendingShares: liveRows[0]?.n ?? 0,
+    pendingBytes: Number(liveRows[0]?.bytes ?? 0),
+    totalEverSent: totalRows[0]?.n ?? 0,
+  };
+}
