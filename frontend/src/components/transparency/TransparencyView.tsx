@@ -224,20 +224,21 @@ export default function TransparencyView() {
         </Link>
 
         <header className="mt-8 mb-12">
-          <p className="mb-3 text-body font-semibold uppercase tracking-wide text-sky-600">Transparency</p>
+          <p className="mb-3 text-body font-semibold uppercase tracking-wide text-sky-600">Method validation</p>
           <h1 className="mb-5 text-display font-bold tracking-tight text-gray-900 sm:text-4xl">
-            Our science, checked against the tools you already trust
+            Validation of bioinformatic calculations against reference implementations
           </h1>
           <p className="max-w-2xl text-body text-gray-600">
-            ResearchOS runs its own bioinformatic calculations in your browser, with no server and no
-            lock-in. So you do not have to take our word that the math is right, every result on this
-            page is compared on every code change against the established reference implementations
-            scientists already rely on (Biopython, primer3). The comparison is a real automated test,
-            so if our output ever drifts from the reference, the build fails and you would see it here.
+            ResearchOS performs sequence-analysis calculations client-side. Each calculation listed
+            below is evaluated over a fixed set of test inputs and compared against an established
+            reference implementation (Biopython, primer3) under matched parameters. Reference values
+            are pinned from the cited tool versions and reproducible with the listed generator scripts.
+            The comparisons are recomputed from source on every commit as an automated test; a result
+            exceeding its stated tolerance fails the build.
           </p>
 
           <div className="mt-8 inline-flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-5 py-3">
-            <StatusPill status={report.status} label={`${report.totals.pass}/${total} comparisons matching`} />
+            <StatusPill status={report.status} label={`${report.totals.pass}/${total} comparisons within tolerance`} />
             <span className="text-meta text-gray-500">{report.generatedNote}</span>
           </div>
         </header>

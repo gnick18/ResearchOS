@@ -116,10 +116,12 @@ function buildTmDomain(): DomainReport {
     id: "tm",
     title: "Primer melting temperature (Tm)",
     summary:
-      "Given a primer sequence and the reaction's salt and oligo conditions, "
-      + "ResearchOS computes the melting temperature using nearest-neighbor "
-      + "thermodynamics, the same method Biopython and primer3 use. Tm drives "
-      + "annealing-temperature choices in every PCR, so it has to be right.",
+      "Melting temperature is computed from nearest-neighbor thermodynamics "
+      + "(Allawi and SantaLucia 1997 parameters with the SantaLucia 1998 entropy "
+      + "salt correction) given the primer sequence, monovalent and divalent ion "
+      + "concentrations, and oligo concentration. Values are compared against "
+      + "Biopython Tm_NN under identical parameters, and against primer3, which "
+      + "uses the SantaLucia 1998 unified nearest-neighbor table.",
     impl: "frontend/src/lib/calculators/tm-nn.ts",
     oracles: [BIOPYTHON, PRIMER3],
     cases,
@@ -236,10 +238,10 @@ function buildAlignmentDomain(): DomainReport {
     id: "alignment",
     title: "Sequence alignment",
     summary:
-      "ResearchOS aligns DNA and protein sequences with a full affine-gap "
-      + "dynamic program (global and local), and finds shared regions between "
-      + "long sequences with a seed-and-extend search. Both are checked against "
-      + "Biopython, the standard the field already trusts.",
+      "Global and local pairwise alignment use an affine-gap (Gotoh) dynamic "
+      + "program with IUPAC-aware DNA scoring. Homology between long sequences is "
+      + "detected by seed-and-extend. Optimal alignment scores and recovered-region "
+      + "percent identity are compared against Biopython.",
     impl: "frontend/src/lib/align/",
     oracles: [BIOPYTHON_ALIGN],
     cases,
@@ -315,10 +317,10 @@ function buildDigestDomain(): DomainReport {
     id: "digest",
     title: "Restriction digest",
     summary:
-      "Given a sequence and a set of restriction enzymes, ResearchOS finds every "
-      + "cut site on both strands, handles circular plasmids and origin-spanning "
-      + "sites, and reports the resulting fragment sizes. The whole band pattern "
-      + "is checked against Biopython's Bio.Restriction.",
+      "Restriction sites are located on both strands for linear and circular "
+      + "sequences, including sites spanning the origin of a plasmid, and fragment "
+      + "lengths are derived from the cut positions. The complete fragment-size "
+      + "pattern is compared against Biopython Bio.Restriction.",
     impl: "frontend/src/lib/sequences/enzyme-filters.ts",
     oracles: [BIOPYTHON_DIGEST],
     cases,
@@ -397,10 +399,10 @@ function buildTranslationDomain(): DomainReport {
     id: "translation",
     title: "Translation",
     summary:
-      "ResearchOS translates DNA to protein in frame using the standard genetic "
-      + "code, resolving IUPAC-degenerate codons where they still code for one "
-      + "amino acid and dropping a trailing partial codon. Every residue is "
-      + "checked against Biopython's Seq.translate.",
+      "DNA is translated in frame 1 under the standard genetic code (NCBI table "
+      + "1). IUPAC-degenerate codons are resolved where they specify a single "
+      + "amino acid, and a trailing partial codon is dropped. Each residue is "
+      + "compared against Biopython Seq.translate.",
     impl: "frontend/src/vendor/seqviz/sequence.ts",
     oracles: [BIOPYTHON_TRANSLATE],
     cases,
@@ -431,9 +433,8 @@ export function buildTransparencyReport(): TransparencyReport {
 
   return {
     generatedNote:
-      "Computed live from ResearchOS source on every build. Oracle values are "
-      + "pinned from the committed golden suites and reproducible via the listed "
-      + "generator scripts.",
+      "Recomputed from source on each build. Reference values are pinned from the "
+      + "cited tool versions and reproducible with the listed generator scripts.",
     domains,
     totals,
     status,

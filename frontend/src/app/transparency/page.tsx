@@ -19,9 +19,9 @@ import TransparencyView from "@/components/transparency/TransparencyView";
  * anyone can read it.
  */
 export const metadata: Metadata = {
-  title: "Transparency of tests | ResearchOS",
+  title: "Method validation | ResearchOS",
   description:
-    "ResearchOS's bioinformatic tools are checked against Biopython and primer3 on every code change. See the live comparisons.",
+    "Bioinformatic calculations in ResearchOS (melting temperature, alignment, restriction digest, translation) compared against Biopython and primer3 reference implementations, recomputed on every commit.",
 };
 
 export default function TransparencyPage() {

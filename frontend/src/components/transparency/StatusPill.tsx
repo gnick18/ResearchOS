@@ -11,19 +11,19 @@ const STYLES: Record<Status, { bg: string; text: string; ring: string; label: st
     bg: "bg-emerald-50",
     text: "text-emerald-700",
     ring: "ring-emerald-200",
-    label: "Matches",
+    label: "Within tolerance",
   },
   warn: {
     bg: "bg-amber-50",
     text: "text-amber-700",
     ring: "ring-amber-200",
-    label: "Within offset",
+    label: "Marginal",
   },
   fail: {
     bg: "bg-red-50",
     text: "text-red-700",
     ring: "ring-red-200",
-    label: "Drifted",
+    label: "Out of tolerance",
   },
 };
 
