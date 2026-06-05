@@ -96,7 +96,7 @@ import { aiHelperSizeOptionsStep } from "../AiHelperSizeOptionsStep";
 // keep their tests below.
 import { hybridNotesVsResultsStep } from "../HybridNotesVsResultsStep";
 import { inlineEditorStep } from "../InlineEditorStep";
-import { hybridSaveConceptStep } from "../HybridSaveConceptStep";
+import { editorSaveConceptStep } from "../EditorSaveConceptStep";
 // 2026-06-03 (HR / tour-simplification): HybridEditorScopeStep +
 // HybridFocusEnterStep + HybridFocusExitStep were deleted; their
 // awareness folded into the inline-editor speech.
@@ -199,9 +199,9 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   // hybrid-editor-scope + focus enter/exit cursor demos were cut; their
   // awareness folded into this beat's speech.
   inlineEditorStep,
-  // hybrid-save-concept manager 2026-05-27: pure-narration beat closing
-  // the §6.7 editor cluster before §6.7b opens.
-  hybridSaveConceptStep,
+  // editor-save-concept (renamed from hybrid-save-concept 2026-06-04):
+  // pure-narration beat closing the §6.7 editor cluster before §6.7b opens.
+  editorSaveConceptStep,
   ganttIntroStep,
   ganttExistingExperimentStep,
   ganttDragDropStep,

@@ -9,7 +9,7 @@ import { getEntryContentText } from "@/lib/loro/note-doc";
 /**
  * Inline ("Typora-style") Markdown editor — Typora editor chip 1 (T1 + T2).
  *
- * This is the OPT-IN third editor surface (EditorMode "inline") that mounts a
+ * This is the sole editing surface (EditorMode "inline"): it mounts a
  * CodeMirror 6 EditorView whose DOCUMENT IS THE MARKDOWN TEXT. CM6 never
  * re-serializes the source: every "render" is a view-only decoration, so the
  * local-first round-trip contract is structurally guaranteed (proven by
@@ -18,13 +18,10 @@ import { getEntryContentText } from "@/lib/loro/note-doc";
  * raw <img>, GFM) survives byte-for-byte because the editor stores those bytes
  * and only highlights them.
  *
- * CHIP 1 SCOPE (this file): mount + byte-for-byte round-trip + the manual-save
- * contract (saveRef / onExplicitSave / onDirtyChange / value-in-onChange-out)
- * + basic markdown syntax highlighting + the fluid ch-based measure.
- * NO caret-aware marker hiding / inline reveal — that is chip 2
- * (MARKDOWN_EDITOR_TYPORA_INLINE_REVEAL_DESIGN.md). This editor owns its OWN
- * CM6 history() undo stack (it does NOT share HybridMarkdownEditor's
- * ValueHistory) and never autosaves to the parent.
+ * This editor owns its OWN CM6 history() undo stack and never autosaves to
+ * the parent. The manual-save contract is saveRef / onExplicitSave /
+ * onDirtyChange / value-in-onChange-out. Caret-aware marker hiding / inline
+ * reveal is chip 2 (MARKDOWN_EDITOR_TYPORA_INLINE_REVEAL_DESIGN.md).
  *
  * The CM6 packages are loaded via a DYNAMIC import() so non-Notes surfaces
  * (and the initial app bundle) never pull the editor code. While the chunk
@@ -51,10 +48,9 @@ type CMModules = {
   HighlightStyle: typeof import("@codemirror/language").HighlightStyle;
   tags: typeof import("@lezer/highlight").tags;
   // Chip 2a: the caret-aware inline-reveal layer (plugin + theme). Chip 2b
-  // extends the same extension with the block + image widgets and the
-  // hybrid-parity markdown keymap; the plugin stays view-only (the keymap is the
-  // only doc-dispatching member, on a user keypress), so the chip 1 round-trip +
-  // save contract are untouched.
+  // extends the same extension with the block + image widgets and the markdown
+  // keymap; the plugin stays view-only (the keymap is the only doc-dispatching
+  // member, on a user keypress), so the round-trip + save contract are untouched.
   inlineRevealExtension: typeof import("@/lib/markdown/cm-inline-reveal/inline-reveal").inlineRevealExtension;
   // Chip 2b: configures the image widget's relative-src -> blob-URL resolution
   // with the editor base path, matching the LiveMarkdownEditor preview.
@@ -72,9 +68,8 @@ interface InlineMarkdownEditorProps {
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
-  /** Manual-save contract (same interface as the hybrid child, different impl).
-   *  saveRef.current returns the latest doc string synchronously so a parent
-   *  Save button can flush + persist. */
+  /** Manual-save contract. saveRef.current returns the latest doc string
+   *  synchronously so a parent Save button can flush + persist. */
   saveRef?: React.MutableRefObject<(() => string) | null>;
   /** Imperative insert API (mirrors saveRef). When set we point it at a
    *  function that splices the given markdown syntax in at the current CM6
@@ -192,9 +187,9 @@ function buildExtensions(
     markdown({ base: markdownLanguage }),
     syntaxHighlighting(highlightStyle),
     // Chip 2a + 2b: caret-aware marker hide/reveal (decorations + atomicRanges +
-    // theme) plus the block / image widgets and the hybrid-parity markdown
-    // keymap. Spread AFTER the markdown language so the keymap (Prec.high) wins.
-    // The image-base-path facet configures the image widget's blob resolution.
+    // theme) plus the block / image widgets and the markdown keymap. Spread
+    // AFTER the markdown language so the keymap (Prec.high) wins. The
+    // image-base-path facet configures the image widget's blob resolution.
     imageBasePathExt(imageBasePath),
     inlineRevealExtension,
     EditorView.lineWrapping,
@@ -232,7 +227,7 @@ export default function InlineMarkdownEditor({
 
   // Mirror the callback props into refs so the CM6 update listener (created
   // once at mount) always sees the latest callbacks without re-binding the
-  // whole editor. Same pattern HybridMarkdownEditor uses for onExplicitSave.
+  // whole editor.
   const onChangeRef = useRef(onChange);
   const onExplicitSaveRef = useRef(onExplicitSave);
   const onDirtyChangeRef = useRef(onDirtyChange);
@@ -272,13 +267,13 @@ export default function InlineMarkdownEditor({
   loroEntryIndexRef.current = loroEntryIndex;
   loroBaseNoteRef.current = loroBaseNote;
 
-  // Dirty flag (this editor owns it; NOT shared with the hybrid buffer). Flips
-  // true on the first user edit after a mount / external value swap / save.
+  // Dirty flag: flips true on the first user edit after a mount / external
+  // value swap / save.
   const dirtyRef = useRef(false);
   // The last document string the editor itself last accepted: either the most
   // recent external `value` we reconciled to, or the most recent value we
   // emitted via onChange. Used to (a) echo-guard the value-in effect and (b)
-  // detect external swaps. Same role as lastAcceptedValueRef in the hybrid.
+  // detect external swaps.
   const lastAcceptedRef = useRef(value);
   // Whether an in-flight dispatch is one WE initiated to reconcile an external
   // value (so the update listener does not bounce it back through onChange).
@@ -455,8 +450,7 @@ export default function InlineMarkdownEditor({
 
   // Publish the imperative save flush on saveRef. Returns the latest doc string
   // synchronously (no async controlled-value round-trip) and clears dirty, so a
-  // parent Save button can persist immediately. Mirrors HybridMarkdownEditor's
-  // saveRef shape.
+  // parent Save button can persist immediately.
   useEffect(() => {
     if (!saveRef) return;
     saveRef.current = () => {

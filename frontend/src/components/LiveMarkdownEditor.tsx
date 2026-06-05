@@ -12,7 +12,6 @@ import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
 import remarkUnderline from "@/lib/markdown/remark-underline";
 import { extractUserContent } from "@/lib/stamp-utils";
 import { attachmentsApi } from "@/lib/local-api";
-import HybridMarkdownEditor from "./HybridMarkdownEditor";
 import InlineMarkdownEditor from "./InlineMarkdownEditor";
 import type { NoteHandle } from "@/lib/loro/store";
 import type { Note } from "@/lib/types";
@@ -67,10 +66,10 @@ const IMAGE_PLACEHOLDER =
   "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
 // Strip CommonMark title and surrounding angle brackets from a raw URL
-// captured between (...). Mirrors the helper in HybridMarkdownEditor — keeps
-// filenames with spaces routable through the blob-URL cache. The previous
-// `[^)\s]+` regex truncated at the first whitespace, so the cache key never
-// matched what react-markdown later passed to the <img> renderer.
+// captured between (...). Keeps filenames with spaces routable through the
+// blob-URL cache. The previous `[^)\s]+` regex truncated at the first
+// whitespace, so the cache key never matched what react-markdown later
+// passed to the <img> renderer.
 function canonicalizeRefSrc(raw: string): string {
   let src = raw.trim();
   const titleMatch = src.match(/^(.+?)\s+["'].*["']\s*$/);
@@ -79,11 +78,10 @@ function canonicalizeRefSrc(raw: string): string {
   return src;
 }
 
-// Type for editor mode. "inline" is the opt-in CodeMirror 6 Typora-style
-// surface (Typora editor chip 1): it renders ONLY when `enableInlineMode` is
-// true (Notes pilot), so other surfaces keep the two-way Hybrid / Preview
-// toggle untouched.
-export type EditorMode = "hybrid" | "preview" | "inline";
+// Type for editor mode. "inline" is the CodeMirror 6 Typora-style surface
+// (now the sole editor). "preview" is the read-only ReactMarkdown render.
+// "hybrid" has been removed from the runtime; this union no longer includes it.
+export type EditorMode = "preview" | "inline";
 
 /**
  * Pre-process markdown to preserve blank line spacing.
@@ -166,10 +164,8 @@ interface LiveMarkdownEditorProps {
   showShortcutsHelper?: boolean;
   /** Whether to allow any file type uploads (not just images) */
   allowAnyFileType?: boolean;
-  /** Editor mode. Defaults to 'inline' (the CodeMirror 6 surface, now the sole
-   *  editor) and toggles to 'preview' (read-only rendered) from the toolbar.
-   *  'hybrid' (click-to-edit) is retained as a dormant fallback EditorMode but
-   *  no UI control selects it anymore. */
+  /** Editor mode. Defaults to 'inline' (the CodeMirror 6 surface, the sole
+   *  editor) and toggles to 'preview' (read-only rendered) from the toolbar. */
   mode?: EditorMode;
   /** Callback when mode changes */
   onModeChange?: (mode: EditorMode) => void;
@@ -184,20 +180,18 @@ interface LiveMarkdownEditorProps {
   /** Context label for Browse tooltip and strip empty-state copy.
    *  Defaults to "experiment" for backward compatibility. */
   recordType?: "experiment" | "note" | "method" | "list" | "purchase";
-  /** Pass-through to HybridMarkdownEditor: hide the editor's own internal
-   *  Save button. Used by surfaces that own their own disk-save action (the
-   *  experiment popup). Defaults to false (button shown). */
+  /** Hide the editor's own internal Save button. Used by surfaces that own
+   *  their own disk-save action (the experiment popup). Defaults to false. */
   hideSaveButton?: boolean;
-  /** Pass-through to HybridMarkdownEditor: receives an imperative function
-   *  that flushes the edit buffer, fires onChange, and returns the latest
-   *  full-document string synchronously. */
+  /** Receives an imperative function that flushes the edit buffer, fires
+   *  onChange, and returns the latest full-document string synchronously. */
   saveRef?: React.MutableRefObject<(() => string) | null>;
-  /** Pass-through to HybridMarkdownEditor: fired on an explicit save with the
-   *  value committed to the parent, so the parent can persist it to disk. */
+  /** Fired on an explicit save with the value committed to the parent,
+   *  so the parent can persist it to disk. */
   onExplicitSave?: (value: string) => void;
-  /** Pass-through to HybridMarkdownEditor: fired when the editor's in-flight
-   *  buffer-dirty flag flips, so a parent that hides the internal Save button
-   *  can enable its own Save button the moment the user starts typing. */
+  /** Fired when the editor's in-flight buffer-dirty flag flips, so a parent
+   *  that hides the internal Save button can enable its own Save button the
+   *  moment the user starts typing. */
   onDirtyChange?: (dirty: boolean) => void;
   /** Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §6). Controlled-or-
    *  internal pair mirroring `mode` / `onModeChange`. When `onFocusModeChange`
@@ -207,14 +201,6 @@ interface LiveMarkdownEditorProps {
   focusMode?: boolean;
   /** Callback when focus mode changes (enables the controlled pattern). */
   onFocusModeChange?: (focusMode: boolean) => void;
-  /** Gate for the CodeMirror 6 Typora-style "inline" EditorMode (Typora
-   *  editor chip 1). When true the toolbar surfaces a third "Inline" pill and
-   *  the body can render <InlineMarkdownEditor>. DEFAULTS TO TRUE (2026-06-01):
-   *  the inline editor proved out on the Notes pilot and is now on for every
-   *  LiveMarkdownEditor surface, which also makes deprecating Hybrid later a
-   *  single switch. Pass `enableInlineMode={false}` to force the two-way
-   *  Hybrid / Preview toggle on a specific surface. */
-  enableInlineMode?: boolean;
   /** Optional parent-supplied content rendered on the RIGHT side of the
    *  single unified toolbar (after a flex spacer). Surfaces that own their
    *  own Save action or sub-tab switcher (the experiment popup's Lab Notes /
@@ -231,7 +217,7 @@ interface LiveMarkdownEditorProps {
 
   // ---------------------------------------------------------------------------
   // Loro CRDT pilot pass-through props (forwarded to InlineMarkdownEditor only)
-  // When absent, behavior is entirely unchanged. Never passed to HybridMarkdownEditor.
+  // When absent, behavior is entirely unchanged.
   // ---------------------------------------------------------------------------
   /** Loro note handle; when set, InlineMarkdownEditor runs in Loro mode. */
   loroHandle?: NoteHandle;
@@ -269,7 +255,6 @@ export default function LiveMarkdownEditor({
   onDirtyChange,
   focusMode = false,
   onFocusModeChange,
-  enableInlineMode = true,
   toolbarTrailing,
   legacyAttachmentsDir,
   loroHandle,
@@ -297,14 +282,12 @@ export default function LiveMarkdownEditor({
     [onFocusModeChange],
   );
 
-  // Buffer-safety bridge (FOCUS_WRITING_MODE_DESIGN.md §7). The child
-  // HybridMarkdownEditor publishes a flush-to-PENDING function here; we call
-  // it on the frame we flip the portal target so an in-flight block edit is
-  // committed to the pending document (NOT to disk) across the re-parent.
-  // Element identity is preserved across the portal flip (the SAME
-  // HybridMarkdownEditor element renders in both branches), so no remount
-  // happens and the buffer refs survive untouched. This is the
-  // belt-and-suspenders guard the design doc asks for.
+  // Buffer-safety bridge (FOCUS_WRITING_MODE_DESIGN.md §7). Wired for
+  // belt-and-suspenders safety across the focus-mode portal flip. Element
+  // identity is preserved across the portal flip (the SAME editor subtree
+  // renders in both branches), so no remount happens. The flush-to-pending
+  // function may be null when the inline editor is mounted (it owns its own
+  // CM6 history stack), which is fine.
   const commitBufferRef = useRef<(() => void) | null>(null);
   // Imperative insert published by the inline (CodeMirror 6) child. The inline
   // Style Guide rail (MarkdownShortcutsSidebar) calls this to splice a markdown
@@ -321,9 +304,8 @@ export default function LiveMarkdownEditor({
   // (FOCUS_WRITING_MODE_DESIGN.md §0 decision 1). Defaults true so a fresh
   // editor with nothing selected is parked.
   const editorParkedRef = useRef(true);
-  // The HybridMarkdownEditor publishes its container-contains check via the
-  // Cmd+Shift+F binding it already owns; here we just need the latest
-  // focusMode value inside listeners with stable deps, so mirror it to a ref.
+  // Mirror focusMode into a ref so it can be read inside listeners with
+  // stable deps (avoids re-binding the document keydown on every render).
   const focusModeActiveRef = useRef(false);
 
   // Buffer-safe portal container (FOCUS_WRITING_MODE_DESIGN.md §7).
@@ -331,9 +313,8 @@ export default function LiveMarkdownEditor({
   // React UNMOUNTS + remounts a portal's children when the portal CONTAINER
   // node changes between renders (verified in react-dom 19's reconciler:
   // updatePortal bails to createFiberFromPortal on a containerInfo mismatch).
-  // A remount would wipe HybridMarkdownEditor's manual-save buffer + undo
-  // refs and silently drop in-flight typing, exactly the failure the design
-  // doc calls the top correctness risk.
+  // A remount would wipe the editor's CM6 state and silently drop in-flight
+  // typing, exactly the failure the design doc calls the top correctness risk.
   //
   // So we create ONE stable container div and ALWAYS portal the editor subtree
   // into it (the container reference never changes, so React never remounts).
@@ -341,9 +322,7 @@ export default function LiveMarkdownEditor({
   // mount slot when not in focus mode, and into document.body (full-viewport
   // overlay) when in focus mode. Moving a node with `appendChild` does not
   // change the node's identity, so the portal's containerInfo stays equal and
-  // the component state survives. The belt-and-suspenders flush-to-pending
-  // (commitBufferRef) runs in toggleFocusMode just before the move as a second
-  // line of defense.
+  // the component state survives.
   const portalContainerRef = useRef<HTMLDivElement | null>(null);
   if (portalContainerRef.current === null && typeof document !== "undefined") {
     portalContainerRef.current = document.createElement("div");
@@ -1703,12 +1682,11 @@ export default function LiveMarkdownEditor({
 
   // Guarded Escape exit (FOCUS_WRITING_MODE_DESIGN.md §0 decision 1, §5).
   // Document-level listener that exits focus mode ONLY when parked. The
-  // editor's own block-commit Escape (HybridMarkdownEditor handleEditKeyDown)
-  // calls stopPropagation while a block is mid-edit, so this listener never
-  // even receives Escape in the common writing state. When it DOES receive
-  // one we still re-check the guards before acting, and we early-return on a
-  // tour-synthetic Escape so the in-cluster block-commit Escapes the
-  // walkthrough fires never bounce the user out of focus mode mid-demo.
+  // inline editor's CM6 keymap may call stopPropagation for its own Escape
+  // handling. When this listener DOES receive one it re-checks the guards
+  // before acting, and early-returns on a tour-synthetic Escape so the
+  // in-cluster Escapes the walkthrough fires never bounce the user out of
+  // focus mode mid-demo.
   useEffect(() => {
     if (!focusModeActive) return;
     if (typeof document === "undefined") return;
@@ -1754,17 +1732,12 @@ export default function LiveMarkdownEditor({
     return () => document.removeEventListener("keydown", onKeyDown, true);
   }, [focusModeActive, toggleFocusMode]);
 
-  // Cmd/Ctrl+Shift+F focus-mode toggle for the INLINE branch. The hybrid child
-  // owns this binding on its own document-level keydown (HybridMarkdownEditor),
-  // but the inline (CodeMirror 6) child does not, so when inline is the mounted
-  // editor (the default now) the wrapper owns the shortcut here. Mirrors the
-  // hybrid logic verbatim: fire when this editor owns focus OR when nothing
-  // editable anywhere owns focus (so a freshly opened editor with focus on the
-  // host chrome still toggles), and yield when a DIFFERENT editor's field is
-  // focused. Gated to the inline branch so it never double-fires with the
-  // hybrid child's own handler.
-  const inlineBranchActive =
-    enableInlineMode && currentMode === "inline";
+  // Cmd/Ctrl+Shift+F focus-mode toggle. The inline (CodeMirror 6) editor does
+  // not install a document-level keydown, so the wrapper owns the shortcut
+  // here. Fires when this editor owns focus OR when nothing editable anywhere
+  // owns focus (so a freshly opened editor with focus on the host chrome still
+  // toggles), and yields when a DIFFERENT editor's field is focused.
+  const inlineBranchActive = currentMode === "inline";
   useEffect(() => {
     if (!inlineBranchActive) return;
     if (typeof document === "undefined") return;
@@ -1861,9 +1834,9 @@ export default function LiveMarkdownEditor({
 
   // The editor subtree, rendered ONCE. In focus mode it is relocated into a
   // body-level portal via createPortal below; React preserves component
-  // state (the manual-save buffer + undo refs in HybridMarkdownEditor) when
-  // only the portal container changes and element identity is kept, so no
-  // remount happens and no typing is lost (FOCUS_WRITING_MODE_DESIGN.md §7).
+  // state (the CM6 editor's state + undo refs) when only the portal
+  // container changes and element identity is kept, so no remount happens
+  // and no typing is lost (FOCUS_WRITING_MODE_DESIGN.md §7).
   // In focus mode the outer wrapper centers the body in a FLUID, ch-based
   // readable measure (Phase 1) instead of the old constant `max-w-5xl` box.
   // The measure follows the user's width preset (Narrow / Comfortable / Wide /
@@ -1930,7 +1903,7 @@ export default function LiveMarkdownEditor({
             </Tooltip>
           </div>
           {/* Writing Focus Mode enter button (FOCUS_WRITING_MODE_DESIGN.md
-              §6). Sits next to the Hybrid / Preview toggle. Inline SVG
+              §6). Sits next to the Edit / Preview toggle. Inline SVG
               "expand" glyph (no emoji), project Tooltip (never native
               title=), data-tour-target for the walkthrough's enter beat. */}
           <Tooltip label="Focus mode (Cmd+Shift+F)" placement="bottom">
@@ -2276,9 +2249,8 @@ export default function LiveMarkdownEditor({
                             basePath={imageBasePath}
                             filename={annotFilename ?? undefined}
                             className="max-w-full rounded-lg cursor-pointer"
-                            // See HybridMarkdownEditor's matching <img> handler
-                            // for why these three props are mandatory: without
-                            // them Chrome intercepts native file drops with its
+                            // These three props are mandatory: without them
+                            // Chrome intercepts native file drops with its
                             // "replace image" default before React's outer
                             // handlers run, breaking attachments when the
                             // cursor is over a rendered image.
@@ -2313,25 +2285,22 @@ export default function LiveMarkdownEditor({
                 </p>
               )}
             </div>
-          ) : enableInlineMode && currentMode === "inline" ? (
-            // Inline (CodeMirror 6 Typora-style) surface — Typora editor chip 1.
-            // Mounts inside the SAME editorContentRef subtree as the hybrid
-            // child, so the wrapper-level blob-URL image resolver, broken-ref
+          ) : (
+            // Inline (CodeMirror 6 Typora-style) surface — the sole editing
+            // branch. Mounts inside the SAME editorContentRef subtree as the
+            // wrapper, so the wrapper-level blob-URL image resolver, broken-ref
             // scan, Form-B rehydration, and native drag-drop machinery keep
-            // firing. It owns its OWN undo stack and never autosaves; the
-            // manual-save contract (saveRef / onExplicitSave / onDirtyChange)
-            // is the same interface the hybrid child exposes. The fluid
-            // ch-based measure (Phase 1) centers the writing column.
+            // firing. It owns its OWN CM6 history() undo stack and never
+            // autosaves; the manual-save contract (saveRef / onExplicitSave /
+            // onDirtyChange) is wired from the parent popup. The fluid ch-based
+            // measure centers the writing column.
             //
-            // Layout mirrors the hybrid editor (HybridMarkdownEditor): the
-            // Shortcuts / Style Guide rail is a fixed-width column on the LEFT
-            // (it owns its own collapse state) and the editor fills the rest as
-            // flex-1. `min-h-0` + `h-full` keep the editor scrolling inside its
-            // own column instead of bursting the flex row. In focus mode the
-            // rail collapses to the thin expandable strip (not hidden, per
-            // Grant 2026-06-03) so the cheat sheet stays one click away without
-            // disturbing the calm surface; the shortcuts keep working via the
-            // CM6 keymap.
+            // The Shortcuts / Style Guide rail is a fixed-width column on the
+            // LEFT (it owns its own collapse state) and the editor fills the
+            // rest as flex-1. In focus mode the rail collapses to the thin
+            // expandable strip (not hidden, per Grant 2026-06-03) so the cheat
+            // sheet stays one click away without disturbing the calm surface;
+            // the shortcuts keep working via the CM6 keymap.
             <div className="flex h-full min-h-0">
               <MarkdownShortcutsSidebar
                 onInsertSyntax={(s) => insertRef.current?.(s)}
@@ -2351,10 +2320,6 @@ export default function LiveMarkdownEditor({
                   onExplicitSave={onExplicitSave}
                   onDirtyChange={onDirtyChange}
                   measureClass={measureClass}
-                  // Forward imageBasePath so the inline editor's image widget
-                  // (chip 2b) resolves relative srcs the same way the preview
-                  // and the hybrid editor do. Was missing here, so inline-mode
-                  // images did not resolve their base path.
                   imageBasePath={imageBasePath}
                   loroHandle={loroHandle}
                   loroEntryIndex={loroEntryIndex}
@@ -2362,32 +2327,6 @@ export default function LiveMarkdownEditor({
                 />
               </div>
             </div>
-          ) : (
-            <HybridMarkdownEditor
-              value={value}
-              onChange={onChange}
-              placeholder={placeholder}
-              disabled={disabled}
-              imageBasePath={imageBasePath}
-              showShortcutsHelper={showShortcutsHelper}
-              useBlobUrls
-              onFileDrop={onFileDrop}
-              onImageDrop={onImageDrop}
-              allowAnyFileType={allowAnyFileType}
-              autoStartEditing={autoStartEditing}
-              hideSaveButton={hideSaveButton}
-              saveRef={saveRef}
-              onExplicitSave={onExplicitSave}
-              onDirtyChange={onDirtyChange}
-              // Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §6, §7):
-              // the child owns the Cmd+Shift+F binding (scoped to its own
-              // focus), publishes a flush-to-pending function for the portal
-              // buffer guard, and collapses its rail on focus-mode enter.
-              onToggleFocusMode={handleChildToggleFocusMode}
-              commitBufferRef={commitBufferRef}
-              forceHelperCollapsed={false}
-              parkedRef={editorParkedRef}
-            />
           )}
         </div>
       </div>
@@ -2696,8 +2635,8 @@ export default function LiveMarkdownEditor({
   // ---- Buffer-safe render switch (FOCUS_WRITING_MODE_DESIGN.md §7) ----
   //
   // The single most important correctness constraint: toggling focus mode
-  // must NOT remount HybridMarkdownEditor, or its manual-save buffer + undo
-  // refs are wiped and in-flight typing is lost silently.
+  // must NOT remount the editor, or its CM6 state + undo refs are wiped and
+  // in-flight typing is lost silently.
   //
   // We ALWAYS render `editorTree` through a portal at a FIXED position in the
   // React element tree: it is always the single child of the column div,
@@ -2707,7 +2646,7 @@ export default function LiveMarkdownEditor({
   //      document.body), and
   //   2. the chrome classNames + whether the focus top bar slot is filled.
   // React preserves component state when only the portal container changes
-  // and element identity is kept, so HybridMarkdownEditor never unmounts.
+  // and element identity is kept, so the editor never unmounts.
   //
   // The in-place mount node is rendered by THIS component (the
   // `inPlaceMountRef` div with `display: contents` so it is transparent to

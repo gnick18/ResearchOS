@@ -32,8 +32,8 @@ interface RenderedMarkdownProps {
  * so they render under the File System Access API. Use this anywhere we'd
  * otherwise drop in a plain `<ReactMarkdown>` whose images won't resolve.
  *
- * For editable contexts, use `LiveMarkdownEditor` / `HybridMarkdownEditor`
- * instead — they have their own resolver effects.
+ * For editable contexts, use `LiveMarkdownEditor` instead — it has its own
+ * resolver effects.
  */
 export default function RenderedMarkdown({
   content,

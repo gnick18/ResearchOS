@@ -678,17 +678,10 @@ export default function TaskDetailPopup({
   // esc-context fix manager (2026-05-27, Grant hand-walk fix):
   //   1. If focus is on an editor surface inside the popup (textarea,
   //      contenteditable, or text input), let Esc fall through to that
-  //      element's own onKeyDown handler. HybridMarkdownEditor's
-  //      handleEditKeyDown listens for Escape, blurs + commits the
-  //      buffered edit, and stops propagation so we never see the key
-  //      here. Without this branch the popup's old behavior swallowed
-  //      Esc and closed the modal mid-cluster, breaking the tour's
-  //      typing demos that dispatch a synthetic Escape via
-  //      hybrid-editor-helpers.commitOpenEditAction between beats.
+  //      element's own onKeyDown handler so it can handle its own
+  //      commit / blur logic without the popup intercepting.
   //   2. Otherwise if the popup is fullscreen, shrink it instead of
-  //      closing. The hybrid-editor-scope demo expanded the popup at
-  //      the start of the cluster; Esc previously closed the popup
-  //      entirely so fullscreen state didn't persist across steps.
+  //      closing.
   //   3. Otherwise close (the original behavior).
   useEffect(() => {
     const isTextInputEl = (el: Element | null): boolean => {

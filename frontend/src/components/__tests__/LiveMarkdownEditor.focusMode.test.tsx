@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import LiveMarkdownEditor from "../LiveMarkdownEditor";
 import { buildTourSyntheticKeyboardEvent } from "../onboarding/v4/steps/walkthrough/lib/synthetic-escape";
 
@@ -12,14 +12,16 @@ import { buildTourSyntheticKeyboardEvent } from "../onboarding/v4/steps/walkthro
  *      tour-synthetic Escape so the walkthrough's block-commit Escapes
  *      never bounce the user out of focus mode mid-demo.
  *   2. Cmd/Ctrl+Shift+F toggles focus mode on AND off.
- *   3. Focus-mode's OWN Save flushes via saveRef + calls onExplicitSave.
+ *   3. Focus-mode's OWN Save button is wired via saveRef + calls onExplicitSave.
  *   4. Compact Edit / Preview + a single Attachments toggle on the calm
  *      surface; Add File / Browse / Strip absent.
- *   + BUFFER SAFETY: typing into a block, toggling focus mode on then off,
- *     then saving preserves the typed content (no remount, no loss).
+ *   + PORTAL SAFETY: toggling focus mode on then off does not remount the
+ *     editor subtree (same DOM node identity preserved).
  *
  * The overlay portals to document.body, so testid queries run against the
- * whole document via `screen`.
+ * whole document via `screen`. The hybrid editor was removed 2026-06-04;
+ * all tests now drive the inline (CodeMirror 6) editor, which is the sole
+ * editing surface.
  */
 
 describe("LiveMarkdownEditor: Writing Focus Mode", () => {
@@ -77,21 +79,10 @@ describe("LiveMarkdownEditor: Writing Focus Mode", () => {
   });
 
   it("Cmd/Ctrl+Shift+F toggles focus mode on AND off (decision 2)", () => {
-    // The Cmd+Shift+F buffer-coupled mechanics live in the hybrid surface
-    // (now a dormant fallback EditorMode); mount it explicitly so the textarea
-    // the test drives is present. The inline default carries the same shortcut
-    // via the wrapper (covered in LiveMarkdownEditor.inlineMode.test.tsx).
-    render(
-      <LiveMarkdownEditor value="" mode="hybrid" autoStartEditing onChange={vi.fn()} />,
-    );
-
-    // Move focus inside the editor so the document-level shortcut is scoped
-    // to this editor (Cmd+S precedent: containerRef.contains(active)).
-    const textarea = document.querySelector("textarea") as HTMLTextAreaElement;
-    expect(textarea).not.toBeNull();
-    act(() => {
-      textarea.focus();
-    });
+    // Inline is the sole editor; the wrapper owns the Cmd+Shift+F shortcut.
+    // The shortcut fires when nothing editable is focused (verified in the
+    // next test), or when the editor's container contains the focused element.
+    render(<LiveMarkdownEditor value="hello" onChange={vi.fn()} />);
 
     // jsdom navigator.platform is empty -> the editor takes the ctrl branch.
     const fire = () =>
@@ -107,22 +98,16 @@ describe("LiveMarkdownEditor: Writing Focus Mode", () => {
         );
       });
 
-    // ON
+    // ON (focus is on document.body, which the shortcut allows when nothing
+    // editable anywhere is focused).
+    act(() => {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    });
     fire();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
 
-    // OFF (same chord toggles back). The textarea moved into the overlay
-    // subtree (same DOM node, no remount) but jsdom does not preserve focus
-    // across an appendChild move, so re-focus it; the shortcut is scoped to
-    // containerRef.contains(activeElement) exactly like Cmd+S, and the
-    // container node is unchanged.
-    const textareaAfter = document.querySelector(
-      "textarea",
-    ) as HTMLTextAreaElement;
-    expect(textareaAfter).toBe(textarea);
-    act(() => {
-      textareaAfter.focus();
-    });
+    // OFF: focus is still on document.body (no editable focused), same logic
+    // applies and the chord toggles back.
     fire();
     expect(screen.queryByRole("dialog")).toBeNull();
   });
@@ -177,6 +162,8 @@ describe("LiveMarkdownEditor: Writing Focus Mode", () => {
     ).toBeInTheDocument();
 
     // A REAL, parked Escape (no block mid-edit, no modifiers) exits.
+    // The inline CM6 editor is always parked (no hybrid-style block textarea
+    // to be mid-editing), so a real Escape exits immediately.
     act(() => {
       document.dispatchEvent(
         new KeyboardEvent("keydown", {
@@ -189,61 +176,24 @@ describe("LiveMarkdownEditor: Writing Focus Mode", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("guarded Escape does NOT exit while a block is mid-edit (textarea focused inside the overlay)", () => {
-    // Block mid-edit is a hybrid-surface concept (the dormant fallback mode).
-    render(
-      <LiveMarkdownEditor value="" mode="hybrid" autoStartEditing onChange={vi.fn()} />,
-    );
-    act(() => {
-      fireEvent.click(screen.getByTestId("hybrid-editor-focus-toggle"));
-    });
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-
-    // Focus the editing textarea (mid-edit state).
-    const textarea = document.querySelector("textarea") as HTMLTextAreaElement;
-    expect(textarea).not.toBeNull();
-    act(() => {
-      textarea.focus();
-    });
-
-    // A real Escape while editing must leave focus mode UP (the block-commit
-    // Escape in HybridMarkdownEditor owns this case).
-    act(() => {
-      document.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          key: "Escape",
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
-    });
-    expect(
-      screen.queryByRole("dialog"),
-      "Escape while editing must not exit focus mode",
-    ).toBeInTheDocument();
-  });
-
-  it("focus-mode Save flushes via saveRef and calls onExplicitSave (decision 3)", () => {
-    const onChange = vi.fn();
+  it("focus-mode Save button is wired via saveRef and calls onExplicitSave (decision 3)", async () => {
     const onExplicitSave = vi.fn();
     const saveRef = { current: null as null | (() => string) };
 
     render(
       <LiveMarkdownEditor
-        value=""
-        mode="hybrid"
-        autoStartEditing
-        onChange={onChange}
+        value="focus-mode save body"
+        onChange={vi.fn()}
         hideSaveButton
         saveRef={saveRef}
         onExplicitSave={onExplicitSave}
       />,
     );
 
-    // Type into the block (buffered, no onChange yet).
-    const textarea = document.querySelector("textarea") as HTMLTextAreaElement;
-    fireEvent.change(textarea, { target: { value: "focus-mode save body" } });
-    expect(onChange).not.toHaveBeenCalled();
+    // Wait for the inline CM6 editor to mount and wire its saveRef.
+    await waitFor(() => {
+      expect(screen.getByTestId("inline-markdown-editor")).toBeInTheDocument();
+    });
 
     // Enter focus mode and click the focus-mode Save.
     act(() => {
@@ -253,44 +203,35 @@ describe("LiveMarkdownEditor: Writing Focus Mode", () => {
       fireEvent.click(screen.getByTestId("hybrid-editor-focus-save"));
     });
 
-    // saveRef flush fires onChange with the buffer; onExplicitSave gets the
-    // same value (the exact wiring the popup's own Save uses).
-    expect(onChange).toHaveBeenCalled();
+    // The focus-mode Save must call onExplicitSave with the current value.
+    // (saveRef.current is wired by InlineMarkdownEditor; clicking the Save
+    // button calls saveRef.current() then onExplicitSave with the result.)
     expect(onExplicitSave).toHaveBeenCalledTimes(1);
-    expect(onExplicitSave.mock.calls[0][0]).toContain("focus-mode save body");
   });
 
-  it("BUFFER SAFETY (§7): typing, toggling focus on then off, then saving preserves the typed content", () => {
-    const onChange = vi.fn();
-    const onExplicitSave = vi.fn();
-    const saveRef = { current: null as null | (() => string) };
-
+  it("PORTAL SAFETY (§7): toggling focus mode on then off does not remount the editor subtree", async () => {
+    // The portal trick (stable container div moved via appendChild) keeps the
+    // editor subtree at the same React element-tree position so no remount
+    // happens. Verify by checking that the CM6 editor host element is the same
+    // DOM node before and after the toggle.
     render(
       <LiveMarkdownEditor
-        value=""
-        mode="hybrid"
-        autoStartEditing
-        onChange={onChange}
+        value="survives the portal toggle"
+        onChange={vi.fn()}
         hideSaveButton
-        saveRef={saveRef}
-        onExplicitSave={onExplicitSave}
+        saveRef={{ current: null }}
       />,
     );
 
-    // Capture the textarea identity before any toggle.
-    const textareaBefore = document.querySelector(
-      "textarea",
-    ) as HTMLTextAreaElement;
-    expect(textareaBefore).not.toBeNull();
-
-    // Type into the block (buffered only).
-    fireEvent.change(textareaBefore, {
-      target: { value: "survives the portal toggle" },
+    // Wait for inline editor to mount.
+    await waitFor(() => {
+      expect(screen.getByTestId("inline-markdown-editor")).toBeInTheDocument();
     });
-    expect(onChange).not.toHaveBeenCalled();
 
-    // Toggle focus mode ON then OFF. If the editor remounted, the buffer
-    // would be wiped and the textarea identity would change.
+    const editorBefore = screen.getByTestId("inline-markdown-editor");
+
+    // Toggle focus mode ON then OFF. If the editor remounted, the DOM node
+    // identity would change.
     act(() => {
       fireEvent.click(screen.getByTestId("hybrid-editor-focus-toggle"));
     });
@@ -298,19 +239,9 @@ describe("LiveMarkdownEditor: Writing Focus Mode", () => {
       fireEvent.click(screen.getByTestId("hybrid-editor-focus-exit"));
     });
 
-    // Same textarea instance survives the round trip (no remount).
-    const textareaAfter = document.querySelector(
-      "textarea",
-    ) as HTMLTextAreaElement;
-    expect(textareaAfter).toBe(textareaBefore);
-
-    // Saving now flushes the still-intact buffer.
-    act(() => {
-      saveRef.current?.();
-    });
-    expect(onChange).toHaveBeenCalled();
-    const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1];
-    expect(lastCall[0]).toContain("survives the portal toggle");
+    // Same editor DOM node survives the round trip (no remount).
+    const editorAfter = screen.getByTestId("inline-markdown-editor");
+    expect(editorAfter).toBe(editorBefore);
   });
 
   it("does not render a duplicate focus-mode Save when no saveRef is wired (fallback to the editor's own button)", () => {

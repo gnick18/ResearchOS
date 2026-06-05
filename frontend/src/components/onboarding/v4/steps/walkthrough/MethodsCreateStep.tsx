@@ -19,12 +19,11 @@
  *      `methods-category-prompt` beat writes) into the Folder input.
  *      Falls back to "Methods" when the pick is missing (e.g. tour
  *      resumed past §6.4a).
- *   4. Click into the markdown body wrapper so the empty-state textarea
- *      inside `HybridMarkdownEditor` focuses, then type the funny
- *      coffee body into that textarea, then click the editor's Save
- *      button so the buffered typed content flushes through to the
- *      modal's `mdContent` state (manual-save model, commit ff96016e).
- *      Without that flush the Create Method button stays disabled.
+ *   4. Dispatch `tour:fill-method-body` at the body wrapper so the
+ *      modal sets its `mdContent` state from the event detail, which
+ *      renders the text in the inline editor AND enables Create Method.
+ *      No editor-save flush needed (setting `mdContent` is the source
+ *      of truth that lights the submit button).
  *   5. Click the Create Method button to save.
  *
  * Completion event: `tour:method-created`, dispatched by
@@ -184,20 +183,12 @@ export const methodsCreateStep = buildWalkthroughStep({
     });
 
     // Hand-walk fix 2026-05-27 (second pass): the prior `await
-    // safe*Action` calls for the body wrapper, body textarea, save
-    // button, and submit ALL ran waitForElement at BUILD time. Two
-    // ways they could fail:
-    //   1. The Markdown form's body textarea doesn't exist when LC or
-    //      another type was previously selected. After pickMarkdown
-    //      PLAYS, the form re-renders to mount the HybridMarkdownEditor
-    //      — but BUILD time runs before any action plays.
-    //   2. The pickMarkdown click is the LAST thing whose targets are
-    //      reliably present at build time. Everything after must defer.
-    //
-    // Wrap each post-pickMarkdown action in a callbackAction so the
-    // selector resolves at PLAYBACK. Mirrors the
-    // workbench-create-experiment-open + workbench-list-create-shell
-    // defer-to-playback patterns landed earlier today.
+    // safe*Action` calls for the body wrapper and submit ALL ran
+    // waitForElement at BUILD time, but after pickMarkdown PLAYS the
+    // form re-renders and BUILD time runs before any action plays. Wrap
+    // each post-pickMarkdown action in a callbackAction so the selector
+    // resolves at PLAYBACK. Mirrors the workbench-create-experiment-open
+    // + workbench-list-create-shell defer-to-playback patterns.
 
     // Scroll the Method Content editor into view BEFORE clicking/typing it.
     // The body editor sits at the bottom of the modal, below the fold, so
@@ -214,13 +205,10 @@ export const methodsCreateStep = buildWalkthroughStep({
       wrapper.scrollIntoView({ behavior: "smooth", block: "center" });
     });
 
-    // methods-create-inline-typing bot 2026-06-03: the body editor is now
-    // the inline CodeMirror 6 surface (LiveMarkdownEditor default = inline,
-    // no <textarea>, no hybrid-editor-save button). The old
-    // clickBodyWrapper + typeBody (poke a textarea) + saveBody (click the
-    // hybrid-save button) chain targeted DOM that no longer exists, so the
-    // demo typed NOTHING and Create Method stayed disabled. Replace all
-    // three with a single fillBody action: point BeakerBot's cursor at the
+    // methods-create-inline-typing bot 2026-06-03: the body editor is
+    // the inline CodeMirror 6 surface (no textarea, no separate save
+    // button). Use a single fillBody action: point BeakerBot's cursor at
+    // the
     // body wrapper (so the fill reads as the cursor's doing), then dispatch
     // the `tour:fill-method-body` window event the modal listens for. The
     // modal sets its controlled `mdContent` state from the event detail,
@@ -267,10 +255,8 @@ export const methodsCreateStep = buildWalkthroughStep({
     // Minimal cycle. The pauses run at PLAYBACK time via callbackAction
     // (not build time) so each pause resolves AFTER the preceding click /
     // type has visibly landed.
-    // methods-create-inline-typing bot 2026-06-03: the former body-click /
-    // body-type / body-save trio is now the single `fillBody` beat (event
-    // hook into the inline editor); the dropped hybrid-editor-save click is
-    // gone because setting `mdContent` is what enables Create Method.
+    // The body-click / body-type / body-save trio was collapsed into the
+    // single `fillBody` beat (event hook into the inline editor).
     return compactScript([
       pickMarkdown,
       callbackAction(() => pause(METHODS_CREATE_PAUSE_MS)),

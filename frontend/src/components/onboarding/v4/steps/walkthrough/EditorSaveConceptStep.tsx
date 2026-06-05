@@ -1,9 +1,9 @@
 /**
- * §6.7 hybrid-save-concept (NEW step, hybrid-save-concept manager 2026-05-27).
+ * §6.7 editor-save-concept (renamed from hybrid-save-concept; the save model
+ * is unchanged now that the inline CM6 editor is the sole editor surface).
  *
- * Sits between `hybrid-file-attach` (HE-11, the §6.7 hybrid-editor cluster's
- * old terminal beat) and `workbench-notes-intro` (§6.7b first beat). Covers
- * three teaching beats Grant called out on the hand-walk:
+ * Sits between `inline-editor` and `workbench-notes-intro`. Covers three
+ * teaching beats Grant called out on the hand-walk:
  *
  *   1. ResearchOS doesn't auto-save. The user hits Save (top-right of the
  *      editor surface) when they're done.
@@ -13,15 +13,12 @@
  *      prompt, so work isn't lost by accident.
  *
  * Voice classification: NARRATION. The Save button lives in TaskDetailPopup,
- * not HybridMarkdownEditor itself (the editor is auto-save-on-change via
- * onChange; the popup wraps it with a manual "Save notes" affordance). Per
- * the hybrid-save-concept manager brief, when the Save button isn't a direct
- * editor child we fall back to no-spotlight pure narration rather than reach
- * across into TaskDetailPopup just to stamp a tour-target. The speech still
+ * not the editor itself (the editor fires onChange on each change; the popup
+ * wraps it with a manual "Save notes" affordance). When the Save button isn't
+ * a direct editor child we fall back to no-spotlight pure narration. The speech
  * lands cleanly because it's a conceptual beat (no DOM interaction needed).
  *
- * Spotlight: none (fallback per brief — "Otherwise, fall back to no spotlight
- *   + just speech.").
+ * Spotlight: none (pure narration — no spotlight needed for a conceptual beat).
  * Completion: manual ("Got it, next").
  *
  * No artifacts. Pure speech.
@@ -29,7 +26,7 @@
 import { buildWalkthroughStep, manualAdvance } from "./lib/step-helpers";
 import { ensureExperimentPopupOpen } from "./lib/on-enter-helpers";
 
-export const hybridSaveConceptStep = buildWalkthroughStep({
+export const editorSaveConceptStep = buildWalkthroughStep({
   id: "hybrid-save-concept",
   speech: (
     <>
@@ -54,9 +51,8 @@ export const hybridSaveConceptStep = buildWalkthroughStep({
   // about the editor's Save behavior, conceptually "inside" the experiment
   // popup; a mid-tour refresh closes the popup (portal state, not a route).
   // It has no spotlight of its own, but reopening here keeps the popup back
-  // for the immediately-following `hybrid-focus-exit` beat (which clicks a
-  // popup-internal control) and keeps the §6.7 cluster coherent. No-op on
-  // the canonical path.
+  // for the immediately-following beat and keeps the §6.7 cluster coherent.
+  // No-op on the canonical path.
   onEnter: () => ensureExperimentPopupOpen(),
   completion: manualAdvance("Got it, next"),
 });

@@ -6,36 +6,28 @@ import Tooltip from "./Tooltip";
 /**
  * MarkdownShortcutsSidebar — the "Shortcuts / Style Guide" left rail.
  *
- * Lifted out so the inline (CodeMirror 6) editor renders the SAME rail the
- * hybrid editor shows. HybridMarkdownEditor still renders its own inline copy of
- * this markup (it wires the Style Guide clicks into its per-block textarea and
- * collapses the rail on focus-mode enter), so this component is the lower-risk
- * "render the same rail in the inline branch" path: it does not touch the hybrid
- * editor's two render branches at all. Markup + classes are copied verbatim from
- * HybridMarkdownEditor so the two rails look identical.
- *
- * The Style Guide entries are click-to-insert; the host passes onInsertSyntax to
- * receive the raw markdown snippet and splice it into the active editor (the
- * inline editor exposes an imperative insert for this).
+ * Rendered by the inline (CodeMirror 6) editor inside LiveMarkdownEditor. The
+ * Style Guide entries are click-to-insert; the host passes onInsertSyntax to
+ * receive the raw markdown snippet and splice it into the CM6 editor via the
+ * imperative insertRef.
  *
  * House style: no em-dashes, no emojis, custom inline SVG (no icon lib),
- * <Tooltip> not title=.
+ * Tooltip not title=.
  */
 
 type HelperTab = "shortcuts" | "styleguide";
 
 // Detect Mac at module level so shortcut labels render correctly on all
-// platforms. Mirrors the IS_MAC constant in HybridMarkdownEditor.
+// platforms.
 const IS_MAC =
   typeof navigator !== "undefined" &&
   navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 
 /**
  * The shortcut rows shown under the "Shortcuts" tab. Each row is a label plus a
- * platform-aware key hint. These mirror the hybrid editor's rows AND the inline
- * CM6 keymap (markdown-keymap.ts) so every listed shortcut actually fires in the
- * inline editor. Headings 1-6 collapse into a single row (matching the hybrid
- * rail) because per-level rows would crowd the narrow column.
+ * platform-aware key hint that matches the CM6 keymap (markdown-keymap.ts) so
+ * every listed shortcut actually fires in the inline editor. Headings 1-6
+ * collapse into a single row because per-level rows would crowd the narrow column.
  */
 const SHORTCUT_ROWS: Array<{ label: string; keyMac: string; keyOther: string }> =
   [
@@ -53,7 +45,7 @@ const SHORTCUT_ROWS: Array<{ label: string; keyMac: string; keyOther: string }> 
     { label: "Heading Down", keyMac: "⌘⌃-", keyOther: "Ctrl+Alt+-" },
   ];
 
-// Markdown style guide content (click-to-insert). Mirrors the hybrid rail.
+// Markdown style guide content (click-to-insert).
 const MARKDOWN_STYLE_GUIDE = [
   { syntax: "# Heading 1", description: "Main title" },
   { syntax: "## Heading 2", description: "Section header" },

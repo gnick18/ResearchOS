@@ -1059,13 +1059,11 @@ describe("TourController — ESC opens Skip-walkthrough confirm (regression fix 
   // -------------------------------------------------------------------------
   // GanttExistingExperimentStep dispatches a programmatic Escape on
   // `document` to close the experiment popup after the cursor demo.
-  // hybrid-editor-helpers.commitOpenEditAction does the same on the
-  // active editor textarea. Both dispatches `bubbles: true` so they
-  // reach the window-level capture listener that drives the skip-
-  // confirm modal. The fix tags each dispatch with a marker that the
-  // listener checks for; the host surface (TaskDetailPopup /
-  // HybridMarkdownEditor) still sees the event normally, but the
-  // skip-confirm modal stays closed.
+  // These dispatches use `bubbles: true` so they reach the window-level
+  // capture listener that drives the skip-confirm modal. The fix tags
+  // each dispatch with a marker that the listener checks for; host
+  // surfaces still see the event normally, but the skip-confirm modal
+  // stays closed.
   // -------------------------------------------------------------------------
 
   it("does NOT open the skip-confirm modal on tour-synthetic Escape (Gantt popup dismiss)", async () => {

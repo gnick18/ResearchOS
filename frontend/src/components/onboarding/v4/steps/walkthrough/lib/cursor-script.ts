@@ -295,11 +295,10 @@ export async function safeTypeAction(
   if (!el) return null;
   await ensureInViewport(el);
   // Pass the resolving selector through so `typeInto` can re-query the
-  // DOM if `el` gets unmounted mid-loop (the §6.4d HybridMarkdownEditor
-  // empty-state textarea is swapped for a fresh node the moment the
-  // first char lands, which detaches the cursor's captured target and
-  // drops every subsequent keystroke on the floor). Existing callers
-  // get this resilience for free since the selector is what they
+  // DOM if `el` gets unmounted mid-loop (the §6.4d pattern: the target
+  // element is swapped for a fresh node mid-typing, which detaches the
+  // cursor's captured reference and drops subsequent keystrokes). Existing
+  // callers get this resilience for free since the selector is what they
   // already passed in.
   return { type: "type", target: el, text, cadenceMs, selector };
 }
@@ -565,15 +564,14 @@ export function pause(ms: number): CursorAction {
  * Build an HTML5 drag action between two selectors with a typed
  * dataTransfer payload (Hybrid editor manager R1 fix-pass, §6.7 HE-9).
  *
- * The hybrid editor's inline-image drop handler reads
- * `e.dataTransfer.getData("application/x-research-os-image")` on the
- * native `DragEvent`. The plain `safeDragAction` path only dispatches
- * `mousedown` / `mouseup` (no DataTransfer), so the handler sees
- * nothing and the image-drag-in demo lands no markdown snippet. This
- * helper resolves the source + dest selectors, then queues a
- * `dragFile` cursor action that mirrors the visual glide-and-press
- * choreography of `drag` while populating a real DataTransfer with
- * the requested MIME-typed payload.
+ * Drop handlers that read `e.dataTransfer.getData(...)` on a native
+ * `DragEvent` need a real DataTransfer. The plain `safeDragAction`
+ * path only dispatches `mousedown`/`mouseup` (no DataTransfer), so
+ * those handlers see nothing and no snippet lands. This helper
+ * resolves the source + dest selectors, then queues a `dragFile`
+ * cursor action that mirrors the visual glide-and-press choreography
+ * of `drag` while populating a real DataTransfer with the requested
+ * MIME-typed payload.
  *
  * Returns `null` if either selector misses — caller filters with
  * `compactScript`, same contract as `safeDragAction`.
@@ -593,26 +591,20 @@ export async function safeDragFileAction(
 
 /**
  * Build a synthetic "click out" action — fires a `mousedown` event on
- * `document.body` (well outside any hybrid-editor wrapper) so the
- * editor's `mousedown` click-outside listener commits the currently
- * open edit block and the rendered markdown lands. Used by the §6.7
- * HE-5 / HE-6 typing beats after the cursor types its sample sentence
- * (see HybridMarkdownEditor.tsx's click-outside handler that calls
- * `handleEditBlur`).
+ * `document.body` so any click-outside listener in focus commits and
+ * the rendered content lands.
  *
  * Returns a `callback` action rather than a `click` action because the
- * editor's listener is `mousedown`-based at the document level — a
- * real `el.click()` on body doesn't fire `mousedown` at the right time
- * and the cursor's visual ripple is misleading here anyway (there's no
- * meaningful target to ripple on).
+ * listener is `mousedown`-based at the document level — a real
+ * `el.click()` on body doesn't fire `mousedown` at the right time.
  *
- * R2 fix-pass (Hybrid fix manager R2, 2026-05-22 — P0): wrap the
- * dispatch with `window.__beakerBotCursorClicking` so the
+ * R2 fix-pass (Hybrid fix manager R2, 2026-05-22): wrap the dispatch
+ * with `window.__beakerBotCursorClicking` so the
  * `InputLockOverlay`'s capture-phase mousedown blocker short-circuits.
  * Without the flag, the overlay's window-level capture listener fires
- * `stopPropagation()` + `preventDefault()` before the editor's
- * document-level mousedown listener ever sees the event — so the edit
- * block never commits and the typed markdown stays in textarea form
+ * `stopPropagation()` + `preventDefault()` before the document-level
+ * listener ever sees the event — so the edit never commits and the
+ * typed content stays in its editing form
  * (no bold/italic/header render lands). This matches the same pattern
  * `BeakerBotCursor.clickAt` uses to ride past the overlay.
  */

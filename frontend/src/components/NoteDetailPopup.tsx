@@ -1666,10 +1666,6 @@ export default function NoteDetailPopup({
                   saveRef={editorSaveRef}
                   onExplicitSave={(v) => { if (activeTab) void saveEntryContent(activeTab, v); }}
                   onDirtyChange={setEditorDirty}
-                  // Typora editor chip 1: standalone Notes is the pilot
-                  // surface, so surface the opt-in CodeMirror 6 "Inline" mode
-                  // pill. No other surface passes this.
-                  enableInlineMode
                   // Loro pilot props (forwarded to InlineMarkdownEditor; absent = no-op).
                   loroHandle={LORO_PILOT_ENABLED ? (loroHandle ?? undefined) : undefined}
                   loroEntryIndex={LORO_PILOT_ENABLED ? entries.findIndex((e) => e.id === activeTab) : undefined}
@@ -1708,9 +1704,6 @@ export default function NoteDetailPopup({
                   saveRef={editorSaveRef}
                   onExplicitSave={(v) => { if (activeTab) void saveEntryContent(activeTab, v); }}
                   onDirtyChange={setEditorDirty}
-                  // Typora editor chip 1: Notes pilot opt-in (see running-log
-                  // branch). No other surface passes this.
-                  enableInlineMode
                   // Loro pilot props (forwarded to InlineMarkdownEditor; absent = no-op).
                   loroHandle={LORO_PILOT_ENABLED ? (loroHandle ?? undefined) : undefined}
                   loroEntryIndex={LORO_PILOT_ENABLED ? 0 : undefined}

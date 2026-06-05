@@ -1,13 +1,12 @@
 /**
  * §6.7 inline editor beat (onboarding-inline collapse 2026-06-02).
  *
- * Replaces the old hybrid markdown deep-dive (HE-1 through HE-11:
+ * Replaced the old hybrid markdown deep-dive (HE-1 through HE-11:
  * markdown-intro / familiarity / overview / mechanic / bold / italic /
  * underline / h1 / h2 / h3 / shortcuts / image-attach / image-drag-in /
- * image-resize / file-attach). Those ~15 beats taught the retired hybrid
- * "click a block to edit it, click out to render" interaction and typed
- * into the now-dormant HybridMarkdownEditor, so they were both
- * overcomplicated and broken once the editor went inline-only.
+ * image-resize / file-attach). Those beats taught the retired hybrid
+ * "click a block to edit it, click out to render" interaction and are
+ * no longer relevant now that the editor is inline-only.
  *
  * The new single beat spotlights the live CodeMirror 6 surface
  * (InlineMarkdownEditor inside LiveMarkdownEditor, stamped with

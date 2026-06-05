@@ -221,7 +221,7 @@ describe("BeakerBotCursor — type primitive", () => {
   });
 
   it(
-    "re-resolves the typing target when the original textarea detaches mid-loop (§6.4d HybridMarkdownEditor empty-state swap)",
+    "re-resolves the typing target when the original textarea detaches mid-loop (§6.4d empty-state swap)",
     async () => {
       // Repro of the §6.4d markdown-body bug: BeakerBot's cursor types
       // the funny coffee protocol into the empty-state textarea, but

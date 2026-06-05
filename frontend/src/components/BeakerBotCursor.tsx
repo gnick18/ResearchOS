@@ -86,10 +86,9 @@ export type CursorAction =
       /**
        * Optional CSS selector that re-resolves the typing target while
        * `typeInto` is mid-loop. When the original `target` element gets
-       * unmounted by a parent re-render (the §6.4d
-       * `HybridMarkdownEditor` empty-state branch flips to the
-       * normal-render branch as soon as the first char lands, swapping
-       * out the empty-state textarea node), the cursor would otherwise
+       * unmounted by a parent re-render (the §6.4d empty-state swap
+       * pattern, where a placeholder element is replaced by the real
+       * input once the first char lands), the cursor would otherwise
        * keep dispatching `input` events at a detached node — those
        * events don't bubble to the React root, so every char after the
        * first is dropped on the floor. With the selector set, the
@@ -105,13 +104,12 @@ export type CursorAction =
    * HTML5-drag variant of `drag`. The visual glide-and-press animation
    * is identical to `drag`, but on drop the cursor synthesises a real
    * `DragEvent` carrying a `DataTransfer` payload — required by
-   * receivers that listen for `application/x-research-os-image` (the
-   * hybrid editor's inline image drop handler) or other dataTransfer
-   * MIME types. The `mousedown` → `mouseup` sequence that `drag`
-   * dispatches does not populate `e.dataTransfer.getData`, which is why
-   * the HE-9 image-drag-in demo was previously visually fake.
+   * receivers that listen for `application/x-research-os-image` or other
+   * dataTransfer MIME types. The `mousedown` to `mouseup` sequence that
+   * `drag` dispatches does not populate `e.dataTransfer.getData`, which
+   * is why the HE-9 image-drag-in demo was previously visually fake.
    *
-   * `payload` is `{ mimeType, data }` — the cursor sets that pair on a
+   * `payload` is `{ mimeType, data }`: the cursor sets that pair on a
    * fresh `DataTransfer` instance, then fires `dragstart` / `dragover` /
    * `drop` events at the source + dest. Receivers wired to standard
    * HTML5 DnD see a valid drop and process the data.
@@ -173,8 +171,7 @@ export interface BeakerBotCursorRef {
   /** Same visual choreography as `dragFromTo`, but on arrival the
    *  cursor dispatches a real HTML5 `DragEvent` (with a populated
    *  `DataTransfer`) at the destination. Required for receivers that
-   *  listen for `e.dataTransfer.getData(...)` (the hybrid editor's
-   *  inline image drop handler does this for the
+   *  listen for `e.dataTransfer.getData(...)` (for example the
    *  `application/x-research-os-image` MIME type). Falls back to the
    *  `mousedown`/`mouseup` path if `DataTransfer` construction fails. */
   dragFile(
@@ -549,20 +546,15 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
           el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
 
         /**
-         * §6.4d re-resolve guard. The `HybridMarkdownEditor` empty-state
-         * branch renders a textarea that gets unmounted as soon as the
-         * first char lands (value transitions from "" to non-empty, the
-         * `if (!value.trim())` branch falls through to the
-         * `blocks.map(renderBlock)` path, and the textarea inside
-         * `renderBlock`'s editing case is a different React node — same
-         * outer wrapper, fresh inner element). The cursor's prior loop
-         * kept dispatching input events at the detached node; React
-         * never saw them, every char past the first was dropped. When
-         * the caller supplies `reResolveSelector` (set by
-         * `safeTypeAction` so this is free for all existing call sites)
-         * we re-query the DOM whenever `el.isConnected` flips to false
-         * and pick up wherever the new mount surfaces a typable
-         * descendant. Selector matches the same shape `safeTypeAction`
+         * §6.4d re-resolve guard. When a target element gets unmounted
+         * by a parent re-render mid-typing, the cursor's prior loop kept
+         * dispatching input events at the detached node; React never saw
+         * them, every char past the first was dropped. When the caller
+         * supplies `reResolveSelector` (set by `safeTypeAction` so this
+         * is free for all existing call sites) we re-query the DOM
+         * whenever `el.isConnected` flips to false and pick up wherever
+         * the new mount surfaces a typable descendant. Selector matches
+         * the same shape `safeTypeAction`
          * already accepts: an outer wrapper that may host a real
          * `<textarea>` / `<input>` as a descendant.
          */
@@ -640,18 +632,13 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
           return;
         }
 
-        // Wrapper-with-input fallback. Some targets (e.g. the §6.7 hybrid
-        // editor's `[data-tour-target="hybrid-editor-textarea"]` wrapper
-        // div) host a real native <textarea> or <input> as a descendant.
-        // The wrapper may need a click to MOUNT that descendant (the
-        // hybrid editor lazily renders its textarea only when an edit
-        // block is active). Try to find / mount it; if successful, type
-        // through the React-safe setter so the app's onChange handlers
-        // fire and the value actually lands. Without this, the prior
-        // `el.textContent = ...` fallback was just visual — React's
-        // next render clobbered the mutation and the demo's bold /
-        // italic / underline / heading typing never committed to the
-        // editor's model.
+        // Wrapper-with-input fallback. Some targets host a real native
+        // <textarea> or <input> as a descendant. The wrapper may need a
+        // click to mount that descendant. Try to find / mount it; if
+        // successful, type through the React-safe setter so the app's
+        // onChange handlers fire and the value actually lands. Without
+        // this, the prior `el.textContent = ...` fallback was just
+        // visual — React's next render clobbered the mutation.
         const findInnerInput = (): HTMLInputElement | HTMLTextAreaElement | null => {
           const inner = el.querySelector("textarea, input[type='text'], input:not([type])");
           if (inner instanceof HTMLTextAreaElement || inner instanceof HTMLInputElement) {
@@ -661,9 +648,8 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
         };
         let innerInput = findInnerInput();
         if (!innerInput) {
-          // Click to mount the descendant input. The hybrid editor's
-          // wrapper click handler creates a new edit block on click,
-          // which renders the inline textarea on the next React commit.
+          // Click to mount the descendant input, then wait for React to
+          // commit the new element.
           try {
             el.click();
           } catch {
@@ -683,23 +669,15 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
           } catch {
             // No-op.
           }
-          // 2026-05-27 hybrid cursor occlusion fix manager — re-glide the
-          // avatar to the INNER input's left edge before typing begins.
-          // Without this, the initial `glideTo(elementCenter(el))` above
-          // parked the cursor at the WRAPPER's center, which for the
-          // hybrid editor's `[data-tour-target="hybrid-editor-textarea"]`
-          // container (a tall scrollable wrapper holding every block)
-          // sits visually over existing content like the "First Experiment"
-          // header. The newly-mounted paragraph textarea, however, is
-          // appended at the BOTTOM of the wrapper, so the cursor parked
-          // far above the actual text being typed. Re-gliding to the
-          // inner input's left edge (vertically centered on it) puts
-          // BeakerBot at the start of the line, with typed characters
-          // appearing to its right — natural typing visual, no occlusion.
-          // We use the LEFT edge (not the center) because mid-line cursor
-          // placement would still obscure the typed text at the cursor's
-          // current position; left-edge mirrors how a real text cursor
-          // sits at the start of an empty line.
+          // 2026-05-27: re-glide the avatar to the INNER input's left
+          // edge before typing begins. Without this, the initial
+          // `glideTo(elementCenter(el))` parked the cursor at the
+          // WRAPPER's center, which could sit visually above the actual
+          // text being typed. Re-gliding to the inner input's left edge
+          // (vertically centered on it) puts BeakerBot at the start of
+          // the line, with typed characters appearing to its right.
+          // We use the LEFT edge (not the center) because mid-line
+          // cursor placement would still obscure the typed text.
           const innerRect = innerInput.getBoundingClientRect();
           if (innerRect.width > 0 && innerRect.height > 0) {
             // 4px inset on the left so the cursor tip clears the
@@ -715,11 +693,9 @@ const BeakerBotCursor = forwardRef<BeakerBotCursorRef, BeakerBotCursorProps>(
           let prevTypedLength = 0;
           for (let i = 0; i < text.length; i++) {
             // §6.4d re-resolve. Same contract as the isNativeInput
-            // branch above — when the wrapper's inner input gets
+            // branch above: when the wrapper's inner input gets
             // swapped out by a React re-render mid-typing, re-query
-            // and continue. Without this the HybridMarkdownEditor
-            // empty-state → full-render swap drops every char after
-            // the first.
+            // and continue so subsequent keystrokes are not dropped.
             if (!activeInner.isConnected) {
               const next = reResolve(activeInner);
               if (next) {

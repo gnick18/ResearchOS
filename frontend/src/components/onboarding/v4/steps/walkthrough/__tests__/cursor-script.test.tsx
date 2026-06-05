@@ -283,7 +283,7 @@ describe("safeTypeAction()", () => {
       // Regression pin (method-picker sub-bot, 2026-05-26): without
       // the selector on the action, typeInto cannot recover when a
       // mid-typing re-render unmounts the captured target (the
-      // §6.4d HybridMarkdownEditor empty-state textarea swap). Every
+      // §6.4d empty-state textarea swap). Every
       // safeTypeAction caller passes the selector that resolved the
       // target, so stamping it onto the action gives that resilience
       // to all existing call sites without per-step opt-in.

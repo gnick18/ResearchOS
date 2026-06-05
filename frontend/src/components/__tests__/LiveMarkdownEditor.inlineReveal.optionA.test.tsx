@@ -6,15 +6,10 @@ import LiveMarkdownEditor from "../LiveMarkdownEditor";
  * Inline-reveal default-surface coverage (Typora editor chip 2a).
  *
  * Chip 2a wired the caret-aware inline-reveal extension into
- * InlineMarkdownEditor. Inline is now the SOLE edit mode in the UI and the
+ * InlineMarkdownEditor. Inline is the SOLE edit mode in the UI and the
  * DEFAULT mode, so a default-mounted LiveMarkdownEditor renders the CM6 inline
- * surface (which carries the reveal extension). Hybrid stays in the codebase as
- * a dormant fallback EditorMode but no UI control selects it.
- *
- * NOTE (tour coupling): the v4 onboarding tour previously relied on the default
- * mode being hybrid (it types into data-tour-target="hybrid-editor-textarea").
- * Flipping the default to inline is intentional; reworking the walkthrough to
- * drive the inline surface is a separate follow-up.
+ * surface (which carries the reveal extension). The hybrid editor was
+ * removed 2026-06-04.
  */
 
 describe("Inline-reveal: default-mounted editor renders the CM6 surface", () => {
@@ -36,17 +31,12 @@ describe("Inline-reveal: default-mounted editor renders the CM6 surface", () => 
     ).toBeNull();
   });
 
-  it("the Edit pill is the sole editor toggle regardless of enableInlineMode", () => {
-    const { rerender } = render(
+  it("the Edit pill is always present (inline is the sole editor; enableInlineMode prop was retired)", () => {
+    render(
       <LiveMarkdownEditor value="x" onChange={vi.fn()} />,
     );
-    // The Edit pill (testid editor-mode-inline) is always present.
-    expect(screen.getByTestId("editor-mode-inline")).toBeInTheDocument();
-
-    // enableInlineMode no longer gates it: the editor pill stays in all cases.
-    rerender(
-      <LiveMarkdownEditor value="x" onChange={vi.fn()} enableInlineMode={false} />,
-    );
+    // The Edit pill (testid editor-mode-inline) is always present now that
+    // inline is the sole editing branch. The enableInlineMode prop was removed.
     expect(screen.getByTestId("editor-mode-inline")).toBeInTheDocument();
   });
 });

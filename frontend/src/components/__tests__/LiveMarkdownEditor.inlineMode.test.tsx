@@ -5,11 +5,11 @@ import LiveMarkdownEditor from "../LiveMarkdownEditor";
 /**
  * Inline-mode (CodeMirror 6 Typora-style) wiring coverage.
  *
- * Inline is now the SOLE edit mode in the UI: the toolbar shows a two-way
+ * Inline is the SOLE edit mode in the UI: the toolbar shows a two-way
  * "Edit | Preview" toggle, where "Edit" maps to the inline CodeMirror 6
- * surface. Hybrid was retired from the UI (its code stays as a dormant
- * fallback EditorMode but no control selects it). The default mode is inline,
- * so a default-mounted editor renders the CM6 surface.
+ * surface. The hybrid editor was removed 2026-06-04; "inline" is now the
+ * only editing branch. The default mode is inline, so a default-mounted
+ * editor renders the CM6 surface.
  *
  * What these pin:
  *   1. The toolbar surfaces the "Edit" pill (testid editor-mode-inline) plus a
@@ -42,22 +42,10 @@ describe("LiveMarkdownEditor: inline (CM6) sole edit mode", () => {
 
   it("surfaces a two-way Edit | Preview toggle with no Hybrid pill", () => {
     render(
-      <LiveMarkdownEditor value="hello" onChange={vi.fn()} enableInlineMode />,
+      <LiveMarkdownEditor value="hello" onChange={vi.fn()} />,
     );
     // The "Edit" pill maps to the inline surface (testid retained for the
     // tour / verifiers); Preview is the only other pill; Hybrid is gone.
-    expect(screen.getByTestId("editor-mode-inline")).toBeInTheDocument();
-    expect(screen.getByText("Edit")).toBeInTheDocument();
-    expect(screen.getByText("Preview")).toBeInTheDocument();
-    expect(screen.queryByText("Hybrid")).toBeNull();
-  });
-
-  it("keeps the Edit | Preview toggle even when enableInlineMode is explicitly false", () => {
-    render(
-      <LiveMarkdownEditor value="hello" onChange={vi.fn()} enableInlineMode={false} />,
-    );
-    // enableInlineMode no longer gates the editor pill: the Edit pill is the
-    // sole editor toggle in all cases. Hybrid stays absent from the UI.
     expect(screen.getByTestId("editor-mode-inline")).toBeInTheDocument();
     expect(screen.getByText("Edit")).toBeInTheDocument();
     expect(screen.getByText("Preview")).toBeInTheDocument();

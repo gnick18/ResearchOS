@@ -2,14 +2,8 @@
  * Synthetic-Escape dispatch helper shared across walkthrough step bodies.
  *
  * Several walkthrough beats need to programmatically fire an Escape
- * keydown to drive a host surface:
- *   - `GanttExistingExperimentStep` fires Escape to close the experiment
- *     popup after the cursor demo opens it.
- *   - `hybrid-editor-helpers.commitOpenEditAction` fires Escape on the
- *     active editor textarea to commit + exit the current edit block
- *     before the next typing beat starts a fresh paragraph.
- *
- * Both dispatches `bubbles: true`, which means the synthetic keydown
+ * keydown to drive a host surface (e.g. close a popup, commit an edit).
+ * Those dispatches use `bubbles: true`, which means the synthetic keydown
  * reaches `window`. `TourController.tsx` listens on the window in capture
  * phase for Escape and surfaces the "Skip to the cleanup selector?"
  * confirm modal whenever it sees one. That listener can't distinguish a
@@ -20,16 +14,14 @@
  *
  * Fix: tag the synthetic event with `__tourSynthetic = true` before
  * dispatching. `TourController` checks for that flag on its keydown
- * listener and short-circuits — the host surfaces (TaskDetailPopup,
- * HybridMarkdownEditor) still see the event normally and react to it,
- * but the skip-confirm modal stays closed.
+ * listener and short-circuits, but host surfaces still see the event
+ * normally, so the skip-confirm modal stays closed.
  *
  * Why a marker property (vs `stopPropagation` / scoping the dispatch to
- * a non-window target): the popup's own Escape handler also lives on
- * `window`, so any dispatch that needs to reach it has to bubble to
- * window. We can't stop propagation before window without missing the
- * intended recipient. A tagged-event sentinel is the smallest change
- * that lets both listeners coexist.
+ * a non-window target): popup Escape handlers also live on `window`, so
+ * any dispatch that needs to reach them has to bubble to window. A
+ * tagged-event sentinel is the smallest change that lets all listeners
+ * coexist.
  */
 
 /**

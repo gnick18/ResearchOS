@@ -7,10 +7,9 @@
  * that pinned the deleted hybrid bold / shortcuts / file-attach / markdown
  * familiarity / overview behaviors are gone with those steps.
  *
- * `clickOutsideEditorAction` itself survives in `lib/cursor-script.ts` (it
- * is still consumed by `lib/hybrid-editor-helpers.tsx`, which TaskDetailPopup
- * and TourController import), so its bypass-the-InputLockOverlay contract is
- * retained here.
+ * `clickOutsideEditorAction` itself survives in `lib/cursor-script.ts` and
+ * is still used by cursor scripts; its bypass-the-InputLockOverlay contract
+ * is retained here.
  */
 import { describe, expect, it } from "vitest";
 import { clickOutsideEditorAction } from "../lib/cursor-script";

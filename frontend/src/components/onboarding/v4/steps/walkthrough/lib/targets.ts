@@ -152,7 +152,7 @@ export const TOUR_TARGETS = {
   workbenchExperimentSubmit: "workbench-experiment-submit",
 
   // §6.7b Workbench Notes + Lists expansion (Workbench expansion manager
-  // 2026-05-22). 6 new steps sit between §6.7 hybrid editor and §6.8
+  // 2026-05-22). Steps sit between §6.7 editor cluster and §6.8
   // Gantt, teaching the standalone Notes panel + Lists panel. Targets
   // below stamp the page-level tab buttons, the per-panel create
   // affordances, and a render-scoped first-card / first-item latch
@@ -208,16 +208,16 @@ export const TOUR_TARGETS = {
     "experiment-attach-method-picker-first-method",
   experimentVariationNotes: "experiment-variation-notes",
 
-  // §6.7 Hybrid editor
+  // §6.7 editor cluster
   experimentNotesTab: "experiment-notes-tab",
+  // Retained for legacy cursor-script references; no longer stamped on a
+  // live DOM node (the hybrid editor was removed 2026-06-04).
   hybridEditorTextarea: "hybrid-editor-textarea",
   // §6.7 inline editor (onboarding-inline collapse 2026-06-02): the live
-  // CodeMirror 6 surface (InlineMarkdownEditor inside LiveMarkdownEditor)
-  // is now the sole editor — the old hybrid click-to-edit-blocks markdown
-  // deep-dive (HE-1 through HE-11) collapses into a single inline-typing
-  // beat that spotlights this surface. Stamped on the wrapper div around
-  // InlineMarkdownEditor; present in both the normal and focus-mode mounts
-  // (the focus overlay portals the same subtree).
+  // CodeMirror 6 surface (InlineMarkdownEditor inside LiveMarkdownEditor),
+  // the sole editor. Stamped on the wrapper div around InlineMarkdownEditor;
+  // present in both the normal and focus-mode mounts (the focus overlay
+  // portals the same subtree).
   inlineEditorSurface: "inline-editor-surface",
   hybridEditorImageStrip: "hybrid-editor-image-strip",
   hybridEditorResizeHandle: "hybrid-editor-resize-handle",
@@ -226,29 +226,16 @@ export const TOUR_TARGETS = {
   // image to open the popover, then clicks the 50% radio.
   hybridEditorEmbeddedImage: "hybrid-editor-embedded-image",
   hybridEditorResizePercent50: "hybrid-editor-resize-percent-50",
-  // §6.7 hybrid editor demo fix (hybrid editor demo fix manager,
-  // 2026-05-27): the "+ Add paragraph" affordance at the bottom of
-  // HybridMarkdownEditor's blocks list. Each markdown demo step
-  // (bold / italic / underline / h1 / h2 / h3) clicks this between
-  // beats so the next demo lands in its OWN fresh paragraph block,
-  // instead of appending into whichever block the previous beat
-  // left open. Without this break, every demo concatenated into a
-  // single unparsed paragraph (Grant hand-walk screenshot 2026-05-27).
+  // §6.7 demo: the "+ Add paragraph" affordance (retired with the hybrid
+  // editor 2026-06-04; key retained for script compat).
   hybridEditorAddParagraph: "hybrid-editor-add-paragraph",
-  // §6.7 hybrid editor scope (hybrid editor demo fix manager,
-  // 2026-05-27): the experiment-popup fullscreen toggle button.
-  // Used by the `hybrid-editor-scope` step to demo the expand/shrink
-  // affordance and to actually expand the popup for the upcoming
-  // markdown demos (more screen real estate). Anchor lives in
-  // TaskDetailPopup.tsx on the existing Fullscreen / Exit fullscreen
-  // Tooltip button.
+  // §6.7 the experiment-popup fullscreen toggle button.
   taskPopupFullscreen: "task-popup-fullscreen",
   // Writing Focus Mode (FOCUS_WRITING_MODE_DESIGN.md §9). The enter
-  // button lives in the LiveMarkdownEditor toolbar next to the Hybrid /
+  // button lives in the LiveMarkdownEditor toolbar next to the Edit /
   // Preview toggle; the exit button lives in the focus-mode overlay's
-  // top-right. The two universal `hybrid-focus-enter` / `hybrid-focus-exit`
-  // beats glide to and click these so BeakerBot demos clearing the chrome
-  // and bringing it back.
+  // top-right. The two universal enter / exit beats glide to and click
+  // these so BeakerBot demos clearing the chrome and bringing it back.
   hybridEditorFocusToggle: "hybrid-editor-focus-toggle",
   hybridEditorFocusExit: "hybrid-editor-focus-exit",
 
@@ -499,10 +486,8 @@ export const TOUR_TARGETS = {
   // demo cursor script.
   experimentTabContainer: "experiment-tab-container",
   experimentResultsTab: "experiment-results-tab",
-  // HE-3 markdown overview spotlight: the helper panel inside the
-  // hybrid editor that lists shortcuts + the style guide. Lives on the
-  // left of the editor body; rendered by HybridMarkdownEditor.tsx in
-  // both the empty-state and the populated-state branches.
+  // HE-3 markdown overview spotlight (retired with the hybrid editor 2026-06-04).
+  // Key retained for script compat.
   hybridEditorShortcutBar: "hybrid-editor-shortcut-bar",
 
   // ----- R4 Lab Overview targets — RETIRED 2026-05-23. The 4 anchors

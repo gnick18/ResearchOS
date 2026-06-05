@@ -211,10 +211,11 @@ import { hybridNotesVsResultsStep } from "./steps/walkthrough/HybridNotesVsResul
 // surface (data-tour-target="inline-editor-surface") and teaches "just
 // type, your markdown renders as you go" + one line on Save checkpoint.
 import { inlineEditorStep } from "./steps/walkthrough/InlineEditorStep";
-// §6.7 hybrid-save-concept (hybrid-save-concept manager 2026-05-27): NEW
-// pure-narration beat between hybrid-file-attach and workbench-notes-intro.
+// §6.7 editor-save-concept (renamed from hybrid-save-concept 2026-06-04):
+// pure-narration beat between inline-editor and workbench-notes-intro.
 // Covers manual save, version control, and the unsaved-changes warning.
-import { hybridSaveConceptStep } from "./steps/walkthrough/HybridSaveConceptStep";
+// Step id is unchanged ("hybrid-save-concept") for saved-progress compat.
+import { editorSaveConceptStep } from "./steps/walkthrough/EditorSaveConceptStep";
 // §6.7b Workbench Notes + Lists expansion (Workbench expansion manager
 // 2026-05-22, collapsed to 5 beats by Workbench fix manager R1
 // 2026-05-22, collapsed to 2 beats 2026-06-03 by HR / tour-
@@ -375,10 +376,10 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   // (notes-vs-results, inline-editor, save-concept) wire in TOUR_STEP_ORDER.
   [hybridNotesVsResultsStep.id]: hybridNotesVsResultsStep,
   [inlineEditorStep.id]: inlineEditorStep,
-  // §6.7 hybrid-save-concept (hybrid-save-concept manager 2026-05-27):
+  // §6.7 editor-save-concept (renamed from hybrid-save-concept 2026-06-04):
   // pure-narration beat closing the §6.7 editor cluster before the
   // §6.7b Notes/Lists cluster opens.
-  [hybridSaveConceptStep.id]: hybridSaveConceptStep,
+  [editorSaveConceptStep.id]: editorSaveConceptStep,
   // §6.7b Workbench Notes + Lists expansion (Workbench expansion
   // manager 2026-05-22, collapsed to 5 beats by Workbench fix manager
   // R1 2026-05-22, collapsed to 2 beats 2026-06-03 by HR / tour-
