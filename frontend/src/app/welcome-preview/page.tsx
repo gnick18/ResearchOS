@@ -413,16 +413,19 @@ export default function WelcomePreviewPage() {
             </BentoCell>
 
             {/* 02: methods library (real clip), half width. */}
-            <BentoCell num="02" span="lead" title="Real lab protocols, preloaded and ready to run">
+            <BentoCell num="02" span="lead" title="91 protocols from major biotech, preloaded">
               <p className="text-body leading-relaxed text-[#475569]">
-                The method library ships structured PCR, qPCR, and LC-MS templates
-                with bundled source PDFs. It already knows how to run your
-                experiment, and the reaction math scales itself.
+                The library comes loaded with{" "}
+                <span className="font-semibold text-[#0e1726]">91 ready-to-run
+                protocols</span>{" "}
+                built around real kits from NEB, Promega, Qiagen, Thermo Fisher,
+                Bio-Rad, Takara, and more. Search the catalog, copy one into your
+                library, and start. No retyping a vendor handbook.
               </p>
               <CodeLine>
-                PCR master mix &middot;{" "}
-                <span className="text-[#1283c9]">24 rxn</span> &middot; 2x Q5 12.5
-                &micro;L &middot; primer 1.25 &micro;L
+                NEB &middot; Promega &middot; Qiagen &middot;{" "}
+                <span className="text-[#1283c9]">Thermo Fisher</span> &middot;
+                Bio-Rad &middot; Takara &middot; KAPA
               </CodeLine>
               <DemoLoop
                 src="/welcome-demos/methods-library.mp4"
