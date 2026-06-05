@@ -29,6 +29,14 @@ export interface TmCase {
   bioTm: number;
   /** primer3-py calc_tm, loose ecosystem oracle. undefined where N/A (palindromes). */
   p3Tm?: number;
+  /**
+   * Biopython Tm_Wallace (the 2+4 rule) and Tm_GC (GC-percent rule). These are
+   * simpler, peer-reviewed Tm methods that diverge from nearest-neighbor by design
+   * (the Wallace rule is unbounded and only valid for short oligos). Carried as
+   * cross-method CONTEXT, shown but not pass/fail-gated.
+   */
+  wallaceTm?: number;
+  gcTm?: number;
 }
 
 /**
@@ -45,6 +53,8 @@ export const TM_CASES: TmCase[] = [
     opts: { oligoNanomolar: 250, na: 50 },
     bioTm: 46.5572,
     p3Tm: 46.5572,
+    wallaceTm: 46.0,
+    gcTm: 41.7696,
   },
   {
     id: "short15_lowgc",
@@ -69,6 +79,8 @@ export const TM_CASES: TmCase[] = [
     opts: { oligoNanomolar: 250, na: 50 },
     bioTm: 57.9787,
     p3Tm: 57.9787,
+    wallaceTm: 72.0,
+    gcTm: 53.9429,
   },
   {
     id: "ref28_biopython",
@@ -77,6 +89,8 @@ export const TM_CASES: TmCase[] = [
     opts: { oligoNanomolar: 250, na: 50 },
     bioTm: 61.924,
     p3Tm: 61.924,
+    wallaceTm: 84.0,
+    gcTm: 58.9743,
   },
   {
     id: "long40_highgc",
@@ -85,6 +99,8 @@ export const TM_CASES: TmCase[] = [
     opts: { oligoNanomolar: 250, na: 50 },
     bioTm: 84.5607,
     p3Tm: 84.5607,
+    wallaceTm: 144.0,
+    gcTm: 77.7029,
   },
   {
     id: "gc_terminal",
@@ -140,6 +156,8 @@ export const TM_CASES: TmCase[] = [
     seq: "GGCAGCTGCGGCCGCAGGTGCC",
     opts: { oligoNanomolar: 250, na: 50 },
     bioTm: 71.6958,
+    wallaceTm: 80.0,
+    gcTm: 66.1756,
   },
   {
     id: "at_rich_20",
@@ -147,6 +165,8 @@ export const TM_CASES: TmCase[] = [
     seq: "TTAATTGACAATTTGACATA",
     opts: { oligoNanomolar: 250, na: 50 },
     bioTm: 42.3846,
+    wallaceTm: 48.0,
+    gcTm: 38.1029,
   },
   {
     id: "balanced_30",

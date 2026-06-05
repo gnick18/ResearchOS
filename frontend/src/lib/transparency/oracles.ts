@@ -97,6 +97,26 @@ export const PYDNA: OracleRef = {
   url: "https://github.com/BjornFJohansson/pydna",
 };
 
+export const WALLACE: OracleRef = {
+  id: "wallace",
+  name: "Wallace rule (2+4)",
+  version: "n/a",
+  entrypoint: "Bio.SeqUtils.MeltingTemp.Tm_Wallace",
+  citation: "Wallace et al. 1979, 4*GC + 2*AT; valid only for short oligos",
+  generator: "frontend/scripts/gen-tm-golden.py",
+  url: "https://biopython.org/docs/latest/api/Bio.SeqUtils.MeltingTemp.html",
+};
+
+export const GC_RULE: OracleRef = {
+  id: "gc-rule",
+  name: "GC% rule",
+  version: "n/a",
+  entrypoint: "Bio.SeqUtils.MeltingTemp.Tm_GC",
+  citation: "Marmur-Doty / empirical GC-percent formula with salt term",
+  generator: "frontend/scripts/gen-tm-golden.py",
+  url: "https://biopython.org/docs/latest/api/Bio.SeqUtils.MeltingTemp.html",
+};
+
 /** Lookup by id, for resolving an oracle from a case's comparison. */
 export const ORACLES: Record<string, OracleRef> = {
   [BIOPYTHON.id]: BIOPYTHON,
@@ -108,4 +128,6 @@ export const ORACLES: Record<string, OracleRef> = {
   [EXACT_DEFINITIONS.id]: EXACT_DEFINITIONS,
   [PUBLISHED_SEQUENCES.id]: PUBLISHED_SEQUENCES,
   [PYDNA.id]: PYDNA,
+  [WALLACE.id]: WALLACE,
+  [GC_RULE.id]: GC_RULE,
 };

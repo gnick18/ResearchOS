@@ -81,6 +81,13 @@ export interface ScalarComparison {
   tolerance: Tolerance;
   /** Verdict from delta vs tolerance. */
   status: Status;
+  /**
+   * When true, this is a cross-method context comparison (e.g. our nearest-neighbor
+   * Tm vs the simpler Wallace rule), shown to illustrate where methods legitimately
+   * diverge. It is NOT a pass/fail validation: it does not gate the build and is not
+   * counted in the exact/within-tolerance totals.
+   */
+  informational?: boolean;
 }
 
 /**

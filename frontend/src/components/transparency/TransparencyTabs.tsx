@@ -13,8 +13,9 @@
  * an inline SVG.
  */
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
+import { domainCounts } from "@/lib/transparency/summary";
 import type { CaseResult, DomainReport, OracleRef } from "@/lib/transparency/types";
 
 import AlignmentColumns from "./AlignmentColumns";
@@ -34,6 +35,8 @@ const ORACLE_COLOR: Record<string, string> = {
   "biopython-digest": "#4f46e5", // indigo
   "biopython-translate": "#4f46e5", // indigo
   primer3: "#db2777", // pink
+  wallace: "#f59e0b", // amber (context method)
+  "gc-rule": "#14b8a6", // teal (context method)
 };
 
 function colorFor(id: string): string {
@@ -154,7 +157,7 @@ function ScalarTable({ domain, unit }: { domain: DomainReport; unit: string }) {
         <tbody>
           {domain.cases.map((c) =>
             c.comparisons.map((cmp, ci) => (
-              <tr key={`${c.id}-${cmp.oracleId}`} className="border-b border-gray-100 last:border-0">
+              <tr key={`${c.id}-${cmp.oracleId}`} className={`border-b border-gray-100 last:border-0 ${cmp.informational ? "bg-gray-50/60" : ""}`}>
                 {ci === 0 ? (
                   <td rowSpan={c.comparisons.length} className="px-3 py-2 align-top">
                     <div className="font-medium text-gray-800">{c.label}</div>
@@ -166,7 +169,11 @@ function ScalarTable({ domain, unit }: { domain: DomainReport; unit: string }) {
                 <td className="px-3 py-2 text-right font-mono text-gray-600">{cmp.theirs}</td>
                 <td className="px-3 py-2 text-right font-mono text-gray-500">{cmp.delta}</td>
                 <td className="px-3 py-2">
-                  <StatusPill status={cmp.status} exact={cmp.delta === 0} />
+                  {cmp.informational ? (
+                    <span className="text-meta text-gray-400">context</span>
+                  ) : (
+                    <StatusPill status={cmp.status} exact={cmp.delta === 0} />
+                  )}
                 </td>
               </tr>
             )),
@@ -177,53 +184,120 @@ function ScalarTable({ domain, unit }: { domain: DomainReport; unit: string }) {
   );
 }
 
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+/** Collapsible detail block, collapsed by default to keep the panel a summary. */
+function Collapsible({ label, children }: { label: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-meta font-medium text-gray-600 hover:border-sky-300 hover:text-sky-700"
+        aria-expanded={open}
+      >
+        {open ? "Hide" : "Show"} {label}
+        <Chevron open={open} />
+      </button>
+      {open ? <div className="mt-4">{children}</div> : null}
+    </div>
+  );
+}
+
+/** Small exact / within / flagged summary chips for a domain. */
+function DomainSummary({ domain }: { domain: DomainReport }) {
+  const c = domainCounts(domain.cases.flatMap((cc) => cc.comparisons));
+  const hasInfo = domain.cases.some((cc) => cc.comparisons.some((cmp) => cmp.informational));
+  const infoCount = domain.cases.reduce(
+    (n, cc) => n + cc.comparisons.filter((cmp) => cmp.informational).length,
+    0,
+  );
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-meta">
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+        {c.exact} exact
+      </span>
+      {c.within > 0 ? (
+        <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 font-semibold text-gray-600">
+          {c.within} within tolerance
+        </span>
+      ) : null}
+      {c.flagged > 0 ? (
+        <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
+          {c.flagged} larger difference{c.flagged === 1 ? "" : "s"}
+        </span>
+      ) : null}
+      {hasInfo ? <span className="text-gray-400">+ {infoCount} cross-method context</span> : null}
+    </div>
+  );
+}
+
 function DomainPanel({ domain }: { domain: DomainReport }) {
   const unit = domain.cases[0]?.comparisons[0]?.tolerance.unit ?? "";
   const hasVisuals = domain.cases.some((c) => c.visual);
   const distinctUnits = new Set(
     domain.cases.flatMap((c) => c.comparisons.map((cmp) => cmp.tolerance.unit)),
   );
-  // Scatter only makes sense for a scalar domain sharing one unit; a domain with
-  // mixed units (the lab calculators) gets a per-row table instead.
   const mixedUnits = !hasVisuals && distinctUnits.size > 1;
-  const oracleStyles = domain.oracles.map((o) => ({ id: o.id, name: o.name, color: colorFor(o.id) }));
+  const isScatter = !hasVisuals && !mixedUnits;
+  // The scatter plots the gated validations only. Informational cross-method
+  // points (the Wallace rule reaches 144 C on the 40-mer) would blow out the axis.
+  const scatterOracleIds = new Set<string>();
   const points: ParityPoint[] = domain.cases.flatMap((c) =>
-    c.comparisons.map((cmp) => ({
-      ours: cmp.ours,
-      theirs: cmp.theirs,
-      oracleId: cmp.oracleId,
-      label: c.label,
-    })),
+    c.comparisons
+      .filter((cmp) => !cmp.informational)
+      .map((cmp) => {
+        scatterOracleIds.add(cmp.oracleId);
+        return { ours: cmp.ours, theirs: cmp.theirs, oracleId: cmp.oracleId, label: c.label };
+      }),
   );
+  const oracleStyles = domain.oracles
+    .filter((o) => scatterOracleIds.has(o.id))
+    .map((o) => ({ id: o.id, name: o.name, color: colorFor(o.id) }));
+  const gatedTotal = total(domain);
+
+  let detail: ReactNode;
+  if (hasVisuals) {
+    detail = (
+      <div className="grid gap-4 md:grid-cols-2">
+        {domain.cases.map((c) => (
+          <CaseVisualCard key={c.id} domain={domain} c={c} />
+        ))}
+      </div>
+    );
+  } else if (mixedUnits) {
+    detail = <ScalarMixedTable domain={domain} />;
+  } else {
+    detail = <ScalarTable domain={domain} unit={unit} />;
+  }
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-heading font-bold tracking-tight text-gray-900">{domain.title}</h2>
-        <StatusPill status={domain.status} label={`${domain.totals.pass}/${total(domain)} comparisons`} />
-      </div>
+      <h2 className="mb-2 text-heading font-bold tracking-tight text-gray-900">{domain.title}</h2>
+      <DomainSummary domain={domain} />
 
-      <p className="mb-2 max-w-2xl text-body text-gray-600">{domain.summary}</p>
+      <p className="mb-2 mt-4 max-w-2xl text-body text-gray-600">{domain.summary}</p>
       <p className="mb-6 text-meta text-gray-400">
         Tested module: <span className="font-mono text-gray-500">{domain.impl}</span>
       </p>
 
-      {hasVisuals ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          {domain.cases.map((c) => (
-            <CaseVisualCard key={c.id} domain={domain} c={c} />
-          ))}
-        </div>
-      ) : mixedUnits ? (
-        <ScalarMixedTable domain={domain} />
-      ) : (
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,480px)_minmax(0,1fr)]">
+      {/* The scatter is the at-a-glance summary for a scalar domain, so it stays
+          visible; the per-row tables and per-case cards collapse so the panel
+          reads as a summary rather than a wall of verdicts. */}
+      {isScatter ? (
+        <div className="mb-6 max-w-xl">
           <ParityScatter points={points} oracles={oracleStyles} unit={unit} />
-          <div className="min-w-0">
-            <ScalarTable domain={domain} unit={unit} />
-          </div>
         </div>
-      )}
+      ) : null}
+
+      <Collapsible label={`all ${gatedTotal} comparisons`}>{detail}</Collapsible>
 
       <ul className="mt-6 space-y-2">
         {domain.oracles.map((o) => (

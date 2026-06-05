@@ -189,4 +189,48 @@ export const HOMOLOGY_CASES: HomologyCase[] = [
     bioScore: 800,
     bioIdentity: 1.0,
   },
+  // --- edge cases (2026-06-05): progressively SHORTER blocks. The block is
+  // identical (Biopython local identity 1.0), but our approximate seed-and-extend
+  // finder includes more boundary bases proportionally as the block shrinks, so
+  // its reported identity diverges further below 1.0. These exist to SHOW that
+  // divergence, not to hide it.
+  {
+    id: "homology_250bp",
+    label: "Short homology, 250 bp block (approximation gap grows)",
+    build: () => {
+      const block = sharedBlock(250, 13);
+      return {
+        a: randomDna(1_500, 71) + block + randomDna(1_500, 72),
+        b: randomDna(1_200, 81) + block + randomDna(1_800, 82),
+      };
+    },
+    bioScore: 500,
+    bioIdentity: 1.0,
+  },
+  {
+    id: "homology_180bp",
+    label: "Short homology, 180 bp block (approximation gap grows)",
+    build: () => {
+      const block = sharedBlock(180, 17);
+      return {
+        a: randomDna(1_000, 91) + block + randomDna(1_000, 92),
+        b: randomDna(900, 101) + block + randomDna(1_100, 102),
+      };
+    },
+    bioScore: 360,
+    bioIdentity: 1.0,
+  },
+  {
+    id: "homology_130bp",
+    label: "Short homology, 130 bp block (largest approximation gap)",
+    build: () => {
+      const block = sharedBlock(130, 23);
+      return {
+        a: randomDna(800, 111) + block + randomDna(800, 112),
+        b: randomDna(700, 121) + block + randomDna(900, 122),
+      };
+    },
+    bioScore: 260,
+    bioIdentity: 1.0,
+  },
 ];
