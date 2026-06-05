@@ -20,6 +20,7 @@ import type { CaseResult, DomainReport, OracleRef } from "@/lib/transparency/typ
 
 import AlignmentColumns from "./AlignmentColumns";
 import CodonTrack from "./CodonTrack";
+import DomainSet from "./DomainSet";
 import FragmentLadder from "./FragmentLadder";
 import HomologyMap from "./HomologyMap";
 import ParityScatter, { type ParityPoint } from "./ParityScatter";
@@ -35,6 +36,7 @@ const ORACLE_COLOR: Record<string, string> = {
   "biopython-digest": "#4f46e5", // indigo
   "biopython-translate": "#4f46e5", // indigo
   primer3: "#db2777", // pink
+  "native-hmmer": "#7c3aed", // violet
   wallace: "#f59e0b", // amber (context method)
   "gc-rule": "#14b8a6", // teal (context method)
 };
@@ -121,10 +123,14 @@ function CaseVisualCard({ domain, c }: { domain: DomainReport; c: CaseResult }) 
       {v?.kind === "sequence-match" ? (
         <SequenceMatch method={v.method} length={v.length} matches={v.matches} preview={v.preview} />
       ) : null}
+      {v?.kind === "domain-set" ? (
+        <DomainSet domains={v.domains} negativeControl={v.negativeControl} />
+      ) : null}
 
-      {/* property-table and sequence-match already show their own numbers; the
-          generic footer would duplicate them. Other visuals get the one-liner. */}
-      {v?.kind === "property-table" || v?.kind === "sequence-match" ? null : (
+      {/* property-table, sequence-match and domain-set already show their own
+          numbers; the generic footer would duplicate them. Other visuals get the
+          one-liner. */}
+      {v?.kind === "property-table" || v?.kind === "sequence-match" || v?.kind === "domain-set" ? null : (
         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-meta">
           {c.comparisons.map((cmp) => (
             <span key={cmp.oracleId} className="text-gray-500">

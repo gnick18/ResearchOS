@@ -162,6 +162,28 @@ export type CaseVisual =
       matches: boolean;
       /** A short, readable slice of the product (head ... tail) for display. */
       preview: string;
+    }
+  | {
+      kind: "domain-set";
+      /**
+       * The reconciled per-domain rows: each domain reported by native HMMER
+       * (the oracle) paired with the on-device WASM engine's match. For a
+       * faithful port the two columns are identical to the residue.
+       */
+      domains: {
+        /** Pfam family accession (version stripped), e.g. "PF00069". */
+        accession: string;
+        /** Pfam family short name, e.g. "Pkinase". */
+        name: string;
+        /** Native HMMER envelope coords, or null if native did not report it. */
+        native: { start: number; end: number } | null;
+        /** On-device envelope coords, or null if the engine did not report it. */
+        ours: { start: number; end: number } | null;
+        /** True when family + envelope coordinates match exactly. */
+        exact: boolean;
+      }[];
+      /** True for a negative control (both engines report zero domains). */
+      negativeControl: boolean;
     };
 
 /** One showcase case within a domain (e.g. a single oligo, a single pair). */

@@ -97,6 +97,16 @@ export const PYDNA: OracleRef = {
   url: "https://github.com/BjornFJohansson/pydna",
 };
 
+export const NATIVE_HMMER: OracleRef = {
+  id: "native-hmmer",
+  name: "HMMER (native)",
+  version: "3.3.2",
+  entrypoint: "hmmsearch --domtblout (default mode, no --max) over a curated Pfam subset",
+  citation: "Eddy 2011, profile-HMM domain search; Pfam-A profiles (CC0)",
+  generator: "frontend/scripts/gen-domains-golden.mjs",
+  url: "http://hmmer.org/",
+};
+
 export const WALLACE: OracleRef = {
   id: "wallace",
   name: "Wallace rule (2+4)",
@@ -128,6 +138,7 @@ export const ORACLES: Record<string, OracleRef> = {
   [EXACT_DEFINITIONS.id]: EXACT_DEFINITIONS,
   [PUBLISHED_SEQUENCES.id]: PUBLISHED_SEQUENCES,
   [PYDNA.id]: PYDNA,
+  [NATIVE_HMMER.id]: NATIVE_HMMER,
   [WALLACE.id]: WALLACE,
   [GC_RULE.id]: GC_RULE,
 };

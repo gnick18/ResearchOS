@@ -25,6 +25,12 @@ import { CALC_CASES } from "./datasets/calculators";
 import { CLONING_CASES } from "./datasets/cloning";
 import { DIGEST_CASES } from "./datasets/digest";
 import {
+  DOMAIN_PROTEINS,
+  NATIVE_HMMER_VERSION,
+  PFAM_FAMILIES,
+  type PinnedDomain,
+} from "./datasets/domains";
+import {
   PROTEIN_CASES,
   PROTEIN_METRICS,
   type ProteinExpect,
@@ -39,6 +45,7 @@ import {
   BIOPYTHON_TRANSLATE,
   EXACT_DEFINITIONS,
   GC_RULE,
+  NATIVE_HMMER,
   ORACLES,
   PRIMER3,
   WALLACE,
@@ -679,6 +686,156 @@ function buildCloningDomain(): DomainReport {
   };
 }
 
+/* --------------------------------------------------------- domains domain */
+
+/**
+ * Domain annotation is a faithful WASM port of native HMMER, so it must match to
+ * the residue. The unit is "domains": a protein passes only when the on-device
+ * engine reproduces every native domain (same family, same envelope coordinates)
+ * with no spurious extras, so the only passing delta is zero.
+ */
+const DOMAINS_EXACT: Tolerance = {
+  pass: 0,
+  warn: 0,
+  unit: "domains",
+  kind: "tight",
+  rationale:
+    "The on-device engine is the same HMMER algorithm compiled to WebAssembly, "
+    + "run against the identical Pfam subset, so it must reproduce native HMMER "
+    + "exactly: the same families at the same envelope coordinates to the residue. "
+    + "Any drift is a port bug, not a tolerance to relax. A negative control "
+    + "passes only when both engines report zero domains.",
+};
+
+/** Stable key for one domain (family + exact envelope span). */
+function domainKey(d: PinnedDomain): string {
+  return `${d.accession}:${d.start}-${d.end}`;
+}
+
+/**
+ * Reconcile the native (golden) and on-device (ours) domain sets for one protein
+ * into side-by-side rows, and count how many golden domains are reproduced
+ * exactly. The number of mismatched rows (a golden domain not reproduced, or a
+ * spurious extra from our engine) is the delta against DOMAINS_EXACT.
+ */
+function reconcileDomains(golden: PinnedDomain[], ours: PinnedDomain[]) {
+  const oursByKey = new Map<string, PinnedDomain>();
+  for (const d of ours) oursByKey.set(domainKey(d), d);
+  const goldenKeys = new Set(golden.map(domainKey));
+
+  const rows: {
+    accession: string;
+    name: string;
+    native: { start: number; end: number } | null;
+    ours: { start: number; end: number } | null;
+    exact: boolean;
+  }[] = [];
+
+  // Every golden domain, paired with its exact on-device match if present.
+  let matched = 0;
+  for (const g of golden) {
+    const o = oursByKey.get(domainKey(g));
+    const exact = o !== undefined;
+    if (exact) matched += 1;
+    rows.push({
+      accession: g.accession,
+      name: g.name,
+      native: { start: g.start, end: g.end },
+      ours: o ? { start: o.start, end: o.end } : null,
+      exact,
+    });
+  }
+
+  // Any on-device domain with no exact golden counterpart is a spurious extra.
+  let spurious = 0;
+  for (const o of ours) {
+    if (!goldenKeys.has(domainKey(o))) {
+      spurious += 1;
+      rows.push({
+        accession: o.accession,
+        name: o.name,
+        native: null,
+        ours: { start: o.start, end: o.end },
+        exact: false,
+      });
+    }
+  }
+
+  rows.sort((a, b) => {
+    const as = a.native?.start ?? a.ours?.start ?? 0;
+    const bs = b.native?.start ?? b.ours?.start ?? 0;
+    return as - bs || a.accession.localeCompare(b.accession);
+  });
+
+  // Delta = golden domains not reproduced + spurious extras. Zero = exact parity.
+  const delta = golden.length - matched + spurious;
+  return { rows, matched, expected: golden.length, delta };
+}
+
+function buildDomainsDomain(): DomainReport {
+  const cases: CaseResult[] = DOMAIN_PROTEINS.map((p) => {
+    const { rows, matched, expected, delta } = reconcileDomains(p.golden, p.ours);
+    const status = classify(delta, DOMAINS_EXACT);
+
+    const input = p.negative
+      ? `${p.acc} (negative control, no Pfam domain in subset)`
+      : `${p.acc} (${expected} domain${expected === 1 ? "" : "s"})`;
+
+    return {
+      id: p.acc,
+      label: p.label,
+      input,
+      comparisons: [
+        {
+          oracleId: NATIVE_HMMER.id,
+          // Matched-of-expected on-device domains vs the native count.
+          ours: matched,
+          theirs: expected,
+          delta,
+          tolerance: DOMAINS_EXACT,
+          status,
+        },
+      ],
+      status,
+      visual: {
+        kind: "domain-set",
+        domains: rows,
+        negativeControl: p.negative,
+      },
+    };
+  });
+
+  const { status, totals } = rollup(
+    cases.flatMap((c) => c.comparisons.map((cmp) => cmp.status)),
+  );
+
+  const posCount = DOMAIN_PROTEINS.filter((p) => !p.negative).length;
+  const negCount = DOMAIN_PROTEINS.filter((p) => p.negative).length;
+
+  return {
+    id: "domains",
+    title: "Protein domain annotation",
+    summary:
+      "The on-device domain search is HMMER compiled to WebAssembly, the same "
+      + `profile-HMM algorithm as the reference tool (HMMER ${NATIVE_HMMER_VERSION}), `
+      + "and it runs entirely in your browser. Each of "
+      + `${posCount} diverse proteins (kinases, GPCRs, zinc fingers, immunoglobulin `
+      + "and globin folds, RRMs, WD40 repeats, multi-domain adaptors, tandem "
+      + `ubiquitin, plus ${negCount} negative controls) is annotated by both the `
+      + `in-browser engine and native HMMER over an identical curated Pfam subset `
+      + `(${PFAM_FAMILIES.length} families). The two are compared family by family `
+      + "at exact envelope coordinates: the in-browser engine reproduces every "
+      + "native domain to the residue, and reports no domain on the negative "
+      + "controls. This isolates the WebAssembly port (the part a user would "
+      + "reasonably doubt) with no database or coordinate noise.",
+    impl: "frontend/public/hmmer/hmmsearch.js, frontend/src/lib/sequences/hmmer-domtbl.ts",
+    oracles: [NATIVE_HMMER],
+    cases,
+    totals,
+    status,
+  };
+}
+
 /* ------------------------------------------------------------- aggregation */
 
 /**
@@ -694,6 +851,7 @@ export function buildTransparencyReport(): TransparencyReport {
     buildProteinDomain(),
     buildCalculatorsDomain(),
     buildCloningDomain(),
+    buildDomainsDomain(),
   ];
 
   const { status, totals } = rollup(
