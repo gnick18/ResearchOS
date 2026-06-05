@@ -2,6 +2,17 @@
 
 import { avatarGradient } from "@/lib/colors";
 import { useUserColors } from "@/hooks/useUserColor";
+import { RAINBOW_COLOR } from "@/lib/file-system/user-metadata";
+
+/** BeakerBot's exact internal body gradient — left-to-right across 5 pastel
+ *  stops. Used when the user has chosen the "BeakerBot rainbow" option. */
+const RAINBOW_GRADIENT =
+  "linear-gradient(135deg, #FFD2B0, #FFF1A8, #B7EBB1, #A6D2F4, #D6B5F0)";
+
+/** Dark text color for the avatar initial when the background is pastel
+ *  (the rainbow gradient). Pastel stops have high lightness, so white
+ *  text would disappear. */
+const RAINBOW_TEXT_COLOR = "#0f1b2e";
 
 export type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
 
@@ -64,17 +75,31 @@ export default function UserAvatar({
   const secondary =
     secondaryOverride === undefined ? resolved.secondary : secondaryOverride;
 
-  const [stop1, stop2] = secondary
-    ? [primary, secondary]
-    : avatarGradient(primary);
+  const isRainbow = primary === RAINBOW_COLOR;
+
+  // When rainbow: use the 5-stop gradient and dark text (pastel background).
+  // When gradient: use the two user-picked stops directly.
+  // When solid: derive a pleasing second stop via avatarGradient.
+  let background: string;
+  let textColor: string;
+  if (isRainbow) {
+    background = RAINBOW_GRADIENT;
+    textColor = RAINBOW_TEXT_COLOR;
+  } else {
+    const [stop1, stop2] = secondary
+      ? [primary, secondary]
+      : avatarGradient(primary);
+    background = `linear-gradient(135deg, ${stop1}, ${stop2})`;
+    textColor = "white";
+  }
 
   const display = (letter ?? username.charAt(0) ?? "?").toUpperCase();
 
   return (
     <div
       title={title ?? username}
-      className={`${SIZE_CLASS[size]} rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0 relative ${className}`}
-      style={{ background: `linear-gradient(135deg, ${stop1}, ${stop2})` }}
+      className={`${SIZE_CLASS[size]} rounded-full flex items-center justify-center font-semibold flex-shrink-0 relative ${className}`}
+      style={{ background, color: textColor }}
     >
       {display}
       {showOwnerBadge && (

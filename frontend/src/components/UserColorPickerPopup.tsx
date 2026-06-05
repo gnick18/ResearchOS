@@ -2,12 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react";
 import UserAvatar from "@/components/UserAvatar";
-import { USER_METADATA_COLOR_PALETTE } from "@/lib/file-system/user-metadata";
+import {
+  USER_METADATA_COLOR_PALETTE,
+  RAINBOW_COLOR,
+} from "@/lib/file-system/user-metadata";
 import {
   isCombinationTaken,
   ownerOfCombination,
 } from "@/lib/file-system/user-color-collisions";
 import type { UserMetadataEntry } from "@/lib/file-system/user-metadata";
+
+/** BeakerBot's exact internal body gradient, left-to-right across 5 pastel
+ *  stops. Matches the gradient rendered by UserAvatar for rainbow users. */
+const RAINBOW_GRADIENT_CSS =
+  "linear-gradient(135deg, #FFD2B0, #FFF1A8, #B7EBB1, #A6D2F4, #D6B5F0)";
 
 interface UserColorPickerPopupProps {
   /** The username being created. Drives the avatar preview's initial letter
@@ -80,6 +88,8 @@ export default function UserColorPickerPopup({
   // Precompute the "taken as solid" set so the primary row can disable
   // those swatches when the user hasn't picked a secondary yet. Matches
   // the Settings page rule (solid-vs-solid only).
+  // NOTE: USER_METADATA_COLOR_PALETTE now includes RAINBOW_COLOR at the
+  // end, so this set will also include "rainbow" when taken.
   const takenSolids = useMemo(() => {
     const set = new Set<string>();
     for (const color of USER_METADATA_COLOR_PALETTE) {
@@ -91,6 +101,15 @@ export default function UserColorPickerPopup({
     }
     return set;
   }, [otherUsers]);
+
+  // Determine the owner of the rainbow combo (for the disabled tooltip).
+  const rainbowOwner = useMemo(
+    () =>
+      ownerOfCombination({ primary: RAINBOW_COLOR, secondary: null }, otherUsers),
+    [otherUsers],
+  );
+  const rainbowTaken =
+    takenSolids.has(RAINBOW_COLOR) && selectedColor !== RAINBOW_COLOR;
 
   // Precompute the "taken as a pair with current primary" set so the
   // secondary row can disable the swatches that would land on someone
@@ -162,6 +181,14 @@ export default function UserColorPickerPopup({
     setSelectedSecondary(c);
   };
 
+  const handlePickRainbow = () => {
+    // Rainbow is always a 5-stop gradient stored as the sentinel string.
+    // `color_secondary` is meaningless for rainbow, so always clear it.
+    if (rainbowTaken) return;
+    setSelectedColor(RAINBOW_COLOR);
+    setSelectedSecondary(null);
+  };
+
   const handleClearSecondary = () => {
     // Going gradient → solid. If the solid form is taken by another user,
     // surface the refusal silently (the swatch tooltips on the primary row
@@ -218,7 +245,9 @@ export default function UserColorPickerPopup({
             Primary color
           </label>
           <div className="flex flex-wrap gap-2">
-            {USER_METADATA_COLOR_PALETTE.map((c) => {
+            {/* Regular hex-color swatches — exclude the rainbow sentinel
+                which has its own special swatch rendered below. */}
+            {USER_METADATA_COLOR_PALETTE.filter((c) => c !== RAINBOW_COLOR).map((c) => {
               const cLc = c.toLowerCase();
               const isSelected = cLc === selectedLc;
               // Match the Settings rule: only block solid-vs-solid. If
@@ -253,67 +282,98 @@ export default function UserColorPickerPopup({
                 />
               );
             })}
+            {/* BeakerBot rainbow swatch — rendered after the 10 regular
+                swatches. Uses the 5-stop gradient directly as a
+                background, and a ring with a subtle shimmer border to
+                make it visually distinct from the solid swatches. */}
+            <button
+              type="button"
+              aria-label="BeakerBot rainbow"
+              title={
+                rainbowOwner
+                  ? `Used by ${rainbowOwner}`
+                  : "BeakerBot rainbow"
+              }
+              disabled={rainbowTaken}
+              onClick={handlePickRainbow}
+              data-color-swatch={RAINBOW_COLOR}
+              className={`w-9 h-9 rounded-full border-2 transition-transform ${
+                selectedColor === RAINBOW_COLOR
+                  ? "border-white scale-110"
+                  : rainbowTaken
+                    ? "border-transparent opacity-30 cursor-not-allowed"
+                    : "border-transparent hover:scale-105"
+              }`}
+              style={{ background: RAINBOW_GRADIENT_CSS }}
+            />
           </div>
 
-          <div className="flex items-center justify-between mt-5 mb-2">
-            <label className="block text-meta font-medium text-slate-300">
-              Optional second color for gradient
-            </label>
-            {selectedSecondary && (
-              <button
-                type="button"
-                onClick={handleClearSecondary}
-                className="text-meta text-slate-400 hover:text-white underline"
-              >
-                Clear secondary
-              </button>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {USER_METADATA_COLOR_PALETTE.map((c) => {
-              const cLc = c.toLowerCase();
-              const isSelected = selectedSecondaryLc === cLc;
-              const isSamePrimary = cLc === selectedLc;
-              const isTakenPair = takenSecondaries.has(cLc);
-              const ownerName = isTakenPair
-                ? ownerOfCombination(
-                    { primary: selectedColor, secondary: c },
-                    otherUsers,
-                  )
-                : null;
-              const disabled = (isSamePrimary || isTakenPair) && !isSelected;
-              const title = isSamePrimary
-                ? "Same as primary"
-                : ownerName
-                  ? `Used by ${ownerName}`
-                  : `Color ${c}`;
-              return (
-                <button
-                  key={c}
-                  type="button"
-                  aria-label={`Secondary color ${c}`}
-                  title={title}
-                  disabled={disabled}
-                  onClick={() => handlePickSecondary(c)}
-                  data-color-swatch={c}
-                  className={`w-9 h-9 rounded-full border-2 transition-transform ${
-                    isSelected
-                      ? "border-white scale-110"
-                      : disabled
-                        ? "border-transparent opacity-30 cursor-not-allowed"
-                        : "border-transparent hover:scale-105"
-                  }`}
-                  style={{ backgroundColor: c }}
-                />
-              );
-            })}
-          </div>
-          <p className="text-meta text-slate-500 mt-2">
-            Pick a second color to make your avatar a 2-stop gradient.
-            Helpful when your lab has more than 10 people. Direction does
-            not matter (blue-to-green and green-to-blue count as the same
-            combo).
-          </p>
+          {/* Hide the secondary row entirely when rainbow is selected —
+              rainbow is always the full 5-stop, so a secondary is
+              meaningless (and confusing to show). */}
+          {selectedColor !== RAINBOW_COLOR && (
+            <>
+              <div className="flex items-center justify-between mt-5 mb-2">
+                <label className="block text-meta font-medium text-slate-300">
+                  Optional second color for gradient
+                </label>
+                {selectedSecondary && (
+                  <button
+                    type="button"
+                    onClick={handleClearSecondary}
+                    className="text-meta text-slate-400 hover:text-white underline"
+                  >
+                    Clear secondary
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {USER_METADATA_COLOR_PALETTE.filter((c) => c !== RAINBOW_COLOR).map((c) => {
+                  const cLc = c.toLowerCase();
+                  const isSelected = selectedSecondaryLc === cLc;
+                  const isSamePrimary = cLc === selectedLc;
+                  const isTakenPair = takenSecondaries.has(cLc);
+                  const ownerName = isTakenPair
+                    ? ownerOfCombination(
+                        { primary: selectedColor, secondary: c },
+                        otherUsers,
+                      )
+                    : null;
+                  const disabled = (isSamePrimary || isTakenPair) && !isSelected;
+                  const title = isSamePrimary
+                    ? "Same as primary"
+                    : ownerName
+                      ? `Used by ${ownerName}`
+                      : `Color ${c}`;
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      aria-label={`Secondary color ${c}`}
+                      title={title}
+                      disabled={disabled}
+                      onClick={() => handlePickSecondary(c)}
+                      data-color-swatch={c}
+                      className={`w-9 h-9 rounded-full border-2 transition-transform ${
+                        isSelected
+                          ? "border-white scale-110"
+                          : disabled
+                            ? "border-transparent opacity-30 cursor-not-allowed"
+                            : "border-transparent hover:scale-105"
+                      }`}
+                      style={{ backgroundColor: c }}
+                    />
+                  );
+                })}
+              </div>
+              <p className="text-meta text-slate-500 mt-2">
+                Pick a second color to make your avatar a 2-stop gradient.
+                Helpful when your lab has more than 10 people. Direction does
+                not matter (blue-to-green and green-to-blue count as the same
+                combo).
+              </p>
+            </>
+          )}
         </div>
 
         <div className="px-6 py-4 border-t border-white/10 flex gap-2">
