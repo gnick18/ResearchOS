@@ -334,7 +334,10 @@ const GB_QUALIFIER_INDENT = " ".repeat(21);
  *  sequence's own accession before falling back to provenance / a typed value. */
 export function extractAccession(genbank: string): string | null {
   const m = /^ACCESSION\s+(\S+)/m.exec(genbank || "");
-  return m ? m[1] : null;
+  const acc = m ? m[1] : null;
+  // A record with no assigned accession uses a placeholder ("ACCESSION   ."), so
+  // treat any token with no alphanumeric character as no accession at all.
+  return acc && /[A-Za-z0-9]/.test(acc) ? acc : null;
 }
 
 /** Escape a value for a quoted GenBank qualifier (quotes are doubled). */

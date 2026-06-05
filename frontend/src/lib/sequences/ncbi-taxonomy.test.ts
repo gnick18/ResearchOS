@@ -191,6 +191,10 @@ describe("extractAccession", () => {
   it("returns null when there is no ACCESSION line", () => {
     expect(extractAccession(GB_NO_SOURCE)).toBeNull();
   });
+  it("treats a placeholder dot as no accession", () => {
+    const gb = "LOCUS x 10 bp\nACCESSION   .\nORIGIN\n//\n";
+    expect(extractAccession(gb)).toBeNull();
+  });
 });
 
 describe("setSourceOrganismInGenbank", () => {
