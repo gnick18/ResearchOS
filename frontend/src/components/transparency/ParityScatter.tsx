@@ -110,11 +110,13 @@ export default function ParityScatter({
             key={`${p.oracleId}-${p.label}-${i}`}
             cx={sx(p.theirs)}
             cy={sy(p.ours)}
-            r={4.5}
+            r={5}
             fill={colorFor(p.oracleId)}
-            fillOpacity={0.8}
-            stroke="white"
+            fillOpacity={0.5}
+            stroke={colorFor(p.oracleId)}
             strokeWidth="1"
+            strokeOpacity={0.9}
+            style={{ mixBlendMode: "multiply" }}
           >
             <title>
               {p.label} vs {p.oracleId}: ours {p.ours} {unit}, reference {p.theirs} {unit}
