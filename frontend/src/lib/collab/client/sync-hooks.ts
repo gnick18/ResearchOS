@@ -32,6 +32,82 @@ import {
 } from "./persistence";
 
 // ---------------------------------------------------------------------------
+// Adopt the server-canonical base (the fork fix)
+// ---------------------------------------------------------------------------
+
+/**
+ * For a collab doc the SERVER history is canonical (Option B). A client opening
+ * a shared note must ADOPT that history as its working base, NOT merge its own
+ * locally-seeded copy into it.
+ *
+ * Why: the local copy can carry the same text as a DIFFERENT set of Loro ops
+ * (for example text rebuilt from the JSON mirror is seedActorId=0 ops, while the
+ * sharer's copy is live-typed device-peer ops). CRDT-merging two unrelated
+ * op-sets that represent the same characters INTERLEAVES them ("Connect" ->
+ * "Connnectct"). Adopting the server's history as the base eliminates the fork:
+ * every client starts from the identical canonical history and only appends.
+ *
+ * Returns the doc to use as the working doc plus whether it was adopted:
+ *  - If the server has canonical content (a snapshot and/or updates), build a
+ *    FRESH LoroDoc from snapshot+updates and return it (adopted = true). The
+ *    caller should persist it so the local sidecar becomes the canonical copy
+ *    and never forks again.
+ *  - If the server has nothing yet (this client is the first to make the note
+ *    collaborative), or the fetch fails, return the local doc unchanged
+ *    (adopted = false). This client establishes the canonical history via the
+ *    push-on-edit path.
+ *
+ * Never throws for the expected states (no identity, 403 not-yet-a-member, 404
+ * disabled); it falls back to the local doc so opening a note is never blocked.
+ */
+export async function buildCollabBaseDoc(
+  localDoc: LoroDoc,
+  docId: string,
+  email: string,
+): Promise<{ doc: LoroDoc; adopted: boolean }> {
+  let result: Awaited<ReturnType<typeof openCollabDoc>>;
+  try {
+    result = await openCollabDoc(docId, email);
+  } catch (err) {
+    if (err instanceof NoLocalIdentityError) {
+      console.warn("[collab] buildCollabBaseDoc: no local identity, using local doc");
+      return { doc: localDoc, adopted: false };
+    }
+    if (err instanceof CollabError) {
+      console.warn("[collab] buildCollabBaseDoc: server error", err.status, err.message);
+      return { doc: localDoc, adopted: false };
+    }
+    // Unexpected (network down, etc.): fall back to local so the open succeeds.
+    console.warn("[collab] buildCollabBaseDoc: unexpected error, using local doc", err);
+    return { doc: localDoc, adopted: false };
+  }
+
+  const hasCanonical =
+    Boolean(result.snapshotB64) || result.updatesB64.length > 0;
+  if (!hasCanonical) {
+    // Server has no content yet: this client establishes the canonical history.
+    return { doc: localDoc, adopted: false };
+  }
+
+  // Adopt: rebuild a fresh doc from the server's canonical snapshot + updates.
+  const canonical = new LoroDoc();
+  try {
+    if (result.snapshotB64) {
+      canonical.import(base64ToUint8Array(result.snapshotB64));
+    }
+    for (const updateB64 of result.updatesB64) {
+      canonical.import(base64ToUint8Array(updateB64));
+    }
+  } catch (err) {
+    // A corrupt server payload should not strand the user; fall back to local.
+    console.warn("[collab] buildCollabBaseDoc: failed to import canonical, using local doc", err);
+    return { doc: localDoc, adopted: false };
+  }
+
+  return { doc: canonical, adopted: true };
+}
+
+// ---------------------------------------------------------------------------
 // Reconcile on open
 // ---------------------------------------------------------------------------
 

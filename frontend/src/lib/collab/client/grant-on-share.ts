@@ -21,7 +21,7 @@
 import { LoroDoc } from "loro-crdt";
 import type { SharedUser } from "@/lib/types";
 import { getOrMintCollabDocId } from "./doc-id";
-import { grantCollabMember, NoLocalIdentityError, CollabError } from "./persistence";
+import { grantCollabMember, pushCollabUpdate, NoLocalIdentityError, CollabError } from "./persistence";
 
 /** Parameters for grantCollabOnShare. */
 export interface GrantCollabOnShareParams {
@@ -84,6 +84,21 @@ export async function grantCollabOnShare(
   // block the others.
   for (const memberEmail of newMembers) {
     await tryGrant(docId, ownerEmail, memberEmail);
+  }
+
+  // Seed the server canonical with the current doc state right after sharing.
+  // Without this the server has an empty doc until the first edit pushes, and a
+  // collaborator who opens in that window finds nothing to adopt and seeds their
+  // own copy from the mirror, which then forks. Pushing now means any later open
+  // adopts this exact history. Best-effort: a failed push just means the canonical
+  // seeds on the first edit instead. Idempotent (Loro merges duplicates).
+  try {
+    const snapshot = doc.export({ mode: "update" });
+    if (snapshot.length > 0) {
+      await pushCollabUpdate(docId, ownerEmail, snapshot);
+    }
+  } catch (err) {
+    console.warn("[collab] grant-on-share: initial canonical push failed (will seed on first edit)", err);
   }
 
   return docId;

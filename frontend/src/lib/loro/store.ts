@@ -29,7 +29,7 @@ import { projectToNote } from "./mirror";
 import { safeLoroEphemeralPlugin } from "./collab/safe-ephemeral-plugin";
 import { LORO_PILOT_ENABLED } from "./config";
 import { getCollabDocId } from "@/lib/collab/client/doc-id";
-import { reconcileOnOpen, attachPushOnEdit } from "@/lib/collab/client/sync-hooks";
+import { buildCollabBaseDoc, attachPushOnEdit } from "@/lib/collab/client/sync-hooks";
 import type { Note } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -426,19 +426,38 @@ export async function openNote(base: Note, owner: string): Promise<NoteHandle> {
   if (cached) return cached;
 
   // Load from sidecar or rebuild from mirror.
-  const doc = await loadOrRebuild(owner, base);
+  const localDoc = await loadOrRebuild(owner, base);
 
-  // Set this device's stable peer id on the loaded doc BEFORE any edit (the
+  // Phase 3c chunk 3a fork fix: for a COLLAB doc the server history is canonical
+  // (Option B). Adopt it as the working base instead of merging our locally
+  // seeded copy into it. Merging two unrelated op-sets for the same text
+  // interleaves ("Connect" -> "Connnectct"); adopting the canonical avoids that.
+  // When the server has nothing yet (this client makes the note collaborative
+  // first) or the fetch fails, buildCollabBaseDoc returns localDoc unchanged.
+  const collabDocId = LORO_PILOT_ENABLED ? getCollabDocId(localDoc) : undefined;
+  let doc = localDoc;
+  let collabAdopted = false;
+  if (collabDocId) {
+    const adopt = await buildCollabBaseDoc(localDoc, collabDocId, owner);
+    doc = adopt.doc;
+    collabAdopted = adopt.adopted;
+  }
+
+  // Set this device's stable peer id on the working doc BEFORE any edit (the
   // external-edit ingest below, and every live keystroke) so changes attribute
-  // to a consistent actor. loadOrRebuild imports into a doc whose peer is random
-  // per load, which would break attribution + session grouping. The fixed seed
-  // peer (BigInt(0)) stays seed-only; this is the live-edit peer.
+  // to a consistent actor. The fixed seed peer (BigInt(0)) stays seed-only;
+  // this is the live-edit peer. For an adopted collab doc, future edits append
+  // to the canonical history under this peer (no fork).
   doc.setPeerId(getDevicePeerId());
 
-  // External-edit detection at open time (design doc section 7).
-  const kind = classifyExternalEdit(doc, base);
-  if (kind === "clean" || kind === "unclean") {
-    ingestExternalEdit(doc, base, kind);
+  // External-edit detection at open time (design doc section 7). Skip it for an
+  // adopted collab doc: the server canonical IS the truth, there is no separate
+  // mirror edit to reconcile.
+  if (!collabAdopted) {
+    const kind = classifyExternalEdit(doc, base);
+    if (kind === "clean" || kind === "unclean") {
+      ingestExternalEdit(doc, base, kind);
+    }
   }
 
   const handle = new NoteHandleImpl(doc, owner);
@@ -446,29 +465,18 @@ export async function openNote(base: Note, owner: string): Promise<NoteHandle> {
 
   // Record this device's peer -> identity for version-history attribution.
   // Best-effort, fire-and-forget so the open is not blocked on disk I/O.
-  // Phase 1/2 is single-user, so `owner` is the editing user; Phase 3 passes
-  // the real editing identity instead of the note owner.
   void recordActor(owner, getDevicePeerId(), owner);
 
-  // Phase 3c chunk 2: Neon persistence path.
-  // When the flag is on and the note has a collab doc id (i.e. it is shared),
-  // reconcile against the server's canonical state and attach the push-on-edit
-  // subscriber. Both are best-effort: failures never block local editing.
-  if (LORO_PILOT_ENABLED) {
-    const collabDocId = getCollabDocId(doc);
-    if (collabDocId) {
-      // Reconcile: pull snapshot + updates from Neon and CRDT-merge into doc.
-      // Fire-and-forget so openNote does not block on the network call.
-      // The editor mounts after this resolves because NoteDetailPopup gates
-      // on loroHandle !== null, and we resolve below; any reconcile change
-      // lands before the first keystroke.
-      void reconcileOnOpen(doc, collabDocId, owner);
-
-      // Push on edit: subscribe to changes and push each update to Neon.
-      // The returned unsub is registered so handle.close() cleans it up.
-      const unsub = attachPushOnEdit(handle, collabDocId, owner);
-      handle._registerUnsub(unsub);
+  // Phase 3c Neon persistence path. When the note is collaborative, persist the
+  // adopted canonical to the local sidecar (so the next open loads it and never
+  // forks again) and attach the push-on-edit subscriber. Both best-effort.
+  if (collabDocId) {
+    if (collabAdopted) {
+      // Fire-and-forget: align the local sidecar with the adopted canonical.
+      void persistNote(owner, doc, base);
     }
+    const unsub = attachPushOnEdit(handle, collabDocId, owner);
+    handle._registerUnsub(unsub);
   }
 
   return handle;
