@@ -3,6 +3,16 @@
 Author: sequence editor master, 2026-06-05. Status: DESIGN DRAFT. Grant locked the
 oracle (native HMMER, same Pfam set) and asked for a design doc first.
 
+## Decisions (Grant, 2026-06-05)
+
+- Protein set: I propose a diverse ~50 set; Grant edits (the list is a committed,
+  editable fixture, so swapping proteins + re-running the generator is cheap).
+- Negative controls: ~5 of the 50 (proteins with no Pfam-A domain in the subset).
+- Coordinate tolerance: EXACT envelope coordinates (0 residues). WASM HMMER should
+  match native to the residue; any drift is a real bug.
+- Oracle: native HMMER ONLY. No InterProScan cross-check in this dataset (single,
+  clean "our engine equals the reference HMMER" claim).
+
 ## Goal + the claim
 
 Add protein domain annotation to the public `/transparency` page, validating that
