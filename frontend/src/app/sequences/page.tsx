@@ -27,7 +27,7 @@ import NcbiDownloadDialog, {
   type NcbiDownloadPrefill,
 } from "@/components/sequences/NcbiDownloadDialog";
 import TaxonomyLookupDialog from "@/components/sequences/TaxonomyLookupDialog";
-import TaxonomyExplorerPanel from "@/components/sequences/TaxonomyExplorerPanel";
+import TaxonomyTreeView from "@/components/sequences/TaxonomyTreeView";
 import type { EnrichResult } from "@/components/sequences/EnrichFromNcbiDialog";
 import SequencesLauncher from "@/components/sequences/SequencesLauncher";
 import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
@@ -1557,11 +1557,12 @@ export default function SequencesPage() {
         }}
       />
 
-      {/* sequence editor master. The interactive taxonomy tree explorer. Walks
-          one node at a time (parent / siblings / children + breadcrumb), backed
-          by the offline backbone (family and above) with a live fallback below
-          family. A species / strain node offers a prefilled NCBI import jump. */}
-      <TaxonomyExplorerPanel
+      {/* sequence editor master. The radial tree-of-life explorer (the primary
+          surface, oseiskar style). Branches fan out from a center with thickness
+          from each clade's species count, backed by the offline backbone (family
+          and above) with a live drill below family. Click a branch for the slim
+          detail (species / assemblies toggle + a species-node NCBI import jump). */}
+      <TaxonomyTreeView
         open={explorerOpen}
         initialTaxId={explorerTaxId}
         onClose={() => setExplorerOpen(false)}

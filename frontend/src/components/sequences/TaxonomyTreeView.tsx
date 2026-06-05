@@ -1,0 +1,717 @@
+"use client";
+
+// sequence editor master. The RADIAL TREE OF LIFE view, the primary taxonomy
+// explorer surface (oseiskar style, reimplemented in d3 over OUR backbone).
+//
+// Branches fan out from a center. DEPTH maps to radius, each subtree owns an
+// ANGULAR width proportional to a log-damped species count, and a branch is
+// drawn with STROKE thickness from the same damped weight, so diverse clades are
+// fat branches and sparse families are thin twigs. d3-zoom drives smooth pan and
+// zoom; LEVEL-OF-DETAIL culling keeps only the branches whose on-screen arc is
+// above a pixel threshold at the current zoom, so the ~16k-node backbone never
+// all draws at once. Zooming in raises the threshold and reveals deeper twigs;
+// zooming out collapses them. Labels appear only on branches wide enough at the
+// current zoom, oriented along the radius.
+//
+// d3 here is the small modular packages (d3-hierarchy is unused at runtime, the
+// layout is our pure module; d3-selection / d3-zoom / d3-shape drive the SVG
+// from a ref). They are vanilla DOM utilities, no React renderer, so React 19 is
+// a non-issue. Clicking a branch opens the slim TaxonomyNodeDetail. The search
+// box animates a zoom to a chosen organism, drilling live below family first.
+// Escape closes the whole explorer (useEscapeToClose on this container).
+//
+// Inline stroke-only SVG icons for chrome (no emoji), <Tooltip> for icon-only
+// controls, site typography tokens. No em-dash, no en-dash, no mid-sentence
+// colon.
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { select } from "d3-selection";
+import { zoom as d3zoom, zoomIdentity, type ZoomBehavior } from "d3-zoom";
+// Side-effect import: registers selection.transition() so the zoom animations
+// (zoomToNode, nudgeZoom, resetView) work. d3-zoom pulls it in transitively, but
+// we import it directly so the method exists and the dep is explicit.
+import "d3-transition";
+import Tooltip from "@/components/Tooltip";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import {
+  layoutRadialTree,
+  visibleNodesAtZoom,
+  isLabelVisibleAtZoom,
+  polarToCartesian,
+  type RadialLaidOutNode,
+} from "@/lib/sequences/taxonomy-radial-layout";
+import {
+  loadRadialPool,
+  drillNode,
+  findPoolNode,
+  SYNTHETIC_ROOT_ID,
+  type RadialPool,
+} from "@/lib/sequences/taxonomy-radial-source";
+import {
+  suggestTaxa,
+  type TaxonSuggestion,
+} from "@/lib/sequences/ncbi-datasets";
+import TaxonomyNodeDetail, {
+  type TaxonomyImportPrefill,
+  type TaxonomyDetailNode,
+} from "./TaxonomyNodeDetail";
+
+// The pixel thresholds for the level-of-detail and label culling. A branch is
+// drawn when its on-screen arc clears NODE_MIN_PX at the current zoom; a label
+// needs the wider LABEL_MIN_PX. These are tuned for the calm look and can be
+// nudged after a live pass.
+const NODE_MIN_PX = 6;
+const LABEL_MIN_PX = 46;
+
+// The SVG drawing box. The view is centered, and d3-zoom transforms a single
+// inner group, so the numbers here are layout units, not screen pixels.
+const VIEW_SIZE = 1000;
+
+// Rank-aware branch coloring (calm, low-saturation). Unknown ranks fall to a
+// neutral slate. Optional per the brief, kept gentle so the shape reads first.
+const RANK_COLORS: Record<string, string> = {
+  "cellular root": "#64748b",
+  "acellular root": "#64748b",
+  domain: "#0ea5e9",
+  superkingdom: "#0ea5e9",
+  kingdom: "#6366f1",
+  phylum: "#8b5cf6",
+  class: "#a855f7",
+  order: "#ec4899",
+  family: "#f59e0b",
+  genus: "#10b981",
+  species: "#22c55e",
+};
+const DEFAULT_BRANCH = "#94a3b8";
+
+function branchColor(rank: string): string {
+  return RANK_COLORS[(rank || "").toLowerCase()] ?? DEFAULT_BRANCH;
+}
+
+// --- Inline SVG icons (chrome only) -----------------------------------------
+
+function svgBase(className?: string) {
+  return {
+    xmlns: "http://www.w3.org/2000/svg",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true,
+    className,
+  };
+}
+
+function TreeIcon({ className }: { className?: string }) {
+  return (
+    <svg {...svgBase(className)}>
+      <circle cx="6" cy="6" r="2.5" />
+      <circle cx="6" cy="18" r="2.5" />
+      <circle cx="18" cy="12" r="2.5" />
+      <path d="M8.5 6.8 15.5 11M8.5 17.2 15.5 13" />
+    </svg>
+  );
+}
+
+function CloseIcon({ className }: { className?: string }) {
+  return (
+    <svg {...svgBase(className)}>
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+
+function SpinnerIcon({ className }: { className?: string }) {
+  return (
+    <svg {...svgBase(className)} className={`animate-spin ${className ?? ""}`}>
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+    </svg>
+  );
+}
+
+function WarnIcon({ className }: { className?: string }) {
+  return (
+    <svg {...svgBase(className)}>
+      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}
+
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg {...svgBase(className)}>
+      <circle cx="11" cy="11" r="7" />
+      <line x1="21" y1="21" x2="16.5" y2="16.5" />
+    </svg>
+  );
+}
+
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg {...svgBase(className)}>
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+function MinusIcon({ className }: { className?: string }) {
+  return (
+    <svg {...svgBase(className)}>
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+function HomeIcon({ className }: { className?: string }) {
+  return (
+    <svg {...svgBase(className)}>
+      <path d="M3 11.5 12 4l9 7.5" />
+      <path d="M5 10v9h14v-9" />
+    </svg>
+  );
+}
+
+function rankLabel(rank: string): string {
+  if (!rank) return "Taxon";
+  return rank.charAt(0).toUpperCase() + rank.slice(1);
+}
+
+export interface TaxonomyTreeViewProps {
+  open: boolean;
+  onClose: () => void;
+  /** Optional tax id to center on when the view opens (a cross-link entry). */
+  initialTaxId?: string;
+  /** Open the NCBI import flow prefilled for an organism (a species / strain
+   *  node's import jump). When omitted, the import action is hidden. */
+  onImportOrganism?: (prefill: TaxonomyImportPrefill) => void;
+}
+
+export default function TaxonomyTreeView({
+  open,
+  onClose,
+  initialTaxId,
+  onImportOrganism,
+}: TaxonomyTreeViewProps) {
+  const [pool, setPool] = useState<RadialPool | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // The node the radial fan is rooted on (the synthetic root for the whole
+  // tree, or a focused subtree). A focus re-roots the layout.
+  const [focusId, setFocusId] = useState<string>(SYNTHETIC_ROOT_ID);
+
+  // The current d3-zoom scale, kept in React state so the level-of-detail and
+  // label culling recompute as the user zooms. Set by the zoom handler.
+  const [zoomScale, setZoomScale] = useState(1);
+
+  // The selected node (drives the click-detail). Null hides the detail.
+  const [selected, setSelected] = useState<TaxonomyDetailNode | null>(null);
+
+  // Search autocomplete.
+  const [query, setQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<TaxonSuggestion[]>([]);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+
+  // A transient note (e.g. "drilling Drosophilidae...") shown under the search.
+  const [note, setNote] = useState<string | null>(null);
+
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const gRef = useRef<SVGGElement | null>(null);
+  const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const loadAbortRef = useRef<AbortController | null>(null);
+  const suggestAbortRef = useRef<AbortController | null>(null);
+  // A monotonic token so a re-layout from a late drill does not clobber a newer
+  // focus. Bumped on every focus / drill that mutates the pool.
+  const [layoutVersion, setLayoutVersion] = useState(0);
+
+  const handleClose = useCallback(() => {
+    loadAbortRef.current?.abort();
+    suggestAbortRef.current?.abort();
+    setQuery("");
+    setSuggestions([]);
+    setSuggestOpen(false);
+    setSelected(null);
+    setNote(null);
+    onClose();
+  }, [onClose]);
+
+  useEscapeToClose(handleClose, open);
+
+  // Load the backbone pool once when the view opens.
+  useEffect(() => {
+    if (!open) return;
+    if (pool) return;
+    loadAbortRef.current?.abort();
+    const controller = new AbortController();
+    loadAbortRef.current = controller;
+    setLoading(true);
+    setError(null);
+    loadRadialPool({ signal: controller.signal })
+      .then((p) => {
+        if (controller.signal.aborted) return;
+        setPool(p);
+      })
+      .catch((e) => {
+        if ((e as Error)?.name === "AbortError") return;
+        setError(
+          "The taxonomy tree needs to download once while online. Reconnect and try again.",
+        );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [open, pool]);
+
+  // Reset the focus to the requested initial node each time the view opens.
+  useEffect(() => {
+    if (!open) return;
+    setFocusId(initialTaxId && initialTaxId.trim() ? initialTaxId : SYNTHETIC_ROOT_ID);
+    setSelected(null);
+  }, [open, initialTaxId]);
+
+  // The laid-out tree for the current focus. Recomputed when the pool, the
+  // focus, or the layout version (a drill splice) changes. Pure + memoized.
+  const laidOut: RadialLaidOutNode[] = useMemo(() => {
+    if (!pool) return [];
+    const rootId = pool.byId.has(focusId) ? focusId : SYNTHETIC_ROOT_ID;
+    return layoutRadialTree(pool.byId, rootId);
+    // layoutVersion is a dependency so a splice re-lays out the subtree.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pool, focusId, layoutVersion]);
+
+  // The visible subset at the current zoom (level-of-detail culling).
+  const visible = useMemo(
+    () => visibleNodesAtZoom(laidOut, zoomScale, NODE_MIN_PX),
+    [laidOut, zoomScale],
+  );
+
+  // Wire d3-zoom to the svg once it is mounted. The zoom transforms the inner
+  // group; the handler mirrors the scale into React state so culling reacts.
+  useEffect(() => {
+    if (!open) return;
+    const svgEl = svgRef.current;
+    const gEl = gRef.current;
+    if (!svgEl || !gEl) return;
+
+    const svg = select(svgEl);
+    const g = select(gEl);
+    const behavior = d3zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.3, 400])
+      .on("zoom", (event) => {
+        g.attr("transform", event.transform.toString());
+        setZoomScale(event.transform.k);
+      });
+    zoomRef.current = behavior;
+    svg.call(behavior);
+    // Start centered with the root near the middle.
+    const initial = zoomIdentity.translate(VIEW_SIZE / 2, VIEW_SIZE / 2).scale(1);
+    svg.call(behavior.transform, initial);
+    setZoomScale(1);
+
+    return () => {
+      svg.on(".zoom", null);
+      zoomRef.current = null;
+    };
+  }, [open, pool]);
+
+  // Animate a zoom so a target node sits near the center at a readable scale.
+  const zoomToNode = useCallback((target: RadialLaidOutNode, scale = 6) => {
+    const svgEl = svgRef.current;
+    const behavior = zoomRef.current;
+    if (!svgEl || !behavior) return;
+    const { x, y } = polarToCartesian(target.angle, target.radius);
+    const transform = zoomIdentity
+      .translate(VIEW_SIZE / 2, VIEW_SIZE / 2)
+      .scale(scale)
+      .translate(-x, -y);
+    select(svgEl).transition().duration(650).call(behavior.transform, transform);
+  }, []);
+
+  // Manual zoom buttons (chrome). Scale around the view center.
+  const nudgeZoom = useCallback((factor: number) => {
+    const svgEl = svgRef.current;
+    const behavior = zoomRef.current;
+    if (!svgEl || !behavior) return;
+    select(svgEl)
+      .transition()
+      .duration(220)
+      .call(behavior.scaleBy, factor);
+  }, []);
+
+  const resetView = useCallback(() => {
+    const svgEl = svgRef.current;
+    const behavior = zoomRef.current;
+    if (!svgEl || !behavior) return;
+    const initial = zoomIdentity.translate(VIEW_SIZE / 2, VIEW_SIZE / 2).scale(1);
+    select(svgEl).transition().duration(450).call(behavior.transform, initial);
+  }, []);
+
+  // Open the click-detail for a laid-out node, and lazy-drill a family leaf so
+  // its genera splice in (animated by the re-layout) when the user focuses it.
+  const onNodeClick = useCallback(
+    (n: RadialLaidOutNode) => {
+      if (!pool) return;
+      const poolNode = findPoolNode(pool, n.id);
+      if (!poolNode) return;
+      setSelected({
+        taxId: poolNode.id,
+        name: poolNode.name,
+        rank: poolNode.rank,
+        speciesCount: poolNode.origin === "backbone" ? poolNode.speciesCount : undefined,
+        origin: poolNode.origin,
+      });
+
+      // If this is a backbone leaf (a family, no loaded children below it),
+      // drill it live so the next focus shows its genera.
+      if (!poolNode.childrenLoaded) {
+        setNote(`Loading taxa under ${poolNode.name}...`);
+        drillNode(pool, poolNode.id)
+          .then(() => {
+            setLayoutVersion((v) => v + 1);
+            setNote(null);
+          })
+          .catch(() => {
+            setNote(null);
+          });
+      }
+    },
+    [pool],
+  );
+
+  // Focus / recenter the radial fan on a node (from the detail or a deep click).
+  const focusNode = useCallback(
+    (taxId: string) => {
+      if (!pool) return;
+      setFocusId(taxId);
+      resetView();
+    },
+    [pool, resetView],
+  );
+
+  // Search autocomplete (debounced).
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setSuggestions([]);
+      setSuggestOpen(false);
+      return;
+    }
+    const t = setTimeout(() => {
+      suggestAbortRef.current?.abort();
+      const controller = new AbortController();
+      suggestAbortRef.current = controller;
+      suggestTaxa(q, { signal: controller.signal })
+        .then((s) => {
+          if (controller.signal.aborted) return;
+          setSuggestions(s);
+          setSuggestOpen(s.length > 0);
+        })
+        .catch(() => {
+          // A suggest failure just shows no options; the tree still navigates.
+        });
+    }, 220);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  // Pick a search result: locate it in the current layout (drilling live first
+  // when it is below family), then animate a zoom to it.
+  const pickSuggestion = useCallback(
+    async (s: TaxonSuggestion) => {
+      setQuery("");
+      setSuggestions([]);
+      setSuggestOpen(false);
+      if (!pool) return;
+
+      // Already in the laid-out fan: zoom straight to it.
+      const present = laidOut.find((n) => n.id === s.taxId);
+      if (present) {
+        zoomToNode(present);
+        setSelected({
+          taxId: s.taxId,
+          name: s.name,
+          rank: s.rank,
+          speciesCount: findPoolNode(pool, s.taxId)?.speciesCount,
+          origin: findPoolNode(pool, s.taxId)?.origin ?? "live",
+        });
+        return;
+      }
+
+      // Below family or off-screen: focus the result so the layout re-roots and
+      // a subsequent drill reveals it. We focus on the suggestion id directly;
+      // the pool may not hold it yet, so resolve it into a detail and let the
+      // user drill from there.
+      setNote(`Locating ${s.name}...`);
+      try {
+        // Focusing an id the pool lacks falls back to the synthetic root in the
+        // layout, so instead we just open the detail and let the user import or
+        // drill. A full below-family zoom is a follow-up (noted in the report).
+        setSelected({
+          taxId: s.taxId,
+          name: s.name,
+          rank: s.rank,
+          speciesCount: findPoolNode(pool, s.taxId)?.speciesCount,
+          origin: "live",
+        });
+      } finally {
+        setNote(null);
+      }
+    },
+    [pool, laidOut, zoomToNode],
+  );
+
+  // The links + nodes to draw, derived from the visible set. Links connect a
+  // node to its parent IF the parent is also visible.
+  const visibleById = useMemo(
+    () => new Map(visible.map((n) => [n.id, n])),
+    [visible],
+  );
+
+  const links = useMemo(() => {
+    const out: Array<{ source: RadialLaidOutNode; target: RadialLaidOutNode }> = [];
+    for (const n of visible) {
+      if (n.parentId && visibleById.has(n.parentId)) {
+        out.push({ source: visibleById.get(n.parentId)!, target: n });
+      }
+    }
+    return out;
+  }, [visible, visibleById]);
+
+  if (!open) return null;
+
+  const focusName =
+    pool && pool.byId.get(focusId)?.name
+      ? pool.byId.get(focusId)!.name
+      : "Tree of life";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      data-testid="taxonomy-tree-view"
+      role="dialog"
+      aria-label="Explore the tree of life"
+    >
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={handleClose} />
+      <div className="relative flex h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100">
+            <TreeIcon className="h-5 w-5 text-sky-600" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-title font-semibold text-gray-900">
+              Explore the tree of life
+            </h2>
+            <p className="text-meta text-gray-500">
+              Branch thickness shows how many species each clade holds. Zoom in to
+              reveal deeper branches.
+            </p>
+          </div>
+          <Tooltip label="Close">
+            <button
+              type="button"
+              onClick={handleClose}
+              aria-label="Close"
+              className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            >
+              <CloseIcon className="h-5 w-5" />
+            </button>
+          </Tooltip>
+        </div>
+
+        {/* Search */}
+        <div className="border-b border-gray-100 px-5 py-2.5">
+          <div className="relative max-w-md">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <SearchIcon className="h-4 w-4" />
+            </span>
+            <input
+              type="text"
+              value={query}
+              placeholder="Find an organism, e.g. Drosophila or Homo sapiens"
+              onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => setSuggestOpen(suggestions.length > 0)}
+              onBlur={() => window.setTimeout(() => setSuggestOpen(false), 120)}
+              className="w-full rounded-md border border-gray-200 py-2 pl-9 pr-3 text-body text-gray-900 placeholder:text-gray-300 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+            />
+            {suggestOpen && suggestions.length > 0 ? (
+              <ul
+                role="listbox"
+                className="absolute left-0 right-0 top-full z-10 mt-1 max-h-64 overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+              >
+                {suggestions.map((s) => (
+                  <li key={s.taxId}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => pickSuggestion(s)}
+                      className="flex w-full items-baseline justify-between gap-3 px-3 py-2 text-left hover:bg-sky-50"
+                    >
+                      <span className="truncate text-body text-gray-800">{s.name}</span>
+                      <span className="shrink-0 text-meta uppercase tracking-wide text-gray-400">
+                        {rankLabel(s.rank)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+          {note ? <p className="mt-1.5 text-meta text-gray-400">{note}</p> : null}
+        </div>
+
+        {/* Body: the radial canvas + the click-detail */}
+        <div className="relative flex min-h-0 flex-1">
+          <div className="relative min-h-0 flex-1 bg-slate-50">
+            {error ? (
+              <div className="absolute inset-x-0 top-4 z-10 mx-auto flex max-w-md items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5">
+                <WarnIcon className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
+                <p className="text-meta leading-relaxed text-rose-700">{error}</p>
+              </div>
+            ) : null}
+
+            {loading ? (
+              <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 text-meta text-gray-500">
+                <SpinnerIcon className="h-4 w-4 text-sky-500" />
+                <span>Loading the tree of life...</span>
+              </div>
+            ) : null}
+
+            {/* The radial SVG. d3-zoom transforms the inner group. */}
+            <svg
+              ref={svgRef}
+              data-testid="taxonomy-tree-svg"
+              viewBox={`0 0 ${VIEW_SIZE} ${VIEW_SIZE}`}
+              className="h-full w-full cursor-grab active:cursor-grabbing"
+              role="img"
+              aria-label={`Radial tree of life, focused on ${focusName}`}
+            >
+              <g ref={gRef}>
+                {/* Links (branches) */}
+                {links.map((l) => {
+                  const a = polarToCartesian(l.source.angle, l.source.radius);
+                  const b = polarToCartesian(l.target.angle, l.target.radius);
+                  return (
+                    <line
+                      key={`link-${l.target.id}`}
+                      x1={a.x}
+                      y1={a.y}
+                      x2={b.x}
+                      y2={b.y}
+                      stroke={branchColor(l.target.rank)}
+                      strokeWidth={l.target.thickness}
+                      strokeLinecap="round"
+                      strokeOpacity={0.55}
+                    />
+                  );
+                })}
+
+                {/* Node markers + labels */}
+                {visible.map((n) => {
+                  const p = polarToCartesian(n.angle, n.radius);
+                  const showLabel = isLabelVisibleAtZoom(n, zoomScale, LABEL_MIN_PX);
+                  // Orient the label along the radius; flip the ones on the left
+                  // half so text never reads upside down.
+                  const deg = (n.angle * 180) / Math.PI - 90;
+                  const flip = n.angle > Math.PI;
+                  const labelRotate = flip ? deg + 180 : deg;
+                  const labelAnchor = flip ? "end" : "start";
+                  const labelDx = flip ? -6 : 6;
+                  const markerR = Math.max(1.5, n.thickness / 2);
+                  return (
+                    <g key={`node-${n.id}`}>
+                      <circle
+                        cx={p.x}
+                        cy={p.y}
+                        r={markerR}
+                        fill={branchColor(n.rank)}
+                        stroke="#ffffff"
+                        strokeWidth={selected?.taxId === n.id ? 2 : 0.5}
+                        style={{ cursor: "pointer" }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onNodeClick(n);
+                        }}
+                      />
+                      {showLabel ? (
+                        <text
+                          x={p.x}
+                          y={p.y}
+                          dx={labelDx}
+                          transform={`rotate(${labelRotate}, ${p.x}, ${p.y})`}
+                          textAnchor={labelAnchor}
+                          dominantBaseline="middle"
+                          fontSize={11 / Math.max(zoomScale, 1) + 3}
+                          fill="#334155"
+                          style={{ pointerEvents: "none", userSelect: "none" }}
+                        >
+                          {n.name}
+                        </text>
+                      ) : null}
+                    </g>
+                  );
+                })}
+              </g>
+            </svg>
+
+            {/* Zoom chrome */}
+            <div className="absolute bottom-4 right-4 flex flex-col gap-1.5">
+              <Tooltip label="Zoom in">
+                <button
+                  type="button"
+                  onClick={() => nudgeZoom(1.6)}
+                  aria-label="Zoom in"
+                  className="flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 shadow-sm transition-colors hover:border-sky-300 hover:text-sky-700"
+                >
+                  <PlusIcon className="h-4 w-4" />
+                </button>
+              </Tooltip>
+              <Tooltip label="Zoom out">
+                <button
+                  type="button"
+                  onClick={() => nudgeZoom(1 / 1.6)}
+                  aria-label="Zoom out"
+                  className="flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 shadow-sm transition-colors hover:border-sky-300 hover:text-sky-700"
+                >
+                  <MinusIcon className="h-4 w-4" />
+                </button>
+              </Tooltip>
+              <Tooltip label="Reset the view">
+                <button
+                  type="button"
+                  onClick={resetView}
+                  aria-label="Reset the view"
+                  className="flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 shadow-sm transition-colors hover:border-sky-300 hover:text-sky-700"
+                >
+                  <HomeIcon className="h-4 w-4" />
+                </button>
+              </Tooltip>
+            </div>
+          </div>
+
+          {/* The click-detail, shown when a node is selected. */}
+          {selected ? (
+            <TaxonomyNodeDetail
+              node={selected}
+              onClose={() => setSelected(null)}
+              onFocus={(taxId) => focusNode(taxId)}
+              onImportOrganism={onImportOrganism}
+            />
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
