@@ -108,18 +108,18 @@ const SEED_ENTITY = {
   state: "Wisconsin",
   entityId: "R098462",
   formationDate: "2026-06-01",
-  registeredAgent:
-    "Northwest Registered Agent (changing to self via WI DFI Corp Form 13)",
-  docsFolder: "ResearchOS_LLC/",
+  ein: "REDACTED-EIN",
+  registeredAgent: "Grant R. Nickles (self; WI Form 13 filed, Northwest cancelled)",
+  bankLabel: "Mercury (business checking, in review 2026-06-05)",
+  docsFolder: "~/Documents/ResearchOS_LLC/",
   reservePct: 25,
 };
 
+// The open items as of 2026-06-05. The formation, EIN, operating agreement, and
+// registered-agent change are done, so they are not seeded as open tasks.
 const SEED_TASKS = [
-  "Sign the operating agreement (02_Governance/Operating_Agreement_NEEDS_SIGNATURE.pdf)",
-  "Get the federal EIN from the IRS and save the CP575 to 03_EIN_Federal_Tax/",
-  "File WI DFI Corp Form 13 to change the registered agent to yourself",
-  "Cancel the Northwest registered-agent service",
-  "Open the business bank account (needs the EIN + Articles)",
+  "Get Mercury approval, then fund the account via Schwab ACH (capital contribution)",
+  "Once Mercury is live, point Stripe payouts and the Neon / R2 bills at the LLC account",
   "Set the tax reserve percentage with an accountant",
 ];
 
@@ -130,11 +130,12 @@ async function seedDefaultsOnce(
   if (existing.length > 0) return; // already initialized, never re-seed
   await sql`
     INSERT INTO business_entity
-      (id, legal_name, state, entity_id, formation_date, registered_agent, docs_folder, reserve_pct)
+      (id, legal_name, state, entity_id, formation_date, ein, registered_agent,
+       bank_label, docs_folder, reserve_pct)
     VALUES
       (1, ${SEED_ENTITY.legalName}, ${SEED_ENTITY.state}, ${SEED_ENTITY.entityId},
-       ${SEED_ENTITY.formationDate}, ${SEED_ENTITY.registeredAgent},
-       ${SEED_ENTITY.docsFolder}, ${SEED_ENTITY.reservePct})
+       ${SEED_ENTITY.formationDate}, ${SEED_ENTITY.ein}, ${SEED_ENTITY.registeredAgent},
+       ${SEED_ENTITY.bankLabel}, ${SEED_ENTITY.docsFolder}, ${SEED_ENTITY.reservePct})
     ON CONFLICT (id) DO NOTHING
   `;
   for (let i = 0; i < SEED_TASKS.length; i += 1) {
