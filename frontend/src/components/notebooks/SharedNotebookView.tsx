@@ -197,12 +197,17 @@ export default function SharedNotebookView({ notebook }: SharedNotebookViewProps
           notebookId: notebook.id,
           title: isRunningLog ? "New Running Log" : "New Note",
           is_running_log: isRunningLog,
-          entries: [
-            {
-              title: isRunningLog ? `Entry - ${today}` : "Note",
-              date: today,
-            },
-          ],
+          // Running-log notes start with no entries so the user names the first
+          // entry via "Add Entry" like every later entry. Single notes keep
+          // their one implicit entry.
+          entries: isRunningLog
+            ? []
+            : [
+                {
+                  title: "Note",
+                  date: today,
+                },
+              ],
         });
         await refreshNotes();
         setSelectedNote(created);

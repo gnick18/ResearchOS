@@ -199,13 +199,18 @@ export default function NotesPanel({
       description: "",
       is_running_log: isRunningLog,
       is_shared: false,
-      entries: [
-        {
-          title: isRunningLog ? `Entry - ${today}` : "Note",
-          date: today,
-          content: "",
-        },
-      ],
+      // Running-log notes start with NO entries, so the user names the first
+      // entry through "Add Entry" exactly like every later entry (no special-
+      // cased auto-named first entry). Single notes keep their one implicit entry.
+      entries: isRunningLog
+        ? []
+        : [
+            {
+              title: "Note",
+              date: today,
+              content: "",
+            },
+          ],
     });
   }, [createNoteMutation]);
 
