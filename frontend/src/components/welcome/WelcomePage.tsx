@@ -36,7 +36,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import BeakerBot from "@/components/BeakerBot";
 import DemoLoop, { DemoLoopPlaceholder } from "@/components/welcome/DemoLoop";
-import { GoogleIcon, GitHubIcon } from "@/components/sharing/icons";
+import { GoogleIcon, GitHubIcon, LinkedInIcon } from "@/components/sharing/icons";
 
 /** The rainbow ribbon gradient (pastel), for the top ribbon and the soft bloom. */
 const RAINBOW =
@@ -57,10 +57,12 @@ const RAINBOW_TEXT =
 function SignInRow({
   onGoogle,
   onGitHub,
+  onLinkedIn,
   onLocal,
 }: {
   onGoogle: () => void;
   onGitHub: () => void;
+  onLinkedIn: () => void;
   onLocal: () => void;
   tone?: "dark" | "light";
 }) {
@@ -68,6 +70,8 @@ function SignInRow({
     "inline-flex items-center justify-center gap-2.5 rounded-xl border border-[#d7dde5] bg-white px-5 py-3 text-body font-semibold text-gray-800 shadow-[0_6px_18px_rgba(0,0,0,0.10)] transition-transform hover:scale-[1.02]";
   const githubCls =
     "inline-flex items-center justify-center gap-2.5 rounded-xl border border-[#181717] bg-[#181717] px-5 py-3 text-body font-semibold text-white transition-transform hover:scale-[1.02]";
+  const linkedInCls =
+    "inline-flex items-center justify-center gap-2.5 rounded-xl border border-[#0A66C2] bg-[#0A66C2] px-5 py-3 text-body font-semibold text-white transition-transform hover:scale-[1.02] hover:bg-[#004182]";
   const localCls =
     "text-meta font-medium text-sky-700 underline underline-offset-2 transition-colors hover:text-sky-800";
   return (
@@ -90,6 +94,15 @@ function SignInRow({
         >
           <GitHubIcon className="h-5 w-5 shrink-0" />
           Sign in with GitHub
+        </button>
+        <button
+          type="button"
+          onClick={onLinkedIn}
+          data-testid="welcome-preview-signin-linkedin"
+          className={linkedInCls}
+        >
+          <LinkedInIcon className="h-5 w-5 shrink-0" />
+          Sign in with LinkedIn
         </button>
       </div>
       <button
@@ -228,9 +241,10 @@ export default function WelcomePage() {
     };
   }, []);
 
-  // Two-path sign-in, plain router.push (no SessionProvider in this app).
+  // Three-path sign-in, plain router.push (no SessionProvider in this app).
   const handleGoogle = () => router.push("/?connect=1&signIn=google");
   const handleGitHub = () => router.push("/?connect=1&signIn=github");
+  const handleLinkedIn = () => router.push("/?connect=1&signIn=linkedin");
   const handleLocal = () => router.push("/?connect=1");
 
   return (
@@ -317,6 +331,7 @@ export default function WelcomePage() {
               <SignInRow
                 onGoogle={handleGoogle}
                 onGitHub={handleGitHub}
+                onLinkedIn={handleLinkedIn}
                 onLocal={handleLocal}
                 tone="light"
               />
@@ -772,6 +787,7 @@ export default function WelcomePage() {
               <SignInRow
                 onGoogle={handleGoogle}
                 onGitHub={handleGitHub}
+                onLinkedIn={handleLinkedIn}
                 onLocal={handleLocal}
                 tone="light"
               />

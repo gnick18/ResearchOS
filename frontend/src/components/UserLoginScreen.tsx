@@ -14,7 +14,7 @@ import {
   hasSharingIdentity,
 } from "@/lib/sharing/identity/sidecar";
 import { evaluateUnlockMatch } from "@/lib/sharing/identity/unlock-match";
-import { GoogleIcon, GitHubIcon } from "@/components/sharing/icons";
+import { GoogleIcon, GitHubIcon, LinkedInIcon } from "@/components/sharing/icons";
 import {
   createUserMetadataEntry,
   readAllUserMetadata,
@@ -579,7 +579,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // below reads the signed-in session email and matches it against that
   // user's claimed identity sidecar. This never touches the password path;
   // a user can still cancel and type their password instead.
-  const startUnlockOAuth = (provider: "google" | "github", username: string) => {
+  const startUnlockOAuth = (provider: "google" | "github" | "linkedin", username: string) => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
     url.searchParams.set(UNLOCK_QUERY_PARAM, username);
@@ -1379,6 +1379,15 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                           <GitHubIcon className="w-4 h-4" />
                           Sign in with GitHub
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => void signIn("linkedin", { callbackUrl: "/" })}
+                          disabled={loggingIn !== null}
+                          className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-[#0A66C2] bg-[#0A66C2] px-4 py-2.5 text-meta font-semibold text-white shadow-sm transition-all hover:bg-[#004182] disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <LinkedInIcon className="w-4 h-4" />
+                          Sign in with LinkedIn
+                        </button>
                       </div>
                     </div>
                   )}
@@ -1542,6 +1551,17 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                       >
                         <GitHubIcon className="w-4 h-4" />
                         Continue with GitHub
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          startUnlockOAuth("linkedin", passwordGate.username)
+                        }
+                        disabled={verifyingPassword}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-[#0A66C2] text-white hover:bg-[#004182] font-medium transition-colors disabled:opacity-50"
+                      >
+                        <LinkedInIcon className="w-4 h-4" />
+                        Continue with LinkedIn
                       </button>
                       <div className="flex items-center gap-3 pt-1">
                         <div className="h-px flex-1 bg-white/10" />

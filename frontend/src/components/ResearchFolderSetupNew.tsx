@@ -40,11 +40,16 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
   const pendingSignInProvider = searchParams?.get("signIn") as
     | "google"
     | "github"
+    | "linkedin"
     | null;
 
   const handleComplete = () => {
     onComplete();
-    if (pendingSignInProvider === "google" || pendingSignInProvider === "github") {
+    if (
+      pendingSignInProvider === "google" ||
+      pendingSignInProvider === "github" ||
+      pendingSignInProvider === "linkedin"
+    ) {
       void signIn(pendingSignInProvider, { callbackUrl: "/" });
     }
   };

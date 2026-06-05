@@ -484,19 +484,39 @@ function GitHubMark() {
   );
 }
 
-/** A Google + GitHub sign-in pair plus a "Continue without signing in" link,
- *  used at the hero and in the sharing section. The OAuth buttons thread the
- *  chosen provider to the connect screen via `?signIn=google/github`. The
- *  local-only link routes to `/?connect=1` with no signIn param. The framing
- *  makes clear the notebook itself needs no account. */
+/** The LinkedIn mark as an inline SVG. Uses the brand-standard blue fill
+ *  (#0A66C2) so it reads correctly on any background color — callers style
+ *  the button's background, not the mark itself. */
+function LinkedInMark() {
+  return (
+    <svg
+      className="h-5 w-5 shrink-0"
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      <path
+        fill="#ffffff"
+        d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z"
+      />
+    </svg>
+  );
+}
+
+/** A Google, GitHub, and LinkedIn sign-in row plus a "Continue without signing
+ *  in" link, used at the hero and in the sharing section. The OAuth buttons
+ *  thread the chosen provider to the connect screen via `?signIn=google/github/
+ *  linkedin`. The local-only link routes to `/?connect=1` with no signIn param.
+ *  The framing makes clear the notebook itself needs no account. */
 function SignInRow({
   onSignInGoogle,
   onSignInGitHub,
+  onSignInLinkedIn,
   onContinueLocal,
   tone = "light",
 }: {
   onSignInGoogle: () => void;
   onSignInGitHub: () => void;
+  onSignInLinkedIn: () => void;
   onContinueLocal: () => void;
   tone?: "light" | "dark";
 }) {
@@ -506,6 +526,8 @@ function SignInRow({
   const cls = isDark
     ? `${base} border-white/25 bg-white/10 text-white hover:bg-white/15`
     : `${base} border-gray-200 bg-white text-gray-800 shadow-sm hover:border-gray-300 hover:shadow`;
+  const linkedInCls =
+    `${base} border-[#0A66C2] bg-[#0A66C2] text-white hover:bg-[#004182]`;
   const localLinkCls = isDark
     ? "text-meta text-white/60 hover:text-white/90 underline underline-offset-2 transition-colors"
     : "text-meta text-gray-400 hover:text-gray-600 underline underline-offset-2 transition-colors";
@@ -529,6 +551,15 @@ function SignInRow({
         >
           <GitHubMark />
           Continue with GitHub
+        </button>
+        <button
+          type="button"
+          onClick={onSignInLinkedIn}
+          data-testid="landing-signin-linkedin"
+          className={linkedInCls}
+        >
+          <LinkedInMark />
+          Continue with LinkedIn
         </button>
       </div>
       <button
@@ -790,6 +821,11 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
     router.push("/?connect=1&signIn=github");
   };
 
+  const handleSignInLinkedIn = () => {
+    markLandingSeen();
+    router.push("/?connect=1&signIn=linkedin");
+  };
+
   return (
     <div
       data-testid="landing-page"
@@ -904,6 +940,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             <SignInRow
               onSignInGoogle={handleSignInGoogle}
               onSignInGitHub={handleSignInGitHub}
+              onSignInLinkedIn={handleSignInLinkedIn}
               onContinueLocal={handleGetStarted}
               tone="light"
             />
@@ -1282,6 +1319,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             <SignInRow
               onSignInGoogle={handleSignInGoogle}
               onSignInGitHub={handleSignInGitHub}
+              onSignInLinkedIn={handleSignInLinkedIn}
               onContinueLocal={handleGetStarted}
               tone="light"
             />
