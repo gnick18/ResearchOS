@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-06-05T00:32:54.161Z",
+  "generatedAt": "2026-06-05T18:33:42.451Z",
   "appVersion": "3.5.0",
-  "dependencyCount": 49,
+  "dependencyCount": 50,
   "licenseCounts": {
     "Apache-2.0": 4,
-    "MIT": 41,
+    "MIT": 42,
     "BSD-3-Clause": 1,
     "MPL-2.0": 1,
     "(MIT OR GPL-3.0-or-later)": 1,
@@ -385,6 +385,12 @@
       "version": "3.0.3",
       "license": "MIT",
       "repo": "https://github.com/jorenbroekema/expr-eval"
+    },
+    {
+      "name": "fflate",
+      "version": "0.8.3",
+      "license": "MIT",
+      "repo": "https://github.com/101arrowz/fflate"
     },
     {
       "name": "frappe-gantt",

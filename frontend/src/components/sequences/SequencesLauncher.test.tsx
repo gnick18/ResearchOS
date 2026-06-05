@@ -21,6 +21,7 @@ describe("SequencesLauncher", () => {
         onAssemble={noop}
         onAlign={noop}
         onImport={noop}
+        onNcbi={noop}
       />,
     );
     expect(
@@ -35,6 +36,24 @@ describe("SequencesLauncher", () => {
     expect(
       screen.getByRole("button", { name: /Import files/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Download from NCBI/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("calls onNcbi when the Download from NCBI card is clicked", () => {
+    const onNcbi = vi.fn();
+    render(
+      <SequencesLauncher
+        onNew={noop}
+        onAssemble={noop}
+        onAlign={noop}
+        onImport={noop}
+        onNcbi={onNcbi}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Download from NCBI/i }));
+    expect(onNcbi).toHaveBeenCalledTimes(1);
   });
 
   it("calls onNew when the New sequence card is clicked", () => {
@@ -45,6 +64,7 @@ describe("SequencesLauncher", () => {
         onAssemble={noop}
         onAlign={noop}
         onImport={noop}
+        onNcbi={noop}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /New sequence/i }));
@@ -58,6 +78,7 @@ describe("SequencesLauncher", () => {
         onAssemble={noop}
         onAlign={noop}
         onImport={noop}
+        onNcbi={noop}
       />,
     );
     // The hints are NOT buttons (informational only).

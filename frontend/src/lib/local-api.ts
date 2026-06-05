@@ -2346,6 +2346,13 @@ export const sequencesApi = {
       project_ids: data.project_ids ?? [],
       added_at: new Date().toISOString(),
       seq_type: seqType,
+      // NCBI Datasets provenance, set only when the create came from the
+      // "Download from NCBI" import (undefined otherwise, never stamped on a
+      // native / file create). Sidecar-only, additive, no migration.
+      ...(data.source ? { source: data.source } : {}),
+      ...(data.ncbi_accession ? { ncbi_accession: data.ncbi_accession } : {}),
+      ...(data.organism ? { organism: data.organism } : {}),
+      ...(data.tax_id ? { tax_id: data.tax_id } : {}),
     };
     const { meta: fullMeta, genbank } = await sequenceStore.create(
       data.genbank,

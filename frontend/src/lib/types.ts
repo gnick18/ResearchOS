@@ -2579,6 +2579,16 @@ export interface SequenceMeta {
   received_from_fingerprint?: string; // sender key fingerprint
   received_at?: string;               // ISO 8601 import timestamp
 
+  // NCBI Datasets provenance. Additive + optional, stamped ONLY on a sequence
+  // that arrived through the "Download from NCBI" import (ncbi-import.ts). A
+  // native / file-imported sequence has none of these and the NCBI badge
+  // self-hides. Same additive, sidecar-only, no-migration pattern as
+  // received_from above (a record simply lacks them).
+  source?: "ncbi-datasets";  // set only on an NCBI-downloaded sequence
+  ncbi_accession?: string;   // GCF_..., a gene id, etc.
+  organism?: string;         // source organism name from the dataset report
+  tax_id?: string;           // NCBI taxonomy id
+
   // restore audit bot (2026-06-04): deleted/restored provenance. Additive +
   // optional, stamped ONLY when this sequence was restored from Trash (see
   // trash-reader.ts restoreSequenceFromTrash). A sequence that was never trashed
@@ -2624,6 +2634,14 @@ export interface SequenceRecord {
   received_from_fingerprint?: string;
   received_at?: string;
 
+  // NCBI Datasets provenance, carried through from the sidecar so the library
+  // row + viewer can render the "From NCBI" badge. Absent on a native / file-
+  // imported sequence (the badge self-hides).
+  source?: "ncbi-datasets";
+  ncbi_accession?: string;
+  organism?: string;
+  tax_id?: string;
+
   // restore audit bot: carried through from the sidecar so the library row +
   // viewer header can render the RestoredBadge. Absent on a never-trashed
   // sequence (the badge self-hides).
@@ -2666,6 +2684,13 @@ export interface SequenceCreate {
   genbank: string;
   project_ids?: string[];
   seq_type?: SeqType;
+  // NCBI Datasets provenance, set only by the "Download from NCBI" import so the
+  // created sequence's sidecar carries the source / accession / organism. Absent
+  // for a native or file-imported create (the fields stay undefined).
+  source?: "ncbi-datasets";
+  ncbi_accession?: string;
+  organism?: string;
+  tax_id?: string;
 }
 
 /** Patch shape for `sequencesApi.update`. Any subset; `genbank` replaces the

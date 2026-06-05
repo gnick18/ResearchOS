@@ -81,6 +81,18 @@ function ImportIcon(props: IconProps) {
   );
 }
 
+/** Cloud with a downward arrow for "Download from NCBI". Matches the header
+ *  NcbiCloudIcon. */
+function NcbiIcon(props: IconProps) {
+  return (
+    <svg {...baseSvg(props)}>
+      <path d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9" />
+      <polyline points="8 17 12 21 16 17" />
+      <line x1="12" y1="12" x2="12" y2="21" />
+    </svg>
+  );
+}
+
 /** Primer / Tm glyph: a short primer annealed to a template strand. */
 function PrimerIcon(props: IconProps) {
   return (
@@ -172,6 +184,8 @@ export interface SequencesLauncherProps {
   onAlign: () => void;
   /** Start the import flow (the header Import action's handler). */
   onImport: () => void;
+  /** Open the "Download from NCBI" dialog (the header NCBI action's handler). */
+  onNcbi: () => void;
 }
 
 export default function SequencesLauncher({
@@ -179,6 +193,7 @@ export default function SequencesLauncher({
   onAssemble,
   onAlign,
   onImport,
+  onNcbi,
 }: SequencesLauncherProps) {
   const actions: ActionCard[] = [
     {
@@ -208,6 +223,13 @@ export default function SequencesLauncher({
       description: "Bring in GenBank, FASTA, or a SnapGene collection.",
       Icon: ImportIcon,
       onClick: onImport,
+    },
+    {
+      key: "ncbi",
+      title: "Download from NCBI",
+      description: "Pull a gene or genome from NCBI straight into your collection.",
+      Icon: NcbiIcon,
+      onClick: onNcbi,
     },
   ];
 

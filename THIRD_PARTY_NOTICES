@@ -109,6 +109,10 @@ expr-eval-fork@3.0.3
   License: MIT
   Source:  https://github.com/jorenbroekema/expr-eval
 
+fflate@0.8.3
+  License: MIT
+  Source:  https://github.com/101arrowz/fflate
+
 frappe-gantt@1.2.2
   License: MIT
   Source:  https://github.com/frappe/gantt

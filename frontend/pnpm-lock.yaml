@@ -80,6 +80,9 @@ importers:
       expr-eval-fork:
         specifier: ^3.0.3
         version: 3.0.3
+      fflate:
+        specifier: 0.8.3
+        version: 0.8.3
       frappe-gantt:
         specifier: ^1.0.4
         version: 1.2.2

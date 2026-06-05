@@ -79,6 +79,12 @@ export function genbankToDetail(
     received_from: meta.received_from,
     received_from_fingerprint: meta.received_from_fingerprint,
     received_at: meta.received_at,
+    // NCBI Datasets provenance, carried from the sidecar (undefined on a native
+    // sequence so the "From NCBI" badge self-hides).
+    source: meta.source,
+    ncbi_accession: meta.ncbi_accession,
+    organism: meta.organism,
+    tax_id: meta.tax_id,
     // restore audit bot: deleted/restored provenance, carried from the sidecar
     // (undefined on a never-trashed sequence so the RestoredBadge self-hides).
     _restore_audit: meta._restore_audit,
@@ -115,6 +121,10 @@ export function genbankToRecord(
     received_from: meta.received_from,
     received_from_fingerprint: meta.received_from_fingerprint,
     received_at: meta.received_at,
+    source: meta.source,
+    ncbi_accession: meta.ncbi_accession,
+    organism: meta.organism,
+    tax_id: meta.tax_id,
     _restore_audit: meta._restore_audit,
   };
 }

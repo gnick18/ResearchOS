@@ -23,6 +23,7 @@ import ImportProgressOverlay, {
 } from "@/components/sequences/ImportProgressOverlay";
 import CloningWorkspace from "@/components/sequences/CloningWorkspace";
 import CompareSequencesDialog from "@/components/sequences/CompareSequencesDialog";
+import NcbiDownloadDialog from "@/components/sequences/NcbiDownloadDialog";
 import SequencesLauncher from "@/components/sequences/SequencesLauncher";
 import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
 import BulkSequenceSendDialog from "@/components/sharing/BulkSequenceSendDialog";
@@ -36,6 +37,7 @@ import {
   buildNewSequence,
   type ImportedSequence,
 } from "@/lib/sequences/import";
+import type { NcbiImportedSequence } from "@/lib/sequences/ncbi-import";
 import {
   IMPORT_ACCEPT_ATTR,
   partitionImportableFiles,
@@ -179,6 +181,18 @@ function AlignIcon({ className }: { className?: string }) {
   );
 }
 
+/** Download-from-NCBI glyph: a cloud with a downward arrow (pull a record from a
+ *  remote database into the local collection). Inline SVG, stroke-only. */
+function NcbiCloudIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9" />
+      <polyline points="8 17 12 21 16 17" />
+      <line x1="12" y1="12" x2="12" y2="21" />
+    </svg>
+  );
+}
+
 /** Downward chevron for the Import split-menu. Inline SVG (no emojis). */
 function ChevronDownIcon({ className }: { className?: string }) {
   return (
@@ -280,6 +294,8 @@ export default function SequencesPage() {
   const [newOpen, setNewOpen] = useState(false);
   const [assembleOpen, setAssembleOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
+  // "Download from NCBI" dialog (gene / genome / accession -> the collection).
+  const [ncbiOpen, setNcbiOpen] = useState(false);
   // Cross-boundary "Share outside this folder" dialog for the open sequence.
   const [shareOpen, setShareOpen] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -621,6 +637,41 @@ export default function SequencesPage() {
       return proj ? proj.name : "Unfiled";
     },
     [projects],
+  );
+
+  // NCBI download flow: the dialog hands back provenance-tagged sequences. Unlike
+  // the file-import persistNew path, each create carries the NCBI provenance
+  // (source / accession / organism / tax id) onto the sidecar so the library can
+  // show a "From NCBI" badge and the accession stays linkable. The new
+  // sequence(s) land in the active collection and the first one opens.
+  const handleNcbiImported = useCallback(
+    async (imports: NcbiImportedSequence[]) => {
+      if (imports.length === 0) return;
+      let firstId: number | null = null;
+      for (const imp of imports) {
+        const rec = await sequencesApi.create({
+          display_name: imp.display_name,
+          genbank: imp.genbank,
+          seq_type: imp.seq_type,
+          project_ids: activeProjectIds,
+          source: imp.provenance.source,
+          ncbi_accession: imp.provenance.ncbi_accession,
+          organism: imp.provenance.organism,
+          tax_id: imp.provenance.tax_id,
+        });
+        if (rec && firstId == null) firstId = rec.id;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["sequences"] });
+      if (firstId != null) setSelectedId(firstId);
+      const noun = imports.length === 1 ? "sequence" : `${imports.length} sequences`;
+      setStatus({
+        text: `Downloaded ${noun} from NCBI into ${destinationName(
+          activeProjectIds[0] ?? null,
+        )}.`,
+        tone: "ok",
+      });
+    },
+    [activeProjectIds, queryClient, destinationName],
   );
 
   // Persist gathered imports into a chosen target and report a destination-named
@@ -1055,6 +1106,18 @@ export default function SequencesPage() {
                     </div>
                   ) : null}
                 </div>
+                {/* Download from NCBI: pull a gene / genome / accession straight
+                    from the NCBI Datasets API into the active collection. */}
+                <Tooltip label="Download a gene or genome from NCBI straight into your collection.">
+                  <button
+                    type="button"
+                    onClick={() => setNcbiOpen(true)}
+                    className="flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-meta font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                  >
+                    <NcbiCloudIcon className="h-3.5 w-3.5" />
+                    Download from NCBI
+                  </button>
+                </Tooltip>
               </div>
             </div>
             {status ? (
@@ -1392,6 +1455,7 @@ export default function SequencesPage() {
               onAssemble={() => setAssembleOpen(true)}
               onAlign={() => setCompareOpen(true)}
               onImport={() => fileInputRef.current?.click()}
+              onNcbi={() => setNcbiOpen(true)}
             />
           )}
         </section>
@@ -1415,6 +1479,15 @@ export default function SequencesPage() {
         open={compareOpen}
         onClose={() => setCompareOpen(false)}
         defaultAId={selectedId}
+      />
+
+      {/* Download from NCBI: gene by symbol + organism, genome by accession, or
+          any accession -> preview (caps enforced) -> download -> the parsed
+          sequence(s) land in the active collection via handleNcbiImported. */}
+      <NcbiDownloadDialog
+        open={ncbiOpen}
+        onClose={() => setNcbiOpen(false)}
+        onImported={handleNcbiImported}
       />
 
       {/* Unified Share dialog. Sequences have no lab-ACL model, so the dialog
