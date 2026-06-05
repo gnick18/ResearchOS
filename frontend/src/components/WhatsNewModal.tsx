@@ -475,7 +475,7 @@ export default function WhatsNewModal({
                 type="button"
                 onClick={onDismiss}
                 data-testid="whats-new-got-it"
-                className="w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-700 text-white text-body font-medium rounded-lg transition-colors"
+                className="btn-brand w-full py-2.5 px-4 text-body font-medium rounded-lg"
               >
                 Got it
               </button>
