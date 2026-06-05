@@ -302,8 +302,8 @@ export default function WelcomePage() {
 
             <p className="mt-5 max-w-[56ch] text-title leading-relaxed text-[#475569] md:text-lg">
               Plan experiments, run real protocols, design plasmids, and write it
-              all up in one workspace. It is free and local-first, so your data
-              stays a plain folder on your own machine.
+              all up in one workspace. Free to use, and everything you write
+              stays on your own machine.
             </p>
 
             <div className="mt-8">
