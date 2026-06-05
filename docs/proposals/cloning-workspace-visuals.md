@@ -287,7 +287,13 @@ defer. Decide after the core + ribbon + specials are live.
    four heroes into one if scoped tightly). The only optional engine work is
    restriction internal-cut positions, gated on whether we want the internal-site
    warning in v1.
-3. Phase C. Optional pick-step tuning (per-chemistry pick options).
+3. Phase C (DONE). Per-chemistry pick-step readouts: Restriction + Golden Gate
+   show a live "sites per fragment" count for the selected enzyme(s); Gateway
+   auto-detects and labels each substrate (attL entry clone / attR destination /
+   attB insert / attP donor) and hints when the picked pair does not match the
+   BP/LR reaction. Display-only, on `digestEnzymes` + `locateAttSites`. Demo
+   substrates for Golden Gate (BsaI cassette pair) and Gateway (attL/attR pair)
+   were added to the fixture so all four review heroes are exercisable in /demo.
 4. Deferred. The assemble animation + pick-step live ring preview.
 
 Verification per phase. tsc + vitest on the pure pieces (adapter, fragmentSpans,
