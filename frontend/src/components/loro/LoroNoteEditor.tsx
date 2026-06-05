@@ -1,53 +1,138 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EditorView } from "@codemirror/view";
-import { LoroExtensions } from "loro-codemirror";
-import { EphemeralStore, LoroDoc, UndoManager } from "loro-crdt";
+import { openNote, type NoteHandle } from "@/lib/loro/store";
+import type { Note } from "@/lib/types";
 
 interface LoroNoteEditorProps {
-  initialContent: string;
-  onChange: (text: string) => void;
+  note: Note;
+  owner: string;
+  entryIndex: number;
+  onChange: (content: string) => void;
   readOnly?: boolean;
 }
 
-// LoroNoteEditor is a flag-gated validation component that proves
-// LoroExtensions mounts and destroys cleanly under React 19 StrictMode.
-// It is NOT wired to persistence -- onChange fires into the existing
-// NoteDetailPopup save flow just like LiveMarkdownEditor does.
+/**
+ * LoroNoteEditor: flag-gated note editor backed by the Loro CRDT store.
+ *
+ * Lifecycle contract (React 19 StrictMode-safe):
+ *   - Mount (or note.id/owner change): await openNote() to get the NoteHandle.
+ *     While async, render an empty container (ready = false). Once ready,
+ *     build an EditorView with handle.bindEditorExtension(entryIndex).
+ *   - Entry switch (entryIndex change): tear down the current EditorView and
+ *     rebuild with the new index's accessor. The SAME handle/doc is reused;
+ *     we do NOT reopen the note. This matches the existing LiveMarkdownEditor
+ *     behavior which already fully remounts on entry switch.
+ *   - Unmount: view.destroy() then handle.close() (which flushes the last
+ *     commit). React 19 StrictMode invokes mount -> unmount -> remount in
+ *     development; the cleanup function must be idempotent. We guard with
+ *     the `active` flag and null-check viewRef before destroying.
+ *
+ * Why separate effects for open-note vs. rebind-on-entry:
+ *   The first effect runs when the note identity changes (new doc needed). The
+ *   second effect runs on entryIndex changes against the already-open handle.
+ *   Combining them would close+reopen the note on every entry switch, losing
+ *   the single-doc-per-note cache invariant.
+ */
 export default function LoroNoteEditor({
-  initialContent,
+  note,
+  owner,
+  entryIndex,
   onChange,
   readOnly = false,
 }: LoroNoteEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  // viewRef holds the EditorView so cleanup can destroy it across the
-  // StrictMode double-invocation cycle (mount -> unmount -> remount).
+
+  // The EditorView is held in a ref (not state) so React's render cycle does
+  // not interfere with the CodeMirror lifecycle. We destroy and recreate it
+  // imperatively on entryIndex change.
   const viewRef = useRef<EditorView | null>(null);
 
+  // The NoteHandle comes from the async openNote call. We hold it in a ref so
+  // the entry-switch effect (second useEffect) can access it synchronously
+  // without adding it to the dependency array (which would re-open the note).
+  const handleRef = useRef<NoteHandle | null>(null);
+
+  // `ready` drives the rendering decision: hide the container until the async
+  // open completes so we never try to attach a CodeMirror view to a null
+  // container. The state setter also triggers the second effect to build the
+  // EditorView once the handle is available.
+  const [ready, setReady] = useState(false);
+
+  // Effect 1: open the note (or close + reopen when note identity changes).
+  // Dep array: note.id + owner -- the two things that identify which Loro doc
+  // to open. entryIndex is intentionally excluded; it is handled by Effect 2.
   useEffect(() => {
-    if (!containerRef.current) return;
+    // `active` guards the StrictMode double-invoke cleanup: if this effect's
+    // cleanup fires before openNote resolves (React unmounts the component
+    // in dev StrictMode between the double mount), we skip updating state.
+    let active = true;
 
-    const doc = new LoroDoc();
-    const ephemeral = new EphemeralStore();
-    const undoManager = new UndoManager(doc, {});
+    setReady(false);
 
-    // Seed the CRDT text. LoroExtensions defaults to the "codemirror" key,
-    // so we seed the same container it will bind to.
-    if (initialContent) {
-      doc.getText("codemirror").insert(0, initialContent);
+    openNote(note, owner)
+      .then((handle) => {
+        if (!active) return;
+        handleRef.current = handle;
+        setReady(true);
+      })
+      .catch((err) => {
+        // In production, a failed open leaves the editor blank (empty container).
+        // Log and do not surface to the user; the legacy save path is still active.
+        console.error("[LoroNoteEditor] openNote failed:", err);
+      });
+
+    return () => {
+      active = false;
+      // Destroy the current view (if any) synchronously on unmount.
+      // view.destroy() is idempotent; safe to call more than once.
+      if (viewRef.current) {
+        viewRef.current.destroy();
+        viewRef.current = null;
+      }
+      // Flush pending commit and release the handle. This is async; we fire
+      // and forget on unmount because we cannot await inside a cleanup
+      // function. The trailing-edge debounce (~600 ms) means the handle
+      // typically has a pending write; flush() drains it before dropping the
+      // doc from the cache.
+      if (handleRef.current) {
+        void handleRef.current.close();
+        handleRef.current = null;
+      }
+      setReady(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note.id, owner]);
+
+  // Effect 2: build (or rebuild) the EditorView when the handle is ready OR
+  // when the active entry changes.
+  //
+  // Why rebuild on entryIndex: LoroExtensions binds to a SPECIFIC LoroText
+  // container via the getTextFromDoc accessor. There is no runtime rebind API;
+  // a new EditorView is required for a new entry. We tear down the old view
+  // and mount a fresh one into the same container div.
+  useEffect(() => {
+    if (!ready || !handleRef.current || !containerRef.current) return;
+
+    const handle = handleRef.current;
+
+    // Destroy the previous view if one exists (entry switch path).
+    if (viewRef.current) {
+      viewRef.current.destroy();
+      viewRef.current = null;
     }
 
     const extensions = [
-      LoroExtensions(
-        doc,
-        { ephemeral, user: { name: "local", colorClassName: "user-local" } },
-        undoManager,
-      ),
+      handle.bindEditorExtension(entryIndex),
       EditorView.updateListener.of((update) => {
-        if (update.docChanged) {
-          onChange(update.state.doc.toString());
-        }
+        if (!update.docChanged) return;
+        // (a) Debounced persist through the handle (handle owns the timer).
+        void handle.commit(note);
+        // (b) Fire onChange so NoteDetailPopup's React state stays in sync
+        //     with the CRDT content (drives the "unsaved changes" indicator
+        //     and the legacy save path, which may still fire on Cmd+S).
+        onChange(update.state.doc.toString());
       }),
     ];
 
@@ -63,11 +148,24 @@ export default function LoroNoteEditor({
     viewRef.current = view;
 
     return () => {
+      // Cleanup on entryIndex change or unmount from this effect.
+      // Do NOT call handle.close() here -- that belongs to Effect 1 (note
+      // identity), not Effect 2 (entry switch). Closing on every entry switch
+      // would evict the cached handle and lose the in-memory doc.
       view.destroy();
       viewRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // `note` is included so handle.commit(note) always has the latest base.
+    // `readOnly` is included so the EditorView.editable extension is correct.
+  }, [ready, entryIndex, note, readOnly, onChange]);
 
-  return <div ref={containerRef} className="w-full h-full min-h-[200px]" />;
+  return (
+    <div
+      ref={containerRef}
+      className="w-full h-full min-h-[200px]"
+      // Hide the container while the handle is loading to avoid a flash of
+      // unstyled CodeMirror chrome before the content is ready.
+      style={ready ? undefined : { visibility: "hidden" }}
+    />
+  );
 }

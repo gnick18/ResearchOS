@@ -1589,8 +1589,15 @@ export default function NoteDetailPopup({
             ) : note.is_running_log ? (
               currentEntry ? (
                 LORO_PILOT_ENABLED ? (
+                  // Note: when the flag is ON, the Loro handle owns disk
+                  // persistence via persistNote. The legacy explicit-save path
+                  // (saveEntryContent) may still fire on Cmd+S and write the
+                  // same projected content again. Full save-path unification is
+                  // a later follow-up; default-off keeps production unaffected.
                   <LoroNoteEditor
-                    initialContent={currentEntry.content}
+                    note={note}
+                    owner={note.username || currentUser || ""}
+                    entryIndex={entries.findIndex((e) => e.id === activeTab)}
                     onChange={updateEntryContent}
                     readOnly={readOnly}
                   />
@@ -1629,8 +1636,15 @@ export default function NoteDetailPopup({
               // Single note - use the first (and only) entry
               entries[0] && (
                 LORO_PILOT_ENABLED ? (
+                  // Note: when the flag is ON, the Loro handle owns disk
+                  // persistence via persistNote. The legacy explicit-save path
+                  // may still fire a redundant write of the same projected
+                  // content. Full save-path unification is a later follow-up;
+                  // default-off keeps production unaffected.
                   <LoroNoteEditor
-                    initialContent={entries[0].content}
+                    note={note}
+                    owner={note.username || currentUser || ""}
+                    entryIndex={0}
                     onChange={(content) => {
                       if (entries[0]) {
                         updateEntryContent(content);
