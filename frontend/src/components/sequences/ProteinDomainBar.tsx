@@ -65,7 +65,7 @@ function tooltipBody(b: DomainBlock, pending: boolean): string {
   if (b.evalue !== undefined) stats.push(`E ${b.evalue.toExponential(1)}`);
   if (b.score !== undefined) stats.push(`bit score ${b.score}`);
   if (stats.length) lines.push(stats.join(" · "));
-  if (pending) lines.push("Pending — accept to keep this domain.");
+  if (pending) lines.push("Pending. Accept to keep this domain.");
   return lines.join("\n");
 }
 
