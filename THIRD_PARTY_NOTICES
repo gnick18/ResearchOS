@@ -129,6 +129,14 @@ konva@10.3.0
   License: MIT
   Source:  https://github.com/konvajs/konva
 
+loro-codemirror@0.3.3
+  License: MIT
+  Source:  https://github.com/loro-dev/loro-codemirror
+
+loro-crdt@1.12.3
+  License: MIT
+  Source:  https://github.com/loro-dev/loro
+
 marked@18.0.4
   License: MIT
   Source:  https://github.com/markedjs/marked

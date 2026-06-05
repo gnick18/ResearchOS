@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-06-04T06:29:57.336Z",
+  "generatedAt": "2026-06-05T00:32:54.161Z",
   "appVersion": "3.5.0",
-  "dependencyCount": 47,
+  "dependencyCount": 49,
   "licenseCounts": {
     "Apache-2.0": 4,
-    "MIT": 39,
+    "MIT": 41,
     "BSD-3-Clause": 1,
     "MPL-2.0": 1,
     "(MIT OR GPL-3.0-or-later)": 1,
@@ -415,6 +415,18 @@
       "version": "10.3.0",
       "license": "MIT",
       "repo": "https://github.com/konvajs/konva"
+    },
+    {
+      "name": "loro-codemirror",
+      "version": "0.3.3",
+      "license": "MIT",
+      "repo": "https://github.com/loro-dev/loro-codemirror"
+    },
+    {
+      "name": "loro-crdt",
+      "version": "1.12.3",
+      "license": "MIT",
+      "repo": "https://github.com/loro-dev/loro"
     },
     {
       "name": "marked",
