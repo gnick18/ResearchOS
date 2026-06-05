@@ -1474,24 +1474,15 @@ export default function NoteDetailPopup({
             </div>
           )}
 
-          {/* VCP R3 attribution stamps (VCP R3 attribution stamps,
-              2026-05-26): popup stamps row. Renders "Created by X on D"
-              + "Last edited by Y on D" with PI badge resolution. Self-
-              hides on pre-R3 notes that lack `last_edited_by` /
-              `last_edited_at`. The note's creator stamp is `username`
-              (per OQ5), not `created_by`. */}
-          <div className="mt-3">
-            <StampsRow
-              createdBy={note.username}
-              createdAt={note.created_at}
-              lastEditedBy={note.last_edited_by}
-              lastEditedAt={note.last_edited_at}
-            />
-          </div>
-
-          {/* Unified Share + Add File actions */}
-          {!readOnly && (
-            <div className="mt-3 flex items-center gap-2">
+          {/* Unified Share + Add File actions. The attribution stamps
+              (VCP R3, 2026-05-26: "Created by X on D" / "Last edited by Y
+              on D", PI-badge resolved, self-hiding on pre-R3 notes) dock to
+              the right of this same row so the header stays thin. Read-only
+              notes have no actions, so they show the stamps on their own
+              line. The creator stamp is `username` (per OQ5), not
+              `created_by`. */}
+          {!readOnly ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               {/* One Share button opens the two-tab UnifiedShareDialog (lab ACL
                   + cross-boundary send), replacing the old Private / Shared
                   toggle AND the separate "Share outside this folder" button. */}
@@ -1550,6 +1541,25 @@ export default function NoteDetailPopup({
                   Saving...
                 </span>
               )}
+
+              {/* Attribution stamps, docked right on the actions row. */}
+              <div className="ml-auto">
+                <StampsRow
+                  createdBy={note.username}
+                  createdAt={note.created_at}
+                  lastEditedBy={note.last_edited_by}
+                  lastEditedAt={note.last_edited_at}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3">
+              <StampsRow
+                createdBy={note.username}
+                createdAt={note.created_at}
+                lastEditedBy={note.last_edited_by}
+                lastEditedAt={note.last_edited_at}
+              />
             </div>
           )}
         </div>

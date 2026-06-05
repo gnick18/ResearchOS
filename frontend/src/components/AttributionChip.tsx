@@ -207,19 +207,24 @@ export function StampsRow({
   if (!showCreated && !showEdited) return null;
 
   return (
-    <div className="flex flex-col gap-0.5 text-meta text-stone-500 dark:text-stone-400">
+    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-meta text-stone-500 dark:text-stone-400">
       {showCreated && (
         <Tooltip label={createdAt as string}>
-          <div className="inline-flex items-center gap-1">
-            <span>Created by {created.label} on {formatFullDate(createdAt as string)}</span>
-          </div>
+          <span className="inline-flex items-center gap-1">
+            Created by {created.label} on {formatFullDate(createdAt as string)}
+          </span>
         </Tooltip>
+      )}
+      {showCreated && showEdited && (
+        <span aria-hidden="true" className="text-stone-300 dark:text-stone-600">
+          ·
+        </span>
       )}
       {showEdited && (
         <Tooltip label={lastEditedAt as string}>
-          <div className="inline-flex items-center gap-1">
-            <span>Last edited by {edited.label} on {formatFullDate(lastEditedAt as string)}</span>
-          </div>
+          <span className="inline-flex items-center gap-1">
+            Last edited by {edited.label} on {formatFullDate(lastEditedAt as string)}
+          </span>
         </Tooltip>
       )}
     </div>
