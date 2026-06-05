@@ -91,8 +91,11 @@ const ListIcon = (
 );
 
 const SequenceIcon = (
+  /* Circular plasmid ring with a small linearisation notch — instantly reads
+     as "sequence / DNA" at small sizes, no ambiguous squiggles. */
   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7c4 0 4 10 8 10s4-10 8-10M4 17c4 0 4-10 8-10" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+      d="M12 3a9 9 0 1 0 6.364 2.636" />
   </svg>
 );
 
