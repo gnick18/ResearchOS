@@ -29,29 +29,48 @@ export default function SharingClaimResume() {
   const { currentUser } = useFileSystem();
   const { refresh } = useSharingIdentity();
 
-  // Read ?sharingClaim client-side via an effect so SSR and the first client
-  // render agree (no hydration mismatch). We default false on the server and
-  // flip true after mount once we have read the real URL.
+  // Two URL flags both open this global wizard, read client-side via an effect
+  // so SSR and the first client render agree (no hydration mismatch):
+  //   ?sharingClaim=1  the OAuth-return resume (the wizard's own effect reads
+  //                    the session email and jumps to the generate step).
+  //   ?sharingEmail=1  the email-OTP path, opened straight on the email step.
+  //                    Used by the welcome-page "verify with email" link so the
+  //                    wizard lives here (a durable global surface) rather than
+  //                    inside the folder-setup screen, which unmounts the moment
+  //                    an existing account is selected.
   const [claimPresent, setClaimPresent] = useState(false);
+  const [emailPresent, setEmailPresent] = useState(false);
   // Local open-state so onClose / onComplete can unmount the wizard even while
-  // the URL param is still being stripped by the wizard's own success path.
+  // the URL param is still being stripped.
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const present = params.has("sharingClaim");
-    setClaimPresent(present);
-    if (present) setOpen(true);
+    const url = new URL(window.location.href);
+    const claim = url.searchParams.has("sharingClaim");
+    const email = url.searchParams.has("sharingEmail");
+    setClaimPresent(claim);
+    setEmailPresent(email);
+    if (claim || email) setOpen(true);
+    // Strip the email flag immediately so a manual refresh does not re-open the
+    // wizard. The claim flag is stripped by the wizard's own success path.
+    if (email) {
+      url.searchParams.delete("sharingEmail");
+      window.history.replaceState(
+        null,
+        "",
+        url.pathname + url.search + url.hash,
+      );
+    }
   }, []);
 
   // Never fire during screenshots / demo recordings. The wizard would publish
   // real keys and overlay a modal on top of fixture captures otherwise.
   if (isDemoOrWikiCapture()) return null;
-  if (!claimPresent || !open) return null;
+  if ((!claimPresent && !emailPresent) || !open) return null;
   // The wizard claims the identity for the connected folder-local user, so we
-  // need one before we can mount. If the resume flag is present but no folder
-  // is connected yet, we wait (this effect re-runs as currentUser resolves).
+  // need one before we can mount. If a flag is present but no folder is
+  // connected yet, we wait (this re-renders as currentUser resolves).
   if (!currentUser) return null;
 
   const close = () => setOpen(false);
@@ -59,6 +78,9 @@ export default function SharingClaimResume() {
   return (
     <SharingSetupWizard
       username={currentUser}
+      // The claim path lets the wizard's resume effect drive (choose, then
+      // generate). The email path opens straight on email entry.
+      initialStep={!claimPresent && emailPresent ? "email-enter" : "choose"}
       onComplete={() => {
         // Re-read the identity so any badge / status surface picks up the
         // freshly published keys, then unmount.

@@ -15,7 +15,6 @@ import PickUserBeforeImportModal, {
 import UserAvatar from "@/components/UserAvatar";
 import BeakerBot from "@/components/BeakerBot";
 import PickerWalkthroughModal from "@/components/picker-walkthrough/PickerWalkthroughModal";
-import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
 import RiseCredentialsStamp from "@/components/RiseCredentialsStamp";
 import VersionBadge from "@/components/VersionBadge";
 import BetaNotice from "@/components/BetaNotice";
@@ -42,9 +41,11 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
   // mount (now with their freshly selected user connected) and a real sharing
   // identity gets created, not just an OAuth session. ORCID rides this exact
   // path; the resume mount routes ORCID to an email-OTP step on return. The
-  // special value "email" does NOT redirect: it opens the SharingSetupWizard
-  // straight on its email step with the just-selected user. If the param is
-  // absent we call onComplete() as today.
+  // special value "email" does NOT redirect: it reloads into the SAME global
+  // mount via ?sharingEmail=1, which opens the wizard on its email step. That
+  // keeps the wizard on a durable surface, so it survives this setup screen
+  // unmounting when an existing account is selected. If the param is absent we
+  // call onComplete() as today.
   const pendingSignInProvider = searchParams?.get("signIn") as
     | "orcid"
     | "google"
@@ -53,12 +54,17 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
     | "email"
     | null;
 
-  // The just-selected username for the email-path wizard. Set in
-  // handleComplete when ?signIn=email, which mounts SharingSetupWizard at its
-  // email step instead of firing an OAuth redirect.
-  const [emailWizardUser, setEmailWizardUser] = useState<string | null>(null);
-
-  const handleComplete = (selectedUser?: string) => {
+  const handleComplete = (_selectedUser?: string) => {
+    if (pendingSignInProvider === "email") {
+      // Email skips OAuth. The folder + user are already connected (this runs
+      // after an awaited setCurrentUser), so reload into the global mount which
+      // opens the wizard at its email step with the now-connected user. Do not
+      // call onComplete here, the reload supersedes that transition.
+      if (typeof window !== "undefined") {
+        window.location.assign("/?sharingEmail=1");
+      }
+      return;
+    }
     onComplete();
     if (
       pendingSignInProvider === "orcid" ||
@@ -67,11 +73,6 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
       pendingSignInProvider === "linkedin"
     ) {
       void signIn(pendingSignInProvider, { callbackUrl: "/?sharingClaim=1" });
-    } else if (pendingSignInProvider === "email") {
-      // Email skips OAuth. Open the wizard on its email step for the user we
-      // just selected or created, so they prove their address via OTP.
-      const user = selectedUser ?? currentUser;
-      if (user) setEmailWizardUser(user);
     }
   };
 
@@ -286,23 +287,6 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
       setIsCreating(false);
     }
   };
-
-  // The email-path sharing wizard, opened from the welcome page's "or verify
-  // with email instead" link (?signIn=email). It is a fixed overlay, so it
-  // mounts on top of whichever picker screen is showing. On complete or close
-  // we just clear it; the global SharingClaimResume mount is not involved on
-  // the email path (no OAuth redirect happens). NOTE: selecting an existing
-  // account also fires onComplete()/the connected effect, which can unmount
-  // this screen; creating a brand-new account keeps it mounted long enough to
-  // show the wizard.
-  const emailWizard = emailWizardUser ? (
-    <SharingSetupWizard
-      username={emailWizardUser}
-      initialStep="email-enter"
-      onComplete={() => setEmailWizardUser(null)}
-      onClose={() => setEmailWizardUser(null)}
-    />
-  ) : null;
 
   if (!isFileSystemAccessSupported()) {
     return <BrowserNotSupported />;
@@ -537,7 +521,6 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           }}
           onClose={() => setPickUserForImportOpen(false)}
         />
-        {emailWizard}
       </div>
     );
   }
@@ -1110,7 +1093,6 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
         open={walkthroughOpen}
         onClose={() => setWalkthroughOpen(false)}
       />
-      {emailWizard}
     </div>
   );
 }
