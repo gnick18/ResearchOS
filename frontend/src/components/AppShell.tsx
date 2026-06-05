@@ -23,6 +23,7 @@ import DevTestNotificationButton from "./DevTestNotificationButton";
 import DevDemoToggleButton from "./DevDemoToggleButton";
 import DevBeakerBotGalleryButton from "./DevBeakerBotGalleryButton";
 import DevForceWalkthroughButton from "./DevForceWalkthroughButton";
+import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import FeedbackModal from "./FeedbackModal";
 import BeakerBot from "./BeakerBot";
 import { useShowcaseUnlock } from "./showcase/useShowcaseUnlock";
@@ -78,6 +79,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // "no active user, no tracking" contract.
   useEffect(() => {
     installStreakActivityTracking();
+  }, []);
+
+  // Dev-only floating buttons (gallery, force-walkthrough, test-notification,
+  // demo-toggle) must NOT show in capture / demo presentation mode, or they
+  // leak into wiki screenshots and the welcome-page demo recordings. We default
+  // hidden and reveal only after mount once we confirm we're NOT in capture or
+  // demo mode, so capture mode never flashes them (the check reads sessionStorage,
+  // which is client-only). Normal dev shows them a frame after mount, which is
+  // fine for dev tooling.
+  const [showDevDock, setShowDevDock] = useState(false);
+  useEffect(() => {
+    setShowDevDock(!isDemoOrWikiCapture());
   }, []);
   // Late-night coffee BeakerBot trigger: fires the CoffeeRefill scene
   // at most once per crossed hour while local time is in [23, 0, 1, 2].
@@ -625,13 +638,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         data-floating-dock
         className="fixed bottom-6 right-6 z-50 flex items-center gap-2 pointer-events-none"
       >
-        <DevBeakerBotGalleryButton />
+        {showDevDock && (
+          <>
+            <DevBeakerBotGalleryButton />
 
-        <DevForceWalkthroughButton inline />
+            <DevForceWalkthroughButton inline />
 
-        <DevTestNotificationButton />
+            <DevTestNotificationButton />
 
-        <DevDemoToggleButton />
+            <DevDemoToggleButton />
+          </>
+        )}
 
         <CalculatorsButton />
 
