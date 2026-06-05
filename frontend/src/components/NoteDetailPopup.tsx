@@ -1025,6 +1025,14 @@ export default function NoteDetailPopup({
   // The legacy path is completely unchanged when the flag is off.
   const [loroRestoreBusy, setLoroRestoreBusy] = useState(false);
 
+  // A Loro restore/undo rewrites the live doc's content but the bound editor
+  // only reflects doc content when it RE-SEEDS (mount / entry-switch). Bumping
+  // this key after a restore/undo remounts the editor so it re-seeds from the
+  // doc, which (a) shows the restored/undone content and (b) starts clean (a
+  // fresh seed is not dirty), so the redundant "Unsaved changes" after a restore
+  // is gone too. Only bumped on the Loro path; stays 0 when the flag is off.
+  const [loroEditorRemountKey, setLoroEditorRemountKey] = useState(0);
+
   const handleLoroRestore = useCallback(
     async (targetVersion: number) => {
       if (!loroHandle || loroRestoreBusy) return;
@@ -1042,6 +1050,7 @@ export default function NoteDetailPopup({
         // authoritative source of truth for content after the restore.
         unsavedContentRef.current.clear();
         reflectRestoredNote(result);
+        setLoroEditorRemountKey((k) => k + 1);
         closeHistory();
       } catch (err) {
         console.error("[NoteDetailPopup] Loro restore failed:", err);
@@ -1067,6 +1076,7 @@ export default function NoteDetailPopup({
       );
       unsavedContentRef.current.clear();
       reflectRestoredNote(result);
+      setLoroEditorRemountKey((k) => k + 1);
     } catch (err) {
       console.error("[NoteDetailPopup] Loro undo restore failed:", err);
     } finally {
@@ -1755,6 +1765,8 @@ export default function NoteDetailPopup({
                   </div>
                 ) : (
                 <LiveMarkdownEditor
+                  // Remount (re-seed from the Loro doc) after a restore/undo.
+                  key={`note-editor-${loroEditorRemountKey}`}
                   value={currentEntry.content}
                   onChange={updateEntryContent}
                   placeholder="Write your meeting notes in Markdown..."
@@ -1793,6 +1805,8 @@ export default function NoteDetailPopup({
                   </div>
                 ) : (
                 <LiveMarkdownEditor
+                  // Remount (re-seed from the Loro doc) after a restore/undo.
+                  key={`note-editor-${loroEditorRemountKey}`}
                   value={entries[0].content}
                   onChange={(content) => {
                     if (entries[0]) {
