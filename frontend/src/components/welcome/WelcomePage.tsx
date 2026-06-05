@@ -33,6 +33,7 @@
  */
 
 import { useEffect, useState, type ReactNode } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import BeakerBot from "@/components/BeakerBot";
 import BeakerBotSpeechBubble from "@/components/beakerbot/SpeechBubble";
@@ -393,8 +394,19 @@ export default function WelcomePage() {
               </svg>
               What we&apos;re building
             </button>
-            <span className="rounded-full border border-[#d3deec] bg-sky-50 px-3 py-1 text-meta font-semibold text-sky-700">
-              Free and open source
+            {/* UW-Madison affiliation badge (the W crest from the official RISE
+                lockup + a short label). The full RISE logo lives in the footer;
+                the nav uses the compact crest so it reads at small size. */}
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#d3deec] bg-white px-3 py-1 text-meta font-semibold text-brand-ink">
+              <Image
+                src="/credentials/uw-crest.png"
+                alt="University of Wisconsin-Madison crest"
+                width={88}
+                height={132}
+                unoptimized
+                className="h-4 w-auto"
+              />
+              Backed by UW-Madison
             </span>
           </div>
         </nav>
