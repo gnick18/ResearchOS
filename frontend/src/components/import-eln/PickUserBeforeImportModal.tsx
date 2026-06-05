@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import UserAvatar from "@/components/UserAvatar";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 
 /**
  * Sticky-intent key. When set in sessionStorage before a sign-in that
@@ -54,6 +55,9 @@ export default function PickUserBeforeImportModal({
   const [createError, setCreateError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isPicking, setIsPicking] = useState(false);
+
+  // Escape closes this modal (app-wide convention). Only bound while open.
+  useEscapeToClose(onClose, isOpen);
 
   if (!isOpen) return null;
 

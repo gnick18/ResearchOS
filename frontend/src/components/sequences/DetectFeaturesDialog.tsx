@@ -19,6 +19,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Tooltip from "@/components/Tooltip";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import type { FeatureDraft } from "@/lib/sequences/feature-edit";
 import { colorForType } from "@/lib/sequences/feature-colors";
 import {
@@ -102,6 +103,9 @@ export default function DetectFeaturesDialog({
   const [rows, setRows] = useState<Row[]>([]);
   const [closest, setClosest] = useState<ClosestMatch[]>([]);
   const [ran, setRan] = useState(false);
+
+  // Escape closes this dialog (app-wide convention). Only bound while open.
+  useEscapeToClose(() => request?.onCancel(), !!request);
 
   useEffect(() => {
     if (!request) return;

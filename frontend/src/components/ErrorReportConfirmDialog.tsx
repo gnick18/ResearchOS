@@ -1,6 +1,7 @@
 "use client";
 
 import { type ErrorInfo } from "@/lib/error-reporting";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 
 interface ErrorReportConfirmDialogProps {
   isOpen: boolean;
@@ -31,6 +32,9 @@ export default function ErrorReportConfirmDialog({
   onSend,
   onDismiss,
 }: ErrorReportConfirmDialogProps) {
+  // Escape dismisses this dialog (app-wide convention). Only bound while open.
+  useEscapeToClose(onDismiss, isOpen && error !== null);
+
   if (!isOpen || !error) return null;
 
   return (

@@ -30,6 +30,7 @@
 import { useMemo, useState } from "react";
 
 import Tooltip from "@/components/Tooltip";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
 import SendOutsideDialog from "@/components/sharing/SendOutsideDialog";
 import ExperimentSendOutsideDialog from "@/components/sharing/ExperimentSendOutsideDialog";
@@ -111,6 +112,9 @@ export default function UnifiedShareDialog({
   // is solo, in which case open on Outside.
   const defaultTab: TabKey = hasLabTab && !isSolo ? "lab" : "outside";
   const [tab, setTab] = useState<TabKey>(defaultTab);
+
+  // Escape closes this dialog (app-wide convention).
+  useEscapeToClose(onClose, isOpen);
 
   if (!isOpen) return null;
 

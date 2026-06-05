@@ -22,6 +22,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listTrash, type TrashIndexEntry } from "@/lib/trash";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import Tooltip from "@/components/Tooltip";
 
 /** Three-button outcome of the prompt. */
@@ -126,6 +127,12 @@ export function useResolveRestoreParent(): (
 export function RestoreParentPromptHost() {
   const state = useSubscribePromptState();
   const dialogRef = useRef<HTMLDivElement | null>(null);
+
+  // Escape dismisses the prompt (app-wide convention), resolving to "cancel"
+  // like the backdrop click. Only bound while the prompt is open.
+  useEscapeToClose(() => {
+    if (state.open) state.resolve("cancel");
+  }, state.open);
 
   // Focus the default action ("Restore both", OQ4) when the prompt
   // opens so the keyboard-only path defaults to the proposal answer.

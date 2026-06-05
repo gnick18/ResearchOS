@@ -10,6 +10,7 @@ import {
   writePrefs,
   type NotificationPrefs,
 } from "@/lib/calendar/notification-prefs-store";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import Tooltip from "./Tooltip";
 
 interface Props {
@@ -31,6 +32,9 @@ export default function CalendarRemindersModal({ onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [permission, setPermission] = useState<PermissionState>(readBrowserPermission());
+
+  // Escape closes this modal (app-wide convention).
+  useEscapeToClose(onClose);
 
   useEffect(() => {
     if (!currentUser) return;

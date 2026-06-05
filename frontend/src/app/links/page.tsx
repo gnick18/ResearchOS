@@ -13,6 +13,7 @@ import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import AttributionChip from "@/components/AttributionChip";
 
 // Predefined colors for link cards
@@ -45,6 +46,11 @@ export default function LabLinksPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const queryClient = useQueryClient();
+
+  // Escape closes the delete-confirm modal (app-wide convention), matching the
+  // backdrop click. Only bound while the confirm is open. The create / edit
+  // panel below is an inline card, not an overlay, so it is left alone.
+  useEscapeToClose(() => setDeleteConfirmId(null), deleteConfirmId !== null);
 
   // Copy-alignment manager 2026-05-26: page header now reads "Links"
   // for every account type (formerly "Lab Links" for lab accounts).

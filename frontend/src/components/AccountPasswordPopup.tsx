@@ -16,6 +16,7 @@ import {
   hasEncryptedBackup,
   writeEncryptedBackup,
 } from "@/lib/telegram/encrypted-backup";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import Tooltip from "./Tooltip";
 
 interface AccountPasswordPopupProps {
@@ -46,6 +47,9 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
   // Telegram backup. The submit button shows a different label so the
   // user sees a step actually happening on their behalf.
   const [reencrypting, setReencrypting] = useState(false);
+
+  // Escape closes this popup (app-wide convention).
+  useEscapeToClose(onClose);
 
   useEffect(() => {
     let cancelled = false;

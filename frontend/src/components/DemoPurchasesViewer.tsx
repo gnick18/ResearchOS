@@ -47,6 +47,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import SpendingDashboard from "@/components/SpendingDashboard";
 import {
   MISC_CATEGORY_LABEL,
@@ -206,6 +207,9 @@ export default function DemoPurchasesViewer({
     fundingAccounts: FundingAccount[];
   } | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Escape closes this viewer (app-wide convention). Only bound while open.
+  useEscapeToClose(onClose, open);
 
   // One-shot mount detection so createPortal has a target (mirrors the
   // pattern in TourPageLock + InputLockOverlay).

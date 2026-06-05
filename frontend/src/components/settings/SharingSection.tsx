@@ -35,6 +35,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import Tooltip from "@/components/Tooltip";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import {
   CheckIcon,
   CloseIcon,
@@ -911,6 +912,8 @@ function ModalShell({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  // Escape closes any dialog built on this shell (app-wide convention).
+  useEscapeToClose(onClose);
   return (
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm"

@@ -20,6 +20,7 @@ import { useCallback, useState } from "react";
 
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import {
   sendRawShare,
   inviteRawShare,
@@ -57,6 +58,9 @@ export default function BulkSequenceSendDialog({
 }: BulkSequenceSendDialogProps) {
   const identity = useSharingIdentity();
   const [wizardOpen, setWizardOpen] = useState(false);
+
+  // Escape closes this dialog (app-wide convention).
+  useEscapeToClose(onClose);
 
   const handleWizardComplete = useCallback(async () => {
     setWizardOpen(false);

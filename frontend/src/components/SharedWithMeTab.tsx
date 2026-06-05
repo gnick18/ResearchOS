@@ -58,6 +58,7 @@ import { readManifestSenderFromPayload } from "@/lib/sharing/sender-stamp";
 import ReceivedFromBadge from "@/components/ReceivedFromBadge";
 import ImportExperimentDialog from "@/components/ImportExperimentDialog";
 import ProjectImportDialog from "@/components/sharing/ProjectImportDialog";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import type { ProjectImportResult } from "@/lib/import/project-apply";
 import { recordNoteHistory } from "@/lib/history";
 import { fileService } from "@/lib/file-system/file-service";
@@ -404,6 +405,11 @@ function ReviewImportModal({
   const [received, setReceived] = useState<ReceiveShareResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Escape closes this review modal (app-wide convention). The nested
+  // project / experiment import dialogs share this onClose, so a single press
+  // dismisses cleanly.
+  useEscapeToClose(onClose);
   const [importing, setImporting] = useState(false);
 
   // The sniffed payload kind, and for an experiment the decrypted bytes wrapped

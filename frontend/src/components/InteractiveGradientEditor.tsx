@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import type { PCRGradient, PCRStep } from "@/lib/types";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import Tooltip from "./Tooltip";
 import {
   ADDED_BLOCK_CLASSES,
@@ -48,6 +49,10 @@ export function StepEditPopup({ step, onSave, onClose, isNew = false }: StepEdit
   const [duration, setDuration] = useState(step.duration);
   const [isHold, setIsHold] = useState(step.duration === "Indef." || step.duration === "∞");
   const popupRef = useRef<HTMLDivElement>(null);
+
+  // Escape closes this popup without saving (app-wide convention), matching the
+  // click-outside behavior.
+  useEscapeToClose(onClose);
 
   // Handle click outside to close without saving
   useEffect(() => {
@@ -174,6 +179,10 @@ interface CycleEditPopupProps {
 export function CycleEditPopup({ repeats, onSave, onClose }: CycleEditPopupProps) {
   const [newRepeats, setNewRepeats] = useState(repeats);
   const popupRef = useRef<HTMLDivElement>(null);
+
+  // Escape closes this popup without saving (app-wide convention), matching the
+  // click-outside behavior.
+  useEscapeToClose(onClose);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

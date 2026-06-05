@@ -15,6 +15,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import Tooltip from "@/components/Tooltip";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import {
   listTrash,
@@ -482,6 +483,9 @@ interface BulkDeleteConfirmProps {
  *  single-row path uses window.confirm, but a bulk wipe deserves an
  *  explicit red confirm so it can never fire on a stray click. */
 function BulkDeleteConfirm({ count, onCancel, onConfirm }: BulkDeleteConfirmProps) {
+  // Escape cancels this confirm gate (app-wide convention).
+  useEscapeToClose(onCancel);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"

@@ -23,6 +23,7 @@
  */
 
 import { useCallback, useState } from "react";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import RehydrateMissingImagesPanel from "./RehydrateMissingImagesPanel";
 import type { FetchedImage, MissingInlineImage } from "@/lib/import/eln/types";
 import {
@@ -68,6 +69,9 @@ export default function RehydrateMissingImagesModal({
 }: Props) {
   const [staged, setStaged] = useState<Map<string, FetchedImage>>(new Map());
   const [applyState, setApplyState] = useState<ApplyState>({ kind: "idle" });
+
+  // Escape closes this modal (app-wide convention).
+  useEscapeToClose(onClose);
 
   const stagedOkCount = useStagedOkCount(staged);
 

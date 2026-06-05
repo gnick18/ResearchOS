@@ -30,6 +30,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usersApi } from "@/lib/local-api";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import Tooltip from "@/components/Tooltip";
 import type { SharedUser } from "@/lib/types";
 import { useArchivedUsers } from "@/hooks/useArchivedUsers";
@@ -104,6 +105,10 @@ export default function ShareDialog({
   const [cascadeToTasks, setCascadeToTasks] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Escape closes this dialog (app-wide convention). Skip in embedded mode:
+  // the UnifiedShareDialog shell owns the overlay and its own Escape handling.
+  useEscapeToClose(onClose, isOpen && !embedded);
 
   // Keep local state in sync with the prop when the dialog re-opens on a
   // different record.

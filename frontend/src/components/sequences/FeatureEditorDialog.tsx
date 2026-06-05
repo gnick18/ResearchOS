@@ -24,6 +24,7 @@ import {
   FEATURE_TYPE_COLORS,
   colorForType,
 } from "@/lib/sequences/feature-colors";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import FeatureSegmentDiagram from "./FeatureSegmentDiagram";
 import StrandSelector, {
   type StrandDisplay,
@@ -89,6 +90,9 @@ export default function FeatureEditorDialog({
   const [translate, setTranslate] = useState(false);
   const [prioritize, setPrioritize] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
+
+  // Escape closes this dialog (app-wide convention). Only bound while open.
+  useEscapeToClose(() => request?.onCancel(), !!request);
 
   // Seed the form whenever a new request opens.
   useEffect(() => {

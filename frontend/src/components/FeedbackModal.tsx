@@ -10,6 +10,7 @@ import {
   type FeedbackType,
 } from "@/lib/error-reporting";
 import Tooltip from "@/components/Tooltip";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 
 interface FeedbackModalProps {
   isOpen: boolean;
@@ -67,6 +68,8 @@ function writeStoredType(value: FeedbackType): void {
 
 export default function FeedbackModal({ isOpen, onClose, prefilledError }: FeedbackModalProps) {
   const [type, setType] = useState<FeedbackType>("bug");
+  // Escape closes this modal (app-wide convention). Only bound while open.
+  useEscapeToClose(onClose, isOpen);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [copied, setCopied] = useState(false);

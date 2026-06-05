@@ -24,6 +24,7 @@
 import { useCallback, useState } from "react";
 
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
 import {
   sendShare,
@@ -64,6 +65,10 @@ export default function SendOutsideDialog({
   embedded = false,
 }: SendOutsideDialogProps) {
   const identity = useSharingIdentity();
+
+  // Escape closes this dialog (app-wide convention). Skip in embedded mode:
+  // the UnifiedShareDialog shell owns the overlay and its own Escape handling.
+  useEscapeToClose(onClose, !embedded);
 
   // When the user has no identity yet we launch the setup wizard inline. Once it
   // completes we refresh the gate so the body re-renders into the send form.

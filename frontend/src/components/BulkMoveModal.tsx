@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { useAppStore } from "@/lib/store";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { tasksApi } from "@/lib/local-api";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -31,6 +32,10 @@ export default function BulkMoveModal() {
     // Refresh to revert visual changes
     await queryClient.refetchQueries({ queryKey: ["tasks"] });
   }, [queryClient, setBulkMoveData]);
+
+  // Escape closes this confirm modal (app-wide convention), through the same
+  // cancel path that reverts the visual changes. Only bound while open.
+  useEscapeToClose(handleCancel, !!bulkMoveData);
 
   if (!bulkMoveData) return null;
 

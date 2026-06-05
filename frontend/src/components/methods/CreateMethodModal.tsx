@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import {
   methodsApi as rawMethodsApi,
   filesApi,
@@ -442,6 +443,10 @@ export function CreateMethodModal({
     }
     onClose();
   }, [slug, onClose]);
+
+  // Escape closes this modal (app-wide convention). Routes through the same
+  // cancel path the Cancel button uses so uploaded-image cleanup still runs.
+  useEscapeToClose(handleCancel);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {

@@ -7,6 +7,7 @@ import { getEditSession } from "@/lib/lab/edit-session";
 import { useLabData } from "@/hooks/useLabData";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import { useArchivedUsers } from "@/hooks/useArchivedUsers";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import Tooltip from "@/components/Tooltip";
 import { taskKey } from "@/lib/types";
 import type { Task } from "@/lib/types";
@@ -55,6 +56,10 @@ export default function AssignTaskButton({
   const [selected, setSelected] = useState<string | null>(task.assignee ?? null);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Escape closes the assignee popover (app-wide convention), matching the
+  // backdrop click. Suspended while a write is in flight.
+  useEscapeToClose(() => setOpen(false), open && !busy);
 
   // Mira-Skeptic P0 POC migration (Mira-Skeptic P0 fix manager,
   // 2026-05-23): demonstrates the new `PiActionResult` shape.

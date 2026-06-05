@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { sharedNotebooksApi, usersApi } from "@/lib/local-api";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import type { SharedNotebook } from "@/lib/types";
 
 // Shared Notebooks Phase 2 (notebooks-phase2 sub-bot, 2026-06-02). See
@@ -74,6 +75,9 @@ export default function StartSharedNotebookDialog({
   const [title, setTitle] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Escape closes this dialog (app-wide convention).
+  useEscapeToClose(onClose);
 
   useEffect(() => {
     let cancelled = false;

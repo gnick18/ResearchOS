@@ -7,6 +7,7 @@ import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { sidecarPath, type ImageSidecar } from "@/lib/attachments/image-folder";
 import { useAppStore, type ActiveTask } from "@/lib/store";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import AnnotatedImage from "@/components/AnnotatedImage";
 
 // Konva touches window/canvas and breaks SSR, so the annotator is loaded
@@ -58,6 +59,10 @@ export default function ImageMetadataPopup({
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [annotating, setAnnotating] = useState(false);
+
+  // Escape closes this popup (app-wide convention). Suspended while the
+  // annotator overlay is open so its own Escape (deselect, then close) wins.
+  useEscapeToClose(onClose, !annotating);
 
   const sidecarFsPath = sidecarPath(basePath, filename);
 

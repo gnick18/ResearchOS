@@ -26,6 +26,7 @@ import {
   type AnnotateResult,
 } from "@/lib/sequences/annotate-from-reference";
 import type { SequenceRecord } from "@/lib/types";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 
 export interface AnnotateFromReferenceRequest {
   /** The open document's bases (the target the features land on). */
@@ -58,6 +59,9 @@ export default function AnnotateFromReferenceDialog({
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<AnnotateResult | null>(null);
   const [rows, setRows] = useState<ReviewRow[]>([]);
+
+  // Escape closes this dialog (app-wide convention). Only bound while open.
+  useEscapeToClose(() => request?.onCancel(), !!request);
 
   // Reset everything whenever the dialog opens fresh.
   useEffect(() => {

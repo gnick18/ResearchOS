@@ -30,6 +30,7 @@ import {
 } from "@/lib/sequences/mutagenesis";
 import { colorForType } from "@/lib/sequences/feature-colors";
 import ColorSwatchPicker from "./ColorSwatchPicker";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 
 /** What the dialog hands back when the user adds the primer to the template. */
 export interface PrimerAddPayload {
@@ -144,6 +145,9 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
   // first (full matches sort first).
   const [siteIdx, setSiteIdx] = useState(0);
   const seqRef = useRef<HTMLTextAreaElement>(null);
+
+  // Escape closes this dialog (app-wide convention). Only bound while open.
+  useEscapeToClose(() => request?.onCancel(), !!request);
 
   useEffect(() => {
     if (!request) return;

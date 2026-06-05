@@ -179,6 +179,28 @@ describe("FeedbackModal — attaching screenshots", () => {
   });
 });
 
+// --- Escape-to-close (app-wide convention) ---------------------------------
+
+describe("FeedbackModal — Escape closes the modal", () => {
+  it("calls onClose when Escape is pressed while open", () => {
+    const onClose = vi.fn();
+    render(<FeedbackModal isOpen onClose={onClose} />);
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not bind the Escape listener while closed", () => {
+    const onClose = vi.fn();
+    render(<FeedbackModal isOpen={false} onClose={onClose} />);
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
 // --- Submit / clipboard ----------------------------------------------------
 
 describe("FeedbackModal — submit with screenshots", () => {

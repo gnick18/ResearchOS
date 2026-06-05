@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { methodsApi, filesApi } from "@/lib/local-api";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Method, Task } from "@/lib/types";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 
 interface DeviationModalProps {
   task: Task;
@@ -26,6 +27,9 @@ export default function DeviationModal({
   const [mode, setMode] = useState<"choose" | "save" | "fork">("choose");
   const [saving, setSaving] = useState(false);
   const queryClient = useQueryClient();
+
+  // Escape closes this modal (app-wide convention).
+  useEscapeToClose(onClose);
 
   const handleSaveToTask = useCallback(async () => {
     if (!deviations.trim()) return;

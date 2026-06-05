@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import Tooltip from "@/components/Tooltip";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { CloseIcon } from "@/components/sharing/icons";
 import { ImportParseError } from "@/lib/import/parse";
 import { parseProjectBundle, type ProjectImportPayload } from "@/lib/import/project-parse";
@@ -51,6 +52,9 @@ export default function ProjectImportDialog({
   const [payload, setPayload] = useState<ProjectImportPayload | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [result, setResult] = useState<ProjectImportResult | null>(null);
+
+  // Escape closes this dialog (app-wide convention).
+  useEscapeToClose(onClose);
 
   // Parse on mount.
   useEffect(() => {

@@ -34,6 +34,7 @@ import {
 } from "@/lib/streak/streak-sidecar";
 import PtoEditor from "./PtoEditor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import {
   HighlightedText,
   SectionMatchProvider,
@@ -302,6 +303,8 @@ function ResetStreakModal({
   onConfirm: (alsoClearCelebrationsSeen: boolean) => void;
 }) {
   const [alsoClear, setAlsoClear] = useState(false);
+  // Escape cancels this confirm modal (app-wide convention).
+  useEscapeToClose(onCancel);
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"

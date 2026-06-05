@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { sharingApi } from "@/lib/local-api";
 import { useCalendarNavStore } from "@/lib/calendar/calendar-nav-store";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import Tooltip from "./Tooltip";
 import type {
   LabAnnouncementNotification,
@@ -33,6 +34,9 @@ export default function NotificationPopup({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
+
+  // Escape closes this popup (app-wide convention). Only bound while open.
+  useEscapeToClose(onClose, isOpen);
 
   useEffect(() => {
     if (isOpen) {

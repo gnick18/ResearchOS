@@ -6,6 +6,7 @@ import { projectsApi as rawProjectsApi } from "@/lib/local-api";
 import type { ProjectUpdate } from "@/lib/local-api";
 import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
 import { EditProjectModal } from "@/components/project-surface/ProjectRoute";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import type { Project } from "@/lib/types";
 
 // Owner-routed mutation api: for shared projects with edit permission,
@@ -42,6 +43,11 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
   const [archiving, setArchiving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // Escape closes the kebab dropdown (app-wide convention), matching the
+  // click-outside handler. Only bound while the menu is open; opening any
+  // sub-modal closes the menu first, so this never fights a nested overlay.
+  useEscapeToClose(() => setOpen(false), open);
 
   const isMiscellaneousProject = project.name === "Miscellaneous";
   const isViewOnlyReceiver =

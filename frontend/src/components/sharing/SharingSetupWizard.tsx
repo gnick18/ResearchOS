@@ -31,6 +31,7 @@ import {
   type SharingIdentitySidecar,
 } from "@/lib/sharing/identity/sidecar";
 import { canonicalizeEmail } from "@/lib/sharing/directory/email";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import Tooltip from "@/components/Tooltip";
 import {
   CheckIcon,
@@ -83,6 +84,9 @@ export default function SharingSetupWizard({
 }: SharingSetupWizardProps) {
   const [step, setStep] = useState<Step>("choose");
   const [verifiedVia, setVerifiedVia] = useState<VerifiedVia>(null);
+
+  // Escape closes this wizard (app-wide convention).
+  useEscapeToClose(onClose);
 
   // Email subflow state.
   const [email, setEmail] = useState("");

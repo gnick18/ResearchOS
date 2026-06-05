@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 
 interface Props {
   /** Path under /public, e.g. "/wiki/screenshots/home-projects.png". */
@@ -30,6 +31,10 @@ export default function Screenshot({
 }: Props) {
   const [errored, setErrored] = useState(false);
   const [zoom, setZoom] = useState(false);
+
+  // Escape closes the zoom lightbox (app-wide convention). Only bound while
+  // the lightbox overlay is open; the inline image itself is not a modal.
+  useEscapeToClose(() => setZoom(false), zoom);
 
   const inner = errored ? (
     <div

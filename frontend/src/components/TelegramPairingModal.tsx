@@ -9,6 +9,7 @@ import {
   type TelegramPairing,
 } from "@/lib/telegram/telegram-store";
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { hasPassword, verifyPassword } from "@/lib/auth/password";
 import { setCachedPassword } from "@/lib/auth/cached-password";
 import { writeEncryptedBackup } from "@/lib/telegram/encrypted-backup";
@@ -265,6 +266,11 @@ export default function TelegramPairingModal({
     abortRef.current?.abort();
     onClose(undefined);
   };
+
+  // Escape closes this modal (app-wide convention), through the same cancel
+  // path the close button uses. Skip in inline mode: the wizard shell that
+  // embeds the pair flow owns dismissal there.
+  useEscapeToClose(handleCancel, !inline);
 
   // The pair-flow card body. Identical between modal and inline modes;
   // the only difference is the surrounding chrome (fixed-position

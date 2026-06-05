@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import Tooltip from "@/components/Tooltip";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { StoreShell } from "@/components/store/StoreShell";
 import { StoreSegment } from "@/components/store/StoreSegment";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -104,6 +105,9 @@ export function MethodTemplateLibraryModal({
     [enabledRaw],
   );
   const curating = currentUser !== null;
+
+  // Escape closes this modal (app-wide convention).
+  useEscapeToClose(onClose);
 
   const modules = useMemo(() => listMethodModules(), []);
 

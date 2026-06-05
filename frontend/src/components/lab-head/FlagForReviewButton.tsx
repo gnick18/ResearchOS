@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { setFlagForReview } from "@/lib/lab/pi-actions";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import Tooltip from "@/components/Tooltip";
 import type { PiFlag } from "@/lib/types";
 
@@ -44,6 +45,10 @@ export default function FlagForReviewButton({
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState(currentFlag?.reason ?? "");
   const [busy, setBusy] = useState(false);
+
+  // Escape closes the flag popover (app-wide convention), matching the
+  // backdrop click. Suspended while a write is in flight.
+  useEscapeToClose(() => setOpen(false), open && !busy);
 
   const isFlagged = !!currentFlag;
 

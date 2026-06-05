@@ -36,6 +36,7 @@ import {
 } from "@/lib/sequences/primer";
 import { colorForType } from "@/lib/sequences/feature-colors";
 import ColorSwatchPicker from "./ColorSwatchPicker";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 
 /** What the dialog hands back on Save. The parent re-derives the feature
  *  geometry from `oligo` (the same findBindingSites path) and persists. */
@@ -227,6 +228,9 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
   // first (full matches sort first).
   const [siteIdx, setSiteIdx] = useState(0);
   const seqRef = useRef<HTMLTextAreaElement>(null);
+
+  // Escape closes this dialog (app-wide convention). Only bound while open.
+  useEscapeToClose(() => request?.onCancel(), !!request);
 
   useEffect(() => {
     if (!request) return;

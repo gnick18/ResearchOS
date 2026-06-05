@@ -22,6 +22,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import {
   sendRawShare,
   inviteRawShare,
@@ -60,6 +61,10 @@ export default function ProjectSendOutsideDialog({
 }: ProjectSendOutsideDialogProps) {
   const identity = useSharingIdentity();
   const [wizardOpen, setWizardOpen] = useState(false);
+
+  // Escape closes this dialog (app-wide convention). Skip in embedded mode:
+  // the UnifiedShareDialog shell owns the overlay and its own Escape handling.
+  useEscapeToClose(onClose, !embedded);
 
   const handleWizardComplete = useCallback(async () => {
     setWizardOpen(false);
