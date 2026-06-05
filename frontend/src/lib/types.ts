@@ -2320,6 +2320,16 @@ export interface Note {
   received_from?: string;             // sender canonical email, set only on imported notes
   received_from_fingerprint?: string; // sender key fingerprint
   received_at?: string;               // ISO 8601 timestamp of import
+  // Phase 3c chunk 3a (FLAG: new Note field): the collab doc id that travels
+  // with the note when it is shared cross-boundary (see note-transfer.ts).
+  // Written to the JSON record on import so the recipient's NoteDetailPopup can
+  // seed the Loro meta map with the correct id and auto-join the shared doc's
+  // relay room. The value is a UUID string. ADDITIVE and backward-compatible:
+  // absent on all pre-existing notes and all unshared notes. The Loro sidecar
+  // is the authoritative store (collab_doc_id key in the meta map); this JSON
+  // field is the bootstrap bridge for newly-imported notes before the sidecar
+  // is written for the first time.
+  collab_doc_id?: string;
 }
 
 export interface NoteCreate {

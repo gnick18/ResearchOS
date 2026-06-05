@@ -11,6 +11,10 @@
 //     account-scoped and lab-local fields (ids, ownership, sharing, comments,
 //     review flags, edit stamps, the undo window, and any inbound provenance)
 //     are dropped so a re-shared note never leaks the sender's local state.
+//     EXCEPTION: collab_doc_id IS carried (Phase 3c chunk 3a). It is the shared
+//     secret that lets the recipient auto-join the same relay room; without it
+//     the recipient's copy would derive a different room from a freshly minted
+//     id and the two sides would never connect.
 //
 //   MATERIALIZE (import) -> importNoteBundle
 //     Takes a verified ReadBundleResult and writes a brand-new Note into the
@@ -21,6 +25,9 @@
 //     EXACT same filename it had on the sender. The markdown image links in the
 //     entry bodies reference Images/<name>, so same-name placement keeps every
 //     link valid with zero rewriting.
+//     Phase 3c chunk 3a: collab_doc_id is also written to the JSON record so
+//     NoteDetailPopup can seed the Loro meta map on first open (before a sidecar
+//     exists) and call connectFromDocId with the correct id.
 //
 // ACK-AFTER-WRITE. importNoteBundle is called by the inbox import flow only
 // AFTER the user confirms, and the caller acks the relay (which then deletes
@@ -77,7 +84,7 @@ interface SharedNoteEntry {
  *
  * KEPT (recipient-facing content):
  *   title, description, is_running_log, entries (title / date / content only),
- *   notebook_id.
+ *   notebook_id, collab_doc_id.
  *
  * DROPPED (account-scoped or lab-local, never shared):
  *   id, username, shared_with, comments, flagged, last_edited_by,
@@ -93,6 +100,13 @@ interface SharedNoteEntity {
   entries: SharedNoteEntry[];
   /** Present only when the source note belonged to a shared notebook. */
   notebook_id?: string;
+  /**
+   * Phase 3c chunk 3a (FLAG: travels in bundle). The collab doc id minted by
+   * the sender when they first shared this note. Carried so the recipient's
+   * copy derives the same relay room and auto-connects to the same session.
+   * Absent for notes that were never part of a live collab session.
+   */
+  collab_doc_id?: string;
 }
 
 /** Project a Note (or a foreign entity) down to the shared, recipient-facing set. */
@@ -102,6 +116,7 @@ function sanitizeNoteEntity(source: {
   is_running_log?: unknown;
   entries?: unknown;
   notebook_id?: unknown;
+  collab_doc_id?: unknown;
 }): SharedNoteEntity {
   const rawEntries = Array.isArray(source.entries) ? source.entries : [];
   const entries: SharedNoteEntry[] = rawEntries.map((e) => {
@@ -123,6 +138,13 @@ function sanitizeNoteEntity(source: {
   if (typeof source.notebook_id === "string" && source.notebook_id) {
     sanitized.notebook_id = source.notebook_id;
   }
+  // Phase 3c chunk 3a: carry collab_doc_id so the recipient can join the same
+  // relay room. This is the one additive exception to "drop account-local fields":
+  // the doc id is shared state, not sender-local state. Without it the recipient
+  // would mint a fresh id and derive a different room.
+  if (typeof source.collab_doc_id === "string" && source.collab_doc_id) {
+    sanitized.collab_doc_id = source.collab_doc_id;
+  }
   return sanitized;
 }
 
@@ -130,12 +152,26 @@ function sanitizeNoteEntity(source: {
  * COLLECT. Build the BuildBundleInput for a single note plus its image
  * attachments. Reads the note's Images/ folder off disk; if that folder is
  * absent or empty, attachments is [].
+ *
+ * @param opts.collabDocId - Phase 3c chunk 3a. When provided (read from the
+ *   live Loro meta map by the caller), this id is written into the bundle
+ *   entity so the recipient's copy carries the same id and can auto-join the
+ *   shared relay room. When absent the note is treated as non-collab (the
+ *   recipient mints their own id on first share, which is the correct behavior
+ *   for a note that has never been through a live session).
  */
 export async function buildNoteBundleInput(
   note: Note,
   ownerUsername: string,
+  opts?: { collabDocId?: string },
 ): Promise<BuildBundleInput> {
-  const entity = sanitizeNoteEntity(note);
+  // Merge the collabDocId from the caller (Loro meta) into the note-like
+  // source so sanitizeNoteEntity picks it up. We shallow-clone to avoid
+  // mutating the caller's Note object.
+  const noteWithCollab: Note & { collab_doc_id?: string } = opts?.collabDocId
+    ? { ...note, collab_doc_id: opts.collabDocId }
+    : note;
+  const entity = sanitizeNoteEntity(noteWithCollab);
 
   // Image attachments live at users/<owner>/notes/<id>/Images/<filename>.
   // listImagesInFolder takes the note's base path and appends /Images itself.
@@ -248,6 +284,13 @@ export async function importNoteBundle(
   };
   if (notebookId) {
     finalRecord.notebook_id = notebookId;
+  }
+  // Phase 3c chunk 3a (FLAG: new Note JSON field): carry the collab_doc_id so
+  // NoteDetailPopup can read it from the Note prop and seed the Loro meta map
+  // before the sidecar is written for the first time. Without this the recipient
+  // would have no doc id and could not join the shared relay room.
+  if (incoming.collab_doc_id) {
+    finalRecord.collab_doc_id = incoming.collab_doc_id;
   }
   await fileService.writeJson(notePath, finalRecord);
 

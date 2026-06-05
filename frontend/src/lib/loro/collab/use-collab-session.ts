@@ -7,6 +7,9 @@
 // Updated in chunk 5b: retireSession() ends the session cleanly, recording the
 // remote collaborator in the actors map and writing a "collab-session-ended"
 // forward commit so the note's version history carries co-author provenance.
+// Updated in Phase 3c chunk 3a: connectFromDocId() derives the sessionId and
+// sessionKey deterministically from the note's collab_doc_id so every member
+// auto-connects to the same relay room with the same key, with no manual link.
 //
 // PURPOSE. Keeps NoteDetailPopup thin. This hook manages:
 //   - start(): generate a sessionId + key, open the WebSocket transport to the
@@ -48,6 +51,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { LoroDoc, EphemeralStore } from "loro-crdt";
 import type { EphemeralState } from "loro-codemirror";
 import { generateSessionKey } from "./envelope";
+import { collabSessionFromDocId } from "./doc-id-session";
 import { createCollabProvider, type CollabProvider } from "./relay-provider";
 import { createWebSocketTransport } from "./websocket-transport";
 import { encodeSessionLink, decodeSessionLink } from "./session-link";
@@ -88,6 +92,18 @@ export interface CollabSessionApi {
   start(): void;
   /** Decode a pasted join link and connect to that session. */
   join(link: string): void;
+  /**
+   * Auto-connect to the shared note's live session using the collab_doc_id.
+   *
+   * Derives the sessionId and sessionKey deterministically from the doc id
+   * (Phase 3c chunk 3a), so every member who opens the same shared note
+   * connects to the same relay room with the same key. No link to paste, no
+   * server bootstrap for the session credentials.
+   *
+   * This is the entry point for shared notes. Unshared notes never call this;
+   * they use start() / join() for the manual two-tab dev path.
+   */
+  connectFromDocId(docId: string): void;
   /** Destroy the provider and close the transport (no provenance commit). */
   stop(): void;
   /**
@@ -351,6 +367,34 @@ export function useCollabSession(args: {
     [enabled, doc, destroyProvider, connectSession],
   );
 
+  /**
+   * Phase 3c chunk 3a: auto-connect entry point for shared notes.
+   *
+   * Derives sessionId + sessionKey from the collab_doc_id, then calls the
+   * shared connectSession with those values. The existing engine (provider,
+   * cursors, undo guard) is reused without modification.
+   *
+   * Does NOT surface a copy-able join link (the shared note is the implicit
+   * "link"; no link needs to be passed). The collab.state.link will be null
+   * while connected via this path, which the UI interprets as "auto-session,
+   * no link to copy" and hides the copy-link button.
+   *
+   * Idempotent: if the session is already live with the same sessionId, calling
+   * this again is a no-op from the UX perspective (the provider guard fires first
+   * on the connecting path). In practice NoteDetailPopup gates this on status
+   * "idle" so it only fires once on open.
+   */
+  const connectFromDocId = useCallback(
+    (docId: string) => {
+      if (!enabled || !doc) return;
+      destroyProvider();
+
+      const { sessionId, sessionKey } = collabSessionFromDocId(docId);
+      void connectSession(sessionId, sessionKey);
+    },
+    [enabled, doc, destroyProvider, connectSession],
+  );
+
   const stop = useCallback(() => {
     destroyProvider();
     setState((prev) => ({
@@ -423,5 +467,5 @@ export function useCollabSession(args: {
     };
   }, [destroyProvider]);
 
-  return { state, ephemeral: ephemeralRef.current, start, join, stop, retireSession };
+  return { state, ephemeral: ephemeralRef.current, start, join, connectFromDocId, stop, retireSession };
 }

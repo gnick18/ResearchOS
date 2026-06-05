@@ -48,6 +48,7 @@ import VersionDiffView from "@/components/history/VersionDiffView";
 import { useCollabSession } from "@/lib/loro/collab/use-collab-session";
 import { peerColorClass } from "@/lib/loro/collab/safe-ephemeral-plugin";
 import { grantCollabOnShare } from "@/lib/collab/client/grant-on-share";
+import { getCollabDocId } from "@/lib/collab/client/doc-id";
 
 interface NoteDetailPopupProps {
   note: Note;
@@ -357,6 +358,59 @@ export default function NoteDetailPopup({
     // indicator initialises correctly without a one-frame flash.
     return loroHandle.subscribeCommitPending(setLoroCommitPending);
   }, [loroHandle]);
+
+  // Phase 3c chunk 3a: auto-connect to the live session when a shared note
+  // opens. A shared note has a collab_doc_id in its Loro meta map (written by
+  // getOrMintCollabDocId on the sender's side and carried by the bundle on
+  // import). When detected, connectFromDocId derives the (sessionId, sessionKey)
+  // and connects the relay provider without any manual link.
+  //
+  // Bootstrap path for newly-imported notes: the bundle import writes the
+  // collab_doc_id into the Note JSON record (note.collab_doc_id) but the Loro
+  // sidecar does not yet exist, so getCollabDocId on the fresh Loro doc returns
+  // undefined. In that case we check note.collab_doc_id from the prop and use
+  // getOrMintCollabDocId to write it into the Loro meta, ensuring the CRDT doc
+  // and the relay room use the SAME id that the sender minted.
+  //
+  // Guard conditions:
+  //   - LORO_PILOT_ENABLED (flag off = no side effects)
+  //   - loroHandle is open (doc must be readable)
+  //   - collab session is idle (never re-connect while already connecting/live)
+  //   - the note has a collab_doc_id (only shared notes have one)
+  //
+  // Unshared notes: no collab_doc_id in meta or JSON, effect is a no-op.
+  // Dependency on collab.state.status prevents double-fire: once the session
+  // moves to "connecting" the guard fails and the effect body skips.
+  useEffect(() => {
+    if (!LORO_PILOT_ENABLED) return;
+    if (!loroHandle) return;
+    if (collab.state.status !== "idle") return;
+
+    // First try the Loro meta (authoritative for notes that were already open).
+    let docId = getCollabDocId(loroHandle.doc);
+
+    // Bootstrap: for a freshly-imported note the sidecar does not exist yet.
+    // The bundle import wrote collab_doc_id into the Note JSON. If it's present
+    // and the Loro doc doesn't have one yet, seed the meta map with that exact id
+    // so the sidecar derives the same room as the sender.
+    if (!docId && note.collab_doc_id) {
+      // Write the received id into the meta map (and commit) so the sidecar
+      // carries it from this point forward. We use the internal doc.getMap API
+      // directly (like doc-id.ts does) to set the exact id from the bundle.
+      loroHandle.doc.getMap("meta").set("collab_doc_id", note.collab_doc_id);
+      loroHandle.doc.commit({ message: "seed-collab-doc-id-from-import" });
+      docId = note.collab_doc_id;
+    }
+
+    if (!docId) return; // unshared note, nothing to do
+
+    // Shared note detected: auto-connect using the derived session credentials.
+    collab.connectFromDocId(docId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loroHandle, collab.state.status, note.collab_doc_id]);
+  // Intentional: collab.connectFromDocId is stable (useCallback, no deps that
+  // change after mount), and we only want this to fire when the handle opens
+  // (loroHandle identity change) or the session returns to idle after a stop.
 
   // Track unsaved content (pending writes that haven't been manually saved
   // yet). Still drives the close + SPA-nav safety nets even though we no
