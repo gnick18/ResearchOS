@@ -28,17 +28,22 @@ Datasets client the import feature adds:
   taxonomy call (the endpoint takes comma-separated ids) or use the response's
   ranked classification if present. So named-lineage display is one extra resolve.
 
-## The honest limit (state it on the surface)
+## Format note (corrected 2026-06-05)
 
-Full GenBank-RECORD metadata (the DEFINITION line, the REFERENCE / author list,
-COMMENT) lives in NCBI's efetch (E-utilities), which is NOT CORS-open (verified for
-the import), so it cannot be fetched browser-direct without a proxy (which would
-put us back on a server, against the ethos). So accession enrichment delivers what
-the Datasets API exposes browser-direct: organism, tax id, taxonomy, gene /
-assembly name, length. That is the useful tagging metadata; the prose record
-(references, definition) is out of scope for the no-backend path. We do NOT
-silently drop it; the UI says "organism + taxonomy from NCBI" rather than implying
-a full record pull.
+An earlier draft claimed full GenBank-record metadata needs efetch (not CORS-open).
+That is WRONG for assembly/genome accessions: the Datasets API serves the full
+annotated GenBank Flat File browser-direct via `include_annotation_type=GENOME_GBFF`
+(verified live; see ncbi-datasets-import.md), and the GBFF carries the DEFINITION,
+the ORGANISM line with the complete taxonomy lineage, the REFERENCE / author list,
+and all features. So for an NCBI-imported genome, the organism + lineage (+
+references) are ALREADY on the record, no separate enrichment call needed.
+
+Where enrichment still adds value: (a) sequences NOT imported from NCBI (a
+file-imported or hand-built sequence the user wants to tag), and (b) the standalone
+taxonomy lookup (organism -> lineage) independent of any sequence. For those, the
+taxonomy endpoint (CORS-open) supplies organism + tax id + named lineage. The only
+genuinely browser-direct-unavailable case is the prose record for a single
+non-assembly accession with no GBFF; that is a narrow edge, not the common path.
 
 ## Capabilities in detail
 

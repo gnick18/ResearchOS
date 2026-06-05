@@ -107,22 +107,41 @@ Base: `https://api.ncbi.nlm.nih.gov/datasets/v2`.
   required; never ours to ship a shared key that could get rate-limited for
   everyone.
 
-## Format (FASTA + GFF3, not annotated GenBank)
+## Format: GBFF gives ANNOTATED GenBank browser-direct (corrected 2026-06-05)
 
-- Datasets returns FASTA plus optional GFF3, not annotated GenBank (unlike the
-  classic efetch, which is not CORS-open anyway). So:
-  - V1 imports the FASTA and lets the user run Detect Features to annotate.
-  - FOLLOW-UP: request GFF3 in the download and map its features onto the imported
-    sequence so a gene / genome arrives pre-annotated. This is a clean additive
-    step once the FASTA path works.
+CORRECTION: an earlier draft claimed Datasets only returns FASTA + GFF3 and that
+annotated GenBank needs efetch (not CORS-open). That was WRONG. The Datasets API
+serves the GenBank Flat File via `include_annotation_type=GENOME_GBFF` (the REST
+equivalent of `datasets download genome accession <acc> --include gbff`), and it
+is CORS-open. VERIFIED LIVE (2026-06-05): downloading GCF_000005845.2 with
+`GENOME_GBFF` returns a ZIP containing `ncbi_dataset/data/<acc>/genomic.gbff`, a
+full annotated GenBank record (LOCUS, DEFINITION, the ORGANISM line with the
+complete taxonomy lineage, REFERENCES, and all gene / CDS FEATURES).
+
+So:
+- GENOME / ASSEMBLY imports should request GBFF, not FASTA. The `.gbff` parses
+  through the EXISTING `importSequenceFile` GenBank path (genbankToJson), so the
+  imported genome lands FULLY ANNOTATED in our native GenBank format, with the
+  organism + lineage already on the record. No FASTA-then-Detect-Features, and the
+  GFF3 -> features follow-up is OBSOLETE (GBFF is strictly better).
+- GBFF is larger than FASTA (E. coli: ~11.8 MB gbff vs ~4.6 MB of bases) but it is
+  the same one-time capped download and carries the annotation.
+- GENE-LEVEL nuance: GBFF is an assembly/genome-level payload. Single
+  gene-by-symbol downloads return GENE_FASTA (no gbff), so a gene may import as
+  bare FASTA unless we pull its annotated record another way (TBD; verify the
+  gene-level annotated path). The clear win is genomes/assemblies via GBFF.
+- The provenance / taxonomy enrichment (see ncbi-taxonomy-enrichment.md) is partly
+  free for GBFF imports: the organism + lineage are already in the GenBank record.
 
 ## Phased plan
 
 1. SINGLE FETCH. The form + preview + download + unzip + FASTA import for a single
    gene (by symbol + organism) and a single accession (gene / genome / protein),
    with the size + count caps. Reuses bio-parsers + sequencesApi.create.
-2. GENOME + ANNOTATIONS. Genome-by-taxon assembly picker, GFF3 -> features so the
-   import arrives annotated, provenance metadata on the record.
+2. ANNOTATED GENOMES via GBFF. Request `GENOME_GBFF` for genome/assembly imports so
+   they arrive fully annotated (parsed through the existing GenBank path), with the
+   organism + lineage on the record. Supersedes the obsolete GFF3 -> features idea.
+   Plus the genome-by-taxon assembly picker.
 3. BROWSE. Taxonomy search / autocomplete (organism name -> assemblies / genes),
    so the user does not need an exact accession.
 
