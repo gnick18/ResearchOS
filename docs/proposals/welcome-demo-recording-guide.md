@@ -59,16 +59,30 @@ demo plasmids, or use the **Paste a sequence** button inside the workspace.
 
 One clip. File `own-your-data.mov`.
 Sells: "your whole notebook is just a plain folder you own."
-1. Start on the connect-folder screen (or Settings, the folder picker).
-2. Click the choose-folder action and pick a local folder. The app loads it.
-3. Now the reveal: switch to a **Finder window** showing that same folder on
-   disk, with its plain files visible (notes, images, the project folders).
-   Slowly scroll or open a subfolder so it reads as "these are just my files."
-Loop centers on: the Finder folder of plain files sitting on the machine, ideally
-side by side with the app showing the same content.
 
-Prep: a fixture folder with some content. Have the Finder window open and sized
-before you record so the cut is clean.
+IMPORTANT: this is the ONE clip that does NOT use `?wikiCapture=1`. Capture mode
+is an in-memory fixture, so there is no real folder on disk to open in Finder.
+This clip needs a real on-disk folder, and the privacy-safe way is a folder that
+holds only demo data. A ready-made one is set up at `~/Desktop/Lab Notebook`
+(the demo lab unzipped, all fake alex/mira/morgan data, the demo marker removed
+so it loads as a normal folder, timestamps reset to now).
+
+Record in a fresh incognito window so your real folder is never touched:
+1. Open incognito, go to `localhost:3000` with NO query string (plain). You land
+   on the connect-folder screen.
+2. Click the choose-folder action and pick `~/Desktop/Lab Notebook`. Grant the
+   permission. The app loads it (pick alex if it asks for a user).
+3. The reveal: switch to a Finder window on `~/Desktop/Lab Notebook` and drill in
+   to a results folder with real files. Best one is
+   `users/morgan/results/task-3/`, which holds `notes.md`, `results.md`, and an
+   `Images/` folder with `gel-qpcr-products.png`, `melt-curves.png`, and
+   `qpcr-amplification-curves.png`. Slowly open the folder and the Images so it
+   reads as "every gel and note is just a file I own."
+Loop centers on: the Finder folder of plain files (notes plus gel images) sitting
+on the machine, ideally side by side with the app showing the same content.
+
+Prep: the `~/Desktop/Lab Notebook` folder is already in place. Have the Finder
+window open and sized before you record so the cut is clean.
 
 ---
 
