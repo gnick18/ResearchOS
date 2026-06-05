@@ -81,9 +81,10 @@ export default function OrcidPublications({ orcid }: { orcid: string }) {
                   href={w.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-body font-medium text-sky-700 hover:underline underline-offset-2"
+                  className="inline-flex items-start gap-1 text-body font-medium text-sky-700 hover:underline underline-offset-2"
                 >
-                  {w.title}
+                  <span>{w.title}</span>
+                  <ExternalIcon className="mt-1 h-3 w-3 shrink-0 text-sky-400" />
                 </a>
               ) : (
                 <span className="text-body font-medium text-gray-800">
@@ -91,6 +92,16 @@ export default function OrcidPublications({ orcid }: { orcid: string }) {
                 </span>
               )}
               {meta && <p className="text-meta text-gray-500">{meta}</p>}
+              {w.doi && (
+                <a
+                  href={`https://doi.org/${w.doi}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-meta text-gray-400 hover:text-sky-600 hover:underline underline-offset-2"
+                >
+                  doi.org/{w.doi}
+                </a>
+              )}
             </li>
           );
         })}
