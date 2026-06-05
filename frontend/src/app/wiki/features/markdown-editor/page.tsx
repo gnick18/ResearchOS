@@ -256,7 +256,11 @@ export default function MarkdownEditorPage() {
           popup. The popup shows a larger preview and lets you edit the
           caption, rename the file, delete it from disk, or jump to where
           it&apos;s used in the body. If the image isn&apos;t referenced
-          anywhere yet, the jump button is disabled.
+          anywhere yet, the jump button is disabled. The popup also has an{" "}
+          <strong>Annotate</strong> button that opens the non-destructive{" "}
+          <Link href="/wiki/features/image-annotation">image annotation editor</Link>,
+          where you can circle a band or label lanes without ever modifying the
+          raw photo.
         </li>
         <li>
           <strong>Drag a thumbnail into the editor</strong> to insert that

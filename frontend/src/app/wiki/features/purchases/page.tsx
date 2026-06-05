@@ -11,7 +11,7 @@ export default function PurchasesFeaturePage() {
     >
       <Screenshot
         src="/wiki/screenshots/purchases-unified-scroll.png"
-        alt="The Purchases page header with an amber '+ New Purchase' button at the top right, the three filter chips 'All / Project purchases / Miscellaneous' below the header, and a single reverse-chronological list of purchase orders beneath."
+        alt="The Purchases page header with an amber '+ New Purchase' button at the top right, the four category filter chips 'All / Project purchases / Miscellaneous / Awaiting approval' below the header, a separate ordering-status chip row beneath them, and a single reverse-chronological list of purchase orders below."
         caption="Header, filter chips, and the unified order list. The amber '+ New Purchase' button and the segmented filter chips were added in the 2026-05-22 Purchases redesign."
       />
 
@@ -115,16 +115,27 @@ export default function PurchasesFeaturePage() {
 
       <h2>The unified scroll</h2>
       <p>
-        Above the order list is a three-chip segmented control that scopes what
-        you see. <strong>All</strong> shows every purchase task and is always
-        visible. <strong>Project purchases</strong> filters to orders attached to
-        a real project, hiding the Miscellaneous bucket. The third chip,{" "}
-        <strong>Miscellaneous</strong>, shows only the ad-hoc purchases in the
-        hidden <code>_misc_purchases</code> bucket; this chip is hidden entirely
-        when <code>miscTaskCount === 0</code> so a freshly-onboarded account does
-        not see a confusing empty bucket. All three chips display a live count
-        badge that reflects the full purchase list, not just the filtered view,
-        so the badge numbers stay stable as you switch tabs.
+        Above the order list are two rows of chips. The first is a category
+        segmented control with four chips that scope what you see.{" "}
+        <strong>All</strong> shows every purchase task and is always visible.{" "}
+        <strong>Project purchases</strong> filters to orders attached to a real
+        project, hiding the Miscellaneous bucket. <strong>Miscellaneous</strong>{" "}
+        shows only the ad-hoc purchases in the hidden{" "}
+        <code>_misc_purchases</code> bucket; this chip is hidden entirely when{" "}
+        <code>miscTaskCount === 0</code> so a freshly-onboarded account does not
+        see a confusing empty bucket. The fourth chip is{" "}
+        <strong>Awaiting approval</strong> for lab members (relabeled{" "}
+        <strong>Pending approval</strong> for lab heads, who own that queue),
+        scoping the list to purchases still waiting on a PI decision. Each chip
+        displays a live count badge that reflects the full purchase list, not
+        just the filtered view, so the badge numbers stay stable as you switch
+        tabs.
+      </p>
+      <p>
+        Below the category chips is a separate <strong>Ordering</strong> chip
+        row that filters by where each order sits in its lifecycle (Any stage,
+        Needs ordering, Ordered, Received). It composes with the category chips
+        above, and the lifecycle itself is described in the next section.
       </p>
       <p>
         The list itself is a single column sorted by start date, newest first. There is no
@@ -214,6 +225,45 @@ export default function PurchasesFeaturePage() {
         <code>_misc_purchases</code> project. One is the project the order lives
         in, the other is a per-line-item annotation inside an order.
       </Callout>
+
+      <h2>Order lifecycle</h2>
+      <p>
+        A purchase is not done the moment you log it. Every line item carries an
+        ordering status that moves through three stages,{" "}
+        <strong>Needs ordering</strong>, then <strong>Ordered</strong>, then{" "}
+        <strong>Received</strong>. A fresh item starts at Needs ordering, and
+        older records with no status read as Needs ordering too, so the field is
+        always present.
+      </p>
+      <p>
+        Each line item shows a small colored status chip (gray for Needs
+        ordering, blue for Ordered, green for Received) with forward and back
+        arrows next to it. Click the forward arrow to advance a stage or the
+        back arrow to revert one. The control is available to any lab member, so
+        whoever actually places the order can mark it without waiting on a PI
+        edit session. The <strong>Ordering</strong> chip row above the list (Any
+        stage, Needs ordering, Ordered, Received) filters the whole page to
+        orders containing an item in the chosen stage.
+      </p>
+      <Callout variant="info" title="Moving to Ordered notifies the requester">
+        When a labmate placed an order on someone else&apos;s behalf, advancing
+        that item from Needs ordering to Ordered fires a bell to the requester,
+        so the person who asked for the reagent finds out it is on the way
+        without having to check back. This is the real signal that the order was
+        placed, replacing the old stopgap of toggling the parent order complete.
+      </Callout>
+
+      <h2>Buy again</h2>
+      <p>
+        Reagents run out and get reordered on a loop. On any{" "}
+        <strong>Received</strong> line item, a one-click{" "}
+        <strong>Buy again</strong> control creates a brand-new purchase order
+        that copies the item&apos;s name, vendor, CAS or accession, link, price,
+        and quantity, and starts it back at <strong>Needs ordering</strong>. No
+        form, no retyping. The reorder routes to the same project as the
+        original when known, otherwise to the Miscellaneous bucket, and it
+        re-enters the normal needs-ordering and approval pipeline from the top.
+      </p>
 
       <h2>The loose model and the soft warning</h2>
       <p>
@@ -436,6 +486,64 @@ export default function PurchasesFeaturePage() {
         Purchases page and in the funding dropdown when they add a line item.
         That is the point. One person in the lab can manage the list of grants
         and everyone gets to pick from it.
+      </Callout>
+
+      <h3>Structured grant metadata</h3>
+      <p>
+        Each funding account can carry the official grant details beneath its
+        everyday label. Expand <strong>Grant details (for data sharing / DOI)</strong>{" "}
+        on an account and you can record the structured fields a repository
+        deposit needs:
+      </p>
+      <ul>
+        <li>
+          <strong>Award number</strong>: the official grant identifier (for
+          example <code>5R01GM123456-03</code>). A soft hint nudges you toward
+          the NIH shape, but any value is accepted.
+        </li>
+        <li>
+          <strong>Funder name</strong>: the funding body, with a datalist seeded
+          with NIH and NSF. Choosing NIH auto-fills its funder ID and ID type.
+        </li>
+        <li>
+          <strong>Funder ID</strong> and <strong>funder ID type</strong>: the
+          funder&apos;s identifier and its scheme (Crossref Funder ID, ROR, GRID,
+          ISNI, or Other).
+        </li>
+        <li>
+          <strong>Award title</strong>: the grant&apos;s full title, optional.
+        </li>
+      </ul>
+      <p>
+        These fields are deliberately separate from the account name. The name
+        is your own short label that purchases match on; the award number is the
+        official identifier and may differ. All of them map one-to-one to the
+        DataCite <code>fundingReference</code> fields, so when you later deposit
+        an experiment to a repository the funder attribution is a direct copy
+        rather than something you re-enter.
+      </p>
+
+      <h3>Linking a project to a grant</h3>
+      <p>
+        A funding account can be linked to a project as its primary grant. That
+        project-to-grant link is what the deposit flow reads when it prefills the
+        funder fields, so a single experiment under that project carries the
+        right award number and funder into its DataCite metadata automatically.
+        For v1 a project links to a single grant.
+      </p>
+
+      <Callout variant="info" title="Built for data-sharing compliance">
+        The structured grant fields and the project-to-grant link exist so that
+        sharing your data to satisfy a funder mandate is a few clicks, not a
+        re-typing exercise. See{" "}
+        <Link href="/wiki/compliance/depositing-to-a-repository">
+          Depositing to a repository
+        </Link>{" "}
+        for the deposit flow and{" "}
+        <Link href="/wiki/compliance/nih-data-management">
+          NIH Data Management &amp; Sharing
+        </Link>{" "}
+        for how this fits the policy.
       </Callout>
 
       <h2>Future considerations</h2>
