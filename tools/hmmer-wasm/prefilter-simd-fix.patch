@@ -1,0 +1,31 @@
+diff --git a/src/impl_sse/p7_oprofile.c b/src/impl_sse/p7_oprofile.c
+index f2f30d13..e3ef00cd 100644
+--- a/src/impl_sse/p7_oprofile.c
++++ b/src/impl_sse/p7_oprofile.c
+@@ -669,7 +669,26 @@ biased_byteify(P7_OPROFILE *om, float sc)
+   uint8_t b;
+ 
+   sc  = -1.0f * roundf(om->scale_b * sc);                          /* ugh. sc is now an integer cost represented in a float...           */
++#if defined(__EMSCRIPTEN__) || defined(__wasm__)
++  /* WASM-CORRECTNESS FIX (prefilter SIMD arc, 2026-06-05):
++   * For a good match <sc> is a small NEGATIVE float (e.g. -17.0). The original
++   * line below casts that straight to uint8_t and relies on x86's modular
++   * float->int wrap (-17.0 -> 239) so that "+ bias" lands on the correct small
++   * biased cost (239 + 17 = 256 -> 0). WebAssembly's float->unsigned conversion
++   * (i32.trunc_sat_f32_u, which clang emits) SATURATES negative floats to 0
++   * instead of wrapping, so every good match collapsed to bias_b. That made the
++   * MSV/SSV prefilter match costs uniformly too high (min cost stuck at bias_b),
++   * the prefilter rejected every sequence, and default-mode searches found no
++   * hits (--max, which uses the float DP, was unaffected). Do the rounding +
++   * bias in signed integer space and mask to a byte; this reproduces the
++   * intended modular wrap on every target and is bit-identical to native x86. */
++  {
++    int cost = (int) sc + (int) om->bias_b;                        /* cost may be negative for a good match */
++    b = (cost > 255) ? 255 : (uint8_t) (cost & 0xff);
++  }
++#else
+   b   = (sc > 255 - om->bias_b) ? 255 : (uint8_t) sc + om->bias_b; /* and now we cast, saturate, and bias it to an unsigned char cost... */
++#endif
+   return b;
+ }
+  

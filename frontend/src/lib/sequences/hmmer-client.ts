@@ -14,15 +14,13 @@
 // Voice in comments, no em-dashes, no emojis, no mid-sentence colons.
 
 /**
- * The HMMER command flags v1 runs with. `--max` turns the MSV/SSV prefilter OFF
- * and runs the full alignment DP on every model, which is the CORRECT path on
- * the current WASM build (the prefilter's saturating-unsigned SIMD is
- * mistranslated; a separate fix is in flight). The full DP is correct and fast
- * enough for a single protein against a curated subset.
- *
- * DROP `--max` once the prefilter SIMD fix lands; this one constant is the flip.
+ * The HMMER command flags the on-device search runs with. The MSV/SSV prefilter
+ * now works on the WASM build (the float-to-uint8 conversion in biased_byteify
+ * was fixed for WASM; see tools/hmmer-wasm/prefilter-simd-fix.patch), so default
+ * mode (prefilter ON) is both correct AND fast at full-database scale. No flags
+ * needed; `--max` (prefilter off) is no longer required.
  */
-export const HMMER_FLAGS: string[] = ["--max"];
+export const HMMER_FLAGS: string[] = [];
 
 /** Where the static engine + worker live (served from frontend/public). */
 const WORKER_URL = "/hmmer/hmmer-worker.js";
