@@ -227,7 +227,7 @@ export default function NoteDetailPopup({
         return null;
       });
     };
-    // Keyed on note identity + owner only, matching LoroNoteEditor Effect 1.
+    // Keyed on note identity + owner only (the handle is one-per-note).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.id, note.username, currentUser]);
 

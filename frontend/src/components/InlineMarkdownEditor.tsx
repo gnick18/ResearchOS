@@ -238,10 +238,10 @@ export default function InlineMarkdownEditor({
 
   // Loro mode: hold all Loro props in latest-value refs so the updateListener
   // (created once at mount) and the entry-switch effect always read fresh values
-  // without their unstable per-render identities appearing in dep arrays. The
-  // same class of bug fixed in LoroNoteEditor (rebuild-on-keystroke hang) would
-  // recur if the updateListener captured loroBaseNote by closure -- it changes
-  // identity on every render as the parent rebuilds the note object on each key.
+  // without their unstable per-render identities appearing in dep arrays. If the
+  // updateListener captured loroBaseNote by closure it would trigger a
+  // rebuild-on-keystroke hang -- the note object changes identity on every
+  // render as the parent rebuilds it on each key.
   const loroHandleRef = useRef(loroHandle);
   const loroEntryIndexRef = useRef(loroEntryIndex);
   const loroBaseNoteRef = useRef(loroBaseNote);
