@@ -138,11 +138,11 @@ export function getMeta(doc: LoroDoc): NoteMetaPlain {
 /**
  * Return all entries as plain objects.
  *
- * The "content" field is returned as MARKDOWN (not plain text): marks stored
- * in the Loro Text are re-rendered back to bold/italic/link control characters
- * via renderMarkdownInline so callers and the readable mirror see standard
- * markdown strings.  Block-level markdown (headings, lists, fences) was never
- * stripped, so it round-trips transparently.
+ * The "content" field is the MARKDOWN string stored verbatim in the Loro Text
+ * (the `**` / `*` / link syntax characters are IN the text, the same way the
+ * live editor stores them). We read it directly with toString(); there is no
+ * marks layer to re-render. See setEntryContent for why content is stored as
+ * raw markdown rather than plain-text-plus-marks.
  */
 export function listEntries(doc: LoroDoc): NoteEntryPlain[] {
   const list = doc.getMovableList("entries");
@@ -157,23 +157,13 @@ export function listEntries(doc: LoroDoc): NoteEntryPlain[] {
     // so the WASM boundary gives us the live container handle.
     const text = entryMap.getOrCreateContainer("content", new LoroText());
 
-    // Read the rich-text delta to recover both the plain text and its marks.
-    const delta = text.toDelta() as Delta<string>[];
-    const plain = delta
-      .filter((s): s is { insert: string } => "insert" in s && typeof s.insert === "string")
-      .map((s) => s.insert)
-      .join("");
-
-    const marks = deltaToMarks(delta);
-    const markdown = renderMarkdownInline(plain, marks);
-
     results.push({
       id:         (entryMap.get("id")         as string) ?? "",
       title:      (entryMap.get("title")      as string) ?? "",
       date:       (entryMap.get("date")       as string) ?? "",
       created_at: (entryMap.get("created_at") as string) ?? "",
       updated_at: (entryMap.get("updated_at") as string) ?? "",
-      content:    markdown,
+      content:    text.toString(),
     });
   }
 
@@ -203,13 +193,14 @@ export function getEntryContentText(
 /**
  * Set the full text content of an entry's content Text container.
  *
- * Accepts a MARKDOWN string. Splits the incoming markdown into plain text
- * and inline marks, clears the current Text content, inserts the plain text,
- * then re-applies marks as Loro text marks.
- *
- * The doc must have had configureTextStyles() called before any mark() call.
- * This function calls configureTextStyles() defensively so the caller does not
- * need to track whether it has been done.
+ * Stores the MARKDOWN string verbatim in the Loro Text (the `**` / `*` / link
+ * syntax characters live IN the text). This matches how the live CodeMirror
+ * editor stores content through loro-codemirror (the editor binds its markdown
+ * document directly to the Loro Text), so every write path, seed, external
+ * edit, restore, and live typing, agrees on one representation. We do NOT split
+ * into plain-text-plus-Loro-marks: that produced a second, incompatible
+ * representation (the editor re-seeds from text.toString(), which dropped the
+ * marks, so a restore lost bold).
  */
 export function setEntryContent(
   doc: LoroDoc,
@@ -218,37 +209,9 @@ export function setEntryContent(
 ): void {
   const text = getEntryContentText(doc, index);
   if (!text) return;
-
-  // Ensure mark styles are registered on this doc.
-  configureTextStyles(doc);
-
-  const { text: plain, marks } = splitMarkdownInline(newContent);
-
-  // Replace the entire content in one operation: delete old + insert new.
-  // LoroText.update() does this atomically (it diffed internally to minimize ops,
-  // but for deterministic seeding we use it only on live edits, not in seed.ts).
-  text.update(plain);
-
-  // Remove any existing marks by unmarking the full range, then re-apply.
-  // This handles the case where the caller sets content on a pre-marked Text.
-  const currentLen = text.toString().length;
-  if (currentLen > 0) {
-    // Unmark the full span for each key we manage, so stale marks are cleared.
-    // Loro unmark() is a no-op if no mark exists for that key.
-    text.unmark({ start: 0, end: currentLen }, "bold");
-    text.unmark({ start: 0, end: currentLen }, "italic");
-    text.unmark({ start: 0, end: currentLen }, "link");
-  }
-
-  for (const mark of marks) {
-    if (mark.type === "bold") {
-      text.mark({ start: mark.start, end: mark.end }, "bold", true);
-    } else if (mark.type === "italic") {
-      text.mark({ start: mark.start, end: mark.end }, "italic", true);
-    } else if (mark.type === "link") {
-      text.mark({ start: mark.start, end: mark.end }, "link", mark.url ?? "");
-    }
-  }
+  // Replace the entire content in one operation (delete old + insert new),
+  // keeping the markdown syntax characters in the text.
+  text.update(newContent);
 }
 
 /**

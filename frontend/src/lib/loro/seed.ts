@@ -20,7 +20,6 @@
  */
 
 import { LoroDoc, LoroMap, LoroText } from "loro-crdt";
-import { splitMarkdownInline, configureTextStyles } from "./marks";
 import type { Note } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -84,10 +83,6 @@ export function seedNoteDoc(note: Note): Uint8Array {
   // Step 1: fixed peer id. Every op in this commit gets (SEED_ACTOR_ID, counter).
   doc.setPeerId(seedActorId);
 
-  // Register the three mark types so Loro accepts mark() calls below.
-  // Must happen before any text.mark() call on this doc.
-  configureTextStyles(doc);
-
   // Step 2: write meta in canonical key order (title, description, is_running_log,
   // created_at). Order matters because Loro encodes ops in insertion order and
   // the same insertion sequence must play out on both devices.
@@ -126,28 +121,13 @@ export function seedNoteDoc(note: Note): Uint8Array {
     const text = entryMap.setContainer("content", new LoroText());
 
     if (e.content) {
-      // Split the markdown into plain text + inline marks (Peritext: bold/italic/link
-      // live as Loro marks anchored to character ids, NOT as control chars in the text).
-      // splitMarkdownInline returns marks already sorted by (start, type), so the
-      // mark() ops below execute in a fixed canonical order on every device, which
-      // preserves byte-determinism across independent seeds of the same note.
-      const { text: plain, marks } = splitMarkdownInline(e.content);
-
-      // Insert the plain text in ONE operation (same determinism guarantee as before).
-      text.insert(0, plain);
-
-      // Apply marks in sorted order. Each mark() call is an op with a deterministic
-      // (peer, counter) id because the peer is fixed and the counter advances
-      // monotonically from the text insert op.
-      for (const mark of marks) {
-        if (mark.type === "bold") {
-          text.mark({ start: mark.start, end: mark.end }, "bold", true);
-        } else if (mark.type === "italic") {
-          text.mark({ start: mark.start, end: mark.end }, "italic", true);
-        } else if (mark.type === "link") {
-          text.mark({ start: mark.start, end: mark.end }, "link", mark.url ?? "");
-        }
-      }
+      // Insert the markdown content VERBATIM in ONE operation (the `**` / `*` /
+      // link syntax characters live in the text, the same way the live editor
+      // stores them via loro-codemirror). One insert keeps the op count
+      // deterministic, so two devices seeding the same note produce byte-equal
+      // output. See setEntryContent for why content is raw markdown, not a
+      // plain-text-plus-marks split.
+      text.insert(0, e.content);
     }
   }
 

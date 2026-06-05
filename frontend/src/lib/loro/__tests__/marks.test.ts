@@ -152,11 +152,17 @@ describe("splitMarkdownInline / renderMarkdownInline: round-trips", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Test 2: No control chars in the CRDT Text (the Peritext guarantee)
+// Test 2: content is stored as VERBATIM markdown in the LoroText
+//
+// The Loro Text holds the raw markdown syntax characters (the `**` / `*` /
+// link brackets are IN the text), matching how the live CodeMirror editor
+// stores content. This replaced the earlier plain-text-plus-marks split, which
+// produced a second representation the editor's re-seed (text.toString) could
+// not read, so a restore lost bold.
 // ---------------------------------------------------------------------------
 
-describe("Peritext guarantee: no control characters in the LoroText", () => {
-  it("'**bold** word' stores NO '*' in the LoroText after seeding", () => {
+describe("content is stored as verbatim markdown in the LoroText", () => {
+  it("'**bold** word' is stored verbatim (the ** stays in the text)", () => {
     const note = minimalNote("**bold** word");
     const bytes = seedNoteDoc(note);
 
@@ -165,36 +171,29 @@ describe("Peritext guarantee: no control characters in the LoroText", () => {
 
     const rawText = getEntryContentText(doc, 0);
     expect(rawText).toBeDefined();
-    // The stored string must contain no asterisks -- bold is a mark, not text.
-    const stored = rawText!.toString();
-    expect(stored).not.toContain("*");
-    expect(stored).toBe("bold word");
+    expect(rawText!.toString()).toBe("**bold** word");
   });
 
-  it("'*italic* text' stores NO '*' in the LoroText after seeding", () => {
+  it("'*italic* text' is stored verbatim", () => {
     const note = minimalNote("*italic* text");
     const bytes = seedNoteDoc(note);
 
     const doc = new LoroDoc();
     doc.import(bytes);
 
-    const rawText = getEntryContentText(doc, 0);
-    expect(rawText!.toString()).not.toContain("*");
+    expect(getEntryContentText(doc, 0)!.toString()).toBe("*italic* text");
   });
 
-  it("[link](url) stores the label text without brackets in the LoroText", () => {
+  it("[link](url) is stored verbatim (brackets + parens stay in the text)", () => {
     const note = minimalNote("[click here](https://example.com)");
     const bytes = seedNoteDoc(note);
 
     const doc = new LoroDoc();
     doc.import(bytes);
 
-    const rawText = getEntryContentText(doc, 0);
-    const stored = rawText!.toString();
-    expect(stored).not.toContain("[");
-    expect(stored).not.toContain("]");
-    expect(stored).not.toContain("(");
-    expect(stored).toBe("click here");
+    expect(getEntryContentText(doc, 0)!.toString()).toBe(
+      "[click here](https://example.com)",
+    );
   });
 });
 
