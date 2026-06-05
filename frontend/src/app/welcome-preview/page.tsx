@@ -522,7 +522,7 @@ export default function WelcomePreviewPage() {
             <div>
               <Kicker dark={false}>// a different deal than a cloud notebook</Kicker>
               <h2 className="mt-3 max-w-[16ch] text-3xl font-extrabold leading-[1.08] tracking-tight md:text-[38px]">
-                You own your data. Plain and simple.
+                No cloud. No lock-in. Just your files.
               </h2>
               <p className="mt-4 max-w-[52ch] text-title leading-relaxed text-[#475569]">
                 Everything you write lives as ordinary files in a folder on your
