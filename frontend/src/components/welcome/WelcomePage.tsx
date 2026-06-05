@@ -80,7 +80,7 @@ function SignInRow({
       {/* Path A: no account, the full local notebook. */}
       <div className="flex flex-col rounded-2xl border border-[#d3deec] bg-white p-6 shadow-[0_2px_12px_rgba(15,40,80,0.06)]">
         <div className="font-mono text-meta font-semibold uppercase tracking-[0.1em] text-[#1283c9]">
-          // no account
+          // free
         </div>
         <h3 className="mt-1.5 text-heading font-extrabold tracking-tight text-[#0e1726]">
           Use it locally
@@ -121,13 +121,8 @@ function SignInRow({
 
       {/* Path B: free account, adds sharing + inbox + collaboration. */}
       <div className="flex flex-col rounded-2xl border border-[#cfe0f2] bg-[#f5faff] p-6 shadow-[0_2px_12px_rgba(15,40,80,0.06)]">
-        <div className="flex items-center justify-between">
-          <div className="font-mono text-meta font-semibold uppercase tracking-[0.1em] text-[#1283c9]">
-            // free account
-          </div>
-          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-meta font-semibold text-sky-700">
-            Also free
-          </span>
+        <div className="font-mono text-meta font-semibold uppercase tracking-[0.1em] text-[#1283c9]">
+          // also free
         </div>
         <h3 className="mt-1.5 text-heading font-extrabold tracking-tight text-[#0e1726]">
           Sign in to share
