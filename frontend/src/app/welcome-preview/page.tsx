@@ -255,7 +255,7 @@ export default function WelcomePreviewPage() {
         {/* Its own subtle band (white to pale blue) with a bottom edge, so the
             hero reads as a distinct chunk and does not bleed into the content
             below. */}
-        <header className="relative isolate border-b border-[#e3eaf3] bg-gradient-to-b from-white to-[#eaf2fb] px-6 pb-20 pt-2 text-center sm:px-12">
+        <header className="relative isolate bg-gradient-to-b from-white to-[#eef4fb] px-6 pb-8 pt-2 text-center sm:px-12">
           {/* Soft rainbow radial bloom behind BeakerBot. */}
           <div
             aria-hidden
@@ -326,7 +326,7 @@ export default function WelcomePreviewPage() {
             so the first thing under the hero is substance, not a bare video.
             The band's tint + borders give the page visual rhythm against the
             white sections. */}
-        <section className="border-b border-[#dbe6f3] bg-gradient-to-b from-[#eef4fb] to-[#f5f9fd] px-6 py-20 sm:px-12">
+        <section className="border-b border-[#dbe6f3] bg-gradient-to-b from-[#eef4fb] to-[#f5f9fd] px-6 pb-20 pt-12 sm:px-12">
           <div className="mx-auto grid max-w-[1180px] items-center gap-12 md:grid-cols-[0.92fr_1.08fr]">
             <div>
               <Kicker>// the flagship</Kicker>
