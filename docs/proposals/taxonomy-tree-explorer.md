@@ -18,6 +18,66 @@ taxonomy enrichment (`docs/proposals/ncbi-taxonomy-enrichment.md`).
 - IMPORT JUMP: yes, a species / strain node offers a direct "import from NCBI"
   action that prefills the annotated import for that organism.
 
+## Pivot (Grant, 2026-06-05): a graphical radial tree, oseiskar style
+
+After Stage 1 (the backbone) and Stage 2 (a card-stepper panel) landed, Grant
+pointed at `github.com/oseiskar/tree-of-life` as the style he wants. That is a
+GRAPHICAL, zoomable d3 tree where BRANCH THICKNESS encodes the number of species in
+a branch, so diversity reads at a glance, with smooth pan / zoom and name search,
+served as static lazy-loaded data with no backend. The card stepper is the wrong
+shape. The pivot, with Grant's choices:
+
+- VISUAL: a RADIAL graphical tree (branches fan out from a center, thickness from
+  species count), in the oseiskar style. Reimplemented in d3 with OUR data, not
+  copied from their code (no license entanglement; the data is ours).
+- THE CARD PANEL becomes the CLICK-DETAIL, a slim side panel shown when a node is
+  clicked (name, rank, the species / assemblies count toggle, the import jump). It
+  is no longer the primary surface.
+- DEPTH: the offline backbone (superkingdom to family) is the instant tree;
+  zooming into a family LAZY-LOADS its genera / species live from NCBI and splices
+  them in. To-family offline plus live drill-down below family.
+
+This pivot SUPERSEDES the "Navigation model" and "UI sketch" sections below (the
+card-stepper layout); they are kept for history. The "Visualization (radial)"
+section is the live design.
+
+## Why the backbone fits perfectly
+
+The expensive Stage 1 work survives the pivot intact. Branch thickness in the
+oseiskar style IS the species count, which the backbone already carries per node
+(`speciesCount`). The no-backend static bundle is our exact pattern. Their
+lazy-loaded subtrees map to our live drill-down below family. So the pivot reuses
+the backbone, the taxonomy client (`getTaxonNode`, `suggestTaxa`, the batch
+resolver), and the import jump; only the rendering surface is new.
+
+## Visualization (radial)
+
+- LAYOUT: a radial tree. Each subtree is allocated ANGULAR width proportional to
+  its species count (log-damped so a 1.6M-species clade does not erase a small
+  one), depth maps to radius, and branches are drawn with stroke / wedge thickness
+  proportional to species count. The result is the oseiskar look, fat branches for
+  diverse clades, thin twigs for sparse ones. Build the layout with d3-hierarchy
+  over the backbone tree.
+- RENDERING: SVG via d3 for v1, with LEVEL-OF-DETAIL culling (draw only nodes whose
+  on-screen branch is above a pixel threshold at the current zoom, the way oseiskar
+  only renders the visible subtree). If SVG element counts hurt at full zoom-out,
+  fall back to Canvas; note this as the one perf risk. The backbone is ~16k nodes,
+  but only a viewport-and-threshold subset renders at once.
+- ZOOM / PAN: d3-zoom for smooth continuous navigation. Zooming into a branch
+  reveals deeper nodes (more detail), zooming out collapses them. Click a branch to
+  recenter / focus and open the click-detail.
+- LABELS: shown only for branches wide enough at the current zoom (label culling),
+  oriented along the radius, to avoid clutter; more labels appear as you zoom in.
+- DRILL BELOW FAMILY: when the user zooms into or focuses a FAMILY node (a backbone
+  leaf), lazy-load its children (genera, then species) via the live `getTaxonNode`
+  and splice them into the in-memory tree + the layout, mirroring oseiskar's
+  on-demand subtrees. Cache per session.
+- SEARCH: the `taxon_suggest` autocomplete; selecting a result animates a zoom to
+  that node (locating it in the backbone, or drilling live if below family).
+- CLICK-DETAIL: clicking a node opens the slim detail (the repurposed Stage 2 card
+  content), with the species / assemblies count toggle and, on a species / strain,
+  the import-from-NCBI jump.
+
 ## The gap
 
 The taxonomy tool we shipped (Phase 2) does a LINEAR LINEAGE only, an organism and
@@ -53,7 +113,7 @@ https://research-os.app`):
 { rank: name }, counts: { assemblies?, genes?, ... } }`. Children and siblings are
 resolved from ids to `{ taxId, name, rank }` on demand (batch).
 
-## Navigation model
+## Navigation model (SUPERSEDED by the radial visualization, kept for history)
 
 - CENTER on a node. Show its PARENT above, its SIBLINGS beside it (the parent's
   other children, the current node highlighted), and its CHILDREN below.
@@ -160,7 +220,7 @@ A simple in-memory (and optionally Cache API) map of `taxId -> TaxonNode` for th
 session, so walking back up or revisiting a sibling is instant. Cap the cache and
 evict oldest; the data is small per node.
 
-## UI sketch
+## UI sketch (SUPERSEDED by the radial visualization, kept for history)
 
 A full tool PANEL (Grant's choice), a calm centered layout, not a sprawling graph.
 The centered node is a card with its name, rank, and the toggleable counts badge. A
@@ -184,6 +244,14 @@ colon.
 - The hosted-subset load + Cache API pattern from the HMMER curated database, for
   the bundled backbone.
 
+## New dependency (Stage 3)
+
+The radial render needs d3. Add the small modular packages, not the d3 monolith:
+`d3-hierarchy`, `d3-zoom`, `d3-selection`, `d3-shape` (and `d3-interpolate` /
+`d3-transition` if animating). All MIT, exact-pinned, no React peer. Verify React 19
+compatibility is a non-issue (these are vanilla DOM utilities we drive from a ref,
+not a React renderer).
+
 ## New build pipeline
 
 - A re-runnable script (under `tools/` or `scripts/`) that downloads the NCBI
@@ -203,14 +271,34 @@ colon.
 - The show-more threshold on a wide-fan-out node fixture.
 - The build script on a tiny taxdump fixture (filter to family, re-parent, species
   count), so the pipeline is covered without the full dump.
-- Render: the centered node with parent / siblings / children, the breadcrumb, the
-  count toggle, the species-node import action, and the empty state (a tip with no
-  children shows "no child taxa").
+- The radial layout helper: angular allocation proportional to (log-damped) species
+  count, depth-to-radius, and branch thickness, on a small synthetic tree fixture.
+- Label / node culling at a given zoom level (a node below the pixel threshold is
+  not drawn).
+- The live drill-below-family splice (focusing a family fetches and inserts genera
+  into the in-memory tree).
+- The click-detail render (name, rank, count toggle, species-node import action).
+- The Stage 1 / Stage 2 tests already in the tree (getTaxonNode / suggestTaxa
+  parsing, the backbone loader + merge, the build script on a fixture) still hold.
+
+## Staging
+
+- STAGE 1 (backbone pipeline + loader): DONE, on main. Reused as-is.
+- STAGE 2 (card-stepper panel + client `getTaxonNode` / `suggestTaxa` + import
+  jump): DONE, on main. The client + import jump are reused; the panel is
+  REPURPOSED into the click-detail (slimmed), not the primary surface. Its launcher
+  entry can stay or be hidden until the radial view lands (TBD at build).
+- STAGE 3 (the radial visualization): NEW, this pivot. The d3 radial layout,
+  SVG render with level-of-detail culling, zoom / pan, label culling, search-to-node
+  zoom, the live drill-below-family splice, and the click-detail wiring.
 
 ## Resolved (Grant, 2026-06-05)
 
-Surface = full panel. Count badge = toggle between species and assemblies. Species
-node = yes, an import-from-NCBI jump. Data = Option B, backbone to family.
+Surface = a graphical radial tree (the primary), with the repurposed card as the
+click-detail. Count badge = toggle between species and assemblies. Species node =
+yes, an import-from-NCBI jump. Data = Option B, backbone to family with live
+drill-down. Style = oseiskar-like radial, branch thickness from species count,
+reimplemented in d3 over our own data.
 
 ## Remaining build-time judgment calls (no decision needed now)
 
@@ -224,9 +312,18 @@ node = yes, an import-from-NCBI jump. Data = Option B, backbone to family.
 
 ## Risks
 
-- Online-only in a local-first app (Option A); softened later by the Option B
-  backbone if needed.
-- A rare wide node (hundreds of direct children); handled by the show-more guard +
-  batch resolve in pages.
+- RENDER PERF (the main new risk): an SVG radial tree can bog down past a few
+  thousand drawn elements. Mitigated by level-of-detail culling (only branches above
+  a pixel threshold at the current zoom render, like oseiskar's visible-subtree
+  approach); if SVG still struggles, move the draw to Canvas while keeping d3 for
+  layout and zoom.
+- SPECIES-COUNT SCALING: raw counts span six orders of magnitude (a 1.6M-species
+  domain vs a 1-species family), so angular allocation and thickness must be
+  log-damped or the small clades vanish. Tunable, tested on a synthetic tree.
+- LIVE DRILL SEAMS: splicing live genera / species into the backbone tree on zoom
+  must keep the layout stable (no jarring re-layout). Animate insertions, cache per
+  session.
+- A backbone family node with many genera below it (the live drill); paged batch
+  resolves and the zoom threshold keep it bounded.
 - NCBI rate limits; interactive navigation is well within them, and the cache cuts
   repeat calls.
