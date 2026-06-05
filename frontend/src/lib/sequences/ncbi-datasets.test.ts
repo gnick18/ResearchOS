@@ -133,8 +133,10 @@ describe("sniffAccessionKind", () => {
 });
 
 describe("includeForKind", () => {
-  it("maps each kind to its FASTA payload", () => {
-    expect(includeForKind("genome")).toBe("GENOME_FASTA");
+  it("maps genome to annotated GBFF and gene / protein to FASTA", () => {
+    // Genome / assembly downloads request the annotated GBFF so they import with
+    // their genes and CDS features; gene and protein have no assembly-level GBFF.
+    expect(includeForKind("genome")).toBe("GENOME_GBFF");
     expect(includeForKind("gene")).toBe("GENE_FASTA");
     expect(includeForKind("protein")).toBe("PROT_FASTA");
   });

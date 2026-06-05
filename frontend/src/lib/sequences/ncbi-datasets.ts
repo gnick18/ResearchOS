@@ -47,9 +47,12 @@ export interface NcbiPreview {
 }
 
 /** The download payload to request, mapped to the Datasets `include_annotation_type`
- *  query parameter. v1 imports FASTA only; GFF3 -> features is a follow-up. */
+ *  query parameter. Genome / assembly downloads request GBFF, an annotated GenBank
+ *  flat file carrying genes, CDS, organism lineage, and references, so they import
+ *  fully annotated through the existing GenBank parser. Gene-by-symbol and protein
+ *  packages are not assembly-level and have no GBFF, so they stay FASTA. */
 export type NcbiInclude =
-  | "GENOME_FASTA"
+  | "GENOME_GBFF"
   | "GENE_FASTA"
   | "PROT_FASTA";
 
@@ -351,7 +354,7 @@ export interface DownloadRequest {
   kind: NcbiKind;
   /** The identifier the download endpoint takes (accession or gene id). */
   id: string;
-  /** The FASTA payload to request. */
+  /** The payload to request (annotated GBFF for genomes, FASTA otherwise). */
   include: NcbiInclude;
   /** Optional NCBI api-key header (the preflight confirmed it is allowed). v1
    *  is anonymous; a settings UI for this is a noted follow-up. */
@@ -359,7 +362,8 @@ export interface DownloadRequest {
   signal?: AbortSignal;
 }
 
-/** Build the download URL for a kind + id, requesting the FASTA payload. */
+/** Build the download URL for a kind + id, requesting the chosen payload
+ *  (annotated GBFF for genomes, FASTA for gene / protein). */
 function downloadUrl(kind: NcbiKind, id: string, include: NcbiInclude): string {
   const enc = encodeURIComponent(id);
   const q = `include_annotation_type=${include}`;
@@ -377,17 +381,18 @@ function downloadUrl(kind: NcbiKind, id: string, include: NcbiInclude): string {
   return `${NCBI_DATASETS_BASE}/gene/accession/${enc}/download?${q}`;
 }
 
-/** Pick the right FASTA payload for a kind. */
+/** Pick the right payload for a kind. Genome / assembly downloads request the
+ *  annotated GBFF; gene and protein stay FASTA (no assembly-level GBFF exists). */
 export function includeForKind(kind: NcbiKind): NcbiInclude {
-  if (kind === "genome") return "GENOME_FASTA";
+  if (kind === "genome") return "GENOME_GBFF";
   if (kind === "protein") return "PROT_FASTA";
   return "GENE_FASTA";
 }
 
 /**
- * Download the Datasets ZIP package and return it as an ArrayBuffer. Thin: the
- * unzip + FASTA parse live in ncbi-import.ts. Injects the api-key header only
- * when one is provided.
+ * Download the Datasets ZIP package and return it as an ArrayBuffer. This stays
+ * thin, the unzip + FASTA / GenBank parse live in ncbi-import.ts. Injects the
+ * api-key header only when one is provided.
  */
 export async function downloadPackage(req: DownloadRequest): Promise<ArrayBuffer> {
   const url = downloadUrl(req.kind, req.id, req.include);

@@ -35,7 +35,7 @@ export interface ImportResult {
 }
 
 /** Recognized import extensions, lowercased without the dot. */
-const GENBANK_EXTS = new Set(["gb", "gbk", "genbank", "ape"]);
+const GENBANK_EXTS = new Set(["gb", "gbk", "gbff", "genbank", "ape"]);
 const FASTA_EXTS = new Set(["fasta", "fa", "fna", "ffn", "faa", "frn", "seq"]);
 const SNAPGENE_EXTS = new Set(["dna", "prot"]);
 
