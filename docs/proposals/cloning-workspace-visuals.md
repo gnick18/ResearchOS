@@ -9,9 +9,13 @@ Author: sequence editor master, 2026-06-04. Status: SIGNED OFF by Grant
   ribbon + a "show sequence" disclosure for the raw bases. Includes the
   `productToDetail` adapter and the additive `fragmentSpans` return on all three
   engines.
-- Phase B (sub-bot, after A lands). All three junction specials: overlap
-  homology diagram, sticky-end ladder, AND Gateway crossover (the last needs the
-  small Gateway-engine change to surface which att sites reacted).
+- Phase B (sub-bot[s], after A lands). PER-TAB OPTIMIZATION: each tab leads with
+  its own hero module, optimized for that chemistry's key question (see the
+  "Phase B" section below). Overlap leads with the homology junctions, Restriction
+  with the cut + sticky ends + internal-site warning, Golden Gate with the
+  fusion-site uniqueness + scarless check, Gateway with the recombination
+  crossover + product/byproduct pair. Almost all pure UI on existing engine data
+  (the Gateway crossover needs NO engine change, `attSites` is already returned).
 - Deferred. The assemble animation + pick-step live preview. Revisit after A + B
   are live.
 - Sequence text. Kept behind a "show sequence" disclosure under the map.
@@ -115,38 +119,146 @@ fragment).
 
 Effort low. Risk low. Recommendation: include.
 
-## Optional 2: per-tab junction specials
+## Phase B: per-tab optimization (each tab leads with its own hero)
 
-One bespoke diagram per chemistry, shown in the review step alongside the map.
-Two of the three need no engine change.
+Phase A made the review identical across all four tabs (map + ribbon + junctions
++ save). But each tab answers a DIFFERENT scientific question, so each review
+should LEAD with a different hero module, the one thing that chemistry's user
+most needs to verify. The map and ribbon stay as the shared spine; the hero and
+the detail panel are tuned per chemistry, and the map's default tab and
+emphasized track are tuned too.
 
-### Overlap homology diagram (data in hand)
+Grounding note (verified against the engines 2026-06-04). Almost all of this is
+pure UI on data the engines already return. The earlier claim that the Gateway
+crossover needs an engine change was WRONG: `GatewayProduct` already returns
+`attSites: [ProductAtt, ProductAtt]` (name, family, sequence) plus
+`role: "clone" | "byproduct"` and `fragmentSpans`. Cut-ligate already returns
+per-piece `PieceEnd` (kind + overhang), `hasSite`, `junctionOverhangs[]`, and the
+orientation-ambiguity warning. The only NEW engine data anyone might want is
+restriction internal-cut detection (see the Restriction tab), and even that is
+optional.
 
-For each junction, draw fragment A's last ~30 bp over fragment B's first ~30 bp,
-with the shared overlap region (`overlapSeq`, `overlapBp` long) highlighted in a
-band spanning both rows and the `overlapTm` labeled. This is literally "show
-where the overlap is." Low effort, the data is already on each `Junction`.
+### The shared review grammar
 
-### Restriction / Golden Gate sticky-end ladder (data in hand)
+Every tab renders the same skeleton, top to bottom:
 
-For each junction, draw the textbook staggered-strand seam: the protruding
-overhang spelled out on offset top and bottom strands, then the sealed ligation.
-The `PieceEnd.kind` (blunt / 5' / 3') plus the overhang bases plus
-`junctionOverhangs[]` give us the geometry. The most "molecular biology" visual
-of the set, and it makes overhang compatibility obvious. Medium effort (the
-staggered geometry is fiddly), bounded, low risk.
+1. HERO MODULE (chemistry-specific). Leads the review with the key verification.
+2. PRODUCT MAP (shared). The assembled product as a read-only SeqViz map. Default
+   tab and emphasized track are tuned per chemistry (below).
+3. FRAGMENT RIBBON (shared). Tuned per chemistry with junction-tick labels.
+4. DETAIL / WARNINGS (chemistry-specific). The secondary readouts and the failure
+   mode that bites THIS chemistry, surfaced prominently.
+5. SAVE / ORDER. Save to library (all), plus the oligo order list (overlap).
 
-### Gateway recombination crossover (needs a small engine change)
+### Overlap tab. Hero: the homology junctions
 
-Draw attL1 x attR1 to attB1 as an X with the site cores swapping, labeling the
-sites. Makes the BP / LR logic concrete instead of abstract. The att-site
-identities that reacted live inside `cloning-gateway.ts` today and would need to
-be returned (which sites, which cores) for the UI to draw them. Medium effort,
-medium risk, and the only special that touches an engine's internals. Could be
-deferred to a follow-up without blocking the other two.
+The Gibson user's question is "did my overlaps form, are they specific, and will
+they anneal at the reaction temperature."
 
-Effort low to medium. Risk low (overlap + sticky) to medium (Gateway).
-Recommendation: include overlap + sticky-end now, decide Gateway separately.
+- Hero. A per-junction homology diagram. Fragment A's 3' tail over fragment B's
+  5' head, the shared overlap (`overlapSeq`, `overlapBp`) highlighted as a band
+  across both rows, the `overlapTm` labeled and color-graded (green at or above
+  the reaction temp, amber if marginal, red if too weak). An ambiguity flag when
+  two overlaps are too similar (the engine already warns on duplicate overlaps).
+- Map default. Map (ring) view, the "did it close into a clean plasmid" shot.
+- Ribbon tuning. Junction ticks carry the overlap bp + Tm on hover.
+- Detail. The oligo order list, tail vs annealing region distinguished (present
+  today, keep).
+- Failure surfaced. Weak or ambiguous overlaps, up top.
+
+### Restriction tab. Hero: the cut, the compatible ends, and internal sites
+
+The restriction user's question is "do my ends match, in what orientation, and
+will the enzyme also chew up my insert."
+
+- Hero. A sticky-end ladder at each junction, the textbook staggered top/bottom
+  strands with the overhang bases spelled out, from `PieceEnd.kind` + overhang +
+  `junctionOverhangs[]`. Above it, a compact cut map of where the enzyme(s) cut
+  each input fragment.
+- The safety surface (the #1 restriction footgun). An "internal sites" warning
+  when the chosen enzyme ALSO cuts inside the intended insert or product. This is
+  the one place that wants a small engine addition: expose the cut positions (the
+  engine computes them in `findCuts` but does not return them) so the UI can flag
+  "EcoRI cuts your insert 2 times." Until that lands, a cheaper proxy is to count
+  pieces per source fragment and warn when a fragment yielded more pieces than the
+  user intended.
+- Map default. Map (ring) with the enzyme / cut-site track ON, so the sites show
+  on the product.
+- Ribbon tuning. Junction ticks labeled with the overhang (the 4-base seal) and
+  the enzyme.
+- Detail. Enzyme summary (which enzymes, total sites) and, when the overhangs are
+  non-directional, the orientation-ambiguity readout (the engine already warns
+  "N distinct products").
+
+### Golden Gate tab. Hero: the fusion-site fingerprint and scarless seal
+
+Golden Gate shares the sticky-end PRIMITIVE with restriction but optimizes for a
+different question entirely: "are my fusion sites all unique so the one-pot order
+is unambiguous, and did the Type IIS sites disappear from the product."
+
+- Hero. A fusion-site fingerprint panel. List every junction's 4-base fusion
+  overhang (`junctionOverhangs[]`), color-coded, with a UNIQUENESS CHECK across
+  the whole set. All distinct shows green ("unambiguous one-pot order"); any
+  duplicate shows red ("these two junctions share an overhang, the order is
+  ambiguous"). This is the defining Golden Gate concern. Beside it, a "recognition
+  sites removed" confirmation (the Type IIS sites are gone = scarless), derivable
+  from the `hasSite` / discard logic the engine already runs.
+- Map default. Map (ring), enzyme track on, the fusion junctions marked.
+- Ribbon tuning. Each junction tick shows its 4-base fusion overhang, color-
+  matched to the fingerprint panel.
+- Detail. The ordered assembly as a chain (A to B to C, then close), since the
+  overhangs enforce the order.
+- Failure surfaced. Duplicate fusion sites (ambiguous order); a recognition site
+  that cannot be removed.
+
+The Restriction-vs-Golden-Gate split is the heart of "optimize each tab." Same
+overhang data, two different heroes: restriction asks "will it ligate and survive
+the enzyme," Golden Gate asks "is the programmed order unambiguous and scarless."
+
+### Gateway tab. Hero: the recombination crossover and the product/byproduct pair
+
+The Gateway user's question is "which att sites reacted, what clone do I get, and
+what is the byproduct." No engine change needed, `attSites` + `role` are already
+returned.
+
+- Hero. An att-site crossover diagram. Draw the reaction (BP or LR) as the two
+  substrate att sites crossing into the product att sites, for example attL1 x
+  attR1 to attB1 (clone) plus attP1 (byproduct), an X with the site cores
+  labeled, straight from `attSites[2]` and `role`.
+- What in, what out. The substrate pair to clone + byproduct, with the
+  transferred gene highlighted (the `fragmentSpans` already distinguish the
+  transferred insert span from the cassette backbone span).
+- Map default. The CLONE product (ring), att-site features emphasized, with a
+  toggle to view the byproduct.
+- Ribbon tuning. Mark the att-site scar positions and the transferred-insert span
+  versus backbone span.
+- Detail. The byproduct as a secondary card ("you also get this").
+- Failure surfaced. att-family mismatch (attL1 needs attR1), wrong substrate
+  topology.
+
+### Shared refinements that fall out of this (fold in the Phase A polish notes)
+
+- Map default tab. Stop defaulting the embedded map to the Sequence (base) view.
+  Default to Map (ring) for overlap + Gateway, and to Map with the enzyme layer on
+  for restriction + Golden Gate. This is the per-chemistry version of the Phase A
+  polish note about the default tab.
+- Chrome slimming. The embedded read-only map currently carries the full editor
+  toolbar (Copy / Edit / Enzyme / Export). Slim it to the view tabs + view rail
+  for a preview (keep Export, since exporting the not-yet-saved product is useful).
+
+### Optional pick-step tuning (lighter, can follow)
+
+The PICK step could also be chemistry-tuned, surfacing each method's key choice
+before review:
+- Overlap. Overlap length / Tm (present today).
+- Restriction / Golden Gate. The enzyme picker plus a live "sites per fragment"
+  readout, so compatibility is visible before you commit to review.
+- Gateway. BP / LR plus att-site auto-detection on the substrates ("this looks
+  like an attL entry clone").
+
+Effort. Mostly pure UI on existing engine data. The four hero modules are the
+bulk; the only optional engine work is restriction internal-cut positions. Risk
+low, except the sticky-end / fusion geometry drawing is fiddly (bounded).
 
 ## Optional 3: assemble animation + pick-step preview (gold-plating)
 
@@ -165,12 +277,18 @@ defer. Decide after the core + ribbon + specials are live.
 
 ## Recommended phasing
 
-1. Core: live product map (the adapter + review-step mount). One sub-bot.
-2. Fragment ribbon (adds `fragmentSpans` to the three engines + the band). Can
-   ride with the core or follow immediately.
-3. Junction specials: overlap homology + sticky-end ladder. One sub-bot.
-4. Gateway crossover (engine change + diagram). Separate, gated on a decision.
-5. Animation + pick-step preview. Last, or never.
+1. Phase A (DONE, landed `d903838b`). Live product map + fragment ribbon +
+   sequence disclosure + the `productToDetail` adapter + `fragmentSpans` on all
+   three engines.
+2. Phase B (per-tab optimization, this proposal). The four hero modules + the
+   per-chemistry map default + the shared chrome slim. Almost entirely pure UI on
+   data the engines already return. Natural split: one sub-bot for the shared
+   grammar + map-default + chrome, then one sub-bot per tab hero (or batch the
+   four heroes into one if scoped tightly). The only optional engine work is
+   restriction internal-cut positions, gated on whether we want the internal-site
+   warning in v1.
+3. Phase C. Optional pick-step tuning (per-chemistry pick options).
+4. Deferred. The assemble animation + pick-step live ring preview.
 
 Verification per phase. tsc + vitest on the pure pieces (adapter, fragmentSpans,
 junction-geometry helpers are all pure and testable). The map render is visually
