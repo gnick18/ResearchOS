@@ -324,6 +324,32 @@ describe("assembleGibson — Tm-sized overlap mode", () => {
   });
 });
 
+describe("assembleGibson — fragment spans", () => {
+  it("emits one forward span per fragment that tiles the product without gaps or overlaps", () => {
+    const a = dna(200, 1);
+    const b = dna(180, 2);
+    const res = assembleGibson(
+      [
+        { name: "A", seq: a },
+        { name: "B", seq: b },
+      ],
+      { circular: false, overlap: { kind: "length", bp: 25 } },
+    );
+    expect(res.fragmentSpans).toHaveLength(2);
+    // The seamless product is A + B concatenated, so the spans tile exactly:
+    // A occupies [0, 200), B occupies [200, 380).
+    expect(res.fragmentSpans[0]).toEqual({ name: "A", start: 0, end: 200, strand: 1 });
+    expect(res.fragmentSpans[1]).toEqual({ name: "B", start: 200, end: 380, strand: 1 });
+    // Tiling invariant: span i ends exactly where span i+1 begins, the first
+    // starts at 0, and the last ends at the product length (no gaps/overlaps).
+    expect(res.fragmentSpans[0].start).toBe(0);
+    for (let i = 1; i < res.fragmentSpans.length; i += 1) {
+      expect(res.fragmentSpans[i].start).toBe(res.fragmentSpans[i - 1].end);
+    }
+    expect(res.fragmentSpans[res.fragmentSpans.length - 1].end).toBe(res.product.seq.length);
+  });
+});
+
 describe("default overlap", () => {
   it("defaults to ~25 bp when no overlap mode is given", () => {
     const a = dna(200, 1);

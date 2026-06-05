@@ -13,7 +13,8 @@
 //   exclusive end  ->  inclusive end : end - 1   (engine product -> GenBank)
 
 import { jsonToGenbank, type ParsedSequence, type ParsedFeature } from "@/vendor/bio-parsers";
-import type { SequenceAnnotation } from "../types";
+import { genbankToDetail } from "./parse";
+import type { SequenceAnnotation, SequenceDetail, SequenceMeta } from "../types";
 import type {
   AssembledProduct,
   CloneFeature,
@@ -68,6 +69,30 @@ export function productToGenbank(
   // jsonToGenbank returns false only for an unserializable record (e.g. no
   // sequence); the product always carries bases, so coerce to "" defensively.
   return jsonToGenbank(parsed, {}) || "";
+}
+
+/**
+ * Turn an assembled product into a renderable SequenceDetail for the review-step
+ * map, with ZERO new parse code. Reuses productToGenbank (serialize) +
+ * genbankToDetail (parse back), so the preview map renders byte-identical to a
+ * saved-sequence map. The synthetic meta uses id -1 as the sentinel for an
+ * unsaved preview. Returns null only if the product could not be parsed back
+ * (genbankToDetail returns null), which a real product never hits.
+ */
+export function productToDetail(
+  name: string,
+  product: AssembledProduct,
+  opts: { primersAsFeatures?: FragmentPrimers[] } = {},
+): SequenceDetail | null {
+  const genbank = productToGenbank(name || "Assembled construct", product, opts);
+  const meta: SequenceMeta = {
+    id: -1, // sentinel: this is an unsaved preview
+    display_name: name || "Assembled construct",
+    project_ids: [],
+    added_at: new Date().toISOString(),
+    seq_type: "dna",
+  };
+  return genbankToDetail(genbank, meta);
 }
 
 function cloneFeatureToParsed(f: CloneFeature): ParsedFeature {

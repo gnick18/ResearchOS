@@ -49,6 +49,14 @@ vi.mock("@/lib/local-api", () => ({
   },
 }));
 
+// The review step now embeds the read-only SeqViz map (SequenceReadView ->
+// SequenceEditView), which pulls in the FileSystem/current-user context and a
+// real SeqViz mount. These tests assert the review STATE MACHINE, not the map,
+// so we stub the read view to a marker and keep jsdom free of that stack.
+vi.mock("./SequenceReadView", () => ({
+  default: () => null,
+}));
+
 import CloningWorkspace from "./CloningWorkspace";
 
 function renderWorkspace() {

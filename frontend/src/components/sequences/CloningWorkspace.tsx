@@ -34,6 +34,7 @@ import {
 import {
   annotationsToCloneFeatures,
   productToGenbank,
+  productToDetail,
   oligoOrderText,
 } from "@/lib/sequences/cloning-io";
 import {
@@ -303,6 +304,45 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
     };
     return runGateway(insert, cassette, gatewayReaction);
   }, [method, fragments, gatewayReaction, fragmentIsCircular]);
+
+  // RENDERABLE PRODUCT DETAILS for the review-step map. Built from the engine
+  // products via productToDetail (reuses productToGenbank -> genbankToDetail), so
+  // the map renders byte-identical to a saved-sequence map. These depend only on
+  // the product (NOT the user-typed name) so typing the construct name does not
+  // remount SeqViz on each keystroke; the map's locus label uses a stable title.
+  const overlapDetail = useMemo(
+    () =>
+      result
+        ? productToDetail("Assembled construct", result.product, {
+            primersAsFeatures: result.primers,
+          })
+        : null,
+    [result],
+  );
+
+  const cutLigateDetails = useMemo(
+    () =>
+      (cutLigateResult?.products ?? []).map((prod) =>
+        productToDetail("Assembled product", {
+          seq: prod.seq,
+          circular: prod.circular,
+          features: prod.features,
+        }),
+      ),
+    [cutLigateResult],
+  );
+
+  const gatewayDetails = useMemo(
+    () =>
+      (gatewayResult?.products ?? []).map((prod) =>
+        productToDetail(prod.role === "clone" ? "Clone" : "Byproduct", {
+          seq: prod.seq,
+          circular: prod.circular,
+          features: prod.features,
+        }),
+      ),
+    [gatewayResult],
+  );
 
   const canReview =
     method === "overlap"
@@ -836,6 +876,8 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                   }
                   seq={prod.seq}
                   circular={prod.circular}
+                  detail={gatewayDetails[i]}
+                  fragmentSpans={prod.fragmentSpans}
                   onSave={() => saveGatewayProduct(i)}
                   saving={saving}
                 >
@@ -888,6 +930,8 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                       title="Assembled product"
                       seq={prod.seq}
                       circular={prod.circular}
+                      detail={cutLigateDetails[i]}
+                      fragmentSpans={prod.fragmentSpans}
                       select={
                         cutLigateResult.products.length > 1
                           ? {
@@ -959,6 +1003,8 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                 title="Recombinant construct"
                 seq={result.product.seq}
                 circular={result.product.circular}
+                detail={overlapDetail}
+                fragmentSpans={result.fragmentSpans}
                 onSave={handleSave}
                 saving={saving}
               />

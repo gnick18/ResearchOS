@@ -303,3 +303,60 @@ describe("cutAndLigate — feature rebasing into assembled products", () => {
     expect(circle!.features).toHaveLength(0);
   });
 });
+
+describe("cutAndLigate — fragment spans", () => {
+  it("a two-fragment circle carries one span per piece with the right sourceName", () => {
+    // Same construction as the two-fragment feature test: two distinct middle
+    // pieces from fragments A and B circularize via their AATT overhangs.
+    const fragA: LigateFragment = {
+      name: "A",
+      seq: "TTTGAATTC" + "AAAAAAAAAA" + "GAATTCCCC",
+    };
+    const fragB: LigateFragment = {
+      name: "B",
+      seq: "TTTGAATTC" + "CCCCCCCCCC" + "GAATTCGGG",
+    };
+    const res = cutAndLigate([fragA, fragB], {
+      enzymeNames: ["ecori"],
+      mode: "restriction",
+      circularOnly: true,
+      allowBlunt: false,
+    });
+    // The two-piece circle uses both A's and B's middle pieces.
+    const circle = res.products.find(
+      (p) =>
+        p.circular &&
+        p.fragmentSpans.some((s) => s.name === "A") &&
+        p.fragmentSpans.some((s) => s.name === "B"),
+    );
+    expect(circle).toBeTruthy();
+    expect(circle!.fragmentSpans).toHaveLength(2);
+    // Every span carries a known sourceName, lies within product bounds, has a
+    // valid strand, and is a non-empty contiguous run.
+    for (const sp of circle!.fragmentSpans) {
+      expect(["A", "B"]).toContain(sp.name);
+      expect(sp.start).toBeGreaterThanOrEqual(0);
+      expect(sp.end).toBeLessThanOrEqual(circle!.seq.length);
+      expect(sp.end).toBeGreaterThan(sp.start);
+      expect([1, -1]).toContain(sp.strand);
+    }
+  });
+
+  it("a single fragment cut into multiple pieces emits one span per piece (same sourceName)", () => {
+    // Two EcoRI sites in one fragment -> the middle piece self-circularizes; that
+    // single-piece product has exactly one span labeled by the source fragment.
+    const res = cutAndLigate([{ name: "solo", seq: "ttGAATTCaaacccgggtttGAATTCtt" }], {
+      enzymeNames: ["ecori"],
+      mode: "restriction",
+      circularOnly: true,
+      allowBlunt: false,
+    });
+    const circle = res.products.find((p) => p.circular);
+    expect(circle).toBeTruthy();
+    expect(circle!.fragmentSpans.length).toBeGreaterThanOrEqual(1);
+    for (const sp of circle!.fragmentSpans) {
+      expect(sp.name).toBe("solo");
+      expect(sp.end).toBeGreaterThan(sp.start);
+    }
+  });
+});

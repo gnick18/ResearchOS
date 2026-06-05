@@ -87,7 +87,7 @@
 
 import { reverseComplement } from "./primer";
 import { canonicalCircular } from "./cut-ligate";
-import { rebaseFeatures, type CloneFeature, type AssembledProduct } from "./cloning";
+import { rebaseFeatures, type CloneFeature, type AssembledProduct, type FragmentSpan } from "./cloning";
 
 // ============================================================================
 // VERIFIED att-site CONSTANTS  (sourced, NEVER fabricated)
@@ -229,6 +229,10 @@ export interface GatewayProduct {
   circular: boolean;
   /** Features carried into this product, rebased to product coordinates. */
   features: CloneFeature[];
+  /** Where each source segment landed in the product, in the same pre-canonical
+   *  coordinate frame as `features`. For the clone: the transferred insert span
+   *  and the cassette-derived backbone span. */
+  fragmentSpans: FragmentSpan[];
   /** The two product att sites flanking the transferred segment (left, right). */
   attSites: [ProductAtt, ProductAtt];
 }
@@ -547,11 +551,38 @@ export function runGateway(
     byproductAtt1.seq + cassetteParts.between + byproductAtt2.seq + insertParts.outside;
   const byproductSeq = canonicalCircular(byproductSeqRaw);
 
+  // FRAGMENT SPANS for the clone, in the same pre-canonical layout as the
+  // features (cloneAtt1.seq + insertBetween + cloneAtt2.seq + cassetteOutside).
+  // The INSERT span covers the gene of interest between the two product att
+  // sites; the BACKBONE span covers the cassette-derived backbone that follows.
+  const insertSpanStart = cloneAtt1.seq.length;
+  const insertSpanEnd = insertSpanStart + insertParts.between.length;
+  const backboneSpanStart = insertSpanEnd + cloneAtt2.seq.length;
+  const backboneSpanEnd = backboneSpanStart + cassetteParts.outside.length;
+  const cloneSpans: FragmentSpan[] = [];
+  if (insertSpanEnd > insertSpanStart) {
+    cloneSpans.push({
+      name: insertSubstrate.name,
+      start: insertSpanStart,
+      end: insertSpanEnd,
+      strand: 1,
+    });
+  }
+  if (backboneSpanEnd > backboneSpanStart) {
+    cloneSpans.push({
+      name: cassetteSubstrate.name,
+      start: backboneSpanStart,
+      end: backboneSpanEnd,
+      strand: 1,
+    });
+  }
+
   const cloneProduct: GatewayProduct = {
     role: "clone",
     seq: cloneSeq,
     circular: true,
     features: cloneFeatures,
+    fragmentSpans: cloneSpans,
     attSites: [cloneAtt1, cloneAtt2],
   };
   const byproductProduct: GatewayProduct = {
@@ -559,6 +590,7 @@ export function runGateway(
     seq: byproductSeq,
     circular: true,
     features: [],
+    fragmentSpans: [],
     attSites: [byproductAtt1, byproductAtt2],
   };
 

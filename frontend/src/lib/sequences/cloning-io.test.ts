@@ -6,6 +6,7 @@ import { genbankToJson } from "@/vendor/bio-parsers";
 import {
   annotationsToCloneFeatures,
   productToGenbank,
+  productToDetail,
   oligoOrderText,
 } from "./cloning-io";
 import { assembleGibson } from "./cloning";
@@ -116,6 +117,58 @@ describe("productToGenbank — linear overlap round-trip", () => {
     expect(cds).toBeTruthy();
     expect(cds!.start).toBe(110);
     expect(cds!.end).toBe(139); // exclusive 140 -> inclusive 139
+  });
+});
+
+describe("productToDetail", () => {
+  it("builds a renderable detail with the product bases, topology, and rebased features", () => {
+    const a = dna(120, 1);
+    const b = dna(100, 2);
+    const res = assembleGibson(
+      [
+        { name: "A", seq: a, features: [{ name: "promA", start: 10, end: 30, strand: 1, type: "promoter" }] },
+        { name: "B", seq: b, features: [{ name: "cdsB", start: 5, end: 50, strand: 1, type: "CDS" }] },
+      ],
+      { circular: true },
+    );
+    const detail = productToDetail("myConstruct", res.product);
+    expect(detail).toBeTruthy();
+    // Bases + topology match the assembled product exactly.
+    expect(detail!.seq).toBe(res.product.seq);
+    expect(detail!.circular).toBe(true);
+    // The synthetic meta marks this as an unsaved preview.
+    expect(detail!.id).toBe(-1);
+    expect(detail!.display_name).toBe("myConstruct");
+    expect(detail!.seq_type).toBe("dna");
+    // Annotations carry the rebased features at the read-view (inclusive-end)
+    // coordinates: promA stays at 10..29; cdsB shifts by len(A)=120 to 125..169.
+    const prom = detail!.annotations.find((f) => f.name === "promA");
+    expect(prom).toBeTruthy();
+    expect(prom!.start).toBe(10);
+    expect(prom!.end).toBe(29);
+    expect(prom!.direction).toBe(1);
+    const cds = detail!.annotations.find((f) => f.name === "cdsB");
+    expect(cds).toBeTruthy();
+    expect(cds!.start).toBe(125);
+    expect(cds!.end).toBe(169);
+  });
+
+  it("falls back to a default name when given an empty name", () => {
+    const res = assembleGibson(
+      [
+        { name: "A", seq: dna(150, 3) },
+        { name: "B", seq: dna(150, 4) },
+      ],
+      { circular: false },
+    );
+    // Passing primers serializes them as primer_bind features in the GenBank;
+    // the read path routes those into the SeqViz primers layer (not annotations),
+    // which is exactly how a saved sequence renders its primers.
+    const detail = productToDetail("", res.product, { primersAsFeatures: res.primers });
+    expect(detail).toBeTruthy();
+    expect(detail!.display_name).toBe("Assembled construct");
+    expect(detail!.circular).toBe(false);
+    expect(detail!.seq).toBe(res.product.seq);
   });
 });
 

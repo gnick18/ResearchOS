@@ -14,7 +14,10 @@
 
 import { useState } from "react";
 import Tooltip from "@/components/Tooltip";
-import { productGc } from "@/lib/sequences/cloning";
+import { productGc, type FragmentSpan } from "@/lib/sequences/cloning";
+import type { SequenceDetail } from "@/lib/types";
+import SequenceReadView from "./SequenceReadView";
+import FragmentRibbon from "./FragmentRibbon";
 
 function CopyIcon({ className }: { className?: string }) {
   return (
@@ -33,6 +36,23 @@ function CheckIcon({ className }: { className?: string }) {
   );
 }
 
+function ChevronIcon({ className, open }: { className?: string; open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`${className ?? ""} transition-transform ${open ? "rotate-90" : ""}`}
+      aria-hidden="true"
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
 /** A radio control rendered in the card header when a method offers several
  *  mutually exclusive products to choose between (cut-ligate symmetric overhangs). */
 interface SelectControl {
@@ -47,6 +67,11 @@ interface Props {
   title: string;
   seq: string;
   circular: boolean;
+  /** A renderable detail of the assembled product (productToDetail). When given,
+   *  the card shows a read-only SeqViz map above the sequence. */
+  detail?: SequenceDetail | null;
+  /** Per-fragment product spans for the origin ribbon under the map. */
+  fragmentSpans?: FragmentSpan[];
   /** Optional radio for picking among several possible products. */
   select?: SelectControl;
   /** Method-specific extras (junctions, oligo table, digested pieces, att-sites). */
@@ -62,6 +87,8 @@ export default function CloningProductPreview({
   title,
   seq,
   circular,
+  detail,
+  fragmentSpans,
   select,
   children,
   onSave,
@@ -70,6 +97,10 @@ export default function CloningProductPreview({
   const shown = seq.length > PREVIEW_LIMIT ? seq.slice(0, PREVIEW_LIMIT) : seq;
   const selectable = Boolean(select);
   const [copied, setCopied] = useState(false);
+  // The raw bases live behind a disclosure now that the map is the primary view.
+  // Default collapsed; the Copy control stays in the header so people can still
+  // grab the sequence without expanding.
+  const [showSequence, setShowSequence] = useState(false);
 
   // Copy the FULL product sequence (not the truncated preview). One card serves
   // every method, so this single control covers all four chemistries.
@@ -127,12 +158,41 @@ export default function CloningProductPreview({
         </div>
       </div>
 
-      <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md border border-gray-200 bg-gray-50 p-3 font-mono text-meta leading-relaxed text-gray-700">
-        {shown}
-        {seq.length > shown.length
-          ? `\n… (${(seq.length - shown.length).toLocaleString()} more bp)`
-          : ""}
-      </pre>
+      {/* The live product map (read-only SeqViz via the saved-sequence read path).
+          Circular products render the ring, linear render the track. */}
+      {detail ? (
+        <div className="overflow-hidden rounded-md border border-gray-200">
+          <SequenceReadView sequence={detail} />
+        </div>
+      ) : null}
+
+      {/* Fragment-origin ribbon, directly under the map. */}
+      {fragmentSpans && fragmentSpans.length > 0 ? (
+        <div className="mt-3">
+          <FragmentRibbon spans={fragmentSpans} length={seq.length} />
+        </div>
+      ) : null}
+
+      {/* Raw bases, hidden by default behind a disclosure. */}
+      <div className="mt-3">
+        <button
+          type="button"
+          onClick={() => setShowSequence((v) => !v)}
+          className="flex items-center gap-1.5 text-meta font-medium text-gray-600 hover:text-gray-800"
+          aria-expanded={showSequence}
+        >
+          <ChevronIcon className="h-3.5 w-3.5" open={showSequence} />
+          {showSequence ? "Hide sequence" : "Show sequence"}
+        </button>
+        {showSequence ? (
+          <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md border border-gray-200 bg-gray-50 p-3 font-mono text-meta leading-relaxed text-gray-700">
+            {shown}
+            {seq.length > shown.length
+              ? `\n… (${(seq.length - shown.length).toLocaleString()} more bp)`
+              : ""}
+          </pre>
+        ) : null}
+      </div>
 
       {children ? <div className="mt-3 space-y-3">{children}</div> : null}
 

@@ -79,7 +79,7 @@
 // shifting by productOffset.
 
 import { reverseComplement } from "./primer";
-import type { CloneFeature } from "./cloning";
+import type { CloneFeature, FragmentSpan } from "./cloning";
 import enzymes from "../../vendor/seqviz/enzymes";
 import type { Enzyme } from "../../vendor/seqviz/elements";
 
@@ -154,6 +154,11 @@ export interface LigationProduct {
   /** Features from the input fragments, rebased into product coordinates.
    *  0-based, end-EXCLUSIVE [start, end) on the product top strand. */
   features: CloneFeature[];
+  /** Where each piece used in THIS product landed, in product coordinates.
+   *  One span per piece (a fragment cut into several pieces yields several
+   *  spans, each a distinct contiguous run). Same coordinate frame as
+   *  `features`. strand -1 means the piece went in reverse-complemented. */
+  fragmentSpans: FragmentSpan[];
 }
 
 export interface CutLigateResult {
@@ -634,6 +639,10 @@ export function ligate(
     // leading overhang (which was already in the previous piece's tail).
     const circularLeadStrip = circular ? chain[0].left.overhang.length : 0;
     const allFeatures: CloneFeature[] = [];
+    // One span per piece (its contiguous run in the product, same coordinate
+    // frame as the rebased features). The shared seam overhang is attributed to
+    // the UPSTREAM piece so the spans tile without overlapping.
+    const spans: FragmentSpan[] = [];
     let runningOffset = 0; // position of piece[i].seq[0] in the pre-strip concat
     for (let i = 0; i < chain.length; i += 1) {
       const op = chain[i];
@@ -655,6 +664,13 @@ export function ligate(
         );
         allFeatures.push(...rebased);
       }
+      // The piece's NEW bases start after its shared leading overhang.
+      spans.push({
+        name: srcPiece.sourceName,
+        start: productOffset + leadOverhang,
+        end: productOffset + op.seq.length,
+        strand: op.flipped ? -1 : 1,
+      });
       // Advance: piece i contributes its full seq.length to runningOffset.
       // The next piece will strip its own leadOverhang.
       runningOffset += op.seq.length - leadOverhang;
@@ -679,7 +695,21 @@ export function ligate(
       if (e > s) validFeatures.push({ ...f, start: s, end: e });
     }
 
-    return { seq: canon, circular, junctionOverhangs, features: validFeatures };
+    // Clamp spans the same way; drop any that collapse to zero width.
+    const validSpans: FragmentSpan[] = [];
+    for (const sp of spans) {
+      const s = Math.max(0, Math.min(sp.start, productLen));
+      const e = Math.max(s, Math.min(sp.end, productLen));
+      if (e > s) validSpans.push({ ...sp, start: s, end: e });
+    }
+
+    return {
+      seq: canon,
+      circular,
+      junctionOverhangs,
+      features: validFeatures,
+      fragmentSpans: validSpans,
+    };
   }
 
   // SUBSET assembly (matching pydna's graph model): a product may use ANY subset

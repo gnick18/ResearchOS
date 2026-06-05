@@ -140,6 +140,16 @@ export interface Junction {
   warning?: string;
 }
 
+/** Where one source fragment landed in the assembled product. 0-based,
+ *  end-EXCLUSIVE [start, end) in product coordinates; strand 1 = forward,
+ *  -1 = the fragment was reverse-complemented into the product. */
+export interface FragmentSpan {
+  name: string;
+  start: number;
+  end: number;
+  strand: 1 | -1;
+}
+
 /** A fragment's full primer pair, labelled to its fragment. */
 export interface FragmentPrimers {
   fragmentIndex: number;
@@ -160,6 +170,10 @@ export interface AssemblyResult {
   product: AssembledProduct;
   junctions: Junction[];
   primers: FragmentPrimers[];
+  /** Where each source fragment landed in the product, in product coordinates.
+   *  Overlap fragments are always forward (strand 1). Additive; tiles the
+   *  product without gaps or overlaps (the homology lives once, at each seam). */
+  fragmentSpans: FragmentSpan[];
   /** Assembly-level warnings (too few fragments, infeasible junctions, ...). */
   warnings: string[];
 }
@@ -322,6 +336,10 @@ export function assembleGibson(
   // FEATURES: rebase each fragment's features by its offset (cumulative body
   // length to its left).
   const features: CloneFeature[] = [];
+  // FRAGMENT SPANS: one [start, end) per body in product coordinates, walking the
+  // same cumulative offset as the feature rebasing below. Overlap fragments go in
+  // forward (strand 1); the seam homology lives once so the spans tile cleanly.
+  const fragmentSpans: FragmentSpan[] = [];
   let offset = 0;
   bodies.forEach((b, i) => {
     const feats = fragments[i]?.features ?? [];
@@ -332,6 +350,14 @@ export function assembleGibson(
       if (end > start) {
         features.push({ ...f, start: start + offset, end: end + offset });
       }
+    }
+    if (b.length > 0) {
+      fragmentSpans.push({
+        name: fragments[i]?.name ?? `Fragment ${i + 1}`,
+        start: offset,
+        end: offset + b.length,
+        strand: 1,
+      });
     }
     offset += b.length;
   });
@@ -457,6 +483,7 @@ export function assembleGibson(
     product: { seq: productSeq, circular, features },
     junctions,
     primers,
+    fragmentSpans,
     warnings,
   };
 }
