@@ -38,9 +38,16 @@ import BeakerBot from "@/components/BeakerBot";
 import DemoLoop, { DemoLoopPlaceholder } from "@/components/welcome/DemoLoop";
 import { GoogleIcon, GitHubIcon } from "@/components/sharing/icons";
 
-/** The rainbow ribbon gradient, shared by the top ribbon and brand accents. */
+/** The rainbow ribbon gradient (pastel), for the top ribbon and the soft bloom. */
 const RAINBOW =
   "linear-gradient(90deg, #FFD2B0 0%, #FFF1A8 25%, #B7EBB1 50%, #A6D2F4 75%, #D6B5F0 100%)";
+
+/** A deeper, saturated rainbow for the gradient HEADLINE word. The pastel
+ *  RAINBOW above washes out as text on the light hero, so the headline uses
+ *  these richer same-hue stops (orange, amber, green, sky, purple) that stay
+ *  legible on white while keeping the rainbow feel. */
+const RAINBOW_TEXT =
+  "linear-gradient(95deg, #F97316 0%, #E8920B 22%, #16A34A 48%, #0284C7 72%, #9333EA 100%)";
 
 /* ----------------------------------------------------------------------------
  * Sign-in row (two-path), reused at the hero and the final CTA. Both placements
@@ -280,7 +287,7 @@ export default function WelcomePreviewPage() {
               Your whole lab, in a notebook you{" "}
               <span
                 style={{
-                  background: RAINBOW,
+                  background: RAINBOW_TEXT,
                   WebkitBackgroundClip: "text",
                   backgroundClip: "text",
                   color: "transparent",
