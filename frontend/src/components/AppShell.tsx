@@ -24,7 +24,7 @@ import DevBeakerBotGalleryButton from "./DevBeakerBotGalleryButton";
 import DevForceWalkthroughButton from "./DevForceWalkthroughButton";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import FeedbackModal from "./FeedbackModal";
-import BeakerBot from "./BeakerBot";
+import Wordmark from "./Wordmark";
 import { useShowcaseUnlock } from "./showcase/useShowcaseUnlock";
 import StreakBadge from "./StreakBadge";
 import { installStreakActivityTracking } from "@/lib/streak/streak-activity-bootstrap";
@@ -263,34 +263,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         style={headerStyle}
       >
         <PillWrap on={tinted}>
-          <div className="flex items-center gap-1.5 leading-none">
-            {/* Small static BeakerBot brand-mark accent. No animation;
-                the idle bob is reserved for the onboarding wizard.
-                Click triggers the heart easter egg (the default since
-                2026-05-25). The wrapping span counts clicks for the
-                showcase unlock: clicks 1 to 6 still spawn hearts (the
-                heart egg is internal to BeakerBot and unchanged); click
-                7 fires the Curtain Reveal into /showcase. */}
-            <span
-              onClick={onBeakerBotClick}
-              data-testid="appshell-beakerbot-brand"
-              className="inline-flex shrink-0"
-            >
-              <BeakerBot
-                pose="idle"
-                ariaLabel="ResearchOS BeakerBot logo"
-                className="w-6 h-6 text-sky-500 shrink-0 block"
-                easterEgg="heart"
-              />
-            </span>
-            {/* Streak badge sits between brand mark and wordmark per
-                proposal §6.1. Hidden when current_count is 0, when the
-                user has disabled streaks in Settings, or pre-login. */}
-            <StreakBadge username={currentUser} />
-            <h1 className="text-title font-bold text-gray-900 tracking-tight leading-none">
-              ResearchOS
-            </h1>
-          </div>
+          {/* Canonical lockup via the shared <Wordmark>. The mark click
+              still drives the heart easter egg and the showcase unlock
+              (clicks 1 to 6 spawn hearts, click 7 fires the Curtain
+              Reveal into /showcase). The streak badge sits between the
+              mark and the wordmark per proposal §6.1 (hidden at count 0,
+              when streaks are disabled, or pre-login). textAs="h1" keeps
+              the header's existing document outline. */}
+          <Wordmark
+            size="sm"
+            textAs="h1"
+            markTestId="appshell-beakerbot-brand"
+            onMarkClick={onBeakerBotClick}
+            aside={<StreakBadge username={currentUser} />}
+          />
         </PillWrap>
 
         {/* Navigation */}

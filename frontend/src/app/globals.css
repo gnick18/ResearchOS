@@ -3,6 +3,59 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* ── Brand rainbow liquid (the most ownable visual) ──────────────────────────
+   * The five BeakerBot liquid stops (peach, yellow, mint, sky, lavender), the
+   * same gradient as the banner + avatars. Held as ready-made gradient values so
+   * every surface paints the identical ramp. Horizontal for ribbons/bands,
+   * vertical for fills that read like liquid in a beaker. Decorative only: the
+   * pastels are far too light to carry text contrast on white. */
+  --brand-rainbow: linear-gradient(
+    90deg,
+    #ffd2b0 0%,
+    #fff1a8 25%,
+    #b7ebb1 50%,
+    #a6d2f4 75%,
+    #d6b5f0 100%
+  );
+  --brand-rainbow-vertical: linear-gradient(
+    180deg,
+    #ffd2b0 0%,
+    #fff1a8 25%,
+    #b7ebb1 50%,
+    #a6d2f4 75%,
+    #d6b5f0 100%
+  );
+
+  /* A deeper, saturated rainbow (same five hues: orange, amber, green, sky,
+   * purple) for gradient TEXT. The pastel ramp above washes out as type on
+   * white, so headline words use this richer ramp, which stays legible while
+   * keeping the rainbow feel. */
+  --brand-rainbow-vivid: linear-gradient(
+    95deg,
+    #f97316 0%,
+    #e8920b 22%,
+    #16a34a 48%,
+    #0284c7 72%,
+    #9333ea 100%
+  );
+}
+
+@layer utilities {
+  /* Paint the brand rainbow as a background fill (ribbons, dividers, bands). */
+  .brand-rainbow-bg {
+    background-image: var(--brand-rainbow);
+  }
+  .brand-rainbow-bg-vertical {
+    background-image: var(--brand-rainbow-vertical);
+  }
+  /* Clip the vivid rainbow into the text itself (gradient headline words). */
+  .brand-rainbow-text {
+    background-image: var(--brand-rainbow-vivid);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
 }
 
 @theme inline {
@@ -30,6 +83,23 @@
   --text-heading--line-height: 1.75rem;
   --text-display: 1.875rem;
   --text-display--line-height: 2.25rem;
+
+  /* ── Brand color tokens (single source of truth) ─────────────────────────────
+   * The ResearchOS palette, locked to brand/README.md. Two-blue system so the
+   * identity color and the accessible UI accent never fight. Tailwind v4 exposes
+   * each --color-{name} as bg-{name} / text-{name} / border-{name} utilities.
+   *   brand-sky    Identity blue. BeakerBot stroke, large logo marks, decorative
+   *                gradients. Matches the avatars + banner. It is ~2.9:1 on
+   *                white, so it FAILS WCAG AA for small text. Never use it for
+   *                body text, links, or small UI labels.
+   *   brand-action Deeper blue (~4.5:1 on white) for text, links, buttons, and
+   *                small accents where contrast matters. The default UI accent.
+   *   brand-ink    Wordmark + heading near-black (Tailwind gray-900).
+   * The rainbow liquid lives in :root below as gradient values + utility classes,
+   * since gradients are not single colors. */
+  --color-brand-sky: #1aa0e6;
+  --color-brand-action: #1283c9;
+  --color-brand-ink: #111827;
 }
 
 body {

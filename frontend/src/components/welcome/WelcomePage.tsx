@@ -35,22 +35,20 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import BeakerBot from "@/components/BeakerBot";
+import Wordmark from "@/components/Wordmark";
 import DemoLoop, { DemoLoopPlaceholder } from "@/components/welcome/DemoLoop";
 import { GoogleIcon, GitHubIcon, LinkedInIcon, OrcidIcon } from "@/components/sharing/icons";
 import { FREE_STORAGE_BYTES, TTL_DAYS } from "@/lib/sharing/relay/limits";
 import RoadmapModal from "@/components/RoadmapModal";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
 
-/** The rainbow ribbon gradient (pastel), for the top ribbon and the soft bloom. */
-const RAINBOW =
-  "linear-gradient(90deg, #FFD2B0 0%, #FFF1A8 25%, #B7EBB1 50%, #A6D2F4 75%, #D6B5F0 100%)";
-
-/** A deeper, saturated rainbow for the gradient HEADLINE word. The pastel
- *  RAINBOW above washes out as text on the light hero, so the headline uses
- *  these richer same-hue stops (orange, amber, green, sky, purple) that stay
- *  legible on white while keeping the rainbow feel. */
-const RAINBOW_TEXT =
-  "linear-gradient(95deg, #F97316 0%, #E8920B 22%, #16A34A 48%, #0284C7 72%, #9333EA 100%)";
+/** The rainbow ribbon gradient (pastel) and its deeper text variant both come
+ *  from the brand tokens in globals.css, so the welcome page paints the exact
+ *  same ramps as the footer, the avatars, and the banner. RAINBOW is the pastel
+ *  fill (top ribbon + soft bloom); RAINBOW_TEXT is the saturated ramp clipped
+ *  into the gradient headline word (the pastel washes out as type on white). */
+const RAINBOW = "var(--brand-rainbow)";
+const RAINBOW_TEXT = "var(--brand-rainbow-vivid)";
 
 /* ----------------------------------------------------------------------------
  * Sign-in row (two-path), reused at the hero and the final CTA. Both placements
@@ -84,14 +82,14 @@ function SignInRow({
     <div className="mx-auto grid w-full max-w-3xl gap-4 text-left md:grid-cols-2">
       {/* Path A: no account, the full local notebook. */}
       <div className="flex flex-col rounded-2xl border border-[#d3deec] bg-white p-6 shadow-[0_2px_12px_rgba(15,40,80,0.06)]">
-        <div className="font-mono text-meta font-semibold uppercase tracking-[0.1em] text-[#1283c9]">
+        <div className="font-mono text-meta font-semibold uppercase tracking-[0.1em] text-brand-action">
           // free
         </div>
-        <h3 className="mt-1.5 text-heading font-extrabold tracking-tight text-[#0e1726]">
+        <h3 className="mt-1.5 text-heading font-extrabold tracking-tight text-brand-ink">
           Use it locally
         </h3>
         <ul className="mt-4 flex-1 space-y-2.5">
-          <li className="flex items-start gap-2 text-body font-semibold leading-snug text-[#0e1726]">
+          <li className="flex items-start gap-2 text-body font-semibold leading-snug text-brand-ink">
             <CheckGlyph /> 100% of the features, free. Solo users get the whole app, nothing held back.
           </li>
           <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
@@ -105,7 +103,7 @@ function SignInRow({
           type="button"
           onClick={onLocal}
           data-testid="welcome-signin-local"
-          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0e1726] px-5 py-3 text-body font-bold text-white shadow-[0_10px_26px_rgba(15,40,80,0.20)] transition-transform hover:scale-[1.01]"
+          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-ink px-5 py-3 text-body font-bold text-white shadow-[0_10px_26px_rgba(15,40,80,0.20)] transition-transform hover:scale-[1.01]"
         >
           <svg
             viewBox="0 0 24 24"
@@ -126,14 +124,14 @@ function SignInRow({
 
       {/* Path B: free account, adds sharing + inbox + collaboration. */}
       <div className="flex flex-col rounded-2xl border border-[#cfe0f2] bg-[#f5faff] p-6 shadow-[0_2px_12px_rgba(15,40,80,0.06)]">
-        <div className="font-mono text-meta font-semibold uppercase tracking-[0.1em] text-[#1283c9]">
+        <div className="font-mono text-meta font-semibold uppercase tracking-[0.1em] text-brand-action">
           // also free
         </div>
-        <h3 className="mt-1.5 text-heading font-extrabold tracking-tight text-[#0e1726]">
+        <h3 className="mt-1.5 text-heading font-extrabold tracking-tight text-brand-ink">
           Sign in to share
         </h3>
         <ul className="mt-4 flex-1 space-y-2.5">
-          <li className="flex items-start gap-2 text-body font-semibold leading-snug text-[#0e1726]">
+          <li className="flex items-start gap-2 text-body font-semibold leading-snug text-brand-ink">
             <CheckGlyph /> + Use it locally. Your notebook still lives on your machine.
           </li>
           <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
@@ -231,11 +229,11 @@ function CheckGlyph() {
   );
 }
 
-/** Section eyebrow kicker in the page's monospace accent style. Sky accent
- *  tuned for the light surface (matches the mock's --accent #1283c9). */
+/** Section eyebrow kicker in the page's monospace accent style. Uses the
+ *  brand-action blue (the accessible UI accent from the brand tokens). */
 function Kicker({ children }: { children: ReactNode; dark?: boolean }) {
   return (
-    <div className="font-mono text-meta font-semibold uppercase tracking-[0.12em] text-[#1283c9]">
+    <div className="font-mono text-meta font-semibold uppercase tracking-[0.12em] text-brand-action">
       {children}
     </div>
   );
@@ -291,8 +289,8 @@ function ComparisonRow({
 }) {
   return (
     <tr className="border-b border-[#e3eaf3] align-top last:border-0">
-      <td className="px-4 py-3 text-body font-medium text-[#0e1726]">{label}</td>
-      <td className="bg-sky-50 px-4 py-3 text-body text-[#0e1726]">
+      <td className="px-4 py-3 text-body font-medium text-brand-ink">{label}</td>
+      <td className="bg-sky-50 px-4 py-3 text-body text-brand-ink">
         <span className="flex items-start gap-2">
           <MarkIcon mark={us.mark} />
           <span>{us.text}</span>
@@ -361,30 +359,19 @@ export default function WelcomePage() {
   const handleLocal = () => goConnect("/?connect=1");
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-[#fbfcfe] text-[#0e1726]">
+    <div className="min-h-screen w-full overflow-x-hidden bg-[#fbfcfe] text-brand-ink">
       {/* Thin rainbow ribbon pinned to the very top edge. */}
       <div aria-hidden className="h-[5px] w-full" style={{ background: RAINBOW }} />
 
       <div className="relative mx-auto max-w-[1440px]">
         {/* ── Nav ─────────────────────────────────────────────────────── */}
         <nav className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-12">
-          <div className="flex items-center gap-2.5">
-            <BeakerBot
-              pose="idle"
-              animated={false}
-              easterEgg="heart"
-              ariaLabel="ResearchOS BeakerBot logo"
-              className="h-8 w-8 shrink-0 text-sky-500"
-            />
-            <span className="text-heading font-extrabold tracking-tight text-[#0e1726]">
-              ResearchOS
-            </span>
-          </div>
+          <Wordmark size="md" animated={false} className="gap-2.5" />
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => setRoadmapOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-[#d3deec] bg-white px-3 py-1 text-meta font-semibold text-[#0e1726] transition-colors hover:bg-[#eef4fb] hover:border-[#c5d6ea]"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#d3deec] bg-white px-3 py-1 text-meta font-semibold text-brand-ink transition-colors hover:bg-[#eef4fb] hover:border-[#c5d6ea]"
             >
               {/* 4-point asterisk / spark icon */}
               <svg
@@ -445,7 +432,7 @@ export default function WelcomePage() {
               Built by PhD researchers, for researchers.
             </span>
 
-            <h1 className="mt-6 max-w-[17ch] text-4xl font-extrabold leading-[1.05] tracking-tight text-[#0e1726] md:text-6xl">
+            <h1 className="mt-6 max-w-[17ch] text-4xl font-extrabold leading-[1.05] tracking-tight text-brand-ink md:text-6xl">
               Your whole lab, in a notebook you{" "}
               <span
                 style={{
@@ -488,7 +475,7 @@ export default function WelcomePage() {
           <div className="mx-auto grid max-w-[1180px] items-center gap-12 md:grid-cols-[0.92fr_1.08fr]">
             <div>
               <Kicker>// the flagship</Kicker>
-              <h2 className="mt-3 max-w-[18ch] text-3xl font-extrabold leading-[1.1] tracking-tight text-[#0e1726] md:text-[38px]">
+              <h2 className="mt-3 max-w-[18ch] text-3xl font-extrabold leading-[1.1] tracking-tight text-brand-ink md:text-[38px]">
                 Design plasmids and run cloning, built in
               </h2>
               <p className="mt-4 max-w-[52ch] text-title leading-relaxed text-[#475569]">
@@ -531,7 +518,7 @@ export default function WelcomePage() {
             asserted. */}
         <section className="px-6 py-14 sm:px-12">
           <div className="mx-auto max-w-[1080px]">
-            <p className="text-center text-title font-bold text-[#0e1726]">
+            <p className="text-center text-title font-bold text-brand-ink">
               Built by PhD researchers, for researchers.
             </p>
             <div className="mx-auto mt-9 grid max-w-[820px] grid-cols-1 gap-x-8 gap-y-9 sm:grid-cols-3">
@@ -545,7 +532,7 @@ export default function WelcomePage() {
                     <path d="M8 6l-5 6 5 6M16 6l5 6-5 6" />
                   </svg>
                 </span>
-                <h3 className="mt-3 text-body font-bold text-[#0e1726] group-hover:text-sky-700">
+                <h3 className="mt-3 text-body font-bold text-brand-ink group-hover:text-sky-700">
                   Open source
                 </h3>
                 <p className="mt-1 text-meta leading-snug text-[#475569]">
@@ -561,7 +548,7 @@ export default function WelcomePage() {
                     <path d="M6 12v4c0 1.1 2.7 2.5 6 2.5s6-1.4 6-2.5v-4" />
                   </svg>
                 </span>
-                <h3 className="mt-3 text-body font-bold text-[#0e1726]">
+                <h3 className="mt-3 text-body font-bold text-brand-ink">
                   Fellowship-backed
                 </h3>
                 <p className="mt-1 text-meta leading-snug text-[#475569]">
@@ -581,7 +568,7 @@ export default function WelcomePage() {
                     <path d="M8 12l3 3 5-6" />
                   </svg>
                 </span>
-                <h3 className="mt-3 text-body font-bold text-[#0e1726] group-hover:text-sky-700">
+                <h3 className="mt-3 text-body font-bold text-brand-ink group-hover:text-sky-700">
                   Science you can check
                 </h3>
                 <p className="mt-1 text-meta leading-snug text-[#475569]">
@@ -601,7 +588,7 @@ export default function WelcomePage() {
         <section className="border-y border-[#dce6f3] bg-[#eef4fb] px-6 py-20 sm:px-12">
           <div className="mx-auto mb-8 max-w-[1180px]">
             <Kicker>// the toolkit</Kicker>
-            <h2 className="mt-2.5 max-w-[22ch] text-3xl font-extrabold leading-tight tracking-tight text-[#0e1726] md:text-[36px]">
+            <h2 className="mt-2.5 max-w-[22ch] text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-[36px]">
               The tools that make you want to try it
             </h2>
           </div>
@@ -633,7 +620,7 @@ export default function WelcomePage() {
             <BentoCell num="02" span="lead" title="91 protocols from major biotech, preloaded">
               <p className="text-body leading-relaxed text-[#475569]">
                 The library comes loaded with{" "}
-                <span className="font-semibold text-[#0e1726]">91 ready-to-run
+                <span className="font-semibold text-brand-ink">91 ready-to-run
                 protocols</span>{" "}
                 built around real kits from NEB, Promega, Qiagen, Thermo Fisher,
                 Bio-Rad, Takara, and more. Search the catalog, copy one into your
@@ -641,7 +628,7 @@ export default function WelcomePage() {
               </p>
               <CodeLine>
                 NEB &middot; Promega &middot; Qiagen &middot;{" "}
-                <span className="text-[#1283c9]">Thermo Fisher</span> &middot;
+                <span className="text-brand-action">Thermo Fisher</span> &middot;
                 Bio-Rad &middot; Takara &middot; KAPA
               </CodeLine>
               <DemoLoop
@@ -793,7 +780,7 @@ export default function WelcomePage() {
                 <span className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-meta font-semibold text-sky-700">
                   On the roadmap
                 </span>
-                <h2 className="mt-4 max-w-[20ch] text-2xl font-extrabold leading-tight tracking-tight text-[#0e1726] md:text-3xl">
+                <h2 className="mt-4 max-w-[20ch] text-2xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-3xl">
                   Live collaboration, coming soon
                 </h2>
                 <p className="mt-3 max-w-[52ch] text-title leading-relaxed text-[#475569]">
@@ -846,7 +833,7 @@ export default function WelcomePage() {
           <button
             type="button"
             onClick={() => setRoadmapOpen(true)}
-            className="inline-flex items-center gap-2 rounded-full border border-[#d3deec] bg-white px-4 py-2 text-meta font-semibold text-[#0e1726] shadow-sm transition-colors hover:bg-[#eef4fb] hover:border-[#c5d6ea]"
+            className="inline-flex items-center gap-2 rounded-full border border-[#d3deec] bg-white px-4 py-2 text-meta font-semibold text-brand-ink shadow-sm transition-colors hover:bg-[#eef4fb] hover:border-[#c5d6ea]"
           >
             {/* 4-point asterisk / spark icon */}
             <svg
@@ -885,7 +872,7 @@ export default function WelcomePage() {
         <section className="px-6 py-16 sm:px-12">
           <div className="mx-auto mb-8 max-w-[1320px]">
             <Kicker>// a full lab suite vs the point tools</Kicker>
-            <h2 className="mt-2.5 max-w-[24ch] text-3xl font-extrabold leading-tight tracking-tight text-[#0e1726] md:text-[36px]">
+            <h2 className="mt-2.5 max-w-[24ch] text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-[36px]">
               How we compare to LabArchives and SnapGene
             </h2>
             <p className="mt-3 max-w-[60ch] text-title leading-relaxed text-[#475569]">
@@ -1011,7 +998,7 @@ export default function WelcomePage() {
               ariaLabel="BeakerBot"
               className="h-16 w-16 text-sky-500"
             />
-            <h2 className="mt-4 max-w-[18ch] text-3xl font-extrabold leading-[1.08] tracking-tight text-[#0e1726] md:text-4xl">
+            <h2 className="mt-4 max-w-[18ch] text-3xl font-extrabold leading-[1.08] tracking-tight text-brand-ink md:text-4xl">
               Start your notebook in a minute
             </h2>
             <p className="mt-4 max-w-[50ch] text-title leading-relaxed text-[#475569]">
@@ -1085,11 +1072,11 @@ function BentoCell({
     <div
       className={`flex flex-col overflow-hidden rounded-2xl border border-[#dbe6f3] bg-white p-6 shadow-[0_1px_3px_rgba(15,40,80,0.06),0_16px_36px_-14px_rgba(15,40,80,0.22)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#cdddee] hover:shadow-[0_2px_5px_rgba(15,40,80,0.08),0_26px_50px_-16px_rgba(15,40,80,0.28)] ${spanCls}`}
     >
-      <div className="font-mono text-meta font-semibold tracking-[0.04em] text-[#1283c9]">
+      <div className="font-mono text-meta font-semibold tracking-[0.04em] text-brand-action">
         {num}
       </div>
       <h3
-        className={`mt-2 font-bold leading-tight tracking-tight text-[#0e1726] ${
+        className={`mt-2 font-bold leading-tight tracking-tight text-brand-ink ${
           span === "small" ? "text-title" : "text-heading md:text-heading"
         }`}
       >

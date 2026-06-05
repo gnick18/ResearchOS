@@ -3,6 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import Wordmark from "@/components/Wordmark";
+
 /**
  * Shared site footer, mirroring the landing page's footer so the credit
  * reads identically wherever it appears (Settings today; the landing page
@@ -20,9 +22,18 @@ export default function AppFooter({ className = "" }: { className?: string }) {
   return (
     <footer
       data-testid="app-footer"
-      className={`border-t border-gray-200 bg-white py-10 ${className}`}
+      className={`relative border-t border-gray-200 bg-white py-10 ${className}`}
     >
+      {/* Brand rainbow hairline along the top edge: the BeakerBot liquid ramp,
+          the same gradient as the banner + avatars, used as a quiet brand
+          signature on the footer. */}
+      <div
+        aria-hidden
+        className="brand-rainbow-bg absolute inset-x-0 top-0 h-[3px]"
+      />
       <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 px-6 text-center">
+        {/* Product brand sign-off, then the RISE funder credit below it. */}
+        <Wordmark size="md" animated={false} markEasterEgg="none" />
         <div className="rounded bg-white p-0.5">
           <Image
             src="/credentials/uw-rise-logo.png"
@@ -39,7 +50,7 @@ export default function AppFooter({ className = "" }: { className?: string }) {
             href={GITHUB_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-semibold text-sky-600 underline-offset-2 hover:text-sky-700 hover:underline"
+            className="font-semibold text-brand-action underline-offset-2 hover:underline"
             data-testid="app-footer-github"
           >
             GitHub
