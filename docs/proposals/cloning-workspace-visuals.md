@@ -1,8 +1,20 @@
 # Cloning Workspace visuals: good to phenomenal
 
-Author: sequence editor master, 2026-06-04. Status: DESIGN DRAFT for Grant's
-sign-off. No code dispatched. The committed core is the live product map; the
-three enhancements below are decision points Grant checks off in this doc.
+Author: sequence editor master, 2026-06-04. Status: SIGNED OFF by Grant
+(2026-06-04). Scope locked below.
+
+## Locked scope (Grant, 2026-06-04)
+
+- Phase A (one sub-bot, dispatched first). Live product map + fragment-origin
+  ribbon + a "show sequence" disclosure for the raw bases. Includes the
+  `productToDetail` adapter and the additive `fragmentSpans` return on all three
+  engines.
+- Phase B (sub-bot, after A lands). All three junction specials: overlap
+  homology diagram, sticky-end ladder, AND Gateway crossover (the last needs the
+  small Gateway-engine change to surface which att sites reacted).
+- Deferred. The assemble animation + pick-step live preview. Revisit after A + B
+  are live.
+- Sequence text. Kept behind a "show sequence" disclosure under the map.
 
 ## Goal
 
