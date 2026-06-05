@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { signIn } from "next-auth/react";
 import WhatsNewModal from "./WhatsNewModal";
 import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
 import { useLastSeenAnnouncementVersion } from "@/hooks/useLastSeenAnnouncementVersion";
@@ -133,10 +134,43 @@ export default function WhatsNewManager({ username }: Props) {
     });
   }, [username]);
 
+  // ------- Start account: record-seen, THEN kick off the OAuth claim ----
+  // The v0.5 accounts popup's "Sign in to share" buttons land here. We record
+  // the announcement as seen BEFORE redirecting (awaited, so the write lands
+  // first) so the popup does not pop again on the return trip, then start the
+  // claim flow with ?sharingClaim=1 so the global SharingClaimResume mount
+  // finishes real account creation when the user comes back.
+  const handleStartAccount = useCallback(
+    async (provider: "google" | "github" | "linkedin") => {
+      setPhase({ kind: "idle" });
+      if (username) {
+        const latest = latestReleaseVersion();
+        if (latest) {
+          try {
+            await patchUserSettings(username, {
+              lastSeenAnnouncementVersion: latest,
+            });
+          } catch (err) {
+            console.warn(
+              "[WhatsNewManager] failed to record version before sign-in",
+              err,
+            );
+          }
+        }
+      }
+      void signIn(provider, { callbackUrl: "/?sharingClaim=1" });
+    },
+    [username],
+  );
+
   if (!username) return null;
   if (phase.kind !== "showing") return null;
 
   return (
-    <WhatsNewModal releases={phase.missed} onDismiss={handleDismiss} />
+    <WhatsNewModal
+      releases={phase.missed}
+      onDismiss={handleDismiss}
+      onStartAccount={handleStartAccount}
+    />
   );
 }

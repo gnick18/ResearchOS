@@ -44,6 +44,7 @@ import EditSessionBanner from "@/components/EditSessionBanner";
 import EditSessionTopNavChip from "@/components/EditSessionTopNavChip";
 import UserAvatarMenu from "@/components/UserAvatarMenu";
 import ResearcherProfileModal from "@/components/researchers/ResearcherProfileModal";
+import SharingClaimResume from "@/components/sharing/SharingClaimResume";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -555,6 +556,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
        *  a living, blurred-backdrop popup when a profile is opened from the
        *  avatar menu or a search result, driven by the profile-modal store. */}
       <ResearcherProfileModal />
+      {/* Global OAuth-claim resume (account-creation-flow bot, 2026-06-05):
+       *  finishes sharing-account creation when the user returns from the
+       *  provider redirect with ?sharingClaim=1. Mounts SharingSetupWizard for
+       *  the connected user; the wizard's own resume effect drives keygen +
+       *  publish + recovery kit and strips the param on success. Self-gates on
+       *  the URL flag + a connected user + non-capture mode, so it is inert on
+       *  every normal page load. */}
+      <SharingClaimResume />
       <ReminderRunner />
 
       {/* Universal floating utility cluster — a single fixed flex row at

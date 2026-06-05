@@ -36,7 +36,10 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
   // When the user arrived via "Sign in with Google/GitHub" on the landing, the
   // `signIn` query param carries their OAuth intent through folder setup. After
   // onComplete() we trigger the OAuth redirect so they land in the app already
-  // signed in for sharing. If the param is absent we call onComplete() as today.
+  // signed in for sharing. The callbackUrl carries ?sharingClaim=1 so the user
+  // returns into the global SharingClaimResume mount (now with their freshly
+  // selected user connected) and a real sharing identity gets created, not just
+  // an OAuth session. If the param is absent we call onComplete() as today.
   const pendingSignInProvider = searchParams?.get("signIn") as
     | "google"
     | "github"
@@ -50,7 +53,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
       pendingSignInProvider === "github" ||
       pendingSignInProvider === "linkedin"
     ) {
-      void signIn(pendingSignInProvider, { callbackUrl: "/" });
+      void signIn(pendingSignInProvider, { callbackUrl: "/?sharingClaim=1" });
     }
   };
 

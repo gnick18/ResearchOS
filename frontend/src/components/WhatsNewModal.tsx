@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { signIn } from "next-auth/react";
 import BeakerBot from "./BeakerBot";
 import BeakerBotMouseWaveScene from "./BeakerBotMouseWaveScene";
 import { GoogleIcon, GitHubIcon, LinkedInIcon } from "@/components/sharing/icons";
@@ -37,6 +36,11 @@ interface Props {
   releases: ReadonlyArray<ReleaseNote>;
   /** Called when the user dismisses (Got it / close / Escape / backdrop). */
   onDismiss: () => void;
+  /** Start real sharing-account creation for the picked provider (the v0.5
+   *  accounts popup only). The manager records the announcement as seen, then
+   *  kicks off the OAuth claim flow. When absent, the sign-in cards render but
+   *  the provider buttons are inert (the manager always wires this). */
+  onStartAccount?: (provider: "google" | "github" | "linkedin") => void;
   /** When true, every release is shown expanded from the start (the
    *  Settings "full history" view). Default false (catch-up view, which
    *  starts collapsed to the headline release with an expander). */
@@ -167,11 +171,18 @@ function ChoiceCheck() {
 /** The full two-path account chooser, the SAME "Free / Also free" cards as the
  *  welcome page, shown in the v0.5 accounts popup so an existing user makes the
  *  same informed choice. The local card dismisses (keep your folder, nothing
- *  changes); the sign-in buttons run `signIn` directly (they already have a
- *  folder connected). `signIn` works without a SessionProvider, which this app
- *  does not mount. The inbox numbers come from the relay limits so they never
- *  drift from what the server enforces. */
-function SignInChoiceCards({ onKeepLocal }: { onKeepLocal: () => void }) {
+ *  changes); the sign-in buttons hand off to `onStartAccount`, which records
+ *  the announcement as seen and then runs the OAuth claim flow so the user
+ *  returns into the global resume mount and a real sharing identity gets
+ *  created. The inbox numbers come from the relay limits so they never drift
+ *  from what the server enforces. */
+function SignInChoiceCards({
+  onKeepLocal,
+  onStartAccount,
+}: {
+  onKeepLocal: () => void;
+  onStartAccount?: (provider: "google" | "github" | "linkedin") => void;
+}) {
   const inboxGb = Math.round(FREE_STORAGE_BYTES / 1024 ** 3);
   const oauthBtn =
     "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 text-meta font-semibold transition-transform hover:scale-[1.03]";
@@ -240,7 +251,7 @@ function SignInChoiceCards({ onKeepLocal }: { onKeepLocal: () => void }) {
         <div className="mt-5 flex gap-2">
           <button
             type="button"
-            onClick={() => void signIn("google", { callbackUrl: "/" })}
+            onClick={() => onStartAccount?.("google")}
             data-testid="whats-new-signin-google"
             className={`${oauthBtn} border-[#d7dde5] bg-white text-gray-800`}
           >
@@ -249,7 +260,7 @@ function SignInChoiceCards({ onKeepLocal }: { onKeepLocal: () => void }) {
           </button>
           <button
             type="button"
-            onClick={() => void signIn("github", { callbackUrl: "/" })}
+            onClick={() => onStartAccount?.("github")}
             data-testid="whats-new-signin-github"
             className={`${oauthBtn} border-[#181717] bg-[#181717] text-white`}
           >
@@ -258,7 +269,7 @@ function SignInChoiceCards({ onKeepLocal }: { onKeepLocal: () => void }) {
           </button>
           <button
             type="button"
-            onClick={() => void signIn("linkedin", { callbackUrl: "/" })}
+            onClick={() => onStartAccount?.("linkedin")}
             data-testid="whats-new-signin-linkedin"
             className={`${oauthBtn} border-[#0A66C2] bg-[#0A66C2] text-white hover:bg-[#004182]`}
           >
@@ -278,6 +289,7 @@ function SignInChoiceCards({ onKeepLocal }: { onKeepLocal: () => void }) {
 export default function WhatsNewModal({
   releases,
   onDismiss,
+  onStartAccount,
   showAllExpanded = false,
   waveOnOpen = true,
 }: Props) {
@@ -404,7 +416,10 @@ export default function WhatsNewModal({
               ))}
 
             {offerSignInChoice && (
-              <SignInChoiceCards onKeepLocal={onDismiss} />
+              <SignInChoiceCards
+                onKeepLocal={onDismiss}
+                onStartAccount={onStartAccount}
+              />
             )}
           </div>
 
