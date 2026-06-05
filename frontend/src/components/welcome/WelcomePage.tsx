@@ -358,8 +358,8 @@ export default function WelcomePage() {
               </ul>
             </div>
             <DemoLoop
-              src="/welcome-demos/sequence-editor.mp4"
-              poster="/welcome-demos/sequence-editor.poster.jpg"
+              src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-editor-a.mp4"
+              poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-editor-a.poster.jpg"
               label="A circular plasmid map rendering in the ResearchOS sequence editor, with annotated feature arcs"
               framed
               frameUrl="research-os.app/sequences"
@@ -405,8 +405,8 @@ export default function WelcomePage() {
                 recorded together, with nothing to wire up.
               </p>
               <DemoLoop
-                src="/welcome-demos/replaces-5-tools.mp4"
-                poster="/welcome-demos/replaces-5-tools.poster.jpg"
+                src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/replaces-5-tools.mp4"
+                poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/replaces-5-tools.poster.jpg"
                 label="A sweep across the Gantt timeline, purchases dashboard, and more in one workspace"
                 className="mt-4"
               />
@@ -428,8 +428,8 @@ export default function WelcomePage() {
                 Bio-Rad &middot; Takara &middot; KAPA
               </CodeLine>
               <DemoLoop
-                src="/welcome-demos/methods-library.mp4"
-                poster="/welcome-demos/methods-library.poster.jpg"
+                src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/methods-library.mp4"
+                poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/methods-library.poster.jpg"
                 label="Opening the protocol template library and a structured kit protocol"
                 className="mt-4"
               />
@@ -455,8 +455,8 @@ export default function WelcomePage() {
                 progress, configurable for the decision-maker.
               </p>
               <DemoLoop
-                src="/welcome-demos/pi-lab-overview.mp4"
-                poster="/welcome-demos/pi-lab-overview.poster.jpg"
+                src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/pi-lab-overview.mp4"
+                poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/pi-lab-overview.poster.jpg"
                 label="The PI lab-overview dashboard with member tiles, funding, and progress"
                 className="mt-4 flex-1"
               />
@@ -558,8 +558,8 @@ export default function WelcomePage() {
               </div>
               <div className="relative aspect-[16/10] w-full overflow-hidden bg-[#eaf2fb]">
                 <DemoLoop
-                  src="/welcome-demos/own-your-data.mp4"
-                  poster="/welcome-demos/own-your-data.poster.jpg"
+                  src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/own-your-data.mp4"
+                  poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/own-your-data.poster.jpg"
                   label="The project as a plain folder of files sitting on disk in the file browser"
                   className="h-full"
                 />
