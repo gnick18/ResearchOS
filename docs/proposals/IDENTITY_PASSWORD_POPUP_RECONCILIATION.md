@@ -92,12 +92,40 @@ backup is orphaned. The account-creation cleanup (which already supersedes
 `_telegram-encrypted.json`. The user re-pairs Telegram, acceptable pre-launch and
 re-doable in a minute.
 
-## Open questions for Grant
+## Decisions locked (2026-06-05)
 
-1. Telegram key, option A (keep password-keyed, minimal, recommended) or B
-   (re-key off the keypair, cleaner, with a migration).
-2. Remove-password, disable it for shared folders and allow it only for solo
-   accounts (deletes the account file and the Telegram backup), or drop the
-   remove action entirely.
-3. On re-establish, clearing the orphaned `_telegram-encrypted.json` so the user
-   re-pairs Telegram, confirm that is acceptable.
+1. Telegram key, OPTION B, re-key off the keypair. Derive the Telegram AES key
+   from the local keypair (HKDF over the X25519 secret) instead of PBKDF2 over the
+   password. This DELETES `lib/auth/cached-password.ts` entirely, the keypair is
+   the secret and it already lives in the session after login. A one-time
+   migration clears old password-keyed backups (see below).
+2. Remove-password, SOLO-ONLY. Allowed only for a genuinely solo folder (deletes
+   `_account.json` and `_telegram-encrypted.json`). Disabled with a note for shared
+   folders, login is mandatory there.
+3. Orphaned backup, CLEAR IT. Account-creation cleanup also deletes
+   `_telegram-encrypted.json`, the user re-pairs Telegram.
+
+### What option B changes versus the draft above
+
+- AccountPasswordPopup change-mode gets SIMPLER, not harder. Because the Telegram
+  backup is keyed off the keypair (which does not change on a password change, only
+  its wrapping does), a password change is just `changeAccountPassword`, the
+  decrypt-old / encrypt-new Telegram dance is DELETED.
+- `lib/auth/cached-password.ts` is removed, along with every wipe-trigger call
+  site. The Telegram decrypt loop calls `loadIdentity()` and derives the key from
+  the keypair at the moment of need.
+- `lib/telegram/encrypted-backup.ts` derive function changes from PBKDF2-over-
+  password to HKDF-over-X25519-secret. `encryptToken` / `decryptToken` take the
+  keypair (or the derived key) instead of a password string.
+- Telegram callers (`file-system-context.tsx`, `TelegramEncryptedRecoveryPrompt`,
+  `TelegramPairingModal`) stop passing a password and pass the keypair.
+
+### Build order (option B)
+
+1. Re-key `encrypted-backup.ts` off the keypair (HKDF over X25519), unit-tested.
+2. Rewire the Telegram decrypt/pair callers to the keypair, delete
+   `cached-password.ts` and its wipe-trigger calls.
+3. AccountPasswordPopup to the account store (set / change / solo-only remove), no
+   Telegram dance.
+4. Account-creation cleanup clears `_telegram-encrypted.json`.
+5. Verify, then merge `identity-cutover` to main after Grant's real-folder test.
