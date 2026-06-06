@@ -276,8 +276,8 @@ export default function PcrMethodTabContent({
         {/* PCR header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-body font-medium text-gray-700">{method.name || "PCR Protocol"}</span>
-            <span className="text-meta px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded">PCR</span>
+            <span className="text-body font-medium text-foreground">{method.name || "PCR Protocol"}</span>
+            <span className="text-meta px-1.5 py-0.5 bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-300 rounded">PCR</span>
             {isModifiedFromSource && (
               <span className={MODIFIED_BADGE_CLASSES}>{MODIFIED_CHIP_TEXT}</span>
             )}
@@ -286,12 +286,12 @@ export default function PcrMethodTabContent({
           {!readOnly && (
             <div className="flex items-center gap-2">
               {hasUnsavedChanges && (
-                <span className="text-meta text-amber-600">Unsaved changes</span>
+                <span className="text-meta text-amber-600 dark:text-amber-300">Unsaved changes</span>
               )}
               <button
                 onClick={handleResetPcr}
                 disabled={saving}
-                className="px-3 py-1.5 text-meta bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                className="px-3 py-1.5 text-meta bg-surface-sunken text-foreground-muted rounded-lg hover:bg-foreground-muted/15 disabled:opacity-50"
                 title="Reset to original method values"
               >
                 Reset to Method
@@ -309,7 +309,7 @@ export default function PcrMethodTabContent({
 
         {/* Gradient Visualization */}
         <div>
-          <label className="block text-meta font-medium text-gray-500 mb-2">
+          <label className="block text-meta font-medium text-foreground-muted mb-2">
             Thermal Gradient
           </label>
           {pcrGradient ? (
@@ -321,13 +321,13 @@ export default function PcrMethodTabContent({
               sourceGradient={sourcePcrGradient}
             />
           ) : (
-            <p className="text-body text-gray-400">No gradient data available</p>
+            <p className="text-body text-foreground-muted">No gradient data available</p>
           )}
         </div>
 
         {/* Recipe Table */}
         <div>
-          <label className="block text-meta font-medium text-gray-500 mb-2">
+          <label className="block text-meta font-medium text-foreground-muted mb-2">
             Reaction Recipe
           </label>
           <PCRRecipeTable
@@ -343,8 +343,8 @@ export default function PcrMethodTabContent({
         {/* Notes */}
         {fetchedPcrProtocol?.notes && (
           <div>
-            <label className="block text-meta font-medium text-gray-500 mb-1">Notes</label>
-            <p className="text-body text-gray-600 whitespace-pre-wrap">
+            <label className="block text-meta font-medium text-foreground-muted mb-1">Notes</label>
+            <p className="text-body text-foreground-muted whitespace-pre-wrap">
               {fetchedPcrProtocol.notes}
             </p>
           </div>
@@ -441,28 +441,28 @@ function PCRRecipeTable({
   const totalCount = ingredients.filter(ing => ing.name !== "Total").length;
 
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
+    <div className="border border-border rounded-lg overflow-hidden">
       {/* Progress indicator */}
       {totalCount > 0 && (
-        <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 flex items-center gap-2">
-          <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+        <div className="bg-surface-sunken px-3 py-2 border-b border-border flex items-center gap-2">
+          <div className="flex-1 h-2 bg-foreground-muted/15 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-300"
               style={{ width: `${(checkedCount / totalCount) * 100}%` }}
             />
           </div>
-          <span className="text-meta text-gray-500 flex-shrink-0">
+          <span className="text-meta text-foreground-muted flex-shrink-0">
             {checkedCount}/{totalCount} checked
           </span>
         </div>
       )}
       <table className="w-full text-body">
-        <thead className="bg-gray-50">
+        <thead className="bg-surface-sunken">
           <tr>
-            <th className="px-2 py-2 w-10 text-center text-meta font-medium text-gray-500" title="Check off ingredients as you add them">✓</th>
-            <th className="px-3 py-2 text-left text-meta font-medium text-gray-500">Ingredient</th>
-            <th className="px-3 py-2 text-left text-meta font-medium text-gray-500">Concentration</th>
-            <th className="px-3 py-2 text-left text-meta font-medium text-gray-500">Amount (uL)</th>
+            <th className="px-2 py-2 w-10 text-center text-meta font-medium text-foreground-muted" title="Check off ingredients as you add them">✓</th>
+            <th className="px-3 py-2 text-left text-meta font-medium text-foreground-muted">Ingredient</th>
+            <th className="px-3 py-2 text-left text-meta font-medium text-foreground-muted">Concentration</th>
+            <th className="px-3 py-2 text-left text-meta font-medium text-foreground-muted">Amount (uL)</th>
             {editable && <th className="px-3 py-2 w-10"></th>}
           </tr>
         </thead>
@@ -486,7 +486,7 @@ function PCRRecipeTable({
             return (
               <tr
                 key={ing.id}
-                className={`${isTotal ? "bg-gray-50 font-medium" : ""} ${ing.checked && !isTotal ? "bg-green-50" : ""} ${rowDiffClass} transition-colors`}
+                className={`${isTotal ? "bg-surface-sunken font-medium" : ""} ${ing.checked && !isTotal ? "bg-green-50 dark:bg-green-500/10" : ""} ${rowDiffClass} transition-colors`}
               >
                 <td className="px-2 py-2 text-center">
                   {!isTotal && (
@@ -496,7 +496,7 @@ function PCRRecipeTable({
                         className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
                           ing.checked
                             ? "bg-green-500 border-green-500 text-white"
-                            : "border-gray-300 hover:border-green-400 hover:bg-green-50"
+                            : "border-border hover:border-green-400 hover:bg-green-50 dark:hover:bg-green-500/10"
                         }`}
                       >
                         {ing.checked && (
@@ -517,10 +517,10 @@ function PCRRecipeTable({
                       type="text"
                       value={ing.name}
                       onChange={(e) => handleChange(ing.id, "name", e.target.value)}
-                      className={`w-full px-2 py-1 border border-gray-200 rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-500 ${ing.checked ? "line-through text-gray-400" : ""}`}
+                      className={`w-full px-2 py-1 border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-500 ${ing.checked ? "line-through text-foreground-muted" : ""}`}
                     />
                   ) : (
-                    <span className={`text-gray-900 ${ing.checked ? "line-through text-gray-400" : ""}`}>{ing.name}</span>
+                    <span className={`text-foreground ${ing.checked ? "line-through text-foreground-muted" : ""}`}>{ing.name}</span>
                   )}
                 </DiffCell>
                 <DiffCell
@@ -532,11 +532,11 @@ function PCRRecipeTable({
                       type="text"
                       value={ing.concentration}
                       onChange={(e) => handleChange(ing.id, "concentration", e.target.value)}
-                      className={`w-full px-2 py-1 border border-gray-200 rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-500 ${ing.checked ? "line-through text-gray-400" : ""}`}
+                      className={`w-full px-2 py-1 border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-500 ${ing.checked ? "line-through text-foreground-muted" : ""}`}
                       placeholder="e.g. 10x"
                     />
                   ) : (
-                    <span className={`text-gray-600 ${ing.checked ? "line-through text-gray-400" : ""}`}>{ing.concentration || "-"}</span>
+                    <span className={`text-foreground-muted ${ing.checked ? "line-through text-foreground-muted" : ""}`}>{ing.concentration || "-"}</span>
                   )}
                 </DiffCell>
                 <DiffCell
@@ -548,11 +548,11 @@ function PCRRecipeTable({
                       type="text"
                       value={ing.amount_per_reaction}
                       onChange={(e) => handleChange(ing.id, "amount_per_reaction", e.target.value)}
-                      className={`w-full px-2 py-1 border border-gray-200 rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-500 ${ing.checked ? "line-through text-gray-400" : ""}`}
+                      className={`w-full px-2 py-1 border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-500 ${ing.checked ? "line-through text-foreground-muted" : ""}`}
                       placeholder="e.g. 2.5"
                     />
                   ) : (
-                    <span className={`text-gray-600 ${ing.checked ? "line-through text-gray-400" : ""}`}>{ing.amount_per_reaction || "-"}</span>
+                    <span className={`text-foreground-muted ${ing.checked ? "line-through text-foreground-muted" : ""}`}>{ing.amount_per_reaction || "-"}</span>
                   )}
                 </DiffCell>
                 {editable && !isTotal && (
@@ -560,7 +560,7 @@ function PCRRecipeTable({
                     <Tooltip label="Remove ingredient" placement="left">
                       <button
                         onClick={() => removeRow(ing.id)}
-                        className="text-gray-400 hover:text-red-500"
+                        className="text-foreground-muted hover:text-red-500"
                       >
                         x
                       </button>
@@ -576,9 +576,9 @@ function PCRRecipeTable({
           {removedSourceIngredients.map((ing) => (
             <tr key={`removed-${ing.id}`} className={REMOVED_ROW_CLASSES}>
               <td className="px-2 py-2" />
-              <td className="px-3 py-2 text-gray-700">{ing.name}</td>
-              <td className="px-3 py-2 text-gray-600">{ing.concentration || "-"}</td>
-              <td className="px-3 py-2 text-gray-600">{ing.amount_per_reaction || "-"}</td>
+              <td className="px-3 py-2 text-foreground">{ing.name}</td>
+              <td className="px-3 py-2 text-foreground-muted">{ing.concentration || "-"}</td>
+              <td className="px-3 py-2 text-foreground-muted">{ing.amount_per_reaction || "-"}</td>
               {editable && <td className="px-3 py-2" />}
             </tr>
           ))}
@@ -587,7 +587,7 @@ function PCRRecipeTable({
       {editable && (
         <button
           onClick={addRow}
-          className="w-full py-2 text-meta text-blue-600 hover:bg-blue-50 border-t border-gray-200"
+          className="w-full py-2 text-meta text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 border-t border-border"
         >
           + Add Row
         </button>

@@ -281,10 +281,10 @@ export default function QpcrAnalysisMethodTabContent({
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-body font-medium text-gray-700">
+            <span className="text-body font-medium text-foreground">
               {method.name || "qPCR analysis"}
             </span>
-            <span className="text-meta px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded">qPCR</span>
+            <span className="text-meta px-1.5 py-0.5 bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded">qPCR</span>
             {hasReadouts && (
               <span className={MODIFIED_BADGE_CLASSES}>{MODIFIED_CHIP_TEXT}</span>
             )}
@@ -292,12 +292,12 @@ export default function QpcrAnalysisMethodTabContent({
           {!readOnly && (
             <div className="flex items-center gap-2">
               {hasUnsavedChanges && (
-                <span className="text-meta text-amber-600">Unsaved changes</span>
+                <span className="text-meta text-amber-600 dark:text-amber-300">Unsaved changes</span>
               )}
               <button
                 onClick={handleReset}
                 disabled={saving}
-                className="px-3 py-1.5 text-meta bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                className="px-3 py-1.5 text-meta bg-surface-sunken text-foreground-muted rounded-lg hover:bg-foreground-muted/15 disabled:opacity-50"
                 title="Reset to empty readouts"
               >
                 Reset readouts
@@ -317,43 +317,43 @@ export default function QpcrAnalysisMethodTabContent({
           <>
             {/* Per-target Cq readouts table */}
             <div>
-              <h3 className="text-body font-semibold text-gray-800 mb-1">
+              <h3 className="text-body font-semibold text-foreground mb-1">
                 Per-target Cq readouts for this run
               </h3>
-              <p className="text-meta text-gray-500 mb-3">
+              <p className="text-meta text-foreground-muted mb-3">
                 Enter the measured Cq for each target. The reference target&rsquo;s row drives the
                 ΔΔCq fold-change column in the visualization below.
               </p>
               {sourceProtocol.references.length === 0 ? (
-                <p className="text-body text-gray-400">
+                <p className="text-body text-foreground-muted">
                   No targets defined on this method yet — edit the protocol via /methods to add targets.
                 </p>
               ) : (
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="border border-border rounded-lg overflow-hidden">
                   <table className="w-full text-meta">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-surface-sunken">
                       <tr>
-                        <th className="px-3 py-1.5 text-left font-medium text-gray-600">Target</th>
-                        <th className="px-3 py-1.5 text-left font-medium text-gray-600 w-20">Channel</th>
-                        <th className="px-3 py-1.5 text-left font-medium text-gray-600 w-24">Cq</th>
+                        <th className="px-3 py-1.5 text-left font-medium text-foreground-muted">Target</th>
+                        <th className="px-3 py-1.5 text-left font-medium text-foreground-muted w-20">Channel</th>
+                        <th className="px-3 py-1.5 text-left font-medium text-foreground-muted w-24">Cq</th>
                         {meltCurveEnabled && (
-                          <th className="px-3 py-1.5 text-left font-medium text-gray-600 w-24">Tm (°C)</th>
+                          <th className="px-3 py-1.5 text-left font-medium text-foreground-muted w-24">Tm (°C)</th>
                         )}
-                        <th className="px-3 py-1.5 text-left font-medium text-gray-600">Notes</th>
+                        <th className="px-3 py-1.5 text-left font-medium text-foreground-muted">Notes</th>
                       </tr>
                     </thead>
                     <tbody>
                       {sourceProtocol.references.map((ref, idx) => (
-                        <tr key={ref.id} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                        <tr key={ref.id} className={idx % 2 === 0 ? "bg-surface-raised" : "bg-surface-sunken"}>
                           <td className="px-3 py-1">
-                            <span className="font-medium text-gray-800">{ref.target || "(unnamed)"}</span>
+                            <span className="font-medium text-foreground">{ref.target || "(unnamed)"}</span>
                             {ref.is_reference && (
-                              <span className="ml-1.5 text-meta px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded">
+                              <span className="ml-1.5 text-meta px-1.5 py-0.5 bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded">
                                 ref
                               </span>
                             )}
                           </td>
-                          <td className="px-3 py-1 text-gray-600">{ref.channel}</td>
+                          <td className="px-3 py-1 text-foreground-muted">{ref.channel}</td>
                           <td className="px-3 py-1">
                             <input
                               type="number"
@@ -362,7 +362,7 @@ export default function QpcrAnalysisMethodTabContent({
                               onChange={(e) => updateCq(ref.id, parseNum(e.target.value))}
                               readOnly={readOnly}
                               placeholder="—"
-                              className="w-full px-2 py-1 border border-gray-200 rounded"
+                              className="w-full px-2 py-1 border border-border rounded"
                             />
                           </td>
                           {meltCurveEnabled && (
@@ -374,7 +374,7 @@ export default function QpcrAnalysisMethodTabContent({
                                 onChange={(e) => updateMeltTm(ref.id, parseNum(e.target.value))}
                                 readOnly={readOnly}
                                 placeholder="—"
-                                className="w-full px-2 py-1 border border-gray-200 rounded"
+                                className="w-full px-2 py-1 border border-border rounded"
                               />
                             </td>
                           )}
@@ -385,7 +385,7 @@ export default function QpcrAnalysisMethodTabContent({
                               onChange={(e) => updateNoteForTarget(ref.id, e.target.value)}
                               readOnly={readOnly}
                               placeholder={ref.is_reference ? "housekeeping baseline" : "—"}
-                              className="w-full px-2 py-1 border border-gray-200 rounded"
+                              className="w-full px-2 py-1 border border-border rounded"
                             />
                           </td>
                         </tr>
@@ -394,7 +394,7 @@ export default function QpcrAnalysisMethodTabContent({
                   </table>
                 </div>
               )}
-              <label className="block mt-3 text-meta text-gray-600 space-y-1">
+              <label className="block mt-3 text-meta text-foreground-muted space-y-1">
                 <span>Run notes</span>
                 <textarea
                   value={notes ?? ""}
@@ -402,26 +402,26 @@ export default function QpcrAnalysisMethodTabContent({
                   readOnly={readOnly}
                   rows={2}
                   placeholder="e.g. NTC came up at Cq 36, well A1 showed primer-dimer in the melt curve."
-                  className="w-full px-2 py-1.5 border border-gray-200 rounded resize-y"
+                  className="w-full px-2 py-1.5 border border-border rounded resize-y"
                 />
               </label>
             </div>
 
             {/* Visualization panel */}
-            <div className="border-t border-gray-200 pt-4">
-              <h3 className="text-body font-semibold text-gray-800 mb-3">Visualization &amp; ΔΔCq</h3>
+            <div className="border-t border-border pt-4">
+              <h3 className="text-body font-semibold text-foreground mb-3">Visualization &amp; ΔΔCq</h3>
               <QpcrAnalysisViz protocol={sourceProtocol} snapshot={liveSnapshot} />
             </div>
 
             {/* Protocol template summary (read-only at a glance) */}
-            <div className="border-t border-gray-200 pt-4">
+            <div className="border-t border-border pt-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-body font-semibold text-gray-800">Protocol template</h3>
+                <h3 className="text-body font-semibold text-foreground">Protocol template</h3>
                 <Tooltip label="Edit the protocol template via the /methods page" placement="left">
-                  <span className="text-meta text-gray-400">read-only</span>
+                  <span className="text-meta text-foreground-muted">read-only</span>
                 </Tooltip>
               </div>
-              <div className="mt-2 text-meta text-gray-600 space-y-1">
+              <div className="mt-2 text-meta text-foreground-muted space-y-1">
                 <div>
                   <span className="font-medium">Chemistry:</span> {sourceProtocol.chemistry}
                   {sourceProtocol.chemistry === "other" && sourceProtocol.chemistry_label
@@ -445,13 +445,13 @@ export default function QpcrAnalysisMethodTabContent({
                     : "not configured"}
                 </div>
                 {sourceProtocol.description && (
-                  <div className="text-gray-500 italic">{sourceProtocol.description}</div>
+                  <div className="text-foreground-muted italic">{sourceProtocol.description}</div>
                 )}
               </div>
             </div>
           </>
         ) : (
-          <p className="text-body text-gray-400">No qPCR analysis protocol available</p>
+          <p className="text-body text-foreground-muted">No qPCR analysis protocol available</p>
         )}
       </div>
     </div>

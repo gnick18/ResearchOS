@@ -220,7 +220,7 @@ export default function MethodCard({
       className={[
         "inline-flex items-center gap-1 rounded-md px-2 py-1 text-meta font-medium transition-colors",
         isAttached
-          ? "cursor-default bg-blue-50 text-blue-600 ring-1 ring-blue-200"
+          ? "cursor-default bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-300 ring-1 ring-blue-200"
           : "bg-blue-600 text-white hover:bg-blue-700",
       ].join(" ")}
     >
@@ -250,12 +250,12 @@ export default function MethodCard({
           );
         })()}
       {showPublicChip && (
-        <span className="shrink-0 rounded-full bg-green-50 px-1.5 py-0.5 text-meta font-medium text-green-600">
+        <span className="shrink-0 rounded-full bg-green-50 dark:bg-green-500/10 px-1.5 py-0.5 text-meta font-medium text-green-600 dark:text-green-300">
           Public
         </span>
       )}
       {showSharedChip && (
-        <span className="shrink-0 rounded-full bg-indigo-50 px-1.5 py-0.5 text-meta font-medium text-indigo-600">
+        <span className="shrink-0 rounded-full bg-indigo-50 dark:bg-indigo-500/10 px-1.5 py-0.5 text-meta font-medium text-indigo-600 dark:text-indigo-300">
           Shared with me
         </span>
       )}
@@ -269,7 +269,7 @@ export default function MethodCard({
             e.stopPropagation();
             onToggleForks(method);
           }}
-          className="inline-flex shrink-0 cursor-pointer items-center gap-0.5 rounded-full bg-amber-50 px-1.5 py-0.5 text-meta font-medium text-amber-600 hover:bg-amber-100"
+          className="inline-flex shrink-0 cursor-pointer items-center gap-0.5 rounded-full bg-amber-50 dark:bg-amber-500/10 px-1.5 py-0.5 text-meta font-medium text-amber-600 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-500/20"
         >
           <ChevronIcon open={forksOpen} />
           {children.length} fork{children.length === 1 ? "" : "s"}
@@ -281,12 +281,12 @@ export default function MethodCard({
   const subtitle = (
     <span>
       {showSharedChip || showPublicChip ? (
-        <span className="text-gray-500">{ownerLabel}</span>
+        <span className="text-foreground-muted">{ownerLabel}</span>
       ) : null}
       {(showSharedChip || showPublicChip) && excerpt ? (
-        <span className="text-gray-300"> · </span>
+        <span className="text-foreground-muted"> · </span>
       ) : null}
-      <span className="text-gray-500">{excerpt}</span>
+      <span className="text-foreground-muted">{excerpt}</span>
     </span>
   );
 
@@ -296,7 +296,7 @@ export default function MethodCard({
     orphanFork ? (
       <div className="flex flex-col gap-1">
         {orphanFork && (
-          <span className="text-meta italic text-gray-400">
+          <span className="text-meta italic text-foreground-muted">
             forked from a method not in this list
           </span>
         )}
@@ -305,7 +305,7 @@ export default function MethodCard({
             {method.tags.map((tag) => (
               <span
                 key={tag}
-                className="rounded bg-gray-100 px-1.5 py-0.5 text-meta text-gray-500"
+                className="rounded bg-surface-sunken px-1.5 py-0.5 text-meta text-foreground-muted"
               >
                 #{tag}
               </span>
@@ -313,7 +313,7 @@ export default function MethodCard({
           </div>
         )}
         {method.last_edited_by && (
-          <span className="text-meta text-gray-400">
+          <span className="text-meta text-foreground-muted">
             edited by {method.last_edited_by}
             {method.last_edited_at
               ? ` · ${new Date(method.last_edited_at).toLocaleDateString()}`

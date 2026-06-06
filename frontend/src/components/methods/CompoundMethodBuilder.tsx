@@ -261,22 +261,22 @@ export function CompoundMethodBuilder({
       // is mounted; see SnapshotTilePopup for the canonical example.
       data-tour-popup-occluding="compound-method-builder"
     >
-      <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full mx-4 max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 className="text-title font-semibold text-gray-900">
+      <div className="bg-surface-raised rounded-xl shadow-2xl max-w-3xl w-full mx-4 max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h3 className="text-title font-semibold text-foreground">
             Edit kit
           </h3>
           <Tooltip label="Close" placement="bottom">
             <button
               onClick={handleCancel}
-              className="text-gray-400 hover:text-gray-600 text-lg"
+              className="text-foreground-muted hover:text-foreground text-heading"
             >
               ✕
             </button>
           </Tooltip>
         </div>
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          <p className="text-meta text-gray-500">
+          <p className="text-meta text-foreground-muted">
             A kit bundles existing methods into one attachable
             unit. Open it on an experiment and every component renders inline
             with its own editor; per-task edits are saved against this
@@ -285,7 +285,7 @@ export function CompoundMethodBuilder({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-meta font-medium text-gray-500 mb-1">
+              <label className="block text-meta font-medium text-foreground-muted mb-1">
                 Kit name
               </label>
               <input
@@ -293,12 +293,12 @@ export function CompoundMethodBuilder({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder='e.g. "Assay X full kit"'
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                 autoFocus
               />
             </div>
             <div>
-              <label className="block text-meta font-medium text-gray-500 mb-1">
+              <label className="block text-meta font-medium text-foreground-muted mb-1">
                 Folder (optional)
               </label>
               <input
@@ -307,7 +307,7 @@ export function CompoundMethodBuilder({
                 onChange={(e) => setFolder(e.target.value)}
                 placeholder="e.g. Assays"
                 list="compound-builder-folders"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <datalist id="compound-builder-folders">
                 {existingFolders.map((f) => (
@@ -318,7 +318,7 @@ export function CompoundMethodBuilder({
           </div>
 
           <div>
-            <label className="block text-meta font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-foreground-muted mb-1">
               Tags (comma-separated, optional)
             </label>
             <input
@@ -326,19 +326,19 @@ export function CompoundMethodBuilder({
               value={tags}
               onChange={(e) => setTags(e.target.value)}
               placeholder="e.g. kit, assay"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           {/* Per Q-V1 lock: no public toggle for compounds in v2. */}
-          <p className="text-meta text-gray-400 italic">
+          <p className="text-meta text-foreground-muted italic">
             Kits are private in v2; cross-user sharing arrives in v2.1.
           </p>
 
-          <div className="border-t border-gray-100 pt-4">
+          <div className="border-t border-border pt-4">
             <div className="flex items-center justify-between mb-2">
-              <label className="text-meta font-medium text-gray-500">Components</label>
-              <span className="text-meta text-gray-400">
+              <label className="text-meta font-medium text-foreground-muted">Components</label>
+              <span className="text-meta text-foreground-muted">
                 Drag rows by the handle to reorder.
               </span>
             </div>
@@ -356,7 +356,7 @@ export function CompoundMethodBuilder({
             />
             <button
               onClick={() => setShowPicker(true)}
-              className="mt-3 w-full px-4 py-2 text-body border border-dashed border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50"
+              className="mt-3 w-full px-4 py-2 text-body border border-dashed border-border text-foreground-muted rounded-lg hover:bg-surface-sunken"
             >
               + Add component
             </button>
@@ -364,8 +364,8 @@ export function CompoundMethodBuilder({
 
           {/* Inline validation feedback. Save remains disabled until clean. */}
           {!validation.ok && components.length > 0 && (
-            <div className="border border-red-200 bg-red-50 rounded p-3">
-              <div className="text-meta font-medium text-red-700">
+            <div className="border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 rounded p-3">
+              <div className="text-meta font-medium text-red-700 dark:text-red-300">
                 {validation.reason === "cycle"
                   ? "Cycle detected"
                   : validation.reason === "depth_exceeded"
@@ -383,15 +383,15 @@ export function CompoundMethodBuilder({
             </div>
           )}
           {saveError && (
-            <div className="border border-red-200 bg-red-50 rounded p-3 text-body text-red-900">
+            <div className="border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 rounded p-3 text-body text-red-900">
               {saveError}
             </div>
           )}
         </div>
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-border">
           <button
             onClick={handleCancel}
-            className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
+            className="px-4 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg"
           >
             Cancel
           </button>
@@ -448,16 +448,16 @@ function ComponentList({
 }: ComponentListProps) {
   if (components.length === 0) {
     return (
-      <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
-        <p className="text-body text-gray-400">No components yet</p>
-        <p className="text-meta text-gray-300 mt-1">
+      <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
+        <p className="text-body text-foreground-muted">No components yet</p>
+        <p className="text-meta text-foreground-muted mt-1">
           Click &ldquo;+ Add component&rdquo; below to attach existing methods.
         </p>
       </div>
     );
   }
   return (
-    <ul className="border border-gray-200 rounded-lg overflow-hidden divide-y divide-gray-100">
+    <ul className="border border-border rounded-lg overflow-hidden divide-y divide-gray-100">
       {components.map((c, idx) => {
         const owner = c.owner ?? compoundOwner;
         const child = allMethods.find((m) => m.id === c.method_id && m.owner === owner);
@@ -472,18 +472,18 @@ function ComponentList({
             onDragStart={() => onDragStart(idx)}
             onDragOver={onDragOver}
             onDrop={() => onDrop(idx)}
-            className={`flex items-center gap-3 px-3 py-2.5 bg-white ${
+            className={`flex items-center gap-3 px-3 py-2.5 bg-surface-raised ${
               isDragging ? "opacity-40" : ""
-            } ${isOrphan ? "bg-amber-50" : ""}`}
+            } ${isOrphan ? "bg-amber-50 dark:bg-amber-500/10" : ""}`}
           >
             <span
-              className="text-gray-300 cursor-grab active:cursor-grabbing select-none"
+              className="text-foreground-muted cursor-grab active:cursor-grabbing select-none"
               title="Drag to reorder"
             >
               ⋮⋮
             </span>
-            <span className="text-meta text-gray-400 w-5">{idx + 1}.</span>
-            <Icon className="w-4 h-4 text-gray-500 flex-shrink-0" />
+            <span className="text-meta text-foreground-muted w-5">{idx + 1}.</span>
+            <Icon className="w-4 h-4 text-foreground-muted flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <input
@@ -491,19 +491,19 @@ function ComponentList({
                   value={c.label ?? ""}
                   onChange={(e) => onLabelChange(idx, e.target.value)}
                   placeholder={child?.name ?? `Method ${c.method_id}`}
-                  className="text-body bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none px-1 py-0.5 min-w-[180px] flex-1"
+                  className="text-body bg-transparent border-b border-transparent hover:border-border focus:border-blue-400 focus:outline-none px-1 py-0.5 min-w-[180px] flex-1"
                 />
                 <span className={`text-meta px-1.5 py-0.5 rounded ${meta.color.bg} ${meta.color.text}`}>
                   {meta.shortLabel}
                 </span>
                 {isOrphan && (
-                  <span className="text-meta px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                  <span className="text-meta px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300">
                     Deleted
                   </span>
                 )}
               </div>
               {child && (
-                <div className="text-meta text-gray-400 mt-0.5">
+                <div className="text-meta text-foreground-muted mt-0.5">
                   {child.name} · owner {owner} · id {c.method_id}
                 </div>
               )}
@@ -511,7 +511,7 @@ function ComponentList({
             <Tooltip label="Remove component" placement="left">
               <button
                 onClick={() => onRemove(idx)}
-                className="text-gray-400 hover:text-red-500 text-body px-2 py-1"
+                className="text-foreground-muted hover:text-red-500 text-body px-2 py-1"
               >
                 ✕
               </button>
@@ -605,19 +605,19 @@ function ComponentPicker({
       // 2026-05-27).
       data-tour-popup-occluding="compound-method-add-component"
     >
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[85vh] flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 className="text-title font-semibold text-gray-900">Add component</h3>
+      <div className="bg-surface-raised rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h3 className="text-title font-semibold text-foreground">Add component</h3>
           <Tooltip label="Cancel" placement="bottom">
             <button
               onClick={onCancel}
-              className="text-gray-400 hover:text-gray-600 text-lg"
+              className="text-foreground-muted hover:text-foreground text-heading"
             >
               ✕
             </button>
           </Tooltip>
         </div>
-        <div className="px-6 pt-3 flex gap-1 border-b border-gray-100">
+        <div className="px-6 pt-3 flex gap-1 border-b border-border">
           <PickerTabButton
             active={tab === "pick"}
             onClick={() => setTab("pick")}
@@ -631,13 +631,13 @@ function ComponentPicker({
         </div>
         {tab === "pick" && (
           <>
-            <div className="p-4 border-b border-gray-100 space-y-3">
+            <div className="p-4 border-b border-border space-y-3">
               <input
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search methods by name or folder..."
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                 autoFocus
               />
               <div className="flex flex-wrap gap-1">
@@ -645,8 +645,8 @@ function ComponentPicker({
                   onClick={() => setTypeFilter("all")}
                   className={`text-meta px-2 py-1 rounded-full border ${
                     typeFilter === "all"
-                      ? "bg-blue-50 border-blue-300 text-blue-700"
-                      : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                      ? "bg-blue-50 dark:bg-blue-500/10 border-blue-300 text-blue-700 dark:text-blue-300"
+                      : "border-border text-foreground-muted hover:bg-surface-sunken"
                   }`}
                 >
                   All types
@@ -658,7 +658,7 @@ function ComponentPicker({
                     className={`text-meta px-2 py-1 rounded-full border inline-flex items-center gap-1 ${
                       typeFilter === meta.id
                         ? `${meta.color.bg} ${meta.color.text} border-current`
-                        : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                        : "border-border text-foreground-muted hover:bg-surface-sunken"
                     }`}
                   >
                     <meta.icon className="w-3 h-3" />
@@ -669,7 +669,7 @@ function ComponentPicker({
             </div>
             <div className="flex-1 overflow-y-auto p-4">
               {filtered.length === 0 ? (
-                <p className="text-body text-gray-400 text-center py-8">
+                <p className="text-body text-foreground-muted text-center py-8">
                   No methods match this filter.
                 </p>
               ) : (
@@ -685,13 +685,13 @@ function ComponentPicker({
                           disabled={alreadyAttached}
                           className={`w-full text-left px-3 py-2 rounded-lg border ${
                             alreadyAttached
-                              ? "border-gray-100 bg-gray-50 cursor-not-allowed opacity-60"
-                              : "border-gray-200 hover:bg-gray-50"
+                              ? "border-border bg-surface-sunken cursor-not-allowed opacity-60"
+                              : "border-border hover:bg-surface-sunken"
                           }`}
                         >
                           <div className="flex items-center gap-2">
-                            <Icon className="w-4 h-4 text-gray-500" />
-                            <span className="text-body font-medium text-gray-900 flex-1">
+                            <Icon className="w-4 h-4 text-foreground-muted" />
+                            <span className="text-body font-medium text-foreground flex-1">
                               {m.name}
                             </span>
                             <span
@@ -700,12 +700,12 @@ function ComponentPicker({
                               {meta.shortLabel}
                             </span>
                             {alreadyAttached && (
-                              <span className="text-meta text-gray-400 italic">
+                              <span className="text-meta text-foreground-muted italic">
                                 already added
                               </span>
                             )}
                           </div>
-                          <div className="text-meta text-gray-400 mt-0.5">
+                          <div className="text-meta text-foreground-muted mt-0.5">
                             {m.folder_path ?? "Uncategorized"} · owner {m.owner} ·
                             id {m.id}
                             {m.is_public ? " · public" : ""}
@@ -717,7 +717,7 @@ function ComponentPicker({
                 </ul>
               )}
             </div>
-            <div className="px-6 py-3 border-t border-gray-100 text-meta text-gray-400">
+            <div className="px-6 py-3 border-t border-border text-meta text-foreground-muted">
               Want a brand-new method? Switch to the &ldquo;Create new&rdquo;
               tab above to build one inline and attach it in one step.
             </div>
@@ -752,8 +752,8 @@ function PickerTabButton({
       onClick={onClick}
       className={`px-4 py-2 text-body rounded-t-md border-b-2 transition-colors ${
         active
-          ? "border-blue-500 text-blue-700 font-medium"
-          : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+          ? "border-blue-500 text-blue-700 dark:text-blue-300 font-medium"
+          : "border-transparent text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
       }`}
     >
       {label}

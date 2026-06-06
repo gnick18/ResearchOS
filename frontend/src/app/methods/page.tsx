@@ -755,18 +755,18 @@ export default function MethodsPage() {
       key={`${m.owner}-${m.id}`}
       draggable={isDraggable}
       onDragStart={isDraggable ? () => handleDragStart(m) : undefined}
-      className={`bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow cursor-pointer ${
+      className={`bg-surface-raised border border-border rounded-lg p-4 hover:shadow-sm transition-shadow cursor-pointer ${
         draggedMethod?.id === m.id && draggedMethod?.owner === m.owner ? "opacity-50" : ""
       }`}
       onClick={() => setViewingMethod(m)}
     >
       <div className="flex items-center gap-2">
         {isDraggable ? (
-          <span className="text-gray-300 cursor-grab active:cursor-grabbing">
+          <span className="text-foreground-muted cursor-grab active:cursor-grabbing">
             ⋮⋮
           </span>
         ) : null}
-        <h4 className="text-body font-medium text-gray-900 flex-1">{m.name}</h4>
+        <h4 className="text-body font-medium text-foreground flex-1">{m.name}</h4>
         {/* Retire-from-lab control for PUBLIC methods (delete-affordances
             bot, 2026-05-29). Public methods are ownerless, so the unified
             write gate hides every per-viewer Delete button — leaving a stale
@@ -782,7 +782,7 @@ export default function MethodsPage() {
                 e.stopPropagation();
                 void handleRetirePublicMethod(m);
               }}
-              className="flex-shrink-0 p-1 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+              className="flex-shrink-0 p-1 text-foreground-muted hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition-colors"
               aria-label={`Retire ${m.name} from the lab`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -792,7 +792,7 @@ export default function MethodsPage() {
           </Tooltip>
         )}
       </div>
-      <p className="text-meta text-gray-400 mt-1 truncate">{m.source_path}</p>
+      <p className="text-meta text-foreground-muted mt-1 truncate">{m.source_path}</p>
       <div className="flex items-center gap-2 mt-2">
         {(() => {
           const meta = getMethodTypeMeta(m.method_type);
@@ -805,12 +805,12 @@ export default function MethodsPage() {
           );
         })()}
         {(m.is_public || isWholeLabShared(m.shared_with)) && (
-          <span className="text-meta px-2 py-0.5 bg-green-50 text-green-600 rounded-full">
+          <span className="text-meta px-2 py-0.5 bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-300 rounded-full">
             Public
           </span>
         )}
         {m.parent_method_id && (
-          <span className="text-meta px-2 py-0.5 bg-amber-50 text-amber-600 rounded-full">
+          <span className="text-meta px-2 py-0.5 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-300 rounded-full">
             Forked
           </span>
         )}
@@ -820,7 +820,7 @@ export default function MethodsPage() {
           {m.tags.map((tag) => (
             <span
               key={tag}
-              className="text-meta px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
+              className="text-meta px-1.5 py-0.5 bg-surface-sunken text-foreground-muted rounded"
             >
               #{tag}
             </span>
@@ -842,7 +842,7 @@ export default function MethodsPage() {
     <AppShell>
       <div className="flex-1 overflow-auto p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-heading font-semibold text-gray-900">
+          <h2 className="text-heading font-semibold text-foreground">
             Method Library
           </h2>
           <div className="flex items-center gap-2">
@@ -854,7 +854,7 @@ export default function MethodsPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search methods..."
               aria-label="Search methods"
-              className="px-3 py-1.5 text-body border border-gray-300 rounded-lg w-56 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              className="px-3 py-1.5 text-body border border-border rounded-lg w-56 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
             />
             <button
               onClick={() => {
@@ -871,14 +871,14 @@ export default function MethodsPage() {
                 }
               }}
               data-tour-target="methods-add-category"
-              className="px-3 py-1.5 text-body border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              className="px-3 py-1.5 text-body border border-border text-foreground rounded-lg hover:bg-surface-sunken"
             >
               + New Category
             </button>
             <button
               onClick={() => setBrowsingTemplates(true)}
               data-tour-target="methods-template-library-button"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-body border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-body border border-border text-foreground rounded-lg hover:bg-surface-sunken"
             >
               <TemplateLibraryIcon className="w-4 h-4" />
               Template library
@@ -902,8 +902,8 @@ export default function MethodsPage() {
           className="mb-10"
         >
           <div className="flex items-baseline justify-between mb-3">
-            <h3 className="text-heading font-semibold text-gray-900">My Methods</h3>
-            <p className="text-meta text-gray-400">
+            <h3 className="text-heading font-semibold text-foreground">My Methods</h3>
+            <p className="text-meta text-foreground-muted">
               Methods you created, in your own categories.
             </p>
           </div>
@@ -914,22 +914,22 @@ export default function MethodsPage() {
             <div
               className={`mb-4 p-4 border-2 border-dashed rounded-lg text-center transition-colors ${
                 dropTargetFolder === "Uncategorized"
-                  ? "border-blue-400 bg-blue-50"
-                  : "border-gray-200"
+                  ? "border-blue-400 bg-blue-50 dark:bg-blue-500/10"
+                  : "border-border"
               }`}
               onDragOver={(e) => handleDragOver(e, "Uncategorized")}
               onDragLeave={handleDragLeave}
               onDrop={() => handleDrop("Uncategorized")}
             >
-              <span className="text-body text-gray-400">
+              <span className="text-body text-foreground-muted">
                 Drop here to move to Uncategorized
               </span>
             </div>
           )}
 
           {ownSectionIsEmpty ? (
-            <div className="border-2 border-dashed border-gray-200 rounded-lg p-10 text-center">
-              <p className="text-body text-gray-500 mb-2">
+            <div className="border-2 border-dashed border-border rounded-lg p-10 text-center">
+              <p className="text-body text-foreground-muted mb-2">
                 {searchQuery
                   ? "No methods of yours match this search."
                   : "You haven't created any methods yet."}
@@ -955,7 +955,7 @@ export default function MethodsPage() {
                     key={folder}
                     className={`mb-6 rounded-lg transition-colors ${
                       dropTargetFolder === folder
-                        ? "bg-blue-50 ring-2 ring-blue-300"
+                        ? "bg-blue-50 dark:bg-blue-500/10 ring-2 ring-blue-300"
                         : ""
                     }`}
                     onDragOver={(e) => handleDragOver(e, folder)}
@@ -963,7 +963,7 @@ export default function MethodsPage() {
                     onDrop={() => handleDrop(folder)}
                   >
                     <div className="flex items-center justify-between mb-2 px-1">
-                      <h4 className="text-meta font-bold text-gray-400 uppercase tracking-widest">
+                      <h4 className="text-meta font-bold text-foreground-muted uppercase tracking-widest">
                         {folder}
                       </h4>
                       {isEmpty && (
@@ -972,18 +972,18 @@ export default function MethodsPage() {
                             setPrefilledFolder(folder);
                             setCreating(true);
                           }}
-                          className="text-meta text-blue-600 hover:text-blue-700"
+                          className="text-meta text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-300"
                         >
                           + Add Method
                         </button>
                       )}
                     </div>
                     {isEmpty ? (
-                      <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
-                        <p className="text-body text-gray-400">
+                      <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
+                        <p className="text-body text-foreground-muted">
                           No methods in this category
                         </p>
-                        <p className="text-meta text-gray-300 mt-1">
+                        <p className="text-meta text-foreground-muted mt-1">
                           Drag a method here or click &quot;Add Method&quot; above
                         </p>
                       </div>
@@ -1006,18 +1006,18 @@ export default function MethodsPage() {
             their own categories or rename someone else's folders. */}
         <section data-tour-target="methods-section-shared" className="mt-8">
           <div className="flex items-baseline justify-between mb-3">
-            <h3 className="text-heading font-semibold text-gray-900">
+            <h3 className="text-heading font-semibold text-foreground">
               Shared with Lab
             </h3>
-            <p className="text-meta text-gray-400">
+            <p className="text-meta text-foreground-muted">
               Shared across your lab. Anyone can use or copy them; only the
               owner can edit.
             </p>
           </div>
 
           {sharedSectionIsEmpty ? (
-            <div className="border-2 border-dashed border-gray-200 rounded-lg p-10 text-center">
-              <p className="text-body text-gray-500">
+            <div className="border-2 border-dashed border-border rounded-lg p-10 text-center">
+              <p className="text-body text-foreground-muted">
                 {searchQuery
                   ? "No shared methods match this search."
                   : "No methods shared with you yet."}
@@ -1032,7 +1032,7 @@ export default function MethodsPage() {
                 return (
                   <div key={`shared-${ownerLabel}`} className="mb-6 rounded-lg">
                     <div className="flex items-center justify-between mb-2 px-1">
-                      <h4 className="text-meta font-bold text-gray-400 uppercase tracking-widest">
+                      <h4 className="text-meta font-bold text-foreground-muted uppercase tracking-widest">
                         {ownerLabel}
                       </h4>
                     </div>
@@ -1047,8 +1047,8 @@ export default function MethodsPage() {
 
         {methods.length === 0 && !creating && (
           <div className="text-center py-16">
-            <p className="text-title text-gray-400 mb-2">No methods yet</p>
-            <p className="text-body text-gray-300 mb-6">
+            <p className="text-title text-foreground-muted mb-2">No methods yet</p>
+            <p className="text-body text-foreground-muted mb-6">
               Add your first protocol as Markdown or upload a PDF
             </p>
             <button
@@ -1174,22 +1174,22 @@ function CreateCategoryModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 className="text-title font-semibold text-gray-900">
+      <div className="bg-surface-raised rounded-xl shadow-2xl max-w-md w-full mx-4">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h3 className="text-title font-semibold text-foreground">
             New Category
           </h3>
           <Tooltip label="Close" placement="bottom">
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-lg"
+              className="text-foreground-muted hover:text-foreground text-heading"
             >
               ✕
             </button>
           </Tooltip>
         </div>
         <div className="p-6">
-          <label className="block text-meta font-medium text-gray-500 mb-1">
+          <label className="block text-meta font-medium text-foreground-muted mb-1">
             Category Name
           </label>
           <input
@@ -1198,7 +1198,7 @@ function CreateCategoryModal({
             onChange={(e) => setCategoryName(e.target.value)}
             placeholder="e.g. Molecular Biology"
             data-tour-target="methods-category-name-input"
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
             autoFocus
             onKeyDown={(e) => {
               if (e.key === "Enter") handleCreate(false);
@@ -1206,12 +1206,12 @@ function CreateCategoryModal({
           />
           {existingFolders.length > 0 && (
             <div className="mt-3">
-              <p className="text-meta text-gray-400 mb-1">Existing categories:</p>
+              <p className="text-meta text-foreground-muted mb-1">Existing categories:</p>
               <div className="flex flex-wrap gap-1">
                 {existingFolders.map((folder) => (
                   <span
                     key={folder}
-                    className="text-meta px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full"
+                    className="text-meta px-2 py-0.5 bg-surface-sunken text-foreground-muted rounded-full"
                   >
                     {folder}
                   </span>
@@ -1220,10 +1220,10 @@ function CreateCategoryModal({
             </div>
           )}
         </div>
-        <div className="flex gap-3 justify-end px-6 py-4 border-t border-gray-100">
+        <div className="flex gap-3 justify-end px-6 py-4 border-t border-border">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
+            className="px-4 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg"
           >
             Cancel
           </button>
@@ -1231,7 +1231,7 @@ function CreateCategoryModal({
             onClick={() => handleCreate(false)}
             disabled={!categoryName.trim()}
             data-tour-target="methods-category-create-empty"
-            className="px-4 py-2 text-body border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg disabled:opacity-50"
+            className="px-4 py-2 text-body border border-border text-foreground hover:bg-surface-sunken rounded-lg disabled:opacity-50"
           >
             Create Empty
           </button>
@@ -1326,7 +1326,7 @@ function ViewMethodModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="flex bg-white rounded-xl shadow-2xl max-w-[calc(4rem+4rem+72rem)] w-full mx-4 max-h-[85vh]">
+      <div className="flex bg-surface-raised rounded-xl shadow-2xl max-w-[calc(4rem+4rem+72rem)] w-full mx-4 max-h-[85vh]">
         {/* Main content area */}
         <div className="flex-1 flex flex-col overflow-hidden rounded-l-xl">
           {/* Cross-boundary provenance. Self-hides on a native method
@@ -1359,7 +1359,7 @@ function ViewMethodModal({
                   type="button"
                   aria-label="Share"
                   onClick={() => setShowShare(true)}
-                  className="text-gray-400 hover:text-gray-600 p-1"
+                  className="text-foreground-muted hover:text-foreground-muted p-1"
                 >
                   {/* Share-node glyph (inline SVG; no icon library, no emoji). */}
                   <svg
@@ -1475,7 +1475,7 @@ function MethodNameEditor({
             setName(method.name);
             setEditingName(false);
           }}
-          className="px-2 py-1 text-meta text-gray-600 hover:bg-gray-100 rounded"
+          className="px-2 py-1 text-meta text-foreground-muted hover:bg-surface-sunken rounded"
         >
           Cancel
         </button>
@@ -1485,11 +1485,11 @@ function MethodNameEditor({
 
   return (
     <div className="flex items-center gap-2 group">
-      <h3 className="text-body font-semibold text-gray-900">{method.name}</h3>
+      <h3 className="text-body font-semibold text-foreground">{method.name}</h3>
       <Tooltip label="Rename method" placement="bottom">
         <button
           onClick={() => setEditingName(true)}
-          className="opacity-0 group-hover:opacity-100 px-1.5 py-0.5 text-meta text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-opacity"
+          className="opacity-0 group-hover:opacity-100 px-1.5 py-0.5 text-meta text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken rounded transition-opacity"
         >
           <PencilIcon />
         </button>
@@ -1710,10 +1710,10 @@ function MarkdownMethodViewer({
   return (
     <>
       <div className="flex flex-col h-full">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
             <MethodNameEditor method={currentMethod} onNameUpdated={(newName) => setCurrentMethod({ ...currentMethod, name: newName })} />
-            <p className="text-meta text-gray-400 mt-0.5">{currentMethod.source_path}</p>
+            <p className="text-meta text-foreground-muted mt-0.5">{currentMethod.source_path}</p>
           </div>
           <div className="flex items-center gap-2">
             {!editing ? (
@@ -1723,8 +1723,8 @@ function MarkdownMethodViewer({
                     onClick={() => setShowSharePopup(true)}
                     className={`px-3 py-1.5 text-meta rounded-lg ${
                       isWholeLab
-                        ? "bg-green-50 text-green-600 hover:bg-green-100"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        ? "bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-500/20"
+                        : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
                     }`}
                     title={isWholeLab ? "Unshare method" : "Share method"}
                     aria-label={isWholeLab ? "Unshare method" : "Share method"}
@@ -1738,7 +1738,7 @@ function MarkdownMethodViewer({
                 {canModify && (
                   <button
                     onClick={() => setEditing(true)}
-                    className="px-3 py-1.5 text-meta bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200"
+                    className="px-3 py-1.5 text-meta bg-surface-sunken text-foreground-muted rounded-lg hover:bg-foreground-muted/15"
                   >
                     Edit
                   </button>
@@ -1747,11 +1747,11 @@ function MarkdownMethodViewer({
             ) : (
               <>
                 {(hasUnsavedChanges || editorDirty) && (
-                  <span className="text-meta text-amber-600 font-medium">Unsaved changes</span>
+                  <span className="text-meta text-amber-600 dark:text-amber-300 font-medium">Unsaved changes</span>
                 )}
                 <button
                   onClick={handleCancel}
-                  className="px-3 py-1.5 text-meta text-gray-600 rounded-lg hover:bg-gray-100"
+                  className="px-3 py-1.5 text-meta text-foreground-muted rounded-lg hover:bg-surface-sunken"
                 >
                   Cancel
                 </button>
@@ -1766,7 +1766,7 @@ function MarkdownMethodViewer({
                   className={`px-3 py-1.5 text-meta rounded-lg transition-colors ${
                     (hasUnsavedChanges || editorDirty) && !saving
                       ? "text-white bg-blue-600 hover:bg-blue-700"
-                      : "text-gray-400 bg-gray-200 cursor-not-allowed"
+                      : "text-foreground-muted bg-foreground-muted/15 cursor-not-allowed"
                   } disabled:opacity-50`}
                 >
                   {saving ? "Saving..." : "Save"}
@@ -1776,7 +1776,7 @@ function MarkdownMethodViewer({
             {canModify && (
               <button
                 onClick={() => onDelete(currentMethod.id)}
-                className="px-3 py-1.5 text-meta text-red-500 rounded-lg hover:bg-red-50"
+                className="px-3 py-1.5 text-meta text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"
               >
                 Delete
               </button>
@@ -1784,7 +1784,7 @@ function MarkdownMethodViewer({
             <Tooltip label="Close" placement="bottom">
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 text-lg ml-2"
+                className="text-foreground-muted hover:text-foreground text-heading ml-2"
               >
                 ✕
               </button>
@@ -1793,7 +1793,7 @@ function MarkdownMethodViewer({
         </div>
         <div className="flex-1 overflow-y-auto">
           {loading ? (
-            <p className="p-6 text-body text-gray-400 animate-pulse">
+            <p className="p-6 text-body text-foreground-muted animate-pulse">
               Loading...
             </p>
           ) : editing ? (
@@ -1818,14 +1818,14 @@ function MarkdownMethodViewer({
                 onDirtyChange={setEditorDirty}
               />
               {uploadWarning && (
-                <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg flex items-start gap-2">
                   <span className="text-amber-500">⚠️</span>
                   <div className="flex-1">
-                    <p className="text-body text-amber-800">{uploadWarning}</p>
+                    <p className="text-body text-amber-800 dark:text-amber-200">{uploadWarning}</p>
                   </div>
                   <button
                     onClick={() => setUploadWarning(null)}
-                    className="text-amber-400 hover:text-amber-600"
+                    className="text-amber-400 hover:text-amber-600 dark:hover:text-amber-300"
                   >
                     ✕
                   </button>
@@ -1934,10 +1934,10 @@ function PdfViewer({
   return (
     <>
       <div className="flex flex-col h-full">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
             <MethodNameEditor method={currentMethod} onNameUpdated={(newName) => setCurrentMethod({ ...currentMethod, name: newName })} />
-            <p className="text-meta text-gray-400 mt-0.5">
+            <p className="text-meta text-foreground-muted mt-0.5">
               PDF — {currentMethod.source_path}
             </p>
           </div>
@@ -1948,8 +1948,8 @@ function PdfViewer({
                   onClick={() => setShowSharePopup(true)}
                   className={`px-3 py-1.5 text-meta rounded-lg ${
                     isWholeLab
-                      ? "bg-green-50 text-green-600 hover:bg-green-100"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      ? "bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-500/20"
+                      : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
                   }`}
                 >
                   <span className="flex items-center gap-1">
@@ -1962,7 +1962,7 @@ function PdfViewer({
             {canModify && (
               <button
                 onClick={() => onDelete(currentMethod.id)}
-                className="px-3 py-1.5 text-meta text-red-500 rounded-lg hover:bg-red-50"
+                className="px-3 py-1.5 text-meta text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"
               >
                 Delete
               </button>
@@ -1970,7 +1970,7 @@ function PdfViewer({
             <Tooltip label="Close" placement="bottom">
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 text-lg ml-2"
+                className="text-foreground-muted hover:text-foreground text-heading ml-2"
               >
                 ✕
               </button>
@@ -1979,7 +1979,7 @@ function PdfViewer({
         </div>
         <div className="flex-1 overflow-hidden">
           {loading ? (
-            <p className="p-6 text-body text-gray-400 animate-pulse">
+            <p className="p-6 text-body text-foreground-muted animate-pulse">
               Loading PDF...
             </p>
           ) : pdfUrl ? (
@@ -1990,7 +1990,7 @@ function PdfViewer({
             />
           ) : (
             <div className="p-6 text-center">
-              <p className="text-body text-gray-500">
+              <p className="text-body text-foreground-muted">
                 Unable to display PDF. The file may not exist yet.
               </p>
             </div>
@@ -2139,10 +2139,10 @@ function PcrViewer({
   return (
     <>
       <div className="flex flex-col h-full">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
             <MethodNameEditor method={currentMethod} onNameUpdated={(newName) => setCurrentMethod({ ...currentMethod, name: newName })} />
-            <p className="text-meta text-gray-400 mt-0.5">
+            <p className="text-meta text-foreground-muted mt-0.5">
               PCR Protocol
             </p>
           </div>
@@ -2153,8 +2153,8 @@ function PcrViewer({
                   onClick={() => setShowSharePopup(true)}
                   className={`px-3 py-1.5 text-meta rounded-lg ${
                     isWholeLab
-                      ? "bg-green-50 text-green-600 hover:bg-green-100"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      ? "bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-500/20"
+                      : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
                   }`}
                 >
                   <span className="flex items-center gap-1">
@@ -2167,7 +2167,7 @@ function PcrViewer({
             {canModify && (
               <button
                 onClick={() => onDelete(currentMethod.id)}
-                className="px-3 py-1.5 text-meta text-red-500 rounded-lg hover:bg-red-50"
+                className="px-3 py-1.5 text-meta text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"
               >
                 Delete
               </button>
@@ -2175,7 +2175,7 @@ function PcrViewer({
             <Tooltip label="Close" placement="bottom">
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 text-lg ml-2"
+                className="text-foreground-muted hover:text-foreground text-heading ml-2"
               >
                 ✕
               </button>
@@ -2184,12 +2184,12 @@ function PcrViewer({
         </div>
         <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
-            <p className="text-body text-gray-400 animate-pulse">
+            <p className="text-body text-foreground-muted animate-pulse">
               Loading PCR protocol...
             </p>
           ) : !protocol ? (
             <div className="text-center py-8">
-              <p className="text-body text-gray-500">
+              <p className="text-body text-foreground-muted">
                 PCR protocol not found. It may have been deleted.
               </p>
             </div>
@@ -2197,7 +2197,7 @@ function PcrViewer({
             <div className="space-y-6">
               {/* Interactive Gradient Editor - Always visible with Edit Cycle button */}
               <div>
-                <h4 className="text-body font-semibold text-gray-700 mb-3">
+                <h4 className="text-body font-semibold text-foreground mb-3">
                   Thermal Gradient
                 </h4>
                 <InteractiveGradientEditor
@@ -2209,14 +2209,14 @@ function PcrViewer({
               {/* Reaction Recipe */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-body font-semibold text-gray-700">
+                  <h4 className="text-body font-semibold text-foreground">
                     Reaction Recipe
                   </h4>
                   {editingRecipe ? (
                     <div className="flex gap-2">
                       <button
                         onClick={() => setEditingRecipe(false)}
-                        className="px-3 py-1.5 text-meta text-gray-600 rounded-lg hover:bg-gray-100"
+                        className="px-3 py-1.5 text-meta text-foreground-muted rounded-lg hover:bg-surface-sunken"
                       >
                         Cancel
                       </button>
@@ -2231,28 +2231,28 @@ function PcrViewer({
                   ) : (
                     <button
                       onClick={() => setEditingRecipe(true)}
-                      className="px-3 py-1.5 text-meta bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200"
+                      className="px-3 py-1.5 text-meta bg-surface-sunken text-foreground-muted rounded-lg hover:bg-foreground-muted/15"
                     >
                       Edit Recipe
                     </button>
                   )}
                 </div>
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="border border-border rounded-lg overflow-hidden">
                   <table className="w-full text-meta">
-                    <thead className="bg-gray-100">
+                    <thead className="bg-surface-sunken">
                       <tr>
-                        <th className="px-4 py-2 text-left font-medium text-gray-600">Ingredient</th>
-                        <th className="px-4 py-2 text-left font-medium text-gray-600">Concentration</th>
-                        <th className="px-4 py-2 text-left font-medium text-gray-600">Amount/Rx</th>
+                        <th className="px-4 py-2 text-left font-medium text-foreground-muted">Ingredient</th>
+                        <th className="px-4 py-2 text-left font-medium text-foreground-muted">Concentration</th>
+                        <th className="px-4 py-2 text-left font-medium text-foreground-muted">Amount/Rx</th>
                         {editingRecipe && <th className="px-2 py-2 w-8"></th>}
                       </tr>
                     </thead>
                     <tbody>
                       {ingredients.map((ing, i) => (
-                        <tr key={ing.id} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                        <tr key={ing.id} className={i % 2 === 0 ? "bg-surface-raised" : "bg-surface-sunken"}>
                           <td className="px-4 py-2">
                             {ing.name === "Total" ? (
-                              <span className="font-medium text-gray-700">{ing.name}</span>
+                              <span className="font-medium text-foreground">{ing.name}</span>
                             ) : editingRecipe ? (
                               <input
                                 type="text"
@@ -2262,15 +2262,15 @@ function PcrViewer({
                                   newIngredients[i] = { ...ing, name: e.target.value };
                                   setIngredients(newIngredients);
                                 }}
-                                className="w-full px-2 py-1 border border-gray-200 rounded text-gray-700"
+                                className="w-full px-2 py-1 border border-border rounded text-foreground"
                               />
                             ) : (
-                              <span className="text-gray-700 font-medium">{ing.name}</span>
+                              <span className="text-foreground font-medium">{ing.name}</span>
                             )}
                           </td>
                           <td className="px-4 py-2">
                             {ing.name === "Total" ? (
-                              <span className="text-gray-500">-</span>
+                              <span className="text-foreground-muted">-</span>
                             ) : editingRecipe ? (
                               <input
                                 type="text"
@@ -2280,11 +2280,11 @@ function PcrViewer({
                                   newIngredients[i] = { ...ing, concentration: e.target.value };
                                   setIngredients(newIngredients);
                                 }}
-                                className="w-full px-2 py-1 border border-gray-200 rounded text-gray-500"
+                                className="w-full px-2 py-1 border border-border rounded text-foreground-muted"
                                 placeholder="e.g. 10x"
                               />
                             ) : (
-                              <span className="text-gray-500">{ing.concentration || "-"}</span>
+                              <span className="text-foreground-muted">{ing.concentration || "-"}</span>
                             )}
                           </td>
                           <td className="px-4 py-2">
@@ -2297,11 +2297,11 @@ function PcrViewer({
                                   newIngredients[i] = { ...ing, amount_per_reaction: e.target.value };
                                   setIngredients(newIngredients);
                                 }}
-                                className="w-full px-2 py-1 border border-gray-200 rounded text-gray-500"
+                                className="w-full px-2 py-1 border border-border rounded text-foreground-muted"
                                 placeholder="e.g. 2.5"
                               />
                             ) : (
-                              <span className="text-gray-500">{ing.amount_per_reaction || "-"}</span>
+                              <span className="text-foreground-muted">{ing.amount_per_reaction || "-"}</span>
                             )}
                           </td>
                           {editingRecipe && ing.name !== "Total" && (
@@ -2311,7 +2311,7 @@ function PcrViewer({
                                   onClick={() => {
                                     setIngredients(ingredients.filter((item) => item.id !== ing.id));
                                   }}
-                                  className="text-gray-400 hover:text-red-500 text-body"
+                                  className="text-foreground-muted hover:text-red-500 text-body"
                                 >
                                   ✕
                                 </button>
@@ -2342,7 +2342,7 @@ function PcrViewer({
                           ]);
                         }
                       }}
-                      className="w-full py-2 text-meta text-blue-600 hover:bg-blue-50 border-t border-gray-200"
+                      className="w-full py-2 text-meta text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 border-t border-border"
                     >
                       + Add Ingredient
                     </button>
@@ -2353,7 +2353,7 @@ function PcrViewer({
               {/* Notes */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-body font-semibold text-gray-700">
+                  <h4 className="text-body font-semibold text-foreground">
                     Notes
                   </h4>
                 </div>
@@ -2361,7 +2361,7 @@ function PcrViewer({
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Any additional notes..."
                 />
               </div>
@@ -2468,10 +2468,10 @@ function CompoundViewer({
   const canModify = canModifyMethod(method);
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-border">
         <div>
-          <h3 className="text-body font-semibold text-gray-900">{method.name}</h3>
-          <p className="text-meta text-gray-400 mt-0.5">
+          <h3 className="text-body font-semibold text-foreground">{method.name}</h3>
+          <p className="text-meta text-foreground-muted mt-0.5">
             Kit, {method.components?.length ?? 0} component
             {(method.components?.length ?? 0) === 1 ? "" : "s"}
           </p>
@@ -2498,7 +2498,7 @@ function CompoundViewer({
           {canModify && (
             <button
               onClick={() => onDelete(method.id)}
-              className="px-3 py-1.5 text-meta text-red-500 rounded-lg hover:bg-red-50"
+              className="px-3 py-1.5 text-meta text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"
             >
               Delete
             </button>
@@ -2506,7 +2506,7 @@ function CompoundViewer({
           <Tooltip label="Close" placement="bottom">
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-lg ml-2"
+              className="text-foreground-muted hover:text-foreground text-heading ml-2"
             >
               ✕
             </button>

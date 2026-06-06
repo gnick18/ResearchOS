@@ -75,7 +75,7 @@ function TypeBadge({ meta }: { meta: MethodTypeMeta }) {
 /** Section heading in the small-caps style the widget detail uses. */
 function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <h5 className="text-meta font-semibold uppercase tracking-wide text-gray-400">
+    <h5 className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
       {children}
     </h5>
   );
@@ -86,10 +86,10 @@ function Field({ label, value }: { label: string; value: ReactNode }) {
   if (value === null || value === undefined || value === "") return null;
   return (
     <div className="flex items-start gap-2 text-body">
-      <span className="w-32 shrink-0 text-meta font-medium text-gray-400 pt-0.5">
+      <span className="w-32 shrink-0 text-meta font-medium text-foreground-muted pt-0.5">
         {label}
       </span>
-      <span className="flex-1 min-w-0 text-gray-700">{value}</span>
+      <span className="flex-1 min-w-0 text-foreground">{value}</span>
     </div>
   );
 }
@@ -116,18 +116,18 @@ function DestinationLine({
 }) {
   if (!destLabel) return null;
   return (
-    <p className="mt-2 text-center text-meta text-gray-500">
+    <p className="mt-2 text-center text-meta text-foreground-muted">
       Will be added to:{" "}
       {onChooseDestination ? (
         <button
           type="button"
           onClick={onChooseDestination}
-          className="font-medium text-blue-600 hover:underline"
+          className="font-medium text-blue-600 dark:text-blue-300 hover:underline"
         >
           {destLabel}
         </button>
       ) : (
-        <span className="font-medium text-gray-700">{destLabel}</span>
+        <span className="font-medium text-foreground">{destLabel}</span>
       )}
     </p>
   );
@@ -164,13 +164,13 @@ export function MethodTypeDetail({
           >
             <Icon className="w-4 h-4" />
           </span>
-          <h4 className="text-title font-semibold text-gray-900 truncate">
+          <h4 className="text-title font-semibold text-foreground truncate">
             {meta.label}
           </h4>
         </div>
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-meta font-medium ${
-            on ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-600"
+            on ? "bg-blue-600 text-white" : "bg-foreground-muted/15 text-foreground-muted"
           }`}
         >
           {on ? "Enabled" : "Disabled"}
@@ -181,11 +181,11 @@ export function MethodTypeDetail({
       <section className="flex flex-col gap-2">
         <SectionLabel>The editor</SectionLabel>
         {meta.description && (
-          <p className="text-body text-gray-700 leading-snug">
+          <p className="text-body text-foreground leading-snug">
             {meta.description}
           </p>
         )}
-        <p className="text-body text-gray-500 leading-snug">
+        <p className="text-body text-foreground-muted leading-snug">
           {module.hasStructuredProtocol
             ? "A structured editor: methods of this type carry typed fields you fill in, not just free text."
             : "A standard editor: free-form content with no typed structure."}
@@ -195,16 +195,16 @@ export function MethodTypeDetail({
       {/* Small sample rendering of the type */}
       <section className="flex flex-col gap-2">
         <SectionLabel>Sample</SectionLabel>
-        <div className="rounded-lg border border-gray-100 bg-gray-50/60 p-3">
+        <div className="rounded-lg border border-border bg-surface-sunken/60 p-3">
           <TypeSampleRendering typeId={meta.id} />
         </div>
       </section>
 
       {/* Templates built on this type (cross-links) */}
-      <section className="flex flex-col gap-2 border-t border-gray-100 pt-3">
+      <section className="flex flex-col gap-2 border-t border-border pt-3">
         <SectionLabel>Templates built on this type</SectionLabel>
         {templatesOfType.length === 0 ? (
-          <p className="text-body text-gray-400">
+          <p className="text-body text-foreground-muted">
             No prebuilt templates use this type yet.
           </p>
         ) : (
@@ -214,7 +214,7 @@ export function MethodTypeDetail({
                 <button
                   type="button"
                   onClick={() => onOpenTemplate(t)}
-                  className="group flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-body text-blue-700 hover:bg-blue-50"
+                  className="group flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-body text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10"
                 >
                   <span className="truncate">{t.title}</span>
                   <svg
@@ -227,7 +227,7 @@ export function MethodTypeDetail({
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     aria-hidden="true"
-                    className="shrink-0 text-blue-400 group-hover:text-blue-600"
+                    className="shrink-0 text-blue-400 group-hover:text-blue-600 dark:hover:text-blue-300"
                   >
                     <polyline points="9 18 15 12 9 6" />
                   </svg>
@@ -239,7 +239,7 @@ export function MethodTypeDetail({
       </section>
 
       {/* Footer: enable / disable the type */}
-      <section className="border-t border-gray-100 pt-4">
+      <section className="border-t border-border pt-4">
         <EnableTypeToggle
           meta={meta}
           on={on}
@@ -274,7 +274,7 @@ function EnableTypeToggle({
         if (!curating) return;
         onToggle(!on);
       }}
-      className="inline-flex w-full items-center justify-between gap-3 rounded-lg border border-gray-200 px-4 py-2.5 text-body font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+      className="inline-flex w-full items-center justify-between gap-3 rounded-lg border border-border px-4 py-2.5 text-body font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:cursor-not-allowed disabled:opacity-50"
     >
       <span>
         {on
@@ -283,11 +283,11 @@ function EnableTypeToggle({
       </span>
       <span
         className={`relative shrink-0 inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-          on ? "bg-blue-600" : "bg-gray-300"
+          on ? "bg-blue-600" : "bg-foreground-muted/30"
         }`}
       >
         <span
-          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+          className={`inline-block h-4 w-4 transform rounded-full bg-surface-raised transition-transform ${
             on ? "translate-x-4" : "translate-x-0.5"
           }`}
         />
@@ -358,12 +358,12 @@ export function SingleTemplateDetail({
     <div className="flex flex-col gap-4">
       {/* Title + the ONE type badge it is built on */}
       <div className="flex items-start justify-between gap-3">
-        <h4 className="text-title font-semibold text-gray-900">{entry.title}</h4>
+        <h4 className="text-title font-semibold text-foreground">{entry.title}</h4>
         <TypeBadge meta={meta} />
       </div>
 
       {entry.description && (
-        <p className="text-body text-gray-700 leading-snug">{entry.description}</p>
+        <p className="text-body text-foreground leading-snug">{entry.description}</p>
       )}
 
       {entry.tags && entry.tags.length > 0 && (
@@ -371,7 +371,7 @@ export function SingleTemplateDetail({
           {entry.tags.map((tag) => (
             <span
               key={tag}
-              className="text-meta px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
+              className="text-meta px-1.5 py-0.5 bg-surface-sunken text-foreground-muted rounded"
             >
               #{tag}
             </span>
@@ -380,40 +380,40 @@ export function SingleTemplateDetail({
       )}
 
       {entry.source_pdf && (
-        <p className="text-meta text-gray-500">
+        <p className="text-meta text-foreground-muted">
           Includes a bundled source PDF ({entry.source_pdf.filename}), copied
           alongside the method when you use it.
         </p>
       )}
 
       {/* Read-only payload preview */}
-      <section className="flex flex-col gap-2 border-t border-gray-100 pt-3">
+      <section className="flex flex-col gap-2 border-t border-border pt-3">
         <SectionLabel>Preview</SectionLabel>
         {state === "loading" && (
           <div
             aria-hidden="true"
-            className="flex animate-pulse flex-col gap-2 rounded-lg border border-gray-100 bg-gray-50/60 p-3"
+            className="flex animate-pulse flex-col gap-2 rounded-lg border border-border bg-surface-sunken/60 p-3"
           >
-            <div className="h-2.5 w-1/2 rounded bg-gray-200" />
-            <div className="h-2 w-3/4 rounded bg-gray-100" />
-            <div className="h-2 w-2/3 rounded bg-gray-100" />
+            <div className="h-2.5 w-1/2 rounded bg-foreground-muted/15" />
+            <div className="h-2 w-3/4 rounded bg-surface-sunken" />
+            <div className="h-2 w-2/3 rounded bg-surface-sunken" />
           </div>
         )}
         {state === "error" && (
-          <p className="text-body text-gray-400">
+          <p className="text-body text-foreground-muted">
             The preview is unavailable right now. It needs an internet
             connection. You can still use the template.
           </p>
         )}
         {state === "ready" && template && (
-          <div className="rounded-lg border border-gray-100 bg-gray-50/60 p-3">
+          <div className="rounded-lg border border-border bg-surface-sunken/60 p-3">
             <StructuredPayloadView template={template} />
           </div>
         )}
       </section>
 
       {/* Footer action: Use template, gated behind Enable <type> first */}
-      <section className="border-t border-gray-100 pt-4">
+      <section className="border-t border-border pt-4">
         {typeEnabled ? (
           <>
             <button
@@ -431,14 +431,14 @@ export function SingleTemplateDetail({
           </>
         ) : (
           <div className="flex flex-col gap-2">
-            <p className="text-meta text-amber-600">
+            <p className="text-meta text-amber-600 dark:text-amber-300">
               {meta.label} is disabled in your library. Enable it to use this
               template.
             </p>
             <button
               type="button"
               onClick={onEnableType}
-              className="w-full px-4 py-2.5 text-body font-medium border border-blue-600 text-blue-700 rounded-lg hover:bg-blue-50"
+              className="w-full px-4 py-2.5 text-body font-medium border border-blue-600 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10"
             >
               Enable {meta.label}
             </button>
@@ -488,12 +488,12 @@ export function CompoundTemplateDetail({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-start justify-between gap-3">
-        <h4 className="text-title font-semibold text-gray-900">{title}</h4>
+        <h4 className="text-title font-semibold text-foreground">{title}</h4>
         <TypeBadge meta={compoundMeta} />
       </div>
 
       {description && (
-        <p className="text-body text-gray-700 leading-snug">{description}</p>
+        <p className="text-body text-foreground leading-snug">{description}</p>
       )}
 
       {/* ALL component type badges read off the components graph */}
@@ -509,7 +509,7 @@ export function CompoundTemplateDetail({
                 className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-meta font-medium ${
                   enabled
                     ? `${meta.color.bg} ${meta.color.text}`
-                    : "bg-gray-100 text-gray-400"
+                    : "bg-surface-sunken text-foreground-muted"
                 }`}
               >
                 <meta.icon className="w-3 h-3" />
@@ -522,7 +522,7 @@ export function CompoundTemplateDetail({
       </section>
 
       {/* Bundled steps */}
-      <section className="flex flex-col gap-2 border-t border-gray-100 pt-3">
+      <section className="flex flex-col gap-2 border-t border-border pt-3">
         <SectionLabel>Bundled steps</SectionLabel>
         <ol className="flex flex-col gap-1.5">
           {components.map((c, i) => {
@@ -533,16 +533,16 @@ export function CompoundTemplateDetail({
                 key={`${c.owner}:${c.method_id}:${i}`}
                 className="flex items-center gap-2 text-body"
               >
-                <span className="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-200 text-meta font-medium text-gray-600">
+                <span className="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-foreground-muted/15 text-meta font-medium text-foreground-muted">
                   {i + 1}
                 </span>
-                <span className="flex-1 min-w-0 truncate text-gray-700">
+                <span className="flex-1 min-w-0 truncate text-foreground">
                   {c.label}
                 </span>
                 {meta ? (
                   <TypeBadge meta={meta} />
                 ) : (
-                  <span className="text-meta text-amber-600">
+                  <span className="text-meta text-amber-600 dark:text-amber-300">
                     Component missing
                   </span>
                 )}
@@ -553,7 +553,7 @@ export function CompoundTemplateDetail({
       </section>
 
       {/* Footer: gated until ALL component types are enabled */}
-      <section className="border-t border-gray-100 pt-4">
+      <section className="border-t border-border pt-4">
         {allEnabled ? (
           <>
             <button
@@ -571,10 +571,10 @@ export function CompoundTemplateDetail({
           </>
         ) : (
           <div className="flex flex-col gap-2">
-            <p className="text-meta text-amber-600">
+            <p className="text-meta text-amber-600 dark:text-amber-300">
               Enable all required types to use this kit:
             </p>
-            <p className="text-meta text-gray-500">
+            <p className="text-meta text-foreground-muted">
               These types are turned off in your library. Enabling one turns it
               on for every method, not just this kit.
             </p>
@@ -586,7 +586,7 @@ export function CompoundTemplateDetail({
                     key={t}
                     type="button"
                     onClick={() => onEnableType?.(t)}
-                    className="w-full px-4 py-2 text-body font-medium border border-blue-600 text-blue-700 rounded-lg hover:bg-blue-50"
+                    className="w-full px-4 py-2 text-body font-medium border border-blue-600 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10"
                   >
                     Enable {meta.label}
                   </button>
@@ -686,17 +686,17 @@ export function CompoundTemplateDetailLoader({
     return (
       <div className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-3">
-          <h4 className="text-title font-semibold text-gray-900">
+          <h4 className="text-title font-semibold text-foreground">
             {entry.title}
           </h4>
           <TypeBadge meta={getMethodTypeMeta("compound")} />
         </div>
         {entry.description && (
-          <p className="text-body text-gray-700 leading-snug">
+          <p className="text-body text-foreground leading-snug">
             {entry.description}
           </p>
         )}
-        <p className="text-body text-gray-400">
+        <p className="text-body text-foreground-muted">
           {state === "error"
             ? "The kit details are unavailable right now. They need an internet connection. Reconnect and reopen this kit to use it."
             : "Loading kit..."}
@@ -835,10 +835,10 @@ function StructuredPayloadView({
  *  markdown viewer uses (GFM + underline + sanitized raw HTML). */
 function MarkdownBody({ body }: { body: string }) {
   if (!body || body.trim().length === 0) {
-    return <p className="text-body text-gray-400">Empty protocol body.</p>;
+    return <p className="text-body text-foreground-muted">Empty protocol body.</p>;
   }
   return (
-    <div className="prose prose-sm max-w-none text-gray-700 max-h-72 overflow-auto">
+    <div className="prose prose-sm max-w-none text-foreground max-h-72 overflow-auto">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkUnderline]}
         rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}
@@ -893,10 +893,10 @@ function PcrPayloadView({
       <ol className="flex flex-col gap-1">
         {steps.map((s, i) => (
           <li key={i} className="flex items-baseline gap-2 text-body">
-            <span className="w-40 shrink-0 truncate text-gray-700">
+            <span className="w-40 shrink-0 truncate text-foreground">
               {s.label}
             </span>
-            <span className="flex-1 min-w-0 text-gray-500">{s.detail}</span>
+            <span className="flex-1 min-w-0 text-foreground-muted">{s.detail}</span>
           </li>
         ))}
       </ol>
@@ -916,17 +916,17 @@ function GradientStepsTable({
   if (steps.length === 0) return null;
   return (
     <div>
-      <span className="text-meta font-medium text-gray-400">Gradient</span>
+      <span className="text-meta font-medium text-foreground-muted">Gradient</span>
       <table className="mt-1 w-full text-body">
         <thead>
-          <tr className="text-left text-meta text-gray-400">
+          <tr className="text-left text-meta text-foreground-muted">
             <th className="font-medium pr-2">min</th>
             <th className="font-medium pr-2">%A</th>
             <th className="font-medium pr-2">%B</th>
             <th className="font-medium">mL/min</th>
           </tr>
         </thead>
-        <tbody className="text-gray-700">
+        <tbody className="text-foreground">
           {steps.map((s, i) => (
             <tr key={i}>
               <td className="pr-2">{s.time_min}</td>
@@ -972,9 +972,9 @@ function ingredientList(items: { name: string; role: string }[]): ReactNode {
   return (
     <span className="flex flex-col gap-0.5">
       {items.map((g, i) => (
-        <span key={i} className="text-gray-700">
+        <span key={i} className="text-foreground">
           {g.name}
-          <span className="text-gray-400"> ({g.role})</span>
+          <span className="text-foreground-muted"> ({g.role})</span>
         </span>
       ))}
     </span>
@@ -1013,12 +1013,12 @@ function PlateRegions({
   }
   return (
     <div>
-      <span className="text-meta font-medium text-gray-400">Regions</span>
-      <ul className="mt-1 flex flex-col gap-0.5 text-body text-gray-700">
+      <span className="text-meta font-medium text-foreground-muted">Regions</span>
+      <ul className="mt-1 flex flex-col gap-0.5 text-body text-foreground">
         {regions.map((r, i) => (
           <li key={i}>
             {r.custom_label || PLATE_ROLE_LABEL[r.role]}
-            <span className="text-gray-400">
+            <span className="text-foreground-muted">
               {" "}
               {rowLabel(r.row_start)}
               {colLabel(r.col_start)}–{rowLabel(r.row_end)}
@@ -1047,8 +1047,8 @@ function PlannedEvents({
   if (events.length === 0) return null;
   return (
     <div>
-      <span className="text-meta font-medium text-gray-400">Schedule</span>
-      <ul className="mt-1 flex flex-col gap-0.5 text-body text-gray-700">
+      <span className="text-meta font-medium text-foreground-muted">Schedule</span>
+      <ul className="mt-1 flex flex-col gap-0.5 text-body text-foreground">
         {events.map((e, i) => (
           <li key={i}>
             Day {e.day_offset}: {e.event_type}
@@ -1089,7 +1089,7 @@ function TypeSampleRendering({ typeId }: { typeId: MethodTypeId }) {
   switch (typeId) {
     case "pcr":
       return (
-        <ol className="flex flex-col gap-1 text-body text-gray-600">
+        <ol className="flex flex-col gap-1 text-body text-foreground-muted">
           <li>Initial denaturation: 95C, 3 min</li>
           <li>Cycle x30: 95C 15s / 60C 30s / 72C 1 min</li>
           <li>Final extension: 72C, 5 min</li>
@@ -1098,61 +1098,61 @@ function TypeSampleRendering({ typeId }: { typeId: MethodTypeId }) {
       );
     case "lc_gradient":
       return (
-        <p className="text-body text-gray-600">
+        <p className="text-body text-foreground-muted">
           A solvent gradient over time (e.g. 5% B to 95% B over 20 min) plus
           column, flow rate, and mobile-phase ingredients.
         </p>
       );
     case "plate":
       return (
-        <p className="text-body text-gray-600">
+        <p className="text-body text-foreground-muted">
           A well-plate layout (12 to 384 wells) with labeled regions for
           samples, controls, and blanks.
         </p>
       );
     case "mass_spec":
       return (
-        <p className="text-body text-gray-600">
+        <p className="text-body text-foreground-muted">
           Ionization mode, source and scan parameters, and a calibration
           reference. Pairs with an LC gradient for a full LC-MS kit.
         </p>
       );
     case "cell_culture":
       return (
-        <p className="text-body text-gray-600">
+        <p className="text-body text-foreground-muted">
           A passaging schedule (seed, feed, split by day offset) with a cell
           line and media composition.
         </p>
       );
     case "markdown":
       return (
-        <p className="text-body text-gray-600">
+        <p className="text-body text-foreground-muted">
           Free-form protocol text with headings, lists, tables, and images.
         </p>
       );
     case "pdf":
       return (
-        <p className="text-body text-gray-600">
+        <p className="text-body text-foreground-muted">
           An uploaded PDF protocol, viewed inline.
         </p>
       );
     case "coding_workflow":
       return (
-        <p className="text-body text-gray-600">
+        <p className="text-body text-foreground-muted">
           A reusable script (Python / R / SQL) or Jupyter notebook with an
           inline read-only preview.
         </p>
       );
     case "qpcr_analysis":
       return (
-        <p className="text-body text-gray-600">
+        <p className="text-body text-foreground-muted">
           Cq readouts, melt-curve Tm, standard-curve efficiency, and ddCq
           fold-change. Pairs with a PCR cycling method.
         </p>
       );
     case "compound":
       return (
-        <p className="text-body text-gray-600">
+        <p className="text-body text-foreground-muted">
           A kit bundling other methods into one attachable unit (e.g. an LC
           gradient plus a mass-spec setup).
         </p>

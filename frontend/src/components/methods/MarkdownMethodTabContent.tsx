@@ -44,9 +44,9 @@ interface MarkdownMethodTabContentProps {
 // markdown overlay and wants its own visual treatment ("amber background
 // with colored text + decoration" per the spec).
 const DIFF_REMOVED_CLASSES =
-  "bg-amber-50 ring-1 ring-amber-200 text-red-700 line-through whitespace-pre-wrap font-mono text-meta px-2 py-1 rounded";
+  "bg-amber-50 dark:bg-amber-500/10 ring-1 ring-amber-200 text-red-700 dark:text-red-300 line-through whitespace-pre-wrap font-mono text-meta px-2 py-1 rounded";
 const DIFF_ADDED_CLASSES =
-  "bg-amber-50 ring-1 ring-amber-200 text-green-700 underline decoration-green-600 whitespace-pre-wrap font-mono text-meta px-2 py-1 rounded";
+  "bg-amber-50 dark:bg-amber-500/10 ring-1 ring-amber-200 text-green-700 dark:text-green-300 underline decoration-green-600 whitespace-pre-wrap font-mono text-meta px-2 py-1 rounded";
 
 /**
  * Render a diff between the source markdown body and the per-task override.
@@ -252,7 +252,7 @@ export default function MarkdownMethodTabContent({
   }, [baselineForDirtyCheck]);
 
   if (loading) {
-    return <div className="p-6 text-body text-gray-400 animate-pulse">Loading method...</div>;
+    return <div className="p-6 text-body text-foreground-muted animate-pulse">Loading method...</div>;
   }
 
   const hasOverride = savedOverride !== null;
@@ -288,7 +288,7 @@ export default function MarkdownMethodTabContent({
           {!readOnly && (
             <div className="flex items-center gap-2">
               {hasUnsavedChanges && (
-                <span className="text-meta text-amber-600">Unsaved changes</span>
+                <span className="text-meta text-amber-600 dark:text-amber-300">Unsaved changes</span>
               )}
               {isEditing ? (
                 <>
@@ -296,7 +296,7 @@ export default function MarkdownMethodTabContent({
                     <button
                       onClick={handleCancelEdit}
                       disabled={saving}
-                      className="px-3 py-1.5 text-meta text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+                      className="px-3 py-1.5 text-meta text-foreground-muted hover:bg-surface-sunken rounded-lg disabled:opacity-50"
                     >
                       Cancel
                     </button>
@@ -318,7 +318,7 @@ export default function MarkdownMethodTabContent({
                       <button
                         onClick={handleReset}
                         disabled={saving}
-                        className="px-3 py-1.5 text-meta bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                        className="px-3 py-1.5 text-meta bg-surface-sunken text-foreground-muted rounded-lg hover:bg-foreground-muted/15 disabled:opacity-50"
                       >
                         Reset to source method
                       </button>
@@ -345,7 +345,7 @@ export default function MarkdownMethodTabContent({
             value={editorContent}
             onChange={(e) => setEditorContent(e.target.value)}
             spellCheck={false}
-            className="w-full min-h-[24rem] p-3 font-mono text-body border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full min-h-[24rem] p-3 font-mono text-body border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Edit the method body for this task. The source method stays unchanged."
           />
         ) : hasOverride ? (

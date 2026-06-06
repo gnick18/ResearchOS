@@ -257,8 +257,8 @@ export default function CompoundMethodTabContent({
             depth_exceeded). Per-component orphan/cycle markers also render
             inline below where the broken row would have appeared. */}
         {!graphCheck.ok && graphCheck.reason === "depth_exceeded" && (
-          <div className="mx-6 mt-4 border border-red-200 bg-red-50 rounded p-3">
-            <div className="text-meta font-medium text-red-700">Nested too deep</div>
+          <div className="mx-6 mt-4 border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 rounded p-3">
+            <div className="text-meta font-medium text-red-700 dark:text-red-300">Nested too deep</div>
             <div className="text-body text-red-900 mt-1">
               This compound nests more than {MAX_COMPOUND_DEPTH} levels of compounds.
               Flatten one of the inner kits to render the full hierarchy.
@@ -267,7 +267,7 @@ export default function CompoundMethodTabContent({
         )}
         <div className="p-6 space-y-6">
           {resolvedChildren.length === 0 && (
-            <p className="text-body text-gray-400 text-center py-8">
+            <p className="text-body text-foreground-muted text-center py-8">
               This compound has no components yet. Edit the compound to add some.
             </p>
           )}
@@ -280,9 +280,9 @@ export default function CompoundMethodTabContent({
                 <section
                   key={`${idKey}-${idx}`}
                   id={sectionId}
-                  className="border border-amber-200 bg-amber-50 rounded p-3"
+                  className="border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 rounded p-3"
                 >
-                  <div className="text-meta font-medium text-amber-700">Component deleted</div>
+                  <div className="text-meta font-medium text-amber-700 dark:text-amber-300">Component deleted</div>
                   <div className="text-body text-amber-900 mt-1">
                     The method referenced here (id {c.method_id}, owner {owner}) no longer
                     exists. Edit this compound to remove the broken reference.
@@ -302,9 +302,9 @@ export default function CompoundMethodTabContent({
                 <section
                   key={`${idKey}-${idx}`}
                   id={sectionId}
-                  className="border border-red-200 bg-red-50 rounded p-3"
+                  className="border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 rounded p-3"
                 >
-                  <div className="text-meta font-medium text-red-700">Cycle detected</div>
+                  <div className="text-meta font-medium text-red-700 dark:text-red-300">Cycle detected</div>
                   <div className="text-body text-red-900 mt-1">
                     Component {displayLabel} forms a cycle in this compound&apos;s
                     composition graph. The recursive render is stopped here.
@@ -348,9 +348,9 @@ function CompoundToc({
 }) {
   if (components.length === 0) return null;
   return (
-    <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-2.5">
+    <div className="sticky top-0 z-10 bg-surface-raised border-b border-border px-4 py-2.5">
       <div className="flex flex-wrap gap-1.5 items-center">
-        <span className="text-meta uppercase tracking-wider text-gray-400 font-medium mr-1">
+        <span className="text-meta uppercase tracking-wider text-foreground-muted font-medium mr-1">
           {compoundName}
         </span>
         {(resolvedChildren as Array<{
@@ -424,18 +424,18 @@ function CompoundChildSection({
   const meta = getMethodTypeMeta(child.method_type ?? null);
   const Icon = meta.icon;
   return (
-    <section id={sectionId} className="rounded-lg border border-gray-200 overflow-hidden bg-white">
+    <section id={sectionId} className="rounded-lg border border-border overflow-hidden bg-surface-raised">
       {/* Section header — distinguishes one child from the next */}
-      <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-2">
+      <div className="flex items-center justify-between border-b border-border bg-surface-sunken px-4 py-2">
         <div className="flex items-center gap-2">
-          <Icon className="w-4 h-4 text-gray-500" />
-          <h4 className="text-body font-semibold text-gray-800">{label}</h4>
+          <Icon className="w-4 h-4 text-foreground-muted" />
+          <h4 className="text-body font-semibold text-foreground">{label}</h4>
           <span
             className={`text-meta px-1.5 py-0.5 rounded-full ${meta.color.bg} ${meta.color.text}`}
           >
             {meta.shortLabel}
           </span>
-          <span className="text-meta text-gray-400">
+          <span className="text-meta text-foreground-muted">
             (owner: {ownerCtx} · id {child.id})
           </span>
         </div>

@@ -143,7 +143,7 @@ function MethodTypeSection({
 }) {
   return (
     <div>
-      <label className="block text-meta font-medium text-gray-500 mb-2">
+      <label className="block text-meta font-medium text-foreground-muted mb-2">
         {heading}
       </label>
       <div className="flex flex-wrap gap-2">
@@ -160,19 +160,19 @@ function MethodTypeSection({
               <div
                 key={meta.id}
                 data-tour-target={methodTypeTourSlug(meta.id)}
-                className="flex-1 min-w-[180px] px-4 py-3 rounded-lg border border-dashed border-gray-200 bg-gray-50/60"
+                className="flex-1 min-w-[180px] px-4 py-3 rounded-lg border border-dashed border-border bg-surface-sunken/60"
               >
-                <div className="flex items-center gap-2 text-gray-400">
+                <div className="flex items-center gap-2 text-foreground-muted">
                   <Icon className="w-4 h-4" />
                   <span className="text-body">{meta.label}</span>
                 </div>
                 <div className="mt-1 flex items-center justify-between gap-2">
-                  <p className="text-meta text-gray-400">Disabled in your library</p>
+                  <p className="text-meta text-foreground-muted">Disabled in your library</p>
                   <Tooltip label={`Enable ${meta.label}`} placement="top">
                     <button
                       type="button"
                       onClick={() => onEnableType(meta.id)}
-                      className="shrink-0 text-meta font-medium text-blue-600 hover:text-blue-700"
+                      className="shrink-0 text-meta font-medium text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-300"
                     >
                       Enable
                     </button>
@@ -191,7 +191,7 @@ function MethodTypeSection({
               className={`flex-1 min-w-[180px] text-left px-4 py-3 rounded-lg border transition-colors ${
                 selected
                   ? `${meta.color.bg} ${meta.color.text} border-current font-medium`
-                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                  : "border-border text-foreground-muted hover:bg-surface-sunken"
               }`}
             >
               <div className="flex items-center gap-2">
@@ -199,7 +199,7 @@ function MethodTypeSection({
                 <span className="text-body">{meta.label}</span>
               </div>
               {meta.description && (
-                <p className={`mt-1 text-meta ${selected ? "" : "text-gray-400"}`}>
+                <p className={`mt-1 text-meta ${selected ? "" : "text-foreground-muted"}`}>
                   {meta.description}
                 </p>
               )}

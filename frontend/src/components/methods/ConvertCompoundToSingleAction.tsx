@@ -115,7 +115,7 @@ export function ConvertCompoundToSingleAction({
         type="button"
         onClick={handleClick}
         disabled={busy || disabled}
-        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-meta text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-meta text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20 border border-amber-200 dark:border-amber-500/30 rounded-lg disabled:opacity-50"
       >
         {busy ? "Converting..." : label}
       </button>

@@ -277,10 +277,10 @@ export default function CellCultureMethodTabContent({
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-body font-medium text-gray-700">
+            <span className="text-body font-medium text-foreground">
               {method.name || "Cell culture passaging"}
             </span>
-            <span className="text-meta px-1.5 py-0.5 bg-rose-100 text-rose-600 rounded">
+            <span className="text-meta px-1.5 py-0.5 bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-300 rounded">
               Cell culture
             </span>
             {hasLoggedEvents && (
@@ -290,12 +290,12 @@ export default function CellCultureMethodTabContent({
           {!readOnly && (
             <div className="flex items-center gap-2">
               {hasUnsavedChanges && (
-                <span className="text-meta text-amber-600">Unsaved changes</span>
+                <span className="text-meta text-amber-600 dark:text-amber-300">Unsaved changes</span>
               )}
               <button
                 onClick={handleReset}
                 disabled={saving}
-                className="px-3 py-1.5 text-meta bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                className="px-3 py-1.5 text-meta bg-surface-sunken text-foreground-muted rounded-lg hover:bg-foreground-muted/15 disabled:opacity-50"
                 title="Reset to source method values (clears logged events)"
               >
                 Reset to Method
@@ -314,7 +314,7 @@ export default function CellCultureMethodTabContent({
         {/* Planned schedule (top half) */}
         {sourceSchedule ? (
           <div>
-            <h3 className="text-body font-semibold text-gray-800 mb-3">Planned schedule</h3>
+            <h3 className="text-body font-semibold text-foreground mb-3">Planned schedule</h3>
             <CellCultureScheduleEditor
               cellLine={cellLine}
               onCellLineChange={readOnly ? undefined : setCellLine}
@@ -332,21 +332,21 @@ export default function CellCultureMethodTabContent({
             />
           </div>
         ) : (
-          <p className="text-body text-gray-400">No cell culture schedule available</p>
+          <p className="text-body text-foreground-muted">No cell culture schedule available</p>
         )}
 
         {/* Actual events log (bottom half) — the unique value-add for cell culture */}
-        <div className="border-t border-gray-200 pt-4">
+        <div className="border-t border-border pt-4">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="text-body font-semibold text-gray-800">Actual events</h3>
-              <p className="text-meta text-gray-500 mt-0.5">
+              <h3 className="text-body font-semibold text-foreground">Actual events</h3>
+              <p className="text-meta text-foreground-muted mt-0.5">
                 Documentation along the way — log what was actually fed, split, or observed.
               </p>
             </div>
             {!readOnly && (
               <div className="flex items-center gap-1">
-                <span className="text-meta text-gray-500 mr-2">Log:</span>
+                <span className="text-meta text-foreground-muted mr-2">Log:</span>
                 <QuickLogButton onClick={() => addActualEvent("feed")} label="Feed" />
                 <QuickLogButton onClick={() => addActualEvent("split")} label="Split" />
                 <QuickLogButton onClick={() => addActualEvent("observe")} label="Observe" />
@@ -354,28 +354,28 @@ export default function CellCultureMethodTabContent({
               </div>
             )}
           </div>
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <div className="border border-border rounded-lg overflow-hidden">
             <table className="w-full text-meta">
-              <thead className="bg-gray-50">
+              <thead className="bg-surface-sunken">
                 <tr>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600 w-44">Timestamp</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600 w-28">Event</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600 w-24">Split ratio</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600 w-24">Confluence %</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">Observation</th>
+                  <th className="px-3 py-2 text-left font-medium text-foreground-muted w-44">Timestamp</th>
+                  <th className="px-3 py-2 text-left font-medium text-foreground-muted w-28">Event</th>
+                  <th className="px-3 py-2 text-left font-medium text-foreground-muted w-24">Split ratio</th>
+                  <th className="px-3 py-2 text-left font-medium text-foreground-muted w-24">Confluence %</th>
+                  <th className="px-3 py-2 text-left font-medium text-foreground-muted">Observation</th>
                   <th className="px-2 py-2 w-8"></th>
                 </tr>
               </thead>
               <tbody>
                 {actualEvents.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-3 py-4 text-center text-gray-400 text-meta">
+                    <td colSpan={6} className="px-3 py-4 text-center text-foreground-muted text-meta">
                       No events logged yet. Use the &ldquo;Log&rdquo; buttons above to record passage history.
                     </td>
                   </tr>
                 ) : (
                   actualEvents.map((event, idx) => (
-                    <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                    <tr key={idx} className={idx % 2 === 0 ? "bg-surface-raised" : "bg-surface-sunken"}>
                       <td className="px-3 py-1.5">
                         <input
                           type="datetime-local"
@@ -384,7 +384,7 @@ export default function CellCultureMethodTabContent({
                             updateActualEvent(idx, "timestamp", localToIso(e.target.value))
                           }
                           readOnly={readOnly}
-                          className="w-full px-2 py-1 border border-gray-200 rounded"
+                          className="w-full px-2 py-1 border border-border rounded"
                         />
                       </td>
                       <td className="px-3 py-1.5">
@@ -394,7 +394,7 @@ export default function CellCultureMethodTabContent({
                             updateActualEvent(idx, "event_type", e.target.value as CellCultureEventType)
                           }
                           disabled={readOnly}
-                          className="w-full px-2 py-1 border border-gray-200 rounded bg-white"
+                          className="w-full px-2 py-1 border border-border rounded bg-surface-raised"
                         >
                           {(["feed", "split", "observe", "harvest"] as CellCultureEventType[]).map(
                             (opt) => (
@@ -413,8 +413,8 @@ export default function CellCultureMethodTabContent({
                             updateActualEvent(idx, "split_ratio", e.target.value || undefined)
                           }
                           readOnly={readOnly || event.event_type !== "split"}
-                          className={`w-full px-2 py-1 border border-gray-200 rounded ${
-                            event.event_type !== "split" ? "bg-gray-50 text-gray-400" : ""
+                          className={`w-full px-2 py-1 border border-border rounded ${
+                            event.event_type !== "split" ? "bg-surface-sunken text-foreground-muted" : ""
                           }`}
                           placeholder={event.event_type === "split" ? "1:5" : "—"}
                         />
@@ -432,7 +432,7 @@ export default function CellCultureMethodTabContent({
                             );
                           }}
                           readOnly={readOnly}
-                          className="w-full px-2 py-1 border border-gray-200 rounded"
+                          className="w-full px-2 py-1 border border-border rounded"
                           placeholder="80"
                         />
                       </td>
@@ -444,7 +444,7 @@ export default function CellCultureMethodTabContent({
                             updateActualEvent(idx, "observation_text", e.target.value || undefined)
                           }
                           readOnly={readOnly}
-                          className="w-full px-2 py-1 border border-gray-200 rounded"
+                          className="w-full px-2 py-1 border border-border rounded"
                           placeholder="Cells looking healthy, no contamination"
                         />
                       </td>
@@ -453,7 +453,7 @@ export default function CellCultureMethodTabContent({
                           <Tooltip label="Remove event" placement="left">
                             <button
                               onClick={() => removeActualEvent(idx)}
-                              className="text-gray-400 hover:text-red-500"
+                              className="text-foreground-muted hover:text-red-500"
                             >
                               ✕
                             </button>
@@ -477,7 +477,7 @@ function QuickLogButton({ onClick, label }: { onClick: () => void; label: string
     <Tooltip label={`Log a ${label.toLowerCase()} event at the current time`} placement="bottom">
       <button
         onClick={onClick}
-        className="px-2 py-1 text-meta rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
+        className="px-2 py-1 text-meta rounded border border-border text-foreground-muted hover:bg-surface-sunken"
       >
         + {label}
       </button>

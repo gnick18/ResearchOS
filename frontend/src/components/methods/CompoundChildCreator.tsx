@@ -616,23 +616,23 @@ export function CompoundChildCreator({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-1 pb-3 flex items-center gap-2 border-b border-gray-100">
+      <div className="px-1 pb-3 flex items-center gap-2 border-b border-border">
         <Tooltip label="Back to type picker" placement="right">
           <button
             onClick={() => setPhase({ kind: "pick-type" })}
-            className="text-meta text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-50"
+            className="text-meta text-foreground-muted hover:text-foreground px-2 py-1 rounded hover:bg-surface-sunken"
           >
             ← Back
           </button>
         </Tooltip>
-        <span className="text-meta text-gray-400">
+        <span className="text-meta text-foreground-muted">
           Inline new method · {labelForType(phase.type)}
         </span>
       </div>
       <div className="flex-1 overflow-y-auto pt-3 pb-1 space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-meta font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-foreground-muted mb-1">
               Method name
             </label>
             <input
@@ -640,12 +640,12 @@ export function CompoundChildCreator({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Western blot assay"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoFocus
             />
           </div>
           <div>
-            <label className="block text-meta font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-foreground-muted mb-1">
               Folder (optional)
             </label>
             <input
@@ -654,7 +654,7 @@ export function CompoundChildCreator({
               onChange={(e) => setFolder(e.target.value)}
               placeholder="e.g. Assays"
               list="compound-child-folders"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <datalist id="compound-child-folders">
               {existingFolders.map((f) => (
@@ -664,7 +664,7 @@ export function CompoundChildCreator({
           </div>
         </div>
         <div>
-          <label className="block text-meta font-medium text-gray-500 mb-1">
+          <label className="block text-meta font-medium text-foreground-muted mb-1">
             Tags (comma-separated, optional)
           </label>
           <input
@@ -672,7 +672,7 @@ export function CompoundChildCreator({
             value={tags}
             onChange={(e) => setTags(e.target.value)}
             placeholder="e.g. assay, gel"
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
         {/* Lab Mode retirement R1b: child-method "public" checkbox
@@ -682,10 +682,10 @@ export function CompoundChildCreator({
 
         {phase.type === "markdown" && (
           <div>
-            <label className="block text-meta font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-foreground-muted mb-1">
               Method content
             </label>
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="border border-border rounded-lg overflow-hidden">
               <LiveMarkdownEditor
                 value={mdContent}
                 onChange={setMdContent}
@@ -704,12 +704,12 @@ export function CompoundChildCreator({
                 onDirtyChange={setEditorDirty}
               />
             </div>
-            <p className="text-meta text-gray-400 mt-1">
+            <p className="text-meta text-foreground-muted mt-1">
               Image uploads from inside a kit component editor land in
               <code className="px-1">{`methods/${slug || "<slug>"}/Images`}</code>.
             </p>
             {uploadWarning && (
-              <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-meta text-amber-800">
+              <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded text-meta text-amber-800 dark:text-amber-200">
                 {uploadWarning}
               </div>
             )}
@@ -718,17 +718,17 @@ export function CompoundChildCreator({
 
         {phase.type === "pdf" && (
           <div>
-            <label className="block text-meta font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-foreground-muted mb-1">
               Upload PDF
             </label>
             <div
               onClick={() => pdfInputRef.current?.click()}
-              className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors"
+              className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10/50 transition-colors"
             >
               {pdfFile ? (
                 <div>
-                  <p className="text-body font-medium text-gray-900">{pdfFile.name}</p>
-                  <p className="text-meta text-gray-400 mt-1">
+                  <p className="text-body font-medium text-foreground">{pdfFile.name}</p>
+                  <p className="text-meta text-foreground-muted mt-1">
                     {(pdfFile.size / 1024 / 1024).toFixed(2)} MB
                   </p>
                   <button
@@ -737,13 +737,13 @@ export function CompoundChildCreator({
                       e.stopPropagation();
                       setPdfFile(null);
                     }}
-                    className="mt-2 text-meta text-red-500 hover:text-red-700"
+                    className="mt-2 text-meta text-red-500 hover:text-red-700 dark:hover:text-red-300"
                   >
                     Remove
                   </button>
                 </div>
               ) : (
-                <p className="text-body text-gray-500">Click to select a PDF file</p>
+                <p className="text-body text-foreground-muted">Click to select a PDF file</p>
               )}
             </div>
             <input
@@ -761,23 +761,23 @@ export function CompoundChildCreator({
         {phase.type === "pcr" && (
           <div className="space-y-3">
             <div>
-              <h4 className="text-body font-semibold text-gray-700 mb-2">Thermal gradient</h4>
+              <h4 className="text-body font-semibold text-foreground mb-2">Thermal gradient</h4>
               <InteractiveGradientEditor gradient={pcrGradient} onChange={setPcrGradient} />
             </div>
             <div>
-              <h4 className="text-body font-semibold text-gray-700 mb-2">Reaction recipe</h4>
+              <h4 className="text-body font-semibold text-foreground mb-2">Reaction recipe</h4>
               <PcrIngredientTable
                 ingredients={pcrIngredients}
                 onChange={setPcrIngredients}
               />
             </div>
             <div>
-              <h4 className="text-body font-semibold text-gray-700 mb-1">Notes (optional)</h4>
+              <h4 className="text-body font-semibold text-foreground mb-1">Notes (optional)</h4>
               <textarea
                 value={pcrNotes}
                 onChange={(e) => setPcrNotes(e.target.value)}
                 rows={2}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -880,15 +880,15 @@ export function CompoundChildCreator({
         )}
 
         {saveError && (
-          <div className="border border-red-200 bg-red-50 rounded p-3 text-body text-red-900">
+          <div className="border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 rounded p-3 text-body text-red-900">
             {saveError}
           </div>
         )}
       </div>
-      <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
+      <div className="flex justify-end gap-3 pt-3 border-t border-border">
         <button
           onClick={handleCancel}
-          className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
+          className="px-4 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg"
         >
           Cancel
         </button>
@@ -931,7 +931,7 @@ function TypeTilePicker({ unsupportedTypes, onPick, onCancel }: TypeTilePickerPr
   ) {
     return (
       <div>
-        <label className="block text-meta font-medium text-gray-500 mb-2">
+        <label className="block text-meta font-medium text-foreground-muted mb-2">
           {heading}
         </label>
         <div className="flex flex-wrap gap-2">
@@ -948,21 +948,21 @@ function TypeTilePicker({ unsupportedTypes, onPick, onCancel }: TypeTilePickerPr
                 disabled={disabled}
                 className={`flex-1 min-w-[180px] text-left px-3 py-2.5 rounded-lg border transition-colors ${
                   disabled
-                    ? "border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed"
-                    : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                    ? "border-border bg-surface-sunken text-foreground-muted cursor-not-allowed"
+                    : "border-border text-foreground-muted hover:bg-surface-sunken"
                 }`}
               >
                 <div className="flex items-center gap-2">
                   <Icon className="w-4 h-4" />
                   <span className="text-body">{meta.label}</span>
                   {disabled && (
-                    <span className="text-meta text-gray-400 italic ml-auto">
+                    <span className="text-meta text-foreground-muted italic ml-auto">
                       coming soon
                     </span>
                   )}
                 </div>
                 {meta.description && (
-                  <p className="mt-1 text-meta text-gray-400">
+                  <p className="mt-1 text-meta text-foreground-muted">
                     {meta.description}
                   </p>
                 )}
@@ -977,7 +977,7 @@ function TypeTilePicker({ unsupportedTypes, onPick, onCancel }: TypeTilePickerPr
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto pt-1 space-y-4">
-        <p className="text-meta text-gray-400">
+        <p className="text-meta text-foreground-muted">
           Pick a method type. The new method will be created in your methods
           library AND added to this kit&apos;s component list when you save.
           A kit nested in a kit isn&apos;t available here, build the
@@ -986,10 +986,10 @@ function TypeTilePicker({ unsupportedTypes, onPick, onCancel }: TypeTilePickerPr
         {renderSection("Standard methods", standard)}
         {structured.length > 0 && renderSection("Structured methods", structured)}
       </div>
-      <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
+      <div className="flex justify-end gap-3 pt-3 border-t border-border">
         <button
           onClick={onCancel}
-          className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
+          className="px-4 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg"
         >
           Cancel
         </button>
@@ -1005,22 +1005,22 @@ interface PcrIngredientTableProps {
 
 function PcrIngredientTable({ ingredients, onChange }: PcrIngredientTableProps) {
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
+    <div className="border border-border rounded-lg overflow-hidden">
       <table className="w-full text-meta">
-        <thead className="bg-gray-100">
+        <thead className="bg-surface-sunken">
           <tr>
-            <th className="px-3 py-2 text-left font-medium text-gray-600">Ingredient</th>
-            <th className="px-3 py-2 text-left font-medium text-gray-600">Concentration</th>
-            <th className="px-3 py-2 text-left font-medium text-gray-600">Amount/Rx</th>
+            <th className="px-3 py-2 text-left font-medium text-foreground-muted">Ingredient</th>
+            <th className="px-3 py-2 text-left font-medium text-foreground-muted">Concentration</th>
+            <th className="px-3 py-2 text-left font-medium text-foreground-muted">Amount/Rx</th>
             <th className="px-2 py-2 w-8"></th>
           </tr>
         </thead>
         <tbody>
           {ingredients.map((ing, i) => (
-            <tr key={ing.id} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+            <tr key={ing.id} className={i % 2 === 0 ? "bg-surface-raised" : "bg-surface-sunken"}>
               <td className="px-3 py-2">
                 {ing.name === "Total" ? (
-                  <span className="font-medium text-gray-700">{ing.name}</span>
+                  <span className="font-medium text-foreground">{ing.name}</span>
                 ) : (
                   <input
                     type="text"
@@ -1030,13 +1030,13 @@ function PcrIngredientTable({ ingredients, onChange }: PcrIngredientTableProps) 
                       next[i] = { ...ing, name: e.target.value };
                       onChange(next);
                     }}
-                    className="w-full px-2 py-1 border border-gray-200 rounded text-gray-700"
+                    className="w-full px-2 py-1 border border-border rounded text-foreground"
                   />
                 )}
               </td>
               <td className="px-3 py-2">
                 {ing.name === "Total" ? (
-                  <span className="text-gray-500">-</span>
+                  <span className="text-foreground-muted">-</span>
                 ) : (
                   <input
                     type="text"
@@ -1046,7 +1046,7 @@ function PcrIngredientTable({ ingredients, onChange }: PcrIngredientTableProps) 
                       next[i] = { ...ing, concentration: e.target.value };
                       onChange(next);
                     }}
-                    className="w-full px-2 py-1 border border-gray-200 rounded text-gray-500"
+                    className="w-full px-2 py-1 border border-border rounded text-foreground-muted"
                     placeholder="e.g. 10x"
                   />
                 )}
@@ -1060,7 +1060,7 @@ function PcrIngredientTable({ ingredients, onChange }: PcrIngredientTableProps) 
                     next[i] = { ...ing, amount_per_reaction: e.target.value };
                     onChange(next);
                   }}
-                  className="w-full px-2 py-1 border border-gray-200 rounded text-gray-500"
+                  className="w-full px-2 py-1 border border-border rounded text-foreground-muted"
                   placeholder="e.g. 2.5"
                 />
               </td>
@@ -1069,7 +1069,7 @@ function PcrIngredientTable({ ingredients, onChange }: PcrIngredientTableProps) 
                   <Tooltip label="Remove ingredient" placement="left">
                     <button
                       onClick={() => onChange(ingredients.filter((it) => it.id !== ing.id))}
-                      className="text-gray-400 hover:text-red-500 text-body"
+                      className="text-foreground-muted hover:text-red-500 text-body"
                     >
                       ✕
                     </button>
@@ -1095,7 +1095,7 @@ function PcrIngredientTable({ ingredients, onChange }: PcrIngredientTableProps) 
             onChange([...ingredients, insertion]);
           }
         }}
-        className="w-full py-2 text-meta text-blue-600 hover:bg-blue-50 border-t border-gray-200"
+        className="w-full py-2 text-meta text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 border-t border-border"
       >
         + Add ingredient
       </button>

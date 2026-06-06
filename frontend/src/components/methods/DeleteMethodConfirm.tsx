@@ -92,44 +92,44 @@ export function DeleteMethodConfirm({
       // is mounted; see SnapshotTilePopup for the canonical example.
       data-tour-popup-occluding="delete-method-confirm"
     >
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 max-h-[85vh] flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 className="text-title font-semibold text-gray-900">
+      <div className="bg-surface-raised rounded-xl shadow-2xl max-w-lg w-full mx-4 max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h3 className="text-title font-semibold text-foreground">
             Delete &ldquo;{methodName}&rdquo;?
           </h3>
           <Tooltip label="Cancel" placement="bottom">
             <button
               onClick={onCancel}
-              className="text-gray-400 hover:text-gray-600 text-lg"
+              className="text-foreground-muted hover:text-foreground text-heading"
             >
               ✕
             </button>
           </Tooltip>
         </div>
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          <p className="text-body text-gray-700">
+          <p className="text-body text-foreground">
             <span className="font-medium">{methodName}</span> is part of {compoundsLabel}:
           </p>
-          <ul className="border border-gray-200 rounded-lg overflow-hidden text-body divide-y divide-gray-100 bg-gray-50">
+          <ul className="border border-border rounded-lg overflow-hidden text-body divide-y divide-gray-100 bg-surface-sunken">
             {affectedCompounds.map((c) => (
               <li key={`${c.owner}:${c.id}`} className="px-3 py-2">
-                <span className="text-gray-900 font-medium">{c.name}</span>
-                <span className="text-gray-400 ml-2 text-meta">
+                <span className="text-foreground font-medium">{c.name}</span>
+                <span className="text-foreground-muted ml-2 text-meta">
                   (id {c.id}, owner {c.owner})
                 </span>
               </li>
             ))}
           </ul>
-          <p className="text-body text-gray-600 pt-1">Choose one:</p>
+          <p className="text-body text-foreground-muted pt-1">Choose one:</p>
           <div className="space-y-2">
             <button
               onClick={onJustDelete}
-              className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50"
+              className="w-full text-left px-4 py-3 border border-border rounded-lg hover:bg-surface-sunken"
             >
-              <div className="text-body font-medium text-gray-900">
+              <div className="text-body font-medium text-foreground">
                 Just delete &ldquo;{methodName}&rdquo;
               </div>
-              <div className="text-meta text-gray-500 mt-1">
+              <div className="text-meta text-foreground-muted mt-1">
                 Keeps the {compoundsLabel}; they will show
                 &ldquo;Component deleted&rdquo; placeholders where it used to render.
                 Existing experiments stay attached to the kits.
@@ -137,22 +137,22 @@ export function DeleteMethodConfirm({
             </button>
             <button
               onClick={onCascadeDelete}
-              className="w-full text-left px-4 py-3 border border-red-200 bg-red-50 rounded-lg hover:bg-red-100"
+              className="w-full text-left px-4 py-3 border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 rounded-lg hover:bg-red-100 dark:hover:bg-red-500/20"
             >
               <div className="text-body font-medium text-red-900">
                 Delete &ldquo;{methodName}&rdquo; AND the {compoundsLabel}
               </div>
-              <div className="text-meta text-red-700 mt-1">
+              <div className="text-meta text-red-700 dark:text-red-300 mt-1">
                 Removes all {compoundCount + 1} method records. Experiments
                 attached to any of those kits lose those attachments.
               </div>
             </button>
           </div>
         </div>
-        <div className="flex justify-end px-6 py-4 border-t border-gray-100">
+        <div className="flex justify-end px-6 py-4 border-t border-border">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
+            className="px-4 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg"
           >
             Cancel
           </button>

@@ -202,20 +202,20 @@ export default function PlateMethodTabContent({
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-body font-medium text-gray-700">
+            <span className="text-body font-medium text-foreground">
               {method.name || "Plate Layout"}
             </span>
-            <span className="text-meta px-1.5 py-0.5 bg-emerald-100 text-emerald-600 rounded">Plate</span>
+            <span className="text-meta px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 rounded">Plate</span>
           </div>
           {!readOnly && (
             <div className="flex items-center gap-2">
               {hasUnsavedChanges && (
-                <span className="text-meta text-amber-600">Unsaved changes</span>
+                <span className="text-meta text-amber-600 dark:text-amber-300">Unsaved changes</span>
               )}
               <button
                 onClick={handleReset}
                 disabled={saving}
-                className="px-3 py-1.5 text-meta bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                className="px-3 py-1.5 text-meta bg-surface-sunken text-foreground-muted rounded-lg hover:bg-foreground-muted/15 disabled:opacity-50"
                 title="Reset to original method values"
               >
                 Reset to Method
@@ -242,7 +242,7 @@ export default function PlateMethodTabContent({
             lockPlateSize
           />
         ) : (
-          <p className="text-body text-gray-400">No plate layout data available</p>
+          <p className="text-body text-foreground-muted">No plate layout data available</p>
         )}
       </div>
     </div>

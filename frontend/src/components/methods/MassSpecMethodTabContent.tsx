@@ -80,12 +80,12 @@ export default function MassSpecMethodTabContent({
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-body font-medium text-gray-700">
+            <span className="text-body font-medium text-foreground">
               {method.name || "Mass spec method"}
             </span>
-            <span className="text-meta px-1.5 py-0.5 bg-violet-100 text-violet-600 rounded">MS</span>
+            <span className="text-meta px-1.5 py-0.5 bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-300 rounded">MS</span>
           </div>
-          <span className="text-meta text-gray-400">
+          <span className="text-meta text-foreground-muted">
             Static template — edit on the /methods page
           </span>
         </div>
@@ -104,7 +104,7 @@ export default function MassSpecMethodTabContent({
             onShowAllFieldsChange={setShowAllFields}
           />
         ) : (
-          <p className="text-body text-gray-400">No mass spec data available</p>
+          <p className="text-body text-foreground-muted">No mass spec data available</p>
         )}
       </div>
     </div>

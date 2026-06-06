@@ -120,7 +120,7 @@ function SaveStatusIndicator({
 }) {
   if (status === "saving") {
     return (
-      <span className="text-meta text-gray-500 flex items-center gap-1">
+      <span className="text-meta text-foreground-muted flex items-center gap-1">
         <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -131,7 +131,7 @@ function SaveStatusIndicator({
   }
   if (status === "saved") {
     return (
-      <span className="text-meta text-emerald-600 flex items-center gap-1">
+      <span className="text-meta text-emerald-600 dark:text-emerald-300 flex items-center gap-1">
         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
         </svg>
@@ -141,13 +141,13 @@ function SaveStatusIndicator({
   }
   if (status === "error") {
     return (
-      <span className="text-meta text-red-600 flex items-center gap-1" title="Will retry on the next edit">
+      <span className="text-meta text-red-600 dark:text-red-300 flex items-center gap-1" title="Will retry on the next edit">
         Save failed
       </span>
     );
   }
   if (hasUnsavedChanges) {
-    return <span className="text-meta text-amber-600 flex items-center">Unsaved changes</span>;
+    return <span className="text-meta text-amber-600 dark:text-amber-300 flex items-center">Unsaved changes</span>;
   }
   return null;
 }
@@ -363,21 +363,21 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
   const entries = useMemo(() => parseVariationEntries(variationNotes || ""), [variationNotes]);
 
   return (
-    <div className="border-b border-gray-200" data-tour-target="experiment-variation-notes">
+    <div className="border-b border-border" data-tour-target="experiment-variation-notes">
       {/* Header - always visible */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between px-4 py-2.5 bg-amber-50 hover:bg-amber-100 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-2.5 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <span className="text-body font-medium text-amber-800">Variation Notes</span>
+          <span className="text-body font-medium text-amber-800 dark:text-amber-200">Variation Notes</span>
           {noteCount > 0 && (
-            <span className="text-meta px-1.5 py-0.5 bg-amber-200 text-amber-700 rounded">
+            <span className="text-meta px-1.5 py-0.5 bg-amber-200 text-amber-700 dark:text-amber-300 rounded">
               {noteCount} {noteCount === 1 ? "entry" : "entries"}
             </span>
           )}
           {!variationNotes && (
-            <span className="text-meta text-amber-600 italic">Click to add notes</span>
+            <span className="text-meta text-amber-600 dark:text-amber-300 italic">Click to add notes</span>
           )}
         </div>
         <svg
@@ -390,7 +390,7 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className={`text-amber-600 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+          className={`text-amber-600 dark:text-amber-300 transition-transform ${isExpanded ? "rotate-180" : ""}`}
         >
           <path d="M6 9l6 6 6-6"/>
         </svg>
@@ -398,7 +398,7 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
 
       {/* Expanded content */}
       {isExpanded && (
-        <div className="bg-amber-50/50 p-4">
+        <div className="bg-amber-50 dark:bg-amber-500/10/50 p-4">
           {isEditing ? (
             <div className="space-y-3">
               <LiveMarkdownEditor
@@ -419,7 +419,7 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
                   <button
                     onClick={handleCancel}
                     disabled={saving}
-                    className="px-3 py-1.5 text-meta text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+                    className="px-3 py-1.5 text-meta text-foreground-muted hover:bg-surface-sunken rounded-lg disabled:opacity-50"
                   >
                     Cancel
                   </button>
@@ -445,7 +445,7 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
                     return (
                       <div
                         key={idx}
-                        className="group relative bg-white rounded-lg p-4 pr-9 border border-amber-200"
+                        className="group relative bg-surface-raised rounded-lg p-4 pr-9 border border-amber-200 dark:border-amber-500/30"
                       >
                         {canDelete && (
                           <Tooltip label="Delete this variation" placement="left">
@@ -453,7 +453,7 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
                               type="button"
                               onClick={() => handleDeleteEntry(idx)}
                               disabled={saving}
-                              className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity disabled:opacity-50"
+                              className="absolute top-2 right-2 p-1 text-foreground-muted hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 rounded opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity disabled:opacity-50"
                               aria-label="Delete this variation"
                               data-force-hover-controls-target
                             >
@@ -483,7 +483,7 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
                   })}
                 </div>
               ) : (
-                <div className="text-center py-6 text-amber-600">
+                <div className="text-center py-6 text-amber-600 dark:text-amber-300">
                   <p className="text-body">No variation notes yet.</p>
                   <p className="text-meta mt-1">Document any changes you make to the method during this experiment.</p>
                 </div>
@@ -492,7 +492,7 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
                 {!readOnly && (
                   <button
                     onClick={handleAddNote}
-                    className="px-3 py-1.5 text-meta text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-lg"
+                    className="px-3 py-1.5 text-meta text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-500/20 hover:bg-amber-200 rounded-lg"
                   >
                     + Add Note
                   </button>
@@ -500,7 +500,7 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
                 {variationNotes && !readOnly && (
                   <button
                     onClick={() => setIsEditing(true)}
-                    className="px-3 py-1.5 text-meta text-gray-600 hover:bg-gray-100 rounded-lg"
+                    className="px-3 py-1.5 text-meta text-foreground-muted hover:bg-surface-sunken rounded-lg"
                   >
                     Edit All
                   </button>

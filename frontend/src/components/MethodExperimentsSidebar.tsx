@@ -79,10 +79,10 @@ export default function MethodExperimentsSidebar({
   // Get status badge color
   const getStatusColor = (exp: Task) => {
     const today = new Date().toISOString().split("T")[0];
-    if (exp.is_complete) return "bg-green-100 text-green-700";
-    if (exp.end_date < today) return "bg-red-100 text-red-700";
-    if (exp.start_date <= today && exp.end_date >= today) return "bg-blue-100 text-blue-700";
-    return "bg-gray-100 text-gray-600";
+    if (exp.is_complete) return "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300";
+    if (exp.end_date < today) return "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300";
+    if (exp.start_date <= today && exp.end_date >= today) return "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300";
+    return "bg-surface-sunken text-foreground-muted";
   };
 
   // Get status text
@@ -119,12 +119,12 @@ export default function MethodExperimentsSidebar({
 
   if (isLoading) {
     return (
-      <div className="w-72 border-l border-gray-200 bg-gray-50 p-4 flex flex-col">
-        <h3 className="text-meta font-semibold text-gray-500 uppercase tracking-wider mb-3">
+      <div className="w-72 border-l border-border bg-surface-sunken p-4 flex flex-col">
+        <h3 className="text-meta font-semibold text-foreground-muted uppercase tracking-wider mb-3">
           Linked Experiments
         </h3>
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-meta text-gray-400 animate-pulse">Loading...</p>
+          <p className="text-meta text-foreground-muted animate-pulse">Loading...</p>
         </div>
       </div>
     );
@@ -132,14 +132,14 @@ export default function MethodExperimentsSidebar({
 
   if (error) {
     return (
-      <div className="w-72 border-l border-gray-200 bg-gray-50 p-4 flex flex-col">
-        <h3 className="text-meta font-semibold text-gray-500 uppercase tracking-wider mb-3">
+      <div className="w-72 border-l border-border bg-surface-sunken p-4 flex flex-col">
+        <h3 className="text-meta font-semibold text-foreground-muted uppercase tracking-wider mb-3">
           Linked Experiments
         </h3>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <p className="text-meta text-red-400">Failed to load experiments</p>
-            <p className="text-meta text-gray-300 mt-1">
+            <p className="text-meta text-foreground-muted mt-1">
               {String(error)}
             </p>
           </div>
@@ -150,14 +150,14 @@ export default function MethodExperimentsSidebar({
 
   if (experiments.length === 0) {
     return (
-      <div className="w-72 border-l border-gray-200 bg-gray-50 p-4 flex flex-col">
-        <h3 className="text-meta font-semibold text-gray-500 uppercase tracking-wider mb-3">
+      <div className="w-72 border-l border-border bg-surface-sunken p-4 flex flex-col">
+        <h3 className="text-meta font-semibold text-foreground-muted uppercase tracking-wider mb-3">
           Linked Experiments
         </h3>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <p className="text-meta text-gray-400">No experiments linked</p>
-            <p className="text-meta text-gray-300 mt-1">
+            <p className="text-meta text-foreground-muted">No experiments linked</p>
+            <p className="text-meta text-foreground-muted mt-1">
               Experiments using this method will appear here
             </p>
           </div>
@@ -168,13 +168,13 @@ export default function MethodExperimentsSidebar({
 
   return (
     <>
-      <div className="w-72 border-l border-gray-200 bg-gray-50 flex flex-col max-h-[85vh]">
+      <div className="w-72 border-l border-border bg-surface-sunken flex flex-col max-h-[85vh]">
         {/* Header */}
-        <div className="p-4 border-b border-gray-200 bg-white">
-          <h3 className="text-meta font-semibold text-gray-500 uppercase tracking-wider">
+        <div className="p-4 border-b border-border bg-surface-raised">
+          <h3 className="text-meta font-semibold text-foreground-muted uppercase tracking-wider">
             Linked Experiments
           </h3>
-          <p className="text-meta text-gray-400 mt-0.5">
+          <p className="text-meta text-foreground-muted mt-0.5">
             {experiments.length} experiment{experiments.length !== 1 ? "s" : ""} using this method
           </p>
         </div>
@@ -195,7 +195,7 @@ export default function MethodExperimentsSidebar({
                   }
                 }}
                 onMouseLeave={() => setHoveredExperiment(null)}
-                className="w-full text-left bg-white rounded-lg border border-gray-200 p-3 hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer relative"
+                className="w-full text-left bg-surface-raised rounded-lg border border-border p-3 hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer relative"
               >
                 {/* Project color indicator */}
                 <div className="flex items-start gap-2">
@@ -205,21 +205,21 @@ export default function MethodExperimentsSidebar({
                   />
                   <div className="flex-1 min-w-0">
                     {/* Experiment name */}
-                    <h4 className="text-body font-medium text-gray-900 truncate">
+                    <h4 className="text-body font-medium text-foreground truncate">
                       {exp.name}
                     </h4>
                     
                     {/* Project name */}
-                    <p className="text-meta text-gray-400 truncate mt-0.5">
+                    <p className="text-meta text-foreground-muted truncate mt-0.5">
                       {project?.name || "Unknown Project"}
                     </p>
                     
                     {/* Date range */}
-                    <div className="flex items-center gap-1 mt-1.5 text-meta text-gray-500">
+                    <div className="flex items-center gap-1 mt-1.5 text-meta text-foreground-muted">
                       <span>{formatDate(exp.start_date)}</span>
                       <span>→</span>
                       <span>{formatDate(exp.end_date)}</span>
-                      <span className="text-gray-300">·</span>
+                      <span className="text-foreground-muted">·</span>
                       <span>{exp.duration_days}d</span>
                     </div>
                     
@@ -240,7 +240,7 @@ export default function MethodExperimentsSidebar({
       {/* Variation notes hover popup */}
       {hoveredExperiment && hoveredExperiment.variation_notes && (
         <div
-          className="fixed z-50 w-80 bg-white rounded-lg shadow-xl border border-gray-200 p-4 pointer-events-none"
+          className="fixed z-50 w-80 bg-surface-raised rounded-lg shadow-xl border border-border p-4 pointer-events-none"
           style={{
             left: `calc(${popupPosition.x}px - 330px)`,
             top: `${popupPosition.y}px`,
@@ -248,13 +248,13 @@ export default function MethodExperimentsSidebar({
             overflowY: "auto",
           }}
         >
-          <h4 className="text-meta font-semibold text-gray-700 mb-2 flex items-center gap-1">
+          <h4 className="text-meta font-semibold text-foreground mb-2 flex items-center gap-1">
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             Variations
           </h4>
-          <div className="text-meta text-gray-600 whitespace-pre-wrap prose prose-xs max-w-none">
+          <div className="text-meta text-foreground-muted whitespace-pre-wrap prose prose-xs max-w-none">
             {hoveredExperiment.variation_notes}
           </div>
         </div>
