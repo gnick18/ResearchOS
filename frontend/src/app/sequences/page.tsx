@@ -58,6 +58,16 @@ import {
   lineageIdsFrom,
   type PinnedLineage,
 } from "@/lib/sequences/taxonomy-radial-layout";
+import {
+  applyTaxonomyToSequence,
+  buildTaxonomyMenuItems,
+  type SequenceTaxonomy,
+} from "@/lib/sequences/apply-taxonomy";
+import { useTaxonomyClipboard } from "@/lib/sequences/taxonomy-clipboard";
+import {
+  SequenceContextMenu,
+  type EditMenuItem,
+} from "@/components/sequences/SequenceEditMenu";
 
 type SortKey = "name" | "type" | "length" | "added";
 type SortDir = "asc" | "desc";
@@ -361,6 +371,27 @@ export default function SequencesPage() {
   const queryClient = useQueryClient();
   const { currentUser } = useCurrentUser();
 
+  // sequence editor master. The app-scoped taxonomy clipboard (separate from the
+  // OS clipboard + the molecular bases clipboard), persisted to localStorage so a
+  // copy survives navigation + reload. Drives the list-row "Paste taxonomy"
+  // enablement and the paste confirm label.
+  const { copied: copiedTaxonomy, copyTaxonomy } = useTaxonomyClipboard();
+
+  // sequence editor master. The list-row right-click context menu (Copy / Paste
+  // taxonomy). null = closed. Anchored at the cursor with the row's record.
+  const [rowMenu, setRowMenu] = useState<{
+    x: number;
+    y: number;
+    seq: SequenceRecord;
+  } | null>(null);
+  // The pending single-paste confirm for a LIST ROW (the editor owns its own
+  // confirm). Names the organism being pasted and the target sequence.
+  const [pasteConfirm, setPasteConfirm] = useState<{
+    seq: SequenceRecord;
+    taxonomy: SequenceTaxonomy;
+    fromName: string;
+  } | null>(null);
+
   const { data: sequences = [], isLoading } = useQuery({
     queryKey: ["sequences"],
     queryFn: () => sequencesApi.list(),
@@ -534,24 +565,122 @@ export default function SequencesPage() {
     [selectedId, queryClient],
   );
 
-  // sequence editor master. Persist an NCBI enrichment for the open sequence.
-  // It writes the rewritten GenBank (organism in the source feature) plus the
-  // organism / tax id / named-lineage sidecar fields in one update, then refreshes
-  // the detail + summary queries so the lineage line and library row pick it up.
+  // sequence editor master. The ONE taxonomy write path. Given a sequence id, its
+  // current GenBank, and a taxonomy, it rewrites the source feature + persists the
+  // .gb plus the organism / tax id / named-lineage sidecar fields through the
+  // store update, then refreshes the detail + summary queries so the lineage line
+  // and library row pick it up. The enrich apply, the single paste, and (later)
+  // the bulk apply all flow through here instead of each inventing its own write.
+  const applyTaxonomy = useCallback(
+    async (
+      seqId: number,
+      currentGenbank: string,
+      taxonomy: SequenceTaxonomy,
+    ): Promise<boolean> => {
+      const res = await applyTaxonomyToSequence(
+        seqId,
+        currentGenbank,
+        taxonomy,
+        (id, patch) => sequencesApi.update(id, patch),
+      );
+      if (!res.ok) {
+        setStatus({
+          text: res.error ?? "Could not apply the taxonomy.",
+          tone: "error",
+        });
+        return false;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["sequence", seqId] });
+      await queryClient.invalidateQueries({ queryKey: ["sequences"] });
+      return true;
+    },
+    [queryClient],
+  );
+
+  // sequence editor master. Persist an NCBI enrichment for the open sequence. The
+  // enrich dialog already rewrote the GenBank, so this routes the result through
+  // the shared applyTaxonomy write path (one path, not two) and toasts on success.
   const handleEnriched = useCallback(
     async (result: EnrichResult): Promise<void> => {
       if (selectedId == null) return;
-      await sequencesApi.update(selectedId, {
-        genbank: result.genbank,
+      const ok = await applyTaxonomy(selectedId, result.genbank, {
         organism: result.organism,
         tax_id: result.taxId,
         tax_lineage: result.lineage,
       });
-      await queryClient.invalidateQueries({ queryKey: ["sequence", selectedId] });
-      await queryClient.invalidateQueries({ queryKey: ["sequences"] });
-      setStatus({ text: `Enriched "${result.organism}" from NCBI.`, tone: "ok" });
+      if (ok) {
+        setStatus({ text: `Enriched "${result.organism}" from NCBI.`, tone: "ok" });
+      }
     },
-    [selectedId, queryClient],
+    [selectedId, applyTaxonomy],
+  );
+
+  // sequence editor master. Copy a record's taxonomy onto the clipboard (the
+  // list-row "Copy taxonomy" action). The editor's own "Copy taxonomy" copies the
+  // open sequence the same way. A calm toast names the organism. Caller guards
+  // enablement (only shown when the record HAS taxonomy).
+  const handleCopyTaxonomyFromRecord = useCallback(
+    (rec: SequenceRecord) => {
+      const organism = (rec.organism ?? "").trim();
+      if (!organism) return;
+      copyTaxonomy({
+        organism,
+        tax_id: rec.tax_id,
+        tax_lineage: rec.tax_lineage,
+        copiedFromName: organism,
+      });
+      setStatus({ text: `Copied the taxonomy of ${organism}.`, tone: "ok" });
+    },
+    [copyTaxonomy],
+  );
+
+  // sequence editor master. Run a confirmed single paste onto a target id. Fetches
+  // the target's current GenBank (a list row carries no .gb), applies through the
+  // shared write path, and toasts. Used by the list-row paste confirm.
+  const runPasteTaxonomy = useCallback(
+    async (seqId: number, taxonomy: SequenceTaxonomy) => {
+      const detail = await sequencesApi.get(seqId);
+      if (!detail) {
+        setStatus({ text: "Could not load that sequence.", tone: "error" });
+        return;
+      }
+      const ok = await applyTaxonomy(seqId, detail.genbank, taxonomy);
+      if (ok) {
+        setStatus({
+          text: `Pasted the taxonomy of ${taxonomy.organism}.`,
+          tone: "ok",
+        });
+      }
+    },
+    [applyTaxonomy],
+  );
+
+  // sequence editor master. Build the right-click menu for one list row. Copy is
+  // enabled only when the row carries an organism; Paste only when the clipboard
+  // holds a taxonomy. Paste opens the inline confirm rather than writing straight.
+  const buildRowTaxonomyMenu = useCallback(
+    (seq: SequenceRecord): EditMenuItem[] => {
+      const clip = copiedTaxonomy;
+      return buildTaxonomyMenuItems({
+        hasTaxonomy: Boolean((seq.organism ?? "").trim()),
+        clipboardHasTaxonomy: clip != null,
+        onCopy: () => handleCopyTaxonomyFromRecord(seq),
+        onPaste: () => {
+          if (clip == null) return;
+          setPasteConfirm({
+            seq,
+            taxonomy: {
+              organism: clip.organism,
+              tax_id: clip.tax_id,
+              tax_lineage: clip.tax_lineage,
+            },
+            fromName: clip.copiedFromName ?? clip.organism,
+          });
+        },
+        idPrefix: "row",
+      });
+    },
+    [copiedTaxonomy, handleCopyTaxonomyFromRecord],
   );
 
   // seq delete trash bot: soft-delete a set of sequence ids into the
@@ -1349,6 +1478,10 @@ export default function SequencesPage() {
                   return (
                   <li
                     key={s.id}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setRowMenu({ x: e.clientX, y: e.clientY, seq: s });
+                    }}
                     className={`group flex items-center gap-1 border-b border-gray-50 pr-2 hover:bg-sky-50 ${
                       selectedId === s.id ? "bg-sky-50" : ""
                     } ${checked ? "bg-sky-50/70" : ""}`}
@@ -1518,6 +1651,9 @@ export default function SequencesPage() {
                   onSave={handleSave}
                   saving={saving}
                   onEnriched={handleEnriched}
+                  onApplyTaxonomy={(taxonomy) =>
+                    applyTaxonomy(selected.id, selected.genbank, taxonomy)
+                  }
                   onExploreInTree={(taxId) => {
                     // Opened FROM the open sequence (a lineage-level click or the
                     // Analyze-menu entry): pin that sequence's trail so the tree
@@ -1663,6 +1799,68 @@ export default function SequencesPage() {
           setStatus({ text: "Construct assembled and saved.", tone: "ok" });
         }}
       />
+
+      {/* sequence editor master. The list-row right-click menu for taxonomy
+          copy / paste. Reuses the editor's SequenceContextMenu surface. Copy is
+          enabled only when the row HAS taxonomy; Paste only when the clipboard
+          holds one (it opens the inline confirm rather than writing straight). */}
+      <SequenceContextMenu
+        at={rowMenu ? { x: rowMenu.x, y: rowMenu.y } : null}
+        items={rowMenu ? buildRowTaxonomyMenu(rowMenu.seq) : []}
+        onClose={() => setRowMenu(null)}
+      />
+
+      {/* sequence editor master. The single-paste confirm for a list row. Names
+          the organism being pasted onto the named target before any write. */}
+      {pasteConfirm ? (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setPasteConfirm(null)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Paste taxonomy"
+            className="relative w-full max-w-md rounded-lg border border-gray-200 bg-white p-5 shadow-xl"
+          >
+            <h2 className="text-title font-semibold text-gray-800">
+              Paste taxonomy
+            </h2>
+            <p className="mt-2 text-body text-gray-600">
+              Paste the taxonomy of{" "}
+              <span className="font-medium text-gray-900">
+                {pasteConfirm.fromName}
+              </span>{" "}
+              onto{" "}
+              <span className="font-medium text-gray-900">
+                {pasteConfirm.seq.display_name}
+              </span>
+              ?
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPasteConfirm(null)}
+                className="rounded-md border border-gray-200 px-3 py-1.5 text-body font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const req = pasteConfirm;
+                  setPasteConfirm(null);
+                  void runPasteTaxonomy(req.seq.id, req.taxonomy);
+                }}
+                className="rounded-md bg-sky-600 px-3 py-1.5 text-body font-medium text-white hover:bg-sky-700"
+              >
+                Paste taxonomy
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </AppShell>
   );
 }

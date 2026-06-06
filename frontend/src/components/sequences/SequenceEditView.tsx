@@ -66,6 +66,11 @@ import {
   setMolecularClip,
   useMolecularClipboard,
 } from "@/lib/sequences/molecular-clipboard";
+import { useTaxonomyClipboard } from "@/lib/sequences/taxonomy-clipboard";
+import {
+  buildTaxonomyMenuItems,
+  type SequenceTaxonomy,
+} from "@/lib/sequences/apply-taxonomy";
 import { useSequenceEditor } from "@/lib/sequences/use-sequence-editor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useStaleGuardedValue } from "@/hooks/useDebouncedValue";
@@ -409,6 +414,7 @@ export default function SequenceEditView({
   initialShowEnzymes = false,
   embedded = false,
   onEnriched,
+  onApplyTaxonomy,
   onExploreInTree,
   onLookupTaxonomy,
 }: {
@@ -420,6 +426,11 @@ export default function SequenceEditView({
    *  feature) plus the organism / tax id / named lineage sidecar fields. The page
    *  writes them and refreshes. Absent in read-only / embedded surfaces. */
   onEnriched?: (result: EnrichResult) => Promise<void>;
+  /** Apply a taxonomy (the "Paste taxonomy" action) to THIS open sequence. Writes
+   *  the rewritten GenBank source feature + the organism / tax id / lineage
+   *  sidecar through the page's shared write path, then refreshes. Resolves true
+   *  on success. Absent in read-only / embedded surfaces. */
+  onApplyTaxonomy?: (taxonomy: SequenceTaxonomy) => Promise<boolean>;
   /** Optional cross-link from the organism lineage chip into the taxonomy tree
    *  explorer, centered on this sequence's tax id. Absent in read-only / embedded
    *  surfaces. */
@@ -467,6 +478,25 @@ export default function SequenceEditView({
 
   // App-scoped molecular clipboard (survives switching open sequences).
   const molClip = useMolecularClipboard();
+
+  // sequence editor master. The app-scoped taxonomy clipboard (separate from the
+  // molecular bases clipboard + the OS clipboard), persisted to localStorage. The
+  // Analyze menu's Copy taxonomy fills it; Paste taxonomy reads it. Re-renders the
+  // menu enablement reactively when a copy lands or the clipboard clears.
+  const { copied: copiedTaxonomy, copyTaxonomy } = useTaxonomyClipboard();
+  // The pending "Paste taxonomy" inline confirm for the open sequence (names the
+  // organism being pasted). null = closed.
+  const [pasteTaxConfirm, setPasteTaxConfirm] = useState<{
+    taxonomy: SequenceTaxonomy;
+    fromName: string;
+  } | null>(null);
+  // The calm taxonomy copy / paste toast, auto-dismissed after a few seconds.
+  const [taxStatus, setTaxStatus] = useState<string | null>(null);
+  useEffect(() => {
+    if (!taxStatus) return;
+    const t = setTimeout(() => setTaxStatus(null), 6000);
+    return () => clearTimeout(t);
+  }, [taxStatus]);
 
   // The pending confirmation request (Cut/range-delete/Paste). null = closed.
   const [confirm, setConfirm] = useState<SequenceConfirmRequest | null>(null);
@@ -2822,6 +2852,49 @@ export default function SequenceEditView({
     deleteFeatureAt,
   ]);
 
+  // sequence editor master. Copy the open sequence's taxonomy onto the app-scoped
+  // taxonomy clipboard (the Analyze > Copy taxonomy action). Calm toast names the
+  // organism. Guarded by the menu enablement (only when the sequence HAS one).
+  const handleCopyTaxonomy = useCallback(() => {
+    const organism = (sequence.organism ?? "").trim();
+    if (!organism) return;
+    copyTaxonomy({
+      organism,
+      tax_id: sequence.tax_id,
+      tax_lineage: sequence.tax_lineage,
+      copiedFromName: organism,
+    });
+    setTaxStatus(`Copied the taxonomy of ${organism}.`);
+  }, [sequence.organism, sequence.tax_id, sequence.tax_lineage, copyTaxonomy]);
+
+  // sequence editor master. Open the inline paste confirm for the open sequence
+  // (Analyze > Paste taxonomy). The actual write runs from the confirm dialog so
+  // the user sees the organism being pasted first.
+  const handlePasteTaxonomy = useCallback(() => {
+    if (copiedTaxonomy == null) return;
+    setPasteTaxConfirm({
+      taxonomy: {
+        organism: copiedTaxonomy.organism,
+        tax_id: copiedTaxonomy.tax_id,
+        tax_lineage: copiedTaxonomy.tax_lineage,
+      },
+      fromName: copiedTaxonomy.copiedFromName ?? copiedTaxonomy.organism,
+    });
+  }, [copiedTaxonomy]);
+
+  // sequence editor master. Run the confirmed paste onto the open sequence through
+  // the page's shared write path, then toast. Refresh is handled by the page
+  // (it invalidates the detail + summary queries), so the lineage chip updates.
+  const runPasteTaxonomy = useCallback(async () => {
+    if (!pasteTaxConfirm || !onApplyTaxonomy) return;
+    const { taxonomy } = pasteTaxConfirm;
+    setPasteTaxConfirm(null);
+    const ok = await onApplyTaxonomy(taxonomy);
+    if (ok) {
+      setTaxStatus(`Pasted the taxonomy of ${taxonomy.organism}.`);
+    }
+  }, [pasteTaxConfirm, onApplyTaxonomy]);
+
   // menu reorg bot — the new ANALYZE menu: the home for cross-cutting molecule
   // analysis. Detect + Annotate moved here from the overloaded Feature menu, and
   // Compare adds a second door into the library-level Compare/Align dialog from
@@ -2870,6 +2943,24 @@ export default function SequenceEditView({
             } as EditMenuItem,
           ]
         : []),
+      // sequence editor master. Copy / paste this sequence's taxonomy to the
+      // app-scoped taxonomy clipboard (separate from the bases clipboard). Copy is
+      // enabled only when the open sequence HAS an organism; Paste only when the
+      // clipboard holds one. Present when the surface can persist (onApplyTaxonomy
+      // given); Paste opens a small inline confirm before writing.
+      ...(onApplyTaxonomy
+        ? buildTaxonomyMenuItems({
+            hasTaxonomy: Boolean((sequence.organism ?? "").trim()),
+            clipboardHasTaxonomy: copiedTaxonomy != null,
+            onCopy: handleCopyTaxonomy,
+            onPaste: handlePasteTaxonomy,
+            idPrefix: "analyze",
+            // The Copy row opens this menu's taxonomy group (a divider before it
+            // when there is no Enrich row above to open the group already).
+          }).map((item, i) =>
+            i === 0 ? ({ ...item, group: !onEnriched } as EditMenuItem) : item,
+          )
+        : []),
       // sequence editor master. A door into the tree-of-life explorer from an
       // open sequence (the launcher card is only reachable with nothing open).
       // Centers on this sequence's organism when known, else opens at the root.
@@ -2903,9 +2994,14 @@ export default function SequenceEditView({
       openDetectFeatures,
       openAnnotateFromReference,
       onEnriched,
+      onApplyTaxonomy,
       onExploreInTree,
       onLookupTaxonomy,
       sequence.tax_id,
+      sequence.organism,
+      copiedTaxonomy,
+      handleCopyTaxonomy,
+      handlePasteTaxonomy,
     ],
   );
 
@@ -3854,6 +3950,78 @@ export default function SequenceEditView({
           void attachMapToNote(note);
         }}
       />
+
+      {/* sequence editor master. The inline "Paste taxonomy" confirm for the open
+          sequence. Names the organism being pasted before any write. */}
+      {pasteTaxConfirm ? (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setPasteTaxConfirm(null)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Paste taxonomy"
+            className="relative w-full max-w-md rounded-lg border border-gray-200 bg-white p-5 shadow-xl"
+          >
+            <h2 className="text-title font-semibold text-gray-800">
+              Paste taxonomy
+            </h2>
+            <p className="mt-2 text-body text-gray-600">
+              Paste the taxonomy of{" "}
+              <span className="font-medium text-gray-900">
+                {pasteTaxConfirm.fromName}
+              </span>{" "}
+              onto this sequence?
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPasteTaxConfirm(null)}
+                className="rounded-md border border-gray-200 px-3 py-1.5 text-body font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void runPasteTaxonomy()}
+                className="rounded-md bg-sky-600 px-3 py-1.5 text-body font-medium text-white hover:bg-sky-700"
+              >
+                Paste taxonomy
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* sequence editor master. The calm taxonomy copy / paste toast (mirrors the
+          map-to-note banner). aria-live so a screen reader announces it. */}
+      {taxStatus ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-4 left-1/2 z-[120] -translate-x-1/2 flex items-center gap-3 rounded-lg border border-emerald-200 bg-white px-4 py-2.5 text-body shadow-lg"
+        >
+          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3" aria-hidden="true">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </span>
+          <span className="text-gray-700">{taxStatus}</span>
+          <button
+            type="button"
+            onClick={() => setTaxStatus(null)}
+            className="text-gray-400 hover:text-gray-700"
+            aria-label="Dismiss"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+      ) : null}
 
       {/* map to note bot — calm success banner after the map lands in a note.
           aria-live so a screen reader announces it; a link jumps to the
