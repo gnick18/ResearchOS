@@ -145,7 +145,7 @@ export default function QpcrAnalysisViz({ protocol, snapshot }: QpcrAnalysisVizP
 
   if (cqBarData.length === 0) {
     return (
-      <p className="text-body text-gray-400">
+      <p className="text-body text-foreground-muted">
         No targets defined yet — add at least one in the editor above.
       </p>
     );
@@ -155,10 +155,10 @@ export default function QpcrAnalysisViz({ protocol, snapshot }: QpcrAnalysisVizP
     <div className="space-y-6">
       {/* Cq bar chart */}
       <div>
-        <h4 className="text-meta font-semibold text-gray-600 uppercase tracking-wider mb-2">
+        <h4 className="text-meta font-semibold text-foreground-muted uppercase tracking-wider mb-2">
           Per-target Cq{hasAnyCq ? "" : " (no readouts entered yet)"}
         </h4>
-        <div className="border border-gray-200 rounded-lg p-3 bg-white" style={{ height: 220 }}>
+        <div className="border border-border rounded-lg p-3 bg-surface-raised" style={{ height: 220 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={cqBarData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
               <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" />
@@ -177,7 +177,7 @@ export default function QpcrAnalysisViz({ protocol, snapshot }: QpcrAnalysisVizP
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <p className="text-meta text-gray-400 mt-1">
+        <p className="text-meta text-foreground-muted mt-1">
           Amber bars = reference / housekeeping target. Blue bars = experimental targets.
         </p>
       </div>
@@ -185,16 +185,16 @@ export default function QpcrAnalysisViz({ protocol, snapshot }: QpcrAnalysisVizP
       {/* Standard curve scatter + fit line */}
       {standardCurveData.points.length > 0 && (
         <div>
-          <h4 className="text-meta font-semibold text-gray-600 uppercase tracking-wider mb-2">
+          <h4 className="text-meta font-semibold text-foreground-muted uppercase tracking-wider mb-2">
             Standard curve
             {standardCurveData.fit && (
-              <span className="ml-2 font-normal text-gray-500">
+              <span className="ml-2 font-normal text-foreground-muted">
                 slope {standardCurveData.fit.slope.toFixed(3)}, R² {standardCurveData.fit.r2.toFixed(3)},
                 efficiency {standardCurveData.fit.eff.toFixed(1)}%
               </span>
             )}
           </h4>
-          <div className="border border-gray-200 rounded-lg p-3 bg-white" style={{ height: 220 }}>
+          <div className="border border-border rounded-lg p-3 bg-surface-raised" style={{ height: 220 }}>
             <ResponsiveContainer width="100%" height="100%">
               <ScatterChart margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                 <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" />
@@ -243,26 +243,26 @@ export default function QpcrAnalysisViz({ protocol, snapshot }: QpcrAnalysisVizP
       {/* ΔΔCq fold-change readouts */}
       {deltaRows.length > 0 && (
         <div>
-          <h4 className="text-meta font-semibold text-gray-600 uppercase tracking-wider mb-2">
+          <h4 className="text-meta font-semibold text-foreground-muted uppercase tracking-wider mb-2">
             ΔΔCq fold-change vs {referenceTarget?.target || "reference"}
           </h4>
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <div className="border border-border rounded-lg overflow-hidden">
             <table className="w-full text-meta">
-              <thead className="bg-gray-50">
+              <thead className="bg-surface-sunken">
                 <tr>
-                  <th className="px-3 py-1.5 text-left font-medium text-gray-600">Target</th>
-                  <th className="px-3 py-1.5 text-right font-medium text-gray-600">Cq</th>
-                  <th className="px-3 py-1.5 text-right font-medium text-gray-600">ΔCq</th>
-                  <th className="px-3 py-1.5 text-right font-medium text-gray-600">Fold change (2⁻ΔΔᶜq)</th>
+                  <th className="px-3 py-1.5 text-left font-medium text-foreground-muted">Target</th>
+                  <th className="px-3 py-1.5 text-right font-medium text-foreground-muted">Cq</th>
+                  <th className="px-3 py-1.5 text-right font-medium text-foreground-muted">ΔCq</th>
+                  <th className="px-3 py-1.5 text-right font-medium text-foreground-muted">Fold change (2⁻ΔΔᶜq)</th>
                 </tr>
               </thead>
               <tbody>
                 {deltaRows.map((row, idx) => (
-                  <tr key={row.target} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                  <tr key={row.target} className={idx % 2 === 0 ? "bg-surface-raised" : "bg-surface-sunken"}>
                     <td className="px-3 py-1">{row.target}</td>
                     <td className="px-3 py-1 text-right">{row.cq.toFixed(2)}</td>
                     <td className="px-3 py-1 text-right">{row.deltaCq.toFixed(2)}</td>
-                    <td className="px-3 py-1 text-right font-medium text-blue-700">
+                    <td className="px-3 py-1 text-right font-medium text-blue-700 dark:text-blue-300">
                       {row.foldChange < 0.01 || row.foldChange > 100
                         ? row.foldChange.toExponential(2)
                         : row.foldChange.toFixed(3)}
@@ -272,7 +272,7 @@ export default function QpcrAnalysisViz({ protocol, snapshot }: QpcrAnalysisVizP
               </tbody>
             </table>
           </div>
-          <p className="text-meta text-gray-400 mt-1">
+          <p className="text-meta text-foreground-muted mt-1">
             v2 ΔΔCq treats a single experimental condition vs the reference target. Multi-condition
             comparisons (induced vs uninduced sample-level fold change) live in v2.1.
           </p>
@@ -282,15 +282,15 @@ export default function QpcrAnalysisViz({ protocol, snapshot }: QpcrAnalysisVizP
       {/* Melt-curve Tm readouts (when entered) */}
       {snapshot?.melt_tms && Object.keys(snapshot.melt_tms).length > 0 && (
         <div>
-          <h4 className="text-meta font-semibold text-gray-600 uppercase tracking-wider mb-2">
+          <h4 className="text-meta font-semibold text-foreground-muted uppercase tracking-wider mb-2">
             Melt-curve Tm readouts
           </h4>
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <div className="border border-border rounded-lg overflow-hidden">
             <table className="w-full text-meta">
-              <thead className="bg-gray-50">
+              <thead className="bg-surface-sunken">
                 <tr>
-                  <th className="px-3 py-1.5 text-left font-medium text-gray-600">Target</th>
-                  <th className="px-3 py-1.5 text-right font-medium text-gray-600">Tm (°C)</th>
+                  <th className="px-3 py-1.5 text-left font-medium text-foreground-muted">Target</th>
+                  <th className="px-3 py-1.5 text-right font-medium text-foreground-muted">Tm (°C)</th>
                 </tr>
               </thead>
               <tbody>
@@ -298,7 +298,7 @@ export default function QpcrAnalysisViz({ protocol, snapshot }: QpcrAnalysisVizP
                   const tm = snapshot.melt_tms?.[r.id];
                   if (tm === undefined) return null;
                   return (
-                    <tr key={r.id} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                    <tr key={r.id} className={idx % 2 === 0 ? "bg-surface-raised" : "bg-surface-sunken"}>
                       <td className="px-3 py-1">{r.target || "(unnamed)"}</td>
                       <td className="px-3 py-1 text-right">{tm.toFixed(1)}</td>
                     </tr>

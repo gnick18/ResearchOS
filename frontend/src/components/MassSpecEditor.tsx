@@ -145,8 +145,8 @@ export default function MassSpecEditor({
   };
 
   const inputCls =
-    "w-full px-2 py-1 border border-gray-200 rounded text-meta text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:bg-gray-50 disabled:text-gray-500";
-  const labelCls = "block text-meta font-medium text-gray-500 mb-1";
+    "w-full px-2 py-1 border border-border rounded text-meta text-foreground focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:bg-surface-sunken disabled:text-foreground-muted";
+  const labelCls = "block text-meta font-medium text-foreground-muted mb-1";
 
   return (
     <div className="space-y-6">
@@ -214,15 +214,15 @@ export default function MassSpecEditor({
         />
       </div>
 
-      <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-        <h4 className="text-body font-semibold text-gray-700">Source params</h4>
-        <label className="flex items-center gap-2 text-meta text-gray-500 cursor-pointer">
+      <div className="flex items-center justify-between border-t border-border pt-3">
+        <h4 className="text-body font-semibold text-foreground">Source params</h4>
+        <label className="flex items-center gap-2 text-meta text-foreground-muted cursor-pointer">
           <input
             type="checkbox"
             checked={showAllFields}
             onChange={(e) => onShowAllFieldsChange?.(e.target.checked)}
             disabled={readOnly || !onShowAllFieldsChange}
-            className="rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+            className="rounded border-border text-violet-600 dark:text-violet-300 focus:ring-violet-500"
           />
           Show all fields
         </label>
@@ -358,7 +358,7 @@ export default function MassSpecEditor({
         <label className={labelCls}>
           Other source notes
           {ionizationMode === "esi_switching" && (
-            <span className="text-amber-600 font-normal ml-2">
+            <span className="text-amber-600 dark:text-amber-300 font-normal ml-2">
               (use for polarity-switching schedule timing)
             </span>
           )}
@@ -374,8 +374,8 @@ export default function MassSpecEditor({
       </div>
 
       {/* Scan params — always shown */}
-      <div className="border-t border-gray-100 pt-3">
-        <h4 className="text-body font-semibold text-gray-700 mb-3">Scan params</h4>
+      <div className="border-t border-border pt-3">
+        <h4 className="text-body font-semibold text-foreground mb-3">Scan params</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>m/z range (low)</label>
@@ -424,13 +424,13 @@ export default function MassSpecEditor({
           </div>
         </div>
 
-        <label className="flex items-center gap-2 mt-3 text-meta text-gray-700 cursor-pointer">
+        <label className="flex items-center gap-2 mt-3 text-meta text-foreground cursor-pointer">
           <input
             type="checkbox"
             checked={scan.is_msms}
             onChange={(e) => setScan({ is_msms: e.target.checked })}
             disabled={readOnly || !onScanChange}
-            className="rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+            className="rounded border-border text-violet-600 dark:text-violet-300 focus:ring-violet-500"
           />
           MS/MS workflow (precursor isolation + fragmentation)
         </label>
@@ -465,8 +465,8 @@ export default function MassSpecEditor({
       </div>
 
       {/* Calibration — always shown */}
-      <div className="border-t border-gray-100 pt-3">
-        <h4 className="text-body font-semibold text-gray-700 mb-3">Calibration</h4>
+      <div className="border-t border-border pt-3">
+        <h4 className="text-body font-semibold text-foreground mb-3">Calibration</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>Reference standard</label>

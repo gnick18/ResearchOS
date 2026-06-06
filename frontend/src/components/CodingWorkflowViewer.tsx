@@ -146,10 +146,10 @@ export default function CodingWorkflowViewer({
   return (
     <>
       <div className="flex flex-col h-full">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
-            <h3 className="text-body font-semibold text-gray-900">{currentMethod.name}</h3>
-            <p className="text-meta text-gray-400 mt-0.5">{meta.label}</p>
+            <h3 className="text-body font-semibold text-foreground">{currentMethod.name}</h3>
+            <p className="text-meta text-foreground-muted mt-0.5">{meta.label}</p>
           </div>
           <div className="flex items-center gap-2">
             {canModify && !currentMethod.is_shared_with_me && (
@@ -158,8 +158,8 @@ export default function CodingWorkflowViewer({
                   onClick={() => setShowSharePopup(true)}
                   className={`px-3 py-1.5 text-meta rounded-lg ${
                     isWholeLab
-                      ? "bg-green-50 text-green-600 hover:bg-green-100"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      ? "bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-500/20"
+                      : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
                   }`}
                 >
                   <span className="flex items-center gap-1">
@@ -172,7 +172,7 @@ export default function CodingWorkflowViewer({
             {canModify && (
               <button
                 onClick={() => onDelete(currentMethod.id)}
-                className="px-3 py-1.5 text-meta text-red-500 rounded-lg hover:bg-red-50"
+                className="px-3 py-1.5 text-meta text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"
               >
                 Delete
               </button>
@@ -187,7 +187,7 @@ export default function CodingWorkflowViewer({
             <Tooltip label="Close" placement="bottom">
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 text-lg ml-2"
+                className="text-foreground-muted hover:text-foreground text-heading ml-2"
               >
                 ✕
               </button>
@@ -196,10 +196,10 @@ export default function CodingWorkflowViewer({
         </div>
         <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
-            <p className="text-body text-gray-400 animate-pulse">Loading coding workflow…</p>
+            <p className="text-body text-foreground-muted animate-pulse">Loading coding workflow…</p>
           ) : !protocol ? (
             <div className="text-center py-8">
-              <p className="text-body text-gray-500">
+              <p className="text-body text-foreground-muted">
                 Coding workflow not found. It may have been deleted.
               </p>
             </div>
@@ -279,22 +279,22 @@ export function CodingWorkflowRenderer({
   return (
     <div className="space-y-4">
       {description && (
-        <p className="text-body text-gray-600">{description}</p>
+        <p className="text-body text-foreground-muted">{description}</p>
       )}
       {externalPath && (
-        <div className="rounded-lg border border-cyan-100 bg-cyan-50/60 px-3 py-2 text-meta">
-          <div className="font-medium text-cyan-700">Open in your editor</div>
-          <code className="block mt-0.5 font-mono text-cyan-800 break-all">
+        <div className="rounded-lg border border-cyan-100 bg-cyan-50 dark:bg-cyan-500/10/60 px-3 py-2 text-meta">
+          <div className="font-medium text-cyan-700 dark:text-cyan-300">Open in your editor</div>
+          <code className="block mt-0.5 font-mono text-cyan-800 dark:text-cyan-200 break-all">
             {externalPath}
           </code>
-          <p className="text-cyan-700/70 mt-1">
+          <p className="text-cyan-700 dark:text-cyan-300/70 mt-1">
             Copy this path into your editor — the browser cannot open files
             outside the data folder for you.
           </p>
         </div>
       )}
       {!embeddedCode && !externalPath && (
-        <p className="text-meta text-gray-400 italic">
+        <p className="text-meta text-foreground-muted italic">
           No embedded code or external path set yet.
         </p>
       )}
@@ -323,7 +323,7 @@ function NotebookRender({
 }) {
   if (result.error) {
     return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-meta text-amber-700">
+      <div className="rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-3 text-meta text-amber-700 dark:text-amber-300">
         Could not parse notebook: {result.error}
       </div>
     );
@@ -333,7 +333,7 @@ function NotebookRender({
   return (
     <div className="space-y-3">
       {warnings.length > 0 && (
-        <details className="text-meta text-amber-700">
+        <details className="text-meta text-amber-700 dark:text-amber-300">
           <summary className="cursor-pointer">
             {warnings.length} parse warning{warnings.length === 1 ? "" : "s"}
           </summary>
@@ -354,7 +354,7 @@ function NotebookRender({
 function NotebookCell({ cell, hint }: { cell: ParsedNbCell; hint: string }) {
   if (cell.cellType === "markdown") {
     return (
-      <div className="rounded-lg border border-gray-100 p-3 bg-white">
+      <div className="rounded-lg border border-border p-3 bg-surface-raised">
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkUnderline]}
           rehypePlugins={[[rehypeSanitize, markdownSanitizeSchema], rehypeHighlight]}
@@ -366,15 +366,15 @@ function NotebookCell({ cell, hint }: { cell: ParsedNbCell; hint: string }) {
   }
   if (cell.cellType === "raw") {
     return (
-      <pre className="text-meta bg-gray-50 border border-gray-100 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap">
+      <pre className="text-meta bg-surface-sunken border border-border rounded-lg p-3 overflow-x-auto whitespace-pre-wrap">
         {cell.source}
       </pre>
     );
   }
   // code cell
   return (
-    <div className="rounded-lg border border-gray-200 overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 border-b border-gray-200 text-meta text-gray-500">
+    <div className="rounded-lg border border-border overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-1 bg-surface-sunken border-b border-border text-meta text-foreground-muted">
         <span className="font-mono">
           In [{cell.executionCount ?? " "}]:
         </span>
@@ -387,7 +387,7 @@ function NotebookCell({ cell, hint }: { cell: ParsedNbCell; hint: string }) {
         </ReactMarkdown>
       </div>
       {cell.outputs.length > 0 && (
-        <div className="border-t border-gray-100 bg-gray-50/40">
+        <div className="border-t border-border bg-surface-sunken/40">
           {cell.outputs.map((o, i) => (
             <NotebookOutputView key={i} output={o} />
           ))}
@@ -429,7 +429,7 @@ function NotebookOutputView({ output }: { output: ParsedNbOutput }) {
   return (
     <pre
       className={`text-meta p-3 overflow-x-auto whitespace-pre-wrap ${
-        isStderr ? "text-red-700 bg-red-50/40" : "text-gray-700"
+        isStderr ? "text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-500/10/40" : "text-foreground"
       }`}
     >
       {output.payload}

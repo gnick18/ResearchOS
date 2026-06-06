@@ -84,15 +84,15 @@ export function StepEditPopup({ step, onSave, onClose, isNew = false }: StepEdit
     >
       <div
         ref={popupRef}
-        className="bg-white rounded-xl shadow-2xl p-6 w-80"
+        className="bg-surface-raised rounded-xl shadow-2xl p-6 w-80"
       >
-        <h3 className="text-body font-semibold text-gray-900 mb-4">
+        <h3 className="text-body font-semibold text-foreground mb-4">
           {isNew ? "Add New Step" : "Edit Step"}
         </h3>
         
         <div className="space-y-4">
           <div>
-            <label className="block text-meta font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-foreground-muted mb-1">
               Step Name
             </label>
             <input
@@ -100,14 +100,14 @@ export function StepEditPopup({ step, onSave, onClose, isNew = false }: StepEdit
               value={name}
               onChange={(e) => setName(e.target.value)}
               data-tour-target="pcr-step-name-input"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="e.g. Denaturation"
               autoFocus
             />
           </div>
 
           <div>
-            <label className="block text-meta font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-foreground-muted mb-1">
               Temperature (°C)
             </label>
             <input
@@ -115,14 +115,14 @@ export function StepEditPopup({ step, onSave, onClose, isNew = false }: StepEdit
               value={temperature}
               onChange={(e) => setTemperature(parseFloat(e.target.value) || 0)}
               data-tour-target="pcr-step-temp-input"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               min="0"
               max="100"
             />
           </div>
 
           <div>
-            <label className="block text-meta font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-foreground-muted mb-1">
               Duration
             </label>
             <div className="flex items-center gap-2">
@@ -132,15 +132,15 @@ export function StepEditPopup({ step, onSave, onClose, isNew = false }: StepEdit
                 onChange={(e) => setDuration(e.target.value)}
                 disabled={isHold}
                 data-tour-target="pcr-step-duration-input"
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                className="flex-1 px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-surface-sunken"
                 placeholder="e.g. 30 sec"
               />
-              <label className="flex items-center gap-1 text-meta text-gray-600 whitespace-nowrap">
+              <label className="flex items-center gap-1 text-meta text-foreground-muted whitespace-nowrap">
                 <input
                   type="checkbox"
                   checked={isHold}
                   onChange={(e) => setIsHold(e.target.checked)}
-                  className="rounded border-gray-300"
+                  className="rounded border-border"
                 />
                 Hold
               </label>
@@ -151,7 +151,7 @@ export function StepEditPopup({ step, onSave, onClose, isNew = false }: StepEdit
         <div className="flex gap-2 mt-6">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 text-body text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
+            className="flex-1 px-4 py-2 text-body text-foreground-muted bg-surface-sunken hover:bg-foreground-muted/15 rounded-lg"
           >
             Cancel
           </button>
@@ -203,21 +203,21 @@ export function CycleEditPopup({ repeats, onSave, onClose }: CycleEditPopupProps
     >
       <div
         ref={popupRef}
-        className="bg-white rounded-xl shadow-2xl p-6 w-64"
+        className="bg-surface-raised rounded-xl shadow-2xl p-6 w-64"
       >
-        <h3 className="text-body font-semibold text-gray-900 mb-4">
+        <h3 className="text-body font-semibold text-foreground mb-4">
           Edit Cycle Repeats
         </h3>
         
         <div>
-          <label className="block text-meta font-medium text-gray-500 mb-1">
+          <label className="block text-meta font-medium text-foreground-muted mb-1">
             Number of Repeats
           </label>
           <input
             type="number"
             value={newRepeats}
             onChange={(e) => setNewRepeats(parseInt(e.target.value) || 1)}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
             min="1"
             max="100"
             autoFocus
@@ -227,7 +227,7 @@ export function CycleEditPopup({ repeats, onSave, onClose }: CycleEditPopupProps
         <div className="flex gap-2 mt-6">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 text-body text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
+            className="flex-1 px-4 py-2 text-body text-foreground-muted bg-surface-sunken hover:bg-foreground-muted/15 rounded-lg"
           >
             Cancel
           </button>
@@ -346,7 +346,7 @@ function StepBlock({
               className={`w-6 h-6 rounded-full flex items-center justify-center text-meta font-bold transition-colors ${
                 canMoveLeft
                   ? "bg-blue-500 text-white hover:bg-blue-600"
-                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-foreground-muted/15 text-foreground-muted cursor-not-allowed"
               }`}
             >
               ←
@@ -362,7 +362,7 @@ function StepBlock({
               className={`w-6 h-6 rounded-full flex items-center justify-center text-meta font-bold transition-colors ${
                 canMoveRight
                   ? "bg-blue-500 text-white hover:bg-blue-600"
-                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-foreground-muted/15 text-foreground-muted cursor-not-allowed"
               }`}
             >
               →
@@ -376,7 +376,7 @@ function StepBlock({
                 e.stopPropagation();
                 onRemoveFromCycle(block.id);
               }}
-              className="ml-1 px-2 py-1 text-meta font-medium bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors whitespace-nowrap"
+              className="ml-1 px-2 py-1 text-meta font-medium bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-300 rounded-lg hover:bg-red-200 transition-colors whitespace-nowrap"
               title="Remove from cycle"
             >
               Remove from Cycle
@@ -391,14 +391,14 @@ function StepBlock({
                   e.stopPropagation();
                   setShowCycleDropdown(!showCycleDropdown);
                 }}
-                className="ml-1 px-2 py-1 text-meta font-medium bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200 transition-colors whitespace-nowrap"
+                className="ml-1 px-2 py-1 text-meta font-medium bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-300 rounded-lg hover:bg-purple-200 transition-colors whitespace-nowrap"
                 title="Add to cycle"
               >
                 Add to Cycle
               </button>
               
               {showCycleDropdown && (
-                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 min-w-[120px]">
+                <div className="absolute top-full left-0 mt-1 bg-surface-raised border border-border rounded-lg shadow-lg z-20 min-w-[120px]">
                   {cycleContainers.map((container, idx) => (
                     <button
                       key={container.id}
@@ -407,7 +407,7 @@ function StepBlock({
                         onAddToCycle(block.id, idx);
                         setShowCycleDropdown(false);
                       }}
-                      className="w-full px-3 py-2 text-meta text-left text-gray-700 hover:bg-purple-50 first:rounded-t-lg last:rounded-b-lg"
+                      className="w-full px-3 py-2 text-meta text-left text-foreground hover:bg-purple-50 dark:hover:bg-purple-500/10 first:rounded-t-lg last:rounded-b-lg"
                     >
                       Cycle {idx + 1} (x{container.cycleRepeats || 35})
                     </button>
@@ -449,14 +449,14 @@ function StepBlock({
             </div>
 
             {/* Step name label */}
-            <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-meta text-gray-500 whitespace-nowrap pointer-events-none">
+            <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-meta text-foreground-muted whitespace-nowrap pointer-events-none">
               {block.step.name.length > 10 ? block.step.name.substring(0, 10) + "..." : block.step.name}
             </div>
 
             {/* Erase indicator */}
             {isErasing && isEditing && (
               <div className="absolute inset-0 flex items-center justify-center bg-red-500/20 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" data-force-hover-controls-target>
-                <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-5 h-5 text-red-600 dark:text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </div>
@@ -606,7 +606,7 @@ function CycleContainer({
     <div
       data-cycle-container
       className={`
-        relative border-2 border-dashed rounded-xl p-3 bg-purple-50/50 min-w-[80px]
+        relative border-2 border-dashed rounded-xl p-3 bg-purple-50 dark:bg-purple-500/10/50 min-w-[80px]
         transition-all duration-150
         ${isEditing ? "cursor-default" : ""}
         border-purple-300
@@ -689,7 +689,7 @@ export function EditingToolbar({
         className={`px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
           isEditing
             ? "bg-blue-600 text-white hover:bg-blue-700"
-            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            : "bg-surface-sunken text-foreground hover:bg-foreground-muted/15"
         }`}
       >
         {isEditing ? "✓ Done Editing" : "Edit Cycle"}
@@ -697,14 +697,14 @@ export function EditingToolbar({
       
       {isEditing && (
         <>
-          <div className="w-px h-6 bg-gray-200" />
+          <div className="w-px h-6 bg-foreground-muted/15" />
           
           <button
             onClick={onToggleEraser}
             className={`px-3 py-1.5 text-meta font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
               isErasing
                 ? "bg-red-500 text-white hover:bg-red-600"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                : "bg-surface-sunken text-foreground hover:bg-foreground-muted/15"
             }`}
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -718,7 +718,7 @@ export function EditingToolbar({
             className={`px-3 py-1.5 text-meta font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
               isCycleErasing
                 ? "bg-purple-500 text-white hover:bg-purple-600"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                : "bg-surface-sunken text-foreground hover:bg-foreground-muted/15"
             }`}
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -730,7 +730,7 @@ export function EditingToolbar({
           <button
             onClick={onAddCycle}
             data-tour-target="pcr-add-cycle"
-            className="px-3 py-1.5 text-meta font-medium bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors"
+            className="px-3 py-1.5 text-meta font-medium bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 rounded-lg hover:bg-purple-200 transition-colors"
           >
             + Add Cycle
           </button>
@@ -738,14 +738,14 @@ export function EditingToolbar({
           <button
             onClick={onAddStep}
             data-tour-target="pcr-add-step"
-            className="px-3 py-1.5 text-meta font-medium bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+            className="px-3 py-1.5 text-meta font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 transition-colors"
           >
             + Add Step
           </button>
           
           <button
             onClick={onClearAll}
-            className="px-3 py-1.5 text-meta font-medium bg-gray-100 text-gray-600 rounded-lg hover:bg-red-100 hover:text-red-600 transition-colors"
+            className="px-3 py-1.5 text-meta font-medium bg-surface-sunken text-foreground-muted rounded-lg hover:bg-red-100 dark:hover:bg-red-500/20 hover:text-red-600 dark:hover:text-red-300 transition-colors"
           >
             Clear All
           </button>
@@ -1655,7 +1655,7 @@ export function InteractiveGradientEditor({
       
       {/* Instructions when editing */}
       {isEditing && (
-        <div className="text-meta text-gray-500 mb-3 flex items-center gap-4 flex-wrap">
+        <div className="text-meta text-foreground-muted mb-3 flex items-center gap-4 flex-wrap">
           <span>• Click to select, use arrows to move</span>
           <span>• Double-click to edit</span>
           {isErasing && <span className="text-red-500 font-medium">• Gradient Eraser: Click a block to erase it</span>}
@@ -1665,11 +1665,11 @@ export function InteractiveGradientEditor({
       )}
       
       {/* Blocks display */}
-      <div className="flex items-start gap-3 flex-wrap p-4 pt-6 bg-gray-50 rounded-lg min-h-[140px] pb-12">
+      <div className="flex items-start gap-3 flex-wrap p-4 pt-6 bg-surface-sunken rounded-lg min-h-[140px] pb-12">
         {renderBlocks()}
         
         {blocks.length === 0 && (
-          <div className="text-body text-gray-400 w-full text-center py-8">
+          <div className="text-body text-foreground-muted w-full text-center py-8">
             No steps yet. Use &quot;Add Step&quot; to begin.
           </div>
         )}
@@ -1711,17 +1711,17 @@ export function InteractiveGradientEditor({
           // 2026-05-27).
           data-tour-popup-occluding="gradient-editor-add-cycle"
         >
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-72">
-            <h3 className="text-body font-semibold text-gray-900 mb-3">
+          <div className="bg-surface-raised rounded-xl shadow-2xl p-6 w-72">
+            <h3 className="text-body font-semibold text-foreground mb-3">
               Add Empty Cycle
             </h3>
-            <p className="text-meta text-gray-500 mb-4">
+            <p className="text-meta text-foreground-muted mb-4">
               Adds an empty thermal cycle. Move steps into it once it&apos;s created.
             </p>
             <div className="flex gap-2">
               <button
                 onClick={() => setAddingCycle(false)}
-                className="flex-1 px-4 py-2 text-body text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                className="flex-1 px-4 py-2 text-body text-foreground-muted bg-surface-sunken hover:bg-foreground-muted/15 rounded-lg"
               >
                 Cancel
               </button>

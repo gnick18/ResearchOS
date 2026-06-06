@@ -143,10 +143,10 @@ export default function QpcrAnalysisViewer({
   return (
     <>
       <div className="flex flex-col h-full">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
-            <h3 className="text-body font-semibold text-gray-900">{currentMethod.name}</h3>
-            <p className="text-meta text-gray-400 mt-0.5">qPCR analysis</p>
+            <h3 className="text-body font-semibold text-foreground">{currentMethod.name}</h3>
+            <p className="text-meta text-foreground-muted mt-0.5">qPCR analysis</p>
           </div>
           <div className="flex items-center gap-2">
             {canModify && !currentMethod.is_shared_with_me && (
@@ -155,8 +155,8 @@ export default function QpcrAnalysisViewer({
                   onClick={() => setShowSharePopup(true)}
                   className={`px-3 py-1.5 text-meta rounded-lg ${
                     isWholeLab
-                      ? "bg-green-50 text-green-600 hover:bg-green-100"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      ? "bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-500/20"
+                      : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
                   }`}
                 >
                   <span className="flex items-center gap-1">
@@ -169,7 +169,7 @@ export default function QpcrAnalysisViewer({
             {canModify && (
               <button
                 onClick={() => onDelete(currentMethod.id)}
-                className="px-3 py-1.5 text-meta text-red-500 rounded-lg hover:bg-red-50"
+                className="px-3 py-1.5 text-meta text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"
               >
                 Delete
               </button>
@@ -184,7 +184,7 @@ export default function QpcrAnalysisViewer({
             <Tooltip label="Close" placement="bottom">
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 text-lg ml-2"
+                className="text-foreground-muted hover:text-foreground text-heading ml-2"
               >
                 ✕
               </button>
@@ -193,10 +193,10 @@ export default function QpcrAnalysisViewer({
         </div>
         <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
-            <p className="text-body text-gray-400 animate-pulse">Loading qPCR analysis…</p>
+            <p className="text-body text-foreground-muted animate-pulse">Loading qPCR analysis…</p>
           ) : !protocol ? (
             <div className="text-center py-8">
-              <p className="text-body text-gray-500">
+              <p className="text-body text-foreground-muted">
                 qPCR analysis protocol not found. It may have been deleted.
               </p>
             </div>
