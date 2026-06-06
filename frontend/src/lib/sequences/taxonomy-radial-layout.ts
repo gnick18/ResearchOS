@@ -620,6 +620,136 @@ export function viewportRectFromTransform(
   };
 }
 
+/** Parameters the thickness legend needs, the same knobs the layout's thickness
+ *  pass uses. Defaults mirror DEFAULTS so a caller can pass just the visible
+ *  counts and get a legend that matches an unmodified layout. */
+export interface ThicknessLegendParams {
+  leafFloor?: number;
+  maxThickness?: number;
+  minThickness?: number;
+}
+
+/** One reference sample in the thickness legend, a species count paired with the
+ *  stroke thickness that count currently draws at. The render layer draws a short
+ *  line at `thickness` and labels it with `species`. */
+export interface ThicknessLegendEntry {
+  species: number;
+  thickness: number;
+}
+
+/** Round a species count to a calm human number (1 to 2 significant figures), so
+ *  the legend reads "2,000,000" or "1,000" rather than a raw min / max. Small
+ *  counts (under 10) are kept exact so a tens / single-digit drill stays honest. */
+function niceSpeciesCount(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  if (value < 10) return Math.max(1, Math.round(value));
+  const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
+  // Round the leading two digits, then drop the trailing one to a single
+  // significant figure for the big end so a "2,000,000" reads cleaner than
+  // "1,900,000". Two sig figs under 1000 keeps a "120" honest.
+  const twoSig = Math.round(value / (magnitude / 10)) * (magnitude / 10);
+  if (value >= 1000) {
+    return Math.round(twoSig / magnitude) * magnitude;
+  }
+  return twoSig;
+}
+
+/**
+ * The thickness-legend samples for the CURRENTLY VISIBLE nodes, the adaptive key
+ * a render layer draws as a "more species, thicker branch" scale. It reuses the
+ * SAME thickness mapping the layout's thickness pass uses, so a legend sample at
+ * the visible max species draws at exactly the fattest visible branch's width and
+ * never a second, drifting scale.
+ *
+ * The mapping: the visible counts give a damped-weight range [minW, maxW]; a
+ * count's thickness is minThickness + t * (maxThickness - minThickness) where
+ * t = (dampedWeight(count) - minW) / (maxW - minW). When the range is degenerate
+ * (one distinct weight) every count maps to maxThickness, matching the layout.
+ *
+ * We pick 2 to 3 representative species values spanning the visible range with
+ * GEOMETRIC spacing (so the steps read evenly on a log diversity axis), round
+ * each to a calm human number, sort thick to thin, and de-duplicate so a tiny
+ * range (a family of a few species) collapses to one or two honest samples rather
+ * than three identical lines. Empty input returns an empty legend.
+ *
+ * Pure and exported so a test can pin the adaptation (thick-to-thin order, range
+ * coverage, the fattest sample matching the layout, the drill-shrink, the
+ * rounding, the tiny-range de-dup).
+ *
+ * @param visibleSpeciesCounts the species counts of the nodes currently on screen
+ * @param params               the thickness knobs (default to the layout's)
+ */
+export function thicknessLegend(
+  visibleSpeciesCounts: number[],
+  params: ThicknessLegendParams = {},
+): ThicknessLegendEntry[] {
+  const leafFloor = params.leafFloor ?? DEFAULTS.leafFloor;
+  const maxThickness = params.maxThickness ?? DEFAULTS.maxThickness;
+  const minThickness = params.minThickness ?? DEFAULTS.minThickness;
+
+  // Sanitize to finite, positive-or-zero counts. An empty (or all-invalid) input
+  // has no scale to show.
+  const counts = visibleSpeciesCounts.filter((c) => Number.isFinite(c));
+  if (counts.length === 0) return [];
+
+  // The visible damped-weight range, the SAME range the layout's thickness pass
+  // derives, so the legend tracks the fattest and thinnest visible branch.
+  let minW = Infinity;
+  let maxW = -Infinity;
+  let minCount = Infinity;
+  let maxCount = -Infinity;
+  for (const c of counts) {
+    const safe = c > 0 ? c : 0;
+    const w = dampedWeight(safe, leafFloor);
+    if (w < minW) minW = w;
+    if (w > maxW) maxW = w;
+    if (safe < minCount) minCount = safe;
+    if (safe > maxCount) maxCount = safe;
+  }
+
+  // The layout's exact thickness mapping, reused verbatim so a legend sample at
+  // the visible max draws at the fattest visible branch's width.
+  const thicknessOf = (speciesCount: number): number => {
+    const w = dampedWeight(speciesCount, leafFloor);
+    if (maxW <= minW) return maxThickness;
+    const t = (w - minW) / (maxW - minW);
+    return minThickness + t * (maxThickness - minThickness);
+  };
+
+  // Pick representative species values spanning [minCount, maxCount]. The TOP
+  // sample tracks the visible max, the bottom the visible min, and a middle
+  // sample sits at their geometric mean so the steps read evenly on the log
+  // diversity axis. log1p / expm1 keep a zero-species floor honest.
+  const sampleCounts: number[] = [];
+  if (maxCount > minCount) {
+    // Geometric midpoint in log1p space, so a 1 to 2,000,000 span lands the
+    // middle near the thousands, not the millions.
+    const midLog = (Math.log1p(minCount) + Math.log1p(maxCount)) / 2;
+    const mid = Math.expm1(midLog);
+    sampleCounts.push(maxCount, mid, minCount);
+  } else {
+    // One distinct count: a single honest sample.
+    sampleCounts.push(maxCount);
+  }
+
+  // Round each to a calm human number for the LABEL, pair it with the thickness
+  // of the ORIGINAL representative value (so the top line still draws at the true
+  // fattest visible width), sort thick to thin, and de-duplicate by the rounded
+  // species value so a tiny range collapses rather than showing identical lines.
+  const seen = new Set<number>();
+  const entries: ThicknessLegendEntry[] = [];
+  for (const raw of sampleCounts) {
+    const species = niceSpeciesCount(raw);
+    if (species <= 0) continue;
+    if (seen.has(species)) continue;
+    seen.add(species);
+    entries.push({ species, thickness: thicknessOf(raw) });
+  }
+
+  entries.sort((a, b) => b.thickness - a.thickness);
+  return entries;
+}
+
 /** Convert a laid-out node's polar position to cartesian, the render layer's
  *  one shared trig helper (kept here so the layout owns the angle convention).
  *  Angle 0 points up (negative y), increasing clockwise, the dendrogram norm. */

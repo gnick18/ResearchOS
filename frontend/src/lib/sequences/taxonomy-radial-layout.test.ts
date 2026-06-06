@@ -17,6 +17,7 @@ import {
   viewportCenterPoint,
   subtreeBounds,
   fitTransform,
+  thicknessLegend,
   polarToCartesian,
   type RadialInputNode,
   type RadialLaidOutNode,
@@ -537,5 +538,117 @@ describe("labelScaleForLevel", () => {
   it("hides a negative or non-finite level", () => {
     expect(labelScaleForLevel(-1, 3)).toBe(0);
     expect(labelScaleForLevel(Number.NaN, 3)).toBe(0);
+  });
+});
+
+describe("thicknessLegend", () => {
+  // The same default thickness knobs the layout uses, so the legend's fattest
+  // sample must equal the layout's max thickness.
+  const DEFAULT_MAX = 14;
+  const DEFAULT_MIN = 1;
+
+  it("returns an empty legend for no visible counts", () => {
+    expect(thicknessLegend([])).toEqual([]);
+    expect(thicknessLegend([Number.NaN, Number.POSITIVE_INFINITY])).toEqual([]);
+  });
+
+  it("is sorted thick to thin (monotonic non-increasing thickness)", () => {
+    const legend = thicknessLegend([1, 1000, 2_000_000]);
+    expect(legend.length).toBeGreaterThanOrEqual(2);
+    for (let i = 1; i < legend.length; i += 1) {
+      expect(legend[i - 1].thickness).toBeGreaterThanOrEqual(legend[i].thickness);
+    }
+  });
+
+  it("spans the visible range (top tracks the max, bottom the min)", () => {
+    const legend = thicknessLegend([1, 1000, 2_000_000]);
+    const top = legend[0];
+    const bottom = legend[legend.length - 1];
+    // The top sample's species is the largest, the bottom's the smallest.
+    expect(top.species).toBeGreaterThan(bottom.species);
+    // The top is near the visible max (2,000,000) and the bottom near the min (1).
+    expect(top.species).toBeGreaterThanOrEqual(1_000_000);
+    expect(bottom.species).toBeLessThanOrEqual(10);
+  });
+
+  it("matches the layout's own thickness for the fattest visible branch", () => {
+    // The fattest visible branch (the max species) draws at the layout's
+    // maxThickness, so the top legend sample must equal it. We pin both the
+    // legend and a real layout pass to the same visible counts.
+    const counts = [1, 1000, 2_000_000];
+    const legend = thicknessLegend(counts);
+    expect(legend[0].thickness).toBeCloseTo(DEFAULT_MAX, 6);
+
+    // Cross-check against a real layout: a root with the fattest and thinnest of
+    // these as leaves. The fattest leaf's drawn thickness is the layout max.
+    const tree: RadialInputNode[] = [
+      { id: "root", name: "Life", rank: "root", speciesCount: 1000, childIds: ["fat", "thin"] },
+      { id: "fat", name: "Fat", rank: "domain", speciesCount: 2_000_000, childIds: [] },
+      { id: "thin", name: "Thin", rank: "domain", speciesCount: 1, childIds: [] },
+    ];
+    const laidOut = layoutRadialTree(tree, "root");
+    const fat = byId(laidOut).get("fat")!;
+    // The layout derives min/max weight from these same three counts, so the
+    // legend's top thickness equals the fattest node's drawn thickness.
+    const legendForTree = thicknessLegend(laidOut.map((n) => n.speciesCount));
+    expect(legendForTree[0].thickness).toBeCloseTo(fat.thickness, 6);
+  });
+
+  it("draws the thinnest sample at the layout's minimum thickness", () => {
+    const legend = thicknessLegend([1, 1000, 2_000_000]);
+    expect(legend[legend.length - 1].thickness).toBeCloseTo(DEFAULT_MIN, 6);
+  });
+
+  it("shrinks when the visible max shrinks (a drill into a family)", () => {
+    // Whole tree: a millions-rich max. After drilling into a small family the
+    // visible max is tens, so the top legend sample drops by orders of magnitude.
+    const whole = thicknessLegend([1, 1000, 2_000_000]);
+    const drilled = thicknessLegend([1, 8, 40]);
+    expect(drilled[0].species).toBeLessThan(whole[0].species);
+    expect(drilled[0].species).toBeLessThanOrEqual(50);
+    // The drilled legend still spans its own (tiny) range thick to thin.
+    expect(drilled[0].thickness).toBeGreaterThanOrEqual(
+      drilled[drilled.length - 1].thickness,
+    );
+  });
+
+  it("rounds species to calm human numbers (1 to 2 significant figures)", () => {
+    const legend = thicknessLegend([1, 999, 1_873_452]);
+    // The big end rounds to a single-significant-figure million, not the raw
+    // 1,873,452.
+    const top = legend[0].species;
+    expect(top % 100000).toBe(0);
+    expect(top).toBeGreaterThanOrEqual(1_000_000);
+    // Every label is a whole number.
+    for (const e of legend) {
+      expect(Number.isInteger(e.species)).toBe(true);
+    }
+  });
+
+  it("de-duplicates a tiny range rather than showing identical lines", () => {
+    // A family of two or three species: the rounded samples collapse, so the
+    // legend shows one or two honest entries, never three identical lines.
+    const legend = thicknessLegend([2, 3]);
+    const speciesValues = legend.map((e) => e.species);
+    expect(new Set(speciesValues).size).toBe(speciesValues.length);
+    expect(legend.length).toBeGreaterThanOrEqual(1);
+    expect(legend.length).toBeLessThanOrEqual(3);
+  });
+
+  it("collapses a single distinct count to one sample", () => {
+    const legend = thicknessLegend([5, 5, 5]);
+    expect(legend).toHaveLength(1);
+    expect(legend[0].species).toBe(5);
+    // One distinct weight maps every count to the layout's max thickness.
+    expect(legend[0].thickness).toBeCloseTo(DEFAULT_MAX, 6);
+  });
+
+  it("honors custom thickness params", () => {
+    const legend = thicknessLegend([1, 1_000_000], {
+      minThickness: 2,
+      maxThickness: 20,
+    });
+    expect(legend[0].thickness).toBeCloseTo(20, 6);
+    expect(legend[legend.length - 1].thickness).toBeCloseTo(2, 6);
   });
 });

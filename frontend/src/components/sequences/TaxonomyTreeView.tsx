@@ -61,6 +61,7 @@ import {
   polarToCartesian,
   viewportRectFromTransform,
   viewportCenterPoint,
+  thicknessLegend,
   type RadialLaidOutNode,
 } from "@/lib/sequences/taxonomy-radial-layout";
 import {
@@ -247,6 +248,17 @@ function ChevronRightIcon({ className }: { className?: string }) {
   );
 }
 
+// A small "i" info glyph, the toggle for the not-a-phylogeny note in the legend.
+function InfoIcon({ className }: { className?: string }) {
+  return (
+    <svg {...svgBase(className)}>
+      <circle cx="12" cy="12" r="9" />
+      <line x1="12" y1="11" x2="12" y2="16" />
+      <line x1="12" y1="8" x2="12.01" y2="8" />
+    </svg>
+  );
+}
+
 function rankLabel(rank: string): string {
   if (!rank) return "Taxon";
   return rank.charAt(0).toUpperCase() + rank.slice(1);
@@ -324,6 +336,10 @@ export default function TaxonomyTreeView({
   // hides the card. It reads only fields already on the laid-out node (name,
   // rank, species count), so hovering never fetches anything.
   const [hover, setHover] = useState<HoverInfo | null>(null);
+
+  // Whether the not-a-phylogeny note inside the legend is open. Collapsed by
+  // default so the legend stays calm; the info button toggles it.
+  const [disclaimerOpen, setDisclaimerOpen] = useState(false);
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   // The canvas container, the positioning context for the floating hover card.
@@ -438,6 +454,17 @@ export default function TaxonomyTreeView({
         hardCap: NODE_HARD_CAP,
       }),
     [laidOut, zoomScale, viewport],
+  );
+
+  // The ADAPTIVE thickness legend, recomputed every render from the species
+  // counts of the nodes CURRENTLY on screen, through the SAME thickness mapping
+  // the layout uses (thicknessLegend reuses it, never a second scale). The top
+  // sample tracks the visible max, so the labels read "~2,000,000 species" on the
+  // whole tree and collapse to tens / single digits as the user drills into a
+  // family. An empty legend (nothing visible yet) hides the card's scale rows.
+  const legend = useMemo(
+    () => thicknessLegend(visible.map((n) => n.speciesCount)),
+    [visible],
   );
 
   // Wire d3-zoom to the svg once it is mounted. The zoom transforms the inner
@@ -1153,6 +1180,85 @@ export default function TaxonomyTreeView({
                   </div>
                 );
               })()
+            ) : null}
+
+            {/* The adaptive THICKNESS KEY, a calm scale-bar in the bottom-left
+                (zoom chrome sits bottom-right). It reads what branch thickness
+                means right now, with reference lines whose labels track the
+                species counts currently on screen, so it re-reads as the user
+                drills. A small info button toggles the not-a-phylogeny note. The
+                card stops pointer events from reaching the tree only inside its
+                own box, so a pan / zoom drag started anywhere else still works. */}
+            {legend.length > 0 ? (
+              <div
+                data-testid="taxonomy-thickness-legend"
+                className="absolute bottom-4 left-4 z-10 max-w-[15rem] rounded-lg border border-gray-200 bg-white/95 px-3 py-2.5 shadow-sm backdrop-blur-sm"
+                onPointerDown={(e) => e.stopPropagation()}
+                onWheel={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-meta font-semibold text-gray-700">
+                      Branch thickness
+                    </p>
+                    <p className="text-meta leading-snug text-gray-400">
+                      More species, thicker branch.
+                    </p>
+                  </div>
+                  <Tooltip label="What this layout is, and is not">
+                    <button
+                      type="button"
+                      onClick={() => setDisclaimerOpen((v) => !v)}
+                      aria-expanded={disclaimerOpen}
+                      aria-label="What this layout is, and is not"
+                      className="-mr-1 -mt-0.5 shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                    >
+                      <InfoIcon className="h-3.5 w-3.5" />
+                    </button>
+                  </Tooltip>
+                </div>
+
+                <ul className="mt-2 flex flex-col gap-1.5">
+                  {legend.map((entry) => (
+                    <li
+                      key={entry.species}
+                      className="flex items-center gap-2.5"
+                    >
+                      <svg
+                        width={36}
+                        height={16}
+                        viewBox="0 0 36 16"
+                        aria-hidden="true"
+                        className="shrink-0 text-gray-500"
+                      >
+                        <line
+                          x1={2}
+                          y1={8}
+                          x2={34}
+                          y2={8}
+                          stroke="currentColor"
+                          strokeWidth={Math.max(1, Math.min(14, entry.thickness))}
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      <span className="text-meta tabular-nums text-gray-600">
+                        ~{entry.species.toLocaleString()} species
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+
+                {disclaimerOpen ? (
+                  <p
+                    data-testid="taxonomy-not-phylogeny-note"
+                    className="mt-2.5 border-t border-gray-100 pt-2 text-meta leading-snug text-gray-500"
+                  >
+                    Not a phylogenetic tree. Branch length, angle, and distance
+                    carry no evolutionary meaning. The layout only helps you browse
+                    how many species each group holds.
+                  </p>
+                ) : null}
+              </div>
             ) : null}
 
             {/* Zoom chrome */}
