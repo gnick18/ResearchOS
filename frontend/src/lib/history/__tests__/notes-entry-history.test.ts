@@ -1,10 +1,16 @@
 // VC Phase 2 (vc-entry-history sub-bot of HR, 2026-05-30). Bug 1 fix: note
 // CONTENT lives in entries[], edited via notesApi.addEntry / updateEntry /
-// deleteEntry. recordNoteHistory used to be wired ONLY into notesApi.update
-// (the title/description path), so a user typing + saving note BODY content
-// never produced a version row. This pins that every entry mutation records a
-// history row with the correct prev/next states, and that a single logical save
-// produces exactly ONE row (no double-record).
+// deleteEntry.
+//
+// Pilot update (HR, 2026-06-05): LORO_PILOT_ENABLED is now true in production
+// (lib/loro/config.ts), so the Loro doc's native history is the SOLE notes
+// history source. Both recordEntryHistory and notesApi.update short-circuit
+// before the legacy recordNoteHistory call under the flag, and the version
+// sidebar reads from makeLoroHistoryEngine (the Phase 2 VC suite covers that
+// Loro-history path; it cannot be re-asserted here, where no Loro doc runs).
+// These tests therefore pin what is still real under the pilot, that each entry
+// mutation persists the correct note state, AND that the legacy recordNoteHistory
+// path stays dormant so there is no double-write.
 //
 // We mock `@/lib/history` so `recordNoteHistory` is a spy (the engine itself is
 // covered elsewhere) and force HISTORY_ENGINE_ENABLED on. The fileService +
@@ -110,26 +116,20 @@ beforeEach(() => {
   clearCurrentUserCache();
 });
 
-describe("notes entry mutations record version history (Bug 1)", () => {
-  it("updateEntry records ONE history row with the pre/post note states", async () => {
+describe("notes entry mutations under the Loro pilot (Bug 1, pilot update)", () => {
+  it("updateEntry persists the new content; the legacy history path stays dormant", async () => {
     seedNote("mira");
     const updated = await notesApi.updateEntry(11, "entry-a", {
       content: "new content",
     });
     expect(updated?.entries[0].content).toBe("new content");
 
-    // Exactly one row for one save: no double-record.
-    expect(recordNoteHistory).toHaveBeenCalledTimes(1);
-    const arg = recordNoteHistory.mock.calls[0][0];
-    expect(arg.type).toBe("update");
-    expect(arg.id).toBe(11);
-    expect(arg.owner).toBe("mira");
-    // prevState is the PRE-edit note (old content); nextState is the saved note.
-    expect(arg.prevState.entries[0].content).toBe("old content");
-    expect(arg.nextState.entries[0].content).toBe("new content");
+    // Loro owns notes history under the pilot, so the legacy recordNoteHistory
+    // path never fires (no double-write).
+    expect(recordNoteHistory).not.toHaveBeenCalled();
   });
 
-  it("addEntry records ONE history row whose nextState includes the new entry", async () => {
+  it("addEntry appends the new entry; the legacy history path stays dormant", async () => {
     seedNote("mira");
     const updated = await notesApi.addEntry(11, {
       title: "Entry B",
@@ -137,47 +137,43 @@ describe("notes entry mutations record version history (Bug 1)", () => {
       content: "fresh",
     });
     expect(updated?.entries).toHaveLength(2);
-
-    expect(recordNoteHistory).toHaveBeenCalledTimes(1);
-    const arg = recordNoteHistory.mock.calls[0][0];
-    expect(arg.type).toBe("update");
-    expect(arg.prevState.entries).toHaveLength(1);
-    expect(arg.nextState.entries).toHaveLength(2);
-    expect(arg.nextState.entries[1]).toMatchObject({
+    expect(updated?.entries[1]).toMatchObject({
       title: "Entry B",
       content: "fresh",
     });
+
+    expect(recordNoteHistory).not.toHaveBeenCalled();
   });
 
-  it("deleteEntry records ONE history row whose nextState drops the entry", async () => {
+  it("deleteEntry drops the entry; the legacy history path stays dormant", async () => {
     seedNote("mira");
     const updated = await notesApi.deleteEntry(11, "entry-a");
     expect(updated?.entries).toHaveLength(0);
 
-    expect(recordNoteHistory).toHaveBeenCalledTimes(1);
-    const arg = recordNoteHistory.mock.calls[0][0];
-    expect(arg.prevState.entries).toHaveLength(1);
-    expect(arg.nextState.entries).toHaveLength(0);
+    expect(recordNoteHistory).not.toHaveBeenCalled();
   });
 
-  it("owner-routed entry edits record history under the TARGET owner", async () => {
+  it("owner-routed entry edits persist under the TARGET owner's folder", async () => {
     seedNote("alex");
     await notesApi.updateEntry(11, "entry-a", { content: "pi edit" }, "alex");
 
-    expect(recordNoteHistory).toHaveBeenCalledTimes(1);
-    const arg = recordNoteHistory.mock.calls[0][0];
-    // The history file lives under the note OWNER's folder, not the actor's.
-    expect(arg.owner).toBe("alex");
+    // The note lives under the OWNER's folder, not the actor's (signed-in mira).
+    const onDisk = fakeFiles["users/alex/notes/11.json"] as Note;
+    expect(onDisk.entries[0].content).toBe("pi edit");
+    expect(recordNoteHistory).not.toHaveBeenCalled();
   });
 
-  it("a single save fires exactly one entry method, so no double-record", async () => {
+  it("two sequential saves persist the latest content; the legacy path stays dormant", async () => {
     // The editor body persists through updateEntry; title/description through
-    // notesApi.update. The popup never calls both for one logical save. Two
-    // sequential, independent edits each produce exactly one row.
+    // notesApi.update. The popup never calls both for one logical save. Each
+    // save now flows into the Loro doc rather than recordNoteHistory.
     seedNote("mira");
     await notesApi.updateEntry(11, "entry-a", { content: "first save" });
-    await notesApi.updateEntry(11, "entry-a", { content: "second save" });
-    expect(recordNoteHistory).toHaveBeenCalledTimes(2);
+    const updated = await notesApi.updateEntry(11, "entry-a", {
+      content: "second save",
+    });
+    expect(updated?.entries[0].content).toBe("second save");
+    expect(recordNoteHistory).not.toHaveBeenCalled();
   });
 
   it("a missing note short-circuits without recording history", async () => {
