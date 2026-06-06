@@ -108,7 +108,7 @@
   --surface-raised: #131c2e;
   --surface-sunken: #0d1424;
   --foreground-muted: #94a3b8;
-  --border-subtle: rgba(255, 255, 255, 0.1);
+  --border-subtle: rgba(255, 255, 255, 0.22);
 
   /* Brighter accent + a translucent soft fill that reads as "selected" on dark. */
   --accent: #38bdf8; /* sky-400, legible on near-black */
