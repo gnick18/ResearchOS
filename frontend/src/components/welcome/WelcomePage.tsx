@@ -116,13 +116,18 @@ function SignInRow({
             <CheckGlyph /> Free, and yours to keep forever.
           </li>
         </ul>
-        {/* BeakerBot fills the gap created by matching Path B's height, so the
-            card reads as warm + intentional instead of empty white space. */}
-        <div
-          aria-hidden
-          className="flex flex-1 items-center justify-center py-3"
-        >
-          <BeakerBot pose="idle" alive className="h-28 w-28" />
+        {/* A still shot of a real notebook fills the gap (vs empty white space)
+            and shows the local notebook concretely, substantive but calm so it
+            does not compete with the CTA below. */}
+        <div className="flex flex-1 items-center py-3">
+          <Image
+            src="/wiki/screenshots/workbench-notes.png"
+            alt="A research notebook open in ResearchOS, running locally on your own machine"
+            width={2880}
+            height={1800}
+            unoptimized
+            className="w-full rounded-lg border border-[#e3ecf6] shadow-sm"
+          />
         </div>
         <button
           type="button"
