@@ -13,7 +13,7 @@
 
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 
-import { paidStorageBytes } from "./config";
+import { FREE_ALLOWANCE_BYTES, paidStorageBytes } from "./config";
 
 let sqlSingleton: NeonQueryFunction<false, false> | null = null;
 
@@ -138,4 +138,14 @@ export async function paidBytesForOwner(ownerKey: string): Promise<number> {
   const sub = await getSubscription(ownerKey);
   if (!sub || sub.status !== "active") return 0;
   return paidStorageBytes(sub.blocks);
+}
+
+/**
+ * Total storage quota (bytes) for an owner, the free allowance plus any
+ * purchased blocks. This is the single number the collab / relay enforcement
+ * layer should check a write against. Defined here so billing owns it and the
+ * enforcement just reads it.
+ */
+export async function quotaBytesForOwner(ownerKey: string): Promise<number> {
+  return FREE_ALLOWANCE_BYTES + (await paidBytesForOwner(ownerKey));
 }
