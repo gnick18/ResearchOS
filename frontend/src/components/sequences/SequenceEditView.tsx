@@ -422,7 +422,7 @@ export default function SequenceEditView({
   /** Optional cross-link from the organism lineage chip into the taxonomy tree
    *  explorer, centered on this sequence's tax id. Absent in read-only / embedded
    *  surfaces. */
-  onExploreInTree?: (taxId: string) => void;
+  onExploreInTree?: (taxId?: string) => void;
   /** When true, the surface is a read-only inspector: no caret/keystroke edit,
    *  no clipboard, no Save, no Add/Edit/Delete feature actions. Selection +
    *  readout still work, and double-clicking a feature opens its READ-ONLY info
@@ -2866,8 +2866,28 @@ export default function SequenceEditView({
             } as EditMenuItem,
           ]
         : []),
+      // sequence editor master. A door into the tree-of-life explorer from an
+      // open sequence (the launcher card is only reachable with nothing open).
+      // Centers on this sequence's organism when known, else opens at the root.
+      ...(onExploreInTree
+        ? [
+            {
+              id: "analyze-explore-tree",
+              label: "Explore the tree of life…",
+              enabled: true,
+              group: !onEnriched,
+              onRun: () => onExploreInTree(sequence.tax_id),
+            } as EditMenuItem,
+          ]
+        : []),
     ],
-    [openDetectFeatures, openAnnotateFromReference, onEnriched],
+    [
+      openDetectFeatures,
+      openAnnotateFromReference,
+      onEnriched,
+      onExploreInTree,
+      sequence.tax_id,
+    ],
   );
 
   const primerMenuItems = useMemo<EditMenuItem[]>(() => {
