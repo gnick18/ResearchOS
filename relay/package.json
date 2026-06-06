@@ -2,16 +2,19 @@
   "name": "researchos-collab-relay",
   "private": true,
   "version": "0.1.0",
-  "description": "Blind WebSocket fan-out Durable Object relay for ResearchOS notes collaboration.",
+  "description": "Durable Object relay + canonical Loro store for ResearchOS notes collaboration (WebSocket fan-out plus per-doc SQLite persistence).",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy"
   },
+  "dependencies": {
+    "loro-crdt": "1.12.3"
+  },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241230.0",
     "typescript": "^5.7.0",
-    "wrangler": "^3.99.0",
+    "wrangler": "^4.0.0",
     "ws": "^8.18.0"
   }
 }

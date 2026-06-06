@@ -31,12 +31,15 @@ This is preserved explicitly: local-first / own-your-data (server only ever hold
 - Convert this proposal to an active build plan first (this doc).
 - DO backup: periodic snapshot of each doc to R2 as a disaster-recovery safety net. YES.
 
-## Open decision (gates phase 1 chunk 3, not chunk 1)
+## Decisions resolved 2026-06-06 (clickable questions)
 
-- Collab auth at the DO. Grant did not confirm the "DO verifies the signature itself" default, so this is OPEN. Two options:
-  - (A) The DO verifies the Ed25519 directory-email signature itself on connect. Fewer moving parts, but the DO needs the member's directory public key, which lives on Neon in phase 1 (D1 later), so the DO must fetch it.
-  - (B) The client first calls a small Vercel/D1 auth endpoint that verifies identity and membership and returns a short-lived token the DO trusts. Keeps key lookups out of the DO.
-  Orchestrator lean = (A) for simplicity, but this needs Grant's call before chunk 3.
+- Collab auth at the DO: (A) the DO verifies the Ed25519 directory-email signature itself on connect. (The DO fetches the member's directory public key, from Neon in phase 1, D1 later.) Implemented in chunk 3.
+- Live transport: PLAINTEXT over TLS (drop the E2E seal for collab). Matches the Option B server-readable decision, unblocks DO compaction and future cross-doc search. Private notes still never upload.
+- Build chunk 1 now.
+
+## Sequencing note (important): relay protocol change is client-coupled
+
+The plaintext + typed protocol is a coupled client+relay change, so it cannot dual-run on one relay. Therefore: chunk 1 (relay code) is COMMITTED but NOT `wrangler deploy`-ed. Prod keeps serving live collab on the CURRENTLY-deployed blind relay until the chunk-2 client also speaks the new protocol; then we deploy relay + ship client together and re-verify. The Neon persistence dual-run (compare DO vs Neon) still happens after that, independently, before the chunk-5 cutover. Chunk 1 is validated locally with `wrangler dev` + a typed-protocol 2-client test.
 
 ## Spike RETIRED 2026-06-06: loro-crdt runs in the Workers runtime
 

@@ -1,23 +1,39 @@
 /**
  * ResearchOS notes collaboration relay.
  *
- * A blind byte-fan-out Cloudflare Durable Object. One DO instance per collab
- * session (addressed by sessionId), so each room is fully isolated. The DO
- * uses the WebSocket Hibernation API so it can be evicted between messages
- * while the sockets remain open (Cloudflare rehydrates it on the next event).
+ * One Durable Object instance per collab session (addressed by sessionId), so
+ * each room is fully isolated. The DO uses the WebSocket Hibernation API, so it
+ * can be evicted between messages while the sockets stay open (Cloudflare
+ * rehydrates it on the next event).
  *
- * The relay is deliberately dumb: every binary message that arrives on one
- * socket is forwarded verbatim to every OTHER socket in the same room. The
- * relay NEVER parses, decodes, or stores the payload. Clients encrypt + sign
- * every update before sending (XChaCha20-Poly1305 ciphertext + Ed25519
- * signature). Peer-side signature verification and envelope authentication are
- * a later hardening step; the MVP relies on the sessionId acting as a
- * capability token plus the clients' own E2E encryption and signature checks.
+ * STORAGE MIGRATION phase 1 (collab -> Durable Object, see
+ * docs/proposals/COLLAB_STORAGE_D1_DO_MIGRATION.md): the DO is no longer a blind
+ * byte pipe. It is now the canonical store. It persists the Loro document in its
+ * own SQLite and serves a catch-up snapshot to every new peer, so a doc
+ * converges even when no other peer is online (durable + offline reconcile).
+ * This replaces the Neon collab tables + the /api/collab/* Vercel routes (those
+ * are removed at the chunk-5 cutover).
  *
- * Adapted from spikes/collab-yjs/src/worker.ts (the single-room throwaway
- * spike). The only production addition is the per-session room routing via
- * idFromName(sessionId).
+ * WIRE PROTOCOL (binary frames; first byte is the type tag):
+ *   0x01 MSG_DOC_UPDATE  loro update bytes  -> import + persist, then fan out
+ *   0x02 MSG_EPHEMERAL   cursor/awareness   -> fan out only (never persisted)
+ * Under the Option B decision, collab updates travel as PLAINTEXT over TLS (no
+ * E2E seal), which is what lets the DO read and compact canonical bytes.
+ *
+ * loro-crdt runs in workerd via the explicit-wasm-module + initSync recipe (the
+ * plain `import { LoroDoc } from "loro-crdt"` resolves to the Node build and
+ * fails with "Invalid URL string"). Spike confirmed 2026-06-06.
  */
+
+import wasm from "loro-crdt/web/loro_wasm_bg.wasm";
+import { initSync, LoroDoc } from "loro-crdt/web/index.js";
+
+// Synchronous wasm init at module load, before any LoroDoc is constructed.
+initSync({ module: wasm });
+
+/** Frame type tags (first byte of every binary message). */
+const MSG_DOC_UPDATE = 0x01;
+const MSG_EPHEMERAL = 0x02;
 
 export interface Env {
   COLLAB_ROOM: DurableObjectNamespace;
@@ -31,25 +47,22 @@ export default {
       return new Response("Not found", { status: 404 });
     }
 
-    // Reject plain HTTP upgrades before touching the DO.
     if (request.headers.get("Upgrade") !== "websocket") {
-      return new Response(
-        "This endpoint requires a WebSocket upgrade",
-        { status: 426, headers: { Upgrade: "websocket" } }
-      );
+      return new Response("This endpoint requires a WebSocket upgrade", {
+        status: 426,
+        headers: { Upgrade: "websocket" },
+      });
     }
 
     const sessionId = url.searchParams.get("session");
     if (!sessionId || sessionId.trim() === "") {
-      return new Response(
-        "Missing required query parameter: session",
-        { status: 400 }
-      );
+      return new Response("Missing required query parameter: session", {
+        status: 400,
+      });
     }
 
-    // Each sessionId maps to its own DO instance (isolated room). idFromName
-    // is deterministic, so any client that knows the sessionId can join the
-    // same room. The sessionId is the capability token at the relay level.
+    // Each sessionId maps to its own DO instance (isolated room). idFromName is
+    // deterministic, so any client that knows the sessionId joins the same room.
     const id = env.COLLAB_ROOM.idFromName(sessionId);
     const stub = env.COLLAB_ROOM.get(id);
     return stub.fetch(request);
@@ -58,33 +71,104 @@ export default {
 
 export class CollabRoom {
   readonly state: DurableObjectState;
+  /** In-memory canonical doc, lazily loaded from SQLite (survives across
+   *  messages until the DO is evicted, then reloaded on the next use). */
+  private doc: LoroDoc | null = null;
+  /** Whether a snapshot has ever been stored for this room (so a brand-new
+   *  empty room does not send a pointless catch-up frame). */
+  private hasStored = false;
 
   constructor(state: DurableObjectState) {
     this.state = state;
+    // One row holds the compacted snapshot. BLOB (SQLite) avoids the 128 KiB
+    // per-value cap of the DO key-value storage API.
+    this.sql().exec(
+      "CREATE TABLE IF NOT EXISTS doc (k TEXT PRIMARY KEY, snapshot BLOB)",
+    );
+  }
+
+  private sql(): SqlStorage {
+    return this.state.storage.sql;
+  }
+
+  /** Loads (once) the canonical doc from SQLite into memory. */
+  private ensureDoc(): LoroDoc {
+    if (this.doc) return this.doc;
+    const d = new LoroDoc();
+    const rows = this.sql()
+      .exec<{ snapshot: ArrayBuffer | null }>("SELECT snapshot FROM doc WHERE k = 'doc'")
+      .toArray();
+    const stored = rows.length > 0 ? rows[0].snapshot : null;
+    if (stored) {
+      const bytes = new Uint8Array(stored);
+      if (bytes.byteLength > 0) {
+        try {
+          d.import(bytes);
+          this.hasStored = true;
+        } catch {
+          // Corrupt snapshot: start clean rather than wedge the room. The next
+          // update re-seeds storage.
+        }
+      }
+    }
+    this.doc = d;
+    return d;
+  }
+
+  /** Imports an incoming update into the canonical doc and re-persists. */
+  private persistUpdate(update: Uint8Array): void {
+    const d = this.ensureDoc();
+    try {
+      d.import(update);
+    } catch {
+      // Malformed update: skip persistence. Live fan-out still happens so a
+      // transient bad frame never blocks the session.
+      return;
+    }
+    const snapshot = d.export({ mode: "snapshot" });
+    this.sql().exec(
+      "INSERT INTO doc (k, snapshot) VALUES ('doc', ?) ON CONFLICT(k) DO UPDATE SET snapshot = excluded.snapshot",
+      snapshot,
+    );
+    this.hasStored = true;
   }
 
   async fetch(request: Request): Promise<Response> {
-    // The outer fetch handler already validates the Upgrade header, but guard
-    // here too in case the DO is addressed directly (e.g. via the test harness
-    // hitting the stub fetch).
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("Expected WebSocket upgrade", { status: 426 });
     }
 
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair) as [WebSocket, WebSocket];
-
-    // Hibernation API: the runtime serialises the socket handle and rehydrates
-    // the DO on the next incoming message. The DO does not need to stay in
-    // memory between messages.
     this.state.acceptWebSocket(server);
+
+    // Catch-up from storage: hand the new peer the canonical snapshot so it
+    // converges immediately, even with no other peer online.
+    const d = this.ensureDoc();
+    if (this.hasStored) {
+      try {
+        server.send(frame(MSG_DOC_UPDATE, d.export({ mode: "snapshot" })));
+      } catch {
+        // New socket already gone; nothing to do.
+      }
+    }
 
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  // Blind fan-out. Forward data verbatim to every peer EXCEPT the sender.
-  // The payload is opaque ciphertext; we never read it.
   webSocketMessage(ws: WebSocket, data: ArrayBuffer | string): void {
+    // Protocol is binary only. Ignore stray text frames.
+    if (typeof data === "string") return;
+    const bytes = new Uint8Array(data);
+    if (bytes.byteLength === 0) return;
+
+    const type = bytes[0];
+    if (type === MSG_DOC_UPDATE) {
+      this.persistUpdate(bytes.subarray(1));
+    }
+    // MSG_EPHEMERAL and any unknown type are fanned out but never persisted.
+
+    // Fan out the frame verbatim (type byte included) to every other peer.
     for (const peer of this.state.getWebSockets()) {
       if (peer === ws) continue;
       try {
@@ -99,7 +183,7 @@ export class CollabRoom {
     try {
       ws.close();
     } catch {
-      // Already closed or closing; nothing to do.
+      // Already closed or closing.
     }
   }
 
@@ -110,4 +194,12 @@ export class CollabRoom {
       // Ignore close errors on an errored socket.
     }
   }
+}
+
+/** Prepends the one-byte type tag to a payload. */
+function frame(type: number, payload: Uint8Array): Uint8Array {
+  const out = new Uint8Array(payload.byteLength + 1);
+  out[0] = type;
+  out.set(payload, 1);
+  return out;
 }
