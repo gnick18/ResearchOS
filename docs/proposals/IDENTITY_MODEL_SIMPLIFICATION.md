@@ -141,12 +141,17 @@ unwrap `passwordBlob`. Success is the password check (a wrong password fails the
 Poly1305 tag). The unwrapped private keys load into the session. No separate hash
 compare.
 
-Migration from `_auth.json`. On the first login after upgrade we momentarily hold
-the plaintext password the user typed. Verify it against the old hash, then
-upgrade in place, generate a keypair, wrap it under that password, write
-`_account.json`, remove `_auth.json`. Members in a newly shared folder with no
-password yet go through the force-set flow, which now also generates and wraps the
-keypair. Seamless, one-time, at login.
+Migration, wipe and re-establish (decided 2026-06-05). There is no keypair
+migration. A user lacking an `_account.json` (every existing user) is run through
+the new "set up your account" flow on next login, set a password, a fresh keypair
+is generated, `_account.json` is written. The old `_auth.json` is removed and any
+old `_sharing_identity.json` (a published link to the now-superseded old keypair)
+is cleared, the same supersede the Reset action does. If the user later wants
+cross-boundary again, they publish the new local keypair. This wipes the old
+published binding (orphaned in the directory, harmless pre-launch) rather than
+preserving it, which Grant chose for the simplest code given there is essentially
+no real sealed data yet. Members in a newly shared folder with no password go
+through the same set-up flow, there is no separate path.
 
 Recovery and PI reset (locked above). The recovery code unwraps `recoveryBlob` and
 restores the SAME identity. A lab head reset mints a FRESH keypair (the existing
