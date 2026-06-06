@@ -99,6 +99,79 @@ interface PermissionableHandle extends FileSystemDirectoryHandle {
   requestPermission?: (opts: { mode: "read" | "readwrite" }) => Promise<PermissionState>;
 }
 
+/**
+ * Best-effort, idempotent disk hygiene run AFTER a folder connects, off the
+ * critical path: the one-time legacy-trash migration, the per-user trash
+ * auto-cleanup, and the expired revert-window strip. Each pass reads many
+ * per-user files; on a cloud-synced folder (iCloud/OneDrive/Dropbox) those reads
+ * hydrate placeholders and are slow, so it used to make the connect block in
+ * proportion to a user's note count. Fully guarded so a failure never surfaces,
+ * and the UI already render-gates expired undo buttons and trashed items, so
+ * running these a moment later is invisible.
+ */
+async function runConnectMaintenance(users: string[]): Promise<void> {
+  try {
+    await migrateLegacyNotesTrashAllUsers(users);
+  } catch (err) {
+    console.warn(
+      "[FileSystemProvider] migrateLegacyNotesTrashAllUsers failed:",
+      err,
+    );
+  }
+  for (const username of users) {
+    try {
+      const summary = await runAutoCleanupPass(username);
+      if (summary.scanned > 0 || summary.expired > 0) {
+        console.info(
+          `[trash-cleanup] ${username}: scanned=${summary.scanned} expired=${summary.expired} hardDeleted=${summary.hardDeleted} errors=${summary.errors}`,
+        );
+      }
+    } catch (err) {
+      console.warn(
+        `[FileSystemProvider] runAutoCleanupPass failed for ${username}:`,
+        err,
+      );
+    }
+  }
+  for (const username of users) {
+    try {
+      const summary = await runRevertWindowSweep(username);
+      if (summary.stripped > 0) {
+        console.info(
+          `[revert-window-sweep] ${username}: scanned=${summary.scanned} stripped=${summary.stripped} kept=${summary.kept} errors=${summary.errors}`,
+        );
+      }
+    } catch (err) {
+      console.warn(
+        `[FileSystemProvider] runRevertWindowSweep failed for ${username}:`,
+        err,
+      );
+    }
+  }
+}
+
+/**
+ * Schedules runConnectMaintenance off the connect critical path. Prefers
+ * requestIdleCallback so it yields to the initial render, with a short
+ * setTimeout fallback. Never awaited, never throws. No-op for an empty roster.
+ */
+function scheduleConnectMaintenance(users: string[]): void {
+  if (users.length === 0) return;
+  const run = () => {
+    void runConnectMaintenance(users);
+  };
+  const ric = (
+    globalThis as unknown as {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => number;
+    }
+  ).requestIdleCallback;
+  if (typeof ric === "function") {
+    ric(run, { timeout: 5000 });
+  } else {
+    setTimeout(run, 1500);
+  }
+}
+
 const FileSystemContext = createContext<FileSystemContextValue | null>(null);
 
 export function FileSystemProvider({ children }: { children: React.ReactNode }) {
@@ -269,71 +342,16 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
           );
         }
 
-        // VCP R1 trash MVP notes (2026-05-26): one-time migration of
-        // legacy `notes_trash/<id>.json` files into the new
-        // `_trash/notes/<id>-<slug>.json` layout, then a sweep of every
-        // user's `_trash/_index.json` to hard-delete expired entries.
-        // Both passes are best-effort and idempotent — failures are
-        // logged but don't block the folder connect.
-        try {
-          await migrateLegacyNotesTrashAllUsers(users);
-        } catch (err) {
-          console.warn(
-            "[FileSystemProvider] migrateLegacyNotesTrashAllUsers failed:",
-            err,
-          );
-        }
-        try {
-          for (const username of users) {
-            try {
-              const summary = await runAutoCleanupPass(username);
-              if (summary.scanned > 0 || summary.expired > 0) {
-                console.info(
-                  `[trash-cleanup] ${username}: scanned=${summary.scanned} expired=${summary.expired} hardDeleted=${summary.hardDeleted} errors=${summary.errors}`,
-                );
-              }
-            } catch (err) {
-              console.warn(
-                `[FileSystemProvider] runAutoCleanupPass failed for ${username}:`,
-                err,
-              );
-            }
-          }
-        } catch (err) {
-          console.warn(
-            "[FileSystemProvider] trash auto-cleanup loop failed:",
-            err,
-          );
-        }
-
-        // VC Phase 2 (restore-a-version sub-bot of HR, 2026-05-30): strip
-        // expired `revert_undo_window` sidecars from every user's notes. Rides
-        // the same connect-time cleanup loop as the trash sweep above. The
-        // render-gate already hides an expired Undo button, so this is pure
-        // disk hygiene: best-effort + idempotent, and a failure never blocks
-        // the folder connect.
-        try {
-          for (const username of users) {
-            try {
-              const summary = await runRevertWindowSweep(username);
-              if (summary.stripped > 0) {
-                console.info(
-                  `[revert-window-sweep] ${username}: scanned=${summary.scanned} stripped=${summary.stripped} kept=${summary.kept} errors=${summary.errors}`,
-                );
-              }
-            } catch (err) {
-              console.warn(
-                `[FileSystemProvider] runRevertWindowSweep failed for ${username}:`,
-                err,
-              );
-            }
-          }
-        } catch (err) {
-          console.warn(
-            "[FileSystemProvider] revert-window sweep loop failed:",
-            err,
-          );
-        }
+        // Best-effort disk hygiene (legacy trash migration, trash auto-cleanup,
+        // and the expired revert-window strip) used to run inline here, but each
+        // pass reads many per-user files. On a cloud-synced folder
+        // (iCloud/OneDrive/Dropbox) those reads hydrate placeholders one by one,
+        // so blocking the connect on them made the loading screen scale with a
+        // user's note count. They are idempotent and invisible to the UI
+        // (expired undo buttons and trashed items are already render-gated), so
+        // we now run them in the BACKGROUND after the connect resolves, off the
+        // critical path. See scheduleConnectMaintenance.
+        scheduleConnectMaintenance(users);
 
         let currentUser = await getCurrentUser();
         if (users.length === 1) {
