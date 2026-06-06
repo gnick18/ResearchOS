@@ -288,17 +288,16 @@ export default function UserAvatarMenu({
 
           {/* Navigation items */}
           <div className="py-1">
-            {ownFingerprint ? (
+            {ownFingerprint && (
               <DropdownItem onClick={openOwnProfile}>
                 <PersonIcon />
-                My profile
-              </DropdownItem>
-            ) : (
-              <DropdownItem href="/settings#researcher-profile" onClick={close}>
-                <PersonIcon />
-                Set up profile
+                My public profile
               </DropdownItem>
             )}
+            <DropdownItem href="/profile" onClick={close}>
+              <PersonIcon />
+              {ownFingerprint ? "Edit your profile" : "Set up your profile"}
+            </DropdownItem>
             <DropdownItem href="/researchers" onClick={close}>
               <DirectoryIcon />
               Find researchers

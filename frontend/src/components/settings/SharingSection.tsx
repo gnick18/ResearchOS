@@ -84,7 +84,6 @@ import {
   publishProfile,
   unpublishProfile,
 } from "@/lib/sharing/profile";
-import ResearcherSearch from "@/components/sharing/ResearcherSearch";
 import { trackProfilePublished } from "@/lib/analytics/events";
 
 // ---------------------------------------------------------------------------
@@ -143,11 +142,9 @@ export default function SharingSection({
 }: SharingSectionProps) {
   return (
     <>
-      {/* Profile leads (LinkedIn-style): your account IS your researcher
-          profile. It self-hides until an identity is ready, so a not-yet-set-up
-          user sees the account setup card first. Account + keys and the inbox
-          sit below as the supporting detail. */}
-      <ProfileSection sharing={sharing} />
+      {/* Your researcher profile and the directory search moved to the dedicated
+          /profile and /researchers destinations (2026-06-05). This section now
+          holds only the identity and its inbox. */}
       <SharingIdentitySection
         sharing={sharing}
         onSetUp={onSetUp}
@@ -996,23 +993,10 @@ function isValidOrcid(v: string): boolean {
   return /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/.test(v);
 }
 
-function ProfileSection({
-  sharing,
-}: {
-  sharing: UseSharingIdentityResult;
-}) {
-  // Only shown when the identity is ready and a key is on this device.
-  if (sharing.status !== "ready") return null;
-
-  return (
-    <>
-      <ProfileEditorCard />
-      <ResearcherDirectoryCard />
-    </>
-  );
-}
-
-function ProfileEditorCard() {
+// The researcher profile editor, now rendered on the dedicated /profile page
+// (2026-06-05). Exported for that page. Gate on a ready identity at the call
+// site, the editor assumes a published identity exists.
+export function ProfileEditorCard() {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1313,18 +1297,6 @@ function ProfileEditorCard() {
           </div>
         </div>
       )}
-    </Card>
-  );
-}
-
-function ResearcherDirectoryCard() {
-  return (
-    <Card
-      id="researcher-directory"
-      title="Find researchers"
-      description="Search for other ResearchOS users by name or institution to confirm their fingerprint before sharing."
-    >
-      <ResearcherSearch />
     </Card>
   );
 }

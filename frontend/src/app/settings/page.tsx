@@ -14,7 +14,6 @@ import ImportExperimentDialog from "@/components/ImportExperimentDialog";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import Tooltip from "@/components/Tooltip";
 import UserAvatar from "@/components/UserAvatar";
-import OrcidField from "@/components/settings/OrcidField";
 import VersionBadge from "@/components/VersionBadge";
 import WhatsNewModal from "@/components/WhatsNewModal";
 import { RELEASE_NOTES } from "@/lib/release-notes";
@@ -74,15 +73,6 @@ import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 import { readPairing, type TelegramPairing } from "@/lib/telegram/telegram-store";
 import TelegramPairingModal from "@/components/TelegramPairingModal";
 import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
-import { readAllUserMetadata } from "@/lib/file-system/user-metadata";
-import {
-  isCombinationTaken,
-  ownerOfCombination,
-  otherUsersOnly,
-  otherUsersOnlyAsync,
-  takenSolidPrimaries,
-  takenSecondariesFor,
-} from "@/lib/file-system/user-color-collisions";
 import {
   clearWizardCompletion,
   countOrphanedArtifacts,
@@ -111,6 +101,7 @@ import {
 } from "./search-context";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
+import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
 import SharingSection, {
   RotateIdentityPopup,
   RestoreIdentityPopup,
@@ -118,11 +109,6 @@ import SharingSection, {
   ResetIdentityPopup,
 } from "@/components/settings/SharingSection";
 import { listInbox } from "@/lib/sharing/relay/client";
-
-const USER_COLOR_PALETTE = [
-  "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
-  "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
-];
 
 const GANTT_VIEW_OPTIONS: { value: UserSettings["defaultGanttViewMode"]; label: string }[] = [
   { value: "1week", label: "1 week" },
@@ -548,10 +534,9 @@ function SettingsBody() {
               onDisconnect={() => setDisconnectOpen(true)}
               onReset={() => setResetOpen(true)}
             />
-            <ProfileSection
-              key={`profile-${currentUser}`}
-              settings={settings}
-              update={update}
+            <ProfilePointerCard
+              sharing={sharing}
+              onSetUp={() => setSharingWizardOpen(true)}
             />
             <ProfessionalModeSection settings={settings} update={update} />
             <TabsSection settings={settings} update={update} />
@@ -993,97 +978,45 @@ function AccountSection({
   );
 }
 
-function ProfileSection({ settings, update }: SectionProps) {
-  const { currentUser } = useFileSystem();
-  // Local draft for typing — parent re-mounts this section via key when
-  // currentUser changes, so the initial value is always correct.
-  const [draftName, setDraftName] = useState(settings.displayName ?? "");
-
-  const commitName = () => {
-    const next = draftName.trim() === "" ? null : draftName.trim();
-    if (next !== settings.displayName) void update({ displayName: next });
-  };
-
+// Profile editing moved to the dedicated /profile page (2026-06-05). This
+// section is now a pointer. When no sharing identity exists yet, it shows the
+// four sign-in buttons to encourage setup instead of a link (Grant's call).
+function ProfilePointerCard({
+  sharing,
+  onSetUp,
+}: {
+  sharing: ReturnType<typeof useSharingIdentity>;
+  onSetUp: () => void;
+}) {
   return (
     <SectionShell
       id="personalize"
       title="Profile"
-      description="How you appear in the app. The color flows everywhere your initial bubble appears — lab views, comments, the login screen, etc."
-      searchKeywords="display name color avatar gradient primary secondary swatch palette personalize header tint orcid id researcher identifier"
+      description="Your name, avatar color, ORCID, and researcher profile live on your Profile page."
+      searchKeywords="display name color avatar gradient primary secondary swatch palette personalize header tint orcid id researcher identifier profile"
     >
-      {/* Live avatar preview — colorOverride + secondaryOverride use the
-          in-flight pick so the gradient updates instantly before the save
-          round-trip completes. */}
-      <div className="flex items-center gap-4">
-        {currentUser && (
-          <UserAvatar
-            username={currentUser}
-            size="xl"
-            letter={(draftName.charAt(0) || currentUser.charAt(0))}
-            colorOverride={settings.color}
-            secondaryOverride={settings.colorSecondary}
-          />
-        )}
-        <div className="text-meta text-gray-500">
-          <p className="text-body text-gray-800 font-medium">{draftName.trim() || currentUser}</p>
-          <p className="mt-0.5">
-            {settings.colorSecondary
-              ? "Two-color gradient — your live preview."
-              : "Solid color — pick a second swatch below to make it a gradient."}
+      {sharing.status === "none" ? (
+        <div className="space-y-3">
+          <p className="text-body text-gray-700 leading-relaxed max-w-prose">
+            Set up sharing to claim your profile so colleagues can find you. Sign
+            in with the account you want others to reach you by.
           </p>
+          <SharingProviderButtons onProvider={() => onSetUp()} />
         </div>
-      </div>
-
-      <div>
-        <label className="block text-meta font-medium text-gray-700 mb-1">
-          Display name
-        </label>
-        <input
-          type="text"
-          value={draftName}
-          placeholder={currentUser ?? ""}
-          onChange={(e) => setDraftName(e.target.value)}
-          onBlur={commitName}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
-          }}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <p className="text-meta text-gray-400 mt-1">
-          Leave blank to use your folder name ({currentUser}).
-        </p>
-      </div>
-
-      {/* ORCID iD (metadata implementation bot, 2026-05-28). Lives on the
-          person in `users/_user_metadata.json`, written via the dedicated
-          metadata path — separate from the rest of this section's
-          `settings.json`-backed fields. */}
-      <OrcidField currentUser={currentUser ?? null} />
-
-      {/* personalization-color step (§6.10): spotlight wraps both
-          the color picker and the tint toggle so the user understands
-          the whole section is theirs to play with. The inner
-          `settings-color-picker` and `settings-color-tint-toggle`
-          anchors stay so per-element selectors continue to work. */}
-      <div data-tour-target="settings-color-and-tint" className="space-y-4">
-        <div data-tour-target="settings-color-picker">
-          <ColorPickerRows
-            currentUser={currentUser ?? ""}
-            primary={settings.color}
-            secondary={settings.colorSecondary}
-            update={update}
-          />
+      ) : (
+        <div className="flex items-start justify-between gap-4">
+          <p className="text-body text-gray-700 leading-relaxed max-w-prose">
+            Edit your display name, avatar color, ORCID, and researcher profile on
+            your Profile page.
+          </p>
+          <Link
+            href="/profile"
+            className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+          >
+            Go to your Profile
+          </Link>
         </div>
-
-        <div data-tour-target="settings-color-tint-toggle">
-          <ToggleRow
-            label="Tint header with my color"
-            description="When off, the top bar stays white. Your avatar bubbles around the app still use your color either way."
-            checked={settings.coloredHeader}
-            onChange={(v) => void update({ coloredHeader: v })}
-          />
-        </div>
-      </div>
+      )}
     </SectionShell>
   );
 }
@@ -1720,227 +1653,6 @@ function ChangeLabHeadPasswordPopup({
         )}
       </div>
     </div>
-  );
-}
-
-/**
- * Two-row palette picker for primary + optional secondary color, with
- * collision-aware disabling. See `lib/file-system/user-color-collisions.ts`
- * for the rules (direction-insensitive on gradient pairs, solid-vs-solid
- * blocks only).
- */
-function ColorPickerRows({
-  currentUser,
-  primary,
-  secondary,
-  update,
-}: {
-  currentUser: string;
-  primary: string;
-  secondary: string | null;
-  update: (patch: Partial<UserSettings>) => Promise<void>;
-}) {
-  // Load the cross-user metadata so disabled-states reflect what others
-  // have picked. The Settings save handler invalidates USER_COLOR_QUERY_KEY
-  // after every color write, so piggy-backing on its dataUpdatedAt for the
-  // dependency means we re-read whenever a peer's metadata could have
-  // changed (multi-tab scenarios) without extra polling.
-  const queryClient = useQueryClient();
-  const colorMapState = queryClient.getQueryState(USER_COLOR_QUERY_KEY);
-  const cacheVersion = colorMapState?.dataUpdatedAt ?? 0;
-  const [otherUsers, setOtherUsers] = useState<
-    ReturnType<typeof otherUsersOnly>
-  >({});
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const all = await readAllUserMetadata();
-      // Mira Batch 1 polish (2026-05-23): use the async variant so
-      // Phase 6 archived members' palette swatches are released back
-      // to the picker. The old sync `otherUsersOnly` only filtered on
-      // the UserMetadataEntry `deleted_at` tombstone, leaving archived
-      // members' colors permanently reserved.
-      const others = await otherUsersOnlyAsync(all, currentUser);
-      if (cancelled) return;
-      setOtherUsers(others);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [currentUser, cacheVersion]);
-
-  const primaryLc = primary.toLowerCase();
-  const secondaryLc = secondary ? secondary.toLowerCase() : null;
-
-  const takenSolids = useMemo(
-    () => takenSolidPrimaries(otherUsers),
-    [otherUsers],
-  );
-  const takenSecondaries = useMemo(
-    () => takenSecondariesFor(primary, otherUsers),
-    [primary, otherUsers],
-  );
-
-  const handlePickPrimary = async (c: string) => {
-    // Switching primary: re-validate the (newPrimary, currentSecondary)
-    // combo. If the secondary now collides, drop it back to solid.
-    let nextSecondary: string | null = secondary;
-    if (
-      nextSecondary &&
-      isCombinationTaken({ primary: c, secondary: nextSecondary }, otherUsers)
-    ) {
-      nextSecondary = null;
-    }
-    // Also: if we're going solid (no secondary) and that solid is taken,
-    // refuse the click. The button is also disabled visually but a
-    // race-time guard belongs here too.
-    if (
-      !nextSecondary &&
-      isCombinationTaken({ primary: c, secondary: null }, otherUsers)
-    ) {
-      return;
-    }
-    await update({ color: c, colorSecondary: nextSecondary });
-  };
-
-  const handlePickSecondary = async (c: string) => {
-    if (c.toLowerCase() === primaryLc) return; // can't pair with itself
-    if (isCombinationTaken({ primary, secondary: c }, otherUsers)) return;
-    await update({ colorSecondary: c });
-  };
-
-  const handleClearSecondary = async () => {
-    // Going from gradient → solid. If the solid form is taken, surface the
-    // refusal instead of writing.
-    if (isCombinationTaken({ primary, secondary: null }, otherUsers)) {
-      // No-op: the swatch tooltip already explains who has the solid.
-      // A future polish pass could surface a toast here.
-      return;
-    }
-    await update({ colorSecondary: null });
-  };
-
-  return (
-    <>
-      <div>
-        <label className="block text-meta font-medium text-gray-700 mb-2">
-          Primary color
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {USER_COLOR_PALETTE.map((c) => {
-            const cLc = c.toLowerCase();
-            const isSelected = cLc === primaryLc;
-            // A primary swatch is disabled when (a) the user has NO
-            // secondary AND another user already has it as their solid,
-            // OR (b) the user has a secondary and picking this primary
-            // would not by itself collide but might also be taken solid.
-            // We follow the locked design: only block solid-vs-solid.
-            const wouldGoSolid = !secondary;
-            const blockedSolid = wouldGoSolid && takenSolids.has(cLc);
-            const ownerName = blockedSolid
-              ? ownerOfCombination({ primary: c, secondary: null }, otherUsers)
-              : null;
-            const disabled = blockedSolid && !isSelected;
-            return (
-              <button
-                key={c}
-                type="button"
-                aria-label={`Primary color ${c}`}
-                title={ownerName ? `Used by ${ownerName}` : `Color ${c}`}
-                disabled={disabled}
-                onClick={() => void handlePickPrimary(c)}
-                // Settings fix manager R1 (2026-05-22): stamp the
-                // attribute the onboarding cursor script keys off of.
-                // SettingsColorStep.tsx clicks
-                // `[data-tour-target="settings-color-picker"] [data-color-swatch]:first-child`
-                // and would silently time out without this attribute on
-                // every palette button. The page-lock allow-list also
-                // pivots on `[data-color-swatch]` so the optional
-                // secondary stage stays clickable.
-                data-color-swatch={c}
-                className={`w-8 h-8 rounded-full border-2 transition-transform ${
-                  isSelected
-                    ? "border-gray-900 scale-110"
-                    : disabled
-                      ? "border-transparent opacity-30 cursor-not-allowed"
-                      : "border-transparent hover:scale-105"
-                }`}
-                style={{ backgroundColor: c }}
-              />
-            );
-          })}
-        </div>
-      </div>
-
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="block text-meta font-medium text-gray-700">
-            Optional second color for gradient
-          </label>
-          {secondary && (
-            <button
-              type="button"
-              onClick={() => void handleClearSecondary()}
-              className="text-meta text-gray-500 hover:text-gray-900 underline"
-            >
-              Clear secondary
-            </button>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {USER_COLOR_PALETTE.map((c) => {
-            const cLc = c.toLowerCase();
-            const isSelected = secondaryLc === cLc;
-            const isSamePrimary = cLc === primaryLc;
-            const isTakenPair = takenSecondaries.has(cLc);
-            const ownerName = isTakenPair
-              ? ownerOfCombination(
-                  { primary, secondary: c },
-                  otherUsers,
-                )
-              : null;
-            const disabled =
-              (isSamePrimary || isTakenPair) && !isSelected;
-            const title = isSamePrimary
-              ? "Same as primary"
-              : ownerName
-                ? `Used by ${ownerName}`
-                : `Color ${c}`;
-            return (
-              <button
-                key={c}
-                type="button"
-                aria-label={`Secondary color ${c}`}
-                title={title}
-                disabled={disabled}
-                onClick={() => void handlePickSecondary(c)}
-                // Settings fix manager R1 (2026-05-22): identical
-                // attribute on the secondary palette so the page-lock
-                // allow-list (`[data-color-swatch]`) covers BOTH rows.
-                // Without this stamp the secondary stage stays locked
-                // even though the onboarding step body permits clicks.
-                data-color-swatch={c}
-                className={`w-8 h-8 rounded-full border-2 transition-transform ${
-                  isSelected
-                    ? "border-gray-900 scale-110"
-                    : disabled
-                      ? "border-transparent opacity-30 cursor-not-allowed"
-                      : "border-transparent hover:scale-105"
-                }`}
-                style={{ backgroundColor: c }}
-              />
-            );
-          })}
-        </div>
-        <p className="text-meta text-gray-400 mt-1">
-          Pick a second color to make your avatar a 2-stop gradient.
-          Helpful when your lab has more than 10 people. Direction
-          doesn&apos;t matter — blue-to-green and green-to-blue count as
-          the same combo.
-        </p>
-      </div>
-    </>
   );
 }
 

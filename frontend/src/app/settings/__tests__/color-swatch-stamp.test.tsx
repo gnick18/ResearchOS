@@ -42,10 +42,20 @@ import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
 
 describe("settings page: data-color-swatch stamps (regression for §6.10 P0)", () => {
-  it("page.tsx stamps data-color-swatch on at least 2 palette buttons (primary + secondary rows)", async () => {
+  it("ColorPickerRows stamps data-color-swatch on at least 2 palette buttons (primary + secondary rows)", async () => {
     const fs = await import("node:fs");
     const path = await import("node:path");
-    const pagePath = path.resolve(__dirname, "..", "page.tsx");
+    // ColorPickerRows moved to the profile module when profile editing got its
+    // own /profile page (2026-06-05). The stamp contract follows it there.
+    const pagePath = path.resolve(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "components",
+      "profile",
+      "ColorPickerRows.tsx",
+    );
     const src = fs.readFileSync(pagePath, "utf8");
     // Count attribute occurrences. The two ColorPickerRows palette
     // rows each render a `data-color-swatch={c}` per button; once the
