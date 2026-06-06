@@ -10,6 +10,7 @@ import { folderRequiresLogin } from "@/lib/auth/login-policy";
 import {
   hasLocalAccount,
   loginWithPassword,
+  loginWithRecovery,
   createAndPersistAccount,
 } from "@/lib/auth/account-store";
 import { type UnlockedKeys } from "@/lib/auth/local-identity";
@@ -1798,6 +1799,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   )}
                 </>
               )}
+
 
               {error && (
                 <div className="p-2 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
