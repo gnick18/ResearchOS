@@ -26,6 +26,14 @@ const BYTES_PER_GB = 1024 ** 3;
 /** Bytes one block grants. */
 export const BYTES_PER_BLOCK = GB_PER_BLOCK * BYTES_PER_GB;
 
+/**
+ * Free server-storage allowance per owner before any paid block is needed.
+ * 1 GB (Grant 2026-06-05), aligned with the relay inbox cap FREE_STORAGE_BYTES
+ * in sharing/relay/limits.ts. Enforcement (free allowance plus purchased blocks)
+ * is the phase-2b quota layer; this pins the intended value.
+ */
+export const FREE_ALLOWANCE_BYTES = 1 * BYTES_PER_GB;
+
 /** Paid storage bytes for a given active block count (never negative). */
 export function paidStorageBytes(blocks: number): number {
   if (!Number.isFinite(blocks) || blocks <= 0) return 0;

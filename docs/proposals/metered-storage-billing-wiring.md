@@ -61,8 +61,10 @@ ledger logic.
 ## Data and quota
 
 The prerequisite is a real, enforced, per-owner storage quota (see
-paid-storage-sustainability.md). The free allowance is generous (storage is
-cheap), and a paid block raises the ceiling. The collab-side accounting is owned
+paid-storage-sustainability.md). The free allowance is 1 GB per owner (Grant,
+2026-06-05, aligned with the relay inbox cap and pinned as FREE_ALLOWANCE_BYTES
+in lib/billing/config.ts), and a paid block raises the ceiling. The collab-side
+accounting is owned
 by the collab track (the /admin collabBytes / collabBudgetBytes work); the relay
 side already enforces a per-recipient cap. Billing adds:
 
