@@ -49,18 +49,18 @@ export interface HeroNumberTileProps {
 }
 
 const ACCENT_ICON_CLASS: Record<HeroAccent, string> = {
-  calm: "text-gray-400",
-  amber: "text-amber-600",
+  calm: "text-foreground-muted",
+  amber: "text-amber-600 dark:text-amber-300",
   blue: "text-blue-500",
-  emerald: "text-emerald-600",
+  emerald: "text-emerald-600 dark:text-emerald-300",
   rose: "text-rose-600",
 };
 
 const ACCENT_NUMBER_CLASS: Record<HeroAccent, string> = {
-  calm: "text-gray-900",
-  amber: "text-amber-700",
-  blue: "text-blue-700",
-  emerald: "text-emerald-700",
+  calm: "text-foreground",
+  amber: "text-amber-700 dark:text-amber-300",
+  blue: "text-blue-700 dark:text-blue-300",
+  emerald: "text-emerald-700 dark:text-emerald-300",
   rose: "text-rose-700",
 };
 
@@ -80,7 +80,7 @@ export default function HeroNumberTile({
         >
           {icon}
         </span>
-        <span className="text-meta uppercase tracking-wide text-gray-500 font-medium truncate">
+        <span className="text-meta uppercase tracking-wide text-foreground-muted font-medium truncate">
           {label}
         </span>
       </div>
@@ -91,7 +91,7 @@ export default function HeroNumberTile({
           {primary}
         </div>
         {secondary !== undefined && secondary !== null && secondary !== "" && (
-          <div className="text-meta text-gray-500 mt-1.5 truncate">{secondary}</div>
+          <div className="text-meta text-foreground-muted mt-1.5 truncate">{secondary}</div>
         )}
       </div>
     </div>

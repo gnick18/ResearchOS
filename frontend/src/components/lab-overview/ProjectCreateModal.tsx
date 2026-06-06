@@ -166,7 +166,7 @@ export default function ProjectCreateModal({
         // §6.1 FILL beat anchor: spotlights the whole create-form panel.
         data-tour-target="home-project-create-form"
         data-testid="project-create-modal"
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col overflow-hidden"
+        className="bg-surface-raised rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col overflow-hidden"
         style={{
           boxShadow:
             "0 1px 3px rgba(0,0,0,0.06), 0 20px 50px -10px rgba(0,0,0,0.25)",
@@ -174,8 +174,8 @@ export default function ProjectCreateModal({
         // Clicks inside the panel must not bubble to the backdrop close.
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
-          <h2 className="flex-1 min-w-0 truncate text-title font-semibold text-gray-900">
+        <header className="flex items-center gap-2 px-5 py-4 border-b border-border">
+          <h2 className="flex-1 min-w-0 truncate text-title font-semibold text-foreground">
             New Research Project
           </h2>
           <Tooltip label="Close" placement="bottom">
@@ -183,7 +183,7 @@ export default function ProjectCreateModal({
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
+              className="text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken p-1.5 rounded-lg transition-colors"
             >
               <span aria-hidden="true">{CLOSE_SVG}</span>
             </button>
@@ -194,7 +194,7 @@ export default function ProjectCreateModal({
           <div>
             <label
               htmlFor="project-create-name"
-              className="block text-meta font-medium text-gray-500 mb-1"
+              className="block text-meta font-medium text-foreground-muted mb-1"
             >
               Project Name
             </label>
@@ -210,14 +210,14 @@ export default function ProjectCreateModal({
                 if (e.key === "Enter") submit();
               }}
               placeholder="e.g. CRISPR Gene Editing Study"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
             <label
               htmlFor="project-create-tags"
-              className="block text-meta font-medium text-gray-500 mb-1"
+              className="block text-meta font-medium text-foreground-muted mb-1"
             >
               Tags (comma-separated)
             </label>
@@ -228,12 +228,12 @@ export default function ProjectCreateModal({
               value={tags}
               onChange={(e) => setTags(e.target.value)}
               placeholder="e.g. sequencing, LC-MS, cell-culture"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <span className="block text-meta font-medium text-gray-500 mb-1">
+            <span className="block text-meta font-medium text-foreground-muted mb-1">
               Project Color
             </span>
             <div className="flex flex-wrap gap-2">
@@ -265,19 +265,19 @@ export default function ProjectCreateModal({
               data-testid="project-create-weekend"
               checked={weekendActive}
               onChange={(e) => setWeekendActive(e.target.checked)}
-              className="rounded border-gray-300 text-blue-600"
+              className="rounded border-border text-blue-600 dark:text-blue-300"
             />
-            <span className="text-body text-gray-600">
+            <span className="text-body text-foreground-muted">
               7-day schedule (weekends active)
             </span>
           </label>
         </div>
 
-        <footer className="flex justify-end gap-3 px-5 py-4 border-t border-gray-100">
+        <footer className="flex justify-end gap-3 px-5 py-4 border-t border-border">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-body font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            className="px-4 py-2 text-body font-medium text-foreground-muted hover:bg-surface-sunken rounded-lg transition-colors"
           >
             Cancel
           </button>

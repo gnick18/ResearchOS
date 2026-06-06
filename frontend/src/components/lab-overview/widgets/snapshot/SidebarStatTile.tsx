@@ -75,7 +75,7 @@ export default function SidebarStatTile({
       }
       className={`w-full flex flex-col gap-0.5 px-2.5 py-2 rounded-md transition-colors ${
         interactive
-          ? "cursor-pointer hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+          ? "cursor-pointer hover:bg-surface-sunken focus:bg-surface-sunken focus:outline-none"
           : ""
       }`}
     >
@@ -83,20 +83,20 @@ export default function SidebarStatTile({
         <span
           aria-hidden="true"
           className={`flex items-center justify-center flex-shrink-0 ${
-            iconClassName ?? "text-gray-400"
+            iconClassName ?? "text-foreground-muted"
           }`}
         >
           {icon}
         </span>
-        <span className="text-meta font-medium text-gray-700 truncate flex-1 min-w-0">
+        <span className="text-meta font-medium text-foreground truncate flex-1 min-w-0">
           {label}
         </span>
-        <span className="text-body font-semibold text-gray-900 tabular-nums flex-shrink-0">
+        <span className="text-body font-semibold text-foreground tabular-nums flex-shrink-0">
           {stat}
         </span>
       </div>
       {sub !== undefined && sub !== null && sub !== "" && (
-        <div className="text-meta text-gray-500 truncate pl-6">{sub}</div>
+        <div className="text-meta text-foreground-muted truncate pl-6">{sub}</div>
       )}
     </div>
   );

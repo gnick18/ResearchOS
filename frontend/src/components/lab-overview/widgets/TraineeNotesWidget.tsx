@@ -332,12 +332,12 @@ function MemberDetail({
           <span aria-hidden="true" className="text-emerald-500 flex-shrink-0">
             {TARGET_SVG}
           </span>
-          <span className="text-meta uppercase tracking-wide font-semibold text-gray-500">
+          <span className="text-meta uppercase tracking-wide font-semibold text-foreground-muted">
             Weekly goals
           </span>
         </div>
         {goals.length === 0 ? (
-          <p className="text-meta text-gray-400 italic">
+          <p className="text-meta text-foreground-muted italic">
             No weekly goals shared with you yet.
           </p>
         ) : (
@@ -353,7 +353,7 @@ function MemberDetail({
                   className={`mt-0.5 inline-flex items-center justify-center w-4 h-4 rounded-full flex-shrink-0 ${
                     goal.is_complete
                       ? "bg-emerald-500 text-white"
-                      : "border border-gray-300 text-transparent"
+                      : "border border-border text-transparent"
                   }`}
                 >
                   {CHECK_SVG}
@@ -362,13 +362,13 @@ function MemberDetail({
                   <span
                     className={
                       goal.is_complete
-                        ? "text-gray-400 line-through"
-                        : "text-gray-800"
+                        ? "text-foreground-muted line-through"
+                        : "text-foreground"
                     }
                   >
                     {goal.text}
                   </span>
-                  <span className="ml-2 text-meta text-gray-400">
+                  <span className="ml-2 text-meta text-foreground-muted">
                     {weekLabel(goal.week_of)}
                   </span>
                 </span>
@@ -384,41 +384,41 @@ function MemberDetail({
           <span aria-hidden="true" className="text-sky-500 flex-shrink-0">
             {DOC_SVG}
           </span>
-          <span className="text-meta uppercase tracking-wide font-semibold text-gray-500">
+          <span className="text-meta uppercase tracking-wide font-semibold text-foreground-muted">
             Shared notes
           </span>
         </div>
         {notes.length === 0 ? (
-          <p className="text-meta text-gray-400 italic">
+          <p className="text-meta text-foreground-muted italic">
             No notes shared with you yet. Private notes never appear.
           </p>
         ) : (
-          <ul className="divide-y divide-gray-100 border border-gray-200 rounded-lg">
+          <ul className="divide-y divide-gray-100 border border-border rounded-lg">
             {notes.map((note) => (
               <li key={`${note.username}:${note.id}`}>
                 <button
                   type="button"
                   onClick={() => onOpenNote(note)}
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-surface-sunken transition-colors"
                   data-testid={`trainee-notes-note-${note.id}`}
                 >
                   <span aria-hidden="true" className="text-sky-500 flex-shrink-0">
                     {DOC_SVG}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-body font-medium text-gray-800 truncate">
+                    <p className="text-body font-medium text-foreground truncate">
                       {note.title || "Untitled note"}
                       {note.is_running_log && (
-                        <span className="ml-2 px-1.5 py-0.5 text-meta font-semibold rounded bg-purple-100 text-purple-700 align-middle">
+                        <span className="ml-2 px-1.5 py-0.5 text-meta font-semibold rounded bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 align-middle">
                           Running log
                         </span>
                       )}
                     </p>
-                    <p className="text-meta text-gray-500 truncate">
+                    <p className="text-meta text-foreground-muted truncate">
                       Updated {formatWhen(note.updated_at)}
                     </p>
                   </div>
-                  <span aria-hidden="true" className="text-gray-300 flex-shrink-0">
+                  <span aria-hidden="true" className="text-foreground-muted flex-shrink-0">
                     {CHEVRON_RIGHT_SVG}
                   </span>
                 </button>
@@ -448,13 +448,13 @@ function PinConfigBar({
 }) {
   if (!onConfigChange) return null;
   return (
-    <div className="flex items-center gap-2 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
-      <span aria-hidden="true" className="text-gray-400 flex-shrink-0">
+    <div className="flex items-center gap-2 rounded-lg bg-surface-sunken border border-border px-3 py-2">
+      <span aria-hidden="true" className="text-foreground-muted flex-shrink-0">
         {PIN_SVG}
       </span>
       <label
         htmlFor="trainee-widget-pin"
-        className="text-meta font-medium text-gray-600 flex-shrink-0"
+        className="text-meta font-medium text-foreground-muted flex-shrink-0"
       >
         Pin to trainee
       </label>
@@ -466,7 +466,7 @@ function PinConfigBar({
           const v = e.target.value;
           onConfigChange(v ? { pinnedMember: v } : null);
         }}
-        className="flex-1 min-w-0 text-meta rounded border border-gray-200 bg-white px-2 py-1 text-gray-800"
+        className="flex-1 min-w-0 text-meta rounded border border-border bg-surface-raised px-2 py-1 text-foreground"
       >
         <option value="">Everyone (roster)</option>
         {roster.map((r) => (
@@ -521,7 +521,7 @@ export default function TraineeNotesWidget(props?: ExpandedViewProps) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 text-body text-gray-500">
+      <div className="flex items-center gap-2 text-body text-foreground-muted">
         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-sky-600" />
         Loading shared notes and goals…
       </div>
@@ -552,10 +552,10 @@ export default function TraineeNotesWidget(props?: ExpandedViewProps) {
         />
         <div className="flex items-center gap-2 min-w-0">
           <UserAvatar username={pinnedMember} size="sm" />
-          <span className="text-body font-semibold text-gray-900 truncate">
+          <span className="text-body font-semibold text-foreground truncate">
             {label}
           </span>
-          <span className="px-1.5 py-0.5 text-meta font-semibold rounded bg-sky-100 text-sky-700">
+          <span className="px-1.5 py-0.5 text-meta font-semibold rounded bg-sky-100 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300">
             Pinned
           </span>
         </div>
@@ -586,18 +586,18 @@ export default function TraineeNotesWidget(props?: ExpandedViewProps) {
           <button
             type="button"
             onClick={() => setSelectedMember(null)}
-            className="flex items-center gap-1 text-meta font-medium text-gray-600 hover:text-gray-900"
+            className="flex items-center gap-1 text-meta font-medium text-foreground-muted hover:text-foreground"
             data-testid="trainee-notes-back"
           >
             <span aria-hidden="true">{BACK_ARROW_SVG}</span>
             Roster
           </button>
-          <span className="text-gray-300" aria-hidden="true">
+          <span className="text-foreground-muted" aria-hidden="true">
             /
           </span>
           <div className="flex items-center gap-2 min-w-0">
             <UserAvatar username={selectedMember} size="sm" />
-            <span className="text-body font-semibold text-gray-900 truncate">
+            <span className="text-body font-semibold text-foreground truncate">
               {label}
             </span>
           </div>
@@ -622,16 +622,16 @@ export default function TraineeNotesWidget(props?: ExpandedViewProps) {
         pinnedMember={undefined}
         onConfigChange={onConfigChange}
       />
-      <p className="text-meta text-gray-500">
+      <p className="text-meta text-foreground-muted">
         Click a member to read the notes and weekly goals they have shared
         with you.
       </p>
       {roster.length === 0 ? (
-        <p className="text-body text-gray-400 italic">
+        <p className="text-body text-foreground-muted italic">
           No other lab members found yet.
         </p>
       ) : (
-        <ul className="flex-1 min-h-0 overflow-auto divide-y divide-gray-100 border border-gray-200 rounded-lg">
+        <ul className="flex-1 min-h-0 overflow-auto divide-y divide-gray-100 border border-border rounded-lg">
           {roster.map((p) => {
             const noteCount = notesByMember.get(p.username)?.length ?? 0;
             const goalCount = goalsByMember.get(p.username)?.length ?? 0;
@@ -640,22 +640,22 @@ export default function TraineeNotesWidget(props?: ExpandedViewProps) {
                 <button
                   type="button"
                   onClick={() => setSelectedMember(p.username)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-surface-sunken transition-colors"
                   data-testid={`trainee-notes-member-${p.username}`}
                 >
                   <UserAvatar username={p.username} size="sm" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-body font-medium text-gray-900 truncate">
+                      <span className="text-body font-medium text-foreground truncate">
                         {p.label}
                       </span>
                       {p.account_type === "lab_head" && (
-                        <span className="px-1.5 py-0.5 text-meta font-semibold rounded bg-amber-100 text-amber-800">
+                        <span className="px-1.5 py-0.5 text-meta font-semibold rounded bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-200">
                           PI
                         </span>
                       )}
                     </div>
-                    <div className="text-meta text-gray-500 truncate">
+                    <div className="text-meta text-foreground-muted truncate">
                       @{p.username}
                     </div>
                   </div>
@@ -664,8 +664,8 @@ export default function TraineeNotesWidget(props?: ExpandedViewProps) {
                     <span
                       className={`flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-meta font-semibold tabular-nums ${
                         goalCount > 0
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-gray-100 text-gray-400"
+                          ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                          : "bg-surface-sunken text-foreground-muted"
                       }`}
                     >
                       <span aria-hidden="true">{TARGET_SVG}</span>
@@ -677,15 +677,15 @@ export default function TraineeNotesWidget(props?: ExpandedViewProps) {
                     <span
                       className={`flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-meta font-semibold tabular-nums ${
                         noteCount > 0
-                          ? "bg-sky-100 text-sky-700"
-                          : "bg-gray-100 text-gray-400"
+                          ? "bg-sky-100 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300"
+                          : "bg-surface-sunken text-foreground-muted"
                       }`}
                     >
                       <span aria-hidden="true">{DOC_SVG}</span>
                       {noteCount}
                     </span>
                   </Tooltip>
-                  <span aria-hidden="true" className="text-gray-300 flex-shrink-0">
+                  <span aria-hidden="true" className="text-foreground-muted flex-shrink-0">
                     {CHEVRON_RIGHT_SVG}
                   </span>
                 </button>
@@ -782,7 +782,7 @@ export function SnapshotTile(props: SnapshotTileProps) {
     const goalCount = goalsByMember.get(pinnedMember)?.length ?? 0;
     return (
       <div className="relative h-full overflow-hidden flex flex-col">
-        <div className="flex items-center gap-1.5 text-gray-500">
+        <div className="flex items-center gap-1.5 text-foreground-muted">
           <span aria-hidden="true" className="text-sky-500 flex-shrink-0">
             {PEOPLE_SVG}
           </span>
@@ -792,26 +792,26 @@ export function SnapshotTile(props: SnapshotTileProps) {
         </div>
         <div className="mt-2 flex-1 min-h-0 flex flex-col justify-center gap-2">
           {isLoading ? (
-            <p className="text-meta text-gray-400 italic">Loading…</p>
+            <p className="text-meta text-foreground-muted italic">Loading…</p>
           ) : (
             <>
               <div className="flex items-center gap-2">
                 <span aria-hidden="true" className="text-emerald-500">
                   {TARGET_SVG}
                 </span>
-                <span className="text-body font-semibold tabular-nums text-gray-800">
+                <span className="text-body font-semibold tabular-nums text-foreground">
                   {goalCount}
                 </span>
-                <span className="text-meta text-gray-500">weekly goals</span>
+                <span className="text-meta text-foreground-muted">weekly goals</span>
               </div>
               <div className="flex items-center gap-2">
                 <span aria-hidden="true" className="text-sky-500">
                   {DOC_SVG}
                 </span>
-                <span className="text-body font-semibold tabular-nums text-gray-800">
+                <span className="text-body font-semibold tabular-nums text-foreground">
                   {noteCount}
                 </span>
-                <span className="text-meta text-gray-500">shared notes</span>
+                <span className="text-meta text-foreground-muted">shared notes</span>
               </div>
             </>
           )}
@@ -822,7 +822,7 @@ export function SnapshotTile(props: SnapshotTileProps) {
 
   return (
     <div className="relative h-full overflow-hidden flex flex-col">
-      <div className="flex items-center gap-1.5 text-gray-500">
+      <div className="flex items-center gap-1.5 text-foreground-muted">
         <span aria-hidden="true" className="text-sky-500 flex-shrink-0">
           {PEOPLE_SVG}
         </span>
@@ -831,37 +831,37 @@ export function SnapshotTile(props: SnapshotTileProps) {
         </span>
       </div>
       {totalShared > 0 && (
-        <span className="absolute top-0 right-0 text-meta text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded-full font-medium">
+        <span className="absolute top-0 right-0 text-meta text-foreground-muted bg-surface-sunken px-1.5 py-0.5 rounded-full font-medium">
           {totalShared} shared
         </span>
       )}
       <div className="mt-2 flex-1 min-h-0 flex flex-col gap-1.5">
         {isLoading ? (
-          <p className="text-meta text-gray-400 italic m-auto">Loading…</p>
+          <p className="text-meta text-foreground-muted italic m-auto">Loading…</p>
         ) : rows.length === 0 ? (
-          <p className="text-meta text-gray-400 italic m-auto">
+          <p className="text-meta text-foreground-muted italic m-auto">
             No lab members yet
           </p>
         ) : (
           rows.map((row) => (
             <div
               key={row.username}
-              className="flex items-center gap-2 min-w-0 px-1 py-0.5 rounded hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2 min-w-0 px-1 py-0.5 rounded hover:bg-surface-sunken transition-colors"
             >
               <UserAvatar username={row.username} size="sm" />
-              <span className="flex-1 min-w-0 text-meta font-medium text-gray-800 truncate">
+              <span className="flex-1 min-w-0 text-meta font-medium text-foreground truncate">
                 {row.label}
               </span>
               <span
                 className={`flex-shrink-0 text-meta font-semibold tabular-nums ${
-                  row.goals > 0 ? "text-emerald-600" : "text-gray-400"
+                  row.goals > 0 ? "text-emerald-600 dark:text-emerald-300" : "text-foreground-muted"
                 }`}
               >
                 {row.goals}g
               </span>
               <span
                 className={`flex-shrink-0 text-meta font-semibold tabular-nums ${
-                  row.notes > 0 ? "text-sky-700" : "text-gray-400"
+                  row.notes > 0 ? "text-sky-700 dark:text-sky-300" : "text-foreground-muted"
                 }`}
               >
                 {row.notes}n
@@ -908,8 +908,8 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
           <span
             className={`inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full text-meta font-semibold tabular-nums ${
               totalShared > 0
-                ? "bg-sky-100 text-sky-700"
-                : "bg-gray-100 text-gray-400"
+                ? "bg-sky-100 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300"
+                : "bg-surface-sunken text-foreground-muted"
             }`}
           >
             {totalShared}

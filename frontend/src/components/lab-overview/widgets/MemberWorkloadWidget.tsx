@@ -88,7 +88,7 @@ export default function MemberWorkloadWidget(_props?: {
 
   if (rows.length === 0) {
     return (
-      <p className="text-meta text-gray-400 italic">
+      <p className="text-meta text-foreground-muted italic">
         No lab members yet.
       </p>
     );
@@ -112,14 +112,14 @@ export default function MemberWorkloadWidget(_props?: {
           className="flex items-center gap-1.5 px-1 py-1 rounded"
         >
           <UserAvatar username={r.username} size="sm" />
-          <span className="text-meta text-gray-700 truncate flex-1 min-w-0">
+          <span className="text-meta text-foreground truncate flex-1 min-w-0">
             {r.displayName}
           </span>
           <span
             className={`text-meta font-semibold tabular-nums px-1 py-0.5 rounded ${
               r.open === 0
-                ? "bg-gray-100 text-gray-400"
-                : "bg-gray-100 text-gray-700"
+                ? "bg-surface-sunken text-foreground-muted"
+                : "bg-surface-sunken text-foreground"
             }`}
             title="Open tasks"
           >
@@ -128,8 +128,8 @@ export default function MemberWorkloadWidget(_props?: {
           <span
             className={`text-meta font-semibold tabular-nums px-1 py-0.5 rounded ${
               r.overdue === 0
-                ? "bg-gray-100 text-gray-400"
-                : "bg-red-100 text-red-800"
+                ? "bg-surface-sunken text-foreground-muted"
+                : "bg-red-100 dark:bg-red-500/20 text-red-800 dark:text-red-200"
             }`}
             title="Overdue tasks"
           >
@@ -233,13 +233,13 @@ export function SnapshotTile(_props: SnapshotTileProps) {
         >
           {PEOPLE_ICON}
         </span>
-        <span className="text-meta uppercase tracking-wide text-gray-500 font-medium truncate">
+        <span className="text-meta uppercase tracking-wide text-foreground-muted font-medium truncate">
           Member workload
         </span>
       </div>
       <div className="flex-1 min-h-0 flex flex-col justify-center">
         {empty ? (
-          <div className="text-meta text-gray-400 italic">
+          <div className="text-meta text-foreground-muted italic">
             {top.length === 0 ? "No active members" : "Nothing open"}
           </div>
         ) : (
@@ -260,7 +260,7 @@ export function SnapshotTile(_props: SnapshotTileProps) {
                   </span>
                   <div className="flex-1 min-w-0">
                     <div
-                      className="text-meta text-gray-700 truncate"
+                      className="text-meta text-foreground truncate"
                       title={r.displayName}
                     >
                       {r.displayName}
@@ -271,7 +271,7 @@ export function SnapshotTile(_props: SnapshotTileProps) {
                         can't materialize arbitrary % values
                         ergonomically. */}
                     <div
-                      className="h-1.5 bg-gray-100 rounded overflow-hidden mt-0.5"
+                      className="h-1.5 bg-surface-sunken rounded overflow-hidden mt-0.5"
                       aria-hidden="true"
                     >
                       <div
@@ -291,7 +291,7 @@ export function SnapshotTile(_props: SnapshotTileProps) {
                       </div>
                     </div>
                   </div>
-                  <span className="text-meta text-gray-500 tabular-nums flex-shrink-0">
+                  <span className="text-meta text-foreground-muted tabular-nums flex-shrink-0">
                     {r.open}
                   </span>
                 </li>
@@ -339,23 +339,23 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
       }
       className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md transition-colors ${
         interactive
-          ? "cursor-pointer hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+          ? "cursor-pointer hover:bg-surface-sunken focus:bg-surface-sunken focus:outline-none"
           : ""
       }`}
     >
       <span aria-hidden="true" className="text-indigo-500 flex-shrink-0">
         {PEOPLE_ICON}
       </span>
-      <span className="text-meta font-medium text-gray-700 truncate flex-1 min-w-0">
+      <span className="text-meta font-medium text-foreground truncate flex-1 min-w-0">
         Workload
       </span>
-      <span className="text-meta text-gray-500 tabular-nums flex-shrink-0">
+      <span className="text-meta text-foreground-muted tabular-nums flex-shrink-0">
         {totalMembers} member{totalMembers === 1 ? "" : "s"}
         {totalOverdue > 0 && (
           <>
             {" "}
             ·{" "}
-            <span className="text-red-600 font-semibold">
+            <span className="text-red-600 dark:text-red-300 font-semibold">
               {totalOverdue} overdue
             </span>
           </>

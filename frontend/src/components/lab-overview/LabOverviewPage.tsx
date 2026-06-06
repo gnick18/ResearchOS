@@ -298,7 +298,7 @@ function ActionBar() {
 
   if (total === 0) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 text-meta text-gray-400">
+      <div className="flex items-center gap-2 px-3 py-2 text-meta text-foreground-muted">
         <span aria-hidden="true" className="text-emerald-500">
           {ALL_CLEAR_ICON}
         </span>
@@ -313,7 +313,7 @@ function ActionBar() {
       icon: SHIELD_ICON,
       count: pending,
       label: pending === 1 ? "approval" : "approvals",
-      tint: "bg-amber-100 text-amber-800 hover:bg-amber-200",
+      tint: "bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-200 hover:bg-amber-200",
       // Pending purchase approvals live on the purchases surface.
       onClick: () => router.push("/purchases"),
     });
@@ -323,7 +323,7 @@ function ActionBar() {
       icon: FLAG_ICON,
       count: flagged,
       label: "flagged",
-      tint: "bg-red-100 text-red-800 hover:bg-red-200",
+      tint: "bg-red-100 dark:bg-red-500/20 text-red-800 dark:text-red-200 hover:bg-red-200",
       // Flagged records by the PI surface in the Lab Inbox.
       onClick: () => router.push("/lab-inbox"),
     });
@@ -333,7 +333,7 @@ function ActionBar() {
       icon: MENTION_ICON,
       count: mentions,
       label: mentions === 1 ? "mention" : "mentions",
-      tint: "bg-blue-100 text-blue-800 hover:bg-blue-200",
+      tint: "bg-blue-100 dark:bg-blue-500/20 text-blue-800 dark:text-blue-200 hover:bg-blue-200",
       // @-mentions surface in the Lab Inbox comments view.
       onClick: () => router.push("/lab-inbox"),
     });
@@ -341,18 +341,18 @@ function ActionBar() {
 
   return (
     <div
-      className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2.5"
+      className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10/60 px-3 py-2.5"
       role="region"
       aria-label="What needs you"
     >
-      <span className="mr-1 flex items-center gap-1.5 text-meta font-semibold uppercase tracking-wide text-amber-700">
+      <span className="mr-1 flex items-center gap-1.5 text-meta font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
         <span aria-hidden="true">{SHIELD_ICON}</span>
         What needs you
       </span>
       {segments.map((seg, i) => (
         <span key={seg.label} className="flex items-center gap-2">
           {i > 0 && (
-            <span aria-hidden="true" className="text-gray-300">
+            <span aria-hidden="true" className="text-foreground-muted">
               ·
             </span>
           )}
@@ -374,15 +374,15 @@ function LinkOuts() {
       <button
         type="button"
         onClick={() => router.push("/workbench")}
-        className="group inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-body font-medium text-gray-700 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50"
+        className="group inline-flex items-center gap-2 rounded-lg border border-border bg-surface-raised px-3.5 py-2 text-body font-medium text-foreground shadow-sm transition-colors hover:border-border hover:bg-surface-sunken"
       >
-        <span aria-hidden="true" className="text-gray-400">
+        <span aria-hidden="true" className="text-foreground-muted">
           {BEAKER_ICON}
         </span>
         Browse lab experiments
         <span
           aria-hidden="true"
-          className="text-gray-300 transition-transform group-hover:translate-x-0.5"
+          className="text-foreground-muted transition-transform group-hover:translate-x-0.5"
         >
           {ARROW_RIGHT_ICON}
         </span>
@@ -390,15 +390,15 @@ function LinkOuts() {
       <button
         type="button"
         onClick={() => router.push("/workbench?tab=notes")}
-        className="group inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-body font-medium text-gray-700 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50"
+        className="group inline-flex items-center gap-2 rounded-lg border border-border bg-surface-raised px-3.5 py-2 text-body font-medium text-foreground shadow-sm transition-colors hover:border-border hover:bg-surface-sunken"
       >
-        <span aria-hidden="true" className="text-gray-400">
+        <span aria-hidden="true" className="text-foreground-muted">
           {NOTE_ICON}
         </span>
         Browse lab notes
         <span
           aria-hidden="true"
-          className="text-gray-300 transition-transform group-hover:translate-x-0.5"
+          className="text-foreground-muted transition-transform group-hover:translate-x-0.5"
         >
           {ARROW_RIGHT_ICON}
         </span>
@@ -425,12 +425,12 @@ interface SectionCardProps {
 function SectionCard({ title, description, children, className }: SectionCardProps) {
   return (
     <section
-      className={`rounded-2xl border border-gray-200 bg-white shadow-sm ${className ?? ""}`}
+      className={`rounded-2xl border border-border bg-surface-raised shadow-sm ${className ?? ""}`}
     >
-      <header className="border-b border-gray-100 px-5 py-3.5">
-        <h2 className="text-title font-semibold text-gray-900">{title}</h2>
+      <header className="border-b border-border px-5 py-3.5">
+        <h2 className="text-title font-semibold text-foreground">{title}</h2>
         {description && (
-          <p className="mt-0.5 text-meta text-gray-500">{description}</p>
+          <p className="mt-0.5 text-meta text-foreground-muted">{description}</p>
         )}
       </header>
       <div className="p-5">{children}</div>
@@ -449,8 +449,8 @@ export default function LabOverviewPage() {
       <div className="space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Lab Overview</h1>
-            <p className="mt-1 text-body text-gray-500">
+            <h1 className="text-heading font-bold text-foreground">Lab Overview</h1>
+            <p className="mt-1 text-body text-foreground-muted">
               Everything that needs you, plus what your lab has been up to.
             </p>
           </div>

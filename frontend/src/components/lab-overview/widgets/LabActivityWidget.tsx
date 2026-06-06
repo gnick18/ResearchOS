@@ -360,7 +360,7 @@ export default function LabActivityWidget(_props?: {
         <div
           role="tablist"
           aria-label="Date range"
-          className="inline-flex border border-gray-200 rounded-full overflow-hidden bg-white"
+          className="inline-flex border border-border rounded-full overflow-hidden bg-surface-raised"
         >
           {(["today", "yesterday", "week", "all"] as const).map((r, idx) => {
             const active = dateRange === r;
@@ -375,11 +375,11 @@ export default function LabActivityWidget(_props?: {
                   setPageCount(1);
                 }}
                 className={`px-3 py-1 text-meta transition-colors ${
-                  idx > 0 ? "border-l border-gray-200" : ""
+                  idx > 0 ? "border-l border-border" : ""
                 } ${
                   active
-                    ? "bg-gray-900 text-white"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                    ? "bg-gray-900 text-white dark:bg-foreground dark:text-background"
+                    : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
                 }`}
               >
                 {DATE_RANGE_LABEL[r]}
@@ -387,7 +387,7 @@ export default function LabActivityWidget(_props?: {
             );
           })}
         </div>
-        <span className="text-meta text-gray-400 tabular-nums">
+        <span className="text-meta text-foreground-muted tabular-nums">
           {visibleItems.length === filteredItems.length
             ? `Showing all ${filteredItems.length} event${filteredItems.length === 1 ? "" : "s"}`
             : `Showing ${visibleItems.length} of ${filteredItems.length} events`}
@@ -409,14 +409,14 @@ export default function LabActivityWidget(_props?: {
                 }}
                 className={`px-2.5 py-1 text-meta rounded-full border transition-colors ${
                   active
-                    ? "bg-gray-900 text-white border-gray-900"
-                    : "bg-white text-gray-700 border-gray-200 hover:border-gray-300"
+                    ? "bg-gray-900 text-white border-gray-900 dark:bg-foreground dark:text-background dark:border-foreground"
+                    : "bg-surface-raised text-foreground border-border hover:border-border"
                 }`}
               >
                 {FILTER_LABEL[f]}
                 <span
                   className={`ml-1 tabular-nums ${
-                    active ? "text-gray-300" : "text-gray-400"
+                    active ? "text-foreground-muted" : "text-foreground-muted"
                   }`}
                 >
                   {counts[f]}
@@ -430,12 +430,12 @@ export default function LabActivityWidget(_props?: {
       {/* Feed body */}
       <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
         {stillLoading && allItems.length === 0 ? (
-          <div className="flex items-center gap-2 text-body text-gray-500 py-6 justify-center">
+          <div className="flex items-center gap-2 text-body text-foreground-muted py-6 justify-center">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-600" />
             Loading lab activity…
           </div>
         ) : visibleItems.length === 0 ? (
-          <p className="text-body text-gray-400 italic py-6 text-center">
+          <p className="text-body text-foreground-muted italic py-6 text-center">
             No {filter === "all" ? "activity" : FILTER_LABEL[filter].toLowerCase()}{" "}
             yet.
           </p>
@@ -443,7 +443,7 @@ export default function LabActivityWidget(_props?: {
           <div className="space-y-4">
             {groupedByDay.map(({ day, items }) => (
               <section key={day}>
-                <h3 className="text-meta uppercase tracking-wider text-gray-400 font-semibold mb-1.5 sticky top-0 bg-white py-1">
+                <h3 className="text-meta uppercase tracking-wider text-foreground-muted font-semibold mb-1.5 sticky top-0 bg-surface-raised py-1">
                   {day}
                 </h3>
                 <ul className="space-y-1">
@@ -460,7 +460,7 @@ export default function LabActivityWidget(_props?: {
                 <button
                   type="button"
                   onClick={() => setPageCount((c) => c + 1)}
-                  className="text-meta text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300 rounded-full px-3 py-1 transition-colors"
+                  className="text-meta text-foreground-muted hover:text-foreground border border-border hover:border-border rounded-full px-3 py-1 transition-colors"
                 >
                   Load more
                 </button>
@@ -491,11 +491,11 @@ function ActivityRow({ item }: { item: FeedItem }) {
         <UserAvatar username={item.username} size="sm" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-meta text-gray-700 truncate" title={item.summary}>
-          <span className="font-medium text-gray-900">{item.username}</span>{" "}
+        <p className="text-meta text-foreground truncate" title={item.summary}>
+          <span className="font-medium text-foreground">{item.username}</span>{" "}
           {item.summary}
         </p>
-        <p className="text-meta text-gray-400">{formatTime(item.timestamp)}</p>
+        <p className="text-meta text-foreground-muted">{formatTime(item.timestamp)}</p>
       </div>
     </div>
   );
@@ -504,7 +504,7 @@ function ActivityRow({ item }: { item: FeedItem }) {
       <Link
         href={item.href}
         onClick={() => closePopup()}
-        className="block rounded hover:bg-gray-50 -mx-1 px-1 py-1"
+        className="block rounded hover:bg-surface-sunken -mx-1 px-1 py-1"
       >
         {body}
       </Link>
@@ -818,15 +818,15 @@ export function SnapshotTile(_props: SnapshotTileProps) {
   return (
     <div className="flex flex-col h-full min-h-0 gap-1.5">
       <div className="flex items-center gap-2 min-w-0">
-        <span aria-hidden="true" className="text-emerald-600 flex-shrink-0">
+        <span aria-hidden="true" className="text-emerald-600 dark:text-emerald-300 flex-shrink-0">
           {ACTIVITY_ICON}
         </span>
-        <span className="text-meta uppercase tracking-wide text-gray-500 font-medium truncate">
+        <span className="text-meta uppercase tracking-wide text-foreground-muted font-medium truncate">
           Activity today
         </span>
       </div>
       <div className="flex-1 flex flex-col justify-center min-h-0 gap-1.5">
-        <div className="text-4xl font-semibold text-emerald-700 leading-none tabular-nums">
+        <div className="text-4xl font-semibold text-emerald-700 dark:text-emerald-300 leading-none tabular-nums">
           {todayCount}
         </div>
         {previewItem && (
@@ -835,10 +835,10 @@ export function SnapshotTile(_props: SnapshotTileProps) {
               <UserAvatar username={previewItem.username} size="sm" />
             </span>
             <p
-              className="text-meta text-gray-600 leading-tight line-clamp-2 min-w-0"
+              className="text-meta text-foreground-muted leading-tight line-clamp-2 min-w-0"
               title={`${previewItem.username} ${previewItem.summary}`}
             >
-              <span className="font-medium text-gray-800">{previewItem.username}</span>{" "}
+              <span className="font-medium text-foreground">{previewItem.username}</span>{" "}
               {previewItem.summary}
             </p>
           </div>
@@ -917,18 +917,18 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
       }
       className={`w-full flex flex-col gap-1.5 px-2.5 py-2 rounded-md transition-colors ${
         interactive
-          ? "cursor-pointer hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+          ? "cursor-pointer hover:bg-surface-sunken focus:bg-surface-sunken focus:outline-none"
           : ""
       }`}
     >
       <div className="flex items-center gap-2 min-w-0">
-        <span aria-hidden="true" className="text-emerald-600 flex-shrink-0 flex items-center justify-center">
+        <span aria-hidden="true" className="text-emerald-600 dark:text-emerald-300 flex-shrink-0 flex items-center justify-center">
           {ACTIVITY_SIDEBAR_ICON}
         </span>
-        <span className="text-meta font-medium text-gray-700 truncate flex-1 min-w-0">
+        <span className="text-meta font-medium text-foreground truncate flex-1 min-w-0">
           Activity
         </span>
-        <span className="text-body font-semibold text-gray-900 tabular-nums flex-shrink-0">
+        <span className="text-body font-semibold text-foreground tabular-nums flex-shrink-0">
           {isLoading ? "—" : `${todayCount} today`}
         </span>
       </div>
@@ -939,7 +939,7 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
               <UserAvatar username={username} size="sm" />
             </span>
           ))}
-          <span className="text-meta text-gray-400 truncate">
+          <span className="text-meta text-foreground-muted truncate">
             recent
           </span>
         </div>

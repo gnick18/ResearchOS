@@ -92,7 +92,7 @@ export default function AnnouncementsWidget(_props?: {
       )}
 
       {isLoading ? (
-        <div className="flex items-center gap-2 text-meta text-gray-500">
+        <div className="flex items-center gap-2 text-meta text-foreground-muted">
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-600" />
           Loading announcements…
         </div>
@@ -100,11 +100,11 @@ export default function AnnouncementsWidget(_props?: {
         // Phase B Batch B2 polish: friendlier empty state, framed as a
         // call to action for PIs and a calm "nothing here yet" for
         // members. Replaces the prior italic-gray one-liner.
-        <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/40 px-4 py-6 text-center">
-          <p className="text-body font-medium text-gray-700">
+        <div className="rounded-lg border border-dashed border-border bg-surface-sunken/40 px-4 py-6 text-center">
+          <p className="text-body font-medium text-foreground">
             No announcements yet
           </p>
-          <p className="mt-1 text-meta text-gray-500">
+          <p className="mt-1 text-meta text-foreground-muted">
             {isLabHead
               ? "Start the conversation. Post the first announcement above and everyone in the lab will see it."
               : "Nothing from your PI yet. Check back later."}
@@ -247,10 +247,10 @@ function Composer({ username, onPosted }: ComposerProps) {
   return (
     <div
       ref={composerRef}
-      className="border border-emerald-200 bg-emerald-50/40 rounded-lg p-4 space-y-3 scroll-mt-2"
+      className="border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10/40 rounded-lg p-4 space-y-3 scroll-mt-2"
     >
       <textarea
-        className="w-full min-h-[60px] text-body rounded-md border border-emerald-300 px-3 py-2 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-400"
+        className="w-full min-h-[60px] text-body rounded-md border border-emerald-300 px-3 py-2 bg-surface-raised focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-surface-sunken disabled:text-foreground-muted"
         placeholder={
           "Share an update with the lab — e.g. \"Lab meeting Friday 2pm, bring strain design notes.\""
         }
@@ -260,10 +260,10 @@ function Composer({ username, onPosted }: ComposerProps) {
         data-testid="lab-announcement-composer-textarea"
       />
       <div className="flex items-center justify-between gap-2">
-        <label className="flex items-center gap-1.5 text-meta text-gray-600 cursor-pointer">
+        <label className="flex items-center gap-1.5 text-meta text-foreground-muted cursor-pointer">
           <input
             type="checkbox"
-            className="rounded text-emerald-600 focus:ring-emerald-500"
+            className="rounded text-emerald-600 dark:text-emerald-300 focus:ring-emerald-500"
             checked={pinned}
             onChange={(e) => setPinned(e.target.checked)}
             disabled={posting}
@@ -274,7 +274,7 @@ function Composer({ username, onPosted }: ComposerProps) {
           type="button"
           onClick={handlePost}
           disabled={!canPost}
-          className="px-3 py-1.5 rounded-md bg-emerald-600 text-white text-meta font-medium hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          className="px-3 py-1.5 rounded-md bg-emerald-600 text-white text-meta font-medium hover:bg-emerald-700 disabled:bg-foreground-muted/20 disabled:cursor-not-allowed"
           data-testid="lab-announcement-composer-post"
         >
           {posting ? "Posting…" : "Post announcement"}
@@ -404,24 +404,24 @@ function AnnouncementCard({
   };
 
   const authorClass = authorIsKnown
-    ? "font-medium text-gray-700"
-    : "font-medium text-gray-400 italic";
+    ? "font-medium text-foreground"
+    : "font-medium text-foreground-muted italic";
 
   return (
     <div
       className={`rounded-lg p-3 border ${
         entry.pinned
-          ? "border-amber-300 bg-amber-50/60"
-          : "border-gray-200 bg-gray-50/40"
+          ? "border-amber-300 bg-amber-50 dark:bg-amber-500/10/60"
+          : "border-border bg-surface-sunken/40"
       }`}
       data-testid="lab-announcement-card"
     >
       <div className="flex items-start justify-between gap-2 mb-1">
-        <div className="flex items-center gap-2 text-meta text-gray-500 flex-wrap">
+        <div className="flex items-center gap-2 text-meta text-foreground-muted flex-wrap">
           <span className={authorClass}>{authorDisplayName}</span>
           {authorIsLabHead && (
             <span
-              className="px-1.5 py-0.5 text-meta font-semibold rounded bg-amber-100 text-amber-800"
+              className="px-1.5 py-0.5 text-meta font-semibold rounded bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-200"
               title="PI"
             >
               PI
@@ -445,7 +445,7 @@ function AnnouncementCard({
                 type="button"
                 onClick={handleTogglePin}
                 disabled={busy}
-                className="text-meta text-amber-700 hover:text-amber-900 hover:underline px-1.5 py-0.5 rounded disabled:opacity-50"
+                className="text-meta text-amber-700 dark:text-amber-300 hover:text-amber-900 hover:underline px-1.5 py-0.5 rounded disabled:opacity-50"
               >
                 {entry.pinned ? "Unpin" : "Pin"}
               </button>
@@ -455,7 +455,7 @@ function AnnouncementCard({
                 type="button"
                 onClick={() => setEditing(true)}
                 disabled={busy}
-                className="text-meta text-emerald-700 hover:text-emerald-900 hover:underline px-1.5 py-0.5 rounded disabled:opacity-50"
+                className="text-meta text-emerald-700 dark:text-emerald-300 hover:text-emerald-900 hover:underline px-1.5 py-0.5 rounded disabled:opacity-50"
               >
                 Edit
               </button>
@@ -465,7 +465,7 @@ function AnnouncementCard({
                 type="button"
                 onClick={handleDelete}
                 disabled={busy}
-                className="text-meta text-red-600 hover:text-red-800 hover:underline px-1.5 py-0.5 rounded disabled:opacity-50"
+                className="text-meta text-red-600 dark:text-red-300 hover:text-red-800 dark:hover:text-red-200 hover:underline px-1.5 py-0.5 rounded disabled:opacity-50"
               >
                 Delete
               </button>
@@ -476,7 +476,7 @@ function AnnouncementCard({
       {editing ? (
         <div className="space-y-2">
           <textarea
-            className="w-full min-h-[60px] text-body rounded-md border border-emerald-300 px-3 py-2 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            className="w-full min-h-[60px] text-body rounded-md border border-emerald-300 px-3 py-2 bg-surface-raised focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             disabled={busy}
@@ -486,7 +486,7 @@ function AnnouncementCard({
               type="button"
               onClick={handleSave}
               disabled={busy || draft.trim().length === 0}
-              className="px-2 py-1 rounded-md bg-emerald-600 text-white text-meta font-medium hover:bg-emerald-700 disabled:bg-gray-300"
+              className="px-2 py-1 rounded-md bg-emerald-600 text-white text-meta font-medium hover:bg-emerald-700 disabled:bg-foreground-muted/20"
             >
               Save
             </button>
@@ -510,14 +510,14 @@ function AnnouncementCard({
                 setDraft(entry.text);
               }}
               disabled={busy}
-              className="px-2 py-1 rounded-md text-meta text-gray-600 hover:bg-gray-100"
+              className="px-2 py-1 rounded-md text-meta text-foreground-muted hover:bg-surface-sunken"
             >
               Cancel
             </button>
           </div>
         </div>
       ) : (
-        <p className="text-body text-gray-800 whitespace-pre-wrap break-words">
+        <p className="text-body text-foreground whitespace-pre-wrap break-words">
           {entry.text}
         </p>
       )}
@@ -650,7 +650,7 @@ export function SnapshotTile(_props: SnapshotTileProps) {
 
   return (
     <div className="relative h-full overflow-hidden flex flex-col">
-      <div className="flex items-center gap-1.5 text-gray-500">
+      <div className="flex items-center gap-1.5 text-foreground-muted">
         <span aria-hidden="true" className="text-purple-500 flex-shrink-0">
           {MEGAPHONE_SVG}
         </span>
@@ -660,7 +660,7 @@ export function SnapshotTile(_props: SnapshotTileProps) {
       </div>
       {weekCount > 0 && (
         <span
-          className="absolute top-0 right-0 text-meta text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full font-medium"
+          className="absolute top-0 right-0 text-meta text-purple-600 dark:text-purple-300 bg-purple-50 dark:bg-purple-500/10 px-1.5 py-0.5 rounded-full font-medium"
           aria-label={`${weekCount} new this week`}
         >
           {weekCount} new
@@ -668,9 +668,9 @@ export function SnapshotTile(_props: SnapshotTileProps) {
       )}
       <div className="mt-2 flex-1 min-h-0 flex flex-col gap-2">
         {isLoading ? (
-          <p className="text-meta text-gray-400 italic m-auto">Loading…</p>
+          <p className="text-meta text-foreground-muted italic m-auto">Loading…</p>
         ) : recent.length === 0 ? (
-          <p className="text-meta text-gray-400 italic m-auto">
+          <p className="text-meta text-foreground-muted italic m-auto">
             No announcements yet
           </p>
         ) : (
@@ -683,20 +683,20 @@ export function SnapshotTile(_props: SnapshotTileProps) {
                 key={entry.id}
                 className={`min-w-0 ${
                   idx < recent.length - 1
-                    ? "pb-2 border-b border-gray-100"
+                    ? "pb-2 border-b border-border"
                     : ""
                 }`}
               >
                 <div className="flex items-center gap-1.5 min-w-0">
                   <UserAvatar username={entry.author} size="xs" />
-                  <span className="text-meta font-medium text-gray-800 truncate">
+                  <span className="text-meta font-medium text-foreground truncate">
                     {author}
                   </span>
                 </div>
-                <p className="mt-0.5 text-meta text-gray-600 leading-snug line-clamp-2 break-words">
+                <p className="mt-0.5 text-meta text-foreground-muted leading-snug line-clamp-2 break-words">
                   {body}
                 </p>
-                <p className="mt-0.5 text-meta text-gray-400">
+                <p className="mt-0.5 text-meta text-foreground-muted">
                   {formatRelative(entry.created_at)}
                 </p>
               </div>
@@ -790,7 +790,7 @@ function SnapshotComposer({
   return (
     <div className="relative h-full overflow-hidden flex flex-col">
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-gray-500 min-w-0">
+        <div className="flex items-center gap-1.5 text-foreground-muted min-w-0">
           <span aria-hidden="true" className="text-purple-500 flex-shrink-0">
             {MEGAPHONE_SVG}
           </span>
@@ -800,7 +800,7 @@ function SnapshotComposer({
         </div>
         {weekCount > 0 && (
           <span
-            className="text-meta text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0"
+            className="text-meta text-purple-600 dark:text-purple-300 bg-purple-50 dark:bg-purple-500/10 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0"
             aria-label={`${weekCount} new this week`}
           >
             {weekCount} new
@@ -816,7 +816,7 @@ function SnapshotComposer({
         onKeyDown={stopClick}
       >
         <textarea
-          className="flex-1 min-h-0 w-full text-meta rounded-md border border-purple-200 px-2 py-1.5 bg-white focus:ring-1 focus:ring-purple-500 focus:border-purple-500 focus:outline-none resize-none disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+          className="flex-1 min-h-0 w-full text-meta rounded-md border border-purple-200 dark:border-purple-500/30 px-2 py-1.5 bg-surface-raised focus:ring-1 focus:ring-purple-500 focus:border-purple-500 focus:outline-none resize-none disabled:bg-surface-sunken disabled:text-foreground-muted disabled:cursor-not-allowed"
           placeholder="Share a quick update with the lab…"
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -828,7 +828,7 @@ function SnapshotComposer({
             type="button"
             onClick={handlePost}
             disabled={!canPost}
-            className="px-2.5 py-1 rounded-md bg-purple-600 text-white text-meta font-medium hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex-shrink-0"
+            className="px-2.5 py-1 rounded-md bg-purple-600 text-white text-meta font-medium hover:bg-purple-700 disabled:bg-foreground-muted/20 disabled:cursor-not-allowed flex-shrink-0"
             data-testid="lab-announcement-snapshot-post"
           >
             {posting ? "Posting…" : justSent ? "Sent" : "Post"}
@@ -842,7 +842,7 @@ function SnapshotComposer({
       {/* "View all" hint area — outside stopPropagation, so click here
           opens the popup the same way clicking any non-interactive
           part of the tile does. */}
-      <p className="mt-1 text-meta text-purple-700 font-medium text-right">
+      <p className="mt-1 text-meta text-purple-700 dark:text-purple-300 font-medium text-right">
         View all →
       </p>
     </div>
@@ -884,11 +884,11 @@ export function SidebarTile({ onClick }: SidebarTileProps) {
         isLoading ? (
           "—"
         ) : count > 0 ? (
-          <span className="inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 text-meta font-semibold tabular-nums">
+          <span className="inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 text-meta font-semibold tabular-nums">
             {count}
           </span>
         ) : (
-          <span className="text-gray-400 text-meta">{total}</span>
+          <span className="text-foreground-muted text-meta">{total}</span>
         )
       }
       onClick={onClick}
