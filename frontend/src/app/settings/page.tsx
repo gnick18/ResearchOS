@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/AppShell";
@@ -90,15 +90,6 @@ import {
   useSettingsSearch,
 } from "./search-context";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
-import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
-import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
-import SharingSection, {
-  RotateIdentityPopup,
-  RestoreIdentityPopup,
-  DisconnectIdentityPopup,
-  ResetIdentityPopup,
-} from "@/components/settings/SharingSection";
-import { listInbox } from "@/lib/sharing/relay/client";
 
 const GANTT_VIEW_OPTIONS: { value: UserSettings["defaultGanttViewMode"]; label: string }[] = [
   { value: "1week", label: "1 week" },
@@ -189,29 +180,11 @@ export function SettingsBody() {
   // and reports loading / none / needs-restore / ready. The three identity
   // modals follow the same parent-owns-the-open-state pattern as the password
   // popup, a section button flips a boolean here.
+  // The sharing identity itself (Account and keys + Inbox + Cloud storage) and
+  // its rotate / restore / disconnect / reset modals moved to the Profile
+  // surface (2026-06-06), it is "your account", not an app setting. Settings
+  // keeps only `sharing` (read) for the ProfilePointerCard + SecuritySection.
   const sharing = useSharingIdentity();
-  const [sharingWizardOpen, setSharingWizardOpen] = useState(false);
-  const [rotateOpen, setRotateOpen] = useState(false);
-  const [restoreOpen, setRestoreOpen] = useState(false);
-  const [disconnectOpen, setDisconnectOpen] = useState(false);
-  const [resetOpen, setResetOpen] = useState(false);
-  // Pending-share count, surfaced to the rotate / disconnect modals so they can
-  // warn when shares are waiting (sealed to the current key). Only fetched when
-  // ready, a 404 (sharing disabled) or any failure leaves it null so the modals
-  // simply omit the warning rather than block.
-  const sharingInbox = useQuery({
-    queryKey: ["sharing-inbox", sharing.email],
-    queryFn: () => listInbox({ email: sharing.email as string }),
-    enabled: sharing.status === "ready" && !!sharing.email,
-    staleTime: 30_000,
-    retry: false,
-  });
-  const pendingShareCount =
-    sharing.status === "ready" &&
-    !sharingInbox.isError &&
-    sharingInbox.data !== undefined
-      ? sharingInbox.data.length
-      : null;
   // floating-cluster-split bot (2026-06-02): the Data-folder + Switch-user
   // CONFIG actions relocated here from the AppShell floating cluster. Each
   // opens the same self-contained modal/screen the floating buttons used.
@@ -518,19 +491,7 @@ export function SettingsBody() {
               currentUser={currentUser}
               onSwitchUser={() => setShowUserSwitch(true)}
             />
-            <SharingSection
-              currentUser={currentUser}
-              sharing={sharing}
-              onSetUp={() => setSharingWizardOpen(true)}
-              onRotate={() => setRotateOpen(true)}
-              onRestore={() => setRestoreOpen(true)}
-              onDisconnect={() => setDisconnectOpen(true)}
-              onReset={() => setResetOpen(true)}
-            />
-            <ProfilePointerCard
-              sharing={sharing}
-              onSetUp={() => setSharingWizardOpen(true)}
-            />
+            <ProfilePointerCard sharing={sharing} />
             <ProfessionalModeSection settings={settings} update={update} />
             <TabsSection settings={settings} update={update} />
             <LabArchivesSection />
@@ -575,70 +536,6 @@ export function SettingsBody() {
         />
       )}
 
-      {/* Cross-boundary sharing modals. Each refreshes the identity hook on
-          close so the Sharing identity + Inbox sections re-read. */}
-      {sharingWizardOpen && currentUser && (
-        <SharingSetupWizard
-          username={currentUser}
-          onComplete={() => {
-            void sharing.refresh();
-          }}
-          onClose={() => {
-            setSharingWizardOpen(false);
-            void sharing.refresh();
-          }}
-        />
-      )}
-      {rotateOpen && currentUser && (
-        <RotateIdentityPopup
-          username={currentUser}
-          sidecar={sharing.sidecar}
-          pendingCount={pendingShareCount}
-          onClose={() => {
-            setRotateOpen(false);
-            void sharing.refresh();
-          }}
-        />
-      )}
-      {restoreOpen && currentUser && (
-        <RestoreIdentityPopup
-          username={currentUser}
-          sidecar={sharing.sidecar}
-          onClose={() => {
-            setRestoreOpen(false);
-            void sharing.refresh();
-          }}
-        />
-      )}
-      {disconnectOpen && currentUser && (
-        <DisconnectIdentityPopup
-          username={currentUser}
-          pendingCount={pendingShareCount}
-          onClose={() => {
-            setDisconnectOpen(false);
-            void sharing.refresh();
-          }}
-        />
-      )}
-      {resetOpen && currentUser && (
-        <ResetIdentityPopup
-          username={currentUser}
-          pendingCount={pendingShareCount}
-          onConfirmed={() => {
-            // Sidecar and local key are gone, the account now reads as unclaimed.
-            // Close the confirm modal and hand straight to the setup wizard, which
-            // mints a fresh keypair and re-verifies the email (server upsert
-            // replaces the old binding).
-            setResetOpen(false);
-            void sharing.refresh();
-            setSharingWizardOpen(true);
-          }}
-          onClose={() => {
-            setResetOpen(false);
-            void sharing.refresh();
-          }}
-        />
-      )}
 
       {/* Data folder + Switch user modals (floating-cluster-split bot,
           2026-06-02). Relocated verbatim from the AppShell floating
@@ -972,45 +869,36 @@ function AccountSection({
   );
 }
 
-// Profile editing moved to the dedicated /profile page (2026-06-05). This
-// section is now a pointer. When no sharing identity exists yet, it shows the
-// four sign-in buttons to encourage setup instead of a link (Grant's call).
+// Profile editing AND the sharing account (Account and keys, inbox, storage)
+// both live on the dedicated Profile page now (2026-06-06). This Settings
+// section is a pure pointer there, set-up included, so there is no forked
+// account surface in Settings.
 function ProfilePointerCard({
   sharing,
-  onSetUp,
 }: {
   sharing: ReturnType<typeof useSharingIdentity>;
-  onSetUp: () => void;
 }) {
+  const notSetUp = sharing.status === "none";
   return (
     <SectionShell
       id="personalize"
-      title="Profile"
-      description="Your name, avatar color, ORCID, and researcher profile live on your Profile page."
-      searchKeywords="display name color avatar gradient primary secondary swatch palette personalize header tint orcid id researcher identifier profile"
+      title="Profile and account"
+      description="Your name, avatar color, ORCID, researcher profile, and your account and keys all live on your Profile page."
+      searchKeywords="display name color avatar gradient primary secondary swatch palette personalize header tint orcid id researcher identifier profile account keys identity sharing email fingerprint recovery inbox storage"
     >
-      {sharing.status === "none" ? (
-        <div className="space-y-3">
-          <p className="text-body text-gray-700 leading-relaxed max-w-prose">
-            Set up sharing to claim your profile so colleagues can find you. Sign
-            in with the account you want others to reach you by.
-          </p>
-          <SharingProviderButtons onProvider={() => onSetUp()} />
-        </div>
-      ) : (
-        <div className="flex items-start justify-between gap-4">
-          <p className="text-body text-gray-700 leading-relaxed max-w-prose">
-            Edit your display name, avatar color, ORCID, and researcher profile on
-            your Profile page.
-          </p>
-          <Link
-            href="/profile"
-            className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
-          >
-            Go to your Profile
-          </Link>
-        </div>
-      )}
+      <div className="flex items-start justify-between gap-4">
+        <p className="text-body text-gray-700 leading-relaxed max-w-prose">
+          {notSetUp
+            ? "Set up sharing and manage your name, avatar color, ORCID, and keys on your Profile page."
+            : "Edit your display name, avatar color, ORCID, researcher profile, and your account and keys on your Profile page."}
+        </p>
+        <Link
+          href="/profile"
+          className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+        >
+          {notSetUp ? "Set up on your Profile" : "Go to your Profile"}
+        </Link>
+      </div>
     </SectionShell>
   );
 }

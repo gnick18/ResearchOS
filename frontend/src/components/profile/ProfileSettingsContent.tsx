@@ -8,15 +8,22 @@
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
 import { useCallback, useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import AppearanceCard from "@/components/profile/AppearanceCard";
 import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
-import { ProfileEditorCard } from "@/components/settings/SharingSection";
+import SharingSection, {
+  ProfileEditorCard,
+  RotateIdentityPopup,
+  RestoreIdentityPopup,
+  DisconnectIdentityPopup,
+  ResetIdentityPopup,
+} from "@/components/settings/SharingSection";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import { useAppStore } from "@/lib/store";
+import { listInbox } from "@/lib/sharing/relay/client";
 import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
 import {
   readUserSettings,
@@ -32,7 +39,30 @@ export default function ProfileSettingsContent() {
 
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
+  // Sharing-identity flows (moved here from Settings, 2026-06-06): setup wizard
+  // plus the rotate / restore / disconnect / reset modals that act on the
+  // "Account and keys" identity card.
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [rotateOpen, setRotateOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [disconnectOpen, setDisconnectOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+
+  // Pending-share count drives the warnings in the rotate / disconnect / reset
+  // modals. Same query the old Settings surface used.
+  const sharingInbox = useQuery({
+    queryKey: ["sharing-inbox", sharing.email],
+    queryFn: () => listInbox({ email: sharing.email as string }),
+    enabled: sharing.status === "ready" && !!sharing.email,
+    staleTime: 30_000,
+    retry: false,
+  });
+  const pendingShareCount =
+    sharing.status === "ready" &&
+    !sharingInbox.isError &&
+    sharingInbox.data !== undefined
+      ? sharingInbox.data.length
+      : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -107,34 +137,39 @@ export default function ProfileSettingsContent() {
         </p>
       </div>
 
-      {/* Researcher profile FIRST: signing in / claiming the profile is the
-          primary action, especially for a not-yet-logged-in user, so the four
-          sign-in buttons lead. Appearance (color picker, name) sits below. */}
-      {sharing.status === "ready" ? (
-        <ProfileEditorCard />
-      ) : sharing.status === "none" ? (
+      {/* Researcher profile (public) leads when the key is on this device, it
+          is the friendly thing people edit most. The technical "Account and
+          keys" identity, inbox, and storage sit below it. */}
+      {sharing.status === "ready" && <ProfileEditorCard />}
+
+      {/* Account and keys + Inbox and storage + Cloud storage (moved here from
+          Settings, 2026-06-06, this is your account, not an app setting). When
+          nothing is set up yet, lead with the friendly four-button sign-in
+          instead of the plain identity stub. */}
+      {sharing.status === "none" ? (
         <section className="bg-surface-raised rounded-xl border border-border p-6">
           <div className="mb-4">
             <h2 className="text-title font-semibold text-foreground">
-              Researcher profile
+              Set up sharing
             </h2>
             <p className="text-meta text-foreground-muted mt-1 leading-relaxed">
-              Set up sharing to claim a researcher profile, so colleagues can
-              find you and confirm your fingerprint before sending you work.
+              Claim your account so colleagues can find you and confirm your
+              fingerprint before sending you work. It takes about a minute and
+              you stay in control of your keys.
             </p>
           </div>
           <SharingProviderButtons onProvider={() => setWizardOpen(true)} />
         </section>
       ) : (
-        <section className="bg-surface-raised rounded-xl border border-border p-6">
-          <h2 className="text-title font-semibold text-foreground">
-            Researcher profile
-          </h2>
-          <p className="text-body text-foreground-muted mt-1 leading-relaxed">
-            Your identity is set up, but its key is not on this device. Restore
-            it from Settings to edit your researcher profile here.
-          </p>
-        </section>
+        <SharingSection
+          currentUser={currentUser}
+          sharing={sharing}
+          onSetUp={() => setWizardOpen(true)}
+          onRotate={() => setRotateOpen(true)}
+          onRestore={() => setRestoreOpen(true)}
+          onDisconnect={() => setDisconnectOpen(true)}
+          onReset={() => setResetOpen(true)}
+        />
       )}
 
       {/* Appearance (color picker, display name, ORCID, header tint) last. */}
@@ -156,6 +191,54 @@ export default function ProfileSettingsContent() {
           }}
           onClose={() => {
             setWizardOpen(false);
+            void sharing.refresh();
+          }}
+        />
+      )}
+      {rotateOpen && currentUser && (
+        <RotateIdentityPopup
+          username={currentUser}
+          sidecar={sharing.sidecar}
+          pendingCount={pendingShareCount}
+          onClose={() => {
+            setRotateOpen(false);
+            void sharing.refresh();
+          }}
+        />
+      )}
+      {restoreOpen && currentUser && (
+        <RestoreIdentityPopup
+          username={currentUser}
+          sidecar={sharing.sidecar}
+          onClose={() => {
+            setRestoreOpen(false);
+            void sharing.refresh();
+          }}
+        />
+      )}
+      {disconnectOpen && currentUser && (
+        <DisconnectIdentityPopup
+          username={currentUser}
+          pendingCount={pendingShareCount}
+          onClose={() => {
+            setDisconnectOpen(false);
+            void sharing.refresh();
+          }}
+        />
+      )}
+      {resetOpen && currentUser && (
+        <ResetIdentityPopup
+          username={currentUser}
+          pendingCount={pendingShareCount}
+          onConfirmed={() => {
+            // Sidecar + local key gone, account reads as unclaimed. Hand
+            // straight to the setup wizard to mint a fresh keypair.
+            setResetOpen(false);
+            void sharing.refresh();
+            setWizardOpen(true);
+          }}
+          onClose={() => {
+            setResetOpen(false);
             void sharing.refresh();
           }}
         />
