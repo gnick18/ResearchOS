@@ -35,8 +35,13 @@ initSync({ module: wasm });
 const MSG_DOC_UPDATE = 0x01;
 const MSG_EPHEMERAL = 0x02;
 
+/** How often the DO backs its snapshot up to R2 (disaster-recovery net). */
+const BACKUP_INTERVAL_MS = 5 * 60 * 1000;
+
 export interface Env {
   COLLAB_ROOM: DurableObjectNamespace;
+  /** R2 bucket for periodic per-doc snapshot backups (disaster recovery). */
+  COLLAB_BACKUPS: R2Bucket;
 }
 
 export default {
@@ -71,6 +76,7 @@ export default {
 
 export class CollabRoom {
   readonly state: DurableObjectState;
+  readonly env: Env;
   /** In-memory canonical doc, lazily loaded from SQLite (survives across
    *  messages until the DO is evicted, then reloaded on the next use). */
   private doc: LoroDoc | null = null;
@@ -78,12 +84,17 @@ export class CollabRoom {
    *  empty room does not send a pointless catch-up frame). */
   private hasStored = false;
 
-  constructor(state: DurableObjectState) {
+  constructor(state: DurableObjectState, env: Env) {
     this.state = state;
+    this.env = env;
     // One row holds the compacted snapshot. BLOB (SQLite) avoids the 128 KiB
     // per-value cap of the DO key-value storage API.
     this.sql().exec(
       "CREATE TABLE IF NOT EXISTS doc (k TEXT PRIMARY KEY, snapshot BLOB)",
+    );
+    // Tracks whether there are un-backed-up changes since the last R2 backup.
+    this.sql().exec(
+      "CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)",
     );
   }
 
@@ -131,11 +142,83 @@ export class CollabRoom {
       snapshot,
     );
     this.hasStored = true;
+    this.markDirtyAndArm();
+  }
+
+  /**
+   * Flag the room as having un-backed-up changes and ensure a backup alarm is
+   * scheduled. The SQLite snapshot is the primary durable store; R2 is a
+   * disaster-recovery copy taken on a throttled cadence.
+   */
+  private markDirtyAndArm(): void {
+    this.sql().exec(
+      "INSERT INTO meta (k, v) VALUES ('dirty', '1') ON CONFLICT(k) DO UPDATE SET v = '1'",
+    );
+    void this.armBackupAlarm();
+  }
+
+  private async armBackupAlarm(): Promise<void> {
+    try {
+      if ((await this.state.storage.getAlarm()) === null) {
+        await this.state.storage.setAlarm(Date.now() + BACKUP_INTERVAL_MS);
+      }
+    } catch {
+      // Alarm scheduling is best-effort; a failure just delays a backup.
+    }
+  }
+
+  private backupKey(): string {
+    const rows = this.sql()
+      .exec<{ v: string }>("SELECT v FROM meta WHERE k = 'session_id'")
+      .toArray();
+    const sid = rows.length > 0 ? rows[0].v : this.state.id.toString();
+    return `snapshots/${sid}.loro`;
+  }
+
+  /**
+   * Periodic disaster-recovery backup. Writes the current snapshot to R2 when
+   * the room is dirty, clears the flag, and schedules one more tick to batch
+   * imminent writes; if still clean on the next tick it returns early and the
+   * alarm goes idle (a new write re-arms it).
+   */
+  async alarm(): Promise<void> {
+    const dirtyRows = this.sql()
+      .exec<{ v: string }>("SELECT v FROM meta WHERE k = 'dirty'")
+      .toArray();
+    const dirty = dirtyRows.length > 0 && dirtyRows[0].v === "1";
+    if (!dirty) return; // no activity since last backup -> let the alarm go idle
+
+    const rows = this.sql()
+      .exec<{ snapshot: ArrayBuffer | null }>("SELECT snapshot FROM doc WHERE k = 'doc'")
+      .toArray();
+    const stored = rows.length > 0 ? rows[0].snapshot : null;
+    if (stored && stored.byteLength > 0) {
+      try {
+        await this.env.COLLAB_BACKUPS.put(this.backupKey(), stored);
+      } catch {
+        // R2 write failed; leave dirty set and retry on the next tick.
+        await this.state.storage.setAlarm(Date.now() + BACKUP_INTERVAL_MS);
+        return;
+      }
+    }
+    this.sql().exec("UPDATE meta SET v = '0' WHERE k = 'dirty'");
+    await this.state.storage.setAlarm(Date.now() + BACKUP_INTERVAL_MS);
   }
 
   async fetch(request: Request): Promise<Response> {
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("Expected WebSocket upgrade", { status: 426 });
+    }
+
+    // Record the sessionId (from the connect URL) so the R2 backup key is
+    // stable and meaningful. The DO is addressed by idFromName(sessionId) but
+    // does not otherwise know its own session string.
+    const sid = new URL(request.url).searchParams.get("session");
+    if (sid) {
+      this.sql().exec(
+        "INSERT INTO meta (k, v) VALUES ('session_id', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v",
+        sid,
+      );
     }
 
     const pair = new WebSocketPair();

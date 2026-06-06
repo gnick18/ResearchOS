@@ -10,6 +10,13 @@ compatibility_date = "2024-12-01"
 name = "COLLAB_ROOM"
 class_name = "CollabRoom"
 
+# R2 bucket for periodic per-doc snapshot backups (disaster-recovery net for the
+# DO SQLite store, storage-migration phase 1 chunk 4). The DO writes its current
+# compacted snapshot here on a throttled alarm cadence.
+[[r2_buckets]]
+binding = "COLLAB_BACKUPS"
+bucket_name = "researchos-collab-backups"
+
 # new_sqlite_classes is required for the WebSocket Hibernation API on a fresh
 # DO class (SQLite-backed DOs are the current default storage backend).
 [[migrations]]
