@@ -1148,8 +1148,19 @@ export default function TaxonomyTreeView({
                       {showLabel ? (
                         // The pill behind plus the horizontal text in front, both
                         // axis aligned (no rotation), so the label always reads like
-                        // normal copy next to its node.
-                        <g style={{ pointerEvents: "none", userSelect: "none" }}>
+                        // normal copy next to its node. The label is clickable and
+                        // hoverable just like the node dot, so clicking the name
+                        // re-roots on that node and hovering it shows the same card.
+                        <g
+                          style={{ cursor: "pointer", userSelect: "none" }}
+                          onPointerEnter={(e) => onNodeHover(n, e)}
+                          onPointerMove={(e) => onNodeHover(n, e)}
+                          onPointerLeave={clearHover}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onNodeClick(n);
+                          }}
+                        >
                           <rect
                             x={pillX}
                             y={pillY}
