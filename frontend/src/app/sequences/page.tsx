@@ -1379,11 +1379,12 @@ export default function SequencesPage() {
           to document.body; renders only when importProgress is set with
           total > 1. Single-file imports use the inline status line below. */}
       <ImportProgressOverlay progress={importProgress} />
-      {/* Dark-mode Tier D (docs/proposals/dark-mode-toggle.md): the sequence
-          editor is a heavily graphical specialized tool (SeqViz maps, plasmid
-          viewers, third-party canvases) that does not cleanly re-theme. For now
-          it stays a light island, light-scope force-locks it to the light
-          palette so it reads correctly under the dark app shell. Revisit a
+      {/* Dark-mode Tier D (docs/proposals/dark-mode-toggle.md): the LEFT library
+          panel (the aside below) themes normally via semantic tokens. Only the
+          RIGHT editor surface is a light island: it is a heavily graphical
+          specialized tool (SeqViz maps, plasmid viewers, third-party canvases)
+          that does not cleanly re-theme, so `light-scope` force-locks just that
+          <section> to the light palette under the dark app shell. Revisit a
           native dark sequence editor later. */}
       <div
         ref={splitContainerRef}
@@ -1392,7 +1393,7 @@ export default function SequencesPage() {
          * dead ~60px bar at the bottom of the editor. `h-full min-h-0` lets the
          * library + viewer run all the way down; `pb-4` keeps the same 1rem
          * frame as the side padding so the rounded panels aren't flush. */
-        className="light-scope flex h-full min-h-0 px-4 pb-4"
+        className="flex h-full min-h-0 px-4 pb-4"
       >
         {/* LEFT: working tree / library. Wrapped in a drag-and-drop target so a
             user can drop files or a whole folder anywhere on the library to
@@ -1411,15 +1412,15 @@ export default function SequencesPage() {
           disabled={importing}
           className="flex h-full w-full min-w-0 flex-col"
         >
-        <aside className="flex h-full w-full flex-col rounded-lg border border-gray-200 bg-white">
-          <div className="border-b border-gray-100 px-4 py-3">
+        <aside className="flex h-full w-full flex-col rounded-lg border border-border bg-surface-raised">
+          <div className="border-b border-border px-4 py-3">
             {/* Stack the title + description above the actions so they get the
                 full sidebar width (no truncated title / thin wrapped text); the
                 action buttons sit on their own row below. Calm, Apple-ish. */}
             <div className="flex flex-col gap-3">
               <div>
-                <h1 className="text-lg font-semibold text-gray-900">Sequences</h1>
-                <p className="mt-0.5 text-meta text-gray-500">
+                <h1 className="text-lg font-semibold text-foreground">Sequences</h1>
+                <p className="mt-0.5 text-meta text-foreground-muted">
                   Your molecular-biology workbench. Edit, annotate, design
                   primers, plan cloning, and find domains.
                 </p>
@@ -1440,7 +1441,7 @@ export default function SequencesPage() {
                   <button
                     type="button"
                     onClick={() => setAssembleOpen(true)}
-                    className="flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-meta font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                    className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
                   >
                     <AssembleIcon className="h-3.5 w-3.5" />
                     Assemble
@@ -1452,7 +1453,7 @@ export default function SequencesPage() {
                   <button
                     type="button"
                     onClick={() => setCompareOpen(true)}
-                    className="flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-meta font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                    className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
                   >
                     <AlignIcon className="h-3.5 w-3.5" />
                     Align
@@ -1469,17 +1470,17 @@ export default function SequencesPage() {
                       disabled={importing}
                       aria-haspopup="menu"
                       aria-expanded={importMenuOpen}
-                      className="flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-meta font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50"
+                      className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
                     >
                       <ImportIcon className="h-3.5 w-3.5" />
                       {importing ? "Importing…" : "Import"}
-                      <ChevronDownIcon className="h-3 w-3 text-gray-400" />
+                      <ChevronDownIcon className="h-3 w-3 text-foreground-muted" />
                     </button>
                   </Tooltip>
                   {importMenuOpen ? (
                     <div
                       role="menu"
-                      className="absolute left-0 z-30 mt-1 w-48 overflow-hidden rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+                      className="absolute left-0 z-30 mt-1 w-48 overflow-hidden rounded-md border border-border bg-surface-raised py-1 shadow-lg"
                     >
                       <button
                         type="button"
@@ -1488,9 +1489,9 @@ export default function SequencesPage() {
                           setImportMenuOpen(false);
                           fileInputRef.current?.click();
                         }}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-meta font-medium text-gray-700 hover:bg-gray-100"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-meta font-medium text-foreground hover:bg-surface-sunken"
                       >
-                        <FileIcon className="h-3.5 w-3.5 text-gray-400" />
+                        <FileIcon className="h-3.5 w-3.5 text-foreground-muted" />
                         Choose files…
                       </button>
                       <button
@@ -1500,9 +1501,9 @@ export default function SequencesPage() {
                           setImportMenuOpen(false);
                           folderInputRef.current?.click();
                         }}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-meta font-medium text-gray-700 hover:bg-gray-100"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-meta font-medium text-foreground hover:bg-surface-sunken"
                       >
-                        <FolderIcon className="h-3.5 w-3.5 text-gray-400" />
+                        <FolderIcon className="h-3.5 w-3.5 text-foreground-muted" />
                         Choose folder…
                       </button>
                     </div>
@@ -1514,7 +1515,7 @@ export default function SequencesPage() {
                   <button
                     type="button"
                     onClick={() => setNcbiOpen(true)}
-                    className="flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-meta font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                    className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
                   >
                     <NcbiCloudIcon className="h-3.5 w-3.5" />
                     Download from NCBI
@@ -1525,7 +1526,9 @@ export default function SequencesPage() {
             {status ? (
               <p
                 className={`mt-2 text-meta ${
-                  status.tone === "error" ? "text-rose-600" : "text-emerald-600"
+                  status.tone === "error"
+                    ? "text-rose-600 dark:text-rose-400"
+                    : "text-emerald-600 dark:text-emerald-400"
                 }`}
               >
                 {status.text}
@@ -1554,14 +1557,14 @@ export default function SequencesPage() {
           </div>
 
           {/* Collection selector */}
-          <div className="border-b border-gray-100 px-3 py-2">
-            <label className="mb-1 block text-meta font-medium uppercase tracking-wide text-gray-400">
+          <div className="border-b border-border px-3 py-2">
+            <label className="mb-1 block text-meta font-medium uppercase tracking-wide text-foreground-muted">
               Collection
             </label>
             <select
               value={collection}
               onChange={(e) => setCollection(e.target.value as Collection)}
-              className="w-full rounded-md border border-gray-200 bg-white px-2 py-1.5 text-body text-gray-700 focus:border-sky-400 focus:outline-none"
+              className="w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
             >
               <option value="all">All Sequences ({sequences.length})</option>
               <option value="unfiled">Unfiled ({unfiledCount})</option>
@@ -1586,22 +1589,22 @@ export default function SequencesPage() {
                 onContextMenu={(e) =>
                   openMenu(e, buildCollectionMenu(activeProject.id, activeProject.name))
                 }
-                className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-meta text-gray-500"
+                className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-surface-sunken px-2 py-0.5 text-meta text-foreground-muted"
               >
                 <span className="truncate">{activeProject.name}</span>
-                <span className="shrink-0 text-gray-400">right-click for actions</span>
+                <span className="shrink-0 text-foreground-muted">right-click for actions</span>
               </div>
             ) : null}
           </div>
 
           {/* Search */}
-          <div className="border-b border-gray-100 px-3 py-2">
+          <div className="border-b border-border px-3 py-2">
             <input
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search sequences…"
-              className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-body text-gray-700 placeholder:text-gray-400 focus:border-sky-400 focus:outline-none"
+              className="w-full rounded-md border border-border px-2.5 py-1.5 text-body text-foreground placeholder:text-foreground-muted focus:border-sky-400 focus:outline-none"
             />
           </div>
 
@@ -1609,15 +1612,15 @@ export default function SequencesPage() {
               checked. "Delete N selected" routes each through the recoverable
               trash with one shared Undo toast. */}
           {checkedIds.size > 0 ? (
-            <div className="flex items-center justify-between gap-2 border-b border-gray-100 bg-sky-50 px-3 py-2">
-              <span className="text-meta font-medium text-sky-800">
+            <div className="flex items-center justify-between gap-2 border-b border-border bg-accent-soft px-3 py-2">
+              <span className="text-meta font-medium text-accent">
                 {checkedIds.size} selected
               </span>
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => setCheckedIds(new Set())}
-                  className="rounded-md px-2 py-1 text-meta font-medium text-gray-600 transition-colors hover:bg-white"
+                  className="rounded-md px-2 py-1 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-raised"
                 >
                   Clear
                 </button>
@@ -1628,7 +1631,7 @@ export default function SequencesPage() {
                   type="button"
                   onClick={() => setBulkSendOpen(true)}
                   disabled={deleting}
-                  className="flex items-center gap-1 rounded-md border border-sky-200 bg-white px-2.5 py-1 text-meta font-medium text-sky-700 transition-colors hover:bg-sky-50 disabled:opacity-50"
+                  className="flex items-center gap-1 rounded-md border border-accent bg-surface-raised px-2.5 py-1 text-meta font-medium text-accent transition-colors hover:bg-accent-soft disabled:opacity-50"
                 >
                   <ShareIcon className="h-3.5 w-3.5" />
                   {`Send ${checkedIds.size} selected`}
@@ -1637,7 +1640,7 @@ export default function SequencesPage() {
                   type="button"
                   onClick={handleDeleteChecked}
                   disabled={deleting}
-                  className="flex items-center gap-1 rounded-md border border-rose-200 bg-white px-2.5 py-1 text-meta font-medium text-rose-700 transition-colors hover:bg-rose-50 disabled:opacity-50"
+                  className="flex items-center gap-1 rounded-md border border-rose-200 bg-surface-raised px-2.5 py-1 text-meta font-medium text-rose-700 transition-colors hover:bg-rose-50 disabled:opacity-50"
                 >
                   <TrashIcon className="h-3.5 w-3.5" />
                   {deleting
@@ -1649,7 +1652,7 @@ export default function SequencesPage() {
           ) : null}
 
           {/* Sort header */}
-          <div className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 border-b border-gray-100 px-3 py-1.5">
+          <div className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 border-b border-border px-3 py-1.5">
             <Tooltip
               label={allVisibleChecked ? "Deselect all" : "Select all visible"}
             >
@@ -1661,7 +1664,7 @@ export default function SequencesPage() {
                 }}
                 onChange={toggleAllVisible}
                 aria-label="Select all visible sequences"
-                className="h-3.5 w-3.5 cursor-pointer rounded border-gray-300 text-sky-600 focus:ring-sky-400"
+                className="h-3.5 w-3.5 cursor-pointer rounded border-border text-accent focus:ring-sky-400"
               />
             </Tooltip>
             <SortHeader label="Name" col="name" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
@@ -1672,18 +1675,18 @@ export default function SequencesPage() {
           {/* List */}
           <div className="min-h-0 flex-1 overflow-y-auto">
             {isLoading ? (
-              <div className="px-4 py-6 text-body text-gray-400">Loading…</div>
+              <div className="px-4 py-6 text-body text-foreground-muted">Loading…</div>
             ) : sorted.length === 0 ? (
               sequences.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
-                  <p className="text-body font-medium text-gray-600">No sequences yet</p>
-                  <p className="text-meta leading-relaxed text-gray-400">
+                  <p className="text-body font-medium text-foreground-muted">No sequences yet</p>
+                  <p className="text-meta leading-relaxed text-foreground-muted">
                     Use New, Assemble, or Import above to create a sequence or
                     bring in a GenBank, FASTA, or SnapGene file.
                   </p>
                 </div>
               ) : (
-                <div className="px-4 py-6 text-body text-gray-400">
+                <div className="px-4 py-6 text-body text-foreground-muted">
                   No sequences match this filter.
                 </div>
               )
@@ -1701,9 +1704,9 @@ export default function SequencesPage() {
                       // preventDefaults the event for us.
                       openMenu(e, buildRowMenu(s));
                     }}
-                    className={`group flex items-center gap-1 border-b border-gray-50 pr-2 hover:bg-sky-50 ${
-                      selectedId === s.id ? "bg-sky-50" : ""
-                    } ${checked ? "bg-sky-50/70" : ""}`}
+                    className={`group flex items-center gap-1 border-b border-border pr-2 hover:bg-accent-soft ${
+                      selectedId === s.id ? "bg-accent-soft" : ""
+                    } ${checked ? "bg-accent-soft/70" : ""}`}
                   >
                     {/* Row checkbox for bulk select. Stop propagation so a
                         check doesn't also change the open viewer selection. */}
@@ -1714,7 +1717,7 @@ export default function SequencesPage() {
                         onChange={() => toggleChecked(s.id)}
                         onClick={(e) => e.stopPropagation()}
                         aria-label={`Select ${s.display_name}`}
-                        className="h-3.5 w-3.5 cursor-pointer rounded border-gray-300 text-sky-600 focus:ring-sky-400"
+                        className="h-3.5 w-3.5 cursor-pointer rounded border-border text-accent focus:ring-sky-400"
                       />
                     </span>
                     <button
@@ -1725,12 +1728,12 @@ export default function SequencesPage() {
                       <MoleculeIcon
                         circular={s.circular}
                         className={`h-4 w-4 shrink-0 ${
-                          selectedId === s.id ? "text-sky-500" : "text-gray-400"
+                          selectedId === s.id ? "text-accent" : "text-foreground-muted"
                         }`}
                       />
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-1.5 min-w-0">
-                          <span className="block truncate text-body font-medium text-gray-800">
+                          <span className="block truncate text-body font-medium text-foreground">
                             {s.display_name}
                           </span>
                           {/* restore audit bot: tiny pill + hover provenance,
@@ -1738,7 +1741,7 @@ export default function SequencesPage() {
                               Trash. Kept subtle so the row stays uncluttered. */}
                           <RestoredBadge audit={s._restore_audit} small />
                         </span>
-                        <span className="block text-meta text-gray-400">
+                        <span className="block text-meta text-foreground-muted">
                           {seqTypeLabel(s.seq_type)} · {s.length.toLocaleString()} bp ·{" "}
                           {formatAdded(s.added_at)}
                         </span>
@@ -1778,7 +1781,7 @@ export default function SequencesPage() {
                         onClick={() => handleDeleteOne(s)}
                         disabled={deleting}
                         aria-label={`Move ${s.display_name} to Trash`}
-                        className="shrink-0 rounded p-1 text-gray-400 opacity-0 transition-opacity hover:bg-rose-50 hover:text-rose-600 focus:opacity-100 group-hover:opacity-100 disabled:opacity-50"
+                        className="shrink-0 rounded p-1 text-foreground-muted opacity-0 transition-opacity hover:bg-rose-50 hover:text-rose-600 focus:opacity-100 group-hover:opacity-100 disabled:opacity-50"
                       >
                         <TrashIcon className="h-3.5 w-3.5" />
                       </button>
@@ -1813,7 +1816,7 @@ export default function SequencesPage() {
             >
               <span
                 aria-hidden="true"
-                className="h-12 w-1 rounded-full bg-gray-200 transition-colors group-hover:bg-sky-400 group-focus:bg-sky-400"
+                className="h-12 w-1 rounded-full bg-border transition-colors group-hover:bg-sky-400 group-focus:bg-sky-400"
               />
             </div>
           </Tooltip>
@@ -1824,7 +1827,7 @@ export default function SequencesPage() {
             one place (SnapGene / Benchling spirit). The /sequences route renders
             it editable (the user's own sequences); a read-only embed passes
             readOnly to the same component. */}
-        <section className="flex min-w-0 flex-1 flex-col rounded-lg border border-gray-200 bg-white">
+        <section className="light-scope flex min-w-0 flex-1 flex-col rounded-lg border border-gray-200 bg-white">
           {selected ? (
             <>
               <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-2.5">
