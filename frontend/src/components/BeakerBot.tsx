@@ -567,10 +567,20 @@ export default function BeakerBot({
   const effectiveRootAnim = showHeartWobble
     ? `${styles.heartWobbling} ${styles.animated}`
     : rootAnim;
+  // Brand guarantee: BeakerBot's outline/eyes are stroke="currentColor", so the
+  // color comes from a text-* class. If a caller passes `className` WITHOUT a
+  // text color (e.g. only a size like "h-28 w-28"), currentColor would fall back
+  // to the inherited text color, which on a dark-text surface renders BeakerBot
+  // BLACK. That is off-brand: the mark must ALWAYS be the signature sky-blue
+  // (brand/README.md). So we force `text-brand-sky` unless the caller has
+  // deliberately set their own text color. This makes an off-brand BeakerBot
+  // impossible by construction. See BeakerBot.brand.test.tsx.
+  const callerHasTextColor = !!className && /(^|\s)text-/.test(className);
   const wrapperClass = [
     styles.root,
     effectiveRootAnim,
-    className ?? "w-10 h-10 text-sky-500",
+    className ?? "w-10 h-10",
+    callerHasTextColor ? "" : "text-brand-sky",
   ]
     .filter(Boolean)
     .join(" ");
