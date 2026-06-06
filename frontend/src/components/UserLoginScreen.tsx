@@ -743,6 +743,13 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       // creation entirely on a metadata read hiccup.
       try {
         await usersApi.create(username);
+        if (folderRequiresLogin(users.length + 1, labHeadUsers.size > 0)) {
+          setLoggingIn(null);
+          setForceNewPassword("");
+          setForceConfirmPassword("");
+          setForcePasswordGate({ username });
+          return;
+        }
         await setCurrentUser(username);
         onLogin();
       } catch {
@@ -780,11 +787,24 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       //    after login picks up the new entry without a stale read.
       queryClient.invalidateQueries({ queryKey: USER_COLOR_QUERY_KEY });
 
-      // 3. Finalize user creation (storeCurrentUser).
+      // 3. Finalize user creation.
       await usersApi.create(username);
-      await setCurrentUser(username);
-
       setColorPicker(null);
+
+      // In a shared folder (this new user makes it 2+, or a lab head is present)
+      // the user must set up a login + keypair before entering, so route them
+      // through the force-set-password gate (which creates the account and shows
+      // the recovery code). A solo first user stays login-free.
+      if (folderRequiresLogin(users.length + 1, labHeadUsers.size > 0)) {
+        setLoggingIn(null);
+        setForceNewPassword("");
+        setForceConfirmPassword("");
+        setForcePasswordGate({ username });
+        return;
+      }
+
+      // Solo first user, log straight in.
+      await setCurrentUser(username);
       onLogin();
     } catch (err) {
       console.error("Failed to finalize user creation:", err);
