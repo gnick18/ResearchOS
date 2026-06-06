@@ -3,15 +3,23 @@
 // sequence editor master. The RADIAL TREE OF LIFE view, the primary taxonomy
 // explorer surface (oseiskar style, reimplemented in d3 over OUR backbone).
 //
-// Branches fan out from a center. DEPTH maps to radius, each subtree owns an
+// RE-ROOTING navigation. A FOCUS STACK drives the view, and the fan is always
+// re-rooted on the current center. Clicking a node that is not the center makes
+// it the new center (pushed onto the stack) and the fan re-forms around it;
+// clicking the CURRENT center pops the stack and walks back one level, down to
+// the whole-tree root at the bottom. From any center we draw about three
+// generations of descendants (FAN_DEPTH), so the user focuses one clade at a
+// time instead of facing the whole tree; a child click reveals its next three
+// levels. A breadcrumb across the top shows the focus path, each crumb clickable.
+//
+// Branches fan out from the center. DEPTH maps to radius, each subtree owns an
 // ANGULAR width proportional to a log-damped species count, and a branch is
 // drawn with STROKE thickness from the same damped weight, so diverse clades are
 // fat branches and sparse families are thin twigs. d3-zoom drives smooth pan and
 // zoom; LEVEL-OF-DETAIL culling keeps only the branches whose on-screen arc is
-// above a pixel threshold at the current zoom, so the ~16k-node backbone never
-// all draws at once. Zooming in raises the threshold and reveals deeper twigs;
-// zooming out collapses them. Labels appear only on branches wide enough at the
-// current zoom, oriented along the radius.
+// above a pixel threshold at the current zoom, so a dense fan never all draws at
+// once. Labels grow biggest at the center and shrink each level outward (and
+// hide past the fan depth), so the centered clade reads first.
 //
 // d3 here is the small modular packages (d3-hierarchy is unused at runtime, the
 // layout is our pure module; d3-selection / d3-zoom / d3-shape drive the SVG
@@ -41,20 +49,26 @@ import Tooltip from "@/components/Tooltip";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import {
   layoutRadialTree,
+  subtreeToDepth,
+  labelScaleForLevel,
   visibleNodesAtZoom,
   isLabelVisibleAtZoom,
   polarToCartesian,
   viewportRectFromTransform,
   viewportCenterPoint,
-  subtreeBounds,
-  fitTransform,
   type RadialLaidOutNode,
 } from "@/lib/sequences/taxonomy-radial-layout";
 import {
   loadRadialPool,
-  drillNode,
+  drillSubtreeToDepth,
+  windowNeedsDrill,
   findPoolNode,
   resolveLineageToPool,
+  pathToNode,
+  currentFocus,
+  pushFocus,
+  popFocus,
+  focusTo,
   SYNTHETIC_ROOT_ID,
   type RadialPool,
 } from "@/lib/sequences/taxonomy-radial-source";
@@ -84,10 +98,17 @@ const NODE_HARD_CAP = 2500;
 // inner group, so the numbers here are layout units, not screen pixels.
 const VIEW_SIZE = 1000;
 
-// The dive / search-zoom animation length, the smooth flight to a clade. Kept in
-// the 500 to 700ms band so it reads as a glide, not a teleport. d3 transitions
-// are interruptible, so a quick second click cancels the first mid-flight.
-const DIVE_MS = 620;
+// FAN-OUT DEPTH, the decluttering mechanism. From the centered node we draw this
+// many generations of descendants (center is level 0, then 1, 2, 3). Deeper
+// nodes are not laid out; the user clicks a child to re-center and reveal its
+// next three levels. Labels also fade out at this depth (labelScaleForLevel).
+const FAN_DEPTH = 3;
+
+// The re-root animation length, the glide as a clicked node becomes the new
+// center and the fan re-forms around it. Kept in the 500 to 650ms band so it
+// reads as a settle, not a teleport. d3 transitions are interruptible, so a
+// quick second click cancels the first mid-flight.
+const REROOT_MS = 560;
 
 // The insertion-tween length, the grow-in of freshly drilled twigs. New nodes
 // interpolate from their parent's position (zero thickness) out to their laid-out
@@ -212,6 +233,15 @@ function HomeIcon({ className }: { className?: string }) {
   );
 }
 
+// A small chevron, the breadcrumb separator between focus crumbs.
+function ChevronRightIcon({ className }: { className?: string }) {
+  return (
+    <svg {...svgBase(className)}>
+      <polyline points="9 6 15 12 9 18" />
+    </svg>
+  );
+}
+
 function rankLabel(rank: string): string {
   if (!rank) return "Taxon";
   return rank.charAt(0).toUpperCase() + rank.slice(1);
@@ -237,9 +267,12 @@ export default function TaxonomyTreeView({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // The node the radial fan is rooted on (the synthetic root for the whole
-  // tree, or a focused subtree). A focus re-roots the layout.
-  const [focusId, setFocusId] = useState<string>(SYNTHETIC_ROOT_ID);
+  // The FOCUS STACK, the re-rooting drill path. The bottom is always the whole
+  // tree root; the top is the current center the fan is rooted on. Clicking a
+  // non-center node pushes it; clicking the center pops it; the home control
+  // clears it back to the root. currentFocus reads the top.
+  const [focusStack, setFocusStack] = useState<string[]>([SYNTHETIC_ROOT_ID]);
+  const focusId = currentFocus(focusStack);
 
   // The current d3-zoom transform, kept in React state so the level-of-detail,
   // viewport culling, and label culling recompute as the user pans / zooms. The
@@ -316,19 +349,29 @@ export default function TaxonomyTreeView({
     return () => controller.abort();
   }, [open, pool]);
 
-  // Reset the focus to the requested initial node each time the view opens.
+  // Reset the focus stack to the requested initial node each time the view opens.
+  // An initial cross-link entry seeds the stack as root then the target, so a
+  // center-click can still walk back to the whole tree.
   useEffect(() => {
     if (!open) return;
-    setFocusId(initialTaxId && initialTaxId.trim() ? initialTaxId : SYNTHETIC_ROOT_ID);
+    const target = initialTaxId && initialTaxId.trim() ? initialTaxId : null;
+    setFocusStack(
+      target && target !== SYNTHETIC_ROOT_ID
+        ? [SYNTHETIC_ROOT_ID, target]
+        : [SYNTHETIC_ROOT_ID],
+    );
     setSelected(null);
   }, [open, initialTaxId]);
 
-  // The laid-out tree for the current focus. Recomputed when the pool, the
-  // focus, or the layout version (a drill splice) changes. Pure + memoized.
+  // The laid-out tree for the current center, RE-ROOTED and limited to FAN_DEPTH
+  // generations of descendants so only the focused clade and a few levels under
+  // it draw. Recomputed when the pool, the center, or the layout version (a drill
+  // splice) changes. Pure + memoized (subtreeToDepth then layoutRadialTree).
   const laidOut: RadialLaidOutNode[] = useMemo(() => {
     if (!pool) return [];
     const rootId = pool.byId.has(focusId) ? focusId : SYNTHETIC_ROOT_ID;
-    return layoutRadialTree(pool.byId, rootId);
+    const pruned = subtreeToDepth(pool.byId, rootId, FAN_DEPTH);
+    return layoutRadialTree(pruned, rootId);
     // layoutVersion is a dependency so a splice re-lays out the subtree.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pool, focusId, layoutVersion]);
@@ -388,39 +431,18 @@ export default function TaxonomyTreeView({
     };
   }, [open, pool]);
 
-  // Animate the view to FRAME a layout-space rectangle (a clade and its
-  // subtree), the shared flight used by click-to-dive and search-zoom. The
-  // transform comes from the pure fitTransform helper, so the centering and the
-  // fill fraction are unit-tested. Interruptible, since a second call retargets
-  // the same d3 transition mid-flight.
-  const flyToBounds = useCallback(
-    (rect: { minX: number; minY: number; maxX: number; maxY: number }) => {
-      const svgEl = svgRef.current;
-      const behavior = zoomRef.current;
-      if (!svgEl || !behavior) return;
-      const { k, x, y } = fitTransform(rect, VIEW_SIZE);
-      const transform = zoomIdentity.translate(x, y).scale(k);
-      select(svgEl).transition().duration(DIVE_MS).call(behavior.transform, transform);
-    },
-    [],
-  );
-
-  // Frame a node's whole subtree, the primary dive gesture. We lay the focused
-  // tree out fresh from the pool (not the memoized laidOut, which may lag a just
-  // finished splice) and bound the clicked node's subtree, so a dive right after
-  // a drill flies into the freshly loaded children. Falls back to a point frame
-  // when the node has no laid-out descendants yet.
-  const flyToNodeSubtree = useCallback(
-    (taxId: string) => {
-      if (!pool) return;
-      const rootId = pool.byId.has(focusId) ? focusId : SYNTHETIC_ROOT_ID;
-      const tree = layoutRadialTree(pool.byId, rootId);
-      const bounds = subtreeBounds(tree, taxId);
-      if (!bounds) return;
-      flyToBounds(bounds);
-    },
-    [pool, focusId, flyToBounds],
-  );
+  // RE-ROOT animation. After the center changes, the fan re-lays-out with the new
+  // center at the origin, so the view just needs to ease back to the centered
+  // identity for the freshly rooted fan to settle into the middle. The clicked
+  // node glides to center as the fan re-forms around it. Interruptible, since a
+  // quick second click retargets the same d3 transition mid-flight.
+  const recenterView = useCallback(() => {
+    const svgEl = svgRef.current;
+    const behavior = zoomRef.current;
+    if (!svgEl || !behavior) return;
+    const centered = zoomIdentity.translate(VIEW_SIZE / 2, VIEW_SIZE / 2).scale(1);
+    select(svgEl).transition().duration(REROOT_MS).call(behavior.transform, centered);
+  }, []);
 
   // Manual zoom buttons (chrome). Scale around the CURRENT viewport center (the
   // middle of what is on screen), not the fixed tree origin, so after a pan the
@@ -438,7 +460,13 @@ export default function TaxonomyTreeView({
       .call(behavior.scaleBy, factor, center);
   }, []);
 
+  // The home / reset control. Clears the focus stack back to the whole-tree root
+  // (the bottom of the stack) and eases the zoom back to centered, so a deep
+  // drill-in unwinds in one gesture. Also drops the detail, which was tracking
+  // the old center.
   const resetView = useCallback(() => {
+    setFocusStack([SYNTHETIC_ROOT_ID]);
+    setSelected(null);
     const svgEl = svgRef.current;
     const behavior = zoomRef.current;
     if (!svgEl || !behavior) return;
@@ -488,58 +516,98 @@ export default function TaxonomyTreeView({
     };
   }, []);
 
-  // Open the click-detail for a laid-out node, FLY INTO its subtree (the primary
-  // exploration gesture), and lazy-drill it one level when its children are not
-  // loaded yet, so genus / species reveal as the user dives deeper (not capped at
-  // family). A leaf with no children just shows its detail and frames itself.
-  const onNodeClick = useCallback(
-    (n: RadialLaidOutNode) => {
-      if (!pool) return;
-      const poolNode = findPoolNode(pool, n.id);
-      if (!poolNode) return;
-      setSelected({
+  // Build the click-detail node from a pool node. The detail always reflects the
+  // CURRENT CENTER, so this runs on every re-root. A backbone node carries its
+  // species count; a live node leaves it undefined (its real counts come live in
+  // the detail's own assemblies fetch).
+  const detailFromPool = useCallback(
+    (taxId: string): TaxonomyDetailNode | null => {
+      if (!pool) return null;
+      const poolNode = findPoolNode(pool, taxId);
+      if (!poolNode) return null;
+      return {
         taxId: poolNode.id,
         name: poolNode.name,
         rank: poolNode.rank,
-        speciesCount: poolNode.origin === "backbone" ? poolNode.speciesCount : undefined,
+        speciesCount:
+          poolNode.origin === "backbone" ? poolNode.speciesCount : undefined,
         origin: poolNode.origin,
-      });
-
-      // Dive: frame the clicked clade so it fills the view. This fires right away
-      // on what is already laid out, so the flight starts the moment the user
-      // clicks, even while a drill is still loading.
-      flyToNodeSubtree(poolNode.id);
-
-      // Deeper drill (not just family). When this node's children are not in the
-      // pool, load one level live, animate the new twigs growing in, then re-frame
-      // so the dive lands on the freshly loaded subtree. Guard against a re-load
-      // (childrenLoaded gates it; drillNode is also a no-op for a loaded node).
-      if (!poolNode.childrenLoaded) {
-        setNote(`Loading taxa under ${poolNode.name}...`);
-        drillNode(pool, poolNode.id)
-          .then((splicedIds) => {
-            setLayoutVersion((v) => v + 1);
-            startInsertTween(splicedIds);
-            // Re-frame onto the now-loaded children so the dive shows them.
-            flyToNodeSubtree(poolNode.id);
-            setNote(null);
-          })
-          .catch(() => {
-            setNote(null);
-          });
-      }
+      };
     },
-    [pool, flyToNodeSubtree, startInsertTween],
+    [pool],
   );
 
-  // Focus / recenter the radial fan on a node (from the detail or a deep click).
+  // RE-ROOT the fan on a node and load the descendants its fan-out window needs.
+  // Sets the detail to the new center, eases the view back to centered, and
+  // drills any node within FAN_DEPTH below the center whose children are not yet
+  // loaded (below family, lazy and cached), then re-lays out and blooms the fresh
+  // twigs. The focus stack is set by the caller (a push, a pop, or a jump), so
+  // this is the shared re-root body. A leaf with no children just sits at center
+  // showing its detail.
+  const centerOn = useCallback(
+    (taxId: string) => {
+      if (!pool) return;
+      const detail = detailFromPool(taxId);
+      if (detail) setSelected(detail);
+      recenterView();
+
+      const centerNode = findPoolNode(pool, taxId);
+      if (!centerNode) return;
+      // Only show the loading note when the fan-out window actually needs a live
+      // drill (below family), so backbone navigation, a pure cache hit, does not
+      // flash a note.
+      const needsDrill = windowNeedsDrill(pool, taxId, FAN_DEPTH);
+      if (!needsDrill) return;
+      setNote(`Loading taxa under ${centerNode.name}...`);
+      drillSubtreeToDepth(pool, taxId, FAN_DEPTH)
+        .then((splicedIds) => {
+          if (splicedIds.length > 0) {
+            setLayoutVersion((v) => v + 1);
+            startInsertTween(splicedIds);
+          }
+          setNote(null);
+        })
+        .catch(() => {
+          setNote(null);
+        });
+    },
+    [pool, detailFromPool, recenterView, startInsertTween],
+  );
+
+  // The primary navigation gesture. Clicking the CURRENT CENTER goes BACK (pop
+  // the focus stack to the previous center, or nothing at the root). Clicking any
+  // OTHER node re-roots on it (push). Either way the detail updates to the new
+  // center and the fan re-forms around it.
+  const onNodeClick = useCallback(
+    (n: RadialLaidOutNode) => {
+      if (!pool) return;
+      if (n.id === focusId) {
+        // Center-click: walk back one level. A no-op at the root (stack length 1).
+        const back = popFocus(focusStack);
+        if (back === focusStack) return;
+        setFocusStack(back);
+        centerOn(currentFocus(back));
+        return;
+      }
+      // A descendant click: re-root on it.
+      const next = pushFocus(focusStack, n.id);
+      setFocusStack(next);
+      centerOn(n.id);
+    },
+    [pool, focusId, focusStack, centerOn],
+  );
+
+  // Recenter the fan on a node from outside the click flow (the detail's center
+  // control, a search pick). Pushes it onto the stack (or walks back to it if it
+  // is already an ancestor) and re-roots.
   const focusNode = useCallback(
     (taxId: string) => {
       if (!pool) return;
-      setFocusId(taxId);
-      resetView();
+      const next = pushFocus(focusStack, taxId);
+      setFocusStack(next);
+      centerOn(taxId);
     },
-    [pool, resetView],
+    [pool, focusStack, centerOn],
   );
 
   // Search autocomplete (debounced).
@@ -567,11 +635,12 @@ export default function TaxonomyTreeView({
     return () => clearTimeout(t);
   }, [query]);
 
-  // Pick a search result: locate it in the current layout, FLY to it, and open
-  // its detail. When the target is below family (not yet in the pool), resolve
-  // its lineage from the nearest in-pool ancestor, splice that chain in, then
-  // animate the twigs and fly to the target, so search lands on the result even
-  // deep below the backbone.
+  // Pick a search result: RE-ROOT the view onto it so it becomes the center. The
+  // focus stack is rebuilt from its lineage (root down to the target), so a
+  // center-click still walks back up the chain. When the target is below family
+  // (not yet in the pool), resolve its lineage from the nearest in-pool ancestor
+  // and splice that chain in first, so search lands on the result even deep below
+  // the backbone.
   const pickSuggestion = useCallback(
     async (s: TaxonSuggestion) => {
       setQuery("");
@@ -579,22 +648,18 @@ export default function TaxonomyTreeView({
       setSuggestOpen(false);
       if (!pool) return;
 
-      // Already in the laid-out fan: fly straight to it.
+      // Already in the pool: re-root straight onto it, with its lineage as the
+      // stack so center-click can walk back.
       const present = findPoolNode(pool, s.taxId);
       if (present) {
-        setSelected({
-          taxId: s.taxId,
-          name: s.name,
-          rank: s.rank,
-          speciesCount: present.speciesCount,
-          origin: present.origin,
-        });
-        flyToNodeSubtree(s.taxId);
+        const path = pathToNode(pool, s.taxId);
+        setFocusStack(path && path.length > 0 ? path : [SYNTHETIC_ROOT_ID, s.taxId]);
+        centerOn(s.taxId);
         return;
       }
 
       // Below family or off our backbone: resolve the lineage and splice the
-      // chain down from the nearest in-pool ancestor, then fly to it.
+      // chain down from the nearest in-pool ancestor, then re-root onto it.
       setNote(`Locating ${s.name}...`);
       suggestAbortRef.current?.abort();
       const controller = new AbortController();
@@ -604,26 +669,29 @@ export default function TaxonomyTreeView({
           signal: controller.signal,
         });
         if (controller.signal.aborted) return;
-        // Always open the detail, even when the target sits outside our backbone
-        // (no in-pool ancestor), so the user can still import / inspect it.
-        setSelected({
-          taxId: s.taxId,
-          name: s.name,
-          rank: s.rank,
-          speciesCount: findPoolNode(pool, s.taxId)?.speciesCount,
-          origin: findPoolNode(pool, s.taxId)?.origin ?? "live",
-        });
         if (resolved) {
-          // Re-layout for the spliced chain, animate the new twigs in, and fly to
-          // the target so the search visibly lands on the result.
+          // The spliced chain is now in the pool, so its full path resolves. Set
+          // the stack to it and re-root onto the target.
           setLayoutVersion((v) => v + 1);
           startInsertTween(resolved.added);
-          flyToNodeSubtree(resolved.targetId);
+          const path = pathToNode(pool, s.taxId);
+          setFocusStack(path && path.length > 0 ? path : [SYNTHETIC_ROOT_ID, s.taxId]);
+          centerOn(s.taxId);
+        } else {
+          // Off our backbone entirely (no in-pool ancestor): just open the detail
+          // so the user can still import / inspect it, the tree stays where it is.
+          setSelected({
+            taxId: s.taxId,
+            name: s.name,
+            rank: s.rank,
+            speciesCount: findPoolNode(pool, s.taxId)?.speciesCount,
+            origin: findPoolNode(pool, s.taxId)?.origin ?? "live",
+          });
         }
       } catch (e) {
         if ((e as Error)?.name !== "AbortError") {
-          // A resolve failure still opens the detail (set above is skipped on a
-          // throw, so set it here) and leaves the tree where it was.
+          // A resolve failure still opens the detail and leaves the tree where it
+          // was.
           setSelected({
             taxId: s.taxId,
             name: s.name,
@@ -635,7 +703,7 @@ export default function TaxonomyTreeView({
         if (!controller.signal.aborted) setNote(null);
       }
     },
-    [pool, flyToNodeSubtree, startInsertTween],
+    [pool, centerOn, startInsertTween],
   );
 
   // The links + nodes to draw, derived from the visible set. Links connect a
@@ -687,6 +755,22 @@ export default function TaxonomyTreeView({
       ? pool.byId.get(focusId)!.name
       : "Tree of life";
 
+  // The BREADCRUMB of the focus path, one crumb per stack entry from the root to
+  // the current center, each clickable to jump straight to that focus. Names come
+  // from the pool; an unresolved id degrades to a short label so the crumb still
+  // shows. The last crumb is the current center, rendered as plain text.
+  const crumbs = focusStack.map((id) => ({
+    id,
+    name: pool?.byId.get(id)?.name ?? (id === SYNTHETIC_ROOT_ID ? "Tree of life" : id),
+  }));
+
+  // Jump the focus stack to a breadcrumb entry and re-root there.
+  const onCrumbClick = (id: string) => {
+    if (id === focusId) return;
+    setFocusStack((stack) => focusTo(stack, id));
+    centerOn(id);
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -706,8 +790,8 @@ export default function TaxonomyTreeView({
               Explore the tree of life
             </h2>
             <p className="text-meta text-gray-500">
-              Branch thickness shows how many species each clade holds. Zoom in to
-              reveal deeper branches.
+              Branch thickness shows how many species each clade holds. Click a
+              branch to center on it, click the center again to step back.
             </p>
           </div>
           <Tooltip label="Close">
@@ -763,6 +847,41 @@ export default function TaxonomyTreeView({
           {note ? <p className="mt-1.5 text-meta text-gray-400">{note}</p> : null}
         </div>
 
+        {/* Breadcrumb of the focus path. Shows only past the root so the whole
+            tree view stays calm; each crumb but the last jumps straight to that
+            focus. The last crumb is the current center, plain text. */}
+        {crumbs.length > 1 ? (
+          <nav
+            aria-label="Focus path"
+            data-testid="taxonomy-breadcrumb"
+            className="flex items-center gap-1 overflow-x-auto border-b border-gray-100 px-5 py-2"
+          >
+            {crumbs.map((c, i) => {
+              const isLast = i === crumbs.length - 1;
+              return (
+                <span key={c.id} className="flex shrink-0 items-center gap-1">
+                  {i > 0 ? (
+                    <ChevronRightIcon className="h-3.5 w-3.5 text-gray-300" />
+                  ) : null}
+                  {isLast ? (
+                    <span className="rounded-full bg-sky-50 px-2.5 py-1 text-meta font-medium text-sky-700">
+                      {c.name}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onCrumbClick(c.id)}
+                      className="rounded-full px-2.5 py-1 text-meta font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800"
+                    >
+                      {c.name}
+                    </button>
+                  )}
+                </span>
+              );
+            })}
+          </nav>
+        ) : null}
+
         {/* Body: the radial canvas + the click-detail */}
         <div className="relative flex min-h-0 flex-1">
           <div className="relative min-h-0 flex-1 bg-slate-50">
@@ -814,7 +933,13 @@ export default function TaxonomyTreeView({
                 {/* Node markers + labels */}
                 {visible.map((n) => {
                   const p = drawNode(n);
-                  const showLabel = isLabelVisibleAtZoom(n, zoomScale, LABEL_MIN_PX);
+                  // LABEL SIZE BY DISTANCE FROM CENTER. The depth in the re-rooted
+                  // fan is the level out from the current center, so the center and
+                  // its immediate children read biggest and each level outward is
+                  // quieter; past the fan depth the scale is 0 and the label hides.
+                  const levelScale = labelScaleForLevel(n.depth, FAN_DEPTH);
+                  const showLabel =
+                    levelScale > 0 && isLabelVisibleAtZoom(n, zoomScale, LABEL_MIN_PX);
                   // Orient the label along the radius; flip the ones on the left
                   // half so text never reads upside down.
                   const deg = (n.angle * 180) / Math.PI - 90;
@@ -831,7 +956,9 @@ export default function TaxonomyTreeView({
                   // pad it and round the ends fully so it is a pill, not a box. The
                   // pill sits in the SAME rotation group as the text, centered on
                   // the label baseline, so it rides along the branch with the text.
-                  const fontSize = 11 / Math.max(zoomScale, 1) + 3;
+                  // The level scale shrinks the font as the label sits farther from
+                  // the center, keeping the white pill backing intact.
+                  const fontSize = (11 / Math.max(zoomScale, 1) + 3) * levelScale;
                   // Per-character width factor (em). 0.62 is wide enough that even
                   // all-cap names do not spill past the pill.
                   const textW = Math.max(1, n.name.length) * fontSize * 0.62;

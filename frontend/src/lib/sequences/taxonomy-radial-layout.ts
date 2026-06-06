@@ -275,6 +275,65 @@ export function layoutRadialTree(
 }
 
 /**
+ * Prune a pool down to the subtree rooted at `focusId` and limited to `maxDepth`
+ * generations of descendants (focus is level 0, its children level 1, and so on
+ * down to level maxDepth). The pruned Map is what the RE-ROOTING navigation lays
+ * out, so the user sees only the centered clade and a few levels under it, not
+ * the whole tree.
+ *
+ * The deepest KEPT nodes (those at level maxDepth) have their childIds trimmed to
+ * empty so layoutRadialTree stops there, even though deeper nodes still exist in
+ * the source pool. Nodes already-trimmed elsewhere keep only the children present
+ * in the source. Any childId not in the source is dropped so the layout never
+ * dangles.
+ *
+ * Pure. Returns a fresh Map and fresh node objects (childIds arrays are new), so
+ * the source pool is untouched. Returns an empty Map when the focus is absent.
+ *
+ * @param nodes    the source pool (a Map or array of RadialInputNode)
+ * @param focusId  the node to center on (level 0)
+ * @param maxDepth how many generations of descendants to keep (>= 0)
+ */
+export function subtreeToDepth(
+  nodes: RadialInputNode[] | Map<string, RadialInputNode>,
+  focusId: string,
+  maxDepth: number,
+): Map<string, RadialInputNode> {
+  const source =
+    nodes instanceof Map ? nodes : new Map(nodes.map((n) => [n.id, n]));
+  const out = new Map<string, RadialInputNode>();
+  const root = source.get(focusId);
+  if (!root) return out;
+
+  const limit = Math.max(0, Math.floor(maxDepth));
+
+  // Breadth-first from the focus, carrying each node's level. A node at the depth
+  // limit is added with empty childIds so the layout stops; a node above the
+  // limit keeps only the children that exist in the source.
+  const queue: Array<{ id: string; level: number }> = [{ id: focusId, level: 0 }];
+  const seen = new Set<string>();
+  while (queue.length > 0) {
+    const { id, level } = queue.shift()!;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const node = source.get(id);
+    if (!node) continue;
+
+    if (level >= limit) {
+      out.set(id, { ...node, childIds: [] });
+      continue;
+    }
+    const keptChildIds = node.childIds.filter((c) => source.has(c));
+    out.set(id, { ...node, childIds: [...keptChildIds] });
+    for (const childId of keptChildIds) {
+      if (!seen.has(childId)) queue.push({ id: childId, level: level + 1 });
+    }
+  }
+
+  return out;
+}
+
+/**
  * LEVEL-OF-DETAIL test for one laid-out node at a given zoom. A node is worth
  * drawing only when its on-screen footprint is above a pixel threshold, so a
  * full zoom-out does not paint all ~16k nodes. The footprint is the smaller of
@@ -500,6 +559,32 @@ export function isLabelVisibleAtZoom(
 ): boolean {
   const arcPixels = node.angularWidth * node.radius * zoomScale;
   return arcPixels >= minLabelPixels;
+}
+
+/**
+ * The font-size MULTIPLIER for a label by its level out from the current center
+ * (the depth in the re-rooted fan, which is also the depth in a root-centered
+ * whole-tree view). The center and its immediate children read biggest; each
+ * level outward is quieter; past the fan-out depth the label is hidden, returned
+ * as 0 so the render layer can skip drawing it.
+ *
+ * The scale steps down by a fixed fraction per level and floors so a far label is
+ * small but still legible, then drops to 0 once the level exceeds maxLabelLevel.
+ * Monotonic decreasing across the drawn band. Pure and exported so a test can pin
+ * the curve (biggest at 0, smaller each step, 0 past the depth).
+ *
+ * @param level         the node's depth from the centered focus (0 is the center)
+ * @param maxLabelLevel the deepest level that still earns a label (>= this is 0)
+ */
+export function labelScaleForLevel(level: number, maxLabelLevel = 3): number {
+  if (!Number.isFinite(level) || level < 0) return 0;
+  if (level > maxLabelLevel) return 0;
+  // Step down a fifth per level from a slightly enlarged center, floored so the
+  // deepest still-drawn label keeps a readable size.
+  const FONT_STEP = 0.2;
+  const FONT_FLOOR = 0.62;
+  const raw = 1.25 - level * FONT_STEP;
+  return Math.max(FONT_FLOOR, raw);
 }
 
 /**

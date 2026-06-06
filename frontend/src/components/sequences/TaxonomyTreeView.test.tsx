@@ -14,7 +14,7 @@ import type { RadialPool, RadialPoolNode } from "@/lib/sequences/taxonomy-radial
 // --- Mocks ------------------------------------------------------------------
 
 const loadRadialPool = vi.fn();
-const drillNode = vi.fn();
+const drillSubtreeToDepth = vi.fn();
 
 vi.mock("@/lib/sequences/taxonomy-radial-source", async () => {
   const actual = await vi.importActual<typeof import("@/lib/sequences/taxonomy-radial-source")>(
@@ -23,7 +23,10 @@ vi.mock("@/lib/sequences/taxonomy-radial-source", async () => {
   return {
     ...actual,
     loadRadialPool: (...args: unknown[]) => loadRadialPool(...args),
-    drillNode: (...args: unknown[]) => drillNode(...args),
+    // The re-rooting navigation loads the fan-out window through this. Mocked so
+    // no network is touched on a re-root click; the pure stack + depth helpers
+    // are tested separately.
+    drillSubtreeToDepth: (...args: unknown[]) => drillSubtreeToDepth(...args),
   };
 });
 
@@ -74,7 +77,7 @@ function fixturePool(): RadialPool {
 beforeEach(() => {
   vi.clearAllMocks();
   loadRadialPool.mockResolvedValue(fixturePool());
-  drillNode.mockResolvedValue([]);
+  drillSubtreeToDepth.mockResolvedValue([]);
 });
 
 afterEach(() => cleanup());
@@ -138,21 +141,41 @@ describe("TaxonomyTreeView", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 
-  it("drills a backbone-leaf family on click so its genera can splice in", async () => {
-    drillNode.mockResolvedValue(["7214"]);
+  it("re-roots on a descendant click and loads its fan-out window", async () => {
+    drillSubtreeToDepth.mockResolvedValue(["7214"]);
     render(<TaxonomyTreeView open onClose={() => {}} />);
     const svg = await screen.findByTestId("taxonomy-tree-svg");
     await waitFor(() => {
       expect(svg.querySelectorAll("circle").length).toBeGreaterThan(0);
     });
-    // Click circles until the detail shows a family (childrenLoaded false ->
-    // drillNode is called).
+    // Clicking a non-center node re-roots on it, which loads the fan-out window
+    // below the new center via drillSubtreeToDepth.
     const circles = Array.from(svg.querySelectorAll("circle"));
     for (const c of circles) {
       fireEvent.click(c);
     }
     await waitFor(() => {
-      expect(drillNode).toHaveBeenCalled();
+      expect(drillSubtreeToDepth).toHaveBeenCalled();
+    });
+  });
+
+  it("shows a breadcrumb of the focus path once the user drills in", async () => {
+    drillSubtreeToDepth.mockResolvedValue([]);
+    render(<TaxonomyTreeView open onClose={() => {}} />);
+    const svg = await screen.findByTestId("taxonomy-tree-svg");
+    await waitFor(() => {
+      expect(svg.querySelectorAll("circle").length).toBeGreaterThan(0);
+    });
+    // No breadcrumb at the root (calm whole-tree view).
+    expect(screen.queryByTestId("taxonomy-breadcrumb")).toBeNull();
+    // Re-root on a descendant: click every non-root marker, one of which is the
+    // Eukaryota domain. The breadcrumb appears once the stack is past the root.
+    const circles = Array.from(svg.querySelectorAll("circle"));
+    for (const c of circles) {
+      fireEvent.click(c);
+    }
+    await waitFor(() => {
+      expect(screen.queryByTestId("taxonomy-breadcrumb")).toBeTruthy();
     });
   });
 });

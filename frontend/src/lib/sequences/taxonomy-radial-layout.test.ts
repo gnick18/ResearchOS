@@ -6,6 +6,8 @@
 import { describe, it, expect } from "vitest";
 import {
   layoutRadialTree,
+  subtreeToDepth,
+  labelScaleForLevel,
   dampedWeight,
   isNodeVisibleAtZoom,
   visibleNodesAtZoom,
@@ -418,5 +420,122 @@ describe("fitTransform", () => {
     const tiny: ViewportRect = { minX: 0, minY: 0, maxX: 0.001, maxY: 0.001 };
     expect(fitTransform(huge, VIEW, { minScale: 0.3 }).k).toBe(0.3);
     expect(fitTransform(tiny, VIEW, { maxScale: 18 }).k).toBe(18);
+  });
+});
+
+describe("subtreeToDepth", () => {
+  // A deep single-chain tree: L0 -> L1 -> L2 -> L3 -> L4 -> L5, the re-rooting
+  // fan-out depth's worst case (every level has one child going deeper).
+  function deepChain(): RadialInputNode[] {
+    return [
+      { id: "L0", name: "L0", rank: "root", speciesCount: 100, childIds: ["L1"] },
+      { id: "L1", name: "L1", rank: "domain", speciesCount: 90, childIds: ["L2"] },
+      { id: "L2", name: "L2", rank: "phylum", speciesCount: 80, childIds: ["L3"] },
+      { id: "L3", name: "L3", rank: "class", speciesCount: 70, childIds: ["L4"] },
+      { id: "L4", name: "L4", rank: "order", speciesCount: 60, childIds: ["L5"] },
+      { id: "L5", name: "L5", rank: "family", speciesCount: 50, childIds: [] },
+    ];
+  }
+
+  it("keeps the focus at level 0 and only its descendants down to maxDepth", () => {
+    const pruned = subtreeToDepth(deepChain(), "L0", 3);
+    // Center plus three generations: L0, L1, L2, L3. L4 and L5 are past the
+    // window and must be dropped.
+    expect([...pruned.keys()].sort()).toEqual(["L0", "L1", "L2", "L3"]);
+  });
+
+  it("trims the deepest kept node's childIds so the layout stops there", () => {
+    const pruned = subtreeToDepth(deepChain(), "L0", 3);
+    // L3 sits at the depth limit, so its child (L4) is pruned away.
+    expect(pruned.get("L3")!.childIds).toEqual([]);
+    // L2 is above the limit, so it keeps its child link to L3.
+    expect(pruned.get("L2")!.childIds).toEqual(["L3"]);
+  });
+
+  it("lays out the pruned subtree with the focus at depth 0", () => {
+    const pruned = subtreeToDepth(deepChain(), "L0", 3);
+    const laid = layoutRadialTree(pruned, "L0");
+    const m = byId(laid);
+    expect(m.get("L0")!.depth).toBe(0);
+    expect(m.get("L3")!.depth).toBe(3);
+    // Nothing deeper than the window is laid out.
+    expect(m.has("L4")).toBe(false);
+    expect(m.has("L5")).toBe(false);
+  });
+
+  it("re-roots on a mid-tree node, the drill-in case", () => {
+    // Centering L2 shows L2 (level 0) down three generations to L5.
+    const pruned = subtreeToDepth(deepChain(), "L2", 3);
+    expect([...pruned.keys()].sort()).toEqual(["L2", "L3", "L4", "L5"]);
+    const laid = layoutRadialTree(pruned, "L2");
+    expect(byId(laid).get("L2")!.depth).toBe(0);
+    expect(byId(laid).get("L5")!.depth).toBe(3);
+  });
+
+  it("depth 0 keeps only the focus (a leaf at center)", () => {
+    const pruned = subtreeToDepth(deepChain(), "L0", 0);
+    expect([...pruned.keys()]).toEqual(["L0"]);
+    expect(pruned.get("L0")!.childIds).toEqual([]);
+  });
+
+  it("does not mutate the source pool", () => {
+    const src = deepChain();
+    const before = JSON.stringify(src);
+    subtreeToDepth(src, "L0", 2);
+    expect(JSON.stringify(src)).toBe(before);
+  });
+
+  it("drops childIds that are absent from the source so the layout never dangles", () => {
+    const partial: RadialInputNode[] = [
+      { id: "a", name: "a", rank: "root", speciesCount: 1, childIds: ["b", "gone"] },
+      { id: "b", name: "b", rank: "domain", speciesCount: 1, childIds: [] },
+    ];
+    const pruned = subtreeToDepth(partial, "a", 3);
+    expect(pruned.get("a")!.childIds).toEqual(["b"]);
+    expect(pruned.has("gone")).toBe(false);
+  });
+
+  it("returns an empty Map for an unknown focus", () => {
+    expect(subtreeToDepth(deepChain(), "nope", 3).size).toBe(0);
+  });
+
+  it("accepts a Map pool as well as an array", () => {
+    const arr = deepChain();
+    const map = new Map(arr.map((n) => [n.id, n]));
+    expect(subtreeToDepth(map, "L0", 2).size).toBe(subtreeToDepth(arr, "L0", 2).size);
+  });
+});
+
+describe("labelScaleForLevel", () => {
+  it("is biggest at the center (level 0)", () => {
+    expect(labelScaleForLevel(0, 3)).toBeGreaterThan(labelScaleForLevel(1, 3));
+  });
+
+  it("is monotonic decreasing across the drawn band", () => {
+    const s0 = labelScaleForLevel(0, 3);
+    const s1 = labelScaleForLevel(1, 3);
+    const s2 = labelScaleForLevel(2, 3);
+    const s3 = labelScaleForLevel(3, 3);
+    expect(s0).toBeGreaterThanOrEqual(s1);
+    expect(s1).toBeGreaterThanOrEqual(s2);
+    expect(s2).toBeGreaterThanOrEqual(s3);
+    // All drawn levels keep a positive, legible scale.
+    expect(s3).toBeGreaterThan(0);
+  });
+
+  it("hides the label past the fan-out depth (returns 0)", () => {
+    expect(labelScaleForLevel(4, 3)).toBe(0);
+    expect(labelScaleForLevel(10, 3)).toBe(0);
+  });
+
+  it("treats the depth bound as inclusive (the last level still labels)", () => {
+    expect(labelScaleForLevel(3, 3)).toBeGreaterThan(0);
+    expect(labelScaleForLevel(2, 2)).toBeGreaterThan(0);
+    expect(labelScaleForLevel(3, 2)).toBe(0);
+  });
+
+  it("hides a negative or non-finite level", () => {
+    expect(labelScaleForLevel(-1, 3)).toBe(0);
+    expect(labelScaleForLevel(Number.NaN, 3)).toBe(0);
   });
 });

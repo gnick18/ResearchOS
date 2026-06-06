@@ -164,6 +164,148 @@ export function findPoolNode(pool: RadialPool, taxId: string): RadialPoolNode | 
   return pool.byId.get(String(taxId));
 }
 
+/**
+ * Drill every node WITHIN the fan-out window below a focus so the re-rooted view
+ * can show about `depth` generations of descendants, even below family where the
+ * backbone stops. Breadth-first from the focus, it drills any node up to
+ * `depth - 1` levels deep whose children are not yet loaded (a backbone family,
+ * or a live genus / species), splicing each level in, so the whole window down to
+ * level `depth` is populated. Already-loaded nodes are skipped, so a re-center on
+ * a node visited before is mostly cache hits (the splice caches per session in
+ * the shared pool).
+ *
+ * Mutates `pool` in place via drillNode and returns ALL the ids it spliced across
+ * the window, so the caller can animate the fresh twigs in. A focus whose window
+ * is already loaded returns an empty array (a pure cache hit, no network).
+ *
+ * Network-bound (it calls drillNode), so it is exercised through the mocked
+ * getTaxonNode / resolveTaxonNames in tests.
+ *
+ * @param pool    the growable pool to drill into
+ * @param focusId the centered node (level 0)
+ * @param depth   how many generations below the focus to populate (the fan depth)
+ */
+/**
+ * Whether re-rooting on a focus would need any live drill within its fan-out
+ * window (any node up to `depth - 1` levels below the focus whose children are
+ * not yet loaded). Pure, a synchronous peek over the current pool, so the view
+ * can decide whether to show a "loading" note before kicking off
+ * drillSubtreeToDepth. Returns false for a window already fully loaded (a pure
+ * cache hit, the common backbone-navigation case).
+ */
+export function windowNeedsDrill(
+  pool: RadialPool,
+  focusId: string,
+  depth: number,
+): boolean {
+  const root = pool.byId.get(String(focusId));
+  if (!root) return false;
+  const limit = Math.max(0, Math.floor(depth));
+  if (limit === 0) return false;
+
+  let frontier: string[] = [String(focusId)];
+  for (let level = 0; level < limit && frontier.length > 0; level += 1) {
+    const next: string[] = [];
+    for (const id of frontier) {
+      const node = pool.byId.get(id);
+      if (!node) continue;
+      if (!node.childrenLoaded) return true;
+      for (const childId of node.childIds) next.push(childId);
+    }
+    frontier = next;
+  }
+  return false;
+}
+
+export async function drillSubtreeToDepth(
+  pool: RadialPool,
+  focusId: string,
+  depth: number,
+  opts: { signal?: AbortSignal } = {},
+): Promise<string[]> {
+  const root = pool.byId.get(String(focusId));
+  if (!root) return [];
+  const limit = Math.max(0, Math.floor(depth));
+  if (limit === 0) return [];
+
+  const added: string[] = [];
+  // Level-by-level so a level's freshly spliced children become the next level's
+  // drill candidates. We only drill nodes shallower than the limit, so the window
+  // fills exactly to level `depth`.
+  let frontier: string[] = [String(focusId)];
+  for (let level = 0; level < limit && frontier.length > 0; level += 1) {
+    const next: string[] = [];
+    for (const id of frontier) {
+      const node = pool.byId.get(id);
+      if (!node) continue;
+      if (!node.childrenLoaded) {
+        const spliced = await drillNode(pool, id, opts);
+        for (const childId of spliced) added.push(childId);
+      }
+      // Recompute children after the drill so freshly spliced ids feed the next
+      // level. A node already loaded just hands down its existing children.
+      const refreshed = pool.byId.get(id);
+      for (const childId of refreshed?.childIds ?? []) next.push(childId);
+    }
+    frontier = next;
+  }
+  return added;
+}
+
+// --- Focus stack (the re-rooting navigation) --------------------------------
+//
+// The radial view re-roots on the node the user centers. A FOCUS STACK records
+// that drill path so a center-click can walk it back one level. The bottom of
+// the stack is always the whole-tree root; the top is the current center. These
+// are pure array operations, kept here and unit-tested so the navigation feel is
+// driven by tested logic rather than ad-hoc state shuffles in the component.
+
+/** The current center, the top of the focus stack. Falls back to the synthetic
+ *  root for an empty stack so the view always has a root to lay out. */
+export function currentFocus(stack: string[]): string {
+  return stack.length > 0 ? stack[stack.length - 1] : SYNTHETIC_ROOT_ID;
+}
+
+/**
+ * Push a new center onto the focus stack (a drill-in re-root). Clicking a node
+ * that is NOT already the center makes it the new center. Clicking the current
+ * center, or a node already somewhere in the stack, is a no-op here (a re-center
+ * on the same node should not stack duplicates; a click on the center is a GO
+ * BACK, handled by popFocus). Returns a NEW array, never mutating the input.
+ *
+ * @param stack the current focus stack (bottom is the whole-tree root)
+ * @param id    the node the user clicked to center on
+ */
+export function pushFocus(stack: string[], id: string): string[] {
+  if (currentFocus(stack) === id) return stack;
+  // A click on an ancestor already in the stack walks back to it rather than
+  // re-pushing, so the breadcrumb and the stack stay a simple path with no
+  // repeats.
+  const at = stack.indexOf(id);
+  if (at !== -1) return stack.slice(0, at + 1);
+  return [...stack, id];
+}
+
+/**
+ * Pop the focus stack one level (a center-click GO BACK), re-rooting on the
+ * previous focus. A stack at its bottom (length <= 1, the whole-tree root) does
+ * not pop, so a center-click on the root view does nothing. Returns a NEW array,
+ * never mutating the input.
+ */
+export function popFocus(stack: string[]): string[] {
+  if (stack.length <= 1) return stack;
+  return stack.slice(0, -1);
+}
+
+/** Jump the focus stack straight to an entry already in it (a breadcrumb click).
+ *  Truncates to that entry so the crumbs after it drop off. A no-op when the id
+ *  is not in the stack. Returns a NEW array. */
+export function focusTo(stack: string[], id: string): string[] {
+  const at = stack.indexOf(id);
+  if (at === -1) return stack;
+  return stack.slice(0, at + 1);
+}
+
 /** One step of a resolved lineage, the minimal shape the splice needs. The
  *  search-zoom resolver fills these from live getTaxonNode calls (id + name +
  *  rank), and the splice threads each step under the one above it. */

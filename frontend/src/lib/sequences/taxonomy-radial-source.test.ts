@@ -13,10 +13,16 @@ import { getTaxonNode, resolveTaxonNames } from "./ncbi-datasets";
 import {
   buildPoolFromBackbone,
   drillNode,
+  drillSubtreeToDepth,
+  windowNeedsDrill,
   findPoolNode,
   pathToNode,
   spliceLineagePath,
   resolveLineageToPool,
+  currentFocus,
+  pushFocus,
+  popFocus,
+  focusTo,
   SYNTHETIC_ROOT_ID,
 } from "./taxonomy-radial-source";
 import type { LoadedBackbone, BackboneNode } from "./taxonomy-backbone";
@@ -268,5 +274,171 @@ describe("resolveLineageToPool (below-family search-zoom resolution)", () => {
     });
     const res = await resolveLineageToPool(pool, "555");
     expect(res).toBeNull();
+  });
+});
+
+describe("focus stack (the re-rooting navigation, pure)", () => {
+  it("currentFocus reads the top, falling back to the root for an empty stack", () => {
+    expect(currentFocus([SYNTHETIC_ROOT_ID, "a", "b"])).toBe("b");
+    expect(currentFocus([])).toBe(SYNTHETIC_ROOT_ID);
+  });
+
+  it("pushFocus drills in by pushing a new center", () => {
+    const start = [SYNTHETIC_ROOT_ID];
+    const next = pushFocus(start, "a");
+    expect(next).toEqual([SYNTHETIC_ROOT_ID, "a"]);
+    // The input is not mutated (a new array).
+    expect(start).toEqual([SYNTHETIC_ROOT_ID]);
+  });
+
+  it("pushFocus is a no-op on the current center (no duplicate stacking)", () => {
+    const stack = [SYNTHETIC_ROOT_ID, "a"];
+    expect(pushFocus(stack, "a")).toBe(stack);
+  });
+
+  it("pushFocus walks back to an ancestor already in the stack rather than re-pushing", () => {
+    const stack = [SYNTHETIC_ROOT_ID, "a", "b", "c"];
+    // Clicking an ancestor (a) truncates to it, so the path stays a simple chain.
+    expect(pushFocus(stack, "a")).toEqual([SYNTHETIC_ROOT_ID, "a"]);
+  });
+
+  it("popFocus goes back one level", () => {
+    expect(popFocus([SYNTHETIC_ROOT_ID, "a", "b"])).toEqual([SYNTHETIC_ROOT_ID, "a"]);
+  });
+
+  it("popFocus is a no-op at the root (stack length 1)", () => {
+    const root = [SYNTHETIC_ROOT_ID];
+    expect(popFocus(root)).toBe(root);
+    expect(popFocus([])).toEqual([]);
+  });
+
+  it("a drill-in then center-click chain walks back exactly one level per pop", () => {
+    // full tree -> Kingdom -> Genus -> Species (a drill chain).
+    let stack = [SYNTHETIC_ROOT_ID];
+    stack = pushFocus(stack, "kingdom");
+    stack = pushFocus(stack, "genus");
+    stack = pushFocus(stack, "species");
+    expect(currentFocus(stack)).toBe("species");
+    // Center-click on Species returns to Genus, then Kingdom, then the root.
+    stack = popFocus(stack);
+    expect(currentFocus(stack)).toBe("genus");
+    stack = popFocus(stack);
+    expect(currentFocus(stack)).toBe("kingdom");
+    stack = popFocus(stack);
+    expect(currentFocus(stack)).toBe(SYNTHETIC_ROOT_ID);
+    // At the bottom, a center-click does nothing.
+    expect(popFocus(stack)).toBe(stack);
+  });
+
+  it("focusTo jumps straight to a crumb already in the stack", () => {
+    const stack = [SYNTHETIC_ROOT_ID, "a", "b", "c"];
+    expect(focusTo(stack, "b")).toEqual([SYNTHETIC_ROOT_ID, "a", "b"]);
+    // A crumb not in the stack is a no-op.
+    expect(focusTo(stack, "z")).toBe(stack);
+  });
+});
+
+describe("drillSubtreeToDepth (below-family fan-out window load)", () => {
+  it("drills every level within the fan-out window below a family", async () => {
+    const pool = buildPoolFromBackbone(tinyBackbone());
+    // The family 7215 is a backbone leaf; drilling its window loads genus then
+    // species (two levels below family) within a depth-2 window.
+    pool.byId.get("7215")!.childrenLoaded = false;
+
+    vi.mocked(getTaxonNode).mockImplementation(async (rawId: string | number) => {
+      const id = String(rawId);
+      if (id === "7215") {
+        return {
+          taxId: "7215", name: "Drosophilidae", rank: "family", parentId: "2759",
+          ancestorIds: ["131567", "2759"], childIds: ["7214"],
+          classification: {}, counts: {},
+        };
+      }
+      // The genus 7214 drills to a species.
+      return {
+        taxId: "7214", name: "Drosophila", rank: "genus", parentId: "7215",
+        ancestorIds: ["131567", "2759", "7215"], childIds: ["7227"],
+        classification: {}, counts: {},
+      };
+    });
+    vi.mocked(resolveTaxonNames).mockImplementation(async (rawIds: (string | number)[]) => {
+      const ids = rawIds.map(String);
+      const m = new Map<string, { taxId: string; name: string; rank: string }>();
+      if (ids.includes("7214")) m.set("7214", { taxId: "7214", name: "Drosophila", rank: "genus" });
+      if (ids.includes("7227")) m.set("7227", { taxId: "7227", name: "Drosophila melanogaster", rank: "species" });
+      return m;
+    });
+
+    const added = await drillSubtreeToDepth(pool, "7215", 2);
+    // Both the genus and the species were spliced (the whole window filled).
+    expect(added).toContain("7214");
+    expect(added).toContain("7227");
+    expect(pool.byId.get("7214")!.childIds).toEqual(["7227"]);
+    expect(pool.byId.get("7227")!.name).toBe("Drosophila melanogaster");
+  });
+
+  it("stops at the depth limit (does not drill past the window)", async () => {
+    const pool = buildPoolFromBackbone(tinyBackbone());
+    pool.byId.get("7215")!.childrenLoaded = false;
+    vi.mocked(getTaxonNode).mockResolvedValue({
+      taxId: "7215", name: "Drosophilidae", rank: "family", parentId: "2759",
+      ancestorIds: ["131567", "2759"], childIds: ["7214"],
+      classification: {}, counts: {},
+    });
+    vi.mocked(resolveTaxonNames).mockResolvedValue(
+      new Map([["7214", { taxId: "7214", name: "Drosophila", rank: "genus" }]]),
+    );
+
+    // Depth 1: only the family's direct children load; the genus is not drilled.
+    const added = await drillSubtreeToDepth(pool, "7215", 1);
+    expect(added).toEqual(["7214"]);
+    // getTaxonNode was called once (for the family), not again for the genus.
+    expect(getTaxonNode).toHaveBeenCalledTimes(1);
+    expect(pool.byId.get("7214")!.childrenLoaded).toBe(false);
+  });
+
+  it("is a pure cache hit (no fetch) when the window is already loaded", async () => {
+    const pool = buildPoolFromBackbone(tinyBackbone());
+    // The backbone above family is fully loaded, so a shallow window over it does
+    // not fetch.
+    const added = await drillSubtreeToDepth(pool, SYNTHETIC_ROOT_ID, 2);
+    expect(added).toEqual([]);
+    expect(getTaxonNode).not.toHaveBeenCalled();
+  });
+
+  it("returns empty for an unknown focus or a zero depth", async () => {
+    const pool = buildPoolFromBackbone(tinyBackbone());
+    expect(await drillSubtreeToDepth(pool, "999999", 3)).toEqual([]);
+    expect(await drillSubtreeToDepth(pool, "7215", 0)).toEqual([]);
+  });
+});
+
+describe("windowNeedsDrill (the loading-note guard, pure)", () => {
+  it("is true when an unloaded node sits inside the window (above the deepest drawn level)", () => {
+    const pool = buildPoolFromBackbone(tinyBackbone());
+    pool.byId.get("7215")!.childrenLoaded = false; // a family to drill
+    // tinyBackbone is root (L0) -> domain (L2) -> family (L3). The family sits at
+    // the deepest drawn level of a depth-3 window, so its children are PAST the
+    // window and the root-centered view does not need a drill. Centering the
+    // family directly makes it level 0 and unloaded, so that DOES need a drill.
+    expect(windowNeedsDrill(pool, SYNTHETIC_ROOT_ID, 3)).toBe(false);
+    expect(windowNeedsDrill(pool, "7215", 3)).toBe(true);
+    // A deeper window from the root reaches the family above its deepest level, so
+    // it needs the drill.
+    expect(windowNeedsDrill(pool, SYNTHETIC_ROOT_ID, 4)).toBe(true);
+  });
+
+  it("is false for a fully-loaded backbone window (a pure cache hit)", () => {
+    const pool = buildPoolFromBackbone(tinyBackbone());
+    // Every backbone node here is loaded, so no drill is needed.
+    expect(windowNeedsDrill(pool, SYNTHETIC_ROOT_ID, 3)).toBe(false);
+    expect(windowNeedsDrill(pool, "2759", 3)).toBe(false);
+  });
+
+  it("is false for an unknown focus or zero depth", () => {
+    const pool = buildPoolFromBackbone(tinyBackbone());
+    pool.byId.get("7215")!.childrenLoaded = false;
+    expect(windowNeedsDrill(pool, "999999", 3)).toBe(false);
+    expect(windowNeedsDrill(pool, "7215", 0)).toBe(false);
   });
 });
