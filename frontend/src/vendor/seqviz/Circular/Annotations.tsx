@@ -61,9 +61,17 @@ export class Annotations extends React.PureComponent<AnnotationsProps> {
               }
 
               return acc.concat(
-                anns.map(ann => (
+                // A single doc-feature can resolve to arc segments in more than
+                // one row (e.g. when it wraps the origin), so `ann.id` alone is
+                // NOT unique across the flattened list. Suffix the row index `i`
+                // and the in-row position `j` to keep the React key unique. The
+                // right-click hit detection does not read this key (or this `id`
+                // prop, which SingleAnnotation ignores); it parses the leading
+                // `roidx-<index>` off the `id={a.id}` path inside SingleAnnotation,
+                // so the row/position suffix here leaves that contract intact.
+                anns.map((ann, j) => (
                   <SingleAnnotation
-                    key={`la-vz-${ann.id}-annotation-circular-row`}
+                    key={`la-vz-${ann.id}-annotation-circular-row-${i}-${j}`}
                     annotation={ann}
                     calcBorderColor={darkerColor}
                     centralIndex={circular}
@@ -72,7 +80,7 @@ export class Annotations extends React.PureComponent<AnnotationsProps> {
                     genArc={this.props.genArc}
                     getRotation={this.props.getRotation}
                     hoverAnnotation={this.hoverAnnotation}
-                    id={`la-vz-${ann.id}-annotation-circular-row`}
+                    id={`la-vz-${ann.id}-annotation-circular-row-${i}-${j}`}
                     inlinedAnnotations={this.props.inlinedAnnotations}
                     inputRef={this.props.inputRef}
                     lineHeight={lineHeight}
