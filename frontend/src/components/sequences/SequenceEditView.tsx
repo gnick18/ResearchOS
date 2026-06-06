@@ -113,7 +113,7 @@ import DetectFeaturesDialog, {
 import EnrichFromNcbiDialog, {
   type EnrichResult,
 } from "./EnrichFromNcbiDialog";
-import SequenceLineageChip from "./SequenceLineageChip";
+import SequenceLineageFooter from "./SequenceLineageFooter";
 import { extractAccession } from "@/lib/sequences/ncbi-datasets";
 // menu reorg bot — the library-level Compare/Align dialog, also surfaced from
 // the editor's new Analyze menu (a second door; the library-header Compare
@@ -4257,16 +4257,6 @@ export default function SequenceEditView({
       </div>
       ) : null}
 
-      {/* sequence editor master. The calm organism + taxonomy-lineage line for an
-          enriched sequence. Self-hides when the sequence has no organism / lineage
-          (a native or non-enriched sequence shows nothing). */}
-      <SequenceLineageChip
-        organism={sequence.organism}
-        taxId={sequence.tax_id}
-        lineage={sequence.tax_lineage}
-        onExploreInTree={onExploreInTree}
-      />
-
       {/* sequence editor master (redesign phase 2). The CANVAS HEAD. The primary
           view tabs sit at the TOP of the canvas, and the horizontal display
           ("Show") strip sits directly beneath them. The strip relocates every
@@ -4756,9 +4746,18 @@ export default function SequenceEditView({
         ) : null}
       </div>
 
-      {/* Live selection readout */}
+      {/* Live selection readout (left) + the compact taxonomy affordance (right).
+          The base coordinates sit at the far left; the organism + lineage moved
+          off the old full-width top strip into the dead space at the right edge
+          of this bar, where a click opens the full clickable lineage upward. */}
       <div className="flex items-center gap-4 border-t border-gray-100 bg-gray-50 px-3 py-1.5 text-meta text-gray-600">
         <SelectionReadoutContent readout={readout} />
+        <SequenceLineageFooter
+          organism={sequence.organism}
+          taxId={sequence.tax_id}
+          lineage={sequence.tax_lineage}
+          onExploreInTree={onExploreInTree}
+        />
       </div>
 
       {/* sequence editor master (redesign phase 2). The primary Map / Sequence /
