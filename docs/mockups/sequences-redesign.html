@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS sequences page redesign mockup</title>
+<style>
+  :root{
+    --sky:#0284c7; --sky-600:#0369a1; --sky-50:#eff6ff; --sky-100:#e0f2fe;
+    --ink:#0f1b2e; --slate:#475569; --muted:#64748b; --faint:#94a3b8;
+    --line:#e2e8f0; --line2:#dce6f3; --tint:#f4f8fd; --tint2:#eef4fb;
+    --amber:#f59e0b; --green:#16a34a; --violet:#8b5cf6; --pink:#ec4899;
+    --bg:#f1f5f9;
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;color:var(--ink);background:var(--bg);font-size:13px;line-height:1.45}
+  button{font:inherit;cursor:pointer}
+  .app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+  /* ---- top global bar ---- */
+  .topbar{display:flex;align-items:center;gap:14px;padding:8px 14px;background:#fff;border-bottom:1px solid var(--line);flex:0 0 auto}
+  .brand{display:flex;align-items:center;gap:8px;font-weight:800;color:var(--ink)}
+  .brand .dot{width:22px;height:22px;border-radius:7px;background:linear-gradient(135deg,#7dd3fc,#38bdf8)}
+  .tg{display:flex;gap:6px;margin-left:6px}
+  .tg button{display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;color:var(--slate);padding:6px 10px;border-radius:8px;font-weight:600}
+  .tg button.primary{background:var(--sky);border-color:var(--sky);color:#fff}
+  .tg button:hover{background:var(--tint)}
+  .spacer{flex:1}
+  .cmdk{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--tint);color:var(--muted);padding:6px 10px;border-radius:9px;min-width:230px}
+  .cmdk kbd{margin-left:auto;background:#fff;border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:11px;color:var(--slate)}
+
+  /* ---- 3-column skeleton ---- */
+  .cols{display:flex;flex:1;min-height:0}
+  .library{flex:0 0 290px;background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  .canvas{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--tint)}
+  .toolside{flex:0 0 var(--insp-w,340px);display:flex;min-height:0}
+
+  .region-tag{position:absolute;top:6px;left:8px;font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--sky);background:#fff;border:1px solid var(--sky-100);padding:1px 6px;border-radius:999px;text-transform:uppercase;z-index:5;opacity:0;transition:opacity .15s}
+  body.notes .region-tag{opacity:1}
+  .relwrap{position:relative;display:flex;flex-direction:column;min-height:0;flex:1}
+
+  /* library */
+  .lib-head{padding:12px 14px 6px}
+  .lib-head h2{margin:0;font-size:15px}
+  .lib-head p{margin:4px 0 0;color:var(--muted);font-size:12px}
+  .lib-create{display:flex;flex-wrap:wrap;gap:6px;padding:8px 14px}
+  .lib-create button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 9px;color:var(--slate);font-weight:600}
+  .lib-create button.primary{background:var(--sky);border-color:var(--sky);color:#fff}
+  .lib-sub{padding:6px 14px;color:var(--faint);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  .lib-search{margin:0 14px 8px;border:1px solid var(--line);border-radius:9px;padding:7px 10px;color:var(--muted);background:var(--tint)}
+  .seqlist{overflow:auto;flex:1;border-top:1px solid var(--line)}
+  .seqrow{display:flex;gap:9px;align-items:flex-start;padding:9px 14px;border-bottom:1px solid #f1f5f9;position:relative}
+  .seqrow:hover{background:var(--tint)}
+  .seqrow.sel{background:var(--sky-50);box-shadow:inset 3px 0 0 var(--sky)}
+  .seqrow .ic{width:13px;height:13px;border:1.6px solid var(--faint);border-radius:50%;margin-top:2px;flex:0 0 auto}
+  .seqrow.sel .ic{border-color:var(--sky)}
+  .seqrow .nm{font-weight:600}
+  .seqrow .mt{color:var(--muted);font-size:11px;margin-top:1px}
+  .seqrow .kebab{position:absolute;right:8px;top:8px;opacity:0;color:var(--faint);border:0;background:transparent;font-weight:800}
+  .seqrow:hover .kebab{opacity:1}
+
+  /* canvas header: view tabs + display strip */
+  .canvas-head{background:#fff;border-bottom:1px solid var(--line)}
+  .seq-title{display:flex;align-items:center;gap:10px;padding:10px 16px 6px}
+  .seq-title h3{margin:0;font-size:15px}
+  .seq-title .meta{color:var(--muted);font-size:12px}
+  .tabs{display:flex;gap:2px;padding:0 12px}
+  .tabs button{border:0;background:transparent;color:var(--muted);padding:8px 12px;font-weight:600;border-bottom:2px solid transparent}
+  .tabs button.on{color:var(--sky-600);border-bottom-color:var(--sky)}
+  .tabs button:hover{color:var(--slate)}
+  .display-strip{display:flex;align-items:center;gap:8px;padding:7px 14px;border-top:1px solid #f1f5f9;background:var(--tint2);flex-wrap:wrap}
+  .display-strip .lbl{font-size:10px;font-weight:800;letter-spacing:.05em;color:var(--faint);text-transform:uppercase;margin-right:2px}
+  .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line2);background:#fff;border-radius:999px;padding:4px 10px;color:var(--slate);font-weight:600;font-size:12px}
+  .chip.on{background:var(--sky-100);border-color:#bae6fd;color:var(--sky-600)}
+  .chip .sw{width:9px;height:9px;border-radius:3px}
+
+  /* canvas body: the map */
+  .canvas-body{flex:1;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+  .map-hint{position:absolute;left:14px;top:12px;font-size:11px;color:var(--muted);background:#fff;border:1px solid var(--line);border-radius:8px;padding:4px 8px}
+  .plasmid{filter:drop-shadow(0 12px 30px rgba(15,40,80,.10))}
+  .selpill{position:absolute;background:#fff;border:1px solid var(--amber);color:#92400e;border-radius:999px;padding:3px 9px;font-weight:600;font-size:11px;box-shadow:0 4px 14px rgba(0,0,0,.08)}
+
+  /* right: operations rail + inspector */
+  .opsrail{flex:0 0 56px;background:#fff;border-left:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:4px}
+  .opbtn{width:42px;height:42px;border-radius:11px;border:1px solid transparent;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--slate);position:relative}
+  .opbtn svg{width:19px;height:19px}
+  .opbtn .t{font-size:8px;font-weight:700;letter-spacing:.01em}
+  .opbtn:hover{background:var(--tint)}
+  .opbtn.on{background:var(--sky-100);color:var(--sky-600);border-color:#bae6fd}
+  .opbtn .badge{position:absolute;top:5px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--amber)}
+  .opsrail .sep{width:26px;height:1px;background:var(--line);margin:4px 0}
+
+  .inspector{flex:1;background:#fff;border-left:1px solid var(--line);display:flex;flex-direction:column;min-width:0}
+  .insp-head{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--line)}
+  .insp-head .ico{width:26px;height:26px;border-radius:8px;background:var(--sky-100);color:var(--sky-600);display:flex;align-items:center;justify-content:center}
+  .insp-head .ico svg{width:15px;height:15px}
+  .insp-head h4{margin:0;font-size:14px}
+  .insp-head .sub{color:var(--muted);font-size:11px;margin-top:1px}
+  .insp-body{padding:14px;overflow:auto;flex:1}
+  .insp-body h5{margin:0 0 8px;font-size:11px;font-weight:800;letter-spacing:.05em;color:var(--faint);text-transform:uppercase}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600}
+  .field input,.field select{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 9px;color:var(--ink);background:#fff}
+  .run{width:100%;background:var(--sky);color:#fff;border:0;border-radius:9px;padding:9px;font-weight:700;margin-top:4px}
+  .run.ghost{background:#fff;border:1px solid var(--line);color:var(--slate)}
+  .tool-list{display:flex;flex-direction:column;gap:6px}
+  .tool-list button{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:#fff;border-radius:9px;padding:9px 10px;text-align:left;color:var(--ink);font-weight:600}
+  .tool-list button:hover{background:var(--tint);border-color:var(--line2)}
+  .tool-list .d{color:var(--muted);font-weight:500;font-size:11px;margin-top:1px}
+  .tool-list .tic{width:24px;height:24px;flex:0 0 auto;border-radius:7px;display:flex;align-items:center;justify-content:center}
+  .empty-cue{border:1px dashed var(--line2);border-radius:10px;padding:14px;color:var(--muted);background:var(--tint);text-align:center}
+  .empty-cue b{color:var(--slate)}
+  .ctxbar{margin:-14px -14px 14px;padding:8px 14px;background:#fffbeb;border-bottom:1px solid #fde68a;color:#92400e;font-weight:600;font-size:12px;display:flex;align-items:center;gap:8px}
+
+  .readout{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+  .readout .r{background:var(--tint);border:1px solid var(--line2);border-radius:9px;padding:8px 11px;min-width:78px}
+  .readout .r .k{font-size:10px;color:var(--faint);font-weight:700;text-transform:uppercase}
+  .readout .r .v{font-size:15px;font-weight:700;color:var(--ink)}
+
+  .lineage{display:flex;flex-wrap:wrap;gap:5px;align-items:center;font-size:12px;color:var(--slate)}
+  .lineage .n{background:var(--tint);border:1px solid var(--line2);border-radius:7px;padding:3px 7px}
+  .lineage .arr{color:var(--faint)}
+
+  /* command palette overlay */
+  .scrim{position:fixed;inset:0;background:rgba(15,23,42,.35);backdrop-filter:blur(2px);display:none;align-items:flex-start;justify-content:center;z-index:50}
+  .scrim.show{display:flex}
+  .palette{margin-top:11vh;width:560px;max-width:92vw;background:#fff;border-radius:14px;box-shadow:0 30px 80px rgba(15,40,80,.30);overflow:hidden}
+  .palette .pin{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+  .palette .pin input{flex:1;border:0;outline:0;font-size:16px;color:var(--ink)}
+  .palette .grp{padding:8px 16px 4px;font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--faint);text-transform:uppercase}
+  .palette .cmd{display:flex;align-items:center;gap:11px;padding:9px 16px}
+  .palette .cmd:first-of-type,.palette .cmd.hl{background:var(--sky-50)}
+  .palette .cmd .ci{width:24px;height:24px;border-radius:7px;background:var(--tint);display:flex;align-items:center;justify-content:center;color:var(--sky-600)}
+  .palette .cmd .nm{flex:1;font-weight:600}
+  .palette .cmd .sc{color:var(--faint);font-size:11px}
+  .palette .foot{padding:8px 16px;border-top:1px solid var(--line);color:var(--muted);font-size:11px;display:flex;gap:14px}
+
+  /* design notes toggle */
+  .notes-toggle{display:flex;align-items:center;gap:7px;border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 10px;color:var(--slate);font-weight:600}
+  .note-pin{position:absolute;width:18px;height:18px;border-radius:50%;background:var(--amber);color:#fff;font-size:11px;font-weight:800;display:none;align-items:center;justify-content:center;z-index:6;box-shadow:0 2px 6px rgba(0,0,0,.2);cursor:help}
+  body.notes .note-pin{display:flex}
+  .legend{position:fixed;right:14px;bottom:14px;width:320px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px rgba(15,40,80,.16);padding:12px 14px;display:none;z-index:40}
+  body.notes .legend{display:block}
+  .legend h4{margin:0 0 8px;font-size:13px}
+  .legend ol{margin:0;padding-left:20px;color:var(--slate)}
+  .legend li{margin-bottom:5px}
+  .legend b{color:var(--amber)}
+</style>
+</head>
+<body class="notes">
+<div class="app">
+
+  <!-- top global bar -->
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span> ResearchOS</div>
+    <div class="tg">
+      <button class="primary">+ New</button>
+      <button>Assemble</button>
+      <button>Import</button>
+      <button>Download from NCBI</button>
+    </div>
+    <div class="spacer"></div>
+    <button class="notes-toggle" onclick="document.body.classList.toggle('notes')">Design notes</button>
+    <div class="cmdk" onclick="openPalette()"><span>Search or run a tool</span><kbd>&#8984;K</kbd></div>
+  </div>
+
+  <div class="cols">
+
+    <!-- LEFT: library -->
+    <div class="library relwrap">
+      <span class="region-tag">Library</span>
+      <span class="note-pin" style="top:44px;left:200px" title="Universal list-row right-click (rename, duplicate, share, copy reference) is preserved here.">5</span>
+      <div class="lib-head"><h2>Sequences</h2><p>Your molecular-biology workbench.</p></div>
+      <div class="lib-create">
+        <button class="primary">+ New</button><button>Assemble</button><button>Align</button><button>Import</button>
+      </div>
+      <div class="lib-sub">Collection</div>
+      <div class="lib-search">All Sequences (9)</div>
+      <div class="lib-search">Search sequences&#8230;</div>
+      <div class="seqlist">
+        <div class="seqrow sel"><span class="ic"></span><div><div class="nm">attL entry clone</div><div class="mt">DNA &#183; 910 bp &#183; 2 features</div></div><button class="kebab">&#8943;</button></div>
+        <div class="seqrow"><span class="ic"></span><div><div class="nm">attR destination</div><div class="mt">DNA &#183; 964 bp</div></div><button class="kebab">&#8943;</button></div>
+        <div class="seqrow"><span class="ic"></span><div><div class="nm">pEGFP-N1 (U55762)</div><div class="mt">DNA &#183; 4,733 bp</div></div><button class="kebab">&#8943;</button></div>
+        <div class="seqrow"><span class="ic"></span><div><div class="nm">pEGFP-N1-TRAP1</div><div class="mt">DNA &#183; 6,654 bp</div></div><button class="kebab">&#8943;</button></div>
+        <div class="seqrow"><span class="ic"></span><div><div class="nm">pGEX-3X (U13852)</div><div class="mt">DNA &#183; 4,952 bp</div></div><button class="kebab">&#8943;</button></div>
+      </div>
+    </div>
+
+    <!-- CENTER: canvas -->
+    <div class="canvas relwrap">
+      <span class="region-tag">Canvas (one live view)</span>
+      <div class="canvas-head">
+        <div class="seq-title"><h3>attL entry clone</h3><span class="meta">DNA &#183; Circular &#183; 910 bp &#183; 2 features</span></div>
+        <div class="tabs">
+          <button class="on">Map</button><button>Sequence</button><button>Features</button><button>Primers</button><button>History</button>
+          <span class="note-pin" style="top:2px;left:300px" title="One document, many lenses (SnapGene). Map + Sequence are the same live canvas, switched by tabs. History = the version-control lineage.">4</span>
+        </div>
+        <div class="display-strip">
+          <span class="lbl">Show</span>
+          <span class="chip on"><span class="sw" style="background:var(--violet)"></span>Features</span>
+          <span class="chip"><span class="sw" style="background:var(--sky)"></span>Primers</span>
+          <span class="chip">Enzyme sites</span>
+          <span class="chip">Translation</span>
+          <span class="chip">Linear / circular</span>
+          <span class="note-pin" style="top:4px;left:430px" title="DISPLAY toggles (what is drawn on the canvas) are separated from OPERATIONS (which produce a result). This was the biggest source of the junk drawer.">3</span>
+        </div>
+      </div>
+      <div class="canvas-body">
+        <div class="map-hint">Map view</div>
+        <div class="selpill" style="left:53%;top:30%">attP1 selected &#183; 1..21</div>
+        <svg class="plasmid" width="320" height="320" viewBox="0 0 320 320">
+          <circle cx="160" cy="160" r="120" fill="none" stroke="#cbd5e1" stroke-width="10"/>
+          <circle cx="160" cy="160" r="120" fill="none" stroke="var(--violet)" stroke-width="12" stroke-dasharray="120 660" stroke-linecap="round" transform="rotate(-40 160 160)"/>
+          <circle cx="160" cy="160" r="120" fill="none" stroke="var(--amber)" stroke-width="12" stroke-dasharray="90 660" stroke-linecap="round" transform="rotate(120 160 160)"/>
+          <circle cx="160" cy="160" r="46" fill="none" stroke="#e2e8f0" stroke-width="2"/>
+          <text x="160" y="156" text-anchor="middle" font-size="15" font-weight="700" fill="#0f1b2e">attL_entry</text>
+          <text x="160" y="174" text-anchor="middle" font-size="11" fill="#64748b">910 bp</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- RIGHT: operations rail + inspector -->
+    <div class="toolside relwrap">
+      <span class="region-tag" style="left:auto;right:8px">Tools + inspector</span>
+      <span class="note-pin" style="top:46px;right:316px" title="THE FIX: a persistent operations rail (Geneious + UGENE). Every bioinformatics capability is a visible labeled icon, not buried in a menu. Click to open its inline configure-and-run panel.">1</span>
+      <span class="note-pin" style="top:120px;right:150px" title="The inspector is CONTEXTUAL (Figma / NN/G): selecting a feature or region surfaces the tools that act on THAT object. The tool comes to you.">2</span>
+      <div class="opsrail">
+        <button class="opbtn on" onclick="pick('primers',this)" title="Primers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12h10"/><path d="M14 9l4 3-4 3"/></svg><span class="t">Primers</span></button>
+        <button class="opbtn" onclick="pick('cloning',this)" title="Cloning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="7" cy="7" r="3"/><circle cx="17" cy="17" r="3"/><path d="M9.5 9.5l5 5"/></svg><span class="t">Cloning</span></button>
+        <button class="opbtn" onclick="pick('restriction',this)" title="Restriction / digest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8 7l12 9M8 17L20 8"/></svg><span class="t">Cut</span></button>
+        <button class="opbtn" onclick="pick('align',this)" title="Align"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h12M4 12h16M4 17h9"/></svg><span class="t">Align</span></button>
+        <button class="opbtn" onclick="pick('protein',this)" title="Protein"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 5c4 4 10 6 14 14M5 19c4-4 10-6 14-14"/></svg><span class="t">Protein</span></button>
+        <button class="opbtn" onclick="pick('tree',this)" title="Tree of life / taxonomy"><span class="badge"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="12" r="2"/><path d="M8 6.7l8 4.3M8 17.3l8-4.3"/></svg><span class="t">Tree</span></button>
+        <button class="opbtn" onclick="pick('annotate',this)" title="Detect / annotate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg><span class="t">Annotate</span></button>
+        <div class="sep"></div>
+        <button class="opbtn" onclick="pick('export',this)" title="Export"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4v10M8 10l4 4 4-4"/><path d="M5 19h14"/></svg><span class="t">Export</span></button>
+      </div>
+      <div class="inspector" id="insp"><!-- filled by JS --></div>
+    </div>
+  </div>
+</div>
+
+<!-- command palette -->
+<div class="scrim" id="scrim" onclick="if(event.target.id==='scrim')closePalette()">
+  <div class="palette">
+    <div class="pin"><span style="color:var(--faint)">&#128269;</span><input placeholder="tree of life" value="tree" /></div>
+    <div class="grp">Explore</div>
+    <div class="cmd hl"><span class="ci">&#9893;</span><span class="nm">Explore the tree of life</span><span class="sc">centered on this organism</span></div>
+    <div class="cmd"><span class="ci">&#9893;</span><span class="nm">Look up an organism</span><span class="sc"></span></div>
+    <div class="cmd"><span class="ci">&#9893;</span><span class="nm">Enrich taxonomy from NCBI</span><span class="sc"></span></div>
+    <div class="grp">Recent</div>
+    <div class="cmd"><span class="ci">&#129516;</span><span class="nm">Find protein domains (HMMER)</span><span class="sc">&#8984;D</span></div>
+    <div class="foot"><span>&#8593;&#8595; to navigate</span><span>&#8629; to run</span><span>esc to close</span><span style="margin-left:auto">Cmd-K is a supplement, not the only way</span></div>
+  </div>
+</div>
+
+<div class="legend">
+  <h4>What changed, and why</h4>
+  <ol>
+    <li><b>1</b> Operations rail: every bioinformatics tool is a visible icon (no junk drawer). Glanceable, opens inline panels. (Geneious / UGENE)</li>
+    <li><b>2</b> Contextual inspector: select a feature/region and the tools for it surface automatically. The biggest "unburial" move. (Figma / NN/G)</li>
+    <li><b>3</b> Display toggles split from operations: "what is drawn" lives in the canvas strip, not mixed with "run a tool." (SnapGene)</li>
+    <li><b>4</b> One live canvas, many lenses via tabs (Map / Sequence / Features / Primers / History).</li>
+    <li><b>5</b> Your right-click system is kept everywhere as the object-scoped accelerator that duplicates these visible actions.</li>
+  </ol>
+  <div style="margin-top:8px;color:var(--muted);font-size:11px">Tip: click the rail icons; toggle the Tree (amber dot = this sequence has an organism). Hit &#8984;K for the palette. Toggle these notes from the top bar.</div>
+</div>
+
+<script>
+const PANELS = {
+  primers: {icon:'&#129516;', title:'Primers', sub:'Design and check primers', body:`
+    <div class="ctxbar">&#9678; Acting on selection attP1 &#183; 1..21</div>
+    <h5>Design primers here</h5>
+    <div class="field"><label>Purpose</label><select><option>Standard PCR</option><option>Mutagenesis</option><option>Sequencing</option></select></div>
+    <div class="readout"><div class="r"><div class="k">Length</div><div class="v">21 nt</div></div><div class="r"><div class="k">Tm</div><div class="v">58.4 C</div></div><div class="r"><div class="k">GC</div><div class="v">52%</div></div></div>
+    <button class="run">Design forward + reverse</button>
+    <button class="run ghost" style="margin-top:8px">Check specificity</button>`},
+  cloning: {icon:'&#9881;', title:'Cloning', sub:'Simulate a wet-lab procedure', body:`
+    <h5>Assemble a construct</h5>
+    <div class="tool-list">
+      <button><span class="tic" style="background:#e0f2fe;color:#0369a1">G</span><div><div>Gibson / overlap</div><div class="d">Join fragments by homology</div></div></button>
+      <button><span class="tic" style="background:#fce7f3;color:#be185d">R</span><div><div>Restriction + ligation</div><div class="d">Cut and paste with enzymes</div></div></button>
+      <button><span class="tic" style="background:#ede9fe;color:#6d28d9">GG</span><div><div>Golden Gate</div><div class="d">Type IIS one-pot</div></div></button>
+      <button><span class="tic" style="background:#dcfce7;color:#15803d">GW</span><div><div>Gateway</div><div class="d">attB/P/L/R recombination</div></div></button>
+    </div>`},
+  restriction: {icon:'&#9986;', title:'Restriction / digest', sub:'Enzyme sites and digests', body:`
+    <h5>Enzymes on this sequence</h5>
+    <div class="field"><label>Filter to enzymes that cut</label><select><option>once (unique cutters)</option><option>twice</option><option>any</option></select></div>
+    <div class="tool-list">
+      <button><span class="tic" style="background:#f1f5f9">1&#215;</span><div><div>EcoRI &#183; GAATTC</div><div class="d">cuts at 412</div></div></button>
+      <button><span class="tic" style="background:#f1f5f9">1&#215;</span><div><div>BamHI &#183; GGATCC</div><div class="d">cuts at 688</div></div></button>
+      <button><span class="tic" style="background:#f1f5f9">2&#215;</span><div><div>HindIII &#183; AAGCTT</div><div class="d">cuts at 120, 540</div></div></button>
+    </div>
+    <button class="run" style="margin-top:10px">Run a digest &#8594; virtual gel</button>`},
+  align: {icon:'&#9776;', title:'Align', sub:'Compare sequences', body:`
+    <h5>Align this sequence to&#8230;</h5>
+    <div class="field"><label>Reference</label><select><option>Pick a sequence&#8230;</option><option>attR destination</option><option>pEGFP-N1</option></select></div>
+    <div class="field"><label>Algorithm</label><select><option>Pairwise (default)</option><option>MUSCLE (multiple)</option></select></div>
+    <button class="run">Align &#8594; saved as an artifact</button>
+    <div class="empty-cue" style="margin-top:12px">Results land in the <b>History</b> tab with full lineage, not a throwaway popup.</div>`},
+  protein: {icon:'&#9082;', title:'Protein', sub:'Translation, properties, domains', body:`
+    <div class="ctxbar">&#9678; A CDS is selected &#183; 110 aa</div>
+    <h5>For this CDS</h5>
+    <div class="tool-list">
+      <button><span class="tic" style="background:#e0f2fe;color:#0369a1">&#8594;</span><div><div>Translate to protein</div><div class="d">show the amino-acid track</div></div></button>
+      <button><span class="tic" style="background:#ede9fe;color:#6d28d9">&#9082;</span><div><div>Protein properties</div><div class="d">length, mass, pI, composition</div></div></button>
+      <button><span class="tic" style="background:#fef3c7;color:#b45309">&#129516;</span><div><div>Find domains (HMMER)</div><div class="d">scan on your device, Pfam + BYO db</div></div></button>
+    </div>`},
+  tree: {icon:'&#9893;', title:'Tree of life', sub:'Taxonomy + phylogenetics', body:`
+    <h5>This sequence&#8217;s organism</h5>
+    <div class="lineage"><span class="n">Bacteria</span><span class="arr">&#8250;</span><span class="n">Pseudomonadota</span><span class="arr">&#8250;</span><span class="n">E. coli</span></div>
+    <div class="tool-list" style="margin-top:12px">
+      <button><span class="tic" style="background:#e0f2fe;color:#0369a1">&#9893;</span><div><div>Explore in the tree of life</div><div class="d">centered on this organism, branch highlighted</div></div></button>
+      <button><span class="tic" style="background:#f1f5f9">&#128269;</span><div><div>Look up an organism</div><div class="d">name or tax id &#8594; lineage</div></div></button>
+      <button><span class="tic" style="background:#dcfce7;color:#15803d">&#8595;</span><div><div>Enrich taxonomy from NCBI</div><div class="d">attach organism + lineage</div></div></button>
+    </div>`},
+  annotate: {icon:'&#10003;', title:'Annotate', sub:'Detect and add features', body:`
+    <h5>Annotate features</h5>
+    <div class="tool-list">
+      <button><span class="tic" style="background:#dcfce7;color:#15803d">&#10003;</span><div><div>Detect common features</div><div class="d">from the bundled feature database</div></div></button>
+      <button><span class="tic" style="background:#e0f2fe;color:#0369a1">&#8635;</span><div><div>Annotate from a reference</div><div class="d">copy features off a known sequence</div></div></button>
+      <button><span class="tic" style="background:#f1f5f9">+</span><div><div>Add feature from selection</div><div class="d">name, type, color</div></div></button>
+    </div>`},
+  export: {icon:'&#8595;', title:'Export', sub:'Save and share', body:`
+    <h5>Export</h5>
+    <div class="tool-list">
+      <button><span class="tic" style="background:#f1f5f9">GB</span><div><div>GenBank (whole or selection)</div></div></button>
+      <button><span class="tic" style="background:#f1f5f9">FA</span><div><div>FASTA (DNA or protein)</div></div></button>
+      <button><span class="tic" style="background:#f1f5f9">&#128247;</span><div><div>Map image (SVG / PNG)</div></div></button>
+      <button><span class="tic" style="background:#fef3c7;color:#b45309">&#128221;</span><div><div>Send map to a note</div></div></button>
+    </div>`}
+};
+function pick(k, btn){
+  document.querySelectorAll('.opbtn').forEach(b=>b.classList.remove('on'));
+  if(btn) btn.classList.add('on');
+  const p = PANELS[k];
+  document.getElementById('insp').innerHTML = `
+    <div class="insp-head"><div class="ico">${p.icon}</div><div><h4>${p.title}</h4><div class="sub">${p.sub}</div></div></div>
+    <div class="insp-body">${p.body}</div>`;
+}
+function openPalette(){document.getElementById('scrim').classList.add('show')}
+function closePalette(){document.getElementById('scrim').classList.remove('show')}
+document.addEventListener('keydown',e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openPalette()}
+  if(e.key==='Escape')closePalette()
+});
+pick('primers', document.querySelector('.opbtn'));
+</script>
+</body>
+</html>
