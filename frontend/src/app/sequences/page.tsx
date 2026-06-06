@@ -1387,7 +1387,12 @@ export default function SequencesPage() {
           native dark sequence editor later. */}
       <div
         ref={splitContainerRef}
-        className="light-scope flex h-[calc(100vh-7rem)] px-4 pb-4"
+        /* Fill the AppShell `main` area (which already subtracts the header)
+         * instead of a hardcoded `100vh - 7rem`, which undershot and left a
+         * dead ~60px bar at the bottom of the editor. `h-full min-h-0` lets the
+         * library + viewer run all the way down; `pb-4` keeps the same 1rem
+         * frame as the side padding so the rounded panels aren't flush. */
+        className="light-scope flex h-full min-h-0 px-4 pb-4"
       >
         {/* LEFT: working tree / library. Wrapped in a drag-and-drop target so a
             user can drop files or a whole folder anywhere on the library to
