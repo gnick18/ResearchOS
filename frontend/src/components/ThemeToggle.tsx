@@ -1,14 +1,16 @@
 "use client";
 
-// Dark-mode toggle button (POC). A quick light <-> dark flip for the app
-// header; the full light / dark / system choice will live in Settings.
-// Inline SVG icons (no emoji, per the UI convention). Styled to match the
-// other header icon buttons (p-1.5 rounded-full, neutral until hover).
+// Dark-mode toggle button. A quick light <-> dark flip for the app header; the
+// full light / dark / system choice also lives in Settings > Appearance.
+// Inline SVG icons (no emoji, per the UI convention). On a neutral header it
+// matches the other icon buttons (neutral until hover); on a tinted (colored
+// project) header it switches to a white/translucent treatment so it stays
+// legible and is always reachable, not just from Settings.
 
 import Tooltip from "@/components/Tooltip";
 import { useTheme } from "@/lib/theme/use-theme";
 
-export default function ThemeToggle() {
+export default function ThemeToggle({ tinted = false }: { tinted?: boolean }) {
   const { resolved, setTheme } = useTheme();
   const isDark = resolved === "dark";
   const next = isDark ? "light" : "dark";
@@ -20,7 +22,11 @@ export default function ThemeToggle() {
         onClick={() => setTheme(next)}
         aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
         data-testid="theme-toggle"
-        className="p-1.5 rounded-full text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+        className={
+          tinted
+            ? "p-1.5 rounded-full text-white/80 transition-colors hover:bg-white/15 hover:text-white"
+            : "p-1.5 rounded-full text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+        }
       >
         {isDark ? (
           // Sun

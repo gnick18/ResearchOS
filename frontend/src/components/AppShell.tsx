@@ -491,11 +491,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               old gear applies: disabled + non-interactive during the walkthrough
               so a mid-tour click cannot navigate away from the current step.
               (Onboarding v4 L23 — same reasoning as the gear it replaces.) */}
-          {/* Dark-mode toggle (POC). Quick light/dark flip; the full
-              light/dark/system choice will live in Settings. Hidden on tinted
-              (colored-project) headers for now since it themes to the neutral
-              surface palette, not the tint. */}
-          {!tinted && <ThemeToggle />}
+          {/* Dark-mode toggle. Quick light/dark flip; the full light/dark/system
+              choice also lives in Settings > Appearance. Always shown; on a
+              tinted (colored-project) header it uses a white/translucent
+              treatment so it stays legible on the tint. */}
+          <ThemeToggle tinted={tinted} />
           {currentUser && (
             <UserAvatarMenu
               currentUser={currentUser}
