@@ -1487,6 +1487,7 @@ export default function SequencesPage() {
                     setExplorerTaxId(taxId);
                     setExplorerOpen(true);
                   }}
+                  onLookupTaxonomy={() => setTaxonomyOpen(true)}
                 />
               </div>
             </>

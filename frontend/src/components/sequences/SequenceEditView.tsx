@@ -410,6 +410,7 @@ export default function SequenceEditView({
   embedded = false,
   onEnriched,
   onExploreInTree,
+  onLookupTaxonomy,
 }: {
   sequence: SequenceDetail;
   /** persist the current GenBank; resolves true on success. Unused when readOnly. */
@@ -423,6 +424,9 @@ export default function SequenceEditView({
    *  explorer, centered on this sequence's tax id. Absent in read-only / embedded
    *  surfaces. */
   onExploreInTree?: (taxId?: string) => void;
+  /** Optional door into the standalone organism-to-lineage lookup dialog. Absent
+   *  in read-only / embedded surfaces. */
+  onLookupTaxonomy?: () => void;
   /** When true, the surface is a read-only inspector: no caret/keystroke edit,
    *  no clipboard, no Save, no Add/Edit/Delete feature actions. Selection +
    *  readout still work, and double-clicking a feature opens its READ-ONLY info
@@ -2880,12 +2884,27 @@ export default function SequenceEditView({
             } as EditMenuItem,
           ]
         : []),
+      // sequence editor master. The standalone organism-to-lineage lookup, the
+      // other taxonomy tool that was launcher-only. A quick name-to-lineage check
+      // without leaving the open sequence.
+      ...(onLookupTaxonomy
+        ? [
+            {
+              id: "analyze-lookup-organism",
+              label: "Look up an organism…",
+              enabled: true,
+              group: !onEnriched && !onExploreInTree,
+              onRun: () => onLookupTaxonomy(),
+            } as EditMenuItem,
+          ]
+        : []),
     ],
     [
       openDetectFeatures,
       openAnnotateFromReference,
       onEnriched,
       onExploreInTree,
+      onLookupTaxonomy,
       sequence.tax_id,
     ],
   );
