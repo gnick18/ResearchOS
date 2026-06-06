@@ -97,13 +97,13 @@ export default function MonthView({
   const today = toLocalDateString(now);
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <div className="bg-surface-raised border border-border rounded-xl overflow-hidden">
       {/* Day headers */}
-      <div className="grid grid-cols-7 border-b border-gray-100">
+      <div className="grid grid-cols-7 border-b border-border">
         {DAY_NAMES.map((day) => (
           <div
             key={day}
-            className="px-2 py-3 text-meta font-semibold text-gray-500 text-center"
+            className="px-2 py-3 text-meta font-semibold text-foreground-muted text-center"
           >
             {day}
           </div>
@@ -123,10 +123,10 @@ export default function MonthView({
               onClick={() => onDayClick(dateStr)}
               onDoubleClick={() => onDayDoubleClick(dateStr)}
               title="Click to see all events · Double-click to add a new event"
-              className={`min-h-[100px] border-b border-r border-gray-100 p-1 cursor-pointer ${
+              className={`min-h-[100px] border-b border-r border-border p-1 cursor-pointer ${
                 day.isCurrentMonth
-                  ? "bg-white hover:bg-gray-50"
-                  : "bg-gray-50 hover:bg-gray-100"
+                  ? "bg-surface-raised hover:bg-surface-sunken"
+                  : "bg-surface-sunken hover:bg-surface-sunken"
               }`}
             >
               <div
@@ -134,8 +134,8 @@ export default function MonthView({
                   isToday
                     ? "bg-blue-600 text-white"
                     : day.isCurrentMonth
-                      ? "text-gray-700"
-                      : "text-gray-400"
+                      ? "text-foreground"
+                      : "text-foreground-muted"
                 }`}
               >
                 {day.date.getDate()}
@@ -170,7 +170,7 @@ export default function MonthView({
                       }}
                     >
                       {isPto && (
-                        <span className="flex-shrink-0 px-1 py-px text-meta font-bold leading-none rounded bg-sky-50 text-sky-700 border border-sky-200">
+                        <span className="flex-shrink-0 px-1 py-px text-meta font-bold leading-none rounded bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-200">
                           PTO
                         </span>
                       )}
@@ -221,7 +221,7 @@ export default function MonthView({
                   );
                 })}
                 {sorted.length > 3 && (
-                  <p className="text-meta text-gray-400 px-1.5">
+                  <p className="text-meta text-foreground-muted px-1.5">
                     +{sorted.length - 3} more
                   </p>
                 )}

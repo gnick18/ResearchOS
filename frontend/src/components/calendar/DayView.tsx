@@ -93,11 +93,11 @@ export default function DayView({
   });
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col">
-      <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-        <h3 className="text-body font-semibold text-gray-900">{heading}</h3>
+    <div className="bg-surface-raised border border-border rounded-xl overflow-hidden flex flex-col">
+      <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+        <h3 className="text-body font-semibold text-foreground">{heading}</h3>
         {isToday && (
-          <span className="text-meta uppercase tracking-wide text-blue-600 font-semibold">
+          <span className="text-meta uppercase tracking-wide text-blue-600 dark:text-blue-300 font-semibold">
             Today
           </span>
         )}
@@ -105,8 +105,8 @@ export default function DayView({
 
       {/* All-day strip */}
       {sortedAllDay.length > 0 && (
-        <div className="border-b border-gray-100 bg-gray-50/40 px-5 py-2 space-y-1">
-          <p className="text-meta uppercase tracking-wide text-gray-400 font-semibold">
+        <div className="border-b border-border bg-surface-sunken/40 px-5 py-2 space-y-1">
+          <p className="text-meta uppercase tracking-wide text-foreground-muted font-semibold">
             All-day
           </p>
           <div className="space-y-1">
@@ -189,7 +189,7 @@ export default function DayView({
             {Array.from({ length: 24 }, (_, h) => (
               <div
                 key={h}
-                className="border-t border-gray-100 text-meta text-gray-400 text-right pr-3 pt-0.5"
+                className="border-t border-border text-meta text-foreground-muted text-right pr-3 pt-0.5"
                 style={{ height: HOUR_HEIGHT }}
               >
                 {h === 0 ? "" : h === 12 ? "12pm" : h > 12 ? `${h - 12}pm` : `${h}am`}
@@ -199,7 +199,7 @@ export default function DayView({
 
           {/* Day column */}
           <div
-            className="relative border-l border-gray-100"
+            className="relative border-l border-border"
             onClick={(e) => {
               if (e.target !== e.currentTarget) return;
               const rect = e.currentTarget.getBoundingClientRect();
@@ -211,7 +211,7 @@ export default function DayView({
             {Array.from({ length: 24 }, (_, h) => (
               <div
                 key={h}
-                className="border-t border-gray-100 pointer-events-none"
+                className="border-t border-border pointer-events-none"
                 style={{ height: HOUR_HEIGHT }}
               />
             ))}

@@ -463,18 +463,18 @@ export default function SearchPage() {
       <div className="flex-1 overflow-auto p-6">
         {/* Header */}
         <div className="mb-6">
-          <h2 className="text-heading font-semibold text-gray-900">Search</h2>
-          <p className="text-body text-gray-400 mt-0.5">
+          <h2 className="text-heading font-semibold text-foreground">Search</h2>
+          <p className="text-body text-foreground-muted mt-0.5">
             Find tasks, experiments, and purchases across all projects
           </p>
         </div>
 
         {/* Search Form */}
-        <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
+        <div className="bg-surface-raised border border-border rounded-xl p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Keywords */}
             <div className="lg:col-span-2">
-              <label className="block text-meta font-medium text-gray-500 mb-1">
+              <label className="block text-meta font-medium text-foreground-muted mb-1">
                 Keywords
               </label>
               <input
@@ -483,46 +483,46 @@ export default function SearchPage() {
                 onChange={(e) => updateFilter("keywords", e.target.value)}
                 placeholder="Search by name, tags, method..."
                 data-tour-target="search-input"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
               />
             </div>
 
             {/* Date From */}
             <div>
-              <label className="block text-meta font-medium text-gray-500 mb-1">
+              <label className="block text-meta font-medium text-foreground-muted mb-1">
                 Date From
               </label>
               <input
                 type="date"
                 value={filters.dateFrom}
                 onChange={(e) => updateFilter("dateFrom", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             {/* Date To */}
             <div>
-              <label className="block text-meta font-medium text-gray-500 mb-1">
+              <label className="block text-meta font-medium text-foreground-muted mb-1">
                 Date To
               </label>
               <input
                 type="date"
                 value={filters.dateTo}
                 onChange={(e) => updateFilter("dateTo", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             {/* Task Type */}
             <div>
-              <label className="block text-meta font-medium text-gray-500 mb-1">
+              <label className="block text-meta font-medium text-foreground-muted mb-1">
                 Task Type
               </label>
               <select
                 value={filters.taskType}
                 onChange={(e) => updateFilter("taskType", e.target.value as SearchFilters["taskType"])}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">All Types</option>
                 <option value="experiment">Experiments</option>
@@ -533,7 +533,7 @@ export default function SearchPage() {
 
             {/* Project */}
             <div>
-              <label className="block text-meta font-medium text-gray-500 mb-1">
+              <label className="block text-meta font-medium text-foreground-muted mb-1">
                 Project
               </label>
               <select
@@ -541,7 +541,7 @@ export default function SearchPage() {
                 onChange={(e) =>
                   updateFilter("projectKey", e.target.value ? e.target.value : null)
                 }
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">All Projects</option>
                 {projects.map((p) => {
@@ -564,7 +564,7 @@ export default function SearchPage() {
 
             {/* Method */}
             <div>
-              <label className="block text-meta font-medium text-gray-500 mb-1">
+              <label className="block text-meta font-medium text-foreground-muted mb-1">
                 Specific Method
               </label>
               <select
@@ -572,7 +572,7 @@ export default function SearchPage() {
                 onChange={(e) =>
                   updateFilter("methodKey", e.target.value ? e.target.value : null)
                 }
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Any Method</option>
                 {methods.map((m) => {
@@ -593,13 +593,13 @@ export default function SearchPage() {
 
             {/* Method Folder */}
             <div>
-              <label className="block text-meta font-medium text-gray-500 mb-1">
+              <label className="block text-meta font-medium text-foreground-muted mb-1">
                 Method Category
               </label>
               <select
                 value={filters.methodFolder}
                 onChange={(e) => updateFilter("methodFolder", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Any Category</option>
                 {methodFolders.map((folder) => (
@@ -612,13 +612,13 @@ export default function SearchPage() {
 
             {/* Completion Status */}
             <div>
-              <label className="block text-meta font-medium text-gray-500 mb-1">
+              <label className="block text-meta font-medium text-foreground-muted mb-1">
                 Completion Status
               </label>
               <select
                 value={filters.completionStatus}
                 onChange={(e) => updateFilter("completionStatus", e.target.value as SearchFilters["completionStatus"])}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">All</option>
                 <option value="complete">Complete</option>
@@ -638,7 +638,7 @@ export default function SearchPage() {
             </button>
             <button
               onClick={handleClear}
-              className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
+              className="px-4 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg"
             >
               Clear
             </button>
@@ -649,14 +649,14 @@ export default function SearchPage() {
         {hasSearched && (
           <div>
             <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-              <h3 className="text-body font-semibold text-gray-700">
+              <h3 className="text-body font-semibold text-foreground">
                 {searchResults.length} result{searchResults.length !== 1 ? "s" : ""} found
               </h3>
               {searchResults.length > 0 && (
                 <div className="flex items-center gap-2">
                   {selectMode ? (
                     <>
-                      <span className="text-meta text-gray-500">
+                      <span className="text-meta text-foreground-muted">
                         {selectedTaskKeys.size} selected
                       </span>
                       <button
@@ -668,7 +668,7 @@ export default function SearchPage() {
                       </button>
                       <button
                         onClick={cancelSelectMode}
-                        className="px-3 py-1.5 text-meta text-gray-600 hover:bg-gray-100 rounded-lg"
+                        className="px-3 py-1.5 text-meta text-foreground-muted hover:bg-surface-sunken rounded-lg"
                       >
                         Cancel
                       </button>
@@ -676,7 +676,7 @@ export default function SearchPage() {
                   ) : (
                     <button
                       onClick={enterSelectMode}
-                      className="px-3 py-1.5 text-meta text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+                      className="px-3 py-1.5 text-meta text-foreground-muted border border-border rounded-lg hover:bg-surface-sunken"
                     >
                       Select
                     </button>
@@ -686,8 +686,8 @@ export default function SearchPage() {
             </div>
 
             {searchResults.length === 0 ? (
-              <div className="text-center py-12 bg-gray-50 rounded-lg">
-                <p className="text-body text-gray-400">No matches found</p>
+              <div className="text-center py-12 bg-surface-sunken rounded-lg">
+                <p className="text-body text-foreground-muted">No matches found</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -698,10 +698,10 @@ export default function SearchPage() {
                   <div
                     key={key}
                     onClick={() => handleResultCardClick(task)}
-                    className={`bg-white border rounded-lg overflow-hidden hover:shadow-md transition-all cursor-pointer relative ${
+                    className={`bg-surface-raised border rounded-lg overflow-hidden hover:shadow-md transition-all cursor-pointer relative ${
                       isSelected
                         ? "border-blue-500 ring-2 ring-blue-200"
-                        : "border-gray-200"
+                        : "border-border"
                     }`}
                   >
                     {/* Color bar */}
@@ -712,7 +712,7 @@ export default function SearchPage() {
                         className={`absolute top-2 right-2 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
                           isSelected
                             ? "bg-blue-500 border-blue-500 text-white"
-                            : "border-gray-300 bg-white"
+                            : "border-border bg-surface-raised"
                         }`}
                       >
                         {isSelected && (
@@ -736,11 +736,11 @@ export default function SearchPage() {
                     <div className="p-4">
                       {/* Header */}
                       <div className="flex items-start justify-between mb-2">
-                        <h4 className="text-body font-medium text-gray-900 line-clamp-2">
+                        <h4 className="text-body font-medium text-foreground line-clamp-2">
                           {task.name}
                         </h4>
                         {task.is_complete && (
-                          <span className="ml-2 flex-shrink-0 text-meta px-2 py-0.5 bg-emerald-100 text-emerald-600 rounded-full">
+                          <span className="ml-2 flex-shrink-0 text-meta px-2 py-0.5 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 rounded-full">
                             Complete
                           </span>
                         )}
@@ -756,23 +756,23 @@ export default function SearchPage() {
                         </span>
                         <span className={`text-meta px-2 py-0.5 rounded-full ${
                           task.task_type === "experiment"
-                            ? "bg-purple-50 text-purple-600"
+                            ? "bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-300"
                             : task.task_type === "purchase"
-                            ? "bg-amber-50 text-amber-600"
-                            : "bg-gray-100 text-gray-600"
+                            ? "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-300"
+                            : "bg-surface-sunken text-foreground-muted"
                         }`}>
                           {task.task_type}
                         </span>
                       </div>
 
                       {/* Date */}
-                      <p className="text-meta text-gray-400 mb-2">
+                      <p className="text-meta text-foreground-muted mb-2">
                         {task.start_date} → {task.end_date} ({task.duration_days}d)
                       </p>
 
                       {/* Method */}
                       {method && (
-                        <p className="text-meta text-purple-600 mb-2">
+                        <p className="text-meta text-purple-600 dark:text-purple-300 mb-2">
                           Method: {method.name}
                         </p>
                       )}
@@ -783,13 +783,13 @@ export default function SearchPage() {
                           {task.tags.slice(0, 3).map((tag) => (
                             <span
                               key={tag}
-                              className="text-meta px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
+                              className="text-meta px-1.5 py-0.5 bg-surface-sunken text-foreground-muted rounded"
                             >
                               #{tag}
                             </span>
                           ))}
                           {task.tags.length > 3 && (
-                            <span className="text-meta text-gray-400">
+                            <span className="text-meta text-foreground-muted">
                               +{task.tags.length - 3}
                             </span>
                           )}
@@ -806,9 +806,9 @@ export default function SearchPage() {
 
         {/* Initial state */}
         {!hasSearched && (
-          <div className="text-center py-16 bg-gray-50 rounded-lg">
-            <p className="text-title text-gray-400 mb-2">Search to get started</p>
-            <p className="text-body text-gray-300">
+          <div className="text-center py-16 bg-surface-sunken rounded-lg">
+            <p className="text-title text-foreground-muted mb-2">Search to get started</p>
+            <p className="text-body text-foreground-muted">
               Enter keywords, dates, or filters above
             </p>
           </div>

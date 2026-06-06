@@ -236,8 +236,8 @@ export default function LabLinksPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-heading font-semibold text-gray-900">{surfaceLabel}</h2>
-            <p className="text-body text-gray-400 mt-0.5">
+            <h2 className="text-heading font-semibold text-foreground">{surfaceLabel}</h2>
+            <p className="text-body text-foreground-muted mt-0.5">
               {links.length} link{links.length !== 1 ? "s" : ""} saved
             </p>
           </div>
@@ -254,13 +254,13 @@ export default function LabLinksPage() {
 
         {/* Create/Edit Form */}
         {(isCreating || editingLink) && (
-          <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
-            <h3 className="text-body font-semibold text-gray-700 mb-4">
+          <div className="bg-surface-raised border border-border rounded-xl p-5 mb-6">
+            <h3 className="text-body font-semibold text-foreground mb-4">
               {editingLink ? "Edit Link" : "New Link"}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-meta font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-foreground-muted mb-1">
                   URL *
                 </label>
                 <div className="flex gap-2">
@@ -269,14 +269,14 @@ export default function LabLinksPage() {
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     placeholder="https://..."
-                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="flex-1 px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <Tooltip label="Fetch preview" placement="bottom">
                     <button
                       type="button"
                       onClick={handleFetchPreview}
                       disabled={!url.trim() || isLoadingPreview}
-                      className="px-3 py-2 bg-gray-100 text-gray-600 text-body font-medium rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                      className="px-3 py-2 bg-surface-sunken text-foreground-muted text-body font-medium rounded-lg hover:bg-foreground-muted/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                     >
                       {isLoadingPreview ? (
                         <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -295,7 +295,7 @@ export default function LabLinksPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-meta font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-foreground-muted mb-1">
                   Title *
                 </label>
                 <input
@@ -303,11 +303,11 @@ export default function LabLinksPage() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Link title"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-meta font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-foreground-muted mb-1">
                   Category
                 </label>
                 <input
@@ -316,7 +316,7 @@ export default function LabLinksPage() {
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   placeholder="Select or type category"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 <datalist id="categories">
                   {CATEGORIES.map((cat) => (
@@ -325,7 +325,7 @@ export default function LabLinksPage() {
                 </datalist>
               </div>
               <div>
-                <label className="block text-meta font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-foreground-muted mb-1">
                   Color
                 </label>
                 <div className="flex gap-2 flex-wrap">
@@ -336,7 +336,7 @@ export default function LabLinksPage() {
                       onClick={() => setColor(c.value)}
                       className={`w-7 h-7 rounded-full border-2 transition-all ${
                         color === c.value
-                          ? "border-gray-800 scale-110"
+                          ? "border-gray-800 dark:border-foreground scale-110"
                           : "border-transparent hover:scale-105"
                       }`}
                       style={{ backgroundColor: c.value }}
@@ -351,13 +351,13 @@ export default function LabLinksPage() {
                   every lab member can see (and collaboratively maintain)
                   the bookmark. New links default to "Just me". */}
               <div className="md:col-span-2">
-                <label className="block text-meta font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-foreground-muted mb-1">
                   Visibility
                 </label>
                 <div
                   role="radiogroup"
                   aria-label="Link visibility"
-                  className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-gray-50"
+                  className="inline-flex rounded-lg border border-border p-0.5 bg-surface-sunken"
                 >
                   <button
                     type="button"
@@ -366,8 +366,8 @@ export default function LabLinksPage() {
                     onClick={() => setWholeLab(false)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-body font-medium rounded-md transition-colors ${
                       !wholeLab
-                        ? "bg-white text-gray-900 shadow-sm"
-                        : "text-gray-500 hover:text-gray-700"
+                        ? "bg-surface-raised text-foreground shadow-sm"
+                        : "text-foreground-muted hover:text-foreground"
                     }`}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -383,8 +383,8 @@ export default function LabLinksPage() {
                     onClick={() => setWholeLab(true)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-body font-medium rounded-md transition-colors ${
                       wholeLab
-                        ? "bg-white text-blue-600 shadow-sm"
-                        : "text-gray-500 hover:text-gray-700"
+                        ? "bg-surface-raised text-blue-600 dark:text-blue-300 shadow-sm"
+                        : "text-foreground-muted hover:text-foreground"
                     }`}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -396,14 +396,14 @@ export default function LabLinksPage() {
                     Whole lab
                   </button>
                 </div>
-                <p className="text-meta text-gray-400 mt-1">
+                <p className="text-meta text-foreground-muted mt-1">
                   {wholeLab
                     ? "Everyone in your lab can see and edit this link."
                     : "Only you can see this link."}
                 </p>
               </div>
               <div className="md:col-span-2">
-                <label className="block text-meta font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-foreground-muted mb-1">
                   Description
                 </label>
                 <input
@@ -411,12 +411,12 @@ export default function LabLinksPage() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Brief description (optional)"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
               {/* Preview Image URL */}
               <div className="md:col-span-2">
-                <label className="block text-meta font-medium text-gray-500 mb-1">
+                <label className="block text-meta font-medium text-foreground-muted mb-1">
                   Preview Image URL
                 </label>
                 <div className="flex gap-2 items-start">
@@ -425,10 +425,10 @@ export default function LabLinksPage() {
                     value={previewImageUrl || ""}
                     onChange={(e) => setPreviewImageUrl(e.target.value || null)}
                     placeholder="Auto-fetched or paste custom image URL"
-                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="flex-1 px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   {previewImageUrl && (
-                    <div className="w-20 h-14 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
+                    <div className="w-20 h-14 rounded-lg overflow-hidden border border-border flex-shrink-0">
                       {/* eslint-disable-next-line @next/next/no-img-element -- src is an arbitrary user-pasted HTTP URL (link preview thumbnail); next/image would require an allowlist of every domain users might paste */}
                       <img
                         src={previewImageUrl}
@@ -446,7 +446,7 @@ export default function LabLinksPage() {
             <div className="flex justify-end gap-2 mt-4">
               <button
                 onClick={editingLink ? cancelEdit : () => setIsCreating(false)}
-                className="px-4 py-2 text-body text-gray-600 hover:text-gray-800 transition-colors"
+                className="px-4 py-2 text-body text-foreground-muted hover:text-foreground transition-colors"
               >
                 Cancel
               </button>
@@ -464,18 +464,18 @@ export default function LabLinksPage() {
         {/* Links Grid */}
         {isLoading ? (
           <div className="text-center py-16">
-            <p className="text-gray-400">Loading links...</p>
+            <p className="text-foreground-muted">Loading links...</p>
           </div>
         ) : links.length === 0 ? (
           <div className="text-center py-16">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400">
+            <div className="w-16 h-16 mx-auto mb-4 bg-surface-sunken rounded-full flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-foreground-muted">
                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
               </svg>
             </div>
-            <p className="text-title text-gray-400 mb-2">No links saved yet</p>
-            <p className="text-body text-gray-300">
+            <p className="text-title text-foreground-muted mb-2">No links saved yet</p>
+            <p className="text-body text-foreground-muted">
               Add a link to save it here
             </p>
           </div>
@@ -483,7 +483,7 @@ export default function LabLinksPage() {
           <div className="space-y-6">
             {Object.entries(groupedLinks).map(([cat, catLinks]) => (
               <div key={cat}>
-                <h3 className="text-meta font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                <h3 className="text-meta font-semibold text-foreground-muted uppercase tracking-wider mb-3">
                   {cat}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -493,11 +493,11 @@ export default function LabLinksPage() {
                       href={link.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg hover:border-gray-300 transition-all flex flex-col"
+                      className="group bg-surface-raised border border-border rounded-xl overflow-hidden hover:shadow-lg hover:border-border transition-all flex flex-col"
                     >
                       {/* Preview Image or Color Bar */}
                       <div 
-                        className="h-32 relative bg-gray-100 flex-shrink-0"
+                        className="h-32 relative bg-surface-sunken flex-shrink-0"
                         style={{ backgroundColor: link.preview_image_url ? undefined : (link.color || CARD_COLORS[0].value) }}
                       >
                         {link.preview_image_url ? (
@@ -540,7 +540,7 @@ export default function LabLinksPage() {
                                   e.stopPropagation();
                                   startEdit(link);
                                 }}
-                                className="p-1.5 bg-white/90 text-gray-600 hover:text-gray-800 hover:bg-white rounded-lg transition-colors shadow-sm"
+                                className="p-1.5 bg-surface-raised/90 text-foreground-muted hover:text-foreground hover:bg-surface-raised rounded-lg transition-colors shadow-sm"
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                   <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
@@ -554,7 +554,7 @@ export default function LabLinksPage() {
                                   e.stopPropagation();
                                   setDeleteConfirmId(link.id);
                                 }}
-                                className="p-1.5 bg-white/90 text-gray-400 hover:text-red-500 hover:bg-white rounded-lg transition-colors shadow-sm"
+                                className="p-1.5 bg-surface-raised/90 text-foreground-muted hover:text-red-500 hover:bg-surface-raised rounded-lg transition-colors shadow-sm"
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                   <path d="M3 6h18"/>
@@ -569,15 +569,15 @@ export default function LabLinksPage() {
                       
                       {/* Content */}
                       <div className="p-4 flex-1 flex flex-col">
-                        <h4 className="text-body font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
+                        <h4 className="text-body font-semibold text-foreground group-hover:text-blue-600 dark:hover:text-blue-300 transition-colors line-clamp-2">
                           {link.title}
                         </h4>
                         {link.description && (
-                          <p className="text-meta text-gray-500 mt-1.5 line-clamp-2 flex-1">
+                          <p className="text-meta text-foreground-muted mt-1.5 line-clamp-2 flex-1">
                             {link.description}
                           </p>
                         )}
-                        <p className="text-meta text-gray-400 mt-2 truncate">
+                        <p className="text-meta text-foreground-muted mt-2 truncate">
                           {new URL(link.url).hostname}
                         </p>
                         {/* Owner badge (links lab-share restore bot,
@@ -588,7 +588,7 @@ export default function LabLinksPage() {
                         {!isOwnLink(link) && link.owner && (
                           <div className="flex items-center gap-1.5 mt-2 min-w-0">
                             <UserAvatar username={link.owner} size="xs" />
-                            <span className="text-meta text-gray-500 truncate">
+                            <span className="text-meta text-foreground-muted truncate">
                               Shared by{" "}
                               {profileMap[link.owner]?.displayName?.trim() ||
                                 link.owner}
@@ -618,17 +618,17 @@ export default function LabLinksPage() {
         {/* Delete Confirmation Modal */}
         {deleteConfirmId && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setDeleteConfirmId(null)}>
-            <div className="bg-white rounded-xl p-6 max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-heading font-semibold text-gray-900 mb-2">
+            <div className="bg-surface-raised rounded-xl p-6 max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-heading font-semibold text-foreground mb-2">
                 Delete Link?
               </h3>
-              <p className="text-body text-gray-500 mb-4">
+              <p className="text-body text-foreground-muted mb-4">
                 This action cannot be undone.
               </p>
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setDeleteConfirmId(null)}
-                  className="px-4 py-2 text-body text-gray-600 hover:text-gray-800 transition-colors"
+                  className="px-4 py-2 text-body text-foreground-muted hover:text-foreground transition-colors"
                 >
                   Cancel
                 </button>

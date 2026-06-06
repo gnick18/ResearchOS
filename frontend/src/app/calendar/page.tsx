@@ -222,8 +222,8 @@ export default function CalendarPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-heading font-semibold text-gray-900">Calendar</h2>
-            <p className="text-body text-gray-400 mt-0.5">
+            <h2 className="text-heading font-semibold text-foreground">Calendar</h2>
+            <p className="text-body text-foreground-muted mt-0.5">
               Conferences, deadlines, and events
             </p>
           </div>
@@ -239,7 +239,7 @@ export default function CalendarPage() {
         </div>
 
         {externalErrors.size > 0 && (
-          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-meta text-amber-800">
+          <div className="mb-4 rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-4 py-2 text-meta text-amber-800 dark:text-amber-200">
             <p className="font-medium mb-1">
               Some linked calendars couldn&apos;t be fetched:
             </p>
@@ -251,7 +251,7 @@ export default function CalendarPage() {
             <button
               onClick={() => void refetchExternal()}
               disabled={externalIsFetching}
-              className="mt-2 text-amber-700 underline disabled:opacity-50"
+              className="mt-2 text-amber-700 dark:text-amber-300 underline disabled:opacity-50"
             >
               {externalIsFetching ? "Retrying…" : "Retry now"}
             </button>
@@ -264,20 +264,20 @@ export default function CalendarPage() {
             <Tooltip label={`Previous ${view}`} placement="bottom">
               <button
                 onClick={() => stepDate(-1)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="p-2 text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken rounded-lg"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M15 18l-6-6 6-6" />
                 </svg>
               </button>
             </Tooltip>
-            <h3 className="text-heading font-semibold text-gray-900 min-w-[180px]">
+            <h3 className="text-heading font-semibold text-foreground min-w-[180px]">
               {headingLabel}
             </h3>
             <Tooltip label={`Next ${view}`} placement="bottom">
               <button
                 onClick={() => stepDate(1)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="p-2 text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken rounded-lg"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9 18l6-6-6-6" />
@@ -286,20 +286,20 @@ export default function CalendarPage() {
             </Tooltip>
             <button
               onClick={goToToday}
-              className="ml-2 px-3 py-1 text-meta text-blue-600 hover:bg-blue-50 rounded-lg"
+              className="ml-2 px-3 py-1 text-meta text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg"
             >
               Today
             </button>
           </div>
-          <div className="inline-flex bg-gray-100 rounded-lg p-0.5">
+          <div className="inline-flex bg-surface-sunken rounded-lg p-0.5">
             {(["month", "week", "day"] as const).map((v) => (
               <button
                 key={v}
                 onClick={() => setView(v)}
                 className={`px-3 py-1 text-meta font-medium rounded-md capitalize transition-colors ${
                   view === v
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-600 hover:text-gray-900"
+                    ? "bg-surface-raised text-foreground shadow-sm"
+                    : "text-foreground-muted hover:text-foreground"
                 }`}
               >
                 {v}
@@ -497,19 +497,19 @@ export default function CalendarPage() {
           onClick={() => setDeleteConfirmEvent(null)}
         >
           <div
-            className="bg-white rounded-xl p-6 max-w-sm mx-4 shadow-2xl"
+            className="bg-surface-raised rounded-xl p-6 max-w-sm mx-4 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-heading font-semibold text-gray-900 mb-2">
+            <h3 className="text-heading font-semibold text-foreground mb-2">
               Delete Event?
             </h3>
-            <p className="text-body text-gray-500 mb-4">
+            <p className="text-body text-foreground-muted mb-4">
               &ldquo;{deleteConfirmEvent.title}&rdquo; will be permanently deleted. This action cannot be undone.
             </p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setDeleteConfirmEvent(null)}
-                className="px-4 py-2 text-body text-gray-600 hover:text-gray-800 transition-colors"
+                className="px-4 py-2 text-body text-foreground-muted hover:text-foreground transition-colors"
               >
                 Cancel
               </button>
@@ -617,15 +617,15 @@ function EventModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="event-details-title"
-        className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 flex flex-col max-h-[calc(100vh-2rem)]"
+        className="bg-surface-raised rounded-xl shadow-2xl max-w-md w-full mx-4 flex flex-col max-h-[calc(100vh-2rem)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-          <h3 id="event-details-title" className="text-title font-semibold text-gray-900">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
+          <h3 id="event-details-title" className="text-title font-semibold text-foreground">
             {isEditing ? "Edit Event" : "Event Details"}
           </h3>
           <Tooltip label="Close" placement="bottom">
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">
+            <button onClick={onClose} className="text-foreground-muted hover:text-foreground text-heading">
               ✕
             </button>
           </Tooltip>
@@ -634,20 +634,20 @@ function EventModal({
           {isEditing ? (
             <div className="space-y-4">
               <div>
-                <label className="block text-meta font-medium text-gray-500 mb-1">Title</label>
+                <label className="block text-meta font-medium text-foreground-muted mb-1">Title</label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-meta font-medium text-gray-500 mb-1">Type</label>
+                <label className="block text-meta font-medium text-foreground-muted mb-1">Type</label>
                 <select
                   value={eventType}
                   onChange={(e) => setEventType(e.target.value as Event["event_type"])}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="conference">Conference</option>
                   <option value="deadline">Deadline</option>
@@ -657,39 +657,39 @@ function EventModal({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-meta font-medium text-gray-500 mb-1">Start Date</label>
+                  <label className="block text-meta font-medium text-foreground-muted mb-1">Start Date</label>
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-meta font-medium text-gray-500 mb-1">End Date</label>
+                  <label className="block text-meta font-medium text-foreground-muted mb-1">End Date</label>
                   <input
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-meta font-medium text-gray-500 mb-1">
-                    Start Time <span className="text-gray-300 font-normal">(optional)</span>
+                  <label className="block text-meta font-medium text-foreground-muted mb-1">
+                    Start Time <span className="text-foreground-muted font-normal">(optional)</span>
                   </label>
                   <input
                     type="time"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-meta font-medium text-gray-500 mb-1">
-                    End Time <span className="text-gray-300 font-normal">(optional)</span>
+                  <label className="block text-meta font-medium text-foreground-muted mb-1">
+                    End Time <span className="text-foreground-muted font-normal">(optional)</span>
                   </label>
                   <input
                     type="time"
@@ -701,7 +701,7 @@ function EventModal({
                     className={`w-full px-3 py-2 border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       endTimeTouched && endBeforeStart
                         ? "border-red-400"
-                        : "border-gray-200"
+                        : "border-border"
                     }`}
                   />
                   {/* P1-6: inline error shown after user has interacted with end time */}
@@ -720,31 +720,31 @@ function EventModal({
                     setEndTime("");
                     setEndTimeTouched(false);
                   }}
-                  className="text-meta text-blue-600 hover:underline -mt-2"
+                  className="text-meta text-blue-600 dark:text-blue-300 hover:underline -mt-2"
                 >
                   Clear times (make all-day)
                 </button>
               )}
               <div>
-                <label className="block text-meta font-medium text-gray-500 mb-1">Location</label>
+                <label className="block text-meta font-medium text-foreground-muted mb-1">Location</label>
                 <input
                   type="text"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-meta font-medium text-gray-500 mb-1">URL</label>
+                <label className="block text-meta font-medium text-foreground-muted mb-1">URL</label>
                 <input
                   type="url"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-meta font-medium text-gray-500 mb-1">Color</label>
+                <label className="block text-meta font-medium text-foreground-muted mb-1">Color</label>
                 <div className="flex gap-2">
                   {DEFAULT_COLORS.map((c) => (
                     <Tooltip key={c} label={`Use color ${c}`} placement="bottom">
@@ -761,27 +761,27 @@ function EventModal({
                 </div>
               </div>
               <div>
-                <label className="block text-meta font-medium text-gray-500 mb-1">Notes</label>
+                <label className="block text-meta font-medium text-foreground-muted mb-1">Notes</label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              <div className="border-t border-gray-100 pt-4">
+              <div className="border-t border-border pt-4">
                 <label className="flex items-start gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={isPto}
                     onChange={(e) => setIsPto(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-sky-500 focus:ring-sky-400"
+                    className="mt-0.5 h-4 w-4 rounded border-border text-sky-500 focus:ring-sky-400"
                   />
                   <span className="flex-1">
-                    <span className="block text-body font-medium text-gray-700">
+                    <span className="block text-body font-medium text-foreground">
                       Mark as PTO day
                     </span>
-                    <span className="block text-meta text-gray-500 mt-0.5">
+                    <span className="block text-meta text-foreground-muted mt-0.5">
                       This day will be treated like a weekend for streaks and
                       project schedules.
                     </span>
@@ -803,14 +803,14 @@ function EventModal({
                     label="PTO day, won't break your streak"
                     placement="bottom"
                   >
-                    <span className="px-2 py-0.5 text-meta rounded-full bg-sky-50 text-sky-700 border border-sky-200 font-medium">
+                    <span className="px-2 py-0.5 text-meta rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-200 font-medium">
                       PTO
                     </span>
                   </Tooltip>
                 )}
               </div>
-              <h4 className="text-heading font-semibold text-gray-900">{event.title}</h4>
-              <p className="text-body text-gray-600">
+              <h4 className="text-heading font-semibold text-foreground">{event.title}</h4>
+              <p className="text-body text-foreground-muted">
                 {event.start_date}
                 {event.end_date && event.end_date !== event.start_date && (
                   <> → {event.end_date}</>
@@ -824,29 +824,29 @@ function EventModal({
                 )}
               </p>
               {event.location && (
-                <p className="text-body text-gray-600">Location: {event.location}</p>
+                <p className="text-body text-foreground-muted">Location: {event.location}</p>
               )}
               {event.url && (
                 <a
                   href={event.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-body text-blue-600 hover:underline"
+                  className="text-body text-blue-600 dark:text-blue-300 hover:underline"
                 >
                   {event.url}
                 </a>
               )}
               {event.notes && (
-                <p className="text-body text-gray-600 whitespace-pre-wrap">{event.notes}</p>
+                <p className="text-body text-foreground-muted whitespace-pre-wrap">{event.notes}</p>
               )}
             </div>
           )}
         </div>
         {/* P0-1: footer stays pinned at bottom (flex-shrink-0 on parent flex-col) */}
-        <div className="flex gap-3 justify-end px-6 py-4 border-t border-gray-100 flex-shrink-0">
+        <div className="flex gap-3 justify-end px-6 py-4 border-t border-border flex-shrink-0">
           {isEditing ? (
             <>
-              <button onClick={onClose} className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg">
+              <button onClick={onClose} className="px-4 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg">
                 Cancel
               </button>
               {/* P1-6: disabled when end time is before start time */}
@@ -860,7 +860,7 @@ function EventModal({
             </>
           ) : (
             <>
-              <button onClick={onDelete} className="px-4 py-2 text-body text-red-500 hover:bg-red-50 rounded-lg">
+              <button onClick={onDelete} className="px-4 py-2 text-body text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg">
                 Delete
               </button>
               <button onClick={onEdit} className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg">
@@ -934,35 +934,35 @@ function CreateEventModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
       {/* P0-1: flex-col + max-h keeps header/footer fixed while body scrolls */}
       <div
-        className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 flex flex-col max-h-[calc(100vh-2rem)]"
+        className="bg-surface-raised rounded-xl shadow-2xl max-w-md w-full mx-4 flex flex-col max-h-[calc(100vh-2rem)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-          <h3 className="text-title font-semibold text-gray-900">New Event</h3>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
+          <h3 className="text-title font-semibold text-foreground">New Event</h3>
           <Tooltip label="Close" placement="bottom">
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">
+            <button onClick={onClose} className="text-foreground-muted hover:text-foreground text-heading">
               ✕
             </button>
           </Tooltip>
         </div>
         <div className="p-6 space-y-4 overflow-y-auto flex-1">
           <div>
-            <label className="block text-meta font-medium text-gray-500 mb-1">Title</label>
+            <label className="block text-meta font-medium text-foreground-muted mb-1">Title</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. ACS National Meeting"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoFocus
             />
           </div>
           <div>
-            <label className="block text-meta font-medium text-gray-500 mb-1">Type</label>
+            <label className="block text-meta font-medium text-foreground-muted mb-1">Type</label>
             <select
               value={eventType}
               onChange={(e) => setEventType(e.target.value as Event["event_type"])}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="conference">Conference</option>
               <option value="deadline">Deadline</option>
@@ -972,73 +972,73 @@ function CreateEventModal({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-meta font-medium text-gray-500 mb-1">Start Date</label>
+              <label className="block text-meta font-medium text-foreground-muted mb-1">Start Date</label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
-              <label className="block text-meta font-medium text-gray-500 mb-1">End Date</label>
+              <label className="block text-meta font-medium text-foreground-muted mb-1">End Date</label>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-meta font-medium text-gray-500 mb-1">
-                Start Time <span className="text-gray-300 font-normal">(optional)</span>
+              <label className="block text-meta font-medium text-foreground-muted mb-1">
+                Start Time <span className="text-foreground-muted font-normal">(optional)</span>
               </label>
               <input
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
-              <label className="block text-meta font-medium text-gray-500 mb-1">
-                End Time <span className="text-gray-300 font-normal">(optional)</span>
+              <label className="block text-meta font-medium text-foreground-muted mb-1">
+                End Time <span className="text-foreground-muted font-normal">(optional)</span>
               </label>
               <input
                 type="time"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
-          <p className="text-meta text-gray-400 -mt-2">
+          <p className="text-meta text-foreground-muted -mt-2">
             Leave times empty for an all-day event.
           </p>
           <div>
-            <label className="block text-meta font-medium text-gray-500 mb-1">Location</label>
+            <label className="block text-meta font-medium text-foreground-muted mb-1">Location</label>
             <input
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="e.g. San Francisco, CA"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
-            <label className="block text-meta font-medium text-gray-500 mb-1">URL</label>
+            <label className="block text-meta font-medium text-foreground-muted mb-1">URL</label>
             <input
               type="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://..."
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
-            <label className="block text-meta font-medium text-gray-500 mb-1">Color</label>
+            <label className="block text-meta font-medium text-foreground-muted mb-1">Color</label>
             <div className="flex gap-2">
               {DEFAULT_COLORS.map((c) => (
                 <Tooltip key={c} label={`Use color ${c}`} placement="bottom">
@@ -1056,27 +1056,27 @@ function CreateEventModal({
             </div>
           </div>
           <div>
-            <label className="block text-meta font-medium text-gray-500 mb-1">Notes</label>
+            <label className="block text-meta font-medium text-foreground-muted mb-1">Notes</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <div className="border-t border-gray-100 pt-4">
+          <div className="border-t border-border pt-4">
             <label className="flex items-start gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={isPto}
                 onChange={(e) => setIsPto(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-sky-500 focus:ring-sky-400"
+                className="mt-0.5 h-4 w-4 rounded border-border text-sky-500 focus:ring-sky-400"
               />
               <span className="flex-1">
-                <span className="block text-body font-medium text-gray-700">
+                <span className="block text-body font-medium text-foreground">
                   Mark as PTO day
                 </span>
-                <span className="block text-meta text-gray-500 mt-0.5">
+                <span className="block text-meta text-foreground-muted mt-0.5">
                   This day will be treated like a weekend for streaks and
                   project schedules.
                 </span>
@@ -1085,8 +1085,8 @@ function CreateEventModal({
           </div>
         </div>
         {/* P0-1: footer stays pinned */}
-        <div className="flex gap-3 justify-end px-6 py-4 border-t border-gray-100 flex-shrink-0">
-          <button onClick={onClose} className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg">
+        <div className="flex gap-3 justify-end px-6 py-4 border-t border-border flex-shrink-0">
+          <button onClick={onClose} className="px-4 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg">
             Cancel
           </button>
           <button
@@ -1128,26 +1128,26 @@ function ExternalEventModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4"
+        className="bg-surface-raised rounded-xl shadow-2xl max-w-md w-full mx-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-2">
             <span
               className="inline-block w-2.5 h-2.5 rounded-full"
               style={{ backgroundColor: event.color }}
             />
-            <h3 className="text-title font-semibold text-gray-900">
+            <h3 className="text-title font-semibold text-foreground">
               Linked Event
             </h3>
-            <span className="text-meta uppercase tracking-wide text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">
+            <span className="text-meta uppercase tracking-wide text-foreground-muted border border-border rounded px-1.5 py-0.5">
               Read-only
             </span>
           </div>
           <Tooltip label="Close" placement="bottom">
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-lg"
+              className="text-foreground-muted hover:text-foreground text-heading"
             >
               ✕
             </button>
@@ -1155,8 +1155,8 @@ function ExternalEventModal({
         </div>
 
         <div className="p-6 space-y-4">
-          <h4 className="text-heading font-semibold text-gray-900">{event.title}</h4>
-          <p className="text-body text-gray-600">
+          <h4 className="text-heading font-semibold text-foreground">{event.title}</h4>
+          <p className="text-body text-foreground-muted">
             {event.start_date}
             {event.end_date && event.end_date !== event.start_date && (
               <> → {event.end_date}</>
@@ -1170,32 +1170,32 @@ function ExternalEventModal({
             )}
           </p>
           {event.location && (
-            <p className="text-body text-gray-600">Location: {event.location}</p>
+            <p className="text-body text-foreground-muted">Location: {event.location}</p>
           )}
           {event.url && (
             <a
               href={event.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="block text-body text-blue-600 hover:underline break-all"
+              className="block text-body text-blue-600 dark:text-blue-300 hover:underline break-all"
             >
               {event.url}
             </a>
           )}
           {event.notes && (
-            <p className="text-body text-gray-600 whitespace-pre-wrap">{event.notes}</p>
+            <p className="text-body text-foreground-muted whitespace-pre-wrap">{event.notes}</p>
           )}
-          <p className="text-meta text-gray-400 pt-2 border-t border-gray-100">
+          <p className="text-meta text-foreground-muted pt-2 border-t border-border">
             {feed
               ? `From "${feed.label}" (linked iCal subscription). Edit it in the source app; changes sync back within 15 minutes.`
               : "From a linked iCal subscription. Edit it in the source app; changes sync back within 15 minutes."}
           </p>
         </div>
 
-        <div className="flex gap-3 justify-end px-6 py-4 border-t border-gray-100">
+        <div className="flex gap-3 justify-end px-6 py-4 border-t border-border">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
+            className="px-4 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg"
           >
             Close
           </button>

@@ -31,7 +31,7 @@ export default function CalendarFeedsButton() {
         onClick={() => setOpen(true)}
         title="Link external calendars (Google / Outlook / iCloud)"
         data-tour-target="calendar-linked-feeds-button"
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-body border border-gray-200 text-gray-700 bg-white hover:bg-gray-50 rounded-lg"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-body border border-border text-foreground bg-surface-raised hover:bg-surface-sunken rounded-lg"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -49,7 +49,7 @@ export default function CalendarFeedsButton() {
         </svg>
         Linked Calendars
         {enabledCount > 0 && (
-          <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-meta font-semibold bg-blue-100 text-blue-700 rounded-full">
+          <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-meta font-semibold bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 rounded-full">
             {enabledCount}
           </span>
         )}

@@ -85,9 +85,9 @@ export default function WeekView({
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col">
+    <div className="bg-surface-raised border border-border rounded-xl overflow-hidden flex flex-col">
       {/* Day-of-week header strip */}
-      <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-gray-100 sticky top-0 bg-white z-10">
+      <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border sticky top-0 bg-surface-raised z-10">
         <div className="px-2 py-2" />
         {weekDays.map((d) => {
           const dateStr = toLocalDateString(d);
@@ -96,15 +96,15 @@ export default function WeekView({
             <button
               key={dateStr}
               onClick={() => onDayHeaderClick(dateStr)}
-              className="px-2 py-2 text-center hover:bg-gray-50 border-l border-gray-100"
+              className="px-2 py-2 text-center hover:bg-surface-sunken border-l border-border"
               title="Click to view all events on this day"
             >
-              <p className="text-meta uppercase tracking-wide text-gray-400 font-semibold">
+              <p className="text-meta uppercase tracking-wide text-foreground-muted font-semibold">
                 {d.toLocaleDateString(undefined, { weekday: "short" })}
               </p>
               <p
                 className={`mt-1 inline-flex items-center justify-center w-7 h-7 rounded-full text-body font-medium ${
-                  isToday ? "bg-blue-600 text-white" : "text-gray-700"
+                  isToday ? "bg-blue-600 text-white" : "text-foreground"
                 }`}
               >
                 {d.getDate()}
@@ -138,7 +138,7 @@ export default function WeekView({
             {Array.from({ length: 24 }, (_, h) => (
               <div
                 key={h}
-                className="border-t border-gray-100 text-meta text-gray-400 text-right pr-2 pt-0.5"
+                className="border-t border-border text-meta text-foreground-muted text-right pr-2 pt-0.5"
                 style={{ height: HOUR_HEIGHT }}
               >
                 {h === 0 ? "" : h === 12 ? "12p" : h > 12 ? `${h - 12}p` : `${h}a`}
@@ -156,7 +156,7 @@ export default function WeekView({
             return (
               <div
                 key={dateStr}
-                className="relative border-l border-gray-100"
+                className="relative border-l border-border"
                 onClick={(e) => {
                   // Only fire on background clicks, not on events
                   if (e.target !== e.currentTarget) return;
@@ -170,7 +170,7 @@ export default function WeekView({
                 {Array.from({ length: 24 }, (_, h) => (
                   <div
                     key={h}
-                    className="border-t border-gray-100 pointer-events-none"
+                    className="border-t border-border pointer-events-none"
                     style={{ height: HOUR_HEIGHT }}
                   />
                 ))}
@@ -244,8 +244,8 @@ function AllDayStrip({
   const overflow = maxRows > 4;
 
   return (
-    <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-gray-100 bg-gray-50/40">
-      <div className="px-2 py-1 text-meta uppercase tracking-wide text-gray-400 font-semibold flex items-start pt-1">
+    <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border bg-surface-sunken/40">
+      <div className="px-2 py-1 text-meta uppercase tracking-wide text-foreground-muted font-semibold flex items-start pt-1">
         All-day
       </div>
       {weekDays.map((d) => {
@@ -256,7 +256,7 @@ function AllDayStrip({
         return (
           <div
             key={dateStr}
-            className="border-l border-gray-100 px-1 py-1 space-y-0.5 overflow-hidden"
+            className="border-l border-border px-1 py-1 space-y-0.5 overflow-hidden"
             style={{ minHeight: stripHeight }}
           >
             {visible.map((item) => {
@@ -305,7 +305,7 @@ function AllDayStrip({
               );
             })}
             {extra > 0 && (
-              <p className="text-meta text-gray-400 px-1.5">+{extra} more</p>
+              <p className="text-meta text-foreground-muted px-1.5">+{extra} more</p>
             )}
           </div>
         );
