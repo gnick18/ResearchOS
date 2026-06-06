@@ -378,7 +378,6 @@ export default function TaxonomyTreeView({
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const gRef = useRef<SVGGElement | null>(null);
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
-  const loadAbortRef = useRef<AbortController | null>(null);
   const suggestAbortRef = useRef<AbortController | null>(null);
   // A monotonic token so a re-layout from a late drill does not clobber a newer
   // focus. Bumped on every focus / drill that mutates the pool.
@@ -394,7 +393,6 @@ export default function TaxonomyTreeView({
   const insertRafRef = useRef<number | null>(null);
 
   const handleClose = useCallback(() => {
-    loadAbortRef.current?.abort();
     suggestAbortRef.current?.abort();
     setQuery("");
     setSuggestions([]);
@@ -409,30 +407,35 @@ export default function TaxonomyTreeView({
   // page keeps its own Escape behavior and the inline tree never swallows it.
   useEscapeToClose(handleClose, open && !embedded);
 
-  // Load the backbone pool once when the view opens.
+  // Load the backbone pool once when the view opens. The backbone is a one-time,
+  // cached, deduped global load, so we do NOT abort it on cleanup: under React
+  // Strict Mode (dev) the mount effect runs twice, and aborting the first run
+  // would kill the shared in-flight fetch the second run dedupes onto, leaving the
+  // pool empty (this bit the embedded welcome tree, which mounts with open=true).
+  // A `cancelled` flag just skips state writes from a stale run instead.
   useEffect(() => {
     if (!open) return;
     if (pool) return;
-    loadAbortRef.current?.abort();
-    const controller = new AbortController();
-    loadAbortRef.current = controller;
+    let cancelled = false;
     setLoading(true);
     setError(null);
-    loadRadialPool({ signal: controller.signal })
+    loadRadialPool({})
       .then((p) => {
-        if (controller.signal.aborted) return;
+        if (cancelled) return;
         setPool(p);
       })
       .catch((e) => {
-        if ((e as Error)?.name === "AbortError") return;
+        if (cancelled || (e as Error)?.name === "AbortError") return;
         setError(
           "The taxonomy tree needs to download once while online. Reconnect and try again.",
         );
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!cancelled) setLoading(false);
       });
-    return () => controller.abort();
+    return () => {
+      cancelled = true;
+    };
   }, [open, pool]);
 
   // Reset the focus stack to the requested initial node each time the view opens.
