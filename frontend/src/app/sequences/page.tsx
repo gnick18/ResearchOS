@@ -1877,6 +1877,7 @@ export default function SequencesPage() {
                     setExplorerOpen(true);
                   }}
                   onLookupTaxonomy={() => setTaxonomyOpen(true)}
+                  onOpenAssemble={() => setAssembleOpen(true)}
                 />
               </div>
             </>

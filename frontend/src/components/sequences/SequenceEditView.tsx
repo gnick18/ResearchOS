@@ -79,10 +79,7 @@ import {
   useMolecularClipboard,
 } from "@/lib/sequences/molecular-clipboard";
 import { useTaxonomyClipboard } from "@/lib/sequences/taxonomy-clipboard";
-import {
-  buildTaxonomyMenuItems,
-  type SequenceTaxonomy,
-} from "@/lib/sequences/apply-taxonomy";
+import { type SequenceTaxonomy } from "@/lib/sequences/apply-taxonomy";
 import { useSequenceEditor } from "@/lib/sequences/use-sequence-editor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useStaleGuardedValue } from "@/hooks/useDebouncedValue";
@@ -190,6 +187,14 @@ import {
   ExportMenuDropdown,
   type ExportMenuItem,
 } from "./SequenceExportMenu";
+import {
+  SequenceOperationsRail,
+  ActionList,
+  InspectorSection,
+  InspectorCue,
+  type RailOperation,
+  type OperationAction,
+} from "./SequenceOperationsRail";
 import {
   documentToGenbankText,
   documentToFasta,
@@ -323,18 +328,147 @@ function IconScissors({ className }: { className?: string }) {
     </svg>
   );
 }
-// menu reorg bot — a magnifier-over-waveform glyph for the new "Analyze"
-// toolbar dropdown (Detect features / Annotate from reference / Compare
-// sequences). Inline SVG, matching the rest of the toolbar icon set.
-function IconAnalyze({ className }: { className?: string }) {
+// sequence editor master. The OPERATIONS RAIL icon set (redesign phase 1).
+// Inline SVG, stroke-only, matching the editor's existing toolbar glyphs and
+// the v2 mockup. No emoji, no icon library.
+function railSvg(children: React.ReactNode) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <circle cx="11" cy="11" r="7" />
-      <path d="m20 20-3-3" />
-      <path d="M8 11h1.5l1.5-2.5L13 13l1-2h2" />
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-[19px] w-[19px]"
+      aria-hidden="true"
+    >
+      {children}
     </svg>
   );
 }
+const RailIcons = {
+  primers: railSvg(
+    <>
+      <path d="M4 12h10" />
+      <path d="M14 9l4 3-4 3" />
+    </>,
+  ),
+  cloning: railSvg(
+    <>
+      <circle cx="7" cy="7" r="3" />
+      <circle cx="17" cy="17" r="3" />
+      <path d="M9.5 9.5l5 5" />
+    </>,
+  ),
+  cut: railSvg(
+    <>
+      <circle cx="6" cy="6" r="2.5" />
+      <circle cx="6" cy="18" r="2.5" />
+      <path d="M8 7l12 9M8 17L20 8" />
+    </>,
+  ),
+  annotate: railSvg(<path d="M4 12l5 5L20 6" />),
+  align: railSvg(<path d="M4 7h12M4 12h16M4 17h9" />),
+  protein: railSvg(<path d="M5 5c4 4 10 6 14 14M5 19c4-4 10-6 14-14" />),
+  tree: railSvg(
+    <>
+      <circle cx="6" cy="6" r="2" />
+      <circle cx="6" cy="18" r="2" />
+      <circle cx="18" cy="12" r="2" />
+      <path d="M8 6.7l8 4.3M8 17.3l8-4.3" />
+    </>,
+  ),
+  export: railSvg(
+    <>
+      <path d="M12 4v10M8 10l4 4 4-4" />
+      <path d="M5 19h14" />
+    </>,
+  ),
+  more: railSvg(
+    <>
+      <circle cx="5" cy="12" r="1.4" />
+      <circle cx="12" cy="12" r="1.4" />
+      <circle cx="19" cy="12" r="1.4" />
+    </>,
+  ),
+} as const;
+
+// sequence editor master. Small inline-SVG glyphs for the inspector action
+// tiles (redesign phase 1). Inline SVG, never emoji or a symbol font (the house
+// rule is every user-facing icon is a custom inline SVG). Single capital
+// letters (the cloning chemistry initials, the mutagenesis M) stay as plain
+// text labels, which is text, not an icon.
+function actionSvg(children: React.ReactNode) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-3.5 w-3.5"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+const ActionGlyphs = {
+  plus: actionSvg(<path d="M12 5v14M5 12h14" />),
+  list: actionSvg(<path d="M4 7h16M4 12h16M4 17h10" />),
+  layer: actionSvg(
+    <>
+      <circle cx="12" cy="12" r="8" />
+      <circle cx="12" cy="12" r="2.5" />
+    </>,
+  ),
+  check: actionSvg(<path d="M4 12l5 5L20 6" />),
+  refresh: actionSvg(
+    <>
+      <path d="M4 12a8 8 0 0 1 13.5-5.5L20 9" />
+      <path d="M20 4v5h-5" />
+      <path d="M20 12a8 8 0 0 1-13.5 5.5L4 15" />
+      <path d="M4 20v-5h5" />
+    </>,
+  ),
+  align: actionSvg(<path d="M4 7h12M4 12h16M4 17h9" />),
+  protein: actionSvg(<path d="M5 5c4 4 10 6 14 14M5 19c4-4 10-6 14-14" />),
+  tree: actionSvg(
+    <>
+      <circle cx="6" cy="6" r="2" />
+      <circle cx="6" cy="18" r="2" />
+      <circle cx="18" cy="12" r="2" />
+      <path d="M8 6.7l8 4.3M8 17.3l8-4.3" />
+    </>,
+  ),
+  search: actionSvg(
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3-3" />
+    </>,
+  ),
+  download: actionSvg(
+    <>
+      <path d="M12 4v10M8 10l4 4 4-4" />
+      <path d="M5 19h14" />
+    </>,
+  ),
+  copy: actionSvg(
+    <>
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+    </>,
+  ),
+  paste: actionSvg(
+    <>
+      <path d="M9 4h6v3H9zM7 5H5v15h14V5h-2" />
+      <path d="M12 10v6M9 13l3 3 3-3" />
+    </>,
+  ),
+} as const;
+
 function ToolbarButton({
   label,
   onClick,
@@ -430,6 +564,7 @@ export default function SequenceEditView({
   onApplyTaxonomy,
   onExploreInTree,
   onLookupTaxonomy,
+  onOpenAssemble,
 }: {
   sequence: SequenceDetail;
   /** persist the current GenBank; resolves true on success. Unused when readOnly. */
@@ -451,6 +586,12 @@ export default function SequenceEditView({
   /** Optional door into the standalone organism-to-lineage lookup dialog. Absent
    *  in read-only / embedded surfaces. */
   onLookupTaxonomy?: () => void;
+  /** Optional hook into the library-level Assemble / cloning workspace (the
+   *  four chemistries). The operations rail's Cloning panel opens it. The
+   *  Assemble dialog is owned by the /sequences page, so the page passes this
+   *  in; absent in embedded / read-only surfaces, where the rail's Cloning
+   *  panel falls back to a calm note. */
+  onOpenAssemble?: () => void;
   /** When true, the surface is a read-only inspector: no caret/keystroke edit,
    *  no clipboard, no Save, no Add/Edit/Delete feature actions. Selection +
    *  readout still work, and double-clicking a feature opens its READ-ONLY info
@@ -538,10 +679,12 @@ export default function SequenceEditView({
   const [detectReq, setDetectReq] = useState<DetectFeaturesRequest | null>(null);
   // sequence editor master. The opt-in "Enrich from NCBI" dialog open state.
   const [enrichOpen, setEnrichOpen] = useState(false);
-  // menu reorg bot — the Compare/Align dialog, opened from the new Analyze menu
-  // (a second door into the same library-level dialog the library header opens).
+  // menu reorg bot. The Compare/Align dialog, opened from the Align rail
+  // operation (a second door into the same library-level dialog the library
+  // header opens).
   const [compareOpen, setCompareOpen] = useState(false);
-  // protein analyze bot — the Analyze > Protein properties dialog.
+  // protein analyze bot. The Protein properties dialog, opened from the
+  // Protein rail operation.
   const [proteinPropsOpen, setProteinPropsOpen] = useState(false);
   // menu reorg bot — a nonce the Primer menu's "Check specificity..." item bumps
   // to switch the Primers tab onto its Check (specificity) view directly.
@@ -561,6 +704,15 @@ export default function SequenceEditView({
   // drives the SnapGene-style chooser dialog.
   const [enzymePickerOpen, setEnzymePickerOpen] = useState(false);
   const [activeEnzymes, setActiveEnzymes] = useState<string[] | null>(null);
+  // sequence editor master. The OPERATIONS RAIL active operation (redesign
+  // phase 1). null = the inspector is collapsed to just the rail (reclaiming
+  // canvas width). Picking the active op again collapses it. The rail itself is
+  // always visible. Not persisted (out of scope for phase 1).
+  const [activeOp, setActiveOp] = useState<string | null>(null);
+  const toggleOp = useCallback(
+    (id: string) => setActiveOp((cur) => (cur === id ? null : id)),
+    [],
+  );
   // Phase 2e — the primer-design dialog (SnapGene "Add Primer"). null = closed.
   const [primerRequest, setPrimerRequest] = useState<PrimerDialogRequest | null>(null);
   // primer dialog bot — the SnapGene-style "Edit Primer" dialog (distinct from
@@ -3039,116 +3191,6 @@ export default function SequenceEditView({
     }
   }, [pasteTaxConfirm, onApplyTaxonomy]);
 
-  // menu reorg bot — the new ANALYZE menu: the home for cross-cutting molecule
-  // analysis. Detect + Annotate moved here from the overloaded Feature menu, and
-  // Compare adds a second door into the library-level Compare/Align dialog from
-  // inside the editor. Display-ish, but the apply paths mutate, so edit-only.
-  const analyzeMenuItems = useMemo<EditMenuItem[]>(
-    () => [
-      {
-        id: "analyze-detect",
-        label: "Detect common features…",
-        enabled: true,
-        onRun: openDetectFeatures,
-      },
-      {
-        id: "analyze-annotate-ref",
-        label: "Annotate from reference…",
-        enabled: true,
-        onRun: openAnnotateFromReference,
-      },
-      {
-        id: "analyze-compare",
-        label: "Align sequences…",
-        enabled: true,
-        group: true,
-        onRun: () => setCompareOpen(true),
-      },
-      // protein analyze bot — the second door into the protein-properties
-      // engine (the Lab calculators panel tab is the first). Pipes in the
-      // active selection or a chosen CDS / gene, no copy-paste.
-      {
-        id: "analyze-protein-props",
-        label: "Protein properties…",
-        enabled: true,
-        onRun: () => setProteinPropsOpen(true),
-      },
-      // sequence editor master. Opt-in NCBI taxonomy enrichment, present only
-      // when the surface can persist (onEnriched given). A preview-then-apply
-      // dialog, never automatic.
-      ...(onEnriched
-        ? [
-            {
-              id: "analyze-enrich-ncbi",
-              label: "Enrich from NCBI…",
-              enabled: true,
-              group: true,
-              onRun: () => setEnrichOpen(true),
-            } as EditMenuItem,
-          ]
-        : []),
-      // sequence editor master. Copy / paste this sequence's taxonomy to the
-      // app-scoped taxonomy clipboard (separate from the bases clipboard). Copy is
-      // enabled only when the open sequence HAS an organism; Paste only when the
-      // clipboard holds one. Present when the surface can persist (onApplyTaxonomy
-      // given); Paste opens a small inline confirm before writing.
-      ...(onApplyTaxonomy
-        ? buildTaxonomyMenuItems({
-            hasTaxonomy: Boolean((sequence.organism ?? "").trim()),
-            clipboardHasTaxonomy: copiedTaxonomy != null,
-            onCopy: handleCopyTaxonomy,
-            onPaste: handlePasteTaxonomy,
-            idPrefix: "analyze",
-            // The Copy row opens this menu's taxonomy group (a divider before it
-            // when there is no Enrich row above to open the group already).
-          }).map((item, i) =>
-            i === 0 ? ({ ...item, group: !onEnriched } as EditMenuItem) : item,
-          )
-        : []),
-      // sequence editor master. A door into the tree-of-life explorer from an
-      // open sequence (the launcher card is only reachable with nothing open).
-      // Centers on this sequence's organism when known, else opens at the root.
-      ...(onExploreInTree
-        ? [
-            {
-              id: "analyze-explore-tree",
-              label: "Explore the tree of life…",
-              enabled: true,
-              group: !onEnriched,
-              onRun: () => onExploreInTree(sequence.tax_id),
-            } as EditMenuItem,
-          ]
-        : []),
-      // sequence editor master. The standalone organism-to-lineage lookup, the
-      // other taxonomy tool that was launcher-only. A quick name-to-lineage check
-      // without leaving the open sequence.
-      ...(onLookupTaxonomy
-        ? [
-            {
-              id: "analyze-lookup-organism",
-              label: "Look up an organism…",
-              enabled: true,
-              group: !onEnriched && !onExploreInTree,
-              onRun: () => onLookupTaxonomy(),
-            } as EditMenuItem,
-          ]
-        : []),
-    ],
-    [
-      openDetectFeatures,
-      openAnnotateFromReference,
-      onEnriched,
-      onApplyTaxonomy,
-      onExploreInTree,
-      onLookupTaxonomy,
-      sequence.tax_id,
-      sequence.organism,
-      copiedTaxonomy,
-      handleCopyTaxonomy,
-      handlePasteTaxonomy,
-    ],
-  );
-
   const primerMenuItems = useMemo<EditMenuItem[]>(() => {
     const idx = selectedFeatureIdx;
     return [
@@ -3450,6 +3492,405 @@ export default function SequenceEditView({
     return items;
   }, [doc, sel, isNucleotide, baseFileName, captureMapForNote]);
 
+  // sequence editor master. The OPERATIONS RAIL registry (redesign phase 1).
+  // Each rail item is a calm LAUNCHER for an operation, wired to the editor's
+  // EXISTING handler / dialog (no engine is reimplemented here). Edit /
+  // destructive actions are omitted on the read-only surface, exactly as the
+  // menu bar already hides them. The selection-contextual inspector, the Cmd-K
+  // palette, and results-as-artifacts are later phases and are not built here.
+  const hasOrganism = Boolean(
+    (sequence.organism ?? "").trim() || (sequence.tax_id ?? "").trim(),
+  );
+  const railOperations = useMemo<RailOperation[]>(() => {
+    const ops: RailOperation[] = [];
+
+    // DESIGN group ------------------------------------------------------------
+    // PRIMERS. Design from the editor's existing primer flows + the Primers
+    // tab. Designing / adding a primer mutates, so the launcher actions hide in
+    // read-only; the "open the Primers tab" jump stays (it is read-only safe).
+    const primerActions: OperationAction[] = [];
+    if (!readOnly) {
+      primerActions.push(
+        {
+          id: "op-primer-design",
+          label: "Design primers",
+          sub: sel.hasRange ? "from the current selection" : "type or paste a region",
+          glyph: "+",
+          tileClass: "bg-sky-100 text-sky-700",
+          onRun: () => openPrimerDialog("standard"),
+        },
+        {
+          id: "op-primer-mutagenesis",
+          label: "Design a mutagenesis primer",
+          sub: "site-directed mutagenesis",
+          glyph: "M",
+          onRun: () => openPrimerDialog("mutagenesis"),
+        },
+      );
+    }
+    primerActions.push({
+      id: "op-primer-list",
+      label: "Open the Primers tab",
+      sub: primerCount
+        ? `${primerCount} primer${primerCount === 1 ? "" : "s"} on this sequence`
+        : "design, check, and list primers",
+      glyph: ActionGlyphs.list,
+      onRun: () => setViewMode("primers"),
+    });
+    ops.push({
+      id: "primers",
+      label: "Primers",
+      title: "Primers",
+      sub: "Design and check primers",
+      icon: RailIcons.primers,
+      groupLabel: "Design",
+      badge: primerCount > 0 ? primerCount : undefined,
+      panel: (
+        <>
+          <InspectorSection>Design primers</InspectorSection>
+          <ActionList actions={primerActions} />
+        </>
+      ),
+    });
+
+    // CLONING. The four chemistries live in the library-level Assemble
+    // workspace (owned by the /sequences page). When the page passes
+    // onOpenAssemble we open it; otherwise (embedded / read-only) we surface a
+    // calm note instead of a dead button.
+    if (!readOnly) {
+      ops.push({
+        id: "cloning",
+        label: "Cloning",
+        title: "Cloning",
+        sub: "Assemble a construct from fragments",
+        icon: RailIcons.cloning,
+        panel: onOpenAssemble ? (
+          <>
+            <InspectorSection>Assemble a construct</InspectorSection>
+            <ActionList
+              actions={[
+                {
+                  id: "op-clone-gibson",
+                  label: "Gibson / overlap",
+                  sub: "join fragments by homology",
+                  glyph: "G",
+                  tileClass: "bg-sky-100 text-sky-700",
+                  onRun: onOpenAssemble,
+                },
+                {
+                  id: "op-clone-restriction",
+                  label: "Restriction + ligation",
+                  sub: "cut and paste with enzymes",
+                  glyph: "R",
+                  tileClass: "bg-pink-100 text-pink-700",
+                  onRun: onOpenAssemble,
+                },
+                {
+                  id: "op-clone-golden",
+                  label: "Golden Gate",
+                  sub: "Type IIS one-pot",
+                  glyph: "GG",
+                  tileClass: "bg-violet-100 text-violet-700",
+                  onRun: onOpenAssemble,
+                },
+                {
+                  id: "op-clone-gateway",
+                  label: "Gateway",
+                  sub: "attB / P / L / R recombination",
+                  glyph: "GW",
+                  tileClass: "bg-green-100 text-green-700",
+                  onRun: onOpenAssemble,
+                },
+              ]}
+            />
+          </>
+        ) : (
+          <InspectorCue>
+            Open Assemble from the sequence library to build a construct (Gibson
+            overlap, restriction and ligation, Golden Gate, or Gateway).
+          </InspectorCue>
+        ),
+      });
+    }
+
+    // CUT (restriction). The enzyme picker + the cut-site display layer. Both
+    // are display-level, so this stays available in read-only.
+    ops.push({
+      id: "cut",
+      label: "Cut",
+      title: "Restriction and digest",
+      sub: "Enzyme sites on the map",
+      icon: RailIcons.cut,
+      panel: (
+        <ActionList
+          actions={[
+            {
+              id: "op-cut-picker",
+              label: "Choose enzymes…",
+              sub: "filter and pick the cutters to show",
+              glyph: ActionGlyphs.plus,
+              tileClass: "bg-sky-100 text-sky-700",
+              onRun: () => setEnzymePickerOpen(true),
+            },
+            {
+              id: "op-cut-toggle",
+              label: view.showEnzymes ? "Hide cut sites on the map" : "Show cut sites on the map",
+              sub: "the restriction-site display layer",
+              glyph: ActionGlyphs.layer,
+              onRun: () => setView((v) => ({ ...v, showEnzymes: !v.showEnzymes })),
+            },
+          ]}
+        />
+      ),
+    });
+
+    // ANNOTATE. Detect, annotate-from-reference, add feature. All mutate, so
+    // the whole operation is edit-only.
+    if (!readOnly) {
+      ops.push({
+        id: "annotate",
+        label: "Annotate",
+        title: "Annotate",
+        sub: "Detect and add features",
+        icon: RailIcons.annotate,
+        panel: (
+          <ActionList
+            actions={[
+              {
+                id: "op-annot-detect",
+                label: "Detect common features…",
+                sub: "from the bundled database",
+                glyph: ActionGlyphs.check,
+                tileClass: "bg-green-100 text-green-700",
+                onRun: openDetectFeatures,
+              },
+              {
+                id: "op-annot-ref",
+                label: "Annotate from a reference…",
+                sub: "copy features off a known sequence",
+                glyph: ActionGlyphs.refresh,
+                tileClass: "bg-sky-100 text-sky-700",
+                onRun: openAnnotateFromReference,
+              },
+              {
+                id: "op-annot-add",
+                label: "Add a feature…",
+                sub: sel.hasRange ? "from the current selection" : "draw a new feature",
+                glyph: "+",
+                onRun: openAddFeature,
+              },
+            ]}
+          />
+        ),
+      });
+    }
+
+    // ANALYZE group -----------------------------------------------------------
+    // ALIGN. The Compare / Align dialog (read-only safe, it only compares).
+    ops.push({
+      id: "align",
+      label: "Align",
+      title: "Align",
+      sub: "Compare sequences",
+      icon: RailIcons.align,
+      groupLabel: "Analyze",
+      divider: true,
+      panel: (
+        <ActionList
+          actions={[
+            {
+              id: "op-align-open",
+              label: "Align to another sequence…",
+              sub: "pairwise or multiple alignment",
+              glyph: ActionGlyphs.align,
+              tileClass: "bg-sky-100 text-sky-700",
+              onRun: () => setCompareOpen(true),
+            },
+          ]}
+        />
+      ),
+    });
+
+    // PROTEIN. Protein properties dialog + a teaching cue that the per-CDS
+    // properties / domain drawer opens when a coding feature is selected.
+    ops.push({
+      id: "protein",
+      label: "Protein",
+      title: "Protein",
+      sub: "Translation, properties, domains",
+      icon: RailIcons.protein,
+      panel: (
+        <>
+          <InspectorSection>Protein tools</InspectorSection>
+          <ActionList
+            actions={[
+              {
+                id: "op-protein-props",
+                label: "Protein properties…",
+                sub: "length, mass, pI, composition",
+                glyph: ActionGlyphs.protein,
+                tileClass: "bg-violet-100 text-violet-700",
+                onRun: () => setProteinPropsOpen(true),
+              },
+            ]}
+          />
+          <div className="mt-3">
+            <InspectorCue>
+              Select a coding feature (a CDS) on the map to translate it, read
+              its properties, and scan for domains in the protein panel.
+            </InspectorCue>
+          </div>
+        </>
+      ),
+    });
+
+    // TREE OF LIFE. Taxonomy tools. Explore / lookup are read-only safe;
+    // Enrich mutates (present only when onEnriched is given). The amber dot
+    // badge signals the open sequence already carries an organism.
+    const treeActions: OperationAction[] = [];
+    if (onExploreInTree) {
+      treeActions.push({
+        id: "op-tree-explore",
+        label: "Explore in the tree of life…",
+        sub: hasOrganism ? "centered on this organism" : "open at the root",
+        glyph: ActionGlyphs.tree,
+        tileClass: "bg-sky-100 text-sky-700",
+        onRun: () => onExploreInTree(sequence.tax_id),
+      });
+    }
+    if (onLookupTaxonomy) {
+      treeActions.push({
+        id: "op-tree-lookup",
+        label: "Look up an organism…",
+        sub: "name or tax id to lineage",
+        glyph: ActionGlyphs.search,
+        onRun: () => onLookupTaxonomy(),
+      });
+    }
+    if (onEnriched) {
+      treeActions.push({
+        id: "op-tree-enrich",
+        label: "Enrich taxonomy from NCBI…",
+        sub: "attach the organism and lineage",
+        glyph: ActionGlyphs.download,
+        tileClass: "bg-green-100 text-green-700",
+        onRun: () => setEnrichOpen(true),
+      });
+    }
+    // sequence editor master. Taxonomy copy / paste, the two taxonomy tools
+    // that previously lived on the Analyze menu, now grouped with the rest of
+    // the taxonomy operations under Tree of life. Copy is available only when
+    // the sequence carries an organism; Paste only when the app-scoped taxonomy
+    // clipboard holds one (Paste opens a small inline confirm before writing).
+    if (onApplyTaxonomy && hasOrganism) {
+      treeActions.push({
+        id: "op-tree-copy",
+        label: "Copy this taxonomy",
+        sub: "to the taxonomy clipboard",
+        glyph: ActionGlyphs.copy,
+        onRun: handleCopyTaxonomy,
+      });
+    }
+    if (onApplyTaxonomy && copiedTaxonomy != null) {
+      treeActions.push({
+        id: "op-tree-paste",
+        label: "Paste taxonomy here",
+        sub: `from ${copiedTaxonomy.copiedFromName ?? copiedTaxonomy.organism}`,
+        glyph: ActionGlyphs.paste,
+        onRun: handlePasteTaxonomy,
+      });
+    }
+    if (treeActions.length > 0) {
+      ops.push({
+        id: "tree",
+        label: "Tree",
+        title: "Tree of life",
+        sub: "Taxonomy and phylogenetics",
+        icon: RailIcons.tree,
+        badge: hasOrganism ? "dot" : undefined,
+        panel: (
+          <>
+            <InspectorSection>This sequence&rsquo;s organism</InspectorSection>
+            {hasOrganism ? (
+              <div className="mb-3 text-body text-gray-700">
+                {sequence.organism?.trim() || `Tax id ${sequence.tax_id}`}
+              </div>
+            ) : (
+              <div className="mb-3">
+                <InspectorCue>
+                  No organism attached yet. Look it up or enrich from NCBI to add
+                  the lineage.
+                </InspectorCue>
+              </div>
+            )}
+            <ActionList actions={treeActions} />
+          </>
+        ),
+      });
+    }
+
+    // EXPORT. Reuse the existing export menu items (GenBank / FASTA / map image
+    // / send to a note). Read-only safe. Divider before it.
+    ops.push({
+      id: "export",
+      label: "Export",
+      title: "Export",
+      sub: "Save and share",
+      icon: RailIcons.export,
+      divider: true,
+      panel: (
+        <ActionList
+          actions={exportMenuItems.map((item) => ({
+            id: `op-export-${item.id}`,
+            label: item.label.replace(/…$/, ""),
+            glyph: ActionGlyphs.download,
+            onRun: item.onRun,
+          }))}
+        />
+      ),
+    });
+
+    // MORE. The long-tail placeholder for the phase 4 command palette. Kept
+    // minimal in phase 1.
+    ops.push({
+      id: "more",
+      label: "More",
+      title: "More tools",
+      sub: "The long tail",
+      icon: RailIcons.more,
+      panel: (
+        <InspectorCue>
+          Tools that do not earn a permanent rail slot will live here and in the
+          command palette (a later phase). For now, every operation has a rail
+          icon above.
+        </InspectorCue>
+      ),
+    });
+
+    return ops;
+  }, [
+    readOnly,
+    sel.hasRange,
+    primerCount,
+    openPrimerDialog,
+    onOpenAssemble,
+    view.showEnzymes,
+    openDetectFeatures,
+    openAnnotateFromReference,
+    openAddFeature,
+    onExploreInTree,
+    onLookupTaxonomy,
+    onEnriched,
+    onApplyTaxonomy,
+    copiedTaxonomy,
+    handleCopyTaxonomy,
+    handlePasteTaxonomy,
+    hasOrganism,
+    sequence.organism,
+    sequence.tax_id,
+    exportMenuItems,
+  ]);
+
   return (
     <div ref={containerRef} className="flex h-full w-full flex-col" tabIndex={-1}>
       {/* Toolbar. The mutating affordances (undo/redo/cut/paste/primer/save) are
@@ -3510,15 +3951,11 @@ export default function SequenceEditView({
               testId="sequence-primer-button"
               icon={<IconPrimer className="h-4 w-4" />}
             />
-            {/* menu reorg bot — the new Analyze dropdown: Detect features /
-                Annotate from reference / Compare sequences. One calm home for the
-                molecule-level analysis that used to be scattered. */}
-            <EditMenuDropdown
-              items={analyzeMenuItems}
-              label="Analyze"
-              testId="sequence-analyze-button"
-              icon={<IconAnalyze className="h-4 w-4" />}
-            />
+            {/* sequence editor master. The old junk-drawer "Analyze" dropdown
+                is RETIRED (redesign phase 1). Its tools (Detect features,
+                Annotate from reference, Align, Protein properties, Enrich from
+                NCBI, Explore the tree of life, Look up an organism) now live on
+                the persistent operations rail on the right edge. */}
           </>
         ) : null}
         {/* top menus consolidation bot — the Enzyme dropdown. Display only (cut
@@ -4018,6 +4455,20 @@ export default function SequenceEditView({
             onSelectDomain={selectFeature}
           />
         ) : null}
+
+        {/* sequence editor master. The OPERATIONS RAIL + INSPECTOR (redesign
+            phase 1). A persistent right-edge launcher for the marquee
+            bioinformatics operations, replacing the buried Analyze menu. Hidden
+            only in the chrome-slim `embedded` preview; shown in the normal AND
+            read-only editor (the rail's edit / destructive ops omit themselves
+            in read-only, like the menu bar already does). */}
+        {!embedded ? (
+          <SequenceOperationsRail
+            operations={railOperations}
+            activeId={activeOp}
+            onPick={toggleOp}
+          />
+        ) : null}
       </div>
 
       {/* Live selection readout */}
@@ -4063,18 +4514,18 @@ export default function SequenceEditView({
         />
       ) : null}
 
-      {/* menu reorg bot — Compare / align two sequences, opened from the Analyze
-          menu. Seeds sequence A with the open molecule (the dialog's own
-          defaultAId); the user picks B. Unmodified shared dialog. */}
+      {/* menu reorg bot. Compare / align two sequences, opened from the Align
+          rail operation. Seeds sequence A with the open molecule (the dialog's
+          own defaultAId); the user picks B. Unmodified shared dialog. */}
       <CompareSequencesDialog
         open={compareOpen}
         onClose={() => setCompareOpen(false)}
         defaultAId={sequence.id}
       />
 
-      {/* protein analyze bot — Protein properties, opened from the Analyze menu.
-          Seeds from the current selection, else a CDS / gene picker, else a
-          paste field; renders the SAME shared view as the calculators tab. */}
+      {/* protein analyze bot. Protein properties, opened from the Protein rail
+          operation. Seeds from the current selection, else a CDS / gene picker,
+          else a paste field; renders the SAME shared view as the calculators tab. */}
       <ProteinPropertiesDialog
         open={proteinPropsOpen}
         onClose={() => setProteinPropsOpen(false)}
