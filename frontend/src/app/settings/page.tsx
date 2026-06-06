@@ -59,15 +59,8 @@ import {
 import { endEditSession, formatRemaining } from "@/lib/lab/edit-session";
 import { useEditSession } from "@/hooks/useEditSession";
 import LabRoster from "@/components/lab-head/LabRoster";
-import { loadIdentity } from "@/lib/sharing/identity/storage";
-import {
-  deleteEncryptedBackup,
-  hasEncryptedBackup,
-  writeEncryptedBackup,
-} from "@/lib/telegram/encrypted-backup";
-import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 import { readPairing, type TelegramPairing } from "@/lib/telegram/telegram-store";
-import TelegramPairingModal from "@/components/TelegramPairingModal";
+import { useTelegramPopup } from "@/lib/telegram/telegram-popup-store";
 import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
 import {
   clearWizardCompletion,
@@ -2153,14 +2146,7 @@ function BehaviorSection({ settings, update }: SectionProps) {
           (some docs/links use the section's title word rather than the
           original `#telegram` id). */}
       <span id="behavior" aria-hidden="true" />
-      <TelegramConnectionRow />
-      <ToggleRow
-        label="Telegram notifications"
-        description="When off, the app stops polling Telegram for inbound photos and updates."
-        checked={settings.telegramNotifications}
-        onChange={(v) => void update({ telegramNotifications: v })}
-      />
-      <TelegramAutoReconnectRow settings={settings} update={update} />
+      <TelegramPointerRow />
       <ToggleRow
         label="Confirm destructive actions"
         description='Show "Are you sure?" prompts before deleting tasks, projects, etc.'
@@ -2178,49 +2164,33 @@ function BehaviorSection({ settings, update }: SectionProps) {
   );
 }
 
-// Settings entry point for Telegram pairing (settings-telegram-pairing bot,
-// 2026-06-02). Until now the ONLY way to open the pairing flow was the header
-// status badge (TelegramStatusBadge). Now that Settings is the config home for
-// Telegram (notifications + auto-reconnect + encrypted backup all live in this
-// section), this row gives Settings its own first-class "connect / manage"
-// entry. It reuses the exact same TelegramPairingModal the badge launches with
-// the same {username, onClose(updated?)} contract, and reads connection state
-// from the same readPairing() store helper, so there is no forked pairing
-// logic and both entry points stay in sync (closing the modal here updates the
-// status text; the badge re-reads on its own next render).
-function TelegramConnectionRow() {
+// Telegram is managed entirely from the top-bar paper-plane button and its
+// consolidated popup (pairing, notifications, auto-reconnect, encrypted backup,
+// disconnect). Settings keeps a one-line pointer that opens that same popup, so
+// there is no forked Telegram config surface.
+function TelegramPointerRow() {
   const { currentUser } = useFileSystem();
+  const openPopup = useTelegramPopup((s) => s.openPopup);
   const [pairing, setPairing] = useState<TelegramPairing | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-
-  const reload = useCallback(async () => {
-    if (!currentUser) {
-      setPairing(null);
-      return;
-    }
-    const p = await readPairing(currentUser);
-    setPairing(p);
-  }, [currentUser]);
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    let cancelled = false;
+    void (async () => {
+      const p = currentUser ? await readPairing(currentUser) : null;
+      if (!cancelled) setPairing(p);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser]);
 
   const paired = !!pairing;
-  // Mirror the badge's paired/unpaired split. The badge labels its button
-  // "Connect Telegram" / "Telegram"; in the calmer Settings context we use
-  // the explicit verbs Grant asked for: "Pair Telegram" when there's nothing
-  // to manage yet, "Manage connection" once a bot is paired.
-  const buttonLabel = paired ? "Manage connection" : "Pair Telegram";
-  const statusText = paired
-    ? `Connected as @${pairing.botUsername}`
-    : "Not connected";
 
   return (
     <SearchableRow
       id="telegram:connection"
       label="Telegram connection"
-      desc="Pair or manage the Telegram bot that sends photos to your inbox. Connect manage bot handle."
+      desc="Pair or manage the Telegram bot that sends photos to your inbox. Notifications, auto-reconnect, and encrypted backup live in its popup. Connect manage bot handle notifications."
     >
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
@@ -2230,154 +2200,28 @@ function TelegramConnectionRow() {
           <p className="text-meta text-gray-500 mt-0.5">
             {paired ? (
               <>
-                <span className="text-emerald-600 font-medium">{statusText}</span>
-                . Sends photos straight to your inbox.
+                <span className="text-emerald-600 font-medium">
+                  Connected as @{pairing.botUsername}
+                </span>
+                . Manage it from the paper-plane button in the top bar.
               </>
             ) : (
               <>
-                <span className="text-gray-500">{statusText}</span>. Pair a bot
-                to send photos straight to your inbox.
+                Not connected. Open the paper-plane button in the top bar to
+                connect a bot.
               </>
             )}
           </p>
         </div>
         <button
           type="button"
-          onClick={() => setModalOpen(true)}
+          onClick={() => openPopup()}
           className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
         >
-          {buttonLabel}
+          {paired ? "Manage" : "Connect"}
         </button>
       </div>
-      {modalOpen && currentUser && (
-        <TelegramPairingModal
-          username={currentUser}
-          onClose={(updated) => {
-            setModalOpen(false);
-            if (updated === undefined) return;
-            setPairing(updated);
-          }}
-        />
-      )}
     </SearchableRow>
-  );
-}
-
-// Inline ToggleRow variant for the auto-reconnect feature. Flipping the toggle
-// ON encrypts the current bot token (from _telegram.json) under the user's
-// on-device identity key and writes the sidecar. Flipping OFF deletes the
-// sidecar. No password, the keypair is the secret (identity model phase 1).
-function TelegramAutoReconnectRow({ settings, update }: SectionProps) {
-  const { currentUser } = useFileSystem();
-  const [hasIdentity, setHasIdentity] = useState<boolean | null>(null);
-  const [pairingExists, setPairingExists] = useState<boolean | null>(null);
-  const [backupExists, setBackupExists] = useState<boolean | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!currentUser) return;
-    let cancelled = false;
-    void (async () => {
-      const [identity, pairing, backup] = await Promise.all([
-        loadIdentity(),
-        readPairing(currentUser),
-        hasEncryptedBackup(currentUser),
-      ]);
-      if (cancelled) return;
-      setHasIdentity(identity !== null);
-      setPairingExists(pairing !== null);
-      setBackupExists(backup);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [currentUser]);
-
-  // pairingExists is read in the toggle handler via a fresh readPairing, so the
-  // loaded flag is informational only.
-  void pairingExists;
-
-  const handleToggle = async (next: boolean) => {
-    if (!currentUser) return;
-    setError(null);
-    if (next) {
-      // The backup keys off the on-device keypair, no password needed.
-      const identity = await loadIdentity();
-      if (!identity) {
-        setError("Sign in first so the backup can be encrypted to your account.");
-        return;
-      }
-      const pairing = await readPairing(currentUser);
-      if (!pairing) {
-        setError("Pair Telegram first — there is no bot token to back up yet.");
-        return;
-      }
-      setBusy(true);
-      try {
-        // botFirstName omitted from the encrypted payload (constraint #6),
-        // repopulated from getMe() on the next poll after restore.
-        await writeEncryptedBackup(
-          currentUser,
-          {
-            botToken: pairing.botToken,
-            chatId: pairing.chatId,
-            botUsername: pairing.botUsername,
-          },
-          identity.keys.encryption.privateKey,
-        );
-        try {
-          await ensureGitignoreEntries([
-            "_telegram-encrypted.json",
-            "users/*/_telegram-encrypted.json",
-          ]);
-        } catch {
-          /* gitignore append is best-effort */
-        }
-        await update({ telegramAutoReconnect: true });
-        setBackupExists(true);
-      } catch (err) {
-        console.error("[settings] enable auto-reconnect failed", err);
-        setError("Could not write the encrypted backup. Try again.");
-      } finally {
-        setBusy(false);
-      }
-      return;
-    }
-    // Flipping OFF: delete the sidecar + clear the setting flag.
-    setBusy(true);
-    try {
-      await deleteEncryptedBackup(currentUser);
-      await update({ telegramAutoReconnect: false });
-      setBackupExists(false);
-    } catch (err) {
-      console.error("[settings] delete encrypted backup failed", err);
-      setError("Could not delete the encrypted backup. Try again.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const checked = settings.telegramAutoReconnect && backupExists !== false;
-
-  return (
-    <div className="space-y-2">
-      <ToggleRow
-        label="Auto-reconnect Telegram bot"
-        description="When on, your bot token is saved encrypted (to your on-device identity key) so ResearchOS can reconnect automatically if the local _telegram.json pairing file is ever lost. The backup never leaves your folder."
-        checked={checked}
-        onChange={(v) => void handleToggle(v)}
-      />
-      {busy && (
-        <p className="ml-0 sm:ml-6 text-meta text-gray-500">Working…</p>
-      )}
-      {error && <p className="ml-0 sm:ml-6 text-meta text-red-600">{error}</p>}
-      {hasIdentity === false && (
-        <p className="ml-0 sm:ml-6 text-meta text-gray-400">
-          Sign in to enable the encrypted backup.
-        </p>
-      )}
-    </div>
   );
 }
 

@@ -13,7 +13,6 @@ import NoteDeleteUndoToast from "./NoteDeleteUndoToast";
 import SequenceDeleteUndoToast from "./SequenceDeleteUndoToast";
 import NotificationBadge from "./NotificationBadge";
 import ReminderRunner from "./ReminderRunner";
-import TelegramRecoveryPrompt from "./TelegramRecoveryPrompt";
 import TelegramEncryptedRecoveryPrompt from "./TelegramEncryptedRecoveryPrompt";
 import IdlePasswordWipe from "./IdlePasswordWipe";
 import Tooltip from "./Tooltip";
@@ -269,7 +268,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Showcase unlock Curtain Reveal overlay (portaled to body when
           the 7th brand-mark click fires). Null otherwise. */}
       {revealElement}
-      <TelegramRecoveryPrompt />
       <TelegramEncryptedRecoveryPrompt />
       <TelegramPopup />
       <IdlePasswordWipe />
