@@ -80,6 +80,17 @@ Stripe about 2.9% plus $0.30 (or an MoR about 5% plus $0.50). A block size and
 price are a Grant decision; the engineering treats them as configured products,
 not hard-coded numbers.
 
+Tax in the price is TAX-INCLUSIVE FLAT (Grant, 2026-06-05). The customer sees one
+flat price with no separate tax line, and the margin buffer absorbs any tax ever
+owed. We do NOT add a "tax" line on the assumption it is owed, because sales tax
+can only be collected where the LLC is registered, collecting it where it is not
+owed is itself a violation, and most customers are tax-exempt universities.
+Stripe Tax still computes the correct amount (zero where exempt) once the
+determination and any registration are in place. Mechanically the Stripe Price
+needs tax_behavior=inclusive, which is immutable after creation, so the final
+price is created inclusive (test and live) rather than edited. No app code
+change, the hosted Checkout is agnostic and the ledger records the gross amount.
+
 ## Tracker tie-in
 
 The business tracker already has the hooks:
