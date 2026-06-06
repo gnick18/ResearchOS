@@ -27,6 +27,7 @@ import {
   type LedgerDirection,
   type LedgerEntry,
 } from "@/lib/business/calc";
+import { INFRA_TIERS, INFRA_TIERS_CHECKED } from "@/lib/business/infra-tiers";
 import type { InfraCostEstimate } from "@/lib/sharing/capacity-shared";
 
 interface BusinessData {
@@ -904,6 +905,50 @@ export default function BusinessTracker() {
         >
           Record to ledger
         </button>
+      </div>
+
+      <SectionTitle
+        sub={`Free ceiling and the next paid step for each service, so scaling is planned not a surprise. Verify current pricing; checked ${INFRA_TIERS_CHECKED}.`}
+      >
+        Infrastructure tiers
+      </SectionTitle>
+      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-meta">
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-50 text-gray-500">
+                <th className="px-3 py-2 font-semibold">Service</th>
+                <th className="px-3 py-2 font-semibold">Free tier</th>
+                <th className="px-3 py-2 font-semibold">Paid upgrade</th>
+                <th className="px-3 py-2 font-semibold">When to upgrade</th>
+              </tr>
+            </thead>
+            <tbody>
+              {INFRA_TIERS.map((t) => (
+                <tr
+                  key={t.service}
+                  className={`border-b border-gray-100 align-top last:border-0 ${
+                    t.actionNow ? "bg-amber-50" : ""
+                  }`}
+                >
+                  <td className="px-3 py-2">
+                    <div className="font-medium text-gray-800">{t.service}</div>
+                    <div className="mt-0.5 text-gray-400">{t.role}</div>
+                  </td>
+                  <td className="px-3 py-2 text-gray-600">{t.free}</td>
+                  <td className="px-3 py-2 text-gray-600">{t.paid}</td>
+                  <td
+                    className={`px-3 py-2 ${
+                      t.actionNow ? "font-medium text-amber-700" : "text-gray-500"
+                    }`}
+                  >
+                    {t.upgradeWhen}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <SectionTitle>Entity facts</SectionTitle>
