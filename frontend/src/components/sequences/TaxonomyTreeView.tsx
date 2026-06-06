@@ -80,9 +80,11 @@ import {
 } from "@/lib/sequences/taxonomy-radial-source";
 import {
   suggestTaxa,
+  isGenusOrBelow,
   type TaxonSuggestion,
 } from "@/lib/sequences/ncbi-datasets";
 import TaxonomyNodeDetail, {
+  isImportable as isImportableRank,
   type TaxonomyImportPrefill,
   type TaxonomyDetailNode,
 } from "./TaxonomyNodeDetail";
@@ -417,18 +419,42 @@ export default function TaxonomyTreeView({
     setSelected(null);
   }, [open, initialTaxId]);
 
+  // The active BRANCH-WIDTH METRIC. When the current CENTER's rank is genus or
+  // below (genus, species, strain, and the other sub-genus ranks), the fan's
+  // thickness encodes the per-node GENOME-ASSEMBLY count, so a deep-drill view
+  // reads "how many sequenced genomes" instead of "how many species". At family
+  // and above it stays the default species count. Read from the focus node's rank.
+  const widthMetric: "species" | "assemblies" = useMemo(() => {
+    if (!pool) return "species";
+    const focusRank = pool.byId.get(focusId)?.rank ?? "";
+    return isGenusOrBelow(focusRank) ? "assemblies" : "species";
+  }, [pool, focusId]);
+
   // The laid-out tree for the current center, RE-ROOTED and limited to FAN_DEPTH
   // generations of descendants so only the focused clade and a few levels under
-  // it draw. Recomputed when the pool, the center, or the layout version (a drill
-  // splice) changes. Pure + memoized (subtreeToDepth then layoutRadialTree).
+  // it draw. Recomputed when the pool, the center, the width metric, or the layout
+  // version (a drill splice) changes. Pure + memoized (subtreeToDepth, then a
+  // metric pass that sets each node's thicknessValue when the view is
+  // assembly-width, then layoutRadialTree). The metric pass only sets the width
+  // input; angular width always stays on species, so only the drawn width swaps.
   const laidOut: RadialLaidOutNode[] = useMemo(() => {
     if (!pool) return [];
     const rootId = pool.byId.has(focusId) ? focusId : SYNTHETIC_ROOT_ID;
     const pruned = subtreeToDepth(pool.byId, rootId, FAN_DEPTH);
+    if (widthMetric === "assemblies") {
+      // Drive thickness off each node's assembly count (0 when absent, a thin
+      // line) by tagging the pruned input nodes. The pruned map is fresh, so this
+      // never mutates the pool. The pool node's assemblyCount carries the live
+      // drill's per-node tally.
+      for (const node of pruned.values()) {
+        const poolNode = pool.byId.get(node.id);
+        node.thicknessValue = poolNode?.assemblyCount ?? 0;
+      }
+    }
     return layoutRadialTree(pruned, rootId);
     // layoutVersion is a dependency so a splice re-lays out the subtree.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pool, focusId, layoutVersion]);
+  }, [pool, focusId, layoutVersion, widthMetric]);
 
   // The slice of the tree on screen, in layout coordinates, from the current
   // zoom transform. The SVG viewBox is the [0, VIEW_SIZE] square, so we invert
@@ -456,15 +482,17 @@ export default function TaxonomyTreeView({
     [laidOut, zoomScale, viewport],
   );
 
-  // The ADAPTIVE thickness legend, recomputed every render from the species
-  // counts of the nodes CURRENTLY on screen, through the SAME thickness mapping
-  // the layout uses (thicknessLegend reuses it, never a second scale). The top
-  // sample tracks the visible max, so the labels read "~2,000,000 species" on the
-  // whole tree and collapse to tens / single digits as the user drills into a
-  // family. An empty legend (nothing visible yet) hides the card's scale rows.
+  // The ADAPTIVE thickness legend, recomputed every render from the METRIC counts
+  // of the nodes CURRENTLY on screen (their thicknessValue, the species count by
+  // default and the assembly count on a genus-or-below view), through the SAME
+  // thickness mapping the layout uses (thicknessLegend reuses it, never a second
+  // scale). The unit label tracks the metric, so the card reads "~2,000,000
+  // species" on the whole tree and "~N assemblies" once the center is a genus or
+  // below. An empty legend (nothing visible yet) hides the card's scale rows.
+  const legendUnit = widthMetric === "assemblies" ? "assemblies" : "species";
   const legend = useMemo(
-    () => thicknessLegend(visible.map((n) => n.speciesCount)),
-    [visible],
+    () => thicknessLegend(visible.map((n) => n.thicknessValue), { unit: legendUnit }),
+    [visible, legendUnit],
   );
 
   // Wire d3-zoom to the svg once it is mounted. The zoom transforms the inner
@@ -590,6 +618,14 @@ export default function TaxonomyTreeView({
       if (!pool) return null;
       const poolNode = findPoolNode(pool, taxId);
       if (!poolNode) return null;
+      // A TERMINAL TIP has no further tree to explore: a single-organism leaf, or
+      // a node whose children are loaded and empty (a drill that found nothing
+      // below). The synthetic root is never a tip. At a tip the detail lists the
+      // node's genome assemblies.
+      const isTip =
+        taxId !== SYNTHETIC_ROOT_ID &&
+        (isImportableRank(poolNode.rank) ||
+          (poolNode.childrenLoaded && poolNode.childIds.length === 0));
       return {
         taxId: poolNode.id,
         name: poolNode.name,
@@ -597,6 +633,7 @@ export default function TaxonomyTreeView({
         speciesCount:
           poolNode.origin === "backbone" ? poolNode.speciesCount : undefined,
         origin: poolNode.origin,
+        isTerminalTip: isTip,
       };
     },
     [pool],
@@ -751,6 +788,9 @@ export default function TaxonomyTreeView({
             rank: s.rank,
             speciesCount: findPoolNode(pool, s.taxId)?.speciesCount,
             origin: findPoolNode(pool, s.taxId)?.origin ?? "live",
+            // Off our backbone with no further tree shown, so treat it as a tip
+            // and let the detail list its genome assemblies.
+            isTerminalTip: true,
           });
         }
       } catch (e) {
@@ -762,6 +802,7 @@ export default function TaxonomyTreeView({
             name: s.name,
             rank: s.rank,
             origin: "live",
+            isTerminalTip: true,
           });
         }
       } finally {
@@ -1202,7 +1243,9 @@ export default function TaxonomyTreeView({
                       Branch thickness
                     </p>
                     <p className="text-meta leading-snug text-gray-400">
-                      More species, thicker branch.
+                      {widthMetric === "assemblies"
+                        ? "More genome assemblies, thicker branch."
+                        : "More species, thicker branch."}
                     </p>
                   </div>
                   <Tooltip label="What this layout is, and is not">
@@ -1221,7 +1264,7 @@ export default function TaxonomyTreeView({
                 <ul className="mt-2 flex flex-col gap-1.5">
                   {legend.map((entry) => (
                     <li
-                      key={entry.species}
+                      key={entry.value}
                       className="flex items-center gap-2.5"
                     >
                       <svg
@@ -1242,7 +1285,7 @@ export default function TaxonomyTreeView({
                         />
                       </svg>
                       <span className="text-meta tabular-nums text-gray-600">
-                        ~{entry.species.toLocaleString()} species
+                        ~{entry.value.toLocaleString()} {entry.unit}
                       </span>
                     </li>
                   ))}

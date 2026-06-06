@@ -37,6 +37,13 @@ export interface RadialInputNode {
   /** Species under this node, the diversity signal. Zero is allowed (an
    *  interior backbone node whose species sit below family). */
   speciesCount: number;
+  /** The value the BRANCH THICKNESS encodes, when it differs from the species
+   *  count. The view sets this to the per-node genome-assembly count for a
+   *  genus-or-below center, so a deep-drill fan reads assemblies, not species,
+   *  through the SAME damping curve. Omitted (the default) means thickness tracks
+   *  speciesCount, unchanged. Angular width always stays on speciesCount, so only
+   *  the drawn width swaps, never the geometry. */
+  thicknessValue?: number;
   /** Ids of this node's children within the laid-out tree. */
   childIds: string[];
 }
@@ -61,6 +68,10 @@ export interface RadialLaidOutNode {
   radius: number;
   /** Stroke / wedge thickness for the branch, in layout units. */
   thickness: number;
+  /** The metric VALUE the thickness encoded for this node (its assembly count on
+   *  a genus-or-below view, otherwise its species count). The legend reads this so
+   *  its samples track whatever quantity currently drives the branch width. */
+  thicknessValue: number;
   /** Parent id, or null at the laid-out root. */
   parentId: string | null;
   /** The damped weight that drove the angular allocation (exposed for tests
@@ -105,6 +116,16 @@ const DEFAULTS: Required<RadialLayoutOptions> = {
 export function dampedWeight(speciesCount: number, leafFloor = DEFAULTS.leafFloor): number {
   const safe = Number.isFinite(speciesCount) && speciesCount > 0 ? speciesCount : 0;
   return Math.log1p(safe) + leafFloor;
+}
+
+/** The quantity a node's BRANCH THICKNESS encodes. It is the node's explicit
+ *  thicknessValue when set (the assembly-count metric for a genus-or-below view),
+ *  otherwise its species count (the default). A missing / non-finite value falls
+ *  to 0, a thin line, so a node lacking an assembly count never errors. Pure. */
+function thicknessMetricValue(node: RadialInputNode): number {
+  const v = node.thicknessValue;
+  if (v !== undefined) return Number.isFinite(v) && v > 0 ? v : 0;
+  return node.speciesCount;
 }
 
 /**
@@ -185,7 +206,9 @@ export function layoutRadialTree(
   // First pass over the reachable subtree to find the damped-weight range, so
   // thickness can scale between minThickness and maxThickness. We scale on the
   // NODE's own damped weight (not subtree weight) so a branch's drawn width
-  // reads as that taxon's own diversity.
+  // reads as that taxon's own quantity. The quantity is the thickness METRIC, the
+  // species count by default and the genome-assembly count when the view sets
+  // thicknessValue, so the same damping curve drives either.
   let minW = Infinity;
   let maxW = -Infinity;
   {
@@ -197,7 +220,7 @@ export function layoutRadialTree(
       seen.add(id);
       const node = byId.get(id);
       if (!node) continue;
-      const w = dampedWeight(node.speciesCount, opts.leafFloor);
+      const w = dampedWeight(thicknessMetricValue(node), opts.leafFloor);
       if (w < minW) minW = w;
       if (w > maxW) maxW = w;
       for (const c of node.childIds) if (byId.has(c)) stack.push(c);
@@ -206,8 +229,8 @@ export function layoutRadialTree(
   if (!Number.isFinite(minW)) minW = 0;
   if (!Number.isFinite(maxW)) maxW = minW;
 
-  const thicknessOf = (speciesCount: number): number => {
-    const w = dampedWeight(speciesCount, opts.leafFloor);
+  const thicknessOf = (metricValue: number): number => {
+    const w = dampedWeight(metricValue, opts.leafFloor);
     if (maxW <= minW) return opts.maxThickness;
     const t = (w - minW) / (maxW - minW);
     return opts.minThickness + t * (opts.maxThickness - opts.minThickness);
@@ -237,7 +260,8 @@ export function layoutRadialTree(
       angle: arcStart + arcSpan / 2,
       angularWidth: arcSpan,
       radius: opts.innerRadius + depth * opts.ringStep,
-      thickness: thicknessOf(node.speciesCount),
+      thickness: thicknessOf(thicknessMetricValue(node)),
+      thicknessValue: thicknessMetricValue(node),
       parentId,
       weight: dampedWeight(node.speciesCount, opts.leafFloor),
     });
@@ -622,25 +646,33 @@ export function viewportRectFromTransform(
 
 /** Parameters the thickness legend needs, the same knobs the layout's thickness
  *  pass uses. Defaults mirror DEFAULTS so a caller can pass just the visible
- *  counts and get a legend that matches an unmodified layout. */
+ *  counts and get a legend that matches an unmodified layout. `unit` is the noun
+ *  the render layer labels each sample with, so the same legend reads "species"
+ *  on the default view and "assemblies" on a genus-or-below view (the metric the
+ *  view passes the counts for). Defaults to "species". */
 export interface ThicknessLegendParams {
   leafFloor?: number;
   maxThickness?: number;
   minThickness?: number;
+  unit?: string;
 }
 
-/** One reference sample in the thickness legend, a species count paired with the
- *  stroke thickness that count currently draws at. The render layer draws a short
- *  line at `thickness` and labels it with `species`. */
+/** One reference sample in the thickness legend, a count paired with the stroke
+ *  thickness that count currently draws at, plus the unit noun for the label. The
+ *  render layer draws a short line at `thickness` and labels it "~value unit". The
+ *  count is whatever metric the caller passed (species or assemblies). */
 export interface ThicknessLegendEntry {
-  species: number;
+  /** The representative count for this sample (species or assemblies). */
+  value: number;
   thickness: number;
+  /** The unit noun for the label, e.g. "species" or "assemblies". */
+  unit: string;
 }
 
-/** Round a species count to a calm human number (1 to 2 significant figures), so
- *  the legend reads "2,000,000" or "1,000" rather than a raw min / max. Small
- *  counts (under 10) are kept exact so a tens / single-digit drill stays honest. */
-function niceSpeciesCount(value: number): number {
+/** Round a count to a calm human number (1 to 2 significant figures), so the
+ *  legend reads "2,000,000" or "1,000" rather than a raw min / max. Small counts
+ *  (under 10) are kept exact so a tens / single-digit drill stays honest. */
+function niceCount(value: number): number {
   if (!Number.isFinite(value) || value <= 0) return 0;
   if (value < 10) return Math.max(1, Math.round(value));
   const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
@@ -656,40 +688,44 @@ function niceSpeciesCount(value: number): number {
 
 /**
  * The thickness-legend samples for the CURRENTLY VISIBLE nodes, the adaptive key
- * a render layer draws as a "more species, thicker branch" scale. It reuses the
- * SAME thickness mapping the layout's thickness pass uses, so a legend sample at
- * the visible max species draws at exactly the fattest visible branch's width and
- * never a second, drifting scale.
+ * a render layer draws as a "thicker branch means more" scale. It reuses the SAME
+ * thickness mapping the layout's thickness pass uses, so a legend sample at the
+ * visible max draws at exactly the fattest visible branch's width and never a
+ * second, drifting scale. METRIC-AGNOSTIC: the caller passes whatever quantity
+ * currently drives the branch width (species counts on the default view, genome
+ * assembly counts on a genus-or-below view) plus the unit noun, so one legend
+ * reads "~N species" or "~N assemblies" without a second code path.
  *
  * The mapping: the visible counts give a damped-weight range [minW, maxW]; a
  * count's thickness is minThickness + t * (maxThickness - minThickness) where
  * t = (dampedWeight(count) - minW) / (maxW - minW). When the range is degenerate
  * (one distinct weight) every count maps to maxThickness, matching the layout.
  *
- * We pick 2 to 3 representative species values spanning the visible range with
- * GEOMETRIC spacing (so the steps read evenly on a log diversity axis), round
- * each to a calm human number, sort thick to thin, and de-duplicate so a tiny
- * range (a family of a few species) collapses to one or two honest samples rather
- * than three identical lines. Empty input returns an empty legend.
+ * We pick 2 to 3 representative values spanning the visible range with GEOMETRIC
+ * spacing (so the steps read evenly on a log axis), round each to a calm human
+ * number, sort thick to thin, and de-duplicate so a tiny range (a family of a few
+ * species, or a tip with a handful of assemblies) collapses to one or two honest
+ * samples rather than three identical lines. Empty input returns an empty legend.
  *
  * Pure and exported so a test can pin the adaptation (thick-to-thin order, range
  * coverage, the fattest sample matching the layout, the drill-shrink, the
- * rounding, the tiny-range de-dup).
+ * rounding, the tiny-range de-dup, and the unit label).
  *
- * @param visibleSpeciesCounts the species counts of the nodes currently on screen
- * @param params               the thickness knobs (default to the layout's)
+ * @param visibleCounts the metric counts of the nodes currently on screen
+ * @param params        the thickness knobs + the unit label (default to the layout's)
  */
 export function thicknessLegend(
-  visibleSpeciesCounts: number[],
+  visibleCounts: number[],
   params: ThicknessLegendParams = {},
 ): ThicknessLegendEntry[] {
   const leafFloor = params.leafFloor ?? DEFAULTS.leafFloor;
   const maxThickness = params.maxThickness ?? DEFAULTS.maxThickness;
   const minThickness = params.minThickness ?? DEFAULTS.minThickness;
+  const unit = params.unit ?? "species";
 
   // Sanitize to finite, positive-or-zero counts. An empty (or all-invalid) input
   // has no scale to show.
-  const counts = visibleSpeciesCounts.filter((c) => Number.isFinite(c));
+  const counts = visibleCounts.filter((c) => Number.isFinite(c));
   if (counts.length === 0) return [];
 
   // The visible damped-weight range, the SAME range the layout's thickness pass
@@ -709,17 +745,17 @@ export function thicknessLegend(
 
   // The layout's exact thickness mapping, reused verbatim so a legend sample at
   // the visible max draws at the fattest visible branch's width.
-  const thicknessOf = (speciesCount: number): number => {
-    const w = dampedWeight(speciesCount, leafFloor);
+  const thicknessOf = (count: number): number => {
+    const w = dampedWeight(count, leafFloor);
     if (maxW <= minW) return maxThickness;
     const t = (w - minW) / (maxW - minW);
     return minThickness + t * (maxThickness - minThickness);
   };
 
-  // Pick representative species values spanning [minCount, maxCount]. The TOP
-  // sample tracks the visible max, the bottom the visible min, and a middle
-  // sample sits at their geometric mean so the steps read evenly on the log
-  // diversity axis. log1p / expm1 keep a zero-species floor honest.
+  // Pick representative values spanning [minCount, maxCount]. The TOP sample
+  // tracks the visible max, the bottom the visible min, and a middle sample sits
+  // at their geometric mean so the steps read evenly on the log axis. log1p /
+  // expm1 keep a zero-count floor honest.
   const sampleCounts: number[] = [];
   if (maxCount > minCount) {
     // Geometric midpoint in log1p space, so a 1 to 2,000,000 span lands the
@@ -735,15 +771,15 @@ export function thicknessLegend(
   // Round each to a calm human number for the LABEL, pair it with the thickness
   // of the ORIGINAL representative value (so the top line still draws at the true
   // fattest visible width), sort thick to thin, and de-duplicate by the rounded
-  // species value so a tiny range collapses rather than showing identical lines.
+  // value so a tiny range collapses rather than showing identical lines.
   const seen = new Set<number>();
   const entries: ThicknessLegendEntry[] = [];
   for (const raw of sampleCounts) {
-    const species = niceSpeciesCount(raw);
-    if (species <= 0) continue;
-    if (seen.has(species)) continue;
-    seen.add(species);
-    entries.push({ species, thickness: thicknessOf(raw) });
+    const value = niceCount(raw);
+    if (value <= 0) continue;
+    if (seen.has(value)) continue;
+    seen.add(value);
+    entries.push({ value, thickness: thicknessOf(raw), unit });
   }
 
   entries.sort((a, b) => b.thickness - a.thickness);

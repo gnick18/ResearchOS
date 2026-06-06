@@ -20,10 +20,32 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tooltip from "@/components/Tooltip";
 import { fetchAssembliesCount } from "@/lib/sequences/taxonomy-explorer";
 import { SYNTHETIC_ROOT_ID } from "@/lib/sequences/taxonomy-radial-source";
+import {
+  listTaxonAssemblies,
+  type TaxonAssembly,
+} from "@/lib/sequences/ncbi-datasets";
 
-/** What the import jump prefills, handed up to the page. */
+// How many assemblies the tip list fetches on its single page. The total may be
+// larger (a busy species like E. coli has hundreds of thousands); we show this
+// many reference-first and a calm "first N of M" line rather than auto-paging.
+const ASSEMBLY_PAGE_SIZE = 12;
+
+// A session cache of a tip's assembly list, keyed by tax id, so re-opening the
+// same tip does not re-fetch. Module-scoped, cleared on a full reload, matching
+// the calm "fetch once per session" the brief asks for.
+const assemblyListCache = new Map<
+  string,
+  { total: number; assemblies: TaxonAssembly[] }
+>();
+
+/** What the import jump prefills, handed up to the page. An accession lands the
+ *  import on the accession tab as a genome import (a tip assembly row); without
+ *  one the import opens on the gene tab for the organism. */
 export interface TaxonomyImportPrefill {
   organism: string;
+  /** A specific assembly accession (GCF_... / GCA_...) to import. When set, the
+   *  import opens on the accession tab seeded with it. */
+  accession?: string;
 }
 
 /** The minimal node shape the detail renders. The tree view passes its pool
@@ -36,6 +58,12 @@ export interface TaxonomyDetailNode {
   speciesCount?: number;
   /** Where the node came from, shown as a small provenance line. */
   origin: "backbone" | "live";
+  /** True when the node is a TERMINAL TIP, a node with no further tree to explore
+   *  (a species / strain leaf, or a node we drilled and found no live children).
+   *  At a tip the detail lists the node's genome assemblies. The tree view
+   *  computes this from the pool (the node's loaded children); an unknown / search
+   *  node leaves it undefined, treated as not-a-tip. */
+  isTerminalTip?: boolean;
 }
 
 export interface TaxonomyNodeDetailProps {
@@ -103,6 +131,29 @@ function FocusIcon({ className }: { className?: string }) {
   );
 }
 
+/** A small DNA double-helix, the genome-assemblies section header glyph. */
+function DnaIcon({ className }: { className?: string }) {
+  return (
+    <svg {...svgBase(className)}>
+      <path d="M7 4c0 4 10 6 10 10M17 4c0 4-10 6-10 10" />
+      <path d="M7 20c0-4 10-6 10-10M17 20c0-4-10-6-10-10" />
+      <line x1="8.5" y1="7" x2="15.5" y2="7" />
+      <line x1="8.5" y1="17" x2="15.5" y2="17" />
+    </svg>
+  );
+}
+
+/** A small arrow-into-tray, the per-assembly import affordance. */
+function ImportRowIcon({ className }: { className?: string }) {
+  return (
+    <svg {...svgBase(className)}>
+      <path d="M12 3v10" />
+      <polyline points="8 9 12 13 16 9" />
+      <path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2" />
+    </svg>
+  );
+}
+
 function rankLabel(rank: string): string {
   if (!rank) return "Taxon";
   return rank.charAt(0).toUpperCase() + rank.slice(1);
@@ -135,6 +186,16 @@ export default function TaxonomyNodeDetail({
   const [assembliesLoading, setAssembliesLoading] = useState(false);
   const assembliesAbortRef = useRef<AbortController | null>(null);
 
+  // The TIP ASSEMBLIES list, fetched lazily for a terminal tip. `total` is the
+  // taxon's whole assembly tally (may exceed the page); `rows` is the first page,
+  // reference-first. Cached per session in assemblyListCache so re-opening a tip
+  // is instant. A loading / error state keeps the section calm while it fetches.
+  const [assemblyList, setAssemblyList] = useState<TaxonAssembly[] | null>(null);
+  const [assemblyTotal, setAssemblyTotal] = useState(0);
+  const [assemblyListLoading, setAssemblyListLoading] = useState(false);
+  const [assemblyListError, setAssemblyListError] = useState(false);
+  const assemblyListAbortRef = useRef<AbortController | null>(null);
+
   // Reset the badge whenever the detail switches to a different node.
   useEffect(() => {
     setCountMode("species");
@@ -142,6 +203,52 @@ export default function TaxonomyNodeDetail({
     setAssembliesLoading(false);
     return () => assembliesAbortRef.current?.abort();
   }, [node.taxId]);
+
+  // Fetch the tip's genome assemblies, lazily, only for a terminal tip. A cache
+  // hit fills instantly; otherwise one browser-direct call lists the first page
+  // (reference-first). The synthetic root is never a tip. Aborts on a node switch
+  // or unmount so a stale fetch never lands on the wrong tip.
+  useEffect(() => {
+    const isTip = node.isTerminalTip && node.taxId !== SYNTHETIC_ROOT_ID;
+    setAssemblyListError(false);
+    if (!isTip) {
+      setAssemblyList(null);
+      setAssemblyTotal(0);
+      setAssemblyListLoading(false);
+      return;
+    }
+    const cached = assemblyListCache.get(node.taxId);
+    if (cached) {
+      setAssemblyList(cached.assemblies);
+      setAssemblyTotal(cached.total);
+      setAssemblyListLoading(false);
+      return;
+    }
+    assemblyListAbortRef.current?.abort();
+    const controller = new AbortController();
+    assemblyListAbortRef.current = controller;
+    setAssemblyList(null);
+    setAssemblyTotal(0);
+    setAssemblyListLoading(true);
+    listTaxonAssemblies(node.taxId, {
+      pageSize: ASSEMBLY_PAGE_SIZE,
+      signal: controller.signal,
+    })
+      .then((res) => {
+        if (controller.signal.aborted) return;
+        assemblyListCache.set(node.taxId, res);
+        setAssemblyList(res.assemblies);
+        setAssemblyTotal(res.total);
+      })
+      .catch((e) => {
+        if ((e as Error)?.name === "AbortError") return;
+        setAssemblyListError(true);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setAssemblyListLoading(false);
+      });
+    return () => controller.abort();
+  }, [node.taxId, node.isTerminalTip]);
 
   const toggleCount = useCallback(() => {
     setCountMode((mode) => {
@@ -172,6 +279,10 @@ export default function TaxonomyNodeDetail({
   // its detail reads as the whole tree, no tax id line and no count badge (the
   // count would be a meaningless sum across the backbone roots).
   const isSyntheticRoot = node.taxId === SYNTHETIC_ROOT_ID;
+
+  // Whether to show the genome-assemblies section (a terminal tip, never the
+  // synthetic root).
+  const showAssemblies = Boolean(node.isTerminalTip) && !isSyntheticRoot;
 
   const countText = useMemo(() => {
     if (countMode === "species") {
@@ -260,6 +371,89 @@ export default function TaxonomyNodeDetail({
           </button>
         ) : null}
       </div>
+
+      {/* GENOME ASSEMBLIES at a terminal tip. A calm header, a loading / error /
+          empty state, then the first page of assemblies with the reference
+          genomes highlighted and floated to the top, each importable by its
+          accession. A "first N of M" line appears when the total exceeds the page.
+          Hidden entirely for a non-tip node. */}
+      {showAssemblies ? (
+        <div
+          data-testid="taxonomy-tip-assemblies"
+          className="flex min-h-0 flex-col gap-2 border-t border-gray-100 pt-3"
+        >
+          <div className="flex items-center gap-1.5 text-gray-700">
+            <DnaIcon className="h-4 w-4 text-sky-500" />
+            <span className="text-meta font-semibold">Genome assemblies</span>
+          </div>
+
+          {assemblyListLoading ? (
+            <div className="flex items-center gap-1.5 text-meta text-gray-500">
+              <SpinnerIcon className="h-3.5 w-3.5 text-sky-500" />
+              <span>Loading assemblies from NCBI...</span>
+            </div>
+          ) : assemblyListError ? (
+            <p className="text-meta leading-relaxed text-gray-400">
+              Could not load assemblies from NCBI. Reconnect and reopen this tip.
+            </p>
+          ) : assemblyList && assemblyList.length > 0 ? (
+            <>
+              <ul className="flex max-h-64 flex-col gap-1.5 overflow-y-auto pr-0.5">
+                {assemblyList.map((a) => (
+                  <li
+                    key={a.accession}
+                    className={`rounded-md border px-2.5 py-2 ${
+                      a.isReference
+                        ? "border-sky-200 bg-sky-50"
+                        : "border-gray-100 bg-white"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate font-mono text-meta text-gray-800">
+                        {a.accession}
+                      </span>
+                      {a.isReference ? (
+                        <span className="shrink-0 rounded-full bg-sky-100 px-1.5 py-0.5 text-meta font-medium uppercase tracking-wide text-sky-700">
+                          Reference
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-0.5 truncate text-meta text-gray-500">
+                      {a.assemblyLevel ? `${a.assemblyLevel}, ` : ""}
+                      {a.organismName}
+                    </p>
+                    {onImportOrganism ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onImportOrganism({
+                            organism: a.organismName,
+                            accession: a.accession,
+                          })
+                        }
+                        className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-meta font-medium text-gray-600 transition-colors hover:border-sky-300 hover:text-sky-700"
+                      >
+                        <ImportRowIcon className="h-3.5 w-3.5" />
+                        Import this assembly
+                      </button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+              {assemblyTotal > assemblyList.length ? (
+                <p className="text-meta text-gray-400">
+                  Showing first {assemblyList.length.toLocaleString()} of{" "}
+                  {assemblyTotal.toLocaleString()}.
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <p className="text-meta leading-relaxed text-gray-400">
+              No genome assemblies on NCBI for this tip yet.
+            </p>
+          )}
+        </div>
+      ) : null}
 
       <p className="mt-auto text-meta leading-relaxed text-gray-400">
         {isSyntheticRoot

@@ -1566,9 +1566,16 @@ export default function SequencesPage() {
         open={explorerOpen}
         initialTaxId={explorerTaxId}
         onClose={() => setExplorerOpen(false)}
-        onImportOrganism={({ organism }) => {
+        onImportOrganism={({ organism, accession }) => {
           setExplorerOpen(false);
-          setNcbiPrefill({ tab: "gene", organism });
+          // A tip assembly row carries an accession, landing the import on the
+          // accession tab as a genome import; an organism-only jump opens the gene
+          // tab seeded with the organism.
+          setNcbiPrefill(
+            accession
+              ? { tab: "accession", accession, organism }
+              : { tab: "gene", organism },
+          );
           setNcbiOpen(true);
         }}
       />

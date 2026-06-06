@@ -8,6 +8,8 @@ import { describe, it, expect } from "vitest";
 import {
   parseGeneReport,
   parseGenomeReport,
+  parseTaxonAssemblies,
+  isGenusOrBelow,
   checkCaps,
   sniffAccessionKind,
   includeForKind,
@@ -17,6 +19,7 @@ import {
 } from "./ncbi-datasets";
 import brca1Report from "./__fixtures__/ncbi/brca1-gene-report.json";
 import ecoliReport from "./__fixtures__/ncbi/ecoli-genome-report.json";
+import ecoliAssemblies from "./__fixtures__/ncbi/ecoli-taxon-assemblies.json";
 
 describe("parseGeneReport (real BRCA1 fixture)", () => {
   const p = parseGeneReport(brca1Report);
@@ -139,5 +142,79 @@ describe("includeForKind", () => {
     expect(includeForKind("genome")).toBe("GENOME_GBFF");
     expect(includeForKind("gene")).toBe("GENE_FASTA");
     expect(includeForKind("protein")).toBe("PROT_FASTA");
+  });
+});
+
+describe("parseTaxonAssemblies (real E. coli 562 fixture)", () => {
+  // The fixture is real Datasets v2 genome-by-taxon output, reordered so a
+  // NON-reference assembly sits first, proving the parser floats the reference
+  // genomes to the top rather than just preserving the API order.
+  const parsed = parseTaxonAssemblies(ecoliAssemblies);
+
+  it("reads the total count and the page of assemblies", () => {
+    // total_count is the taxon's whole tally (far larger than the fetched page).
+    expect(parsed.total).toBe(465718);
+    expect(parsed.assemblies.length).toBe(5);
+  });
+
+  it("sorts reference assemblies to the top", () => {
+    // The raw fixture leads with a null-category assembly, but every reference
+    // genome must come first after the sort.
+    const refs = parsed.assemblies.filter((a) => a.isReference);
+    const nonRefs = parsed.assemblies.filter((a) => !a.isReference);
+    expect(refs.length).toBe(4);
+    expect(nonRefs.length).toBe(1);
+    // All references precede the single non-reference.
+    const firstNonRefIndex = parsed.assemblies.findIndex((a) => !a.isReference);
+    expect(firstNonRefIndex).toBe(parsed.assemblies.length - 1);
+  });
+
+  it("flags the reference category and parses the row fields", () => {
+    const top = parsed.assemblies[0];
+    expect(top.isReference).toBe(true);
+    expect(top.accession.startsWith("GC")).toBe(true);
+    expect(top.assemblyLevel).toBe("Complete Genome");
+    expect(top.organismName).toContain("Escherichia coli");
+  });
+
+  it("treats a sparse / empty response as a calm zero, not a throw", () => {
+    expect(parseTaxonAssemblies({})).toEqual({ total: 0, assemblies: [] });
+    expect(parseTaxonAssemblies({ reports: [] })).toEqual({ total: 0, assemblies: [] });
+    // A report missing its accession is dropped rather than erroring.
+    const dropped = parseTaxonAssemblies({
+      total_count: 0,
+      reports: [{ organism: { organism_name: "x" } }],
+    });
+    expect(dropped.assemblies.length).toBe(0);
+  });
+});
+
+describe("isGenusOrBelow", () => {
+  it("returns true at genus and below", () => {
+    expect(isGenusOrBelow("genus")).toBe(true);
+    expect(isGenusOrBelow("subgenus")).toBe(true);
+    expect(isGenusOrBelow("species")).toBe(true);
+    expect(isGenusOrBelow("subspecies")).toBe(true);
+    expect(isGenusOrBelow("strain")).toBe(true);
+    expect(isGenusOrBelow("isolate")).toBe(true);
+    // Case-insensitive.
+    expect(isGenusOrBelow("GENUS")).toBe(true);
+    expect(isGenusOrBelow("Species")).toBe(true);
+  });
+
+  it("returns false at family and above", () => {
+    expect(isGenusOrBelow("family")).toBe(false);
+    expect(isGenusOrBelow("subfamily")).toBe(false);
+    expect(isGenusOrBelow("tribe")).toBe(false);
+    expect(isGenusOrBelow("order")).toBe(false);
+    expect(isGenusOrBelow("class")).toBe(false);
+    expect(isGenusOrBelow("phylum")).toBe(false);
+    expect(isGenusOrBelow("domain")).toBe(false);
+  });
+
+  it("returns false for an unknown or empty rank", () => {
+    expect(isGenusOrBelow("")).toBe(false);
+    expect(isGenusOrBelow(undefined)).toBe(false);
+    expect(isGenusOrBelow("clade")).toBe(false);
   });
 });

@@ -84,7 +84,7 @@ describe("drillNode", () => {
     });
     vi.mocked(resolveTaxonNames).mockResolvedValue(
       new Map([
-        ["7214", { taxId: "7214", name: "Drosophila", rank: "genus" }],
+        ["7214", { taxId: "7214", name: "Drosophila", rank: "genus", assemblies: 312 }],
         ["7220", { taxId: "7220", name: "Scaptodrosophila", rank: "genus" }],
       ]),
     );
@@ -96,6 +96,10 @@ describe("drillNode", () => {
     expect(pool.byId.get("7214")!.name).toBe("Drosophila");
     expect(pool.byId.get("7214")!.origin).toBe("live");
     expect(pool.byId.get("7214")!.childrenLoaded).toBe(false);
+    // The batch dataset_report carries each child's assembly count, threaded onto
+    // the spliced pool node so the genus-or-below branch width can read it.
+    expect(pool.byId.get("7214")!.assemblyCount).toBe(312);
+    expect(pool.byId.get("7220")!.assemblyCount).toBeUndefined();
   });
 
   it("is a no-op for an already-loaded node (no fetch)", async () => {

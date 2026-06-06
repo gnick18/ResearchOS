@@ -1,0 +1,55 @@
+{
+  "total_count": 465718,
+  "reports": [
+    {
+      "accession": "GCA_002853715.1",
+      "organism": {
+        "organism_name": "Escherichia coli"
+      },
+      "assembly_info": {
+        "assembly_level": "Complete Genome",
+        "refseq_category": null
+      }
+    },
+    {
+      "accession": "GCA_000005845.2",
+      "organism": {
+        "organism_name": "Escherichia coli str. K-12 substr. MG1655"
+      },
+      "assembly_info": {
+        "assembly_level": "Complete Genome",
+        "refseq_category": "reference genome"
+      }
+    },
+    {
+      "accession": "GCF_000005845.2",
+      "organism": {
+        "organism_name": "Escherichia coli str. K-12 substr. MG1655"
+      },
+      "assembly_info": {
+        "assembly_level": "Complete Genome",
+        "refseq_category": "reference genome"
+      }
+    },
+    {
+      "accession": "GCA_000008865.2",
+      "organism": {
+        "organism_name": "Escherichia coli O157:H7 str. Sakai"
+      },
+      "assembly_info": {
+        "assembly_level": "Complete Genome",
+        "refseq_category": "reference genome"
+      }
+    },
+    {
+      "accession": "GCF_000008865.2",
+      "organism": {
+        "organism_name": "Escherichia coli O157:H7 str. Sakai"
+      },
+      "assembly_info": {
+        "assembly_level": "Complete Genome",
+        "refseq_category": "reference genome"
+      }
+    }
+  ]
+}

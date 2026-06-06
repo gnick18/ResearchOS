@@ -31,6 +31,11 @@ export interface RadialPoolNode extends RadialInputNode {
   /** True once this node's children are in the pool (so we do not re-drill). For
    *  backbone nodes this is always true; for a family it flips after a drill. */
   childrenLoaded: boolean;
+  /** Genome assemblies under this node, when known (the live drill carries it via
+   *  the batch dataset_report). Drives the BRANCH WIDTH when the centered view is
+   *  genus-or-below. Undefined until a drill or a focus fetch fills it; the view
+   *  treats undefined as 0 (a thin line). */
+  assemblyCount?: number;
 }
 
 /** The growable pool the view lays out and the splice mutates. */
@@ -125,9 +130,10 @@ export async function drillNode(
     return [];
   }
 
-  // Name the children in one batch. A names failure degrades to id labels so
-  // navigation still works.
-  let nameMap: Map<string, { taxId: string; name: string; rank: string }>;
+  // Name the children in one batch (the batch dataset_report also carries each
+  // child's assembly count, which the genus-or-below branch width reads). A names
+  // failure degrades to id labels so navigation still works.
+  let nameMap: Map<string, { taxId: string; name: string; rank: string; assemblies?: number }>;
   try {
     nameMap = await resolveTaxonNames(childIds, { signal: opts.signal });
   } catch (e) {
@@ -145,6 +151,7 @@ export async function drillNode(
         name: named?.name ?? `Taxon ${childId}`,
         rank: named?.rank ?? "",
         speciesCount: LIVE_LEAF_SPECIES,
+        assemblyCount: named?.assemblies,
         childIds: [],
         origin: "live",
         childrenLoaded: false,
@@ -313,6 +320,10 @@ export interface LineageStep {
   id: string;
   name: string;
   rank: string;
+  /** Genome assemblies under the node, when the resolver carried it. Threaded
+   *  onto the spliced pool node so a genus-or-below search target reads its real
+   *  branch width. */
+  assemblies?: number;
 }
 
 /**
@@ -351,6 +362,7 @@ export function spliceLineagePath(
         name: step.name || `Taxon ${stepId}`,
         rank: step.rank || "",
         speciesCount: LIVE_LEAF_SPECIES,
+        assemblyCount: step.assemblies,
         childIds: [],
         // The target keeps childrenLoaded false so a dive can still drill below
         // it; an interior step we just threaded has no loaded children either.
@@ -426,19 +438,30 @@ export async function resolveLineageToPool(
 
   // Name the missing chain in one batch. A names failure degrades to id labels
   // so the zoom still lands. The target's own name / rank come from its report.
-  let nameMap: Map<string, { taxId: string; name: string; rank: string }>;
+  let nameMap: Map<string, { taxId: string; name: string; rank: string; assemblies?: number }>;
   try {
     nameMap = await resolveTaxonNames(missingIds, { signal: opts.signal });
   } catch (e) {
     if ((e as Error)?.name === "AbortError") throw e;
     nameMap = new Map();
   }
-  // The target's own name / rank are authoritative from its report.
-  nameMap.set(targetId, { taxId: targetId, name: target.name, rank: target.rank });
+  // The target's own name / rank / assembly count are authoritative from its
+  // report (getTaxonNode carries the counts array).
+  nameMap.set(targetId, {
+    taxId: targetId,
+    name: target.name,
+    rank: target.rank,
+    assemblies: target.counts.assemblies,
+  });
 
   const steps: LineageStep[] = missingIds.map((id) => {
     const named = nameMap.get(id);
-    return { id, name: named?.name ?? `Taxon ${id}`, rank: named?.rank ?? "" };
+    return {
+      id,
+      name: named?.name ?? `Taxon ${id}`,
+      rank: named?.rank ?? "",
+      assemblies: named?.assemblies,
+    };
   });
 
   const added = spliceLineagePath(pool, anchorId, steps);

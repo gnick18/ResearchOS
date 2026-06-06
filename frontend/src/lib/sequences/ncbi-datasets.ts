@@ -64,6 +64,50 @@ const MAJOR_RANK_ORDER = [
   "species",
 ] as const;
 
+/** The standard ranks at or below GENUS, the band where a centered view switches
+ *  the branch-thickness metric from species count to genome-assembly count. Genus
+ *  itself and every sub-genus rank we are likely to see (subgenus through strain /
+ *  isolate) read as genus-or-below; family, subfamily, tribe, and everything above
+ *  genus read as above. Lowercased NCBI rank strings. */
+const GENUS_OR_BELOW_RANKS = new Set([
+  "genus",
+  "subgenus",
+  "section",
+  "subsection",
+  "series",
+  "subseries",
+  "species group",
+  "species subgroup",
+  "species",
+  "subspecies",
+  "varietas",
+  "subvariety",
+  "forma",
+  "forma specialis",
+  "strain",
+  "isolate",
+  "serotype",
+  "serogroup",
+  "biotype",
+  "genotype",
+  "morph",
+  "pathogroup",
+]);
+
+/**
+ * Whether a taxonomic rank sits at GENUS or below it, the test the radial view
+ * uses to switch the branch-thickness metric to genome-assembly count. Genus and
+ * any rank ranked under genus (subgenus, species, subspecies, strain, and the
+ * other sub-genus ranks) return true; family, subfamily, tribe, and every rank
+ * above genus return false. An unknown / empty rank returns false, so the default
+ * species-count metric stays in force when the rank is unclear. Pure and exported
+ * so a test can pin the boundary (genus / species true, family / order / phylum
+ * false).
+ */
+export function isGenusOrBelow(rank: string | undefined): boolean {
+  return GENUS_OR_BELOW_RANKS.has((rank || "").trim().toLowerCase());
+}
+
 /** Map an NCBI rank string (any case) to one of our canonical major-rank slots,
  *  or null when it is not a major rank we show inline. DOMAIN folds into the
  *  superkingdom slot so Bacteria / Eukaryota / Archaea read as the top tier. */
@@ -266,6 +310,14 @@ export interface TaxonSuggestion {
   rank: string;
 }
 
+/** A batch-resolved node, a suggestion plus the named tallies the batch
+ *  dataset_report carries (the assembly count drives the genus-or-below branch
+ *  width). The assembly count is absent when the source omits it. */
+export interface ResolvedTaxonNode extends TaxonSuggestion {
+  /** Assemblies under the node (COUNT_TYPE_ASSEMBLY), when the report carries it. */
+  assemblies?: number;
+}
+
 /** The dataset_report taxonomy subset the explorer reads. Every field optional
  *  and validated so a shape drift degrades rather than crashes. */
 interface RawTaxonReport {
@@ -349,11 +401,13 @@ export function parseExplorerNode(raw: unknown): ExplorerTaxonNode {
 }
 
 /** Parse a BATCH dataset_report (a comma-separated id list) into a tax-id ->
- *  { taxId, name, rank } map, so a node's children or siblings get their names
- *  and ranks in one call. Pure. */
-export function parseExplorerNodeMap(raw: unknown): Map<string, TaxonSuggestion> {
+ *  { taxId, name, rank, assemblies? } map, so a node's children or siblings get
+ *  their names, ranks, and assembly count in one call. The assembly count is the
+ *  per-node COUNT_TYPE_ASSEMBLY, which drives the genus-or-below branch width.
+ *  Pure. */
+export function parseExplorerNodeMap(raw: unknown): Map<string, ResolvedTaxonNode> {
   const root = (raw || {}) as RawTaxonReport;
-  const map = new Map<string, TaxonSuggestion>();
+  const map = new Map<string, ResolvedTaxonNode>();
   for (const report of root.reports || []) {
     const tax = report.taxonomy;
     if (!tax || tax.tax_id == null) continue;
@@ -362,6 +416,7 @@ export function parseExplorerNodeMap(raw: unknown): Map<string, TaxonSuggestion>
       taxId: id,
       name: readScientificName(tax.current_scientific_name, id),
       rank: (asString(tax.rank) || "").toLowerCase(),
+      assemblies: readCounts(tax.counts).assemblies,
     });
   }
   return map;
@@ -409,18 +464,23 @@ export async function getTaxonNode(
   return parseExplorerNode(await getJson(url, opts?.signal));
 }
 
-/** Resolve a batch of tax ids to { taxId, name, rank } in one call, for naming a
- *  node's children or siblings. An empty input returns an empty map with no
- *  network. */
+/** Resolve a batch of tax ids to { taxId, name, rank, assemblies? } in one call,
+ *  for naming a node's children or siblings and carrying their assembly count.
+ *  The BATCH dataset_report endpoint (the comma-separated id list with the
+ *  dataset_report path) returns the per-node taxonomy report including the counts
+ *  array, so one call names the children and gives each its assembly count, which
+ *  the genus-or-below branch width reads. An empty input returns an empty map with
+ *  no network. */
 export async function resolveTaxonNames(
   taxIds: Array<string | number>,
   opts?: { signal?: AbortSignal },
-): Promise<Map<string, TaxonSuggestion>> {
+): Promise<Map<string, ResolvedTaxonNode>> {
   const ids = taxIds.map((v) => String(v).trim()).filter((v) => v !== "");
   if (ids.length === 0) return new Map();
   const url =
     `${NCBI_DATASETS_BASE}/taxonomy/taxon/` +
-    ids.map((id) => encodeURIComponent(id)).join(",");
+    ids.map((id) => encodeURIComponent(id)).join(",") +
+    `/dataset_report`;
   return parseExplorerNodeMap(await getJson(url, opts?.signal));
 }
 
@@ -434,6 +494,112 @@ export async function suggestTaxa(
   if (!q) return [];
   const url = `${NCBI_DATASETS_BASE}/taxonomy/taxon_suggest/${encodeURIComponent(q)}`;
   return parseTaxonSuggestions(await getJson(url, opts?.signal));
+}
+
+// --- Genome assemblies at a tip (the terminal-tip list) ---------------------
+//
+// At a TERMINAL TIP (a node with no further tree to explore, a species / strain
+// leaf or a node we drilled and found no live children), the click-detail lists
+// the genome assemblies sitting under that taxon. The genome dataset_report by
+// taxon carries the total count and, per assembly, the accession, the assembly
+// level, the source organism, and the refseq category that flags a reference /
+// representative genome. We parse only that subset, sort the reference genomes
+// to the top, and hand the list to the detail. Pure parse, unit-tested against a
+// saved real response (E. coli 562); the list endpoint is browser-direct over
+// the same CORS-open Datasets v2 API.
+
+/** One genome assembly under a taxon, the row the tip list renders. */
+export interface TaxonAssembly {
+  /** The assembly accession (GCF_... for RefSeq, GCA_... for GenBank). */
+  accession: string;
+  /** The source organism name on the assembly record. */
+  organismName: string;
+  /** "Complete Genome" / "Chromosome" / "Scaffold" / "Contig", or "" when the
+   *  record omits it. */
+  assemblyLevel: string;
+  /** True when the refseq category marks this a reference or representative
+   *  genome, the curated pick we visually highlight. */
+  isReference: boolean;
+}
+
+/** The genome-by-taxon dataset_report subset the assembly list reads. Every
+ *  field optional + validated so a shape drift degrades rather than crashes. */
+interface RawTaxonAssembliesReport {
+  reports?: Array<{
+    accession?: string;
+    organism?: { organism_name?: string };
+    assembly_info?: { assembly_level?: string; refseq_category?: string | null };
+  }>;
+  total_count?: number;
+}
+
+/** Whether a refseq_category value marks a curated reference assembly. NCBI uses
+ *  "reference genome" for the single curated pick and "representative genome" for
+ *  a per-species representative; both read as a reference here. Null / any other
+ *  value is a plain assembly. */
+function isReferenceCategory(category: string | null | undefined): boolean {
+  const c = (category || "").trim().toLowerCase();
+  return c === "reference genome" || c === "representative genome";
+}
+
+/**
+ * Parse a genome-by-taxon dataset_report into the assembly list the tip detail
+ * shows. Pure. Returns the total count (the taxon's whole assembly tally, which
+ * may exceed the page we fetched) and the parsed reports on this page, with the
+ * REFERENCE assemblies sorted to the top (a stable sort, so within each group the
+ * API order is preserved). A report with no accession is dropped. An empty / sparse
+ * response returns total 0 and an empty list rather than throwing, since a tip with
+ * no sequenced genome is a normal, calm state.
+ */
+export function parseTaxonAssemblies(raw: unknown): {
+  total: number;
+  assemblies: TaxonAssembly[];
+} {
+  const root = (raw || {}) as RawTaxonAssembliesReport;
+  const reports = Array.isArray(root.reports) ? root.reports : [];
+  const assemblies: TaxonAssembly[] = [];
+  for (const r of reports) {
+    const accession = asString(r?.accession);
+    if (!accession) continue;
+    const info = r?.assembly_info || {};
+    const org = r?.organism || {};
+    assemblies.push({
+      accession,
+      organismName: asString(org.organism_name) || "Unknown organism",
+      assemblyLevel: asString(info.assembly_level) || "",
+      isReference: isReferenceCategory(info.refseq_category),
+    });
+  }
+  // Reference assemblies first. A stable sort keeps the API order inside each
+  // group, so the curated genome floats up without scrambling the rest.
+  const sorted = assemblies
+    .map((a, i) => ({ a, i }))
+    .sort((x, y) => {
+      if (x.a.isReference !== y.a.isReference) return x.a.isReference ? -1 : 1;
+      return x.i - y.i;
+    })
+    .map((e) => e.a);
+  const total = asNumber(root.total_count) ?? sorted.length;
+  return { total, assemblies: sorted };
+}
+
+/**
+ * List the genome assemblies under a taxon, browser-direct over the CORS-open
+ * Datasets v2 genome endpoint. One call. Returns the total count and the first
+ * `pageSize` assemblies (reference-first). v1 does not auto-page beyond the first
+ * page; the detail shows a calm "first N of M" line when the total is larger.
+ */
+export async function listTaxonAssemblies(
+  taxId: string | number,
+  opts?: { pageSize?: number; signal?: AbortSignal },
+): Promise<{ total: number; assemblies: TaxonAssembly[] }> {
+  const id = String(taxId).trim();
+  if (!id) throw new NcbiDatasetsError("Enter a tax id.");
+  const pageSize = opts?.pageSize && opts.pageSize > 0 ? Math.floor(opts.pageSize) : 20;
+  const url =
+    `${NCBI_DATASETS_BASE}/genome/taxon/${encodeURIComponent(id)}/dataset_report` +
+    `?page_size=${pageSize}`;
+  return parseTaxonAssemblies(await getJson(url, opts?.signal));
 }
 
 /** What kind of record a preview / download refers to. The generic "accession"
