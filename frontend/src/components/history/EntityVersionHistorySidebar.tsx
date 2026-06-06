@@ -131,6 +131,14 @@ interface EntityVersionHistorySidebarProps<P extends EntityProjection> {
    * native history instead of the delta-store (chunk 5 wiring).
    */
   engine?: VersionHistorySource;
+  /**
+   * When true, the sidebar is full-width below the `md` breakpoint (and the
+   * fixed 320px column only at `md`+). The host must hide its own content column
+   * at the same breakpoint so the two do not cram and clip on a narrow window.
+   * Defaults to false so task/project hosts (which do NOT hide their content
+   * column) keep the original fixed-width behavior unchanged.
+   */
+  fullWidthOnNarrow?: boolean;
 }
 
 export default function EntityVersionHistorySidebar<P extends EntityProjection>({
@@ -145,6 +153,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
   canRestore = false,
   onRestore,
   engine: engineProp,
+  fullWidthOnNarrow = false,
 }: EntityVersionHistorySidebarProps<P>) {
   // Resolve the engine: caller-supplied Loro engine OR legacy delta engine.
   // Captured in a stable ref so the effects below do not re-run purely because
@@ -421,7 +430,9 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
 
   return (
     <div
-      className="w-80 flex-shrink-0 border-l border-gray-200 bg-white flex flex-col h-full"
+      className={`flex-shrink-0 border-gray-200 bg-white flex flex-col h-full ${
+        fullWidthOnNarrow ? "w-full md:w-80 md:border-l" : "w-80 border-l"
+      }`}
       role="dialog"
       aria-label="Version history"
       data-testid="note-version-history-sidebar"

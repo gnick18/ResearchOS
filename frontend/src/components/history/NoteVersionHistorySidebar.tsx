@@ -87,6 +87,10 @@ export default function NoteVersionHistorySidebar({
       canRestore={canRestore}
       onRestore={onRestore}
       engine={engine}
+      // NoteDetailPopup hides its editor column at the same md breakpoint, so on
+      // a narrow window the history panel takes the whole popup full-width
+      // instead of cramming beside a squeezed editor (which clipped on the right).
+      fullWidthOnNarrow
     />
   );
 }

@@ -1872,8 +1872,15 @@ export default function NoteDetailPopup({
             docks on the right (VCP Phase 1, version-history viewer bot for HR,
             2026-05-29). */}
         <div className="flex-1 overflow-hidden flex flex-row min-h-0">
-        {/* Content area (document column) */}
-        <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
+        {/* Content area (document column). When the version-history sidebar is
+            open on a narrow window, hide this column so the sidebar takes the
+            whole popup full-width instead of cramming beside a squeezed editor
+            (which clipped on the right). At md+ both sit side by side as before. */}
+        <div
+          className={`flex-1 min-w-0 overflow-hidden flex-col ${
+            historyOpen ? "hidden md:flex" : "flex"
+          }`}
+        >
           {/* Tabs for running logs */}
           {note.is_running_log && (
             <div className="border-b border-border px-4 py-2 flex-shrink-0">
