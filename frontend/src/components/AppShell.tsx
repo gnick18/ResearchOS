@@ -50,6 +50,10 @@ import SharingClaimResume from "@/components/sharing/SharingClaimResume";
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  // The sequence editor is a dense full-bleed focus surface; the global
+  // floating Calculators / Report-bug FABs are hidden there (see the dock
+  // below) so they don't crowd its toolbar + inspector.
+  const onSequences = !!pathname?.startsWith("/sequences");
   const visibleTabs = useAppStore((s) => s.visibleTabs);
   const coloredHeader = useAppStore((s) => s.coloredHeader);
   const { currentUser } = useFileSystem();
@@ -601,7 +605,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </>
         )}
 
-        <CalculatorsButton />
+        {/* The /sequences editor is already a dense, full-bleed focus surface
+            with its own toolbar + inspector rail, so the global Calculators and
+            Report-bug FABs are suppressed there to keep the canvas clean. They
+            remain on every other route (and both actions stay reachable from
+            Settings / the wiki). */}
+        {!onSequences && <CalculatorsButton />}
 
         {/* floating-cluster-split bot (2026-06-02): the Data-folder and
             Switch-user CONFIG actions used to live here as floating
@@ -616,7 +625,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             on the Settings page (and the onboarding / welcome surfaces) so the
             ask appears where it belongs, not over every workflow. */}
 
-        <FeedbackButton onClick={openBugReport} />
+        {!onSequences && <FeedbackButton onClick={openBugReport} />}
       </div>
 
       {/* Data-folder + Switch-user modals moved to /settings (floating-
