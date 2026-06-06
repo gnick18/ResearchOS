@@ -245,51 +245,6 @@ export default function NoteDetailPopup({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loroHandle?.doc.peerIdStr, currentUser]);
 
-  // Tracks the text the user is typing into the "join session" input field.
-  const [joinLinkInput, setJoinLinkInput] = useState("");
-
-  // "Copied!" feedback for the collab join-link button. Resets after a beat so
-  // the button returns to its normal label.
-  const [linkCopied, setLinkCopied] = useState(false);
-
-  // Copy the join link with a clipboard-API-first, execCommand fallback. The
-  // async clipboard write can reject silently (focus quirks, headered
-  // contexts), so we fall back to a hidden textarea + execCommand("copy") and
-  // only show the confirmation once a copy actually succeeds.
-  const handleCopyJoinLink = useCallback(async () => {
-    const link = collab.state.link;
-    if (!link) return;
-
-    const confirmCopied = () => {
-      setLinkCopied(true);
-      window.setTimeout(() => setLinkCopied(false), 1600);
-    };
-
-    try {
-      await navigator.clipboard.writeText(link);
-      confirmCopied();
-      return;
-    } catch {
-      // Fall through to the legacy path below.
-    }
-
-    try {
-      const ta = document.createElement("textarea");
-      ta.value = link;
-      ta.style.position = "fixed";
-      ta.style.opacity = "0";
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      const ok = document.execCommand("copy");
-      document.body.removeChild(ta);
-      if (ok) confirmCopied();
-    } catch {
-      // Both paths failed; leave the button unchanged so the user can retry or
-      // select the link manually.
-    }
-  }, [collab.state.link]);
-
   // Per-note attachment folder. Mirrors how tasks use
   // `users/{owner}/results/task-{id}/`. Falls back to the note's own
   // `username` when there's no signed-in user (read-only / lab-mode views),
@@ -1829,65 +1784,11 @@ export default function NoteDetailPopup({
                   custom inline SVGs only, Tooltip for icon-only buttons. */}
               {LORO_PILOT_ENABLED && !!loroHandle && (
                 <div className="flex items-center gap-2">
-                  {collab.state.status === "idle" || collab.state.status === "stopped" ? (
-                    <>
-                      {/* Start a new session */}
-                      <Tooltip label="Start a live collab session" placement="top">
-                        <button
-                          onClick={collab.start}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15 transition-colors"
-                          aria-label="Collaborate live"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
-                          >
-                            <circle cx="9" cy="7" r="4" />
-                            <path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
-                            <path d="M16 11h6m-3-3v6" />
-                          </svg>
-                          Collaborate live
-                        </button>
-                      </Tooltip>
-                      {/* Paste a join link */}
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="text"
-                          value={joinLinkInput}
-                          onChange={(e) => setJoinLinkInput(e.target.value)}
-                          placeholder="Paste join link"
-                          className="w-36 px-2 py-1.5 rounded-lg border border-border bg-surface-raised text-foreground placeholder-foreground-muted focus:outline-none focus:ring-1 focus:ring-emerald-400 text-meta"
-                          aria-label="Join session link"
-                        />
-                        <Tooltip label="Join session" placement="top">
-                          <button
-                            onClick={() => {
-                              if (joinLinkInput.trim()) {
-                                collab.join(joinLinkInput.trim());
-                                setJoinLinkInput("");
-                              }
-                            }}
-                            disabled={!joinLinkInput.trim()}
-                            className="px-2 py-1.5 rounded-lg text-body bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15 transition-colors disabled:opacity-40"
-                            aria-label="Join"
-                          >
-                            Join
-                          </button>
-                        </Tooltip>
-                      </div>
-                      {collab.state.errorMessage && (
-                        <span className="text-meta text-red-500 dark:text-red-300">
-                          {collab.state.errorMessage}
-                        </span>
-                      )}
-                    </>
-                  ) : collab.state.status === "connecting" ? (
+                  {/* Sharing IS collab: a shared note auto-connects on open
+                      (see the connectFromDocId effects above), so there is no
+                      manual start / paste-link / copy-link / stop control. This
+                      row is now a quiet presence indicator only. */}
+                  {collab.state.status === "connecting" ? (
                     <span className="text-meta text-foreground-muted flex items-center gap-1.5">
                       <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -1909,84 +1810,6 @@ export default function NoteDetailPopup({
                         </svg>
                         Live
                       </span>
-                      {collab.state.link && (
-                        <Tooltip
-                          label={linkCopied ? "Copied" : "Copy join link for the other tab"}
-                          placement="top"
-                        >
-                          <button
-                            onClick={() => void handleCopyJoinLink()}
-                            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-body transition-all font-mono text-meta active:scale-95 ${
-                              linkCopied
-                                ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
-                                : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
-                            }`}
-                            aria-label="Copy join link"
-                          >
-                            {linkCopied ? (
-                              <svg
-                                className="w-3.5 h-3.5 shrink-0"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth={2}
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                aria-hidden="true"
-                              >
-                                <path d="M20 6 9 17l-5-5" />
-                              </svg>
-                            ) : (
-                              <svg
-                                className="w-3.5 h-3.5 shrink-0"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth={2}
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                aria-hidden="true"
-                              >
-                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                              </svg>
-                            )}
-                            {linkCopied ? "Copied!" : "Copy link"}
-                          </button>
-                        </Tooltip>
-                      )}
-                      <Tooltip label="Stop collaborating" placement="top">
-                        <button
-                          onClick={() => {
-                            // Phase 3 chunk 5b: use retireSession when both the
-                            // handle and owner are available so the session ends
-                            // with a provenance commit in the version history.
-                            // Fall back to plain stop when the handle is missing
-                            // (race: handle closed before button pressed).
-                            if (loroHandle && collabOwner) {
-                              void collab.retireSession(loroHandle, collabOwner, note);
-                            } else {
-                              collab.stop();
-                            }
-                          }}
-                          className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-body bg-surface-sunken text-foreground-muted hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-300 transition-colors"
-                          aria-label="Stop collaborating"
-                        >
-                          <svg
-                            className="w-3.5 h-3.5"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
-                          >
-                            <rect x="3" y="3" width="18" height="18" rx="2" />
-                          </svg>
-                          Stop
-                        </button>
-                      </Tooltip>
                     </>
                   )}
                 </div>
