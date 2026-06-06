@@ -116,15 +116,16 @@ function SignInRow({
             <CheckGlyph /> Free, and yours to keep forever.
           </li>
         </ul>
-        {/* A still shot of a real notebook fills the gap (vs empty white space)
-            and shows the local notebook concretely, substantive but calm so it
-            does not compete with the CTA below. */}
+        {/* Finder showing the data folder (plain files) over the ResearchOS
+            home page: the most concrete proof that "use it locally" means your
+            data is just files on your own machine. Still + framed so it fills
+            the gap without competing with the CTA. */}
         <div className="flex flex-1 items-center py-3">
           <Image
-            src="/wiki/screenshots/workbench-notes.png"
-            alt="A research notebook open in ResearchOS, running locally on your own machine"
-            width={2880}
-            height={1800}
+            src="/welcome/local-folder-home.png"
+            alt="Finder showing the ResearchOS data folder as plain files, next to the app, your data stays on your own machine"
+            width={3016}
+            height={1586}
             unoptimized
             className="w-full rounded-lg border border-[#e3ecf6] shadow-sm"
           />
