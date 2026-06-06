@@ -87,6 +87,12 @@ export interface SequenceTabBarProps {
   onChange: (mode: SequenceViewMode) => void;
   featureCount: number;
   primerCount: number;
+  /** sequence editor master (redesign phase 2). Where the bar is anchored. The
+   *  redesign moves the tabs to the TOP of the canvas head, so the hairline
+   *  switches to a bottom border; the legacy bottom placement keeps the top
+   *  border. The rounded-top + bottom-underline active style reads correctly in
+   *  both spots. Defaults to "top". */
+  position?: "top" | "bottom";
 }
 
 /** Normalize an arbitrary / restored view-mode string to a valid tab. The
@@ -111,6 +117,7 @@ export default function SequenceTabBar({
   onChange,
   featureCount,
   primerCount,
+  position = "top",
 }: SequenceTabBarProps) {
   const tabs: TabDef[] = [
     { id: "map", label: "Map", hint: "Whole-molecule map view", Icon: IconMap },
@@ -124,7 +131,11 @@ export default function SequenceTabBar({
     <div
       role="tablist"
       aria-label="Sequence view"
-      className="flex shrink-0 items-stretch gap-0.5 border-t border-gray-200 bg-gray-50 px-1.5 py-0.5"
+      className={`flex shrink-0 items-stretch gap-0.5 bg-gray-50 px-1.5 ${
+        position === "top"
+          ? "border-b border-gray-200 pb-0 pt-0.5"
+          : "border-t border-gray-200 py-0.5"
+      }`}
     >
       {tabs.map((t) => {
         const selected = active === t.id;

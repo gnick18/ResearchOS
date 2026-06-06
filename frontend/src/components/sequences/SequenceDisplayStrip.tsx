@@ -1,29 +1,26 @@
 "use client";
 
-// sequence 2c-polish bot — the VIEW-CONTROL ICON RAIL. 2c shipped the view
-// controls as a collapsible "Display" checklist; this refines the PRESENTATION
-// into a compact icon rail of toggle buttons (the SnapGene left-edge
-// track-toolbar PATTERN Grant likes — our own custom inline-SVG icons, never
-// emoji). Each toggle = a small button + our icon + a <Tooltip> naming the
-// track, with a clear active / inactive visual state. The calm default is
-// preserved: this is a pure PRESENTATION refactor over the existing 2c
-// view-state + filtering logic, it adds no new filtering.
+// sequence editor master. The horizontal DISPLAY ("Show") strip (redesign
+// phase 2). This RETIRES the vertical ViewControlRail and relocates the same
+// "what is drawn" toggles into a thin pill-chip row that sits in the canvas
+// head, above the viewer, matching the v2 mockup's .display-strip. It is a pure
+// PRESENTATION relocation over the existing view-state booleans: each chip flips
+// the SAME SequenceViewState flag the old rail toggle did, and the parent
+// re-derives the SeqViz props exactly as before. No new filtering, no view-state
+// shape change.
+//
+// Chip states. Active (the layer is drawn) reads filled / sky; inactive reads as
+// a calm outline pill; a disabled chip (a toggle that is meaningless for the
+// current molecule, e.g. topology on a genuinely-linear sequence) dims and stops
+// responding. Inline-SVG icons or a tiny color swatch only (no emoji, no icon
+// library, per project convention); every chip is wrapped in the shared Tooltip.
 
 import { useEffect, useRef, useState } from "react";
 import Tooltip from "@/components/Tooltip";
 import { colorForType } from "@/lib/sequences/feature-colors";
 import type { SequenceViewState } from "./sequence-view-state";
 
-// ── icons (inline SVG only, no emoji / no icon library — project convention) ──
-function IconFeatures({ className }: { className?: string }) {
-  // tag / annotation
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
-      <line x1="7" y1="7" x2="7.01" y2="7" />
-    </svg>
-  );
-}
+// ── icons (inline SVG only, no emoji / no icon library) ───────────────────────
 function IconEnzymes({ className }: { className?: string }) {
   // scissors / cut site
   return (
@@ -54,15 +51,6 @@ function IconOrfs({ className }: { className?: string }) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
       <path d="M3 8h10l-3-3M3 8l3 3" />
       <path d="M21 16H11l3 3M21 16l-3-3" />
-    </svg>
-  );
-}
-function IconPrimers({ className }: { className?: string }) {
-  // short arrow over a baseline (primer binding)
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <line x1="3" y1="17" x2="21" y2="17" />
-      <path d="M6 11h9l-2.5-2.5M6 11l2.5 2.5" />
     </svg>
   );
 }
@@ -97,8 +85,7 @@ function IconLinear({ className }: { className?: string }) {
   );
 }
 function IconWrapped({ className }: { className?: string }) {
-  // wrap toggle bot — WRAPPED glyph: stacked rows (the sequence chunked into
-  // rows that scroll vertically). Three short stacked lines.
+  // WRAPPED glyph: stacked rows (sequence chunked into rows, vertical scroll)
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
       <line x1="4" y1="7" x2="20" y2="7" />
@@ -108,8 +95,7 @@ function IconWrapped({ className }: { className?: string }) {
   );
 }
 function IconSingleLine({ className }: { className?: string }) {
-  // wrap toggle bot — SINGLE-LINE glyph: one row with a left-right arrow
-  // (the whole sequence on one continuous line that scrolls horizontally).
+  // SINGLE-LINE glyph: one row with a left-right arrow (horizontal scroll)
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
       <line x1="3" y1="8" x2="21" y2="8" />
@@ -119,13 +105,11 @@ function IconSingleLine({ className }: { className?: string }) {
     </svg>
   );
 }
-// menu reorg bot — disclosure caret + eye glyphs for the relocated Feature-types
-// flyout (the per-type show/hide list moved back off the Features rail toggle as
-// a LABELED group, so the type rows stop reading like menu commands).
+// disclosure caret + eye glyphs for the per-feature-type show/hide flyout.
 function IconCaret({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <polyline points="9 6 15 12 9 18" />
+      <polyline points="6 9 12 15 18 9" />
     </svg>
   );
 }
@@ -146,23 +130,29 @@ function IconEyeOff({ className }: { className?: string }) {
   );
 }
 
-/** A single rail toggle: an icon button with an active / inactive state, wrapped
- *  in the shared Tooltip naming the track. */
-function RailToggle({
+/** A single display toggle chip. Active = filled / sky pill; inactive = calm
+ *  outline pill; disabled dims + stops responding. Wrapped in the shared Tooltip
+ *  naming the layer. Renders either a leading inline-SVG icon or a tiny color
+ *  swatch (the mockup's .sw) for the colored layers (Features / Primers). */
+function DisplayChip({
   active,
   onClick,
   label,
-  children,
+  tooltip,
   disabled,
+  icon,
+  swatch,
 }: {
   active: boolean;
   onClick: () => void;
   label: string;
-  children: React.ReactNode;
+  tooltip: string;
   disabled?: boolean;
+  icon?: React.ReactNode;
+  swatch?: string;
 }) {
   return (
-    <Tooltip label={label} placement="right">
+    <Tooltip label={tooltip}>
       <button
         type="button"
         role="switch"
@@ -170,34 +160,40 @@ function RailToggle({
         aria-label={label}
         onClick={onClick}
         disabled={disabled}
-        className={`flex h-8 w-8 items-center justify-center rounded-md border transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-meta font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
           active
-            ? "border-sky-200 bg-sky-50 text-sky-600"
-            : "border-transparent text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            ? "border-sky-200 bg-sky-100 text-sky-700 dark:border-sky-800 dark:bg-sky-900/40 dark:text-sky-300"
+            : "border-border bg-surface text-foreground hover:bg-surface-sunken"
         }`}
       >
-        {children}
+        {swatch ? (
+          <span
+            className="h-2.5 w-2.5 shrink-0 rounded-sm ring-1 ring-black/10"
+            style={{ backgroundColor: swatch }}
+            aria-hidden="true"
+          />
+        ) : null}
+        {icon ? <span className="shrink-0" aria-hidden="true">{icon}</span> : null}
+        <span>{label}</span>
       </button>
     </Tooltip>
   );
 }
 
-export interface ViewControlRailProps {
+export interface SequenceDisplayStripProps {
   view: SequenceViewState;
   onViewChange: (next: SequenceViewState) => void;
   /** When the molecule isn't a plasmid the topology toggle is meaningless. */
   circular: boolean;
   /** The distinct feature types present (lowercase keys), for the per-type
-   *  show/hide flyout off the Features toggle. Empty hides the caret. */
+   *  show/hide flyout off the Features chip. Empty hides the caret. */
   featureTypes: string[];
 }
 
-/** menu reorg bot — the per-type show/hide FLYOUT, anchored off the Features
- *  rail toggle. A LABELED "Feature types" group with one eye toggle per present
- *  type; flipping a row toggles that type's membership in `view.hiddenTypes`
- *  (the existing annotation filtering does the rest). This restores the
- *  pre-consolidation rail pattern, now with a clear header so the type rows read
- *  as a visibility panel, not as menu commands. */
+/** The per-type show/hide FLYOUT, anchored off the Features chip. A labeled
+ *  "Feature types" group with one eye toggle per present type; flipping a row
+ *  toggles that type's membership in `view.hiddenTypes` (the existing annotation
+ *  filtering does the rest). Behavior is preserved 1:1 from the old rail. */
 function FeatureTypesFlyout({
   view,
   featureTypes,
@@ -232,13 +228,13 @@ function FeatureTypesFlyout({
       ref={ref}
       role="dialog"
       aria-label="Show or hide feature types"
-      className="absolute left-10 top-0 z-30 w-56 rounded-lg border border-gray-200 bg-white p-2 shadow-lg"
+      className="absolute left-0 top-full z-30 mt-1 w-56 rounded-lg border border-border bg-surface p-2 shadow-lg"
     >
-      <p className="px-1 pb-1 text-meta font-semibold uppercase tracking-wide text-gray-400">
+      <p className="px-1 pb-1 text-meta font-semibold uppercase tracking-wide text-foreground-muted">
         Feature types
       </p>
       {featureTypes.length === 0 ? (
-        <p className="px-1 py-2 text-meta text-gray-400">No features to show.</p>
+        <p className="px-1 py-2 text-meta text-foreground-muted">No features to show.</p>
       ) : (
         <ul className="max-h-[50vh] space-y-0.5 overflow-y-auto">
           {featureTypes.map((k) => {
@@ -248,18 +244,18 @@ function FeatureTypesFlyout({
                 <button
                   type="button"
                   onClick={() => onToggleType(k)}
-                  className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left hover:bg-gray-50"
+                  className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left hover:bg-surface-sunken"
                   aria-pressed={!hidden}
                 >
                   <span
                     className="h-3 w-3 shrink-0 rounded-sm ring-1 ring-black/10"
                     style={{ backgroundColor: colorForType(k) }}
                   />
-                  <span className={`flex-1 truncate text-body ${hidden ? "text-gray-400 line-through" : "text-gray-700"}`}>
+                  <span className={`flex-1 truncate text-body ${hidden ? "text-foreground-muted line-through" : "text-foreground"}`}>
                     {k}
                   </span>
                   {hidden ? (
-                    <IconEyeOff className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                    <IconEyeOff className="h-3.5 w-3.5 shrink-0 text-foreground-muted" />
                   ) : (
                     <IconEye className="h-3.5 w-3.5 shrink-0 text-sky-600" />
                   )}
@@ -273,64 +269,86 @@ function FeatureTypesFlyout({
   );
 }
 
-/** The compact vertical icon rail of view-control toggles. Reuses the 2c
- *  view-state booleans 1:1 — toggling a button just flips the corresponding
- *  flag, and the parent re-derives the SeqViz props exactly as before. Each
- *  button is a bare one-click layer on / off. The Features toggle carries a
- *  disclosure caret that opens a LABELED per-feature-type show/hide flyout
- *  (menu reorg bot); the enzyme picker lives in the toolbar's Enzyme dropdown. */
-export default function ViewControlRail({
+/** The horizontal display ("Show") strip. A tiny uppercase "Show" label, then
+ *  one pill chip per existing display toggle, each flipping the SAME view flag it
+ *  did on the old rail. The Features chip carries a disclosure caret that opens
+ *  the labeled per-feature-type show/hide flyout, plus an amber dot when some
+ *  types are hidden. The topology + wrap chips disable for the molecule states
+ *  where they are meaningless, exactly as the rail did. */
+export default function SequenceDisplayStrip({
   view,
   onViewChange,
   circular,
   featureTypes,
-}: ViewControlRailProps) {
+}: SequenceDisplayStripProps) {
   const set = (patch: Partial<SequenceViewState>) => onViewChange({ ...view, ...patch });
   const [typesOpen, setTypesOpen] = useState(false);
 
   const toggleType = (k: string) =>
     set({ hiddenTypes: { ...view.hiddenTypes, [k]: !view.hiddenTypes[k] } });
 
-  // How many types are currently hidden (drives a small "filtered" affordance
-  // on the Features toggle so a non-default visibility state is visible).
+  // How many types are currently hidden (drives a small "filtered" affordance on
+  // the Features chip so a non-default visibility state is visible).
   const hiddenCount = featureTypes.filter((k) => view.hiddenTypes[k]).length;
 
-  // wrap toggle bot — the linear viewer is shown when the molecule is linear, or
-  // when a circular molecule is forced linear. The wrap toggle is linear-only.
+  // The linear viewer is shown when the molecule is linear, or when a circular
+  // molecule is forced linear. The wrap toggle is linear-only.
   const linearShown = !circular || view.forceLinear;
+  const topologyCircular = circular && !view.forceLinear;
 
   return (
     <div
-      className="flex w-11 shrink-0 flex-col items-center gap-1 border-r border-gray-100 bg-white py-2"
+      className="flex flex-wrap items-center gap-2 border-t border-border bg-surface-sunken px-3.5 py-1.5"
       role="group"
-      aria-label="View controls"
+      aria-label="Display"
     >
-      {/* menu reorg bot — FEATURES toggle + per-type show/hide flyout. The
-          master button flips the whole annotation layer; the caret below opens
-          the labeled "Feature types" flyout. An amber dot marks a non-default
-          (some-types-hidden) state. */}
-      <div className="relative flex flex-col items-center">
-        <div className="relative">
-          <RailToggle label="Features" active={view.showFeatures} onClick={() => set({ showFeatures: !view.showFeatures })}>
-            <IconFeatures className="h-4 w-4" />
-          </RailToggle>
-          {hiddenCount > 0 ? (
+      <span className="text-meta font-bold uppercase tracking-wide text-foreground-muted">Show</span>
+
+      {/* FEATURES chip + per-type show/hide flyout. The chip flips the whole
+          annotation layer; the caret opens the labeled "Feature types" flyout.
+          An amber dot marks a non-default (some-types-hidden) state. */}
+      <div className="relative inline-flex items-center">
+        <Tooltip label="Show or hide feature annotations">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={view.showFeatures}
+            aria-label="Features"
+            onClick={() => set({ showFeatures: !view.showFeatures })}
+            className={`relative inline-flex items-center gap-1.5 rounded-l-full border py-1 pl-2.5 pr-2 text-meta font-semibold transition-colors ${
+              view.showFeatures
+                ? "border-sky-200 bg-sky-100 text-sky-700 dark:border-sky-800 dark:bg-sky-900/40 dark:text-sky-300"
+                : "border-border bg-surface text-foreground hover:bg-surface-sunken"
+            }`}
+          >
             <span
-              className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-white"
+              className="h-2.5 w-2.5 shrink-0 rounded-sm ring-1 ring-black/10"
+              style={{ backgroundColor: colorForType("misc_feature") }}
               aria-hidden="true"
             />
-          ) : null}
-        </div>
-        <Tooltip label="Show or hide feature types" placement="right">
+            <span>Features</span>
+            {hiddenCount > 0 ? (
+              <span
+                className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-surface"
+                aria-hidden="true"
+              />
+            ) : null}
+          </button>
+        </Tooltip>
+        <Tooltip label="Show or hide feature types">
           <button
             type="button"
             onClick={() => setTypesOpen((o) => !o)}
             aria-haspopup="dialog"
             aria-expanded={typesOpen}
             aria-label="Show or hide feature types"
-            disabled={!view.showFeatures}
-            className={`mt-0.5 flex h-4 w-8 items-center justify-center rounded transition-colors disabled:cursor-not-allowed disabled:opacity-30 ${
-              typesOpen ? "bg-sky-50 text-sky-600" : "text-gray-300 hover:bg-gray-100 hover:text-gray-500"
+            disabled={!view.showFeatures || featureTypes.length === 0}
+            className={`inline-flex items-center justify-center rounded-r-full border border-l-0 py-1 pl-1 pr-2 transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+              typesOpen
+                ? "border-sky-200 bg-sky-100 text-sky-700 dark:border-sky-800 dark:bg-sky-900/40 dark:text-sky-300"
+                : view.showFeatures
+                  ? "border-sky-200 bg-sky-100 text-sky-600 hover:text-sky-700 dark:border-sky-800 dark:bg-sky-900/40"
+                  : "border-border bg-surface text-foreground-muted hover:bg-surface-sunken"
             }`}
           >
             <IconCaret className="h-3 w-3" />
@@ -345,56 +363,67 @@ export default function ViewControlRail({
           />
         ) : null}
       </div>
-      <RailToggle label="Restriction sites" active={view.showEnzymes} onClick={() => set({ showEnzymes: !view.showEnzymes })}>
-        <IconEnzymes className="h-4 w-4" />
-      </RailToggle>
-      <RailToggle label="Translation (CDS)" active={view.showTranslation} onClick={() => set({ showTranslation: !view.showTranslation })}>
-        <IconTranslation className="h-4 w-4" />
-      </RailToggle>
-      <RailToggle
-        label="Open reading frames: highlight ATG-to-stop runs (>=30 aa, both strands) that could be genes in unannotated DNA."
+
+      <DisplayChip
+        label="Primers"
+        tooltip="Show or hide primer-binding annotations"
+        active={view.showPrimers}
+        onClick={() => set({ showPrimers: !view.showPrimers })}
+        swatch="#0284c7"
+      />
+      <DisplayChip
+        label="Enzyme sites"
+        tooltip="Show or hide restriction-enzyme cut sites"
+        active={view.showEnzymes}
+        onClick={() => set({ showEnzymes: !view.showEnzymes })}
+        icon={<IconEnzymes className="h-3.5 w-3.5" />}
+      />
+      <DisplayChip
+        label="Translation"
+        tooltip="Show or hide the amino-acid translation of CDS features"
+        active={view.showTranslation}
+        onClick={() => set({ showTranslation: !view.showTranslation })}
+        icon={<IconTranslation className="h-3.5 w-3.5" />}
+      />
+      <DisplayChip
+        label="Open reading frames"
+        tooltip="Open reading frames. Highlight ATG-to-stop runs (over 30 aa, both strands) that could be genes in unannotated DNA."
         active={view.showOrfs}
         onClick={() => set({ showOrfs: !view.showOrfs })}
-      >
-        <IconOrfs className="h-4 w-4" />
-      </RailToggle>
-      <RailToggle label="Primers" active={view.showPrimers} onClick={() => set({ showPrimers: !view.showPrimers })}>
-        <IconPrimers className="h-4 w-4" />
-      </RailToggle>
+        icon={<IconOrfs className="h-3.5 w-3.5" />}
+      />
+      <DisplayChip
+        label="Ruler / index"
+        tooltip="Show or hide the ruler / index row"
+        active={view.showIndex}
+        onClick={() => set({ showIndex: !view.showIndex })}
+        icon={<IconRuler className="h-3.5 w-3.5" />}
+      />
 
-      <div className="my-1 h-px w-6 bg-gray-100" />
+      <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
 
-      <RailToggle label="Ruler / index" active={view.showIndex} onClick={() => set({ showIndex: !view.showIndex })}>
-        <IconRuler className="h-4 w-4" />
-      </RailToggle>
-      <RailToggle
-        label={
+      <DisplayChip
+        label={topologyCircular ? "Circular" : "Linear"}
+        tooltip={
           !circular
             ? "Linear molecule"
             : view.forceLinear
               ? "Show as circular"
               : "Show as linear"
         }
-        active={circular && !view.forceLinear}
+        active={topologyCircular}
         disabled={!circular}
         onClick={() => set({ forceLinear: !view.forceLinear })}
-      >
-        {circular && !view.forceLinear ? <IconCircular className="h-4 w-4" /> : <IconLinear className="h-4 w-4" />}
-      </RailToggle>
-
-      {/* wrap toggle bot — WRAP MODE for the linear Sequence view: WRAPPED
-          (stacked rows, vertical scroll) vs SINGLE-LINE (one continuous row,
-          horizontal scroll). One button that flips between the two states; its
-          icon + tooltip name the mode it will switch TO. Disabled while a
-          circular molecule is shown as a ring (the toggle is linear-only). */}
-      <RailToggle
-        label={view.wrapSequence ? "Single-line view" : "Wrapped view"}
+        icon={topologyCircular ? <IconCircular className="h-3.5 w-3.5" /> : <IconLinear className="h-3.5 w-3.5" />}
+      />
+      <DisplayChip
+        label={view.wrapSequence ? "Wrapped" : "Single line"}
+        tooltip={view.wrapSequence ? "Switch to a single continuous line" : "Switch to wrapped rows"}
         active={!view.wrapSequence}
-        disabled={linearShown ? false : true}
+        disabled={!linearShown}
         onClick={() => set({ wrapSequence: !view.wrapSequence })}
-      >
-        {view.wrapSequence ? <IconSingleLine className="h-4 w-4" /> : <IconWrapped className="h-4 w-4" />}
-      </RailToggle>
+        icon={view.wrapSequence ? <IconWrapped className="h-3.5 w-3.5" /> : <IconSingleLine className="h-3.5 w-3.5" />}
+      />
     </div>
   );
 }

@@ -98,7 +98,7 @@ import SequenceConfirmDialog, {
   type SequenceConfirmRequest,
 } from "./SequenceConfirmDialog";
 import FeaturesPanel from "./FeaturesPanel";
-import ViewControlRail from "./ViewControlRail";
+import SequenceDisplayStrip from "./SequenceDisplayStrip";
 import FeatureEditorDialog, {
   type FeatureEditorRequest,
 } from "./FeatureEditorDialog";
@@ -316,7 +316,7 @@ function IconPrimer({ className }: { className?: string }) {
   );
 }
 // top menus consolidation bot — scissors glyph for the new "Enzyme" toolbar
-// dropdown. Mirrors the IconEnzymes cut-site icon in ViewControlRail.
+// dropdown. Mirrors the IconEnzymes cut-site icon in SequenceDisplayStrip.
 function IconScissors({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
@@ -665,11 +665,11 @@ export default function SequenceEditView({
   );
   // seq nav bot — the SnapGene BOTTOM-TAB view switcher. `viewMode` is the
   // primary "which view" state (Map / Sequence / Features / Primers /
-  // History). Restriction enzymes are a rail LAYER, not a tab. The Map +
+  // History). Restriction enzymes are a display LAYER, not a tab. The Map +
   // Sequence tabs render the SeqViz viewer (Map = a
   // zoomed-out feature map, Sequence = base-level detail); the rest render their
-  // panels in the main content area. This is orthogonal to the left
-  // ViewControlRail (which toggles WHAT is drawn on the map).
+  // panels in the main content area. This is orthogonal to the horizontal
+  // SequenceDisplayStrip (which toggles WHAT is drawn on the map).
   const [viewMode, setViewMode] = useState<SequenceViewMode>(initialViewMode ?? "sequence");
   const [featureEditor, setFeatureEditor] = useState<FeatureEditorRequest | null>(null);
   // annotate-from-reference bot — homology-based "transfer features from a
@@ -4001,18 +4001,34 @@ export default function SequenceEditView({
         onExploreInTree={onExploreInTree}
       />
 
-      {/* Icon rail + tab content. The left ViewControlRail (layer toggles) stays
-          visible for the Map + Sequence views; the other tabs render their own
-          panel in the main content area. */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      {/* sequence editor master (redesign phase 2). The CANVAS HEAD. The primary
+          view tabs sit at the TOP of the canvas, and the horizontal display
+          ("Show") strip sits directly beneath them. The strip relocates every
+          "what is drawn" toggle off the retired vertical view-control rail; it is
+          shown only for the Map + Sequence viewer tabs (same gate the rail used),
+          so its chips are never dead on the Features / Primers / History panels.
+          On those panels the head is just the tab row. */}
+      <div className="shrink-0">
+        <SequenceTabBar
+          active={viewMode}
+          onChange={setViewMode}
+          featureCount={doc.features.length}
+          primerCount={primerCount}
+          position="top"
+        />
         {showViewer ? (
-          <ViewControlRail
+          <SequenceDisplayStrip
             view={view}
             onViewChange={setView}
             circular={doc.circular}
             featureTypes={featureTypes}
           />
         ) : null}
+      </div>
+
+      {/* Tab content. The vertical ViewControlRail is retired; its toggles now
+          live in the horizontal display strip above. */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {/* seq nav bot — Map + Sequence: the SeqViz viewer + the persistent top
               overview strip (linear) + the bottom coordinate / zoom cluster. The
@@ -4476,16 +4492,11 @@ export default function SequenceEditView({
         <SelectionReadoutContent readout={readout} />
       </div>
 
-      {/* seq nav bot — the SnapGene-style BOTTOM TAB BAR (always visible): the
-          primary Map / Sequence / Features / Primers / History switch. Restriction
-          enzymes are a rail LAYER (the "Restriction sites" toggle + its picker
-          flyout), not a tab. */}
-      <SequenceTabBar
-        active={viewMode}
-        onChange={setViewMode}
-        featureCount={doc.features.length}
-        primerCount={primerCount}
-      />
+      {/* sequence editor master (redesign phase 2). The primary Map / Sequence /
+          Features / Primers / History switch is now anchored at the TOP of the
+          canvas (see the canvas head above), so there is no bottom tab bar.
+          Restriction enzymes are a display LAYER (the "Enzyme sites" chip in the
+          display strip + the toolbar's Enzyme picker), not a tab. */}
 
       {/* Confirmation dialog for Cut / chunk-delete / Paste / feature delete. */}
       <SequenceConfirmDialog request={confirm} />
