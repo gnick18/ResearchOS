@@ -6,6 +6,7 @@ import { signIn, signOut } from "next-auth/react";
 import { usersApi } from "@/lib/local-api";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { hasPassword, verifyPassword, setPassword } from "@/lib/auth/password";
+import { folderRequiresLogin } from "@/lib/auth/login-policy";
 import { performUserDelete } from "@/lib/users/perform-delete";
 import { readUserSettings } from "@/lib/settings/user-settings";
 import { readArchivedSet } from "@/lib/lab/user-archive";
@@ -476,27 +477,26 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         setPasswordInput("");
         return;
       }
-      // No password on disk. Lab heads MUST have one (pi-password bot,
-      // 2026-06-02): force them to set it now before signing in. The
-      // `labHeadUsers` set is the fast path, but it loads async after
-      // the user list — a click before the fan-out settles could miss
-      // it. So we ALSO read this user's settings directly here to make
-      // the lab_head determination authoritative at click time. Members
-      // + solo accounts skip this and log in directly (optional-password
-      // behavior unchanged).
+      // No password on disk. Identity model phase 1, a login is mandatory once a
+      // folder is shared (two or more users) or a lab head is present, so force
+      // setting a password before signing in. A genuinely solo folder keeps the
+      // optional-password behavior and logs in directly. The `labHeadUsers` set
+      // loads async after the user list, so a click before the fan-out settles
+      // could miss a PI, we ALSO read this user's settings directly to make the
+      // lab_head determination authoritative at click time. The user count is
+      // already known synchronously from the loaded list.
       let isLabHead = labHeadUsers.has(username);
       if (!isLabHead) {
         try {
           const settings = await readUserSettings(username);
           isLabHead = settings.account_type === "lab_head";
         } catch {
-          // Settings read failed — fall back to the fast-path value
-          // (false here). Better to let a probable non-PI log in than to
-          // block on a transient FS error; a real PI will already be in
-          // labHeadUsers once the screen settles.
+          // Settings read failed — fall back to the fast-path value (false). A
+          // real PI is already in labHeadUsers once the screen settles, and a
+          // shared folder still forces via the user-count branch.
         }
       }
-      if (isLabHead) {
+      if (folderRequiresLogin(users.length, isLabHead || labHeadUsers.size > 0)) {
         setForcePasswordGate({ username });
         setForceNewPassword("");
         setForceConfirmPassword("");
@@ -1632,11 +1632,11 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           >
             <div className="px-6 py-4 border-b border-white/10">
               <h3 className="text-title font-semibold text-white">
-                Set a PI password
+                Set a password for {forcePasswordGate.username}
               </h3>
               <p className="text-meta text-slate-400 mt-0.5">
-                {forcePasswordGate.username} runs a lab, so a password is
-                required to sign in.
+                This folder is shared, so each account needs a password to sign
+                in.
               </p>
             </div>
             <div className="px-6 py-5 space-y-3">
