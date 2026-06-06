@@ -72,6 +72,98 @@ Three stable regions, each with one meaning:
   NCBI), a slim intent-grouped menu (or just the rail + palette), and the Cmd-K
   COMMAND PALETTE entry.
 
+## The right panel in depth (the operations rail + inspector)
+
+Grant liked the right panel most, so here is the full spec. It has TWO parts that
+work together: a thin always-visible RAIL of operation icons, and the INSPECTOR
+panel they open.
+
+### Anatomy + sizing
+- RAIL: a ~56px vertical strip on the far right edge, always visible. Each item is
+  an icon + a tiny label. Grouped by intent with thin dividers:
+  - DESIGN (do at the bench): Primers, Cloning, Cut (restriction), Annotate.
+  - ANALYZE (learn about it): Align, Protein, Tree of Life.
+  - then a divider, Export.
+  - a "More" item at the bottom opens the long tail + the same set Cmd-K searches.
+- INSPECTOR: a ~320 to 360px panel to the left of the rail, holding the active
+  operation. Collapsible (click the active icon again to collapse to just the rail,
+  reclaiming canvas width); a selection re-opens it automatically (Figma rule). The
+  width is user-draggable and remembered.
+
+### The rail items (what each does)
+- Each icon is an operation CATEGORY, not a single action (Geneious model). Clicking
+  opens its inspector panel with the configure-and-run UI for that category.
+- BADGES signal state without opening: e.g. the Tree icon shows an amber dot when
+  the open sequence already has an organism; Cut could show the count of unique
+  cutters; Primers a count of designed primers. Badges turn the rail into a glance
+  dashboard.
+- Tooltips on every icon (we standardize on the Tooltip component), so the rail is
+  never a guessing game.
+- The rail is CUSTOMIZABLE: right-click an icon to pin / unpin / reorder, so a user
+  who never clones can drop Cloning off their rail and it falls to "More" + Cmd-K.
+  Default rail = the marquee 7; everything else lives in More.
+
+### The inspector is CONTEXTUAL (the unburial)
+The inspector header carries a "context bar" naming what the operation will act on,
+and the body adapts to the current selection:
+- NOTHING SELECTED: the panel shows the operation at the WHOLE-SEQUENCE scope plus a
+  calm cue ("Select a region to design primers here"), so the capability still
+  teaches itself in the working state (no blank panel).
+- A REGION / BASE SELECTION: the panel scopes to the selection (design primers here,
+  create feature from selection, translate this, restriction sites within selection,
+  copy as FASTA). A live Tm / GC / length readout updates as the selection changes.
+- A FEATURE SELECTED: the panel scopes to that feature. Type-aware: a CDS surfaces
+  Translate / Protein properties / Find domains; a primer surfaces Edit / Copy /
+  Tm / specificity; any feature surfaces recolor / rename / edit. (This mirrors the
+  smart right-click we already built, now also as a visible panel.)
+- AN ORGANISM / LINEAGE present: the Tree panel shows the lineage chip + Explore in
+  tree / Look up / Enrich.
+Even when the inspector is collapsed, selecting an object pops open the panel most
+relevant to it (and we can auto-select the matching rail icon).
+
+### Per-operation panel contents
+- PRIMERS: design from selection or a typed region (purpose dropdown: standard /
+  mutagenesis / sequencing), live Tm/GC/length, "Design forward + reverse," "Check
+  specificity," and a list of the sequence's existing primers (each with Tm, click
+  to select on the map).
+- CLONING: the four chemistries (Gibson / restriction+ligation / Golden Gate /
+  Gateway) as cards; picking one opens the fragment-and-overhang flow we already
+  have.
+- CUT (restriction): an enzyme list with the ApE-style "filter to enzymes that cut
+  N times" control and per-enzyme site counts; "Run a digest" produces a virtual gel
+  artifact.
+- ALIGN: pick a reference + algorithm (pairwise / MUSCLE); result lands as a saved
+  artifact in History, not a throwaway popup.
+- PROTEIN: on a CDS, Translate to protein, Protein properties (length / mass / pI /
+  composition, live-updating), Find domains (the on-device HMMER scan, Pfam + BYO
+  db). The domain hits render as a track on the map and persist.
+- TREE OF LIFE: the organism lineage, Explore in the tree (centered on this
+  organism, branch highlighted), Look up an organism, Enrich from NCBI. A small
+  inline tree preview is possible later.
+- ANNOTATE: Detect common features (bundled DB), Annotate from a reference, Add
+  feature from selection.
+- EXPORT: GenBank / FASTA (DNA or protein) / map image (SVG, PNG) / send map to a
+  note.
+
+### Results are artifacts, not popups
+Operations that PRODUCE something (an alignment, a tree, a domain scan, a digest
+gel) save a result artifact that lands in the History tab / a results shelf, with
+lineage, revisitable and versioned (pairs with our Loro/version-control backbone).
+This is the Geneious "result drops back into the browser" loop and it makes analysis
+feel first-class instead of ephemeral.
+
+### How the right panel relates to the other surfaces
+- RAIL / INSPECTOR = run an operation, produce a result (the persistent home).
+- DISPLAY STRIP (on the canvas) = toggle what is DRAWN (features, primers, enzyme
+  sites, translation, linear vs circular). Never mixed with operations.
+- RIGHT-CLICK MENU = the object-scoped ACCELERATOR that duplicates inspector actions
+  for the clicked object (kept, with a hover signifier).
+- Cmd-K = fast keyboard retrieval of ANY operation (incl. the long tail off the
+  rail), biased by the current selection.
+The same action is reachable up to three ways (rail/inspector for discovery,
+right-click for speed on an object, Cmd-K for keyboard) so newcomers and power users
+are both served.
+
 ## Menu reorganization (intent over mechanism)
 
 Replace the junk-drawer "Analyze" with the rail above, and split the remaining menus

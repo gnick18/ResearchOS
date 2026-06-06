@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS sequences redesign — v2 (right panel fleshed out)</title>
+<style>
+  :root{
+    --sky:#0284c7;--sky-600:#0369a1;--sky-50:#eff6ff;--sky-100:#e0f2fe;
+    --ink:#0f1b2e;--slate:#475569;--muted:#64748b;--faint:#94a3b8;
+    --line:#e2e8f0;--line2:#dce6f3;--tint:#f4f8fd;--tint2:#eef4fb;
+    --amber:#f59e0b;--green:#16a34a;--violet:#8b5cf6;--pink:#ec4899;--bg:#f1f5f9;
+  }
+  *{box-sizing:border-box}html,body{margin:0;height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;color:var(--ink);background:var(--bg);font-size:13px;line-height:1.45}
+  button{font:inherit;cursor:pointer}
+  .app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+  .topbar{display:flex;align-items:center;gap:14px;padding:8px 14px;background:#fff;border-bottom:1px solid var(--line);flex:0 0 auto}
+  .brand{display:flex;align-items:center;gap:8px;font-weight:800}.brand .dot{width:22px;height:22px;border-radius:7px;background:linear-gradient(135deg,#7dd3fc,#38bdf8)}
+  .tg{display:flex;gap:6px;margin-left:6px}.tg button{border:1px solid var(--line);background:#fff;color:var(--slate);padding:6px 10px;border-radius:8px;font-weight:600}
+  .tg button.primary{background:var(--sky);border-color:var(--sky);color:#fff}.tg button:hover{background:var(--tint)}
+  .spacer{flex:1}
+  .cmdk{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--tint);color:var(--muted);padding:6px 10px;border-radius:9px;min-width:230px}
+  .cmdk kbd{margin-left:auto;background:#fff;border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:11px;color:var(--slate)}
+  .notes-toggle{border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 10px;color:var(--slate);font-weight:600}
+
+  .cols{display:flex;flex:1;min-height:0}
+  .library{flex:0 0 264px;background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  .canvas{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--tint)}
+  .toolside{display:flex;min-height:0}
+
+  .lib-head{padding:12px 14px 4px}.lib-head h2{margin:0;font-size:15px}.lib-head p{margin:4px 0 0;color:var(--muted);font-size:12px}
+  .lib-create{display:flex;flex-wrap:wrap;gap:6px;padding:8px 14px}.lib-create button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 9px;color:var(--slate);font-weight:600}.lib-create button.primary{background:var(--sky);border-color:var(--sky);color:#fff}
+  .lib-search{margin:6px 14px;border:1px solid var(--line);border-radius:9px;padding:7px 10px;color:var(--muted);background:var(--tint)}
+  .seqlist{overflow:auto;flex:1;border-top:1px solid var(--line)}
+  .seqrow{display:flex;gap:9px;align-items:flex-start;padding:9px 14px;border-bottom:1px solid #f1f5f9}
+  .seqrow:hover{background:var(--tint)}.seqrow.sel{background:var(--sky-50);box-shadow:inset 3px 0 0 var(--sky)}
+  .seqrow .ic{width:13px;height:13px;border:1.6px solid var(--faint);border-radius:50%;margin-top:2px;flex:0 0 auto}.seqrow.sel .ic{border-color:var(--sky)}
+  .seqrow .nm{font-weight:600}.seqrow .mt{color:var(--muted);font-size:11px;margin-top:1px}
+
+  .canvas-head{background:#fff;border-bottom:1px solid var(--line)}
+  .seq-title{display:flex;align-items:center;gap:10px;padding:10px 16px 6px}.seq-title h3{margin:0;font-size:15px}.seq-title .meta{color:var(--muted);font-size:12px}
+  .tabs{display:flex;gap:2px;padding:0 12px}
+  .tabs button{border:0;background:transparent;color:var(--muted);padding:8px 12px;font-weight:600;border-bottom:2px solid transparent}
+  .tabs button.on{color:var(--sky-600);border-bottom-color:var(--sky)}.tabs button:hover{color:var(--slate)}
+  .display-strip{display:flex;align-items:center;gap:8px;padding:7px 14px;border-top:1px solid #f1f5f9;background:var(--tint2);flex-wrap:wrap}
+  .display-strip .lbl{font-size:10px;font-weight:800;letter-spacing:.05em;color:var(--faint);text-transform:uppercase}
+  .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line2);background:#fff;border-radius:999px;padding:4px 10px;color:var(--slate);font-weight:600;font-size:12px}
+  .chip.on{background:var(--sky-100);border-color:#bae6fd;color:var(--sky-600)}.chip .sw{width:9px;height:9px;border-radius:3px}
+
+  /* selection simulator */
+  .selsim{display:flex;align-items:center;gap:8px;padding:7px 14px;background:#fffdf5;border-top:1px solid #fde68a}
+  .selsim .lbl{font-size:10px;font-weight:800;letter-spacing:.05em;color:#b45309;text-transform:uppercase}
+  .selsim .seg{display:flex;border:1px solid #fcd34d;border-radius:8px;overflow:hidden}
+  .selsim .seg button{border:0;background:#fff;color:#92400e;padding:5px 11px;font-weight:600;border-right:1px solid #fde68a}
+  .selsim .seg button:last-child{border-right:0}.selsim .seg button.on{background:var(--amber);color:#fff}
+  .selsim .hint{color:#b45309;font-size:11px}
+
+  .canvas-body{flex:1;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+  .map-hint{position:absolute;left:14px;top:12px;font-size:11px;color:var(--muted);background:#fff;border:1px solid var(--line);border-radius:8px;padding:4px 8px}
+  .plasmid{filter:drop-shadow(0 12px 30px rgba(15,40,80,.10))}
+  .selpill{position:absolute;background:#fff;border:1px solid var(--amber);color:#92400e;border-radius:999px;padding:3px 9px;font-weight:600;font-size:11px;box-shadow:0 4px 14px rgba(0,0,0,.08);display:none}
+
+  /* rail */
+  .opsrail{flex:0 0 60px;background:#fff;border-left:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:6px 0;gap:2px;overflow:auto}
+  .grouplbl{font-size:8px;font-weight:800;letter-spacing:.04em;color:var(--faint);text-transform:uppercase;margin:6px 0 2px}
+  .opbtn{width:48px;height:46px;border-radius:11px;border:1px solid transparent;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--slate);position:relative}
+  .opbtn svg{width:19px;height:19px}.opbtn .t{font-size:8px;font-weight:700}
+  .opbtn:hover{background:var(--tint)}.opbtn.on{background:var(--sky-100);color:var(--sky-600);border-color:#bae6fd}
+  .opbtn .badge{position:absolute;top:4px;right:7px;min-width:13px;height:13px;border-radius:7px;background:var(--amber);color:#fff;font-size:8px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 3px}
+  .opsrail .sep{width:30px;height:1px;background:var(--line);margin:4px 0}
+
+  .inspector{flex:0 0 348px;background:#fff;border-left:1px solid var(--line);display:flex;flex-direction:column;min-width:0}
+  .insp-head{display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--line)}
+  .insp-head .ico{width:28px;height:28px;border-radius:8px;background:var(--sky-100);color:var(--sky-600);display:flex;align-items:center;justify-content:center;font-size:15px}
+  .insp-head h4{margin:0;font-size:14px}.insp-head .sub{color:var(--muted);font-size:11px;margin-top:1px}
+  .insp-head .x{margin-left:auto;border:0;background:transparent;color:var(--faint);font-size:16px}
+  .ctxbar{padding:8px 14px;font-weight:600;font-size:12px;display:flex;align-items:center;gap:8px}
+  .ctxbar.sel{background:#fffbeb;border-bottom:1px solid #fde68a;color:#92400e}
+  .ctxbar.none{background:var(--tint);border-bottom:1px solid var(--line);color:var(--muted)}
+  .insp-body{padding:14px;overflow:auto;flex:1}
+  .insp-body h5{margin:0 0 8px;font-size:11px;font-weight:800;letter-spacing:.05em;color:var(--faint);text-transform:uppercase}
+  .field{margin-bottom:11px}.field label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600}
+  .field input,.field select{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 9px;color:var(--ink);background:#fff}
+  .run{width:100%;background:var(--sky);color:#fff;border:0;border-radius:9px;padding:9px;font-weight:700;margin-top:2px}
+  .run.ghost{background:#fff;border:1px solid var(--line);color:var(--slate)}
+  .tool-list{display:flex;flex-direction:column;gap:6px}
+  .tool-list button{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:#fff;border-radius:9px;padding:9px 10px;text-align:left;color:var(--ink);font-weight:600}
+  .tool-list button:hover{background:var(--tint);border-color:var(--line2)}
+  .tool-list .d{color:var(--muted);font-weight:500;font-size:11px;margin-top:1px}
+  .tool-list .tic{width:24px;height:24px;flex:0 0 auto;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px}
+  .empty-cue{border:1px dashed var(--line2);border-radius:10px;padding:13px;color:var(--muted);background:var(--tint);text-align:center}.empty-cue b{color:var(--slate)}
+  .readout{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .readout .r{background:var(--tint);border:1px solid var(--line2);border-radius:9px;padding:7px 11px;min-width:70px}
+  .readout .r .k{font-size:10px;color:var(--faint);font-weight:700;text-transform:uppercase}.readout .r .v{font-size:15px;font-weight:700}
+  .listrow{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:8px;padding:7px 9px;margin-bottom:6px}
+  .listrow .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--slate)}
+  .listrow .pin{margin-left:auto;font-size:11px;color:var(--muted)}
+  .lineage{display:flex;flex-wrap:wrap;gap:5px;align-items:center;font-size:12px;color:var(--slate);margin-bottom:10px}
+  .lineage .n{background:var(--tint);border:1px solid var(--line2);border-radius:7px;padding:3px 7px}.lineage .arr{color:var(--faint)}
+  .artifact{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:8px;background:#fff}
+  .artifact .ai{width:30px;height:30px;border-radius:8px;background:var(--tint);display:flex;align-items:center;justify-content:center}
+  .artifact .when{margin-left:auto;color:var(--faint);font-size:11px}
+
+  .scrim{position:fixed;inset:0;background:rgba(15,23,42,.35);backdrop-filter:blur(2px);display:none;align-items:flex-start;justify-content:center;z-index:50}.scrim.show{display:flex}
+  .palette{margin-top:11vh;width:560px;max-width:92vw;background:#fff;border-radius:14px;box-shadow:0 30px 80px rgba(15,40,80,.30);overflow:hidden}
+  .palette .pin{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}.palette .pin input{flex:1;border:0;outline:0;font-size:16px}
+  .palette .grp{padding:8px 16px 4px;font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--faint);text-transform:uppercase}
+  .palette .cmd{display:flex;align-items:center;gap:11px;padding:9px 16px}.palette .cmd.hl{background:var(--sky-50)}
+  .palette .cmd .ci{width:24px;height:24px;border-radius:7px;background:var(--tint);display:flex;align-items:center;justify-content:center;color:var(--sky-600)}.palette .cmd .nm{flex:1;font-weight:600}.palette .cmd .sc{color:var(--faint);font-size:11px}
+  .palette .foot{padding:8px 16px;border-top:1px solid var(--line);color:var(--muted);font-size:11px;display:flex;gap:14px}
+
+  .legend{position:fixed;right:14px;bottom:14px;width:330px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 50px rgba(15,40,80,.16);padding:12px 14px;display:none;z-index:40}
+  body.notes .legend{display:block}.legend h4{margin:0 0 8px;font-size:13px}.legend ol{margin:0;padding-left:20px;color:var(--slate)}.legend li{margin-bottom:5px}.legend b{color:var(--amber)}
+</style>
+</head>
+<body class="notes">
+<div class="app">
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span> ResearchOS</div>
+    <div class="tg"><button class="primary">+ New</button><button>Assemble</button><button>Import</button><button>Download from NCBI</button></div>
+    <div class="spacer"></div>
+    <button class="notes-toggle" onclick="document.body.classList.toggle('notes')">Design notes</button>
+    <div class="cmdk" onclick="openPalette()"><span>Search or run a tool</span><kbd>&#8984;K</kbd></div>
+  </div>
+
+  <div class="cols">
+    <div class="library">
+      <div class="lib-head"><h2>Sequences</h2><p>Your molecular-biology workbench.</p></div>
+      <div class="lib-create"><button class="primary">+ New</button><button>Assemble</button><button>Align</button><button>Import</button></div>
+      <div class="lib-search">All Sequences (9)</div>
+      <div class="lib-search">Search sequences&#8230;</div>
+      <div class="seqlist">
+        <div class="seqrow sel"><span class="ic"></span><div><div class="nm">pEGFP-N1 (U55762)</div><div class="mt">DNA &#183; 4,733 bp &#183; 6 features</div></div></div>
+        <div class="seqrow"><span class="ic"></span><div><div class="nm">attL entry clone</div><div class="mt">DNA &#183; 910 bp</div></div></div>
+        <div class="seqrow"><span class="ic"></span><div><div class="nm">pGEX-3X (U13852)</div><div class="mt">DNA &#183; 4,952 bp</div></div></div>
+        <div class="seqrow"><span class="ic"></span><div><div class="nm">pEGFP-N1-TRAP1</div><div class="mt">DNA &#183; 6,654 bp</div></div></div>
+      </div>
+    </div>
+
+    <div class="canvas">
+      <div class="canvas-head">
+        <div class="seq-title"><h3>pEGFP-N1 (U55762)</h3><span class="meta">DNA &#183; Circular &#183; 4,733 bp &#183; 6 features</span></div>
+        <div class="tabs"><button class="on" onclick="setTab(this)">Map</button><button onclick="setTab(this)">Sequence</button><button onclick="setTab(this)">Features</button><button onclick="setTab(this)">Primers</button><button onclick="setTab(this)" id="histtab">History</button></div>
+        <div class="display-strip">
+          <span class="lbl">Show</span>
+          <span class="chip on"><span class="sw" style="background:var(--violet)"></span>Features</span>
+          <span class="chip"><span class="sw" style="background:var(--sky)"></span>Primers</span>
+          <span class="chip">Enzyme sites</span><span class="chip">Translation</span><span class="chip">Linear / circular</span>
+        </div>
+        <div class="selsim">
+          <span class="lbl">Demo selection</span>
+          <div class="seg">
+            <button onclick="setSel('none',this)">Nothing</button>
+            <button class="on" onclick="setSel('region',this)">Region 612..632</button>
+            <button onclick="setSel('cds',this)">CDS: EGFP</button>
+            <button onclick="setSel('primer',this)">Primer: EGFP-N</button>
+            <button onclick="setSel('organism',this)">Organism set</button>
+          </div>
+          <span class="hint" id="selhint">&#8592; switch to watch the right inspector adapt</span>
+        </div>
+      </div>
+      <div class="canvas-body">
+        <div class="map-hint">Map view</div>
+        <div class="selpill" id="selpill">Region 612..632</div>
+        <svg class="plasmid" width="320" height="320" viewBox="0 0 320 320">
+          <circle cx="160" cy="160" r="120" fill="none" stroke="#cbd5e1" stroke-width="10"/>
+          <circle cx="160" cy="160" r="120" fill="none" stroke="var(--green)" stroke-width="13" stroke-dasharray="180 600" stroke-linecap="round" transform="rotate(-20 160 160)"/>
+          <circle cx="160" cy="160" r="120" fill="none" stroke="var(--violet)" stroke-width="11" stroke-dasharray="90 690" stroke-linecap="round" transform="rotate(150 160 160)"/>
+          <circle cx="160" cy="160" r="120" fill="none" stroke="var(--amber)" stroke-width="11" stroke-dasharray="60 720" stroke-linecap="round" transform="rotate(60 160 160)"/>
+          <circle cx="160" cy="160" r="46" fill="none" stroke="#e2e8f0" stroke-width="2"/>
+          <text x="160" y="156" text-anchor="middle" font-size="15" font-weight="700">pEGFP-N1</text>
+          <text x="160" y="174" text-anchor="middle" font-size="11" fill="#64748b">4,733 bp</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="toolside">
+      <div class="opsrail">
+        <div class="grouplbl">Design</div>
+        <button class="opbtn on" data-op="primers" onclick="pick('primers',this)" title="Primers"><span class="badge">3</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12h10"/><path d="M14 9l4 3-4 3"/></svg><span class="t">Primers</span></button>
+        <button class="opbtn" data-op="cloning" onclick="pick('cloning',this)" title="Cloning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="7" cy="7" r="3"/><circle cx="17" cy="17" r="3"/><path d="M9.5 9.5l5 5"/></svg><span class="t">Cloning</span></button>
+        <button class="opbtn" data-op="restriction" onclick="pick('restriction',this)" title="Restriction / digest"><span class="badge">9</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8 7l12 9M8 17L20 8"/></svg><span class="t">Cut</span></button>
+        <button class="opbtn" data-op="annotate" onclick="pick('annotate',this)" title="Detect / annotate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg><span class="t">Annotate</span></button>
+        <div class="sep"></div>
+        <div class="grouplbl">Analyze</div>
+        <button class="opbtn" data-op="align" onclick="pick('align',this)" title="Align"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h12M4 12h16M4 17h9"/></svg><span class="t">Align</span></button>
+        <button class="opbtn" data-op="protein" onclick="pick('protein',this)" title="Protein"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 5c4 4 10 6 14 14M5 19c4-4 10-6 14-14"/></svg><span class="t">Protein</span></button>
+        <button class="opbtn" data-op="tree" onclick="pick('tree',this)" title="Tree of life / taxonomy"><span class="badge" style="background:var(--amber);width:7px;min-width:7px;padding:0">&nbsp;</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="12" r="2"/><path d="M8 6.7l8 4.3M8 17.3l8-4.3"/></svg><span class="t">Tree</span></button>
+        <div class="sep"></div>
+        <button class="opbtn" data-op="export" onclick="pick('export',this)" title="Export"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4v10M8 10l4 4 4-4"/><path d="M5 19h14"/></svg><span class="t">Export</span></button>
+        <button class="opbtn" data-op="more" onclick="pick('more',this)" title="More tools (Cmd-K)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span class="t">More</span></button>
+      </div>
+      <div class="inspector" id="insp"></div>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim" onclick="if(event.target.id==='scrim')closePalette()">
+  <div class="palette">
+    <div class="pin"><span style="color:var(--faint)">&#128269;</span><input placeholder="Search tools" value="dom" /></div>
+    <div class="grp">Analyze</div>
+    <div class="cmd hl"><span class="ci">&#129516;</span><span class="nm">Find protein domains (HMMER)</span><span class="sc">&#8984;D</span></div>
+    <div class="cmd"><span class="ci">&#9082;</span><span class="nm">Protein properties</span><span class="sc"></span></div>
+    <div class="grp">Off-rail (long tail)</div>
+    <div class="cmd"><span class="ci">&#9783;</span><span class="nm">Codon optimize</span><span class="sc"></span></div>
+    <div class="cmd"><span class="ci">&#9881;</span><span class="nm">Simulate agarose gel</span><span class="sc"></span></div>
+    <div class="foot"><span>&#8593;&#8595; navigate</span><span>&#8629; run</span><span style="margin-left:auto">Cmd-K reaches everything, including tools not pinned to the rail</span></div>
+  </div>
+</div>
+
+<div class="legend">
+  <h4>v2 — the right panel, fleshed out</h4>
+  <ol>
+    <li><b>1</b> Rail grouped by intent: <b>Design</b> (Primers/Cloning/Cut/Annotate) vs <b>Analyze</b> (Align/Protein/Tree), + Export + More.</li>
+    <li><b>2</b> Badges glance state: Primers=3 designed, Cut=9 unique cutters, Tree=amber dot (organism attached).</li>
+    <li><b>3</b> Use the <b>Demo selection</b> bar in the canvas to watch the inspector adapt: region &#8594; primers-here, CDS &#8594; protein/domains, primer &#8594; primer ops, organism &#8594; tree.</li>
+    <li><b>4</b> Results land as <b>artifacts</b> in History (open the History tab).</li>
+    <li><b>5</b> More + &#8984;K reach the long tail not pinned to the rail. Right-click stays the object accelerator.</li>
+  </ol>
+</div>
+
+<script>
+const SELS={
+  none:{bar:null},
+  region:{bar:'Acting on selection &#183; 612..632 (21 nt)', op:'primers', pill:'Region 612..632'},
+  cds:{bar:'A CDS is selected &#183; EGFP &#183; 239 aa', op:'protein', pill:'CDS: EGFP'},
+  primer:{bar:'A primer is selected &#183; EGFP-N (rev)', op:'primers', pill:'Primer: EGFP-N'},
+  organism:{bar:'Organism attached &#183; Aequorea victoria', op:'tree', pill:'Organism'}
+};
+let SEL='region';
+
+function panel(op){
+  const s=SEL, has=(SELS[s].bar)!=null;
+  const ctx = has ? `<div class="ctxbar sel">&#9678; ${SELS[s].bar}</div>` : `<div class="ctxbar none">&#9633; Nothing selected &#183; whole sequence</div>`;
+  let head, body;
+  switch(op){
+    case 'primers':
+      head=['&#129516;','Primers','Design and check primers'];
+      body = (s==='primer')
+        ? `<h5>This primer</h5><div class="tool-list">
+             <button><span class="tic" style="background:#e0f2fe;color:#0369a1">&#9998;</span><div><div>Edit primer</div><div class="d">EGFP-N (rev) &#183; 20 nt</div></div></button>
+             <button><span class="tic" style="background:#f1f5f9">&#9112;</span><div><div>Copy primer sequence</div></div></button>
+             <button><span class="tic" style="background:#f1f5f9">Tm</span><div><div>Tm 61.2 C &#183; check specificity</div></div></button>
+           </div>`
+        : `<h5>${s==='region'?'Design primers here':'Design primers'}</h5>
+           <div class="field"><label>Purpose</label><select><option>Standard PCR</option><option>Mutagenesis</option><option>Sequencing</option></select></div>
+           ${s==='region'?'<div class="readout"><div class="r"><div class="k">Length</div><div class="v">21 nt</div></div><div class="r"><div class="k">Tm</div><div class="v">58.4 C</div></div><div class="r"><div class="k">GC</div><div class="v">52%</div></div></div>':'<div class="empty-cue">Select a region on the map to design a pair <b>here</b>, or design across the whole plasmid.</div>'}
+           <button class="run">Design forward + reverse</button>
+           <h5 style="margin-top:16px">Primers on this sequence (3)</h5>
+           <div class="listrow"><div><div>EGFP-N (rev)</div><div class="mono">GTCGCCGTCCAGCTCGACCAG</div></div><span class="pin">Tm 61.2</span></div>
+           <div class="listrow"><div><div>CMV-F</div><div class="mono">CGCAAATGGGCGGTAGGCGTG</div></div><span class="pin">Tm 64.0</span></div>
+           <div class="listrow"><div><div>SV40pA-R</div><div class="mono">GAAATTTGTGATGCTATTGC</div></div><span class="pin">Tm 52.1</span></div>`;
+      break;
+    case 'protein':
+      head=['&#9082;','Protein','Translation, properties, domains'];
+      body = (s==='cds')
+        ? `<h5>EGFP coding sequence</h5>
+           <div class="readout"><div class="r"><div class="k">Length</div><div class="v">239 aa</div></div><div class="r"><div class="k">Mass</div><div class="v">26.9 kDa</div></div><div class="r"><div class="k">pI</div><div class="v">5.8</div></div></div>
+           <div class="tool-list">
+             <button><span class="tic" style="background:#e0f2fe;color:#0369a1">&#8594;</span><div><div>Translate to protein</div><div class="d">show the amino-acid track on the map</div></div></button>
+             <button><span class="tic" style="background:#ede9fe;color:#6d28d9">&#9082;</span><div><div>Full protein properties</div><div class="d">composition, hydropathy, extinction</div></div></button>
+             <button><span class="tic" style="background:#fef3c7;color:#b45309">&#129516;</span><div><div>Find domains (HMMER)</div><div class="d">on-device scan &#183; Pfam + bring-your-own db</div></div></button>
+           </div>
+           <h5 style="margin-top:16px">Domains found</h5>
+           <div class="listrow"><div><div>GFP &#183; PF01353</div><div class="d">res 4..229 &#183; E 2e-110</div></div><span class="pin">track &#10003;</span></div>`
+        : `<div class="empty-cue"><b>Select a CDS</b> (or any coding feature) to translate it, read its protein properties, and scan for domains. Try the <b>CDS: EGFP</b> demo selection above.</div>`;
+      break;
+    case 'tree':
+      head=['&#9893;','Tree of life','Taxonomy + phylogenetics'];
+      body = `<h5>This sequence&#8217;s organism</h5>
+        <div class="lineage"><span class="n">Eukaryota</span><span class="arr">&#8250;</span><span class="n">Cnidaria</span><span class="arr">&#8250;</span><span class="n">Hydrozoa</span><span class="arr">&#8250;</span><span class="n">Aequorea victoria</span></div>
+        <div class="tool-list">
+          <button><span class="tic" style="background:#e0f2fe;color:#0369a1">&#9893;</span><div><div>Explore in the tree of life</div><div class="d">centered here, your branch highlighted</div></div></button>
+          <button><span class="tic" style="background:#f1f5f9">&#128269;</span><div><div>Look up an organism</div><div class="d">name or tax id &#8594; lineage</div></div></button>
+          <button><span class="tic" style="background:#dcfce7;color:#15803d">&#8595;</span><div><div>Enrich taxonomy from NCBI</div><div class="d">attach organism + lineage</div></div></button>
+        </div>`;
+      break;
+    case 'cloning':
+      head=['&#9881;','Cloning','Simulate a wet-lab procedure'];
+      body=`<h5>Assemble a construct</h5><div class="tool-list">
+        <button><span class="tic" style="background:#e0f2fe;color:#0369a1">G</span><div><div>Gibson / overlap</div><div class="d">join fragments by homology</div></div></button>
+        <button><span class="tic" style="background:#fce7f3;color:#be185d">R</span><div><div>Restriction + ligation</div><div class="d">cut and paste with enzymes</div></div></button>
+        <button><span class="tic" style="background:#ede9fe;color:#6d28d9">GG</span><div><div>Golden Gate</div><div class="d">Type IIS one-pot</div></div></button>
+        <button><span class="tic" style="background:#dcfce7;color:#15803d">GW</span><div><div>Gateway</div><div class="d">attB/P/L/R recombination</div></div></button></div>`;
+      break;
+    case 'restriction':
+      head=['&#9986;','Restriction / digest','Enzyme sites and digests'];
+      body=`<div class="field"><label>Filter to enzymes that cut</label><select><option>once (9 unique cutters)</option><option>twice</option><option>any</option></select></div>
+        <div class="listrow"><div><div>EcoRI</div><div class="mono">GAATTC</div></div><span class="pin">412</span></div>
+        <div class="listrow"><div><div>BamHI</div><div class="mono">GGATCC</div></div><span class="pin">688</span></div>
+        <div class="listrow"><div><div>NotI</div><div class="mono">GCGGCCGC</div></div><span class="pin">1402</span></div>
+        <button class="run" style="margin-top:8px">Run a digest &#8594; virtual gel</button>`;
+      break;
+    case 'align':
+      head=['&#9776;','Align','Compare sequences'];
+      body=`<div class="field"><label>Align to reference</label><select><option>Pick a sequence&#8230;</option><option>pEGFP-N1-TRAP1</option><option>attL entry clone</option></select></div>
+        <div class="field"><label>Algorithm</label><select><option>Pairwise (default)</option><option>MUSCLE (multiple)</option></select></div>
+        <button class="run">Align &#8594; saved as an artifact</button>
+        <div class="empty-cue" style="margin-top:12px">Results land in the <b>History</b> tab with lineage, not a throwaway popup.</div>`;
+      break;
+    case 'annotate':
+      head=['&#10003;','Annotate','Detect and add features'];
+      body=`<div class="tool-list">
+        <button><span class="tic" style="background:#dcfce7;color:#15803d">&#10003;</span><div><div>Detect common features</div><div class="d">from the bundled database</div></div></button>
+        <button><span class="tic" style="background:#e0f2fe;color:#0369a1">&#8635;</span><div><div>Annotate from a reference</div><div class="d">copy features off a known sequence</div></div></button>
+        <button><span class="tic" style="background:#f1f5f9">+</span><div><div>Add feature from selection</div></div></button></div>`;
+      break;
+    case 'export':
+      head=['&#8595;','Export','Save and share'];
+      body=`<div class="tool-list"><button><span class="tic" style="background:#f1f5f9">GB</span><div>GenBank (whole or selection)</div></button>
+        <button><span class="tic" style="background:#f1f5f9">FA</span><div>FASTA (DNA or protein)</div></button>
+        <button><span class="tic" style="background:#f1f5f9">&#128247;</span><div>Map image (SVG / PNG)</div></button>
+        <button><span class="tic" style="background:#fef3c7;color:#b45309">&#128221;</span><div>Send map to a note</div></button></div>`;
+      break;
+    case 'more':
+      head=['&#8943;','More tools','The long tail, off the rail'];
+      body=`<div class="empty-cue">Tools that do not earn a permanent rail slot live here and in <b>&#8984;K</b>. Codon optimize, simulate gel, dot plot, GC skew, dCAPS&#8230; <br><br><button class="run" onclick="openPalette()">Open the command palette</button></div>`;
+      break;
+  }
+  return {ctx, head, body};
+}
+function render(){
+  const op = document.querySelector('.opbtn.on')?.dataset.op || 'primers';
+  const p = panel(op);
+  document.getElementById('insp').innerHTML =
+    `<div class="insp-head"><div class="ico">${p.head[0]}</div><div><h4>${p.head[1]}</h4><div class="sub">${p.head[2]}</div></div><button class="x">&#10005;</button></div>${p.ctx}<div class="insp-body">${p.body}</div>`;
+}
+function pick(op,btn){document.querySelectorAll('.opbtn').forEach(b=>b.classList.remove('on'));if(btn)btn.classList.add('on');render();}
+function setSel(s,btn){
+  SEL=s;
+  document.querySelectorAll('.selsim .seg button').forEach(b=>b.classList.remove('on'));if(btn)btn.classList.add('on');
+  // pill on the map
+  const pill=document.getElementById('selpill');
+  if(SELS[s].pill){pill.style.display='block';pill.style.left=(s==='cds'?'52%':s==='primer'?'40%':'55%');pill.style.top=(s==='cds'?'28%':'34%');pill.innerHTML=SELS[s].pill;}else{pill.style.display='none';}
+  // auto-select the contextual op
+  if(SELS[s].op){const tgt=document.querySelector(`.opbtn[data-op="${SELS[s].op}"]`);if(tgt){document.querySelectorAll('.opbtn').forEach(b=>b.classList.remove('on'));tgt.classList.add('on');}}
+  document.getElementById('selhint').innerHTML = s==='none' ? 'inspector shows whole-sequence scope' : 'inspector adapted to the selection &#8594;';
+  render();
+}
+function setTab(btn){document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+  if(btn.id==='histtab'){
+    document.getElementById('insp').innerHTML=`<div class="insp-head"><div class="ico">&#8986;</div><div><h4>History &amp; results</h4><div class="sub">operations are saved artifacts</div></div></div><div class="insp-body">
+      <div class="artifact"><div class="ai">&#9776;</div><div><div>Alignment vs pEGFP-N1-TRAP1</div><div class="d" style="color:var(--muted);font-size:11px">98.2% identity &#183; pairwise</div></div><span class="when">2m ago</span></div>
+      <div class="artifact"><div class="ai">&#129516;</div><div><div>Domain scan &#183; EGFP CDS</div><div class="d" style="color:var(--muted);font-size:11px">1 domain &#183; GFP PF01353</div></div><span class="when">5m ago</span></div>
+      <div class="artifact"><div class="ai">&#9986;</div><div><div>Digest &#183; EcoRI + NotI</div><div class="d" style="color:var(--muted);font-size:11px">2 fragments &#183; virtual gel</div></div><span class="when">1h ago</span></div>
+      <div class="empty-cue" style="margin-top:8px">Every operation that produces a result lands here with lineage, revisitable and versioned.</div></div>`;
+  } else { render(); }
+}
+function openPalette(){document.getElementById('scrim').classList.add('show')}
+function closePalette(){document.getElementById('scrim').classList.remove('show')}
+document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openPalette()}if(e.key==='Escape')closePalette()});
+setSel('region', document.querySelectorAll('.selsim .seg button')[1]);
+</script>
+</body>
+</html>
