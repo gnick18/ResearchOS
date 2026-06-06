@@ -64,16 +64,16 @@ export default function InboxPanel({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col overflow-hidden"
+        className="bg-surface-raised rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 pt-3 border-b border-gray-100 bg-gray-50">
+        <div className="px-5 pt-3 border-b border-border bg-surface-sunken">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-title font-semibold text-gray-900">Inbox</h3>
+            <h3 className="text-title font-semibold text-foreground">Inbox</h3>
             <Tooltip label="Close" placement="bottom">
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-700"
+                className="text-foreground-muted hover:text-foreground"
                 aria-label="Close"
               >
                 <CloseIcon className="w-5 h-5" />
@@ -124,15 +124,15 @@ function TabButton({
       onClick={onClick}
       className={`relative px-3 py-2 text-meta font-medium transition-colors border-b-2 -mb-px ${
         active
-          ? "border-blue-600 text-blue-700"
-          : "border-transparent text-gray-500 hover:text-gray-800"
+          ? "border-blue-600 text-blue-700 dark:text-blue-300"
+          : "border-transparent text-foreground-muted hover:text-foreground"
       }`}
     >
       {label}
       {count > 0 && (
         <span
           className={`ml-1.5 px-1.5 py-0.5 text-meta font-semibold rounded-full ${
-            active ? "bg-blue-100 text-blue-800" : "bg-gray-200 text-gray-700"
+            active ? "bg-blue-100 dark:bg-blue-500/20 text-blue-800 dark:text-blue-200" : "bg-foreground-muted/20 text-foreground"
           }`}
         >
           {count}

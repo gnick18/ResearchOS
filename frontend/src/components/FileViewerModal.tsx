@@ -99,13 +99,13 @@ export default function FileViewerModal({
         onClick={onClose}
       >
         <div
-          className="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 max-h-[85vh] flex flex-col overflow-hidden"
+          className="bg-surface-raised rounded-xl shadow-2xl w-full max-w-4xl mx-4 max-h-[85vh] flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between gap-3">
+          <div className="px-5 py-3 border-b border-border bg-surface-sunken flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
-              <FileIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-              <h3 className="text-body font-semibold text-gray-900 truncate" title={filename}>
+              <FileIcon className="w-4 h-4 text-foreground-muted flex-shrink-0" />
+              <h3 className="text-body font-semibold text-foreground truncate" title={filename}>
                 {filename}
               </h3>
             </div>
@@ -113,21 +113,21 @@ export default function FileViewerModal({
               <button
                 type="button"
                 onClick={handleDownload}
-                className="px-3 py-1.5 text-meta text-gray-700 bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+                className="px-3 py-1.5 text-meta text-foreground bg-surface-raised border border-border rounded-md hover:bg-surface-sunken transition-colors"
               >
                 Download
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 py-1.5 text-meta text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                className="px-3 py-1.5 text-meta text-foreground-muted hover:text-foreground hover:bg-surface-sunken rounded-md transition-colors"
               >
                 Close
               </button>
             </div>
           </div>
-          <div className="flex-1 min-h-0 overflow-auto bg-gray-50">
-            <pre className="m-0 p-4 text-meta font-mono text-gray-800 whitespace-pre-wrap break-words">
+          <div className="flex-1 min-h-0 overflow-auto bg-surface-sunken">
+            <pre className="m-0 p-4 text-meta font-mono text-foreground whitespace-pre-wrap break-words">
               <code>{text}</code>
             </pre>
           </div>
@@ -145,17 +145,17 @@ export default function FileViewerModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+        className="bg-surface-raised rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
+        <div className="px-5 py-4 border-b border-border bg-surface-sunken">
           <div className="flex items-center gap-3">
-            <FileIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+            <FileIcon className="w-5 h-5 text-foreground-muted flex-shrink-0" />
             <div className="min-w-0">
-              <h3 className="text-title font-semibold text-gray-900 truncate" title={filename}>
+              <h3 className="text-title font-semibold text-foreground truncate" title={filename}>
                 {filename}
               </h3>
-              <p className="text-meta text-gray-500 mt-0.5">
+              <p className="text-meta text-foreground-muted mt-0.5">
                 {kind === "pdf" ? "PDF document" : "Text file"}
               </p>
             </div>
@@ -166,12 +166,12 @@ export default function FileViewerModal({
           {step === "loading" ? (
             <div className="flex items-center justify-center py-3">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500" />
-              <span className="ml-2 text-meta text-gray-500">Loading file…</span>
+              <span className="ml-2 text-meta text-foreground-muted">Loading file…</span>
             </div>
           ) : step === "error" ? (
-            <p className="text-meta text-red-600">{errorMessage || "Something went wrong."}</p>
+            <p className="text-meta text-red-600 dark:text-red-300">{errorMessage || "Something went wrong."}</p>
           ) : (
-            <p className="text-meta text-gray-600">
+            <p className="text-meta text-foreground-muted">
               {kind === "pdf"
                 ? "Open this PDF in a new browser tab, or download a copy."
                 : "Open the contents in a viewer, or download a copy."}
@@ -179,11 +179,11 @@ export default function FileViewerModal({
           )}
         </div>
 
-        <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-2">
+        <div className="px-5 py-3 bg-surface-sunken border-t border-border flex items-center justify-between gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-body text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            className="px-4 py-2 text-body text-foreground-muted hover:text-foreground hover:bg-surface-sunken rounded-lg transition-colors"
           >
             Cancel
           </button>
@@ -192,7 +192,7 @@ export default function FileViewerModal({
               type="button"
               onClick={handleDownload}
               disabled={step === "loading"}
-              className="px-4 py-2 text-body text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-body text-foreground bg-surface-raised border border-border rounded-lg hover:bg-surface-sunken transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Download
             </button>

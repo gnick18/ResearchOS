@@ -520,7 +520,7 @@ export default function ImageAnnotatorModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1.5 text-body text-gray-300 hover:text-white hover:bg-gray-700 rounded-md transition-colors"
+            className="px-3 py-1.5 text-body text-foreground-muted hover:text-white hover:bg-gray-700 rounded-md transition-colors"
           >
             Cancel
           </button>
@@ -587,7 +587,7 @@ export default function ImageAnnotatorModal({
 
         {/* Stroke width */}
         <div className="flex items-center gap-1">
-          <span className="text-meta uppercase tracking-wide text-gray-400">Stroke</span>
+          <span className="text-meta uppercase tracking-wide text-foreground-muted">Stroke</span>
           {STROKE_WIDTHS.map((w) => (
             <button
               key={w}
@@ -596,7 +596,7 @@ export default function ImageAnnotatorModal({
               className={`px-2 py-1 text-meta rounded transition-colors ${
                 effStroke === w
                   ? "bg-sky-600 text-white"
-                  : "text-gray-300 hover:bg-gray-700"
+                  : "text-foreground-muted hover:bg-gray-700"
               }`}
             >
               {w}
@@ -617,7 +617,7 @@ export default function ImageAnnotatorModal({
 
         {/* Font size */}
         <div className="flex items-center gap-1">
-          <span className="text-meta uppercase tracking-wide text-gray-400">Text</span>
+          <span className="text-meta uppercase tracking-wide text-foreground-muted">Text</span>
           {FONT_SIZES.map((f) => (
             <button
               key={f}
@@ -626,7 +626,7 @@ export default function ImageAnnotatorModal({
               className={`px-2 py-1 text-meta rounded transition-colors ${
                 effFontSize === f
                   ? "bg-sky-600 text-white"
-                  : "text-gray-300 hover:bg-gray-700"
+                  : "text-foreground-muted hover:bg-gray-700"
               }`}
             >
               {f}
@@ -667,9 +667,9 @@ export default function ImageAnnotatorModal({
       {/* Stage area */}
       <div ref={containerRef} className="flex-1 flex items-center justify-center overflow-hidden p-4">
         {imgError ? (
-          <p className="text-body text-gray-300">Could not load the image.</p>
+          <p className="text-body text-foreground-muted">Could not load the image.</p>
         ) : !img ? (
-          <p className="text-body text-gray-300">Loading image...</p>
+          <p className="text-body text-foreground-muted">Loading image...</p>
         ) : (
           <div className="shadow-2xl" style={{ width: stageSize.width, height: stageSize.height }}>
             <Stage
@@ -969,7 +969,7 @@ function ToolButton({
         aria-label={label}
         aria-pressed={active}
         className={`w-8 h-8 flex items-center justify-center rounded-md transition-colors disabled:opacity-40 ${
-          active ? "bg-sky-600 text-white" : "text-gray-300 hover:bg-gray-700"
+          active ? "bg-sky-600 text-white" : "text-foreground-muted hover:bg-gray-700"
         }`}
       >
         {children}

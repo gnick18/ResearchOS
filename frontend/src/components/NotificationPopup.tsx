@@ -219,15 +219,15 @@ export default function NotificationPopup({
   return (
     <div
       ref={popupRef}
-      className="absolute right-0 top-full mt-2 w-96 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden"
+      className="absolute right-0 top-full mt-2 w-96 bg-surface-raised rounded-xl shadow-xl border border-border z-50 overflow-hidden"
     >
       {/* Header */}
-      <div className="px-4 pt-3 pb-2 border-b border-gray-200 bg-gray-50">
+      <div className="px-4 pt-3 pb-2 border-b border-border bg-surface-sunken">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900">
+          <h3 className="font-semibold text-foreground">
             Notifications
             {unreadCount > 0 && (
-              <span className="ml-2 text-meta font-normal text-gray-500">
+              <span className="ml-2 text-meta font-normal text-foreground-muted">
                 ({unreadCount} unread)
               </span>
             )}
@@ -236,7 +236,7 @@ export default function NotificationPopup({
             <button
               onClick={handleMarkAllRead}
               data-tour-secondary-anchor="notification-silence"
-              className="text-meta text-blue-600 hover:text-blue-800 font-medium tour-secondary-pulse"
+              className="text-meta text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 font-medium tour-secondary-pulse"
             >
               Mark all read
             </button>
@@ -247,7 +247,7 @@ export default function NotificationPopup({
             {notifications.some((n) => n.read) && (
               <button
                 onClick={handleClearRead}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-foreground-muted hover:text-foreground"
                 title="Remove notifications already marked read"
               >
                 Clear read
@@ -255,7 +255,7 @@ export default function NotificationPopup({
             )}
             <button
               onClick={handleClearAll}
-              className="text-red-500 hover:text-red-700"
+              className="text-red-500 hover:text-red-700 dark:hover:text-red-300"
               title="Remove every notification"
             >
               Clear all
@@ -271,8 +271,8 @@ export default function NotificationPopup({
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
           </div>
         ) : notifications.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            <svg className="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="p-8 text-center text-foreground-muted">
+            <svg className="w-12 h-12 mx-auto mb-2 text-foreground-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
             <p className="text-body">No notifications</p>
@@ -377,9 +377,9 @@ export default function NotificationPopup({
                 <div
                   key={notification.id}
                   onClick={handleClickRow}
-                  className={`relative p-3 hover:bg-gray-50 transition-colors cursor-pointer ${
+                  className={`relative p-3 hover:bg-surface-sunken transition-colors cursor-pointer ${
                     !notification.read
-                      ? "bg-blue-50 border-l-4 border-blue-500 pl-2"
+                      ? "bg-blue-50 dark:bg-blue-500/10 border-l-4 border-blue-500 pl-2"
                       : "border-l-4 border-transparent"
                   }`}
                   title={
@@ -391,7 +391,7 @@ export default function NotificationPopup({
                   <div className="flex items-start gap-3">
                     <div
                       className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
-                        notification.read ? "bg-gray-100 text-gray-500" : "bg-blue-100 text-blue-600"
+                        notification.read ? "bg-surface-sunken text-foreground-muted" : "bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-300"
                       }`}
                     >
                       {isReminder
@@ -416,7 +416,7 @@ export default function NotificationPopup({
                           <ReminderBody notification={notification} />
                           <button
                             onClick={handleOpenReminder}
-                            className="mt-1.5 text-meta text-blue-600 hover:text-blue-800 font-medium"
+                            className="mt-1.5 text-meta text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 font-medium"
                           >
                             Open in calendar →
                           </button>
@@ -427,13 +427,13 @@ export default function NotificationPopup({
                           <div className="mt-1.5 flex items-center gap-3">
                             <button
                               onClick={handleViewShiftedTask}
-                              className="text-meta text-blue-600 hover:text-blue-800 font-medium"
+                              className="text-meta text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 font-medium"
                             >
                               View task →
                             </button>
                             <button
                               onClick={handleDismissShiftAlert}
-                              className="text-meta text-gray-500 hover:text-gray-700 font-medium"
+                              className="text-meta text-foreground-muted hover:text-foreground font-medium"
                             >
                               Ignore
                             </button>
@@ -443,18 +443,18 @@ export default function NotificationPopup({
                           notification.type === "method_shared" ||
                           notification.type === "project_shared" ? (
                         <>
-                          <p className="text-body text-gray-900">
+                          <p className="text-body text-foreground">
                             <span className="font-medium">{notification.from_user}</span>
                             {" shared "}
                             <span className="font-medium">{notification.item_name}</span>
                             {" with you"}
                           </p>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className="text-meta text-gray-500">
+                            <span className="text-meta text-foreground-muted">
                               {formatTime(notification.created_at)}
                             </span>
-                            <span className="text-meta text-gray-400">•</span>
-                            <span className="text-meta text-gray-500">
+                            <span className="text-meta text-foreground-muted">•</span>
+                            <span className="text-meta text-foreground-muted">
                               {notification.permission === "edit" ? "Can edit" : "Can view"}
                             </span>
                           </div>
@@ -503,7 +503,7 @@ export default function NotificationPopup({
                           <LabCommentBody notification={notification as LabCommentNotification} />
                           <button
                             onClick={handleOpenLabComment}
-                            className="mt-1.5 text-meta text-blue-600 hover:text-blue-800 font-medium"
+                            className="mt-1.5 text-meta text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 font-medium"
                           >
                             Open in Lab Overview →
                           </button>
@@ -520,7 +520,7 @@ export default function NotificationPopup({
                               handleMarkRead(notification.id);
                             }}
                             aria-label="Mark as read"
-                            className="flex items-center gap-1 px-2 py-1 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 text-meta font-medium border border-blue-200"
+                            className="flex items-center gap-1 px-2 py-1 rounded-md bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 hover:bg-blue-200 text-meta font-medium border border-blue-200 dark:border-blue-500/30"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
@@ -536,7 +536,7 @@ export default function NotificationPopup({
                             e.stopPropagation();
                             handleDismiss(notification.id);
                           }}
-                          className="text-gray-300 hover:text-red-500 transition-colors"
+                          className="text-foreground-muted hover:text-red-500 transition-colors"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -580,21 +580,21 @@ function ReminderBody({
     : "";
   return (
     <>
-      <p className="text-body text-gray-900">
+      <p className="text-body text-foreground">
         <span className="font-medium">{notification.event_title}</span>
-        <span className="text-gray-500"> in {notification.offset_minutes} min</span>
+        <span className="text-foreground-muted"> in {notification.offset_minutes} min</span>
       </p>
-      <div className="flex items-center gap-2 mt-1 text-meta text-gray-500">
+      <div className="flex items-center gap-2 mt-1 text-meta text-foreground-muted">
         <span>{timeLabel}</span>
         {notification.event_location && (
           <>
-            <span className="text-gray-400">•</span>
+            <span className="text-foreground-muted">•</span>
             <span className="truncate">{notification.event_location}</span>
           </>
         )}
         {notification.event_kind === "external" && (
           <>
-            <span className="text-gray-400">•</span>
+            <span className="text-foreground-muted">•</span>
             <span>Linked</span>
           </>
         )}
@@ -636,16 +636,16 @@ function ShiftAlertBody({
   const headlineDelta = startDelta !== 0 ? formatDelta(startDelta) : formatDelta(endDelta);
   return (
     <>
-      <p className="text-body text-gray-900">
+      <p className="text-body text-foreground">
         <span className="font-medium">{notification.from_user}</span>
         {" shifted "}
         <span className="font-medium">{notification.item_name}</span>
         {" by "}
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-meta font-semibold align-baseline">
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-200 text-meta font-semibold align-baseline">
           {headlineDelta}
         </span>
       </p>
-      <p className="text-meta text-gray-600 mt-0.5">
+      <p className="text-meta text-foreground-muted mt-0.5">
         {notification.old_start} → <span className="font-medium">{notification.new_start}</span>
         {startDelta !== endDelta && (
           <>
@@ -692,7 +692,7 @@ function LabCommentBody({
   const recordNoun = notification.record_type === "task" ? "task" : "note";
   return (
     <>
-      <p className="text-body text-gray-900">
+      <p className="text-body text-foreground">
         <span className="font-medium">{notification.from_user}</span>
         {" "}
         {headline}
@@ -702,7 +702,7 @@ function LabCommentBody({
         <span className="font-medium">{notification.record_name}</span>
       </p>
       {notification.preview && (
-        <p className="text-meta text-gray-600 mt-1 line-clamp-2">
+        <p className="text-meta text-foreground-muted mt-1 line-clamp-2">
           {notification.preview}
         </p>
       )}
@@ -774,19 +774,19 @@ function LabPhase3Row({ notification, onMarkRead, onNavigate }: LabPhase3RowProp
   if (notification.type === "lab_announcement") {
     return (
       <>
-        <p className="text-body text-gray-900">
+        <p className="text-body text-foreground">
           <span className="font-medium">{from_user}</span>
           {" posted a lab announcement"}
         </p>
         {notification.preview && (
-          <p className="text-meta text-gray-600 mt-1 line-clamp-2">{notification.preview}</p>
+          <p className="text-meta text-foreground-muted mt-1 line-clamp-2">{notification.preview}</p>
         )}
         <button
           onClick={() => {
             router.push("/lab-overview");
             onNavigate();
           }}
-          className="mt-1.5 text-meta text-blue-600 hover:text-blue-800 font-medium"
+          className="mt-1.5 text-meta text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 font-medium"
         >
           Open Lab Overview →
         </button>
@@ -797,13 +797,13 @@ function LabPhase3Row({ notification, onMarkRead, onNavigate }: LabPhase3RowProp
   if (notification.type === "lab_task_assignment") {
     return (
       <>
-        <p className="text-body text-gray-900">
+        <p className="text-body text-foreground">
           <span className="font-medium">{from_user}</span>
           {" assigned you a task: "}
           <span className="font-medium">{notification.task_name}</span>
         </p>
         {notification.note && (
-          <p className="text-meta text-gray-600 mt-1 line-clamp-2">{notification.note}</p>
+          <p className="text-meta text-foreground-muted mt-1 line-clamp-2">{notification.note}</p>
         )}
         <button
           onClick={() => {
@@ -814,7 +814,7 @@ function LabPhase3Row({ notification, onMarkRead, onNavigate }: LabPhase3RowProp
             router.push("/lab-overview");
             onNavigate();
           }}
-          className="mt-1.5 text-meta text-blue-600 hover:text-blue-800 font-medium"
+          className="mt-1.5 text-meta text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 font-medium"
         >
           Open Lab Overview →
         </button>
@@ -825,7 +825,7 @@ function LabPhase3Row({ notification, onMarkRead, onNavigate }: LabPhase3RowProp
   if (notification.type === "lab_purchase_approval") {
     return (
       <>
-        <p className="text-body text-gray-900">
+        <p className="text-body text-foreground">
           <span className="font-medium">{from_user}</span>
           {" approved your purchase: "}
           <span className="font-medium">{notification.item_name}</span>
@@ -835,7 +835,7 @@ function LabPhase3Row({ notification, onMarkRead, onNavigate }: LabPhase3RowProp
             router.push("/purchases");
             onNavigate();
           }}
-          className="mt-1.5 text-meta text-blue-600 hover:text-blue-800 font-medium"
+          className="mt-1.5 text-meta text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 font-medium"
         >
           View purchase →
         </button>
@@ -852,7 +852,7 @@ function LabPhase3Row({ notification, onMarkRead, onNavigate }: LabPhase3RowProp
         : "purchase item";
   return (
     <>
-      <p className="text-body text-gray-900">
+      <p className="text-body text-foreground">
         <span className="font-medium">{from_user}</span>
         {" flagged your "}
         {recordNoun}
@@ -860,7 +860,7 @@ function LabPhase3Row({ notification, onMarkRead, onNavigate }: LabPhase3RowProp
         <span className="font-medium">{notification.record_name}</span>
       </p>
       {notification.reason && (
-        <p className="text-meta text-gray-600 mt-1 line-clamp-2">{notification.reason}</p>
+        <p className="text-meta text-foreground-muted mt-1 line-clamp-2">{notification.reason}</p>
       )}
       <button
         onClick={() => {
@@ -875,7 +875,7 @@ function LabPhase3Row({ notification, onMarkRead, onNavigate }: LabPhase3RowProp
           }
           onNavigate();
         }}
-        className="mt-1.5 text-meta text-blue-600 hover:text-blue-800 font-medium"
+        className="mt-1.5 text-meta text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 font-medium"
       >
         Open record →
       </button>
@@ -916,7 +916,7 @@ function PurchaseFlowRow({ notification, onNavigate }: PurchaseFlowRowProps) {
   if (notification.type === "purchase_assignment") {
     return (
       <>
-        <p className="text-body text-gray-900">
+        <p className="text-body text-foreground">
           <span className="font-medium">{from_user}</span>
           {" asked you to order: "}
           <span className="font-medium">{notification.item_name}</span>
@@ -926,7 +926,7 @@ function PurchaseFlowRow({ notification, onNavigate }: PurchaseFlowRowProps) {
             router.push("/purchases");
             onNavigate();
           }}
-          className="mt-1.5 text-meta text-blue-600 hover:text-blue-800 font-medium"
+          className="mt-1.5 text-meta text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 font-medium"
         >
           View purchase →
         </button>
@@ -937,7 +937,7 @@ function PurchaseFlowRow({ notification, onNavigate }: PurchaseFlowRowProps) {
   // purchase_ordered — the requester learns their supply was ordered.
   return (
     <>
-      <p className="text-body text-gray-900">
+      <p className="text-body text-foreground">
         {"Your supply "}
         <span className="font-medium">{notification.item_name}</span>
         {" was ordered"}
@@ -953,7 +953,7 @@ function PurchaseFlowRow({ notification, onNavigate }: PurchaseFlowRowProps) {
           router.push("/purchases");
           onNavigate();
         }}
-        className="mt-1.5 text-meta text-blue-600 hover:text-blue-800 font-medium"
+        className="mt-1.5 text-meta text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 font-medium"
       >
         View purchase →
       </button>

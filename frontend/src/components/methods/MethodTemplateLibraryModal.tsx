@@ -268,7 +268,7 @@ export function MethodTemplateLibraryModal({
             ariaLabel="Browse method types or templates"
           />
           {isTypes && (
-            <p className="text-meta leading-snug text-gray-400">
+            <p className="text-meta leading-snug text-foreground-muted">
               Standard: free-form (Markdown, PDF). Structured: typed-field
               editors.
             </p>
@@ -416,7 +416,7 @@ function MethodTypeCard({
 }) {
   const Icon = module.cosmetic.icon;
   return (
-    <div className="h-full border border-gray-200 rounded-lg p-4 flex items-start gap-3 bg-white">
+    <div className="h-full border border-border rounded-lg p-4 flex items-start gap-3 bg-surface-raised">
       <span
         className={`shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg ${module.cosmetic.color.bg} ${module.cosmetic.color.text}`}
       >
@@ -424,7 +424,7 @@ function MethodTypeCard({
       </span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <h5 className="text-body font-medium text-gray-900">
+          <h5 className="text-body font-medium text-foreground">
             {module.cosmetic.label}
           </h5>
           <Tooltip
@@ -448,11 +448,11 @@ function MethodTypeCard({
                 onToggle(!on);
               }}
               className={`relative shrink-0 inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-40 ${
-                on ? "bg-blue-600" : "bg-gray-300"
+                on ? "bg-blue-600" : "bg-foreground-muted/30"
               }`}
             >
               <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                className={`inline-block h-4 w-4 transform rounded-full bg-surface-raised transition-transform ${
                   on ? "translate-x-4" : "translate-x-0.5"
                 }`}
               />
@@ -460,7 +460,7 @@ function MethodTypeCard({
           </Tooltip>
         </div>
         {module.cosmetic.description && (
-          <p className="text-meta text-gray-500 mt-1">
+          <p className="text-meta text-foreground-muted mt-1">
             {module.cosmetic.description}
           </p>
         )}
@@ -508,9 +508,9 @@ export function ProtocolTemplateCard({
   const meta = getMethodTypeMeta(typeId);
   const Icon = meta.icon;
   return (
-    <div className="h-full border border-gray-200 rounded-lg p-4 flex flex-col bg-white hover:shadow-sm transition-shadow">
+    <div className="h-full border border-border rounded-lg p-4 flex flex-col bg-surface-raised hover:shadow-sm transition-shadow">
       <div className="flex items-start justify-between gap-2">
-        <h5 className="text-body font-medium text-gray-900">{entry.title}</h5>
+        <h5 className="text-body font-medium text-foreground">{entry.title}</h5>
         <span
           className={`shrink-0 inline-flex items-center gap-1 text-meta px-2 py-0.5 rounded-full ${meta.color.bg} ${meta.color.text}`}
         >
@@ -518,13 +518,13 @@ export function ProtocolTemplateCard({
           {meta.label}
         </span>
       </div>
-      <p className="text-meta text-gray-500 mt-1 flex-1">{entry.description}</p>
+      <p className="text-meta text-foreground-muted mt-1 flex-1">{entry.description}</p>
       {entry.tags && entry.tags.length > 0 && (
         <div className="flex gap-1 mt-2 flex-wrap">
           {entry.tags.map((tag) => (
             <span
               key={tag}
-              className="text-meta px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
+              className="text-meta px-1.5 py-0.5 bg-surface-sunken text-foreground-muted rounded"
             >
               #{tag}
             </span>
@@ -542,7 +542,7 @@ export function ProtocolTemplateCard({
               e.stopPropagation();
               onViewKit?.();
             }}
-            className="px-3 py-1.5 text-meta border border-blue-600 text-blue-700 rounded-lg hover:bg-blue-50"
+            className="px-3 py-1.5 text-meta border border-blue-600 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10"
           >
             View kit
           </button>
@@ -553,7 +553,7 @@ export function ProtocolTemplateCard({
                 label={`${meta.label} is disabled in your library`}
                 placement="top"
               >
-                <span className="text-meta text-amber-600">
+                <span className="text-meta text-amber-600 dark:text-amber-300">
                   Type disabled
                 </span>
               </Tooltip>
@@ -577,7 +577,7 @@ export function ProtocolTemplateCard({
                   e.stopPropagation();
                   onEnableType();
                 }}
-                className="px-3 py-1.5 text-meta border border-blue-600 text-blue-700 rounded-lg hover:bg-blue-50"
+                className="px-3 py-1.5 text-meta border border-blue-600 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10"
               >
                 Enable {meta.label}
               </button>
@@ -603,7 +603,7 @@ function MethodSearchInput({
 }) {
   return (
     <div>
-      <label className="block text-meta font-medium text-gray-500 mb-1">
+      <label className="block text-meta font-medium text-foreground-muted mb-1">
         Search library
       </label>
       <input
@@ -612,7 +612,7 @@ function MethodSearchInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder="Search by name, type, or tag..."
         aria-label="Search library"
-        className="w-full px-3 py-1.5 text-body border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+        className="w-full px-3 py-1.5 text-body border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30"
       />
     </div>
   );
@@ -637,10 +637,10 @@ function LibraryFooter({
   const [requestText, setRequestText] = useState("");
   return (
     <div className="flex flex-col gap-6">
-      {useError && <p className="text-body text-red-600">{useError}</p>}
+      {useError && <p className="text-body text-red-600 dark:text-red-300">{useError}</p>}
 
       <div className="min-w-[220px] max-w-sm">
-        <label className="block text-meta font-medium text-gray-500 mb-1">
+        <label className="block text-meta font-medium text-foreground-muted mb-1">
           Add used templates to category
         </label>
         <input
@@ -651,7 +651,7 @@ function LibraryFooter({
           onChange={(e) => onDestFolderChange(e.target.value)}
           placeholder="Uncategorized"
           aria-label="Destination category"
-          className="w-full px-3 py-1.5 text-body border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+          className="w-full px-3 py-1.5 text-body border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30"
         />
         <datalist id="template-dest-folders">
           {existingFolders.map((f) => (
@@ -660,17 +660,17 @@ function LibraryFooter({
         </datalist>
       </div>
 
-      <div className="border-t border-gray-100 pt-6">
-        <h4 className="text-body font-semibold text-gray-700 mb-1">
+      <div className="border-t border-border pt-6">
+        <h4 className="text-body font-semibold text-foreground mb-1">
           Need a type that isn&apos;t here?
         </h4>
-        <p className="text-meta text-gray-400 mb-3">
+        <p className="text-meta text-foreground-muted mb-3">
           Method types are built and reviewed on GitHub, then ship in an
           update. Describe what you need and we&apos;ll open an issue for you.
         </p>
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[220px]">
-            <label className="block text-meta font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-foreground-muted mb-1">
               What method type do you want?
             </label>
             <input
@@ -679,14 +679,14 @@ function LibraryFooter({
               onChange={(e) => setRequestText(e.target.value)}
               placeholder="e.g. Flow cytometry gating panel"
               aria-label="Describe the method type you want"
-              className="w-full px-3 py-1.5 text-body border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              className="w-full px-3 py-1.5 text-body border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30"
             />
           </div>
           <a
             href={buildRequestMethodTypeUrl({ description: requestText })}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-3 py-1.5 text-body bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+            className="px-3 py-1.5 text-body bg-gray-900 text-white rounded-lg hover:bg-gray-800 dark:bg-foreground dark:text-background dark:hover:bg-foreground/90"
           >
             Request a method type
           </a>

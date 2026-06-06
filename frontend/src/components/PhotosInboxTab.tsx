@@ -619,8 +619,8 @@ export default function PhotosInboxTab() {
         key={entry.name}
         className={`group flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-colors ${
           isSelected
-            ? "border-blue-400 bg-blue-50 ring-2 ring-blue-200"
-            : "border-gray-100 bg-white hover:border-blue-200 hover:bg-blue-50/30"
+            ? "border-blue-400 bg-blue-50 dark:bg-blue-500/10 ring-2 ring-blue-200"
+            : "border-border bg-surface-raised hover:border-blue-200 dark:border-blue-500/30 hover:bg-blue-50 dark:hover:bg-blue-500/10/30"
         }`}
         onClick={(e) => handleRowClick(e, entry)}
         onContextMenu={(e) => handleRowContextMenu(e, entry)}
@@ -630,18 +630,18 @@ export default function PhotosInboxTab() {
           <img
             src={entry.blobUrl}
             alt={entry.name}
-            className="w-16 h-16 rounded object-cover bg-gray-100 flex-shrink-0"
+            className="w-16 h-16 rounded object-cover bg-surface-sunken flex-shrink-0"
           />
         ) : (
-          <div className="w-16 h-16 rounded bg-gray-100 flex-shrink-0" />
+          <div className="w-16 h-16 rounded bg-surface-sunken flex-shrink-0" />
         )}
         <div className="flex-1 min-w-0">
-          <p className="text-body font-medium text-gray-800 truncate" title={entry.name}>
-            {caption ?? <span className="italic text-gray-400">No caption</span>}
+          <p className="text-body font-medium text-foreground truncate" title={entry.name}>
+            {caption ?? <span className="italic text-foreground-muted">No caption</span>}
           </p>
-          <p className="text-meta text-gray-400 truncate">{entry.name}</p>
+          <p className="text-meta text-foreground-muted truncate">{entry.name}</p>
           {entry.sidecar?.receivedAt && (
-            <p className="text-meta text-gray-400">
+            <p className="text-meta text-foreground-muted">
               {new Date(entry.sidecar.receivedAt).toLocaleString()}
             </p>
           )}
@@ -689,7 +689,7 @@ export default function PhotosInboxTab() {
                 anchorEntry: entry,
               });
             }}
-            className="opacity-0 group-hover:opacity-100 focus:opacity-100 px-2 py-1.5 text-meta text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-all"
+            className="opacity-0 group-hover:opacity-100 focus:opacity-100 px-2 py-1.5 text-meta text-foreground-muted hover:text-foreground hover:bg-surface-sunken rounded-md transition-all"
             data-force-hover-controls-target
           >
             ⋯
@@ -698,7 +698,7 @@ export default function PhotosInboxTab() {
             type="button"
             disabled={busy === entry.name || batchBusy}
             onClick={() => deleteInbox(entry)}
-            className="px-2 py-1.5 text-meta text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-40"
+            className="px-2 py-1.5 text-meta text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-md transition-colors disabled:opacity-40"
           >
             Delete
           </button>
@@ -717,9 +717,9 @@ export default function PhotosInboxTab() {
 
       <div className="flex-1 overflow-y-auto p-4" onClick={handleBodyClick}>
         {loading ? (
-          <p className="text-body text-gray-500 text-center py-8">Loading…</p>
+          <p className="text-body text-foreground-muted text-center py-8">Loading…</p>
         ) : entries.length === 0 ? (
-          <p className="text-body text-gray-400 italic text-center py-8">
+          <p className="text-body text-foreground-muted italic text-center py-8">
             Inbox is empty. Telegram photos sent with no experiment open land here.
           </p>
         ) : (
@@ -733,7 +733,7 @@ export default function PhotosInboxTab() {
                       Grouped visually so it reads as one unit, with a
                       one-tap "select all" so the whole album can be filed
                       together via the right-click menu. */}
-                  <div className="rounded-lg border border-blue-100 bg-blue-50/30 p-2">
+                  <div className="rounded-lg border border-blue-100 bg-blue-50 dark:bg-blue-500/10/30 p-2">
                     <div className="flex items-center justify-between px-1 pb-1.5">
                       <span className="inline-flex items-center gap-1.5 text-meta font-medium uppercase tracking-wide text-blue-500">
                         <BatchIcon />
@@ -746,7 +746,7 @@ export default function PhotosInboxTab() {
                           e.stopPropagation();
                           selectBatch(row.entries);
                         }}
-                        className="text-meta font-medium text-blue-600 hover:text-blue-800 disabled:opacity-40"
+                        className="text-meta font-medium text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 disabled:opacity-40"
                       >
                         Select all
                       </button>
@@ -764,7 +764,7 @@ export default function PhotosInboxTab() {
 
       {contextMenu && (
         <div
-          className="fixed z-[115] min-w-[180px] rounded-md border border-gray-200 bg-white shadow-lg py-1"
+          className="fixed z-[115] min-w-[180px] rounded-md border border-border bg-surface-raised shadow-lg py-1"
           style={{
             left: Math.min(
               contextMenu.x,
@@ -787,7 +787,7 @@ export default function PhotosInboxTab() {
               setContextMenu(null);
               setPickerOpen(true);
             }}
-            className="w-full text-left px-3 py-1.5 text-body text-gray-800 hover:bg-blue-50"
+            className="w-full text-left px-3 py-1.5 text-body text-foreground hover:bg-blue-50 dark:hover:bg-blue-500/10"
           >
             {sendMenuLabel}
           </button>
@@ -800,7 +800,7 @@ export default function PhotosInboxTab() {
               setContextMenu(null);
               setNotePickerOpen(true);
             }}
-            className="w-full text-left px-3 py-1.5 text-body text-gray-800 hover:bg-blue-50"
+            className="w-full text-left px-3 py-1.5 text-body text-foreground hover:bg-blue-50 dark:hover:bg-blue-500/10"
           >
             {sendNoteMenuLabel}
           </button>
@@ -812,7 +812,7 @@ export default function PhotosInboxTab() {
               setContextMenu(null);
               void moveToActive(contextMenu.anchorEntry, activeTask);
             }}
-            className="w-full text-left px-3 py-1.5 text-body text-gray-800 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full text-left px-3 py-1.5 text-body text-foreground hover:bg-blue-50 dark:hover:bg-blue-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {activeTask ? `Move to active (${activeTask.name})` : "Move to active"}
           </button>
@@ -827,19 +827,19 @@ export default function PhotosInboxTab() {
                 setContextMenu(null);
                 void moveToActiveNote(contextMenu.anchorEntry, activeNote);
               }}
-              className="w-full text-left px-3 py-1.5 text-body text-gray-800 hover:bg-blue-50"
+              className="w-full text-left px-3 py-1.5 text-body text-foreground hover:bg-blue-50 dark:hover:bg-blue-500/10"
             >
               {`Move to active note (${activeNote.title})`}
             </button>
           )}
-          <div className="h-px bg-gray-100 my-1" />
+          <div className="h-px bg-surface-sunken my-1" />
           <button
             type="button"
             onClick={() => {
               setContextMenu(null);
               void deleteInbox(contextMenu.anchorEntry);
             }}
-            className="w-full text-left px-3 py-1.5 text-body text-red-600 hover:bg-red-50"
+            className="w-full text-left px-3 py-1.5 text-body text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10"
           >
             Delete
           </button>
@@ -874,7 +874,7 @@ export default function PhotosInboxTab() {
 
       {toast && (
         <div
-          className="fixed z-[120] right-6 bottom-6 max-w-sm rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-body text-emerald-900 shadow-lg pointer-events-none"
+          className="fixed z-[120] right-6 bottom-6 max-w-sm rounded-lg border border-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 px-4 py-3 text-body text-emerald-900 shadow-lg pointer-events-none"
           role="status"
         >
           {toast}
@@ -1042,16 +1042,16 @@ function MoveToActiveControl({
       {dropdownOpen && activeTask && activeNote && (
         <div
           role="menu"
-          className="absolute right-0 top-full mt-1 z-[116] min-w-[220px] rounded-md border border-gray-200 bg-white shadow-lg py-1"
+          className="absolute right-0 top-full mt-1 z-[116] min-w-[220px] rounded-md border border-border bg-surface-raised shadow-lg py-1"
           onClick={(e) => e.stopPropagation()}
         >
           <button
             type="button"
             role="menuitem"
             onClick={() => onMoveToTask(activeTask)}
-            className="w-full text-left px-3 py-1.5 text-meta text-gray-800 hover:bg-blue-50"
+            className="w-full text-left px-3 py-1.5 text-meta text-foreground hover:bg-blue-50 dark:hover:bg-blue-500/10"
           >
-            <span className="block text-meta uppercase tracking-wide text-gray-400">
+            <span className="block text-meta uppercase tracking-wide text-foreground-muted">
               Experiment
             </span>
             <span className="block truncate">{activeTask.name}</span>
@@ -1060,9 +1060,9 @@ function MoveToActiveControl({
             type="button"
             role="menuitem"
             onClick={() => onMoveToNote(activeNote)}
-            className="w-full text-left px-3 py-1.5 text-meta text-gray-800 hover:bg-blue-50"
+            className="w-full text-left px-3 py-1.5 text-meta text-foreground hover:bg-blue-50 dark:hover:bg-blue-500/10"
           >
-            <span className="block text-meta uppercase tracking-wide text-gray-400">
+            <span className="block text-meta uppercase tracking-wide text-foreground-muted">
               Note
             </span>
             <span className="block truncate">{activeNote.title}</span>
