@@ -51,7 +51,7 @@ export const wikiPointerIntroStep = buildWalkthroughStep({
  * §6.12 beat 2 - spotlight the `?` icon in the top bar.
  *
  * Spotlight only, no cursor. The icon lives in AppShell next to
- * NotificationBadge / InboxBadge / TelegramStatusBadge / Settings,
+ * NotificationBadge / InboxBadge / TelegramHeaderButton / Settings,
  * stamped with `data-tour-target="wiki-nav-tab"`. Speech tells the user
  * where to look and, as awareness (no demo), what clicking it does and
  * how the back arrow returns them where they left off.

@@ -80,12 +80,12 @@ vi.mock("@/hooks/useErrorReporting", () => ({
 
 vi.mock("@/components/DailyTasksSidebar", () => ({ default: () => null }));
 vi.mock("@/components/CalendarSidebar", () => ({ default: () => null }));
-vi.mock("@/components/TelegramStatusBadge", () => ({ default: () => null }));
+vi.mock("@/components/telegram/TelegramHeaderButton", () => ({ default: () => null }));
 vi.mock("@/components/InboxBadge", () => ({ default: () => null }));
 vi.mock("@/components/InboxToast", () => ({ default: () => null }));
 vi.mock("@/components/NotificationBadge", () => ({ default: () => null }));
 vi.mock("@/components/ReminderRunner", () => ({ default: () => null }));
-vi.mock("@/components/TelegramRecoveryPrompt", () => ({ default: () => null }));
+vi.mock("@/components/telegram/TelegramPopup", () => ({ default: () => null }));
 vi.mock("@/components/TelegramEncryptedRecoveryPrompt", () => ({
   default: () => null,
 }));
