@@ -80,18 +80,18 @@ Stripe about 2.9% plus $0.30 (or an MoR about 5% plus $0.50). A block size and
 price are a Grant decision; the engineering treats them as configured products,
 not hard-coded numbers.
 
-Tax in the price is TAX-INCLUSIVE FLAT (Grant, 2026-06-05). The customer sees one
-flat price with no separate tax line, and the margin buffer absorbs any tax ever
-owed. We do NOT add a "tax" line on the assumption it is owed, because sales tax
-can only be collected where the LLC is registered, collecting it where it is not
-owed is itself a violation, and most customers are tax-exempt universities.
-Stripe Tax still computes the correct amount (zero where exempt) once the
-determination and any registration are in place. Mechanically, the current price
-has tax_behavior "unspecified", so it inherits the account-level setting, set
-Settings > Tax > "Include tax in prices" to "Yes" and the existing price becomes
-inclusive with no new price needed. A per-price tax_behavior is only immutable
-once set explicitly, which ours is not. No app code change, the hosted Checkout
-is agnostic and the ledger records the gross amount.
+Tax in the price uses Stripe's "Automatic" behavior (Grant, 2026-06-05, after
+briefly trying tax-inclusive). Automatic means exclusive for USD, tax is added on
+top of the listed price and the customer pays it, which is the US convention and
+keeps the LLC's margin intact. We do NOT bake in or add a tax line on the
+assumption it is owed, because sales tax can only be collected where the LLC is
+registered, collecting where it is not owed is itself a violation, and most
+customers are tax-exempt universities. Inclusive vs exclusive is purely a
+display/pricing choice and is DORMANT until the LLC actually registers and
+collects somewhere (monitor-only mode adds $0 tax regardless). It is independent
+of the DOR determination, which is about the obligation to register and remit,
+not display. No app code change, the hosted Checkout is agnostic and the ledger
+records the gross amount.
 
 ## Tracker tie-in
 
