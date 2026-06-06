@@ -107,18 +107,9 @@ export default function ProfileSettingsContent() {
         </p>
       </div>
 
-      {loading || !settings ? (
-        <p className="text-body text-foreground-muted">Loading your profile…</p>
-      ) : (
-        <AppearanceCard
-          currentUser={currentUser}
-          settings={settings}
-          update={update}
-        />
-      )}
-
-      {/* Researcher profile. Shown when a sharing identity is ready, otherwise
-          a friendly nudge to set one up with the four sign-in buttons. */}
+      {/* Researcher profile FIRST: signing in / claiming the profile is the
+          primary action, especially for a not-yet-logged-in user, so the four
+          sign-in buttons lead. Appearance (color picker, name) sits below. */}
       {sharing.status === "ready" ? (
         <ProfileEditorCard />
       ) : sharing.status === "none" ? (
@@ -144,6 +135,17 @@ export default function ProfileSettingsContent() {
             it from Settings to edit your researcher profile here.
           </p>
         </section>
+      )}
+
+      {/* Appearance (color picker, display name, ORCID, header tint) last. */}
+      {loading || !settings ? (
+        <p className="text-body text-foreground-muted">Loading your profile…</p>
+      ) : (
+        <AppearanceCard
+          currentUser={currentUser}
+          settings={settings}
+          update={update}
+        />
       )}
 
       {wizardOpen && currentUser && (
