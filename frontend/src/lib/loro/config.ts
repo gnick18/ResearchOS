@@ -1,4 +1,4 @@
-export const LORO_PILOT_ENABLED = false;
+export const LORO_PILOT_ENABLED = true;
 
 /**
  * WebSocket URL for the collab relay. Defaults to the local wrangler dev
