@@ -5,8 +5,18 @@ import { useQueryClient } from "@tanstack/react-query";
 import { signIn, signOut } from "next-auth/react";
 import { usersApi } from "@/lib/local-api";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
-import { hasPassword, verifyPassword, setPassword } from "@/lib/auth/password";
+import { removePassword } from "@/lib/auth/password";
 import { folderRequiresLogin } from "@/lib/auth/login-policy";
+import {
+  hasLocalAccount,
+  loginWithPassword,
+  createAndPersistAccount,
+} from "@/lib/auth/account-store";
+import { type UnlockedKeys } from "@/lib/auth/local-identity";
+import { saveIdentity } from "@/lib/sharing/identity/storage";
+import { decodePublicKey } from "@/lib/sharing/identity/keys";
+import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
+import { deleteSharingIdentity } from "@/lib/sharing/identity/sidecar";
 import { performUserDelete } from "@/lib/users/perform-delete";
 import { readUserSettings } from "@/lib/settings/user-settings";
 import { readArchivedSet } from "@/lib/lab/user-archive";
@@ -156,6 +166,14 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   const [savingForcedPassword, setSavingForcedPassword] = useState(false);
   const forcePasswordInputRef = useRef<HTMLInputElement>(null);
 
+  // After a new account is created, show its recovery code once before signing
+  // in. The code is the only fallback if the password is lost.
+  const [createdRecovery, setCreatedRecovery] = useState<{
+    username: string;
+    code: string;
+  } | null>(null);
+  const [recoveryCopied, setRecoveryCopied] = useState(false);
+
   // Per-user password management popup (set/change/remove)
   const [managingPasswordFor, setManagingPasswordFor] = useState<string | null>(null);
 
@@ -242,7 +260,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     await Promise.all(
       usernames.map(async (u) => {
         try {
-          if (await hasPassword(u)) next.add(u);
+          if (await hasLocalAccount(u)) next.add(u);
         } catch {
           // If we can't read, treat as unlocked rather than crashing the screen.
         }
@@ -453,6 +471,29 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     }
   };
 
+  // Load an unlocked local-account keypair into this device's session so the
+  // sharing and collab features see the identity. Best-effort, a save failure
+  // never blocks the login itself (the user is still let into their folder).
+  const persistUnlockedIdentity = async (keys: UnlockedKeys) => {
+    try {
+      await saveIdentity({
+        keys: {
+          encryption: {
+            publicKey: decodePublicKey(keys.x25519PublicKey),
+            privateKey: keys.x25519PrivateKey,
+          },
+          signing: {
+            publicKey: decodePublicKey(keys.ed25519PublicKey),
+            privateKey: keys.ed25519PrivateKey,
+          },
+        },
+        deviceSalt: generateDeviceSalt(),
+      });
+    } catch {
+      // Non-fatal, the login proceeds without the keypair in the session.
+    }
+  };
+
   const performLogin = async (username: string) => {
     try {
       await usersApi.login(username);
@@ -468,11 +509,10 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     setLoggingIn(username);
     setError(null);
     try {
-      const gated = await hasPassword(username);
-      if (gated) {
-        // Has a password (any account type) → require it. This is the
-        // existing path; lab heads with a password flow through here
-        // exactly like a member who opted into a password.
+      const hasAccount = await hasLocalAccount(username);
+      if (hasAccount) {
+        // The user has a local account, require the password that unwraps their
+        // keypair. handleSubmitPassword does the unwrap.
         setPasswordGate({ username, nextAction: "user" });
         setPasswordInput("");
         return;
@@ -523,16 +563,32 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     setSavingForcedPassword(true);
     try {
       const { username } = forcePasswordGate;
-      await setPassword(username, forceNewPassword);
-      setForcePasswordGate(null);
+      // Yield one frame so the CSS spinner paints before the heavy Argon2id work
+      // (createAndPersistAccount derives two wrapping keys synchronously).
+      await new Promise((r) => window.setTimeout(r, 50));
+      const created = await createAndPersistAccount(username, forceNewPassword);
+      // Wipe and re-establish, supersede any legacy password hash and any stale
+      // published-identity sidecar that pointed at the old keypair.
+      try {
+        await removePassword(username);
+      } catch {
+        // No legacy password to remove, fine.
+      }
+      try {
+        await deleteSharingIdentity(username);
+      } catch {
+        // No stale published identity, fine.
+      }
+      await persistUnlockedIdentity(created.keys);
+      setLockedUsers((prev) => new Set(prev).add(username));
       setForceNewPassword("");
       setForceConfirmPassword("");
       setSavingForcedPassword(false);
-      // Reflect the new lock state on the tile, then sign in.
-      setLockedUsers((prev) => new Set(prev).add(username));
-      await performLogin(username);
+      // Show the recovery code once. The user continues into the app from there.
+      setForcePasswordGate(null);
+      setCreatedRecovery({ username, code: created.recoveryCode });
     } catch {
-      setError("Failed to set password. Please try again.");
+      setError("Could not set up your account. Please try again.");
       setSavingForcedPassword(false);
     }
   };
@@ -551,12 +607,13 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     setError(null);
     setVerifyingPassword(true);
     try {
-      const ok = await verifyPassword(passwordGate.username, passwordInput);
-      if (!ok) {
+      const keys = await loginWithPassword(passwordGate.username, passwordInput);
+      if (!keys) {
         setError("Incorrect password.");
         setVerifyingPassword(false);
         return;
       }
+      await persistUnlockedIdentity(keys);
       const { username } = passwordGate;
       setPasswordGate(null);
       setPasswordInput("");
@@ -1671,8 +1728,9 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 </div>
               )}
               <p className="text-meta text-slate-400 leading-relaxed">
-                Stored only on your disk, hashed with PBKDF2-SHA-256.
-                Never sent to any server.
+                This password unlocks your account on this device and stays on
+                your disk, never sent to any server. You will get a recovery code
+                next, in case you forget it.
               </p>
               <div className="flex gap-2 pt-1">
                 <button
@@ -1692,9 +1750,63 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   className="flex-1 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:opacity-50"
                   data-testid="force-pi-password-submit"
                 >
-                  {savingForcedPassword ? "Saving…" : "Set & sign in"}
+                  {savingForcedPassword ? "Creating…" : "Create account"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recovery code, shown once right after a new account is created. */}
+      {createdRecovery && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div
+            className="bg-slate-800 rounded-2xl shadow-2xl border border-white/20 max-w-sm w-full mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-white/10">
+              <h3 className="text-title font-semibold text-white">
+                Save your recovery code
+              </h3>
+              <p className="text-meta text-slate-400 mt-0.5">
+                This is the only way back in if you forget your password. Write it
+                somewhere safe, it is not shown again.
+              </p>
+            </div>
+            <div className="px-6 py-5 space-y-3">
+              <div className="p-3 bg-slate-900/60 border border-white/10 rounded-lg">
+                <p className="font-mono text-body text-slate-100 tracking-wide break-all text-center">
+                  {createdRecovery.code}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(createdRecovery.code);
+                    setRecoveryCopied(true);
+                    window.setTimeout(() => setRecoveryCopied(false), 1800);
+                  } catch {
+                    // Clipboard can be blocked, the code is still visible to copy.
+                  }
+                }}
+                className="text-meta text-blue-400 hover:text-blue-300"
+              >
+                {recoveryCopied ? "Copied" : "Copy code"}
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const u = createdRecovery.username;
+                  setCreatedRecovery(null);
+                  await performLogin(u);
+                }}
+                className="w-full py-2 text-body bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg"
+                data-testid="recovery-continue"
+              >
+                I saved it, continue
+              </button>
             </div>
           </div>
         </div>
