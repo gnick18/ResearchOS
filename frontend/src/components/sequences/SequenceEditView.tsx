@@ -63,6 +63,7 @@ import {
 import { colorForType, FEATURE_COLOR_SWATCHES } from "@/lib/sequences/feature-colors";
 import {
   featureDomId,
+  decodeFeatureDomId,
   featureIndexFromEventTarget,
   chooseContextMenuKind,
   toFasta,
@@ -4652,6 +4653,20 @@ export default function SequenceEditView({
                     setSelection(s);
                     // A user-driven selection takes back control from a feature zoom.
                     if (externalSel) setExternalSel(null);
+                    // Clicking a feature ANNOTATION must register as a FEATURE
+                    // selection, not a bare base region. Otherwise the contextual
+                    // inspector classifies it as a region and auto-opens the
+                    // Primers panel (the reported bug). SeqViz carries our roidx
+                    // stamp on the selection's ref, so decode it back to the
+                    // feature index. A real base-range drag (type SEQ) clears the
+                    // feature so a fresh region still reads as a region. Other
+                    // selection types (enzyme, translation, find) leave the
+                    // feature selection untouched.
+                    if (s?.type === "ANNOTATION") {
+                      setSelectedFeatureIdx(decodeFeatureDomId(s.ref));
+                    } else if (s?.type === "SEQ") {
+                      setSelectedFeatureIdx(null);
+                    }
                   }}
                   selection={externalSel ?? undefined}
                   // nav polish bot — FIX 1: drop the complement strand in Map view
