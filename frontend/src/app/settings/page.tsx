@@ -85,6 +85,7 @@ import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { forgetAllTelegramTokenCache } from "@/lib/telegram/telegram-token-cache";
 import StreaksSection from "./StreaksSection";
 import { patchStreak } from "@/lib/streak/streak-sidecar";
+import { useTheme, type ThemeChoice } from "@/lib/theme/use-theme";
 import { repairAllPCRProtocols } from "@/lib/repair/pcr-protocols";
 import {
   TRASH_CLEANUP_OPTIONS,
@@ -544,6 +545,7 @@ function SettingsBody() {
             <AIHelperSection />
             <SidebarSection settings={settings} update={update} />
             <DefaultsSection settings={settings} update={update} />
+            <AppearanceSection />
             <AnimationSection settings={settings} update={update} />
             <BehaviorSection settings={settings} update={update} />
             <StreaksSection />
@@ -1914,6 +1916,93 @@ function ProfessionalModeSection({ settings, update }: SectionProps) {
         checked={settings.professionalMode}
         onChange={handleProfessionalMode}
       />
+    </SectionShell>
+  );
+}
+
+// Appearance / theme picker. Theme is a per-device display preference (stored
+// in localStorage via useTheme, not the folder), so this section takes no
+// settings/update; it reads + writes the live theme directly. "System" follows
+// the OS. Styled with literal light colors to match its sibling sections, the
+// Settings page is not token-converted yet (see docs/proposals/
+// dark-mode-toggle.md); convert this with the rest of the page later.
+function AppearanceSection() {
+  const { choice, setTheme } = useTheme();
+  const options: {
+    value: ThemeChoice;
+    label: string;
+    description: string;
+    icon: React.ReactNode;
+  }[] = [
+    {
+      value: "light",
+      label: "Light",
+      description: "The classic bright look.",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+        </svg>
+      ),
+    },
+    {
+      value: "dark",
+      label: "Dark",
+      description: "Easier on the eyes at night.",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+        </svg>
+      ),
+    },
+    {
+      value: "system",
+      label: "System",
+      description: "Match your device setting.",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+          <rect x="2" y="3" width="20" height="14" rx="2" />
+          <path d="M8 21h8M12 17v4" />
+        </svg>
+      ),
+    },
+  ];
+  return (
+    <SectionShell
+      id="appearance"
+      title="Appearance"
+      description="Choose a light or dark theme, or follow your device. The welcome page always stays light."
+      searchKeywords="theme dark mode light night appearance color scheme"
+    >
+      <div className="grid grid-cols-3 gap-2">
+        {options.map((opt) => {
+          const selected = choice === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setTheme(opt.value)}
+              aria-pressed={selected}
+              data-theme-choice={opt.value}
+              className={`flex flex-col items-start gap-2 p-3 rounded-lg border-2 text-left transition-colors ${
+                selected
+                  ? "border-blue-400 bg-blue-50"
+                  : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+              }`}
+            >
+              <span className={selected ? "text-blue-600" : "text-gray-500"}>
+                {opt.icon}
+              </span>
+              <div className="min-w-0">
+                <p className={`text-body font-medium ${selected ? "text-blue-700" : "text-gray-700"}`}>
+                  {opt.label}
+                </p>
+                <p className="text-meta text-gray-400">{opt.description}</p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
     </SectionShell>
   );
 }
