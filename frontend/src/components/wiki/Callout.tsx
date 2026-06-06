@@ -10,23 +10,23 @@ interface Props {
 
 const STYLES: Record<Variant, { wrap: string; title: string; icon: string }> = {
   info: {
-    wrap: "border-blue-200 bg-blue-50 text-blue-900",
-    title: "text-blue-900",
+    wrap: "border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-100",
+    title: "text-blue-900 dark:text-blue-100",
     icon: "ℹ",
   },
   tip: {
-    wrap: "border-emerald-200 bg-emerald-50 text-emerald-900",
-    title: "text-emerald-900",
+    wrap: "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100",
+    title: "text-emerald-900 dark:text-emerald-100",
     icon: "✓",
   },
   warning: {
-    wrap: "border-amber-200 bg-amber-50 text-amber-900",
-    title: "text-amber-900",
+    wrap: "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100",
+    title: "text-amber-900 dark:text-amber-100",
     icon: "!",
   },
   danger: {
-    wrap: "border-rose-200 bg-rose-50 text-rose-900",
-    title: "text-rose-900",
+    wrap: "border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-100",
+    title: "text-rose-900 dark:text-rose-100",
     icon: "⚠",
   },
 };

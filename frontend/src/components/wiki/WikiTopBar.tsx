@@ -71,15 +71,15 @@ export default function WikiTopBar() {
   };
 
   return (
-    <div className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-200">
+    <div className="sticky top-0 z-40 bg-surface-raised/95 backdrop-blur border-b border-border">
       <div className="px-5 py-2 flex items-center gap-3">
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 text-body font-bold text-gray-900 tracking-tight hover:text-blue-700 transition-colors"
+          className="inline-flex items-center gap-1.5 text-body font-bold text-foreground tracking-tight hover:text-accent transition-colors"
           title="Go to ResearchOS home"
         >
           {/* BeakerBot brand-mark — static, sky-blue, sized to match the
-              text-sm wordmark next to it. Matches AppShell + login. */}
+              text-body wordmark next to it. Matches AppShell + login. */}
           <BeakerBot
             pose="idle"
             ariaLabel="ResearchOS BeakerBot logo"
@@ -87,8 +87,8 @@ export default function WikiTopBar() {
           />
           ResearchOS
         </Link>
-        <span className="text-gray-300">/</span>
-        <span className="text-body text-gray-500">Wiki</span>
+        <span className="text-foreground-muted">/</span>
+        <span className="text-body text-foreground-muted">Wiki</span>
 
         <div className="flex-1" />
 
@@ -96,7 +96,7 @@ export default function WikiTopBar() {
           type="button"
           onClick={handleBack}
           data-tour-target="wiki-back-to-app"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium text-gray-700 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium text-foreground bg-surface-raised border border-border hover:border-border hover:bg-surface-sunken rounded-lg transition-colors"
           title="Return to the app (Back)"
         >
           <svg

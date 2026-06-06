@@ -9,7 +9,7 @@ interface Props {
  *  a nested list of sub-actions. */
 export function Steps({ children }: Props) {
   return (
-    <ol className="my-4 list-decimal pl-6 space-y-2.5 text-gray-800 leading-relaxed marker:text-gray-500 marker:font-semibold">
+    <ol className="my-4 list-decimal pl-6 space-y-2.5 text-foreground leading-relaxed marker:text-foreground-muted marker:font-semibold">
       {children}
     </ol>
   );

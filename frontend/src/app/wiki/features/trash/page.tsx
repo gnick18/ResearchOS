@@ -30,16 +30,16 @@ export default function TrashFeaturePage() {
       <h2>How it works</h2>
       <p>
         When you delete a note, the file moves from
-        <code className="px-1 py-0.5 bg-gray-100 rounded text-meta ml-1">users/&lt;you&gt;/notes/&lt;id&gt;.json</code>
+        <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta ml-1">users/&lt;you&gt;/notes/&lt;id&gt;.json</code>
         into
-        <code className="px-1 py-0.5 bg-gray-100 rounded text-meta ml-1">users/&lt;you&gt;/_trash/notes/&lt;id&gt;-&lt;slug&gt;.json</code>.
+        <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta ml-1">users/&lt;you&gt;/_trash/notes/&lt;id&gt;-&lt;slug&gt;.json</code>.
         A small metadata block is added to the trashed record that records
         when the delete happened, who issued it, and when the auto-cleanup
         sweep will permanently remove it.
       </p>
       <p>
         A sidecar index at
-        <code className="px-1 py-0.5 bg-gray-100 rounded text-meta ml-1">users/&lt;you&gt;/_trash/_index.json</code>{" "}
+        <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta ml-1">users/&lt;you&gt;/_trash/_index.json</code>{" "}
         keeps a flat summary of every trashed record. The index is rebuilt
         automatically from the directory listing if it ever goes out of sync
         (manual file deletion, OneDrive merge conflict, partial crash). The
@@ -203,7 +203,7 @@ export default function TrashFeaturePage() {
       <ul>
         <li>
           <strong>Archive</strong> (the existing button): the project stays at
-          <code className="px-1 py-0.5 bg-gray-100 rounded text-meta mx-1">users/&lt;you&gt;/projects/&lt;id&gt;.json</code>{" "}
+          <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta mx-1">users/&lt;you&gt;/projects/&lt;id&gt;.json</code>{" "}
           with <code>is_archived: true</code>. It is hidden from default
           views but visible in the archived list. Use this for projects
           you are done with but want to keep on disk for reference.
@@ -211,9 +211,9 @@ export default function TrashFeaturePage() {
         <li>
           <strong>Delete</strong> (now routes through trash): the project file
           moves to{" "}
-          <code className="px-1 py-0.5 bg-gray-100 rounded text-meta mx-1">_trash/projects/</code>{" "}
+          <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta mx-1">_trash/projects/</code>{" "}
           and the cleanup window starts. The trash entry preserves the
-          <code className="px-1 py-0.5 bg-gray-100 rounded text-meta mx-1">is_archived</code>{" "}
+          <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta mx-1">is_archived</code>{" "}
           flag, so a project you archived first and then deleted will come
           back archived on restore.
         </li>

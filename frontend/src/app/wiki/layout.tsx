@@ -14,7 +14,7 @@ export const metadata: Metadata = {
  *  one-click route back into the app from anywhere in the docs. */
 export default function WikiLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-white text-gray-900 flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
       <WikiTopBar />
       <div className="flex-1 lg:flex">
         <WikiSidebar />

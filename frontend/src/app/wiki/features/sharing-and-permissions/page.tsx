@@ -28,7 +28,7 @@ export default function SharingAndPermissionsPage() {
         Every shareable record carries a field whose TypeScript signature
         is:
       </p>
-      <pre className="text-body bg-gray-100 rounded p-3 overflow-x-auto">
+      <pre className="text-body bg-surface-sunken rounded p-3 overflow-x-auto">
         <code>{`type SharedUser = {
   username: string;
   level: "read" | "edit";
@@ -49,7 +49,7 @@ shared_with: SharedUser[];`}</code>
         Inspecting your JSON folder, you will see the objects on disk. A
         method shared with two members at different levels looks like:
       </p>
-      <pre className="text-body bg-gray-100 rounded p-3 overflow-x-auto">
+      <pre className="text-body bg-surface-sunken rounded p-3 overflow-x-auto">
         <code>{`"shared_with": [
   { "username": "alex",   "level": "read" },
   { "username": "morgan", "level": "edit" }

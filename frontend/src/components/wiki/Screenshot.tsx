@@ -38,27 +38,32 @@ export default function Screenshot({
 
   const inner = errored ? (
     <div
-      className="w-full aspect-[1440/900] flex items-center justify-center bg-gray-50 text-gray-400 text-body border-2 border-dashed border-gray-200 rounded-lg"
+      className="w-full aspect-[1440/900] flex items-center justify-center bg-surface-sunken text-foreground-muted text-body border-2 border-dashed border-border rounded-lg"
       role="img"
       aria-label={`${alt} (screenshot pending capture)`}
     >
       <div className="text-center">
-        <div className="text-title font-medium text-gray-500">Screenshot pending</div>
-        <div className="mt-1 text-meta text-gray-400">{alt}</div>
-        <div className="mt-2 text-[11px] text-gray-400 font-mono">{src}</div>
+        <div className="text-title font-medium text-foreground-muted">Screenshot pending</div>
+        <div className="mt-1 text-meta text-foreground-muted">{alt}</div>
+        <div className="mt-2 text-meta text-foreground-muted font-mono">{src}</div>
       </div>
     </div>
   ) : (
-    <Image
-      src={src}
-      alt={alt}
-      width={width}
-      height={height}
-      onError={() => setErrored(true)}
-      className="w-full h-auto rounded-lg border border-gray-200 shadow-sm"
-      loading="eager"
-      unoptimized
-    />
+    // The screenshots are captures of the LIGHT app. On a dark wiki page a bare
+    // light image reads as a glowing slab, so in dark we sit it in a sunken
+    // "mat" with a border (a framed figure). Light mode is unchanged (dark:).
+    <div className="rounded-lg dark:bg-surface-sunken dark:p-1.5 dark:border dark:border-border">
+      <Image
+        src={src}
+        alt={alt}
+        width={width}
+        height={height}
+        onError={() => setErrored(true)}
+        className="w-full h-auto rounded-lg border border-border shadow-sm"
+        loading="eager"
+        unoptimized
+      />
+    </div>
   );
 
   return (
@@ -76,7 +81,7 @@ export default function Screenshot({
         </button>
       )}
       {caption ? (
-        <figcaption className="mt-2 text-meta text-gray-500 text-center">
+        <figcaption className="mt-2 text-meta text-foreground-muted text-center">
           {caption}
         </figcaption>
       ) : null}

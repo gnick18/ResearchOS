@@ -54,8 +54,8 @@ export default function SecurityPage() {
           profile.
         </li>
       </ul>
-      <details className="mt-4 border border-gray-200 rounded-lg p-3 [&[open]>summary]:mb-3">
-        <summary className="cursor-pointer font-medium text-gray-800">
+      <details className="mt-4 border border-border rounded-lg p-3 [&[open]>summary]:mb-3">
+        <summary className="cursor-pointer font-medium text-foreground">
           Show me the exact file layout
         </summary>
         <pre className="text-meta overflow-x-auto">
@@ -233,7 +233,7 @@ export default function SecurityPage() {
           so if anything goes wrong the entire password change is
           aborted and your backup is never stranded.
         </p>
-        <p className="text-body text-gray-600">
+        <p className="text-body text-foreground-muted">
           The encryption parameters (KDF, cipher, IV / salt sizes,
           fail-closed decryption semantics) live in{" "}
           <a
@@ -348,11 +348,11 @@ export default function SecurityPage() {
           </li>
         </ul>
       </Callout>
-      <details className="mt-4 border border-gray-200 rounded-lg p-3 [&[open]>summary]:mb-3">
-        <summary className="cursor-pointer font-medium text-gray-800">
+      <details className="mt-4 border border-border rounded-lg p-3 [&[open]>summary]:mb-3">
+        <summary className="cursor-pointer font-medium text-foreground">
           The thorough way: open DevTools and watch the network yourself
         </summary>
-        <p className="text-body text-gray-700 mt-2">
+        <p className="text-body text-foreground mt-2">
           Your browser already shows every network request the app makes.
           This is the audit-grade path for anyone who wants to see the
           bytes themselves.

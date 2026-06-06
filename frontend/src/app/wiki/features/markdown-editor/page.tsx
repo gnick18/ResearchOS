@@ -157,12 +157,12 @@ export default function MarkdownEditorPage() {
       <div className="not-prose my-4 overflow-x-auto">
         <table className="w-full text-body border-collapse">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-gray-700">
+            <tr className="bg-surface-sunken border-b border-border text-foreground">
               <th className="text-left px-3 py-2 font-semibold">Action</th>
               <th className="text-left px-3 py-2 font-semibold">Shortcut</th>
             </tr>
           </thead>
-          <tbody className="text-gray-800 [&>tr]:border-b [&>tr]:border-gray-100">
+          <tbody className="text-foreground [&>tr]:border-b [&>tr]:border-border">
             <tr><td className="px-3 py-1.5">Save checkpoint</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>S</Kbd></td></tr>
             <tr><td className="px-3 py-1.5">Undo</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>Z</Kbd></td></tr>
             <tr><td className="px-3 py-1.5">Redo</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>Shift</Kbd>+<Kbd>Z</Kbd> or <Kbd>Ctrl</Kbd>+<Kbd>Y</Kbd></td></tr>
@@ -400,7 +400,7 @@ export default function MarkdownEditorPage() {
       </p>
 
       <h3>PCR reaction setup</h3>
-      <pre className="text-meta bg-gray-100 rounded p-3 overflow-x-auto">
+      <pre className="text-meta bg-surface-sunken rounded p-3 overflow-x-auto">
         <code>{`## PCR reaction (25 uL, Q5)
 
 | Reagent              | Stock     | Final     | Volume (uL) |
@@ -417,7 +417,7 @@ Variation: dropped extension to 30 s, single template lot.`}</code>
       </pre>
 
       <h3>Plasmid metadata</h3>
-      <pre className="text-meta bg-gray-100 rounded p-3 overflow-x-auto">
+      <pre className="text-meta bg-surface-sunken rounded p-3 overflow-x-auto">
         <code>{`## pGN-027  (parent: pGN-012)
 
 - Resistance: Kan (50 ug/mL)
@@ -429,7 +429,7 @@ Variation: dropped extension to 30 s, single template lot.`}</code>
       </pre>
 
       <h3>Sample measurement record</h3>
-      <pre className="text-meta bg-gray-100 rounded p-3 overflow-x-auto">
+      <pre className="text-meta bg-surface-sunken rounded p-3 overflow-x-auto">
         <code>{`## OD600 readings, 2026-05-22 08:14 CT
 
 Instrument: BioTek Synergy H1 (SN 19F-3204)
@@ -446,7 +446,7 @@ A3 looks suspect, repeat tomorrow morning.`}</code>
       </pre>
 
       <h3>Equipment log</h3>
-      <pre className="text-meta bg-gray-100 rounded p-3 overflow-x-auto">
+      <pre className="text-meta bg-surface-sunken rounded p-3 overflow-x-auto">
         <code>{`## Centrifuge 5424R service log
 
 - Serial: 5424R-7831

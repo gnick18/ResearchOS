@@ -41,7 +41,7 @@ export default function WikiLandingPage() {
         directly to a folder on your computer. There&apos;s no server, no account,
         no sign-up. Your data lives in plain JSON files you fully own.
       </p>
-      <ol className="my-4 list-decimal pl-6 space-y-2.5 text-gray-800 leading-relaxed marker:text-gray-500 marker:font-semibold">
+      <ol className="my-4 list-decimal pl-6 space-y-2.5 text-foreground leading-relaxed marker:text-foreground-muted marker:font-semibold">
         <li>
           Open ResearchOS in <strong>Chrome or Edge</strong>. Other browsers
           can&apos;t read local folders yet.
@@ -94,13 +94,13 @@ export default function WikiLandingPage() {
           <Link
             key={section.href}
             href={section.href}
-            className="block rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 px-5 py-4 transition-colors"
+            className="block rounded-xl border border-border hover:border-border hover:bg-surface-sunken px-5 py-4 transition-colors"
           >
-            <div className="font-semibold text-gray-900">{section.label}</div>
+            <div className="font-semibold text-foreground">{section.label}</div>
             {section.blurb ? (
-              <div className="mt-1 text-body text-gray-600">{section.blurb}</div>
+              <div className="mt-1 text-body text-foreground-muted">{section.blurb}</div>
             ) : null}
-            <div className="mt-2 text-meta text-gray-500">
+            <div className="mt-2 text-meta text-foreground-muted">
               {section.children?.length ?? 0} pages
             </div>
           </Link>

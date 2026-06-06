@@ -31,15 +31,15 @@ export default function WikiPage({ title, intro, children }: Props) {
   return (
     <article className="max-w-3xl mx-auto px-6 lg:px-10 py-8">
       {crumbs.length > 1 ? (
-        <nav aria-label="Breadcrumb" className="mb-3 text-meta text-gray-500">
+        <nav aria-label="Breadcrumb" className="mb-3 text-meta text-foreground-muted">
           <ol className="flex flex-wrap gap-1.5">
             {crumbs.map((c, i) => (
               <li key={c.href} className="flex items-center gap-1.5">
                 {i > 0 ? <span aria-hidden>›</span> : null}
                 {i === crumbs.length - 1 ? (
-                  <span className="text-gray-700 font-medium">{c.label}</span>
+                  <span className="text-foreground font-medium">{c.label}</span>
                 ) : (
-                  <Link href={c.href} className="hover:text-gray-900 hover:underline">
+                  <Link href={c.href} className="hover:text-foreground hover:underline">
                     {c.label}
                   </Link>
                 )}
@@ -49,19 +49,19 @@ export default function WikiPage({ title, intro, children }: Props) {
         </nav>
       ) : null}
 
-      <h1 className="text-display font-bold text-gray-900 tracking-tight">{heading}</h1>
-      {intro ? <p className="mt-2 text-title text-gray-600 leading-relaxed">{intro}</p> : null}
+      <h1 className="text-display font-bold text-foreground tracking-tight">{heading}</h1>
+      {intro ? <p className="mt-2 text-title text-foreground-muted leading-relaxed">{intro}</p> : null}
 
       <div
         className="
-          mt-6 text-body leading-relaxed text-gray-800
-          [&_h2]:mt-8 [&_h2]:mb-3 [&_h2]:text-heading [&_h2]:font-semibold [&_h2]:text-gray-900
-          [&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:text-title [&_h3]:font-semibold [&_h3]:text-gray-900
+          mt-6 text-body leading-relaxed text-foreground
+          [&_h2]:mt-8 [&_h2]:mb-3 [&_h2]:text-heading [&_h2]:font-semibold [&_h2]:text-foreground
+          [&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:text-title [&_h3]:font-semibold [&_h3]:text-foreground
           [&_p]:my-3
-          [&_a]:text-blue-600 [&_a:hover]:underline
+          [&_a]:text-accent [&_a:hover]:underline
           [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ul>li]:my-1
-          [&_code]:bg-gray-100 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[13px] [&_code]:font-mono
-          [&_strong]:font-semibold [&_strong]:text-gray-900
+          [&_code]:bg-foreground-muted/10 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-meta [&_code]:font-mono
+          [&_strong]:font-semibold [&_strong]:text-foreground
         "
       >
         {children}
@@ -105,15 +105,15 @@ function PrevNext({
   return (
     <nav
       aria-label="Wiki pagination"
-      className="mt-12 pt-6 border-t border-gray-200 flex items-stretch gap-3"
+      className="mt-12 pt-6 border-t border-border flex items-stretch gap-3"
     >
       {prev ? (
         <Link
           href={prev.href}
-          className="flex-1 min-w-0 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 px-4 py-3 transition-colors group"
+          className="flex-1 min-w-0 rounded-lg border border-border hover:border-foreground-muted/40 hover:bg-surface-sunken px-4 py-3 transition-colors group"
         >
-          <div className="text-meta text-gray-400 uppercase tracking-wide">← Previous</div>
-          <div className="mt-0.5 text-body font-medium text-gray-900 truncate">{prev.label}</div>
+          <div className="text-meta text-foreground-muted uppercase tracking-wide">← Previous</div>
+          <div className="mt-0.5 text-body font-medium text-foreground truncate">{prev.label}</div>
         </Link>
       ) : (
         <div className="flex-1" />
@@ -121,10 +121,10 @@ function PrevNext({
       {next ? (
         <Link
           href={next.href}
-          className="flex-1 min-w-0 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 px-4 py-3 transition-colors text-right group"
+          className="flex-1 min-w-0 rounded-lg border border-border hover:border-foreground-muted/40 hover:bg-surface-sunken px-4 py-3 transition-colors text-right group"
         >
-          <div className="text-meta text-gray-400 uppercase tracking-wide">Next →</div>
-          <div className="mt-0.5 text-body font-medium text-gray-900 truncate">{next.label}</div>
+          <div className="text-meta text-foreground-muted uppercase tracking-wide">Next →</div>
+          <div className="mt-0.5 text-body font-medium text-foreground truncate">{next.label}</div>
         </Link>
       ) : (
         <div className="flex-1" />

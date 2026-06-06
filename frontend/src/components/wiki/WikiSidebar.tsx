@@ -16,11 +16,11 @@ export default function WikiSidebar() {
   return (
     <>
       {/* Mobile toggle */}
-      <div className="lg:hidden sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-2 flex items-center">
+      <div className="lg:hidden sticky top-0 z-30 bg-surface-raised border-b border-border px-4 py-2 flex items-center">
         <button
           type="button"
           onClick={() => setMobileOpen((v) => !v)}
-          className="inline-flex items-center gap-2 text-body font-medium text-gray-700"
+          className="inline-flex items-center gap-2 text-body font-medium text-foreground"
           aria-expanded={mobileOpen}
           aria-controls="wiki-sidebar-nav"
         >
@@ -38,18 +38,18 @@ export default function WikiSidebar() {
         className={`
           ${mobileOpen ? "block" : "hidden"} lg:block
           lg:sticky lg:top-[44px] lg:h-[calc(100vh-44px)] lg:w-64 lg:flex-shrink-0
-          bg-white border-r border-gray-200 overflow-y-auto
+          bg-surface-raised border-r border-border overflow-y-auto
         `}
       >
         <div className="px-5 pt-6 pb-3">
           <Link
             href="/wiki"
-            className="block text-title font-bold text-gray-900 tracking-tight hover:text-gray-700"
+            className="block text-title font-bold text-foreground tracking-tight hover:text-foreground"
             onClick={() => setMobileOpen(false)}
           >
             ResearchOS Wiki
           </Link>
-          <p className="mt-1 text-meta text-gray-500">Help & Documentation</p>
+          <p className="mt-1 text-meta text-foreground-muted">Help & Documentation</p>
         </div>
         <WikiSearch />
         <nav className="px-3 pb-10 text-body">
@@ -95,19 +95,19 @@ function SidebarNode({
           block px-3 py-1.5 rounded-md transition-colors ${indent}
           ${
             isActive
-              ? "bg-blue-50 text-blue-700 font-semibold"
+              ? "bg-accent-soft text-accent font-semibold"
               : hasActiveDescendant && depth === 0
-              ? "text-gray-900 font-semibold"
+              ? "text-foreground font-semibold"
               : depth === 0
-              ? "text-gray-900 font-semibold hover:bg-gray-50"
-              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              ? "text-foreground font-semibold hover:bg-surface-sunken"
+              : "text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
           }
         `}
       >
         {node.label}
       </Link>
       {node.children && (depth === 0 || isActive || hasActiveDescendant) ? (
-        <div className="ml-2 mt-0.5 border-l border-gray-100">
+        <div className="ml-2 mt-0.5 border-l border-border">
           {node.children.map((child) => (
             <SidebarNode
               key={child.href}

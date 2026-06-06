@@ -6,8 +6,8 @@ import WikiPage from "@/components/wiki/WikiPage";
 function Yes({ children }: { children?: ReactNode }) {
   return (
     <span>
-      <strong className="text-emerald-700">Yes</strong>
-      {children ? <span className="text-gray-600">. {children}</span> : null}
+      <strong className="text-emerald-700 dark:text-emerald-300">Yes</strong>
+      {children ? <span className="text-foreground-muted">. {children}</span> : null}
     </span>
   );
 }
@@ -16,7 +16,7 @@ function No({ children }: { children?: ReactNode }) {
   return (
     <span>
       <strong className="text-rose-700">No</strong>
-      {children ? <span className="text-gray-600">. {children}</span> : null}
+      {children ? <span className="text-foreground-muted">. {children}</span> : null}
     </span>
   );
 }
@@ -24,15 +24,15 @@ function No({ children }: { children?: ReactNode }) {
 function Partial({ children }: { children?: ReactNode }) {
   return (
     <span>
-      <strong className="text-amber-700">Partial</strong>
-      {children ? <span className="text-gray-600">. {children}</span> : null}
+      <strong className="text-amber-700 dark:text-amber-300">Partial</strong>
+      {children ? <span className="text-foreground-muted">. {children}</span> : null}
     </span>
   );
 }
 
 function ComingSoon() {
   return (
-    <span className="ml-1.5 inline-block whitespace-nowrap rounded-full bg-sky-100 text-sky-700 text-meta font-semibold px-2 py-0.5 align-middle">
+    <span className="ml-1.5 inline-block whitespace-nowrap rounded-full bg-sky-100 dark:bg-sky-500/20 text-sky-700 dark:text-sky-300 text-meta font-semibold px-2 py-0.5 align-middle">
       Coming soon
     </span>
   );
@@ -62,7 +62,7 @@ export default function LabArchivesComparisonPage() {
       <div className="my-5 overflow-x-auto not-prose">
         <table className="w-full text-body border-collapse">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-gray-700">
+            <tr className="bg-surface-sunken border-b border-border text-foreground">
               <th className="text-left px-3 py-2 font-semibold w-[26%]">
                 Capability
               </th>
@@ -74,7 +74,7 @@ export default function LabArchivesComparisonPage() {
               </th>
             </tr>
           </thead>
-          <tbody className="text-gray-800 [&>tr]:border-b [&>tr]:border-gray-100 [&>tr>td]:px-3 [&>tr>td]:py-2 [&>tr>td]:align-top">
+          <tbody className="text-foreground [&>tr]:border-b [&>tr]:border-border [&>tr>td]:px-3 [&>tr>td]:py-2 [&>tr>td]:align-top">
             <tr>
               <td>
                 <strong>Price</strong>

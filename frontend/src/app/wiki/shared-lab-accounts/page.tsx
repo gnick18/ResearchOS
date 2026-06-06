@@ -79,11 +79,11 @@ export default function SharedLabAccountsPage() {
           <Link
             key={p.href}
             href={p.href}
-            className="block rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 px-5 py-4 transition-colors"
+            className="block rounded-lg border border-border hover:border-border hover:bg-surface-sunken px-5 py-4 transition-colors"
           >
-            <div className="font-semibold text-gray-900">{p.label}</div>
+            <div className="font-semibold text-foreground">{p.label}</div>
             {p.blurb ? (
-              <div className="mt-1 text-body text-gray-600">{p.blurb}</div>
+              <div className="mt-1 text-body text-foreground-muted">{p.blurb}</div>
             ) : null}
           </Link>
         ))}

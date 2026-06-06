@@ -14,11 +14,11 @@ export default function FeaturesIndex() {
           <Link
             key={c.href}
             href={c.href}
-            className="block rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 px-5 py-4 transition-colors"
+            className="block rounded-lg border border-border hover:border-border hover:bg-surface-sunken px-5 py-4 transition-colors"
           >
-            <div className="font-semibold text-gray-900">{c.label}</div>
+            <div className="font-semibold text-foreground">{c.label}</div>
             {c.blurb ? (
-              <div className="mt-1 text-body text-gray-600">{c.blurb}</div>
+              <div className="mt-1 text-body text-foreground-muted">{c.blurb}</div>
             ) : null}
           </Link>
         ))}
