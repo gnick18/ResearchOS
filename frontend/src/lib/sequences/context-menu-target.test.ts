@@ -9,6 +9,7 @@ import {
   decodeFeatureDomId,
   featureIndexFromEventTarget,
   chooseContextMenuKind,
+  toFasta,
   FEATURE_DOM_ID_PREFIX,
 } from "./context-menu-target";
 
@@ -66,11 +67,54 @@ describe("featureIndexFromEventTarget", () => {
 });
 
 describe("chooseContextMenuKind", () => {
-  it("picks the feature menu when a feature was hit", () => {
-    expect(chooseContextMenuKind(0)).toBe("feature");
-    expect(chooseContextMenuKind(9)).toBe("feature");
+  it("picks the feature menu when a non-primer feature was hit", () => {
+    expect(chooseContextMenuKind({ hitFeatureIndex: 0, hitFeatureType: "CDS" })).toBe("feature");
+    expect(chooseContextMenuKind({ hitFeatureIndex: 9, hitFeatureType: "misc_feature" })).toBe(
+      "feature",
+    );
+    // A coding feature still resolves to "feature" (its protein group is added by
+    // the view, the menu KIND does not change).
+    expect(chooseContextMenuKind({ hitFeatureIndex: 2, hitFeatureType: "gene" })).toBe("feature");
+    // No type given falls back to the generic feature menu.
+    expect(chooseContextMenuKind({ hitFeatureIndex: 3 })).toBe("feature");
   });
-  it("picks the bases menu when no feature was hit", () => {
-    expect(chooseContextMenuKind(null)).toBe("bases");
+  it("picks the primer menu when a primer_bind feature was hit", () => {
+    expect(chooseContextMenuKind({ hitFeatureIndex: 1, hitFeatureType: "primer_bind" })).toBe(
+      "primer",
+    );
+    // Case-insensitive on the type.
+    expect(chooseContextMenuKind({ hitFeatureIndex: 1, hitFeatureType: "Primer_Bind" })).toBe(
+      "primer",
+    );
+  });
+  it("a feature hit wins over a live selection", () => {
+    expect(
+      chooseContextMenuKind({ hitFeatureIndex: 0, hitFeatureType: "CDS", hasRange: true }),
+    ).toBe("feature");
+    expect(
+      chooseContextMenuKind({ hitFeatureIndex: 0, hitFeatureType: "primer_bind", hasRange: true }),
+    ).toBe("primer");
+  });
+  it("picks the selection menu off a feature when a range is selected", () => {
+    expect(chooseContextMenuKind({ hitFeatureIndex: null, hasRange: true })).toBe("selection");
+  });
+  it("picks the bases menu off a feature with no selection", () => {
+    expect(chooseContextMenuKind({ hitFeatureIndex: null })).toBe("bases");
+    expect(chooseContextMenuKind({ hitFeatureIndex: null, hasRange: false })).toBe("bases");
+  });
+});
+
+describe("toFasta", () => {
+  it("builds a one-record FASTA block (header + bases, no trailing newline)", () => {
+    expect(toFasta("pUC19", "ATGC")).toBe(">pUC19\nATGC");
+  });
+  it("trims the name and falls back to 'sequence' when blank", () => {
+    expect(toFasta("  my insert  ", "ACGT")).toBe(">my insert\nACGT");
+    expect(toFasta("", "ACGT")).toBe(">sequence\nACGT");
+    expect(toFasta("   ", "ACGT")).toBe(">sequence\nACGT");
+  });
+  it("keeps the bases single-line (no column wrapping)", () => {
+    const bases = "A".repeat(200);
+    expect(toFasta("long", bases)).toBe(`>long\n${bases}`);
   });
 });

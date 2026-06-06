@@ -48,15 +48,53 @@ export function featureIndexFromEventTarget(
   return decodeFeatureDomId(hit.getAttribute("id"));
 }
 
-/** Which context menu a right-click should open. "feature" when a feature was
- *  hit, otherwise "bases". Pure so the routing is testable on its own. */
-export type ContextMenuKind = "feature" | "bases";
+/** Which context menu a right-click should open. The router picks the most
+ *  SPECIFIC menu the hit supports, in priority order.
+ *
+ *    "primer"    a feature of type primer_bind was hit (primer-specific actions)
+ *    "feature"   any other feature was hit (the feature menu; CDS features add a
+ *                protein group on top of it, see chooseContextMenuKind notes)
+ *    "selection" no feature, but a base range IS selected (selection-aware ops)
+ *    "bases"     no feature, no range (today's plain bases menu)
+ *
+ *  Pure so the routing is testable on its own. */
+export type ContextMenuKind = "primer" | "feature" | "selection" | "bases";
 
-/** Choose the menu kind from the hit-test result. A non-null feature index means
- *  the click landed on a feature, so the feature menu wins; otherwise the bases
- *  menu (today's default) is shown. */
-export function chooseContextMenuKind(
-  hitFeatureIndex: number | null,
-): ContextMenuKind {
-  return hitFeatureIndex != null ? "feature" : "bases";
+/** Inputs the router needs beyond the hit-test feature index. */
+export interface ContextMenuHit {
+  /** The doc-feature index under the cursor, or null when the click missed every
+   *  feature (decoded from the stamped annotation id by featureIndexFromEventTarget). */
+  hitFeatureIndex: number | null;
+  /** The (lowercased) type of the hit feature, when a feature was hit. Used to
+   *  split primer_bind off into its own menu. Ignored when no feature was hit. */
+  hitFeatureType?: string | null;
+  /** Whether a base range is currently selected. Lets a right-click on bare DNA
+   *  open the selection-aware menu instead of the plain bases menu. */
+  hasRange?: boolean;
+}
+
+/** Choose the menu kind from the hit-test result. A feature hit wins over the
+ *  selection (you right-clicked a thing), and a primer_bind feature gets its own
+ *  primer menu. Off a feature, a live selection opens the selection menu;
+ *  otherwise the plain bases menu (today's default) is shown.
+ *
+ *  CDS / coding features still resolve to "feature" here: the protein actions are
+ *  ADDED onto the feature menu by the view (the menu kind stays "feature"), so the
+ *  classifier only needs to separate primers from the rest. */
+export function chooseContextMenuKind(hit: ContextMenuHit): ContextMenuKind {
+  if (hit.hitFeatureIndex != null) {
+    const type = (hit.hitFeatureType || "").trim().toLowerCase();
+    return type === "primer_bind" ? "primer" : "feature";
+  }
+  return hit.hasRange ? "selection" : "bases";
+}
+
+/** Build a one-record FASTA block for a copy action. The header line is the
+ *  given name (defaulting to "sequence" when blank), prefixed with ">"; the bases
+ *  follow on the next line. We keep it single-line (no 60/70-col wrapping) so the
+ *  payload round-trips cleanly into other editors; trailing newline is omitted so
+ *  pasting does not leave a dangling blank line. Pure so it is unit-tested. */
+export function toFasta(name: string, bases: string): string {
+  const header = (name || "").trim() || "sequence";
+  return `>${header}\n${bases}`;
 }

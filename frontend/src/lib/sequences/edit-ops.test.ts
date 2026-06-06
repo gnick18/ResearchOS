@@ -9,6 +9,7 @@ import {
   parseSelectRange,
   parseGoTo,
   caseTransform,
+  reverseComplementRange,
 } from "./edit-ops";
 import type { MolecularClip } from "./clipboard";
 import type { SeqDocument } from "./edit-model";
@@ -161,5 +162,53 @@ describe("caseTransform", () => {
   it("returns the same doc when the range is empty", () => {
     const d = doc("ATGC");
     expect(caseTransform(d, 2, 2, "lower")).toBe(d);
+  });
+});
+
+describe("reverseComplementRange", () => {
+  it("reverse-complements the selected range in place (same length, no shift)", () => {
+    // ATGC over [1,4) is "TGC"; its reverse complement is "GCA".
+    const out = reverseComplementRange(doc("ATGC"), 1, 4);
+    expect(out.seq).toBe("AGCA");
+    expect(out.seq.length).toBe(4);
+  });
+  it("flips the whole sequence when the range covers it", () => {
+    // AATTGGCC -> reverse complement GGCCAATT
+    expect(reverseComplementRange(doc("AATTGGCC"), 0, 8).seq).toBe("GGCCAATT");
+  });
+  it("normalizes a reversed [lo, hi) and clamps out-of-range bounds", () => {
+    expect(reverseComplementRange(doc("ATGC"), 4, 1).seq).toBe("AGCA");
+    expect(reverseComplementRange(doc("ATGC"), -5, 99).seq).toBe("GCAT");
+  });
+  it("handles RNA (A<->U)", () => {
+    const out = reverseComplementRange(
+      { name: "t", seq: "AUGC", seqType: "rna", circular: false, features: [] },
+      0,
+      4,
+    );
+    expect(out.seq).toBe("GCAU");
+  });
+  it("reverses protein bases without complementing", () => {
+    const out = reverseComplementRange(
+      { name: "t", seq: "MKVL", seqType: "protein", circular: false, features: [] },
+      0,
+      4,
+    );
+    expect(out.seq).toBe("LVKM");
+  });
+  it("leaves features untouched (no coordinate shift)", () => {
+    const d: SeqDocument = {
+      name: "t",
+      seq: "ATGCAATT",
+      seqType: "dna",
+      circular: false,
+      features: [{ name: "f", type: "misc_feature", start: 0, end: 4, strand: 1 }],
+    };
+    const out = reverseComplementRange(d, 0, 4);
+    expect(out.features).toEqual(d.features);
+  });
+  it("returns the same doc when the range is empty", () => {
+    const d = doc("ATGC");
+    expect(reverseComplementRange(d, 2, 2)).toBe(d);
   });
 });

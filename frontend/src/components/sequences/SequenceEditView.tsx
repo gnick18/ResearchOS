@@ -65,7 +65,13 @@ import {
   featureDomId,
   featureIndexFromEventTarget,
   chooseContextMenuKind,
+  toFasta,
 } from "@/lib/sequences/context-menu-target";
+import {
+  buildFeatureMenuItems,
+  buildPrimerMenuItems,
+  buildSelectionMenuItems,
+} from "@/lib/sequences/context-menu-items";
 import { findOrfs } from "@/lib/sequences/orf";
 import { selectTranslationFeatures } from "@/lib/sequences/translation-tracks";
 import {
@@ -134,7 +140,7 @@ import {
   buildPrimerQualifiers,
   derivePrimerSite,
 } from "@/lib/sequences/primer-feature";
-import { reverseComplement, type BindingSite } from "@/lib/sequences/primer";
+import { reverseComplement, predictTm, type BindingSite } from "@/lib/sequences/primer";
 // primer bases bot — base-level (zoomed) SnapGene-style primer rendering: map the
 // stored oligo onto template columns so annealing bases sit over the template and
 // the 5' tail / mismatches pop off.
@@ -208,6 +214,7 @@ import {
   parseSelectRange,
   parseGoTo,
   caseTransform,
+  reverseComplementRange,
 } from "@/lib/sequences/edit-ops";
 import { getMolecularClip } from "@/lib/sequences/molecular-clipboard";
 
@@ -2012,6 +2019,42 @@ export default function SequenceEditView({
     [doc.features, doc.seq, editor, readOnly],
   );
 
+  // sequence editor master — open the right-docked PROTEIN-PROPERTIES DRAWER for a
+  // specific CDS / coding feature (the right-click "Translate to protein" and
+  // "Find domains" actions). Select the feature (the drawer is gated on the
+  // selected CODING feature) and clear any prior dismissal for it so a dismissed
+  // drawer reopens. The domain-annotation flow lives INSIDE the drawer footer
+  // (DomainAnnotationPanel), so both actions land on the same drawer; "Find
+  // domains" just points the user at the Annotate-domains control there.
+  const openProteinDrawerForFeature = useCallback(
+    (index: number) => {
+      const f = doc.features[index];
+      if (!f || !isCodingFeature(f)) return;
+      selectFeature(index);
+      setProteinDrawerDismissedIdx((prev) => (prev === index ? null : prev));
+    },
+    [doc.features, selectFeature],
+  );
+
+  // sequence editor master — the oligo bases of a primer_bind feature, for the
+  // "Copy primer sequence" action and the Tm read-out. Prefers the stored oligo
+  // (the /note "primer <SEQ>" flag), else the template subsequence at the binding
+  // site (reverse-complemented on the bottom strand), matching openEditPrimer's
+  // initialOligo derivation. Returns "" when the feature is missing.
+  const primerOligoAt = useCallback(
+    (index: number): string => {
+      const f = doc.features[index];
+      if (!f) return "";
+      return (
+        readPrimerSeq(f) ||
+        (f.strand === -1
+          ? reverseComplement(doc.seq.slice(f.start, f.end))
+          : doc.seq.slice(f.start, f.end))
+      );
+    },
+    [doc.features, doc.seq],
+  );
+
   // DOUBLE-CLICK A FEATURE ON THE VIEWER -> open its editor (editable surface) or
   // its READ-ONLY info popup (readOnly surface). SeqViz assigns its own internal
   // ids to annotations, so we match the double-clicked annotation back to its
@@ -2443,6 +2486,32 @@ export default function SequenceEditView({
     writeOsClipboard(copyAminoAcids(doc.seq.slice(sel.lo, sel.hi), doc.seqType));
   }, [sel, doc.seq, doc.seqType, writeOsClipboard]);
 
+  // sequence editor master — COPY AS FASTA. The selected bases (or the whole
+  // sequence when nothing is selected) as a one-record FASTA block, header named
+  // after the molecule, written to the OS clipboard. Pure toFasta builds the text.
+  const copyAsFasta = useCallback(() => {
+    const bases = sel.hasRange ? doc.seq.slice(sel.lo, sel.hi) : doc.seq;
+    if (!bases) return;
+    writeOsClipboard(toFasta(doc.name || sequence.display_name || "sequence", bases));
+  }, [sel, doc.seq, doc.name, sequence.display_name, writeOsClipboard]);
+
+  // sequence editor master — REVERSE COMPLEMENT IN PLACE. Replace the selected
+  // bases with their reverse complement as ONE undoable edit (same length, no
+  // coordinate shift, features keep their positions). DNA / RNA only; gated by the
+  // menu so it never fires on a protein or an empty range. The selection is left
+  // as-is so the user can chain ops on the same span.
+  const reverseComplementInPlace = useCallback(() => {
+    if (!sel.hasRange || !isNucleotide) return;
+    editor.applyDocEdit((prev) => reverseComplementRange(prev, sel.lo, sel.hi));
+  }, [sel, isNucleotide, editor]);
+
+  // sequence editor master — open the Protein properties DIALOG seeded from the
+  // current selection (the same door the Analyze menu uses). The dialog reads
+  // `sel` directly, so opening it is enough.
+  const openProteinPropsForSelection = useCallback(() => {
+    setProteinPropsOpen(true);
+  }, []);
+
   // PASTE REVERSE COMPLEMENT: reverse-complement the molecular clip (bases +
   // carried features rebased onto the flipped frame), else the raw OS-clipboard
   // text, then paste at the caret through the same confirmation path.
@@ -2811,6 +2880,43 @@ export default function SequenceEditView({
     openFind,
   ]);
 
+  // sequence editor master — the SELECTION right-click menu. Opened when a base
+  // RANGE is selected and the click missed every feature. It leads with the
+  // selection-aware power moves (create a feature here, design primers here, read
+  // protein properties, flip the strand in place, copy as FASTA), then a divider,
+  // then the FULL standard bases menu (Cut / Copy / Paste / case / find all stay,
+  // reused verbatim from editMenuItems) so nothing is lost. Reverse-complement is
+  // DNA / RNA only and is omitted on a protein or read-only surface (a destructive
+  // edit). Copy as FASTA copies the selection (or the whole sequence with no
+  // range, though this menu only opens WITH a range) to the OS clipboard.
+  const selectionContextMenuItems = useMemo<EditMenuItem[]>(
+    () =>
+      buildSelectionMenuItems({
+        hasRange: sel.hasRange,
+        readOnly,
+        isNucleotide,
+        seqLength: doc.seq.length,
+        createFeature: openAddFeature,
+        designPrimers: () => openPrimerDialog("standard"),
+        proteinProps: openProteinPropsForSelection,
+        reverseComplementInPlace,
+        copyAsFasta,
+        basesMenu: editMenuItems,
+      }),
+    [
+      sel.hasRange,
+      readOnly,
+      isNucleotide,
+      doc.seq.length,
+      openAddFeature,
+      openPrimerDialog,
+      openProteinPropsForSelection,
+      reverseComplementInPlace,
+      copyAsFasta,
+      editMenuItems,
+    ],
+  );
+
   // feature/primer menus bot — two discoverable toolbar dropdowns ("Feature"
   // and "Primer") that mirror the Edit/Export shells. Add is always enabled;
   // Edit / Duplicate / Remove are greyed out until a feature (or primer) is the
@@ -2818,7 +2924,10 @@ export default function SequenceEditView({
   // read the shared selectedFeatureIdx and split on the selected type.
   const selFeat = selectedFeatureIdx != null ? doc.features[selectedFeatureIdx] : null;
   const selIsPrimer = !!selFeat && (selFeat.type || "").toLowerCase() === "primer_bind";
-  const selIsFeature = !!selFeat && !selIsPrimer;
+  // NOTE: feature / coding enablement is now recomputed per-index inside
+  // buildFeatureMenu (so the right-click can pass the HIT index), so there is no
+  // selection-derived selIsFeature / selIsCoding here anymore. The primer menus
+  // still split on the selected type via selIsPrimer.
 
   // sequence editor master — PROTEIN-PROPERTIES DRAWER GATE. The drawer opens
   // when the selected feature is CODING (cds / gene / mat_peptide / sig_peptide)
@@ -2845,70 +2954,47 @@ export default function SequenceEditView({
   // common edits in one move, then Add / Edit / Duplicate, then Remove as the
   // destructive group. Analysis engines (Detect / Annotate) live in the Analyze
   // menu; the per-type show/hide list lives on the left rail.
-  const featureMenuItems = useMemo<EditMenuItem[]>(() => {
-    const idx = selectedFeatureIdx;
-    return [
-      {
-        id: "feat-recolor",
-        label: "Set color",
-        enabled: selIsFeature,
-        swatches: {
-          // A calm subset of the shared feature palette (the first eight tones).
-          colors: FEATURE_COLOR_SWATCHES.slice(0, 8),
-          current: selFeat?.color,
-          onPick: (color) => {
-            if (idx != null) recolorFeatureAt(idx, color);
-          },
-        },
-        onRun: () => {},
-      },
-      {
-        id: "feat-rename",
-        label: "Rename…",
-        enabled: selIsFeature,
-        onRun: () => {
-          if (idx != null) setRenameFeatureIdx(idx);
-        },
-      },
-      { id: "feat-add", label: "Add Feature…", enabled: true, group: true, onRun: openAddFeature },
-      {
-        id: "feat-edit",
-        label: "Edit Feature…",
-        enabled: selIsFeature,
-        group: true,
-        onRun: () => {
-          if (idx != null) openEditFeature(idx);
-        },
-      },
-      {
-        id: "feat-dup",
-        label: "Duplicate Feature",
-        enabled: selIsFeature,
-        onRun: () => {
-          if (idx != null) duplicateFeatureAt(idx);
-        },
-      },
-      {
-        id: "feat-remove",
-        label: "Remove Feature",
-        enabled: selIsFeature,
-        destructive: true,
-        group: true,
-        onRun: () => {
-          if (idx != null) deleteFeatureAt(idx);
-        },
-      },
-    ];
-  }, [
-    selectedFeatureIdx,
-    selIsFeature,
-    selFeat,
-    recolorFeatureAt,
-    openAddFeature,
-    openEditFeature,
-    duplicateFeatureAt,
-    deleteFeatureAt,
-  ]);
+  // sequence editor master — build the FEATURE menu for a GIVEN feature index,
+  // delegating the item list to the pure buildFeatureMenuItems (lib). A builder
+  // (not just a memo) so the right-click can pass the HIT index directly, since
+  // openMenu snapshots the items at click time, before a selectFeature state
+  // update would land. Passing null builds the greyed shell (no feature). The
+  // toolbar dropdown calls it with the current selection (a memo below).
+  const buildFeatureMenu = useCallback(
+    (idx: number | null): EditMenuItem[] => {
+      const f = idx != null ? doc.features[idx] : null;
+      return buildFeatureMenuItems({
+        idx,
+        feature: f ?? null,
+        isCoding: !!f && isCodingFeature(f),
+        // A calm subset of the shared feature palette (the first eight tones).
+        swatchColors: FEATURE_COLOR_SWATCHES.slice(0, 8),
+        recolor: recolorFeatureAt,
+        rename: setRenameFeatureIdx,
+        add: openAddFeature,
+        edit: openEditFeature,
+        duplicate: duplicateFeatureAt,
+        remove: deleteFeatureAt,
+        openProtein: openProteinDrawerForFeature,
+      });
+    },
+    [
+      doc.features,
+      recolorFeatureAt,
+      openAddFeature,
+      openEditFeature,
+      duplicateFeatureAt,
+      deleteFeatureAt,
+      openProteinDrawerForFeature,
+    ],
+  );
+
+  // The toolbar Feature dropdown uses the CURRENT selection (a primer selection
+  // resolves to the greyed feature shell, since primers have their own menu).
+  const featureMenuItems = useMemo<EditMenuItem[]>(
+    () => buildFeatureMenu(selIsPrimer ? null : selectedFeatureIdx),
+    [buildFeatureMenu, selIsPrimer, selectedFeatureIdx],
+  );
 
   // sequence editor master. Copy the open sequence's taxonomy onto the app-scoped
   // taxonomy clipboard (the Analyze > Copy taxonomy action). Calm toast names the
@@ -3131,6 +3217,34 @@ export default function SequenceEditView({
     deleteFeatureAt,
     view.showPrimers,
   ]);
+
+  // sequence editor master — build the PRIMER right-click menu for a GIVEN feature
+  // index. Like buildFeatureMenu, a builder so the router can pass the HIT index
+  // (openMenu snapshots items at click time). Opened in place of the generic
+  // feature menu when the click lands on a primer_bind feature. Focused primer
+  // actions: edit the primer, copy its oligo, a calm Tm read-out (a disabled
+  // informational row, not a button), then delete as the destructive group. The
+  // oligo + Tm reuse the same derivation as the editor and predictTm (the Tm-chip
+  // model), so the read-out never drifts. No primer-design reimplementation.
+  const buildPrimerContextMenu = useCallback(
+    (idx: number | null): EditMenuItem[] => {
+      const f = idx != null ? doc.features[idx] : null;
+      const isPrimer = !!f && (f.type || "").toLowerCase() === "primer_bind";
+      const oligo = isPrimer && idx != null ? primerOligoAt(idx) : "";
+      const tm = oligo.length >= 2 ? predictTm(oligo) : null;
+      return buildPrimerMenuItems({
+        idx,
+        feature: f ?? null,
+        oligo,
+        tm,
+        readOnly,
+        edit: openEditPrimer,
+        copyOligo: writeOsClipboard,
+        remove: deleteFeatureAt,
+      });
+    },
+    [doc.features, primerOligoAt, readOnly, openEditPrimer, deleteFeatureAt, writeOsClipboard],
+  );
 
   // top menus consolidation bot — the new "Enzyme" toolbar dropdown. Display
   // only (no mutation), so it renders in read-only too. Holds the cut-site LAYER
@@ -3535,19 +3649,43 @@ export default function SequenceEditView({
                   if (rect) setDragPointer({ x: e.clientX - rect.left, y: e.clientY - rect.top });
                 }}
                 onContextMenu={(e) => {
-                  // sequence editor master. SMART right-click, now routed through
-                  // the website-wide framework. Hit-test the click target for a
-                  // SeqViz feature element (its stamped, index-encoding id). On a
-                  // feature, SELECT it and open the FEATURE menu so the menu acts
-                  // on what was clicked; otherwise open the BASES menu (today's
-                  // selection-aware default). openMenu preventDefaults the event,
-                  // so the global fallback treats this right-click as handled.
-                  const hitIdx = featureIndexFromEventTarget(e.target);
-                  const onFeature =
-                    hitIdx != null && hitIdx >= 0 && hitIdx < doc.features.length;
-                  if (onFeature) selectFeature(hitIdx);
-                  const kind = chooseContextMenuKind(onFeature ? hitIdx : null);
-                  openMenu(e, kind === "feature" ? featureMenuItems : editMenuItems);
+                  // sequence editor master. CONTEXT-SPECIFIC right-click, routed
+                  // through the website-wide framework. Hit-test the click target
+                  // for a SeqViz feature element (its stamped, index-encoding id),
+                  // then pick the most SPECIFIC menu:
+                  //   primer_bind feature -> the PRIMER menu (edit / copy / Tm / delete)
+                  //   any other feature   -> the FEATURE menu (CDS adds a protein group)
+                  //   bare DNA + a range  -> the SELECTION menu (create feature /
+                  //                          design primers / protein props / rev-comp /
+                  //                          copy FASTA, then the full bases menu)
+                  //   bare DNA, no range  -> the plain BASES menu (unchanged)
+                  // The menu arrays are built from the HIT index (not the selection
+                  // state) because openMenu snapshots its items synchronously, before
+                  // a selectFeature state update would land. We still SELECT the hit
+                  // feature so the rest of the editor (drawer, list, dialogs) follows.
+                  // openMenu preventDefaults, so the global fallback treats this
+                  // right-click as handled.
+                  const rawHit = featureIndexFromEventTarget(e.target);
+                  const hitIdx =
+                    rawHit != null && rawHit >= 0 && rawHit < doc.features.length
+                      ? rawHit
+                      : null;
+                  if (hitIdx != null) selectFeature(hitIdx);
+                  const hitFeat = hitIdx != null ? doc.features[hitIdx] : null;
+                  const kind = chooseContextMenuKind({
+                    hitFeatureIndex: hitIdx,
+                    hitFeatureType: hitFeat?.type,
+                    hasRange: sel.hasRange,
+                  });
+                  const items =
+                    kind === "primer"
+                      ? buildPrimerContextMenu(hitIdx)
+                      : kind === "feature"
+                        ? buildFeatureMenu(hitIdx)
+                        : kind === "selection"
+                          ? selectionContextMenuItems
+                          : editMenuItems;
+                  openMenu(e, items);
                 }}
               >
                 {/* seq polish batch bot — MAP-MODE BADGE. At the slider floor the

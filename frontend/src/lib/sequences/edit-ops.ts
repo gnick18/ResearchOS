@@ -184,3 +184,31 @@ export function caseTransform(
   const seq = doc.seq.slice(0, a) + transformed + doc.seq.slice(b);
   return { ...doc, seq };
 }
+
+/**
+ * REVERSE-COMPLEMENT IN PLACE the bases of a document over the half-open range
+ * [lo, hi), returning a NEW document. The slice is replaced with its reverse
+ * complement of the SAME length, so there is no coordinate shift and the features
+ * keep their positions (their bases just read the opposite strand now). This is
+ * the "Reverse complement in place" selection action, a single undoable edit.
+ *
+ * For a protein/aa document there is no complement, so the slice is reversed
+ * without complementing (callers gate this to DNA/RNA anyway). An empty or
+ * degenerate range returns the document unchanged.
+ */
+export function reverseComplementRange(
+  doc: SeqDocument,
+  lo: number,
+  hi: number,
+): SeqDocument {
+  const a = Math.max(0, Math.min(lo, hi));
+  const b = Math.min(doc.seq.length, Math.max(lo, hi));
+  if (b <= a) return doc;
+  const slice = doc.seq.slice(a, b);
+  const vt = toViewerSeqType(doc.seqType);
+  const flipped =
+    vt === "aa" ? slice.split("").reverse().join("") : reverseComplement(slice, vt);
+  if (flipped === slice) return doc;
+  const seq = doc.seq.slice(0, a) + flipped + doc.seq.slice(b);
+  return { ...doc, seq };
+}
