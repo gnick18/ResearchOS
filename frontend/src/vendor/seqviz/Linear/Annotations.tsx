@@ -39,7 +39,13 @@ const AnnotationRows = (props: {
   <g>
     {props.annotationRows.map((anns: NameRange[], i: number) => (
       <AnnotationRow
-        key={`annotation-linear-row-${anns[0].id}-${props.firstBase}-${props.lastBase}`}
+        // Two annotations can share an id (e.g. a gene + its CDS at identical
+        // coordinates both carry our stable roidx hit-stamp), so the row's
+        // lead annotation id is NOT unique across rows in a block. Suffix the
+        // row index `i` to keep the React key unique. The id attribute is left
+        // alone, so the right-click hit detection (which reads the element id)
+        // is unaffected.
+        key={`annotation-linear-row-${anns[0].id}-${i}-${props.firstBase}-${props.lastBase}`}
         annotations={anns}
         bpsPerBlock={props.bpsPerBlock}
         findXAndWidth={props.findXAndWidth}

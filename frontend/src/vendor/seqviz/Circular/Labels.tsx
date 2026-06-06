@@ -329,7 +329,7 @@ export class Labels extends React.Component<LabelsProps, LabelsState> {
 
     return (
       <g className="la-vz-circular-labels" onMouseLeave={() => this.setHoveredGroup("")}>
-        {labelGroups.map(g => {
+        {labelGroups.map((g, gi) => {
           const [first] = g.labels;
           // RESEARCHOS (primer labels bot): a label/leader is rendered in the
           // primer color (pink) when every label in this position is a primer.
@@ -362,7 +362,10 @@ export class Labels extends React.Component<LabelsProps, LabelsState> {
           if (!g.grouped) {
             // just a single name in this position
             return (
-              <g key={first.id}>
+              // first.id can repeat across groups (two same-coord features share
+              // our roidx stamp), so suffix the group index to keep the key
+              // unique. The element id attributes are left unchanged.
+              <g key={`${first.id}-${gi}`}>
                 {labelLines}
                 <text
                   className="la-vz-circular-label"
@@ -384,7 +387,7 @@ export class Labels extends React.Component<LabelsProps, LabelsState> {
           }
           // a group of names which should render an overlap block
           return (
-            <g key={`${first.id}-listener`} id={`${first.id}-label`}>
+            <g key={`${first.id}-${gi}-listener`} id={`${first.id}-label`}>
               {labelLines}
               <text
                 className="la-vz-circular-label"

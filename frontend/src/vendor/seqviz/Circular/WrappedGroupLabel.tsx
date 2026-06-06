@@ -114,8 +114,10 @@ export const WrappedGroupLabel = (props: WrappedGroupLabelProps) => {
             {r.map((l, i2) => (
               // every label should have its own id (used by selection
               // handler) and trigger the hoverCutSite function
-              // if it's an enzyme
-              <React.Fragment key={l.id}>
+              // if it's an enzyme. The id can repeat when two same-coord
+              // features share our roidx stamp, so the React key suffixes the
+              // position index while the id attribute is left for the handler.
+              <React.Fragment key={`${l.id}-${i2}`}>
                 <tspan
                   className="la-vz-circular-label"
                   dominantBaseline="middle"
