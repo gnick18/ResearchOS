@@ -1,9 +1,9 @@
 // LLC business tracker, deadline-reminder email delivery via Resend.
 //
-// Mirrors the directory OTP mailer: a lazy Resend client from RESEND_API_KEY,
-// the same test sender until a domain is verified, and best-effort send
-// accounting so the operator email metrics include reminders. Sending to the
-// admins only, never to any user.
+// Mirrors the directory OTP mailer, a lazy Resend client from RESEND_API_KEY,
+// sending from the LLC's verified research-os.app domain (override with
+// EMAIL_FROM_ADDRESS), and best-effort send accounting so the operator email
+// metrics include reminders. Sending to the admins only, never to any user.
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
@@ -13,7 +13,8 @@ import { recordEmailSent } from "@/lib/sharing/directory/db";
 
 let resendSingleton: Resend | null = null;
 
-const FROM_ADDRESS = "ResearchOS <onboarding@resend.dev>";
+const FROM_ADDRESS =
+  process.env.EMAIL_FROM_ADDRESS ?? "ResearchOS <noreply@research-os.app>";
 
 function getResend(): Resend {
   if (resendSingleton) return resendSingleton;

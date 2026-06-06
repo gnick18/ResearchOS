@@ -1,9 +1,9 @@
 // Cross-boundary sharing, directory OTP email delivery (Phase 1b-ii).
 //
-// Sends the 6-digit signup code over email via Resend. Until a real domain is
-// verified in Resend we send from the Resend test sender onboarding@resend.dev,
-// which is fine for the beta. The client is built lazily from RESEND_API_KEY so
-// importing this during build or tsc requires no secret.
+// Sends the 6-digit signup code over email via Resend, from the LLC's verified
+// research-os.app domain. Override with EMAIL_FROM_ADDRESS if the sending
+// identity changes. The client is built lazily from RESEND_API_KEY so importing
+// this during build or tsc requires no secret.
 
 import { Resend } from "resend";
 
@@ -11,7 +11,8 @@ import { recordEmailSent } from "./db";
 
 let resendSingleton: Resend | null = null;
 
-const FROM_ADDRESS = "ResearchOS <onboarding@resend.dev>";
+const FROM_ADDRESS =
+  process.env.EMAIL_FROM_ADDRESS ?? "ResearchOS <noreply@research-os.app>";
 
 /**
  * Lazily constructs the Resend client from RESEND_API_KEY. Throws a clear error
