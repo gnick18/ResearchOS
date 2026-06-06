@@ -104,7 +104,7 @@ function SignInRow({
         <h3 className="mt-1.5 text-heading font-extrabold tracking-tight text-brand-ink">
           Use it locally
         </h3>
-        <ul className="mt-4 flex-1 space-y-2.5">
+        <ul className="mt-4 space-y-2.5">
           <li className="flex items-start gap-2 text-body font-semibold leading-snug text-brand-ink">
             <CheckGlyph /> 100% of the features, free. Solo users get the whole app, nothing held back.
           </li>
@@ -115,6 +115,14 @@ function SignInRow({
             <CheckGlyph /> Free, and yours to keep forever.
           </li>
         </ul>
+        {/* BeakerBot fills the gap created by matching Path B's height, so the
+            card reads as warm + intentional instead of empty white space. */}
+        <div
+          aria-hidden
+          className="flex flex-1 items-center justify-center py-3"
+        >
+          <BeakerBot pose="idle" alive className="h-28 w-28" />
+        </div>
         <button
           type="button"
           onClick={onLocal}
@@ -453,9 +461,14 @@ export default function WelcomePage() {
       {/* Thin rainbow ribbon pinned to the very top edge. */}
       <div aria-hidden className="h-[5px] w-full" style={{ background: RAINBOW }} />
 
-      <div className="relative mx-auto max-w-[1440px]">
+      {/* No max-width here: section backgrounds (the pale-blue bands, the hero
+          gradient) must go full-bleed to the screen edges at any width. Each
+          section keeps its OWN inner max-width content wrapper, and the nav gets
+          the page cap below, so content stays centered without the bands ending
+          mid-screen on wide monitors. */}
+      <div className="relative">
         {/* ── Nav ─────────────────────────────────────────────────────── */}
-        <nav className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-12">
+        <nav className="relative z-10 mx-auto flex w-full max-w-[1440px] items-center justify-between px-6 py-5 sm:px-12">
           <Wordmark size="md" animated={false} className="gap-2.5" />
           <div className="flex items-center gap-3">
             <button
@@ -673,7 +686,7 @@ export default function WelcomePage() {
                 <h3 className="mt-3 text-body font-bold text-brand-ink group-hover:text-sky-700">
                   Open source
                 </h3>
-                <p className="mt-1 text-meta leading-snug text-[#475569]">
+                <p className="mt-1 text-body leading-snug text-[#475569]">
                   AGPLv3 and fully auditable. No lock-in, ever.
                 </p>
               </a>
@@ -689,7 +702,7 @@ export default function WelcomePage() {
                 <h3 className="mt-3 text-body font-bold text-brand-ink">
                   Fellowship-backed
                 </h3>
-                <p className="mt-1 text-meta leading-snug text-[#475569]">
+                <p className="mt-1 text-body leading-snug text-[#475569]">
                   Funded by a UW-Madison fellowship, so it stays free for every
                   lab.
                 </p>
@@ -709,10 +722,10 @@ export default function WelcomePage() {
                 <h3 className="mt-3 text-body font-bold text-brand-ink group-hover:text-sky-700">
                   Science you can check
                 </h3>
-                <p className="mt-1 text-meta leading-snug text-[#475569]">
+                <p className="mt-1 text-body leading-snug text-[#475569]">
                   Every result verified against Biopython and primer3.
                 </p>
-                <span className="mt-1 text-meta font-semibold text-sky-600 group-hover:text-sky-700">
+                <span className="mt-1 text-body font-semibold text-sky-600 group-hover:text-sky-700">
                   See the proof
                 </span>
               </a>

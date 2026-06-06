@@ -337,6 +337,11 @@ export default function TaxonomyTreeView({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // The embedded welcome canvas is wide but short, so at scale 1 the radial fan
+  // is height-limited and floats in a sea of horizontal whitespace. Start the
+  // embedded tree zoomed in so it fills the card; the full modal stays at 1.
+  const baseScale = embedded ? 1.5 : 1;
+
   // The FOCUS STACK, the re-rooting drill path. The bottom is always the whole
   // tree root; the top is the current center the fan is rooted on. Clicking a
   // non-center node pushes it; clicking the center pops it; the home control
@@ -348,7 +353,7 @@ export default function TaxonomyTreeView({
   // viewport culling, and label culling recompute as the user pans / zooms. The
   // scale (k) drives the size cull; the translation (x, y) plus the scale give
   // the visible rectangle for the viewport cull. Set by the zoom handler.
-  const [zoomTransform, setZoomTransform] = useState({ k: 1, x: VIEW_SIZE / 2, y: VIEW_SIZE / 2 });
+  const [zoomTransform, setZoomTransform] = useState({ k: baseScale, x: VIEW_SIZE / 2, y: VIEW_SIZE / 2 });
   const zoomScale = zoomTransform.k;
 
   // The selected node (drives the click-detail). Null hides the detail.
@@ -547,9 +552,9 @@ export default function TaxonomyTreeView({
     zoomRef.current = behavior;
     svg.call(behavior);
     // Start centered with the root near the middle.
-    const initial = zoomIdentity.translate(VIEW_SIZE / 2, VIEW_SIZE / 2).scale(1);
+    const initial = zoomIdentity.translate(VIEW_SIZE / 2, VIEW_SIZE / 2).scale(baseScale);
     svg.call(behavior.transform, initial);
-    setZoomTransform({ k: 1, x: VIEW_SIZE / 2, y: VIEW_SIZE / 2 });
+    setZoomTransform({ k: baseScale, x: VIEW_SIZE / 2, y: VIEW_SIZE / 2 });
 
     return () => {
       svg.on(".zoom", null);
@@ -566,7 +571,7 @@ export default function TaxonomyTreeView({
     const svgEl = svgRef.current;
     const behavior = zoomRef.current;
     if (!svgEl || !behavior) return;
-    const centered = zoomIdentity.translate(VIEW_SIZE / 2, VIEW_SIZE / 2).scale(1);
+    const centered = zoomIdentity.translate(VIEW_SIZE / 2, VIEW_SIZE / 2).scale(baseScale);
     select(svgEl).transition().duration(REROOT_MS).call(behavior.transform, centered);
   }, []);
 
@@ -596,7 +601,7 @@ export default function TaxonomyTreeView({
     const svgEl = svgRef.current;
     const behavior = zoomRef.current;
     if (!svgEl || !behavior) return;
-    const initial = zoomIdentity.translate(VIEW_SIZE / 2, VIEW_SIZE / 2).scale(1);
+    const initial = zoomIdentity.translate(VIEW_SIZE / 2, VIEW_SIZE / 2).scale(baseScale);
     select(svgEl).transition().duration(450).call(behavior.transform, initial);
   }, []);
 
