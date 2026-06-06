@@ -1056,9 +1056,15 @@ export default function SequencesPage() {
           to document.body; renders only when importProgress is set with
           total > 1. Single-file imports use the inline status line below. */}
       <ImportProgressOverlay progress={importProgress} />
+      {/* Dark-mode Tier D (docs/proposals/dark-mode-toggle.md): the sequence
+          editor is a heavily graphical specialized tool (SeqViz maps, plasmid
+          viewers, third-party canvases) that does not cleanly re-theme. For now
+          it stays a light island, light-scope force-locks it to the light
+          palette so it reads correctly under the dark app shell. Revisit a
+          native dark sequence editor later. */}
       <div
         ref={splitContainerRef}
-        className="flex h-[calc(100vh-7rem)] px-4 pb-4"
+        className="light-scope flex h-[calc(100vh-7rem)] px-4 pb-4"
       >
         {/* LEFT: working tree / library. Wrapped in a drag-and-drop target so a
             user can drop files or a whole folder anywhere on the library to
