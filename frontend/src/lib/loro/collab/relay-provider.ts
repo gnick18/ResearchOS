@@ -1,42 +1,58 @@
-// Loro Phase 3, chunk 3: the encrypted relay provider.
+// Loro Phase 3 collab provider (storage-migration phase 1, chunk 2).
 //
 // PURPOSE. loro-codemirror handles doc<->editor binding but does NOT include any
 // network layer. This module IS that network layer. It wires a local LoroDoc +
 // EphemeralStore to an injected CollabTransport by:
 //   - Subscribing to doc.subscribeLocalUpdates and ephemeral.subscribeLocalUpdates
-//     to encrypt+sign every outgoing update with sealFrame (chunk 2) before handing
-//     it to the transport.
-//   - Installing transport.onMessage to open+verify every inbound frame and deliver
-//     doc updates via doc.import and ephemeral updates via ephemeral.apply.
-//   - Re-broadcasting a full doc state snapshot on transport.onOpen so a freshly
-//     connected peer can catch up without a persistent relay server.
+//     to send every outgoing update as a typed plaintext frame.
+//   - Installing transport.onMessage to route inbound frames: doc updates via
+//     doc.import, cursor/presence via ephemeral.apply.
+//   - Pushing the local doc state on transport.onOpen so the Durable Object
+//     persists and fans it out (and so a brand-new room gets seeded).
 //
-// ECHO LOOP GUARD. The Loro docs say subscribeLocalUpdates fires on "local edits"
-// only (the second example in the d.ts is the canonical two-way-sync pattern that
-// would be infinite if import() triggered the sub). This is confirmed by the API
-// name and the official example: loro1.subscribeLocalUpdates fires on loro1's own
-// commits; loro2.import(update) does NOT fire loro2.subscribeLocalUpdates. We rely
-// on this guarantee and do NOT add an "applying remote" suppression flag. If a
-// future Loro version changes this behavior, add a boolean guard and set it around
-// every doc.import / ephemeral.apply call.
+// PLAINTEXT (Option B). Collab updates travel as plaintext over TLS, not sealed
+// frames. The relay Durable Object is the canonical, server-readable store (see
+// docs/proposals/COLLAB_STORAGE_D1_DO_MIGRATION.md), so it needs to read the
+// Loro bytes to persist and compact them. The E2E envelope (envelope.ts) is no
+// longer used by collab. Private, unshared notes never reach the relay at all.
 //
-// TRANSPORT INTERFACE. CollabTransport is a thin abstraction over a WebSocket.
-// Chunk 4 adapts a real ws.WebSocket to it. The provider never touches WebSocket
-// directly, so these tests run entirely in-process with no real network.
+// WIRE PROTOCOL (must match relay/src/worker.ts): binary frames whose first byte
+// is the type tag: 0x01 doc update (persisted + fanned out), 0x02 ephemeral
+// (fanned out only, never persisted). The DO sends its catch-up snapshot as a
+// 0x01 frame on connect.
+//
+// ECHO LOOP GUARD. doc.subscribeLocalUpdates fires on local edits only, not on
+// doc.import of remote updates (the canonical Loro two-way-sync pattern). Same
+// for EphemeralStore.subscribeLocalUpdates vs .apply. We rely on this and do NOT
+// add an "applying remote" suppression flag.
 //
 // React-free. No storage. No DOM.
 
 import { LoroDoc, EphemeralStore } from "loro-crdt";
-import { sealFrame, openFrame } from "./envelope";
+
+// ---------------------------------------------------------------------------
+// Wire protocol type tags. MUST match relay/src/worker.ts.
+// ---------------------------------------------------------------------------
+
+const MSG_DOC_UPDATE = 0x01;
+const MSG_EPHEMERAL = 0x02;
+
+/** Prepend the one-byte type tag to a payload. */
+function frame(type: number, payload: Uint8Array): Uint8Array {
+  const out = new Uint8Array(payload.byteLength + 1);
+  out[0] = type;
+  out.set(payload, 1);
+  return out;
+}
 
 // ---------------------------------------------------------------------------
 // CollabTransport interface.
 // ---------------------------------------------------------------------------
 
 /**
- * A thin transport abstraction the provider uses. Chunk 4 wraps a real
- * WebSocket into this shape. The provider never references WebSocket directly,
- * which keeps the unit tests free of any network dependency.
+ * A thin transport abstraction the provider uses. websocket-transport.ts wraps
+ * a real WebSocket into this shape. The provider never references WebSocket
+ * directly, which keeps the unit tests free of any network dependency.
  *
  * Lifecycle contract:
  *   - send() is called only while the transport is open; the implementation
@@ -44,8 +60,7 @@ import { sealFrame, openFrame } from "./envelope";
  *   - onMessage / onOpen are called once each by the provider at construction
  *     to register its callbacks; the transport invokes those callbacks as
  *     events arrive.
- *   - close() tears down the underlying connection and no further callbacks
- *     will fire after it returns (or equivalent best-effort for async transports).
+ *   - close() tears down the underlying connection.
  */
 export interface CollabTransport {
   send(frame: Uint8Array): void;
@@ -63,32 +78,21 @@ export interface CollabProviderOptions {
   doc: LoroDoc;
   /** The EphemeralStore carrying cursor/presence data (loro-codemirror drives it). */
   ephemeral: EphemeralStore;
-  /** 32-byte per-session symmetric key K (generated by the initiator, wrapped via wrapSessionKey). */
-  sessionKey: Uint8Array;
-  /** Opaque session identifier (max 255 UTF-8 bytes). Addresses the relay room. */
-  sessionId: string;
-  /** This peer's Ed25519 signing private key (32 bytes). */
-  senderEd25519SecretKey: Uint8Array;
-  /** This peer's Ed25519 signing public key (32 bytes). Carried in every outbound frame. */
-  senderEd25519PublicKey: Uint8Array;
-  /**
-   * The collaborating peer's Ed25519 public key, pinned from the invite.
-   * When provided, any inbound frame whose senderPubKey does not match is silently
-   * dropped, preventing frames from unexpected third parties.
-   * Leave undefined only in tests that don't care about sender pinning.
-   */
-  expectedPeerEd25519PublicKey?: Uint8Array;
-  /** The transport that carries encrypted frames to/from the relay. */
+  /** The transport that carries plaintext frames to/from the relay. */
   transport: CollabTransport;
   /**
    * Called the FIRST TIME a remote peer's doc commit arrives via doc.import.
    *
-   * Receives the Loro PeerID string and the sender's Ed25519 public key bytes
-   * so the caller can record the peer -> identity mapping in the actors map
-   * (Phase 3 chunk 5b). Fires at most once per remote peer per provider
-   * instance. Best-effort: errors from this callback are caught and logged.
+   * Receives the Loro PeerID string so the caller can record the peer ->
+   * identity mapping in the actors map (version-history attribution). Fires at
+   * most once per remote peer per provider instance. Best-effort: errors from
+   * this callback are caught and logged.
+   *
+   * NOTE: plaintext frames carry no per-frame sender identity (unlike the old
+   * sealed envelope), so the caller resolves the human name from its own
+   * context (the invited collaborator's username) or falls back to the peer id.
    */
-  onFirstRemotePeer?: (peerId: string, senderPubKey: Uint8Array) => void;
+  onFirstRemotePeer?: (peerId: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -101,97 +105,63 @@ export interface CollabProvider {
 }
 
 /**
- * Wire a local LoroDoc + EphemeralStore to a CollabTransport through the
- * encrypted+signed frame envelope.
+ * Wire a local LoroDoc + EphemeralStore to a CollabTransport using the plaintext
+ * typed protocol the relay Durable Object speaks.
  *
- * Subscribes to local updates, installs the inbound message handler, and
- * re-broadcasts a full doc snapshot when the transport connects so the peer
- * can catch up (the "connected peer re-broadcasts" MVP fallback).
+ * Subscribes to local updates, installs the inbound message handler, and pushes
+ * the local doc state when the transport connects so the DO persists + fans it
+ * (and a fresh room gets seeded).
  *
  * Returns a handle whose destroy() cleans up all subscriptions and closes the
  * transport. Call destroy() when the collab session ends.
  */
 export function createCollabProvider(opts: CollabProviderOptions): CollabProvider {
-  const {
-    doc,
-    ephemeral,
-    sessionKey,
-    sessionId,
-    senderEd25519SecretKey,
-    senderEd25519PublicKey,
-    expectedPeerEd25519PublicKey,
-    transport,
-    onFirstRemotePeer,
-  } = opts;
+  const { doc, ephemeral, transport, onFirstRemotePeer } = opts;
 
-  // Track which remote peer IDs we have already reported to onFirstRemotePeer
-  // so the callback fires at most once per peer per provider instance.
+  // Track which remote peer IDs we have already reported so the callback fires
+  // at most once per peer per provider instance.
   const reportedRemotePeers = new Set<string>();
 
   // The local peer's own PeerID string. Remote peers have different IDs.
-  // Captured once at construction so we can filter it out in the first-commit
-  // subscription without calling doc.peerIdStr inside a hot callback.
   const localPeerIdStr: string = doc.peerIdStr;
 
-  // Shared sealFrame parameters for this provider instance.
-  const sealParams = {
-    sessionKey,
-    sessionId,
-    senderEd25519SecretKey,
-    senderEd25519PublicKey,
-  };
-
   // Subscribe to local doc commits. Every local edit produces incremental update
-  // bytes here; we seal them and send.
-  //
-  // WHY subscribeLocalUpdates does NOT need an echo guard: the Loro API guarantees
-  // this fires only for locally-originated commits, not for doc.import() of remote
-  // updates. See the module header for the full explanation.
+  // bytes; we frame and send them as plaintext doc updates.
   const unsubDoc = doc.subscribeLocalUpdates((bytes: Uint8Array) => {
-    const frame = sealFrame({ ...sealParams, kind: "doc", plaintext: bytes });
-    transport.send(frame);
+    transport.send(frame(MSG_DOC_UPDATE, bytes));
   });
 
-  // Subscribe to local ephemeral changes (cursor, presence). EphemeralStore's
-  // subscribeLocalUpdates fires when this peer calls .set() directly and encodes
-  // the changed keys into bytes; remote .apply() does not fire it.
+  // Subscribe to local ephemeral changes (cursor, presence). Sent as ephemeral
+  // frames; the relay fans them out but never persists them.
   const unsubEphemeral = ephemeral.subscribeLocalUpdates((bytes: Uint8Array) => {
-    const frame = sealFrame({ ...sealParams, kind: "ephemeral", plaintext: bytes });
-    transport.send(frame);
+    transport.send(frame(MSG_EPHEMERAL, bytes));
   });
 
-  // Handle inbound frames from the relay. The relay fans raw bytes; we verify and
-  // decrypt each one before touching the doc or ephemeral store.
+  // Handle inbound frames from the relay (peer updates and the DO's catch-up).
   transport.onMessage((rawFrame: Uint8Array) => {
-    const opened = openFrame({
-      sessionKey,
-      frame: rawFrame,
-      expectedSenderPublicKey: expectedPeerEd25519PublicKey,
-    });
+    if (rawFrame.byteLength === 0) return;
+    const type = rawFrame[0];
+    const payload = rawFrame.subarray(1);
 
-    // Drop any frame that fails signature verification, AEAD, sender mismatch, or
-    // parse errors. openFrame returns null for all failure modes; we never crash
-    // and we never apply tampered data.
-    if (!opened) return;
-
-    if (opened.kind === "doc") {
-      // Phase 3 chunk 5b: detect new remote peers by comparing the peer set
-      // before and after doc.import. We use ImportStatus.success (the map of
-      // peer ids the import carried) rather than subscribeFirstCommitFromPeer,
-      // because that API fires only on LOCAL commits, not on doc.import calls.
-      //
-      // Snapshot the known peer ids BEFORE the import. We only report a peer
-      // once per provider instance (reportedRemotePeers guards re-firing).
+    if (type === MSG_DOC_UPDATE) {
+      // Snapshot the known peer ids BEFORE the import so we can detect a
+      // genuinely new remote peer (for version-history attribution).
       const knownPeersBefore = onFirstRemotePeer
         ? new Set<string>(doc.getAllChanges().keys())
         : null;
 
-      // CRDT-merge the remote update. Idempotent: re-applying an already-known
-      // update is a no-op in Loro. Does NOT fire our doc subscribeLocalUpdates.
-      const status = doc.import(opened.plaintext);
+      // CRDT-merge the remote update. Idempotent; does NOT fire our own
+      // subscribeLocalUpdates. A malformed/corrupt frame makes doc.import throw,
+      // so guard it and drop the bad frame rather than crash the session (the
+      // relay is server-readable, not E2E, so this is integrity hygiene, not an
+      // attacker channel).
+      let status;
+      try {
+        status = doc.import(payload);
+      } catch {
+        return;
+      }
 
-      // After the import, check ImportStatus.success for any peer IDs that
-      // were NOT known before the import and are NOT the local peer.
       if (onFirstRemotePeer && knownPeersBefore !== null) {
         for (const [peerId] of status.success) {
           if (peerId === localPeerIdStr) continue;
@@ -199,30 +169,30 @@ export function createCollabProvider(opts: CollabProviderOptions): CollabProvide
           if (reportedRemotePeers.has(peerId)) continue;
           reportedRemotePeers.add(peerId);
           try {
-            onFirstRemotePeer(peerId, opened.senderEd25519PublicKey);
+            onFirstRemotePeer(peerId);
           } catch (err) {
             console.warn("[relay-provider] onFirstRemotePeer callback threw:", err);
           }
         }
       }
-    } else {
-      // Deliver cursor/presence bytes to the local ephemeral store.
-      ephemeral.apply(opened.plaintext);
+    } else if (type === MSG_EPHEMERAL) {
+      // Deliver cursor/presence bytes to the local ephemeral store. Guard
+      // against a malformed frame the same way as doc updates.
+      try {
+        ephemeral.apply(payload);
+      } catch {
+        // Drop the bad ephemeral frame.
+      }
     }
+    // Unknown type tags are ignored (forward-compatibility).
   });
 
-  // On connect, broadcast our full doc state so the just-connected peer can catch
-  // up. The MVP has no server-side persistence: if a peer was offline it missed
-  // updates, so whoever is already connected re-broadcasts their snapshot here.
-  // Both peers do this on their own onOpen, so the handshake is symmetric.
-  //
-  // We export from version zero (full update), not a version-vector diff, because
-  // we have no way to know what the peer already has. Loro merges are idempotent
-  // so sending already-known ops is safe and cheap.
+  // On connect, push our local doc state so the DO persists it and fans it to
+  // peers. The DO independently sends its own canonical snapshot back as a
+  // catch-up frame, so both directions converge. Loro merges are idempotent, so
+  // re-sending already-known ops is safe and cheap.
   transport.onOpen(() => {
-    const snapshot = doc.export({ mode: "update" });
-    const frame = sealFrame({ ...sealParams, kind: "doc", plaintext: snapshot });
-    transport.send(frame);
+    transport.send(frame(MSG_DOC_UPDATE, doc.export({ mode: "update" })));
   });
 
   return {

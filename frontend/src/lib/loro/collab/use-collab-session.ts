@@ -55,7 +55,6 @@ import { collabSessionFromDocId } from "./doc-id-session";
 import { createCollabProvider, type CollabProvider } from "./relay-provider";
 import { createWebSocketTransport } from "./websocket-transport";
 import { encodeSessionLink, decodeSessionLink } from "./session-link";
-import { loadIdentity } from "@/lib/sharing/identity/storage";
 import { COLLAB_RELAY_URL } from "@/lib/loro/config";
 import { recordActor } from "@/lib/loro/actors";
 import { persistNote } from "@/lib/loro/sidecar-store";
@@ -194,7 +193,7 @@ export function useCollabSession(args: {
 
   // Shared connect implementation used by both start() and join().
   const connectSession = useCallback(
-    async (sessionId: string, sessionKey: Uint8Array) => {
+    (sessionId: string, sessionKey: Uint8Array) => {
       if (!enabled || !doc) return;
 
       setState({
@@ -203,37 +202,6 @@ export function useCollabSession(args: {
         sessionId,
         errorMessage: null,
       });
-
-      // Load the local signing keypair. If the identity does not exist yet
-      // (first run before the sharing setup flow) generate a runtime-only
-      // ephemeral key so the session still works for the same-user two-tab test
-      // (no signature pinning in the MVP).
-      let secretKey: Uint8Array;
-      let publicKey: Uint8Array;
-      try {
-        const identity = await loadIdentity();
-        if (identity) {
-          secretKey = identity.keys.signing.privateKey;
-          publicKey = identity.keys.signing.publicKey;
-        } else {
-          // Fallback: generate a transient keypair for this session. The two
-          // tabs can still sync because expectedPeerEd25519PublicKey is left
-          // undefined, so frames from any valid signature are accepted.
-          const { ed25519 } = await import("@noble/curves/ed25519.js");
-          const kp = ed25519.keygen();
-          secretKey = kp.secretKey;
-          publicKey = kp.publicKey;
-        }
-      } catch (err) {
-        console.error("[useCollabSession] Failed to load identity:", err);
-        setState({
-          status: "stopped",
-          link: null,
-          sessionId,
-          errorMessage: "Could not load signing identity",
-        });
-        return;
-      }
 
       // Build the relay URL: relay's /ws endpoint, session capability in query.
       const relayUrl = `${COLLAB_RELAY_URL}/ws?session=${encodeURIComponent(sessionId)}`;
@@ -251,30 +219,17 @@ export function useCollabSession(args: {
       const provider = createCollabProvider({
         doc,
         ephemeral,
-        sessionKey,
-        sessionId,
-        senderEd25519SecretKey: secretKey,
-        senderEd25519PublicKey: publicKey,
-        // Leave expectedPeerEd25519PublicKey undefined for the MVP same-identity
-        // two-tab test: accept frames signed by any key. A later chunk pins the
-        // peer's key from the directory invite.
-        expectedPeerEd25519PublicKey: undefined,
         transport,
-        // Phase 3 chunk 5b: record the remote collaborator in the actors map
-        // the first time their commit arrives. This is the durable artifact that
-        // lets version-history rows attribute remote edits to a real person.
-        onFirstRemotePeer: (peerId: string, senderPubKey: Uint8Array) => {
+        // Record the remote collaborator in the actors map the first time their
+        // commit arrives, so version-history rows can attribute remote edits to
+        // a real person. Plaintext frames carry no per-frame sender identity, so
+        // resolve the display name from the invited collaborator's username,
+        // falling back to a short peer-id fingerprint when it is absent.
+        onFirstRemotePeer: (peerId: string) => {
           const recordOwner = ownerRef.current;
           if (!recordOwner) return;
-          // Resolve the display name: explicit collaboratorUsername wins, then
-          // fall back to the first 8 hex chars of the sender's pubkey so at
-          // least something human-readable appears in the history.
           const username =
-            collaboratorUsernameRef.current ??
-            Array.from(senderPubKey.slice(0, 4))
-              .map((b) => b.toString(16).padStart(2, "0"))
-              .join("") +
-              "...";
+            collaboratorUsernameRef.current ?? `peer-${peerId.slice(0, 6)}`;
           void recordActor(recordOwner, BigInt(peerId), username);
         },
       });
