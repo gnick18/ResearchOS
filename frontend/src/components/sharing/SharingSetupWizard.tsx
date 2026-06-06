@@ -25,6 +25,16 @@ import {
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
 import { downloadRecoveryKit } from "@/lib/sharing/identity/recovery-kit";
 import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
+import { wrapKeysWithPrf, type PrfBackupBlob } from "@/lib/sharing/identity/passkey";
+import { addPasskeyToEnvelope } from "@/lib/sharing/identity/key-backup-envelope";
+import { mnemonicToRecoveryCode } from "@/lib/sharing/identity/recovery-code";
+import {
+  enrollPasskey,
+  isPasskeySupported,
+  PasskeyCancelledError,
+  PasskeyPrfUnavailableError,
+} from "@/lib/sharing/identity/webauthn";
+import { concatBytes } from "@noble/hashes/utils.js";
 import { saveIdentity } from "@/lib/sharing/identity/storage";
 import {
   writeSharingIdentity,
@@ -113,6 +123,14 @@ export default function SharingSetupWizard({
   const [material, setMaterial] = useState<IdentityMaterial | null>(null);
   const [recoverySaved, setRecoverySaved] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Passkey enrollment, the everyday unlock. Optional, the recovery code is the
+  // backstop and the flow completes without a passkey (unsupported browser or a
+  // user who skips). The PRF-wrapped blob, when present, is folded into the
+  // backup envelope at publish so it ships in the same directory write.
+  const [passkeyBlob, setPasskeyBlob] = useState<PrfBackupBlob | null>(null);
+  const [passkeyEnrolling, setPasskeyEnrolling] = useState(false);
+  const [passkeyError, setPasskeyError] = useState<string | null>(null);
 
   // True when the user signed in via ORCID (which returns no email) and has
   // been routed to the email-enter step to prove an email via OTP.
@@ -259,17 +277,58 @@ export default function SharingSetupWizard({
     return () => window.clearTimeout(id);
   }, [step, material]);
 
-  const copyWords = useCallback(async () => {
-    if (!material) return;
+  // The recovery code is the high-entropy backstop, the same 128-bit secret as
+  // the 12 Recovery Words rendered as a friendlier grouped code. Derived from the
+  // generated words, not stored separately.
+  const recoveryCode = material
+    ? mnemonicToRecoveryCode(material.recoveryWords)
+    : "";
+
+  const copyCode = useCallback(async () => {
+    if (!recoveryCode) return;
     try {
-      await navigator.clipboard.writeText(material.recoveryWords);
+      await navigator.clipboard.writeText(recoveryCode);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
     } catch {
-      // Clipboard can be blocked; the words are still visible to copy by hand.
+      // Clipboard can be blocked; the code is still visible to copy by hand.
       setCopied(false);
     }
-  }, [material]);
+  }, [recoveryCode]);
+
+  // Enroll a passkey for this identity. Wraps the freshly generated private
+  // bundle under the passkey's PRF output and stashes the resulting blob, which
+  // publish folds into the backup envelope. Failures are non-fatal, the user can
+  // still finish on the recovery code alone.
+  const enrollPasskeyForIdentity = useCallback(async () => {
+    if (!material) return;
+    setPasskeyError(null);
+    setPasskeyEnrolling(true);
+    try {
+      const { prfOutput } = await enrollPasskey({
+        userId: decodePublicKey(material.ed25519PublicKey),
+        userName: email || username,
+        userDisplayName: displayName.trim() || email || username,
+      });
+      const privateBundle = concatBytes(
+        material.x25519PrivateKey,
+        material.ed25519PrivateKey,
+      );
+      setPasskeyBlob(wrapKeysWithPrf(privateBundle, prfOutput));
+    } catch (err) {
+      if (err instanceof PasskeyCancelledError) {
+        setPasskeyError("Passkey setup was cancelled. You can try again.");
+      } else if (err instanceof PasskeyPrfUnavailableError) {
+        setPasskeyError(
+          "This passkey cannot unlock your key. Use your recovery code instead.",
+        );
+      } else {
+        setPasskeyError("Could not set up a passkey. Use your recovery code instead.");
+      }
+    } finally {
+      setPasskeyEnrolling(false);
+    }
+  }, [material, email, username, displayName]);
 
   // Step 4, publish to the directory then save locally.
   const publish = useCallback(async () => {
@@ -280,12 +339,20 @@ export default function SharingSetupWizard({
 
     const issuedAt = new Date().toISOString();
     const canonical = canonicalizeEmail(email);
+    // When a passkey was enrolled, fold its blob into the backup envelope so it
+    // ships in this same directory write. addPasskeyToEnvelope falls back to null
+    // only on an unparseable blob, in which case we publish the mnemonic-only
+    // envelope (the passkey can be added later from Settings).
+    const backupBlob = passkeyBlob
+      ? addPasskeyToEnvelope(material.backupBlob, passkeyBlob) ??
+        material.backupBlob
+      : material.backupBlob;
     const bind: BindRequestBody = buildBindRequest({
       email: canonical,
       x25519PublicKey: material.x25519PublicKey,
       ed25519PublicKey: material.ed25519PublicKey,
       ed25519PrivateKey: material.ed25519PrivateKey,
-      backupBlob: material.backupBlob,
+      backupBlob,
       issuedAt,
     });
 
@@ -373,6 +440,7 @@ export default function SharingSetupWizard({
         fingerprint: publishedFingerprint,
         claimedAt: new Date().toISOString(),
         recoveryConfirmedAt: recoverySaved ? new Date().toISOString() : null,
+        passkeyEnrolledAt: passkeyBlob ? new Date().toISOString() : null,
       };
       await writeSharingIdentity(username, sidecar);
     } catch {
@@ -391,6 +459,7 @@ export default function SharingSetupWizard({
     otp,
     displayName,
     recoverySaved,
+    passkeyBlob,
     username,
     onComplete,
   ]);
@@ -476,8 +545,14 @@ export default function SharingSetupWizard({
               recoverySaved={recoverySaved}
               setRecoverySaved={setRecoverySaved}
               copied={copied}
-              onCopy={copyWords}
+              onCopy={copyCode}
               onContinue={publish}
+              recoveryCode={recoveryCode}
+              passkeySupported={isPasskeySupported()}
+              passkeyEnrolled={!!passkeyBlob}
+              passkeyEnrolling={passkeyEnrolling}
+              passkeyError={passkeyError}
+              onEnrollPasskey={enrollPasskeyForIdentity}
             />
           )}
 
@@ -735,6 +810,12 @@ function GenerateStep({
   copied,
   onCopy,
   onContinue,
+  recoveryCode,
+  passkeySupported,
+  passkeyEnrolled,
+  passkeyEnrolling,
+  passkeyError,
+  onEnrollPasskey,
 }: {
   material: IdentityMaterial | null;
   email: string;
@@ -746,6 +827,12 @@ function GenerateStep({
   copied: boolean;
   onCopy: () => void;
   onContinue: () => void;
+  recoveryCode: string;
+  passkeySupported: boolean;
+  passkeyEnrolled: boolean;
+  passkeyEnrolling: boolean;
+  passkeyError: string | null;
+  onEnrollPasskey: () => void;
 }) {
   // Loading state while Argon2id runs. The animation is pure CSS
   // (animate-pulse / a CSS-keyframe spinner) because the main thread is blocked
@@ -769,8 +856,6 @@ function GenerateStep({
       </div>
     );
   }
-
-  const words = material.recoveryWords.split(/\s+/);
 
   return (
     <div className="space-y-4">
@@ -800,55 +885,85 @@ function GenerateStep({
         </p>
       </div>
 
+      {/* Passkey, the everyday unlock. Optional, the recovery code below is the
+          backstop and publishing works without a passkey. */}
+      <div className="rounded-lg border border-white/10 bg-slate-900/40 p-3 space-y-2">
+        <div className="flex items-center gap-2 text-blue-300">
+          <KeyIcon className="w-5 h-5" />
+          <p className="text-body font-medium text-white">One-tap unlock</p>
+        </div>
+        {passkeySupported ? (
+          passkeyEnrolled ? (
+            <div className="flex items-start gap-2 text-emerald-200">
+              <span className="text-emerald-300 mt-0.5">
+                <CheckIcon className="w-4 h-4" />
+              </span>
+              <p className="text-meta leading-relaxed">
+                Passkey ready. You can unlock sharing on this device and your
+                synced devices with no code to type.
+              </p>
+            </div>
+          ) : (
+            <>
+              <p className="text-meta text-slate-400 leading-relaxed">
+                Add a passkey so you can unlock sharing with your fingerprint,
+                face, or device PIN. It syncs through your Google or Apple
+                keychain, so a new device just works.
+              </p>
+              <button
+                type="button"
+                onClick={onEnrollPasskey}
+                disabled={passkeyEnrolling}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+              >
+                <KeyIcon className="w-3.5 h-3.5" />
+                {passkeyEnrolling ? "Waiting for your passkey…" : "Set up a passkey"}
+              </button>
+            </>
+          )
+        ) : (
+          <p className="text-meta text-slate-400 leading-relaxed">
+            Passkeys are not available in this browser. Your recovery code below
+            is how you unlock on another device.
+          </p>
+        )}
+        {passkeyError && <ErrorNotice message={passkeyError} />}
+      </div>
+
       <div className="flex items-center gap-2 text-blue-300">
         <KeyIcon className="w-5 h-5" />
-        <p className="text-body font-medium text-white">Your Recovery Words</p>
+        <p className="text-body font-medium text-white">Your recovery code</p>
       </div>
       <p className="text-body text-slate-300 leading-relaxed">
-        Write these 12 words down and store them somewhere safe. They are the
-        only way to restore your sharing identity on another device. If you lose
-        them they cannot be recovered.
+        Save this code somewhere safe. It is your backstop if you lose your
+        passkey and this device, and the only way to restore your identity. If
+        you lose it, it cannot be recovered.
       </p>
 
-      <div className="grid grid-cols-3 gap-2 p-3 bg-slate-900/60 border border-white/10 rounded-lg">
-        {words.map((word, i) => (
-          <div
-            key={`${word}-${i}`}
-            className="flex items-center gap-1.5 text-body text-slate-200"
-          >
-            <span className="text-meta text-slate-500 w-4 text-right tabular-nums">
-              {i + 1}
-            </span>
-            <span className="font-mono">{word}</span>
-          </div>
-        ))}
+      <div className="p-3 bg-slate-900/60 border border-white/10 rounded-lg">
+        <p className="font-mono text-body text-slate-100 tracking-wide break-all text-center">
+          {recoveryCode}
+        </p>
       </div>
 
-      <button
-        type="button"
-        onClick={onCopy}
-        className="flex items-center gap-1.5 text-meta text-blue-400 hover:text-blue-300"
-      >
-        {copied ? (
-          <>
-            <CheckIcon className="w-3.5 h-3.5" />
-            Copied
-          </>
-        ) : (
-          <>
-            <CopyIcon className="w-3.5 h-3.5" />
-            Copy words
-          </>
-        )}
-      </button>
-
-      <div className="rounded-lg border border-white/10 bg-slate-900/40 p-3 space-y-2">
-        <p className="text-meta text-slate-400 leading-relaxed">
-          You can also download a Recovery Kit. It is your encrypted key backup in
-          a single file, so you can restore on a new device with just your words,
-          even if you lose access to your email. The kit does not contain your
-          words, so it is safe to keep. It is useless to anyone without them.
-        </p>
+      <div className="flex flex-wrap items-center gap-4">
+        <button
+          type="button"
+          onClick={onCopy}
+          className="flex items-center gap-1.5 text-meta text-blue-400 hover:text-blue-300"
+        >
+          {copied ? (
+            <>
+              <CheckIcon className="w-3.5 h-3.5" />
+              Copied
+            </>
+          ) : (
+            <>
+              <CopyIcon className="w-3.5 h-3.5" />
+              Copy code
+            </>
+          )}
+        </button>
         <button
           type="button"
           onClick={() =>
@@ -865,6 +980,10 @@ function GenerateStep({
           Download Recovery Kit
         </button>
       </div>
+      <p className="text-meta text-slate-500 leading-relaxed">
+        The Recovery Kit is your encrypted key backup in a single file, safe to
+        keep because it is useless without your recovery code.
+      </p>
 
       <label className="flex items-start gap-2 cursor-pointer select-none">
         <input
@@ -874,7 +993,7 @@ function GenerateStep({
           className="mt-0.5 accent-blue-500"
         />
         <span className="text-body text-slate-300 leading-relaxed">
-          I have saved my recovery words somewhere safe.
+          I have saved my recovery code somewhere safe.
         </span>
       </label>
 

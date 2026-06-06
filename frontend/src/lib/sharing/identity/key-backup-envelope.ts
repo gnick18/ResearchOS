@@ -76,3 +76,21 @@ export function buildKeyBackupEnvelope(
 ): KeyBackupEnvelope {
   return passkeyPrf ? { v: 2, mnemonic, passkeyPrf } : { v: 2, mnemonic };
 }
+
+/**
+ * Returns the stored key-backup string with a passkey blob attached, keeping the
+ * existing mnemonic blob. Accepts either a v2 envelope or a legacy bare blob as
+ * the input string, so enrolling a passkey on an older identity upgrades it to a
+ * v2 envelope in place. Returns null when the input does not parse, the caller
+ * then knows not to publish.
+ */
+export function addPasskeyToEnvelope(
+  raw: string,
+  passkeyPrf: PrfBackupBlob,
+): string | null {
+  const envelope = parseKeyBackupField(raw);
+  if (!envelope) return null;
+  return serializeKeyBackupEnvelope(
+    buildKeyBackupEnvelope(envelope.mnemonic, passkeyPrf),
+  );
+}

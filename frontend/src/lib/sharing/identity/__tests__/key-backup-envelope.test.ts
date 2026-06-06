@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import { type BackupBlob } from "../backup";
 import { type PrfBackupBlob } from "../passkey";
 import {
+  addPasskeyToEnvelope,
   buildKeyBackupEnvelope,
   parseKeyBackupField,
   serializeKeyBackupEnvelope,
@@ -72,5 +73,27 @@ describe("key-backup envelope", () => {
     expect(parseKeyBackupField("not json")).toBeNull();
     expect(parseKeyBackupField("[1,2,3]")).toBeNull();
     expect(parseKeyBackupField(JSON.stringify({ v: 9, foo: 1 }))).toBeNull();
+  });
+
+  describe("addPasskeyToEnvelope", () => {
+    it("attaches a passkey blob to a legacy bare blob, upgrading it to v2", () => {
+      const raw = JSON.stringify(MNEMONIC_BLOB);
+      const out = addPasskeyToEnvelope(raw, PRF_BLOB);
+      expect(out).not.toBeNull();
+      const parsed = parseKeyBackupField(out);
+      expect(parsed?.mnemonic).toEqual(MNEMONIC_BLOB);
+      expect(parsed?.passkeyPrf).toEqual(PRF_BLOB);
+    });
+
+    it("attaches a passkey blob to an existing v2 envelope, keeping the mnemonic", () => {
+      const raw = serializeKeyBackupEnvelope(buildKeyBackupEnvelope(MNEMONIC_BLOB));
+      const parsed = parseKeyBackupField(addPasskeyToEnvelope(raw, PRF_BLOB));
+      expect(parsed?.mnemonic).toEqual(MNEMONIC_BLOB);
+      expect(parsed?.passkeyPrf).toEqual(PRF_BLOB);
+    });
+
+    it("returns null when the input does not parse", () => {
+      expect(addPasskeyToEnvelope("not json", PRF_BLOB)).toBeNull();
+    });
   });
 });

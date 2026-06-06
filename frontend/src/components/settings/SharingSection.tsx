@@ -57,6 +57,7 @@ import {
   createIdentityMaterial,
   restoreFromRecoveryWords,
 } from "@/lib/sharing/identity/setup";
+import { normalizeRecoveryInput } from "@/lib/sharing/identity/recovery-code";
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
 import {
   parseRecoveryKit,
@@ -156,6 +157,7 @@ export default function SharingSection({
         onReset={onReset}
       />
       <InboxStorageSection sharing={sharing} onSetUp={onSetUp} />
+      <StoragePlanSection />
       {/* currentUser is threaded through to the modals by SettingsBody, not used
           directly here, named in the props so the wiring reads cleanly. */}
       {currentUser ? null : null}
@@ -192,6 +194,95 @@ function Card({
       </div>
       <div className="space-y-4">{children}</div>
     </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Cloud storage plan (metered billing). Self-hides unless BILLING_ENABLED is on.
+// ---------------------------------------------------------------------------
+
+interface BillingStatus {
+  enabled: boolean;
+  active: boolean;
+  blocks: number;
+  paidBytes: number;
+  freeBytes: number;
+  gbPerBlock: number;
+  blockPriceCents: number;
+}
+
+function StoragePlanSection() {
+  const [status, setStatus] = useState<BillingStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/billing/status");
+        if (!res.ok) return;
+        const data = (await res.json()) as BillingStatus;
+        if (!cancelled && data.enabled) setStatus(data);
+      } catch {
+        // billing off or unreachable, stay hidden
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!status) return null; // hidden until billing is on and reachable
+
+  const price = `$${(status.blockPriceCents / 100).toFixed(2)}`;
+
+  const addStorage = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/billing/checkout", { method: "POST" });
+      const body = (await res.json()) as { url?: string };
+      if (body.url) {
+        window.location.href = body.url;
+        return;
+      }
+    } catch {
+      // surfaced by the button re-enabling
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card
+      title="Cloud storage"
+      description="Optional paid storage for heavy server-side use. The local app stays free."
+    >
+      <p className="text-body text-gray-800">
+        {humanBytes(status.freeBytes)} included free
+        {status.active && status.blocks > 0
+          ? `, plus ${status.blocks} x ${status.gbPerBlock} GB purchased (${humanBytes(status.paidBytes)})`
+          : ""}
+        .
+      </p>
+      <p className="text-meta text-gray-400 leading-relaxed">
+        Each {status.gbPerBlock} GB block is {price} per month. Any tax is added at
+        checkout where it applies.
+      </p>
+      <div>
+        <button
+          type="button"
+          onClick={addStorage}
+          disabled={busy}
+          className="rounded-lg bg-sky-600 px-4 py-2 text-body font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+        >
+          {busy
+            ? "Opening checkout..."
+            : status.active
+              ? "Add more storage"
+              : "Add storage"}
+        </button>
+      </div>
+    </Card>
   );
 }
 
@@ -1316,19 +1407,11 @@ function WordsInput({
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
       rows={3}
-      placeholder="Enter your 12 recovery words, separated by spaces"
+      placeholder="Enter your recovery code, or your 12 recovery words"
       className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body font-mono disabled:opacity-50"
       autoFocus
     />
   );
-}
-
-/** Normalizes free-typed words to a single-spaced lowercase phrase. */
-function normalizeWords(raw: string): string {
-  return raw.trim().toLowerCase().split(/\s+/).filter(Boolean).join(" ");
-}
-function wordCount(raw: string): number {
-  return normalizeWords(raw).split(" ").filter(Boolean).length;
 }
 
 // ---------------------------------------------------------------------------
@@ -1418,18 +1501,25 @@ async function finalizeRestore(
   sidecar: SharingIdentitySidecar,
   username: string,
 ): Promise<string | null> {
-  // Unwrap with the entered words. A wrong phrase throws (Poly1305).
-  let restored;
-  try {
-    restored = restoreFromRecoveryWords(normalizeWords(words), blob);
-  } catch {
-    return "Those words do not match this identity. Check them and try again.";
+  // Accept either the recovery code or the 12 words, both canonicalize to the
+  // same mnemonic string the unwrap path expects.
+  const mnemonic = normalizeRecoveryInput(words);
+  if (!mnemonic) {
+    return "That recovery code or phrase is not valid. Check it and try again.";
   }
 
-  // The recovered keys must match the published identity, otherwise the words
-  // belong to a different identity.
+  // Unwrap with the recovered mnemonic. A wrong secret throws (Poly1305).
+  let restored;
+  try {
+    restored = restoreFromRecoveryWords(mnemonic, blob);
+  } catch {
+    return "That recovery code or phrase does not match this identity. Check it and try again.";
+  }
+
+  // The recovered keys must match the published identity, otherwise the secret
+  // belongs to a different identity.
   if (restored.ed25519PublicKey !== sidecar.ed25519PublicKey) {
-    return "Those words do not match this identity. Check them and try again.";
+    return "That recovery code or phrase does not match this identity. Check it and try again.";
   }
 
   await saveIdentity({
@@ -1482,8 +1572,8 @@ export function RestoreIdentityPopup({
 
   const sendCode = useCallback(async () => {
     setError(null);
-    if (wordCount(words) !== 12) {
-      setError("Enter all 12 recovery words.");
+    if (!normalizeRecoveryInput(words)) {
+      setError("Enter your recovery code, or your 12 recovery words.");
       return;
     }
     setBusy(true);
@@ -1574,8 +1664,8 @@ export function RestoreIdentityPopup({
   const restoreFromKit = useCallback(async () => {
     if (!sidecar || !kit) return;
     setError(null);
-    if (wordCount(words) !== 12) {
-      setError("Enter all 12 recovery words.");
+    if (!normalizeRecoveryInput(words)) {
+      setError("Enter your recovery code, or your 12 recovery words.");
       return;
     }
     setStep("verifying");
@@ -1610,8 +1700,8 @@ export function RestoreIdentityPopup({
       {step === "intro" && mode === "email" && (
         <div className="space-y-4">
           <p className="text-body text-slate-300 leading-relaxed">
-            Restore your sharing identity on this device. Enter the 12 recovery
-            words you saved when you set up sharing.
+            Restore your sharing identity on this device. Enter the recovery
+            code (or the 12 recovery words) you saved when you set up sharing.
           </p>
           <WordsInput value={words} onChange={setWords} disabled={busy} />
           {error && <ErrorNotice message={error} />}
@@ -1642,8 +1732,8 @@ export function RestoreIdentityPopup({
         <div className="space-y-4">
           <p className="text-body text-slate-300 leading-relaxed">
             Restore offline with the Recovery Kit you downloaded. Upload or paste
-            the kit, then enter your 12 recovery words. No email and no network are
-            needed.
+            the kit, then enter your recovery code (or your 12 recovery words). No
+            email and no network are needed.
           </p>
 
           <div className="space-y-2">
@@ -1733,7 +1823,7 @@ export function RestoreIdentityPopup({
         <div className="py-8 flex flex-col items-center text-center">
           <div className="w-10 h-10 rounded-full border-2 border-white/20 border-t-blue-400 animate-spin" />
           <p className="text-body text-slate-300 mt-4 font-medium">
-            Checking your recovery words…
+            Checking your recovery code…
           </p>
         </div>
       )}

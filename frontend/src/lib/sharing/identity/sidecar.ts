@@ -26,6 +26,10 @@ import { fileService } from "../../file-system/file-service";
  * - claimedAt, ISO-8601 timestamp the identity was claimed on this folder.
  * - recoveryConfirmedAt, ISO-8601 timestamp the user confirmed they saved their
  *   Recovery Words, or null if they have not confirmed yet.
+ * - passkeyEnrolledAt, ISO-8601 timestamp a passkey was enrolled to unlock this
+ *   identity, or null/absent when none is enrolled. PUBLIC, it is only a "yes a
+ *   passkey exists" flag, it carries no credential and no key material. Optional
+ *   so sidecars written before passkeys existed stay valid.
  *
  * This exact shape was approved by Grant. Do not add private-key fields.
  */
@@ -37,6 +41,7 @@ export interface SharingIdentitySidecar {
   fingerprint: string;
   claimedAt: string;
   recoveryConfirmedAt: string | null;
+  passkeyEnrolledAt?: string | null;
 }
 
 function sidecarPath(username: string): string {
