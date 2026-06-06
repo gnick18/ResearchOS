@@ -28,6 +28,8 @@ import {
 } from "@/lib/sharing/identity/sidecar";
 import { evaluateUnlockMatch } from "@/lib/sharing/identity/unlock-match";
 import { GoogleIcon, GitHubIcon, LinkedInIcon } from "@/components/sharing/icons";
+import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
+import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
 import {
   createUserMetadataEntry,
   readAllUserMetadata,
@@ -183,6 +185,19 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     code: string;
   } | null>(null);
   const [recoveryCopied, setRecoveryCopied] = useState(false);
+
+  // After a brand-new account is established (solo create, or the forced
+  // password gate on a shared folder), offer an OPTIONAL "set up your profile"
+  // step with the third-party sign-in buttons before entering the app. Skipping
+  // is always allowed (the same buttons live in Settings to set up later). This
+  // is the only place creation differs from a normal returning-user login,
+  // which never sees it.
+  const [profileStep, setProfileStep] = useState<{ username: string } | null>(
+    null,
+  );
+  // When the user clicks a provider in the profile step, mount the existing
+  // SharingSetupWizard, which owns the whole OAuth + identity-claim flow.
+  const [profileWizardOpen, setProfileWizardOpen] = useState(false);
 
   // Per-user password management popup (set/change/remove)
   const [managingPasswordFor, setManagingPasswordFor] = useState<string | null>(null);
@@ -515,6 +530,15 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     }
   };
 
+  // Close the optional profile step and enter the app. Used by the step's
+  // "Skip for now" button and by the wizard's onComplete (after setup the user
+  // continues straight in).
+  const skipProfileStep = () => {
+    setProfileWizardOpen(false);
+    setProfileStep(null);
+    onLogin();
+  };
+
   const handleLogin = async (username: string) => {
     setLoggingIn(username);
     setError(null);
@@ -750,8 +774,11 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           setForcePasswordGate({ username });
           return;
         }
+        // Solo first user. Enter the session, then offer the optional profile
+        // step before showing the app.
         await setCurrentUser(username);
-        onLogin();
+        setLoggingIn(null);
+        setProfileStep({ username });
       } catch {
         setError("Failed to create user. Please try again.");
         setLoggingIn(null);
@@ -803,9 +830,11 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         return;
       }
 
-      // Solo first user, log straight in.
+      // Solo first user. Enter the session, then offer the optional profile
+      // step before showing the app.
       await setCurrentUser(username);
-      onLogin();
+      setLoggingIn(null);
+      setProfileStep({ username });
     } catch (err) {
       console.error("Failed to finalize user creation:", err);
       setError("Failed to create user. Please try again.");
@@ -1946,7 +1975,15 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 onClick={async () => {
                   const u = createdRecovery.username;
                   setCreatedRecovery(null);
-                  await performLogin(u);
+                  // Establish the session without leaving the login screen, so
+                  // the optional profile step can render over it next.
+                  try {
+                    await usersApi.login(u);
+                  } catch {
+                    // The account was just created, a login hiccup is non-fatal.
+                  }
+                  await setCurrentUser(u);
+                  setProfileStep({ username: u });
                 }}
                 className="w-full py-2 text-body bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg"
                 data-testid="recovery-continue"
@@ -1956,6 +1993,58 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Optional profile setup, offered once right after a new account is
+          established. The third-party buttons hand off to the existing
+          SharingSetupWizard; "Skip for now" enters the app. A returning user
+          signing in normally never reaches this. */}
+      {profileStep && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div
+            className="bg-slate-800 rounded-2xl shadow-2xl border border-white/20 max-w-sm w-full mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-white/10">
+              <h3 className="text-title font-semibold text-white">
+                Set up your profile
+              </h3>
+              <p className="text-meta text-slate-400 mt-0.5 leading-relaxed">
+                Link an account so colleagues can find you and confirm it is
+                really you before they share work. This is optional, you can
+                always do it later from Settings.
+              </p>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <SharingProviderButtons
+                onProvider={() => setProfileWizardOpen(true)}
+              />
+              <button
+                type="button"
+                onClick={skipProfileStep}
+                className="w-full py-2 text-body text-slate-300 hover:text-white font-medium"
+                data-testid="profile-step-skip"
+              >
+                Skip for now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* The full OAuth + identity-claim flow, mounted on top of the profile
+          step once a provider is chosen. Completing it enters the app;
+          closing it returns to the profile step so the user can still skip. */}
+      {profileWizardOpen && profileStep && (
+        <SharingSetupWizard
+          username={profileStep.username}
+          onComplete={() => {
+            skipProfileStep();
+          }}
+          onClose={() => {
+            setProfileWizardOpen(false);
+          }}
+        />
       )}
 
       {/* Account password management popup */}
