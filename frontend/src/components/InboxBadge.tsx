@@ -119,8 +119,8 @@ export default function InboxBadge() {
         data-tour-target="inbox-badge"
         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-meta font-medium border transition-colors ${
           count > 0
-            ? "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
-            : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100"
+            ? "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:bg-amber-600 dark:border-amber-600 dark:text-white dark:hover:bg-amber-700"
+            : "border-border bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
         }`}
       >
         Inbox
