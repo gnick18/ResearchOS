@@ -304,7 +304,7 @@ export default function UserAvatarMenu({
             )}
             <DropdownItem href="/profile" onClick={close}>
               <PersonIcon />
-              {ownFingerprint ? "Edit your profile" : "Set up your profile"}
+              Profile settings
             </DropdownItem>
             <DropdownItem href="/researchers" onClick={close}>
               <DirectoryIcon />
