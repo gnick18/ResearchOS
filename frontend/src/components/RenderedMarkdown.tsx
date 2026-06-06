@@ -11,6 +11,24 @@ import remarkUnderline from "@/lib/markdown/remark-underline";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import AnnotatedImage from "@/components/AnnotatedImage";
 import { filenameFromMarkdownSrc } from "@/lib/attachments/annotations";
+import { parseObjectDeepLink } from "@/lib/references";
+import ObjectChip from "@/components/ObjectChip";
+
+/** Flatten an `a` element's React children to plain text, so a deep-link chip can
+ *  label itself with the link text (the object name) even when the markdown
+ *  renderer nests it (e.g. emphasis inside the link). Falls back to the href. */
+function linkChildrenText(children: React.ReactNode): string {
+  if (children == null || typeof children === "boolean") return "";
+  if (typeof children === "string" || typeof children === "number") {
+    return String(children);
+  }
+  if (Array.isArray(children)) return children.map(linkChildrenText).join("");
+  if (typeof children === "object" && children !== null && "props" in children) {
+    const props = (children as { props?: { children?: React.ReactNode } }).props;
+    return linkChildrenText(props?.children);
+  }
+  return "";
+}
 
 interface RenderedMarkdownProps {
   content: string;
@@ -95,6 +113,23 @@ export default function RenderedMarkdown({
         remarkPlugins={[remarkGfm, remarkUnderline]}
         rehypePlugins={rehypePlugins}
         components={{
+          a: ({ href, children, ...props }) => {
+            const ref = parseObjectDeepLink(href ? String(href) : null);
+            if (ref) {
+              // An in-app object reference. Upgrade it to a live chip. The link
+              // text is the object name; fall back to the href when empty.
+              const label = linkChildrenText(children) || String(href ?? "");
+              return (
+                <ObjectChip type={ref.type} href={String(href)} label={label} />
+              );
+            }
+            // Any non-object link renders exactly as a normal markdown link.
+            return (
+              <a href={href} {...props}>
+                {children}
+              </a>
+            );
+          },
           img: ({ src, alt, ...props }) => {
             const originalSrc = String(src || "");
             const resolvedSrc = resolvedBlobUrls.get(originalSrc) ?? originalSrc;

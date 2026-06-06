@@ -7,6 +7,7 @@
 // excluded from the wiki-coverage gate pending a Phase 4 wiki page.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AppShell from "@/components/AppShell";
 import Tooltip from "@/components/Tooltip";
@@ -64,8 +65,14 @@ import {
   type SequenceTaxonomy,
 } from "@/lib/sequences/apply-taxonomy";
 import { useTaxonomyClipboard } from "@/lib/sequences/taxonomy-clipboard";
-import { type EditMenuItem } from "@/components/sequences/SequenceEditMenu";
+import {
+  type EditMenuItem,
+  SequencePromptDialog,
+} from "@/components/sequences/SequenceEditMenu";
 import { useContextMenu } from "@/components/context-menu/ContextMenuProvider";
+import { buildObjectMenuItems } from "@/lib/object-menu";
+import { copyObjectReference } from "@/lib/copy-reference";
+import { resolveDeepLinkSelection } from "@/lib/sequences/deep-link-select";
 
 type SortKey = "name" | "type" | "length" | "added";
 type SortDir = "asc" | "desc";
@@ -388,6 +395,19 @@ export default function SequencesPage() {
     fromName: string;
   } | null>(null);
 
+  // sequence editor master. The pending inline rename (the universal row /
+  // collection menu's Rename). `kind` routes the persist to the right store.
+  const [renameTarget, setRenameTarget] = useState<{
+    kind: "sequence" | "collection";
+    id: number;
+    name: string;
+  } | null>(null);
+
+  // sequence editor master. The deep-link param reader. Reading it via
+  // useSearchParams keeps the resolver SSR-safe; the optional chaining guards the
+  // (transient) null before the client search params hydrate.
+  const searchParams = useSearchParams();
+
   const { data: sequences = [], isLoading } = useQuery({
     queryKey: ["sequences"],
     queryFn: () => sequencesApi.list(),
@@ -457,6 +477,32 @@ export default function SequencesPage() {
       return next;
     });
   }, [sorted]);
+
+  // sequence editor master. Deep-link resolver. A `?seq=<id>` (and optional
+  // `?collection=<id>`) opens that sequence + collection. It runs whenever the
+  // params or the loaded ids change, but a one-shot ref keyed on the raw param
+  // string means a given link applies once (so it does not fight a later manual
+  // selection while the param lingers in the URL). SSR-safe. searchParams is null
+  // until the client hydrates, and resolveDeepLinkSelection is pure.
+  const appliedDeepLinkRef = useRef<string | null>(null);
+  useEffect(() => {
+    const seqParam = searchParams?.get("seq") ?? null;
+    const collectionParam = searchParams?.get("collection") ?? null;
+    const key = `${seqParam ?? ""}|${collectionParam ?? ""}`;
+    if (key === "|") return; // No deep-link params present.
+    if (appliedDeepLinkRef.current === key) return; // Already applied this link.
+    const sel = resolveDeepLinkSelection(
+      seqParam,
+      collectionParam,
+      sequences.map((s) => s.id),
+    );
+    // Wait for the named sequence to load before claiming the link as applied,
+    // so a deep link that arrives before the list query resolves still lands.
+    if (seqParam && sel.selectId == null && sequences.length === 0) return;
+    appliedDeepLinkRef.current = key;
+    if (sel.selectCollection != null) setCollection(sel.selectCollection);
+    if (sel.selectId != null) setSelectedId(sel.selectId);
+  }, [searchParams, sequences]);
 
   // Keep a valid selection: default to the first visible sequence.
   useEffect(() => {
@@ -739,6 +785,149 @@ export default function SequencesPage() {
     [deleteSequences],
   );
 
+  // sequence editor master. The OS-clipboard writer for Copy reference. Mirrors
+  // the editor's writeOsClipboard (a no-throw navigator.clipboard wrapper) so a
+  // blocked clipboard never breaks the menu.
+  const writeOsClipboard = useCallback((text: string) => {
+    if (text && navigator.clipboard?.writeText) {
+      void navigator.clipboard.writeText(text).catch(() => {
+        /* clipboard may be blocked (no focus / permissions) */
+      });
+    }
+  }, []);
+
+  // sequence editor master. Copy reference. Writes a markdown link (plus the bare
+  // deep link) to the object and toasts. Shared by the row + collection menus.
+  const handleCopyReference = useCallback(
+    (item: { type: "sequence" | "collection"; id: number | string; name: string }) => {
+      const text = copyObjectReference(item, writeOsClipboard);
+      setStatus({ text, tone: "ok" });
+    },
+    [writeOsClipboard],
+  );
+
+  // sequence editor master. Duplicate one sequence. A clean path exists. fetch
+  // the full GenBank, create a copy named "<name> copy" in the same collections,
+  // then open it. (The editor has no per-row duplicate, so this is the source.)
+  const handleDuplicateOne = useCallback(
+    async (seq: SequenceRecord) => {
+      const detail = await sequencesApi.get(seq.id);
+      if (!detail) {
+        setStatus({ text: "Could not load that sequence to duplicate.", tone: "error" });
+        return;
+      }
+      const copy = await sequencesApi.create({
+        display_name: `${seq.display_name} copy`,
+        genbank: detail.genbank,
+        seq_type: seq.seq_type,
+        project_ids: seq.project_ids,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["sequences"] });
+      if (copy) {
+        setSelectedId(copy.id);
+        setStatus({ text: `Duplicated "${seq.display_name}".`, tone: "ok" });
+      }
+    },
+    [queryClient],
+  );
+
+  // sequence editor master. Share one sequence outside the lab. Reuses the open-
+  // viewer Share path. select the row, then open the same UnifiedShareDialog that
+  // the header Share button opens (which reads the loaded `selected` detail).
+  const handleShareRow = useCallback((seq: SequenceRecord) => {
+    setSelectedId(seq.id);
+    setShareOpen(true);
+  }, []);
+
+  // sequence editor master. Persist a confirmed rename. Sequences route through
+  // sequencesApi.update (display_name patch); collections through
+  // projectsApi.update (name patch). Refreshes the affected query so the new name
+  // shows immediately.
+  const handleRenameConfirm = useCallback(
+    async (next: string) => {
+      const target = renameTarget;
+      setRenameTarget(null);
+      if (!target) return;
+      const trimmed = next.trim();
+      if (!trimmed || trimmed === target.name) return;
+      if (target.kind === "sequence") {
+        await sequencesApi.update(target.id, { display_name: trimmed });
+        await queryClient.invalidateQueries({ queryKey: ["sequences"] });
+        await queryClient.invalidateQueries({ queryKey: ["sequence", target.id] });
+      } else {
+        await projectsApi.update(target.id, { name: trimmed });
+        await queryClient.invalidateQueries({ queryKey: ["projects", "for-sequences"] });
+      }
+      setStatus({ text: `Renamed to "${trimmed}".`, tone: "ok" });
+    },
+    [renameTarget, queryClient],
+  );
+
+  // sequence editor master. Delete one collection (project). Confirms, then
+  // routes through projectsApi.delete and refreshes the collection list. If the
+  // deleted collection was active, fall back to All Sequences.
+  const handleDeleteCollection = useCallback(
+    async (projectId: number, name: string) => {
+      if (
+        !window.confirm(
+          `Delete the collection "${name}"? Its sequences are not deleted, only the collection.`,
+        )
+      ) {
+        return;
+      }
+      await projectsApi.delete(projectId);
+      await queryClient.invalidateQueries({ queryKey: ["projects", "for-sequences"] });
+      setCollection((c) => (c === String(projectId) ? "all" : c));
+      setStatus({ text: `Deleted the collection "${name}".`, tone: "ok" });
+    },
+    [queryClient],
+  );
+
+  // sequence editor master. The collection right-click menu (Copy reference +
+  // Rename + Delete). Reuses the shared builder so it reads the same as a row.
+  const buildCollectionMenu = (projectId: number, name: string): EditMenuItem[] =>
+    buildObjectMenuItems(
+      { type: "collection", id: projectId, name },
+      {
+        onRename: () =>
+          setRenameTarget({ kind: "collection", id: projectId, name }),
+        onCopyReference: () =>
+          handleCopyReference({ type: "collection", id: projectId, name }),
+        onDelete: () => void handleDeleteCollection(projectId, name),
+      },
+    );
+
+  // sequence editor master. The universal row right-click menu. The shared builder
+  // turns the record into Rename / Duplicate / Share / Copy reference / Delete
+  // (only the wired handlers show), then the existing taxonomy Copy / Paste items
+  // are appended as their own group. Export / Move are omitted in v1 (no clean
+  // per-row path). Not memoized. it runs once per right-click.
+  const buildRowMenu = (seq: SequenceRecord): EditMenuItem[] => {
+    const universal = buildObjectMenuItems(
+      { type: "sequence", id: seq.id, name: seq.display_name },
+      {
+        onRename: () =>
+          setRenameTarget({ kind: "sequence", id: seq.id, name: seq.display_name }),
+        onDuplicate: () => void handleDuplicateOne(seq),
+        onShare: () => handleShareRow(seq),
+        onCopyReference: () =>
+          handleCopyReference({
+            type: "sequence",
+            id: seq.id,
+            name: seq.display_name,
+          }),
+        onDelete: () => handleDeleteOne(seq),
+      },
+    );
+    const taxonomy = buildRowTaxonomyMenu(seq).map((it, i) => ({
+      ...it,
+      // Start the taxonomy group with a divider so it reads as its own block
+      // under the universal actions.
+      group: i === 0 ? true : it.group,
+    }));
+    return [...universal, ...taxonomy];
+  };
+
   // Bulk delete: confirm the count, then trash every checked sequence.
   const handleDeleteChecked = useCallback(() => {
     const ids = Array.from(checkedIds);
@@ -796,6 +985,15 @@ export default function SequencesPage() {
     () => (collection === "all" || collection === "unfiled" ? [] : [collection]),
     [collection],
   );
+
+  // sequence editor master. The active project collection (null for All / Unfiled
+  // / a stale id). Drives the right-clickable collection chip + its menu. Carries
+  // a numeric id so the collection menu can route to projectsApi.
+  const activeProject = useMemo(() => {
+    if (collection === "all" || collection === "unfiled") return null;
+    const proj = projects.find((p) => String(p.id) === collection);
+    return proj ? { id: Number(proj.id), name: proj.name } : null;
+  }, [collection, projects]);
 
   // NEW flow: build a sequence from pasted bases (or a blank one).
   const handleNewSubmit = useCallback(
@@ -1372,6 +1570,23 @@ export default function SequencesPage() {
                 </optgroup>
               )}
             </select>
+            {/* sequence editor master. The active collection's right-click home.
+                The picker is a native <select> whose <option>s cannot host a
+                context menu, so when a real project collection is active we show
+                its name as a small right-clickable chip below the select. Right-
+                click it for Copy reference / Rename / Delete (the universal
+                collection menu). */}
+            {activeProject ? (
+              <div
+                onContextMenu={(e) =>
+                  openMenu(e, buildCollectionMenu(activeProject.id, activeProject.name))
+                }
+                className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-meta text-gray-500"
+              >
+                <span className="truncate">{activeProject.name}</span>
+                <span className="shrink-0 text-gray-400">right-click for actions</span>
+              </div>
+            ) : null}
           </div>
 
           {/* Search */}
@@ -1475,9 +1690,11 @@ export default function SequencesPage() {
                   <li
                     key={s.id}
                     onContextMenu={(e) => {
-                      // Route the list-row taxonomy menu through the framework.
-                      // openMenu preventDefaults the event for us.
-                      openMenu(e, buildRowTaxonomyMenu(s));
+                      // Route the universal list-row menu through the framework
+                      // (Rename / Duplicate / Share / Copy reference / Delete,
+                      // plus the taxonomy Copy / Paste group). openMenu
+                      // preventDefaults the event for us.
+                      openMenu(e, buildRowMenu(s));
                     }}
                     className={`group flex items-center gap-1 border-b border-gray-50 pr-2 hover:bg-sky-50 ${
                       selectedId === s.id ? "bg-sky-50" : ""
@@ -1855,6 +2072,27 @@ export default function SequencesPage() {
           </div>
         </div>
       ) : null}
+
+      {/* sequence editor master. The inline rename prompt for the universal row /
+          collection menu. Reuses the Select Range prompt pattern. parse rejects an
+          empty name so Confirm only enables on real input. */}
+      <SequencePromptDialog<string>
+        open={renameTarget != null}
+        title={
+          renameTarget?.kind === "collection"
+            ? "Rename collection"
+            : "Rename sequence"
+        }
+        label="New name"
+        initialValue={renameTarget?.name ?? ""}
+        confirmLabel="Rename"
+        parse={(raw) => {
+          const t = raw.trim();
+          return t.length > 0 ? t : null;
+        }}
+        onConfirm={(value) => void handleRenameConfirm(value)}
+        onClose={() => setRenameTarget(null)}
+      />
     </AppShell>
   );
 }
