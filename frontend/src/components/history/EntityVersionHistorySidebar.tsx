@@ -557,7 +557,16 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
                     data-testid="session-collapsed"
                   >
                     {/* Stacked avatars for multi-author; single avatar for solo */}
-                    <span className="relative flex-shrink-0" style={{ width: avatarActors.length > 1 ? `${16 + (avatarActors.length - 1) * 8}px` : undefined }}>
+                    {/* size="xs" avatars are w-5 h-5 (20px). The container must
+                        carry that height (the avatars are position:absolute, so
+                        without it the span collapses and their bottoms get
+                        clipped by the scroll container) AND a width that fits
+                        20px avatars offset 8px apart (20 + (n-1)*8), or the last
+                        avatar's right edge is clipped. */}
+                    <span
+                      className="relative flex-shrink-0 h-5"
+                      style={{ width: `${20 + (avatarActors.length - 1) * 8}px` }}
+                    >
                       {avatarActors.map((actor, idx) => (
                         <span
                           key={actor}
