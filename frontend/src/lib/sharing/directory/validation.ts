@@ -18,6 +18,23 @@ function isNonEmptyString(v: unknown): v is string {
   return typeof v === "string" && v.length > 0;
 }
 
+/** Max length for a profile display name collected at signup (mirrors parseProfileBody). */
+const DISPLAY_NAME_MAX = 100;
+
+/**
+ * Parses the OPTIONAL display name a bind body may carry so a researcher profile
+ * is created at signup (account = profile). Absent or blank is null (the bind
+ * still proceeds, a profile just is not auto-created). A present value is trimmed
+ * and length-capped, never rejected, since it is optional non-security metadata,
+ * not covered by the binding signature.
+ */
+function parseOptionalDisplayName(v: unknown): string | null {
+  if (!isNonEmptyString(v)) return null;
+  const trimmed = v.trim();
+  if (trimmed.length === 0) return null;
+  return trimmed.slice(0, DISPLAY_NAME_MAX);
+}
+
 /**
  * Validates a `{ email }` body (signup and lookup share this). Returns the
  * trimmed email on success or null if the field is missing or not a plausible
@@ -41,6 +58,8 @@ export interface VerifyBody {
   keyBackupBlob: string | null;
   signature: string;
   issuedAt: string;
+  /** Optional display name, so the bind also creates the researcher profile. */
+  displayName: string | null;
 }
 
 /**
@@ -85,6 +104,7 @@ export function parseVerifyBody(body: unknown): VerifyBody | null {
     keyBackupBlob,
     signature: b.signature,
     issuedAt: b.issuedAt,
+    displayName: parseOptionalDisplayName(b.displayName),
   };
 }
 
@@ -156,6 +176,8 @@ export interface OAuthBindBody {
   keyBackupBlob: string | null;
   signature: string;
   issuedAt: string;
+  /** Optional display name, so the bind also creates the researcher profile. */
+  displayName: string | null;
 }
 
 /**
@@ -194,6 +216,7 @@ export function parseOAuthBindBody(body: unknown): OAuthBindBody | null {
     keyBackupBlob,
     signature: b.signature,
     issuedAt: b.issuedAt,
+    displayName: parseOptionalDisplayName(b.displayName),
   };
 }
 

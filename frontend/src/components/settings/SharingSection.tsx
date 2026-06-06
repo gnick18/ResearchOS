@@ -142,6 +142,11 @@ export default function SharingSection({
 }: SharingSectionProps) {
   return (
     <>
+      {/* Profile leads (LinkedIn-style): your account IS your researcher
+          profile. It self-hides until an identity is ready, so a not-yet-set-up
+          user sees the account setup card first. Account + keys and the inbox
+          sit below as the supporting detail. */}
+      <ProfileSection sharing={sharing} />
       <SharingIdentitySection
         sharing={sharing}
         onSetUp={onSetUp}
@@ -151,7 +156,6 @@ export default function SharingSection({
         onReset={onReset}
       />
       <InboxStorageSection sharing={sharing} onSetUp={onSetUp} />
-      <ProfileSection sharing={sharing} />
       {/* currentUser is threaded through to the modals by SettingsBody, not used
           directly here, named in the props so the wiring reads cleanly. */}
       {currentUser ? null : null}
@@ -214,8 +218,8 @@ function SharingIdentitySection({
   return (
     <Card
       id="sharing"
-      title="Sharing identity"
-      description="Send notes, methods, and files to people outside your folder, and pick up what they send you. Your identity is one verified email plus a keypair that lives on this device."
+      title="Account and keys"
+      description="The verified email and the on-device keypair behind your profile. This is what proves it is you when you send a share or open one someone sent you."
     >
       {status === "loading" && (
         <p className="text-body text-gray-500">Checking your sharing setup…</p>
@@ -441,11 +445,11 @@ function NeedsRestoreIdentity({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-body font-semibold text-gray-900">Your identity</h3>
+        <h3 className="text-body font-semibold text-gray-900">Your account</h3>
         <Pill
           tone="amber"
-          label="Key not on device"
-          tip="You set up this identity on another device. Restore your key here with your recovery words."
+          label="Key not in this browser"
+          tip="Your account is set up; the private key that signs your shares just is not in this browser yet. Restore it with your recovery words."
         />
       </div>
 
@@ -463,8 +467,9 @@ function NeedsRestoreIdentity({
       <InfoRow label="Set up">{formatDate(sidecar.claimedAt)}</InfoRow>
 
       <p className="text-body text-gray-700 leading-relaxed max-w-prose pt-1">
-        This account has a sharing identity, but its private key is not on this
-        device. Restore it with your recovery words to send and open shares here.
+        Your account is set up. The private key that signs your shares just is
+        not in this browser yet, restore it with your recovery words to send and
+        open shares from here.
       </p>
       <div className="flex flex-wrap items-center gap-3">
         <button
@@ -1028,8 +1033,8 @@ function ProfileEditorCard() {
   return (
     <Card
       id="researcher-profile"
-      title="Researcher profile"
-      description="Make yourself findable to other ResearchOS users by name or institution. Only you control what is shown, and it is off by default."
+      title="Your researcher profile"
+      description="This is your profile on ResearchOS. Other researchers can find you by name or institution, and you control what it shows."
     >
       {loading && (
         <p className="text-body text-gray-500">Loading your profile…</p>
@@ -1038,15 +1043,15 @@ function ProfileEditorCard() {
       {!loading && !editing && profile === null && (
         <div className="flex items-start justify-between gap-4">
           <p className="text-body text-gray-700 leading-relaxed max-w-prose">
-            You have not published a profile yet. Add your name and institution
-            so colleagues can find you in the researcher directory.
+            Your profile just needs a name. Add it so other researchers can find
+            you, then fill in your institution and ORCID whenever you like.
           </p>
           <button
             type="button"
             onClick={openEdit}
             className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
           >
-            Create profile
+            Add your name
           </button>
         </div>
       )}

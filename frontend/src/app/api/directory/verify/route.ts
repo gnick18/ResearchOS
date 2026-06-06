@@ -23,10 +23,13 @@ import { fingerprint } from "@/lib/sharing/identity/keys";
 import {
   appendKeyHistory,
   ensureOrcidSchema,
+  ensureProfileSchema,
   ensureSchema,
   linkOrcid,
   upsertBinding,
+  upsertProfile,
 } from "@/lib/sharing/directory/db";
+import { extractVerifiedDomain } from "@/lib/sharing/directory/affiliationDomain";
 import {
   consumeOtp,
   getIpLimiter,
@@ -148,15 +151,39 @@ export async function POST(request: Request): Promise<Response> {
   // Best-effort ORCID link. If the user reached this route after signing in
   // with ORCID (which carries no email), the still-active Auth.js session holds
   // an orcidId. Record the orcid_id -> email_hash link so future ORCID sign-ins
-  // can resolve to this account. Failures never abort the bind.
+  // can resolve to this account. Failures never abort the bind. One session read,
+  // reused for the profile's ORCID below.
+  let sessionOrcidId: string | null = null;
   try {
     const session = await auth();
-    if (session?.orcidId) {
+    sessionOrcidId = session?.orcidId ?? null;
+    if (sessionOrcidId) {
       await ensureOrcidSchema();
-      await linkOrcid(session.orcidId, emailHash);
+      await linkOrcid(sessionOrcidId, emailHash);
     }
   } catch {
     // Link is best-effort; do not fail the bind if the ORCID step errors.
+  }
+
+  // Create the researcher profile at signup so an account IS a profile (no
+  // separate publish step). The display name is optional, present only when the
+  // wizard collected one. affiliation_domain is derived server-side from the
+  // verified email. Best-effort, a profile write never aborts the bind.
+  if (parsed.displayName) {
+    try {
+      await ensureProfileSchema();
+      await upsertProfile({
+        fingerprint: fp,
+        displayName: parsed.displayName,
+        affiliation: null,
+        affiliationDomain: extractVerifiedDomain(canonical),
+        orcid: sessionOrcidId,
+        pinnedWorks: [],
+        hiddenWorks: [],
+      });
+    } catch {
+      // Profile is best-effort; the user can finish it later in Settings.
+    }
   }
 
   // Single-use code, burn it on success.

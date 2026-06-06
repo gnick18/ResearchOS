@@ -118,6 +118,28 @@ describe("parseVerifyBody", () => {
     expect(parseVerifyBody(null)).toBeNull();
     expect(parseVerifyBody("nope")).toBeNull();
   });
+
+  it("defaults the optional displayName to null when absent or blank", () => {
+    expect(parseVerifyBody(validVerifyBody())?.displayName).toBeNull();
+    expect(
+      parseVerifyBody(validVerifyBody({ displayName: "   " }))?.displayName,
+    ).toBeNull();
+    expect(
+      parseVerifyBody(validVerifyBody({ displayName: 42 }))?.displayName,
+    ).toBeNull();
+  });
+
+  it("trims and length-caps a present displayName without rejecting the body", () => {
+    expect(
+      parseVerifyBody(validVerifyBody({ displayName: "  Grant Nickles  " }))
+        ?.displayName,
+    ).toBe("Grant Nickles");
+    const long = "x".repeat(250);
+    expect(
+      parseVerifyBody(validVerifyBody({ displayName: long }))?.displayName
+        ?.length,
+    ).toBe(100);
+  });
 });
 
 function validRotateBody(overrides: Record<string, unknown> = {}) {

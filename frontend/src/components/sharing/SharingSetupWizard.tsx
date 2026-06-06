@@ -100,6 +100,13 @@ export default function SharingSetupWizard({
   const [otp, setOtp] = useState("");
   const [emailBusy, setEmailBusy] = useState(false);
 
+  // Display name for the researcher profile created at signup (account = profile).
+  // Prefilled from the OAuth/ORCID session name when available; the email-only
+  // path collects it via a field. Sent on the bind body, where the route upserts
+  // the profile. Blank just means no profile is auto-created (finish it later in
+  // Settings).
+  const [displayName, setDisplayName] = useState("");
+
   // Generated identity material, held only in memory for the life of the
   // wizard. Private keys go to IndexedDB at publish, never to React devtools-
   // friendly serialized state beyond this object.
@@ -135,12 +142,16 @@ export default function SharingSetupWizard({
           headers: { accept: "application/json" },
         });
         const session = (await res.json()) as {
-          user?: { email?: string | null } | null;
+          user?: { email?: string | null; name?: string | null } | null;
           orcidId?: string | null;
         } | null;
         const sessionEmail = session?.user?.email;
         const sessionOrcidId = session?.orcidId;
+        const sessionName = session?.user?.name;
         if (cancelled) return;
+        // Prefill the profile name from the login (Google/GitHub/LinkedIn/
+        // Microsoft/ORCID all return one), so the OAuth path needs no extra typing.
+        if (sessionName) setDisplayName(sessionName);
         if (sessionEmail) {
           setEmail(sessionEmail);
           // We cannot tell Google from GitHub from the session alone, and the
@@ -282,9 +293,13 @@ export default function SharingSetupWizard({
     const url = isEmailPath
       ? "/api/directory/verify"
       : "/api/directory/oauth-bind";
+    // The trimmed display name rides on the bind body (not part of the signed
+    // binding payload); the route upserts the profile from it. Blank -> null,
+    // so no profile is created and the user finishes it in Settings.
+    const profileName = displayName.trim() || null;
     const requestBody = isEmailPath
-      ? { ...bind, email: canonical, otp }
-      : bind;
+      ? { ...bind, email: canonical, otp, displayName: profileName }
+      : { ...bind, displayName: profileName };
 
     let publishedFingerprint: string;
     try {
@@ -369,7 +384,16 @@ export default function SharingSetupWizard({
     setFingerprint(publishedFingerprint);
     setStep("done");
     onComplete({ fingerprint: publishedFingerprint });
-  }, [material, verifiedVia, email, otp, recoverySaved, username, onComplete]);
+  }, [
+    material,
+    verifiedVia,
+    email,
+    otp,
+    displayName,
+    recoverySaved,
+    username,
+    onComplete,
+  ]);
 
   return (
     <div
@@ -446,6 +470,8 @@ export default function SharingSetupWizard({
             <GenerateStep
               material={material}
               email={email}
+              displayName={displayName}
+              setDisplayName={setDisplayName}
               error={error}
               recoverySaved={recoverySaved}
               setRecoverySaved={setRecoverySaved}
@@ -701,6 +727,8 @@ function EmailCodeStep({
 function GenerateStep({
   material,
   email,
+  displayName,
+  setDisplayName,
   error,
   recoverySaved,
   setRecoverySaved,
@@ -710,6 +738,8 @@ function GenerateStep({
 }: {
   material: IdentityMaterial | null;
   email: string;
+  displayName: string;
+  setDisplayName: (v: string) => void;
   error: string | null;
   recoverySaved: boolean;
   setRecoverySaved: (v: boolean) => void;
@@ -744,6 +774,32 @@ function GenerateStep({
 
   return (
     <div className="space-y-4">
+      {/* Profile name, so the account IS a researcher profile from the start.
+          Prefilled from the login on the OAuth path, typed here on the email
+          path. Optional, blank just means the profile is finished later in
+          Settings. */}
+      <div>
+        <label
+          htmlFor="profile-name"
+          className="block text-meta font-medium text-slate-300 mb-1"
+        >
+          Name on your researcher profile
+        </label>
+        <input
+          id="profile-name"
+          type="text"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          placeholder="Your full name"
+          maxLength={100}
+          className="w-full px-3 py-2 text-body rounded-lg bg-slate-900/60 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-400"
+        />
+        <p className="text-meta text-slate-500 mt-1 leading-relaxed">
+          Other ResearchOS users can find you by this name. You can change it
+          anytime in Settings.
+        </p>
+      </div>
+
       <div className="flex items-center gap-2 text-blue-300">
         <KeyIcon className="w-5 h-5" />
         <p className="text-body font-medium text-white">Your Recovery Words</p>

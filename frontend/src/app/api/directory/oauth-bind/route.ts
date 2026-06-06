@@ -24,9 +24,12 @@ import {
 import { fingerprint } from "@/lib/sharing/identity/keys";
 import {
   appendKeyHistory,
+  ensureProfileSchema,
   ensureSchema,
   upsertBinding,
+  upsertProfile,
 } from "@/lib/sharing/directory/db";
+import { extractVerifiedDomain } from "@/lib/sharing/directory/affiliationDomain";
 import { getIpLimiter } from "@/lib/sharing/directory/ratelimit";
 import {
   extractClientIp,
@@ -118,6 +121,28 @@ export async function POST(request: Request): Promise<Response> {
     parsed.x25519PublicKey,
     parsed.ed25519PublicKey,
   );
+
+  // Create the researcher profile at signup so an account IS a profile (no
+  // separate publish step). The display name is optional, present only when the
+  // wizard collected one (it prefills from the OAuth session name). The
+  // affiliation_domain badge is derived server-side from the OAuth-verified
+  // email. Best-effort, a profile write never aborts the bind.
+  if (parsed.displayName) {
+    try {
+      await ensureProfileSchema();
+      await upsertProfile({
+        fingerprint: fp,
+        displayName: parsed.displayName,
+        affiliation: null,
+        affiliationDomain: extractVerifiedDomain(canonical),
+        orcid: null,
+        pinnedWorks: [],
+        hiddenWorks: [],
+      });
+    } catch {
+      // Profile is best-effort; the user can finish it later in Settings.
+    }
+  }
 
   return json(200, { ok: true, fingerprint: fp });
 }
