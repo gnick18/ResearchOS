@@ -25,6 +25,7 @@ import Tooltip from "@/components/Tooltip";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import { compactFingerprint } from "@/lib/sharing/profile";
 import { useProfileModal } from "@/lib/sharing/profile-modal-store";
+import { useProfileSettingsModal } from "@/lib/profile/profile-settings-modal-store";
 import { rainbowTheme } from "@/lib/colors";
 import RainbowOrb from "@/components/RainbowOrb";
 
@@ -175,6 +176,7 @@ export default function UserAvatarMenu({
   // opens the in-app popup over the current page; otherwise it links to the
   // profile editor card in Settings so they can create one.
   const openProfile = useProfileModal((s) => s.open);
+  const openProfileSettings = useProfileSettingsModal((s) => s.open);
   const ownFingerprint = sharing.sidecar?.fingerprint ?? null;
 
   const openOwnProfile = useCallback(
@@ -187,6 +189,16 @@ export default function UserAvatarMenu({
       });
     },
     [ownFingerprint, openProfile],
+  );
+
+  // Profile settings opens as a living popup over the current page (Apple-style
+  // zoom from the clicked point), not a navigation to /profile.
+  const openSettingsPopup = useCallback(
+    (e: React.MouseEvent) => {
+      setOpen(false);
+      openProfileSettings({ x: e.clientX, y: e.clientY });
+    },
+    [openProfileSettings],
   );
 
   const close = useCallback(() => setOpen(false), []);
@@ -314,7 +326,7 @@ export default function UserAvatarMenu({
                 My public profile
               </DropdownItem>
             )}
-            <DropdownItem href="/profile" onClick={close}>
+            <DropdownItem onClick={openSettingsPopup}>
               <PersonIcon />
               Profile settings
             </DropdownItem>
