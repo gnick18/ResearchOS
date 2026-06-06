@@ -5,7 +5,8 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import DailyTasksSidebar from "./DailyTasksSidebar";
 import CalendarSidebar from "./CalendarSidebar";
-import TelegramStatusBadge from "./TelegramStatusBadge";
+import TelegramHeaderButton from "./telegram/TelegramHeaderButton";
+import TelegramPopup from "./telegram/TelegramPopup";
 import InboxBadge from "./InboxBadge";
 import InboxToast from "./InboxToast";
 import NoteDeleteUndoToast from "./NoteDeleteUndoToast";
@@ -269,6 +270,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {revealElement}
       <TelegramRecoveryPrompt />
       <TelegramEncryptedRecoveryPrompt />
+      <TelegramPopup />
       <IdlePasswordWipe />
       {/* Header */}
       <header
@@ -410,7 +412,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <EditSessionTopNavChip />
           <NotificationBadge pill={tinted} />
           <InboxBadge />
-          <TelegramStatusBadge tinted={tinted} />
+          <TelegramHeaderButton tinted={tinted} />
           <Tooltip label="Help & documentation" placement="bottom">
           <Link
             href={helpHref}
