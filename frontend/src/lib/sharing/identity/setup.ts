@@ -17,7 +17,6 @@ import { ed25519, x25519 } from "@noble/curves/ed25519.js";
 import { bytesToHex, concatBytes } from "@noble/hashes/utils.js";
 
 import {
-  type BackupBlob,
   type KdfParams,
   PROD_KDF_PARAMS,
   deriveWrappingKey,
@@ -28,6 +27,11 @@ import {
   unwrapKeys,
   wrapKeys,
 } from "./backup";
+import {
+  buildKeyBackupEnvelope,
+  parseKeyBackupField,
+  serializeKeyBackupEnvelope,
+} from "./key-backup-envelope";
 import { encodePublicKey, fingerprint, generateIdentityKeys } from "./keys";
 import { canonicalizeEmail } from "../directory/email";
 import { buildBindingPayload, signBinding } from "../directory/signature";
@@ -134,7 +138,11 @@ export function createIdentityMaterial(
     ed25519PrivateKey: identity.signing.privateKey,
     fingerprint: fingerprint(identity.signing.publicKey),
     recoveryWords,
-    backupBlob: JSON.stringify(blob),
+    // The stored blob is the v2 key-backup envelope carrying the mnemonic blob.
+    // A passkey blob is added later by enrollment. The directory and the
+    // Recovery Kit both store this exact string, and restore parses it back with
+    // a legacy fallback for identities created before the envelope existed.
+    backupBlob: serializeKeyBackupEnvelope(buildKeyBackupEnvelope(blob)),
   };
 }
 
@@ -243,7 +251,9 @@ export function buildRotateRequest(
  * cross-device path. Throws if the words are wrong (the Poly1305 tag fails) or
  * the blob is malformed.
  *
- * The blob is the JSON string produced by createIdentityMaterial. Params default
+ * The blob is the JSON string produced by createIdentityMaterial, the v2
+ * key-backup envelope. parseKeyBackupField also accepts a legacy bare BackupBlob,
+ * so identities created before the envelope existed still restore. Params default
  * to PROD_KDF_PARAMS but are an argument so tests pass fast values. The params
  * baked into the blob (t, m, p) are what actually drive the derive, the argument
  * only fills dkLen via openBackupBlob, so the supplied params must still match
@@ -254,8 +264,11 @@ export function restoreFromRecoveryWords(
   backupBlob: string,
   _params: CreateIdentityParams = {},
 ): RestoredIdentity {
-  const blob = JSON.parse(backupBlob) as BackupBlob;
-  const opened = openBackupBlob(blob);
+  const envelope = parseKeyBackupField(backupBlob);
+  if (!envelope) {
+    throw new Error("malformed key backup blob");
+  }
+  const opened = openBackupBlob(envelope.mnemonic);
 
   // Reproduce the wrapping key from the words and the blob's own salt/params.
   // null device salt, this is the device-independent mnemonic blob.

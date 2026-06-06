@@ -16,7 +16,7 @@
 // This module is pure. No React, no IndexedDB, no network. The only side effect
 // is downloadRecoveryKit, which is browser-only and guarded.
 
-import { type BackupBlob } from "./backup";
+import { parseKeyBackupField } from "./key-backup-envelope";
 
 /**
  * The fields a Recovery Kit carries. `backupBlob` is the JSON string produced by
@@ -254,19 +254,17 @@ ${envelopeJson}
 }
 
 /**
- * Validates that a parsed value is a usable BackupBlob string. We do not re-run
- * crypto here, we only confirm it is JSON with the ciphertext field the unwrap
- * path needs, so a truncated or wrong-kind blob is rejected before the user even
- * types their words.
+ * Validates that a parsed value is a usable key-backup string. We do not re-run
+ * crypto here, we only confirm it parses to an envelope (or a legacy bare blob)
+ * whose mnemonic blob carries the ciphertext field the unwrap path needs, so a
+ * truncated or wrong-kind blob is rejected before the user even types their
+ * words.
  */
 function isUsableBackupBlob(blobString: unknown): boolean {
   if (typeof blobString !== "string" || blobString.length === 0) return false;
-  try {
-    const parsed = JSON.parse(blobString) as Partial<BackupBlob>;
-    return typeof parsed.ciphertext === "string" && parsed.ciphertext.length > 0;
-  } catch {
-    return false;
-  }
+  const envelope = parseKeyBackupField(blobString);
+  const ciphertext = envelope?.mnemonic?.ciphertext;
+  return typeof ciphertext === "string" && ciphertext.length > 0;
 }
 
 /**

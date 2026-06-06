@@ -45,8 +45,11 @@ describe("createIdentityMaterial", () => {
     // Fingerprint is the grouped safety-check string.
     expect(material.fingerprint).toMatch(/^[0-9a-f]{4}( [0-9a-f]{4}){3}$/);
 
-    // backupBlob is a serialized JSON string of a v1 argon2id blob.
-    const blob = JSON.parse(material.backupBlob);
+    // backupBlob is the v2 key-backup envelope wrapping the v1 argon2id blob.
+    const envelope = JSON.parse(material.backupBlob);
+    expect(envelope.v).toBe(2);
+    expect(envelope.passkeyPrf).toBeUndefined(); // no passkey enrolled at setup
+    const blob = envelope.mnemonic;
     expect(blob.v).toBe(1);
     expect(blob.alg).toBe("argon2id");
     expect(typeof blob.salt).toBe("string");
@@ -223,6 +226,33 @@ describe("restoreFromRecoveryWords", () => {
       "legal winner thank year wave sausage worth useful legal winner thank yellow";
     expect(() =>
       restoreFromRecoveryWords(wrong, material.backupBlob, { params: FAST }),
+    ).toThrow();
+  });
+
+  it("restores from a legacy bare blob (pre-envelope identities)", () => {
+    // An identity created before the envelope existed stored the bare mnemonic
+    // blob directly. parseKeyBackupField wraps it, so restore must still work.
+    const material = createIdentityMaterial({ params: FAST });
+    const legacyBare = JSON.stringify(JSON.parse(material.backupBlob).mnemonic);
+
+    const restored = restoreFromRecoveryWords(
+      material.recoveryWords,
+      legacyBare,
+      { params: FAST },
+    );
+
+    expect(restored.ed25519PublicKey).toBe(material.ed25519PublicKey);
+    expect([...restored.x25519PrivateKey]).toEqual([
+      ...material.x25519PrivateKey,
+    ]);
+  });
+
+  it("throws on a malformed blob", () => {
+    const material = createIdentityMaterial({ params: FAST });
+    expect(() =>
+      restoreFromRecoveryWords(material.recoveryWords, "not json", {
+        params: FAST,
+      }),
     ).toThrow();
   });
 });

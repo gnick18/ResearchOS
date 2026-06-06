@@ -58,6 +58,17 @@ describe("recovery kit build/parse round-trip", () => {
     expect(html).toContain("ABCD 1234 EFGH 5678");
   });
 
+  it("accepts a v2 key-backup envelope as the backupBlob (current format)", () => {
+    const envelopeBlob = JSON.stringify({
+      v: 2,
+      mnemonic: JSON.parse(SAMPLE_BLOB),
+    });
+    const data: RecoveryKitData = { ...SAMPLE_DATA, backupBlob: envelopeBlob };
+    const parsed = parseRecoveryKit(buildRecoveryKitHtml(data));
+    expect(parsed).not.toBeNull();
+    expect(parsed?.backupBlob).toBe(envelopeBlob);
+  });
+
   it("tolerates a raw JSON envelope string, not just full HTML", () => {
     const html = buildRecoveryKitHtml(SAMPLE_DATA);
     // Extract the embedded JSON envelope and feed it raw.
