@@ -18,8 +18,12 @@
 // fat branches and sparse families are thin twigs. d3-zoom drives smooth pan and
 // zoom; LEVEL-OF-DETAIL culling keeps only the branches whose on-screen arc is
 // above a pixel threshold at the current zoom, so a dense fan never all draws at
-// once. Labels grow biggest at the center and shrink each level outward (and
-// hide past the fan depth), so the centered clade reads first.
+// once. Labels read HORIZONTAL (normal left-to-right copy, never rotated to the
+// branch), sit just outward of their node on a white pill, grow biggest at the
+// center and shrink each level outward (and hide past the fan depth), so the
+// centered clade reads first. Hovering a node (its marker or branch) shows a
+// calm floating card with the name, rank, and species count, read from the
+// already-loaded node so the hover never fetches anything.
 //
 // d3 here is the small modular packages (d3-hierarchy is unused at runtime, the
 // layout is our pure module; d3-selection / d3-zoom / d3-shape drive the SVG
@@ -38,6 +42,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import { select } from "d3-selection";
 import { zoom as d3zoom, zoomIdentity, type ZoomBehavior } from "d3-zoom";
@@ -247,6 +252,29 @@ function rankLabel(rank: string): string {
   return rank.charAt(0).toUpperCase() + rank.slice(1);
 }
 
+// The species-count line for the hover tooltip, formatted like the detail
+// panel's badge (grouped thousands plus the word "species"). A missing or
+// non-finite count degrades to a calm "species count unavailable" so the card
+// never shows a bare number or NaN.
+export function formatSpeciesCount(count: number | undefined): string {
+  if (count === undefined || !Number.isFinite(count)) {
+    return "species count unavailable";
+  }
+  return `${count.toLocaleString()} species`;
+}
+
+// The hovered node, the minimal shape the floating card reads. Carried in React
+// state with the cursor position so the card can follow the pointer.
+interface HoverInfo {
+  id: string;
+  name: string;
+  rank: string;
+  speciesCount: number;
+  /** Cursor position in pixels, relative to the canvas container. */
+  x: number;
+  y: number;
+}
+
 export interface TaxonomyTreeViewProps {
   open: boolean;
   onClose: () => void;
@@ -292,7 +320,16 @@ export default function TaxonomyTreeView({
   // A transient note (e.g. "drilling Drosophilidae...") shown under the search.
   const [note, setNote] = useState<string | null>(null);
 
+  // The node currently under the cursor, driving the floating hover card. Null
+  // hides the card. It reads only fields already on the laid-out node (name,
+  // rank, species count), so hovering never fetches anything.
+  const [hover, setHover] = useState<HoverInfo | null>(null);
+
   const svgRef = useRef<SVGSVGElement | null>(null);
+  // The canvas container, the positioning context for the floating hover card.
+  // The card is an absolute div inside it, so we read the container rect to clamp
+  // the cursor-relative position within the visible canvas.
+  const canvasRef = useRef<HTMLDivElement | null>(null);
   const gRef = useRef<SVGGElement | null>(null);
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const loadAbortRef = useRef<AbortController | null>(null);
@@ -318,6 +355,7 @@ export default function TaxonomyTreeView({
     setSuggestOpen(false);
     setSelected(null);
     setNote(null);
+    setHover(null);
     onClose();
   }, [onClose]);
 
@@ -748,6 +786,31 @@ export default function TaxonomyTreeView({
     [insertIds, insertT, visibleById],
   );
 
+  // Show / move the floating hover card for a node. The card position is the
+  // cursor point relative to the canvas container (the card is an absolute div
+  // inside it), so we subtract the container's top-left from the page pointer.
+  // The clamp to keep it on screen happens at render from the card's measured
+  // size, since the size is not known here. Reads only fields on the laid-out
+  // node, so no network is touched on hover.
+  const onNodeHover = useCallback(
+    (n: RadialLaidOutNode, e: ReactPointerEvent) => {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      const x = rect ? e.clientX - rect.left : e.clientX;
+      const y = rect ? e.clientY - rect.top : e.clientY;
+      setHover({
+        id: n.id,
+        name: n.name,
+        rank: n.rank,
+        speciesCount: n.speciesCount,
+        x,
+        y,
+      });
+    },
+    [],
+  );
+
+  const clearHover = useCallback(() => setHover(null), []);
+
   if (!open) return null;
 
   const focusName =
@@ -884,7 +947,7 @@ export default function TaxonomyTreeView({
 
         {/* Body: the radial canvas + the click-detail */}
         <div className="relative flex min-h-0 flex-1">
-          <div className="relative min-h-0 flex-1 bg-slate-50">
+          <div ref={canvasRef} className="relative min-h-0 flex-1 bg-slate-50">
             {error ? (
               <div className="absolute inset-x-0 top-4 z-10 mx-auto flex max-w-md items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5">
                 <WarnIcon className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
@@ -926,6 +989,14 @@ export default function TaxonomyTreeView({
                       strokeWidth={l.target.thickness * b.grow}
                       strokeLinecap="round"
                       strokeOpacity={0.55}
+                      style={{ cursor: "pointer" }}
+                      onPointerEnter={(e) => onNodeHover(l.target, e)}
+                      onPointerMove={(e) => onNodeHover(l.target, e)}
+                      onPointerLeave={clearHover}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onNodeClick(l.target);
+                      }}
                     />
                   );
                 })}
@@ -940,22 +1011,39 @@ export default function TaxonomyTreeView({
                   const levelScale = labelScaleForLevel(n.depth, FAN_DEPTH);
                   const showLabel =
                     levelScale > 0 && isLabelVisibleAtZoom(n, zoomScale, LABEL_MIN_PX);
-                  // Orient the label along the radius; flip the ones on the left
-                  // half so text never reads upside down.
-                  const deg = (n.angle * 180) / Math.PI - 90;
-                  const flip = n.angle > Math.PI;
-                  const labelRotate = flip ? deg + 180 : deg;
-                  const labelAnchor = flip ? "end" : "start";
-                  const labelDx = flip ? -6 : 6;
                   const markerR = Math.max(1.5, n.thickness / 2) * p.grow;
+
+                  // HORIZONTAL labels. The text reads left to right like normal
+                  // copy, never rotated to the branch angle. We still place the
+                  // pill just OUTWARD of the node along the node's own angle, so a
+                  // label sits next to its dot rather than on top of it, but the
+                  // pill and the text stay axis aligned (a normal horizontal
+                  // rounded pill). The offset direction is the radially OUTWARD unit
+                  // vector at this node's angle. The layout shifts angle 0 to point
+                  // up (polarToCartesian subtracts a quarter turn), so we use the
+                  // same shift here to get the true outward direction on screen.
+                  const a = n.angle - Math.PI / 2;
+                  const ux = Math.cos(a);
+                  const uy = Math.sin(a);
+                  // Nodes on the LEFT half (cos < 0) anchor their text to the right
+                  // edge so the words run leftward, away from the center; nodes on
+                  // the right half anchor to the left edge and run rightward. Either
+                  // way the text splays outward and the marker stays clear.
+                  const leftHalf = ux < 0;
+                  const labelAnchor = leftHalf ? "end" : "start";
+                  // Push the label start past the marker by the radius plus a small
+                  // gap, along the node's angle.
+                  const gap = markerR + 6;
+                  const anchorX = p.x + ux * gap;
+                  const anchorY = p.y + uy * gap;
 
                   // The readable label pill, the white backing that lets the text
                   // read over any branch color. We size it to the text from the
                   // string length and the live font-size (jsdom cannot measure, so
                   // a generous char-width factor avoids clipping long names), then
                   // pad it and round the ends fully so it is a pill, not a box. The
-                  // pill sits in the SAME rotation group as the text, centered on
-                  // the label baseline, so it rides along the branch with the text.
+                  // pill is axis aligned (no rotation) and sits behind the
+                  // horizontal text, growing in the text direction from the anchor.
                   // The level scale shrinks the font as the label sits farther from
                   // the center, keeping the white pill backing intact.
                   const fontSize = (11 / Math.max(zoomScale, 1) + 3) * levelScale;
@@ -966,12 +1054,11 @@ export default function TaxonomyTreeView({
                   const padY = 2.5;
                   const pillH = fontSize + padY * 2;
                   const pillW = textW + padX * 2;
-                  // The pill starts at the label anchor (where the text begins) and
-                  // runs outward in the text direction. For a flipped (left-half)
-                  // label the anchor is the END, so the pill extends back toward
-                  // negative x. dy centers it on the text middle.
-                  const pillX = flip ? labelDx - pillW : labelDx;
-                  const pillY = -pillH / 2;
+                  // The pill is centered vertically on the text baseline and grows
+                  // in the text direction from the anchor. A right-anchored
+                  // (left-half) label grows back toward negative x.
+                  const pillX = leftHalf ? anchorX - pillW : anchorX;
+                  const pillY = anchorY - pillH / 2;
                   return (
                     <g key={`node-${n.id}`}>
                       <circle
@@ -982,19 +1069,19 @@ export default function TaxonomyTreeView({
                         stroke="#ffffff"
                         strokeWidth={selected?.taxId === n.id ? 2 : 0.5}
                         style={{ cursor: "pointer" }}
+                        onPointerEnter={(e) => onNodeHover(n, e)}
+                        onPointerMove={(e) => onNodeHover(n, e)}
+                        onPointerLeave={clearHover}
                         onClick={(e) => {
                           e.stopPropagation();
                           onNodeClick(n);
                         }}
                       />
                       {showLabel ? (
-                        // One rotation group holds the pill behind and the text in
-                        // front, both translated to the node and rotated together,
-                        // so the pill stays aligned to the branch under its label.
-                        <g
-                          transform={`translate(${p.x}, ${p.y}) rotate(${labelRotate})`}
-                          style={{ pointerEvents: "none", userSelect: "none" }}
-                        >
+                        // The pill behind plus the horizontal text in front, both
+                        // axis aligned (no rotation), so the label always reads like
+                        // normal copy next to its node.
+                        <g style={{ pointerEvents: "none", userSelect: "none" }}>
                           <rect
                             x={pillX}
                             y={pillY}
@@ -1008,8 +1095,8 @@ export default function TaxonomyTreeView({
                             strokeWidth={1}
                           />
                           <text
-                            x={labelDx}
-                            y={0}
+                            x={anchorX}
+                            y={anchorY}
                             textAnchor={labelAnchor}
                             dominantBaseline="middle"
                             fontSize={fontSize}
@@ -1024,6 +1111,49 @@ export default function TaxonomyTreeView({
                 })}
               </g>
             </svg>
+
+            {/* The floating HOVER card, the node under the cursor. It reads only
+                fields already on the laid-out node (no fetch on hover), follows
+                the pointer with a small offset, and is clamped to stay inside the
+                canvas. pointer-events none so it never blocks the click-to-re-root
+                or a hover on a node beneath it. */}
+            {hover ? (
+              (() => {
+                const OFFSET = 12;
+                // Estimate the card footprint so the clamp keeps it on screen. The
+                // width tracks the longer of the name and the count line; the
+                // height is the three stacked lines plus padding. These are upper
+                // bounds, so the card never runs off the right or bottom edge.
+                const rect = canvasRef.current?.getBoundingClientRect();
+                const countLine = formatSpeciesCount(hover.speciesCount);
+                const longest = Math.max(
+                  hover.name.length,
+                  countLine.length,
+                  rankLabel(hover.rank).length,
+                );
+                const estW = Math.min(280, 24 + longest * 7);
+                const estH = 78;
+                const maxX = rect ? rect.width - estW - 6 : Number.POSITIVE_INFINITY;
+                const maxY = rect ? rect.height - estH - 6 : Number.POSITIVE_INFINITY;
+                const left = Math.max(6, Math.min(hover.x + OFFSET, maxX));
+                const top = Math.max(6, Math.min(hover.y + OFFSET, maxY));
+                return (
+                  <div
+                    data-testid="taxonomy-hover-card"
+                    className="pointer-events-none absolute z-20 max-w-[280px] rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-lg"
+                    style={{ left, top }}
+                  >
+                    <p className="text-body font-semibold leading-snug text-gray-900">
+                      {hover.name}
+                    </p>
+                    <p className="text-meta uppercase tracking-wide text-gray-400">
+                      {rankLabel(hover.rank)}
+                    </p>
+                    <p className="text-meta text-gray-500">{countLine}</p>
+                  </div>
+                );
+              })()
+            ) : null}
 
             {/* Zoom chrome */}
             <div className="absolute bottom-4 right-4 flex flex-col gap-1.5">

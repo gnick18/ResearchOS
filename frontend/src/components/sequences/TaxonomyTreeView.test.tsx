@@ -47,7 +47,7 @@ vi.mock("@/lib/sequences/taxonomy-explorer", async () => {
   return { ...actual, fetchAssembliesCount: () => fetchAssembliesCount() };
 });
 
-import TaxonomyTreeView from "./TaxonomyTreeView";
+import TaxonomyTreeView, { formatSpeciesCount } from "./TaxonomyTreeView";
 import { SYNTHETIC_ROOT_ID } from "@/lib/sequences/taxonomy-radial-source";
 
 function poolNode(
@@ -131,6 +131,36 @@ describe("TaxonomyTreeView", () => {
     expect(detail).toBeTruthy();
     // The detail shows a rank chip and a species count badge.
     expect(detail.textContent).toMatch(/species|assemblies/i);
+  });
+
+  it("formats the species count line like the detail badge", () => {
+    expect(formatSpeciesCount(1_640_607)).toBe("1,640,607 species");
+    expect(formatSpeciesCount(1)).toBe("1 species");
+    expect(formatSpeciesCount(0)).toBe("0 species");
+    expect(formatSpeciesCount(undefined)).toBe("species count unavailable");
+    expect(formatSpeciesCount(Number.NaN)).toBe("species count unavailable");
+  });
+
+  it("shows a hover card with name, rank, and species count on pointer over a node", async () => {
+    render(<TaxonomyTreeView open onClose={() => {}} />);
+    const svg = await screen.findByTestId("taxonomy-tree-svg");
+    await waitFor(() => {
+      expect(svg.querySelectorAll("circle").length).toBeGreaterThan(0);
+    });
+    // No card before any hover.
+    expect(screen.queryByTestId("taxonomy-hover-card")).toBeNull();
+    // Hovering a node marker shows the floating card. jsdom cannot measure layout
+    // so we only assert the card mounts with the node text; the position and feel
+    // need a human live pass.
+    const circles = Array.from(svg.querySelectorAll("circle"));
+    fireEvent.pointerEnter(circles[circles.length - 1]);
+    const card = await screen.findByTestId("taxonomy-hover-card");
+    expect(card.textContent).toMatch(/species|species count unavailable/i);
+    // Leaving the node hides the card.
+    fireEvent.pointerLeave(circles[circles.length - 1]);
+    await waitFor(() => {
+      expect(screen.queryByTestId("taxonomy-hover-card")).toBeNull();
+    });
   });
 
   it("closes the whole view on Escape", async () => {
