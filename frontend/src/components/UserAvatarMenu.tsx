@@ -25,8 +25,7 @@ import Tooltip from "@/components/Tooltip";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import { compactFingerprint } from "@/lib/sharing/profile";
 import { useProfileModal } from "@/lib/sharing/profile-modal-store";
-import { RAINBOW_AVATAR_GRADIENT, RAINBOW_FOREGROUND } from "@/lib/colors";
-import { RAINBOW_COLOR } from "@/lib/file-system/user-metadata";
+import { rainbowTheme } from "@/lib/colors";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -217,14 +216,14 @@ export default function UserAvatarMenu({
     return () => document.removeEventListener("keydown", handleKey);
   }, [open]);
 
-  // "rainbow" is a sentinel, not a CSS color, so backgroundColor:"rainbow"
-  // silently rendered no fill (the avatar looked empty). Render the same pastel
-  // gradient + dark ink the UserAvatar uses, so the rainbow identity shows here
-  // (header chip + dropdown) like it does elsewhere.
-  const isRainbow = primaryColor === RAINBOW_COLOR;
+  // A rainbow sentinel ("rainbow" / "rainbow-vivid") is not a CSS color, so
+  // backgroundColor would render no fill (the avatar looked empty). rainbowTheme
+  // resolves it to the matching gradient + readable ink, identical to the
+  // UserAvatar component, so the rainbow identity shows here too.
+  const rainbow = rainbowTheme(primaryColor);
   const fg = contrastColor(primaryColor);
-  const avatarStyle = isRainbow
-    ? { background: RAINBOW_AVATAR_GRADIENT, color: RAINBOW_FOREGROUND }
+  const avatarStyle = rainbow
+    ? { background: rainbow.avatar, color: rainbow.fg }
     : { backgroundColor: primaryColor, color: fg === "white" ? "#fff" : "#111" };
 
   // Tour-disabled state: render a non-interactive button matching the gear's

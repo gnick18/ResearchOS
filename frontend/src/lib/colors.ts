@@ -1,5 +1,8 @@
 // Color helpers for user avatars and other per-user color UI.
-// Self-contained — no React, safe to import anywhere.
+// No React, safe to import anywhere. Imports only the rainbow sentinels from
+// user-metadata (a leaf module), so no import cycle.
+
+import { RAINBOW_COLOR, RAINBOW_VIVID_COLOR } from "@/lib/file-system/user-metadata";
 
 export interface HSL {
   h: number; // 0-360
@@ -125,6 +128,42 @@ export const RAINBOW_AVATAR_GRADIENT =
 export const RAINBOW_HEADER_GRADIENT =
   "linear-gradient(to right, #FFD2B0, #FFF1A8, #B7EBB1, #A6D2F4, #D6B5F0)";
 export const RAINBOW_FOREGROUND = "#0f1b2e";
+
+/**
+ * The VIVID rainbow theme: the saturated 5-stop ramp (the same one dark mode
+ * uses, --brand-rainbow-vivid). A bolder alternative to the pastel rainbow.
+ * White foreground since the stops are saturated, not pastel.
+ */
+export const RAINBOW_VIVID_AVATAR_GRADIENT =
+  "linear-gradient(135deg, #F97316, #E8920B, #16A34A, #0284C7, #9333EA)";
+export const RAINBOW_VIVID_HEADER_GRADIENT =
+  "linear-gradient(to right, #F97316, #E8920B, #16A34A, #0284C7, #9333EA)";
+export const RAINBOW_VIVID_FOREGROUND = "#ffffff";
+
+/**
+ * Single source for resolving a user color to its rainbow treatment. Returns
+ * null for ordinary hex colors. Used by the header tint, the avatar chips, and
+ * the menu so both rainbow options render identically everywhere.
+ */
+export function rainbowTheme(
+  color: string,
+): { avatar: string; header: string; fg: string } | null {
+  if (color === RAINBOW_COLOR) {
+    return {
+      avatar: RAINBOW_AVATAR_GRADIENT,
+      header: RAINBOW_HEADER_GRADIENT,
+      fg: RAINBOW_FOREGROUND,
+    };
+  }
+  if (color === RAINBOW_VIVID_COLOR) {
+    return {
+      avatar: RAINBOW_VIVID_AVATAR_GRADIENT,
+      header: RAINBOW_VIVID_HEADER_GRADIENT,
+      fg: RAINBOW_VIVID_FOREGROUND,
+    };
+  }
+  return null;
+}
 
 /**
  * Deterministic fallback color when no user metadata is loaded yet (e.g.

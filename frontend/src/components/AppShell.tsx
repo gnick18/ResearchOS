@@ -39,8 +39,7 @@ import { useLateNightCoffeeTrigger } from "@/hooks/useLateNightCoffeeTrigger";
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { useAccountType } from "@/hooks/useAccountType";
 import { deriveVisibleTabs } from "@/lib/onboarding/feature-picks-tabs";
-import { headerGradient, RAINBOW_HEADER_GRADIENT } from "@/lib/colors";
-import { RAINBOW_COLOR } from "@/lib/file-system/user-metadata";
+import { headerGradient, rainbowTheme } from "@/lib/colors";
 import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
 import EditSessionBanner from "@/components/EditSessionBanner";
 import EditSessionTopNavChip from "@/components/EditSessionTopNavChip";
@@ -228,19 +227,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // header matches the avatar exactly. Otherwise we derive a darker,
   // deeper gradient from the single primary color via `headerGradient()`
   // — the same behavior pre-gradient users get today.
-  // The "rainbow" theme is a sentinel string, not a hex, so headerGradient()
-  // can't derive stops from it (it fell back to a teal/cyan). Special-case it
-  // to BeakerBot's iconic 5-stop pastel ramp, the same gradient the rainbow
-  // avatar uses, so the header carries the rainbow identity.
-  const isRainbow = baseColor === RAINBOW_COLOR;
+  // The rainbow themes are sentinel strings, not hexes, so headerGradient()
+  // can't derive stops from them (it fell back to a teal/cyan). rainbowTheme()
+  // resolves either rainbow (pastel or vivid) to its 5-stop ramp, matching the
+  // avatar; ordinary hex colors return null and use the derived 2-stop.
+  const rainbow = rainbowTheme(baseColor);
   const [stop1, stop2] = userColors.secondary
     ? [baseColor, userColors.secondary]
     : headerGradient(baseColor);
   const tinted = !!currentUser && coloredHeader;
   const headerStyle = tinted
     ? {
-        background: isRainbow
-          ? RAINBOW_HEADER_GRADIENT
+        background: rainbow
+          ? rainbow.header
           : `linear-gradient(to right, ${stop1}, ${stop2})`,
       }
     : undefined;

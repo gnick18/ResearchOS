@@ -1,18 +1,7 @@
 "use client";
 
-import {
-  avatarGradient,
-  RAINBOW_AVATAR_GRADIENT,
-  RAINBOW_FOREGROUND,
-} from "@/lib/colors";
+import { avatarGradient, rainbowTheme } from "@/lib/colors";
 import { useUserColors } from "@/hooks/useUserColor";
-import { RAINBOW_COLOR } from "@/lib/file-system/user-metadata";
-
-// The rainbow gradient + its dark foreground now live in lib/colors as the
-// single source, so the avatar, the header tint, and the menu chip all render
-// the identical BeakerBot ramp. Local aliases keep the rest of this file tidy.
-const RAINBOW_GRADIENT = RAINBOW_AVATAR_GRADIENT;
-const RAINBOW_TEXT_COLOR = RAINBOW_FOREGROUND;
 
 export type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
 
@@ -75,16 +64,16 @@ export default function UserAvatar({
   const secondary =
     secondaryOverride === undefined ? resolved.secondary : secondaryOverride;
 
-  const isRainbow = primary === RAINBOW_COLOR;
+  const rainbow = rainbowTheme(primary);
 
-  // When rainbow: use the 5-stop gradient and dark text (pastel background).
+  // When rainbow (pastel or vivid): use its 5-stop gradient + readable ink.
   // When gradient: use the two user-picked stops directly.
   // When solid: derive a pleasing second stop via avatarGradient.
   let background: string;
   let textColor: string;
-  if (isRainbow) {
-    background = RAINBOW_GRADIENT;
-    textColor = RAINBOW_TEXT_COLOR;
+  if (rainbow) {
+    background = rainbow.avatar;
+    textColor = rainbow.fg;
   } else {
     const [stop1, stop2] = secondary
       ? [primary, secondary]

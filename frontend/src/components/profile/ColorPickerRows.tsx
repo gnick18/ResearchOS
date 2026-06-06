@@ -13,6 +13,7 @@ import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
 import {
   readAllUserMetadata,
   USER_METADATA_COLOR_PALETTE as USER_COLOR_PALETTE,
+  RAINBOW_SENTINELS,
 } from "@/lib/file-system/user-metadata";
 import {
   isCombinationTaken,
@@ -21,6 +22,7 @@ import {
   takenSecondariesFor,
   takenSolidPrimaries,
 } from "@/lib/file-system/user-color-collisions";
+import { rainbowTheme } from "@/lib/colors";
 import type { UserSettings } from "@/lib/settings/user-settings";
 
 export default function ColorPickerRows({
@@ -117,12 +119,25 @@ export default function ColorPickerRows({
               ? ownerOfCombination({ primary: c, secondary: null }, otherUsers)
               : null;
             const disabled = blockedSolid && !isSelected;
+            // Rainbow sentinels aren't hex colors, so render their gradient
+            // (matching the avatar/header) instead of an invalid backgroundColor.
+            const rainbow = rainbowTheme(c);
+            const rainbowLabel =
+              c === "rainbow"
+                ? "BeakerBot rainbow (pastel)"
+                : "BeakerBot rainbow (vivid)";
             return (
               <button
                 key={c}
                 type="button"
-                aria-label={`Primary color ${c}`}
-                title={ownerName ? `Used by ${ownerName}` : `Color ${c}`}
+                aria-label={rainbow ? rainbowLabel : `Primary color ${c}`}
+                title={
+                  ownerName
+                    ? `Used by ${ownerName}`
+                    : rainbow
+                      ? rainbowLabel
+                      : `Color ${c}`
+                }
                 disabled={disabled}
                 onClick={() => void handlePickPrimary(c)}
                 data-color-swatch={c}
@@ -133,7 +148,7 @@ export default function ColorPickerRows({
                       ? "border-transparent opacity-30 cursor-not-allowed"
                       : "border-transparent hover:scale-105"
                 }`}
-                style={{ backgroundColor: c }}
+                style={rainbow ? { background: rainbow.avatar } : { backgroundColor: c }}
               />
             );
           })}
@@ -156,7 +171,8 @@ export default function ColorPickerRows({
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          {USER_COLOR_PALETTE.map((c) => {
+          {/* Rainbow is always a full 5-stop, so it can't be a SECOND color. */}
+          {USER_COLOR_PALETTE.filter((c) => !RAINBOW_SENTINELS.has(c)).map((c) => {
             const cLc = c.toLowerCase();
             const isSelected = secondaryLc === cLc;
             const isSamePrimary = cLc === primaryLc;

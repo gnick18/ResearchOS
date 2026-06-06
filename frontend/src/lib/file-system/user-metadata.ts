@@ -68,12 +68,25 @@ function enqueueMetadataWrite<T>(fn: () => Promise<T>): Promise<T> {
  *  rainbow users and should be treated as absent. */
 export const RAINBOW_COLOR = "rainbow";
 
+/** Second rainbow option: the SATURATED ("vivid") 5-stop ramp (the same one
+ *  dark mode uses) rather than the pastel one. Same sentinel rules as
+ *  RAINBOW_COLOR. Stored as "rainbow-vivid" (no `#`, never a hex). */
+export const RAINBOW_VIVID_COLOR = "rainbow-vivid";
+
+/** Both rainbow sentinels. Neither is a hex and neither is ever auto-assigned
+ *  (opt-in only, via the color picker). */
+export const RAINBOW_SENTINELS = new Set<string>([
+  RAINBOW_COLOR,
+  RAINBOW_VIVID_COLOR,
+]);
+
 const USER_COLOR_PALETTE = [
   "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
   "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
-  // Special sentinel: BeakerBot rainbow (5-stop pastel gradient). Must
-  // remain LAST so existing users keep their assigned palette index.
+  // Special sentinels: BeakerBot rainbow (pastel) + vivid rainbow. Must remain
+  // LAST so existing users keep their assigned palette index.
   RAINBOW_COLOR,
+  RAINBOW_VIVID_COLOR,
 ];
 
 export interface UserMetadataEntry {
@@ -151,7 +164,7 @@ export interface UserMetadataFile {
  *  logic never implicitly give a user the rainbow option — it must be
  *  explicitly chosen via the color picker. */
 const HEX_ONLY_PALETTE = USER_COLOR_PALETTE.filter(
-  (c) => c !== RAINBOW_COLOR,
+  (c) => !RAINBOW_SENTINELS.has(c),
 );
 
 function hashColor(username: string): string {
@@ -164,9 +177,9 @@ function hashColor(username: string): string {
 
 function pickColor(takenColors: Set<string>, username: string): string {
   for (const color of USER_COLOR_PALETTE) {
-    // Never auto-assign the rainbow sentinel — it must only be explicitly
+    // Never auto-assign a rainbow sentinel — they must only be explicitly
     // chosen via the color picker (opt-in, not auto-allocated).
-    if (color === RAINBOW_COLOR) continue;
+    if (RAINBOW_SENTINELS.has(color)) continue;
     if (!takenColors.has(color)) return color;
   }
   return hashColor(username);

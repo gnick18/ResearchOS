@@ -5,17 +5,23 @@ import UserAvatar from "@/components/UserAvatar";
 import {
   USER_METADATA_COLOR_PALETTE,
   RAINBOW_COLOR,
+  RAINBOW_VIVID_COLOR,
+  RAINBOW_SENTINELS,
 } from "@/lib/file-system/user-metadata";
 import {
   isCombinationTaken,
   ownerOfCombination,
 } from "@/lib/file-system/user-color-collisions";
+import {
+  RAINBOW_AVATAR_GRADIENT,
+  RAINBOW_VIVID_AVATAR_GRADIENT,
+} from "@/lib/colors";
 import type { UserMetadataEntry } from "@/lib/file-system/user-metadata";
 
-/** BeakerBot's exact internal body gradient, left-to-right across 5 pastel
- *  stops. Matches the gradient rendered by UserAvatar for rainbow users. */
-const RAINBOW_GRADIENT_CSS =
-  "linear-gradient(135deg, #FFD2B0, #FFF1A8, #B7EBB1, #A6D2F4, #D6B5F0)";
+/** Swatch previews for the two rainbow options — pulled from the shared
+ *  gradients so the swatch matches the avatar/header exactly. */
+const RAINBOW_GRADIENT_CSS = RAINBOW_AVATAR_GRADIENT;
+const RAINBOW_VIVID_GRADIENT_CSS = RAINBOW_VIVID_AVATAR_GRADIENT;
 
 interface UserColorPickerPopupProps {
   /** The username being created. Drives the avatar preview's initial letter
@@ -102,7 +108,7 @@ export default function UserColorPickerPopup({
     return set;
   }, [otherUsers]);
 
-  // Determine the owner of the rainbow combo (for the disabled tooltip).
+  // Determine the owner of each rainbow combo (for the disabled tooltip).
   const rainbowOwner = useMemo(
     () =>
       ownerOfCombination({ primary: RAINBOW_COLOR, secondary: null }, otherUsers),
@@ -110,6 +116,17 @@ export default function UserColorPickerPopup({
   );
   const rainbowTaken =
     takenSolids.has(RAINBOW_COLOR) && selectedColor !== RAINBOW_COLOR;
+  const rainbowVividOwner = useMemo(
+    () =>
+      ownerOfCombination(
+        { primary: RAINBOW_VIVID_COLOR, secondary: null },
+        otherUsers,
+      ),
+    [otherUsers],
+  );
+  const rainbowVividTaken =
+    takenSolids.has(RAINBOW_VIVID_COLOR) &&
+    selectedColor !== RAINBOW_VIVID_COLOR;
 
   // Precompute the "taken as a pair with current primary" set so the
   // secondary row can disable the swatches that would land on someone
@@ -189,6 +206,12 @@ export default function UserColorPickerPopup({
     setSelectedSecondary(null);
   };
 
+  const handlePickRainbowVivid = () => {
+    if (rainbowVividTaken) return;
+    setSelectedColor(RAINBOW_VIVID_COLOR);
+    setSelectedSecondary(null);
+  };
+
   const handleClearSecondary = () => {
     // Going gradient → solid. If the solid form is taken by another user,
     // surface the refusal silently (the swatch tooltips on the primary row
@@ -247,7 +270,7 @@ export default function UserColorPickerPopup({
           <div className="flex flex-wrap gap-2">
             {/* Regular hex-color swatches — exclude the rainbow sentinel
                 which has its own special swatch rendered below. */}
-            {USER_METADATA_COLOR_PALETTE.filter((c) => c !== RAINBOW_COLOR).map((c) => {
+            {USER_METADATA_COLOR_PALETTE.filter((c) => !RAINBOW_SENTINELS.has(c)).map((c) => {
               const cLc = c.toLowerCase();
               const isSelected = cLc === selectedLc;
               // Match the Settings rule: only block solid-vs-solid. If
@@ -288,11 +311,11 @@ export default function UserColorPickerPopup({
                 make it visually distinct from the solid swatches. */}
             <button
               type="button"
-              aria-label="BeakerBot rainbow"
+              aria-label="BeakerBot rainbow (pastel)"
               title={
                 rainbowOwner
                   ? `Used by ${rainbowOwner}`
-                  : "BeakerBot rainbow"
+                  : "BeakerBot rainbow (pastel)"
               }
               disabled={rainbowTaken}
               onClick={handlePickRainbow}
@@ -306,12 +329,33 @@ export default function UserColorPickerPopup({
               }`}
               style={{ background: RAINBOW_GRADIENT_CSS }}
             />
+            {/* Second rainbow: the vivid (saturated) ramp. */}
+            <button
+              type="button"
+              aria-label="BeakerBot rainbow (vivid)"
+              title={
+                rainbowVividOwner
+                  ? `Used by ${rainbowVividOwner}`
+                  : "BeakerBot rainbow (vivid)"
+              }
+              disabled={rainbowVividTaken}
+              onClick={handlePickRainbowVivid}
+              data-color-swatch={RAINBOW_VIVID_COLOR}
+              className={`w-9 h-9 rounded-full border-2 transition-transform ${
+                selectedColor === RAINBOW_VIVID_COLOR
+                  ? "border-white scale-110"
+                  : rainbowVividTaken
+                    ? "border-transparent opacity-30 cursor-not-allowed"
+                    : "border-transparent hover:scale-105"
+              }`}
+              style={{ background: RAINBOW_VIVID_GRADIENT_CSS }}
+            />
           </div>
 
           {/* Hide the secondary row entirely when rainbow is selected —
               rainbow is always the full 5-stop, so a secondary is
               meaningless (and confusing to show). */}
-          {selectedColor !== RAINBOW_COLOR && (
+          {!RAINBOW_SENTINELS.has(selectedColor) && (
             <>
               <div className="flex items-center justify-between mt-5 mb-2">
                 <label className="block text-meta font-medium text-slate-300">
@@ -328,7 +372,7 @@ export default function UserColorPickerPopup({
                 )}
               </div>
               <div className="flex flex-wrap gap-2">
-                {USER_METADATA_COLOR_PALETTE.filter((c) => c !== RAINBOW_COLOR).map((c) => {
+                {USER_METADATA_COLOR_PALETTE.filter((c) => !RAINBOW_SENTINELS.has(c)).map((c) => {
                   const cLc = c.toLowerCase();
                   const isSelected = selectedSecondaryLc === cLc;
                   const isSamePrimary = cLc === selectedLc;
