@@ -395,6 +395,28 @@ body {
   color: #e5e7eb;
 }
 
+/* Dark-mode prose: rendered markdown (Preview mode + note/method read views)
+ * inherits its body color from the themed container, but the hardcoded light
+ * accents (heading rule, blockquote fill, inline-code chip) need dark values so
+ * they don't read as bright slabs. The code <pre> is already dark in both
+ * themes. Note: a .prose inside a .light-scope would wrongly pick these up, but
+ * light-scoped regions don't currently render prose. */
+[data-theme="dark"] .prose {
+  color: #e5e7eb;
+}
+[data-theme="dark"] .prose h1 {
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+[data-theme="dark"] .prose blockquote {
+  border-left-color: #475569;
+  color: #94a3b8;
+  background-color: rgba(255, 255, 255, 0.04);
+}
+[data-theme="dark"] .prose code {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #e5e7eb;
+}
+
 /* ── Syntax Highlighting (highlight.js theme) ────────────────────────────────── */
 
 .hljs-comment,
