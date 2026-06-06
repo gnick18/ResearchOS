@@ -189,6 +189,51 @@ describe("TaxonomyTreeView", () => {
     });
   });
 
+  it("shows the jump-back chip only when a pinned lineage is set", async () => {
+    // Without pinned, no chip (the launcher entry).
+    const { rerender } = render(<TaxonomyTreeView open onClose={() => {}} />);
+    await screen.findByTestId("taxonomy-tree-svg");
+    expect(screen.queryByTestId("taxonomy-jump-back-chip")).toBeNull();
+
+    // With pinned (opened from a sequence), the chip shows the organism name.
+    rerender(
+      <TaxonomyTreeView
+        open
+        onClose={() => {}}
+        pinned={{
+          organismTaxId: "7215",
+          organismName: "Drosophilidae",
+          lineageIds: ["2759", "7215"],
+        }}
+      />,
+    );
+    const chip = await screen.findByTestId("taxonomy-jump-back-chip");
+    expect(chip.textContent).toMatch(/Your sequence/i);
+    expect(chip.textContent).toMatch(/Drosophilidae/);
+  });
+
+  it("re-roots on the pinned organism when the jump-back chip is clicked", async () => {
+    render(
+      <TaxonomyTreeView
+        open
+        onClose={() => {}}
+        pinned={{
+          organismTaxId: "7215",
+          organismName: "Drosophilidae",
+          lineageIds: ["2759", "7215"],
+        }}
+      />,
+    );
+    await screen.findByTestId("taxonomy-tree-svg");
+    const chip = await screen.findByTestId("taxonomy-jump-back-chip");
+    fireEvent.click(chip);
+    // Re-rooting onto the in-pool organism loads its fan-out window via the
+    // shared drill path, the same call a search pick or node click makes.
+    await waitFor(() => {
+      expect(drillSubtreeToDepth).toHaveBeenCalled();
+    });
+  });
+
   it("shows a breadcrumb of the focus path once the user drills in", async () => {
     drillSubtreeToDepth.mockResolvedValue([]);
     render(<TaxonomyTreeView open onClose={() => {}} />);

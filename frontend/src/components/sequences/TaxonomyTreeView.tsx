@@ -62,7 +62,9 @@ import {
   viewportRectFromTransform,
   viewportCenterPoint,
   thicknessLegend,
+  pinnedNodeMark,
   type RadialLaidOutNode,
+  type PinnedLineage,
 } from "@/lib/sequences/taxonomy-radial-layout";
 import {
   loadRadialPool,
@@ -151,6 +153,14 @@ const DEFAULT_BRANCH = "#94a3b8";
 function branchColor(rank: string): string {
   return RANK_COLORS[(rank || "").toLowerCase()] ?? DEFAULT_BRANCH;
 }
+
+// The PINNED-LINEAGE accent, a warm amber clearly apart from the cool rank
+// palette, so the trail toward the user's open sequence reads as a glow no
+// matter which rank colors it crosses. The organism leaf gets the deepest tone
+// and a ring; the ancestors on the path get the lighter tone and a heavier
+// stroke. Used only when a `pinned` lineage is set.
+const PINNED_PATH_COLOR = "#f59e0b";
+const PINNED_ORGANISM_COLOR = "#d97706";
 
 // --- Inline SVG icons (chrome only) -----------------------------------------
 
@@ -294,6 +304,11 @@ export interface TaxonomyTreeViewProps {
   onClose: () => void;
   /** Optional tax id to center on when the view opens (a cross-link entry). */
   initialTaxId?: string;
+  /** The open sequence's lineage, set when the explorer is opened FROM a
+   *  sequence. When present, the trail toward that organism is highlighted and a
+   *  jump-back chip shows. Absent (the launcher entry) means nothing highlights
+   *  and no chip shows, exactly as the standalone explorer. */
+  pinned?: PinnedLineage;
   /** Open the NCBI import flow prefilled for an organism (a species / strain
    *  node's import jump). When omitted, the import action is hidden. */
   onImportOrganism?: (prefill: TaxonomyImportPrefill) => void;
@@ -303,6 +318,7 @@ export default function TaxonomyTreeView({
   open,
   onClose,
   initialTaxId,
+  pinned,
   onImportOrganism,
 }: TaxonomyTreeViewProps) {
   const [pool, setPool] = useState<RadialPool | null>(null);
@@ -712,6 +728,22 @@ export default function TaxonomyTreeView({
     [pool, focusStack, centerOn],
   );
 
+  // Jump back to the pinned organism, the way the user returns to their open
+  // sequence after exploring far away. Reuses the same re-root path as a search
+  // pick: rebuild the focus stack from the organism's in-pool lineage when it
+  // resolves (so a center-click still walks back up), otherwise seed the stack
+  // with root then the organism, then re-root onto it. A no-op when nothing is
+  // pinned or the organism has no tax id.
+  const jumpToPinnedOrganism = useCallback(() => {
+    if (!pool || !pinned?.organismTaxId) return;
+    const taxId = pinned.organismTaxId;
+    const path = pathToNode(pool, taxId);
+    setFocusStack(
+      path && path.length > 0 ? path : [SYNTHETIC_ROOT_ID, taxId],
+    );
+    centerOn(taxId);
+  }, [pool, pinned, centerOn]);
+
   // Search autocomplete (debounced).
   useEffect(() => {
     const q = query.trim();
@@ -1030,6 +1062,37 @@ export default function TaxonomyTreeView({
               </div>
             ) : null}
 
+            {/* The JUMP-BACK CHIP, a calm amber pill in the top-left, shown only
+                when the explorer was opened from a sequence (pinned set). It
+                re-roots the view onto that sequence's organism, the way the user
+                returns to their own branch after exploring far away. The chip
+                persists across re-roots, since it is about the sequence, not the
+                current view. It stops its own pointer events from reaching the
+                tree so a pan started elsewhere still works. */}
+            {pinned ? (
+              <div
+                className="absolute left-4 top-4 z-10 max-w-[16rem]"
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <Tooltip label="Center the tree on your sequence">
+                  <button
+                    type="button"
+                    data-testid="taxonomy-jump-back-chip"
+                    onClick={jumpToPinnedOrganism}
+                    className="flex max-w-full items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50/95 px-3 py-1.5 text-amber-800 shadow-sm backdrop-blur-sm transition-colors hover:border-amber-400 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+                  >
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full border-2 border-amber-600"
+                      aria-hidden="true"
+                    />
+                    <span className="truncate text-meta font-medium">
+                      Your sequence: {pinned.organismName || "this organism"}
+                    </span>
+                  </button>
+                </Tooltip>
+              </div>
+            ) : null}
+
             {/* The radial SVG. d3-zoom transforms the inner group. */}
             <svg
               ref={svgRef}
@@ -1046,6 +1109,12 @@ export default function TaxonomyTreeView({
                 {links.map((l) => {
                   const a = drawNode(l.source);
                   const b = drawNode(l.target);
+                  // A branch on the pinned trail glows amber and reads a touch
+                  // heavier + more opaque, so the path toward the user's sequence
+                  // stands out whenever any of it is on screen. Off-trail branches
+                  // keep their calm rank color.
+                  const mark = pinnedNodeMark(pinned, l.target.id);
+                  const onPinned = mark !== "none";
                   return (
                     <line
                       key={`link-${l.target.id}`}
@@ -1053,10 +1122,12 @@ export default function TaxonomyTreeView({
                       y1={a.y}
                       x2={b.x}
                       y2={b.y}
-                      stroke={branchColor(l.target.rank)}
-                      strokeWidth={l.target.thickness * b.grow}
+                      stroke={onPinned ? PINNED_PATH_COLOR : branchColor(l.target.rank)}
+                      strokeWidth={
+                        l.target.thickness * b.grow * (onPinned ? 1.6 : 1)
+                      }
                       strokeLinecap="round"
-                      strokeOpacity={0.55}
+                      strokeOpacity={onPinned ? 0.9 : 0.55}
                       style={{ cursor: "pointer" }}
                       onPointerEnter={(e) => onNodeHover(l.target, e)}
                       onPointerMove={(e) => onNodeHover(l.target, e)}
@@ -1080,6 +1151,31 @@ export default function TaxonomyTreeView({
                   const showLabel =
                     levelScale > 0 && isLabelVisibleAtZoom(n, zoomScale, LABEL_MIN_PX);
                   const markerR = Math.max(1.5, n.thickness / 2) * p.grow;
+
+                  // The pinned mark for this node. "organism" is the sequence's
+                  // own organism (the strongest mark, an amber fill plus an outer
+                  // ring), "path" is any ancestor on the trail toward it (an amber
+                  // ring on the marker), "none" is everything else (untouched).
+                  const mark = pinnedNodeMark(pinned, n.id);
+                  const isOrganism = mark === "organism";
+                  const onPinned = mark !== "none";
+                  // The marker fill and stroke. An organism reads filled amber;
+                  // a path node keeps its rank fill but gains an amber ring; an
+                  // off-trail node keeps its rank fill and the thin white outline
+                  // (a heavier outline only when it is the click-selected center).
+                  const markerFill = isOrganism
+                    ? PINNED_ORGANISM_COLOR
+                    : branchColor(n.rank);
+                  const markerStroke = onPinned
+                    ? PINNED_PATH_COLOR
+                    : "#ffffff";
+                  const markerStrokeW = isOrganism
+                    ? 2.5
+                    : mark === "path"
+                      ? 2
+                      : selected?.taxId === n.id
+                        ? 2
+                        : 0.5;
 
                   // HORIZONTAL labels. The text reads left to right like normal
                   // copy, never rotated to the branch angle. We still place the
@@ -1129,13 +1225,28 @@ export default function TaxonomyTreeView({
                   const pillY = anchorY - pillH / 2;
                   return (
                     <g key={`node-${n.id}`}>
+                      {/* The organism's outer ring, the strongest mark, drawn
+                          behind the marker so the user's own organism reads as a
+                          haloed dot wherever it is on screen. */}
+                      {isOrganism ? (
+                        <circle
+                          cx={p.x}
+                          cy={p.y}
+                          r={markerR + 4}
+                          fill="none"
+                          stroke={PINNED_ORGANISM_COLOR}
+                          strokeWidth={2}
+                          strokeOpacity={0.85}
+                          style={{ pointerEvents: "none" }}
+                        />
+                      ) : null}
                       <circle
                         cx={p.x}
                         cy={p.y}
                         r={markerR}
-                        fill={branchColor(n.rank)}
-                        stroke="#ffffff"
-                        strokeWidth={selected?.taxId === n.id ? 2 : 0.5}
+                        fill={markerFill}
+                        stroke={markerStroke}
+                        strokeWidth={markerStrokeW}
                         style={{ cursor: "pointer" }}
                         onPointerEnter={(e) => onNodeHover(n, e)}
                         onPointerMove={(e) => onNodeHover(n, e)}

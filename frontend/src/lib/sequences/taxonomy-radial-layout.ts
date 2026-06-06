@@ -921,3 +921,67 @@ export function fitTransform(
   const center = viewSize / 2;
   return { k, x: center - k * cx, y: center - k * cy };
 }
+
+/**
+ * The PINNED LINEAGE, the open sequence's trail through the tree. When the
+ * explorer is opened from a sequence, this describes that sequence's organism
+ * and the chain of tax ids from the root down to it, so the explorer can glow
+ * the branch toward the user's sequence wherever any of it is on screen. It is
+ * about the sequence, not the current view, so it persists across re-roots.
+ */
+export interface PinnedLineage {
+  /** The organism tax id, the strongest mark (the leaf of the trail). */
+  organismTaxId?: string;
+  /** The organism display name, shown on the jump-back chip. */
+  organismName?: string;
+  /** Every tax id on the path from the root down to the organism. */
+  lineageIds: string[];
+}
+
+/**
+ * How a drawn node relates to the pinned lineage, the input the highlight uses.
+ * "organism" is the sequence's own organism (the strongest mark), "path" is any
+ * other ancestor on the trail toward it (a glow), and "none" is everything else
+ * (no highlight). Pure and exported so the highlight decision is unit tested
+ * without a render.
+ *
+ * @param pinned the open sequence's lineage, or null / undefined when the
+ *   explorer was opened from the launcher (then every node is "none")
+ * @param taxId  the drawn node's tax id
+ */
+export function pinnedNodeMark(
+  pinned: PinnedLineage | null | undefined,
+  taxId: string,
+): "organism" | "path" | "none" {
+  if (!pinned || !taxId) return "none";
+  if (pinned.organismTaxId && taxId === pinned.organismTaxId) return "organism";
+  return pinned.lineageIds.includes(taxId) ? "path" : "none";
+}
+
+/**
+ * Derive the set of pinned tax ids from a sequence's named lineage plus its
+ * organism tax id. The lineage is root-to-organism order, each node carrying a
+ * taxId; the organism id is appended when it is not already the last node, so a
+ * sequence whose lineage stops above the organism still pins the organism leaf.
+ * Blank ids are dropped and the result is de-duplicated, order preserved. Pure
+ * so the page wiring's derivation is unit tested.
+ *
+ * @param lineage       root-to-organism nodes, each with a taxId (may be empty)
+ * @param organismTaxId the organism's own tax id (may be undefined)
+ */
+export function lineageIdsFrom(
+  lineage: ReadonlyArray<{ taxId?: string }> | undefined,
+  organismTaxId: string | undefined,
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const push = (id: string | undefined) => {
+    const t = (id ?? "").trim();
+    if (!t || seen.has(t)) return;
+    seen.add(t);
+    out.push(t);
+  };
+  for (const node of lineage ?? []) push(node?.taxId);
+  push(organismTaxId);
+  return out;
+}

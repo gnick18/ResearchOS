@@ -5,6 +5,12 @@
 // click expands the full chain. Self-hides when the sequence has no organism and
 // no lineage, so a native / non-enriched sequence shows nothing.
 //
+// Every listed level is CLICKABLE. The organism name and each inline major-rank
+// name open the tree-of-life explorer centered on THAT level (organism, genus,
+// family, phylum, and so on), so the user can dive into the tree at any depth of
+// their sequence's lineage. The trailing "Explore in tree" link is the catch-all,
+// centered on the organism. Each affordance carries a Tooltip and reads as a link.
+//
 // Inline SVG icons (no emoji), <Tooltip> for the icon-only expand control, site
 // typography tokens. No em-dash, no mid-sentence colon.
 
@@ -88,9 +94,22 @@ export default function SequenceLineageChip({
   if (!organism && full.length === 0) return null;
 
   const hasLineage = full.length > 0;
-  // The inline major-rank names, organism last. When there are no major ranks
-  // (a sparse chain), fall back to just the organism name.
-  const inlineNodes = major.length > 0 ? major : [];
+
+  // The organism line, the leaf of the trail. The name prefers the explicit
+  // organism prop and falls back to the last lineage node; the tax id prefers
+  // the explicit prop and falls back to that same last node, so the organism
+  // name stays clickable even when only the lineage carries the id.
+  const lastNode = full.length > 0 ? full[full.length - 1] : undefined;
+  const organismName = organism || lastNode?.name || "";
+  const organismTaxId = taxId || lastNode?.taxId || "";
+
+  // The inline major-rank names. The organism line already carries the leaf, so
+  // drop any major-rank node that IS the organism (commonly the species slot) to
+  // avoid showing the same clickable name twice. A sparse chain (no major ranks)
+  // shows just the organism line.
+  const inlineNodes = (major.length > 0 ? major : []).filter(
+    (node) => !organismTaxId || node.taxId !== organismTaxId,
+  );
 
   return (
     <div className="border-b border-gray-100 bg-gray-50/60 px-3 py-1.5">
@@ -98,9 +117,23 @@ export default function SequenceLineageChip({
         <LineageIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-500" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
-            <span className="text-meta font-medium text-gray-700">
-              {organism || (full.length > 0 ? full[full.length - 1].name : "")}
-            </span>
+            {organismName ? (
+              organismTaxId && onExploreInTree ? (
+                <Tooltip label="Open the tree of life centered here">
+                  <button
+                    type="button"
+                    onClick={() => onExploreInTree(organismTaxId)}
+                    className="cursor-pointer rounded text-meta font-medium text-gray-700 underline decoration-dotted decoration-gray-300 underline-offset-2 transition-colors hover:text-sky-700 hover:decoration-sky-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+                  >
+                    {organismName}
+                  </button>
+                </Tooltip>
+              ) : (
+                <span className="text-meta font-medium text-gray-700">
+                  {organismName}
+                </span>
+              )
+            ) : null}
             {taxId ? (
               <span className="text-meta text-gray-400">taxon {taxId}</span>
             ) : null}
@@ -114,7 +147,19 @@ export default function SequenceLineageChip({
                       ›
                     </span>
                   ) : null}
-                  <span>{node.name}</span>
+                  {node.taxId && onExploreInTree ? (
+                    <Tooltip label="Open the tree of life centered here">
+                      <button
+                        type="button"
+                        onClick={() => onExploreInTree(node.taxId)}
+                        className="cursor-pointer rounded underline decoration-dotted decoration-gray-300 underline-offset-2 transition-colors hover:text-sky-700 hover:decoration-sky-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+                      >
+                        {node.name}
+                      </button>
+                    </Tooltip>
+                  ) : (
+                    <span>{node.name}</span>
+                  )}
                 </span>
               ))}
             </div>
@@ -134,11 +179,14 @@ export default function SequenceLineageChip({
               ))}
             </ol>
           ) : null}
-          {onExploreInTree && taxId ? (
+          {onExploreInTree && organismTaxId ? (
+            // The organism name and every listed level above are clickable, so a
+            // single "open the whole tree" affordance reads as the catch-all
+            // entry, centered on the organism (the leaf of the trail).
             <button
               type="button"
-              onClick={() => onExploreInTree(taxId)}
-              className="mt-1 inline-flex items-center gap-1 text-meta font-medium text-sky-600 transition-colors hover:text-sky-700"
+              onClick={() => onExploreInTree(organismTaxId)}
+              className="mt-1 inline-flex items-center gap-1 text-meta font-medium text-sky-600 transition-colors hover:text-sky-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
             >
               <LineageIcon className="h-3 w-3" />
               Explore in tree

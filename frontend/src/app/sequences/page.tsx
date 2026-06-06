@@ -54,6 +54,10 @@ import {
   LIST_WIDTH_STORAGE_KEY,
 } from "@/lib/sequences/split-layout";
 import type { SequenceRecord, SeqType } from "@/lib/types";
+import {
+  lineageIdsFrom,
+  type PinnedLineage,
+} from "@/lib/sequences/taxonomy-radial-layout";
 
 type SortKey = "name" | "type" | "length" | "added";
 type SortDir = "asc" | "desc";
@@ -314,6 +318,14 @@ export default function SequencesPage() {
   const [explorerTaxId, setExplorerTaxId] = useState<string | undefined>(
     undefined,
   );
+  // sequence editor master. The open sequence's pinned lineage, set when the
+  // explorer is opened FROM a sequence (the editor's lineage chip or its
+  // Analyze-menu entry). It highlights that sequence's trail in the tree and
+  // shows the jump-back chip. Cleared (undefined) when the explorer is opened
+  // from the launcher or the standalone lookup, so nothing highlights there.
+  const [explorerPinned, setExplorerPinned] = useState<PinnedLineage | undefined>(
+    undefined,
+  );
   // Cross-boundary "Share outside this folder" dialog for the open sequence.
   const [shareOpen, setShareOpen] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -484,6 +496,23 @@ export default function SequencesPage() {
     queryFn: () => (selectedId == null ? null : sequencesApi.get(selectedId)),
     enabled: selectedId != null,
   });
+
+  // sequence editor master. The open sequence's pinned lineage, derived from its
+  // taxonomy. lineageIds is the root-to-organism trail (the named lineage tax
+  // ids plus the organism tax id), so the explorer can highlight that trail and
+  // jump back to the organism. Null when the open sequence carries no taxonomy
+  // (then opening the explorer pins nothing). Recomputed only when the open
+  // sequence's taxonomy fields change.
+  const pinnedForOpenSequence = useMemo<PinnedLineage | undefined>(() => {
+    if (!selected) return undefined;
+    const lineageIds = lineageIdsFrom(selected.tax_lineage, selected.tax_id);
+    if (lineageIds.length === 0) return undefined;
+    return {
+      organismTaxId: selected.tax_id,
+      organismName: selected.organism,
+      lineageIds,
+    };
+  }, [selected]);
 
   // Persist the edited GenBank back to disk (atomic .gb rewrite via the store),
   // then refresh the summary + detail queries so the library and header update.
@@ -1484,6 +1513,10 @@ export default function SequencesPage() {
                   saving={saving}
                   onEnriched={handleEnriched}
                   onExploreInTree={(taxId) => {
+                    // Opened FROM the open sequence (a lineage-level click or the
+                    // Analyze-menu entry): pin that sequence's trail so the tree
+                    // highlights it and shows the jump-back chip.
+                    setExplorerPinned(pinnedForOpenSequence);
                     setExplorerTaxId(taxId);
                     setExplorerOpen(true);
                   }}
@@ -1503,6 +1536,8 @@ export default function SequencesPage() {
               onNcbi={() => setNcbiOpen(true)}
               onLookupTaxonomy={() => setTaxonomyOpen(true)}
               onExploreTaxonomy={() => {
+                // Opened from the launcher (no open sequence): nothing pinned.
+                setExplorerPinned(undefined);
                 setExplorerTaxId(undefined);
                 setExplorerOpen(true);
               }}
@@ -1552,7 +1587,10 @@ export default function SequencesPage() {
         open={taxonomyOpen}
         onClose={() => setTaxonomyOpen(false)}
         onExploreInTree={(taxId) => {
+          // The standalone lookup is not tied to the open sequence, so its
+          // tree cross-link pins nothing.
           setTaxonomyOpen(false);
+          setExplorerPinned(undefined);
           setExplorerTaxId(taxId);
           setExplorerOpen(true);
         }}
@@ -1566,6 +1604,7 @@ export default function SequencesPage() {
       <TaxonomyTreeView
         open={explorerOpen}
         initialTaxId={explorerTaxId}
+        pinned={explorerPinned}
         onClose={() => setExplorerOpen(false)}
         onImportOrganism={({ organism, accession }) => {
           setExplorerOpen(false);
