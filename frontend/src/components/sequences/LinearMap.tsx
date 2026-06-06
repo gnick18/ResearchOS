@@ -71,6 +71,7 @@ import Tooltip from "@/components/Tooltip";
 import LinearMapNavigator from "./LinearMapNavigator";
 import MapJogWheel from "./MapJogWheel";
 import { buildFeatureCard, buildPrimerCard, selectionBandRect, dragSelectRange, isDrag } from "@/lib/sequences/linear-map-select";
+import HoverCardActionHint from "./HoverCardActionHint";
 import type { SeqType } from "@/vendor/seqviz/elements";
 
 /** A feature to draw below the line. Mirrors the editor's annotation shape. */
@@ -1223,6 +1224,7 @@ export default function LinearMap({
               </div>
             ))}
           </div>
+          <HoverCardActionHint />
         </div>
       ) : null}
 
@@ -1246,6 +1248,7 @@ export default function LinearMap({
               </div>
             ))}
           </div>
+          <HoverCardActionHint />
         </div>
       ) : null}
       </div>

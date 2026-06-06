@@ -74,6 +74,50 @@ export function InspectorCue({ children }: { children: ReactNode }) {
   );
 }
 
+/** The CONTEXT BAR that sits between the inspector header and its body (sequences
+ *  redesign phase 3). It names what the operation will act on. A FILLED marker +
+ *  amber tint when something is selected (acting on a selection); a HOLLOW marker
+ *  + calm tint otherwise (whole-sequence scope). Markers are inline SVG, never
+ *  emoji. */
+export function InspectorContextBar({
+  selected,
+  text,
+}: {
+  selected: boolean;
+  text: string;
+}) {
+  return (
+    <div
+      data-testid="inspector-context-bar"
+      className={`flex items-center gap-2 border-b px-3.5 py-2 text-meta font-semibold ${
+        selected
+          ? "border-amber-200 bg-amber-50 text-amber-800"
+          : "border-gray-200 bg-gray-50 text-gray-500"
+      }`}
+    >
+      {selected ? (
+        // Filled marker, a small solid disc.
+        <svg viewBox="0 0 12 12" className="h-2.5 w-2.5 flex-none" aria-hidden="true">
+          <circle cx="6" cy="6" r="5" fill="currentColor" />
+        </svg>
+      ) : (
+        // Hollow marker, a small empty square.
+        <svg
+          viewBox="0 0 12 12"
+          className="h-2.5 w-2.5 flex-none"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          aria-hidden="true"
+        >
+          <rect x="1.5" y="1.5" width="9" height="9" rx="1.5" />
+        </svg>
+      )}
+      <span className="min-w-0 truncate">{text}</span>
+    </div>
+  );
+}
+
 /** A vertical list of launcher actions for an inspector panel. */
 export function ActionList({ actions }: { actions: OperationAction[] }) {
   return (
@@ -128,12 +172,16 @@ export function SequenceOperationsRail({
   operations,
   activeId,
   onPick,
+  contextBar,
 }: {
   operations: RailOperation[];
   /** The open operation, or null when the inspector is collapsed. */
   activeId: string | null;
   /** Toggle an operation. Picking the active one collapses the inspector. */
   onPick: (id: string) => void;
+  /** The contextual bar shown between the header and the body when an op is
+   *  open (sequences redesign phase 3). Absent = no bar (e.g. nothing to say). */
+  contextBar?: { selected: boolean; text: string } | null;
 }) {
   const active = operations.find((op) => op.id === activeId) ?? null;
 
@@ -179,6 +227,12 @@ export function SequenceOperationsRail({
               </button>
             </Tooltip>
           </div>
+          {contextBar ? (
+            <InspectorContextBar
+              selected={contextBar.selected}
+              text={contextBar.text}
+            />
+          ) : null}
           <div className="min-h-0 flex-1 overflow-auto p-3.5">{active.panel}</div>
         </div>
       ) : null}

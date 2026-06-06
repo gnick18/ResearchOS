@@ -124,7 +124,12 @@ import ProteinPropertiesDialog from "./ProteinPropertiesDialog";
 // sequence editor master — the third door: a right-docked drawer that opens when
 // a coding feature is selected, reflowing the viewer narrower (never overlaying).
 import ProteinPropertiesDrawer from "./ProteinPropertiesDrawer";
-import { isCodingFeature } from "@/lib/sequences/feature-protein";
+import {
+  isCodingFeature,
+  translateFeature,
+  trimTrailingStop,
+} from "@/lib/sequences/feature-protein";
+import { analyzeProtein } from "@/lib/calculators/protein";
 import EnzymePickerDialog from "./EnzymePickerDialog";
 import PrimerDialog, { type PrimerDialogRequest } from "./PrimerDialog";
 import PrimerEditorDialog, {
@@ -195,6 +200,13 @@ import {
   type RailOperation,
   type OperationAction,
 } from "./SequenceOperationsRail";
+import {
+  deriveSelectionKind,
+  buildContextBar,
+  type SelectionKind,
+} from "@/lib/sequences/inspector-context";
+import { useAutoOpenInspector } from "./useAutoOpenInspector";
+import HoverCardActionHint from "./HoverCardActionHint";
 import {
   documentToGenbankText,
   documentToFasta,
@@ -467,7 +479,26 @@ const ActionGlyphs = {
       <path d="M12 10v6M9 13l3 3 3-3" />
     </>,
   ),
+  pencil: actionSvg(
+    <>
+      <path d="M14.5 4.5l5 5L8 21H3v-5z" />
+      <path d="M12.5 6.5l5 5" />
+    </>,
+  ),
 } as const;
+
+/** A small label-over-value chip for the contextual inspector readout (Length /
+ *  Tm / GC), matching the mockup `.readout .r`. Calm tinted tile, no emoji. */
+function InspectorReadoutChip({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="min-w-[68px] rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
+      <div className="text-[10px] font-extrabold uppercase tracking-wide text-gray-400">
+        {k}
+      </div>
+      <div className="text-base font-bold text-gray-900">{v}</div>
+    </div>
+  );
+}
 
 function ToolbarButton({
   label,
@@ -3501,6 +3532,88 @@ export default function SequenceEditView({
   const hasOrganism = Boolean(
     (sequence.organism ?? "").trim() || (sequence.tax_id ?? "").trim(),
   );
+
+  // sequence editor master. The CONTEXTUAL inspector (redesign phase 3). The
+  // inspector body + a header context bar adapt to the live selection. We
+  // classify the selection into one SELECTION KIND (the visible-panel form of
+  // the smart right-click we already built), then each rail op recomputes its
+  // panel for that kind, and a fresh selection auto-opens the most relevant op.
+  // selFeat / isCodingFeature were computed above for the menus, reused here so
+  // the inspector and the right-click menu never disagree.
+  const selFeatType = selFeat ? (selFeat.type || "") : null;
+  const selFeatIsCoding = !!selFeat && isCodingFeature(selFeat);
+  const selectionKind: SelectionKind = useMemo(
+    () =>
+      deriveSelectionKind({
+        hasRange: sel.hasRange,
+        selectedFeatureType: selFeatType,
+        selectedFeatureIsCoding: selFeatIsCoding,
+      }),
+    [sel.hasRange, selFeatType, selFeatIsCoding],
+  );
+
+  // The selected CDS protein properties (length aa / mass / pI), reusing the
+  // shared feature->protein path + analyzeProtein. Only computed for a coding
+  // feature selection so non-CDS work pays nothing. Null when the translation
+  // is too short to score. No protein engine is reimplemented here.
+  const selectedCdsProps = useMemo(() => {
+    if (selectionKind !== "feature-cds" || !selFeat) return null;
+    const aaRaw = trimTrailingStop(translateFeature(doc.seq, selFeat));
+    if (!aaRaw) return null;
+    const r = analyzeProtein(aaRaw);
+    if (!r) return { aa: aaRaw.length, massKDa: null, pI: null };
+    return {
+      aa: r.length,
+      massKDa: r.molecularWeight / 1000,
+      pI: r.isoelectricPoint,
+    };
+  }, [selectionKind, selFeat, doc.seq]);
+
+  // The selected primer's oligo + Tm, for the "This primer" contextual section.
+  // Reuses primerOligoAt + predictTm (the same derivation the right-click primer
+  // menu uses), so the read-out never drifts.
+  const selectedPrimerInfo = useMemo(() => {
+    if (selectionKind !== "feature-primer" || selectedFeatureIdx == null || !selFeat) {
+      return null;
+    }
+    const oligo = primerOligoAt(selectedFeatureIdx);
+    const tm = oligo.length >= 2 ? predictTm(oligo) : null;
+    return { idx: selectedFeatureIdx, name: selFeat.name || "this primer", oligo, tm };
+  }, [selectionKind, selectedFeatureIdx, selFeat, primerOligoAt]);
+
+  // The context bar shown between the inspector header and the body. The
+  // organism line surfaces only when nothing else is selected (whole-sequence
+  // scope), so picking a region or feature always reads "Acting on selection".
+  const inspectorContextBar = useMemo(
+    () =>
+      buildContextBar({
+        kind: selectionKind,
+        lo: readout?.kind === "range" ? readout.lo : undefined,
+        hi: readout?.kind === "range" ? readout.hi : undefined,
+        len: readout?.kind === "range" ? readout.len : undefined,
+        featureName: selFeat?.name ?? null,
+        aa: selectedCdsProps?.aa ?? null,
+        organism: hasOrganism ? sequence.organism?.trim() || `Tax id ${sequence.tax_id}` : null,
+      }),
+    [selectionKind, readout, selFeat?.name, selectedCdsProps?.aa, hasOrganism, sequence.organism, sequence.tax_id],
+  );
+
+  // AUTO-OPEN on a NEW selection (the Figma rule). When the user makes a fresh
+  // selection we pop open the contextual op even if the inspector was collapsed,
+  // region -> Primers, feature-cds -> Protein, feature-primer -> Primers. We key
+  // on a derived selection-IDENTITY (kind + the feature index + the region span),
+  // and only react when that identity CHANGES, so we never yank the user off a
+  // panel they are configuring for the SAME selection, never thrash on a same-
+  // kind re-render, and never auto-open Tree on mount (organism is whole-sequence
+  // scope, not a fresh selection, so autoOpenOpForKind returns null for it).
+  // Clearing the selection (kind -> none) does NOT close the inspector.
+  const selectionIdentity = useMemo(() => {
+    if (selectionKind === "none") return "none";
+    if (selectionKind === "region") return `region-${sel.lo}-${sel.hi}`;
+    return `${selectionKind}-${selectedFeatureIdx ?? "?"}`;
+  }, [selectionKind, sel.lo, sel.hi, selectedFeatureIdx]);
+  useAutoOpenInspector(selectionIdentity, selectionKind, setActiveOp);
+
   const railOperations = useMemo<RailOperation[]>(() => {
     const ops: RailOperation[] = [];
 
@@ -3508,12 +3621,14 @@ export default function SequenceEditView({
     // PRIMERS. Design from the editor's existing primer flows + the Primers
     // tab. Designing / adding a primer mutates, so the launcher actions hide in
     // read-only; the "open the Primers tab" jump stays (it is read-only safe).
-    const primerActions: OperationAction[] = [];
+    // The whole-sequence primer launchers, shown below every contextual primer
+    // body so the design and the Primers-tab jump are always reachable.
+    const primerLaunchers: OperationAction[] = [];
     if (!readOnly) {
-      primerActions.push(
+      primerLaunchers.push(
         {
           id: "op-primer-design",
-          label: "Design primers",
+          label: sel.hasRange ? "Design forward + reverse" : "Design primers",
           sub: sel.hasRange ? "from the current selection" : "type or paste a region",
           glyph: "+",
           tileClass: "bg-sky-100 text-sky-700",
@@ -3528,7 +3643,7 @@ export default function SequenceEditView({
         },
       );
     }
-    primerActions.push({
+    primerLaunchers.push({
       id: "op-primer-list",
       label: "Open the Primers tab",
       sub: primerCount
@@ -3537,6 +3652,83 @@ export default function SequenceEditView({
       glyph: ActionGlyphs.list,
       onRun: () => setViewMode("primers"),
     });
+
+    // CONTEXTUAL primer panel. A primer feature shows "This primer" (the same
+    // actions the right-click primer menu surfaces), a region shows "Design
+    // primers here" with a live Length / Tm / GC readout, and an empty selection
+    // teaches the design move. The whole-sequence launchers sit below all three.
+    let primerPanel: React.ReactNode;
+    if (selectionKind === "feature-primer" && selectedPrimerInfo) {
+      const p = selectedPrimerInfo;
+      const primerActions: OperationAction[] = [];
+      if (!readOnly) {
+        primerActions.push({
+          id: "op-this-primer-edit",
+          label: "Edit primer",
+          sub: p.oligo ? `${p.name}, ${p.oligo.length} nt` : p.name,
+          glyph: ActionGlyphs.pencil,
+          tileClass: "bg-sky-100 text-sky-700",
+          onRun: () => openEditPrimer(p.idx),
+        });
+      }
+      if (p.oligo) {
+        primerActions.push({
+          id: "op-this-primer-copy",
+          label: "Copy primer sequence",
+          sub: p.oligo,
+          glyph: ActionGlyphs.copy,
+          onRun: () => writeOsClipboard(p.oligo),
+        });
+      }
+      primerActions.push({
+        id: "op-this-primer-specificity",
+        label: "Check specificity",
+        sub: p.tm != null ? `Tm ${p.tm.toFixed(1)} C` : "scan the template for off-target binding",
+        glyph: "Tm",
+        tileClass: "bg-gray-100 text-gray-600",
+        onRun: openSpecificityCheck,
+      });
+      primerPanel = (
+        <>
+          <InspectorSection>This primer</InspectorSection>
+          <ActionList actions={primerActions} />
+          <div className="mt-4">
+            <InspectorSection>Design more</InspectorSection>
+            <ActionList actions={primerLaunchers} />
+          </div>
+        </>
+      );
+    } else if (selectionKind === "region") {
+      primerPanel = (
+        <>
+          <InspectorSection>Design primers here</InspectorSection>
+          {readout?.kind === "range" ? (
+            <div className="mb-3 flex flex-wrap gap-2">
+              <InspectorReadoutChip k="Length" v={`${readout.len} nt`} />
+              <InspectorReadoutChip
+                k="Tm"
+                v={readout.tm != null ? `${readout.tm.toFixed(1)} C` : "n/a"}
+              />
+              <InspectorReadoutChip k="GC" v={`${readout.gc.toFixed(0)}%`} />
+            </div>
+          ) : null}
+          <ActionList actions={primerLaunchers} />
+        </>
+      );
+    } else {
+      primerPanel = (
+        <>
+          <InspectorSection>Design primers</InspectorSection>
+          <div className="mb-3">
+            <InspectorCue>
+              Select a region on the map to design a pair here, or design across
+              the whole sequence.
+            </InspectorCue>
+          </div>
+          <ActionList actions={primerLaunchers} />
+        </>
+      );
+    }
     ops.push({
       id: "primers",
       label: "Primers",
@@ -3545,12 +3737,7 @@ export default function SequenceEditView({
       icon: RailIcons.primers,
       groupLabel: "Design",
       badge: primerCount > 0 ? primerCount : undefined,
-      panel: (
-        <>
-          <InspectorSection>Design primers</InspectorSection>
-          <ActionList actions={primerActions} />
-        </>
-      ),
+      panel: primerPanel,
     });
 
     // CLONING. The four chemistries live in the library-level Assemble
@@ -3647,41 +3834,54 @@ export default function SequenceEditView({
     // ANNOTATE. Detect, annotate-from-reference, add feature. All mutate, so
     // the whole operation is edit-only.
     if (!readOnly) {
+      // When a region is selected, lead with "Add feature from selection" (it
+      // already exists, the same openAddFeature the selection right-click menu
+      // fires), then keep Detect / Annotate-from-reference below.
+      const addFromSelection: OperationAction = {
+        id: "op-annot-add",
+        label: selectionKind === "region" ? "Add feature from selection" : "Add a feature…",
+        sub: selectionKind === "region" ? "annotate the current range" : "draw a new feature",
+        glyph: "+",
+        tileClass: selectionKind === "region" ? "bg-sky-100 text-sky-700" : undefined,
+        onRun: openAddFeature,
+      };
+      const detectAndReference: OperationAction[] = [
+        {
+          id: "op-annot-detect",
+          label: "Detect common features…",
+          sub: "from the bundled database",
+          glyph: ActionGlyphs.check,
+          tileClass: "bg-green-100 text-green-700",
+          onRun: openDetectFeatures,
+        },
+        {
+          id: "op-annot-ref",
+          label: "Annotate from a reference…",
+          sub: "copy features off a known sequence",
+          glyph: ActionGlyphs.refresh,
+          tileClass: "bg-sky-100 text-sky-700",
+          onRun: openAnnotateFromReference,
+        },
+      ];
       ops.push({
         id: "annotate",
         label: "Annotate",
         title: "Annotate",
         sub: "Detect and add features",
         icon: RailIcons.annotate,
-        panel: (
-          <ActionList
-            actions={[
-              {
-                id: "op-annot-detect",
-                label: "Detect common features…",
-                sub: "from the bundled database",
-                glyph: ActionGlyphs.check,
-                tileClass: "bg-green-100 text-green-700",
-                onRun: openDetectFeatures,
-              },
-              {
-                id: "op-annot-ref",
-                label: "Annotate from a reference…",
-                sub: "copy features off a known sequence",
-                glyph: ActionGlyphs.refresh,
-                tileClass: "bg-sky-100 text-sky-700",
-                onRun: openAnnotateFromReference,
-              },
-              {
-                id: "op-annot-add",
-                label: "Add a feature…",
-                sub: sel.hasRange ? "from the current selection" : "draw a new feature",
-                glyph: "+",
-                onRun: openAddFeature,
-              },
-            ]}
-          />
-        ),
+        panel:
+          selectionKind === "region" ? (
+            <>
+              <InspectorSection>This selection</InspectorSection>
+              <ActionList actions={[addFromSelection]} />
+              <div className="mt-4">
+                <InspectorSection>Whole sequence</InspectorSection>
+                <ActionList actions={detectAndReference} />
+              </div>
+            </>
+          ) : (
+            <ActionList actions={[...detectAndReference, addFromSelection]} />
+          ),
       });
     }
 
@@ -3711,15 +3911,61 @@ export default function SequenceEditView({
       ),
     });
 
-    // PROTEIN. Protein properties dialog + a teaching cue that the per-CDS
-    // properties / domain drawer opens when a coding feature is selected.
-    ops.push({
-      id: "protein",
-      label: "Protein",
-      title: "Protein",
-      sub: "Translation, properties, domains",
-      icon: RailIcons.protein,
-      panel: (
+    // PROTEIN. On a CDS selection the panel reads the properties (length aa /
+    // mass / pI from the shared translate + analyzeProtein path) and surfaces
+    // Translate / Full protein properties / Find domains, each scoped to that
+    // CDS through the existing handlers (the per-CDS drawer owns the on-device
+    // HMMER scan). Off a CDS it teaches the move with a calm cue.
+    let proteinPanel: React.ReactNode;
+    if (selectionKind === "feature-cds" && selectedCdsProps && selectedFeatureIdx != null) {
+      const cdsIdx = selectedFeatureIdx;
+      const props = selectedCdsProps;
+      const proteinActions: OperationAction[] = [
+        {
+          id: "op-protein-translate",
+          label: "Translate to protein",
+          sub: "show the amino-acid track on the map",
+          glyph: ActionGlyphs.protein,
+          tileClass: "bg-sky-100 text-sky-700",
+          onRun: () => {
+            selectFeature(cdsIdx);
+            setView((v) => ({ ...v, showTranslation: true }));
+          },
+        },
+        {
+          id: "op-protein-props",
+          label: "Full protein properties",
+          sub: "composition, hydropathy, extinction",
+          glyph: ActionGlyphs.protein,
+          tileClass: "bg-violet-100 text-violet-700",
+          onRun: () => setProteinPropsOpen(true),
+        },
+        {
+          id: "op-protein-domains",
+          label: "Find domains",
+          sub: "on-device HMMER scan in the protein panel",
+          glyph: RailIcons.primers,
+          tileClass: "bg-amber-100 text-amber-700",
+          onRun: () => openProteinDrawerForFeature(cdsIdx),
+        },
+      ];
+      proteinPanel = (
+        <>
+          <InspectorSection>{selFeat?.name?.trim() || "Coding sequence"}</InspectorSection>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <InspectorReadoutChip k="Length" v={`${props.aa} aa`} />
+            {props.massKDa != null ? (
+              <InspectorReadoutChip k="Mass" v={`${props.massKDa.toFixed(1)} kDa`} />
+            ) : null}
+            {props.pI != null ? (
+              <InspectorReadoutChip k="pI" v={props.pI.toFixed(1)} />
+            ) : null}
+          </div>
+          <ActionList actions={proteinActions} />
+        </>
+      );
+    } else {
+      proteinPanel = (
         <>
           <InspectorSection>Protein tools</InspectorSection>
           <ActionList
@@ -3736,12 +3982,20 @@ export default function SequenceEditView({
           />
           <div className="mt-3">
             <InspectorCue>
-              Select a coding feature (a CDS) on the map to translate it, read
-              its properties, and scan for domains in the protein panel.
+              Select a CDS or coding feature to translate it, read protein
+              properties, and scan for domains.
             </InspectorCue>
           </div>
         </>
-      ),
+      );
+    }
+    ops.push({
+      id: "protein",
+      label: "Protein",
+      title: "Protein",
+      sub: "Translation, properties, domains",
+      icon: RailIcons.protein,
+      panel: proteinPanel,
     });
 
     // TREE OF LIFE. Taxonomy tools. Explore / lookup are read-only safe;
@@ -3873,6 +4127,9 @@ export default function SequenceEditView({
     sel.hasRange,
     primerCount,
     openPrimerDialog,
+    openEditPrimer,
+    openSpecificityCheck,
+    writeOsClipboard,
     onOpenAssemble,
     view.showEnzymes,
     openDetectFeatures,
@@ -3889,6 +4146,15 @@ export default function SequenceEditView({
     sequence.organism,
     sequence.tax_id,
     exportMenuItems,
+    // phase 3 contextual inputs
+    selectionKind,
+    selectedCdsProps,
+    selectedPrimerInfo,
+    selectedFeatureIdx,
+    selFeat,
+    readout,
+    selectFeature,
+    openProteinDrawerForFeature,
   ]);
 
   return (
@@ -4310,6 +4576,7 @@ export default function SequenceEditView({
                         </div>
                       ))}
                     </div>
+                    <HoverCardActionHint />
                   </div>
                 ) : null}
                 {/* primer hover bot — CIRCULAR map PRIMER HOVER CARD. The same
@@ -4334,6 +4601,7 @@ export default function SequenceEditView({
                         </div>
                       ))}
                     </div>
+                    <HoverCardActionHint />
                   </div>
                 ) : null}
               </div>
@@ -4483,6 +4751,7 @@ export default function SequenceEditView({
             operations={railOperations}
             activeId={activeOp}
             onPick={toggleOp}
+            contextBar={inspectorContextBar}
           />
         ) : null}
       </div>

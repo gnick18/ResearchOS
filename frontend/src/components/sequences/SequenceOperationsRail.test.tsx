@@ -129,6 +129,45 @@ describe("SequenceOperationsRail", () => {
     expect(onPick).toHaveBeenCalledWith("primers");
   });
 
+  it("renders the contextual bar between the header and the body when given one", () => {
+    render(
+      <SequenceOperationsRail
+        operations={makeOps(() => {})}
+        activeId="primers"
+        onPick={() => {}}
+        contextBar={{ selected: true, text: "Acting on selection, 612..632 (21 nt)" }}
+      />,
+    );
+    const bar = screen.getByTestId("inspector-context-bar");
+    expect(bar.textContent).toContain("Acting on selection, 612..632 (21 nt)");
+    // The filled marker is a solid disc (an SVG circle); the hollow marker (a
+    // rect) is absent in the selected state.
+    expect(bar.querySelector("circle")).toBeTruthy();
+    expect(bar.querySelector("rect")).toBeNull();
+  });
+
+  it("draws the hollow marker for the whole-sequence (nothing selected) bar", () => {
+    render(
+      <SequenceOperationsRail
+        operations={makeOps(() => {})}
+        activeId="primers"
+        onPick={() => {}}
+        contextBar={{ selected: false, text: "Nothing selected, whole sequence" }}
+      />,
+    );
+    const bar = screen.getByTestId("inspector-context-bar");
+    expect(bar.textContent).toContain("Nothing selected, whole sequence");
+    expect(bar.querySelector("rect")).toBeTruthy();
+    expect(bar.querySelector("circle")).toBeNull();
+  });
+
+  it("omits the contextual bar when none is given (collapsed inspector unaffected)", () => {
+    render(
+      <SequenceOperationsRail operations={makeOps(() => {})} activeId="primers" onPick={() => {}} />,
+    );
+    expect(screen.queryByTestId("inspector-context-bar")).toBeNull();
+  });
+
   it("draws the amber dot badge when an op carries one (e.g. Tree with an organism)", () => {
     const { container } = render(
       <SequenceOperationsRail operations={makeOps(() => {})} activeId={null} onPick={() => {}} />,
