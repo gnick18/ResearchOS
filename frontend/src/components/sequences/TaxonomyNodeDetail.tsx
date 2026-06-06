@@ -72,6 +72,13 @@ export interface TaxonomyNodeDetailProps {
   onClose: () => void;
   /** Recenter / focus the radial view on this node. */
   onFocus: (taxId: string) => void;
+  /** EMBEDDED (offline) mode. When true the detail is READ-ONLY and touches no
+   *  network. The species count shows from the backbone with no toggle to the
+   *  live assemblies count, the terminal-tip assemblies list never fetches, and
+   *  the import jump is hidden. Only the name, rank, species count, provenance
+   *  line, and the offline "Center the view here" action remain. Default false
+   *  keeps the full modal detail (the live count toggle and assemblies). */
+  embedded?: boolean;
   /** Open the NCBI import flow prefilled for an organism (a species / strain
    *  node's import jump). When omitted, the import action is hidden. */
   onImportOrganism?: (prefill: TaxonomyImportPrefill) => void;
@@ -178,6 +185,7 @@ export default function TaxonomyNodeDetail({
   onClose,
   onFocus,
   onImportOrganism,
+  embedded = false,
 }: TaxonomyNodeDetailProps) {
   // Count badge toggle. "species" is instant from the backbone; "assemblies" is
   // fetched live for the node and held here for the session of this detail.
@@ -209,7 +217,9 @@ export default function TaxonomyNodeDetail({
   // (reference-first). The synthetic root is never a tip. Aborts on a node switch
   // or unmount so a stale fetch never lands on the wrong tip.
   useEffect(() => {
-    const isTip = node.isTerminalTip && node.taxId !== SYNTHETIC_ROOT_ID;
+    // Embedded mode is offline, so a tip never fetches its assemblies list.
+    const isTip =
+      !embedded && node.isTerminalTip && node.taxId !== SYNTHETIC_ROOT_ID;
     setAssemblyListError(false);
     if (!isTip) {
       setAssemblyList(null);
@@ -248,7 +258,7 @@ export default function TaxonomyNodeDetail({
         if (!controller.signal.aborted) setAssemblyListLoading(false);
       });
     return () => controller.abort();
-  }, [node.taxId, node.isTerminalTip]);
+  }, [node.taxId, node.isTerminalTip, embedded]);
 
   const toggleCount = useCallback(() => {
     setCountMode((mode) => {
@@ -281,8 +291,9 @@ export default function TaxonomyNodeDetail({
   const isSyntheticRoot = node.taxId === SYNTHETIC_ROOT_ID;
 
   // Whether to show the genome-assemblies section (a terminal tip, never the
-  // synthetic root).
-  const showAssemblies = Boolean(node.isTerminalTip) && !isSyntheticRoot;
+  // synthetic root, never in the offline embed).
+  const showAssemblies =
+    !embedded && Boolean(node.isTerminalTip) && !isSyntheticRoot;
 
   const countText = useMemo(() => {
     if (countMode === "species") {
@@ -325,9 +336,20 @@ export default function TaxonomyNodeDetail({
         </Tooltip>
       </div>
 
-      {/* Count badge, toggleable between species and assemblies. Hidden for the
-          synthetic root, which has no real count of its own. */}
-      {isSyntheticRoot ? null : (
+      {/* Count badge. In the modal it toggles between species (backbone) and
+          assemblies (live NCBI). In the offline embed it is a static species
+          line, no toggle and no fetch. Hidden for the synthetic root, which has
+          no real count of its own. */}
+      {isSyntheticRoot ? null : embedded ? (
+        <span
+          data-testid="taxonomy-detail-species"
+          className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-3 py-1.5 text-meta font-medium text-gray-600"
+        >
+          {node.speciesCount === undefined
+            ? "species count unavailable"
+            : `${node.speciesCount.toLocaleString()} species`}
+        </span>
+      ) : (
       <Tooltip
         label={
           countMode === "species"

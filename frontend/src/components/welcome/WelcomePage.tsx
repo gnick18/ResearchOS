@@ -32,8 +32,9 @@
  * untouched (blue eyes, sky-blue stroke, rainbow liquid) on the light hero.
  */
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import BeakerBot from "@/components/BeakerBot";
 import BeakerBotSpeechBubble from "@/components/beakerbot/SpeechBubble";
@@ -52,6 +53,18 @@ import { markLandingSeen } from "@/lib/landing/landing-gate";
  *  into the gradient headline word (the pastel washes out as type on white). */
 const RAINBOW = "var(--brand-rainbow)";
 const RAINBOW_TEXT = "var(--brand-rainbow-vivid)";
+
+/* ----------------------------------------------------------------------------
+ * The offline tree-of-life explorer, code-split. It is a heavy d3 client
+ * component, so we load it on its own chunk with ssr off (it draws to a DOM ref
+ * and has no server render). The showcase below only mounts it once its section
+ * scrolls into view, so the page's initial load never pulls the chunk or fires
+ * the backbone fetch.
+ * -------------------------------------------------------------------------- */
+const TaxonomyTreeView = dynamic(
+  () => import("@/components/sequences/TaxonomyTreeView"),
+  { ssr: false },
+);
 
 /* ----------------------------------------------------------------------------
  * Sign-in row (two-path), reused at the hero and the final CTA. Both placements
@@ -240,6 +253,79 @@ function Kicker({ children }: { children: ReactNode; dark?: boolean }) {
     <div className="font-mono text-meta font-semibold uppercase tracking-[0.12em] text-brand-action">
       {children}
     </div>
+  );
+}
+
+/* ----------------------------------------------------------------------------
+ * The "Explore the tree of life" showcase. A dedicated full-width section with
+ * the real radial explorer running INLINE in its offline embed (no NCBI calls,
+ * no login). The tree only mounts once the section scrolls into view, so the
+ * page's initial load never pulls the d3 chunk or fires the backbone fetch.
+ * Until then the card holds a calm placeholder. Once interacting, the wheel
+ * zooms the tree inside its box; the page still scrolls around the card.
+ * -------------------------------------------------------------------------- */
+function TreeOfLifeShowcase() {
+  const sectionRef = useRef<HTMLDivElement | null>(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    // SSR / very old browsers without IntersectionObserver: mount eagerly so the
+    // showcase is never blank. The fetch is async and non-blocking either way.
+    if (typeof IntersectionObserver === "undefined") {
+      setInView(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      // Start loading a little before the card is fully on screen, so the tree
+      // is ready by the time the user reaches it.
+      { rootMargin: "200px 0px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <section className="border-y border-[#dce6f3] bg-[#f4f8fd] px-6 py-20 sm:px-12">
+      <div className="mx-auto max-w-[1180px]">
+        <Kicker>// browse all of life</Kicker>
+        <h2 className="mt-2.5 max-w-[20ch] text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-[36px]">
+          Explore the tree of life
+        </h2>
+        <p className="mt-3 max-w-[58ch] text-title leading-relaxed text-[#475569]">
+          Spin through the diversity of life right here. Click a branch to dive
+          in, click the center to step back, and scroll to zoom. It runs on a
+          bundled backbone, so it works offline with no account.
+        </p>
+
+        {/* The interactive canvas. A rounded bordered card, full section width,
+            tall on desktop and a touch shorter on mobile. The embedded explorer
+            fills it. */}
+        <div
+          ref={sectionRef}
+          data-testid="welcome-tree-of-life"
+          className="mt-8 h-[26rem] w-full overflow-hidden rounded-2xl border border-[#d8e3f1] bg-white shadow-[0_24px_60px_rgba(15,40,80,0.10)] sm:h-[30rem]"
+        >
+          {inView ? (
+            <TaxonomyTreeView open embedded />
+          ) : (
+            <div
+              data-testid="welcome-tree-of-life-placeholder"
+              className="flex h-full w-full items-center justify-center bg-[#f5f9fd] text-meta text-[#64748b]"
+            >
+              Loading the tree of life...
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -732,6 +818,13 @@ export default function WelcomePage() {
             </BentoCell>
           </div>
         </section>
+
+        {/* ── Tree of life explorer (real, offline, interactive) ────────
+            A dedicated full-width section with the actual radial explorer
+            running inline in its offline embed. Sits among the feature
+            showcases, just after the bento grid, so a visitor can play with a
+            real piece of the product before the trust bands below. */}
+        <TreeOfLifeShowcase />
 
         {/* ── NIH data-management compliance band ───────────────────────
             Grant's pick: reuse the existing NIH banner from the live welcome

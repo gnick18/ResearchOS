@@ -234,6 +234,95 @@ describe("TaxonomyTreeView", () => {
     });
   });
 
+  // --- EMBEDDED (offline) mode -------------------------------------------
+
+  it("embedded mode renders inline with no dialog, overlay, close button, or search box", async () => {
+    render(<TaxonomyTreeView open embedded />);
+    // The SVG still mounts (the tree itself is unchanged).
+    const view = await screen.findByTestId("taxonomy-tree-view");
+    expect(view.getAttribute("data-embedded")).toBe("true");
+    // No dialog semantics on the embed.
+    expect(view.getAttribute("role")).not.toBe("dialog");
+    // No backdrop / overlay (the modal's bg-black/40 layer is gone).
+    expect(view.querySelector(".bg-black\\/40")).toBeNull();
+    // No close control (the modal's only "Close" button).
+    expect(
+      screen.queryByRole("button", { name: /^Close$/i }),
+    ).toBeNull();
+    // The live search box is hidden (it calls suggestTaxa).
+    expect(
+      screen.queryByPlaceholderText(/Find an organism/i),
+    ).toBeNull();
+    // suggestTaxa is never called in the offline embed.
+    expect(suggestTaxa).not.toHaveBeenCalled();
+  });
+
+  it("embedded mode does not drill (no network) when a descendant is clicked", async () => {
+    drillSubtreeToDepth.mockResolvedValue(["7214"]);
+    render(<TaxonomyTreeView open embedded />);
+    const svg = await screen.findByTestId("taxonomy-tree-svg");
+    await waitFor(() => {
+      expect(svg.querySelectorAll("circle").length).toBeGreaterThan(0);
+    });
+    // Click every marker, including a backbone-leaf family. The offline embed
+    // re-roots on it but never calls the live drill.
+    const circles = Array.from(svg.querySelectorAll("circle"));
+    for (const c of circles) {
+      fireEvent.click(c);
+    }
+    // Give any (incorrectly fired) async drill a tick to land.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(drillSubtreeToDepth).not.toHaveBeenCalled();
+  });
+
+  it("embedded mode shows a read-only detail (species count, no live toggle, no import)", async () => {
+    render(<TaxonomyTreeView open embedded onImportOrganism={() => {}} />);
+    const svg = await screen.findByTestId("taxonomy-tree-svg");
+    await waitFor(() => {
+      expect(svg.querySelectorAll("circle").length).toBeGreaterThan(0);
+    });
+    const circles = Array.from(svg.querySelectorAll("circle"));
+    for (const c of circles) {
+      fireEvent.click(c);
+      const open = screen.queryByTestId("taxonomy-node-detail");
+      if (open && /species/i.test(open.textContent ?? "")) break;
+    }
+    const detail = await screen.findByTestId("taxonomy-node-detail");
+    // A static species line (the read-only badge), not the toggle button.
+    expect(screen.getByTestId("taxonomy-detail-species").textContent).toMatch(
+      /species/i,
+    );
+    // The "Center the view here" offline action stays.
+    expect(detail.textContent).toMatch(/Center the view here/i);
+    // The import jump is gated off even when onImportOrganism is passed.
+    expect(detail.textContent).not.toMatch(/Import from NCBI/i);
+    // No live assemblies fetch is triggered by the read-only detail.
+    expect(fetchAssembliesCount).not.toHaveBeenCalled();
+  });
+
+  it("embedded mode ignores the pinned chip and Escape stays with the page", async () => {
+    const onClose = vi.fn();
+    render(
+      <TaxonomyTreeView
+        open
+        embedded
+        onClose={onClose}
+        pinned={{
+          organismTaxId: "7215",
+          organismName: "Drosophilidae",
+          lineageIds: ["2759", "7215"],
+        }}
+      />,
+    );
+    await screen.findByTestId("taxonomy-tree-svg");
+    // No jump-back chip in the offline embed.
+    expect(screen.queryByTestId("taxonomy-jump-back-chip")).toBeNull();
+    // Escape does not close (there is nothing to close in the inline embed).
+    fireEvent.keyDown(window, { key: "Escape" });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("shows a breadcrumb of the focus path once the user drills in", async () => {
     drillSubtreeToDepth.mockResolvedValue([]);
     render(<TaxonomyTreeView open onClose={() => {}} />);

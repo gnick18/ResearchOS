@@ -301,7 +301,18 @@ interface HoverInfo {
 
 export interface TaxonomyTreeViewProps {
   open: boolean;
-  onClose: () => void;
+  /** Close the explorer. Required for the modal; unused in embedded mode (the
+   *  inline embed has no close affordance and never calls it). */
+  onClose?: () => void;
+  /** EMBEDDED (offline) mode. When true the explorer renders INLINE inside its
+   *  parent (no fixed overlay, no dialog chrome, no close button) and touches NO
+   *  network at all. The search box, the live drill below family, the import
+   *  jump, the tip assemblies fetch, and the assemblies-count toggle are all
+   *  gated off, so the view runs entirely on the bundled backbone. Everything
+   *  offline stays: re-root navigation, the breadcrumb, zoom / pan, the hover
+   *  card, horizontal labels, and the thickness legend with its disclaimer.
+   *  Default false keeps the full-screen modal exactly as before. */
+  embedded?: boolean;
   /** Optional tax id to center on when the view opens (a cross-link entry). */
   initialTaxId?: string;
   /** The open sequence's lineage, set when the explorer is opened FROM a
@@ -317,6 +328,7 @@ export interface TaxonomyTreeViewProps {
 export default function TaxonomyTreeView({
   open,
   onClose,
+  embedded = false,
   initialTaxId,
   pinned,
   onImportOrganism,
@@ -390,10 +402,12 @@ export default function TaxonomyTreeView({
     setSelected(null);
     setNote(null);
     setHover(null);
-    onClose();
+    onClose?.();
   }, [onClose]);
 
-  useEscapeToClose(handleClose, open);
+  // Escape closes the modal. In embedded mode there is no modal to close, so the
+  // page keeps its own Escape behavior and the inline tree never swallows it.
+  useEscapeToClose(handleClose, open && !embedded);
 
   // Load the backbone pool once when the view opens.
   useEffect(() => {
@@ -671,6 +685,10 @@ export default function TaxonomyTreeView({
 
       const centerNode = findPoolNode(pool, taxId);
       if (!centerNode) return;
+      // EMBEDDED mode is offline, so it never drills below family. Re-rooting on
+      // a backbone-leaf family just centers on it (no backbone children, so it
+      // sits centered with no fan), and no NCBI call ever fires from a click.
+      if (embedded) return;
       // Only show the loading note when the fan-out window actually needs a live
       // drill (below family), so backbone navigation, a pure cache hit, does not
       // flash a note.
@@ -689,7 +707,7 @@ export default function TaxonomyTreeView({
           setNote(null);
         });
     },
-    [pool, detailFromPool, recenterView, startInsertTween],
+    [pool, embedded, detailFromPool, recenterView, startInsertTween],
   );
 
   // The primary navigation gesture. Clicking the CURRENT CENTER goes BACK (pop
@@ -934,15 +952,19 @@ export default function TaxonomyTreeView({
     centerOn(id);
   };
 
-  return (
+  // The shell. The MODAL wraps the panel in a fixed overlay with dialog
+  // semantics; the EMBEDDED shell is a plain relative box that fills its parent
+  // (the welcome-page card sizes it), with no overlay and no dialog role. The
+  // panel inside is the same in both, except the modal panel takes the dialog's
+  // sizing and the embedded panel fills the shell.
+  const panel = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      data-testid="taxonomy-tree-view"
-      role="dialog"
-      aria-label="Explore the tree of life"
+      className={
+        embedded
+          ? "relative flex h-full w-full flex-col overflow-hidden rounded-2xl bg-white"
+          : "relative flex h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+      }
     >
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={handleClose} />
-      <div className="relative flex h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100">
@@ -957,19 +979,23 @@ export default function TaxonomyTreeView({
               branch to center on it, click the center again to step back.
             </p>
           </div>
-          <Tooltip label="Close">
-            <button
-              type="button"
-              onClick={handleClose}
-              aria-label="Close"
-              className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-            >
-              <CloseIcon className="h-5 w-5" />
-            </button>
-          </Tooltip>
+          {/* Close lives only on the modal. The embedded embed has no close. */}
+          {embedded ? null : (
+            <Tooltip label="Close">
+              <button
+                type="button"
+                onClick={handleClose}
+                aria-label="Close"
+                className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              >
+                <CloseIcon className="h-5 w-5" />
+              </button>
+            </Tooltip>
+          )}
         </div>
 
-        {/* Search */}
+        {/* Search. Hidden in embedded mode, since it calls suggestTaxa (live). */}
+        {embedded ? null : (
         <div className="border-b border-gray-100 px-5 py-2.5">
           <div className="relative max-w-md">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -1009,6 +1035,7 @@ export default function TaxonomyTreeView({
           </div>
           {note ? <p className="mt-1.5 text-meta text-gray-400">{note}</p> : null}
         </div>
+        )}
 
         {/* Breadcrumb of the focus path. Shows only past the root so the whole
             tree view stays calm; each crumb but the last jumps straight to that
@@ -1069,7 +1096,7 @@ export default function TaxonomyTreeView({
                 persists across re-roots, since it is about the sequence, not the
                 current view. It stops its own pointer events from reaching the
                 tree so a pan started elsewhere still works. */}
-            {pinned ? (
+            {pinned && !embedded ? (
               <div
                 className="absolute left-4 top-4 z-10 max-w-[16rem]"
                 onPointerDown={(e) => e.stopPropagation()}
@@ -1461,17 +1488,46 @@ export default function TaxonomyTreeView({
             </div>
           </div>
 
-          {/* The click-detail, shown when a node is selected. */}
+          {/* The click-detail, shown when a node is selected. In embedded mode
+              it renders READ-ONLY (name, rank, species count, and the offline
+              re-root action), with the import jump, the assemblies-count toggle,
+              and the tip assemblies fetch all gated off, so it never fetches. */}
           {selected ? (
             <TaxonomyNodeDetail
               node={selected}
+              embedded={embedded}
               onClose={() => setSelected(null)}
               onFocus={(taxId) => focusNode(taxId)}
-              onImportOrganism={onImportOrganism}
+              onImportOrganism={embedded ? undefined : onImportOrganism}
             />
           ) : null}
         </div>
       </div>
+  );
+
+  // Embedded: render the panel inline, filling the parent. Modal: wrap it in the
+  // fixed overlay with dialog semantics, exactly as before.
+  if (embedded) {
+    return (
+      <div
+        className="relative h-full w-full"
+        data-testid="taxonomy-tree-view"
+        data-embedded="true"
+      >
+        {panel}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      data-testid="taxonomy-tree-view"
+      role="dialog"
+      aria-label="Explore the tree of life"
+    >
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={handleClose} />
+      {panel}
     </div>
   );
 }
