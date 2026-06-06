@@ -123,13 +123,33 @@ export function avatarGradient(baseHex: string): [string, string] {
  * horizontal for the wide app header. The stops are pastel (high lightness), so
  * the readable foreground is a dark ink, not white.
  */
-// A HORIZONTAL (left-to-right) linear ramp everywhere — avatars, swatches, and
-// the header. In a circle this reads as smooth vertical color bands with no
-// corner wedges (the 135deg diagonal put solid end-colors in the corners, which
-// looked like a "square in a circle") and no center spokes (a conic sweep), and
-// it matches BeakerBot's actual horizontal body liquid.
-export const RAINBOW_AVATAR_GRADIENT =
-  "linear-gradient(to right, #FFD2B0, #FFF1A8, #B7EBB1, #A6D2F4, #D6B5F0)";
+// BeakerBot's 5-stop body liquid, left to right. These arrays are the single
+// source. Circular surfaces (avatars, swatches) render them as an SVG
+// <linearGradient> via the RainbowOrb component, not a CSS background, because a
+// CSS gradient on a bordered circle tiles into the border box and leaves
+// reversed color slivers on the left/right edges (the "square in a circle"
+// artifact). An SVG circle clips the gradient to itself, so it is always clean.
+export const RAINBOW_PASTEL_STOPS = [
+  "#FFD2B0",
+  "#FFF1A8",
+  "#B7EBB1",
+  "#A6D2F4",
+  "#D6B5F0",
+] as const;
+export const RAINBOW_VIVID_STOPS = [
+  "#F97316",
+  "#E8920B",
+  "#16A34A",
+  "#0284C7",
+  "#9333EA",
+] as const;
+
+const ramp = (stops: readonly string[]): string =>
+  `linear-gradient(to right, ${stops.join(", ")})`;
+
+// The flat (non-circular) header bar has no border, so a CSS ramp is fine and
+// avoids an SVG behind the whole header.
+export const RAINBOW_AVATAR_GRADIENT = ramp(RAINBOW_PASTEL_STOPS);
 export const RAINBOW_HEADER_GRADIENT = RAINBOW_AVATAR_GRADIENT;
 export const RAINBOW_FOREGROUND = "#0f1b2e";
 
@@ -138,21 +158,25 @@ export const RAINBOW_FOREGROUND = "#0f1b2e";
  * uses, --brand-rainbow-vivid). A bolder alternative to the pastel rainbow.
  * White foreground since the stops are saturated, not pastel.
  */
-export const RAINBOW_VIVID_AVATAR_GRADIENT =
-  "linear-gradient(to right, #F97316, #E8920B, #16A34A, #0284C7, #9333EA)";
+export const RAINBOW_VIVID_AVATAR_GRADIENT = ramp(RAINBOW_VIVID_STOPS);
 export const RAINBOW_VIVID_HEADER_GRADIENT = RAINBOW_VIVID_AVATAR_GRADIENT;
 export const RAINBOW_VIVID_FOREGROUND = "#ffffff";
 
+export type RainbowVariant = "pastel" | "vivid";
+
 /**
  * Single source for resolving a user color to its rainbow treatment. Returns
- * null for ordinary hex colors. Used by the header tint, the avatar chips, and
- * the menu so both rainbow options render identically everywhere.
+ * null for ordinary hex colors. `variant` selects the RainbowOrb SVG stops;
+ * `header` is the CSS ramp for the flat header bar. Used by the header tint, the
+ * avatar chips, the menu, and the color swatches so both rainbow options render
+ * identically everywhere.
  */
 export function rainbowTheme(
   color: string,
-): { avatar: string; header: string; fg: string } | null {
+): { variant: RainbowVariant; avatar: string; header: string; fg: string } | null {
   if (color === RAINBOW_COLOR) {
     return {
+      variant: "pastel",
       avatar: RAINBOW_AVATAR_GRADIENT,
       header: RAINBOW_HEADER_GRADIENT,
       fg: RAINBOW_FOREGROUND,
@@ -160,6 +184,7 @@ export function rainbowTheme(
   }
   if (color === RAINBOW_VIVID_COLOR) {
     return {
+      variant: "vivid",
       avatar: RAINBOW_VIVID_AVATAR_GRADIENT,
       header: RAINBOW_VIVID_HEADER_GRADIENT,
       fg: RAINBOW_VIVID_FOREGROUND,

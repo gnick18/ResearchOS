@@ -26,6 +26,7 @@ import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import { compactFingerprint } from "@/lib/sharing/profile";
 import { useProfileModal } from "@/lib/sharing/profile-modal-store";
 import { rainbowTheme } from "@/lib/colors";
+import RainbowOrb from "@/components/RainbowOrb";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -222,9 +223,17 @@ export default function UserAvatarMenu({
   // UserAvatar component, so the rainbow identity shows here too.
   const rainbow = rainbowTheme(primaryColor);
   const fg = contrastColor(primaryColor);
+  // Rainbow draws as an SVG orb behind the initial (see RainbowOrb), so no
+  // background here for that case; the orb fills the rounded-full button.
   const avatarStyle = rainbow
-    ? { background: rainbow.avatar, color: rainbow.fg }
+    ? { color: rainbow.fg }
     : { backgroundColor: primaryColor, color: fg === "white" ? "#fff" : "#111" };
+  const orb = rainbow ? (
+    <RainbowOrb
+      variant={rainbow.variant}
+      className="absolute inset-0 h-full w-full"
+    />
+  ) : null;
 
   // Tour-disabled state: render a non-interactive button matching the gear's
   // disabled treatment so the walkthrough spotlight area is consistent.
@@ -235,12 +244,13 @@ export default function UserAvatarMenu({
         disabled
         aria-disabled="true"
         aria-label="Account (disabled during walkthrough)"
-        className={`w-7 h-7 rounded-full flex items-center justify-center text-meta font-semibold cursor-not-allowed opacity-50 ${
+        className={`relative w-7 h-7 rounded-full flex items-center justify-center text-meta font-semibold cursor-not-allowed opacity-50 ${
           tinted ? "ring-2 ring-white/40" : ""
         }`}
         style={avatarStyle}
       >
-        {initial(currentUser)}
+        {orb}
+        <span className="relative">{initial(currentUser)}</span>
       </button>
     );
   }
@@ -255,7 +265,7 @@ export default function UserAvatarMenu({
           onClick={toggle}
           aria-label={`${currentUser} — account menu`}
           aria-expanded={open}
-          className={`w-7 h-7 rounded-full flex items-center justify-center text-meta font-semibold transition-all select-none ${
+          className={`relative w-7 h-7 rounded-full flex items-center justify-center text-meta font-semibold transition-all select-none ${
             tinted
               ? open || onSettings
                 ? "ring-2 ring-white shadow"
@@ -266,7 +276,8 @@ export default function UserAvatarMenu({
           }`}
           style={avatarStyle}
         >
-          {initial(currentUser)}
+          {orb}
+          <span className="relative">{initial(currentUser)}</span>
         </button>
       </Tooltip>
 
@@ -279,11 +290,12 @@ export default function UserAvatarMenu({
           <div className="px-4 py-3 border-b border-gray-100">
             <div className="flex items-center gap-2.5">
               <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-body font-semibold shrink-0"
+                className="relative w-8 h-8 rounded-full flex items-center justify-center text-body font-semibold shrink-0"
                 style={avatarStyle}
                 aria-hidden="true"
               >
-                {initial(currentUser)}
+                {orb}
+                <span className="relative">{initial(currentUser)}</span>
               </div>
               <div className="min-w-0">
                 <p className="text-body font-semibold text-gray-900 truncate">

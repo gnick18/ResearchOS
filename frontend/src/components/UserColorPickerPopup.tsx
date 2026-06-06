@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import UserAvatar from "@/components/UserAvatar";
+import RainbowOrb from "@/components/RainbowOrb";
 import {
   USER_METADATA_COLOR_PALETTE,
   RAINBOW_COLOR,
@@ -12,16 +13,7 @@ import {
   isCombinationTaken,
   ownerOfCombination,
 } from "@/lib/file-system/user-color-collisions";
-import {
-  RAINBOW_AVATAR_GRADIENT,
-  RAINBOW_VIVID_AVATAR_GRADIENT,
-} from "@/lib/colors";
 import type { UserMetadataEntry } from "@/lib/file-system/user-metadata";
-
-/** Swatch previews for the two rainbow options — pulled from the shared
- *  gradients so the swatch matches the avatar/header exactly. */
-const RAINBOW_GRADIENT_CSS = RAINBOW_AVATAR_GRADIENT;
-const RAINBOW_VIVID_GRADIENT_CSS = RAINBOW_VIVID_AVATAR_GRADIENT;
 
 interface UserColorPickerPopupProps {
   /** The username being created. Drives the avatar preview's initial letter
@@ -294,7 +286,7 @@ export default function UserColorPickerPopup({
                   disabled={disabled}
                   onClick={() => handlePickPrimary(c)}
                   data-color-swatch={c}
-                  className={`w-9 h-9 rounded-full border-2 transition-transform ${
+                  className={`w-9 h-9 rounded-full border-2 bg-origin-border transition-transform ${
                     isSelected
                       ? "border-white scale-110"
                       : disabled
@@ -320,15 +312,16 @@ export default function UserColorPickerPopup({
               disabled={rainbowTaken}
               onClick={handlePickRainbow}
               data-color-swatch={RAINBOW_COLOR}
-              className={`w-9 h-9 rounded-full border-2 transition-transform ${
+              className={`relative overflow-hidden w-9 h-9 rounded-full border-2 transition-transform ${
                 selectedColor === RAINBOW_COLOR
                   ? "border-white scale-110"
                   : rainbowTaken
                     ? "border-transparent opacity-30 cursor-not-allowed"
                     : "border-transparent hover:scale-105"
               }`}
-              style={{ background: RAINBOW_GRADIENT_CSS }}
-            />
+            >
+              <RainbowOrb variant="pastel" className="absolute inset-0 h-full w-full" />
+            </button>
             {/* Second rainbow: the vivid (saturated) ramp. */}
             <button
               type="button"
@@ -341,15 +334,16 @@ export default function UserColorPickerPopup({
               disabled={rainbowVividTaken}
               onClick={handlePickRainbowVivid}
               data-color-swatch={RAINBOW_VIVID_COLOR}
-              className={`w-9 h-9 rounded-full border-2 transition-transform ${
+              className={`relative overflow-hidden w-9 h-9 rounded-full border-2 transition-transform ${
                 selectedColor === RAINBOW_VIVID_COLOR
                   ? "border-white scale-110"
                   : rainbowVividTaken
                     ? "border-transparent opacity-30 cursor-not-allowed"
                     : "border-transparent hover:scale-105"
               }`}
-              style={{ background: RAINBOW_VIVID_GRADIENT_CSS }}
-            />
+            >
+              <RainbowOrb variant="vivid" className="absolute inset-0 h-full w-full" />
+            </button>
           </div>
 
           {/* Hide the secondary row entirely when rainbow is selected —
@@ -398,7 +392,7 @@ export default function UserColorPickerPopup({
                       disabled={disabled}
                       onClick={() => handlePickSecondary(c)}
                       data-color-swatch={c}
-                      className={`w-9 h-9 rounded-full border-2 transition-transform ${
+                      className={`w-9 h-9 rounded-full border-2 bg-origin-border transition-transform ${
                         isSelected
                           ? "border-white scale-110"
                           : disabled

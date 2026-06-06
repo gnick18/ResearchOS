@@ -1,6 +1,7 @@
 "use client";
 
 import { avatarGradient, rainbowTheme } from "@/lib/colors";
+import RainbowOrb from "@/components/RainbowOrb";
 import { useUserColors } from "@/hooks/useUserColor";
 
 export type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
@@ -69,10 +70,12 @@ export default function UserAvatar({
   // When rainbow (pastel or vivid): use its 5-stop gradient + readable ink.
   // When gradient: use the two user-picked stops directly.
   // When solid: derive a pleasing second stop via avatarGradient.
-  let background: string;
+  // Rainbow renders as an SVG orb (see RainbowOrb) so the bordered/circular
+  // case never shows edge slivers. Non-rainbow stays a plain CSS gradient.
+  let background: string | undefined;
   let textColor: string;
   if (rainbow) {
-    background = rainbow.avatar;
+    background = undefined;
     textColor = rainbow.fg;
   } else {
     const [stop1, stop2] = secondary
@@ -90,7 +93,13 @@ export default function UserAvatar({
       className={`${SIZE_CLASS[size]} rounded-full flex items-center justify-center font-semibold flex-shrink-0 relative ${className}`}
       style={{ background, color: textColor }}
     >
-      {display}
+      {rainbow && (
+        <RainbowOrb
+          variant={rainbow.variant}
+          className="absolute inset-0 h-full w-full"
+        />
+      )}
+      <span className="relative">{display}</span>
       {showOwnerBadge && (
         <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
           <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">

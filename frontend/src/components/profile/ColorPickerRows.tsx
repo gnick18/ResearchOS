@@ -23,6 +23,7 @@ import {
   takenSolidPrimaries,
 } from "@/lib/file-system/user-color-collisions";
 import { rainbowTheme } from "@/lib/colors";
+import RainbowOrb from "@/components/RainbowOrb";
 import type { UserSettings } from "@/lib/settings/user-settings";
 
 export default function ColorPickerRows({
@@ -141,15 +142,22 @@ export default function ColorPickerRows({
                 disabled={disabled}
                 onClick={() => void handlePickPrimary(c)}
                 data-color-swatch={c}
-                className={`w-8 h-8 rounded-full border-2 transition-transform ${
+                className={`relative overflow-hidden w-8 h-8 rounded-full border-2 transition-transform ${
                   isSelected
                     ? "border-gray-900 scale-110"
                     : disabled
                       ? "border-transparent opacity-30 cursor-not-allowed"
                       : "border-transparent hover:scale-105"
                 }`}
-                style={rainbow ? { background: rainbow.avatar } : { backgroundColor: c }}
-              />
+                style={rainbow ? undefined : { backgroundColor: c }}
+              >
+                {rainbow && (
+                  <RainbowOrb
+                    variant={rainbow.variant}
+                    className="absolute inset-0 h-full w-full"
+                  />
+                )}
+              </button>
             );
           })}
         </div>
@@ -195,7 +203,7 @@ export default function ColorPickerRows({
                 disabled={disabled}
                 onClick={() => void handlePickSecondary(c)}
                 data-color-swatch={c}
-                className={`w-8 h-8 rounded-full border-2 transition-transform ${
+                className={`w-8 h-8 rounded-full border-2 bg-origin-border transition-transform ${
                   isSelected
                     ? "border-gray-900 scale-110"
                     : disabled
