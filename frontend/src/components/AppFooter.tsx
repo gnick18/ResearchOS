@@ -33,7 +33,16 @@ export default function AppFooter({ className = "" }: { className?: string }) {
       />
       <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 px-6 text-center">
         {/* Product brand sign-off, then the RISE funder credit below it. */}
-        <Wordmark size="md" animated={false} markEasterEgg="none" />
+        {/* The footer sits on not-yet-converted (light) pages, so pin the
+            wordmark text to dark ink, it must stay readable on the light footer
+            even when the app theme is dark. Drop this override once the footer
+            and its host pages convert to tokens. */}
+        <Wordmark
+          size="md"
+          animated={false}
+          markEasterEgg="none"
+          textClassName="text-brand-ink"
+        />
         <div className="rounded bg-white p-0.5">
           <Image
             src="/credentials/uw-rise-logo.png"

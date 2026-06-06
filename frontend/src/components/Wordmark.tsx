@@ -51,6 +51,12 @@ export interface WordmarkProps {
   /** Element used to render the wordmark text. Default "span"; the app header
    *  passes "h1" to keep its existing document outline. */
   textAs?: "span" | "h1";
+  /** Text color class for the wordmark. Default "text-foreground" so the lockup
+   *  themes with the app (near-black on light, near-white on dark). Surfaces
+   *  that stay permanently light while the rest of the app can go dark (e.g.
+   *  the footer, which sits on not-yet-converted pages) pin this to
+   *  "text-brand-ink" so the text stays readable regardless of the theme. */
+  textClassName?: string;
   /** Accessible label for the mark. */
   ariaLabel?: string;
 }
@@ -66,6 +72,7 @@ export default function Wordmark({
   markEasterEgg = "heart",
   markTestId,
   textAs = "span",
+  textClassName = "text-foreground",
   ariaLabel = "ResearchOS BeakerBot logo",
 }: WordmarkProps) {
   const s = SIZES[size];
@@ -91,7 +98,7 @@ export default function Wordmark({
       {aside}
       {!markOnly && (
         <TextTag
-          className={`${s.text} font-extrabold tracking-tight text-brand-ink`}
+          className={`${s.text} font-extrabold tracking-tight ${textClassName}`}
         >
           ResearchOS
         </TextTag>

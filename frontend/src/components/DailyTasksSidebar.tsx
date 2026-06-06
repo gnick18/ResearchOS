@@ -633,7 +633,7 @@ function TaskItem({
       onClick={handleClick}
       className={`relative px-2 py-1.5 rounded-md text-body mb-1 cursor-pointer transition-colors ${
         overdue
-          ? "text-red-600 bg-red-50 hover:bg-red-100"
+          ? "text-red-600 bg-red-50 hover:bg-red-100 dark:text-red-300 dark:bg-red-500/10 dark:hover:bg-red-500/20"
           : future
           ? "text-foreground-muted bg-surface-sunken hover:bg-surface-sunken"
           : "text-foreground hover:bg-surface-sunken"

@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* Drive Tailwind's `dark:` variant off our data-theme attribute (a user
+ * setting) instead of the OS `prefers-color-scheme`. This is the mechanism for
+ * bespoke per-component dark treatments, surfaces whose colors don't simply
+ * token-swap (status tints, charts) use `dark:` utilities to declare an
+ * explicit dark palette. See docs/proposals/dark-mode-toggle.md (Tier C).
+ * Note: inside a .light-scope subtree the tokens are forced light but `dark:`
+ * still matches; light-scoped regions should rely on tokens, not `dark:`. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 :root {
   color-scheme: light;
 
