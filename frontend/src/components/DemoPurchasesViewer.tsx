@@ -292,16 +292,16 @@ export default function DemoPurchasesViewer({
       // viewer covers the user's real /purchases page. The cursor demo
       // inside the viewer runs against this surface; the cursor itself
       // lives at an even higher z-index already.
-      className="fixed inset-0 z-[400] bg-white flex flex-col"
+      className="fixed inset-0 z-[400] bg-surface-raised flex flex-col"
       role="dialog"
       aria-modal="true"
       aria-label="Demo purchases — Alex's account"
     >
       {/* Demo banner — sticky header that signals "you're looking at a
           demo" so users don't mistake Alex's data for their own. */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-amber-200 bg-amber-50 flex-shrink-0">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-2 px-2.5 py-1 text-meta font-medium bg-amber-100 text-amber-800 rounded-full">
+          <span className="inline-flex items-center gap-2 px-2.5 py-1 text-meta font-medium bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-200 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
             Demo view
           </span>
@@ -329,10 +329,10 @@ export default function DemoPurchasesViewer({
       >
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-heading font-semibold text-gray-900">
-              Purchases <span className="text-gray-400">/ Alex (demo)</span>
+            <h2 className="text-heading font-semibold text-foreground">
+              Purchases <span className="text-foreground-muted">/ Alex (demo)</span>
             </h2>
-            <p className="text-body text-gray-400 mt-0.5">
+            <p className="text-body text-foreground-muted mt-0.5">
               {purchaseTasks.length} purchase order
               {purchaseTasks.length !== 1 ? "s" : ""} · $
               {grandTotal.toFixed(2)} total
@@ -342,14 +342,14 @@ export default function DemoPurchasesViewer({
 
         {loading ? (
           <div className="text-center py-16">
-            <p className="text-body text-gray-400">Loading demo data…</p>
+            <p className="text-body text-foreground-muted">Loading demo data…</p>
           </div>
         ) : sortedTasks.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-title text-gray-400 mb-2">
+            <p className="text-title text-foreground-muted mb-2">
               No demo purchases available
             </p>
-            <p className="text-body text-gray-300">
+            <p className="text-body text-foreground-muted">
               The demo fixtures didn&apos;t include any purchase tasks. The
               spending dashboard below will show zeroed totals.
             </p>
@@ -373,27 +373,27 @@ export default function DemoPurchasesViewer({
               return (
                 <div
                   key={`${task.owner}:${task.id}`}
-                  className="bg-white border border-gray-200 rounded-xl px-5 py-3"
+                  className="bg-surface-raised border border-border rounded-xl px-5 py-3"
                   data-testid="demo-purchase-row"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div
                         className={`w-2.5 h-2.5 rounded-full ${
-                          task.is_complete ? "bg-green-500" : "bg-gray-300"
+                          task.is_complete ? "bg-green-500" : "bg-foreground-muted/30"
                         }`}
                       />
                       <div>
-                        <h3 className="text-body font-semibold text-gray-900">
+                        <h3 className="text-body font-semibold text-foreground">
                           {task.name}
                         </h3>
-                        <p className="text-meta text-gray-400">
+                        <p className="text-meta text-foreground-muted">
                           {projectDisplayName} · {task.start_date} ·{" "}
                           {items.length} item{items.length !== 1 ? "s" : ""}
                         </p>
                       </div>
                     </div>
-                    <span className="text-body font-semibold text-gray-700">
+                    <span className="text-body font-semibold text-foreground">
                       ${taskTotal.toFixed(2)}
                     </span>
                   </div>

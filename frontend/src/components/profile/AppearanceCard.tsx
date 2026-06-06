@@ -26,9 +26,9 @@ function Toggle({
   return (
     <label className="flex items-start justify-between gap-4 cursor-pointer select-none">
       <span className="min-w-0">
-        <span className="block text-body font-medium text-gray-800">{label}</span>
+        <span className="block text-body font-medium text-foreground">{label}</span>
         {description && (
-          <span className="block text-meta text-gray-500 mt-0.5 leading-relaxed">
+          <span className="block text-meta text-foreground-muted mt-0.5 leading-relaxed">
             {description}
           </span>
         )}
@@ -40,8 +40,8 @@ function Toggle({
           onChange={(e) => onChange(e.target.checked)}
           className="peer sr-only"
         />
-        <span className="block h-6 w-11 rounded-full bg-gray-300 peer-checked:bg-blue-600 transition-colors" />
-        <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform peer-checked:translate-x-5" />
+        <span className="block h-6 w-11 rounded-full bg-foreground-muted/30 peer-checked:bg-blue-600 transition-colors" />
+        <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-surface-raised transition-transform peer-checked:translate-x-5" />
       </span>
     </label>
   );
@@ -64,10 +64,10 @@ export default function AppearanceCard({
   };
 
   return (
-    <section className="bg-white rounded-xl border border-gray-200 p-6">
+    <section className="bg-surface-raised rounded-xl border border-border p-6">
       <div className="mb-4">
-        <h2 className="text-title font-semibold text-gray-900">Appearance</h2>
-        <p className="text-meta text-gray-500 mt-1">
+        <h2 className="text-title font-semibold text-foreground">Appearance</h2>
+        <p className="text-meta text-foreground-muted mt-1">
           How you appear in the app. Your color flows everywhere your initial
           bubble shows up, lab views, comments, the login screen.
         </p>
@@ -82,8 +82,8 @@ export default function AppearanceCard({
             colorOverride={settings.color}
             secondaryOverride={settings.colorSecondary}
           />
-          <div className="text-meta text-gray-500">
-            <p className="text-body text-gray-800 font-medium">
+          <div className="text-meta text-foreground-muted">
+            <p className="text-body text-foreground font-medium">
               {draftName.trim() || currentUser}
             </p>
             <p className="mt-0.5">
@@ -95,7 +95,7 @@ export default function AppearanceCard({
         </div>
 
         <div>
-          <label className="block text-meta font-medium text-gray-700 mb-1">
+          <label className="block text-meta font-medium text-foreground mb-1">
             Display name
           </label>
           <input
@@ -107,9 +107,9 @@ export default function AppearanceCard({
             onKeyDown={(e) => {
               if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
             }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <p className="text-meta text-gray-400 mt-1">
+          <p className="text-meta text-foreground-muted mt-1">
             Leave blank to use your folder name ({currentUser}).
           </p>
         </div>

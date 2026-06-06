@@ -33,7 +33,7 @@ export default function SharingProviderButtons({
       <button
         type="button"
         onClick={() => onProvider("google")}
-        className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-white text-slate-800 hover:bg-slate-100 font-medium transition-colors border border-gray-200"
+        className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-surface-raised text-slate-800 hover:bg-slate-100 font-medium transition-colors border border-border"
       >
         <GoogleIcon className="w-4 h-4" />
         Continue with Google

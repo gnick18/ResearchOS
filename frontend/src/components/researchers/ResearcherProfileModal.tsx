@@ -174,7 +174,7 @@ export default function ResearcherProfileModal() {
             type="button"
             onClick={handleClose}
             aria-label="Close profile"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/80 text-gray-600 shadow ring-1 ring-black/5 backdrop-blur transition-colors hover:bg-white hover:text-gray-900"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-raised/80 text-foreground-muted shadow ring-1 ring-black/5 backdrop-blur transition-colors hover:bg-surface-raised hover:text-foreground"
           >
             <CloseIcon className="h-5 w-5" />
           </button>
@@ -187,22 +187,22 @@ export default function ResearcherProfileModal() {
         <div className="flex min-h-full flex-col items-center justify-center px-4 py-10">
           <div className="pointer-events-auto w-full max-w-lg" style={cardStyle}>
             {profile === undefined ? (
-              <div className="flex items-center justify-center rounded-2xl bg-white p-12 shadow-2xl ring-1 ring-black/5">
-                <div className="h-7 w-7 animate-spin rounded-full border-2 border-gray-200 border-t-sky-500" />
+              <div className="flex items-center justify-center rounded-2xl bg-surface-raised p-12 shadow-2xl ring-1 ring-black/5">
+                <div className="h-7 w-7 animate-spin rounded-full border-2 border-border border-t-sky-500" />
               </div>
             ) : profile === null ? (
-              <div className="rounded-2xl bg-white p-8 text-center shadow-2xl ring-1 ring-black/5">
-                <h2 className="text-heading font-semibold text-gray-900">
+              <div className="rounded-2xl bg-surface-raised p-8 text-center shadow-2xl ring-1 ring-black/5">
+                <h2 className="text-heading font-semibold text-foreground">
                   No profile yet
                 </h2>
-                <p className="mt-2 text-body text-gray-600 leading-relaxed">
+                <p className="mt-2 text-body text-foreground-muted leading-relaxed">
                   This researcher has not published a profile, or the link is
                   out of date.
                 </p>
                 <Link
                   href="/settings#researcher-profile"
                   onClick={handleClose}
-                  className="mt-4 inline-block text-body font-medium text-sky-700 underline-offset-2 hover:underline"
+                  className="mt-4 inline-block text-body font-medium text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
                 >
                   Set up your own profile
                 </Link>

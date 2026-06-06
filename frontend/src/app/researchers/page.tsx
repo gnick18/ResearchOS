@@ -27,10 +27,10 @@ function ResearchersBody() {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="max-w-md text-center space-y-3">
-          <h2 className="text-heading font-semibold text-gray-900">
+          <h2 className="text-heading font-semibold text-foreground">
             Researcher directory
           </h2>
-          <p className="text-body text-gray-600">
+          <p className="text-body text-foreground-muted">
             Connect to a research folder and pick a user to search the
             directory.
           </p>
@@ -43,10 +43,10 @@ function ResearchersBody() {
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto w-full max-w-2xl px-6 py-10">
         <div className="mb-6">
-          <h1 className="text-display font-bold tracking-tight text-gray-900">
+          <h1 className="text-display font-bold tracking-tight text-foreground">
             Find researchers
           </h1>
-          <p className="mt-1 text-body text-gray-500 leading-relaxed">
+          <p className="mt-1 text-body text-foreground-muted leading-relaxed">
             Search for other ResearchOS users by name or institution. Results
             show their verified identity and key fingerprint, never an email.
             Open a profile to see more.

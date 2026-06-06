@@ -24,18 +24,18 @@ import {
 
 function PageShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-b from-slate-100 to-slate-50 text-gray-900">
-      <header className="border-b border-gray-200 bg-white/80 backdrop-blur">
+    <div className="flex min-h-screen flex-col bg-gradient-to-b from-slate-100 to-slate-50 text-foreground">
+      <header className="border-b border-border bg-surface-raised/80 backdrop-blur">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-6 py-4">
           <Link
             href="/researchers"
-            className="text-body font-medium text-gray-500 underline-offset-2 hover:text-gray-800 hover:underline"
+            className="text-body font-medium text-foreground-muted underline-offset-2 hover:text-foreground hover:underline"
           >
             Researcher directory
           </Link>
           <Link
             href="/"
-            className="text-body font-medium text-sky-700 underline-offset-2 hover:text-sky-900 hover:underline"
+            className="text-body font-medium text-sky-700 dark:text-sky-300 underline-offset-2 hover:text-sky-900 hover:underline"
           >
             Back to the app
           </Link>
@@ -72,7 +72,7 @@ export default function ResearcherProfile({
     return (
       <PageShell>
         <div className="flex flex-1 items-center justify-center py-20">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-sky-500" />
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-sky-500" />
         </div>
       </PageShell>
     );
@@ -81,17 +81,17 @@ export default function ResearcherProfile({
   if (profile === null) {
     return (
       <PageShell>
-        <div className="mt-6 rounded-2xl bg-white p-8 text-center shadow-xl ring-1 ring-black/5">
-          <h1 className="text-heading font-semibold text-gray-900">
+        <div className="mt-6 rounded-2xl bg-surface-raised p-8 text-center shadow-xl ring-1 ring-black/5">
+          <h1 className="text-heading font-semibold text-foreground">
             Profile not found
           </h1>
-          <p className="mt-2 text-body text-gray-600 leading-relaxed">
+          <p className="mt-2 text-body text-foreground-muted leading-relaxed">
             No researcher has published a profile for that fingerprint. The link
             may be old, or they have not joined the directory.
           </p>
           <Link
             href="/researchers"
-            className="mt-4 inline-block text-body font-medium text-sky-700 underline-offset-2 hover:underline"
+            className="mt-4 inline-block text-body font-medium text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
           >
             Browse the researcher directory
           </Link>

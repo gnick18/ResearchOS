@@ -126,7 +126,7 @@ function ResultCard({ result }: { result: ProfileSearchResult }) {
   }, [result.fingerprint]);
 
   return (
-    <div className="relative flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4 transition-colors hover:border-sky-200 hover:bg-sky-50/40">
+    <div className="relative flex items-start gap-3 rounded-xl border border-border bg-surface-raised p-4 transition-colors hover:border-sky-200 hover:bg-sky-50 dark:hover:bg-sky-500/10/40">
       {/* Stretched trigger: covers the whole card so clicking anywhere (except
           the copy button, which sits above it) opens the profile popup over the
           current page, animating out from the click point. */}
@@ -143,14 +143,14 @@ function ResultCard({ result }: { result: ProfileSearchResult }) {
       />
 
       {/* Avatar placeholder */}
-      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-50 text-sky-500">
+      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-500">
         <UserIcon className="h-5 w-5" />
       </div>
 
       <div className="min-w-0 flex-1 space-y-1">
         {/* Name + verified badge */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-body font-semibold text-gray-900">
+          <span className="text-body font-semibold text-foreground">
             {result.displayName}
           </span>
           {result.affiliationDomain && (
@@ -158,7 +158,7 @@ function ResultCard({ result }: { result: ProfileSearchResult }) {
               label={`Institutional login verified — this person signed in with a ${result.affiliationDomain} account`}
               placement="top"
             >
-              <span className="relative z-10 inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-meta font-medium text-emerald-700">
+              <span className="relative z-10 inline-flex items-center gap-1 rounded-full border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 text-meta font-medium text-emerald-700 dark:text-emerald-300">
                 <BadgeCheckIcon className="h-3 w-3" />
                 {result.affiliationDomain}
               </span>
@@ -168,12 +168,12 @@ function ResultCard({ result }: { result: ProfileSearchResult }) {
 
         {/* Affiliation */}
         {result.affiliation && (
-          <p className="text-body text-gray-600">{result.affiliation}</p>
+          <p className="text-body text-foreground-muted">{result.affiliation}</p>
         )}
 
         {/* Fingerprint */}
         <div className="flex items-center gap-2 pt-0.5">
-          <span className="truncate font-mono text-meta text-gray-400">
+          <span className="truncate font-mono text-meta text-foreground-muted">
             {result.fingerprint}
           </span>
           <Tooltip label="Copy fingerprint" placement="top">
@@ -184,11 +184,11 @@ function ResultCard({ result }: { result: ProfileSearchResult }) {
                 e.stopPropagation();
                 void copyFingerprint();
               }}
-              className="relative z-10 shrink-0 text-gray-400 hover:text-gray-600"
+              className="relative z-10 shrink-0 text-foreground-muted hover:text-foreground-muted"
               aria-label="Copy fingerprint"
             >
               {copied ? (
-                <span className="text-meta text-emerald-600">Copied</span>
+                <span className="text-meta text-emerald-600 dark:text-emerald-300">Copied</span>
               ) : (
                 <CopyIcon className="h-3.5 w-3.5" />
               )}
@@ -257,29 +257,29 @@ export default function ResearcherSearch() {
     <div className="space-y-3">
       {/* Search input */}
       <div className="relative">
-        <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-muted" />
         <input
           type="search"
           value={query}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder="Name or institution, e.g. Sarah or UW-Madison"
-          className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-body text-gray-900 placeholder-gray-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+          className="w-full rounded-lg border border-border bg-surface-raised py-2 pl-9 pr-3 text-body text-foreground placeholder-foreground-muted focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
         />
       </div>
 
       {/* Status */}
       {searching && (
-        <p className="text-meta text-gray-500">Searching…</p>
+        <p className="text-meta text-foreground-muted">Searching…</p>
       )}
 
       {error && (
-        <p className="text-meta text-red-600">{error}</p>
+        <p className="text-meta text-red-600 dark:text-red-300">{error}</p>
       )}
 
       {/* Results */}
       {!searching && searched && results.length === 0 && (
-        <p className="text-body text-gray-500">
+        <p className="text-body text-foreground-muted">
           No researchers found for that name or institution.
         </p>
       )}
@@ -294,7 +294,7 @@ export default function ResearcherSearch() {
 
       {/* Discovery note */}
       {!searching && !searched && (
-        <p className="text-meta text-gray-400 leading-relaxed">
+        <p className="text-meta text-foreground-muted leading-relaxed">
           Search finds researchers who have opted in to the directory. Results
           show their name, institution, and key fingerprint, never an email
           address. Use the fingerprint to confirm you are sending to the right

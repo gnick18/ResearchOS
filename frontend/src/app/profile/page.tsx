@@ -94,10 +94,10 @@ function ProfileBody() {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="max-w-md text-center space-y-3">
-          <h2 className="text-heading font-semibold text-gray-900">
+          <h2 className="text-heading font-semibold text-foreground">
             Your profile
           </h2>
-          <p className="text-body text-gray-600 leading-relaxed">
+          <p className="text-body text-foreground-muted leading-relaxed">
             Connect to a research folder and pick a user to edit your profile.
           </p>
         </div>
@@ -109,17 +109,17 @@ function ProfileBody() {
     <div className="flex-1 overflow-y-auto">
       <div className="max-w-2xl mx-auto px-6 py-8 space-y-6">
         <div>
-          <h1 className="text-heading font-semibold text-gray-900">
+          <h1 className="text-heading font-semibold text-foreground">
             Your profile
           </h1>
-          <p className="text-body text-gray-500 mt-1 leading-relaxed">
+          <p className="text-body text-foreground-muted mt-1 leading-relaxed">
             Everything you control about how you show up in ResearchOS. To find
             other researchers, head to the directory.
           </p>
         </div>
 
         {loading || !settings ? (
-          <p className="text-body text-gray-500">Loading your profile…</p>
+          <p className="text-body text-foreground-muted">Loading your profile…</p>
         ) : (
           <AppearanceCard
             currentUser={currentUser}
@@ -133,12 +133,12 @@ function ProfileBody() {
         {sharing.status === "ready" ? (
           <ProfileEditorCard />
         ) : sharing.status === "none" ? (
-          <section className="bg-white rounded-xl border border-gray-200 p-6">
+          <section className="bg-surface-raised rounded-xl border border-border p-6">
             <div className="mb-4">
-              <h2 className="text-title font-semibold text-gray-900">
+              <h2 className="text-title font-semibold text-foreground">
                 Researcher profile
               </h2>
-              <p className="text-meta text-gray-500 mt-1 leading-relaxed">
+              <p className="text-meta text-foreground-muted mt-1 leading-relaxed">
                 Set up sharing to claim a researcher profile, so colleagues can
                 find you and confirm your fingerprint before sending you work.
               </p>
@@ -146,11 +146,11 @@ function ProfileBody() {
             <SharingProviderButtons onProvider={() => setWizardOpen(true)} />
           </section>
         ) : (
-          <section className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-title font-semibold text-gray-900">
+          <section className="bg-surface-raised rounded-xl border border-border p-6">
+            <h2 className="text-title font-semibold text-foreground">
               Researcher profile
             </h2>
-            <p className="text-body text-gray-600 mt-1 leading-relaxed">
+            <p className="text-body text-foreground-muted mt-1 leading-relaxed">
               Your identity is set up, but its key is not on this device. Restore
               it from Settings to edit your researcher profile here.
             </p>

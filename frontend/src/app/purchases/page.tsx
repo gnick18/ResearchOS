@@ -325,8 +325,8 @@ export default function PurchasesPage() {
       <div className="flex-1 overflow-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-heading font-semibold text-gray-900">Purchases</h2>
-            <p className="text-body text-gray-400 mt-0.5">
+            <h2 className="text-heading font-semibold text-foreground">Purchases</h2>
+            <p className="text-body text-foreground-muted mt-0.5">
               {purchaseTasks.length} purchase order
               {purchaseTasks.length !== 1 ? "s" : ""} · ${grandTotal.toFixed(2)}{" "}
               total
@@ -342,7 +342,7 @@ export default function PurchasesPage() {
             </button>
             <button
               onClick={() => setShowFundingManager(!showFundingManager)}
-              className="px-3 py-1.5 text-body bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
+              className="px-3 py-1.5 text-body bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 rounded-lg hover:bg-emerald-200 transition-colors"
             >
               {showFundingManager ? "Hide Funding Manager" : "Manage Funding Accounts"}
             </button>
@@ -377,7 +377,7 @@ export default function PurchasesPage() {
             queue is drained. */}
         {isLabHead && labPendingApprovalCount > 0 && (
           <div
-            className="mb-4 flex items-center justify-between gap-4 px-4 py-3 rounded-lg border border-amber-300 bg-amber-50"
+            className="mb-4 flex items-center justify-between gap-4 px-4 py-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-500/10"
             role="status"
             data-testid="purchases-lab-head-pending-banner"
           >
@@ -392,7 +392,7 @@ export default function PurchasesPage() {
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="text-amber-600 flex-shrink-0 mt-0.5"
+                className="text-amber-600 dark:text-amber-300 flex-shrink-0 mt-0.5"
                 aria-hidden="true"
               >
                 <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
@@ -405,7 +405,7 @@ export default function PurchasesPage() {
                   {labPendingApprovalCount === 1 ? "" : "s"} across the lab
                   await{labPendingApprovalCount === 1 ? "s" : ""} your approval
                 </p>
-                <p className="text-meta text-amber-800 mt-0.5">
+                <p className="text-meta text-amber-800 dark:text-amber-200 mt-0.5">
                   This page shows your personal purchases. The lab-wide
                   approval queue lives on Lab Overview.
                 </p>
@@ -486,13 +486,13 @@ export default function PurchasesPage() {
                 className={`px-3 py-1 text-meta rounded-full transition-colors ${
                   isActive
                     ? "bg-amber-600 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
                 }`}
               >
                 {chip.label}
                 <span
                   className={`ml-2 ${
-                    isActive ? "text-amber-100" : "text-gray-400"
+                    isActive ? "text-amber-100" : "text-foreground-muted"
                   }`}
                 >
                   {chip.count}
@@ -512,7 +512,7 @@ export default function PurchasesPage() {
           role="tablist"
           aria-label="Filter purchases by ordering status"
         >
-          <span className="text-meta text-gray-400 mr-1">Ordering:</span>
+          <span className="text-meta text-foreground-muted mr-1">Ordering:</span>
           {([
             { key: "any", label: "Any stage", count: purchaseTasks.length },
             {
@@ -542,13 +542,13 @@ export default function PurchasesPage() {
                 className={`px-3 py-1 text-meta rounded-full transition-colors ${
                   isActive
                     ? "bg-blue-600 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
                 }`}
               >
                 {chip.label}
                 <span
                   className={`ml-2 ${
-                    isActive ? "text-blue-100" : "text-gray-400"
+                    isActive ? "text-blue-100" : "text-foreground-muted"
                   }`}
                 >
                   {chip.count}
@@ -616,35 +616,35 @@ export default function PurchasesPage() {
             return (
               <div
                 key={tkey}
-                className="bg-white border border-gray-200 rounded-xl overflow-hidden"
+                className="bg-surface-raised border border-border rounded-xl overflow-hidden"
               >
                 {/* Task header */}
                 <div
-                  className="flex items-center justify-between px-5 py-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50"
+                  className="flex items-center justify-between px-5 py-3 border-b border-border cursor-pointer hover:bg-surface-sunken"
                   onClick={() => setSelectedTask(isOpen ? null : task)}
                 >
                   <div className="flex items-center gap-3">
                     {/* Completion indicator */}
                     <div
                       className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                        task.is_complete ? "bg-green-500" : "bg-gray-300"
+                        task.is_complete ? "bg-green-500" : "bg-foreground-muted/30"
                       }`}
                     />
                     <div>
-                      <h3 className={`text-body font-semibold ${task.is_complete ? "text-green-700" : "text-gray-900"}`}>
+                      <h3 className={`text-body font-semibold ${task.is_complete ? "text-green-700 dark:text-green-300" : "text-foreground"}`}>
                         {task.name}
                       </h3>
-                      <p className="text-meta text-gray-400">
+                      <p className="text-meta text-foreground-muted">
                         {projectDisplayName} · {task.start_date} ·{" "}
                         {items.length} item{items.length !== 1 ? "s" : ""}{task.is_complete && " · Complete"}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-body font-semibold text-gray-700">
+                    <span className="text-body font-semibold text-foreground">
                       ${taskTotal.toFixed(2)}
                     </span>
-                    <span className="text-gray-400">
+                    <span className="text-foreground-muted">
                       {isOpen ? "▲" : "▼"}
                     </span>
                   </div>
@@ -705,7 +705,7 @@ export default function PurchasesPage() {
                           className={`p-1.5 rounded-full transition-all disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent ${
                             task.is_complete
                               ? "bg-green-500 text-white hover:bg-green-600"
-                              : "text-gray-300 hover:text-green-500 hover:bg-green-50"
+                              : "text-foreground-muted hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-500/10"
                           }`}
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -722,7 +722,7 @@ export default function PurchasesPage() {
                             handleDeleteTask(task.id);
                           }}
                           disabled={task.is_shared_with_me || deletingTaskId === task.id}
-                          className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-red-400 disabled:hover:bg-transparent"
+                          className="p-2 text-red-400 hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-red-400 disabled:hover:bg-transparent"
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -750,8 +750,8 @@ export default function PurchasesPage() {
           if (purchaseTasks.length === 0) {
             return (
               <div className="text-center py-16">
-                <p className="text-title text-gray-400 mb-2">No purchases yet</p>
-                <p className="text-body text-gray-300">
+                <p className="text-title text-foreground-muted mb-2">No purchases yet</p>
+                <p className="text-body text-foreground-muted">
                   Create a task with type &ldquo;Purchase&rdquo; to start
                   tracking orders
                 </p>
@@ -775,7 +775,7 @@ export default function PurchasesPage() {
             }
             return (
               <div className="text-center py-12">
-                <p className="text-body text-gray-400">
+                <p className="text-body text-foreground-muted">
                   No {filterLabel} yet
                 </p>
               </div>

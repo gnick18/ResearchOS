@@ -99,7 +99,7 @@ function DataSharingIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      className="text-gray-400"
+      className="text-foreground-muted"
     >
       <path d="M4 7V5a2 2 0 0 1 2-2h2" />
       <path d="M20 7V5a2 2 0 0 0-2-2h-2" />
@@ -163,11 +163,11 @@ function GrantDetailsGroup({
   };
 
   return (
-    <div className="mt-2 border-t border-gray-100 pt-2">
+    <div className="mt-2 border-t border-border pt-2">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 text-meta font-medium text-gray-600 hover:text-gray-800"
+        className="flex items-center gap-1.5 text-meta font-medium text-foreground-muted hover:text-foreground"
         aria-expanded={open}
       >
         <Chevron open={open} />
@@ -178,7 +178,7 @@ function GrantDetailsGroup({
         <div className="mt-3 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-meta text-gray-500 mb-1">
+              <label className="block text-meta text-foreground-muted mb-1">
                 Award number
               </label>
               <input
@@ -187,18 +187,18 @@ function GrantDetailsGroup({
                 onChange={(e) =>
                   setDraft({ ...draft, award_number: e.target.value })
                 }
-                className="w-full px-2.5 py-1.5 border border-gray-300 rounded text-body"
+                className="w-full px-2.5 py-1.5 border border-border rounded text-body"
                 placeholder="e.g. 5R01GM123456-03"
               />
               {looksUnlikeNihAward(draft.award_number) && (
-                <p className="text-meta text-amber-600 mt-1">
+                <p className="text-meta text-amber-600 dark:text-amber-300 mt-1">
                   NIH award numbers usually look like 5R01GM123456-03. This is
                   just a hint; any value is accepted.
                 </p>
               )}
             </div>
             <div>
-              <label className="block text-meta text-gray-500 mb-1">
+              <label className="block text-meta text-foreground-muted mb-1">
                 Funder name
               </label>
               <input
@@ -206,7 +206,7 @@ function GrantDetailsGroup({
                 list={datalistId}
                 value={draft.funder_name}
                 onChange={(e) => onFunderNameChange(e.target.value)}
-                className="w-full px-2.5 py-1.5 border border-gray-300 rounded text-body"
+                className="w-full px-2.5 py-1.5 border border-border rounded text-body"
                 placeholder="e.g. National Institutes of Health"
               />
               <datalist id={datalistId}>
@@ -218,7 +218,7 @@ function GrantDetailsGroup({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-meta text-gray-500 mb-1">
+              <label className="block text-meta text-foreground-muted mb-1">
                 Funder ID
               </label>
               <input
@@ -227,12 +227,12 @@ function GrantDetailsGroup({
                 onChange={(e) =>
                   setDraft({ ...draft, funder_id: e.target.value })
                 }
-                className="w-full px-2.5 py-1.5 border border-gray-300 rounded text-body"
+                className="w-full px-2.5 py-1.5 border border-border rounded text-body"
                 placeholder="e.g. 10.13039/100000002"
               />
             </div>
             <div>
-              <label className="block text-meta text-gray-500 mb-1">
+              <label className="block text-meta text-foreground-muted mb-1">
                 Funder ID type
               </label>
               <select
@@ -246,7 +246,7 @@ function GrantDetailsGroup({
                         : (e.target.value as FunderIdType),
                   })
                 }
-                className="w-full px-2.5 py-1.5 border border-gray-300 rounded text-body bg-white"
+                className="w-full px-2.5 py-1.5 border border-border rounded text-body bg-surface-raised"
               >
                 <option value="">None</option>
                 {FUNDER_ID_TYPES.map((t) => (
@@ -259,7 +259,7 @@ function GrantDetailsGroup({
           </div>
 
           <div>
-            <label className="block text-meta text-gray-500 mb-1">
+            <label className="block text-meta text-foreground-muted mb-1">
               Award title (optional)
             </label>
             <input
@@ -268,12 +268,12 @@ function GrantDetailsGroup({
               onChange={(e) =>
                 setDraft({ ...draft, award_title: e.target.value })
               }
-              className="w-full px-2.5 py-1.5 border border-gray-300 rounded text-body"
+              className="w-full px-2.5 py-1.5 border border-border rounded text-body"
               placeholder="e.g. Mechanisms of fungal secondary metabolism"
             />
           </div>
 
-          <p className="text-meta text-gray-400">
+          <p className="text-meta text-foreground-muted">
             The account name is your own label (what purchases match on); the
             award number is the official grant identifier. Both map to DataCite
             funding metadata for a later DOI deposit.
@@ -371,37 +371,37 @@ export default function FundingAccountsManager({
   };
 
   return (
-    <div className="mb-6 bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <div className="p-4 border-b border-gray-200 bg-gray-50">
-        <h3 className="text-body font-semibold text-gray-700">Funding Accounts</h3>
-        <p className="text-meta text-gray-500">Manage funding strings and budgets</p>
+    <div className="mb-6 bg-surface-raised rounded-xl border border-border overflow-hidden">
+      <div className="p-4 border-b border-border bg-surface-sunken">
+        <h3 className="text-body font-semibold text-foreground">Funding Accounts</h3>
+        <p className="text-meta text-foreground-muted">Manage funding strings and budgets</p>
       </div>
 
       <div className="p-4">
         {/* Existing accounts */}
         <div className="space-y-2 mb-4">
           {fundingAccounts.map((acc) => (
-            <div key={acc.id} className="p-3 bg-gray-50 rounded-lg">
+            <div key={acc.id} className="p-3 bg-surface-sunken rounded-lg">
               {editingId === acc.id ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     <div className="flex-1">
-                      <p className="text-body font-medium text-gray-900">
+                      <p className="text-body font-medium text-foreground">
                         {acc.name}
                       </p>
                       {acc.description && (
-                        <p className="text-meta text-gray-500">
+                        <p className="text-meta text-foreground-muted">
                           {acc.description}
                         </p>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-meta text-gray-500">Budget: $</span>
+                      <span className="text-meta text-foreground-muted">Budget: $</span>
                       <input
                         type="number"
                         value={editBudget}
                         onChange={(e) => setEditBudget(e.target.value)}
-                        className="w-24 px-2 py-1 border border-gray-300 rounded text-body"
+                        className="w-24 px-2 py-1 border border-border rounded text-body"
                         placeholder="0.00"
                       />
                     </div>
@@ -414,7 +414,7 @@ export default function FundingAccountsManager({
                   <div className="flex items-center justify-end gap-2">
                     <button
                       onClick={() => setEditingId(null)}
-                      className="px-2 py-1 text-meta text-gray-500 hover:text-gray-700"
+                      className="px-2 py-1 text-meta text-foreground-muted hover:text-foreground"
                     >
                       Cancel
                     </button>
@@ -429,14 +429,14 @@ export default function FundingAccountsManager({
               ) : (
                 <div className="flex items-center gap-3">
                   <div className="flex-1">
-                    <p className="text-body font-medium text-gray-900">
+                    <p className="text-body font-medium text-foreground">
                       {acc.name}
                     </p>
                     {acc.description && (
-                      <p className="text-meta text-gray-500">{acc.description}</p>
+                      <p className="text-meta text-foreground-muted">{acc.description}</p>
                     )}
                     {(acc.award_number || acc.funder_name) && (
-                      <p className="text-meta text-gray-400 mt-0.5">
+                      <p className="text-meta text-foreground-muted mt-0.5">
                         {acc.award_number && (
                           <span>
                             Award{" "}
@@ -450,20 +450,20 @@ export default function FundingAccountsManager({
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="text-right">
-                      <p className="text-body font-medium text-gray-900">
+                      <p className="text-body font-medium text-foreground">
                         ${acc.total_budget.toFixed(2)}
                       </p>
-                      <p className="text-meta text-gray-500">budget</p>
+                      <p className="text-meta text-foreground-muted">budget</p>
                     </div>
                     <button
                       onClick={() => startEdit(acc)}
-                      className="text-meta text-blue-600 hover:text-blue-800"
+                      className="text-meta text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => handleDelete(acc.id, acc.name)}
-                      className="text-meta text-red-600 hover:text-red-800"
+                      className="text-meta text-red-600 dark:text-red-300 hover:text-red-800 dark:hover:text-red-200"
                     >
                       Delete
                     </button>
@@ -475,37 +475,37 @@ export default function FundingAccountsManager({
         </div>
 
         {/* New account form */}
-        <div className="pt-4 border-t border-gray-200">
+        <div className="pt-4 border-t border-border">
           <div className="flex items-end gap-3">
             <div className="flex-1">
-              <label className="block text-meta text-gray-500 mb-1">Name</label>
+              <label className="block text-meta text-foreground-muted mb-1">Name</label>
               <input
                 type="text"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body"
                 placeholder="e.g., GRANT-123-ABC"
               />
             </div>
             <div className="w-32">
-              <label className="block text-meta text-gray-500 mb-1">Budget</label>
+              <label className="block text-meta text-foreground-muted mb-1">Budget</label>
               <input
                 type="number"
                 value={newBudget}
                 onChange={(e) => setNewBudget(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body"
                 placeholder="0.00"
               />
             </div>
             <div className="flex-1">
-              <label className="block text-meta text-gray-500 mb-1">
+              <label className="block text-meta text-foreground-muted mb-1">
                 Description (optional)
               </label>
               <input
                 type="text"
                 value={newDescription}
                 onChange={(e) => setNewDescription(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body"
                 placeholder="e.g., NIH Grant for cancer research"
               />
             </div>

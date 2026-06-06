@@ -33,9 +33,9 @@ interface PurchaseOrderStatusControlProps {
 // Visual styling per stage. Mirrors the existing chip vocabulary on the
 // purchases surface (amber = pending-ish, blue = in-flight, green = done).
 const STATUS_CHIP_CLASS: Record<PurchaseOrderStatus, string> = {
-  needs_ordering: "bg-gray-100 text-gray-600 border-gray-200",
-  ordered: "bg-blue-50 text-blue-700 border-blue-200",
-  received: "bg-green-50 text-green-700 border-green-200",
+  needs_ordering: "bg-surface-sunken text-foreground-muted border-border",
+  ordered: "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/30",
+  received: "bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-300 border-green-200 dark:border-green-500/30",
 };
 
 // The linear advance / revert neighbors for each stage. The control surfaces
@@ -131,7 +131,7 @@ export default function PurchaseOrderStatusControl({
             onClick={() => apply(prev)}
             disabled={busy}
             aria-label={REVERT_LABEL[status]}
-            className="text-gray-300 hover:text-gray-600 disabled:opacity-40"
+            className="text-foreground-muted hover:text-foreground-muted disabled:opacity-40"
             data-testid="purchase-order-status-back"
           >
             <ChevronLeftIcon />
@@ -146,7 +146,7 @@ export default function PurchaseOrderStatusControl({
             onClick={() => apply(next)}
             disabled={busy}
             aria-label={ADVANCE_LABEL[status]}
-            className="text-gray-300 hover:text-blue-600 disabled:opacity-40"
+            className="text-foreground-muted hover:text-blue-600 dark:hover:text-blue-300 disabled:opacity-40"
             data-testid="purchase-order-status-advance"
           >
             <ChevronRightIcon />

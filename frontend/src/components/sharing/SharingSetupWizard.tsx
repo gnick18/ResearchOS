@@ -601,7 +601,7 @@ function ChooseStep({
         <button
           type="button"
           onClick={() => onOAuth("google")}
-          className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-white text-slate-800 hover:bg-slate-100 font-medium transition-colors"
+          className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-surface-raised text-slate-800 hover:bg-slate-100 font-medium transition-colors"
         >
           <GoogleIcon className="w-4 h-4" />
           Continue with Google
@@ -629,7 +629,7 @@ function ChooseStep({
         <button
           type="button"
           onClick={onEmail}
-          className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-white/5 border border-white/10 text-slate-200 hover:bg-white/10 font-medium transition-colors"
+          className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-surface-raised/5 border border-white/10 text-slate-200 hover:bg-surface-raised/10 font-medium transition-colors"
         >
           <MailIcon className="w-4 h-4" />
           Use email instead
@@ -688,7 +688,7 @@ function EmailEnterStep({
             if (e.key === "Enter" && !busy) onSubmit();
           }}
           placeholder="you@university.edu"
-          className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
+          className="w-full px-3 py-2 bg-surface-raised/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
           autoFocus
           autoComplete="email"
         />
@@ -699,7 +699,7 @@ function EmailEnterStep({
           type="button"
           onClick={onBack}
           disabled={busy}
-          className="flex-1 py-2 text-body bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg disabled:opacity-50"
+          className="flex-1 py-2 text-body bg-surface-raised/5 hover:bg-surface-raised/10 border border-white/10 text-slate-200 rounded-lg disabled:opacity-50"
         >
           Back
         </button>
@@ -760,7 +760,7 @@ function EmailCodeStep({
             if (e.key === "Enter" && ready) onSubmit();
           }}
           placeholder="000000"
-          className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-title tracking-[0.4em] text-center"
+          className="w-full px-3 py-2 bg-surface-raised/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-title tracking-[0.4em] text-center"
           autoFocus
         />
       </div>
@@ -778,7 +778,7 @@ function EmailCodeStep({
         <button
           type="button"
           onClick={onBack}
-          className="flex-1 py-2 text-body bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg"
+          className="flex-1 py-2 text-body bg-surface-raised/5 hover:bg-surface-raised/10 border border-white/10 text-slate-200 rounded-lg"
         >
           Back
         </button>

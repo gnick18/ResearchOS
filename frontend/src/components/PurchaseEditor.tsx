@@ -587,7 +587,7 @@ export default function PurchaseEditor({
           Renders as a row above the table when PI is viewing another
           member's purchase items but hasn't unlocked yet. */}
       {labHeadGate.canRequestEdit && !labHeadGate.unlocked && labHeadGate.activeUser && (
-        <div className="mb-3 flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-meta text-gray-700">
+        <div className="mb-3 flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-border bg-surface-sunken text-meta text-foreground">
           <span>
             Read-only view of {username ?? "lab member"}&apos;s purchase items.
             Unlock edit mode to make changes (attributed to you in the audit log).
@@ -640,12 +640,12 @@ export default function PurchaseEditor({
 
       {/* Overwrite dialog */}
       {overwriteDialog && (
-        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <p className="text-body font-medium text-amber-800 mb-2">
+        <div className="mb-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg p-4">
+          <p className="text-body font-medium text-amber-800 dark:text-amber-200 mb-2">
             You changed {overwriteDialog.field} from the catalog entry &ldquo;
             {overwriteDialog.catalogItem.item_name}&rdquo;.
           </p>
-          <p className="text-meta text-amber-600 mb-3">
+          <p className="text-meta text-amber-600 dark:text-amber-300 mb-3">
             Update the existing catalog entry, or save as a new item?
           </p>
           <div className="flex gap-2">
@@ -666,7 +666,7 @@ export default function PurchaseEditor({
                 setOverwriteDialog(null);
                 setSaving(false);
               }}
-              className="px-3 py-1.5 text-meta text-gray-600 hover:bg-gray-100 rounded-lg"
+              className="px-3 py-1.5 text-meta text-foreground-muted hover:bg-surface-sunken rounded-lg"
             >
               Cancel
             </button>
@@ -678,55 +678,55 @@ export default function PurchaseEditor({
       <div className="overflow-x-auto">
         <table className="w-full text-body">
           <thead>
-            <tr className="border-b border-gray-200">
-              <th className="text-left py-2 px-2 text-meta font-semibold text-gray-500 w-48">
+            <tr className="border-b border-border">
+              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-48">
                 Item Name
               </th>
-              <th className="text-left py-2 px-2 text-meta font-semibold text-gray-500 w-16">
+              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-16">
                 Qty
               </th>
-              <th className="text-left py-2 px-2 text-meta font-semibold text-gray-500 w-40">
+              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-40">
                 Link
               </th>
-              <th className="text-left py-2 px-2 text-meta font-semibold text-gray-500 w-32">
+              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-32">
                 CAS / Accession
               </th>
-              <th className="text-right py-2 px-2 text-meta font-semibold text-gray-500 w-24">
+              <th className="text-right py-2 px-2 text-meta font-semibold text-foreground-muted w-24">
                 Price/Unit
               </th>
-              <th className="text-right py-2 px-2 text-meta font-semibold text-gray-500 w-24">
+              <th className="text-right py-2 px-2 text-meta font-semibold text-foreground-muted w-24">
                 Shipping
               </th>
-              <th className="text-right py-2 px-2 text-meta font-semibold text-gray-500 w-24">
+              <th className="text-right py-2 px-2 text-meta font-semibold text-foreground-muted w-24">
                 Total
               </th>
-              <th className="text-left py-2 px-2 text-meta font-semibold text-gray-500 w-28">
+              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-28">
                 Funding String
               </th>
-              <th className="text-left py-2 px-2 text-meta font-semibold text-gray-500 w-28">
+              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-28">
                 Vendor
               </th>
-              <th className="text-left py-2 px-2 text-meta font-semibold text-gray-500 w-28">
+              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-28">
                 Category
               </th>
-              <th className="text-left py-2 px-2 text-meta font-semibold text-gray-500 w-32">
+              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-32">
                 Notes
               </th>
               {/* Lab-manager ordering workflow (purchases-assignee fix,
                   2026-05-29): who was asked to place this order. */}
-              <th className="text-left py-2 px-2 text-meta font-semibold text-gray-500 w-32">
+              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-32">
                 Assigned to
               </th>
               {/* Per-item ordering status (purchases-ordered-stage,
                   2026-05-29): the real Needs ordering / Ordered / Received
                   stage. */}
-              <th className="text-left py-2 px-2 text-meta font-semibold text-gray-500 w-40">
+              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-40">
                 Order status
               </th>
               {/* PI Phase 3 (PI Phase 3 manager, 2026-05-23):
                   approval + flag column. Always rendered so list rows
                   line up consistently regardless of view. */}
-              <th className="text-left py-2 px-2 text-meta font-semibold text-gray-500 w-28">
+              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-28">
                 PI status
               </th>
               <th className="w-8"></th>
@@ -739,7 +739,7 @@ export default function PurchaseEditor({
                 // Edit mode row
                 <tr
                   key={item.id}
-                  className="border-b border-gray-50 bg-amber-50/50"
+                  className="border-b border-border bg-amber-50 dark:bg-amber-500/10/50"
                 >
                   <td className="py-2 px-2 relative" ref={editSuggestionsRef}>
                     <input
@@ -751,17 +751,17 @@ export default function PurchaseEditor({
                     />
                     {/* Edit suggestions dropdown */}
                     {showEditSuggestions && editSuggestions.length > 0 && (
-                      <div className="absolute top-full left-2 right-2 z-10 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                      <div className="absolute top-full left-2 right-2 z-10 bg-surface-raised border border-border rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
                         {editSuggestions.map((cat) => (
                           <button
                             key={cat.id}
                             onClick={() => handleSelectEditSuggestion(cat)}
-                            className="w-full text-left px-3 py-2 hover:bg-amber-50 border-b border-gray-50 last:border-b-0"
+                            className="w-full text-left px-3 py-2 hover:bg-amber-50 dark:hover:bg-amber-500/10 border-b border-border last:border-b-0"
                           >
-                            <p className="text-body font-medium text-gray-900">
+                            <p className="text-body font-medium text-foreground">
                               {cat.item_name}
                             </p>
-                            <p className="text-meta text-gray-400">
+                            <p className="text-meta text-foreground-muted">
                               ${(cat.price_per_unit ?? 0).toFixed(2)}
                               {cat.cas ? ` · ${cat.cas}` : ""}
                             </p>
@@ -827,14 +827,14 @@ export default function PurchaseEditor({
                       className="w-full px-2 py-1 border border-amber-300 rounded text-body text-right focus:outline-none focus:ring-1 focus:ring-amber-400"
                     />
                   </td>
-                  <td className="py-2 px-2 text-right font-medium text-gray-700">
+                  <td className="py-2 px-2 text-right font-medium text-foreground">
                     ${computeTotal(editingRow)}
                   </td>
                   <td className="py-2 px-2">
                     <select
                       value={editingRow.funding_string}
                       onChange={(e) => handleEditFieldChange("funding_string", e.target.value)}
-                      className="w-full px-2 py-1 border border-amber-300 rounded text-body focus:outline-none focus:ring-1 focus:ring-amber-400 bg-white"
+                      className="w-full px-2 py-1 border border-amber-300 rounded text-body focus:outline-none focus:ring-1 focus:ring-amber-400 bg-surface-raised"
                     >
                       <option value="">—</option>
                       {fundingAccounts.map((acc) => (
@@ -885,7 +885,7 @@ export default function PurchaseEditor({
                         aria-label="Save changes"
                         onClick={handleSaveEdit}
                         disabled={saving || !editingRow.item_name.trim()}
-                        className="text-green-500 hover:text-green-700 text-body font-bold disabled:opacity-30"
+                        className="text-green-500 hover:text-green-700 dark:hover:text-green-300 text-body font-bold disabled:opacity-30"
                       >
                         ✓
                       </button>
@@ -894,7 +894,7 @@ export default function PurchaseEditor({
                       <button
                         aria-label="Cancel editing"
                         onClick={handleCancelEdit}
-                        className="text-gray-400 hover:text-gray-600 text-body"
+                        className="text-foreground-muted hover:text-foreground-muted text-body"
                       >
                         ✕
                       </button>
@@ -905,11 +905,11 @@ export default function PurchaseEditor({
                 // View mode row
                 <tr
                   key={item.id}
-                  className={`border-b border-gray-50 ${!writesDisabled ? "hover:bg-gray-50 cursor-pointer" : ""}`}
+                  className={`border-b border-border ${!writesDisabled ? "hover:bg-surface-sunken cursor-pointer" : ""}`}
                   onClick={!writesDisabled ? () => handleStartEdit(item) : undefined}
                 >
-                  <td className="py-2 px-2 text-gray-700">{item.item_name}</td>
-                  <td className="py-2 px-2 text-gray-700">{item.quantity}</td>
+                  <td className="py-2 px-2 text-foreground">{item.item_name}</td>
+                  <td className="py-2 px-2 text-foreground">{item.quantity}</td>
                   <td className="py-2 px-2">
                     {item.link ? (
                       <a
@@ -922,31 +922,31 @@ export default function PurchaseEditor({
                         {item.link}
                       </a>
                     ) : (
-                      <span className="text-gray-300">—</span>
+                      <span className="text-foreground-muted">—</span>
                     )}
                   </td>
-                  <td className="py-2 px-2 text-gray-500 text-meta">
+                  <td className="py-2 px-2 text-foreground-muted text-meta">
                     {item.cas || "—"}
                   </td>
-                  <td className="py-2 px-2 text-right text-gray-700">
+                  <td className="py-2 px-2 text-right text-foreground">
                     ${(item.price_per_unit ?? 0).toFixed(2)}
                   </td>
-                  <td className="py-2 px-2 text-right text-gray-500">
+                  <td className="py-2 px-2 text-right text-foreground-muted">
                     ${(item.shipping_fees ?? 0).toFixed(2)}
                   </td>
-                  <td className="py-2 px-2 text-right font-medium text-gray-900">
+                  <td className="py-2 px-2 text-right font-medium text-foreground">
                     ${(item.total_price ?? 0).toFixed(2)}
                   </td>
-                  <td className="py-2 px-2 text-gray-500 text-meta">
+                  <td className="py-2 px-2 text-foreground-muted text-meta">
                     {item.funding_string || "—"}
                   </td>
-                  <td className="py-2 px-2 text-gray-500 text-meta">
+                  <td className="py-2 px-2 text-foreground-muted text-meta">
                     {item.vendor || "—"}
                   </td>
-                  <td className="py-2 px-2 text-gray-500 text-meta">
+                  <td className="py-2 px-2 text-foreground-muted text-meta">
                     {item.category || "—"}
                   </td>
-                  <td className="py-2 px-2 text-gray-400 text-meta">
+                  <td className="py-2 px-2 text-foreground-muted text-meta">
                     {item.notes || "—"}
                   </td>
                   {/* Lab-manager ordering workflow (purchases-assignee
@@ -1026,7 +1026,7 @@ export default function PurchaseEditor({
                       )}
                       {item.flagged && !(labHeadGate.canRequestEdit && labHeadGate.unlocked) && (
                         <span
-                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-meta font-semibold uppercase tracking-wide bg-red-100 text-red-800 border border-red-300"
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-meta font-semibold uppercase tracking-wide bg-red-100 dark:bg-red-500/20 text-red-800 dark:text-red-200 border border-red-300"
                           title={item.flagged.reason ?? `Flagged by ${item.flagged.by}`}
                           data-testid="lab-head-purchase-flag-badge"
                         >
@@ -1103,7 +1103,7 @@ export default function PurchaseEditor({
                             }
                             handleDeleteItem(item.id);
                           }}
-                          className="text-red-400 hover:text-red-600 text-meta"
+                          className="text-red-400 hover:text-red-600 dark:hover:text-red-300 text-meta"
                         >
                           ✕
                         </button>
@@ -1133,7 +1133,7 @@ export default function PurchaseEditor({
                 would be visual noise without explaining why, and the
                 view-mode row gate above already prevents click-to-edit. */}
             {!writesDisabled && (
-              <tr className="bg-blue-50/30">
+              <tr className="bg-blue-50 dark:bg-blue-500/10/30">
                 <td className="py-2 px-2 relative" ref={suggestionsRef}>
                   <input
                     type="text"
@@ -1142,21 +1142,21 @@ export default function PurchaseEditor({
                       handleFieldChange("item_name", e.target.value)
                     }
                     placeholder="Item name..."
-                    className="w-full px-2 py-1 border border-gray-200 rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="w-full px-2 py-1 border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-400"
                   />
                   {/* Suggestions dropdown */}
                   {showSuggestions && suggestions.length > 0 && (
-                    <div className="absolute top-full left-2 right-2 z-10 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                    <div className="absolute top-full left-2 right-2 z-10 bg-surface-raised border border-border rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
                       {suggestions.map((cat) => (
                         <button
                           key={cat.id}
                           onClick={() => handleSelectSuggestion(cat)}
-                          className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-50 last:border-b-0"
+                          className="w-full text-left px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-500/10 border-b border-border last:border-b-0"
                         >
-                          <p className="text-body font-medium text-gray-900">
+                          <p className="text-body font-medium text-foreground">
                             {cat.item_name}
                           </p>
-                          <p className="text-meta text-gray-400">
+                          <p className="text-meta text-foreground-muted">
                             ${(cat.price_per_unit ?? 0).toFixed(2)}
                             {cat.cas ? ` · ${cat.cas}` : ""}
                           </p>
@@ -1175,7 +1175,7 @@ export default function PurchaseEditor({
                       handleFieldChange("quantity", e.target.value.replace(/\D/g, ""))
                     }
                     placeholder="0"
-                    className="w-full px-2 py-1 border border-gray-200 rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="w-full px-2 py-1 border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-400"
                   />
                 </td>
                 <td className="py-2 px-2">
@@ -1184,7 +1184,7 @@ export default function PurchaseEditor({
                     value={newRow.link}
                     onChange={(e) => handleFieldChange("link", e.target.value)}
                     placeholder="URL..."
-                    className="w-full px-2 py-1 border border-gray-200 rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="w-full px-2 py-1 border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-400"
                   />
                 </td>
                 <td className="py-2 px-2">
@@ -1193,7 +1193,7 @@ export default function PurchaseEditor({
                     value={newRow.cas}
                     onChange={(e) => handleFieldChange("cas", e.target.value)}
                     placeholder="CAS#..."
-                    className="w-full px-2 py-1 border border-gray-200 rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="w-full px-2 py-1 border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-400"
                   />
                 </td>
                 <td className="py-2 px-2">
@@ -1206,7 +1206,7 @@ export default function PurchaseEditor({
                       handleFieldChange("price_per_unit", e.target.value)
                     }
                     placeholder="0.00"
-                    className="w-full px-2 py-1 border border-gray-200 rounded text-body text-right focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="w-full px-2 py-1 border border-border rounded text-body text-right focus:outline-none focus:ring-1 focus:ring-blue-400"
                   />
                 </td>
                 <td className="py-2 px-2">
@@ -1219,10 +1219,10 @@ export default function PurchaseEditor({
                       handleFieldChange("shipping_fees", e.target.value)
                     }
                     placeholder="0.00"
-                    className="w-full px-2 py-1 border border-gray-200 rounded text-body text-right focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="w-full px-2 py-1 border border-border rounded text-body text-right focus:outline-none focus:ring-1 focus:ring-blue-400"
                   />
                 </td>
-                <td className="py-2 px-2 text-right font-medium text-gray-700">
+                <td className="py-2 px-2 text-right font-medium text-foreground">
                   ${computeTotal(newRow)}
                 </td>
                 <td className="py-2 px-2">
@@ -1235,7 +1235,7 @@ export default function PurchaseEditor({
                       setFundingTouched(true);
                       handleFieldChange("funding_string", e.target.value);
                     }}
-                    className="w-full px-2 py-1 border border-gray-200 rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+                    className="w-full px-2 py-1 border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-400 bg-surface-raised"
                   >
                     <option value="">—</option>
                     {fundingAccounts.map((acc) => (
@@ -1252,7 +1252,7 @@ export default function PurchaseEditor({
                     value={newRow.vendor}
                     onChange={(e) => handleFieldChange("vendor", e.target.value)}
                     placeholder="Vendor..."
-                    className="w-full px-2 py-1 border border-gray-200 rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="w-full px-2 py-1 border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-400"
                   />
                 </td>
                 <td className="py-2 px-2">
@@ -1262,7 +1262,7 @@ export default function PurchaseEditor({
                     value={newRow.category}
                     onChange={(e) => handleFieldChange("category", e.target.value)}
                     placeholder="Category..."
-                    className="w-full px-2 py-1 border border-gray-200 rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="w-full px-2 py-1 border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-400"
                   />
                 </td>
                 <td className="py-2 px-2">
@@ -1271,7 +1271,7 @@ export default function PurchaseEditor({
                     value={newRow.notes}
                     onChange={(e) => handleFieldChange("notes", e.target.value)}
                     placeholder="Notes..."
-                    className="w-full px-2 py-1 border border-gray-200 rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="w-full px-2 py-1 border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-400"
                   />
                 </td>
                 {/* Assignee + order-status + PI-status cells are empty in the
@@ -1287,7 +1287,7 @@ export default function PurchaseEditor({
                       aria-label="Add item"
                       onClick={handleAddRow}
                       disabled={saving || !newRow.item_name.trim() || !newRow.quantity}
-                      className="text-blue-500 hover:text-blue-700 text-body font-bold disabled:opacity-30"
+                      className="text-blue-500 hover:text-blue-700 dark:hover:text-blue-300 text-body font-bold disabled:opacity-30"
                     >
                       +
                     </button>
@@ -1297,11 +1297,11 @@ export default function PurchaseEditor({
             )}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 border-gray-200">
-              <td colSpan={6} className="py-2 px-2 text-right text-meta font-semibold text-gray-500">
+            <tr className="border-t-2 border-border">
+              <td colSpan={6} className="py-2 px-2 text-right text-meta font-semibold text-foreground-muted">
                 Order Total:
               </td>
-              <td className="py-2 px-2 text-right font-bold text-gray-900">
+              <td className="py-2 px-2 text-right font-bold text-foreground">
                 ${taskTotal.toFixed(2)}
               </td>
               {/* Funding + Vendor + Category + Notes + Assigned to + Order
