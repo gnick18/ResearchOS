@@ -123,16 +123,14 @@ export function avatarGradient(baseHex: string): [string, string] {
  * horizontal for the wide app header. The stops are pastel (high lightness), so
  * the readable foreground is a dark ink, not white.
  */
-// Circular contexts (avatars, swatches) use a CONIC sweep so the ramp reads as
-// a smooth rainbow ring — a linear diagonal puts the end colors in solid corner
-// wedges, which on a small circle looks like a faceted "square in a circle"
-// (very visible with the saturated vivid stops). The last stop repeats the
-// first so the wheel closes seamlessly. The wide HEADER stays linear (a conic
-// sweep on a long bar would look like a pinwheel).
+// A HORIZONTAL (left-to-right) linear ramp everywhere — avatars, swatches, and
+// the header. In a circle this reads as smooth vertical color bands with no
+// corner wedges (the 135deg diagonal put solid end-colors in the corners, which
+// looked like a "square in a circle") and no center spokes (a conic sweep), and
+// it matches BeakerBot's actual horizontal body liquid.
 export const RAINBOW_AVATAR_GRADIENT =
-  "conic-gradient(from 135deg, #FFD2B0, #FFF1A8, #B7EBB1, #A6D2F4, #D6B5F0, #FFD2B0)";
-export const RAINBOW_HEADER_GRADIENT =
   "linear-gradient(to right, #FFD2B0, #FFF1A8, #B7EBB1, #A6D2F4, #D6B5F0)";
+export const RAINBOW_HEADER_GRADIENT = RAINBOW_AVATAR_GRADIENT;
 export const RAINBOW_FOREGROUND = "#0f1b2e";
 
 /**
@@ -141,9 +139,8 @@ export const RAINBOW_FOREGROUND = "#0f1b2e";
  * White foreground since the stops are saturated, not pastel.
  */
 export const RAINBOW_VIVID_AVATAR_GRADIENT =
-  "conic-gradient(from 135deg, #F97316, #E8920B, #16A34A, #0284C7, #9333EA, #F97316)";
-export const RAINBOW_VIVID_HEADER_GRADIENT =
   "linear-gradient(to right, #F97316, #E8920B, #16A34A, #0284C7, #9333EA)";
+export const RAINBOW_VIVID_HEADER_GRADIENT = RAINBOW_VIVID_AVATAR_GRADIENT;
 export const RAINBOW_VIVID_FOREGROUND = "#ffffff";
 
 /**
