@@ -1,61 +1,12 @@
 "use client";
 
-// SENSITIVE: drives security-manager constraint #2(a) — the 15-minute
-// idle wipe of the in-memory password cache used by the encrypted-backup
-// recovery flow.
-//
-// Lifecycle:
-//   - When the tab transitions to hidden, start a 15-minute timer.
-//   - On `visibilitychange → visible`, cancel the pending timer.
-//   - On timer fire (15 min elapsed with the tab still hidden),
-//     clearCachedPassword() unconditionally. The next encrypted-backup
-//     decrypt prompt will re-ask the user.
-//
-// The component renders nothing. It is mounted once at the AppShell
-// root so it lives for the duration of any signed-in session and gets
-// torn down on logout / folder switch alongside the rest of the shell.
-
-import { useEffect } from "react";
-import { clearCachedPassword } from "@/lib/auth/cached-password";
-
-const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+// Vestigial. This used to drive a 15-minute idle wipe of the in-memory account
+// password cache that the encrypted-backup recovery flow relied on. Identity
+// model phase 1 (2026-06-05) re-keyed that backup off the on-device keypair and
+// deleted the password cache entirely, so there is nothing to wipe. Kept as a
+// no-op (still mounted by AppShell) to avoid churning the shell and its tests;
+// safe to delete outright in a later cleanup.
 
 export default function IdlePasswordWipe() {
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-
-    let timerId: ReturnType<typeof setTimeout> | null = null;
-
-    const cancelTimer = () => {
-      if (timerId !== null) {
-        clearTimeout(timerId);
-        timerId = null;
-      }
-    };
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        cancelTimer();
-        timerId = setTimeout(() => {
-          clearCachedPassword();
-          timerId = null;
-        }, IDLE_TIMEOUT_MS);
-      } else {
-        cancelTimer();
-      }
-    };
-
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    // Honor the current state on mount in case the tab was already
-    // hidden when the user signed in (rare, but possible after a
-    // background sign-in flow).
-    onVisibilityChange();
-
-    return () => {
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-      cancelTimer();
-    };
-  }, []);
-
   return null;
 }

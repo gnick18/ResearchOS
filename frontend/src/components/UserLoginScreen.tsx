@@ -5,7 +5,20 @@ import { useQueryClient } from "@tanstack/react-query";
 import { signIn, signOut } from "next-auth/react";
 import { usersApi } from "@/lib/local-api";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
-import { hasPassword, verifyPassword, setPassword } from "@/lib/auth/password";
+import { removePassword } from "@/lib/auth/password";
+import { folderRequiresLogin } from "@/lib/auth/login-policy";
+import {
+  hasLocalAccount,
+  loginWithPassword,
+  loginWithRecovery,
+  createAndPersistAccount,
+} from "@/lib/auth/account-store";
+import { type UnlockedKeys } from "@/lib/auth/local-identity";
+import { saveIdentity } from "@/lib/sharing/identity/storage";
+import { decodePublicKey } from "@/lib/sharing/identity/keys";
+import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
+import { deleteSharingIdentity } from "@/lib/sharing/identity/sidecar";
+import { deleteEncryptedBackup } from "@/lib/telegram/encrypted-backup";
 import { performUserDelete } from "@/lib/users/perform-delete";
 import { readUserSettings } from "@/lib/settings/user-settings";
 import { readArchivedSet } from "@/lib/lab/user-archive";
@@ -15,6 +28,8 @@ import {
 } from "@/lib/sharing/identity/sidecar";
 import { evaluateUnlockMatch } from "@/lib/sharing/identity/unlock-match";
 import { GoogleIcon, GitHubIcon, LinkedInIcon } from "@/components/sharing/icons";
+import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
+import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
 import {
   createUserMetadataEntry,
   readAllUserMetadata,
@@ -76,6 +91,10 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   const [users, setUsers] = useState<string[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newUsername, setNewUsername] = useState("");
+  // Quick-confirm for a one-user folder on a fresh connect, "Continue as <user>?"
+  // with Yes (login) or No (expand to the full picker so a new person can add an
+  // account). Expanding sticks for the rest of this screen's life.
+  const [expandPicker, setExpandPicker] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loggingIn, setLoggingIn] = useState<string | null>(null);
   const [mainUser, setMainUser] = useState<string | null>(null);
@@ -116,6 +135,10 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   const [verifyingPassword, setVerifyingPassword] = useState(false);
   const passwordInputRef = useRef<HTMLInputElement>(null);
 
+  // Forgot-password fallback, unlock the keypair with the recovery code instead.
+  const [recoveryMode, setRecoveryMode] = useState(false);
+  const [recoveryInput, setRecoveryInput] = useState("");
+
   // D1 (cross-boundary sharing): provider-unlock alongside the password.
   // For an account that has CLAIMED a global sharing identity (a
   // `_sharing_identity.json` sidecar exists for that user), and only when
@@ -154,6 +177,27 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   const [forceConfirmPassword, setForceConfirmPassword] = useState("");
   const [savingForcedPassword, setSavingForcedPassword] = useState(false);
   const forcePasswordInputRef = useRef<HTMLInputElement>(null);
+
+  // After a new account is created, show its recovery code once before signing
+  // in. The code is the only fallback if the password is lost.
+  const [createdRecovery, setCreatedRecovery] = useState<{
+    username: string;
+    code: string;
+  } | null>(null);
+  const [recoveryCopied, setRecoveryCopied] = useState(false);
+
+  // After a brand-new account is established (solo create, or the forced
+  // password gate on a shared folder), offer an OPTIONAL "set up your profile"
+  // step with the third-party sign-in buttons before entering the app. Skipping
+  // is always allowed (the same buttons live in Settings to set up later). This
+  // is the only place creation differs from a normal returning-user login,
+  // which never sees it.
+  const [profileStep, setProfileStep] = useState<{ username: string } | null>(
+    null,
+  );
+  // When the user clicks a provider in the profile step, mount the existing
+  // SharingSetupWizard, which owns the whole OAuth + identity-claim flow.
+  const [profileWizardOpen, setProfileWizardOpen] = useState(false);
 
   // Per-user password management popup (set/change/remove)
   const [managingPasswordFor, setManagingPasswordFor] = useState<string | null>(null);
@@ -241,7 +285,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     await Promise.all(
       usernames.map(async (u) => {
         try {
-          if (await hasPassword(u)) next.add(u);
+          if (await hasLocalAccount(u)) next.add(u);
         } catch {
           // If we can't read, treat as unlocked rather than crashing the screen.
         }
@@ -452,6 +496,29 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     }
   };
 
+  // Load an unlocked local-account keypair into this device's session so the
+  // sharing and collab features see the identity. Best-effort, a save failure
+  // never blocks the login itself (the user is still let into their folder).
+  const persistUnlockedIdentity = async (keys: UnlockedKeys) => {
+    try {
+      await saveIdentity({
+        keys: {
+          encryption: {
+            publicKey: decodePublicKey(keys.x25519PublicKey),
+            privateKey: keys.x25519PrivateKey,
+          },
+          signing: {
+            publicKey: decodePublicKey(keys.ed25519PublicKey),
+            privateKey: keys.ed25519PrivateKey,
+          },
+        },
+        deviceSalt: generateDeviceSalt(),
+      });
+    } catch {
+      // Non-fatal, the login proceeds without the keypair in the session.
+    }
+  };
+
   const performLogin = async (username: string) => {
     try {
       await usersApi.login(username);
@@ -463,40 +530,47 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     }
   };
 
+  // Close the optional profile step and enter the app. Used by the step's
+  // "Skip for now" button and by the wizard's onComplete (after setup the user
+  // continues straight in).
+  const skipProfileStep = () => {
+    setProfileWizardOpen(false);
+    setProfileStep(null);
+    onLogin();
+  };
+
   const handleLogin = async (username: string) => {
     setLoggingIn(username);
     setError(null);
     try {
-      const gated = await hasPassword(username);
-      if (gated) {
-        // Has a password (any account type) → require it. This is the
-        // existing path; lab heads with a password flow through here
-        // exactly like a member who opted into a password.
+      const hasAccount = await hasLocalAccount(username);
+      if (hasAccount) {
+        // The user has a local account, require the password that unwraps their
+        // keypair. handleSubmitPassword does the unwrap.
         setPasswordGate({ username, nextAction: "user" });
         setPasswordInput("");
         return;
       }
-      // No password on disk. Lab heads MUST have one (pi-password bot,
-      // 2026-06-02): force them to set it now before signing in. The
-      // `labHeadUsers` set is the fast path, but it loads async after
-      // the user list — a click before the fan-out settles could miss
-      // it. So we ALSO read this user's settings directly here to make
-      // the lab_head determination authoritative at click time. Members
-      // + solo accounts skip this and log in directly (optional-password
-      // behavior unchanged).
+      // No password on disk. Identity model phase 1, a login is mandatory once a
+      // folder is shared (two or more users) or a lab head is present, so force
+      // setting a password before signing in. A genuinely solo folder keeps the
+      // optional-password behavior and logs in directly. The `labHeadUsers` set
+      // loads async after the user list, so a click before the fan-out settles
+      // could miss a PI, we ALSO read this user's settings directly to make the
+      // lab_head determination authoritative at click time. The user count is
+      // already known synchronously from the loaded list.
       let isLabHead = labHeadUsers.has(username);
       if (!isLabHead) {
         try {
           const settings = await readUserSettings(username);
           isLabHead = settings.account_type === "lab_head";
         } catch {
-          // Settings read failed — fall back to the fast-path value
-          // (false here). Better to let a probable non-PI log in than to
-          // block on a transient FS error; a real PI will already be in
-          // labHeadUsers once the screen settles.
+          // Settings read failed — fall back to the fast-path value (false). A
+          // real PI is already in labHeadUsers once the screen settles, and a
+          // shared folder still forces via the user-count branch.
         }
       }
-      if (isLabHead) {
+      if (folderRequiresLogin(users.length, isLabHead || labHeadUsers.size > 0)) {
         setForcePasswordGate({ username });
         setForceNewPassword("");
         setForceConfirmPassword("");
@@ -523,16 +597,38 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     setSavingForcedPassword(true);
     try {
       const { username } = forcePasswordGate;
-      await setPassword(username, forceNewPassword);
-      setForcePasswordGate(null);
+      // Yield one frame so the CSS spinner paints before the heavy Argon2id work
+      // (createAndPersistAccount derives two wrapping keys synchronously).
+      await new Promise((r) => window.setTimeout(r, 50));
+      const created = await createAndPersistAccount(username, forceNewPassword);
+      // Wipe and re-establish, supersede any legacy password hash and any stale
+      // published-identity sidecar that pointed at the old keypair.
+      try {
+        await removePassword(username);
+      } catch {
+        // No legacy password to remove, fine.
+      }
+      try {
+        await deleteSharingIdentity(username);
+      } catch {
+        // No stale published identity, fine.
+      }
+      try {
+        // A Telegram backup keyed to the superseded keypair is now orphaned.
+        await deleteEncryptedBackup(username);
+      } catch {
+        // No stale backup, fine.
+      }
+      await persistUnlockedIdentity(created.keys);
+      setLockedUsers((prev) => new Set(prev).add(username));
       setForceNewPassword("");
       setForceConfirmPassword("");
       setSavingForcedPassword(false);
-      // Reflect the new lock state on the tile, then sign in.
-      setLockedUsers((prev) => new Set(prev).add(username));
-      await performLogin(username);
+      // Show the recovery code once. The user continues into the app from there.
+      setForcePasswordGate(null);
+      setCreatedRecovery({ username, code: created.recoveryCode });
     } catch {
-      setError("Failed to set password. Please try again.");
+      setError("Could not set up your account. Please try again.");
       setSavingForcedPassword(false);
     }
   };
@@ -551,12 +647,13 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     setError(null);
     setVerifyingPassword(true);
     try {
-      const ok = await verifyPassword(passwordGate.username, passwordInput);
-      if (!ok) {
+      const keys = await loginWithPassword(passwordGate.username, passwordInput);
+      if (!keys) {
         setError("Incorrect password.");
         setVerifyingPassword(false);
         return;
       }
+      await persistUnlockedIdentity(keys);
       const { username } = passwordGate;
       setPasswordGate(null);
       setPasswordInput("");
@@ -572,8 +669,38 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     setPasswordGate(null);
     setPasswordInput("");
     setVerifyingPassword(false);
+    setRecoveryMode(false);
+    setRecoveryInput("");
     setLoggingIn(null);
     setError(null);
+  };
+
+  // Forgot-password fallback. Unwrap the keypair with the recovery code (or the
+  // 12 words) instead of the password, then sign in. A wrong code fails the
+  // Poly1305 tag and loginWithRecovery returns null.
+  const handleSubmitRecovery = async () => {
+    if (!passwordGate) return;
+    setError(null);
+    setVerifyingPassword(true);
+    try {
+      const keys = await loginWithRecovery(passwordGate.username, recoveryInput);
+      if (!keys) {
+        setError("That recovery code does not match this account.");
+        setVerifyingPassword(false);
+        return;
+      }
+      await persistUnlockedIdentity(keys);
+      const { username } = passwordGate;
+      setPasswordGate(null);
+      setPasswordInput("");
+      setRecoveryMode(false);
+      setRecoveryInput("");
+      setVerifyingPassword(false);
+      await performLogin(username);
+    } catch {
+      setError("Could not unlock with that recovery code. Please try again.");
+      setVerifyingPassword(false);
+    }
   };
 
   // D1: start a provider unlock for a claimed account. OAuth is a full-page
@@ -640,8 +767,18 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       // creation entirely on a metadata read hiccup.
       try {
         await usersApi.create(username);
+        if (folderRequiresLogin(users.length + 1, labHeadUsers.size > 0)) {
+          setLoggingIn(null);
+          setForceNewPassword("");
+          setForceConfirmPassword("");
+          setForcePasswordGate({ username });
+          return;
+        }
+        // Solo first user. Enter the session, then offer the optional profile
+        // step before showing the app.
         await setCurrentUser(username);
-        onLogin();
+        setLoggingIn(null);
+        setProfileStep({ username });
       } catch {
         setError("Failed to create user. Please try again.");
         setLoggingIn(null);
@@ -677,12 +814,27 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       //    after login picks up the new entry without a stale read.
       queryClient.invalidateQueries({ queryKey: USER_COLOR_QUERY_KEY });
 
-      // 3. Finalize user creation (storeCurrentUser).
+      // 3. Finalize user creation.
       await usersApi.create(username);
-      await setCurrentUser(username);
-
       setColorPicker(null);
-      onLogin();
+
+      // In a shared folder (this new user makes it 2+, or a lab head is present)
+      // the user must set up a login + keypair before entering, so route them
+      // through the force-set-password gate (which creates the account and shows
+      // the recovery code). A solo first user stays login-free.
+      if (folderRequiresLogin(users.length + 1, labHeadUsers.size > 0)) {
+        setLoggingIn(null);
+        setForceNewPassword("");
+        setForceConfirmPassword("");
+        setForcePasswordGate({ username });
+        return;
+      }
+
+      // Solo first user. Enter the session, then offer the optional profile
+      // step before showing the app.
+      await setCurrentUser(username);
+      setLoggingIn(null);
+      setProfileStep({ username });
     } catch (err) {
       console.error("Failed to finalize user creation:", err);
       setError("Failed to create user. Please try again.");
@@ -912,6 +1064,13 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       : sortedActiveUsers;
   }, [sortedActiveUsers, sortedArchivedUsers, showArchived]);
 
+  // Quick-confirm only on a fresh connect (no one signed in) to a one-user
+  // folder, and only until the user picks "someone else". The switch-user modal
+  // (already signed in) always shows the full picker.
+  const soleUser = users.length === 1 ? users[0] : null;
+  const showQuickConfirm =
+    !contextCurrentUser && !expandPicker && soleUser !== null;
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Beta surfacing, mirrors the folder-setup screen: version badge
@@ -958,6 +1117,41 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+            </div>
+          ) : showQuickConfirm && soleUser ? (
+            <div className="p-6 text-center space-y-5">
+              <div className="flex flex-col items-center gap-3">
+                <UserAvatar username={soleUser} size="xl" />
+                <div>
+                  <p className="text-body text-slate-400">Continue as</p>
+                  <p className="text-heading font-semibold text-white">
+                    {soleUser}?
+                  </p>
+                </div>
+              </div>
+              {error && (
+                <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
+                  <p className="text-body text-red-300">{error}</p>
+                </div>
+              )}
+              <div className="space-y-2">
+                <button
+                  onClick={() => handleLogin(soleUser)}
+                  disabled={loggingIn !== null}
+                  className="w-full py-3 btn-brand text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Yes, I&apos;m {soleUser}
+                </button>
+                <button
+                  onClick={() => {
+                    setError(null);
+                    setExpandPicker(true);
+                  }}
+                  className="w-full py-2.5 text-body bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg transition-colors"
+                >
+                  No, I&apos;m someone else
+                </button>
+              </div>
             </div>
           ) : showCreateForm ? (
             <div className="p-6">
@@ -1578,20 +1772,36 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   )}
                 </div>
               )}
-              <input
-                ref={passwordInputRef}
-                type="password"
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSubmitPassword();
-                  if (e.key === "Escape") cancelPasswordGate();
-                }}
-                disabled={verifyingPassword || unlockingViaProvider}
-                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
-                autoComplete="current-password"
-                placeholder="Password"
-              />
+              {recoveryMode ? (
+                <input
+                  type="text"
+                  value={recoveryInput}
+                  onChange={(e) => setRecoveryInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSubmitRecovery();
+                    if (e.key === "Escape") cancelPasswordGate();
+                  }}
+                  disabled={verifyingPassword}
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body font-mono"
+                  placeholder="Recovery code or 12 words"
+                  autoFocus
+                />
+              ) : (
+                <input
+                  ref={passwordInputRef}
+                  type="password"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSubmitPassword();
+                    if (e.key === "Escape") cancelPasswordGate();
+                  }}
+                  disabled={verifyingPassword || unlockingViaProvider}
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
+                  autoComplete="current-password"
+                  placeholder="Password"
+                />
+              )}
               {error && (
                 <div className="p-2 bg-red-500/20 border border-red-500/30 rounded-lg">
                   <p className="text-meta text-red-300">{error}</p>
@@ -1606,13 +1816,35 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   Cancel
                 </button>
                 <button
-                  onClick={handleSubmitPassword}
-                  disabled={verifyingPassword || !passwordInput}
+                  onClick={
+                    recoveryMode ? handleSubmitRecovery : handleSubmitPassword
+                  }
+                  disabled={
+                    verifyingPassword ||
+                    (recoveryMode ? !recoveryInput : !passwordInput)
+                  }
                   className="flex-1 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:opacity-50"
                 >
-                  {verifyingPassword ? "Verifying..." : "Sign in"}
+                  {verifyingPassword
+                    ? "Unlocking…"
+                    : recoveryMode
+                      ? "Unlock"
+                      : "Sign in"}
                 </button>
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setRecoveryMode((m) => !m);
+                }}
+                disabled={verifyingPassword}
+                className="text-meta text-blue-400 hover:text-blue-300 disabled:opacity-50"
+              >
+                {recoveryMode
+                  ? "Back to password"
+                  : "Forgot your password? Use your recovery code"}
+              </button>
             </div>
           </div>
         </div>
@@ -1632,11 +1864,11 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           >
             <div className="px-6 py-4 border-b border-white/10">
               <h3 className="text-title font-semibold text-white">
-                Set a PI password
+                Set a password for {forcePasswordGate.username}
               </h3>
               <p className="text-meta text-slate-400 mt-0.5">
-                {forcePasswordGate.username} runs a lab, so a password is
-                required to sign in.
+                This folder is shared, so each account needs a password to sign
+                in.
               </p>
             </div>
             <div className="px-6 py-5 space-y-3">
@@ -1671,8 +1903,9 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 </div>
               )}
               <p className="text-meta text-slate-400 leading-relaxed">
-                Stored only on your disk, hashed with PBKDF2-SHA-256.
-                Never sent to any server.
+                This password unlocks your account on this device and stays on
+                your disk, never sent to any server. You will get a recovery code
+                next, in case you forget it.
               </p>
               <div className="flex gap-2 pt-1">
                 <button
@@ -1692,12 +1925,126 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   className="flex-1 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:opacity-50"
                   data-testid="force-pi-password-submit"
                 >
-                  {savingForcedPassword ? "Saving…" : "Set & sign in"}
+                  {savingForcedPassword ? "Creating…" : "Create account"}
                 </button>
               </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Recovery code, shown once right after a new account is created. */}
+      {createdRecovery && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div
+            className="bg-slate-800 rounded-2xl shadow-2xl border border-white/20 max-w-sm w-full mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-white/10">
+              <h3 className="text-title font-semibold text-white">
+                Save your recovery code
+              </h3>
+              <p className="text-meta text-slate-400 mt-0.5">
+                This is the only way back in if you forget your password. Write it
+                somewhere safe, it is not shown again.
+              </p>
+            </div>
+            <div className="px-6 py-5 space-y-3">
+              <div className="p-3 bg-slate-900/60 border border-white/10 rounded-lg">
+                <p className="font-mono text-body text-slate-100 tracking-wide break-all text-center">
+                  {createdRecovery.code}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(createdRecovery.code);
+                    setRecoveryCopied(true);
+                    window.setTimeout(() => setRecoveryCopied(false), 1800);
+                  } catch {
+                    // Clipboard can be blocked, the code is still visible to copy.
+                  }
+                }}
+                className="text-meta text-blue-400 hover:text-blue-300"
+              >
+                {recoveryCopied ? "Copied" : "Copy code"}
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const u = createdRecovery.username;
+                  setCreatedRecovery(null);
+                  // Establish the session without leaving the login screen, so
+                  // the optional profile step can render over it next.
+                  try {
+                    await usersApi.login(u);
+                  } catch {
+                    // The account was just created, a login hiccup is non-fatal.
+                  }
+                  await setCurrentUser(u);
+                  setProfileStep({ username: u });
+                }}
+                className="w-full py-2 text-body bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg"
+                data-testid="recovery-continue"
+              >
+                I saved it, continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Optional profile setup, offered once right after a new account is
+          established. The third-party buttons hand off to the existing
+          SharingSetupWizard; "Skip for now" enters the app. A returning user
+          signing in normally never reaches this. */}
+      {profileStep && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div
+            className="bg-slate-800 rounded-2xl shadow-2xl border border-white/20 max-w-sm w-full mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-white/10">
+              <h3 className="text-title font-semibold text-white">
+                Set up your profile
+              </h3>
+              <p className="text-meta text-slate-400 mt-0.5 leading-relaxed">
+                Link an account so colleagues can find you and confirm it is
+                really you before they share work. This is optional, you can
+                always do it later from Settings.
+              </p>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <SharingProviderButtons
+                onProvider={() => setProfileWizardOpen(true)}
+              />
+              <button
+                type="button"
+                onClick={skipProfileStep}
+                className="w-full py-2 text-body text-slate-300 hover:text-white font-medium"
+                data-testid="profile-step-skip"
+              >
+                Skip for now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* The full OAuth + identity-claim flow, mounted on top of the profile
+          step once a provider is chosen. Completing it enters the app;
+          closing it returns to the profile step so the user can still skip. */}
+      {profileWizardOpen && profileStep && (
+        <SharingSetupWizard
+          username={profileStep.username}
+          onComplete={() => {
+            skipProfileStep();
+          }}
+          onClose={() => {
+            setProfileWizardOpen(false);
+          }}
+        />
       )}
 
       {/* Account password management popup */}

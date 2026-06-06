@@ -16,7 +16,6 @@ import {
 } from "./indexeddb-store";
 import { readMainUser, writeMainUser, pruneOrphanUserMetadataEntries } from "./user-metadata";
 import { clearCurrentUserCache } from "../storage/json-store";
-import { clearCachedPassword } from "../auth/cached-password";
 import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./user-discovery";
 import { readUserSettings, patchUserSettings, userSettingsFileExists, DEFAULT_SETTINGS } from "../settings/user-settings";
 import { useAppStore, readLegacyLocalStorageSettings } from "../store";
@@ -354,10 +353,13 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         scheduleConnectMaintenance(users);
 
         let currentUser = await getCurrentUser();
-        if (users.length === 1) {
-          currentUser = users[0];
-          await storeCurrentUser(currentUser);
-        } else if (
+        // A one-user folder no longer silently auto-logs in (identity model
+        // phase 1, 2026-06-05). The login screen shows a quick "Continue as
+        // <user>?" confirm instead, so a different person can add their own
+        // account and a user who set a password is still prompted for it. A
+        // returning session keeps its stored currentUser (handled below); only a
+        // fresh connect with no stored pointer falls through to the login screen.
+        if (
           currentUser &&
           users.length > 0 &&
           !users.includes(currentUser)
@@ -1026,12 +1028,6 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     // with no IDB candidate to migrate from.
     await clearMainUser();
 
-    // Constraint #2(c): folder switch wipes the cached password. The
-    // encrypted backup at users/<u>/_telegram-encrypted.json stays with
-    // the disconnecting folder, so any cached password from that folder's
-    // user must not survive into a freshly-connected folder.
-    clearCachedPassword();
-
     // Clear any hydrated user preferences so the next user's settings don't
     // leak from the in-memory store.
     useAppStore.getState().resetSettingsToDefaults();
@@ -1066,10 +1062,6 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
       resetEditSession();
     }
     clearCurrentUserCache();
-    // Constraint #2(b): explicit user-switch wipes the cached password.
-    // The encrypted backup is keyed per-user and the password gate
-    // belongs to whichever account we just left.
-    clearCachedPassword();
     await storeCurrentUser(username);
     setState((prev) => ({ ...prev, currentUser: username }));
     await hydrateSettingsForUser(username);

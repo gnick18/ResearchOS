@@ -1742,6 +1742,32 @@ export default function SequencesPage() {
                           {seqTypeLabel(s.seq_type)} · {s.length.toLocaleString()} bp ·{" "}
                           {formatAdded(s.added_at)}
                         </span>
+                        {/* sequence editor master. At-a-glance taxonomy signal.
+                            When a sequence carries an organism (NCBI-enriched or
+                            hand-labeled) the row shows its binomial name so the
+                            library is scannable for which sequences are labeled,
+                            instead of having to open each one. Self-hides on a
+                            bare sequence. */}
+                        {s.organism ? (
+                          <span className="mt-0.5 flex min-w-0 items-center gap-1 text-meta italic text-emerald-600 dark:text-emerald-400">
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
+                              className="h-3 w-3 shrink-0"
+                            >
+                              <circle cx="6" cy="6" r="2.2" />
+                              <circle cx="6" cy="18" r="2.2" />
+                              <circle cx="18" cy="12" r="2.2" />
+                              <path d="M8.2 6.8 15.6 11M8.2 17.2 15.6 13" />
+                            </svg>
+                            <span className="truncate">{s.organism}</span>
+                          </span>
+                        ) : null}
                       </span>
                     </button>
                     {/* Per-row delete, revealed on hover / focus. Routes

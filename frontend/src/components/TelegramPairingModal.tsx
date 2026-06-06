@@ -10,9 +10,8 @@ import {
 } from "@/lib/telegram/telegram-store";
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
-import { hasPassword, verifyPassword } from "@/lib/auth/password";
-import { setCachedPassword } from "@/lib/auth/cached-password";
 import { writeEncryptedBackup } from "@/lib/telegram/encrypted-backup";
+import { loadIdentity } from "@/lib/sharing/identity/storage";
 import Tooltip from "./Tooltip";
 
 interface TelegramPairingModalProps {
@@ -38,11 +37,11 @@ type Step =
       token: string;
       botUsername: string;
       botFirstName?: string;
-      /** When set, the user opted into the encrypted backup at enterToken
-       *  time and verifyPassword has already succeeded against this
-       *  string. We defer the actual writeEncryptedBackup call to here
-       *  because the chatId isn't known until /start lands. */
-      encryptedBackupPassword?: string;
+      /** When true, the user opted into the encrypted backup at enterToken
+       *  time. We defer the actual writeEncryptedBackup call to here because
+       *  the chatId isn't known until /start lands. The backup is keyed off
+       *  the on-device keypair, loaded at write time. */
+      encryptedBackup?: boolean;
     }
   | { kind: "success"; pairing: TelegramPairing };
 
@@ -56,27 +55,18 @@ export default function TelegramPairingModal({
   const [showToken, setShowToken] = useState(false);
   const [validating, setValidating] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
-  // Opt-in encrypted-backup state. Off by default per the security
-  // posture review — the disk backup is a power-user "remember across
-  // browser wipes" feature, not the default. Password-gated so the
-  // sidecar at users/<u>/_telegram-encrypted.json is useless without
-  // proof of who the user is.
+  // Opt-in encrypted-backup state. Off by default per the security posture
+  // review — the disk backup is a power-user "remember across browser wipes"
+  // feature, not the default. It is keyed off the on-device identity keypair, so
+  // it is offered only when a keypair exists (the user is signed in).
   const [saveBackup, setSaveBackup] = useState(false);
-  const [passwordInput, setPasswordInput] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-  // The encrypted-backup feature requires the user to have an account
-  // password set (we encrypt with it). When the gate is open
-  // (no _auth.json), the checkbox is hidden — there's nothing to
-  // encrypt with that we can also use to decrypt on auto-reconnect.
-  const [passwordGateExists, setPasswordGateExists] = useState(false);
+  const [hasIdentity, setHasIdentity] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     (async () => {
       const existing = await readPairing(username);
-      const gated = await hasPassword(username);
-      setPasswordGateExists(gated);
+      setHasIdentity((await loadIdentity()) !== null);
       if (existing) {
         setStep({ kind: "alreadyPaired", pairing: existing });
       } else {
@@ -117,30 +107,30 @@ export default function TelegramPairingModal({
               pairedAt: new Date().toISOString(),
             };
             await writePairing(username, pairing);
-            // If the user opted into the encrypted-backup at this
-            // pairing's enterToken step, we deferred the write until
-            // chatId was known (the chatId is only available after
-            // /start). step.encryptedBackupPassword carries the
-            // already-verified password forward so we don't re-prompt.
-            if (step.encryptedBackupPassword) {
+            // If the user opted into the encrypted backup at this pairing's
+            // enterToken step, we deferred the write until chatId was known
+            // (only available after /start). The backup is keyed off the
+            // on-device keypair, loaded here at write time.
+            if (step.encryptedBackup) {
               try {
-                // botFirstName is intentionally NOT included in the
-                // encrypted payload (security-manager constraint #6 —
-                // minimum sensitive data on disk). Display name is
-                // recovered from getMe() on the next poll.
-                await writeEncryptedBackup(
-                  username,
-                  {
-                    botToken: step.token,
-                    chatId,
-                    botUsername: step.botUsername,
-                  },
-                  step.encryptedBackupPassword,
-                );
-                await ensureGitignoreEntries([
-                  "_telegram-encrypted.json",
-                  "users/*/_telegram-encrypted.json",
-                ]);
+                const identity = await loadIdentity();
+                if (identity) {
+                  // botFirstName is intentionally NOT in the encrypted payload
+                  // (constraint #6), it is recovered via getMe() on the next poll.
+                  await writeEncryptedBackup(
+                    username,
+                    {
+                      botToken: step.token,
+                      chatId,
+                      botUsername: step.botUsername,
+                    },
+                    identity.keys.encryption.privateKey,
+                  );
+                  await ensureGitignoreEntries([
+                    "_telegram-encrypted.json",
+                    "users/*/_telegram-encrypted.json",
+                  ]);
+                }
               } catch (err) {
                 console.warn("[pairing-modal] encrypted-backup write failed", err);
               }
@@ -203,39 +193,18 @@ export default function TelegramPairingModal({
     const token = tokenInput.trim();
     if (!token) return;
     setValidating(true);
-    setPasswordError(null);
     try {
-      // Password verification gates the encrypted-backup write but does
-      // NOT gate the pairing itself — a wrong password just blocks the
-      // backup. We check it BEFORE getMe so the user doesn't bounce
-      // through Telegram only to discover they mistyped their password.
-      const wantsBackup = saveBackup && passwordGateExists;
-      let backupPassword: string | null = null;
-      if (wantsBackup) {
-        const ok = await verifyPassword(username, passwordInput);
-        if (!ok) {
-          setPasswordError("Incorrect account password.");
-          setValidating(false);
-          return;
-        }
-        backupPassword = passwordInput;
-        // Stash the verified password in the module-private cache so the
-        // rest of the session (recovery banner, password-change
-        // re-encrypt) can use it without re-prompting. Wipe triggers
-        // documented in cached-password.ts.
-        setCachedPassword(passwordInput);
-      }
+      // The backup is keyed off the on-device keypair, so opting in needs no
+      // password, just a signed-in identity. The actual write is deferred until
+      // the chatId is known (inside the waitForStart effect).
+      const wantsBackup = saveBackup && hasIdentity;
       const info = await getMe(token);
-      // Defer the actual encrypted-backup write until the chatId is
-      // known (inside the waitForStart effect). We carry the
-      // already-verified password forward through Step.
-      setPasswordInput("");
       setStep({
         kind: "waitForStart",
         token,
         botUsername: info.username,
         botFirstName: info.first_name,
-        encryptedBackupPassword: backupPassword ?? undefined,
+        encryptedBackup: wantsBackup,
       });
     } catch (err) {
       const message =
@@ -412,19 +381,13 @@ export default function TelegramPairingModal({
                 <p className="mt-2 text-meta text-red-600">{step.error}</p>
               )}
             </div>
-            {passwordGateExists ? (
+            {hasIdentity ? (
               <div className="space-y-2 border-t border-gray-100 pt-3">
                 <label className="flex items-start gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={saveBackup}
-                    onChange={(e) => {
-                      setSaveBackup(e.target.checked);
-                      if (!e.target.checked) {
-                        setPasswordInput("");
-                        setPasswordError(null);
-                      }
-                    }}
+                    onChange={(e) => setSaveBackup(e.target.checked)}
                     className="mt-0.5 h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                   <div className="flex-1 min-w-0">
@@ -433,7 +396,7 @@ export default function TelegramPairingModal({
                         Save encrypted backup for auto-reconnect
                       </span>
                       <Tooltip
-                        label="If _telegram.json ever goes missing (cloud-sync conflict, browser wipe, manual cleanup), an encrypted backup at _telegram-encrypted.json lets ResearchOS reconnect after you enter your account password — no re-paste needed. Encrypted with AES-GCM and a PBKDF2 key derived from your account password; the backup is useless to anyone who doesn't know it."
+                        label="If _telegram.json ever goes missing (cloud-sync conflict, browser wipe, manual cleanup), an encrypted backup at _telegram-encrypted.json lets ResearchOS reconnect automatically, no re-paste needed. Encrypted with AES-GCM and a key derived from your on-device identity keypair, so the backup is useless to anyone without your account."
                         placement="top"
                       >
                         <button
@@ -453,59 +416,11 @@ export default function TelegramPairingModal({
                     )}
                   </div>
                 </label>
-                {saveBackup && (
-                  <div className="ml-5">
-                    <label className="text-meta font-medium text-gray-500">
-                      Account password
-                    </label>
-                    <div className="relative mt-1">
-                      <input
-                        type="text"
-                        value={passwordInput}
-                        onChange={(e) => {
-                          setPasswordInput(e.target.value);
-                          setPasswordError(null);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") void handleValidate();
-                        }}
-                        autoComplete="off"
-                        placeholder="Required once to encrypt the backup"
-                        className={`w-full pl-3 pr-10 py-1.5 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500${!showPassword ? " [-webkit-text-security:disc]" : ""}`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((v) => !v)}
-                        aria-label={showPassword ? "Hide password" : "Show password"}
-                        aria-pressed={showPassword}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        {showPassword ? (
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
-                            <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
-                            <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
-                            <line x1="2" x2="22" y1="2" y2="22" />
-                          </svg>
-                        ) : (
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                            <circle cx="12" cy="12" r="3" />
-                          </svg>
-                        )}
-                      </button>
-                    </div>
-                    {passwordError && (
-                      <p className="mt-1 text-meta text-red-600">{passwordError}</p>
-                    )}
-                  </div>
-                )}
               </div>
             ) : (
               <p className="text-meta italic text-amber-600">
-                You&apos;ll need to re-paste your bot token if the local
-                pairing file is lost. (Set an account password in Settings
-                to unlock the encrypted-backup option.)
+                You&apos;ll need to re-paste your bot token if the local pairing
+                file is lost. (Sign in to unlock the encrypted-backup option.)
               </p>
             )}
             <div className="flex items-center justify-end gap-2">
@@ -517,11 +432,7 @@ export default function TelegramPairingModal({
               </button>
               <button
                 onClick={handleValidate}
-                disabled={
-                  !tokenInput.trim() ||
-                  validating ||
-                  (saveBackup && passwordGateExists && !passwordInput)
-                }
+                disabled={!tokenInput.trim() || validating}
                 className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
               >
                 {validating ? "Checking…" : "Connect"}
