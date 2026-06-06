@@ -1411,7 +1411,7 @@ export default function NoteDetailPopup({
       onClick={handleClose}
     >
       <div
-        className={`bg-white rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden transition-all duration-300 ${
+        className={`bg-surface-raised rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden transition-all duration-300 ${
           isExpanded
             ? "inset-4 max-w-none max-h-none h-[calc(100vh-2rem)]"
             : "max-w-4xl max-h-[90vh]"
@@ -1431,7 +1431,7 @@ export default function NoteDetailPopup({
           />
         )}
         {/* Header */}
-        <div className="p-4 border-b border-gray-200 flex-shrink-0">
+        <div className="p-4 border-b border-border flex-shrink-0">
           <div className="flex items-start justify-between">
             <div className="flex-1 mr-4">
               {/* Title */}
@@ -1442,15 +1442,15 @@ export default function NoteDetailPopup({
                   onChange={(e) => setTitle(e.target.value)}
                   onBlur={saveTitle}
                   onKeyDown={(e) => e.key === "Enter" && saveTitle()}
-                  className="text-heading font-bold text-gray-900 w-full border-b-2 border-emerald-500 focus:outline-none bg-transparent"
+                  className="text-heading font-bold text-foreground w-full border-b-2 border-emerald-500 focus:outline-none bg-transparent"
                   autoFocus
                   disabled={readOnly}
                 />
               ) : (
                 <h2
                   onClick={() => !readOnly && setEditingTitle(true)}
-                  className={`text-heading font-bold text-gray-900 ${
-                    !readOnly ? "cursor-pointer hover:text-emerald-600" : ""
+                  className={`text-heading font-bold text-foreground ${
+                    !readOnly ? "cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-300" : ""
                   }`}
                 >
                   {title}
@@ -1466,15 +1466,15 @@ export default function NoteDetailPopup({
                   onBlur={saveDescription}
                   onKeyDown={(e) => e.key === "Enter" && saveDescription()}
                   placeholder="Add a description..."
-                  className="text-body text-gray-500 w-full border-b-2 border-emerald-500 focus:outline-none bg-transparent mt-1"
+                  className="text-body text-foreground-muted w-full border-b-2 border-emerald-500 focus:outline-none bg-transparent mt-1"
                   autoFocus
                   disabled={readOnly}
                 />
               ) : (
                 <p
                   onClick={() => !readOnly && setEditingDescription(true)}
-                  className={`text-body text-gray-500 mt-1 ${
-                    !readOnly ? "cursor-pointer hover:text-emerald-600" : ""
+                  className={`text-body text-foreground-muted mt-1 ${
+                    !readOnly ? "cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-300" : ""
                   }`}
                 >
                   {description || (!readOnly ? "Add a description..." : "")}
@@ -1505,7 +1505,7 @@ export default function NoteDetailPopup({
               {restoreError && (
                 <p
                   data-testid="note-restore-error"
-                  className="mt-2 text-meta text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug"
+                  className="mt-2 text-meta text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg px-3 py-2 leading-snug"
                 >
                   {restoreError}
                 </p>
@@ -1520,7 +1520,7 @@ export default function NoteDetailPopup({
               {undoConfirmPending && (
                 <div
                   data-testid="note-undo-confirm"
-                  className="mt-2 text-meta text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug"
+                  className="mt-2 text-meta text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg px-3 py-2 leading-snug"
                 >
                   <p>
                     You have edited this note since the restore. Undoing will
@@ -1542,7 +1542,7 @@ export default function NoteDetailPopup({
                       onClick={dismissUndoConfirm}
                       disabled={restoreBusy}
                       data-testid="note-undo-cancel-button"
-                      className="px-2.5 py-1 text-meta font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:opacity-60 rounded-md transition-colors"
+                      className="px-2.5 py-1 text-meta font-medium text-foreground-muted bg-surface-sunken hover:bg-foreground-muted/15 disabled:opacity-60 rounded-md transition-colors"
                     >
                       Keep editing
                     </button>
@@ -1589,7 +1589,7 @@ export default function NoteDetailPopup({
                   <button
                     onClick={handleDeleteNote}
                     data-testid="note-header-delete"
-                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    className="p-2 text-foreground-muted hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                       <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
@@ -1632,8 +1632,8 @@ export default function NoteDetailPopup({
                       data-testid="note-undo-restore-button"
                       className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-meta font-medium rounded-lg transition-colors ${
                         canRestore && !activeRestoreBusy
-                          ? "text-amber-700 bg-amber-50 hover:bg-amber-100"
-                          : "text-gray-400 bg-gray-50 cursor-not-allowed"
+                          ? "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20"
+                          : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
                       }`}
                     >
                       <svg
@@ -1674,15 +1674,15 @@ export default function NoteDetailPopup({
                   aria-pressed={commentsOpen}
                   className={`relative p-2 rounded-lg transition-colors ${
                     commentsOpen
-                      ? "text-emerald-600 bg-emerald-50"
-                      : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                      ? "text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10"
+                      : "text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken"
                   }`}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M7 8h10M7 12h6m-7 9l4-4h10a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h1v4z" />
                   </svg>
                   {commentCount > 0 ? (
-                    <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-[10px] font-semibold text-white tabular-nums">
+                    <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-meta font-semibold text-white tabular-nums">
                       {commentCount}
                     </span>
                   ) : null}
@@ -1703,8 +1703,8 @@ export default function NoteDetailPopup({
                   aria-pressed={historyOpen}
                   className={`p-2 rounded-lg transition-colors ${
                     historyOpen
-                      ? "text-emerald-600 bg-emerald-50"
-                      : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                      ? "text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10"
+                      : "text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken"
                   }`}
                 >
                   <svg
@@ -1726,7 +1726,7 @@ export default function NoteDetailPopup({
               <Tooltip label={isExpanded ? "Exit fullscreen" : "Fullscreen"} placement="bottom">
                 <button
                   onClick={() => setIsExpanded(!isExpanded)}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-2 text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken rounded-lg transition-colors"
                 >
                   {isExpanded ? (
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1743,7 +1743,7 @@ export default function NoteDetailPopup({
                 <button
                   onClick={handleCloseAll}
                   data-tour-target="lab-mode-note-popup-close"
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-2 text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken rounded-lg transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1800,7 +1800,7 @@ export default function NoteDetailPopup({
                     sharedWithBeforeShareRef.current = note.shared_with ?? [];
                     setShowShare(true);
                   }}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-body bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-body bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15 transition-colors"
                   aria-label="Share"
                 >
                   <svg
@@ -1835,7 +1835,7 @@ export default function NoteDetailPopup({
                       <Tooltip label="Start a live collab session" placement="top">
                         <button
                           onClick={collab.start}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-body bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15 transition-colors"
                           aria-label="Collaborate live"
                         >
                           <svg
@@ -1862,7 +1862,7 @@ export default function NoteDetailPopup({
                           value={joinLinkInput}
                           onChange={(e) => setJoinLinkInput(e.target.value)}
                           placeholder="Paste join link"
-                          className="w-36 px-2 py-1.5 rounded-lg text-body border border-gray-200 bg-white text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-400 text-xs"
+                          className="w-36 px-2 py-1.5 rounded-lg border border-border bg-surface-raised text-foreground placeholder-foreground-muted focus:outline-none focus:ring-1 focus:ring-emerald-400 text-meta"
                           aria-label="Join session link"
                         />
                         <Tooltip label="Join session" placement="top">
@@ -1874,7 +1874,7 @@ export default function NoteDetailPopup({
                               }
                             }}
                             disabled={!joinLinkInput.trim()}
-                            className="px-2 py-1.5 rounded-lg text-body bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-40"
+                            className="px-2 py-1.5 rounded-lg text-body bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15 transition-colors disabled:opacity-40"
                             aria-label="Join"
                           >
                             Join
@@ -1882,13 +1882,13 @@ export default function NoteDetailPopup({
                         </Tooltip>
                       </div>
                       {collab.state.errorMessage && (
-                        <span className="text-meta text-red-500">
+                        <span className="text-meta text-red-500 dark:text-red-300">
                           {collab.state.errorMessage}
                         </span>
                       )}
                     </>
                   ) : collab.state.status === "connecting" ? (
-                    <span className="text-meta text-gray-500 flex items-center gap-1.5">
+                    <span className="text-meta text-foreground-muted flex items-center gap-1.5">
                       <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -1898,7 +1898,7 @@ export default function NoteDetailPopup({
                   ) : (
                     /* status === "live" */
                     <>
-                      <span className="flex items-center gap-1.5 text-body text-emerald-600 font-medium">
+                      <span className="flex items-center gap-1.5 text-body text-emerald-600 dark:text-emerald-300 font-medium">
                         <svg
                           className="w-3.5 h-3.5"
                           viewBox="0 0 24 24"
@@ -1916,10 +1916,10 @@ export default function NoteDetailPopup({
                         >
                           <button
                             onClick={() => void handleCopyJoinLink()}
-                            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-body transition-all font-mono text-xs active:scale-95 ${
+                            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-body transition-all font-mono text-meta active:scale-95 ${
                               linkCopied
-                                ? "bg-emerald-50 text-emerald-600"
-                                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                                ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+                                : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
                             }`}
                             aria-label="Copy join link"
                           >
@@ -1969,7 +1969,7 @@ export default function NoteDetailPopup({
                               collab.stop();
                             }
                           }}
-                          className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-body bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                          className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-body bg-surface-sunken text-foreground-muted hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-300 transition-colors"
                           aria-label="Stop collaborating"
                         >
                           <svg
@@ -1995,7 +1995,7 @@ export default function NoteDetailPopup({
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-body bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-body bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15 transition-colors disabled:opacity-50"
               >
                 {uploading ? "Uploading..." : "Add File"}
               </button>
@@ -2013,7 +2013,7 @@ export default function NoteDetailPopup({
               {/* Save-in-progress indicator (note-save manager): shown while
                   an explicit save (or title / sharing write) is in flight. */}
               {saving && (
-                <span className="text-meta text-gray-400 flex items-center gap-1">
+                <span className="text-meta text-foreground-muted flex items-center gap-1">
                   <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -2053,7 +2053,7 @@ export default function NoteDetailPopup({
         <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
           {/* Tabs for running logs */}
           {note.is_running_log && (
-            <div className="border-b border-gray-200 px-4 py-2 flex-shrink-0">
+            <div className="border-b border-border px-4 py-2 flex-shrink-0">
               <div className="flex items-center gap-2 overflow-x-auto pb-1">
                 {entries
                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -2063,8 +2063,8 @@ export default function NoteDetailPopup({
                       onClick={() => switchToTab(entry.id)}
                       className={`px-3 py-1.5 rounded-lg text-body whitespace-nowrap transition-colors ${
                         activeTab === entry.id
-                          ? "bg-emerald-100 text-emerald-700 font-medium"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-medium"
+                          : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
                       }`}
                     >
                       {entry.title}
@@ -2075,7 +2075,7 @@ export default function NoteDetailPopup({
                 {!readOnly && (
                   <button
                     onClick={() => setShowNewEntryForm(true)}
-                    className="px-3 py-1.5 rounded-lg text-body bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors flex items-center gap-1"
+                    className="px-3 py-1.5 rounded-lg text-body bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15 transition-colors flex items-center gap-1"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -2089,21 +2089,21 @@ export default function NoteDetailPopup({
 
           {/* New entry form */}
           {showNewEntryForm && (
-            <div className="border-b border-gray-200 px-4 py-3 bg-gray-50 flex-shrink-0">
+            <div className="border-b border-border px-4 py-3 bg-surface-sunken flex-shrink-0">
               <div className="flex items-center gap-3">
                 <input
                   type="text"
                   value={newEntryTitle}
                   onChange={(e) => setNewEntryTitle(e.target.value)}
                   placeholder="Entry title..."
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-emerald-500"
+                  className="flex-1 px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-emerald-500"
                   autoFocus
                 />
                 <input
                   type="date"
                   value={newEntryDate}
                   onChange={(e) => setNewEntryDate(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-emerald-500"
+                  className="px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-emerald-500"
                 />
                 <button
                   onClick={addNewEntry}
@@ -2114,7 +2114,7 @@ export default function NoteDetailPopup({
                 </button>
                 <button
                   onClick={() => setShowNewEntryForm(false)}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  className="px-4 py-2 bg-foreground-muted/15 text-foreground rounded-lg hover:bg-foreground-muted/25 transition-colors"
                 >
                   Cancel
                 </button>
@@ -2124,7 +2124,7 @@ export default function NoteDetailPopup({
 
           {/* Entry info bar */}
           {note.is_running_log && currentEntry && (
-            <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between bg-gray-50/50 flex-shrink-0">
+            <div className="px-4 py-2 border-b border-border flex items-center justify-between bg-surface-sunken/50 flex-shrink-0">
               <div className="flex items-center gap-3">
                 {/* Entry title - editable */}
                 {editingEntryTitle ? (
@@ -2134,22 +2134,22 @@ export default function NoteDetailPopup({
                     onChange={(e) => setEntryTitle(e.target.value)}
                     onBlur={saveEntryTitle}
                     onKeyDown={(e) => e.key === "Enter" && saveEntryTitle()}
-                    className="text-body font-medium text-gray-700 border-b-2 border-emerald-500 focus:outline-none bg-transparent"
+                    className="text-body font-medium text-foreground border-b-2 border-emerald-500 focus:outline-none bg-transparent"
                     autoFocus
                     disabled={readOnly}
                   />
                 ) : (
                   <span
                     onClick={startEditingEntryTitle}
-                    className={`text-body font-medium text-gray-700 ${
-                      !readOnly ? "cursor-pointer hover:text-emerald-600" : ""
+                    className={`text-body font-medium text-foreground ${
+                      !readOnly ? "cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-300" : ""
                     }`}
                     title={!readOnly ? "Click to edit title" : ""}
                   >
                     {currentEntry.title}
                   </span>
                 )}
-                <span className="text-gray-300">|</span>
+                <span className="text-foreground-muted">|</span>
                 {/* Entry date - editable */}
                 {editingEntryDate ? (
                   <input
@@ -2158,29 +2158,29 @@ export default function NoteDetailPopup({
                     onChange={(e) => setEntryDate(e.target.value)}
                     onBlur={saveEntryDate}
                     onKeyDown={(e) => e.key === "Enter" && saveEntryDate()}
-                    className="text-body text-gray-500 border-b-2 border-emerald-500 focus:outline-none bg-transparent"
+                    className="text-body text-foreground-muted border-b-2 border-emerald-500 focus:outline-none bg-transparent"
                     autoFocus
                     disabled={readOnly}
                   />
                 ) : (
                   <span
                     onClick={startEditingEntryDate}
-                    className={`text-body text-gray-500 ${
-                      !readOnly ? "cursor-pointer hover:text-emerald-600" : ""
+                    className={`text-body text-foreground-muted ${
+                      !readOnly ? "cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-300" : ""
                     }`}
                     title={!readOnly ? "Click to edit date" : ""}
                   >
                     {formatDate(currentEntry.date)}
                   </span>
                 )}
-                <span className="text-meta text-gray-400">
+                <span className="text-meta text-foreground-muted">
                   Updated: {formatDate(currentEntry.updated_at)}
                 </span>
               </div>
               {!readOnly && entries.length > 1 && (
                 <button
                   onClick={() => deleteEntry(currentEntry.id)}
-                  className="text-meta text-red-500 hover:text-red-700 transition-colors"
+                  className="text-meta text-red-500 dark:text-red-300 hover:text-red-700 dark:hover:text-red-300 transition-colors"
                 >
                   Delete Entry
                 </button>
@@ -2196,14 +2196,14 @@ export default function NoteDetailPopup({
               - Legacy (flag OFF or handle not yet ready): the manual
                 version-control "Save note" button, unchanged. */}
           {!readOnly && currentEntry && (
-            <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 flex-shrink-0">
+            <div className="flex items-center gap-2 px-4 py-2 border-b border-border flex-shrink-0">
               <div className="flex-1" />
               {LORO_PILOT_ENABLED && !!loroHandle ? (
                 /* Auto-save status indicator. Subtle muted text; no spinner. */
                 <span
                   data-testid="note-autosave-status"
                   className={`text-meta transition-colors ${
-                    loroCommitPending ? "text-gray-400" : "text-gray-300"
+                    loroCommitPending ? "text-foreground-muted" : "text-foreground-muted"
                   }`}
                   aria-live="polite"
                   aria-atomic="true"
@@ -2213,7 +2213,7 @@ export default function NoteDetailPopup({
               ) : (
                 <>
                   {(hasUnsavedChanges || editorDirty) && (
-                    <span className="inline-flex items-center gap-1 text-meta text-amber-700 font-medium">
+                    <span className="inline-flex items-center gap-1 text-meta text-amber-700 dark:text-amber-300 font-medium">
                       <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                       Unsaved changes
                     </span>
@@ -2231,7 +2231,7 @@ export default function NoteDetailPopup({
                     className={`px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
                       (hasUnsavedChanges || editorDirty) && !saving
                         ? "text-white bg-blue-600 hover:bg-blue-700"
-                        : "text-gray-400 bg-gray-100 cursor-not-allowed"
+                        : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
                     }`}
                   >
                     {saving ? "Saving..." : "Save note"}
@@ -2254,7 +2254,7 @@ export default function NoteDetailPopup({
                 />
               </div>
             ) : historyOpen ? (
-              <div className="flex items-center justify-center h-full text-gray-400 text-body p-6">
+              <div className="flex items-center justify-center h-full text-foreground-muted text-body p-6">
                 <p>Select a version to preview it here.</p>
               </div>
             ) : note.is_running_log ? (
@@ -2267,7 +2267,7 @@ export default function NoteDetailPopup({
                 // failed, the extra props are absent and the editor behaves
                 // exactly as before.
                 loroOpening ? (
-                  <div className="flex items-center justify-center h-full text-gray-400 text-body p-6">
+                  <div className="flex items-center justify-center h-full text-foreground-muted text-body p-6">
                     <p>Loading editor...</p>
                   </div>
                 ) : (
@@ -2304,7 +2304,7 @@ export default function NoteDetailPopup({
                 />
                 )
               ) : (
-                <div className="flex items-center justify-center h-full text-gray-400">
+                <div className="flex items-center justify-center h-full text-foreground-muted">
                   <p>No entries yet. Click &quot;Add Entry&quot; to get started.</p>
                 </div>
               )
@@ -2312,7 +2312,7 @@ export default function NoteDetailPopup({
               // Single note - use the first (and only) entry
               entries[0] && (
                 loroOpening ? (
-                  <div className="flex items-center justify-center h-full text-gray-400 text-body p-6">
+                  <div className="flex items-center justify-center h-full text-foreground-muted text-body p-6">
                     <p>Loading editor...</p>
                   </div>
                 ) : (
