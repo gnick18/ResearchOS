@@ -121,12 +121,12 @@ export default function TelegramStatusBadge() {
 
   const toneClass =
     presentation.tone === "error"
-      ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+      ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-600 dark:border-red-600 dark:text-white dark:hover:bg-red-700"
       : presentation.tone === "warn"
-        ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+        ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-600 dark:border-amber-600 dark:text-white dark:hover:bg-amber-700"
         : presentation.tone === "standby"
-          ? "border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100"
-          : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100";
+          ? "border-border bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
+          : "border-border bg-surface-sunken text-foreground-muted hover:bg-surface-sunken";
 
   // Detail string surfaced on hover (and used as the dot's title) so the
   // bot name and live status are one hover away rather than always-on text.
@@ -144,7 +144,7 @@ export default function TelegramStatusBadge() {
         onClick={() => setModalOpen(true)}
         aria-label={detailTitle}
         title={detailTitle}
-        className="flex items-center justify-center w-7 h-7 rounded-full bg-white/75 shadow-sm text-gray-400 hover:text-gray-600 hover:bg-white transition-colors"
+        className="flex items-center justify-center w-7 h-7 rounded-full bg-surface-raised/75 shadow-sm text-foreground-muted hover:text-foreground-muted hover:bg-surface-raised transition-colors"
       >
         <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
       </button>
@@ -181,20 +181,20 @@ export default function TelegramStatusBadge() {
             onClick={() => setConflictOpen((open) => !open)}
             aria-label={conflictHint}
             aria-expanded={conflictOpen}
-            className="flex items-center justify-center w-7 h-7 rounded-full bg-white/75 shadow-sm hover:bg-white transition-colors"
+            className="flex items-center justify-center w-7 h-7 rounded-full bg-surface-raised/75 shadow-sm hover:bg-surface-raised transition-colors"
           >
             <span className="inline-block w-2 h-2 rounded-full bg-amber-400" />
           </button>
         </Tooltip>
         {conflictOpen && (
-          <div className="absolute right-0 mt-2 w-72 z-50 rounded-lg border border-gray-200 bg-white shadow-lg p-3 text-left">
+          <div className="absolute right-0 mt-2 w-72 z-50 rounded-lg border border-border bg-surface-raised shadow-lg p-3 text-left">
             <div className="flex items-start gap-2">
               <span className="mt-1 inline-block w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
               <div className="space-y-1">
-                <p className="text-body font-medium text-gray-900">
+                <p className="text-body font-medium text-foreground">
                   Another client is using this bot
                 </p>
-                <p className="text-meta text-gray-500 leading-relaxed">
+                <p className="text-meta text-foreground-muted leading-relaxed">
                   A different browser or device is connected to @
                   {pairing.botUsername} and is handling its messages, so this tab
                   stepped aside. Take over to handle Telegram here instead.
@@ -205,7 +205,7 @@ export default function TelegramStatusBadge() {
               <button
                 type="button"
                 onClick={() => setConflictOpen(false)}
-                className="px-2.5 py-1 text-meta font-medium text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                className="px-2.5 py-1 text-meta font-medium text-foreground-muted hover:bg-surface-sunken rounded-md transition-colors"
               >
                 Leave it
               </button>
