@@ -605,11 +605,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </>
         )}
 
-        {/* The /sequences editor is already a dense, full-bleed focus surface
-            with its own toolbar + inspector rail, so the global Calculators and
-            Report-bug FABs are suppressed there to keep the canvas clean. They
-            remain on every other route (and both actions stay reachable from
-            Settings / the wiki). */}
+        {/* The /sequences editor is a dense, full-bleed focus surface with its
+            own toolbar + operations rail + inspector on the RIGHT, exactly where
+            this bottom-right FAB cluster sits. So on /sequences the Calculator
+            FAB is suppressed (its path there is the inline calculator callout)
+            and the Report-bug FAB relocates to the bottom-LEFT (rendered below)
+            so it clears the rail but stays one click away during the active
+            redesign + beta. Both stay in the right cluster on every other
+            route, and both actions remain reachable from Settings / the wiki. */}
         {!onSequences && <CalculatorsButton />}
 
         {/* floating-cluster-split bot (2026-06-02): the Data-folder and
@@ -627,6 +630,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         {!onSequences && <FeedbackButton onClick={openBugReport} />}
       </div>
+
+      {/* On /sequences the Report-bug FAB lives here at the bottom-LEFT instead
+          of the bottom-right cluster, so it stays available without floating
+          over the operations rail, inspector, or coordinate bar on the right. */}
+      {onSequences && (
+        <div className="fixed bottom-6 left-6 z-50 flex items-center gap-2 pointer-events-none">
+          <FeedbackButton onClick={openBugReport} />
+        </div>
+      )}
 
       {/* Data-folder + Switch-user modals moved to /settings (floating-
           cluster-split bot, 2026-06-02). They are now owned by the Data
