@@ -200,8 +200,9 @@ export function validateRecoveryWords(mnemonic: string): boolean {
 
 // Base64 helpers for the serializable blob. btoa/atob exist in both modern
 // browsers and the node test runtime, and we avoid pulling in @scure/base
-// since it is not a direct dependency.
-function bytesToBase64(bytes: Uint8Array): string {
+// since it is not a direct dependency. Exported so the parallel passkey blob
+// (passkey.ts) reuses the exact same encoding instead of duplicating it.
+export function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
   for (let i = 0; i < bytes.length; i += 1) {
     binary += String.fromCharCode(bytes[i]);
@@ -209,7 +210,7 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-function base64ToBytes(b64: string): Uint8Array {
+export function base64ToBytes(b64: string): Uint8Array {
   const binary = atob(b64);
   const out = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) {
