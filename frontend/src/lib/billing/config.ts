@@ -31,3 +31,30 @@ export function paidStorageBytes(blocks: number): number {
   if (!Number.isFinite(blocks) || blocks <= 0) return 0;
   return Math.floor(blocks) * BYTES_PER_BLOCK;
 }
+
+// --- recommended pricing (cost-plus, Grant 2026-06-05) ---
+//
+// A block's price covers its DATA cost (Neon storage) plus Stripe's processing
+// fee plus a $1 wiggle buffer, and nothing more. Tax is NOT baked in here,
+// Stripe adds it on top (Automatic / exclusive behavior), so the customer pays
+// any tax separately (usually $0). This keeps the rationale explicit and lets
+// the number be recomputed if Neon pricing, the block size, or the buffer move.
+// The actual charged price is the Stripe Price; this is the recommendation that
+// price should be set to.
+
+export const NEON_STORAGE_USD_PER_GB_MONTH = 0.35;
+export const STRIPE_FEE_PCT = 0.029;
+export const STRIPE_FEE_FLAT_CENTS = 30;
+export const PRICE_WIGGLE_CENTS = 100; // the $1 cushion
+
+/**
+ * Recommended monthly price (cents) for one storage block. Grosses the price up
+ * so that after Stripe's percentage + flat fee, the LLC still nets the block's
+ * data cost plus the $1 buffer. Tax is added by Stripe on top, not included here.
+ */
+export function recommendedBlockPriceCents(gbPerBlock: number = GB_PER_BLOCK): number {
+  const dataCostCents = Math.round(gbPerBlock * NEON_STORAGE_USD_PER_GB_MONTH * 100);
+  const netNeededCents = dataCostCents + PRICE_WIGGLE_CENTS;
+  // P - (pct*P + flat) = netNeeded  =>  P = (netNeeded + flat) / (1 - pct)
+  return Math.ceil((netNeededCents + STRIPE_FEE_FLAT_CENTS) / (1 - STRIPE_FEE_PCT));
+}
