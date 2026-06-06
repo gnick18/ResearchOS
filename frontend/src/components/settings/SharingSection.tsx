@@ -48,7 +48,10 @@ import {
   type UseSharingIdentityResult,
 } from "@/hooks/useSharingIdentity";
 import { type SharingIdentitySidecar } from "@/lib/sharing/identity/sidecar";
-import { writeSharingIdentity } from "@/lib/sharing/identity/sidecar";
+import {
+  deleteSharingIdentity,
+  writeSharingIdentity,
+} from "@/lib/sharing/identity/sidecar";
 import {
   buildRotateRequest,
   createIdentityMaterial,
@@ -117,6 +120,7 @@ interface SharingSectionProps {
   onRotate: () => void;
   onRestore: () => void;
   onDisconnect: () => void;
+  onReset: () => void;
 }
 
 /**
@@ -134,6 +138,7 @@ export default function SharingSection({
   onRotate,
   onRestore,
   onDisconnect,
+  onReset,
 }: SharingSectionProps) {
   return (
     <>
@@ -143,6 +148,7 @@ export default function SharingSection({
         onRotate={onRotate}
         onRestore={onRestore}
         onDisconnect={onDisconnect}
+        onReset={onReset}
       />
       <InboxStorageSection sharing={sharing} onSetUp={onSetUp} />
       <ProfileSection sharing={sharing} />
@@ -195,12 +201,14 @@ function SharingIdentitySection({
   onRotate,
   onRestore,
   onDisconnect,
+  onReset,
 }: {
   sharing: UseSharingIdentityResult;
   onSetUp: () => void;
   onRotate: () => void;
   onRestore: () => void;
   onDisconnect: () => void;
+  onReset: () => void;
 }) {
   const { status, sidecar } = sharing;
   return (
@@ -235,11 +243,16 @@ function SharingIdentitySection({
           sidecar={sidecar}
           onRotate={onRotate}
           onDisconnect={onDisconnect}
+          onReset={onReset}
         />
       )}
 
       {status === "needs-restore" && sidecar && (
-        <NeedsRestoreIdentity sidecar={sidecar} onRestore={onRestore} />
+        <NeedsRestoreIdentity
+          sidecar={sidecar}
+          onRestore={onRestore}
+          onReset={onReset}
+        />
       )}
     </Card>
   );
@@ -302,10 +315,12 @@ function ReadyIdentity({
   sidecar,
   onRotate,
   onDisconnect,
+  onReset,
 }: {
   sidecar: SharingIdentitySidecar;
   onRotate: () => void;
   onDisconnect: () => void;
+  onReset: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const copyFingerprint = useCallback(async () => {
@@ -397,6 +412,18 @@ function ReadyIdentity({
         >
           Disconnect from this device
         </button>
+        <Tooltip
+          label="Abandon this identity and start fresh with a new keypair and new recovery words. Use this if you lost your recovery words or want a clean slate."
+          placement="top"
+        >
+          <button
+            type="button"
+            onClick={onReset}
+            className="px-3 py-1.5 text-body bg-gray-100 hover:bg-gray-200 text-red-600 rounded-lg"
+          >
+            Reset identity
+          </button>
+        </Tooltip>
       </div>
     </div>
   );
@@ -405,9 +432,11 @@ function ReadyIdentity({
 function NeedsRestoreIdentity({
   sidecar,
   onRestore,
+  onReset,
 }: {
   sidecar: SharingIdentitySidecar;
   onRestore: () => void;
+  onReset: () => void;
 }) {
   return (
     <div className="space-y-3">
@@ -437,13 +466,27 @@ function NeedsRestoreIdentity({
         This account has a sharing identity, but its private key is not on this
         device. Restore it with your recovery words to send and open shares here.
       </p>
-      <button
-        type="button"
-        onClick={onRestore}
-        className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-      >
-        Restore on this device
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={onRestore}
+          className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+        >
+          Restore on this device
+        </button>
+        <Tooltip
+          label="Lost your recovery words? Abandon this identity and start fresh with a new keypair and new recovery words."
+          placement="top"
+        >
+          <button
+            type="button"
+            onClick={onReset}
+            className="px-3 py-2 text-body bg-gray-100 hover:bg-gray-200 text-red-600 rounded-lg"
+          >
+            Reset identity
+          </button>
+        </Tooltip>
+      </div>
     </div>
   );
 }
@@ -2066,6 +2109,100 @@ export function DisconnectIdentityPopup({
             className="flex-1 py-2 text-body rounded-lg font-medium bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
           >
             {busy ? "Disconnecting…" : "Disconnect"}
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ResetIdentityPopup, abandon the current identity and start over fresh.
+//
+// Unlike Disconnect (which keeps the published identity and only drops the local
+// key), Reset deletes the sidecar AND the local key, then reopens the setup
+// wizard. The wizard mints a brand-new keypair and re-verifies the email, and the
+// server's upsertBinding overwrites the old email -> key binding. This is the
+// escape hatch for a user who lost their recovery words, suspects key compromise,
+// or just wants a clean slate. It is destructive (the old words and anything
+// sealed to the old key become unusable), so it stays behind this confirm modal.
+// ---------------------------------------------------------------------------
+
+export function ResetIdentityPopup({
+  username,
+  pendingCount,
+  onConfirmed,
+  onClose,
+}: {
+  username: string;
+  pendingCount: number | null;
+  onConfirmed: () => void;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const reset = useCallback(async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      // Delete the public sidecar first so the account reads as unclaimed, then
+      // drop any local private key. The wizard the parent opens next mints a
+      // fresh keypair and the server upsert replaces the old binding.
+      await deleteSharingIdentity(username);
+      await clearIdentity();
+      onConfirmed();
+    } catch {
+      setError("Could not reset your identity. Try again.");
+      setBusy(false);
+    }
+  }, [username, onConfirmed]);
+
+  return (
+    <ModalShell
+      title="Reset your identity and start over?"
+      subtitle={`for ${username}`}
+      onClose={onClose}
+    >
+      <div className="space-y-4">
+        <p className="text-body text-slate-300 leading-relaxed">
+          This abandons your current sharing identity and sets up a fresh one. A
+          new keypair and a new fingerprint will be generated, and your current 12
+          recovery words will stop working. Anyone who verified your old
+          fingerprint will need to verify the new one before they can send to you.
+        </p>
+        <div className="flex items-start gap-2 p-3 bg-amber-500/15 border border-amber-400/30 rounded-lg">
+          <span className="text-amber-300 mt-0.5">
+            <WarningIcon className="w-4 h-4" />
+          </span>
+          <p className="text-meta text-amber-200 leading-relaxed">
+            Anything sealed to your old key becomes permanently unopenable.
+            {pendingCount !== null && pendingCount > 0 && (
+              <>
+                {" "}You have {pendingCount} pending{" "}
+                {pendingCount === 1 ? "item" : "items"} waiting that you will not
+                be able to open after you reset.
+              </>
+            )}
+          </p>
+        </div>
+        {error && <ErrorNotice message={error} />}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="flex-1 py-2 text-body bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={reset}
+            disabled={busy}
+            className="flex-1 py-2 text-body rounded-lg font-medium bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
+          >
+            {busy ? "Resetting…" : "Reset and start over"}
           </button>
         </div>
       </div>

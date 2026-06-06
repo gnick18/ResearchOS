@@ -69,3 +69,15 @@ export async function writeSharingIdentity(
 export async function hasSharingIdentity(username: string): Promise<boolean> {
   return fileService.fileExists(sidecarPath(username));
 }
+
+/**
+ * Deletes the sharing identity sidecar for a user, abandoning the claim so the
+ * account reads as unclaimed again. Used by the "start over" reset flow, which
+ * then mints a fresh keypair through the setup wizard (the server upsert
+ * replaces the old email -> key binding). Returns true if a file was removed,
+ * false if it was already absent. Does NOT touch the on-device private key in
+ * IndexedDB, the caller pairs this with clearIdentity() from storage.ts.
+ */
+export async function deleteSharingIdentity(username: string): Promise<boolean> {
+  return fileService.deleteFile(sidecarPath(username));
+}

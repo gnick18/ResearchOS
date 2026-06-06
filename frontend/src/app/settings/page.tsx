@@ -115,6 +115,7 @@ import SharingSection, {
   RotateIdentityPopup,
   RestoreIdentityPopup,
   DisconnectIdentityPopup,
+  ResetIdentityPopup,
 } from "@/components/settings/SharingSection";
 import { listInbox } from "@/lib/sharing/relay/client";
 
@@ -214,6 +215,7 @@ function SettingsBody() {
   const [rotateOpen, setRotateOpen] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [disconnectOpen, setDisconnectOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
   // Pending-share count, surfaced to the rotate / disconnect modals so they can
   // warn when shares are waiting (sealed to the current key). Only fetched when
   // ready, a 404 (sharing disabled) or any failure leaves it null so the modals
@@ -544,6 +546,7 @@ function SettingsBody() {
               onRotate={() => setRotateOpen(true)}
               onRestore={() => setRestoreOpen(true)}
               onDisconnect={() => setDisconnectOpen(true)}
+              onReset={() => setResetOpen(true)}
             />
             <ProfileSection
               key={`profile-${currentUser}`}
@@ -634,6 +637,25 @@ function SettingsBody() {
           pendingCount={pendingShareCount}
           onClose={() => {
             setDisconnectOpen(false);
+            void sharing.refresh();
+          }}
+        />
+      )}
+      {resetOpen && currentUser && (
+        <ResetIdentityPopup
+          username={currentUser}
+          pendingCount={pendingShareCount}
+          onConfirmed={() => {
+            // Sidecar and local key are gone, the account now reads as unclaimed.
+            // Close the confirm modal and hand straight to the setup wizard, which
+            // mints a fresh keypair and re-verifies the email (server upsert
+            // replaces the old binding).
+            setResetOpen(false);
+            void sharing.refresh();
+            setSharingWizardOpen(true);
+          }}
+          onClose={() => {
+            setResetOpen(false);
             void sharing.refresh();
           }}
         />
