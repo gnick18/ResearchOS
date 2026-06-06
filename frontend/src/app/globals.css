@@ -734,3 +734,38 @@ html[data-annotator-open] [data-floating-dock] {
   display: none !important;
 }
 
+/* No-menu glyph for the website-wide right-click framework. A bare right-click
+   with no registered menu drops this circle-with-a-slash at the pointer. It
+   fades in, pulses, then shrinks and fades out over ~350ms, then the provider
+   unmounts it. Centered on the pointer (translate -50%) and pointer-events none
+   so it never blocks a click. The provider positions it at the click point with
+   inline left/top. Calm, low-contrast. */
+@keyframes no-menu-glyph {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.7);
+  }
+  30% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+  55% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.85);
+  }
+}
+.no-menu-glyph {
+  animation: no-menu-glyph 350ms ease-out forwards;
+  transform: translate(-50%, -50%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .no-menu-glyph {
+    animation-duration: 350ms;
+    animation-timing-function: ease;
+  }
+}
+

@@ -64,10 +64,8 @@ import {
   type SequenceTaxonomy,
 } from "@/lib/sequences/apply-taxonomy";
 import { useTaxonomyClipboard } from "@/lib/sequences/taxonomy-clipboard";
-import {
-  SequenceContextMenu,
-  type EditMenuItem,
-} from "@/components/sequences/SequenceEditMenu";
+import { type EditMenuItem } from "@/components/sequences/SequenceEditMenu";
+import { useContextMenu } from "@/components/context-menu/ContextMenuProvider";
 
 type SortKey = "name" | "type" | "length" | "added";
 type SortDir = "asc" | "desc";
@@ -377,13 +375,11 @@ export default function SequencesPage() {
   // enablement and the paste confirm label.
   const { copied: copiedTaxonomy, copyTaxonomy } = useTaxonomyClipboard();
 
-  // sequence editor master. The list-row right-click context menu (Copy / Paste
-  // taxonomy). null = closed. Anchored at the cursor with the row's record.
-  const [rowMenu, setRowMenu] = useState<{
-    x: number;
-    y: number;
-    seq: SequenceRecord;
-  } | null>(null);
+  // sequence editor master. The list-row right-click menu (Copy / Paste taxonomy)
+  // now opens through the website-wide framework. The row's onContextMenu builds
+  // its items from the record and calls openMenu, which renders the ONE shared
+  // cursor-anchored menu (see ContextMenuProvider).
+  const { openMenu } = useContextMenu();
   // The pending single-paste confirm for a LIST ROW (the editor owns its own
   // confirm). Names the organism being pasted and the target sequence.
   const [pasteConfirm, setPasteConfirm] = useState<{
@@ -1479,8 +1475,9 @@ export default function SequencesPage() {
                   <li
                     key={s.id}
                     onContextMenu={(e) => {
-                      e.preventDefault();
-                      setRowMenu({ x: e.clientX, y: e.clientY, seq: s });
+                      // Route the list-row taxonomy menu through the framework.
+                      // openMenu preventDefaults the event for us.
+                      openMenu(e, buildRowTaxonomyMenu(s));
                     }}
                     className={`group flex items-center gap-1 border-b border-gray-50 pr-2 hover:bg-sky-50 ${
                       selectedId === s.id ? "bg-sky-50" : ""
@@ -1800,15 +1797,12 @@ export default function SequencesPage() {
         }}
       />
 
-      {/* sequence editor master. The list-row right-click menu for taxonomy
-          copy / paste. Reuses the editor's SequenceContextMenu surface. Copy is
-          enabled only when the row HAS taxonomy; Paste only when the clipboard
-          holds one (it opens the inline confirm rather than writing straight). */}
-      <SequenceContextMenu
-        at={rowMenu ? { x: rowMenu.x, y: rowMenu.y } : null}
-        items={rowMenu ? buildRowTaxonomyMenu(rowMenu.seq) : []}
-        onClose={() => setRowMenu(null)}
-      />
+      {/* sequence editor master. The list-row taxonomy copy / paste menu now
+          opens through the website-wide framework (useContextMenu().openMenu in
+          the row's onContextMenu above). Copy is enabled only when the row HAS
+          taxonomy; Paste only when the clipboard holds one (it opens the inline
+          confirm rather than writing straight). The ONE shared menu is rendered
+          by ContextMenuProvider. */}
 
       {/* sequence editor master. The single-paste confirm for a list row. Names
           the organism being pasted onto the named target before any write. */}

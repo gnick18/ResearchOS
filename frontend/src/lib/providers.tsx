@@ -33,6 +33,7 @@ import MilestoneTwirlMount from "@/components/onboarding/MilestoneTwirlMount";
 import IdleAnimationManager from "@/components/onboarding/IdleAnimationManager";
 import WhatsNewManager from "@/components/WhatsNewManager";
 import WikiCaptureBodyClass from "@/components/WikiCaptureBodyClass";
+import { ContextMenuProvider } from "@/components/context-menu/ContextMenuProvider";
 import { initializeErrorHandlers } from "@/lib/error-reporting";
 import { projectsApi } from "@/lib/local-api";
 
@@ -466,7 +467,15 @@ export function Providers({ children }: { children: ReactNode }) {
             FileSystemProvider so it can read `currentUser` for the
             unlockSession path. */}
         <WikiCaptureBodyClass />
-        <AppContent>{children}</AppContent>
+        {/* Website-wide smart right-click framework (sequence editor master).
+            Mounted here, above AppContent, so the single shared menu + the
+            no-menu glyph + the one document-level contextmenu listener cover
+            every route (app, wiki, welcome, demo) and every pre-login surface.
+            Components opt in with useContextMenu(); a bare right-click elsewhere
+            gets the glyph, and editable text keeps the native menu. */}
+        <ContextMenuProvider>
+          <AppContent>{children}</AppContent>
+        </ContextMenuProvider>
       </FileSystemProvider>
     </ErrorBoundary>
   );

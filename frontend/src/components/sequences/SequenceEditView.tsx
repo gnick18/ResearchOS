@@ -65,7 +65,6 @@ import {
   featureDomId,
   featureIndexFromEventTarget,
   chooseContextMenuKind,
-  type ContextMenuKind,
 } from "@/lib/sequences/context-menu-target";
 import { findOrfs } from "@/lib/sequences/orf";
 import { selectTranslationFeatures } from "@/lib/sequences/translation-tracks";
@@ -171,10 +170,10 @@ import {
 } from "@/lib/sequences/sequence-zoom";
 import {
   EditMenuDropdown,
-  SequenceContextMenu,
   SequencePromptDialog,
   type EditMenuItem,
 } from "./SequenceEditMenu";
+import { useContextMenu } from "@/components/context-menu/ContextMenuProvider";
 // enhanced find bot — the inline Find box now lives in its own file as the
 // SnapGene-style search family (DNA exact + closest-match fallback / by-name /
 // protein). It owns mode + query and reports matches up via onResults.
@@ -593,14 +592,14 @@ export default function SequenceEditView({
     setCircularPrimerHover(null);
   }, [sequence.id, viewMode]);
 
-  // seq editops bot — Edit-menu plumbing. The right-click context menu position
-  // (null = closed), the Find box (open + query + match results + active match),
-  // and the Select Range / Go To prompt dialogs.
-  const [contextMenuAt, setContextMenuAt] = useState<{ x: number; y: number } | null>(null);
-  // sequence editor master. WHICH context menu the last right-click opened. The
-  // handler hit-tests the click and sets "feature" when it landed on a feature
-  // (so the menu acts on it) or "bases" otherwise (today's default).
-  const [contextMenuKind, setContextMenuKind] = useState<ContextMenuKind>("bases");
+  // seq editops bot — Edit-menu plumbing. The Find box (open + query + match
+  // results + active match) and the Select Range / Go To prompt dialogs.
+  //
+  // sequence editor master. The right-click context menu now routes through the
+  // website-wide framework. openMenu opens the ONE shared cursor-anchored menu
+  // (see ContextMenuProvider); the onContextMenu handler hit-tests the click and
+  // passes either the feature items or the bases items.
+  const { openMenu } = useContextMenu();
   const [findOpen, setFindOpen] = useState(false);
   // enhanced find bot — the box owns its query + mode internally and reports the
   // computed match list up here (FindMatch carries direction + an optional label
@@ -3536,20 +3535,19 @@ export default function SequenceEditView({
                   if (rect) setDragPointer({ x: e.clientX - rect.left, y: e.clientY - rect.top });
                 }}
                 onContextMenu={(e) => {
-                  // sequence editor master. SMART right-click. Hit-test the click
-                  // target for a SeqViz feature element (its stamped, index-encoding
-                  // id). On a feature, SELECT it and open the FEATURE menu so the
-                  // menu acts on what was clicked; otherwise open the BASES menu
-                  // (today's selection-aware default).
-                  e.preventDefault();
+                  // sequence editor master. SMART right-click, now routed through
+                  // the website-wide framework. Hit-test the click target for a
+                  // SeqViz feature element (its stamped, index-encoding id). On a
+                  // feature, SELECT it and open the FEATURE menu so the menu acts
+                  // on what was clicked; otherwise open the BASES menu (today's
+                  // selection-aware default). openMenu preventDefaults the event,
+                  // so the global fallback treats this right-click as handled.
                   const hitIdx = featureIndexFromEventTarget(e.target);
-                  if (hitIdx != null && hitIdx >= 0 && hitIdx < doc.features.length) {
-                    selectFeature(hitIdx);
-                    setContextMenuKind("feature");
-                  } else {
-                    setContextMenuKind(chooseContextMenuKind(null));
-                  }
-                  setContextMenuAt({ x: e.clientX, y: e.clientY });
+                  const onFeature =
+                    hitIdx != null && hitIdx >= 0 && hitIdx < doc.features.length;
+                  if (onFeature) selectFeature(hitIdx);
+                  const kind = chooseContextMenuKind(onFeature ? hitIdx : null);
+                  openMenu(e, kind === "feature" ? featureMenuItems : editMenuItems);
                 }}
               >
                 {/* seq polish batch bot — MAP-MODE BADGE. At the slider floor the
@@ -3967,14 +3965,11 @@ export default function SequenceEditView({
           feature (double-click a primer, or open from the Primers list). */}
       <PrimerEditorDialog request={primerEditor} />
 
-      {/* sequence editor master. Context-aware right-click menu. The FEATURE menu
-          (quick recolor + rename + CRUD) when the click landed on a feature, the
-          BASES menu (selection-aware DNA ops) otherwise. The handler sets the kind. */}
-      <SequenceContextMenu
-        at={contextMenuAt}
-        items={contextMenuKind === "feature" ? featureMenuItems : editMenuItems}
-        onClose={() => setContextMenuAt(null)}
-      />
+      {/* sequence editor master. The context-aware right-click menu now opens via
+          the website-wide framework (useContextMenu().openMenu in the viewer's
+          onContextMenu above). The FEATURE menu (quick recolor + rename + CRUD)
+          when the click landed on a feature, the BASES menu (selection-aware DNA
+          ops) otherwise. The ONE shared menu is rendered by ContextMenuProvider. */}
 
       {/* seq editops bot — Select Range… prompt (1-based start..end). */}
       <SequencePromptDialog<{ start: number; end: number }>
