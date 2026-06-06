@@ -97,7 +97,7 @@ export default function MarkdownShortcutsSidebar({
   return (
     <div
       data-tour-target="inline-editor-shortcut-bar"
-      className={`${collapsed ? "w-8" : "w-52"} flex-shrink-0 border-r border-gray-100 bg-gray-50/30 flex flex-col transition-all duration-200`}
+      className={`${collapsed ? "w-8" : "w-52"} flex-shrink-0 border-r border-border bg-surface-sunken/30 flex flex-col transition-all duration-200`}
     >
       <Tooltip
         label={collapsed ? "Expand helper panel" : "Collapse helper panel"}
@@ -107,7 +107,7 @@ export default function MarkdownShortcutsSidebar({
           type="button"
           onClick={() => setCollapsed(!collapsed)}
           aria-label={collapsed ? "Expand helper panel" : "Collapse helper panel"}
-          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors self-end m-1"
+          className="p-1.5 text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken rounded transition-colors self-end m-1"
         >
           <svg
             className={`w-4 h-4 transition-transform ${collapsed ? "rotate-180" : ""}`}
@@ -127,14 +127,14 @@ export default function MarkdownShortcutsSidebar({
 
       {!collapsed && (
         <div className="flex-1 overflow-y-auto px-2 pb-2">
-          <div className="flex gap-1 mb-3 bg-gray-100 rounded-lg p-0.5">
+          <div className="flex gap-1 mb-3 bg-surface-sunken rounded-lg p-0.5">
             <button
               type="button"
               onClick={() => setTab("shortcuts")}
               className={`flex-1 px-2 py-1 text-meta rounded-md transition-colors ${
                 tab === "shortcuts"
-                  ? "bg-white text-gray-800 font-medium shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-surface-raised text-foreground font-medium shadow-sm"
+                  : "text-foreground-muted hover:text-foreground"
               }`}
             >
               Shortcuts
@@ -144,8 +144,8 @@ export default function MarkdownShortcutsSidebar({
               onClick={() => setTab("styleguide")}
               className={`flex-1 px-2 py-1 text-meta rounded-md transition-colors ${
                 tab === "styleguide"
-                  ? "bg-white text-gray-800 font-medium shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-surface-raised text-foreground font-medium shadow-sm"
+                  : "text-foreground-muted hover:text-foreground"
               }`}
             >
               Style Guide
@@ -157,12 +157,12 @@ export default function MarkdownShortcutsSidebar({
               {SHORTCUT_ROWS.map((row) => (
                 <div
                   key={row.label}
-                  className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group"
+                  className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-surface-sunken transition-colors group"
                 >
-                  <span className="text-meta text-gray-600 group-hover:text-gray-800">
+                  <span className="text-meta text-foreground-muted group-hover:text-foreground">
                     {row.label}
                   </span>
-                  <span className="text-meta font-mono text-gray-400 group-hover:text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
+                  <span className="text-meta font-mono text-foreground bg-surface-raised border border-border px-1.5 py-0.5 rounded">
                     {IS_MAC ? row.keyMac : row.keyOther}
                   </span>
                 </div>
@@ -177,13 +177,13 @@ export default function MarkdownShortcutsSidebar({
                   placement="right"
                 >
                   <div
-                    className="px-2 py-1.5 rounded hover:bg-gray-100 transition-colors group cursor-pointer"
+                    className="px-2 py-1.5 rounded hover:bg-surface-sunken transition-colors group cursor-pointer"
                     onClick={() => onInsertSyntax?.(item.syntax)}
                   >
-                    <div className="text-meta font-mono text-gray-700 group-hover:text-blue-600 bg-gray-50 px-1.5 py-0.5 rounded mb-0.5">
+                    <div className="text-meta font-mono text-foreground group-hover:text-accent bg-surface-raised border border-border px-1.5 py-0.5 rounded mb-0.5">
                       {item.syntax}
                     </div>
-                    <div className="text-meta text-gray-400 group-hover:text-gray-500">
+                    <div className="text-meta text-foreground-muted group-hover:text-foreground-muted">
                       {item.description}
                     </div>
                   </div>

@@ -36,6 +36,22 @@
   --accent: #1283c9; /* brand-action */
   --accent-soft: #eff6ff; /* blue-50 */
 
+  /* ── CodeMirror markdown editor palette ──────────────────────────────────────
+   * The CM6 editor (InlineMarkdownEditor) reads these via var() in its theme +
+   * syntax highlight, because CM compiles HighlightStyle to obfuscated classes
+   * that CSS can't target. Driving them through vars lets the writing surface
+   * recolor live when data-theme flips, no editor reconfiguration. Light values
+   * here; dark overrides in the [data-theme="dark"] block. */
+  --cm-text: #1f2937; /* default editor text */
+  --cm-caret: #111827;
+  --cm-selection: rgba(37, 99, 235, 0.15);
+  --cm-active-line: rgba(15, 23, 42, 0.03);
+  --cm-link: #2563eb;
+  --cm-mono: #9333ea;
+  --cm-quote: #6b7280;
+  --cm-list: #374151;
+  --cm-meta: #9ca3af;
+
   /* ── Brand rainbow liquid (the most ownable visual) ──────────────────────────
    * The five BeakerBot liquid stops (peach, yellow, mint, sky, lavender), the
    * same gradient as the banner + avatars. Held as ready-made gradient values so
@@ -98,6 +114,18 @@
   --accent: #38bdf8; /* sky-400, legible on near-black */
   --accent-soft: rgba(56, 189, 248, 0.14);
 
+  /* CodeMirror editor palette, dark. Brighter link/mono, and the list color
+   * goes from a near-black gray to a light slate so list text stays legible. */
+  --cm-text: #e5e7eb;
+  --cm-caret: #f1f5f9;
+  --cm-selection: rgba(96, 165, 250, 0.28);
+  --cm-active-line: rgba(255, 255, 255, 0.04);
+  --cm-link: #60a5fa;
+  --cm-mono: #c084fc;
+  --cm-quote: #94a3b8;
+  --cm-list: #cbd5e1;
+  --cm-meta: #94a3b8;
+
   /* Dark mode's rainbow signature is the vivid ramp, used as a low-opacity glow
    * rather than a fill. .brand-rainbow-bg picks this up automatically. */
   --brand-rainbow: var(--brand-rainbow-vivid);
@@ -122,6 +150,15 @@
   --border-subtle: #e5e7eb;
   --accent: #1283c9;
   --accent-soft: #eff6ff;
+  --cm-text: #1f2937;
+  --cm-caret: #111827;
+  --cm-selection: rgba(37, 99, 235, 0.15);
+  --cm-active-line: rgba(15, 23, 42, 0.03);
+  --cm-link: #2563eb;
+  --cm-mono: #9333ea;
+  --cm-quote: #6b7280;
+  --cm-list: #374151;
+  --cm-meta: #9ca3af;
   --brand-rainbow: linear-gradient(
     90deg,
     #ffd2b0 0%,

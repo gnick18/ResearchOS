@@ -1872,12 +1872,12 @@ export default function LiveMarkdownEditor({
           §6: hide Add File / Browse / Strip, keep a compact Hybrid / Preview
           toggle + Attachments toggle + Save + Exit). */}
       {showToolbar && !focusModeActive && (
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 bg-gray-50/50">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-surface-sunken/50">
           {/* Two-way mode toggle: Edit | Preview. The inline CodeMirror 6
               surface is now the sole editor ("Edit"); Hybrid was retired from
               the UI (its code stays as a dormant fallback). The Edit pill maps
               to the "inline" EditorMode. */}
-          <div className="flex items-center bg-gray-100 rounded-md p-0.5">
+          <div className="flex items-center bg-surface-sunken rounded-md p-0.5">
             <Tooltip
               label="Write in a single live editing surface"
               placement="bottom"
@@ -1889,8 +1889,8 @@ export default function LiveMarkdownEditor({
                 disabled={disabled}
                 className={`px-2.5 py-1 text-meta rounded transition-colors ${
                   currentMode !== "preview"
-                    ? "bg-white text-gray-800 font-medium shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
+                    ? "bg-surface-raised text-foreground font-medium shadow-sm"
+                    : "text-foreground-muted hover:text-foreground"
                 } disabled:opacity-50`}
               >
                 Edit
@@ -1903,8 +1903,8 @@ export default function LiveMarkdownEditor({
                 disabled={disabled}
                 className={`px-2.5 py-1 text-meta rounded transition-colors ${
                   currentMode === "preview"
-                    ? "bg-white text-gray-800 font-medium shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
+                    ? "bg-surface-raised text-foreground font-medium shadow-sm"
+                    : "text-foreground-muted hover:text-foreground"
                 } disabled:opacity-50`}
               >
                 Preview
@@ -1923,7 +1923,7 @@ export default function LiveMarkdownEditor({
               onClick={() => toggleFocusMode(true)}
               disabled={disabled}
               aria-label="Enter writing focus mode"
-              className="p-1.5 text-gray-500 rounded hover:bg-gray-200 hover:text-gray-700 transition-colors disabled:opacity-50"
+              className="p-1.5 text-foreground-muted rounded hover:bg-foreground-muted/15 hover:text-foreground transition-colors disabled:opacity-50"
             >
               <svg
                 className="w-4 h-4"
@@ -1949,7 +1949,7 @@ export default function LiveMarkdownEditor({
               type="button"
               onClick={handleAddImageClick}
               disabled={disabled}
-              className="px-2.5 py-1 text-meta bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
+              className="px-2.5 py-1 text-meta bg-surface-sunken text-foreground-muted rounded hover:bg-foreground-muted/15 transition-colors disabled:opacity-50"
             >
               {allowAnyFileType ? "Add File" : "Add Image"}
             </button>
@@ -1962,7 +1962,7 @@ export default function LiveMarkdownEditor({
                 type="button"
                 onClick={onBrowseImages}
                 disabled={disabled}
-                className="px-2.5 py-1 text-meta bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
+                className="px-2.5 py-1 text-meta bg-surface-sunken text-foreground-muted rounded hover:bg-foreground-muted/15 transition-colors disabled:opacity-50"
               >
                 Browse
               </button>
@@ -1987,8 +1987,8 @@ export default function LiveMarkdownEditor({
               onClick={() => setShowAttachmentStrip((v) => !v)}
               className={`px-2.5 py-1 text-meta rounded transition-colors ${
                 showAttachmentStrip
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300"
+                  : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
               }`}
             >
               Strip
@@ -2222,7 +2222,7 @@ export default function LiveMarkdownEditor({
                               e.preventDefault();
                               void handleFileLinkClick(rawHref);
                             }}
-                            className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                            className="text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 underline cursor-pointer"
                             {...aProps}
                           >
                             {children}
@@ -2289,7 +2289,7 @@ export default function LiveMarkdownEditor({
                   </ReactMarkdown>
                 </div>
               ) : (
-                <p className="text-body text-gray-300 italic">
+                <p className="text-body text-foreground-muted italic">
                   {placeholder || "Nothing to preview."}
                 </p>
               )}
@@ -2350,14 +2350,14 @@ export default function LiveMarkdownEditor({
           from disk and strip references. */}
       {showAttachmentStrip && (
         <div className="sticky bottom-0 z-10">
-          <div className="flex items-center gap-1 px-3 pt-2 bg-gray-50 border-t border-gray-200">
+          <div className="flex items-center gap-1 px-3 pt-2 bg-surface-sunken border-t border-border">
             <button
               type="button"
               onClick={() => setActiveAttachmentTab("images")}
               className={`px-2.5 py-1 text-meta rounded-t transition-colors ${
                 activeAttachmentTab === "images"
-                  ? "bg-white text-gray-800 font-medium border border-gray-200 border-b-transparent"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                  ? "bg-surface-raised text-foreground font-medium border border-border border-b-transparent"
+                  : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
               }`}
             >
               Images
@@ -2367,8 +2367,8 @@ export default function LiveMarkdownEditor({
               onClick={() => setActiveAttachmentTab("files")}
               className={`px-2.5 py-1 text-meta rounded-t transition-colors ${
                 activeAttachmentTab === "files"
-                  ? "bg-white text-gray-800 font-medium border border-gray-200 border-b-transparent"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                  ? "bg-surface-raised text-foreground font-medium border border-border border-b-transparent"
+                  : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
               }`}
             >
               Files
@@ -2442,23 +2442,23 @@ export default function LiveMarkdownEditor({
       {showBrokenImagePopup && currentBrokenImage && (
         <div
           ref={brokenImagePopupRef}
-          className="fixed bottom-4 right-4 bg-white border border-red-200 rounded-lg shadow-xl z-50 w-80 max-h-96 overflow-hidden"
+          className="fixed bottom-4 right-4 bg-surface-raised border border-red-200 dark:border-red-500/30 rounded-lg shadow-xl z-50 w-80 max-h-96 overflow-hidden"
         >
-          <div className="p-3 border-b border-red-100 bg-red-50">
+          <div className="p-3 border-b border-red-100 dark:border-red-500/25 bg-red-50 dark:bg-red-500/10">
             <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-red-500 dark:text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              <p className="text-meta font-medium text-red-800">
+              <p className="text-meta font-medium text-red-800 dark:text-red-200">
                 {currentBrokenImage.kind === "file" ? "File Not Found" : "Image Not Found"}
               </p>
               {brokenImageQueue.length > 0 && (
-                <span className="ml-auto text-meta text-red-600 bg-red-100 px-1.5 py-0.5 rounded">
+                <span className="ml-auto text-meta text-red-600 dark:text-red-300 bg-red-100 dark:bg-red-500/20 px-1.5 py-0.5 rounded">
                   +{brokenImageQueue.length} more
                 </span>
               )}
             </div>
-            <p className="text-meta text-red-600 mt-1 truncate" title={currentBrokenImage.originalSrc}>
+            <p className="text-meta text-red-600 dark:text-red-300 mt-1 truncate" title={currentBrokenImage.originalSrc}>
               {currentBrokenImage.originalSrc}
             </p>
           </div>
@@ -2469,8 +2469,8 @@ export default function LiveMarkdownEditor({
               // searchFileByFilename API, and the typical recovery for a
               // dangling [name](Files/foo.pdf) is to remove the link.
               <div className="py-4 text-center">
-                <p className="text-meta text-gray-500">This file isn&apos;t in the notes folder.</p>
-                <p className="text-meta text-gray-400 mt-1">
+                <p className="text-meta text-foreground-muted">This file isn&apos;t in the notes folder.</p>
+                <p className="text-meta text-foreground-muted mt-1">
                   It may have been deleted or moved.
                 </p>
                 <button
@@ -2484,11 +2484,11 @@ export default function LiveMarkdownEditor({
             ) : isSearchingImage ? (
               <div className="flex items-center justify-center py-4">
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-                <span className="ml-2 text-meta text-gray-500">Searching for image...</span>
+                <span className="ml-2 text-meta text-foreground-muted">Searching for image...</span>
               </div>
             ) : imageSearchResults.length > 0 ? (
               <>
-                <p className="text-meta text-gray-600 mb-2">
+                <p className="text-meta text-foreground-muted mb-2">
                   Found {imageSearchResults.length} matching image{imageSearchResults.length > 1 ? 's' : ''}. Click to fix:
                 </p>
                 <div className="space-y-1 max-h-48 overflow-y-auto">
@@ -2497,10 +2497,10 @@ export default function LiveMarkdownEditor({
                       <button
                         type="button"
                         onClick={() => applyImageCorrection(result.path)}
-                        className="w-full px-2 py-2 text-left text-meta bg-gray-50 hover:bg-blue-50 hover:text-blue-700 rounded border border-gray-200 hover:border-blue-300 transition-colors"
+                        className="w-full px-2 py-2 text-left text-meta bg-surface-sunken hover:bg-blue-50 dark:hover:bg-blue-500/10 hover:text-blue-700 dark:hover:text-blue-300 rounded border border-border hover:border-blue-300 dark:border-blue-500/30 transition-colors"
                       >
                         <div className="font-medium truncate">{result.filename}</div>
-                        <div className="text-gray-400 truncate text-meta mt-0.5">
+                        <div className="text-foreground-muted truncate text-meta mt-0.5">
                           {result.match_type === 'exact' ? '✓ Exact match' : '○ Similar name'}
                         </div>
                       </button>
@@ -2522,7 +2522,7 @@ export default function LiveMarkdownEditor({
               // available as a fallback for users who decide the image is
               // unrecoverable.
               <div className="py-2">
-                <p className="text-meta text-gray-600">
+                <p className="text-meta text-foreground-muted">
                   This image was imported from LabArchives but kept online-only. Open it in LabArchives to find the original, then drop the saved copy back in here.
                 </p>
                 <div className="mt-3 flex flex-col gap-2">
@@ -2540,11 +2540,11 @@ export default function LiveMarkdownEditor({
                     type="button"
                     onClick={triggerReplaceFromDisk}
                     disabled={isReplacingFromDisk}
-                    className="w-full px-3 py-2 text-meta bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded transition-colors flex items-center justify-center gap-1.5"
+                    className="w-full px-3 py-2 text-meta bg-green-600 hover:bg-green-700 disabled:bg-foreground-muted/20 disabled:cursor-not-allowed text-white rounded transition-colors flex items-center justify-center gap-1.5"
                   >
                     {isReplacingFromDisk ? (
                       <>
-                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-border"></div>
                         Saving…
                       </>
                     ) : (
@@ -2560,7 +2560,7 @@ export default function LiveMarkdownEditor({
                     type="button"
                     onClick={removeBrokenReference}
                     disabled={isReplacingFromDisk}
-                    className="w-full px-3 py-1.5 text-meta text-red-600 hover:text-red-800 disabled:text-gray-400 transition-colors"
+                    className="w-full px-3 py-1.5 text-meta text-red-600 dark:text-red-300 hover:text-red-800 dark:hover:text-red-200 disabled:text-foreground-muted transition-colors"
                   >
                     Remove reference from note
                   </button>
@@ -2575,8 +2575,8 @@ export default function LiveMarkdownEditor({
               </div>
             ) : (
               <div className="py-4 text-center">
-                <p className="text-meta text-gray-500">No matching images found.</p>
-                <p className="text-meta text-gray-400 mt-1">
+                <p className="text-meta text-foreground-muted">No matching images found.</p>
+                <p className="text-meta text-foreground-muted mt-1">
                   The image may have been deleted or moved.
                 </p>
                 <button
@@ -2590,12 +2590,12 @@ export default function LiveMarkdownEditor({
             )}
           </div>
 
-          <div className="px-3 py-2 border-t border-gray-100 bg-gray-50 flex justify-between items-center">
+          <div className="px-3 py-2 border-t border-border bg-surface-sunken flex justify-between items-center">
             {brokenImageQueue.length > 0 ? (
               <button
                 type="button"
                 onClick={skipCurrentBrokenImage}
-                className="px-3 py-1 text-meta text-blue-600 hover:text-blue-800 transition-colors"
+                className="px-3 py-1 text-meta text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 transition-colors"
               >
                 Skip ({brokenImageQueue.length} remaining)
               </button>
@@ -2608,7 +2608,7 @@ export default function LiveMarkdownEditor({
                   <button
                     type="button"
                     onClick={removeBrokenReference}
-                    className="text-meta text-red-600 hover:text-red-800 transition-colors"
+                    className="text-meta text-red-600 dark:text-red-300 hover:text-red-800 dark:hover:text-red-200 transition-colors"
                   >
                     Remove reference
                   </button>
@@ -2617,7 +2617,7 @@ export default function LiveMarkdownEditor({
               <button
                 type="button"
                 onClick={() => dismissBrokenImagePopup(true)}
-                className="px-3 py-1 text-meta text-gray-600 hover:text-gray-800 transition-colors"
+                className="px-3 py-1 text-meta text-foreground-muted hover:text-foreground transition-colors"
               >
                 Dismiss all
               </button>
@@ -2633,7 +2633,7 @@ export default function LiveMarkdownEditor({
         // Same emerald styling as `TaskDetailPopup`'s universal-drop toast
         // so the success affordance feels familiar.
         <div
-          className="fixed bottom-6 right-6 z-50 max-w-sm rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-body text-emerald-900 shadow-lg pointer-events-none"
+          className="fixed bottom-6 right-6 z-50 max-w-sm rounded-lg border border-emerald-300 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 px-4 py-3 text-body text-emerald-900 dark:text-emerald-200 shadow-lg pointer-events-none"
           role="status"
           aria-live="polite"
         >
@@ -2675,7 +2675,7 @@ export default function LiveMarkdownEditor({
       tabIndex={focusModeActive ? -1 : undefined}
       className={
         focusModeActive
-          ? "fixed inset-0 z-50 flex flex-col bg-white outline-none"
+          ? "fixed inset-0 z-50 flex flex-col bg-surface-raised outline-none"
           : "contents"
       }
     >
@@ -2683,11 +2683,11 @@ export default function LiveMarkdownEditor({
           mode so the column div below keeps its index-1 position and the
           editor subtree inside it is never re-keyed / remounted. */}
       {focusModeActive && (
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 bg-white/80 backdrop-blur-sm">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-surface-raised/80 backdrop-blur-sm">
           {/* Compact Edit / Preview toggle (kept on the calm surface). The
               Edit pill maps to the inline CodeMirror 6 surface (sole editor);
               Hybrid was retired from the UI. */}
-          <div className="flex items-center bg-gray-100 rounded-md p-0.5">
+          <div className="flex items-center bg-surface-sunken rounded-md p-0.5">
             <button
               type="button"
               data-testid="editor-mode-inline-focus"
@@ -2695,8 +2695,8 @@ export default function LiveMarkdownEditor({
               disabled={disabled}
               className={`px-2.5 py-1 text-meta rounded transition-colors ${
                 currentMode !== "preview"
-                  ? "bg-white text-gray-800 font-medium shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-surface-raised text-foreground font-medium shadow-sm"
+                  : "text-foreground-muted hover:text-foreground"
               } disabled:opacity-50`}
             >
               Edit
@@ -2707,8 +2707,8 @@ export default function LiveMarkdownEditor({
               disabled={disabled}
               className={`px-2.5 py-1 text-meta rounded transition-colors ${
                 currentMode === "preview"
-                  ? "bg-white text-gray-800 font-medium shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-surface-raised text-foreground font-medium shadow-sm"
+                  : "text-foreground-muted hover:text-foreground"
               } disabled:opacity-50`}
             >
               Preview
@@ -2722,8 +2722,8 @@ export default function LiveMarkdownEditor({
             onClick={() => setShowAttachmentStrip((v) => !v)}
             className={`px-2.5 py-1 text-meta rounded transition-colors ${
               showAttachmentStrip
-                ? "bg-blue-100 text-blue-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                ? "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300"
+                : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
             }`}
           >
             Attachments
@@ -2742,7 +2742,7 @@ export default function LiveMarkdownEditor({
             role="group"
             aria-label="Writing width"
             data-testid="hybrid-editor-width-control"
-            className="flex items-center bg-gray-100 rounded-md p-0.5"
+            className="flex items-center bg-surface-sunken rounded-md p-0.5"
           >
             {EDITOR_WIDTH_PRESETS.map((preset) => {
               const active = widthPreset === preset;
@@ -2760,8 +2760,8 @@ export default function LiveMarkdownEditor({
                     onClick={() => applyWidthPreset(preset)}
                     className={`p-1.5 rounded transition-colors ${
                       active
-                        ? "bg-white text-gray-800 shadow-sm"
-                        : "text-gray-500 hover:text-gray-700"
+                        ? "bg-surface-raised text-foreground shadow-sm"
+                        : "text-foreground-muted hover:text-foreground"
                     }`}
                   >
                     <WidthPresetGlyph preset={preset} />
@@ -2813,7 +2813,7 @@ export default function LiveMarkdownEditor({
               data-testid="hybrid-editor-focus-exit"
               onClick={() => toggleFocusMode(false)}
               aria-label="Exit writing focus mode"
-              className="p-1.5 text-gray-500 rounded hover:bg-gray-200 hover:text-gray-700 transition-colors"
+              className="p-1.5 text-foreground-muted rounded hover:bg-foreground-muted/15 hover:text-foreground transition-colors"
             >
               <svg
                 className="w-4 h-4"

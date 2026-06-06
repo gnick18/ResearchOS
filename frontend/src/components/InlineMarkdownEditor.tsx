@@ -172,27 +172,40 @@ function buildExtensions(
     { tag: tags.strong, fontWeight: "700" },
     { tag: tags.emphasis, fontStyle: "italic" },
     { tag: tags.strikethrough, textDecoration: "line-through" },
-    { tag: tags.link, color: "#2563eb", textDecoration: "underline" },
-    { tag: tags.url, color: "#2563eb" },
-    { tag: tags.monospace, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", color: "#9333ea" },
-    { tag: tags.quote, color: "#6b7280", fontStyle: "italic" },
-    { tag: tags.list, color: "#374151" },
-    { tag: tags.processingInstruction, color: "#9ca3af" },
-    { tag: tags.meta, color: "#9ca3af" },
-    { tag: tags.comment, color: "#9ca3af", fontStyle: "italic" },
+    // Colors are CSS vars (globals.css --cm-*) so the syntax highlight recolors
+    // live when data-theme flips. CM compiles HighlightStyle to obfuscated
+    // classes that CSS can't target, so the var() must live here.
+    { tag: tags.link, color: "var(--cm-link)", textDecoration: "underline" },
+    { tag: tags.url, color: "var(--cm-link)" },
+    { tag: tags.monospace, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", color: "var(--cm-mono)" },
+    { tag: tags.quote, color: "var(--cm-quote)", fontStyle: "italic" },
+    { tag: tags.list, color: "var(--cm-list)" },
+    { tag: tags.processingInstruction, color: "var(--cm-meta)" },
+    { tag: tags.meta, color: "var(--cm-meta)" },
+    { tag: tags.comment, color: "var(--cm-meta)", fontStyle: "italic" },
   ]);
 
   const theme = EditorView.theme({
     "&": {
       fontSize: "0.95rem",
       backgroundColor: "transparent",
+      color: "var(--cm-text)",
     },
     ".cm-content": {
       fontFamily:
         "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
       lineHeight: "1.7",
       padding: "1rem 1.5rem",
-      caretColor: "#111827",
+      caretColor: "var(--cm-caret)",
+    },
+    ".cm-cursor, .cm-dropCursor": {
+      borderLeftColor: "var(--cm-caret)",
+    },
+    "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection": {
+      backgroundColor: "var(--cm-selection)",
+    },
+    ".cm-activeLine": {
+      backgroundColor: "var(--cm-active-line)",
     },
     "&.cm-focused": {
       outline: "none",
@@ -652,10 +665,10 @@ export default function InlineMarkdownEditor({
         <div
           ref={hostRef}
           data-testid="inline-markdown-editor"
-          className="cm-inline-editor min-h-[12rem] rounded-md border border-gray-200 bg-white"
+          className="cm-inline-editor min-h-[12rem] rounded-md border border-border bg-surface-raised"
         />
         {!loaded && (
-          <p className="px-6 py-4 text-body text-gray-400 italic">
+          <p className="px-6 py-4 text-body text-foreground-muted italic">
             {placeholder ? `Loading editor for: ${placeholder}` : "Loading editor..."}
           </p>
         )}
