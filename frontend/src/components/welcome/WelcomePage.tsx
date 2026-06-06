@@ -95,7 +95,8 @@ function SignInRow({
   const oauthBtn =
     "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 text-meta font-semibold transition-transform hover:scale-[1.03]";
   return (
-    <div className="mx-auto grid w-full max-w-3xl gap-4 text-left md:grid-cols-2">
+    <div className="mx-auto w-full max-w-3xl">
+      <div className="grid gap-4 text-left md:grid-cols-2">
       {/* Path A: no account, the full local notebook. */}
       <div className="flex flex-col rounded-2xl border border-[#d3deec] bg-white p-6 shadow-[0_2px_12px_rgba(15,40,80,0.06)]">
         <div className="font-mono text-meta font-semibold uppercase tracking-[0.1em] text-brand-action">
@@ -229,6 +230,35 @@ function SignInRow({
           machine. Inbox size and hold time may grow or change as funding and
           demand allow.
         </p>
+      </div>
+      </div>
+      {/* Third path: just look around. The interactive /demo unlocks a seeded
+          lab with no folder + no account, the lowest-friction way in. Plain
+          anchor (not router.push) so /demo gets a clean full mount. */}
+      <div className="mt-5 flex flex-col items-center gap-1.5">
+        <a
+          href="/demo"
+          data-testid="welcome-try-demo"
+          className="inline-flex items-center gap-2 rounded-xl border border-[#cfdcec] bg-white px-5 py-3 text-body font-semibold text-brand-action shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-4 w-4 shrink-0"
+            aria-hidden
+          >
+            <path d="M5 3l14 9-14 9V3z" />
+          </svg>
+          Or explore the live demo
+          <span aria-hidden>→</span>
+        </a>
+        <span className="text-meta text-[#8593a8]">
+          A seeded lab, no folder or account needed.
+        </span>
       </div>
     </div>
   );
