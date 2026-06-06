@@ -491,11 +491,11 @@ const ActionGlyphs = {
  *  Tm / GC), matching the mockup `.readout .r`. Calm tinted tile, no emoji. */
 function InspectorReadoutChip({ k, v }: { k: string; v: string }) {
   return (
-    <div className="min-w-[68px] rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
-      <div className="text-[10px] font-extrabold uppercase tracking-wide text-gray-400">
+    <div className="min-w-[68px] rounded-lg border border-border bg-surface-sunken px-2.5 py-1.5">
+      <div className="text-[10px] font-extrabold uppercase tracking-wide text-gray-400 dark:text-foreground-muted">
         {k}
       </div>
-      <div className="text-base font-bold text-gray-900">{v}</div>
+      <div className="text-base font-bold text-foreground">{v}</div>
     </div>
   );
 }
@@ -3631,7 +3631,7 @@ export default function SequenceEditView({
           label: sel.hasRange ? "Design forward + reverse" : "Design primers",
           sub: sel.hasRange ? "from the current selection" : "type or paste a region",
           glyph: "+",
-          tileClass: "bg-sky-100 text-sky-700",
+          tileClass: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
           onRun: () => openPrimerDialog("standard"),
         },
         {
@@ -3667,7 +3667,7 @@ export default function SequenceEditView({
           label: "Edit primer",
           sub: p.oligo ? `${p.name}, ${p.oligo.length} nt` : p.name,
           glyph: ActionGlyphs.pencil,
-          tileClass: "bg-sky-100 text-sky-700",
+          tileClass: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
           onRun: () => openEditPrimer(p.idx),
         });
       }
@@ -3685,7 +3685,7 @@ export default function SequenceEditView({
         label: "Check specificity",
         sub: p.tm != null ? `Tm ${p.tm.toFixed(1)} C` : "scan the template for off-target binding",
         glyph: "Tm",
-        tileClass: "bg-gray-100 text-gray-600",
+        tileClass: "bg-gray-100 text-gray-600 dark:bg-surface-sunken dark:text-foreground-muted",
         onRun: openSpecificityCheck,
       });
       primerPanel = (
@@ -3761,7 +3761,7 @@ export default function SequenceEditView({
                   label: "Gibson / overlap",
                   sub: "join fragments by homology",
                   glyph: "G",
-                  tileClass: "bg-sky-100 text-sky-700",
+                  tileClass: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
                   onRun: onOpenAssemble,
                 },
                 {
@@ -3816,7 +3816,7 @@ export default function SequenceEditView({
               label: "Choose enzymes…",
               sub: "filter and pick the cutters to show",
               glyph: ActionGlyphs.plus,
-              tileClass: "bg-sky-100 text-sky-700",
+              tileClass: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
               onRun: () => setEnzymePickerOpen(true),
             },
             {
@@ -3842,7 +3842,7 @@ export default function SequenceEditView({
         label: selectionKind === "region" ? "Add feature from selection" : "Add a feature…",
         sub: selectionKind === "region" ? "annotate the current range" : "draw a new feature",
         glyph: "+",
-        tileClass: selectionKind === "region" ? "bg-sky-100 text-sky-700" : undefined,
+        tileClass: selectionKind === "region" ? "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300" : undefined,
         onRun: openAddFeature,
       };
       const detectAndReference: OperationAction[] = [
@@ -3859,7 +3859,7 @@ export default function SequenceEditView({
           label: "Annotate from a reference…",
           sub: "copy features off a known sequence",
           glyph: ActionGlyphs.refresh,
-          tileClass: "bg-sky-100 text-sky-700",
+          tileClass: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
           onRun: openAnnotateFromReference,
         },
       ];
@@ -3903,7 +3903,7 @@ export default function SequenceEditView({
               label: "Align to another sequence…",
               sub: "pairwise or multiple alignment",
               glyph: ActionGlyphs.align,
-              tileClass: "bg-sky-100 text-sky-700",
+              tileClass: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
               onRun: () => setCompareOpen(true),
             },
           ]}
@@ -3926,7 +3926,7 @@ export default function SequenceEditView({
           label: "Translate to protein",
           sub: "show the amino-acid track on the map",
           glyph: ActionGlyphs.protein,
-          tileClass: "bg-sky-100 text-sky-700",
+          tileClass: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
           onRun: () => {
             selectFeature(cdsIdx);
             setView((v) => ({ ...v, showTranslation: true }));
@@ -4008,7 +4008,7 @@ export default function SequenceEditView({
         label: "Explore in the tree of life…",
         sub: hasOrganism ? "centered on this organism" : "open at the root",
         glyph: ActionGlyphs.tree,
-        tileClass: "bg-sky-100 text-sky-700",
+        tileClass: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
         onRun: () => onExploreInTree(sequence.tax_id),
       });
     }
@@ -4066,7 +4066,7 @@ export default function SequenceEditView({
           <>
             <InspectorSection>This sequence&rsquo;s organism</InspectorSection>
             {hasOrganism ? (
-              <div className="mb-3 text-body text-gray-700">
+              <div className="mb-3 text-body text-gray-700 dark:text-foreground">
                 {sequence.organism?.trim() || `Tax id ${sequence.tax_id}`}
               </div>
             ) : (

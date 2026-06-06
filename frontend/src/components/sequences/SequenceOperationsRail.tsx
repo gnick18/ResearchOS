@@ -58,7 +58,7 @@ export interface RailOperation {
 /** A tiny uppercase section heading inside an inspector panel. */
 export function InspectorSection({ children }: { children: ReactNode }) {
   return (
-    <h5 className="mb-2 text-[11px] font-extrabold uppercase tracking-wide text-gray-400">
+    <h5 className="mb-2 text-[11px] font-extrabold uppercase tracking-wide text-gray-400 dark:text-foreground-muted">
       {children}
     </h5>
   );
@@ -68,7 +68,7 @@ export function InspectorSection({ children }: { children: ReactNode }) {
  *  yet (e.g. select a CDS first). Pure teaching copy, no action. */
 export function InspectorCue({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3 text-center text-meta text-gray-500">
+    <div className="rounded-lg border border-dashed border-border bg-surface-sunken p-3 text-center text-meta text-foreground-muted">
       {children}
     </div>
   );
@@ -91,8 +91,8 @@ export function InspectorContextBar({
       data-testid="inspector-context-bar"
       className={`flex items-center gap-2 border-b px-3.5 py-2 text-meta font-semibold ${
         selected
-          ? "border-amber-200 bg-amber-50 text-amber-800"
-          : "border-gray-200 bg-gray-50 text-gray-500"
+          ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+          : "border-border bg-surface-sunken text-foreground-muted"
       }`}
     >
       {selected ? (
@@ -127,12 +127,12 @@ export function ActionList({ actions }: { actions: OperationAction[] }) {
           key={a.id}
           type="button"
           onClick={a.onRun}
-          className="flex items-center gap-2.5 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-left text-body font-semibold text-gray-900 transition-colors hover:border-gray-300 hover:bg-gray-50"
+          className="flex items-center gap-2.5 rounded-lg border border-border bg-surface px-2.5 py-2 text-left text-body font-semibold text-foreground transition-colors hover:border-gray-300 hover:bg-surface-sunken dark:hover:border-border"
         >
           {a.glyph != null ? (
             <span
               className={`flex h-6 w-6 flex-none items-center justify-center rounded-md text-[12px] ${
-                a.tileClass ?? "bg-gray-100 text-gray-600"
+                a.tileClass ?? "bg-gray-100 text-gray-600 dark:bg-surface-sunken dark:text-foreground-muted"
               }`}
             >
               {a.glyph}
@@ -141,7 +141,7 @@ export function ActionList({ actions }: { actions: OperationAction[] }) {
           <span className="min-w-0">
             <span className="block truncate">{a.label}</span>
             {a.sub ? (
-              <span className="block truncate text-meta font-normal text-gray-500">
+              <span className="block truncate text-meta font-normal text-foreground-muted">
                 {a.sub}
               </span>
             ) : null}
@@ -190,26 +190,26 @@ export function SequenceOperationsRail({
       {/* INSPECTOR, docked to the LEFT of the rail, only when an op is open. */}
       {active ? (
         <div
-          className="flex w-[348px] min-w-0 flex-col border-l border-gray-200 bg-white"
+          className="flex w-[348px] min-w-0 flex-col border-l border-border bg-surface"
           data-testid="sequence-inspector"
         >
-          <div className="flex items-center gap-2.5 border-b border-gray-200 px-3.5 py-2.5">
-            <span className="flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-sky-100 text-sky-700">
+          <div className="flex items-center gap-2.5 border-b border-border px-3.5 py-2.5">
+            <span className="flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
               {active.icon}
             </span>
             <div className="min-w-0">
-              <h4 className="text-body font-semibold text-gray-900">
+              <h4 className="text-body font-semibold text-foreground">
                 {active.title ?? active.label}
               </h4>
               {active.sub ? (
-                <div className="text-meta text-gray-500">{active.sub}</div>
+                <div className="text-meta text-foreground-muted">{active.sub}</div>
               ) : null}
             </div>
             <Tooltip label="Collapse the inspector">
               <button
                 type="button"
                 onClick={() => onPick(active.id)}
-                className="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                className="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-gray-400 hover:bg-surface-sunken hover:text-gray-600 dark:text-foreground-muted dark:hover:text-foreground"
                 aria-label="Collapse the inspector"
               >
                 <svg
@@ -238,7 +238,7 @@ export function SequenceOperationsRail({
       ) : null}
 
       {/* RAIL, the always-visible icon strip. */}
-      <div className="flex w-[60px] flex-none flex-col items-center gap-0.5 overflow-auto border-l border-gray-200 bg-white py-1.5">
+      <div className="flex w-[60px] flex-none flex-col items-center gap-0.5 overflow-auto border-l border-border bg-surface py-1.5">
         {operations.map((op) => (
           <RailGroupAndButton
             key={op.id}
@@ -263,9 +263,9 @@ function RailGroupAndButton({
 }) {
   return (
     <>
-      {op.divider ? <div className="my-1 h-px w-7 bg-gray-200" /> : null}
+      {op.divider ? <div className="my-1 h-px w-7 bg-border" /> : null}
       {op.groupLabel ? (
-        <div className="mb-0.5 mt-1.5 text-[8px] font-extrabold uppercase tracking-wide text-gray-400">
+        <div className="mb-0.5 mt-1.5 text-[8px] font-extrabold uppercase tracking-wide text-gray-400 dark:text-foreground-muted">
           {op.groupLabel}
         </div>
       ) : null}
@@ -277,8 +277,8 @@ function RailGroupAndButton({
           data-op={op.id}
           className={`relative flex h-[46px] w-12 flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors ${
             active
-              ? "border-sky-200 bg-sky-100 text-sky-700"
-              : "border-transparent text-gray-600 hover:bg-gray-100"
+              ? "border-sky-200 bg-sky-100 text-sky-700 dark:border-sky-800 dark:bg-sky-900/40 dark:text-sky-300"
+              : "border-transparent text-gray-600 hover:bg-gray-100 dark:text-foreground-muted dark:hover:bg-surface-sunken"
           }`}
         >
           {op.badge != null ? <Badge badge={op.badge} /> : null}
