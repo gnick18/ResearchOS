@@ -823,6 +823,28 @@ export default function TaxonomyTreeView({
                   const labelAnchor = flip ? "end" : "start";
                   const labelDx = flip ? -6 : 6;
                   const markerR = Math.max(1.5, n.thickness / 2) * p.grow;
+
+                  // The readable label pill, the white backing that lets the text
+                  // read over any branch color. We size it to the text from the
+                  // string length and the live font-size (jsdom cannot measure, so
+                  // a generous char-width factor avoids clipping long names), then
+                  // pad it and round the ends fully so it is a pill, not a box. The
+                  // pill sits in the SAME rotation group as the text, centered on
+                  // the label baseline, so it rides along the branch with the text.
+                  const fontSize = 11 / Math.max(zoomScale, 1) + 3;
+                  // Per-character width factor (em). 0.62 is wide enough that even
+                  // all-cap names do not spill past the pill.
+                  const textW = Math.max(1, n.name.length) * fontSize * 0.62;
+                  const padX = 5;
+                  const padY = 2.5;
+                  const pillH = fontSize + padY * 2;
+                  const pillW = textW + padX * 2;
+                  // The pill starts at the label anchor (where the text begins) and
+                  // runs outward in the text direction. For a flipped (left-half)
+                  // label the anchor is the END, so the pill extends back toward
+                  // negative x. dy centers it on the text middle.
+                  const pillX = flip ? labelDx - pillW : labelDx;
+                  const pillY = -pillH / 2;
                   return (
                     <g key={`node-${n.id}`}>
                       <circle
@@ -839,19 +861,36 @@ export default function TaxonomyTreeView({
                         }}
                       />
                       {showLabel ? (
-                        <text
-                          x={p.x}
-                          y={p.y}
-                          dx={labelDx}
-                          transform={`rotate(${labelRotate}, ${p.x}, ${p.y})`}
-                          textAnchor={labelAnchor}
-                          dominantBaseline="middle"
-                          fontSize={11 / Math.max(zoomScale, 1) + 3}
-                          fill="#334155"
+                        // One rotation group holds the pill behind and the text in
+                        // front, both translated to the node and rotated together,
+                        // so the pill stays aligned to the branch under its label.
+                        <g
+                          transform={`translate(${p.x}, ${p.y}) rotate(${labelRotate})`}
                           style={{ pointerEvents: "none", userSelect: "none" }}
                         >
-                          {n.name}
-                        </text>
+                          <rect
+                            x={pillX}
+                            y={pillY}
+                            width={pillW}
+                            height={pillH}
+                            rx={pillH / 2}
+                            ry={pillH / 2}
+                            fill="#ffffff"
+                            fillOpacity={0.92}
+                            stroke="rgba(0,0,0,0.08)"
+                            strokeWidth={1}
+                          />
+                          <text
+                            x={labelDx}
+                            y={0}
+                            textAnchor={labelAnchor}
+                            dominantBaseline="middle"
+                            fontSize={fontSize}
+                            fill="#1f2937"
+                          >
+                            {n.name}
+                          </text>
+                        </g>
                       ) : null}
                     </g>
                   );
