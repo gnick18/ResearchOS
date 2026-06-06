@@ -47,6 +47,7 @@ import EditSessionTopNavChip from "@/components/EditSessionTopNavChip";
 import UserAvatarMenu from "@/components/UserAvatarMenu";
 import ResearcherProfileModal from "@/components/researchers/ResearcherProfileModal";
 import ProfileSettingsModal from "@/components/profile/ProfileSettingsModal";
+import SettingsModal from "@/components/settings/SettingsModal";
 import SharingClaimResume from "@/components/sharing/SharingClaimResume";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -569,6 +570,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
        *  blurred-backdrop popup over the current page instead of navigating to
        *  /profile, same treatment as the public-profile popup above. */}
       <ProfileSettingsModal />
+      {/* Settings popup (2026-06-06): the avatar-menu "Settings" entry opens the
+       *  full settings body as a living, blurred-backdrop popup over the current
+       *  page instead of navigating to /settings, same treatment as the profile
+       *  popups above. SettingsBody is lazy-imported inside to avoid a cycle. */}
+      <SettingsModal />
       {/* Global OAuth-claim resume (account-creation-flow bot, 2026-06-05):
        *  finishes sharing-account creation when the user returns from the
        *  provider redirect with ?sharingClaim=1. Mounts SharingSetupWizard for

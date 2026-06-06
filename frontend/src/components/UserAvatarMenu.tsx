@@ -26,6 +26,7 @@ import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import { compactFingerprint } from "@/lib/sharing/profile";
 import { useProfileModal } from "@/lib/sharing/profile-modal-store";
 import { useProfileSettingsModal } from "@/lib/profile/profile-settings-modal-store";
+import { useSettingsModal } from "@/lib/settings/settings-modal-store";
 import { rainbowTheme } from "@/lib/colors";
 import RainbowOrb from "@/components/RainbowOrb";
 
@@ -201,6 +202,16 @@ export default function UserAvatarMenu({
     [openProfileSettings],
   );
 
+  // Settings opens the same way, the full settings body as a living popup.
+  const openSettings = useSettingsModal((s) => s.open);
+  const openSettingsModal = useCallback(
+    (e: React.MouseEvent) => {
+      setOpen(false);
+      openSettings({ x: e.clientX, y: e.clientY });
+    },
+    [openSettings],
+  );
+
   const close = useCallback(() => setOpen(false), []);
   const toggle = useCallback(() => setOpen((v) => !v), []);
 
@@ -334,7 +345,7 @@ export default function UserAvatarMenu({
               <DirectoryIcon />
               Find researchers
             </DropdownItem>
-            <DropdownItem href="/settings" onClick={close}>
+            <DropdownItem onClick={openSettingsModal}>
               <GearIcon />
               Settings
             </DropdownItem>

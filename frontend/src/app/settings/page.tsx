@@ -173,7 +173,10 @@ function normalizeSettingsTab(
   return null;
 }
 
-function SettingsBody() {
+// Exported so the SettingsModal (avatar-menu "Settings") can render the exact
+// same body inside a popup. The modal lazy-imports this via next/dynamic to
+// avoid a circular import (this page imports AppShell, which mounts the modal).
+export function SettingsBody() {
   const { currentUser, isConnected, directoryName } = useFileSystem();
   const hydrateFromSettings = useAppStore((s) => s.hydrateFromSettings);
   const queryClient = useQueryClient();
