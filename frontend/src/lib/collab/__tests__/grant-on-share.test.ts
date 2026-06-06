@@ -29,6 +29,14 @@ vi.mock("@/lib/sharing/identity/storage", () => ({
 import { loadIdentity } from "@/lib/sharing/identity/storage";
 const mockLoadIdentity = loadIdentity as ReturnType<typeof vi.fn>;
 
+// ── Mock readSharingIdentity (username -> directory email resolution) ──────────
+vi.mock("@/lib/sharing/identity/sidecar", () => ({
+  readSharingIdentity: vi.fn(),
+}));
+
+import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
+const mockReadSharingIdentity = readSharingIdentity as ReturnType<typeof vi.fn>;
+
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
 /** Raw Uint8Array Ed25519 keypair (matches the shape persistence.ts expects). */
@@ -151,6 +159,56 @@ describe("grantCollabOnShare for shared-notebook first-open", () => {
       (url as string).includes("grant"),
     );
     expect(grantCalls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("resolves a member username to their directory email via the sidecar and grants that email", async () => {
+    const doc = new LoroDoc();
+    const fetchMock = makeFetchOk();
+    globalThis.fetch = fetchMock;
+    // bob's published sharing identity maps his username to a canonical email.
+    mockReadSharingIdentity.mockImplementation(async (username: string) =>
+      username === "bob" ? { email: "bob@lab.edu" } : null,
+    );
+
+    await grantCollabOnShare({
+      doc,
+      ownerEmail: "alice@lab.edu",
+      previousSharedWith: [],
+      nextSharedWith: [
+        { username: "alice", level: "edit" },
+        { username: "bob", level: "edit" },
+      ],
+    });
+
+    // A /api/collab/grant call must carry bob's EMAIL (not his username).
+    const grantBodies = fetchMock.mock.calls
+      .filter((args) => typeof args[0] === "string" && (args[0] as string).includes("grant"))
+      .map((args) => JSON.parse((args[1] as RequestInit).body as string) as Record<string, unknown>);
+    const memberEmails = grantBodies.map((b) => b["memberEmail"]);
+    expect(memberEmails).toContain("bob@lab.edu");
+    expect(memberEmails).not.toContain("bob");
+  });
+
+  it("skips a member who has no sharing identity (no sidecar to map their email)", async () => {
+    const doc = new LoroDoc();
+    const fetchMock = makeFetchOk();
+    globalThis.fetch = fetchMock;
+    // carol has not set up sharing -> no sidecar -> cannot be granted.
+    mockReadSharingIdentity.mockResolvedValue(null);
+
+    await grantCollabOnShare({
+      doc,
+      ownerEmail: "alice@lab.edu",
+      previousSharedWith: [],
+      nextSharedWith: [{ username: "carol", level: "edit" }],
+    });
+
+    const grantBodies = fetchMock.mock.calls
+      .filter((args) => typeof args[0] === "string" && (args[0] as string).includes("grant"))
+      .map((args) => JSON.parse((args[1] as RequestInit).body as string) as Record<string, unknown>);
+    const memberEmails = grantBodies.map((b) => b["memberEmail"]);
+    // carol is never granted; only the owner self-grant (alice) is present.
+    expect(memberEmails).not.toContain("carol");
   });
 
   it("skips the '*' whole-lab sentinel and does not try to grant it as a named member", async () => {

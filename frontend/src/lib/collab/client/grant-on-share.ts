@@ -22,6 +22,7 @@ import { LoroDoc } from "loro-crdt";
 import type { SharedUser } from "@/lib/types";
 import { getOrMintCollabDocId } from "./doc-id";
 import { grantCollabMember, pushCollabUpdate, NoLocalIdentityError, CollabError } from "./persistence";
+import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
 
 /** Parameters for grantCollabOnShare. */
 export interface GrantCollabOnShareParams {
@@ -90,12 +91,27 @@ export async function grantCollabOnShare(
     await tryGrant(docId, signerEmail, signerEmail);
   }
 
-  // Grant each new member. NOTE: members come from shared_with as USERNAMES, but
-  // the grant route resolves a member by EMAIL; granting by username will not
-  // find a directory binding. Mapping member usernames to emails (lab roster /
-  // directory) is a follow-up; the owner grant above still creates the doc so
-  // the owner's own open/push work.
-  for (const memberEmail of newMembers) {
+  // Grant each new member. shared_with carries USERNAMES, but the grant route
+  // resolves a member by directory EMAIL. Map username -> email via the member's
+  // published _sharing_identity.json sidecar (readable here because lab members
+  // live under one shared data folder). A member with no sidecar has not set up
+  // sharing, so they cannot be granted yet (they would also be unable to sign
+  // their own requests); skip them silently rather than send a username the
+  // server cannot resolve.
+  for (const memberUsername of newMembers) {
+    let memberEmail: string | null = null;
+    try {
+      const memberSidecar = await readSharingIdentity(memberUsername);
+      memberEmail = memberSidecar?.email ?? null;
+    } catch {
+      memberEmail = null;
+    }
+    if (!memberEmail) {
+      console.warn(
+        `[collab] grant-on-share: member ${memberUsername} has no sharing identity yet; skipping server grant`,
+      );
+      continue;
+    }
     await tryGrant(docId, signerEmail, memberEmail);
   }
 
