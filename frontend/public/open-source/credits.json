@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-06-05T18:33:42.451Z",
+  "generatedAt": "2026-06-06T00:42:56.149Z",
   "appVersion": "3.5.0",
-  "dependencyCount": 50,
+  "dependencyCount": 58,
   "licenseCounts": {
     "Apache-2.0": 4,
-    "MIT": 42,
+    "MIT": 43,
+    "ISC": 8,
     "BSD-3-Clause": 1,
     "MPL-2.0": 1,
-    "(MIT OR GPL-3.0-or-later)": 1,
-    "ISC": 1
+    "(MIT OR GPL-3.0-or-later)": 1
   },
   "highlightGroups": [
     {
@@ -369,6 +369,48 @@
       "repo": "https://github.com/vercel/speed-insights"
     },
     {
+      "name": "d3-hierarchy",
+      "version": "3.1.2",
+      "license": "ISC",
+      "repo": "https://github.com/d3/d3-hierarchy"
+    },
+    {
+      "name": "d3-interpolate",
+      "version": "3.0.1",
+      "license": "ISC",
+      "repo": "https://github.com/d3/d3-interpolate"
+    },
+    {
+      "name": "d3-scale",
+      "version": "4.0.2",
+      "license": "ISC",
+      "repo": "https://github.com/d3/d3-scale"
+    },
+    {
+      "name": "d3-selection",
+      "version": "3.0.0",
+      "license": "ISC",
+      "repo": "https://github.com/d3/d3-selection"
+    },
+    {
+      "name": "d3-shape",
+      "version": "3.2.0",
+      "license": "ISC",
+      "repo": "https://github.com/d3/d3-shape"
+    },
+    {
+      "name": "d3-transition",
+      "version": "3.0.1",
+      "license": "ISC",
+      "repo": "https://github.com/d3/d3-transition"
+    },
+    {
+      "name": "d3-zoom",
+      "version": "3.0.0",
+      "license": "ISC",
+      "repo": "https://github.com/d3/d3-zoom"
+    },
+    {
       "name": "date-fns",
       "version": "4.3.0",
       "license": "MIT",
@@ -523,6 +565,12 @@
       "version": "6.12.4",
       "license": "MIT",
       "repo": "https://github.com/resend/resend-node"
+    },
+    {
+      "name": "stripe",
+      "version": "22.2.0",
+      "license": "MIT",
+      "repo": "https://github.com/stripe/stripe-node"
     },
     {
       "name": "turndown",

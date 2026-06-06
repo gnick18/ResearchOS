@@ -97,6 +97,34 @@ RUNTIME DEPENDENCIES
   License: Apache-2.0
   Source:  https://github.com/vercel/speed-insights
 
+d3-hierarchy@3.1.2
+  License: ISC
+  Source:  https://github.com/d3/d3-hierarchy
+
+d3-interpolate@3.0.1
+  License: ISC
+  Source:  https://github.com/d3/d3-interpolate
+
+d3-scale@4.0.2
+  License: ISC
+  Source:  https://github.com/d3/d3-scale
+
+d3-selection@3.0.0
+  License: ISC
+  Source:  https://github.com/d3/d3-selection
+
+d3-shape@3.2.0
+  License: ISC
+  Source:  https://github.com/d3/d3-shape
+
+d3-transition@3.0.1
+  License: ISC
+  Source:  https://github.com/d3/d3-transition
+
+d3-zoom@3.0.0
+  License: ISC
+  Source:  https://github.com/d3/d3-zoom
+
 date-fns@4.3.0
   License: MIT
   Source:  https://github.com/date-fns/date-fns
@@ -200,6 +228,10 @@ remark-rehype@11.1.2
 resend@6.12.4
   License: MIT
   Source:  https://github.com/resend/resend-node
+
+stripe@22.2.0
+  License: MIT
+  Source:  https://github.com/stripe/stripe-node
 
 turndown@7.2.4
   License: MIT
