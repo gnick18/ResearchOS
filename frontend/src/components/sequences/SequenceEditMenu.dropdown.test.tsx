@@ -83,6 +83,83 @@ describe("EditMenuDropdown gating", () => {
   });
 });
 
+// sequence editor master — the Copy SPLIT button. The primary region runs the
+// primaryAction.onRun immediately on click; the caret opens the item menu that
+// lists the full copy family. The primary action and the caret are independent.
+describe("EditMenuDropdown split button", () => {
+  function copyItems(handlers: Record<string, () => void>): EditMenuItem[] {
+    return [
+      { id: "copy-top", label: "Copy", shortcut: "Cmd C", enabled: true, onRun: handlers.top },
+      { id: "copy-bottom-5-3", label: "Copy bottom strand (5' to 3')", enabled: true, group: true, onRun: handlers.b53 },
+      { id: "copy-bottom-3-5", label: "Copy bottom strand (3' to 5')", enabled: true, onRun: handlers.b35 },
+      { id: "copy-aa-1", label: "Copy amino acids (1-letter)", enabled: true, group: true, onRun: handlers.aa1 },
+      { id: "copy-aa-3", label: "Copy amino acids (3-letter)", enabled: true, onRun: handlers.aa3 },
+      { id: "copy-fasta", label: "Copy as FASTA", enabled: true, group: true, onRun: handlers.fasta },
+      { id: "copy-map", label: "Copy map image", enabled: true, group: true, onRun: handlers.map },
+    ];
+  }
+
+  it("runs the primary action on a left-region click without opening the menu", () => {
+    const onCopy = vi.fn();
+    render(
+      <EditMenuDropdown
+        items={copyItems({ top: onCopy })}
+        label="Copy"
+        testId="copy-btn"
+        primaryAction={{ label: "Copy", onRun: onCopy }}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("copy-btn"));
+    expect(onCopy).toHaveBeenCalledTimes(1);
+    // The menu did not open: no copy-family items are in the document.
+    expect(screen.queryByRole("menuitem", { name: "Copy as FASTA" })).toBeNull();
+  });
+
+  it("opens the full copy family from the caret", () => {
+    const handlers = {
+      top: vi.fn(), b53: vi.fn(), b35: vi.fn(), aa1: vi.fn(), aa3: vi.fn(), fasta: vi.fn(), map: vi.fn(),
+    };
+    render(
+      <EditMenuDropdown
+        items={copyItems(handlers)}
+        label="Copy"
+        testId="copy-btn"
+        primaryAction={{ label: "Copy", onRun: handlers.top }}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("copy-btn-caret"));
+    // The top-strand Copy item carries its "Cmd C" shortcut in its accessible
+    // name, so match it with a regex; the rest match by exact label.
+    expect(screen.getByRole("menuitem", { name: /^CopyCmd C$/ })).toBeInTheDocument();
+    for (const name of [
+      "Copy bottom strand (5' to 3')",
+      "Copy bottom strand (3' to 5')",
+      "Copy amino acids (1-letter)",
+      "Copy amino acids (3-letter)",
+      "Copy as FASTA",
+      "Copy map image",
+    ]) {
+      expect(screen.getByRole("menuitem", { name })).toBeInTheDocument();
+    }
+    // A family item runs its own handler.
+    fireEvent.click(screen.getByRole("menuitem", { name: "Copy as FASTA" }));
+    expect(handlers.fasta).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables the primary region when primaryAction.disabled is set", () => {
+    const onCopy = vi.fn();
+    render(
+      <EditMenuDropdown
+        items={copyItems({ top: onCopy })}
+        label="Copy"
+        testId="copy-btn"
+        primaryAction={{ label: "Copy", onRun: onCopy, disabled: true }}
+      />,
+    );
+    expect(screen.getByTestId("copy-btn")).toBeDisabled();
+  });
+});
+
 // sequence editor master. The FEATURE right-click menu shows the two quick ops
 // (a recolor swatch row + Rename) alongside the CRUD items, and the swatch chips
 // apply the picked color.

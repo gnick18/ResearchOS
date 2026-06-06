@@ -15,6 +15,7 @@
 // from the list by the caller in readOnly mode (we render whatever we are given).
 
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import Tooltip from "@/components/Tooltip";
 
 /** A single Edit-menu action. Groups draw a divider before the next group. */
 export interface EditMenuItem {
@@ -173,12 +174,25 @@ export function EditMenuDropdown({
   icon,
   testId,
   width = "w-60",
+  primaryAction,
 }: {
   items: EditMenuItem[];
   label?: string;
   icon?: ReactNode;
   testId?: string;
   width?: string;
+  /** seq editops bot — optional SPLIT-BUTTON mode. When set, the trigger renders
+   *  as two regions: a primary button (icon + label) that runs `onRun` on click,
+   *  and a caret that opens the item menu. The label text comes from
+   *  `primaryAction.label`; the dropdown `label` prop is then used only for the
+   *  caret's tooltip / aria text. */
+  primaryAction?: {
+    label: string;
+    onRun: () => void;
+    disabled?: boolean;
+    /** Tooltip on the primary button (e.g. "Copy (Cmd+C)"). */
+    tooltip?: string;
+  };
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -202,6 +216,52 @@ export function EditMenuDropdown({
     };
   }, [open]);
 
+  const menu = open ? (
+    <div
+      role="menu"
+      className={`absolute left-0 top-full z-50 mt-1 ${width} rounded-lg border border-gray-200 bg-white py-1 shadow-lg`}
+    >
+      <MenuItems items={items} onAfterRun={() => setOpen(false)} />
+    </div>
+  ) : null;
+
+  // SPLIT-BUTTON mode: a primary action button joined to a caret that opens the
+  // item menu. Mirrors the toolbar button chrome so it sits flush with the rest.
+  if (primaryAction) {
+    return (
+      <div ref={ref} className="relative inline-flex items-stretch">
+        <Tooltip label={primaryAction.tooltip ?? primaryAction.label}>
+          <button
+            type="button"
+            onClick={primaryAction.onRun}
+            disabled={primaryAction.disabled}
+            data-testid={testId}
+            className="inline-flex items-center gap-1.5 rounded-l-md px-2.5 py-1.5 text-body font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+          >
+            {icon ?? null}
+            <span className="hidden sm:inline">{primaryAction.label}</span>
+          </button>
+        </Tooltip>
+        <Tooltip label={`More ${label.toLowerCase()} options`}>
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-haspopup="menu"
+            aria-expanded={open}
+            aria-label={`More ${label.toLowerCase()} options`}
+            data-testid={testId ? `${testId}-caret` : undefined}
+            className={`inline-flex items-center rounded-r-md border-l border-gray-200 px-1.5 py-1.5 transition-colors ${
+              open ? "bg-gray-100 text-gray-800" : "text-gray-600 hover:bg-gray-100"
+            }`}
+          >
+            <Chevron className="h-3.5 w-3.5" />
+          </button>
+        </Tooltip>
+        {menu}
+      </div>
+    );
+  }
+
   return (
     <div ref={ref} className="relative">
       <button
@@ -218,14 +278,7 @@ export function EditMenuDropdown({
         <span>{label}</span>
         <Chevron className="h-3.5 w-3.5" />
       </button>
-      {open ? (
-        <div
-          role="menu"
-          className={`absolute left-0 top-full z-50 mt-1 ${width} rounded-lg border border-gray-200 bg-white py-1 shadow-lg`}
-        >
-          <MenuItems items={items} onAfterRun={() => setOpen(false)} />
-        </div>
-      ) : null}
+      {menu}
     </div>
   );
 }

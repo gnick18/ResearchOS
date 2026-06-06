@@ -10,7 +10,7 @@
 // SequenceEditMenu) wires them to selection state, the undo stack, and the OS
 // clipboard.
 
-import { reverseComplement, translate } from "@/vendor/seqviz/sequence";
+import { complement, reverseComplement, translate } from "@/vendor/seqviz/sequence";
 import type { SeqType as ViewerSeqType } from "@/vendor/seqviz/elements";
 import type { SeqType } from "../types";
 import type { SeqDocument } from "./edit-model";
@@ -36,12 +36,65 @@ export function copyBottomStrand(bases: string, seqType: SeqType): string {
 }
 
 /**
+ * COPY BOTTOM STRAND 3' to 5': the complement of the selected top strand bases in
+ * the SAME left-to-right order (no reversal). This is the bottom strand drawn
+ * directly under the top strand, which therefore reads 3' to 5' from left to
+ * right. For protein/aa there is no complement, so we return the bases unchanged
+ * (mirroring copyBottomStrand); callers gate this op to DNA/RNA anyway.
+ */
+export function copyBottomStrand3to5(bases: string, seqType: SeqType): string {
+  const vt = toViewerSeqType(seqType);
+  if (vt === "aa") return bases;
+  return complement(bases, vt).compSeq;
+}
+
+/**
  * COPY AMINO ACIDS: translate the selected bases in reading frame 1 (the first
  * base of the selection is codon position 1). Trailing 1-2 bases that don't form
  * a full codon are dropped, matching the vendored translate().
  */
 export function copyAminoAcids(bases: string, seqType: SeqType): string {
   return translate(bases, toViewerSeqType(seqType));
+}
+
+/** 1-letter to 3-letter amino acid codes. Stop ("*") maps to "Ter". */
+const AA_ONE_TO_THREE: Record<string, string> = {
+  A: "Ala",
+  R: "Arg",
+  N: "Asn",
+  D: "Asp",
+  C: "Cys",
+  Q: "Gln",
+  E: "Glu",
+  G: "Gly",
+  H: "His",
+  I: "Ile",
+  L: "Leu",
+  K: "Lys",
+  M: "Met",
+  F: "Phe",
+  P: "Pro",
+  S: "Ser",
+  T: "Thr",
+  W: "Trp",
+  Y: "Tyr",
+  V: "Val",
+  "*": "Ter",
+};
+
+/**
+ * COPY AMINO ACIDS (3-letter): the same frame-1 translation as copyAminoAcids,
+ * rendered as space-separated 3-letter codes (Met Val Ser ...). A stop codon
+ * renders as "Ter". Reuses copyAminoAcids so the 1-letter and 3-letter variants
+ * never disagree on residues. Any unrecognized residue is passed through as-is.
+ */
+export function copyAminoAcids3Letter(bases: string, seqType: SeqType): string {
+  const oneLetter = copyAminoAcids(bases, seqType);
+  if (!oneLetter) return "";
+  return oneLetter
+    .split("")
+    .map((aa) => AA_ONE_TO_THREE[aa] ?? aa)
+    .join(" ");
 }
 
 /**

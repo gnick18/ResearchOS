@@ -3,7 +3,9 @@
 import { describe, expect, it } from "vitest";
 import {
   copyBottomStrand,
+  copyBottomStrand3to5,
   copyAminoAcids,
+  copyAminoAcids3Letter,
   reverseComplementClip,
   invertSelection,
   parseSelectRange,
@@ -31,6 +33,23 @@ describe("copyBottomStrand", () => {
   });
 });
 
+describe("copyBottomStrand3to5", () => {
+  it("returns the complement in the same left-to-right order (no reversal)", () => {
+    // top 5'-ATGC-3'  =>  bottom under it, read 3' to 5'  =>  TACG
+    expect(copyBottomStrand3to5("ATGC", "dna")).toBe("TACG");
+  });
+  it("differs from the 5' to 3' bottom strand (which is reversed)", () => {
+    expect(copyBottomStrand3to5("ATGC", "dna")).toBe("TACG");
+    expect(copyBottomStrand("ATGC", "dna")).toBe("GCAT");
+  });
+  it("handles RNA (A<->U) without reversing", () => {
+    expect(copyBottomStrand3to5("AUGC", "rna")).toBe("UACG");
+  });
+  it("returns protein bases unchanged (no complement)", () => {
+    expect(copyBottomStrand3to5("MKV", "protein")).toBe("MKV");
+  });
+});
+
 describe("copyAminoAcids", () => {
   it("translates frame 1 and drops a trailing partial codon", () => {
     // ATG=M GCA=A ... trailing "TT" dropped
@@ -41,6 +60,30 @@ describe("copyAminoAcids", () => {
   });
   it("returns aa input unchanged", () => {
     expect(copyAminoAcids("MKV", "protein")).toBe("MKV");
+  });
+});
+
+describe("copyAminoAcids3Letter", () => {
+  it("renders frame-1 residues as space-separated 3-letter codes", () => {
+    // ATG=Met GTC=Val TCT=Ser
+    expect(copyAminoAcids3Letter("ATGGTCTCT", "dna")).toBe("Met Val Ser");
+  });
+  it("renders a stop codon as Ter", () => {
+    // ATG=Met TAA=stop
+    expect(copyAminoAcids3Letter("ATGTAA", "dna")).toBe("Met Ter");
+  });
+  it("agrees with the 1-letter variant on residues", () => {
+    const oneLetter = copyAminoAcids("ATGGTCTCTTAA", "dna"); // MVS*
+    const threeLetter = copyAminoAcids3Letter("ATGGTCTCTTAA", "dna");
+    expect(oneLetter).toBe("MVS*");
+    expect(threeLetter).toBe("Met Val Ser Ter");
+  });
+  it("returns an empty string when there is no full codon", () => {
+    expect(copyAminoAcids3Letter("AT", "dna")).toBe("");
+  });
+  it("returns protein input mapped per residue (no translation)", () => {
+    // protein input passes straight through translate(), then 1->3 letter map
+    expect(copyAminoAcids3Letter("MKV", "protein")).toBe("Met Lys Val");
   });
 });
 

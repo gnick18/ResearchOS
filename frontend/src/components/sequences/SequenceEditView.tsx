@@ -225,7 +225,9 @@ import SendToNotePicker from "@/components/SendToNotePicker";
 import { attachImageToNote } from "@/lib/attachments/attach-image";
 import {
   copyBottomStrand,
+  copyBottomStrand3to5,
   copyAminoAcids,
+  copyAminoAcids3Letter,
   reverseComplementClip,
   invertSelection,
   parseSelectRange,
@@ -682,6 +684,16 @@ export default function SequenceEditView({
     const t = setTimeout(() => setTaxStatus(null), 6000);
     return () => clearTimeout(t);
   }, [taxStatus]);
+
+  // sequence editor master — the calm Copy map image toast. `tone` colors the
+  // banner (success vs a gentle warning) and the text carries the message. Auto
+  // dismissed after a few seconds, same cadence as the taxonomy toast.
+  const [copyStatus, setCopyStatus] = useState<{ tone: "ok" | "warn"; text: string } | null>(null);
+  useEffect(() => {
+    if (!copyStatus) return;
+    const t = setTimeout(() => setCopyStatus(null), 6000);
+    return () => clearTimeout(t);
+  }, [copyStatus]);
 
   // The pending confirmation request (Cut/range-delete/Paste). null = closed.
   const [confirm, setConfirm] = useState<SequenceConfirmRequest | null>(null);
@@ -2663,10 +2675,25 @@ export default function SequenceEditView({
     writeOsClipboard(copyBottomStrand(doc.seq.slice(sel.lo, sel.hi), doc.seqType));
   }, [sel, isNucleotide, doc.seq, doc.seqType, writeOsClipboard]);
 
+  // COPY BOTTOM STRAND 3' to 5': the complement of the selection in the same
+  // left-to-right order (no reversal), the bottom strand drawn under the top ->
+  // OS clipboard only. DNA / RNA only; gated by the menu like copyBottom.
+  const copyBottom3to5 = useCallback(() => {
+    if (!sel.hasRange || !isNucleotide) return;
+    writeOsClipboard(copyBottomStrand3to5(doc.seq.slice(sel.lo, sel.hi), doc.seqType));
+  }, [sel, isNucleotide, doc.seq, doc.seqType, writeOsClipboard]);
+
   // COPY AMINO ACIDS: frame-1 translation of the selection -> OS clipboard.
   const copyAA = useCallback(() => {
     if (!sel.hasRange) return;
     writeOsClipboard(copyAminoAcids(doc.seq.slice(sel.lo, sel.hi), doc.seqType));
+  }, [sel, doc.seq, doc.seqType, writeOsClipboard]);
+
+  // COPY AMINO ACIDS (3-letter): the same frame-1 residues as copyAA, rendered as
+  // space-separated 3-letter codes (Met Val Ser ...) -> OS clipboard.
+  const copyAA3 = useCallback(() => {
+    if (!sel.hasRange) return;
+    writeOsClipboard(copyAminoAcids3Letter(doc.seq.slice(sel.lo, sel.hi), doc.seqType));
   }, [sel, doc.seq, doc.seqType, writeOsClipboard]);
 
   // sequence editor master — COPY AS FASTA. The selected bases (or the whole
@@ -2677,6 +2704,42 @@ export default function SequenceEditView({
     if (!bases) return;
     writeOsClipboard(toFasta(doc.name || sequence.display_name || "sequence", bases));
   }, [sel, doc.seq, doc.name, sequence.display_name, writeOsClipboard]);
+
+  // sequence editor master — COPY MAP IMAGE. Rasterize the live map to a PNG (the
+  // same SVG to PNG path the Export menu uses) and write it to the OS clipboard as
+  // an image, so the user can paste the map straight into a doc or slide. Must run
+  // inside the click gesture for the clipboard write to be allowed. Every failure
+  // mode (no canvas, no Clipboard image API, a denied write) lands on a calm toast
+  // and never throws.
+  const copyMapImage = useCallback(async () => {
+    // Browsers without the image clipboard API (Safari historically): bail calmly.
+    if (typeof ClipboardItem === "undefined" || !navigator.clipboard?.write) {
+      setCopyStatus({
+        tone: "warn",
+        text: "This browser cannot copy images. Use Export to save the map instead.",
+      });
+      return;
+    }
+    try {
+      const out = await exportMapImage(viewerRef.current);
+      if (!out || !out.png) {
+        setCopyStatus({
+          tone: "warn",
+          text: "Could not render the map image. Use Export to save the map instead.",
+        });
+        return;
+      }
+      const blob = await fetch(out.png).then((r) => r.blob());
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      setCopyStatus({ tone: "ok", text: "Copied the map image." });
+    } catch (err) {
+      console.error("[sequence] copy map image failed", err);
+      setCopyStatus({
+        tone: "warn",
+        text: "Could not copy the map image. Use Export to save the map instead.",
+      });
+    }
+  }, []);
 
   // sequence editor master — REVERSE COMPLEMENT IN PLACE. Replace the selected
   // bases with their reverse complement as ONE undoable edit (same length, no
@@ -3061,6 +3124,75 @@ export default function SequenceEditView({
     invertSel,
     makeCase,
     openFind,
+  ]);
+
+  // sequence editor master — the COPY FAMILY for the toolbar Copy split button.
+  // The caret next to the primary Copy button opens this flat, grouped list so
+  // every copy variant is reachable from one place (mirrors SnapGene's Copy
+  // submenu). The primary button itself runs doCopy; this list is additive and
+  // does not touch the Edit menu's own copy items. Map image only appears when the
+  // map viewer is mounted (absent on the Features / Primers / History tabs).
+  const copyMenuItems = useMemo<EditMenuItem[]>(() => {
+    const items: EditMenuItem[] = [
+      { id: "copy-top", label: "Copy", shortcut: "Cmd C", enabled: sel.hasRange, onRun: doCopy },
+      {
+        id: "copy-bottom-5-3",
+        label: "Copy bottom strand (5' to 3')",
+        enabled: sel.hasRange && isNucleotide,
+        group: true,
+        onRun: copyBottom,
+      },
+      {
+        id: "copy-bottom-3-5",
+        label: "Copy bottom strand (3' to 5')",
+        enabled: sel.hasRange && isNucleotide,
+        onRun: copyBottom3to5,
+      },
+      {
+        id: "copy-aa-1",
+        label: "Copy amino acids (1-letter)",
+        enabled: sel.hasRange && isNucleotide,
+        group: true,
+        onRun: copyAA,
+      },
+      {
+        id: "copy-aa-3",
+        label: "Copy amino acids (3-letter)",
+        enabled: sel.hasRange && isNucleotide,
+        onRun: copyAA3,
+      },
+      {
+        id: "copy-fasta",
+        label: "Copy as FASTA",
+        enabled: doc.seq.length > 0,
+        group: true,
+        onRun: copyAsFasta,
+      },
+    ];
+    if (showViewer) {
+      items.push({
+        id: "copy-map",
+        label: "Copy map image",
+        enabled: true,
+        group: true,
+        onRun: () => {
+          void copyMapImage();
+        },
+      });
+    }
+    return items;
+  }, [
+    sel.hasRange,
+    isNucleotide,
+    doc.seq.length,
+    showViewer,
+    doCopy,
+    copyBottom,
+    copyBottom3to5,
+    copyAA,
+    copyAA3,
+    copyAsFasta,
+    copyMapImage,
   ]);
 
   // sequence editor master — the SELECTION right-click menu. Opened when a base
@@ -4178,10 +4310,23 @@ export default function SequenceEditView({
             <div className="mx-1 h-5 w-px bg-gray-200" />
           </>
         ) : null}
-        <ToolbarButton label="Copy (Cmd+C)" onClick={doCopy} disabled={!sel.hasRange}>
-          <IconCopy className="h-4 w-4" />
-          <span className="hidden sm:inline">Copy</span>
-        </ToolbarButton>
+        {/* sequence editor master — the Copy SPLIT button. The primary region
+            runs doCopy (top strand, unchanged); the caret opens the full copy
+            family (bottom strand 5' to 3' / 3' to 5', amino acids 1 / 3-letter,
+            FASTA, map image). Non-mutating, so it renders in read-only too. */}
+        <EditMenuDropdown
+          items={copyMenuItems}
+          label="Copy"
+          width="w-64"
+          testId="sequence-copy-button"
+          icon={<IconCopy className="h-4 w-4" />}
+          primaryAction={{
+            label: "Copy",
+            tooltip: "Copy (Cmd+C)",
+            onRun: doCopy,
+            disabled: !sel.hasRange,
+          }}
+        />
         {!readOnly ? (
           <>
             <ToolbarButton label="Cut (Cmd+X)" onClick={doCut} disabled={!sel.hasRange}>
@@ -4967,6 +5112,50 @@ export default function SequenceEditView({
           <button
             type="button"
             onClick={() => setTaxStatus(null)}
+            className="text-gray-400 hover:text-gray-700"
+            aria-label="Dismiss"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+      ) : null}
+
+      {/* sequence editor master — the calm Copy map image toast. Emerald check on
+          success, a gentle amber note when the browser cannot copy an image.
+          aria-live so a screen reader announces it. */}
+      {copyStatus ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed bottom-4 left-1/2 z-[120] -translate-x-1/2 flex items-center gap-3 rounded-lg border bg-white px-4 py-2.5 text-body shadow-lg ${
+            copyStatus.tone === "ok" ? "border-emerald-200" : "border-amber-200"
+          }`}
+        >
+          <span
+            className={`inline-flex h-5 w-5 items-center justify-center rounded-full ${
+              copyStatus.tone === "ok"
+                ? "bg-emerald-100 text-emerald-600"
+                : "bg-amber-100 text-amber-600"
+            }`}
+          >
+            {copyStatus.tone === "ok" ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3" aria-hidden="true">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3" aria-hidden="true">
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            )}
+          </span>
+          <span className="text-gray-700">{copyStatus.text}</span>
+          <button
+            type="button"
+            onClick={() => setCopyStatus(null)}
             className="text-gray-400 hover:text-gray-700"
             aria-label="Dismiss"
           >
