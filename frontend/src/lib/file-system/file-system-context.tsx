@@ -335,10 +335,13 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         }
 
         let currentUser = await getCurrentUser();
-        if (users.length === 1) {
-          currentUser = users[0];
-          await storeCurrentUser(currentUser);
-        } else if (
+        // A one-user folder no longer silently auto-logs in (identity model
+        // phase 1, 2026-06-05). The login screen shows a quick "Continue as
+        // <user>?" confirm instead, so a different person can add their own
+        // account and a user who set a password is still prompted for it. A
+        // returning session keeps its stored currentUser (handled below); only a
+        // fresh connect with no stored pointer falls through to the login screen.
+        if (
           currentUser &&
           users.length > 0 &&
           !users.includes(currentUser)

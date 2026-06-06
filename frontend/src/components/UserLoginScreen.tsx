@@ -89,6 +89,10 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   const [users, setUsers] = useState<string[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newUsername, setNewUsername] = useState("");
+  // Quick-confirm for a one-user folder on a fresh connect, "Continue as <user>?"
+  // with Yes (login) or No (expand to the full picker so a new person can add an
+  // account). Expanding sticks for the rest of this screen's life.
+  const [expandPicker, setExpandPicker] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loggingIn, setLoggingIn] = useState<string | null>(null);
   const [mainUser, setMainUser] = useState<string | null>(null);
@@ -1011,6 +1015,13 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       : sortedActiveUsers;
   }, [sortedActiveUsers, sortedArchivedUsers, showArchived]);
 
+  // Quick-confirm only on a fresh connect (no one signed in) to a one-user
+  // folder, and only until the user picks "someone else". The switch-user modal
+  // (already signed in) always shows the full picker.
+  const soleUser = users.length === 1 ? users[0] : null;
+  const showQuickConfirm =
+    !contextCurrentUser && !expandPicker && soleUser !== null;
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Beta surfacing, mirrors the folder-setup screen: version badge
@@ -1057,6 +1068,41 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+            </div>
+          ) : showQuickConfirm && soleUser ? (
+            <div className="p-6 text-center space-y-5">
+              <div className="flex flex-col items-center gap-3">
+                <UserAvatar username={soleUser} size="xl" />
+                <div>
+                  <p className="text-body text-slate-400">Continue as</p>
+                  <p className="text-heading font-semibold text-white">
+                    {soleUser}?
+                  </p>
+                </div>
+              </div>
+              {error && (
+                <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
+                  <p className="text-body text-red-300">{error}</p>
+                </div>
+              )}
+              <div className="space-y-2">
+                <button
+                  onClick={() => handleLogin(soleUser)}
+                  disabled={loggingIn !== null}
+                  className="w-full py-3 btn-brand text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Yes, I&apos;m {soleUser}
+                </button>
+                <button
+                  onClick={() => {
+                    setError(null);
+                    setExpandPicker(true);
+                  }}
+                  className="w-full py-2.5 text-body bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg transition-colors"
+                >
+                  No, I&apos;m someone else
+                </button>
+              </div>
             </div>
           ) : showCreateForm ? (
             <div className="p-6">
