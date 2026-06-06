@@ -38,9 +38,25 @@ This is preserved explicitly: local-first / own-your-data (server only ever hold
   - (B) The client first calls a small Vercel/D1 auth endpoint that verifies identity and membership and returns a short-lived token the DO trusts. Keeps key lookups out of the DO.
   Orchestrator lean = (A) for simplicity, but this needs Grant's call before chunk 3.
 
-## Spike to retire risk before committing chunk 1
+## Spike RETIRED 2026-06-06: loro-crdt runs in the Workers runtime
 
-- loro-crdt in the Workers runtime. The DO needs loro-crdt (WASM) to compact the update log server-side. Workers support WASM, and the relay already deployed cleanly, but loro-crdt-in-workerd is unproven for us. Spike it first. FALLBACK if it does not run: the DO stores the raw append-only update log and serves the full log on catch-up (no server-side compaction), which still works, just less compact. Compaction can move to a periodic external job later.
+Confirmed loro-crdt 1.12.3 runs in workerd. A throwaway worker created a doc,
+exported an update (101 B), imported + compacted it server-side into a snapshot
+(301 B), and a fresh reader rebuilt the text (roundtrip true). So the DO can do
+its own compaction; the raw-append fallback is NOT needed.
+
+THE RECIPE (the plain `import { LoroDoc } from "loro-crdt"` FAILS in workerd
+with "Invalid URL string" because loro has no exports map and resolves to the
+Node build, whose async init does `new URL('loro_wasm_bg.wasm', import.meta.url)`):
+
+```ts
+import wasm from "loro-crdt/web/loro_wasm_bg.wasm"; // wrangler -> WebAssembly.Module
+import { initSync, LoroDoc } from "loro-crdt/web/index.js";
+initSync({ module: wasm }); // sync init at module top level, before any use
+```
+
+Use the `web` build (sync `initSync(module)`) and pass the wasm as an explicit
+module. Verified under `wrangler dev --local` (GET / -> 200, the round-trip JSON).
 
 ## Phase 1: collab -> Durable Object
 
