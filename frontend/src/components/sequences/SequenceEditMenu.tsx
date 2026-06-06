@@ -34,6 +34,17 @@ export interface EditMenuItem {
   checked?: boolean;
   /** Optional leading color swatch (e.g. a feature-type color dot). */
   color?: string;
+  /** Marks a SWATCH-ROW item: instead of a normal label button, render a compact
+   *  row of preset color chips (the feature quick-recolor affordance). `onRun` is
+   *  ignored for these rows; each chip calls `swatches.onPick(color)`. */
+  swatches?: {
+    /** The preset colors to offer, left to right. */
+    colors: string[];
+    /** The currently applied color (ringed so the user sees the active one). */
+    current?: string;
+    /** Apply a chosen color. The menu closes after, like any other item. */
+    onPick: (color: string) => void;
+  };
   onRun: () => void;
 }
 
@@ -71,6 +82,38 @@ function MenuItems({ items, onAfterRun }: { items: EditMenuItem[]; onAfterRun: (
       {items.map((it) => (
         <div key={it.id}>
           {it.group ? <div className="my-1 h-px bg-gray-100" /> : null}
+          {it.swatches ? (
+            <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5" role="group" aria-label={it.label}>
+              {it.swatches.colors.map((c) => {
+                const active =
+                  !!it.swatches!.current &&
+                  it.swatches!.current.trim().toLowerCase() === c.trim().toLowerCase();
+                return (
+                  <button
+                    key={c}
+                    role="menuitemradio"
+                    type="button"
+                    aria-checked={active}
+                    aria-label={`Set color ${c}`}
+                    disabled={!it.enabled}
+                    onClick={() => {
+                      if (!it.enabled) return;
+                      it.swatches!.onPick(c);
+                      onAfterRun();
+                    }}
+                    style={{ backgroundColor: c }}
+                    className={`h-5 w-5 rounded-full transition-transform ${
+                      it.enabled ? "hover:scale-110" : "cursor-not-allowed opacity-40"
+                    } ${
+                      active
+                        ? "ring-2 ring-sky-500 ring-offset-1"
+                        : "ring-1 ring-black/10"
+                    }`}
+                  />
+                );
+              })}
+            </div>
+          ) : (
           <button
             role="menuitem"
             type="button"
@@ -110,6 +153,7 @@ function MenuItems({ items, onAfterRun }: { items: EditMenuItem[]; onAfterRun: (
               </span>
             ) : null}
           </button>
+          )}
         </div>
       ))}
     </>

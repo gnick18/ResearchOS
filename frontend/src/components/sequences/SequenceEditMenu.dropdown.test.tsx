@@ -9,7 +9,11 @@
 
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import { EditMenuDropdown, type EditMenuItem } from "./SequenceEditMenu";
+import {
+  EditMenuDropdown,
+  SequenceContextMenu,
+  type EditMenuItem,
+} from "./SequenceEditMenu";
 
 afterEach(() => cleanup());
 
@@ -76,5 +80,71 @@ describe("EditMenuDropdown gating", () => {
     expect(row.querySelector("svg")).not.toBeNull();
     fireEvent.click(row);
     expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+});
+
+// sequence editor master. The FEATURE right-click menu shows the two quick ops
+// (a recolor swatch row + Rename) alongside the CRUD items, and the swatch chips
+// apply the picked color.
+describe("feature context menu quick ops", () => {
+  function featureItems(onPick: (c: string) => void, onRename: () => void): EditMenuItem[] {
+    return [
+      {
+        id: "feat-recolor",
+        label: "Set color",
+        enabled: true,
+        swatches: {
+          colors: ["#34d399", "#22d3ee", "#93c5fd"],
+          current: "#22d3ee",
+          onPick,
+        },
+        onRun: () => {},
+      },
+      { id: "feat-rename", label: "Rename…", enabled: true, onRun: onRename },
+      { id: "feat-remove", label: "Remove Feature", enabled: true, destructive: true, onRun: () => {} },
+    ];
+  }
+
+  it("renders a recolor swatch row and a Rename item", () => {
+    render(
+      <SequenceContextMenu
+        at={{ x: 10, y: 10 }}
+        items={featureItems(() => {}, () => {})}
+        onClose={() => {}}
+      />,
+    );
+    // The recolor affordance: a group of color chips (menuitemradio).
+    const chips = screen.getAllByRole("menuitemradio");
+    expect(chips).toHaveLength(3);
+    // The active color is marked checked.
+    expect(chips.filter((c) => c.getAttribute("aria-checked") === "true")).toHaveLength(1);
+    // The Rename item is present.
+    expect(screen.getByRole("menuitem", { name: "Rename…" })).toBeInTheDocument();
+  });
+
+  it("applies a picked swatch color", () => {
+    const onPick = vi.fn();
+    render(
+      <SequenceContextMenu
+        at={{ x: 10, y: 10 }}
+        items={featureItems(onPick, () => {})}
+        onClose={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Set color #34d399" }));
+    expect(onPick).toHaveBeenCalledWith("#34d399");
+  });
+
+  it("opens the rename prompt via its menu item", () => {
+    const onRename = vi.fn();
+    render(
+      <SequenceContextMenu
+        at={{ x: 10, y: 10 }}
+        items={featureItems(() => {}, onRename)}
+        onClose={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Rename…" }));
+    expect(onRename).toHaveBeenCalledTimes(1);
   });
 });

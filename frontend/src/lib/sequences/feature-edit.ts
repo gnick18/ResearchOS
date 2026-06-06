@@ -348,6 +348,24 @@ export function setFeatureColor(
   return { ...doc, features };
 }
 
+/** Set just the NAME of the feature at `index` (the quick-rename action on the
+ *  feature right-click menu). Mirrors setFeatureColor: a single-field change that
+ *  returns a NEW document and touches nothing else (geometry, type, notes, color
+ *  all carry over). A blank name falls back to "Untitled" so the feature always
+ *  has a label. Out-of-range or no-op (same name) indices return the same doc. */
+export function renameFeature(
+  doc: SeqDocument,
+  index: number,
+  name: string,
+): SeqDocument {
+  if (index < 0 || index >= doc.features.length) return doc;
+  const next = name.trim() || "Untitled";
+  if (doc.features[index].name === next) return doc;
+  const features = doc.features.slice();
+  features[index] = { ...features[index], name: next };
+  return { ...doc, features };
+}
+
 /** Apply a default color to EVERY feature of a given type that has no explicit
  *  color of its own (the per-type palette change). Features that have been hand-
  *  recolored keep their override. Returns the same doc if nothing changed. */

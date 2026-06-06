@@ -7,6 +7,7 @@ import {
   duplicateFeature,
   deleteFeature,
   setFeatureColor,
+  renameFeature,
   setTypeColor,
   featureTypes,
   featureLength,
@@ -125,6 +126,47 @@ describe("setFeatureColor", () => {
     expect(d.features[0].color).toBe("#ff0000");
     const cleared = setFeatureColor(d, 0, "  ");
     expect(cleared.features[0].color).toBeUndefined();
+  });
+});
+
+describe("renameFeature", () => {
+  it("renames the target feature and leaves the others alone", () => {
+    const d = renameFeature(
+      doc([feat({ name: "a" }), feat({ name: "b" }), feat({ name: "c" })]),
+      1,
+      "renamed",
+    );
+    expect(d.features.map((f) => f.name)).toEqual(["a", "renamed", "c"]);
+  });
+  it("trims the new name", () => {
+    const d = renameFeature(doc([feat({ name: "a" })]), 0, "  spaced  ");
+    expect(d.features[0].name).toBe("spaced");
+  });
+  it("falls back to Untitled on a blank name", () => {
+    const d = renameFeature(doc([feat({ name: "a" })]), 0, "   ");
+    expect(d.features[0].name).toBe("Untitled");
+  });
+  it("touches nothing else on the feature", () => {
+    const f = feat({ name: "a", type: "CDS", start: 3, end: 9, color: "#abcdef" });
+    const d = renameFeature(doc([f]), 0, "b");
+    expect(d.features[0]).toMatchObject({
+      type: "CDS",
+      start: 3,
+      end: 9,
+      color: "#abcdef",
+      name: "b",
+    });
+  });
+  it("is a no-op (same reference) on an out-of-range index", () => {
+    const base = doc([feat({ name: "a" })]);
+    expect(renameFeature(base, -1, "x")).toBe(base);
+    expect(renameFeature(base, 5, "x")).toBe(base);
+  });
+  it("is a no-op (same reference) when the name is unchanged", () => {
+    const base = doc([feat({ name: "keep" })]);
+    expect(renameFeature(base, 0, "keep")).toBe(base);
+    // also a no-op when the trimmed name matches
+    expect(renameFeature(base, 0, "  keep  ")).toBe(base);
   });
 });
 

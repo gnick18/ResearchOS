@@ -20,6 +20,12 @@ export interface AnnotationProp {
   end: number;
   name: string;
   start: number;
+  // sequence editor master. OPTIONAL caller-supplied stable id. SeqViz normally
+  // assigns a randomID; because parseAnnotations spreads the caller object AFTER
+  // that default, an id passed here wins and becomes the rendered element id +
+  // class. The editor stamps an index-encoding id so a right-click can map the
+  // hit element back to its source feature. Absent => SeqViz keeps its randomID.
+  id?: string;
   // seq introns bot — OPTIONAL exon spans for a multi-segment (spliced) feature,
   // e.g. a GenBank join(...) CDS. Same coordinate space as start/end. When
   // absent OR length <= 1, the feature renders exactly as before (one box).

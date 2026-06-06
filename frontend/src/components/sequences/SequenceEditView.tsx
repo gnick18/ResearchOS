@@ -51,6 +51,7 @@ import {
   duplicateFeature,
   deleteFeature,
   setFeatureColor,
+  renameFeature,
   setTypeColor,
   segmentsOf,
   qualifiersFromNotes,
@@ -59,7 +60,13 @@ import {
   PRIORITIZE_NOTE_KEY,
   type FeatureDraft,
 } from "@/lib/sequences/feature-edit";
-import { colorForType } from "@/lib/sequences/feature-colors";
+import { colorForType, FEATURE_COLOR_SWATCHES } from "@/lib/sequences/feature-colors";
+import {
+  featureDomId,
+  featureIndexFromEventTarget,
+  chooseContextMenuKind,
+  type ContextMenuKind,
+} from "@/lib/sequences/context-menu-target";
 import { findOrfs } from "@/lib/sequences/orf";
 import { selectTranslationFeatures } from "@/lib/sequences/translation-tracks";
 import {
@@ -590,6 +597,10 @@ export default function SequenceEditView({
   // (null = closed), the Find box (open + query + match results + active match),
   // and the Select Range / Go To prompt dialogs.
   const [contextMenuAt, setContextMenuAt] = useState<{ x: number; y: number } | null>(null);
+  // sequence editor master. WHICH context menu the last right-click opened. The
+  // handler hit-tests the click and sets "feature" when it landed on a feature
+  // (so the menu acts on it) or "bases" otherwise (today's default).
+  const [contextMenuKind, setContextMenuKind] = useState<ContextMenuKind>("bases");
   const [findOpen, setFindOpen] = useState(false);
   // enhanced find bot — the box owns its query + mode internally and reports the
   // computed match list up here (FindMatch carries direction + an optional label
@@ -608,6 +619,10 @@ export default function SequenceEditView({
   const [findMatchesKey, setFindMatchesKey] = useState<string>("");
   const [selectRangeOpen, setSelectRangeOpen] = useState(false);
   const [goToOpen, setGoToOpen] = useState(false);
+  // sequence editor master. QUICK-RENAME prompt for the feature right-click menu.
+  // Holds the index being renamed (null = closed) so the dialog can prefill the
+  // feature's current name and apply on confirm.
+  const [renameFeatureIdx, setRenameFeatureIdx] = useState<number | null>(null);
 
   // map to note bot — "Send map image to a note" flow. `mapToNotePng` holds the
   // captured PNG data URL while the note picker is open (null = picker closed).
@@ -646,6 +661,20 @@ export default function SequenceEditView({
     return null;
   }, [externalSel, sel.hasRange, sel.lo, sel.hi]);
 
+  // Resolve each projected annotation back to its index in the source
+  // `doc.features` list (annotations drop primer_bind and carry no index, so we
+  // key by name|start|end, the same fallback chain handleMapFeatureClick uses).
+  // First-match wins on duplicate keys. Shared by the overview strip AND the
+  // right-click feature-id stamp below.
+  const featureIndexByKey = useMemo(() => {
+    const m = new Map<string, number>();
+    doc.features.forEach((f, i) => {
+      const key = `${f.name}|${f.start}|${f.end}`;
+      if (!m.has(key)) m.set(key, i);
+    });
+    return m;
+  }, [doc.features]);
+
   // VIEW CONTROLS are the lever for the calm default: SeqViz is prop-driven, so
   // a hidden layer is just a filtered prop. We filter the annotations by the
   // per-type / per-feature / master toggles before handing them to SeqViz.
@@ -661,18 +690,27 @@ export default function SequenceEditView({
             strand: a.direction === -1 ? -1 : 1,
           }),
         )
-        .map((a) => ({
-          name: a.name,
-          start: a.start,
-          end: a.end,
-          direction: a.direction,
-          color: a.color,
-          // seq introns bot — pass exon spans through to SeqViz so a multi-exon
-          // (join) feature draws exon boxes + a dashed intron connector. Absent
-          // for single-span features (unchanged rendering).
-          ...(a.segments && a.segments.length > 1 ? { segments: a.segments } : {}),
-        })),
-    [docAnnotations, view],
+        .map((a) => {
+          // sequence editor master. Stamp a stable, index-encoding id onto each
+          // annotation. SeqViz preserves an `id` we pass (its parseAnnotations
+          // spreads our object AFTER its randomID default, so ours wins) and
+          // renders it as the element id + class in BOTH the linear and circular
+          // viewers. A right-click reads it back to know which feature was hit.
+          const idx = featureIndexByKey.get(`${a.name}|${a.start}|${a.end}`);
+          return {
+            name: a.name,
+            start: a.start,
+            end: a.end,
+            direction: a.direction,
+            color: a.color,
+            ...(idx != null ? { id: featureDomId(idx) } : {}),
+            // seq introns bot. Pass exon spans through to SeqViz so a multi-exon
+            // (join) feature draws exon boxes + a dashed intron connector. Absent
+            // for single-span features (unchanged rendering).
+            ...(a.segments && a.segments.length > 1 ? { segments: a.segments } : {}),
+          };
+        }),
+    [docAnnotations, view, featureIndexByKey],
   );
 
   // Distinct feature types present (lowercase keys, sorted), for the per-type
@@ -1461,20 +1499,8 @@ export default function SequenceEditView({
 
   // Features projected to the overview bar (whole sequence, as arrows). Uses the
   // same visibility filtering as the main map so hidden types stay hidden.
-  // overview featclick bot — resolve each annotation back to its index in the
-  // source `doc.features` list (the index `selectFeature` consumes). Annotations
-  // drop `primer_bind` + carry no index, so key by name|start|end (the same
-  // fallback chain handleMapFeatureClick uses). First-match wins on duplicate
-  // keys, consistent with the Map's findIndex.
-  const featureIndexByKey = useMemo(() => {
-    const m = new Map<string, number>();
-    doc.features.forEach((f, i) => {
-      const key = `${f.name}|${f.start}|${f.end}`;
-      if (!m.has(key)) m.set(key, i);
-    });
-    return m;
-  }, [doc.features]);
-
+  // (featureIndexByKey, the name|start|end -> doc index resolver this consumes,
+  // is defined once up by the annotations projection and shared.)
   const overviewFeatures: OverviewFeature[] = useMemo(
     () =>
       docAnnotations
@@ -2257,6 +2283,14 @@ export default function SequenceEditView({
     [editor],
   );
 
+  // sequence editor master. Apply a quick rename onto the feature at `index`
+  // through the same undoable edit path as recolor.
+  const renameFeatureAt = useCallback(
+    (index: number, name: string) =>
+      editor.applyDocEdit((prev) => renameFeature(prev, index, name)),
+    [editor],
+  );
+
   const recolorType = useCallback(
     (type: string, color: string) =>
       editor.applyDocEdit((prev) => setTypeColor(prev, type, color)),
@@ -2807,15 +2841,37 @@ export default function SequenceEditView({
     }
   }, [selectedFeatureIdx, proteinDrawerDismissedIdx]);
 
-  // menu reorg bot — the Feature menu is now TRUE CRUD only: Add / Edit /
-  // Duplicate / Remove. The analysis engines (Detect / Annotate) moved to the new
-  // Analyze menu, and the per-feature-type show/hide list moved back to the left
-  // rail as a labeled "Feature types" flyout, so this menu no longer mixes three
-  // kinds of action under one verb.
+  // sequence editor master. The Feature menu. The QUICK ops sit at the top (a
+  // recolor swatch row + Rename) so a right-click on a feature lands its two most
+  // common edits in one move, then Add / Edit / Duplicate, then Remove as the
+  // destructive group. Analysis engines (Detect / Annotate) live in the Analyze
+  // menu; the per-type show/hide list lives on the left rail.
   const featureMenuItems = useMemo<EditMenuItem[]>(() => {
     const idx = selectedFeatureIdx;
     return [
-      { id: "feat-add", label: "Add Feature…", enabled: true, onRun: openAddFeature },
+      {
+        id: "feat-recolor",
+        label: "Set color",
+        enabled: selIsFeature,
+        swatches: {
+          // A calm subset of the shared feature palette (the first eight tones).
+          colors: FEATURE_COLOR_SWATCHES.slice(0, 8),
+          current: selFeat?.color,
+          onPick: (color) => {
+            if (idx != null) recolorFeatureAt(idx, color);
+          },
+        },
+        onRun: () => {},
+      },
+      {
+        id: "feat-rename",
+        label: "Rename…",
+        enabled: selIsFeature,
+        onRun: () => {
+          if (idx != null) setRenameFeatureIdx(idx);
+        },
+      },
+      { id: "feat-add", label: "Add Feature…", enabled: true, group: true, onRun: openAddFeature },
       {
         id: "feat-edit",
         label: "Edit Feature…",
@@ -2838,6 +2894,7 @@ export default function SequenceEditView({
         label: "Remove Feature",
         enabled: selIsFeature,
         destructive: true,
+        group: true,
         onRun: () => {
           if (idx != null) deleteFeatureAt(idx);
         },
@@ -2846,6 +2903,8 @@ export default function SequenceEditView({
   }, [
     selectedFeatureIdx,
     selIsFeature,
+    selFeat,
+    recolorFeatureAt,
     openAddFeature,
     openEditFeature,
     duplicateFeatureAt,
@@ -3477,9 +3536,19 @@ export default function SequenceEditView({
                   if (rect) setDragPointer({ x: e.clientX - rect.left, y: e.clientY - rect.top });
                 }}
                 onContextMenu={(e) => {
-                  // Right-click anywhere on the sequence surface opens the Edit
-                  // menu (the primary, selection-aware home for these ops).
+                  // sequence editor master. SMART right-click. Hit-test the click
+                  // target for a SeqViz feature element (its stamped, index-encoding
+                  // id). On a feature, SELECT it and open the FEATURE menu so the
+                  // menu acts on what was clicked; otherwise open the BASES menu
+                  // (today's selection-aware default).
                   e.preventDefault();
+                  const hitIdx = featureIndexFromEventTarget(e.target);
+                  if (hitIdx != null && hitIdx >= 0 && hitIdx < doc.features.length) {
+                    selectFeature(hitIdx);
+                    setContextMenuKind("feature");
+                  } else {
+                    setContextMenuKind(chooseContextMenuKind(null));
+                  }
                   setContextMenuAt({ x: e.clientX, y: e.clientY });
                 }}
               >
@@ -3898,10 +3967,12 @@ export default function SequenceEditView({
           feature (double-click a primer, or open from the Primers list). */}
       <PrimerEditorDialog request={primerEditor} />
 
-      {/* seq editops bot — right-click Edit context menu (selection-aware home). */}
+      {/* sequence editor master. Context-aware right-click menu. The FEATURE menu
+          (quick recolor + rename + CRUD) when the click landed on a feature, the
+          BASES menu (selection-aware DNA ops) otherwise. The handler sets the kind. */}
       <SequenceContextMenu
         at={contextMenuAt}
-        items={editMenuItems}
+        items={contextMenuKind === "feature" ? featureMenuItems : editMenuItems}
         onClose={() => setContextMenuAt(null)}
       />
 
@@ -3916,6 +3987,27 @@ export default function SequenceEditView({
         parse={(raw) => parseSelectRange(raw, doc.seq.length)}
         onConfirm={applySelectRange}
         onClose={() => setSelectRangeOpen(false)}
+      />
+
+      {/* sequence editor master. Quick Rename prompt for the feature right-click
+          menu. Prefilled with the feature's current name; a blank entry is invalid
+          (the rename op would fall back to "Untitled", but the prompt asks for a
+          real name). Confirm applies it through the undoable renameFeatureAt path. */}
+      <SequencePromptDialog<string>
+        open={renameFeatureIdx != null}
+        title="Rename feature"
+        label="Feature name"
+        placeholder="e.g. AmpR promoter"
+        initialValue={
+          renameFeatureIdx != null ? doc.features[renameFeatureIdx]?.name ?? "" : ""
+        }
+        confirmLabel="Rename"
+        parse={(raw) => (raw.trim() ? raw.trim() : null)}
+        onConfirm={(name) => {
+          if (renameFeatureIdx != null) renameFeatureAt(renameFeatureIdx, name);
+          setRenameFeatureIdx(null);
+        }}
+        onClose={() => setRenameFeatureIdx(null)}
       />
 
       {/* seq editops bot — Go To… prompt (1-based coordinate; reuses nav math). */}
