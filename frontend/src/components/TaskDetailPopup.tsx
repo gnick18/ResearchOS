@@ -800,7 +800,7 @@ export default function TaskDetailPopup({
           />
         )}
         <div
-          className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex flex-col overflow-hidden max-h-[90vh]"
+          className="bg-surface-raised rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex flex-col overflow-hidden max-h-[90vh]"
           style={{
             boxShadow:
               "0 1px 3px rgba(0,0,0,0.06), 0 16px 40px -8px rgba(0,0,0,0.22)",
@@ -823,7 +823,7 @@ export default function TaskDetailPopup({
             />
           )}
           {/* Minimal Header */}
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 flex-shrink-0">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border flex-shrink-0">
             <div className="flex items-center gap-2 flex-1 mr-2 min-w-0">
               {/* PI Phase 5 — Request edit button (simple-task header). */}
               {labHeadGate.canRequestEdit && !labHeadGate.unlocked && labHeadGate.activeUser && (
@@ -867,7 +867,7 @@ export default function TaskDetailPopup({
                     className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
                       task.is_complete
                         ? "bg-emerald-500 border-emerald-500 text-white"
-                        : "border-gray-300 hover:border-emerald-400 text-transparent hover:text-emerald-400"
+                        : "border-border hover:border-emerald-400 text-transparent hover:text-emerald-400"
                     }`}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -880,14 +880,14 @@ export default function TaskDetailPopup({
                 <span className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
                   task.is_complete
                     ? "bg-emerald-500 text-white"
-                    : "border-2 border-gray-200 text-transparent"
+                    : "border-2 border-border text-transparent"
                 }`}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M20 6L9 17l-5-5"/>
                   </svg>
                 </span>
               )}
-              <h3 className={`text-title font-semibold truncate min-w-0 ${task.is_complete ? "text-gray-400 line-through" : "text-gray-900"}`}>
+              <h3 className={`text-title font-semibold truncate min-w-0 ${task.is_complete ? "text-foreground-muted line-through" : "text-foreground"}`}>
                 {task.name}
               </h3>
             </div>
@@ -911,7 +911,7 @@ export default function TaskDetailPopup({
                         }
                       }
                     }}
-                    className={`p-1.5 rounded-lg transition-colors ${task.is_shared_with_me ? "text-gray-300 cursor-not-allowed" : "text-gray-400 hover:text-red-600 hover:bg-red-50"}`}
+                    className={`p-1.5 rounded-lg transition-colors ${task.is_shared_with_me ? "text-foreground-muted cursor-not-allowed" : "text-foreground-muted hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10"}`}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -922,7 +922,7 @@ export default function TaskDetailPopup({
               <Tooltip label="Expand to full view" placement="bottom">
                 <button
                   onClick={() => setIsExpanded(true)}
-                  className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
+                  className="text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken p-1.5 rounded-lg transition-colors"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
@@ -933,7 +933,7 @@ export default function TaskDetailPopup({
                 <button
                   onClick={onClose}
                   aria-label="Close"
-                  className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
+                  className="text-foreground-muted hover:text-foreground hover:bg-surface-sunken p-1.5 rounded-lg transition-colors"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"/>
@@ -973,7 +973,7 @@ export default function TaskDetailPopup({
         />
       )}
       <div
-        className={`bg-white rounded-2xl shadow-2xl w-full mx-4 flex flex-col transition-all duration-300 overflow-hidden ${
+        className={`bg-surface-raised rounded-2xl shadow-2xl w-full mx-4 flex flex-col transition-all duration-300 overflow-hidden ${
           isExpanded
             ? "inset-4 max-w-none max-h-none h-[calc(100vh-2rem)]"
             : "max-w-5xl h-[90vh] max-h-[860px]"
@@ -1021,20 +1021,20 @@ export default function TaskDetailPopup({
             top accent strip carries the color tone. Added flex-wrap
             so the action rail wraps below the title at narrow viewports
             instead of jamming together. */}
-        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-gray-100 flex-wrap">
+        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-border flex-wrap">
           <div className="flex items-start min-w-0 flex-1">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-heading font-semibold text-gray-900 leading-tight truncate max-w-[60ch]">
+                <h3 className="text-heading font-semibold text-foreground leading-tight truncate max-w-[60ch]">
                   {task.name}
                 </h3>
                 <span
                   className={`inline-flex items-center px-1.5 py-0.5 rounded text-meta font-medium uppercase tracking-wide ${
                     isExperiment
-                      ? "bg-purple-50 text-purple-700"
+                      ? "bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300"
                       : isPurchase
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "bg-blue-50 text-blue-700"
+                      ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                      : "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300"
                   }`}
                 >
                   {isExperiment ? "Experiment" : isPurchase ? "Purchase" : "Task"}
@@ -1058,7 +1058,7 @@ export default function TaskDetailPopup({
                     label={`Click X to remove from ${task.external_project.owner}'s project`}
                     placement="bottom"
                   >
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-meta font-medium text-amber-700">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 px-2 py-0.5 text-meta font-medium text-amber-700 dark:text-amber-300">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         width="11"
@@ -1082,7 +1082,7 @@ export default function TaskDetailPopup({
                           e.stopPropagation();
                           handleUnshareFromProjectTop();
                         }}
-                        className="ml-0.5 -mr-0.5 rounded-full p-0.5 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-wait"
+                        className="ml-0.5 -mr-0.5 rounded-full p-0.5 hover:bg-amber-100 dark:hover:bg-amber-500/20 disabled:opacity-50 disabled:cursor-wait"
                         aria-label="Remove from project"
                       >
                         <svg
@@ -1104,14 +1104,14 @@ export default function TaskDetailPopup({
                   </Tooltip>
                 )}
               </div>
-              <div className="mt-1 flex items-center flex-wrap gap-x-1.5 gap-y-1 text-meta text-gray-500">
+              <div className="mt-1 flex items-center flex-wrap gap-x-1.5 gap-y-1 text-meta text-foreground-muted">
                 {project?.name && (
                   <>
-                    <span className="font-medium text-gray-600">{project.name}</span>
-                    <span className="text-gray-300">·</span>
+                    <span className="font-medium text-foreground-muted">{project.name}</span>
+                    <span className="text-foreground-muted">·</span>
                   </>
                 )}
-                <span className="inline-flex items-center gap-1 text-gray-500">
+                <span className="inline-flex items-center gap-1 text-foreground-muted">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="11"
@@ -1131,14 +1131,14 @@ export default function TaskDetailPopup({
                   </svg>
                   {task.start_date} → {task.end_date}
                 </span>
-                <span className="text-gray-300">·</span>
+                <span className="text-foreground-muted">·</span>
                 <span>
                   {task.duration_days} day{task.duration_days !== 1 ? "s" : ""}
                 </span>
                 {task.is_complete && (
                   <>
-                    <span className="text-gray-300">·</span>
-                    <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
+                    <span className="text-foreground-muted">·</span>
+                    <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300 font-medium">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         width="11"
@@ -1235,8 +1235,8 @@ export default function TaskDetailPopup({
                   }}
                   className={`group/complete inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-meta font-medium transition-colors ${
                     task.is_complete
-                      ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 ring-1 ring-emerald-200"
-                      : "bg-white text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 ring-1 ring-gray-200 hover:ring-emerald-200"
+                      ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 ring-1 ring-emerald-200"
+                      : "bg-surface-raised text-foreground hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 ring-1 ring-gray-200 hover:ring-emerald-200"
                   }`}
                 >
                   {/* R1 fix-pass: when complete, swap the check icon for a
@@ -1261,7 +1261,7 @@ export default function TaskDetailPopup({
                 </button>
               </Tooltip>
             ) : task.is_complete ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-meta font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-meta font-medium bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-200">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 6L9 17l-5-5" />
                 </svg>
@@ -1291,7 +1291,7 @@ export default function TaskDetailPopup({
                       setPendingEnterEdit(true);
                     }}
                     data-tour-target="task-popup-edit-button"
-                    className="text-gray-400 hover:text-blue-600 hover:bg-blue-50 p-1.5 rounded-lg transition-colors"
+                    className="text-foreground-muted hover:text-blue-600 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-500/10 p-1.5 rounded-lg transition-colors"
                     aria-label="Edit properties"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -1329,8 +1329,8 @@ export default function TaskDetailPopup({
                       data-testid="task-undo-restore-button"
                       className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-meta font-medium rounded-lg transition-colors ${
                         canRestore && !restoreBusy
-                          ? "text-amber-700 bg-amber-50 hover:bg-amber-100"
-                          : "text-gray-400 bg-gray-50 cursor-not-allowed"
+                          ? "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20"
+                          : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
                       }`}
                     >
                       <svg
@@ -1368,15 +1368,15 @@ export default function TaskDetailPopup({
                     aria-pressed={commentsOpen}
                     className={`relative p-1.5 rounded-lg transition-colors ${
                       commentsOpen
-                        ? "text-emerald-600 bg-emerald-50"
-                        : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                        ? "text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10"
+                        : "text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken"
                     }`}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M7 8h10M7 12h6m-7 9l4-4h10a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h1v4z" />
                     </svg>
                     {commentCount > 0 ? (
-                      <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-[10px] font-semibold text-white tabular-nums">
+                      <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500 px-1 text-meta font-semibold text-white tabular-nums">
                         {commentCount}
                       </span>
                     ) : null}
@@ -1398,8 +1398,8 @@ export default function TaskDetailPopup({
                   aria-pressed={historyOpen}
                   className={`p-1.5 rounded-lg transition-colors ${
                     historyOpen
-                      ? "text-emerald-600 bg-emerald-50"
-                      : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                      ? "text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10"
+                      : "text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken"
                   }`}
                 >
                   <svg
@@ -1424,7 +1424,7 @@ export default function TaskDetailPopup({
                     onClick={() => setShowSharePopup(true)}
                     data-tour-target="task-popup-share-button"
                     aria-label="Share"
-                    className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
+                    className="text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken p-1.5 rounded-lg transition-colors"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="18" cy="5" r="3" />
@@ -1440,7 +1440,7 @@ export default function TaskDetailPopup({
                 <button
                   onClick={() => setIsExpanded(!isExpanded)}
                   data-tour-target="task-popup-fullscreen"
-                  className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
+                  className="text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken p-1.5 rounded-lg transition-colors"
                 >
                   {isExpanded ? (
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1481,8 +1481,8 @@ export default function TaskDetailPopup({
                     }}
                     className={`p-1.5 rounded-lg transition-colors ${
                       task.is_shared_with_me
-                        ? "text-gray-300 cursor-not-allowed"
-                        : "text-gray-400 hover:text-red-600 hover:bg-red-50"
+                        ? "text-foreground-muted cursor-not-allowed"
+                        : "text-foreground-muted hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10"
                     }`}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1495,7 +1495,7 @@ export default function TaskDetailPopup({
                 <button
                   onClick={onClose}
                   data-tour-target="task-popup-close"
-                  className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
+                  className="text-foreground-muted hover:text-foreground hover:bg-surface-sunken p-1.5 rounded-lg transition-colors"
                   aria-label="Close"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1532,15 +1532,15 @@ export default function TaskDetailPopup({
           )}
           {task.assignee && task.assignee !== task.owner && (
             <div className="flex items-center gap-2 text-meta">
-              <span className="text-gray-500">Assigned to</span>
+              <span className="text-foreground-muted">Assigned to</span>
               <span
-                className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-medium border border-emerald-200"
+                className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium border border-emerald-200 dark:border-emerald-500/30"
                 data-testid="task-assignee-chip"
               >
                 {task.assignee}
               </span>
-              <span className="text-gray-300">·</span>
-              <span className="text-gray-400">Owner: {task.owner}</span>
+              <span className="text-foreground-muted">·</span>
+              <span className="text-foreground-muted">Owner: {task.owner}</span>
             </div>
           )}
           {((task.shared_with?.length ?? 0) > 0 || task.is_shared_with_me) && (
@@ -1564,7 +1564,7 @@ export default function TaskDetailPopup({
             which read as a chrome leak from the header. Now they sit on
             the same surface as the header for a smoother seam. */}
         <div
-          className="flex items-stretch gap-1 px-6 border-b border-gray-100"
+          className="flex items-stretch gap-1 px-6 border-b border-border"
           data-tour-target="experiment-tab-container"
           role="tablist"
         >
@@ -1587,8 +1587,8 @@ export default function TaskDetailPopup({
                 }
                 className={`relative px-3.5 py-3 text-body font-medium transition-colors -mb-px ${
                   isActive
-                    ? "text-blue-600"
-                    : "text-gray-500 hover:text-gray-800"
+                    ? "text-blue-600 dark:text-blue-300"
+                    : "text-foreground-muted hover:text-foreground"
                 }`}
               >
                 {tab === "details" && "Details"}
@@ -1620,7 +1620,7 @@ export default function TaskDetailPopup({
             {restoreError && (
               <p
                 data-testid="task-restore-error"
-                className="text-meta text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug"
+                className="text-meta text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg px-3 py-2 leading-snug"
               >
                 {restoreError}
               </p>
@@ -1628,7 +1628,7 @@ export default function TaskDetailPopup({
             {undoConfirmPending && (
               <div
                 data-testid="task-undo-confirm"
-                className="mt-2 text-meta text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug"
+                className="mt-2 text-meta text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg px-3 py-2 leading-snug"
               >
                 <p>
                   You have edited this experiment since the restore. Undoing will
@@ -1649,7 +1649,7 @@ export default function TaskDetailPopup({
                     onClick={dismissUndoConfirm}
                     disabled={restoreBusy}
                     data-testid="task-undo-cancel-button"
-                    className="px-2.5 py-1 text-meta font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:opacity-60 rounded-md transition-colors"
+                    className="px-2.5 py-1 text-meta font-medium text-foreground-muted bg-surface-sunken hover:bg-foreground-muted/15 disabled:opacity-60 rounded-md transition-colors"
                   >
                     Keep editing
                   </button>
@@ -1676,7 +1676,7 @@ export default function TaskDetailPopup({
                   />
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-full text-gray-400 text-body p-6">
+                <div className="flex items-center justify-center h-full text-foreground-muted text-body p-6">
                   <p>Select a version to preview it here.</p>
                 </div>
               )
@@ -1786,13 +1786,13 @@ export default function TaskDetailPopup({
 
         {universalDropToast && (
           <div
-            className="fixed z-50 max-w-sm rounded-lg border border-emerald-200 bg-white px-3 py-2 text-body text-emerald-900 shadow-lg pointer-events-none flex items-center gap-2"
+            className="fixed z-50 max-w-sm rounded-lg border border-emerald-200 dark:border-emerald-500/30 bg-surface-raised px-3 py-2 text-body text-emerald-900 dark:text-emerald-200 shadow-lg pointer-events-none flex items-center gap-2"
             style={{
               left: Math.max(8, Math.min(universalDropToast.x + 12, (typeof window !== "undefined" ? window.innerWidth : 1024) - 400)),
               top: Math.max(8, Math.min(universalDropToast.y + 12, (typeof window !== "undefined" ? window.innerHeight : 768) - 100)),
             }}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 flex-shrink-0" aria-hidden>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 dark:text-emerald-300 flex-shrink-0" aria-hidden>
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
               <polyline points="22 4 12 14.01 9 11.01" />
             </svg>
@@ -1920,7 +1920,7 @@ function SimpleTaskChecklist({
         {subTasks.map((st, idx) => (
           <div
             key={st.id}
-            className={`flex items-center gap-2.5 group py-1.5 px-2.5 rounded-md hover:bg-gray-50 transition-colors ${
+            className={`flex items-center gap-2.5 group py-1.5 px-2.5 rounded-md hover:bg-surface-sunken transition-colors ${
               st.is_complete ? "opacity-50" : ""
             }`}
           >
@@ -1939,7 +1939,7 @@ function SimpleTaskChecklist({
                 className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all flex-shrink-0 ${
                   st.is_complete
                     ? "bg-blue-500 border-blue-500"
-                    : "border-gray-300 hover:border-blue-400"
+                    : "border-border hover:border-blue-400"
                 } ${readOnly ? "cursor-default" : ""}`}
               >
                 {st.is_complete && (
@@ -1949,14 +1949,14 @@ function SimpleTaskChecklist({
                 )}
               </button>
             </Tooltip>
-            <span className={`flex-1 text-body ${st.is_complete ? "line-through text-gray-400" : "text-gray-700"}`}>
+            <span className={`flex-1 text-body ${st.is_complete ? "line-through text-foreground-muted" : "text-foreground"}`}>
               {st.text}
             </span>
             {!readOnly && (
               <Tooltip label="Delete item" placement="bottom">
                 <button
                   onClick={() => handleDeleteSubTask(st.id)}
-                  className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-opacity"
+                  className="opacity-0 group-hover:opacity-100 text-foreground-muted hover:text-red-500 dark:hover:text-red-300 transition-opacity"
                   data-force-hover-controls-target
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1979,7 +1979,7 @@ function SimpleTaskChecklist({
             onKeyDown={(e) => e.key === "Enter" && handleAddSubTask()}
             placeholder="Add item..."
             data-tour-target="workbench-list-add-item-input"
-            className="flex-1 px-3 py-2 text-body border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+            className="flex-1 px-3 py-2 text-body border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
           />
           <Tooltip label="Add item" placement="bottom">
             <button
@@ -2019,30 +2019,30 @@ function PropertyGrid({
     <div className="space-y-5">
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
         <div>
-          <dt className="text-meta font-medium text-gray-500 uppercase tracking-wide">Project</dt>
-          <dd className="text-body text-gray-900 mt-1">
+          <dt className="text-meta font-medium text-foreground-muted uppercase tracking-wide">Project</dt>
+          <dd className="text-body text-foreground mt-1">
             {project?.name || (task.is_shared_with_me ? `Shared project (by ${task.owner})` : "—")}
           </dd>
         </div>
         <div>
-          <dt className="text-meta font-medium text-gray-500 uppercase tracking-wide">Type</dt>
-          <dd className="text-body text-gray-900 mt-1 capitalize">{task.task_type}</dd>
+          <dt className="text-meta font-medium text-foreground-muted uppercase tracking-wide">Type</dt>
+          <dd className="text-body text-foreground mt-1 capitalize">{task.task_type}</dd>
         </div>
         {!hasDependencies && (
           <>
             <div>
-              <dt className="text-meta font-medium text-gray-500 uppercase tracking-wide">Start</dt>
-              <dd className="text-body text-gray-900 mt-1 font-mono">{task.start_date}</dd>
+              <dt className="text-meta font-medium text-foreground-muted uppercase tracking-wide">Start</dt>
+              <dd className="text-body text-foreground mt-1 font-mono">{task.start_date}</dd>
             </div>
             <div>
-              <dt className="text-meta font-medium text-gray-500 uppercase tracking-wide">End</dt>
-              <dd className="text-body text-gray-900 mt-1 font-mono">{task.end_date}</dd>
+              <dt className="text-meta font-medium text-foreground-muted uppercase tracking-wide">End</dt>
+              <dd className="text-body text-foreground mt-1 font-mono">{task.end_date}</dd>
             </div>
           </>
         )}
         <div>
-          <dt className="text-meta font-medium text-gray-500 uppercase tracking-wide">Duration</dt>
-          <dd className="text-body text-gray-900 mt-1">
+          <dt className="text-meta font-medium text-foreground-muted uppercase tracking-wide">Duration</dt>
+          <dd className="text-body text-foreground mt-1">
             {task.duration_days} day{task.duration_days !== 1 ? "s" : ""}
           </dd>
         </div>
@@ -2051,8 +2051,8 @@ function PropertyGrid({
             would be a duplicate signal. */}
       </dl>
       {task.weekend_override && (
-        <div className="flex items-start gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-meta text-amber-800">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-700 flex-shrink-0 mt-0.5">
+        <div className="flex items-start gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg text-meta text-amber-800 dark:text-amber-200">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-700 dark:text-amber-300 flex-shrink-0 mt-0.5">
             <rect x="3" y="4" width="18" height="18" rx="2" />
             <line x1="16" y1="2" x2="16" y2="6" />
             <line x1="8" y1="2" x2="8" y2="6" />
@@ -2063,12 +2063,12 @@ function PropertyGrid({
       )}
       {task.tags && task.tags.length > 0 && (
         <div>
-          <dt className="text-meta font-medium text-gray-500 uppercase tracking-wide mb-1.5">Tags</dt>
+          <dt className="text-meta font-medium text-foreground-muted uppercase tracking-wide mb-1.5">Tags</dt>
           <div className="flex gap-1 flex-wrap">
             {task.tags.map((tag) => (
               <span
                 key={tag}
-                className="text-meta px-2 py-0.5 bg-gray-100 text-gray-700 rounded"
+                className="text-meta px-2 py-0.5 bg-surface-sunken text-foreground rounded"
               >
                 #{tag}
               </span>
@@ -2078,10 +2078,10 @@ function PropertyGrid({
       )}
       {task.deviation_log && (
         <div>
-          <dt className="text-meta font-medium text-gray-500 uppercase tracking-wide mb-1.5">
+          <dt className="text-meta font-medium text-foreground-muted uppercase tracking-wide mb-1.5">
             Deviation log
           </dt>
-          <div className="prose prose-sm prose-gray max-w-none bg-amber-50 border border-amber-100 rounded-lg p-3">
+          <div className="prose prose-sm prose-gray max-w-none bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/25 rounded-lg p-3">
             <ReactMarkdown remarkPlugins={[remarkGfm, remarkUnderline]} rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}>
               {task.deviation_log}
             </ReactMarkdown>
@@ -2898,27 +2898,27 @@ function DetailsTab({
           chrome family as FlagBanner / shift-confirm / convert-type:
           tinted card with semantic accent. */}
       {duplicateWarning && (
-        <div className="bg-rose-50 border border-rose-200 rounded-xl p-4">
+        <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded-xl p-4">
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-lg bg-rose-100 flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-600">
+            <div className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-500/20 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-600 dark:text-rose-300">
                 <circle cx="12" cy="12" r="10" />
                 <line x1="12" y1="8" x2="12" y2="12" />
                 <line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <h4 className="text-body font-semibold text-rose-900">
+              <h4 className="text-body font-semibold text-rose-900 dark:text-rose-200">
                 Duplicate task name
               </h4>
-              <p className="text-meta text-rose-800 mt-0.5">
+              <p className="text-meta text-rose-800 dark:text-rose-200 mt-0.5">
                 A task with this name already exists in this project:
               </p>
               <ul className="mt-2 space-y-1">
                 {duplicateWarning.matching_tasks.map((t) => (
-                  <li key={t.id} className="text-meta text-rose-800 flex items-center gap-2 bg-white border border-rose-100 rounded-lg px-2 py-1">
-                    <strong className="text-rose-900">{t.name}</strong>
-                    <span className="text-rose-500">
+                  <li key={t.id} className="text-meta text-rose-800 dark:text-rose-200 flex items-center gap-2 bg-surface-raised border border-rose-100 dark:border-rose-500/25 rounded-lg px-2 py-1">
+                    <strong className="text-rose-900 dark:text-rose-200">{t.name}</strong>
+                    <span className="text-rose-500 dark:text-rose-300">
                       Started {t.start_date} · {t.is_complete ? "Completed" : "In Progress"}
                     </span>
                   </li>
@@ -2933,7 +2933,7 @@ function DetailsTab({
                 </button>
                 <button
                   onClick={handleProceedWithDuplicate}
-                  className="px-3 py-1.5 text-meta font-medium text-rose-700 ring-1 ring-rose-300 hover:bg-rose-100 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-meta font-medium text-rose-700 dark:text-rose-300 ring-1 ring-rose-300 hover:bg-rose-100 dark:hover:bg-rose-500/20 rounded-lg transition-colors"
                 >
                   Save anyway
                 </button>
@@ -2946,23 +2946,23 @@ function DetailsTab({
       {/* Task Type Conversion Modal — destructive action; matches the
           tinted-callout chrome. */}
       {showConvertModal && (
-        <div className="bg-rose-50 border border-rose-200 rounded-xl p-4">
+        <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded-xl p-4">
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-lg bg-rose-100 flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-600">
+            <div className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-500/20 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-600 dark:text-rose-300">
                 <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                 <line x1="12" y1="9" x2="12" y2="13" />
                 <line x1="12" y1="17" x2="12.01" y2="17" />
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <h4 className="text-body font-semibold text-rose-900">
+              <h4 className="text-body font-semibold text-rose-900 dark:text-rose-200">
                 Convert task type
               </h4>
-              <p className="text-meta text-rose-800 mt-0.5">
+              <p className="text-meta text-rose-800 dark:text-rose-200 mt-0.5">
                 Converting from <strong className="capitalize">{task.task_type}</strong> will permanently delete type-specific data:
               </p>
-              <ul className="mt-2 space-y-1 text-meta text-rose-700">
+              <ul className="mt-2 space-y-1 text-meta text-rose-700 dark:text-rose-300">
                 {getConversionWarnings(task.task_type).map((warning, i) => (
                   <li key={i} className="flex items-start gap-2">
                     <span aria-hidden className="mt-1 w-1 h-1 rounded-full bg-rose-400 flex-shrink-0" />
@@ -2970,17 +2970,17 @@ function DetailsTab({
                   </li>
                 ))}
               </ul>
-              <p className="text-meta text-rose-800 mt-3">
+              <p className="text-meta text-rose-800 dark:text-rose-200 mt-3">
                 <strong>Kept:</strong> name, dates, duration, project, completion status, and tags.
               </p>
               <div className="mt-3">
-                <label className="block text-meta font-medium text-rose-700 uppercase tracking-wide mb-1">
+                <label className="block text-meta font-medium text-rose-700 dark:text-rose-300 uppercase tracking-wide mb-1">
                   Convert to
                 </label>
                 <select
                   value={convertToType}
                   onChange={(e) => setConvertToType(e.target.value as "experiment" | "purchase" | "list")}
-                  className="w-full px-3 py-2 bg-white border border-rose-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-rose-400"
+                  className="w-full px-3 py-2 bg-surface-raised border border-rose-200 dark:border-rose-500/30 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-rose-400"
                 >
                   {availableConversionTypes.map((type) => (
                     <option key={type.value} value={type.value}>
@@ -2992,7 +2992,7 @@ function DetailsTab({
               <div className="flex gap-2 mt-3">
                 <button
                   onClick={() => setShowConvertModal(false)}
-                  className="px-3 py-1.5 text-meta font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-meta font-medium text-foreground hover:bg-surface-sunken rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
@@ -3011,11 +3011,11 @@ function DetailsTab({
 
       {/* Sub-tasks Section - only for list type tasks */}
       {task.task_type === "list" && (
-        <section className="bg-white border border-gray-200 rounded-xl p-5">
+        <section className="bg-surface-raised border border-border rounded-xl p-5">
           <div className="flex items-baseline justify-between mb-4">
-            <h4 className="text-title font-semibold text-gray-900">Sub-tasks</h4>
+            <h4 className="text-title font-semibold text-foreground">Sub-tasks</h4>
             {subTasks.length > 0 && (
-              <span className="text-meta text-gray-500">
+              <span className="text-meta text-foreground-muted">
                 {subTasks.filter(st => st.is_complete).length} of {subTasks.length} complete
               </span>
             )}
@@ -3024,7 +3024,7 @@ function DetailsTab({
           {/* Progress bar */}
           {subTasks.length > 0 && (
             <div className="mb-3">
-              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-1.5 bg-surface-sunken rounded-full overflow-hidden">
                 {/* R1 fix-pass: orange→yellow gradient leaked the legacy
                     sub-task palette into the new blue-centric chrome. Flat
                     blue matches the rest of the popup. */}
@@ -3041,7 +3041,7 @@ function DetailsTab({
             {subTasks.map((st, idx) => (
               <div
                 key={st.id}
-                className={`flex items-center gap-2 group py-1.5 px-2 rounded-lg hover:bg-white transition-colors ${
+                className={`flex items-center gap-2 group py-1.5 px-2 rounded-lg hover:bg-surface-raised transition-colors ${
                   st.is_complete ? "opacity-60" : ""
                 }`}
               >
@@ -3059,7 +3059,7 @@ function DetailsTab({
                     className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
                       st.is_complete
                         ? "bg-blue-600 border-blue-600"
-                        : "border-gray-300 hover:border-blue-400"
+                        : "border-border hover:border-blue-400"
                     }`}
                   >
                     {st.is_complete && (
@@ -3069,13 +3069,13 @@ function DetailsTab({
                     )}
                   </button>
                 </Tooltip>
-                <span className={`flex-1 text-body ${st.is_complete ? "line-through text-gray-400" : "text-gray-700"}`}>
+                <span className={`flex-1 text-body ${st.is_complete ? "line-through text-foreground-muted" : "text-foreground"}`}>
                   {st.text}
                 </span>
                 <Tooltip label="Delete sub-task" placement="bottom">
                   <button
                     onClick={() => handleDeleteSubTask(st.id)}
-                    className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-opacity"
+                    className="opacity-0 group-hover:opacity-100 text-foreground-muted hover:text-red-500 dark:hover:text-red-300 transition-opacity"
                     data-force-hover-controls-target
                     aria-label="Delete sub-task"
                   >
@@ -3098,7 +3098,7 @@ function DetailsTab({
               onKeyDown={(e) => e.key === "Enter" && handleAddSubTask()}
               placeholder="Add a sub-task..."
               data-tour-target="workbench-list-add-item-input"
-              className="flex-1 px-3 py-1.5 text-body border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 px-3 py-1.5 text-body border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <button
               onClick={handleAddSubTask}
@@ -3113,31 +3113,31 @@ function DetailsTab({
 
       {/* Shift Confirmation Modal */}
       {showShiftConfirm && shiftResult && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl p-4">
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-700">
+            <div className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-700 dark:text-amber-300">
                 <circle cx="12" cy="12" r="10" />
                 <line x1="12" y1="8" x2="12" y2="12" />
                 <line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <h4 className="text-body font-semibold text-amber-900">
+              <h4 className="text-body font-semibold text-amber-900 dark:text-amber-200">
                 This change will affect {shiftResult.affected_tasks.length} task{shiftResult.affected_tasks.length !== 1 ? "s" : ""}
               </h4>
               <div className="max-h-40 overflow-y-auto mt-2 space-y-1">
                 {shiftResult.affected_tasks.map((t) => (
-                  <div key={t.task_id} className="text-meta text-amber-800 flex items-center gap-2 bg-white border border-amber-100 rounded-lg px-2 py-1">
-                    <strong className="text-amber-900">{t.name}</strong>
-                    <span className="text-amber-600">{t.old_start} → {t.new_start}</span>
+                  <div key={t.task_id} className="text-meta text-amber-800 dark:text-amber-200 flex items-center gap-2 bg-surface-raised border border-amber-100 dark:border-amber-500/25 rounded-lg px-2 py-1">
+                    <strong className="text-amber-900 dark:text-amber-200">{t.name}</strong>
+                    <span className="text-amber-600 dark:text-amber-300">{t.old_start} → {t.new_start}</span>
                   </div>
                 ))}
               </div>
               {shiftResult.warnings.length > 0 && (
-                <div className="mt-3 border-t border-amber-200 pt-3">
-                  <p className="text-meta font-medium text-rose-700 mb-1">Warnings</p>
-                  <ul className="text-meta text-rose-600 space-y-1">
+                <div className="mt-3 border-t border-amber-200 dark:border-amber-500/30 pt-3">
+                  <p className="text-meta font-medium text-rose-700 dark:text-rose-300 mb-1">Warnings</p>
+                  <ul className="text-meta text-rose-600 dark:text-rose-300 space-y-1">
                     {shiftResult.warnings.map((w, i) => (
                       <li key={i}>{w.message}</li>
                     ))}
@@ -3151,7 +3151,7 @@ function DetailsTab({
                     setShiftResult(null);
                     setPendingStartDate(null);
                   }}
-                  className="px-3 py-1.5 text-meta font-medium text-gray-700 hover:bg-white rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-meta font-medium text-foreground hover:bg-surface-raised rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
@@ -3170,10 +3170,10 @@ function DetailsTab({
 
       {/* Dependency Tree Section */}
       {hasDependencies && (
-        <section className="bg-white border border-gray-200 rounded-xl p-5">
+        <section className="bg-surface-raised border border-border rounded-xl p-5">
           <div className="flex items-baseline justify-between mb-4">
-            <h4 className="text-title font-semibold text-gray-900">Dependency chain</h4>
-            <span className="text-meta text-gray-500">
+            <h4 className="text-title font-semibold text-foreground">Dependency chain</h4>
+            <span className="text-meta text-foreground-muted">
               {dependencyChainLevels.flat().length} task{dependencyChainLevels.flat().length !== 1 ? "s" : ""} linked
             </span>
           </div>
@@ -3191,11 +3191,11 @@ function DetailsTab({
                       {isMultiTaskLevel ? (
                         // Multiple connectors for parallel tasks
                         <div className="flex items-center gap-4">
-                          <div className="w-8 h-0.5 bg-gray-300" />
-                          <svg width="16" height="16" viewBox="0 0 16 16" className="text-gray-400">
+                          <div className="w-8 h-0.5 bg-border" />
+                          <svg width="16" height="16" viewBox="0 0 16 16" className="text-foreground-muted">
                             <path d="M8 0 L8 16" stroke="currentColor" strokeWidth="1" strokeDasharray="2 2" />
                           </svg>
-                          <div className="w-8 h-0.5 bg-gray-300" />
+                          <div className="w-8 h-0.5 bg-border" />
                         </div>
                       ) : (
                         <div className="w-0.5 h-4 bg-gradient-to-b from-gray-300 to-gray-400" />
@@ -3220,8 +3220,8 @@ function DetailsTab({
                           <div
                             className={`relative px-4 py-2 rounded-lg text-body transition-all ${
                               isCurrentTask
-                                ? "bg-blue-50 text-blue-700 font-medium ring-1 ring-blue-200"
-                                : "bg-white text-gray-700 border border-gray-200 hover:border-blue-400 hover:shadow-md cursor-pointer hover:bg-blue-50"
+                                ? "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 font-medium ring-1 ring-blue-200"
+                                : "bg-surface-raised text-foreground border border-border hover:border-blue-400 hover:shadow-md cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-500/10"
                             }`}
                             onClick={() => {
                               if (!isCurrentTask && onNavigateToTask) {
@@ -3231,13 +3231,13 @@ function DetailsTab({
                             title={!isCurrentTask ? `Click to view: ${chainTask.name}` : undefined}
                           >
                             <span className="flex items-center gap-2">
-                              <span className={`w-2 h-2 rounded-full ${isCurrentTask ? "bg-blue-500" : "bg-gray-400"}`} />
+                              <span className={`w-2 h-2 rounded-full ${isCurrentTask ? "bg-blue-500" : "bg-foreground-muted"}`} />
                               <span className="max-w-[200px] truncate">{chainTask.name}</span>
                               {isCurrentTask && (
                                 <span className="text-meta opacity-75">(this task)</span>
                               )}
                               {!isCurrentTask && onNavigateToTask && (
-                                <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg className="w-3 h-3 text-foreground-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                 </svg>
                               )}
@@ -3257,11 +3257,11 @@ function DetailsTab({
                         if (nextIsMulti) {
                           return (
                             <div className="flex items-center gap-4">
-                              <div className="w-8 h-0.5 bg-gray-300" />
-                              <svg width="16" height="16" viewBox="0 0 16 16" className="text-gray-400">
+                              <div className="w-8 h-0.5 bg-border" />
+                              <svg width="16" height="16" viewBox="0 0 16 16" className="text-foreground-muted">
                                 <path d="M8 0 L8 16" stroke="currentColor" strokeWidth="1" strokeDasharray="2 2" />
                               </svg>
-                              <div className="w-8 h-0.5 bg-gray-300" />
+                              <div className="w-8 h-0.5 bg-border" />
                             </div>
                           );
                         }
@@ -3279,7 +3279,7 @@ function DetailsTab({
               Properties edit form. Gated on hasDependencies (the section
               itself only renders when a chain exists), so the checkbox
               never shows without a chain to remove from. */}
-          <div className="mt-5 pt-4 border-t border-gray-100">
+          <div className="mt-5 pt-4 border-t border-border">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -3290,16 +3290,16 @@ function DetailsTab({
                     setRemoveStartDate(task.start_date);
                   }
                 }}
-                className="w-4 h-4 text-red-500 border-gray-300 rounded focus:ring-red-500"
+                className="w-4 h-4 text-red-500 dark:text-red-300 border-border rounded focus:ring-red-500"
               />
-              <span className="text-body text-red-600 font-medium">
+              <span className="text-body text-red-600 dark:text-red-300 font-medium">
                 Remove from dependency chain
               </span>
             </label>
 
             {showRemoveFromChain && (
               <div className="mt-3 pl-6 space-y-2">
-                <p className="text-meta text-gray-500">
+                <p className="text-meta text-foreground-muted">
                   This task will become standalone. Set its new start date:
                 </p>
                 <div className="flex items-center gap-2">
@@ -3307,7 +3307,7 @@ function DetailsTab({
                     type="date"
                     value={removeStartDate}
                     onChange={(e) => setRemoveStartDate(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-lg text-body transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    className="px-3 py-2 border border-border rounded-lg text-body transition-colors hover:border-border focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
                   <button
                     type="button"
@@ -3329,7 +3329,7 @@ function DetailsTab({
           read↔edit transition reads as a state change on the same fields,
           not a layout swap (the old "Edit / Exit edit mode" pattern flipped
           the whole layout out from under the user). */}
-      <section className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <section className="bg-surface-raised border border-border rounded-xl overflow-hidden">
         {/* R1 fix-pass (experiments fix-pass R1 manager, 2026-05-23):
             Dropped the "Name, project, schedule, and other fields" subtitle
             — "Properties" already says that. Surface the completion-status
@@ -3337,15 +3337,15 @@ function DetailsTab({
             signal instead of filler. Edit affordance lifted to the popup
             header rail (Edit pencil there now); Cancel/Save still live
             here because they're scoped to the in-card form state. */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
           <div className="flex items-center gap-3">
-            <h4 className="text-title font-semibold text-gray-900">Properties</h4>
+            <h4 className="text-title font-semibold text-foreground">Properties</h4>
             {!editing && (
               <span
                 className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-meta font-medium ${
                   task.is_complete
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "bg-blue-50 text-blue-700"
+                    ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                    : "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300"
                 }`}
               >
                 <span
@@ -3356,12 +3356,12 @@ function DetailsTab({
               </span>
             )}
             {editing && (
-              <span className="text-meta text-gray-500">Editing — Save when done</span>
+              <span className="text-meta text-foreground-muted">Editing — Save when done</span>
             )}
           </div>
           <div className="flex items-center gap-2">
             {hasUnsavedChanges && (
-              <span className="inline-flex items-center gap-1 text-meta text-amber-700 font-medium">
+              <span className="inline-flex items-center gap-1 text-meta text-amber-700 dark:text-amber-300 font-medium">
                 <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                 Unsaved
               </span>
@@ -3370,7 +3370,7 @@ function DetailsTab({
               <>
                 <button
                   onClick={handleCancelEdit}
-                  className="px-3 py-1.5 text-meta font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-meta font-medium text-foreground hover:bg-surface-sunken rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
@@ -3381,7 +3381,7 @@ function DetailsTab({
                   className={`px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
                     hasUnsavedChanges && !saving
                       ? "text-white bg-blue-600 hover:bg-blue-700"
-                      : "text-gray-400 bg-gray-100 cursor-not-allowed"
+                      : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
                   }`}
                 >
                   {saving ? "Saving..." : "Save"}
@@ -3395,7 +3395,7 @@ function DetailsTab({
       {editing ? (
         <div className="space-y-4">
           <div>
-            <label className="block text-meta font-medium text-gray-600 uppercase tracking-wide mb-1.5">
+            <label className="block text-meta font-medium text-foreground-muted uppercase tracking-wide mb-1.5">
               Task Name
             </label>
             <input
@@ -3403,7 +3403,7 @@ function DetailsTab({
               value={name}
               onChange={(e) => setName(e.target.value)}
               data-tour-target="task-popup-name-input"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body transition-colors hover:border-border focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
 
@@ -3411,7 +3411,7 @@ function DetailsTab({
               projects appear under "Share into…" and trigger a confirmation
               modal on save. */}
           <div>
-            <label className="block text-meta font-medium text-gray-600 uppercase tracking-wide mb-1.5">
+            <label className="block text-meta font-medium text-foreground-muted uppercase tracking-wide mb-1.5">
               Project
             </label>
             <select
@@ -3436,7 +3436,7 @@ function DetailsTab({
                   setProjectId(Number.isFinite(nextId) ? nextId : 0);
                 }
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body transition-colors hover:border-border focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <optgroup label="My projects">
                 {projects
@@ -3467,7 +3467,7 @@ function DetailsTab({
               )}
             </select>
             {isSelectedProjectForeign && (
-              <p className="mt-1 text-meta text-amber-600">
+              <p className="mt-1 text-meta text-amber-600 dark:text-amber-300">
                 This task will be shared into {selectedProjectInfo.owner}&apos;s project.
                 It stays in your library; {selectedProjectInfo.owner} will see it on their Gantt.
               </p>
@@ -3478,17 +3478,17 @@ function DetailsTab({
             {/* Hide start date field if task has parent dependencies */}
             {parentTasks.length === 0 && (
               <div>
-                <label className="block text-meta font-medium text-gray-600 uppercase tracking-wide mb-1.5">
+                <label className="block text-meta font-medium text-foreground-muted uppercase tracking-wide mb-1.5">
                   Start Date
                 </label>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-body transition-colors hover:border-border focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
                 {dependentTasks.length > 0 && startDate !== task.start_date && (
-                  <p className="text-meta text-amber-600 mt-1 inline-flex items-center gap-1">
+                  <p className="text-meta text-amber-600 dark:text-amber-300 mt-1 inline-flex items-center gap-1">
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0" aria-hidden>
                       <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                       <line x1="12" y1="9" x2="12" y2="13" />
@@ -3500,7 +3500,7 @@ function DetailsTab({
               </div>
             )}
             <div className={parentTasks.length > 0 ? "col-span-2" : ""}>
-              <label className="block text-meta font-medium text-gray-600 uppercase tracking-wide mb-1.5">
+              <label className="block text-meta font-medium text-foreground-muted uppercase tracking-wide mb-1.5">
                 Duration (days)
               </label>
               <input
@@ -3508,32 +3508,32 @@ function DetailsTab({
                 min={1}
                 value={durationDays}
                 onChange={(e) => setDurationDays(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body transition-colors hover:border-border focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
           </div>
 
           {/* Add Dependency Section - only for experiment tasks */}
           {canHaveDependencies && (
-            <div className="border-t border-gray-100 pt-4">
-              <label className="block text-meta font-medium text-gray-600 uppercase tracking-wide mb-2">
+            <div className="border-t border-border pt-4">
+              <label className="block text-meta font-medium text-foreground-muted uppercase tracking-wide mb-2">
                 Add Dependency (optional)
               </label>
               <div className="space-y-2">
                 {selectedNewParent ? (
-                  <div className="flex items-center justify-between gap-2 px-3 py-2 border border-gray-200 rounded-lg bg-white text-body">
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 border border-border rounded-lg bg-surface-raised text-body">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-medium text-gray-900 truncate">
+                      <span className="font-medium text-foreground truncate">
                         {selectedNewParent.name}
                       </span>
-                      <span className="text-meta text-gray-400 shrink-0">
+                      <span className="text-meta text-foreground-muted shrink-0">
                         {selectedNewParent.start_date} → {selectedNewParent.end_date}
                       </span>
                     </div>
                     <button
                       type="button"
                       onClick={() => setNewParentTaskId(null)}
-                      className="text-meta text-gray-400 hover:text-gray-600 shrink-0"
+                      className="text-meta text-foreground-muted hover:text-foreground-muted shrink-0"
                     >
                       Change
                     </button>
@@ -3543,7 +3543,7 @@ function DetailsTab({
                     type="button"
                     onClick={() => setShowParentPicker(true)}
                     disabled={availableParentTasks.length === 0}
-                    className="w-full text-left px-3 py-2 border border-dashed border-gray-300 rounded-lg text-body text-gray-500 hover:border-blue-400 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full text-left px-3 py-2 border border-dashed border-border rounded-lg text-body text-foreground-muted hover:border-blue-400 hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {availableParentTasks.length === 0
                       ? "No eligible experiments to depend on"
@@ -3556,7 +3556,7 @@ function DetailsTab({
                     <select
                       value={newDepType}
                       onChange={(e) => setNewDepType(e.target.value as "FS" | "SS" | "SF")}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body transition-colors hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-border rounded-lg text-body transition-colors hover:border-border focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="FS">Start after (after parent ends)</option>
                       <option value="SS">Start at same time (as parent)</option>
@@ -3568,11 +3568,11 @@ function DetailsTab({
                         Duplicate/Convert/Shift callouts) instead of the
                         legacy orange. Same amber semantic = "heads-up,
                         confirm before applying". */}
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-                      <p className="text-meta text-amber-800">
+                    <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl p-3">
+                      <p className="text-meta text-amber-800 dark:text-amber-200">
                         <strong>New Start Date:</strong> {suggestedNewStartDate}
                       </p>
-                      <p className="text-meta text-amber-700 mt-1">
+                      <p className="text-meta text-amber-700 dark:text-amber-300 mt-1">
                         {newDepType === "FS" && `Will start after "${selectedNewParent?.name}" ends`}
                         {newDepType === "SS" && `Will start at same time as "${selectedNewParent?.name}"`}
                         {newDepType === "SF" && `Will finish when "${selectedNewParent?.name}" starts`}
@@ -3611,19 +3611,19 @@ function DetailsTab({
             const is7DayProject = taskProject?.weekend_active ?? false;
             if (is7DayProject) return null;
             return (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg p-3">
                 <label className="flex items-start gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={weekendOverride === true}
                     onChange={(e) => setWeekendOverride(e.target.checked ? true : null)}
-                    className="w-4 h-4 text-amber-600 border-amber-300 rounded focus:ring-amber-500 mt-0.5"
+                    className="w-4 h-4 text-amber-600 dark:text-amber-300 border-amber-300 rounded focus:ring-amber-500 mt-0.5"
                   />
                   <div>
-                    <span className="text-body text-amber-800 font-medium">
+                    <span className="text-body text-amber-800 dark:text-amber-200 font-medium">
                       I&apos;m okay with working on the weekend
                     </span>
-                    <p className="text-meta text-amber-600 mt-0.5">
+                    <p className="text-meta text-amber-600 dark:text-amber-300 mt-0.5">
                       By default, tasks that span weekends show weekend days as non-working. 
                       Check this to indicate you plan to work on weekends.
                     </p>
@@ -3655,7 +3655,7 @@ function DetailsTab({
               setConvertToType(availableConversionTypes[0]?.value || "list");
               setShowConvertModal(true);
             }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium text-gray-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium text-foreground-muted hover:text-purple-700 dark:hover:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-500/10 rounded-lg transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="17 1 21 5 17 9" />
@@ -3680,8 +3680,8 @@ function DetailsTab({
               data-tour-target="task-popup-delete-button"
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
                 task.is_shared_with_me
-                  ? "text-gray-300 cursor-not-allowed"
-                  : "text-gray-600 hover:text-rose-700 hover:bg-rose-50"
+                  ? "text-foreground-muted cursor-not-allowed"
+                  : "text-foreground-muted hover:text-rose-700 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-500/10"
               }`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -3709,12 +3709,12 @@ function DetailsTab({
           }}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6"
+            className="bg-surface-raised rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-3 mb-3">
-              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600">
+              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600 dark:text-blue-300">
                   <circle cx="18" cy="5" r="3" />
                   <circle cx="6" cy="12" r="3" />
                   <circle cx="18" cy="19" r="3" />
@@ -3723,18 +3723,18 @@ function DetailsTab({
                 </svg>
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-title font-semibold text-gray-900">
+                <h3 className="text-title font-semibold text-foreground">
                   Share into {pendingShareTarget.owner}&apos;s project?
                 </h3>
-                <p className="text-body text-gray-600 mt-0.5">
+                <p className="text-body text-foreground-muted mt-0.5">
                   <strong>{pendingShareTarget.name}</strong> belongs to{" "}
                   <strong>{pendingShareTarget.owner}</strong>.
                 </p>
               </div>
             </div>
-            <ul className="text-body text-gray-700 space-y-2 mb-4 bg-gray-50 rounded-lg p-3 border border-gray-100">
+            <ul className="text-body text-foreground space-y-2 mb-4 bg-surface-sunken rounded-lg p-3 border border-border">
               <li className="flex items-start gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 mt-0.5 flex-shrink-0" aria-hidden>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 dark:text-emerald-300 mt-0.5 flex-shrink-0" aria-hidden>
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
                 <span>
@@ -3742,7 +3742,7 @@ function DetailsTab({
                 </span>
               </li>
               <li className="flex items-start gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 mt-0.5 flex-shrink-0" aria-hidden>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 dark:text-emerald-300 mt-0.5 flex-shrink-0" aria-hidden>
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
                 <span>
@@ -3750,7 +3750,7 @@ function DetailsTab({
                 </span>
               </li>
               <li className="flex items-start gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 mt-0.5 flex-shrink-0" aria-hidden>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 dark:text-emerald-300 mt-0.5 flex-shrink-0" aria-hidden>
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
                 <span>Either of you can remove the share later.</span>
@@ -3761,7 +3761,7 @@ function DetailsTab({
                 type="button"
                 disabled={sharingIntoProject}
                 onClick={() => setPendingShareTarget(null)}
-                className="px-4 py-2 text-body font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-body font-medium text-foreground hover:bg-surface-sunken rounded-lg transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -4273,7 +4273,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
             (hasUnsavedChanges || editorDirty) && !saving
               ? "text-white bg-blue-600 hover:bg-blue-700"
-              : "text-gray-400 bg-gray-100 cursor-not-allowed"
+              : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
           }`}
         >
           {(hasUnsavedChanges || editorDirty) && !saving && (
@@ -4295,20 +4295,20 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
 
             {/* File size warning */}
             {uploadWarning && (
-              <div className="px-6 py-3 bg-amber-50 border-b border-amber-200">
+              <div className="px-6 py-3 bg-amber-50 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/30">
                 <div className="flex items-start gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500 flex-shrink-0 mt-0.5" aria-hidden>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500 dark:text-amber-300 flex-shrink-0 mt-0.5" aria-hidden>
                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                     <line x1="12" y1="9" x2="12" y2="13" />
                     <line x1="12" y1="17" x2="12.01" y2="17" />
                   </svg>
                   <div className="flex-1">
-                    <p className="text-body text-amber-800">{uploadWarning}</p>
+                    <p className="text-body text-amber-800 dark:text-amber-200">{uploadWarning}</p>
                   </div>
                   <Tooltip label="Dismiss warning" placement="bottom">
                     <button
                       onClick={() => setUploadWarning(null)}
-                      className="text-amber-400 hover:text-amber-600 p-0.5 -m-0.5 rounded transition-colors"
+                      className="text-amber-400 hover:text-amber-600 dark:hover:text-amber-300 p-0.5 -m-0.5 rounded transition-colors"
                       aria-label="Dismiss warning"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -4334,11 +4334,11 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                 so they know there's something to do, but the button asks
                 them to save first. */}
             {missingInline && missingInline.length > 0 && !readOnly && !task.is_shared_with_me && (
-              <div className="px-6 py-3 bg-amber-50 border-b border-amber-200">
+              <div className="px-6 py-3 bg-amber-50 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/30">
                 <div className="flex items-start gap-3">
                   <svg
                     aria-hidden
-                    className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5"
+                    className="w-5 h-5 text-amber-500 dark:text-amber-300 flex-shrink-0 mt-0.5"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -4351,12 +4351,12 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                     />
                   </svg>
                   <div className="flex-1">
-                    <p className="text-body font-medium text-amber-900">
+                    <p className="text-body font-medium text-amber-900 dark:text-amber-200">
                       {missingInline.length} inline image
                       {missingInline.length === 1 ? "" : "s"} from your
                       LabArchives import didn&apos;t come through
                     </p>
-                    <p className="text-meta text-amber-800 mt-0.5">
+                    <p className="text-meta text-amber-800 dark:text-amber-200 mt-0.5">
                       They were stored online by LabArchives and weren&apos;t bundled in
                       the offline ZIP. Pull them in now so they render inline.
                     </p>
@@ -4389,10 +4389,10 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
               <div className="flex-1 min-h-0 flex flex-col">
               {loading ? (
                 <div className="p-6 space-y-2 animate-pulse" aria-busy="true">
-                <div className="h-3 w-1/3 bg-gray-200 rounded" />
-                <div className="h-3 w-full bg-gray-200 rounded" />
-                <div className="h-3 w-5/6 bg-gray-200 rounded" />
-                <div className="h-3 w-4/5 bg-gray-100 rounded" />
+                <div className="h-3 w-1/3 bg-foreground-muted/15 rounded" />
+                <div className="h-3 w-full bg-foreground-muted/15 rounded" />
+                <div className="h-3 w-5/6 bg-foreground-muted/15 rounded" />
+                <div className="h-3 w-4/5 bg-surface-sunken rounded" />
               </div>
               ) : docHistory.isOpen ? (
                 <TaskDocDiffColumn controller={docHistory} />
@@ -4867,7 +4867,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
             (hasUnsavedChanges || editorDirty) && !saving
               ? "text-white bg-blue-600 hover:bg-blue-700"
-              : "text-gray-400 bg-gray-100 cursor-not-allowed"
+              : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
           }`}
         >
           {(hasUnsavedChanges || editorDirty) && !saving && (
@@ -4888,20 +4888,20 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
         <>
           {/* File size warning */}
           {uploadWarning && (
-            <div className="px-6 py-3 bg-amber-50 border-b border-amber-200">
+            <div className="px-6 py-3 bg-amber-50 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/30">
               <div className="flex items-start gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500 flex-shrink-0 mt-0.5" aria-hidden>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500 dark:text-amber-300 flex-shrink-0 mt-0.5" aria-hidden>
                   <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                   <line x1="12" y1="9" x2="12" y2="13" />
                   <line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
                 <div className="flex-1">
-                  <p className="text-body text-amber-800">{uploadWarning}</p>
+                  <p className="text-body text-amber-800 dark:text-amber-200">{uploadWarning}</p>
                 </div>
                 <Tooltip label="Dismiss warning" placement="bottom">
                   <button
                     onClick={() => setUploadWarning(null)}
-                    className="text-amber-400 hover:text-amber-600 p-0.5 -m-0.5 rounded transition-colors"
+                    className="text-amber-400 hover:text-amber-600 dark:hover:text-amber-300 p-0.5 -m-0.5 rounded transition-colors"
                     aria-label="Dismiss warning"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -4923,10 +4923,10 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
             <div className="flex-1 min-h-0 flex flex-col">
             {loading ? (
               <div className="p-6 space-y-2 animate-pulse" aria-busy="true">
-                <div className="h-3 w-1/3 bg-gray-200 rounded" />
-                <div className="h-3 w-full bg-gray-200 rounded" />
-                <div className="h-3 w-5/6 bg-gray-200 rounded" />
-                <div className="h-3 w-4/5 bg-gray-100 rounded" />
+                <div className="h-3 w-1/3 bg-foreground-muted/15 rounded" />
+                <div className="h-3 w-full bg-foreground-muted/15 rounded" />
+                <div className="h-3 w-5/6 bg-foreground-muted/15 rounded" />
+                <div className="h-3 w-4/5 bg-surface-sunken rounded" />
               </div>
             ) : docHistory.isOpen ? (
               <TaskDocDiffColumn controller={docHistory} />
@@ -5019,7 +5019,7 @@ function TaskExportButton({ task }: { task: Task }) {
           aria-label="Export experiment"
           onClick={() => setDialogOpen(true)}
           disabled={exporting}
-          className="text-gray-400 hover:text-gray-600 p-1 disabled:opacity-50"
+          className="text-foreground-muted hover:text-foreground-muted p-1 disabled:opacity-50"
         >
           {exporting ? (
             <svg
@@ -5113,7 +5113,7 @@ function TaskDepositButton({ task }: { task: Task }) {
           aria-label="Deposit to a repository"
           onClick={() => setOpen(true)}
           data-testid="task-deposit-button"
-          className="text-gray-400 hover:text-gray-600 p-1"
+          className="text-foreground-muted hover:text-foreground-muted p-1"
         >
           {/* Repository / archive-with-upload-arrow glyph (inline SVG; no
               icon library, no emoji). */}
