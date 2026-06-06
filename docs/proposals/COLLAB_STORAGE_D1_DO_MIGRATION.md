@@ -1,113 +1,83 @@
-# Collab storage migration: Neon to D1 + Durable Object
+# Collab + sharing storage migration: Neon to D1 + Durable Object
 
-Status: PROPOSAL, build deferred. Decision recorded 2026-06-06 (Grant: "write the proposal, defer the build").
+Status: ACTIVE build plan. Approved 2026-06-06 (Grant: implement now, not defer; reasoning = the data is the smallest it will ever be, and billing/scaling are being built now, so build on the right foundation while migration is cheap).
 Author: orchestrator.
-Supersedes nothing. Complements the Option B persistence model in `UNIFIED_MODEL_PHASE3C_SHARED_COLLAB.md`.
+Complements the Option B persistence model in `UNIFIED_MODEL_PHASE3C_SHARED_COLLAB.md`.
 
-## One-paragraph summary
+## Goal
 
-Collab persistence currently lives on Neon Postgres, the single most expensive service ResearchOS runs on (it bills for compute time, not just storage). The live transport already runs on a Cloudflare Durable Object (the relay we deployed 2026-06-06). This proposal collapses collab's two server systems (the relay DO plus the Neon tables and their Vercel routes) into Cloudflare-native primitives. The per-document canonical Loro doc moves into the same Durable Object that fans out live edits, and the cross-document concerns (identity, doc registry, membership, future search) move to Cloudflare D1. Neon leaves the collab path entirely. We keep every feature, including local-first and the future cross-doc search/AI that Option B was chosen to enable. We do NOT build this now. We capture it here and execute at a defined trigger point.
-
-## Why (the case)
-
-Two reasons, both real.
-
-### Cost
-
-Pricing pulled live 2026-06-06 (verify again before executing):
-
-- Neon bills for compute (CU-hours at $0.14/CU-hour) plus storage. Compute is the cost driver, and it accrues whenever the database is active. Storage is $0.30/GB-month (first 50 GB).
-- Cloudflare D1 has no compute or hourly charge at all. It bills per operation (reads $0.001/M rows, writes $1.00/M rows) plus storage ($0.75/GB-month above a 5 GB free allowance), with large included allowances on the $5/month Workers Paid plan we already pay for the relay.
-- Durable Object SQLite is also covered by the Workers plan, with no compute-hour meter.
-
-For a bursty, low-volume workload like ours, "pay per query" beats "pay for uptime." The savings are ~$0 today (we are on free tiers) and grow with sustained traffic, where Neon's compute meter runs continuously and the Cloudflare per-op model stays cheap.
-
-Sources: developers.cloudflare.com/d1/platform/pricing, developers.cloudflare.com/durable-objects/platform/pricing, neon.com/pricing, neon.com/blog/new-usage-based-pricing.
-
-### Simplification
-
-Today every collab edit travels two separate paths with two auth mechanisms:
-
-1. Live path: client to the relay DO (`relay/src/worker.ts`), which fans sealed bytes to peers and then forgets them.
-2. Durable path: the same client POSTs the update to a Vercel function (`/api/collab/push`), signed with the directory email, which writes to Neon (`collab_doc_updates`) and periodically compacts.
-
-The relay stands next to every edit and throws it away, which is the only reason a second system has to remember it. Most of the 400/404 bugs we fought during launch lived in that second path. Letting the DO persist what it already sees deletes that whole path.
-
-## Current architecture (three systems)
-
-- Relay Durable Object: live WebSocket fan-out, stateless, per `?session=<id>` room.
-- Neon Postgres tables: `collab_docs`, `collab_doc_updates`, `collab_doc_members` (see `frontend/src/lib/collab/server/db.ts`), plus the budget enforcement in `frontend/src/lib/collab/server/limits.ts`.
-- Vercel routes: `/api/collab/{open,push,grant,revoke}` (signed-request auth via `server/auth.ts`).
-
-The directory (identity, email-to-key bindings) also lives on Neon (`directory_identities`) and is shared by the relay inbox, cross-boundary sharing, and admin metrics.
-
-## Target architecture (two purpose-fit systems)
+Move every job off Neon Postgres (the compute-metered, most expensive service we run) onto cheaper Cloudflare primitives we already use, WITHOUT losing any feature. End state:
 
 ```
-Identity + doc registry + membership + cross-doc search index  ->  Cloudflare D1     (the global, queryable brain)
-One collab doc: live sockets + canonical Loro bytes            ->  Durable Object SQLite (per-doc workspace)
-Large opaque blobs / attachments                               ->  R2               (cheap bulk storage, already used)
-Neon                                                           ->  removed from the collab path
+Per-doc collab: live sockets + canonical Loro bytes  ->  Durable Object SQLite
+Directory + catalog + membership + cross-doc search   ->  Cloudflare D1
+Billing status + other relational                     ->  Cloudflare D1
+Large opaque blobs / attachments                      ->  R2 (already used)
+Neon                                                  ->  decommissioned at the end
 ```
 
-The split principle: per-document bytes live in the DO that already serves them live; questions that span many documents live in D1, because a DO is a silo by design and cannot see its neighbors.
+This is preserved explicitly: local-first / own-your-data (server only ever holds shared-doc copies; private notes never upload), and the Option B cross-doc search/AI future (the D1 catalog + search index is what keeps it possible once the per-doc bytes live in DO silos).
 
-### Durable Object as canonical store
+## Hard rules
 
-- On edit: the DO fans the update out to peers (as today) AND appends it to its own SQLite update log. Compaction runs inside the DO on its own data. This is trivially safe because a DO is single-threaded and single-writer, which removes the "capture max id before import" concurrency dance the Neon path needs.
-- On open / offline reconcile: the client connects to the DO, and the DO replays its stored snapshot plus outstanding updates straight down the socket. This is the catch-up we already do, sourced from the DO's own durable storage instead of a Neon round-trip.
-- Access control: the DO checks membership on connect (see auth below).
+1. Phased, never big-bang. One job moves at a time.
+2. Dual-write then cut over per phase: write to both old (Neon) and new, read from old, compare, then flip reads to new, then stop writing old.
+3. Verify each phase on prod before starting the next (same discipline as the collab launch).
+4. Never sweep the parallel quota-enforcement working-tree changes into a commit.
 
-What this deletes: the four `/api/collab/*` Vercel routes, the three Neon collab tables, and `limits.ts` budget enforcement (DO storage is cheap and self-contained, though a per-doc size guard stays sensible).
+## Locked decisions (2026-06-06)
 
-### D1 as the global brain
+- Start with collab -> Durable Object (cleanest, least data, deletes the relay+Neon duplication and a bug class, proves the pattern before auth-critical systems).
+- Convert this proposal to an active build plan first (this doc).
+- DO backup: periodic snapshot of each doc to R2 as a disaster-recovery safety net. YES.
 
-D1 holds the cross-cutting, queryable data:
+## Open decision (gates phase 1 chunk 3, not chunk 1)
 
-- Identities: email hash to public keys (migrated from Neon `directory_identities`).
-- Doc registry: which collab docs exist, owner, title, the DO id, timestamps.
-- Membership: doc id to member, role (so "every doc this user can open" is one query).
-- Search index: denormalized, server-readable content over shared docs, the thing Option B exists to enable. This is BUILT WITH the search/AI feature, not before it.
+- Collab auth at the DO. Grant did not confirm the "DO verifies the signature itself" default, so this is OPEN. Two options:
+  - (A) The DO verifies the Ed25519 directory-email signature itself on connect. Fewer moving parts, but the DO needs the member's directory public key, which lives on Neon in phase 1 (D1 later), so the DO must fetch it.
+  - (B) The client first calls a small Vercel/D1 auth endpoint that verifies identity and membership and returns a short-lived token the DO trusts. Keeps key lookups out of the DO.
+  Orchestrator lean = (A) for simplicity, but this needs Grant's call before chunk 3.
 
-### R2 for blobs
+## Spike to retire risk before committing chunk 1
 
-Unchanged role. If a whole-project-folder doc ever produces large snapshots, the DO can offload cold snapshots to R2 by key with a pointer row, the same pattern cross-boundary bundles already use.
+- loro-crdt in the Workers runtime. The DO needs loro-crdt (WASM) to compact the update log server-side. Workers support WASM, and the relay already deployed cleanly, but loro-crdt-in-workerd is unproven for us. Spike it first. FALLBACK if it does not run: the DO stores the raw append-only update log and serves the full log on catch-up (no server-side compaction), which still works, just less compact. Compaction can move to a periodic external job later.
 
-## What this preserves (explicit)
+## Phase 1: collab -> Durable Object
 
-- Local-first / own-your-data: UNAFFECTED. This proposal only concerns the server-side copy of SHARED docs. Private, unshared notes never reach any server system, before or after. The user's local folder remains the full exportable copy.
-- Option B cross-doc features (lab-wide search, AI over shared content): preserved by the D1 search index. The DO silo would threaten these alone; D1 alongside the DO keeps them.
-- All current collab behavior: live cursors, durable save, offline reconcile, member grant by email, retire-to-local.
+The relay DO already receives every update and fans it out, then forgets it. We make it remember. Because Option B already makes shared docs server-readable, collab can send plaintext Loro updates over TLS (the E2E seal becomes optional for collab), which is what lets the DO persist canonical bytes.
 
-## Migration plan (phased, when triggered)
+Chunks:
 
-1. Stand up D1 with the identity + registry + membership schema; dual-read identity (D1 falling back to Neon) to de-risk.
-2. Extend the relay DO to persist updates to its SQLite and serve catch-up from there, while STILL writing to Neon (dual-write). Compare the two stores in shadow mode.
-3. Switch reads (open / reconcile) to the DO. Neon becomes write-only shadow.
-4. Stop writing collab data to Neon; drop the three collab tables and the four Vercel routes; retire `limits.ts`.
-5. Migrate the directory tables to D1, repoint the relay inbox / cross-boundary / admin metrics, decommission Neon (or keep it only for anything genuinely relational that has not moved).
+1. **DO storage core + typed protocol (server).** `relay/src/worker.ts` CollabRoom gains SQLite (a doc snapshot row + an append-only update log). Replace the blind byte passthrough with a small typed WS protocol: on `{kind:"update", bytes}` fan out to peers AND append to SQLite (compact with loro-crdt, or raw-append per the spike fallback); on a new connection send `{kind:"catchup", snapshot, updates}` from SQLite (works even with no peers online, which is the durable + offline-reconcile win). No client cutover yet.
+2. **Client transport switch (shadow / dual-run).** `relay-provider.ts` / `use-collab-session.ts` speak the new plaintext protocol to the DO and import catch-up from it, while the existing Neon HTTP path still runs. Compare DO catch-up against Neon to confirm parity before trusting the DO.
+3. **Access control at the DO (needs the open auth decision).** The DO authorizes the connecting member before accepting/serving. Membership source in phase 1 is still Neon (moves to D1 in phase 2).
+4. **R2 snapshot backup.** Periodic per-doc snapshot to R2 (the locked safety net).
+5. **Cutover + cleanup.** Reads fully from the DO; stop writing collab to Neon; delete `/api/collab/{open,push,grant,revoke}`, the `collab_docs`/`collab_doc_updates`/`collab_doc_members` tables in `server/db.ts`, and `limits.ts`. Verify on prod (the Manny + Sharron flow), including close/reopen durability and offline reconcile.
 
-Dual-write before cutover means no flag-day and an easy rollback at each step.
+After phase 1: Neon no longer touches collab; the relay is the full collab backend.
 
-## Risks and open questions to verify before executing
+## Phase 2: directory -> D1
 
-- DO backup maturity: Postgres has mature point-in-time recovery. DO SQLite is durable and Cloudflare offers recovery, but it is newer. Design a periodic snapshot-to-R2 safety net before putting sole reliance on it.
-- Per-DO storage cap: irrelevant for one note (tens of KB), confirm for a whole-project-folder doc.
-- D1 limits: per-database size cap and single-writer (SQLite) write throughput. The directory is read-heavy so it fits; confirm the doc-registry write rate.
-- Auth shift: today the server verifies the directory-email Ed25519 signature per push. The DO must either verify that itself or trust a short-lived token minted by a D1-backed auth check on connect. Decide which.
-- Postgres-to-SQLite portability: our SQL is simple (CREATE TABLE + basic queries, no extensions), but data types and a few functions differ. Audit before migrating the directory.
+Move `directory_identities` and the membership/registry tables to D1. 9 directory routes plus the relay-inbox and collab access-control reads repoint to D1. Dual-read (D1 with Neon fallback) first; this is auth-critical and holds Grant's live identities, so it is the most careful phase. Add the cross-doc registry + search index tables here (built with, not ahead of, the search/AI feature).
 
-## Trigger point (when to execute)
+## Phase 3: billing + remaining relational -> D1
 
-Whichever comes first:
+Repoint billing status/metadata (Stripe stays the source of truth; the DB only stores status) and any remaining relational tables (analytics, admin tracker) to D1. Since billing is actively being built, prefer building NEW billing routes directly on D1 rather than migrating then rewriting.
 
-1. The Neon bill starts approaching the paid tier (sustained traffic past the free allowances), or
-2. We sit down to build cross-doc search / AI over shared content, at which point we are touching this code anyway and the migration rides along for nearly free.
+## Phase 4: decommission Neon
 
-Until then, the launched Neon-backed collab keeps running. Migrating a freshly-shipped working system for $0 of current savings is not worth the risk.
+Once every job has moved and verified, remove `DATABASE_URL` usage, drop the Neon project (or downgrade to nothing). Confirm no route reads it.
+
+## Risks / open questions
+
+- loro-crdt in workerd (spike above).
+- DO per-object storage cap (fine for one note; confirm for whole-project-folder docs).
+- D1 per-database size cap and single-writer write throughput (directory is read-heavy, fits; confirm registry write rate in phase 2).
+- Postgres-to-SQLite portability for the directory (data types, a few functions; no extensions in use).
+- Migrating live prod data (the registered identities + the one test collab doc) needs a careful copy step per phase, not just a code swap.
 
 ## Non-goals
 
 - Not changing local-first or the privacy model.
-- Not migrating non-collab Neon usage that has no cheaper Cloudflare equivalent and no cost pressure.
-- Not building the D1 search index ahead of the search/AI feature that justifies it.
+- Not building the D1 search index ahead of the search/AI feature.
+- Not a big-bang rewrite.
