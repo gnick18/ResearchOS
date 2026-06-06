@@ -86,10 +86,12 @@ owed. We do NOT add a "tax" line on the assumption it is owed, because sales tax
 can only be collected where the LLC is registered, collecting it where it is not
 owed is itself a violation, and most customers are tax-exempt universities.
 Stripe Tax still computes the correct amount (zero where exempt) once the
-determination and any registration are in place. Mechanically the Stripe Price
-needs tax_behavior=inclusive, which is immutable after creation, so the final
-price is created inclusive (test and live) rather than edited. No app code
-change, the hosted Checkout is agnostic and the ledger records the gross amount.
+determination and any registration are in place. Mechanically, the current price
+has tax_behavior "unspecified", so it inherits the account-level setting, set
+Settings > Tax > "Include tax in prices" to "Yes" and the existing price becomes
+inclusive with no new price needed. A per-price tax_behavior is only immutable
+once set explicitly, which ours is not. No app code change, the hosted Checkout
+is agnostic and the ledger records the gross amount.
 
 ## Tracker tie-in
 
