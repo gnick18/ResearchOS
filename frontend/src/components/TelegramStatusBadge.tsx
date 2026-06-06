@@ -34,7 +34,14 @@ const STALE_TOOLTIP_LABEL =
 const STANDBY_TOOLTIP_LABEL =
   "Telegram is running in another open tab. This tab is on standby — your messages still come through, so there is nothing to close. Click \"Switch to this tab\" to handle them here instead.";
 
-export default function TelegramStatusBadge() {
+export default function TelegramStatusBadge({
+  tinted = false,
+}: {
+  /** True when the app header is a colored (project-tinted) header, so the
+   *  neutral pill uses a clean white-on-color treatment like the nav pills
+   *  instead of the muted token fill (which looks muddy on a vivid header). */
+  tinted?: boolean;
+} = {}) {
   const { currentUser } = useCurrentUser();
   const [pairing, setPairing] = useState<TelegramPairing | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -119,14 +126,20 @@ export default function TelegramStatusBadge() {
   // USING THIS BOT" pill, with the explanation + takeover behind a click.
   const isConflict = paired && health === "conflict";
 
+  // Neutral "Connect / standby" pill. On a colored (tinted) header it must be a
+  // clean white-on-color pill (like the nav pills); otherwise the muted token
+  // fill reads as a muddy smear on a vivid header. On the normal header it uses
+  // the token fill that works in both light (subtle gray) and dark (legible
+  // light-translucent).
+  const neutralClass = tinted
+    ? "border-white/40 bg-white/85 text-gray-700 hover:bg-white shadow-sm"
+    : "border-border bg-foreground-muted/10 text-foreground hover:bg-foreground-muted/20";
   const toneClass =
     presentation.tone === "error"
       ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-600 dark:border-red-600 dark:text-white dark:hover:bg-red-700"
       : presentation.tone === "warn"
         ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-600 dark:border-amber-600 dark:text-white dark:hover:bg-amber-700"
-        : presentation.tone === "standby"
-          ? "border-border bg-foreground-muted/10 text-foreground hover:bg-foreground-muted/20"
-          : "border-border bg-foreground-muted/10 text-foreground hover:bg-foreground-muted/20";
+        : neutralClass;
 
   // Detail string surfaced on hover (and used as the dot's title) so the
   // bot name and live status are one hover away rather than always-on text.

@@ -396,7 +396,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <EditSessionTopNavChip />
           <NotificationBadge pill={tinted} />
           <InboxBadge />
-          <TelegramStatusBadge />
+          <TelegramStatusBadge tinted={tinted} />
           <Tooltip label="Help & documentation" placement="bottom">
           <Link
             href={helpHref}
