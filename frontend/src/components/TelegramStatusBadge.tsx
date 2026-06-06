@@ -125,8 +125,8 @@ export default function TelegramStatusBadge() {
       : presentation.tone === "warn"
         ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-600 dark:border-amber-600 dark:text-white dark:hover:bg-amber-700"
         : presentation.tone === "standby"
-          ? "border-border bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
-          : "border-border bg-surface-sunken text-foreground-muted hover:bg-surface-sunken";
+          ? "border-border bg-foreground-muted/10 text-foreground hover:bg-foreground-muted/20"
+          : "border-border bg-foreground-muted/10 text-foreground hover:bg-foreground-muted/20";
 
   // Detail string surfaced on hover (and used as the dot's title) so the
   // bot name and live status are one hover away rather than always-on text.
