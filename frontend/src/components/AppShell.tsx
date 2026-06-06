@@ -39,7 +39,8 @@ import { useLateNightCoffeeTrigger } from "@/hooks/useLateNightCoffeeTrigger";
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { useAccountType } from "@/hooks/useAccountType";
 import { deriveVisibleTabs } from "@/lib/onboarding/feature-picks-tabs";
-import { headerGradient } from "@/lib/colors";
+import { headerGradient, RAINBOW_HEADER_GRADIENT } from "@/lib/colors";
+import { RAINBOW_COLOR } from "@/lib/file-system/user-metadata";
 import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
 import EditSessionBanner from "@/components/EditSessionBanner";
 import EditSessionTopNavChip from "@/components/EditSessionTopNavChip";
@@ -227,12 +228,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // header matches the avatar exactly. Otherwise we derive a darker,
   // deeper gradient from the single primary color via `headerGradient()`
   // — the same behavior pre-gradient users get today.
+  // The "rainbow" theme is a sentinel string, not a hex, so headerGradient()
+  // can't derive stops from it (it fell back to a teal/cyan). Special-case it
+  // to BeakerBot's iconic 5-stop pastel ramp, the same gradient the rainbow
+  // avatar uses, so the header carries the rainbow identity.
+  const isRainbow = baseColor === RAINBOW_COLOR;
   const [stop1, stop2] = userColors.secondary
     ? [baseColor, userColors.secondary]
     : headerGradient(baseColor);
   const tinted = !!currentUser && coloredHeader;
   const headerStyle = tinted
-    ? { background: `linear-gradient(to right, ${stop1}, ${stop2})` }
+    ? {
+        background: isRainbow
+          ? RAINBOW_HEADER_GRADIENT
+          : `linear-gradient(to right, ${stop1}, ${stop2})`,
+      }
     : undefined;
 
   return (

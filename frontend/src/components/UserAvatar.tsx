@@ -1,18 +1,18 @@
 "use client";
 
-import { avatarGradient } from "@/lib/colors";
+import {
+  avatarGradient,
+  RAINBOW_AVATAR_GRADIENT,
+  RAINBOW_FOREGROUND,
+} from "@/lib/colors";
 import { useUserColors } from "@/hooks/useUserColor";
 import { RAINBOW_COLOR } from "@/lib/file-system/user-metadata";
 
-/** BeakerBot's exact internal body gradient — left-to-right across 5 pastel
- *  stops. Used when the user has chosen the "BeakerBot rainbow" option. */
-const RAINBOW_GRADIENT =
-  "linear-gradient(135deg, #FFD2B0, #FFF1A8, #B7EBB1, #A6D2F4, #D6B5F0)";
-
-/** Dark text color for the avatar initial when the background is pastel
- *  (the rainbow gradient). Pastel stops have high lightness, so white
- *  text would disappear. */
-const RAINBOW_TEXT_COLOR = "#0f1b2e";
+// The rainbow gradient + its dark foreground now live in lib/colors as the
+// single source, so the avatar, the header tint, and the menu chip all render
+// the identical BeakerBot ramp. Local aliases keep the rest of this file tidy.
+const RAINBOW_GRADIENT = RAINBOW_AVATAR_GRADIENT;
+const RAINBOW_TEXT_COLOR = RAINBOW_FOREGROUND;
 
 export type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
 

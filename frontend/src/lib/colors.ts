@@ -114,6 +114,19 @@ export function avatarGradient(baseHex: string): [string, string] {
 }
 
 /**
+ * The "rainbow" user theme: BeakerBot's exact 5-stop pastel body liquid. Used
+ * for the rainbow user's avatar, the app header tint, and anywhere the rainbow
+ * identity renders, so they all match. Diagonal for square avatar chips,
+ * horizontal for the wide app header. The stops are pastel (high lightness), so
+ * the readable foreground is a dark ink, not white.
+ */
+export const RAINBOW_AVATAR_GRADIENT =
+  "linear-gradient(135deg, #FFD2B0, #FFF1A8, #B7EBB1, #A6D2F4, #D6B5F0)";
+export const RAINBOW_HEADER_GRADIENT =
+  "linear-gradient(to right, #FFD2B0, #FFF1A8, #B7EBB1, #A6D2F4, #D6B5F0)";
+export const RAINBOW_FOREGROUND = "#0f1b2e";
+
+/**
  * Deterministic fallback color when no user metadata is loaded yet (e.g.
  * the pre-folder picker screen). Hashes username → palette index.
  */
