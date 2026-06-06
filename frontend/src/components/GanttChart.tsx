@@ -1392,7 +1392,7 @@ export default function GanttChart({
 
   if (filteredTasks.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-gray-400 text-body">
+      <div className="flex-1 flex items-center justify-center text-foreground-muted text-body">
         {isLabMode
           ? "No tasks yet. They appear here once people create them."
           : "No tasks yet. Create a project and add tasks to see them here."}
@@ -1401,19 +1401,19 @@ export default function GanttChart({
   }
 
   return (
-    <div className="flex-1 overflow-auto bg-gray-50 p-4 relative" data-tour-target="gantt-timeline" ref={containerRef}>
+    <div className="flex-1 overflow-auto bg-surface-sunken p-4 relative" data-tour-target="gantt-timeline" ref={containerRef}>
       {/* Shift Confirmation Modal */}
       {showShiftConfirm && shiftResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
+          <div className="bg-surface-raised rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
             <h4 className="text-heading font-semibold text-orange-800 mb-2">
               This change will affect {shiftResult.affected_tasks.length} task(s)
             </h4>
-            <p className="text-body text-gray-600 mb-3">
+            <p className="text-body text-foreground-muted mb-3">
               Moving this task will also shift its dependent tasks.
             </p>
-            <div className="max-h-40 overflow-y-auto mb-3 bg-gray-50 rounded-lg p-3">
-              <ul className="text-meta text-gray-700 space-y-1">
+            <div className="max-h-40 overflow-y-auto mb-3 bg-surface-sunken rounded-lg p-3">
+              <ul className="text-meta text-foreground space-y-1">
                 {shiftResult.affected_tasks.map((t) => (
                   <li key={t.task_id} className="flex justify-between">
                     <span className="font-medium">{t.name}</span>
@@ -1423,9 +1423,9 @@ export default function GanttChart({
               </ul>
             </div>
             {shiftResult.warnings.length > 0 && (
-              <div className="mb-3 bg-red-50 rounded-lg p-3">
-                <p className="text-meta font-medium text-red-700 mb-1">Warnings:</p>
-                <ul className="text-meta text-red-600 space-y-1">
+              <div className="mb-3 bg-red-50 dark:bg-red-500/10 rounded-lg p-3">
+                <p className="text-meta font-medium text-red-700 dark:text-red-300 mb-1">Warnings:</p>
+                <ul className="text-meta text-red-600 dark:text-red-300 space-y-1">
                   {shiftResult.warnings.map((w, i) => (
                     <li key={i}>{w.message}</li>
                   ))}
@@ -1439,7 +1439,7 @@ export default function GanttChart({
                   setShiftResult(null);
                   setPendingMove(null);
                 }}
-                className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="px-4 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg"
               >
                 Cancel
               </button>
@@ -1467,40 +1467,40 @@ export default function GanttChart({
           // SnapshotTilePopup uses for the widget-tile popup hand-off.
           data-tour-popup-occluding="gantt-dependency-dialog"
         >
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
-            <h4 className="text-heading font-semibold text-gray-900 mb-2">
+          <div className="bg-surface-raised rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
+            <h4 className="text-heading font-semibold text-foreground mb-2">
               Create Dependency?
             </h4>
-            <p className="text-body text-gray-600 mb-4">
+            <p className="text-body text-foreground-muted mb-4">
               <strong>{depChildTask.name}</strong> will be linked to <strong>{depParentTask.name}</strong>
             </p>
-            <p className="text-meta text-gray-500 mb-4">
+            <p className="text-meta text-foreground-muted mb-4">
               How should these tasks be scheduled?
             </p>
             <div className="space-y-2">
               <button
                 onClick={() => handleCreateDependency("SS")}
                 data-tour-target="gantt-dep-picker-start-same"
-                className="w-full text-left px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                className="w-full text-left px-4 py-3 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"
               >
-                <p className="text-body font-medium text-blue-900">Start at same time</p>
-                <p className="text-meta text-blue-600">Both tasks begin on the same day</p>
+                <p className="text-body font-medium text-blue-900 dark:text-blue-200">Start at same time</p>
+                <p className="text-meta text-blue-600 dark:text-blue-300">Both tasks begin on the same day</p>
               </button>
               <button
                 onClick={() => handleCreateDependency("FS")}
                 data-tour-target="gantt-dep-picker-start-after"
-                className="w-full text-left px-4 py-3 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
+                className="w-full text-left px-4 py-3 bg-green-50 border border-green-200 dark:border-green-500/30 rounded-lg hover:bg-green-100 transition-colors"
               >
-                <p className="text-body font-medium text-green-900">Start after</p>
-                <p className="text-meta text-green-600">{depChildTask.name} starts after {depParentTask.name} ends</p>
+                <p className="text-body font-medium text-green-900 dark:text-green-200">Start after</p>
+                <p className="text-meta text-green-600 dark:text-green-300">{depChildTask.name} starts after {depParentTask.name} ends</p>
               </button>
               <button
                 onClick={() => handleCreateDependency("SF")}
                 data-tour-target="gantt-dep-picker-start-before"
-                className="w-full text-left px-4 py-3 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors"
+                className="w-full text-left px-4 py-3 bg-purple-50 border border-purple-200 dark:border-purple-500/30 rounded-lg hover:bg-purple-100 transition-colors"
               >
-                <p className="text-body font-medium text-purple-900">Finish before</p>
-                <p className="text-meta text-purple-600">{depChildTask.name} finishes before {depParentTask.name} starts</p>
+                <p className="text-body font-medium text-purple-900 dark:text-purple-200">Finish before</p>
+                <p className="text-meta text-purple-600 dark:text-purple-300">{depChildTask.name} finishes before {depParentTask.name} starts</p>
               </button>
             </div>
             <div className="flex justify-end mt-4">
@@ -1510,7 +1510,7 @@ export default function GanttChart({
                   setDepParentTask(null);
                   setDepChildTask(null);
                 }}
-                className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="px-4 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg"
               >
                 Cancel
               </button>
@@ -1534,7 +1534,7 @@ export default function GanttChart({
         return (
           <div key={weekIdx} className="mb-6 relative" style={{ zIndex: 1 }}>
             {/* Week header */}
-            <div className="text-meta font-semibold text-gray-500 mb-2 px-1">
+            <div className="text-meta font-semibold text-foreground-muted mb-2 px-1">
               {weekLabel}
             </div>
 
@@ -1609,7 +1609,7 @@ export default function GanttChart({
                         {/* Hover tooltip */}
                         <div className="absolute left-0 top-full mt-1 bg-gray-900 text-white text-meta px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none" data-force-hover-controls-target>
                           <div className="font-medium">{goal.name}</div>
-                          <div className={isOverdue ? 'text-red-300' : isUrgent ? 'text-yellow-300' : 'text-gray-300'}>
+                          <div className={isOverdue ? 'text-red-300' : isUrgent ? 'text-yellow-300' : 'text-foreground-muted'}>
                             {isOverdue 
                               ? `${Math.abs(daysLeft)} days overdue` 
                               : daysLeft === 0 
@@ -1625,7 +1625,7 @@ export default function GanttChart({
             )}
 
             {/* Day headers - also drop targets (disabled in lab mode) */}
-            <div className="grid gap-px bg-gray-200 rounded-t-lg overflow-hidden"
+            <div className="grid gap-px bg-border rounded-t-lg overflow-hidden"
               style={{ gridTemplateColumns: `repeat(${weekDates.length}, 1fr)` }}
             >
               {weekDates.map((d) => {
@@ -1661,12 +1661,12 @@ export default function GanttChart({
                     }
                     className={`relative px-2 py-1.5 text-center text-meta font-medium transition-colors ${
                       isDropTarget
-                        ? "bg-blue-200 text-blue-800"
+                        ? "bg-blue-200 text-blue-800 dark:text-blue-200"
                         : isToday
                         ? "bg-red-500 text-white"
                         : isWeekend
-                        ? "bg-gray-100 text-gray-400"
-                        : "bg-white text-gray-600"
+                        ? "bg-surface-sunken text-foreground-muted"
+                        : "bg-surface-raised text-foreground-muted"
                     }`}
                   >
                     {formatDayLabel(d)}
@@ -1699,10 +1699,10 @@ export default function GanttChart({
             </div>
 
             {/* Task rows - dynamic row assignment */}
-            <div className="bg-white border border-gray-200 border-t-0 rounded-b-lg overflow-hidden relative">
+            <div className="bg-surface-raised border border-border border-t-0 rounded-b-lg overflow-hidden relative">
               {weekTasks.length === 0 ? (
                 <div
-                  className="h-20 flex items-center justify-center text-meta text-gray-300 cursor-pointer hover:bg-gray-50"
+                  className="h-20 flex items-center justify-center text-meta text-foreground-muted cursor-pointer hover:bg-surface-sunken"
                   onDoubleClick={isLabMode ? undefined : () => handleDoubleClick(weekStart)}
                 >
                   {isLabMode ? "No tasks this week" : "Double-click to add a task"}
@@ -1734,7 +1734,7 @@ export default function GanttChart({
                     return (
                       <div
                         key={`row-${weekIdx}-${rowNum}`}
-                        className="relative h-12 border-b border-gray-50 last:border-b-0"
+                        className="relative h-12 border-b border-border last:border-b-0"
                         style={{
                           display: "grid",
                           gridTemplateColumns: `repeat(${weekDates.length}, 1fr)`,
@@ -1756,12 +1756,12 @@ export default function GanttChart({
                               onDoubleClick={isLabMode ? undefined : () => handleDoubleClick(ds)}
                               onContextMenu={(e) => handleDayContextMenu(e, ds)}
                               data-testid={isPto ? `pto-day-cell-${ds}` : undefined}
-                              className={`relative border-r border-gray-50 last:border-r-0 transition-colors ${
-                                isDropTarget ? "bg-blue-100" : ""
-                              } ${isWeekend ? "bg-gray-50/50" : ""} ${
+                              className={`relative border-r border-border last:border-r-0 transition-colors ${
+                                isDropTarget ? "bg-blue-100 dark:bg-blue-500/20" : ""
+                              } ${isWeekend ? "bg-surface-sunken/50" : ""} ${
                                 isPto ? "pto-day-cell" : ""
                               } ${
-                                isToday2 ? "bg-red-50/30" : ""
+                                isToday2 ? "bg-red-50 dark:bg-red-500/10/30" : ""
                               }`}
                               // PTO uses -45deg sky-blue stripes; weekends use 45deg
                               // black/15 stripes elsewhere in the chart, so the two
@@ -2166,12 +2166,12 @@ export default function GanttChart({
 
       {/* Drag hint - hidden in lab mode */}
       {!isLabMode && (
-        <p className="text-meta text-gray-400 mt-3 text-center">
+        <p className="text-meta text-foreground-muted mt-3 text-center">
           Drag tasks to reschedule. Drop on another task to create a dependency. Double-click to create a new task.
         </p>
       )}
       {isLabMode && (
-        <p className="text-meta text-gray-400 mt-3 text-center">
+        <p className="text-meta text-foreground-muted mt-3 text-center">
           Lab Mode: View-only. Tasks are colored by user.
         </p>
       )}
@@ -2186,7 +2186,7 @@ export default function GanttChart({
         <div
           role="menu"
           data-testid="pto-context-menu"
-          className="fixed z-50 min-w-[200px] rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+          className="fixed z-50 min-w-[200px] rounded-md border border-border bg-surface-raised py-1 shadow-lg"
           style={{ top: ptoMenu.y, left: ptoMenu.x }}
           onClick={(e) => e.stopPropagation()}
           onContextMenu={(e) => {
@@ -2199,7 +2199,7 @@ export default function GanttChart({
             role="menuitem"
             onClick={handlePtoToggle}
             data-testid="pto-context-menu-toggle"
-            className="block w-full px-3 py-1.5 text-left text-body text-gray-700 hover:bg-sky-50"
+            className="block w-full px-3 py-1.5 text-left text-body text-foreground hover:bg-sky-50"
           >
             {ptoSet.has(ptoMenu.date)
               ? `Unmark ${ptoMenu.date} as PTO`
