@@ -2,20 +2,16 @@
 
 import { useEffect, useState } from "react";
 import {
-  hasPassword,
-  setPassword,
-  removePassword,
-  verifyPassword,
-} from "@/lib/auth/password";
-import {
-  clearCachedPassword,
-  setCachedPassword,
-} from "@/lib/auth/cached-password";
-import {
-  decryptEncryptedBackup,
-  hasEncryptedBackup,
-  writeEncryptedBackup,
-} from "@/lib/telegram/encrypted-backup";
+  changeAccountPassword,
+  createAndPersistAccount,
+  deleteLocalAccount,
+  hasLocalAccount,
+  loginWithPassword,
+} from "@/lib/auth/account-store";
+import { deleteEncryptedBackup } from "@/lib/telegram/encrypted-backup";
+import { folderRequiresLogin } from "@/lib/auth/login-policy";
+import { discoverUsers } from "@/lib/file-system/user-discovery";
+import { readUserSettings } from "@/lib/settings/user-settings";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import Tooltip from "./Tooltip";
 
@@ -27,13 +23,16 @@ interface AccountPasswordPopupProps {
 type Mode = "set" | "change" | "remove";
 
 /**
- * Per-account password management. Reached via the lock icon next to a user
- * in UserLoginScreen. The popup decides whether the account is in "set" mode
- * (no password yet) or "change/remove" mode (password exists) on open. A
- * "Forgot password?" link explains the manual reset path — deleting the
- * `_auth.json` file in the user's folder.
+ * Per-account password management. Reached via the lock icon next to a user in
+ * UserLoginScreen. The password unlocks the account's local keypair (identity
+ * model phase 1), so "set" creates the account, "change" re-wraps the keypair,
+ * and "remove" is offered only for a genuinely solo folder (a shared folder
+ * requires a login). A "Forgot password?" link points to the recovery code.
  */
-export default function AccountPasswordPopup({ username, onClose }: AccountPasswordPopupProps) {
+export default function AccountPasswordPopup({
+  username,
+  onClose,
+}: AccountPasswordPopupProps) {
   const [hasExisting, setHasExisting] = useState<boolean | null>(null);
   const [mode, setMode] = useState<Mode>("set");
   const [currentInput, setCurrentInput] = useState("");
@@ -43,21 +42,40 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [showForgot, setShowForgot] = useState(false);
-  // When true, the change-password submit is mid-re-encrypt of the
-  // Telegram backup. The submit button shows a different label so the
-  // user sees a step actually happening on their behalf.
-  const [reencrypting, setReencrypting] = useState(false);
+  // Shown once right after a new account is created.
+  const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
+  // Removing the login is allowed only in a genuinely solo folder.
+  const [canRemove, setCanRemove] = useState(false);
 
-  // Escape closes this popup (app-wide convention).
   useEscapeToClose(onClose);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const exists = await hasPassword(username);
+      const exists = await hasLocalAccount(username);
+      let solo = false;
+      try {
+        const users = await discoverUsers();
+        let anyLabHead = false;
+        for (const u of users) {
+          try {
+            const s = await readUserSettings(u);
+            if (s.account_type === "lab_head") {
+              anyLabHead = true;
+              break;
+            }
+          } catch {
+            /* ignore a single unreadable settings file */
+          }
+        }
+        solo = !folderRequiresLogin(users.length, anyLabHead);
+      } catch {
+        /* ignore, default to not-removable */
+      }
       if (cancelled) return;
       setHasExisting(exists);
       setMode(exists ? "change" : "set");
+      setCanRemove(solo);
     })();
     return () => {
       cancelled = true;
@@ -74,10 +92,6 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
   const handleSubmit = async () => {
     setError(null);
     if (mode === "set") {
-      if (!newInput) {
-        setError("Enter a new password.");
-        return;
-      }
       if (newInput.length < 4) {
         setError("Password must be at least 4 characters.");
         return;
@@ -88,13 +102,14 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
       }
       setBusy(true);
       try {
-        await setPassword(username, newInput);
+        const created = await createAndPersistAccount(username, newInput);
         setHasExisting(true);
-        setDone("Password set.");
+        setRecoveryCode(created.recoveryCode);
+        setDone("Account password set.");
         resetForm();
         setMode("change");
       } catch {
-        setError("Failed to save password.");
+        setError("Failed to set password.");
       } finally {
         setBusy(false);
       }
@@ -106,7 +121,7 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
         setError("Enter your current password.");
         return;
       }
-      if (!newInput || newInput.length < 4) {
+      if (newInput.length < 4) {
         setError("New password must be at least 4 characters.");
         return;
       }
@@ -116,61 +131,16 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
       }
       setBusy(true);
       try {
-        const ok = await verifyPassword(username, currentInput);
+        const ok = await changeAccountPassword(username, currentInput, newInput);
         if (!ok) {
-          // Constraint #2(e): auth-failure wipes the cached password
-          // so the next attempt cannot accidentally reuse a stale
-          // value.
-          clearCachedPassword();
           setError("Current password is incorrect.");
           setBusy(false);
           return;
         }
-        // Security-manager constraints #7+8: if there is an encrypted
-        // Telegram backup at users/<u>/_telegram-encrypted.json, the
-        // old password is the only thing that can decrypt it. Decrypt
-        // with old, re-encrypt with new, then write the new _auth.json
-        // hash — order matters because if the backup re-encrypt fails
-        // we want to abort BEFORE the password hash actually rotates.
-        const backupExists = await hasEncryptedBackup(username);
-        if (backupExists) {
-          setReencrypting(true);
-          const decrypted = await decryptEncryptedBackup(username, currentInput);
-          if (decrypted === null) {
-            // verifyPassword passed but decrypt failed — sidecar is
-            // corrupt or has been re-encrypted by another surface
-            // with a different password. Bail without rotating: the
-            // user can delete _telegram-encrypted.json and re-pair if
-            // they want to clear this state.
-            setError(
-              "Encrypted Telegram backup couldn't be decrypted with the current password. Aborting password change. Delete _telegram-encrypted.json from your user folder if you want to reset it.",
-            );
-            setReencrypting(false);
-            setBusy(false);
-            return;
-          }
-          try {
-            await writeEncryptedBackup(username, decrypted, newInput);
-          } catch (writeErr) {
-            console.error("[account-password] re-encrypt backup failed", writeErr);
-            setError(
-              "Could not re-encrypt the Telegram backup. Password change aborted; your current password is still active.",
-            );
-            setReencrypting(false);
-            setBusy(false);
-            return;
-          }
-          setReencrypting(false);
-        }
-        await setPassword(username, newInput);
-        // Rotate the cached password too so the rest of the session
-        // matches the new on-disk hash.
-        setCachedPassword(newInput);
-        setDone(backupExists ? "Password updated. Telegram backup re-encrypted." : "Password updated.");
+        setDone("Password updated.");
         resetForm();
       } catch {
         setError("Failed to update password.");
-        setReencrypting(false);
       } finally {
         setBusy(false);
       }
@@ -178,30 +148,34 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
     }
 
     if (mode === "remove") {
+      if (!canRemove) {
+        setError("This folder is shared, so a login is required.");
+        return;
+      }
       if (!currentInput) {
         setError("Enter your current password to remove it.");
         return;
       }
       setBusy(true);
       try {
-        const ok = await verifyPassword(username, currentInput);
-        if (!ok) {
-          clearCachedPassword();
+        const keys = await loginWithPassword(username, currentInput);
+        if (!keys) {
           setError("Current password is incorrect.");
           setBusy(false);
           return;
         }
-        await removePassword(username);
-        // Password gone → cached password is meaningless. Wipe it so
-        // any encrypted-backup decrypt attempt re-prompts (and finds
-        // there is no password to verify against either).
-        clearCachedPassword();
+        await deleteLocalAccount(username);
+        try {
+          await deleteEncryptedBackup(username);
+        } catch {
+          /* best-effort, the backup is keyed to the now-removed identity */
+        }
         setHasExisting(false);
-        setDone("Password removed.");
+        setDone("Login removed.");
         resetForm();
         setMode("set");
       } catch {
-        setError("Failed to remove password.");
+        setError("Failed to remove the login.");
       } finally {
         setBusy(false);
       }
@@ -211,9 +185,6 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
   return (
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
       data-tour-popup-occluding="account-password"
       onClick={onClose}
     >
@@ -223,7 +194,9 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
       >
         <div className="px-6 py-4 border-b border-white/10 flex items-start justify-between">
           <div>
-            <h3 className="text-heading font-semibold text-white">Account password</h3>
+            <h3 className="text-heading font-semibold text-white">
+              Account password
+            </h3>
             <p className="text-meta text-slate-400 mt-0.5">for {username}</p>
           </div>
           <Tooltip label="Close" placement="bottom">
@@ -244,10 +217,9 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
         ) : (
           <div className="px-6 py-5 space-y-4">
             <p className="text-meta text-slate-400 leading-relaxed">
-              A password blocks accidental sign-in to this account from inside
-              the app. It does not encrypt your files on disk — anyone with
-              access to the shared folder can still read raw markdown and
-              images.
+              Your password unlocks this account on this device. It does not
+              encrypt your files on disk, anyone with access to the shared folder
+              can still read raw markdown and images.
             </p>
 
             {hasExisting && (
@@ -267,21 +239,23 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
                 >
                   Change
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode("remove");
-                    resetForm();
-                    setDone(null);
-                  }}
-                  className={`flex-1 py-2 text-meta rounded-lg border transition-colors ${
-                    mode === "remove"
-                      ? "bg-red-500/20 border-red-400/40 text-red-200"
-                      : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"
-                  }`}
-                >
-                  Remove
-                </button>
+                {canRemove && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("remove");
+                      resetForm();
+                      setDone(null);
+                    }}
+                    className={`flex-1 py-2 text-meta rounded-lg border transition-colors ${
+                      mode === "remove"
+                        ? "bg-red-500/20 border-red-400/40 text-red-200"
+                        : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"
+                    }`}
+                  >
+                    Remove
+                  </button>
+                )}
               </div>
             )}
 
@@ -306,10 +280,10 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
                 <div>
                   <div className="flex items-center gap-1.5 mb-1">
                     <label className="text-meta font-medium text-slate-300">
-                      {mode === "set" ? "New password" : "New password"}
+                      New password
                     </label>
                     <Tooltip
-                      label="Hashed with PBKDF2-SHA-256 (600,000 iterations) into users/<your-username>/_auth.json on your disk. Never sent to any server. If you forget it, delete that file directly in your folder to reset."
+                      label="Unlocks your account keypair, stored wrapped in users/<your-username>/_account.json on your disk. Never sent to any server. If you forget it, use your recovery code on the sign-in screen."
                       placement="top"
                     >
                       <button
@@ -348,12 +322,27 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
               </>
             )}
 
+            {recoveryCode && (
+              <div className="p-3 rounded-lg border border-blue-400/30 bg-blue-500/10 space-y-2">
+                <p className="text-meta font-medium text-blue-200">
+                  Save your recovery code
+                </p>
+                <p className="font-mono text-body text-slate-100 tracking-wide break-all text-center">
+                  {recoveryCode}
+                </p>
+                <p className="text-meta text-slate-400 leading-relaxed">
+                  This is the only way back in if you forget your password. It is
+                  not shown again.
+                </p>
+              </div>
+            )}
+
             {error && (
               <div className="p-2 bg-red-500/20 border border-red-500/30 rounded-lg">
                 <p className="text-meta text-red-300">{error}</p>
               </div>
             )}
-            {done && !error && (
+            {done && !error && !recoveryCode && (
               <div className="p-2 bg-emerald-500/20 border border-emerald-500/30 rounded-lg">
                 <p className="text-meta text-emerald-300">{done}</p>
               </div>
@@ -387,14 +376,12 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
                 }`}
               >
                 {busy
-                  ? reencrypting
-                    ? "Re-encrypting Telegram backup…"
-                    : "..."
+                  ? "Working…"
                   : mode === "set"
-                  ? "Set password"
-                  : mode === "change"
-                  ? "Update password"
-                  : "Remove password"}
+                    ? "Set password"
+                    : mode === "change"
+                      ? "Update password"
+                      : "Remove login"}
               </button>
             </div>
           </div>
@@ -404,8 +391,6 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
       {showForgot && (
         <div
           className="fixed inset-0 z-[210] flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          // Marker for TourSpotlight (popup-occluding sweep manager,
-          // 2026-05-27).
           data-tour-popup-occluding="account-password-forgot"
           onClick={() => setShowForgot(false)}
         >
@@ -414,7 +399,9 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between mb-3">
-              <h3 className="text-heading font-semibold text-white">Forgot your password?</h3>
+              <h3 className="text-heading font-semibold text-white">
+                Forgot your password?
+              </h3>
               <Tooltip label="Close" placement="bottom">
                 <button
                   onClick={() => setShowForgot(false)}
@@ -426,26 +413,21 @@ export default function AccountPasswordPopup({ username, onClose }: AccountPassw
               </Tooltip>
             </div>
             <p className="text-body text-slate-300 mb-3 leading-relaxed">
-              Since ResearchOS stores everything locally, there&apos;s no
-              recovery email or reset link. To clear the password and sign in
-              again:
+              There is no recovery email or reset link, everything is local. To
+              get back into this account:
             </p>
             <ol className="text-body text-slate-300 space-y-2 list-decimal list-inside mb-4">
-              <li>Open your shared data folder (e.g. in OneDrive or Finder).</li>
+              <li>On the sign-in screen, click this account.</li>
               <li>
-                Go into <code className="px-1 py-0.5 bg-white/10 rounded text-blue-300">users/{username}/</code>.
+                Choose <strong>Use your recovery code</strong> instead of the
+                password.
               </li>
-              <li>
-                Delete <code className="px-1 py-0.5 bg-white/10 rounded text-blue-300">_auth.json</code>.
-              </li>
-              <li>Return to ResearchOS and sign in normally.</li>
+              <li>Enter the recovery code you saved when you set the password.</li>
             </ol>
             <p className="text-meta text-slate-400 mb-4">
-              A lab admin (or anyone with access to the folder) can also do
-              this for you. Your other notes and files are not affected. This
-              resets only the offline app password. It does not touch a
-              member&apos;s Google or GitHub sign-in, their sharing keys, or
-              anything sent to them.
+              If you also lost the recovery code, a lab admin can reset this
+              member from their own account. Your other notes and files are not
+              affected.
             </p>
             <div className="flex justify-end">
               <button

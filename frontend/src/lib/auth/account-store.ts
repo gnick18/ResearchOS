@@ -47,6 +47,14 @@ export async function writeLocalAccount(
 }
 
 /**
+ * Deletes the local account file, dropping the login. Only valid for a genuinely
+ * solo folder, the caller enforces that (a shared folder requires a login).
+ */
+export async function deleteLocalAccount(username: string): Promise<void> {
+  await fileService.deleteFile(accountPath(username));
+}
+
+/**
  * Creates a fresh local account for a user and persists it. Returns the created
  * result, which carries the one-time recovery code plus the unlocked keys so the
  * caller can start a session immediately without re-deriving.

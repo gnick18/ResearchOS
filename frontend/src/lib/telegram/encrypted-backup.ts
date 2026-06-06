@@ -1,47 +1,47 @@
-// SENSITIVE: bot tokens flow through this module (encrypted disk sidecar
-// using the user's account password). See SECURITY_AUDIT.md §1.3.
+// SENSITIVE: bot tokens flow through this module (encrypted disk sidecar keyed
+// off the user's on-device identity keypair). See SECURITY_AUDIT.md §1.3.
 //
 // Opt-in encrypted backup of the Telegram bot token at
-// `users/<u>/_telegram-encrypted.json`. The blob is AES-GCM-encrypted with
-// a key derived from the user's account password via PBKDF2-SHA-256. KDF
-// parameters mirror `auth/password.ts` (600k iterations, 16-byte salt,
-// SHA-256) so a single password change cadence applies across both.
+// `users/<u>/_telegram-encrypted.json`. The blob is AES-GCM-encrypted with a key
+// derived from the user's X25519 identity secret via HKDF-SHA-256 (identity model
+// phase 1, 2026-06-05). It used to derive from the account password via PBKDF2,
+// but the password now only unwraps the keypair, so the backup keys off the
+// keypair directly. Consequences:
+//   - a password CHANGE no longer touches this backup (the keypair is unchanged),
+//   - there is no in-memory password cache to hold, prompt for, or idle-wipe,
+//   - a reset / wipe-and-re-establish mints a NEW keypair, so a backup keyed to
+//     the old one is orphaned and the caller clears it (the user re-pairs).
 //
 // Lifecycle:
-//   - written when the user opts in via the pairing modal checkbox OR via
-//     the Settings auto-reconnect toggle flipping ON
-//   - read by the auto-reconnect path when the on-disk `_telegram.json`
-//     pairing sidecar is missing
+//   - written when the user opts in via the pairing modal checkbox OR via the
+//     Settings auto-reconnect toggle flipping ON
+//   - read by the auto-reconnect path when the on-disk `_telegram.json` pairing
+//     sidecar is missing
 //   - deleted when the toggle flips OFF
 //
-// Decryption is by design gated on the user's password. This module does
-// NOT cache the password itself: `encryptToken` / `decryptToken` receive
-// it as a parameter and use it transiently to derive the AES key, then
-// drop it. The in-memory password cache lives in `auth/cached-password.ts`
-// (a single module-scoped variable with strict wipe triggers); callers of
-// this module pull from there or prompt the user, but the cache lifetime
-// is owned by that module, not this one. The IDB-scoped token cache
-// (telegram-token-cache.ts) covers the silent same-browser case so the
-// encrypted backup only has to handle the "remember the token across
-// browser wipes" scenario.
+// Callers pass the X25519 secret (from loadIdentity()), used transiently to
+// derive the AES key and then dropped. The IDB-scoped token cache
+// (telegram-token-cache.ts) still covers the silent same-browser case, so this
+// backup only handles "remember the token across browser wipes".
 
 import { fileService } from "@/lib/file-system/file-service";
 
-const PBKDF2_ITERATIONS = 600_000;
 const SALT_BYTES = 16;
 const IV_BYTES = 12;
 const KEY_BITS = 256;
+// Domain-separation label for the HKDF derivation. Stable forever, changing it
+// orphans every backup.
+const HKDF_INFO = "researchos/telegram-backup/v1";
 
 /**
- * Decrypted payload — the minimum needed to reconstruct a TelegramPairing
- * on restore. `pairedAt` and `lastUpdateId` are NOT stored: the restore
- * path stamps fresh values (`pairedAt` = now, `lastUpdateId` = 0; the
- * long-poll cursor self-heals on the first poll).
+ * Decrypted payload — the minimum needed to reconstruct a TelegramPairing on
+ * restore. `pairedAt` and `lastUpdateId` are NOT stored: the restore path stamps
+ * fresh values (`pairedAt` = now, `lastUpdateId` = 0; the long-poll cursor
+ * self-heals on the first poll).
  *
  * `botFirstName` is intentionally NOT in this payload (security manager
- * constraint #6 — minimum sensitive data on disk). It's a display detail
- * only; on restore it stays empty until getMe() repopulates it on the
- * next polling tick. Acceptable UX cost for a smaller blast radius.
+ * constraint #6 — minimum sensitive data on disk). It's a display detail only;
+ * on restore it stays empty until getMe() repopulates it on the next tick.
  */
 export interface EncryptedPairingPayload {
   botToken: string;
@@ -74,23 +74,22 @@ function fromBase64(b64: string): Uint8Array {
 }
 
 async function deriveAesKey(
-  password: string,
+  identitySecret: Uint8Array,
   salt: Uint8Array,
-  iterations: number,
 ): Promise<CryptoKey> {
   const baseKey = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(password),
-    { name: "PBKDF2" },
+    identitySecret as BufferSource,
+    "HKDF",
     false,
     ["deriveKey"],
   );
   return crypto.subtle.deriveKey(
     {
-      name: "PBKDF2",
-      salt: salt as BufferSource,
-      iterations,
+      name: "HKDF",
       hash: "SHA-256",
+      salt: salt as BufferSource,
+      info: new TextEncoder().encode(HKDF_INFO),
     },
     baseKey,
     { name: "AES-GCM", length: KEY_BITS },
@@ -100,13 +99,16 @@ async function deriveAesKey(
 }
 
 /**
- * Encrypt `token` with a key derived from `password` and return a
- * serialized `${b64(salt)}:${b64(iv)}:${b64(ciphertext)}` blob.
+ * Encrypt `token` with a key derived from the X25519 identity secret and return
+ * a serialized `${b64(salt)}:${b64(iv)}:${b64(ciphertext)}` blob.
  */
-export async function encryptToken(token: string, password: string): Promise<string> {
+export async function encryptToken(
+  token: string,
+  identitySecret: Uint8Array,
+): Promise<string> {
   const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
   const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
-  const key = await deriveAesKey(password, salt, PBKDF2_ITERATIONS);
+  const key = await deriveAesKey(identitySecret, salt);
   const ciphertext = new Uint8Array(
     await crypto.subtle.encrypt(
       { name: "AES-GCM", iv: iv as BufferSource },
@@ -118,10 +120,13 @@ export async function encryptToken(token: string, password: string): Promise<str
 }
 
 /**
- * Reverse of `encryptToken`. Returns `null` on any failure (wrong password,
+ * Reverse of `encryptToken`. Returns `null` on any failure (wrong identity key,
  * malformed blob, tampered ciphertext, missing parts). Never throws.
  */
-export async function decryptToken(blob: string, password: string): Promise<string | null> {
+export async function decryptToken(
+  blob: string,
+  identitySecret: Uint8Array,
+): Promise<string | null> {
   try {
     const parts = blob.split(":");
     if (parts.length !== 3) return null;
@@ -130,7 +135,7 @@ export async function decryptToken(blob: string, password: string): Promise<stri
     const salt = fromBase64(saltB64);
     const iv = fromBase64(ivB64);
     const ciphertext = fromBase64(cipherB64);
-    const key = await deriveAesKey(password, salt, PBKDF2_ITERATIONS);
+    const key = await deriveAesKey(identitySecret, salt);
     const plain = new Uint8Array(
       await crypto.subtle.decrypt(
         { name: "AES-GCM", iv: iv as BufferSource },
@@ -149,17 +154,15 @@ export async function decryptToken(blob: string, password: string): Promise<stri
 
 /**
  * Write an encrypted backup of the pairing-restoration payload to
- * `users/<username>/_telegram-encrypted.json`. Caller must have verified
- * the password against `_auth.json` first (we don't re-verify here so a
- * single user-prompt UX flow can short-circuit on mismatch before reaching
- * this layer).
+ * `users/<username>/_telegram-encrypted.json`, keyed off the X25519 identity
+ * secret.
  */
 export async function writeEncryptedBackup(
   username: string,
   payload: EncryptedPairingPayload,
-  password: string,
+  identitySecret: Uint8Array,
 ): Promise<void> {
-  const encrypted = await encryptToken(JSON.stringify(payload), password);
+  const encrypted = await encryptToken(JSON.stringify(payload), identitySecret);
   const sidecar: EncryptedTokenSidecar = {
     version: 1,
     encrypted_token: encrypted,
@@ -180,17 +183,18 @@ export async function readEncryptedBackup(
 }
 
 /**
- * Read + decrypt the encrypted backup for `username`. Returns null on any
- * failure (missing sidecar, malformed envelope, wrong password, tampered
- * ciphertext, JSON that doesn't decode to the expected shape).
+ * Read + decrypt the encrypted backup for `username` with the X25519 identity
+ * secret. Returns null on any failure (missing sidecar, malformed envelope,
+ * wrong key, tampered ciphertext, JSON that doesn't decode to the expected
+ * shape).
  */
 export async function decryptEncryptedBackup(
   username: string,
-  password: string,
+  identitySecret: Uint8Array,
 ): Promise<EncryptedPairingPayload | null> {
   const sidecar = await readEncryptedBackup(username);
   if (!sidecar) return null;
-  const plain = await decryptToken(sidecar.encrypted_token, password);
+  const plain = await decryptToken(sidecar.encrypted_token, identitySecret);
   if (plain === null) return null;
   try {
     const parsed = JSON.parse(plain) as unknown;
@@ -203,12 +207,14 @@ export async function decryptEncryptedBackup(
     ) {
       return null;
     }
-    // Allow-list serialization. The interface only declares the three
-    // canonical fields; if a legacy sidecar (or any other source) carries
-    // extras like `botFirstName`, we drop them here so the in-memory
-    // surface matches the typed contract one-to-one (security-manager
-    // constraint #6).
-    const narrowed = parsed as { botToken: string; chatId: number; botUsername: string };
+    // Allow-list serialization. The interface only declares the three canonical
+    // fields; if a legacy sidecar carries extras like `botFirstName`, drop them
+    // so the in-memory surface matches the typed contract (constraint #6).
+    const narrowed = parsed as {
+      botToken: string;
+      chatId: number;
+      botUsername: string;
+    };
     return {
       botToken: narrowed.botToken,
       chatId: narrowed.chatId,

@@ -16,7 +16,6 @@ import {
 } from "./indexeddb-store";
 import { readMainUser, writeMainUser, pruneOrphanUserMetadataEntries } from "./user-metadata";
 import { clearCurrentUserCache } from "../storage/json-store";
-import { clearCachedPassword } from "../auth/cached-password";
 import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./user-discovery";
 import { readUserSettings, patchUserSettings, userSettingsFileExists, DEFAULT_SETTINGS } from "../settings/user-settings";
 import { useAppStore, readLegacyLocalStorageSettings } from "../store";
@@ -1008,12 +1007,6 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     // with no IDB candidate to migrate from.
     await clearMainUser();
 
-    // Constraint #2(c): folder switch wipes the cached password. The
-    // encrypted backup at users/<u>/_telegram-encrypted.json stays with
-    // the disconnecting folder, so any cached password from that folder's
-    // user must not survive into a freshly-connected folder.
-    clearCachedPassword();
-
     // Clear any hydrated user preferences so the next user's settings don't
     // leak from the in-memory store.
     useAppStore.getState().resetSettingsToDefaults();
@@ -1048,10 +1041,6 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
       resetEditSession();
     }
     clearCurrentUserCache();
-    // Constraint #2(b): explicit user-switch wipes the cached password.
-    // The encrypted backup is keyed per-user and the password gate
-    // belongs to whichever account we just left.
-    clearCachedPassword();
     await storeCurrentUser(username);
     setState((prev) => ({ ...prev, currentUser: username }));
     await hydrateSettingsForUser(username);

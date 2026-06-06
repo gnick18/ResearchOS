@@ -18,6 +18,7 @@ import { saveIdentity } from "@/lib/sharing/identity/storage";
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
 import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
 import { deleteSharingIdentity } from "@/lib/sharing/identity/sidecar";
+import { deleteEncryptedBackup } from "@/lib/telegram/encrypted-backup";
 import { performUserDelete } from "@/lib/users/perform-delete";
 import { readUserSettings } from "@/lib/settings/user-settings";
 import { readArchivedSet } from "@/lib/lab/user-archive";
@@ -583,6 +584,12 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         await deleteSharingIdentity(username);
       } catch {
         // No stale published identity, fine.
+      }
+      try {
+        // A Telegram backup keyed to the superseded keypair is now orphaned.
+        await deleteEncryptedBackup(username);
+      } catch {
+        // No stale backup, fine.
       }
       await persistUnlockedIdentity(created.keys);
       setLockedUsers((prev) => new Set(prev).add(username));
