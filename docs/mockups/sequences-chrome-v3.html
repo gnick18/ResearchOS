@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sequence editor chrome v3 (two stable zones)</title>
+<style>
+  :root{
+    --line:#e5e7eb; --line2:#eef2f7; --ink:#0f172a; --slate:#334155; --muted:#64748b;
+    --faint:#94a3b8; --tint:#f8fafc; --tint2:#f1f5f9; --sky:#0284c7; --sky-50:#f0f9ff;
+    --sky-100:#e0f2fe; --sky-600:#0284c7; --sky-700:#0369a1; --violet:#7c3aed; --amber:#d97706;
+    --green:#16a34a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:#dde3ea;padding:18px}
+  .wrap{max-width:1180px;margin:0 auto}
+  h1{font-size:16px;margin:0 0 4px}
+  .lede{color:var(--muted);font-size:12.5px;margin:0 0 14px;max-width:760px}
+  .app{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 12px 40px rgba(15,40,80,.10)}
+
+  /* title row */
+  .seqtitle{display:flex;align-items:center;gap:10px;padding:11px 16px 7px}
+  .seqtitle h3{margin:0;font-size:15px}
+  .seqtitle .meta{color:var(--muted);font-size:12px}
+  .seqtitle .grow{flex:1}
+  .iconbtn{width:30px;height:30px;border:1px solid var(--line);background:#fff;border-radius:8px;color:var(--slate);display:flex;align-items:center;justify-content:center}
+
+  /* ZONE 1: top action bar (constant) */
+  .actionbar{display:flex;align-items:center;gap:3px;padding:6px 12px;border-top:1px solid var(--line2);border-bottom:1px solid var(--line);background:var(--tint)}
+  .actionbar .sep{width:1px;height:20px;background:var(--line);margin:0 6px}
+  .ab{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--slate);font-weight:600;font-size:13px;padding:6px 9px;border-radius:8px;cursor:pointer}
+  .ab:hover{background:#fff;box-shadow:inset 0 0 0 1px var(--line)}
+  .ab.dim{color:var(--faint)}
+  .ab .ic{width:16px;height:16px}
+  .ab .ca{width:12px;height:12px;color:var(--faint)}
+  /* split copy button */
+  .split{display:inline-flex;align-items:stretch;border-radius:8px}
+  .split .main{border-radius:8px 0 0 8px}
+  .split .caret{padding:6px 5px;border-radius:0 8px 8px 0}
+  .split:hover .main,.split:hover .caret{background:#fff;box-shadow:inset 0 0 0 1px var(--line)}
+  .saved{margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:var(--sky-100);color:var(--sky-700);font-weight:700;border-radius:8px;padding:6px 11px;font-size:12.5px}
+  .bp{color:var(--muted);font-size:12px;font-weight:600;padding-left:10px}
+
+  /* main: canvas + right rail/inspector */
+  .cols{display:flex;min-height:340px}
+  .canvas{flex:1;background:var(--tint);position:relative;display:flex;align-items:center;justify-content:center;min-width:0}
+  .canvas .ph{color:var(--faint);font-size:13px;text-align:center}
+  .ring{width:200px;height:200px;border-radius:50%;border:11px solid #cbd5e1;position:relative}
+  .ring:after{content:"";position:absolute;inset:-11px;border-radius:50%;border:13px solid transparent;border-top-color:var(--green);border-right-color:var(--violet);transform:rotate(25deg)}
+  .ring .lab{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700}
+  .ring .lab small{color:var(--muted);font-weight:500}
+  .linbars{width:78%}
+  .linbars .row{height:10px;border-radius:5px;background:#e2e8f0;margin:9px 0;position:relative;overflow:hidden}
+  .linbars .row b{position:absolute;top:0;bottom:0;border-radius:5px;background:var(--violet);opacity:.85}
+
+  /* right ops rail + inspector (Phase 1, unchanged, shown compact) */
+  .opsrail{flex:0 0 58px;background:#fff;border-left:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:6px 0;gap:1px}
+  .grouplbl{font-size:8.5px;font-weight:800;letter-spacing:.06em;color:var(--faint);text-transform:uppercase;margin:6px 0 1px}
+  .op{width:46px;height:44px;border-radius:10px;border:1px solid transparent;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--slate);font-size:9.5px;font-weight:600}
+  .op svg{width:18px;height:18px}
+  .op.on{background:var(--sky-50);border-color:var(--sky-100);color:var(--sky-700)}
+  .op .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);position:absolute;margin:-16px 0 0 16px}
+  .opsep{width:26px;height:1px;background:var(--line2);margin:4px 0}
+
+  /* ZONE 2: the stable bottom (display+zoom row, then tabs row) */
+  .botzone{border-top:1px solid var(--line)}
+  .showrow{display:flex;align-items:center;gap:8px;padding:7px 14px;background:var(--tint2);border-bottom:1px solid var(--line2);flex-wrap:wrap}
+  .showrow .lbl{font-size:10px;font-weight:800;letter-spacing:.05em;color:var(--faint);text-transform:uppercase}
+  .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 11px;color:var(--slate);font-weight:600;font-size:12px;cursor:pointer;user-select:none}
+  .chip .sw{width:9px;height:9px;border-radius:3px}
+  .chip.on{background:var(--sky-50);border-color:#bae6fd;color:var(--sky-700)}
+  .chip.disabled{opacity:.4;cursor:not-allowed;background:var(--tint)}
+  .chip.ghost{border-style:dashed}
+  .vsep{width:1px;height:18px;background:var(--line);margin:0 2px}
+  .zoom{margin-left:auto;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}
+  .zoom .z{width:26px;height:24px;border:1px solid var(--line);background:#fff;border-radius:7px;font-weight:700;color:var(--slate)}
+  .zoom input[type=range]{width:120px}
+
+  .tabsrow{display:flex;align-items:center;gap:2px;padding:5px 12px;background:#fff}
+  .find{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--tint);color:var(--muted);border-radius:8px;padding:5px 9px;font-size:12px;font-weight:600;margin-right:8px}
+  .tab{display:inline-flex;align-items:center;gap:7px;border:0;background:transparent;color:var(--muted);font-weight:600;font-size:13px;padding:6px 12px;border-radius:8px 8px 0 0;cursor:pointer;position:relative}
+  .tab .ic{width:15px;height:15px}
+  .tab.on{color:var(--sky-700);box-shadow:inset 0 -2px 0 0 var(--sky)}
+  .tab:hover:not(.on){background:var(--tint)}
+  .tab .ct{margin-left:2px;background:#e2e8f0;color:var(--muted);border-radius:999px;font-size:10px;font-weight:700;padding:1px 6px}
+  .status{margin-left:auto;display:flex;align-items:center;gap:14px;color:var(--faint);font-size:12px}
+  .status .tax{display:inline-flex;align-items:center;gap:6px;color:var(--slate);font-style:italic}
+  .status .tax svg{width:14px;height:14px;color:var(--sky-600)}
+
+  /* controls + legend */
+  .ctl{display:flex;gap:10px;align-items:center;margin:12px 0 0;font-size:12.5px;color:var(--slate)}
+  .ctl button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 11px;font-weight:600;cursor:pointer}
+  .ctl button.act{background:var(--sky);border-color:var(--sky);color:#fff}
+  .legend{margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 16px}
+  .legend h4{margin:0 0 7px;font-size:13px}
+  .legend li{margin:4px 0;color:var(--slate);font-size:12.5px}
+  .legend b{color:var(--sky-700)}
+  .before{margin-top:10px;color:var(--muted);font-size:12px}
+  .before b{color:var(--amber)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Sequence editor chrome v3 — two stable zones</h1>
+  <p class="lede">Collapses the three stacked toolbars into a constant top action bar and a constant bottom view bar. Nothing appears or disappears when you switch modes, controls only enable or disable, so the chrome never jumps. The Edit dropdown is gone (its unique actions live in the right-click menu, keyboard, and the bottom Find control). Use the controls below the app to switch tabs and flip the molecule topology and watch the bars stay put.</p>
+
+  <div class="app" id="app">
+
+    <!-- title -->
+    <div class="seqtitle">
+      <h3 id="seqname">attL entry clone (Gateway demo)</h3>
+      <span class="meta" id="seqmeta">DNA &middot; Circular &middot; 910 bp &middot; 2 features</span>
+      <span class="grow"></span>
+      <span class="iconbtn" title="Share">&#8599;</span>
+      <span class="iconbtn" title="Full screen">&#9974;</span>
+    </div>
+
+    <!-- ZONE 1: constant action bar (no Edit) -->
+    <div class="actionbar">
+      <button class="ab dim"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg>Undo</button>
+      <button class="ab dim"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg>Redo</button>
+      <span class="sep"></span>
+      <span class="split">
+        <button class="ab main"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>Copy</button>
+        <button class="ab caret"><svg class="ca" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button>
+      </span>
+      <button class="ab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12"/></svg>Cut</button>
+      <button class="ab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>Paste</button>
+      <span class="sep"></span>
+      <button class="ab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><path d="M7 7h.01"/></svg>Feature<svg class="ca" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button>
+      <button class="ab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>Primer<svg class="ca" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button>
+      <button class="ab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8 7l12 9M8 17 20 8"/></svg>Enzyme<svg class="ca" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button>
+      <button class="ab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M5 21h14"/></svg>Export<svg class="ca" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button>
+      <span class="saved"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>Saved</span>
+      <span class="bp" id="bptop">910 bp</span>
+    </div>
+
+    <!-- canvas + ops rail -->
+    <div class="cols">
+      <div class="canvas" id="canvas">
+        <div class="ring" id="ringview"><div class="lab">attL_entry<small>910 bp</small></div></div>
+      </div>
+      <div class="opsrail">
+        <div class="grouplbl">Design</div>
+        <button class="op on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12h10"/><path d="m14 9 4 3-4 3"/></svg>Primers</button>
+        <button class="op"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="7" cy="7" r="3"/><circle cx="17" cy="17" r="3"/><path d="m9.5 9.5 5 5"/></svg>Cloning</button>
+        <button class="op"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8 7l12 9M8 17 20 8"/></svg>Cut</button>
+        <button class="op"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m4 12 5 5L20 6"/></svg>Annotate</button>
+        <div class="opsep"></div>
+        <div class="grouplbl">Analyze</div>
+        <button class="op"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h12M4 12h16M4 17h9"/></svg>Align</button>
+        <button class="op"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 5c4 4 10 6 14 14M5 19c4-4 10-6 14-14"/></svg>Protein</button>
+        <button class="op"><span class="dot"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="12" r="2"/><path d="m8 6.7 8 4.3M8 17.3l8-4.3"/></svg>Tree</button>
+      </div>
+    </div>
+
+    <!-- ZONE 2: stable bottom -->
+    <div class="botzone">
+      <!-- display + zoom row -->
+      <div class="showrow" id="showrow">
+        <span class="lbl">Show</span>
+        <span class="chip on" data-show><span class="sw" style="background:var(--violet)"></span>Features</span>
+        <span class="chip on" data-show><span class="sw" style="background:var(--sky)"></span>Primers</span>
+        <span class="chip" data-show>Enzyme sites</span>
+        <span class="chip" data-show>Translation</span>
+        <span class="chip" data-show>Open reading frames</span>
+        <span class="chip on" data-show>Ruler / index</span>
+        <span class="vsep"></span>
+        <span class="chip on" id="topochip" data-show>Circular</span>
+        <span class="chip" id="wrapchip" data-show>Wrapped</span>
+        <span class="zoom">
+          <span class="z" title="Fit">&#9633;</span>
+          <span>86 bp in view</span>
+          <button class="z">&minus;</button>
+          <input type="range" min="0" max="100" value="30" />
+          <button class="z">+</button>
+        </span>
+      </div>
+      <!-- tabs row (the constant spine) -->
+      <div class="tabsrow">
+        <span class="find"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Find</span>
+        <button class="tab" data-tab="map"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 4v3M20 12h-3M12 20v-3M4 12h3"/></svg>Map</button>
+        <button class="tab on" data-tab="seq"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 17h18"/><path d="M5 13V8h2.5a1.5 1.5 0 0 1 0 3H5"/><path d="m11 13V8l4 5V8"/></svg>Sequence</button>
+        <button class="tab" data-tab="feat"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><path d="M7 7h.01"/></svg>Features<span class="ct">2</span></button>
+        <button class="tab" data-tab="prim"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 17h18"/><path d="M6 11h9l-2.5-2.5M6 11l2.5 2.5"/></svg>Primers</button>
+        <button class="tab" data-tab="hist"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 4v4h4"/><path d="M12 8v4l3 2"/></svg>History</button>
+        <span class="status">
+          <span id="coord">Click or select bases to see coordinates.</span>
+          <span class="tax"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="12" r="2.5"/><path d="m8.5 6.8 7 4.2M8.5 17.2l7-4.2"/></svg>Aequorea victoria</span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="ctl">
+    <span style="font-weight:700">Molecule:</span>
+    <button class="act" id="mCirc" onclick="setTopo('circular')">Circular plasmid</button>
+    <button id="mLin" onclick="setTopo('linear')">Linear DNA</button>
+    <span style="margin-left:14px;color:var(--faint)">Switch tabs in the app and flip topology here. Watch the two bars stay fixed.</span>
+  </div>
+
+  <div class="legend">
+    <h4>What this is showing</h4>
+    <ul>
+      <li><b>Three rows become two zones.</b> A constant top action bar and a constant bottom view bar. The canvas grows; the chrome stops stacking.</li>
+      <li><b>Nothing jumps.</b> Switching tabs or flipping topology never adds or removes a row. On Features / Primers / History the Show chips and zoom simply <b>disable</b> (they stay in place, greyed). The <b>Circular / Linear</b> chip relabels in the same slot, and <b>Wrapped</b> disables on a ring rather than vanishing.</li>
+      <li><b>View tabs are pinned at the very bottom</b> and stay constant across every mode (the SnapGene spine), with Find on the left and the live coordinate + organism readout on the right.</li>
+      <li><b>Edit dropdown removed.</b> Copy (with its full family), Cut, Paste stay as buttons. Select All / Range / Invert, Make Upper / Lower, and Go To live in the right-click menu and the keyboard; Find gets a dedicated control on the bottom bar.</li>
+      <li>The right operations rail + inspector (the Phase 1 work) are unchanged.</li>
+    </ul>
+    <p class="before"><b>Before:</b> action bar + view tabs + Show strip stacked at the top (3 rows), with the Show strip and topology chips appearing, disappearing, and relabeling per mode. <b>After:</b> 1 top row, 1 bottom zone, both fixed.</p>
+  </div>
+</div>
+
+<script>
+  // tab switching: the chrome NEVER moves. Show chips + zoom only enable on the
+  // canvas tabs (Map / Sequence); on the others they disable in place.
+  const canvasTabs = new Set(["map","seq"]);
+  const showChips = [...document.querySelectorAll('#showrow [data-show]')];
+  const zoom = document.querySelector('.zoom');
+  function setTab(tab){
+    document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on', b.dataset.tab===tab));
+    const onCanvas = canvasTabs.has(tab);
+    showChips.forEach(c=>{ if(c.id!=='wrapchip'&&c.id!=='topochip') c.classList.toggle('disabled', !onCanvas); });
+    refreshTopoWrap(onCanvas);
+    zoom.style.opacity = onCanvas ? '1':'.4';
+    // canvas placeholder content (chrome stays put)
+    const c = document.getElementById('canvas');
+    if(tab==='map'){ c.innerHTML = topo==='circular' ? ringHTML() : linHTML('Map view'); }
+    else if(tab==='seq'){ c.innerHTML = topo==='circular' ? ringHTML() : linHTML('Sequence view'); }
+    else if(tab==='feat'){ c.innerHTML = '<div class="ph">Features table (2)</div>'; }
+    else if(tab==='prim'){ c.innerHTML = '<div class="ph">Primers list</div>'; }
+    else { c.innerHTML = '<div class="ph">Version history</div>'; }
+  }
+  document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
+
+  // show-chip toggle (visual only)
+  showChips.forEach(c=>c.addEventListener('click',()=>{ if(!c.classList.contains('disabled')) c.classList.toggle('on'); }));
+
+  let topo='circular';
+  function ringHTML(){ return '<div class="ring"><div class="lab">attL_entry<small>910 bp</small></div></div>'; }
+  function linHTML(label){ return '<div class="linbars"><div class="row"><b style="left:8%;width:30%"></b></div><div class="row"><b style="left:42%;width:22%"></b></div><div class="row"><b style="left:12%;width:48%"></b></div><div class="ph" style="margin-top:8px">'+label+' &middot; linear</div></div>'; }
+  function refreshTopoWrap(onCanvas){
+    const topochip=document.getElementById('topochip'), wrapchip=document.getElementById('wrapchip');
+    // topology chip relabels IN PLACE; never removed
+    if(topo==='circular'){ topochip.textContent='Circular'; topochip.classList.add('on'); topochip.classList.remove('disabled'); }
+    else { topochip.textContent='Linear'; topochip.classList.remove('on'); topochip.classList.add('disabled'); }
+    // wrapped only applies to a linear view; disabled (in place) on a ring
+    const wrapApplies = topo==='linear';
+    wrapchip.classList.toggle('disabled', !wrapApplies || !onCanvas);
+    if(!onCanvas){ topochip.classList.add('disabled'); }
+  }
+  function setTopo(t){
+    topo=t;
+    document.getElementById('mCirc').classList.toggle('act', t==='circular');
+    document.getElementById('mLin').classList.toggle('act', t==='linear');
+    document.getElementById('seqmeta').textContent = t==='circular' ? 'DNA · Circular · 910 bp · 2 features' : 'DNA · Linear · 910 bp · 2 features';
+    const active = document.querySelector('.tab.on').dataset.tab;
+    setTab(active);
+  }
+  setTab('seq');
+</script>
+</body>
+</html>
