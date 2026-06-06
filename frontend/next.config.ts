@@ -98,6 +98,12 @@ const COLLAB_RELAY_ORIGIN =
  *     no Worker) and NO 'unsafe-eval' (its WASM init only needs the
  *     'wasm-unsafe-eval' already granted above); verified against react-pdf
  *     4.5.1 in a production build. See AGENTS.md §6 trap entry.
+ *   connect-src https://api.ncbi.nlm.nih.gov, https://eutils.ncbi.nlm.nih.gov: the
+ *     NCBI integration calls these public government databases browser-direct (no
+ *     proxy). api.ncbi.nlm.nih.gov is the Datasets v2 API (taxonomy lineage +
+ *     tree, gene/genome metadata, package downloads); eutils.ncbi.nlm.nih.gov is
+ *     efetch for annotated GenBank records. Both are CORS-open and read-only; only
+ *     a typed organism/accession is sent, never the user's own data.
  *   connect-src ${COLLAB_RELAY_ORIGIN}: the notes collaboration provider opens
  *     a WebSocket to the relay (Phase 3, lib/loro/collab/websocket-transport.ts).
  *     Defaults to the local wrangler dev origin ws://localhost:8787; a deployed
@@ -114,7 +120,7 @@ const CSP = [
   // Vercel Blob CDN for the welcome-page demo loop videos and their posters.
   "media-src 'self' https://*.public.blob.vercel-storage.com",
   "font-src 'self' data:",
-  `connect-src 'self' https://api.telegram.org https://vitals.vercel-insights.com https://*.r2.cloudflarestorage.com data: ${COLLAB_RELAY_ORIGIN}`,
+  `connect-src 'self' https://api.telegram.org https://vitals.vercel-insights.com https://*.r2.cloudflarestorage.com https://api.ncbi.nlm.nih.gov https://eutils.ncbi.nlm.nih.gov data: ${COLLAB_RELAY_ORIGIN}`,
   "frame-src 'self' blob:",
   "frame-ancestors 'none'",
   "object-src 'none'",
