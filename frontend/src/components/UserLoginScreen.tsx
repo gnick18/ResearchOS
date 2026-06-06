@@ -10,6 +10,7 @@ import { folderRequiresLogin } from "@/lib/auth/login-policy";
 import {
   hasLocalAccount,
   loginWithPassword,
+  loginWithRecovery,
   createAndPersistAccount,
 } from "@/lib/auth/account-store";
 import { type UnlockedKeys } from "@/lib/auth/local-identity";
@@ -126,6 +127,10 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   const [passwordInput, setPasswordInput] = useState("");
   const [verifyingPassword, setVerifyingPassword] = useState(false);
   const passwordInputRef = useRef<HTMLInputElement>(null);
+
+  // Forgot-password fallback, unlock the keypair with the recovery code instead.
+  const [recoveryMode, setRecoveryMode] = useState(false);
+  const [recoveryInput, setRecoveryInput] = useState("");
 
   // D1 (cross-boundary sharing): provider-unlock alongside the password.
   // For an account that has CLAIMED a global sharing identity (a
@@ -629,8 +634,38 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     setPasswordGate(null);
     setPasswordInput("");
     setVerifyingPassword(false);
+    setRecoveryMode(false);
+    setRecoveryInput("");
     setLoggingIn(null);
     setError(null);
+  };
+
+  // Forgot-password fallback. Unwrap the keypair with the recovery code (or the
+  // 12 words) instead of the password, then sign in. A wrong code fails the
+  // Poly1305 tag and loginWithRecovery returns null.
+  const handleSubmitRecovery = async () => {
+    if (!passwordGate) return;
+    setError(null);
+    setVerifyingPassword(true);
+    try {
+      const keys = await loginWithRecovery(passwordGate.username, recoveryInput);
+      if (!keys) {
+        setError("That recovery code does not match this account.");
+        setVerifyingPassword(false);
+        return;
+      }
+      await persistUnlockedIdentity(keys);
+      const { username } = passwordGate;
+      setPasswordGate(null);
+      setPasswordInput("");
+      setRecoveryMode(false);
+      setRecoveryInput("");
+      setVerifyingPassword(false);
+      await performLogin(username);
+    } catch {
+      setError("Could not unlock with that recovery code. Please try again.");
+      setVerifyingPassword(false);
+    }
   };
 
   // D1: start a provider unlock for a claimed account. OAuth is a full-page
@@ -1635,20 +1670,36 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   )}
                 </div>
               )}
-              <input
-                ref={passwordInputRef}
-                type="password"
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSubmitPassword();
-                  if (e.key === "Escape") cancelPasswordGate();
-                }}
-                disabled={verifyingPassword || unlockingViaProvider}
-                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
-                autoComplete="current-password"
-                placeholder="Password"
-              />
+              {recoveryMode ? (
+                <input
+                  type="text"
+                  value={recoveryInput}
+                  onChange={(e) => setRecoveryInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSubmitRecovery();
+                    if (e.key === "Escape") cancelPasswordGate();
+                  }}
+                  disabled={verifyingPassword}
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body font-mono"
+                  placeholder="Recovery code or 12 words"
+                  autoFocus
+                />
+              ) : (
+                <input
+                  ref={passwordInputRef}
+                  type="password"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSubmitPassword();
+                    if (e.key === "Escape") cancelPasswordGate();
+                  }}
+                  disabled={verifyingPassword || unlockingViaProvider}
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
+                  autoComplete="current-password"
+                  placeholder="Password"
+                />
+              )}
               {error && (
                 <div className="p-2 bg-red-500/20 border border-red-500/30 rounded-lg">
                   <p className="text-meta text-red-300">{error}</p>
@@ -1663,13 +1714,35 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   Cancel
                 </button>
                 <button
-                  onClick={handleSubmitPassword}
-                  disabled={verifyingPassword || !passwordInput}
+                  onClick={
+                    recoveryMode ? handleSubmitRecovery : handleSubmitPassword
+                  }
+                  disabled={
+                    verifyingPassword ||
+                    (recoveryMode ? !recoveryInput : !passwordInput)
+                  }
                   className="flex-1 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:opacity-50"
                 >
-                  {verifyingPassword ? "Verifying..." : "Sign in"}
+                  {verifyingPassword
+                    ? "Unlocking…"
+                    : recoveryMode
+                      ? "Unlock"
+                      : "Sign in"}
                 </button>
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setRecoveryMode((m) => !m);
+                }}
+                disabled={verifyingPassword}
+                className="text-meta text-blue-400 hover:text-blue-300 disabled:opacity-50"
+              >
+                {recoveryMode
+                  ? "Back to password"
+                  : "Forgot your password? Use your recovery code"}
+              </button>
             </div>
           </div>
         </div>
