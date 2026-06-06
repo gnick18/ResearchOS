@@ -107,9 +107,9 @@ interface CountChipProps {
 
 function CountChip({ icon, label, value }: CountChipProps) {
   return (
-    <span className="inline-flex items-center gap-1 text-meta text-gray-500">
-      <span className="text-gray-400">{icon}</span>
-      <span className="font-medium text-gray-700">{value}</span>
+    <span className="inline-flex items-center gap-1 text-meta text-foreground-muted">
+      <span className="text-foreground-muted">{icon}</span>
+      <span className="font-medium text-foreground">{value}</span>
       {label}
     </span>
   );
@@ -133,7 +133,7 @@ function ProjectCard({ project, color, counts, sequenceCount, onOpen }: ProjectC
     <button
       type="button"
       onClick={onOpen}
-      className="relative flex flex-col text-left rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:shadow-md hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      className="relative flex flex-col text-left rounded-xl border border-border bg-surface-raised p-4 shadow-sm transition-all hover:shadow-md hover:border-foreground-muted/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
     >
       {project.is_shared_with_me && (
         <div className="mb-2 flex">
@@ -147,7 +147,7 @@ function ProjectCard({ project, color, counts, sequenceCount, onOpen }: ProjectC
           style={{ backgroundColor: color }}
           aria-hidden
         />
-        <h3 className="text-body font-semibold text-gray-900 leading-snug line-clamp-2">
+        <h3 className="text-body font-semibold text-foreground leading-snug line-clamp-2">
           {project.name || "(unnamed project)"}
         </h3>
       </div>
@@ -155,14 +155,14 @@ function ProjectCard({ project, color, counts, sequenceCount, onOpen }: ProjectC
       {/* Completion bar — % of this project's tasks complete. */}
       <div className="mb-3">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-meta text-gray-400">
+          <span className="text-meta text-foreground-muted">
             {counts.total > 0
               ? `${counts.totalComplete} of ${counts.total} complete`
               : "No tasks yet"}
           </span>
-          <span className="text-meta font-medium text-gray-500">{pct}%</span>
+          <span className="text-meta font-medium text-foreground-muted">{pct}%</span>
         </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken">
           <div
             className="h-full rounded-full transition-all"
             style={{ width: `${pct}%`, backgroundColor: color }}
@@ -250,7 +250,7 @@ export default function WorkbenchProjectsPanel({ projects: projectsProp }: Props
 
   if (projects.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 py-16 text-center">
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-surface-sunken px-6 py-16 text-center">
         <svg
           className="mb-3 h-10 w-10 text-gray-300"
           fill="none"
@@ -260,8 +260,8 @@ export default function WorkbenchProjectsPanel({ projects: projectsProp }: Props
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
         </svg>
-        <h3 className="text-title font-semibold text-gray-900">No projects yet</h3>
-        <p className="mt-1 mb-5 max-w-xs text-body text-gray-500">
+        <h3 className="text-title font-semibold text-foreground">No projects yet</h3>
+        <p className="mt-1 mb-5 max-w-xs text-body text-foreground-muted">
           Projects organize your experiments, list tasks, and sequences. Create
           your first to get going.
         </p>
@@ -273,7 +273,7 @@ export default function WorkbenchProjectsPanel({ projects: projectsProp }: Props
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-body text-gray-400">
+        <p className="text-body text-foreground-muted">
           {projects.length} project{projects.length !== 1 ? "s" : ""}
         </p>
         {currentUser && <NewProjectButton username={currentUser} />}

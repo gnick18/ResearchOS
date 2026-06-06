@@ -124,20 +124,20 @@ export default function WorkbenchPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-heading font-semibold text-gray-900">Workbench</h2>
-            <p className="text-body text-gray-400 mt-0.5">{subtitle}</p>
+            <h2 className="text-heading font-semibold text-foreground">Workbench</h2>
+            <p className="text-body text-foreground-muted mt-0.5">{subtitle}</p>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 mb-6 border-b border-gray-200 pb-3">
+        <div className="flex items-center gap-1 mb-6 border-b border-border pb-3">
           <button
             onClick={() => setActiveTab("projects")}
             data-tour-target="workbench-projects-tab"
             className={`px-4 py-2 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
               activeTab === "projects"
-                ? "bg-indigo-100 text-indigo-700"
-                : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+                ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300"
+                : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
             }`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -150,8 +150,8 @@ export default function WorkbenchPage() {
             data-tour-target="workbench-experiments-tab"
             className={`px-4 py-2 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
               activeTab === "experiments"
-                ? "bg-blue-100 text-blue-700"
-                : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+                ? "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
+                : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
             }`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -164,8 +164,8 @@ export default function WorkbenchPage() {
             data-tour-target="workbench-notes-tab"
             className={`px-4 py-2 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
               activeTab === "notes"
-                ? "bg-emerald-100 text-emerald-700"
-                : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
             }`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -178,8 +178,8 @@ export default function WorkbenchPage() {
             data-tour-target="workbench-lists-tab"
             className={`px-4 py-2 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
               activeTab === "lists"
-                ? "bg-violet-100 text-violet-700"
-                : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+                ? "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
+                : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
             }`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

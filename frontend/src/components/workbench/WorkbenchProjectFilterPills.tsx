@@ -33,7 +33,7 @@ export default function WorkbenchProjectFilterPills({
             className={`px-2.5 py-1 text-meta rounded-full transition-colors ${
               isSelected
                 ? "text-white font-medium"
-                : "bg-gray-100 text-gray-400"
+                : "bg-surface-sunken text-foreground-muted"
             }`}
             style={
               isSelected
@@ -65,7 +65,7 @@ export default function WorkbenchProjectFilterPills({
             className={`px-2.5 py-1 text-meta rounded-full border border-dashed transition-colors ${
               isSelected
                 ? "bg-slate-600 text-white font-medium border-slate-600"
-                : "bg-gray-100 text-gray-400 border-gray-300"
+                : "bg-surface-sunken text-foreground-muted border-border"
             }`}
           >
             Standalone
