@@ -2194,7 +2194,7 @@ export default function LiveMarkdownEditor({
             <div className="p-4 h-full overflow-y-auto">
               {previewValue.trim() ? (
                 <div
-                  className={`prose prose-sm prose-gray ${measureClass} px-6`}
+                  className={`light-scope prose prose-sm prose-gray ${measureClass} px-6 py-4 rounded-md border border-border bg-surface-raised`}
                   style={{ lineHeight: "1.7" }}
                 >
                   <ReactMarkdown

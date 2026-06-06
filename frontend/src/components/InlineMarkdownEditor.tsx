@@ -665,7 +665,7 @@ export default function InlineMarkdownEditor({
         <div
           ref={hostRef}
           data-testid="inline-markdown-editor"
-          className="cm-inline-editor min-h-[12rem] rounded-md border border-border bg-surface-raised"
+          className="cm-inline-editor light-scope min-h-[12rem] rounded-md border border-border bg-surface-raised"
         />
         {!loaded && (
           <p className="px-6 py-4 text-body text-foreground-muted italic">

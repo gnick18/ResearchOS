@@ -177,6 +177,27 @@
   );
 }
 
+/* Word-model writing surface: the markdown document body (CM editor + Preview)
+ * is wrapped in .light-scope so it stays a white "paper" page on the dark app
+ * chrome, like Word's dark mode. These restore the light .prose accents inside
+ * a light-scope (otherwise the [data-theme="dark"] .prose rules above would
+ * force light text onto the white page). More specific, so they win. */
+[data-theme="dark"] .light-scope .prose {
+  color: #171717;
+}
+[data-theme="dark"] .light-scope .prose h1 {
+  border-bottom-color: #e5e7eb;
+}
+[data-theme="dark"] .light-scope .prose blockquote {
+  border-left-color: #d1d5db;
+  color: #6b7280;
+  background-color: #f9fafb;
+}
+[data-theme="dark"] .light-scope .prose code {
+  background-color: #f3f4f6;
+  color: inherit;
+}
+
 @layer utilities {
   /* Paint the brand rainbow as a background fill (ribbons, dividers, bands). */
   .brand-rainbow-bg {

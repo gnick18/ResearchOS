@@ -53,23 +53,24 @@ export default function SharingChips({
       className={`flex flex-wrap items-center gap-1.5 text-meta ${className}`}
       data-tour-target="sharing-chips"
     >
-      {/* Owner chip */}
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
-        <span className="w-1.5 h-1.5 rounded-full bg-gray-500" />
+      {/* Owner chip. Dark mode fills the chip solid with white text (Grant's
+          ask) so it reads as a vibrant tag, not a faint tint. */}
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 dark:bg-slate-600 dark:text-white">
+        <span className="w-1.5 h-1.5 rounded-full bg-gray-500 dark:bg-slate-300" />
         {ownerUsername === viewerUsername ? "you" : `@${ownerUsername}`}
-        <span className="text-gray-400">(owner)</span>
+        <span className="text-gray-400 dark:text-white/70">(owner)</span>
       </span>
 
-      {/* One chip per shared entry */}
+      {/* One chip per shared entry. Dark = filled solid + white text. */}
       {normalized.map((s) => (
         <span
           key={s.username}
           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${
             s.username === WHOLE_LAB_SENTINEL
-              ? "bg-emerald-50 text-emerald-700"
+              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-600 dark:text-white"
               : s.level === "edit"
-              ? "bg-blue-50 text-blue-700"
-              : "bg-slate-50 text-slate-700"
+              ? "bg-blue-50 text-blue-700 dark:bg-blue-600 dark:text-white"
+              : "bg-slate-50 text-slate-700 dark:bg-slate-600 dark:text-white"
           }`}
         >
           {s.username === WHOLE_LAB_SENTINEL
@@ -82,7 +83,7 @@ export default function SharingChips({
       ))}
 
       {isEmpty && !hideWhenEmpty && (
-        <span className="text-gray-400 italic">private</span>
+        <span className="text-gray-400 dark:text-slate-400 italic">private</span>
       )}
 
       {onShareClick && (
