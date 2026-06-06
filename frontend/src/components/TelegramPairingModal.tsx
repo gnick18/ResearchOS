@@ -456,7 +456,8 @@ export default function TelegramPairingModal({
               <span className="inline-flex h-3 w-3 animate-pulse rounded-full bg-blue-400" />
             </div>
             <p className="text-meta text-amber-600">
-              Pairing isn&apos;t saved until your bot receives a message.
+              Pairing isn&apos;t saved until you send your bot a message in its
+              chat.
             </p>
             <button
               onClick={handleCancel}

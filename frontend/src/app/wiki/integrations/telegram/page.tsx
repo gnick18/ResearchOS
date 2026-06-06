@@ -129,7 +129,7 @@ export default function TelegramIntegrationPage() {
 
       <Callout
         variant="info"
-        title="Pairing isn't saved until your bot receives a message"
+        title="Pairing isn't saved until you send your bot a message"
       >
         The &quot;send a message&quot; step is how the bot learns which
         Telegram chat belongs to you. Until that first message arrives, the
