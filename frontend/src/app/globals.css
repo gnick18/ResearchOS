@@ -1,8 +1,25 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
+
   --background: #ffffff;
   --foreground: #171717;
+
+  /* ── Semantic surface tokens (dark-mode foundation, seeded 2026-06-05) ────────
+   * Light values live here; the dark overrides live in the [data-theme="dark"]
+   * block below. These are the contract a future site-wide dark mode runs on:
+   * components paint with bg-surface / bg-surface-raised / text-foreground /
+   * text-foreground-muted / border-border instead of raw white / slate-900 /
+   * gray-500, so flipping one attribute on <html> repaints the whole app. The
+   * dark palette matches the dark-rainbow loader mockup (see
+   * docs/proposals/dark-mode-foundation.md). Nothing references these yet, so
+   * adoption is opt-in and additive, surface by surface. */
+  --surface: #ffffff; /* page background */
+  --surface-raised: #ffffff; /* cards, popups, modals */
+  --surface-sunken: #f8fafc; /* subtle insets, gray-50 wells */
+  --foreground-muted: #6b7280; /* secondary text, gray-500 */
+  --border-subtle: #e5e7eb; /* hairlines, gray-200 */
 
   /* ── Brand rainbow liquid (the most ownable visual) ──────────────────────────
    * The five BeakerBot liquid stops (peach, yellow, mint, sky, lavender), the
@@ -39,6 +56,33 @@
     #0284c7 72%,
     #9333ea 100%
   );
+}
+
+/* ── Dark theme (seeded, not yet user-togglable) ─────────────────────────────
+ * Activated by setting data-theme="dark" on <html>. There is no UI toggle yet,
+ * this is the foundation so a future user-wide setting is incremental rather
+ * than a rewrite. The palette matches the dark-rainbow loader mockup: a
+ * near-black base, raised slate cards, and crucially the rainbow signature
+ * switches to the SATURATED vivid ramp, the pastel wash goes muddy on dark.
+ * Because @theme inline maps --color-surface etc. to these vars by reference,
+ * every bg-surface / text-foreground / border-border utility flips for free.
+ * See docs/proposals/dark-mode-foundation.md for the full plan. */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --background: #0a0e1a;
+  --foreground: #f1f5f9;
+
+  --surface: #0a0e1a;
+  --surface-raised: #131c2e;
+  --surface-sunken: #0d1424;
+  --foreground-muted: #94a3b8;
+  --border-subtle: rgba(255, 255, 255, 0.1);
+
+  /* Dark mode's rainbow signature is the vivid ramp, used as a low-opacity glow
+   * rather than a fill. .brand-rainbow-bg picks this up automatically. */
+  --brand-rainbow: var(--brand-rainbow-vivid);
+  --brand-rainbow-vertical: var(--brand-rainbow-vivid);
 }
 
 @layer utilities {
@@ -91,6 +135,19 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
+  /* ── Semantic surface utilities (dark-mode foundation) ───────────────────────
+   * Mapped by reference (@theme inline) so bg-surface / bg-surface-raised /
+   * bg-surface-sunken / text-foreground-muted / border-border resolve the live
+   * CSS var at use time, which is what lets [data-theme="dark"] repaint them
+   * without recompiling. border-border is the shadcn-style idiom for the
+   * default hairline. */
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-border: var(--border-subtle);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
