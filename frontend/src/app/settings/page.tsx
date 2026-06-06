@@ -53,6 +53,13 @@ import { ANIMATION_METADATA, renderAnimationIcon, type AnimationType, type RealA
 import DynamicAnimation from "@/components/DynamicAnimation";
 import { hasPassword, verifyPassword } from "@/lib/auth/password";
 import LabRoster from "@/components/lab-head/LabRoster";
+import { loadIdentity } from "@/lib/sharing/identity/storage";
+import {
+  deleteEncryptedBackup,
+  hasEncryptedBackup,
+  writeEncryptedBackup,
+} from "@/lib/telegram/encrypted-backup";
+import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 import { readPairing, type TelegramPairing } from "@/lib/telegram/telegram-store";
 import { useTelegramPopup } from "@/lib/telegram/telegram-popup-store";
 import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
