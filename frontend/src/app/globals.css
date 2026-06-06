@@ -21,6 +21,12 @@
   --foreground-muted: #6b7280; /* secondary text, gray-500 */
   --border-subtle: #e5e7eb; /* hairlines, gray-200 */
 
+  /* Interactive accent (links, active nav, selected states). brand-action on
+   * white in light; a brighter sky on near-black in dark so it stays legible.
+   * --accent-soft is the tinted "selected" fill (blue-50 in light). */
+  --accent: #1283c9; /* brand-action */
+  --accent-soft: #eff6ff; /* blue-50 */
+
   /* ── Brand rainbow liquid (the most ownable visual) ──────────────────────────
    * The five BeakerBot liquid stops (peach, yellow, mint, sky, lavender), the
    * same gradient as the banner + avatars. Held as ready-made gradient values so
@@ -79,10 +85,50 @@
   --foreground-muted: #94a3b8;
   --border-subtle: rgba(255, 255, 255, 0.1);
 
+  /* Brighter accent + a translucent soft fill that reads as "selected" on dark. */
+  --accent: #38bdf8; /* sky-400, legible on near-black */
+  --accent-soft: rgba(56, 189, 248, 0.14);
+
   /* Dark mode's rainbow signature is the vivid ramp, used as a low-opacity glow
    * rather than a fill. .brand-rainbow-bg picks this up automatically. */
   --brand-rainbow: var(--brand-rainbow-vivid);
   --brand-rainbow-vertical: var(--brand-rainbow-vivid);
+}
+
+/* ── LightOnly scope ─────────────────────────────────────────────────────────
+ * Force a subtree back to the light palette even under data-theme="dark".
+ * Three jobs (see docs/proposals/dark-mode-toggle.md §7): permanently-light
+ * pages (welcome, landing), framed light media on dark pages (screenshots, the
+ * sequence editor), and the incremental-rollout safety valve (un-converted
+ * pages stay clean light instead of half-dark). Re-declares every themed token
+ * at the light value so anything inside paints light regardless of the root. */
+[data-theme="dark"] .light-scope {
+  color-scheme: light;
+  --background: #ffffff;
+  --foreground: #171717;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f8fafc;
+  --foreground-muted: #6b7280;
+  --border-subtle: #e5e7eb;
+  --accent: #1283c9;
+  --accent-soft: #eff6ff;
+  --brand-rainbow: linear-gradient(
+    90deg,
+    #ffd2b0 0%,
+    #fff1a8 25%,
+    #b7ebb1 50%,
+    #a6d2f4 75%,
+    #d6b5f0 100%
+  );
+  --brand-rainbow-vertical: linear-gradient(
+    180deg,
+    #ffd2b0 0%,
+    #fff1a8 25%,
+    #b7ebb1 50%,
+    #a6d2f4 75%,
+    #d6b5f0 100%
+  );
 }
 
 @layer utilities {
@@ -147,6 +193,8 @@
   --color-surface-sunken: var(--surface-sunken);
   --color-foreground-muted: var(--foreground-muted);
   --color-border: var(--border-subtle);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);

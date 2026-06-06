@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import WelcomePage from "@/components/welcome/WelcomePage";
+import LightOnly from "@/components/LightOnly";
 
 /**
  * The `/welcome` route. Renders the video-driven welcome/sell page for every
@@ -18,5 +19,13 @@ export const metadata: Metadata = {
 };
 
 export default function WelcomeRoute() {
-  return <WelcomePage />;
+  // The welcome page is permanently light (Grant's rule), it never honors the
+  // dark-mode preference. LightOnly force-locks it to the light palette even
+  // when the user has dark mode on elsewhere. See docs/proposals/
+  // dark-mode-toggle.md (Tier E).
+  return (
+    <LightOnly>
+      <WelcomePage />
+    </LightOnly>
+  );
 }

@@ -336,14 +336,14 @@ export default function TrashPage() {
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
         <header className="space-y-2">
-          <h1 className="text-2xl font-semibold text-gray-900">Trash</h1>
-          <p className="text-body text-gray-600">
+          <h1 className="text-2xl font-semibold text-foreground">Trash</h1>
+          <p className="text-body text-foreground-muted">
             Deleted records stay here until the cleanup window passes. Restore
             puts a record back where it came from; permanent delete removes
             it without recovery.{" "}
             <Link
               href="/settings#history-and-trash"
-              className="text-blue-600 hover:underline"
+              className="text-accent hover:underline"
             >
               Configure cleanup window
             </Link>
@@ -352,17 +352,17 @@ export default function TrashPage() {
         </header>
 
         <div className="flex items-center justify-between">
-          <p className="text-body text-gray-600">
+          <p className="text-body text-foreground-muted">
             {loading
               ? "Loading…"
               : `${entries.length} item${entries.length === 1 ? "" : "s"}`}
           </p>
-          <label className="flex items-center gap-2 text-body text-gray-700">
+          <label className="flex items-center gap-2 text-body text-foreground">
             <span>Sort:</span>
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as TrashSort)}
-              className="border border-gray-300 rounded px-2 py-1 text-body bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-border rounded px-2 py-1 text-body bg-surface-raised focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {SORT_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -383,14 +383,14 @@ export default function TrashPage() {
         )}
 
         {!loading && entries.length === 0 && (
-          <div className="border border-dashed border-gray-300 rounded-lg py-12 text-center text-gray-500">
+          <div className="border border-dashed border-border rounded-lg py-12 text-center text-foreground-muted">
             Trash is empty.
           </div>
         )}
 
         {!loading && entries.length > 0 && selectedCount > 0 && (
-          <div className="sticky top-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 shadow-sm">
-            <span className="text-body font-medium text-gray-900">
+          <div className="sticky top-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-accent-soft px-4 py-3 shadow-sm">
+            <span className="text-body font-medium text-foreground">
               {selectedCount} selected
             </span>
             <div className="flex items-center gap-2">
@@ -398,7 +398,7 @@ export default function TrashPage() {
                 type="button"
                 onClick={handleBulkRestore}
                 disabled={bulkBusy}
-                className="px-3 py-1.5 text-body rounded-md border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-body rounded-md border border-border bg-surface-raised hover:bg-surface-sunken disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {bulkBusy ? "Working…" : `Restore ${selectedCount}`}
               </button>
@@ -414,7 +414,7 @@ export default function TrashPage() {
                 type="button"
                 onClick={clearSelection}
                 disabled={bulkBusy}
-                className="px-3 py-1.5 text-body rounded-md text-gray-700 hover:bg-white/70 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-body rounded-md text-foreground hover:bg-surface-raised/70 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Clear selection
               </button>
@@ -493,14 +493,14 @@ function BulkDeleteConfirm({ count, onCancel, onConfirm }: BulkDeleteConfirmProp
       aria-modal="true"
       aria-labelledby="bulk-delete-title"
     >
-      <div className="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl">
+      <div className="w-full max-w-sm rounded-lg bg-surface-raised p-5 shadow-xl">
         <h2
           id="bulk-delete-title"
-          className="text-title font-semibold text-gray-900"
+          className="text-title font-semibold text-foreground"
         >
           Permanently delete {count} item{count === 1 ? "" : "s"}?
         </h2>
-        <p className="mt-2 text-body text-gray-600">
+        <p className="mt-2 text-body text-foreground-muted">
           This cannot be undone. The selected records are removed without
           recovery.
         </p>
@@ -508,7 +508,7 @@ function BulkDeleteConfirm({ count, onCancel, onConfirm }: BulkDeleteConfirmProp
           <button
             type="button"
             onClick={onCancel}
-            className="px-3 py-1.5 text-body rounded-md border border-gray-300 bg-white hover:bg-gray-50"
+            className="px-3 py-1.5 text-body rounded-md border border-border bg-surface-raised hover:bg-surface-sunken"
           >
             Cancel
           </button>
@@ -567,7 +567,7 @@ function TrashSection({
   }, [selectState]);
   return (
     <section
-      className="border border-gray-200 rounded-lg bg-white overflow-hidden"
+      className="border border-border rounded-lg bg-surface-raised overflow-hidden"
       aria-label={`Trash section: ${label}`}
     >
       <div className="flex items-center gap-3 px-4 py-3">
@@ -579,13 +579,13 @@ function TrashSection({
             disabled={selectDisabled}
             onChange={onToggleSection}
             aria-label={`Select all ${label}`}
-            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="h-4 w-4 rounded border-border text-accent focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           />
         </Tooltip>
         <button
           type="button"
           onClick={onToggle}
-          className="-mx-1 flex flex-1 items-center justify-between rounded px-1 py-0.5 hover:bg-gray-50 text-left"
+          className="-mx-1 flex flex-1 items-center justify-between rounded px-1 py-0.5 hover:bg-surface-sunken text-left"
           aria-expanded={!collapsed}
           aria-controls={`trash-section-${entryType}`}
         >
@@ -596,9 +596,9 @@ function TrashSection({
                 collapsed ? "-rotate-45" : "rotate-45"
               }`}
             />
-            <span className="text-body font-medium text-gray-900">{label}</span>
+            <span className="text-body font-medium text-foreground">{label}</span>
           </span>
-          <span className="text-meta text-gray-500">
+          <span className="text-meta text-foreground-muted">
             {count === 0 ? "Empty" : `${count} item${count === 1 ? "" : "s"}`}
           </span>
         </button>
@@ -606,7 +606,7 @@ function TrashSection({
       {!collapsed && count > 0 && (
         <ul
           id={`trash-section-${entryType}`}
-          className="divide-y divide-gray-100 border-t border-gray-200"
+          className="divide-y divide-border border-t border-border"
         >
           {entries.map((entry) => (
             <TrashRow
@@ -656,13 +656,13 @@ function TrashRow({
         disabled={selectDisabled}
         onChange={onToggleSelect}
         aria-label={`Select ${displayName}`}
-        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="h-4 w-4 rounded border-border text-accent focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
       />
       <div className="flex-1 min-w-0">
-        <div className="text-body font-medium text-gray-900 truncate">
+        <div className="text-body font-medium text-foreground truncate">
           {displayName}
         </div>
-        <div className="text-meta text-gray-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        <div className="text-meta text-foreground-muted mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
           <span>Deleted by {entry.deleted_by}</span>
           <span aria-hidden="true">·</span>
           <span>{deletedAtPretty}</span>
@@ -680,7 +680,7 @@ function TrashRow({
             type="button"
             onClick={onRestore}
             disabled={busy}
-            className="px-3 py-1.5 text-body rounded-md border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 text-body rounded-md border border-border bg-surface-raised hover:bg-surface-sunken disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Restore
           </button>

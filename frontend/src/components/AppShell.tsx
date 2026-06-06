@@ -27,6 +27,7 @@ import FeedbackModal from "./FeedbackModal";
 import Wordmark from "./Wordmark";
 import { useShowcaseUnlock } from "./showcase/useShowcaseUnlock";
 import StreakBadge from "./StreakBadge";
+import ThemeToggle from "./ThemeToggle";
 import { installStreakActivityTracking } from "@/lib/streak/streak-activity-bootstrap";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { HELP_HREF, appRouteToWikiRoute } from "@/lib/wiki/nav";
@@ -248,7 +249,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // static (not state-derived) so it is present immediately on first
     // paint — the selector must resolve synchronously from the very
     // first render.
-    <div data-app-shell-mounted className="h-screen flex flex-col bg-gray-50">
+    <div data-app-shell-mounted className="h-screen flex flex-col bg-surface-sunken">
       {/* Showcase unlock Curtain Reveal overlay (portaled to body when
           the 7th brand-mark click fires). Null otherwise. */}
       {revealElement}
@@ -258,7 +259,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Header */}
       <header
         className={`px-4 py-2.5 flex items-center gap-2 ${
-          tinted ? "shadow-sm" : "bg-white border-b border-gray-200"
+          tinted ? "shadow-sm" : "bg-surface-raised border-b border-border"
         }`}
         style={headerStyle}
       >
@@ -323,10 +324,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               // its normal selected styling; inactive dims to opacity-50.
               const inactiveStyle = tinted
                 ? "px-3 py-1.5 text-body rounded-full shadow-sm bg-white/75 text-gray-700 opacity-50"
-                : "px-3 py-1.5 text-body rounded-lg text-gray-500 opacity-50";
+                : "px-3 py-1.5 text-body rounded-lg text-foreground-muted opacity-50";
               const activeStyle = tinted
                 ? "px-3 py-1.5 text-body rounded-full shadow-sm bg-white text-gray-900 font-medium"
-                : "px-3 py-1.5 text-body rounded-lg bg-blue-50 text-blue-700 font-medium";
+                : "px-3 py-1.5 text-body rounded-lg bg-accent-soft text-accent font-medium";
               return (
                 <button
                   key={item.href}
@@ -374,8 +375,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 data-tour-target={tourTarget}
                 className={`px-3 py-1.5 text-body rounded-lg transition-colors ${
                   isActive
-                    ? "bg-blue-50 text-blue-700 font-medium"
-                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                    ? "bg-accent-soft text-accent font-medium"
+                    : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
                 }`}
               >
                 {displayLabel}
@@ -407,8 +408,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   ? "bg-white text-gray-900 shadow-sm"
                   : "bg-white/75 text-gray-700 hover:bg-white shadow-sm"
                 : pathname?.startsWith(HELP_HREF)
-                ? "bg-blue-50 text-blue-700"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                ? "bg-accent-soft text-accent"
+                : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
             }`}
           >
             <svg
@@ -444,8 +445,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     ? "bg-white text-gray-900 shadow-sm"
                     : "bg-white/75 text-gray-700 hover:bg-white shadow-sm"
                   : pathname === "/trash"
-                  ? "bg-blue-50 text-blue-700"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                  ? "bg-accent-soft text-accent"
+                  : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
               }`}
             >
               <svg
@@ -473,6 +474,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               old gear applies: disabled + non-interactive during the walkthrough
               so a mid-tour click cannot navigate away from the current step.
               (Onboarding v4 L23 — same reasoning as the gear it replaces.) */}
+          {/* Dark-mode toggle (POC). Quick light/dark flip; the full
+              light/dark/system choice will live in Settings. Hidden on tinted
+              (colored-project) headers for now since it themes to the neutral
+              surface palette, not the tint. */}
+          {!tinted && <ThemeToggle />}
           {currentUser && (
             <UserAvatarMenu
               currentUser={currentUser}

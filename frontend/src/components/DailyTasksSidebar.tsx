@@ -173,7 +173,7 @@ export default function DailyTasksSidebar() {
 
   return (
     <>
-      <aside className="relative w-64 border-r border-gray-200 bg-white overflow-y-auto flex-shrink-0">
+      <aside className="relative w-64 border-r border-border bg-surface-raised overflow-y-auto flex-shrink-0">
         {/* Floating gear in the top-right of the sidebar. Opens a small
             popup with the same content toggles available in Settings ->
             Sidebar, so users can flip them inline without leaving the
@@ -183,7 +183,7 @@ export default function DailyTasksSidebar() {
           ref={gearRef}
           onClick={() => setSettingsOpen((v) => !v)}
           aria-label="Sidebar contents"
-          className="absolute top-2 right-2 z-20 p-1 text-gray-300 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+          className="absolute top-2 right-2 z-20 p-1 text-gray-300 hover:text-foreground-muted hover:bg-surface-sunken rounded-md transition-colors"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -210,11 +210,11 @@ export default function DailyTasksSidebar() {
         )}
 
         {!showTasks && !showEvents && (
-          <div className="p-6 text-center text-meta text-gray-400">
+          <div className="p-6 text-center text-meta text-foreground-muted">
             <p className="mb-2">Sidebar is empty.</p>
             <p>
               Enable Tasks or Calendar events in{" "}
-              <a href="/settings" className="text-blue-600 hover:underline">
+              <a href="/settings" className="text-accent hover:underline">
                 Settings → Sidebar
               </a>
               .
@@ -227,7 +227,7 @@ export default function DailyTasksSidebar() {
             {/* Overdue tasks - shown first if any exist */}
             {overdueTasks.length > 0 && (
               <>
-                <div className="p-4 border-b border-gray-100">
+                <div className="p-4 border-b border-border">
                   <h2 className="text-meta font-bold text-red-400 uppercase tracking-widest">
                     Overdue ({overdueTasks.length})
                   </h2>
@@ -247,8 +247,8 @@ export default function DailyTasksSidebar() {
             )}
 
             {/* Today's tasks by project */}
-            <div className={overdueTasks.length > 0 ? "px-4 py-2 border-t border-gray-100" : "p-4 border-b border-gray-100"}>
-              <h2 className="text-meta font-bold text-gray-400 uppercase tracking-widest">
+            <div className={overdueTasks.length > 0 ? "px-4 py-2 border-t border-border" : "p-4 border-b border-border"}>
+              <h2 className="text-meta font-bold text-foreground-muted uppercase tracking-widest">
                 Today
               </h2>
             </div>
@@ -268,7 +268,7 @@ export default function DailyTasksSidebar() {
                           className="w-2 h-2 rounded-full"
                           style={{ backgroundColor: getProjectColor({ owner: project.owner, id: project.id }) }}
                         />
-                        <span className="text-meta font-medium text-gray-500">
+                        <span className="text-meta font-medium text-foreground-muted">
                           {project.name}
                         </span>
                       </div>
@@ -289,8 +289,8 @@ export default function DailyTasksSidebar() {
             {/* Future tasks by project */}
             {futureTasks.length > 0 && (
               <>
-                <div className="px-4 py-2 border-t border-gray-100">
-                  <h3 className="text-meta font-bold text-gray-400 uppercase tracking-widest">
+                <div className="px-4 py-2 border-t border-border">
+                  <h3 className="text-meta font-bold text-foreground-muted uppercase tracking-widest">
                     Upcoming ({futureTasks.length})
                   </h3>
                 </div>
@@ -310,11 +310,11 @@ export default function DailyTasksSidebar() {
                             className="w-2 h-2 rounded-full"
                             style={{ backgroundColor: getProjectColor({ owner: project.owner, id: project.id }) }}
                           />
-                          <span className="text-meta font-medium text-gray-500">
+                          <span className="text-meta font-medium text-foreground-muted">
                             {project.name}
                           </span>
                           {hasMore && (
-                            <span className="text-meta text-gray-400">
+                            <span className="text-meta text-foreground-muted">
                               +{projectTasks.length - 3} more
                             </span>
                           )}
@@ -461,9 +461,9 @@ function CalendarEventsSection({
   return (
     <>
       <div
-        className={`px-4 py-2 ${withDivider ? "border-t" : "p-4 border-b"} border-gray-100`}
+        className={`px-4 py-2 ${withDivider ? "border-t" : "p-4 border-b"} border-border`}
       >
-        <h2 className="text-meta font-bold text-gray-400 uppercase tracking-widest">
+        <h2 className="text-meta font-bold text-foreground-muted uppercase tracking-widest">
           Today&apos;s Events
         </h2>
       </div>
@@ -485,8 +485,8 @@ function CalendarEventsSection({
 
       {horizonDays > 0 && upcomingByDate.size > 0 && (
         <>
-          <div className="px-4 py-2 border-t border-gray-100">
-            <h3 className="text-meta font-bold text-gray-400 uppercase tracking-widest">
+          <div className="px-4 py-2 border-t border-border">
+            <h3 className="text-meta font-bold text-foreground-muted uppercase tracking-widest">
               Next {horizonDays} day{horizonDays === 1 ? "" : "s"}
             </h3>
           </div>
@@ -526,14 +526,14 @@ function EventRow({
         <button
           onClick={onClick}
           aria-label="Jump to this day in calendar"
-          className="w-full text-left flex items-start gap-2 px-1.5 py-1 rounded hover:bg-gray-50"
+          className="w-full text-left flex items-start gap-2 px-1.5 py-1 rounded hover:bg-surface-sunken"
         >
           <span
             className="w-1 self-stretch rounded-full flex-shrink-0 mt-0.5"
             style={{ backgroundColor: color }}
           />
           <div className="flex-1 min-w-0">
-            <p className="text-meta text-gray-800 truncate flex items-center gap-1">
+            <p className="text-meta text-foreground truncate flex items-center gap-1">
               {item.kind === "external" && (
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -554,7 +554,7 @@ function EventRow({
               )}
               <span className="truncate">{item.event.title}</span>
             </p>
-            <p className="text-meta text-gray-400">
+            <p className="text-meta text-foreground-muted">
               {timeLabel ?? "All-day"}
             </p>
           </div>
@@ -594,7 +594,7 @@ function UpcomingDayGroup({
 
   return (
     <div>
-      <p className="text-meta font-bold uppercase tracking-widest text-gray-400 mb-1 px-1">
+      <p className="text-meta font-bold uppercase tracking-widest text-foreground-muted mb-1 px-1">
         {header}
       </p>
       <ul className="space-y-1">
@@ -635,8 +635,8 @@ function TaskItem({
         overdue
           ? "text-red-600 bg-red-50 hover:bg-red-100"
           : future
-          ? "text-gray-500 bg-gray-50 hover:bg-gray-100"
-          : "text-gray-700 hover:bg-gray-100"
+          ? "text-foreground-muted bg-surface-sunken hover:bg-surface-sunken"
+          : "text-foreground hover:bg-surface-sunken"
       }`}
     >
       {/* Accent line for experiments */}
@@ -649,7 +649,7 @@ function TaskItem({
       <p className="truncate font-medium pl-1">
         {task.name}
       </p>
-      <p className="text-meta text-gray-400 pl-1">
+      <p className="text-meta text-foreground-muted pl-1">
         {task.duration_days}d · {task.start_date}
       </p>
     </div>

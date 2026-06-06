@@ -4,6 +4,41 @@ Status: proposal (foundation already seeded, see dark-mode-foundation.md)
 Author: master orchestrator / branding arc
 Date: 2026-06-05
 
+## Decisions locked (2026-06-05, Grant)
+
+- **Screenshots: frame them (v1).** One shared `<Figure>` (border + sunken mat +
+  rounded corners) wraps all 120 light screenshots so they read as framed images
+  on a dark page. No dark recaptures in v1; reconsider only for hero shots.
+- **Landing page (`/`) stays permanently light**, same as welcome. Dark mode
+  only ever applies inside the app + wiki. Both public sell pages are `LightOnly`.
+- **Build a POC next**: the no-FOUC script + `useTheme` + the toggle + one real
+  converted surface, so dark mode can be judged in the actual app before the
+  full rollout is approved.
+
+## POC status (landed 2026-06-05)
+
+A working proof-of-concept is in the tree, behind the header toggle:
+
+- `app/layout.tsx`: the no-FOUC inline script + `suppressHydrationWarning` on
+  `<html>` (the script mutates `<html>` before hydration, which is expected).
+- `lib/theme/use-theme.ts`: the `light | dark | system` hook (localStorage
+  `researchos-theme`, live repaint when following the system).
+- `components/ThemeToggle.tsx`: the header sun/moon quick-flip (inline SVG).
+- `components/LightOnly.tsx` + the `.light-scope` block in globals.css: the
+  force-light escape hatch.
+- `globals.css`: `--accent` / `--accent-soft` tokens (brand-action in light, a
+  brighter sky in dark) on top of the surface tokens.
+- Converted surfaces (the persistent shell + one full page): `AppShell` frame +
+  nav, `DailyTasksSidebar`, and the `/trash` page. Welcome is wrapped in
+  `LightOnly` (permanently light).
+
+Verified: toggle click flips `data-theme` null -> dark, the whole shell + Trash
+page theme coherently, tsc clean, AppShell tests pass except the 2 known
+pre-existing tourGate failures (the retired Settings gear). Status colors
+(overdue card tints) are visibly un-converted, which is the expected Tier C work
+and exactly what the incremental rollout pays down. The toggle is hidden on
+tinted (colored-project) headers for now.
+
 ## 1. What we are building, and what we are not
 
 A user-facing setting that switches the whole app between light and dark, with

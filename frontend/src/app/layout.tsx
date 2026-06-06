@@ -25,8 +25,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Dark-mode no-FOUC: set data-theme + color-scheme on <html> from the
+            stored preference BEFORE first paint, so there is no white flash and
+            the preference is honored on every route (app, wiki, auth) uniformly.
+            Runs synchronously ahead of hydration; the useTheme hook keeps React
+            in sync afterward. See docs/proposals/dark-mode-toggle.md §5. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('researchos-theme')||'light';if(t==='system'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}document.documentElement.style.colorScheme=t;}catch(e){}})();`,
+          }}
+        />
         {/* frappe-gantt CSS served from public/ rather than imported from
             node_modules: frappe-gantt@1.0.4 ships a strict `exports` map
             that only exposes `.` (with style: ./dist/frappe-gantt.css as
