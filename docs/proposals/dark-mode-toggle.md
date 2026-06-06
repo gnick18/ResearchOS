@@ -153,6 +153,15 @@ Every surface in the app falls into one of five tiers. The work is sorting them
 and handling each tier's mechanism. This is where "entire color palettes per
 page" gets concrete.
 
+### Typography rides along (Grant, 2026-06-05)
+
+Every surface touched during the dark sweep also gets its typography normalized
+to the unified scale (`text-meta`/`body`/`title`/`heading`/`display`, see
+docs/TYPE_SCALE.md), killing raw `text-xs/sm/base/xl/3xl` and arbitrary
+`text-[Npx]` one-offs in the same pass. Page/screen titles standardize on
+`text-heading` (the Workbench convention); off-scale sizes map to the nearest
+token. So a converted file leaves the sweep both dark-ready and type-unified.
+
 ### Tier A — Token-drivable (the mechanical sweep)
 
 Plain surfaces, text, borders. The fix is find-and-replace to the semantic

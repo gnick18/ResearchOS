@@ -482,7 +482,7 @@ function SettingsBody() {
         >
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+              <h1 className="text-heading font-bold text-gray-900">Settings</h1>
               <VersionBadge />
             </div>
             <p className="text-body text-gray-500 mt-1">
@@ -2724,7 +2724,7 @@ function DataInventorySection() {
                 <ul className="mt-1 space-y-0.5">
                   {paths.map((p) => (
                     <li key={p}>
-                      <code className="text-[11px] text-gray-700 font-mono break-all">
+                      <code className="text-meta text-gray-700 font-mono break-all">
                         {p}
                       </code>
                     </li>
@@ -2753,7 +2753,7 @@ function DataInventorySection() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <code className="text-[11px] text-gray-800 font-mono break-all">
+                  <code className="text-meta text-gray-800 font-mono break-all">
                     {k.key}
                   </code>
                   <p className="text-meta text-gray-600 mt-1">{k.meaning}</p>

@@ -336,7 +336,7 @@ export default function TrashPage() {
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
         <header className="space-y-2">
-          <h1 className="text-2xl font-semibold text-foreground">Trash</h1>
+          <h1 className="text-heading font-semibold text-foreground">Trash</h1>
           <p className="text-body text-foreground-muted">
             Deleted records stay here until the cleanup window passes. Restore
             puts a record back where it came from; permanent delete removes
