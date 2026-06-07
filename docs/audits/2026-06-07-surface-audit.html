@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS surface audit, 2026-06-07</title>
+<style>
+  :root{
+    /* live project tokens, for the swatch previews */
+    --l-surface:#ffffff; --l-raised:#ffffff; --l-sunken:#f8fafc; --l-border:#e5e7eb;
+    --l-fg:#171717; --l-fgm:#6b7280; --brand-action:#1283c9; --brand-sky:#1aa0e6; --brand-purple:#5b47d6;
+    --d-surface:#0a0e1a; --d-raised:#131c2e; --d-sunken:#0d1424; --d-border:rgba(255,255,255,.22);
+    --d-fg:#f1f5f9; --d-fgm:#b4bfd0;
+    /* report chrome (dark) */
+    --bg:#0b1120; --panel:#131c2e; --panel2:#0d1424; --line:rgba(255,255,255,.12);
+    --txt:#e8eef7; --muted:#9fb0c7; --accent:#1aa0e6;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:linear-gradient(160deg,#0b1120,#0e1628 60%,#0b1120);color:var(--txt);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  header{position:sticky;top:0;z-index:5;background:rgba(11,17,32,.86);backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);padding:18px 24px 14px;}
+  h1{margin:0 0 2px;font-size:20px;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:12px}
+  .counts{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .pill{font-size:12px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+  .pill b{color:var(--txt)}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .controls input[type=search]{flex:1;min-width:180px;background:var(--panel2);border:1px solid var(--line);
+    color:var(--txt);padding:7px 11px;border-radius:8px;font-size:13px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{background:transparent;color:var(--muted);border:0;padding:6px 11px;font-size:12px;cursor:pointer}
+  .seg button.on{background:var(--accent);color:#04121c;font-weight:600}
+  main{max-width:1080px;margin:0 auto;padding:20px 24px 120px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:14px 0;
+    box-shadow:0 8px 24px rgba(0,0,0,.25)}
+  .card.hide{display:none}
+  .row1{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  .chip{font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:.03em}
+  .chip.high{background:#3a0d12;color:#ff9aa6;border:1px solid #5e1a22}
+  .chip.medium{background:#3a2a0a;color:#ffcf7a;border:1px solid #5e451a}
+  .chip.low{background:#0e2a3a;color:#86d2ff;border:1px solid #1a4a5e}
+  .chip.mode{background:#1a2336;color:#bcd;border:1px solid var(--line)}
+  .chip.fixed{background:#0c2a1a;color:#7ee0ab;border:1px solid #1a5e3a}
+  .chip.pending{background:#2a210c;color:#ffd98a;border:1px solid #5e4a1a}
+  .chip.noaction{background:#1a2336;color:#9fb0c7;border:1px solid var(--line)}
+  .file{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:#cfe0f5}
+  .file .ln{color:var(--muted)}
+  .el{font-weight:600;margin:2px 0 8px}
+  .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:10px 0 3px}
+  .cls{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:var(--panel2);
+    border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:#e3b3a0;white-space:pre-wrap;word-break:break-word}
+  .why{color:#e6c6c6}
+  .fix{color:#c2e6cf}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+  @media(max-width:640px){.grid2{grid-template-columns:1fr}}
+  .swatch{border-radius:10px;padding:14px;border:1px solid var(--line);position:relative;min-height:64px;display:flex;
+    flex-direction:column;justify-content:center}
+  .swatch .tag{position:absolute;top:6px;right:8px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;opacity:.8}
+  .swatch .sample{font-size:14px;font-weight:600}
+  .swatch .ratio{font-size:11px;margin-top:4px;opacity:.95}
+  .ratio .ok{color:#5fcf8e}.ratio .bad{color:#ff8a98}
+  .struct{margin-top:10px;font-size:13px;color:var(--muted);background:var(--panel2);border:1px dashed var(--line);
+    border-radius:8px;padding:10px 12px}
+  .decide{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+  .decide .seg button.agree.on{background:#1a8f53;color:#04130a}
+  .decide .seg button.keep.on{background:#8a6d1a;color:#1a1304}
+  .decide .seg button.discuss.on{background:#1a6b8f;color:#041218}
+  .decide input{flex:1;min-width:160px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+    padding:6px 10px;border-radius:8px;font-size:12.5px}
+  .exportbar{position:fixed;bottom:0;left:0;right:0;background:rgba(11,17,32,.92);backdrop-filter:blur(10px);
+    border-top:1px solid var(--line);padding:12px 24px;display:flex;gap:10px;align-items:center;justify-content:space-between}
+  .exportbar .stat{font-size:13px;color:var(--muted)}
+  .btn{background:var(--accent);color:#04121c;border:0;border-radius:9px;padding:9px 16px;font-weight:700;cursor:pointer;font-size:13px}
+  .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  dialog{background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:14px;max-width:720px;width:92%}
+  dialog textarea{width:100%;height:300px;background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+    border-radius:8px;padding:10px;font-family:ui-monospace,monospace;font-size:12px}
+  dialog h3{margin-top:0}
+</style>
+</head>
+<body>
+<header>
+  <h1>Surface audit &middot; 2026-06-07</h1>
+  <div class="sub">Light + dark. 13 high (all fixed), 13 medium, 8 low. Use the toggles on each card to mark Agree / Keep / Discuss, then Export at the bottom and paste it back to me.</div>
+  <div class="counts" id="counts"></div>
+  <div class="controls">
+    <input type="search" id="q" placeholder="Filter by file, element, class, reason..." />
+    <span class="seg" id="fSev">
+      <button data-v="all" class="on">All sev</button><button data-v="high">High</button><button data-v="medium">Medium</button><button data-v="low">Low</button>
+    </span>
+    <span class="seg" id="fMode">
+      <button data-v="all" class="on">Both modes</button><button data-v="light">Light</button><button data-v="dark">Dark</button>
+    </span>
+    <span class="seg" id="fStatus">
+      <button data-v="pending" class="on">Pending</button><button data-v="all">All status</button><button data-v="fixed">Fixed</button>
+    </span>
+  </div>
+</header>
+<main id="list"></main>
+<div class="exportbar">
+  <span class="stat" id="estat">No decisions yet</span>
+  <span style="display:flex;gap:10px">
+    <button class="btn ghost" id="resetBtn">Reset decisions</button>
+    <button class="btn" id="exportBtn">Export decisions</button>
+  </span>
+</div>
+<dialog id="dlg">
+  <h3>Your decisions (copy this back to me)</h3>
+  <textarea id="exportText" readonly></textarea>
+  <div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end">
+    <button class="btn ghost" onclick="document.getElementById('dlg').close()">Close</button>
+    <button class="btn" id="copyBtn">Copy</button>
+  </div>
+</dialog>
+
+<script>
+// token hexes for swatch previews
+const T={l:{surface:'#ffffff',raised:'#ffffff',sunken:'#f8fafc',border:'#e5e7eb',fg:'#171717',fgm:'#6b7280'},
+         d:{surface:'#0a0e1a',raised:'#131c2e',sunken:'#0d1424',border:'#3a4358',fg:'#f1f5f9',fgm:'#b4bfd0'}};
+// helper to make a text preview spec
+function tx(mode,bg,before,after,sample){return{t:'text',mode,bg,before,after,sample:sample||'Sample text'};}
+function card(mode,beforeBg,afterBg,sample){return{t:'card',mode,beforeBg,afterBg,sample:sample||'Card surface'};}
+const st=(s)=>({t:'struct',note:s});
+
+const F=[
+ // ===== LIGHT HIGH (all fixed) =====
+ {id:'L-H1',sev:'high',mode:'light',status:'fixed',file:'ResearchFolderSetupNew.tsx',lines:'296,528,622,720',
+  el:'Full-screen gate background (all 4 sub-screens)',cls:"bg-gradient-to-br from-surface via-surface-sunken to-surface (no brand glow)",
+  why:'#fff to #f8fafc to #fff is a near-flat white sheet with no ambience.',fix:'Added the login brand glow + slate texture on a surface-sunken gradient.',
+  prev:st('Background depth. Fixed: brand glow + slate dot texture, like the login gate.')},
+ {id:'L-H2',sev:'high',mode:'light',status:'fixed',file:'ResearchFolderSetupNew.tsx',lines:'298-305,529-536,623-630,722-729',
+  el:'Decorative dot texture (all 4 sub-screens)',cls:"absolute inset-0 opacity-5  +  SVG fill='%23ffffff'",
+  why:'Pure white dots on white = completely invisible in light mode.',fix:"Switched dot fill to slate %23475569 at opacity-[0.05].",
+  prev:st('Texture visibility. Fixed: slate dots now read faintly in both modes.')},
+ {id:'L-H3',sev:'high',mode:'light',status:'fixed',file:'ResearchFolderSetupNew.tsx',lines:'335-338',
+  el:'Account-selection rows',cls:'bg-surface-sunken hover:bg-surface-sunken/70 border border-border hover:border-blue-500/50',
+  why:'surface-sunken tiles on a white card with only a hairline, no depth.',fix:'Now bg-surface tiles with shadow-sm + hover lift + brand border.',
+  prev:st('Row depth. Fixed: raised tiles that lift on hover, matching login.')},
+ {id:'L-H4',sev:'high',mode:'light',status:'fixed',file:'CommentsThread.tsx',lines:'189',
+  el:'"No comments yet." empty state',cls:'text-meta text-gray-400 mb-3',
+  why:'gray-400 (#9ca3af) on white is ~2.5:1, below AA, bare line.',fix:'text-foreground-muted inside a real sunken panel.',
+  prev:tx('light','#ffffff','#9ca3af','#6b7280','No comments yet.')},
+ {id:'L-H5',sev:'high',mode:'light',status:'fixed',file:'workbench/WorkbenchListsPanel.tsx',lines:'297-298',
+  el:'"No list tasks yet" empty state',cls:'text-title text-gray-400 + text-body text-gray-300',
+  why:'gray-300 (#d1d5db) on white is ~1.5:1, effectively unreadable.',fix:'text-foreground heading + text-foreground-muted body.',
+  prev:tx('light','#ffffff','#d1d5db','#171717','No list tasks yet')},
+ {id:'L-H6',sev:'high',mode:'light',status:'fixed',file:'CommentsThread.tsx',lines:'189-191',
+  el:'"not shared" hint banner',cls:'text-gray-500 bg-gray-50 border border-gray-200',
+  why:'Hardcoded grays, barely-visible panel, never adapts.',fix:'bg-surface-sunken border border-border + text-foreground-muted.',
+  prev:st('Hint panel. Fixed: real sunken callout with semantic tokens.')},
+ // ===== DARK HIGH (all fixed) =====
+ {id:'D-H1',sev:'high',mode:'dark',status:'fixed',file:'NoteListRow.tsx',lines:'76',
+  el:'Note title (primary notes-list content)',cls:'text-gray-900 group-hover:text-emerald-700',
+  why:'gray-900 (#111827) on surface #0a0e1a = near-black on near-black, unreadable.',fix:'text-foreground + dark:group-hover:text-emerald-300.',
+  prev:tx('dark','#0a0e1a','#111827','#f1f5f9','PCR master mix v3')},
+ {id:'D-H2',sev:'high',mode:'dark',status:'fixed',file:'NoteListRow.tsx',lines:'94',
+  el:'Note one-line snippet',cls:'text-gray-400 truncate',
+  why:'Light-mode muted on raised #131c2e reads as dead text.',fix:'text-foreground-muted.',
+  prev:tx('dark','#131c2e','#9ca3af','#b4bfd0','2x Phusion, 0.5uM primers...')},
+ {id:'D-H3',sev:'high',mode:'dark',status:'fixed',file:'onboarding/v4/TourBootstrap.tsx',lines:'673-724',
+  el:'V3InflightPrompt onboarding modal',cls:'bg-white border-gray-200; text-gray-900/700/500; Skip border-gray-300 text-gray-700',
+  why:'Entire modal light-only: a glaring white card with dark-on-dark text in dark mode.',fix:'bg-surface-raised + ring + semantic text; Skip given a real fill.',
+  prev:card('dark','#ffffff','#131c2e','Welcome tour updated')},
+ {id:'D-H4',sev:'high',mode:'dark',status:'fixed',file:'onboarding/v4/TourBootstrap.tsx',lines:'784-820',
+  el:'V4ResumePrompt onboarding modal',cls:'bg-white border-gray-200; text-gray-900/700/500',
+  why:'Same light-only modal, hit on nearly every mid-tour refresh.',fix:'Same surface-token port + tinted tertiary buttons.',
+  prev:card('dark','#ffffff','#131c2e','Continue your welcome tour?')},
+ {id:'D-H5',sev:'high',mode:'dark',status:'fixed',file:'profile/ColorPickerRows.tsx',lines:'116,179',
+  el:'Color-picker field labels',cls:'text-gray-700',
+  why:'gray-700 on raised #131c2e is near-black-on-dark, labels vanish.',fix:'text-foreground-muted.',
+  prev:tx('dark','#131c2e','#374151','#b4bfd0','Primary color')},
+ {id:'D-H6',sev:'high',mode:'dark',status:'fixed',file:'profile/ColorPickerRows.tsx',lines:'186',
+  el:'"Clear secondary" link',cls:'text-gray-500 hover:text-gray-900 underline',
+  why:'Muted link with a hover that goes DARKER, unreadable on dark.',fix:'text-foreground-muted hover:text-foreground.',
+  prev:tx('dark','#131c2e','#6b7280','#b4bfd0','Clear secondary')},
+ {id:'D-H7',sev:'high',mode:'dark',status:'fixed',file:'profile/ColorPickerRows.tsx',lines:'155,219',
+  el:'Selected-swatch ring',cls:'border-gray-900 scale-110',
+  why:'The "selected" ring is near-black, invisible on dark, cannot tell which color is active.',fix:'border-foreground.',
+  prev:st('Selection ring. Fixed: border-foreground so the active swatch is visible on dark.')},
+
+ // ===== LIGHT MEDIUM (pending) =====
+ {id:'L-M1',sev:'medium',mode:'light',status:'pending',file:'settings/SettingsModal.tsx',lines:'23-28',
+  el:'Settings lazy-load fallback',cls:'flex flex-1 items-center justify-center p-16 + lone animate-spin',
+  why:'A bare spinner on the flat white Settings card, first thing seen on open.',fix:'Add a label + faint surface, or skeleton sunken blocks shaped like the sections.',
+  prev:st('Loading state. Bare spinner, no character. Suggest skeleton sections.')},
+ {id:'L-M2',sev:'medium',mode:'light',status:'pending',file:'settings/SharingSection.tsx',lines:'182-196,308-351,733-803',
+  el:'Settings/sharing Card sections',cls:'bg-surface-raised rounded-xl border border-border p-6',
+  why:'White cards inside the white Settings popup, hairline-only, stacked sections melt together.',fix:'Set the settings body bg to surface-sunken so white cards lift, or give each card shadow-sm.',
+  prev:st('Surface separation. surface-raised on surface-raised by hairline alone.')},
+ {id:'L-M3',sev:'medium',mode:'light',status:'pending',file:'settings/SharingSection.tsx',lines:'506,514,525,595,1209,1217,1319',
+  el:'Secondary buttons (Rotate key, Disconnect, Reset, Edit profile, Cancel)',cls:'bg-surface-sunken hover:bg-surface-sunken text-foreground',
+  why:'Hover class equals rest class, so hover changes nothing; weak fill on white.',fix:'Hover deepens fill (hover:bg-border or brand tint) + a real border.',
+  prev:st('No-op hover. The hover state is identical to rest.')},
+ {id:'L-M4',sev:'medium',mode:'light',status:'pending',file:'ResearchFolderSetupNew.tsx',lines:'1104-1113',
+  el:'"Import from LabArchives" CTA',cls:'bg-surface-sunken hover:bg-surface-sunken/70 border border-border',
+  why:'Near-white fill + hairline on white reads as almost no button, weak for an onboarding path.',fix:'Promote to the secondary pattern (brand-tinted fill + brand border + brand label).',
+  prev:st('Weak button character on a primary onboarding path.')},
+ {id:'L-M5',sev:'medium',mode:'light',status:'pending',file:'ResearchFolderSetupNew.tsx',lines:'940-1004',
+  el:'System-folder recovery modal',cls:'bg-surface-raised border border-amber-300/30; body text-amber-700',
+  why:'White card with a barely-visible amber/30 border; the warning surface itself does not signal caution.',fix:'Add an amber-tinted card bg (bg-amber-50 light) so the surface reads as a warning.',
+  prev:st('Warning dialog reads flat. Tint the surface, not just the border.')},
+ {id:'L-M6',sev:'medium',mode:'light',status:'pending',file:'project-surface/ActivityFeed.tsx',lines:'170,174',
+  el:'"No activity yet." / "Loading activity..."',cls:'text-body text-foreground-muted italic',
+  why:'A single italic muted line for both loading and empty, no panel or motion.',fix:'Loading = skeleton sunken rows; empty = small illustration/BeakerBot + prompt.',
+  prev:st('Lazy loading + empty states.')},
+ {id:'L-M7',sev:'medium',mode:'light',status:'pending',file:'methods/VariationNotesPanel.tsx',lines:'488-491',
+  el:'"No variation notes yet."',cls:'text-center py-6 text-amber-600',
+  why:'No surface, just centered text on the flat panel (color is AA-ok).',fix:'Wrap in a sunken rounded block with a small icon + the prompt.',
+  prev:st('Empty state has no surface/affordance.')},
+ {id:'L-M8',sev:'medium',mode:'light',status:'pending',file:'TaskPicker.tsx',lines:'252-258',
+  el:'Esc / close button in picker',cls:'text-foreground-muted hover:text-foreground-muted border border-border',
+  why:'Hairline + muted text with a no-op hover.',fix:'Sunken fill + a hover that actually changes (hover:text-foreground, hover:bg-border).',
+  prev:st('No-op hover hairline button.')},
+ {id:'L-M9',sev:'medium',mode:'light',status:'pending',file:'MethodPicker.tsx',lines:'554-560',
+  el:'Esc / close button in picker',cls:'text-foreground-muted hover:text-foreground-muted border border-border',
+  why:'Same no-op-hover hairline button as TaskPicker (shared pattern).',fix:'Same fix, sunken fill + real hover.',
+  prev:st('No-op hover hairline button (shared with TaskPicker).')},
+
+ // ===== LIGHT LOW (pending) =====
+ {id:'L-L1',sev:'low',mode:'light',status:'pending',file:'CommentsThread.tsx',lines:'265,270,436,460',
+  el:'Comment count, chevron, deleted label, delete button',cls:'text-gray-400 (multiple)',
+  why:'gray-400 on white is below AA for these small accents.',fix:'Replace with text-foreground-muted.',
+  prev:tx('light','#ffffff','#9ca3af','#6b7280','3 replies')},
+ {id:'L-L2',sev:'low',mode:'light',status:'pending',file:'workbench/WorkbenchListsPanel.tsx',lines:'323,327,333',
+  el:'List secondary labels',cls:'text-gray-400 (multiple)',
+  why:'Same sub-AA gray on white for small text.',fix:'Replace with text-foreground-muted.',
+  prev:tx('light','#ffffff','#9ca3af','#6b7280','Due Friday')},
+ {id:'L-L3',sev:'low',mode:'light',status:'pending',file:'LabGanttChart.tsx',lines:'350',
+  el:'"No tasks to display."',cls:'inherits muted gray, bare line',
+  why:'Single bare line, no surface or action (secondary view).',fix:'Small empty-state block with a hint to create a task.',
+  prev:st('Minor bare empty line.')},
+ {id:'L-L4',sev:'low',mode:'light',status:'pending',file:'workbench/WorkbenchExperimentsPanel.tsx',lines:'563',
+  el:'"No experiments yet"',cls:'text-title text-gray-400',
+  why:'gray-400 title on white, slightly under AA, bare line.',fix:'text-foreground + a sunken empty-state block.',
+  prev:tx('light','#ffffff','#9ca3af','#171717','No experiments yet')},
+ {id:'L-L5',sev:'low',mode:'light',status:'pending',file:'ResearchFolderSetupNew.tsx',lines:'759-776',
+  el:'BeakerBot welcome speech bubble',cls:'bg-white ... text-slate-800',
+  why:'Hardcoded bg-white reads fine in light but will not flip in dark (latent both-modes bug).',fix:'bg-surface-raised + text-foreground (or keep white deliberately + dark shadow). Same item as D-M2.',
+  prev:st('Latent dark bug, hardcoded white bubble. See D-M2.')},
+
+ // ===== DARK MEDIUM (pending; one fixed) =====
+ {id:'D-M1',sev:'medium',mode:'dark',status:'fixed',file:'ResearchFolderSetupNew.tsx',lines:'298-305,...',
+  el:'Dot texture on the 4 gate variants',cls:"opacity-5 + SVG fill='%23ffffff'",
+  why:'Same white-dots bug as L-H2 (invisible).',fix:'Already fixed (slate texture + glow) in 4f301cc90.',
+  prev:st('Duplicate of L-H2, already fixed.')},
+ {id:'D-M2',sev:'medium',mode:'dark',status:'pending',file:'ResearchFolderSetupNew.tsx',lines:'762,765,769',
+  el:'BeakerBot welcome speech bubble',cls:'bg-white ... text-slate-800; shadow-lg',
+  why:'Glaring white bubble on the dark gate; dark shadow-lg is invisible so no depth either.',fix:'Move to bg-surface-raised text-foreground border, or keep white + dark:shadow-black/40. Same as L-L5.',
+  prev:card('dark','#ffffff','#131c2e','Welcome! Pick a folder...')},
+ {id:'D-M3',sev:'medium',mode:'dark',status:'pending',file:'ResearchFolderSetupNew.tsx',lines:'297,721',
+  el:'VersionBadge tone on the gates',cls:'<VersionBadge tone="onDark" />',
+  why:'Gate bg is light-leaning but the badge is forced onDark, so in light mode it washes out (reverse-mode bug).',fix:'Use tone="surface" so the badge follows tokens, like the login fix.',
+  prev:st('Badge tone mismatch (hurts light). Switch to tone="surface".')},
+ {id:'D-M4',sev:'medium',mode:'dark',status:'pending',file:'profile/ProfileSettingsContent.tsx',lines:'180',
+  el:'"Create your account" primary button',cls:'bg-blue-600 hover:bg-blue-700 text-white',
+  why:'Works, but off-token raw blue instead of the brand fill, reads slightly flat (no shadow/lift).',fix:'Use btn-brand / bg-brand-action + shadow-sm.',
+  prev:st('Off-brand primary button. Standardize on btn-brand.')},
+
+ // ===== DARK LOW (pending; one no-action) =====
+ {id:'D-L1',sev:'low',mode:'dark',status:'pending',file:'LoadingOverlay.tsx',lines:'22',
+  el:'Spinner track ring',cls:'border-4 border-blue-200 rounded-full',
+  why:'Light blue-200 track nearly disappears on the dark card (arc still visible, but flat).',fix:'Add dark:border-blue-900/40 or use border-border for the track.',
+  prev:st('Spinner track too light on dark.')},
+ {id:'D-L2',sev:'low',mode:'dark',status:'noaction',file:'StagedLoadingScreen.tsx',lines:'159,163',
+  el:'"N files read" / "Ns elapsed" pills',cls:'bg-white border-[#e3ecf6] dark:bg-surface-raised dark:border-border',
+  why:'Already correct (light value + explicit dark: token). Included as the reference shape.',fix:'None. This is the right pattern.',
+  prev:st('Reference of the correct light+dark pattern. No change.')},
+ {id:'D-L3',sev:'low',mode:'dark',status:'pending',file:'ResearchFolderSetupNew.tsx',lines:'406,886',
+  el:'"Create" / "Link Folder" primary buttons',cls:'bg-blue-500 hover:bg-blue-600 text-white',
+  why:'Works, but raw blue instead of btn-brand, drifts from the login brand fill.',fix:'Standardize on btn-brand for the gate primary actions.',
+  prev:st('Off-brand primary buttons. Standardize on btn-brand.')},
+];
+
+// ---- contrast ratio ----
+function lum(hex){const c=hex.replace('#','');const r=parseInt(c.substr(0,2),16)/255,g=parseInt(c.substr(2,2),16)/255,b=parseInt(c.substr(4,2),16)/255;
+  const f=x=>x<=.03928?x/12.92:Math.pow((x+.055)/1.055,2.4);return .2126*f(r)+.7152*f(g)+.0722*f(b);}
+function ratio(a,b){const L1=lum(a),L2=lum(b);return ((Math.max(L1,L2)+.05)/(Math.min(L1,L2)+.05));}
+function rtag(fg,bg){const r=ratio(fg,bg);const ok=r>=4.5;return `<span class="${ok?'ok':'bad'}">${r.toFixed(2)}:1 ${ok?'AA pass':'AA fail'}</span>`;}
+
+function previewHTML(p){
+  if(!p) return '';
+  if(p.t==='struct') return `<div class="struct">${p.note}</div>`;
+  if(p.t==='text'){
+    return `<div class="grid2">
+      <div class="swatch" style="background:${p.bg};color:${p.before}"><span class="tag" style="color:${p.before}">before</span>
+        <span class="sample">${p.sample}</span><span class="ratio">${rtag(p.before,p.bg)}</span></div>
+      <div class="swatch" style="background:${p.bg};color:${p.after}"><span class="tag" style="color:${p.after}">after</span>
+        <span class="sample">${p.sample}</span><span class="ratio">${rtag(p.after,p.bg)}</span></div>
+    </div>`;
+  }
+  if(p.t==='card'){
+    const pageBg = p.mode==='dark'?T.d.surface:T.l.surface;
+    const fgB = p.mode==='dark'?'#111827':'#171717';
+    const fgA = p.mode==='dark'?T.d.fg:T.l.fg;
+    return `<div class="grid2">
+      <div class="swatch" style="background:${pageBg};padding:18px"><span class="tag">before</span>
+        <div style="background:${p.beforeBg};color:${fgB};border:1px solid #e5e7eb;border-radius:10px;padding:12px;font-weight:600">${p.sample}</div></div>
+      <div class="swatch" style="background:${pageBg};padding:18px"><span class="tag">after</span>
+        <div style="background:${p.afterBg};color:${fgA};border:1px solid ${T.d.border};border-radius:10px;padding:12px;font-weight:600">${p.sample}</div></div>
+    </div>`;
+  }
+  return '';
+}
+
+const DEC=JSON.parse(localStorage.getItem('surfaceAuditDecisions')||'{}');
+function saveDec(){localStorage.setItem('surfaceAuditDecisions',JSON.stringify(DEC));renderStat();}
+
+function render(){
+  const list=document.getElementById('list');
+  list.innerHTML=F.map(f=>{
+    const d=DEC[f.id]||{};
+    return `<div class="card" data-id="${f.id}" data-sev="${f.sev}" data-mode="${f.mode}" data-status="${f.status}"
+      data-text="${(f.file+' '+f.el+' '+f.cls+' '+f.why).toLowerCase().replace(/"/g,'')}">
+      <div class="row1">
+        <span class="chip ${f.sev}">${f.sev}</span>
+        <span class="chip mode">${f.mode}</span>
+        <span class="chip ${f.status}">${f.status}</span>
+        <span class="file">${f.file} <span class="ln">:${f.lines}</span></span>
+        <span style="margin-left:auto;color:var(--muted);font-size:11px">${f.id}</span>
+      </div>
+      <div class="el">${f.el}</div>
+      <div class="lbl">Failing class</div><div class="cls">${f.cls.replace(/</g,'&lt;')}</div>
+      <div class="lbl">Why</div><div class="why">${f.why}</div>
+      <div class="lbl">Suggested fix</div><div class="fix">${f.fix}</div>
+      ${previewHTML(f.prev)}
+      <div class="decide">
+        <span class="seg dseg" data-id="${f.id}">
+          <button class="agree ${d.v==='agree'?'on':''}" data-v="agree">Agree</button>
+          <button class="keep ${d.v==='keep'?'on':''}" data-v="keep">Keep as-is</button>
+          <button class="discuss ${d.v==='discuss'?'on':''}" data-v="discuss">Discuss</button>
+        </span>
+        <input type="text" placeholder="note (optional)" value="${(d.note||'').replace(/"/g,'&quot;')}" data-note="${f.id}" />
+      </div>
+    </div>`;
+  }).join('');
+  bind();applyFilters();renderStat();
+}
+function bind(){
+  document.querySelectorAll('.dseg').forEach(seg=>{
+    seg.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+      const id=seg.dataset.id;DEC[id]=DEC[id]||{};DEC[id].v=b.dataset.v;
+      seg.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');saveDec();
+    });
+  });
+  document.querySelectorAll('[data-note]').forEach(inp=>inp.oninput=()=>{
+    const id=inp.dataset.note;DEC[id]=DEC[id]||{};DEC[id].note=inp.value;saveDec();
+  });
+}
+const filt={sev:'all',mode:'all',status:'pending',q:''};
+function applyFilters(){
+  document.querySelectorAll('.card').forEach(c=>{
+    const okSev=filt.sev==='all'||c.dataset.sev===filt.sev;
+    const okMode=filt.mode==='all'||c.dataset.mode===filt.mode;
+    const okStatus=filt.status==='all'||c.dataset.status===filt.status;
+    const okQ=!filt.q||c.dataset.text.includes(filt.q);
+    c.classList.toggle('hide',!(okSev&&okMode&&okStatus&&okQ));
+  });
+}
+function seg(id,key){document.querySelectorAll('#'+id+' button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#'+id+' button').forEach(x=>x.classList.remove('on'));b.classList.add('on');filt[key]=b.dataset.v;applyFilters();});}
+seg('fSev','sev');seg('fMode','mode');seg('fStatus','status');
+document.getElementById('q').oninput=e=>{filt.q=e.target.value.toLowerCase();applyFilters();};
+
+function renderCounts(){
+  const by=(s)=>F.filter(f=>f.sev===s).length;
+  const pend=F.filter(f=>f.status==='pending').length, fixed=F.filter(f=>f.status==='fixed').length;
+  document.getElementById('counts').innerHTML=
+    `<span class="pill"><b>${F.length}</b> findings</span>
+     <span class="pill high">high <b>${by('high')}</b></span>
+     <span class="pill medium">medium <b>${by('medium')}</b></span>
+     <span class="pill low">low <b>${by('low')}</b></span>
+     <span class="pill fixed">fixed <b>${fixed}</b></span>
+     <span class="pill pending">pending <b>${pend}</b></span>`;
+}
+function renderStat(){
+  const n=Object.values(DEC).filter(d=>d.v).length;
+  document.getElementById('estat').textContent=n?`${n} of ${F.length} decided`:'No decisions yet';
+}
+document.getElementById('exportBtn').onclick=()=>{
+  const lines=['Surface audit decisions (2026-06-07)',''];
+  ['agree','keep','discuss'].forEach(v=>{
+    const items=F.filter(f=>(DEC[f.id]||{}).v===v);
+    if(!items.length) return;
+    lines.push(`== ${v.toUpperCase()} (${items.length}) ==`);
+    items.forEach(f=>{const note=(DEC[f.id]||{}).note;lines.push(`- ${f.id} ${f.file}:${f.lines} ${f.el}${note?'  // '+note:''}`);});
+    lines.push('');
+  });
+  const undecided=F.filter(f=>!(DEC[f.id]||{}).v);
+  if(undecided.length){lines.push(`== UNDECIDED (${undecided.length}) ==`);undecided.forEach(f=>lines.push(`- ${f.id} ${f.file}:${f.lines}`));}
+  document.getElementById('exportText').value=lines.join('\n');
+  document.getElementById('dlg').showModal();
+};
+document.getElementById('copyBtn').onclick=()=>{const t=document.getElementById('exportText');t.select();document.execCommand('copy');};
+document.getElementById('resetBtn').onclick=()=>{if(confirm('Clear all your decisions?')){for(const k in DEC)delete DEC[k];saveDec();render();}};
+
+renderCounts();render();
+</script>
+</body>
+</html>
