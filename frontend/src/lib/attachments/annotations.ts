@@ -56,6 +56,16 @@ export interface AnnotationFreehand {
   strokeWidth: number;
 }
 
+/** A closed polygon region of interest. `points` is a flat array of x,y pairs. */
+export interface AnnotationPolygon {
+  id: string;
+  type: "polygon";
+  /** Flat [x0, y0, x1, y1, ...] in natural image pixels; rendered closed. */
+  points: number[];
+  color: string;
+  strokeWidth: number;
+}
+
 /** A text label. Uses `fontSize` (natural pixels) instead of `strokeWidth`. */
 export interface AnnotationText {
   id: string;
@@ -71,6 +81,7 @@ export type AnnotationShape =
   | AnnotationSegment
   | AnnotationBox
   | AnnotationFreehand
+  | AnnotationPolygon
   | AnnotationText;
 
 export interface AnnotationDoc {
@@ -273,6 +284,20 @@ export function shapeToSvgElements(shape: AnnotationShape): SvgElementSpec[] {
             stroke: shape.color,
             "stroke-width": shape.strokeWidth,
             "stroke-linecap": "round",
+            "stroke-linejoin": "round",
+            fill: "none",
+          },
+        },
+      ];
+    case "polygon":
+      return [
+        {
+          tag: "polygon",
+          key: shape.id,
+          attrs: {
+            points: pointsToAttr(shape.points),
+            stroke: shape.color,
+            "stroke-width": shape.strokeWidth,
             "stroke-linejoin": "round",
             fill: "none",
           },

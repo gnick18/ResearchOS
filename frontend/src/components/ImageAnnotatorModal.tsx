@@ -46,7 +46,7 @@ import Tooltip from "@/components/Tooltip";
  * use `<Tooltip>`; no em-dashes in copy. See `plans/PHOTO_ANNOTATION_DESIGN.md`.
  */
 
-type Tool = "select" | "arrow" | "line" | "rect" | "ellipse" | "freehand" | "text";
+type Tool = "select" | "arrow" | "line" | "rect" | "ellipse" | "freehand" | "polygon" | "text";
 
 const COLORS = [
   "#e11d48", // rose
@@ -60,6 +60,12 @@ const COLORS = [
 
 const STROKE_WIDTHS = [2, 4, 6, 10] as const;
 const FONT_SIZES = [18, 28, 40, 64] as const;
+
+// Zoom limits, relative to the fit-to-viewport baseline (zoom 1 == image fits
+// the viewport). Below 1 zooms out, above 1 zooms in.
+const MIN_ZOOM = 0.2;
+const MAX_ZOOM = 16;
+const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
 
 let shapeCounter = 0;
 function nextId(): string {
@@ -125,15 +131,27 @@ export default function ImageAnnotatorModal({
     screenY: number;
   } | null>(null);
 
-  // Stage sizing: fit the natural image into the available viewport box.
+  // Stage sizing. `containerSize` is the full-viewport Konva stage (it fills the
+  // editor); `stageSize` is the FITTED image size in content space (natural *
+  // fit-scale). The image is drawn at content (0,0) sized `stageSize`, and the
+  // stage `view` transform (zoom + pan) places + scales that content inside the
+  // viewport, so zooming/panning never resizes the shapes' own geometry.
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
   const layerRef = useRef<Konva.Layer>(null);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 });
+  // The pan + zoom of the image within the viewport. zoom 1 == fit; x/y is the
+  // stage position in screen pixels.
+  const [view, setView] = useState({ zoom: 1, x: 0, y: 0 });
 
   // Drawing-in-progress shape (committed to `shapes` on pointer up).
   const drawingRef = useRef<AnnotationShape | null>(null);
+  // In-progress polygon: click adds a vertex, Enter / click-near-start closes,
+  // Escape cancels. `cx`/`cy` is the live cursor (natural coords) for the rubber
+  // band from the last placed vertex. State (not a ref) so render stays pure.
+  const [poly, setPoly] = useState<{ points: number[]; cx: number; cy: number } | null>(null);
   const [, forceTick] = useState(0);
 
   // --- Load the raw image element -----------------------------------------
@@ -178,9 +196,16 @@ export default function ImageAnnotatorModal({
     if (!img) return;
     const recompute = () => {
       const box = containerRef.current?.getBoundingClientRect();
-      const availW = box?.width ?? window.innerWidth - 80;
-      const availH = box?.height ?? window.innerHeight - 200;
-      const scale = Math.min(availW / img.naturalWidth, availH / img.naturalHeight, 1);
+      const availW = box?.width ?? window.innerWidth;
+      const availH = box?.height ?? window.innerHeight;
+      setContainerSize({ width: Math.round(availW), height: Math.round(availH) });
+      // Leave a margin so the fitted image does not sit flush under the floating
+      // tool panels at zoom 1.
+      const scale = Math.min(
+        (availW - 48) / img.naturalWidth,
+        (availH - 48) / img.naturalHeight,
+        1,
+      );
       setStageSize({
         width: Math.max(1, Math.round(img.naturalWidth * scale)),
         height: Math.max(1, Math.round(img.naturalHeight * scale)),
@@ -202,6 +227,70 @@ export default function ImageAnnotatorModal({
     (sx: number, sy: number) => ({ x: sx / scale, y: sy / scale }),
     [scale],
   );
+
+  // --- Zoom + pan ----------------------------------------------------------
+  // Center the fitted image in the viewport at zoom 1.
+  const fitView = useCallback(() => {
+    setView({
+      zoom: 1,
+      x: Math.round((containerSize.width - stageSize.width) / 2),
+      y: Math.round((containerSize.height - stageSize.height) / 2),
+    });
+  }, [containerSize.width, containerSize.height, stageSize.width, stageSize.height]);
+
+  // Recenter whenever the image or the viewport box changes (load, resize).
+  useEffect(() => {
+    if (!img || containerSize.width === 0) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- center the view once the image + viewport box are known
+    fitView();
+  }, [img, containerSize.width, containerSize.height, stageSize.width, stageSize.height, fitView]);
+
+  // Zoom toward a point in SCREEN space (relative to the stage container),
+  // keeping whatever content sits under that point fixed under it. `zoomFn` maps
+  // the current zoom to the next, so callers never need the live zoom value.
+  const zoomToPoint = useCallback(
+    (zoomFn: (z: number) => number, px: number, py: number) => {
+      setView((v) => {
+        const z2 = clampZoom(zoomFn(v.zoom));
+        const cx = (px - v.x) / v.zoom;
+        const cy = (py - v.y) / v.zoom;
+        return { zoom: z2, x: px - cx * z2, y: py - cy * z2 };
+      });
+    },
+    [],
+  );
+
+  // Zoom about the viewport center, for the +/- buttons.
+  const zoomByButton = useCallback(
+    (factor: number) => {
+      zoomToPoint((z) => z * factor, containerSize.width / 2, containerSize.height / 2);
+    },
+    [zoomToPoint, containerSize.width, containerSize.height],
+  );
+
+  // Native, NON-PASSIVE wheel handler so we can preventDefault and take over the
+  // gesture from the browser: a pinch (or ctrl+wheel) zooms toward the cursor and
+  // BLOCKS the browser's native page zoom; a plain two-finger scroll pans. Konva's
+  // onWheel can be passive, so we bind the raw listener on the container instead.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      if (e.ctrlKey) {
+        // Trackpad pinch and ctrl+wheel both arrive here. exp keeps zoom smooth
+        // and symmetric in and out.
+        zoomToPoint((z) => z * Math.exp(-e.deltaY * 0.01), px, py);
+      } else {
+        setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }));
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [zoomToPoint]);
 
   // --- History helpers -----------------------------------------------------
   const commit = useCallback((next: AnnotationShape[]) => {
@@ -245,10 +334,49 @@ export default function ImageAnnotatorModal({
     setSelectedId(null);
   }, [selectedId, commit]);
 
+  // Finish the in-progress polygon (needs at least 3 vertices = 6 numbers).
+  const commitPolygon = useCallback(
+    (draft: { points: number[]; cx: number; cy: number } | null) => {
+      setPoly(null);
+      if (!draft || draft.points.length < 6) return;
+      const id = nextId();
+      const shape: AnnotationShape = {
+        id,
+        type: "polygon",
+        points: draft.points,
+        color,
+        strokeWidth,
+      };
+      commit([...shapesRef.current, shape]);
+      setTool("select");
+      setSelectedId(id);
+    },
+    [color, strokeWidth, commit],
+  );
+
+  // Switching away from the polygon tool abandons any in-progress polygon.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- abandon the draft when the tool changes away from polygon
+    if (tool !== "polygon") setPoly(null);
+  }, [tool]);
+
   // --- Keyboard: Escape closes, Delete removes, Cmd+Z / Cmd+Shift+Z --------
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (editingText) return; // let the textarea own keys while editing
+      // An in-progress polygon owns Enter (close) and Escape (cancel) first.
+      if (poly) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commitPolygon(poly);
+          return;
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setPoly(null);
+          return;
+        }
+      }
       if (e.key === "Escape") {
         if (selectedId) {
           setSelectedId(null);
@@ -278,7 +406,7 @@ export default function ImageAnnotatorModal({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [editingText, selectedId, onClose, deleteSelected, undo, redo]);
+  }, [editingText, selectedId, onClose, deleteSelected, undo, redo, poly, commitPolygon]);
 
   // --- Transformer binding -------------------------------------------------
   useEffect(() => {
@@ -308,7 +436,9 @@ export default function ImageAnnotatorModal({
         return;
       }
       const stage = stageRef.current;
-      const pos = stage?.getPointerPosition();
+      // getRelativePointerPosition accounts for the stage's zoom + pan transform,
+    // so the pointer maps to content space at any zoom level.
+    const pos = stage?.getRelativePointerPosition();
       if (!pos) return;
       const { x, y } = toNatural(pos.x, pos.y);
 
@@ -335,6 +465,28 @@ export default function ImageAnnotatorModal({
         return;
       }
 
+      if (tool === "polygon") {
+        if (poly && poly.points.length >= 6) {
+          // Close when clicking near the first vertex (threshold in screen px,
+          // so it feels the same at any zoom). stage.scaleX() is the live zoom.
+          const z = stage?.scaleX() ?? 1;
+          const dScreen = Math.hypot(
+            (x - poly.points[0]) * scale * z,
+            (y - poly.points[1]) * scale * z,
+          );
+          if (dScreen < 12) {
+            commitPolygon(poly);
+            return;
+          }
+        }
+        setPoly((cur) =>
+          cur
+            ? { points: [...cur.points, x, y], cx: x, cy: y }
+            : { points: [x, y], cx: x, cy: y },
+        );
+        return;
+      }
+
       let shape: AnnotationShape;
       const id = nextId();
       if (tool === "arrow" || tool === "line") {
@@ -348,14 +500,29 @@ export default function ImageAnnotatorModal({
       drawingRef.current = shape;
       forceTick((t) => t + 1);
     },
-    [tool, toNatural, color, strokeWidth, fontSize, commit],
+    // openTextEditor is intentionally omitted (declared below; stable enough for
+    // this handler, matching the pre-existing pattern).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tool, toNatural, scale, color, strokeWidth, fontSize, commit, commitPolygon, poly],
   );
 
   const handlePointerMove = useCallback(() => {
+    const stage = stageRef.current;
+    // Polygon-in-progress: track the cursor for the rubber-band segment from the
+    // last placed vertex.
+    if (poly) {
+      const rel = stage?.getRelativePointerPosition();
+      if (rel) {
+        const n = toNatural(rel.x, rel.y);
+        setPoly((p) => (p ? { ...p, cx: n.x, cy: n.y } : p));
+      }
+      return;
+    }
     const drawing = drawingRef.current;
     if (!drawing) return;
-    const stage = stageRef.current;
-    const pos = stage?.getPointerPosition();
+    // getRelativePointerPosition accounts for the stage's zoom + pan transform,
+    // so the pointer maps to content space at any zoom level.
+    const pos = stage?.getRelativePointerPosition();
     if (!pos) return;
     const { x, y } = toNatural(pos.x, pos.y);
     if (drawing.type === "arrow" || drawing.type === "line") {
@@ -368,7 +535,7 @@ export default function ImageAnnotatorModal({
       drawing.points = [...drawing.points, x, y];
     }
     forceTick((t) => t + 1);
-  }, [toNatural]);
+  }, [toNatural, poly]);
 
   const handlePointerUp = useCallback(() => {
     const drawing = drawingRef.current;
@@ -394,13 +561,20 @@ export default function ImageAnnotatorModal({
 
   // --- Text editing --------------------------------------------------------
   const openTextEditor = useCallback(
-    (id: string, value: string, screenX: number, screenY: number) => {
-      const stageBox = stageRef.current?.container().getBoundingClientRect();
+    (id: string, value: string, contentX: number, contentY: number) => {
+      const stage = stageRef.current;
+      const stageBox = stage?.container().getBoundingClientRect();
+      // Map the content-space point through the stage's zoom + pan transform to a
+      // screen pixel, so the inline editor lands on the label at any zoom level.
+      const abs = stage?.getAbsoluteTransform().point({ x: contentX, y: contentY }) ?? {
+        x: contentX,
+        y: contentY,
+      };
       setEditingText({
         id,
         value,
-        screenX: (stageBox?.left ?? 0) + screenX,
-        screenY: (stageBox?.top ?? 0) + screenY,
+        screenX: (stageBox?.left ?? 0) + abs.x,
+        screenY: (stageBox?.top ?? 0) + abs.y,
       });
     },
     [],
@@ -567,6 +741,13 @@ export default function ImageAnnotatorModal({
           <ToolButton label="Freehand pen" active={tool === "freehand"} onClick={() => setTool("freehand")}>
             <IconPen />
           </ToolButton>
+          <ToolButton
+            label="Polygon (click vertices, Enter or click start to close)"
+            active={tool === "polygon"}
+            onClick={() => setTool("polygon")}
+          >
+            <IconPolygon />
+          </ToolButton>
           <ToolButton label="Text label" active={tool === "text"} onClick={() => setTool("text")}>
             <IconText />
           </ToolButton>
@@ -675,20 +856,49 @@ export default function ImageAnnotatorModal({
             <IconTrash />
           </ToolButton>
         </div>
+
+        <div className="w-px h-6 bg-border" />
+
+        {/* Zoom */}
+        <div className="flex items-center gap-1">
+          <ToolButton label="Zoom out" active={false} onClick={() => zoomByButton(1 / 1.2)}>
+            <IconMinus />
+          </ToolButton>
+          <Tooltip label="Fit to screen" placement="bottom">
+            <button
+              type="button"
+              onClick={fitView}
+              className="min-w-[3.25rem] rounded px-2 py-1 text-meta tabular-nums text-foreground-muted transition-colors hover:bg-surface-raised"
+              aria-label="Fit to screen"
+            >
+              {Math.round(view.zoom * 100)}%
+            </button>
+          </Tooltip>
+          <ToolButton label="Zoom in" active={false} onClick={() => zoomByButton(1.2)}>
+            <IconPlus />
+          </ToolButton>
+        </div>
       </div>
 
       {/* Full-viewport stage: the image fills the screen, tools float over it. */}
-      <div ref={containerRef} className="absolute inset-0 flex items-center justify-center overflow-hidden p-4">
+      <div ref={containerRef} className="absolute inset-0 overflow-hidden">
         {imgError ? (
-          <p className="text-body text-foreground-muted">Could not load the image.</p>
-        ) : !img ? (
-          <p className="text-body text-foreground-muted">Loading image...</p>
+          <div className="flex h-full items-center justify-center">
+            <p className="text-body text-foreground-muted">Could not load the image.</p>
+          </div>
+        ) : !img || containerSize.width === 0 ? (
+          <div className="flex h-full items-center justify-center">
+            <p className="text-body text-foreground-muted">Loading image...</p>
+          </div>
         ) : (
-          <div className="shadow-2xl" style={{ width: stageSize.width, height: stageSize.height }}>
             <Stage
               ref={stageRef}
-              width={stageSize.width}
-              height={stageSize.height}
+              width={containerSize.width}
+              height={containerSize.height}
+              scaleX={view.zoom}
+              scaleY={view.zoom}
+              x={view.x}
+              y={view.y}
               onMouseDown={handlePointerDown}
               onMouseMove={handlePointerMove}
               onMouseUp={handlePointerUp}
@@ -714,6 +924,17 @@ export default function ImageAnnotatorModal({
                     }
                   />
                 ))}
+                {poly && poly.points.length >= 2 && (
+                  <KLine
+                    points={[...poly.points, poly.cx, poly.cy].map((n) => n * scale)}
+                    stroke={color}
+                    strokeWidth={strokeWidth * scale}
+                    lineCap="round"
+                    lineJoin="round"
+                    dash={[10, 6]}
+                    listening={false}
+                  />
+                )}
                 <Transformer
                   ref={transformerRef}
                   rotateEnabled={false}
@@ -728,7 +949,6 @@ export default function ImageAnnotatorModal({
                 />
               </Layer>
             </Stage>
-          </div>
         )}
       </div>
 
@@ -759,7 +979,7 @@ export default function ImageAnnotatorModal({
             left: editingText.screenX,
             zIndex: 460,
             minWidth: 120,
-            fontSize: Math.max(12, editFontSize * scale),
+            fontSize: Math.max(12, editFontSize * scale * view.zoom),
             color: editColor,
             borderRadius: 6,
             padding: "2px 4px",
@@ -928,6 +1148,29 @@ function ShapeNode({
     );
   }
 
+  if (shape.type === "polygon") {
+    const points = shape.points.map((n) => n * scale);
+    return (
+      <KLine
+        {...common}
+        points={points}
+        closed
+        strokeWidth={shape.strokeWidth * scale}
+        lineCap="round"
+        lineJoin="round"
+        hitStrokeWidth={Math.max(12, shape.strokeWidth * scale)}
+        onDragEnd={(e) => {
+          const dx = e.target.x() / scale;
+          const dy = e.target.y() / scale;
+          e.target.position({ x: 0, y: 0 });
+          onChange({
+            points: shape.points.map((n, i) => (i % 2 === 0 ? n + dx : n + dy)),
+          });
+        }}
+      />
+    );
+  }
+
   if (shape.type !== "text") return null;
 
   // text
@@ -943,12 +1186,14 @@ function ShapeNode({
       onMouseDown={onSelect}
       onTap={onSelect}
       onDblClick={(e) => {
-        const box = e.target.getClientRect();
-        onTextEdit(shape.text, box.x, box.y);
+        // Content-space position of the label; openTextEditor maps it through
+        // the stage transform to a screen pixel.
+        onTextEdit(shape.text, e.target.x(), e.target.y());
       }}
       onDblTap={(e) => {
-        const box = e.target.getClientRect();
-        onTextEdit(shape.text, box.x, box.y);
+        // Content-space position of the label; openTextEditor maps it through
+        // the stage transform to a screen pixel.
+        onTextEdit(shape.text, e.target.x(), e.target.y());
       }}
       onDragEnd={(e) => {
         onChange({ x: e.target.x() / scale, y: e.target.y() / scale });
@@ -1085,6 +1330,28 @@ function IconPencil({ className }: { className?: string }) {
     <svg {...ic} className={className}>
       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z" />
+    </svg>
+  );
+}
+function IconMinus() {
+  return (
+    <svg {...ic}>
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+function IconPlus() {
+  return (
+    <svg {...ic}>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+function IconPolygon() {
+  return (
+    <svg {...ic}>
+      <path d="M12 3l8 6-3 9H7L4 9z" />
     </svg>
   );
 }
