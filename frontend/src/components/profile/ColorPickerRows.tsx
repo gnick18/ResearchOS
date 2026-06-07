@@ -150,7 +150,9 @@ export default function ColorPickerRows({
                 data-color-swatch={c}
                 className={`relative overflow-hidden w-8 h-8 rounded-full border-2 transition-transform ${
                   isSelected
-                    ? "border-gray-900 scale-110"
+                    ? rainbow
+                      ? "border-transparent ring-2 ring-sky-500 scale-110"
+                      : "border-gray-900 scale-110"
                     : disabled
                       ? "border-transparent opacity-30 cursor-not-allowed"
                       : "border-transparent hover:scale-105"
