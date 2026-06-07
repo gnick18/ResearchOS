@@ -107,14 +107,19 @@ export async function ensureBusinessSchema(): Promise<void> {
 // action items from that folder's README. Seeded ONCE, the first time the
 // entity row is created, so re-running the schema never overwrites edits and
 // deleting tasks never re-seeds them.
+// Only PUBLIC-record facts are seeded here (entity ID, formation date, agent
+// are all public in the WI DFI registry). Sensitive values like the EIN and
+// bank details are NOT hardcoded, this file is in the open-source repo. Enter
+// those in the /admin/business entity card; they live only in the private Neon
+// DB, never in source.
 const SEED_ENTITY = {
   legalName: "ResearchOS LLC",
   state: "Wisconsin",
   entityId: "R098462",
   formationDate: "2026-06-01",
-  ein: "REDACTED-EIN",
+  ein: null as string | null,
   registeredAgent: "Grant R. Nickles (self; WI Form 13 filed, Northwest cancelled)",
-  bankLabel: "Mercury Checking ••XXXX (Stripe payouts, weekly Mon)",
+  bankLabel: null as string | null,
   docsFolder: "~/Documents/ResearchOS_LLC/",
   salesTaxStatus: "pending",
   salesTaxNote:
