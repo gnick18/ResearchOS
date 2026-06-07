@@ -6,8 +6,8 @@ import { assignTask } from "@/lib/lab/pi-actions";
 import { useLabData } from "@/hooks/useLabData";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import { useArchivedUsers } from "@/hooks/useArchivedUsers";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import Tooltip from "@/components/Tooltip";
+import LivingPopup from "@/components/ui/LivingPopup";
 import { taskKey } from "@/lib/types";
 import type { Task } from "@/lib/types";
 
@@ -54,9 +54,11 @@ export default function AssignTaskButton({
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // Escape closes the assignee popover (app-wide convention), matching the
-  // backdrop click. Suspended while a write is in flight.
-  useEscapeToClose(() => setOpen(false), open && !busy);
+  // Escape / scrim close route through LivingPopup, suspended while a write is
+  // in flight (busy) so a mid-assign click cannot dismiss the modal.
+  const closeIfIdle = () => {
+    if (!busy) setOpen(false);
+  };
 
   // PiActionResult handling: data-write failures show a blocking alert;
   // audit-only failures show a separate non-blocking alert (the data DID
@@ -150,17 +152,16 @@ export default function AssignTaskButton({
         </button>
       </Tooltip>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40"
-          // Marker for TourSpotlight (popup-occluding sweep manager,
-          // 2026-05-27). Hides the v4 walkthrough ring while this popup
-          // is mounted; see SnapshotTilePopup for the canonical example.
-          data-tour-popup-occluding="assign-task"
-          onClick={() => !busy && setOpen(false)}
-        >
+      <LivingPopup
+        open={open}
+        onClose={closeIfIdle}
+        label="Assign task"
+        card={false}
+        widthClassName="max-w-md"
+        closeOnScrimClick={!busy}
+      >
           <div
-            className="bg-surface-raised rounded-xl shadow-2xl max-w-md w-full mx-4 p-5 space-y-4"
+            className="pointer-events-auto bg-surface-raised rounded-xl shadow-2xl w-full p-5 space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <header>
@@ -237,8 +238,7 @@ export default function AssignTaskButton({
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </LivingPopup>
     </>
   );
 }

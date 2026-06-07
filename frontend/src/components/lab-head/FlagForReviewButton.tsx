@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { setFlagForReview } from "@/lib/lab/pi-actions";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import Tooltip from "@/components/Tooltip";
+import LivingPopup from "@/components/ui/LivingPopup";
 import type { PiFlag } from "@/lib/types";
 
 interface FlagForReviewButtonProps {
@@ -44,9 +44,11 @@ export default function FlagForReviewButton({
   const [reason, setReason] = useState(currentFlag?.reason ?? "");
   const [busy, setBusy] = useState(false);
 
-  // Escape closes the flag popover (app-wide convention), matching the
-  // backdrop click. Suspended while a write is in flight.
-  useEscapeToClose(() => setOpen(false), open && !busy);
+  // Escape / scrim close route through LivingPopup, suspended while a write is
+  // in flight (busy) so a mid-write click cannot dismiss the modal.
+  const closeIfIdle = () => {
+    if (!busy) setOpen(false);
+  };
 
   const isFlagged = !!currentFlag;
 
@@ -169,17 +171,16 @@ export default function FlagForReviewButton({
         </button>
       </Tooltip>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40"
-          // Marker for TourSpotlight (popup-occluding sweep manager,
-          // 2026-05-27). Hides the v4 walkthrough ring while this popup
-          // is mounted; see SnapshotTilePopup for the canonical example.
-          data-tour-popup-occluding="flag-for-review"
-          onClick={() => !busy && setOpen(false)}
-        >
+      <LivingPopup
+        open={open}
+        onClose={closeIfIdle}
+        label="Flag for review"
+        card={false}
+        widthClassName="max-w-md"
+        closeOnScrimClick={!busy}
+      >
           <div
-            className="bg-surface-raised rounded-xl shadow-2xl max-w-md w-full mx-4 p-5 space-y-4"
+            className="pointer-events-auto bg-surface-raised rounded-xl shadow-2xl w-full p-5 space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <header>
@@ -240,8 +241,7 @@ export default function FlagForReviewButton({
               </div>
             </div>
           </div>
-        </div>
-      )}
+      </LivingPopup>
     </>
   );
 }
