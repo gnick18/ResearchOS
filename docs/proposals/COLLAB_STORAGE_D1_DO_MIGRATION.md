@@ -70,6 +70,17 @@ Chunks:
 1. **DO storage core + typed protocol (server).** `relay/src/worker.ts` CollabRoom gains SQLite (a doc snapshot row + an append-only update log). Replace the blind byte passthrough with a small typed WS protocol: on `{kind:"update", bytes}` fan out to peers AND append to SQLite (compact with loro-crdt, or raw-append per the spike fallback); on a new connection send `{kind:"catchup", snapshot, updates}` from SQLite (works even with no peers online, which is the durable + offline-reconcile win). No client cutover yet.
 2. **Client transport switch (shadow / dual-run).** `relay-provider.ts` / `use-collab-session.ts` speak the new plaintext protocol to the DO and import catch-up from it, while the existing Neon HTTP path still runs. Compare DO catch-up against Neon to confirm parity before trusting the DO.
 3. **Access control at the DO (needs the open auth decision).** The DO authorizes the connecting member before accepting/serving. Membership source in phase 1 is still Neon (moves to D1 in phase 2).
+
+   DO MECHANISM DONE (chunk-3 keystone, the prerequisite for external cross-folder collab). The locked design is OPT-IN PER DOC. A doc stays OPEN (in-lab, byte-for-byte current behavior) until its FIRST grant arrives. The first grant flips an `enforced` meta flag to '1', records the owner pubkey as trust-on-first-use (`owner_pubkey`), and upserts the carried members (including in-lab backfill). What the DO now has:
+   - SQLite `members (email, pubkey, role, added_at, added_by)` plus meta keys `enforced` and `owner_pubkey`.
+   - `POST /grant?session=<sid>`, owner-signed Ed25519 over `grant\n${sid}\n${ownerEmail}\n${issuedAt}\n${JSON.stringify(members)}`; freshness +/- 5 min, TOFU owner, member upsert.
+   - `POST /revoke?session=<sid>`, owner-signed over `revoke\n${sid}\n${ownerEmail}\n${issuedAt}\n${email}`; deletes the member, stays enforced.
+   - Connect gate on `/ws` and `/snapshot`: open doc -> no auth (in-lab unchanged); enforced doc -> requires `authEmail`/`authTs`/`authSig` verified against the member's stored pubkey over `connect\n${sid}\n${authEmail}\n${authTs}`.
+   - Verification is `@noble/curves` Ed25519 (pure JS in workerd), matching the client identity scheme. Client signing helpers live in `frontend/src/lib/collab/client/do-access.ts` (signGrant/signRevoke/signConnectToken), NOT yet wired into any connect path or UI.
+
+   DORMANCY: because no grant flow is wired into the app yet, no doc ever receives a grant, so no doc becomes enforced, and the prod in-lab path is byte-for-byte unaffected by this chunk. The gate is inert until the grant UI lands.
+
+   SEQUENCING CONSTRAINT for the later grant-UI chunk: the moment the grant flow sets `enforced='1'` on a doc, the client connect path (`sync-hooks.ts`) MUST start appending `authEmail`/`authTs`/`authSig` to its `/ws` and `/snapshot` URLs in the SAME change, or in-lab members get locked out of an enforced doc.
 4. **R2 snapshot backup.** Periodic per-doc snapshot to R2 (the locked safety net).
 5. **Cutover + cleanup.** Reads fully from the DO; stop writing collab to Neon; delete `/api/collab/{open,push,grant,revoke}`, the `collab_docs`/`collab_doc_updates`/`collab_doc_members` tables in `server/db.ts`, and `limits.ts`. Verify on prod (the Manny + Sharron flow), including close/reopen durability and offline reconcile.
 
