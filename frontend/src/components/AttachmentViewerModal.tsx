@@ -9,6 +9,7 @@ import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
 import remarkUnderline from "@/lib/markdown/remark-underline";
 import { filesApi } from "@/lib/local-api";
 import Tooltip from "./Tooltip";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 /**
  * Inline viewer for a single attachment, shared by the unified attachments
@@ -92,21 +93,10 @@ export default function AttachmentViewerModal({
   }, [fileUrl]);
 
   // Close on Escape.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-6"
-      onClick={onClose}
-    >
+    <LivingPopup open onClose={onClose} label={name || "Attachment"} selfSize showClose={false}>
       <div
-        className="flex flex-col w-full max-w-4xl h-[80vh] bg-surface-raised rounded-2xl shadow-xl overflow-hidden"
+        className="pointer-events-auto flex flex-col w-full max-w-4xl h-[80vh] bg-surface-raised rounded-2xl shadow-xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -160,6 +150,6 @@ export default function AttachmentViewerModal({
           )}
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }
