@@ -158,12 +158,30 @@ all five docs are committed. Likely next moves, in priority order:
      palette. tsc clean, 38 palette/editor-commands tests green. Grant to give a
      10-second live Cmd-K confirm on his running server (orchestrator cannot
      start a competing dev server against his :3000).
-   - Step 2 (NEXT), add the global layer (an always-registered global source,
-     cross-page nav + app commands + global object search that complements
-     `/search`). DESIGN FORK to settle first: how global object search indexes
-     across pages (a cross-app index vs per-page entity contribution). Surface it
-     to Grant before building that part; the nav + app-commands part is
-     low-risk and buildable immediately.
+   - Step 2a, the always-present global layer (cross-page nav "Go to" + "App"
+     commands + the app-chrome pill). DONE + on `main` (commits `b6659a504`,
+     `9c713c255`). Lives in `frontend/src/components/beaker-search/`
+     (`useGlobalCommands.ts`, `BeakerSearchPill.tsx`).
+   - Step 2b, global object search. DESIGN FORK SETTLED. The design doc
+     (`docs/proposals/beakersearch-global-search.md`) plus the locked build
+     contract (`beakersearch-global-search-decisions.md`, Grant signed off
+     2026-06-07) define a cross-app index that is a thin reader over the four
+     canonical React Query caches (eager-once prefetch), v1 core = Tasks /
+     Projects / Methods / Sequences. Four build chunks.
+     - CHUNK 1 DONE + on `main` (commit `5a96bd602`): `global-index.ts`
+       (pure `buildGlobalIndex()` + `GlobalIndexEntry`), `useGlobalObjectIndex.ts`
+       (the cache reader + shell-mount prefetch, mounted in
+       `BeakerSearchProvider`, value unused until chunk 2), the methods query-key
+       alignment (decision 5), and 19 unit tests. Grounding fix found during the
+       build, the only existing task opener is the home-route `/?openTask=` popup
+       (no per-page task route), so that handler was extended to resolve the
+       composite `taskKey` (Grant approved pulling the shared-task opener into v1,
+       to match methods/projects/sequences which already open shared records).
+     - CHUNKS 2 to 4 (NEXT): chunk 2 the global NAVIGATE source (grouping,
+       type-weight + recency ranking, caps, 120ms debounce, on-page de-dup);
+       chunk 3 the `/search` "Search everything for <q>" handoff row +
+       `?keywords=` reader; chunk 4 the per-user `localStorage` Recent-records
+       MRU. All scoped in the decisions doc.
    - Step 3, add page sources one at a time per the specs (Gantt, Calendar,
      Workbench, Purchases, Methods, Lab Overview, Links).
    - Step 4, app-wide mouse-awareness (`[data-beaker-target]` hover capture) last.
