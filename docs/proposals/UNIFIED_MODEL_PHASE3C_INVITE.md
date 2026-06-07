@@ -1,0 +1,94 @@
+# Unified Data Model, Phase 3c design (the note collaboration invite)
+
+> SUPERSEDED 2026-06-05 by `UNIFIED_MODEL_PHASE3C_SHARED_COLLAB.md`. Grant
+> reframed collab as "sharing a doc IS granting collaboration" with a
+> server-canonical persistence model (Option B), not a mailbox invite. Kept for
+> history only.
+
+Status, DRAFT for Grant sign-off (2026-06-05). This is the design for chunk 5c, the real share-then-collaborate invite that replaces the manual incognito paste-link used to validate the collab engine. Parent scope is `UNIFIED_MODEL_PHASE3_COLLAB.md` (section 3, the lifecycle) and the cross-boundary sharing system this reuses. Chunks 1 through 5b are built and live-validated (two clients edit one note through the E2E relay, with cursors, crash-safe undo, session grouping, retire-to-local, and auto-save). This is the last piece.
+
+## 0. The problem this solves
+
+Today a collaborator joins by pasting an opaque link into an incognito window pointed at the same data folder. That proved the engine but is not a feature. The real flow is, share a note with a person, they accept, the note lands in their own folder, and the two edit it live. No incognito, no same-folder, no manual link.
+
+## 1. What we reuse (do not rebuild)
+
+The cross-boundary sharing system already ships a working, E2E-blind send path. The invite reuses it wholesale.
+
+- `sendRawShare({ recipientEmail, email, payload })` (sharing/relay/client.ts), looks the recipient up via `/api/directory/lookup`, seals the payload to their X25519 public key with `sealToRecipient`, uploads the sealed bytes to the relay, returns a bundle id. The relay never sees plaintext.
+- `receiveRawShare({ email, bundleId })`, signs a fetch, downloads the sealed bytes, opens them with the local X25519 private key, returns the payload.
+- The "Send Outside" dialog pattern (ExperimentSendOutsideDialog, ProjectSendOutsideDialog, etc.), the UI to enter a recipient email and send. We add a note-collab variant.
+- `SharedWithMeTab.tsx`, the receive surface where incoming shares appear and are accepted. We extend it (or add a sibling) for collab invites.
+- The collab session machinery (use-collab-session.ts, the relay provider, the envelope), unchanged. The invite only changes how `start` and `join` are reached.
+
+Key consequence, because `sendRawShare` already seals the whole payload to the recipient, the session key K can sit in plaintext INSIDE that payload. We do not need a separate `wrapSessionKey` step for delivery, the transport is the wrapping.
+
+## 2. The invite payload
+
+A small JSON object, sealed by `sendRawShare`:
+
+```
+CollabInvite {
+  v: 1,
+  kind: "note-collab-invite",
+  sessionId: string,          // the collab relay room
+  sessionKey: base64,         // K, the per-session symmetric key (safe, the payload is sealed to the recipient)
+  inviterEd25519Pub: base64,  // so the recipient can PIN expectedPeer
+  inviterEmail: string,       // for display + the reply path
+  note: {
+    title: string,
+    snapshot: base64,         // the note's current Loro snapshot (doc.export snapshot), so the recipient seeds a local copy
+  }
+}
+```
+
+Carrying the snapshot means the recipient gets the full current note immediately on accept, then live-syncs deltas. It also covers the offline-join case the MVP relay cannot (the relay holds nothing at rest).
+
+## 3. Lifecycle
+
+START (inviter), from the note's existing Share control, a "Collaborate with someone" action opens a send dialog (mirror ExperimentSendOutsideDialog). Enter the collaborator's email. On send, we, (a) generate sessionId + K, (b) build the CollabInvite with the current note snapshot + our Ed25519 pub, (c) `sendRawShare` it to the recipient, (d) open our own collab session (start) so we are live and waiting. The directory lookup also returns the recipient's keys, so we can pin THEIR Ed25519 pub as expectedPeer on our side.
+
+ACCEPT (recipient), the invite appears in SharedWithMeTab as a "collab invite" item (distinct from a one-shot transfer). Accepting, (a) `receiveRawShare` opens the payload, (b) seeds a local note in the recipient's folder from `note.snapshot` (a new note id, or matched if it already exists), (c) opens that note's handle and calls the session `join` with sessionId + K, pinning the inviter's Ed25519 pub as expectedPeer. Both sides are now live on the same relay room with mutual sender pinning.
+
+LIVE, identical to today. Edits and cursors flow through the blind relay, version history attributes each peer via the actors map (already wired in 5b), retire-to-local works (5b).
+
+RETIRE, either peer ends the session (5b). The recipient keeps their merged local copy with co-author provenance. Offline-at-retire is out of scope here (both-online is the target, same as 5b).
+
+## 4. Identity and key wiring (no new key material)
+
+- Delivery sealing, `sendRawShare` already uses the recipient's X25519 key from the directory. Reused.
+- Session key K, generated by the inviter (generateSessionKey), carried in the sealed payload. No separate wrap.
+- Sender pinning, the invite carries the inviter's Ed25519 pub so the recipient pins expectedPeer; the inviter pins the recipient's Ed25519 pub from the directory lookup. This upgrades the MVP (which left expectedPeer undefined) to mutual verified-sender pinning.
+- Attribution, the recipient's peer resolves to their directory identity in the actors map (5b's onFirstRemotePeer), so version rows attribute to the real person. The invite can pass the collaborator's username so the label is right from the first frame.
+
+## 5. The local testing path (the infra dependency to confirm)
+
+The collab relay (the wrangler DO) already runs locally. The INVITE additionally needs the SHARING relay path, `/api/directory/lookup`, `/api/relay/reserve`, `/api/relay/fetch`, plus R2 for the sealed bundle. Two questions for the build:
+
+1. Do those Next API routes + R2 work against a local dev server, or only the deployed research-os.app, For two-account local testing we need either local API routes with working R2 creds, or to test against the deployed relay with two real registered accounts.
+2. Both test accounts must be registered in the directory (email + identity keys), since the lookup is by email. The collab engine test used one anonymous identity; the invite needs two real directory identities.
+
+This is the one place the invite is heavier than everything before it. Worth confirming before building so testing is not blocked.
+
+## 6. Build chunks (in dependency order)
+
+1. The invite payload + send, `buildCollabInvite()` (sessionId + K + snapshot + inviter pub) and a `sendCollabInvite()` that calls `sendRawShare`. Unit-testable (payload round-trips, snapshot seeds a doc).
+2. The send UI, a "Collaborate with someone" action on the note Share control, mirroring ExperimentSendOutsideDialog (recipient email, send, then auto-start the local session).
+3. The accept UI, a collab-invite item in SharedWithMeTab that, on accept, seeds the local note from the snapshot and joins the session with expectedPeer pinned.
+4. Wire mutual expectedPeer pinning into use-collab-session (it currently leaves it undefined).
+5. Live test with two registered accounts (Grant), then iterate.
+
+## 7. Exit criteria
+
+- From a note, the owner enters a collaborator's email and sends an invite; no incognito, no shared folder.
+- The collaborator sees the invite in Shared With Me, accepts, and the note appears in THEIR folder.
+- Both edit live with cursors, each frame verified against the pinned peer key.
+- Version history attributes each person; retire leaves each side a clean co-authored copy.
+- Flag-off, zero invite surface.
+
+## 8. Open decisions for Grant
+
+1. Local vs deployed relay for testing (section 5), confirm which path so the build targets a testable setup.
+2. Does an accepted invite create a NEW note in the recipient's folder, or can it match an existing shared note, Recommend new note for the MVP (simplest, no matching logic).
+3. Inbox surface, extend SharedWithMeTab with a collab-invite row, or a dedicated "Collaboration invites" area, Recommend extend SharedWithMeTab (reuse the surface).
+4. Should the inviter auto-start their session on send (live and waiting), or only connect once the recipient accepts, Recommend auto-start so the relay room exists when the recipient joins.
