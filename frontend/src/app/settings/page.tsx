@@ -23,24 +23,7 @@ import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { discoverUsers } from "@/lib/file-system/user-discovery";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import { useAppStore } from "@/lib/store";
-import {
-  tasksApi,
-  methodsApi,
-  fetchAllTasksIncludingShared,
-  fetchAllProjectsIncludingShared,
-} from "@/lib/local-api";
-import { splitAllTaskAttachments } from "@/lib/tasks/migrate-attachments";
-import { repairStampFormats } from "@/lib/tasks/migrate-stamps";
-import {
-  reconcileHostedDrift,
-  hostedManifestPath,
-  type ReconcileReport,
-} from "@/lib/sharing/project-hosting";
 import { fileService } from "@/lib/file-system/file-service";
-import type {
-  ProjectHostedManifest,
-  ProjectHostedTaskEntry,
-} from "@/lib/types";
 import {
   patchUserSettings,
   readUserSettings,
@@ -79,7 +62,6 @@ import { forgetAllTelegramTokenCache } from "@/lib/telegram/telegram-token-cache
 import StreaksSection from "./StreaksSection";
 import { patchStreak } from "@/lib/streak/streak-sidecar";
 import { useTheme, type ThemeChoice } from "@/lib/theme/use-theme";
-import { repairAllPCRProtocols } from "@/lib/repair/pcr-protocols";
 import {
   TRASH_CLEANUP_OPTIONS,
   getUserTrashCleanupDays,
@@ -2229,15 +2211,6 @@ function DataInventorySection() {
   );
 }
 
-// ── Data maintenance ────────────────────────────────────────────────────────
-
-interface RepairSummary {
-  scanned: number;
-  repaired: number;
-  alreadyCorrect: number;
-  failed: number;
-}
-
 // VCP R1 trash MVP notes (2026-05-26): the "History & Trash" section
 // surfaces the cleanup-window radio (OQ1 default: 30 days) and a link
 // to /trash. OQ7 reserves a slot for the orphaned-files cleanup tool;
@@ -2349,134 +2322,6 @@ function MaintenanceSection() {
       )}
       <MigrationStatusRow />
     </SectionShell>
-  );
-}
-
-// ── Orphan LabArchives credential cleanup ───────────────────────────────────
-//
-// The institutional LabArchives API was removed at 8b1eac3f. Two sidecar
-// files it used to write may persist on existing users' disks with plaintext
-// credentials in them:
-//   - users/<u>/_labarchives.json — connection state
-//   - _labarchives-deployer.json (at folder ROOT) — institutional access
-//     password in plaintext per AGENTS.md §6 LabArchives trust-model note
-// Nothing reads or writes these anymore. Closes SECURITY_AUDIT.md §3.4.
-
-const DEPLOYER_SIDECAR = "_labarchives-deployer.json";
-const USER_SIDECAR = "_labarchives.json";
-
-async function scanOrphanLabArchivesFiles(): Promise<string[]> {
-  const found: string[] = [];
-  if (await fileService.fileExists(DEPLOYER_SIDECAR)) {
-    found.push(DEPLOYER_SIDECAR);
-  }
-  const users = await fileService.listDirectories("users");
-  for (const u of users) {
-    const path = `users/${u}/${USER_SIDECAR}`;
-    if (await fileService.fileExists(path)) {
-      found.push(path);
-    }
-  }
-  return found;
-}
-
-function LabArchivesOrphanCleanupRow() {
-  const [running, setRunning] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
-  const [statusKind, setStatusKind] = useState<"info" | "ok" | "err">("info");
-  const [orphans, setOrphans] = useState<string[] | null>(null);
-
-  const flashStatus = useCallback((text: string, kind: "ok" | "err") => {
-    setStatus(text);
-    setStatusKind(kind);
-    setTimeout(() => setStatus(null), 4000);
-  }, []);
-
-  const handle = useCallback(async () => {
-    setRunning(true);
-    setStatus(null);
-    setOrphans(null);
-    try {
-      const found = await scanOrphanLabArchivesFiles();
-      if (found.length === 0) {
-        flashStatus("No orphaned LabArchives files found.", "ok");
-        return;
-      }
-      const ok = window.confirm(
-        `Permanently delete ${found.length} orphaned LabArchives credential file(s)?\n\n${found.join("\n")}\n\nThese files were written by the removed institutional API and may contain plaintext credentials.`,
-      );
-      if (!ok) {
-        setOrphans(found);
-        return;
-      }
-      let deleted = 0;
-      for (const path of found) {
-        const removed = await fileService.deleteFile(path);
-        if (removed) deleted += 1;
-      }
-      flashStatus(
-        `Deleted ${deleted} orphaned LabArchives credential file(s).`,
-        deleted === found.length ? "ok" : "err",
-      );
-    } catch (err) {
-      console.error("[LabArchives orphan cleanup] failed:", err);
-      flashStatus(
-        err instanceof Error ? err.message : "Cleanup failed. See console for details.",
-        "err",
-      );
-    } finally {
-      setRunning(false);
-    }
-  }, [flashStatus]);
-
-  return (
-    <SearchableRow
-      id="orphan:labarchives"
-      label="Clean up orphaned LabArchives credentials"
-      desc="The institutional LabArchives API was removed, but earlier setups may have left two sidecar files on disk per user. Scans for them and offers to delete."
-    >
-    <div className="flex items-start justify-between gap-4">
-      <div className="min-w-0 flex-1">
-        <p className="text-body text-foreground">
-          <HighlightedText text="Clean up orphaned LabArchives credentials" />
-        </p>
-        <p className="text-meta text-foreground-muted mt-1">
-          The institutional LabArchives API was removed, but earlier setups may
-          have left two sidecar files on disk: <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">{DEPLOYER_SIDECAR}</code>{" "}
-          at the folder root (institutional access password, plaintext) and{" "}
-          <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">users/&lt;u&gt;/{USER_SIDECAR}</code>{" "}
-          per user. Scans for them and offers to delete; nothing reads or writes
-          these files anymore.
-        </p>
-        {orphans && orphans.length > 0 && !status && (
-          <p className="text-meta text-amber-700 dark:text-amber-300 mt-2">
-            Cancelled. {orphans.length} orphan file(s) still on disk: {orphans.join(", ")}
-          </p>
-        )}
-        {status && (
-          <p
-            className={`text-meta mt-2 ${
-              statusKind === "ok"
-                ? "text-emerald-700 dark:text-emerald-300"
-                : statusKind === "err"
-                ? "text-red-600 dark:text-red-300"
-                : "text-foreground-muted"
-            }`}
-          >
-            {status}
-          </p>
-        )}
-      </div>
-      <button
-        type="button"
-        onClick={handle}
-        disabled={running}
-        className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
-      >
-        {running ? "Scanning…" : "Scan + clean"}
-      </button>
-    </div>
-    </SearchableRow>
   );
 }
 
@@ -2634,192 +2479,6 @@ function LabArchivesOptionCard({
   );
 }
 
-function RepairRow({
-  title,
-  description,
-  /** Plain-text mirror of `description` for the page-level search
-   *  index. `description` is a React node (often containing `<code>`)
-   *  so it can't be substring-searched directly; the caller passes a
-   *  flat string here that captures the same vocabulary. Optional —
-   *  if absent, only the title is indexed. */
-  searchDesc,
-  run,
-  invalidateKey,
-}: {
-  title: string;
-  description: React.ReactNode;
-  searchDesc?: string;
-  run: () => Promise<RepairSummary>;
-  invalidateKey: readonly string[];
-}) {
-  const queryClient = useQueryClient();
-  const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<RepairSummary | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const handle = useCallback(async () => {
-    setRunning(true);
-    setError(null);
-    setResult(null);
-    try {
-      const summary = await run();
-      setResult(summary);
-      await queryClient.refetchQueries({ queryKey: invalidateKey });
-    } catch (err) {
-      console.error(`[${title}] failed:`, err);
-      setError(err instanceof Error ? err.message : "Repair failed. See console for details.");
-    } finally {
-      setRunning(false);
-    }
-  }, [run, queryClient, invalidateKey, title]);
-
-  return (
-    <SearchableRow id={`repair:${title}`} label={title} desc={searchDesc}>
-    <div className="flex items-start justify-between gap-4">
-      <div className="min-w-0 flex-1">
-        <p className="text-body text-foreground">
-          <HighlightedText text={title} />
-        </p>
-        <p className="text-meta text-foreground-muted mt-1">{description}</p>
-        {result && (
-          <p className="text-meta text-foreground-muted mt-2">
-            Scanned <strong>{result.scanned}</strong> · repaired{" "}
-            <strong>{result.repaired}</strong> · already clean{" "}
-            <strong>{result.alreadyCorrect}</strong>
-            {result.failed > 0 && (
-              <>
-                {" · "}
-                <span className="text-red-600 dark:text-red-300">failed <strong>{result.failed}</strong></span>
-              </>
-            )}
-          </p>
-        )}
-        {error && <p className="text-meta text-red-600 dark:text-red-300 mt-2">{error}</p>}
-      </div>
-      <button
-        type="button"
-        onClick={handle}
-        disabled={running}
-        className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
-      >
-        {running ? "Running…" : "Run repair"}
-      </button>
-    </div>
-    </SearchableRow>
-  );
-}
-
-// Cross-owner sharing reconciler. Mirrors RepairRow's inline status pattern
-// but renders the reconcile-specific tally (drops / appends / unknown
-// destinations) instead of scanned/repaired/alreadyCorrect/failed. Wires the
-// public `reconcileHostedDrift` helper from `lib/sharing/project-hosting`
-// using `fetchAllTasksIncludingShared` + `fetchAllProjectsIncludingShared`
-// for enumeration. `appendEntry` is implemented inline against `fileService`
-// because the project-hosting module keeps the manifest CRUD primitives
-// private (they're only re-exported under `__testing__`). Per-task save is
-// routed through `tasksApi.update` so any owner-routing rules stay honored.
-function ReconcileRow() {
-  const queryClient = useQueryClient();
-  const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<ReconcileReport | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const handle = useCallback(async () => {
-    setRunning(true);
-    setError(null);
-    setResult(null);
-    try {
-      const [allTasks, allProjects] = await Promise.all([
-        fetchAllTasksIncludingShared(),
-        fetchAllProjectsIncludingShared(),
-      ]);
-      const taskIndex = new Map<string, (typeof allTasks)[number]>();
-      for (const t of allTasks) taskIndex.set(`${t.owner}:${t.id}`, t);
-      const report = await reconcileHostedDrift({
-        hostedManifests: allProjects.map((p) => ({
-          projectOwner: p.owner,
-          projectId: p.id,
-        })),
-        tasks: allTasks,
-        loadTask: async (owner, id) => taskIndex.get(`${owner}:${id}`) ?? null,
-        appendEntry: async (projectOwner, projectId, entry) => {
-          const path = hostedManifestPath(projectOwner, projectId);
-          const current = await fileService.readJson<Partial<ProjectHostedManifest>>(path);
-          const existing: ProjectHostedTaskEntry[] = Array.isArray(current?.hostedTasks)
-            ? current!.hostedTasks!
-            : [];
-          const dedup = existing.some(
-            (e) => e.owner === entry.owner && e.taskId === entry.taskId
-          );
-          await fileService.writeJson<ProjectHostedManifest>(path, {
-            version: 1,
-            hostedTasks: dedup ? existing : [...existing, entry],
-          });
-        },
-        saveTask: async (owner, task) => {
-          // reconcileHostedDrift doesn't actually invoke saveTask today
-          // (mirror-drift fix only appends manifest entries); the input is
-          // wired for future "clear external_project on unknown destination"
-          // policy. Route through tasksApi.update so owner-scoped writes land
-          // in the correct dir. Narrow to the fields TaskUpdate accepts —
-          // passing a full Task as the patch is a type error.
-          await tasksApi.update(
-            task.id,
-            { external_project: task.external_project ?? null },
-            owner
-          );
-        },
-        apply: true,
-      });
-      setResult(report);
-      await queryClient.refetchQueries({ queryKey: ["tasks"] });
-    } catch (err) {
-      console.error("[Reconcile cross-owner project sharing] failed:", err);
-      setError(err instanceof Error ? err.message : "Reconcile failed. See console for details.");
-    } finally {
-      setRunning(false);
-    }
-  }, [queryClient]);
-
-  return (
-    <SearchableRow
-      id="reconcile:cross-owner"
-      label="Reconcile cross-owner project sharing"
-      desc="Walks every task and every project hosted manifest and fixes drift between the two sides (a hosted task that's no longer marked as external on its origin, or a manifest entry pointing at a deleted task). Safe to run anytime; no destructive operations beyond pruning broken refs."
-    >
-    <div className="flex items-start justify-between gap-4">
-      <div className="min-w-0 flex-1">
-        <p className="text-body text-foreground">
-          <HighlightedText text="Reconcile cross-owner project sharing" />
-        </p>
-        <p className="text-meta text-foreground-muted mt-1">
-          Walks every task and every project hosted manifest and fixes drift between the two sides
-          (a hosted task that&apos;s no longer marked as external on its origin, or a manifest entry
-          pointing at a deleted task). Safe to run anytime; no destructive operations beyond pruning
-          broken refs.
-        </p>
-        {result && (
-          <p className="text-meta text-foreground-muted mt-2">
-            Reconcile complete: <strong>{result.manifestDropped.length}</strong> drops ·{" "}
-            <strong>{result.mirrorDriftAppended.length}</strong> appends ·{" "}
-            <strong>{result.unknownDestinations.length}</strong> unknown destinations
-          </p>
-        )}
-        {error && <p className="text-meta text-red-600 dark:text-red-300 mt-2">{error}</p>}
-      </div>
-      <button
-        type="button"
-        onClick={handle}
-        disabled={running}
-        className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
-      >
-        {running ? "Running…" : "Run reconcile"}
-      </button>
-    </div>
-    </SearchableRow>
-  );
-}
-
 // ── AI Helper section ───────────────────────────────────────────────────────
 //
 // Surfaces the schema-aware-chatbot prompt that lives at
@@ -2951,7 +2610,7 @@ function AIHelperSection() {
   const [loadingSize, setLoadingSize] = useState<AIHelperSize | null>("full");
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  // Inline 4s toast, mirrors the TipsSection / RepairRow pattern.
+  // Inline 4s toast, mirrors the TipsSection pattern.
   const [status, setStatus] = useState<string | null>(null);
   const [pullingLive, setPullingLive] = useState(false);
 
