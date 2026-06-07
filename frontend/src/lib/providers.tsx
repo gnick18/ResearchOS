@@ -486,8 +486,9 @@ export function Providers({ children }: { children: ReactNode }) {
             one shared Cmd-K command surface and its global keyboard listener
             cover every route (app, wiki, welcome, demo) and every pre-login
             surface, the same way the right-click framework does. Pages opt in
-            with useBeakerSearchSource(); with no source registered the global
-            Cmd-K is inert and the browser default is preserved. */}
+            with useBeakerSearchSource() to add their own context and tools; an
+            always-present global layer (cross-page nav + app commands) means
+            Cmd-K and the front-door pill open the palette on every page. */}
         <ContextMenuProvider>
           <BeakerSearchProvider>
             <AppContent>{children}</AppContent>
