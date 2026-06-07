@@ -85,8 +85,10 @@ export async function GET(): Promise<Response> {
         label: m.label,
         status: m.status,
         usageVisible: m.usageVisible,
-        // Per-member usage is private unless the member opted in.
-        usedBytes: m.usageVisible ? u : null,
+        // The PI is the payer, so they always see each member's usage (Grant
+        // 2026-06-07, reverses the earlier per-member opt-in). usage_visible is
+        // retained but no longer gates this.
+        usedBytes: m.status === "active" ? u : null,
       });
     }
 

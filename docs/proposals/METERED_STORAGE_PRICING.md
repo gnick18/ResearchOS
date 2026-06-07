@@ -158,7 +158,9 @@ free tier and the bill goes to $0.
 - Cap control: a GB picker showing the max monthly cost.
 - Lab-level billing: a PI can sponsor the whole lab on one invoice.
 - Lab free tier: per-member pooled (1 GB x member count).
-- Lab visibility: lab aggregate by default, per-member usage opt-in.
+- Lab visibility: the PI is the payer, so they always see each member's storage
+  and activity breakdown (Grant 2026-06-07, reverses the earlier per-member
+  opt-in). Members are told the lab head can see their usage when they accept.
 
 Design is fully signed off. Build behind `BILLING_ENABLED`, gated on the WI DOR
 sales-tax determination before any live charge.
