@@ -294,7 +294,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
 
   if (showUserSelection) {
     return (
-      <div className="fixed inset-0 z-[100] overflow-y-auto flex items-start sm:items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8">
+      <div className="fixed inset-0 z-[100] overflow-y-auto flex items-start sm:items-center justify-center bg-gradient-to-br from-surface via-surface-sunken to-surface py-8">
         <VersionBadge tone="onDark" className="fixed top-3 left-4 z-[110]" />
         <BetaNotice className="hidden sm:block fixed bottom-4 left-4 z-[110] max-w-xs shadow-lg" />
         <div className="absolute inset-0 opacity-5">
@@ -319,16 +319,16 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 className="w-8 h-8 text-white"
               />
             </div>
-            <h1 className="text-display font-extrabold tracking-tight text-white">ResearchOS</h1>
-            <p className="text-slate-400 mt-2">Connected to: {directoryName}</p>
+            <h1 className="text-display font-extrabold tracking-tight text-foreground">ResearchOS</h1>
+            <p className="text-foreground-muted mt-2">Connected to: {directoryName}</p>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+          <div className="bg-surface-raised backdrop-blur-xl rounded-2xl shadow-2xl border border-border overflow-hidden">
             <div className="p-6">
               {availableUsers.length > 0 ? (
                 <>
-                  <h2 className="text-heading font-bold text-white mb-4">Select Account</h2>
-                  <p className="text-slate-400 mb-6">
+                  <h2 className="text-heading font-bold text-foreground mb-4">Select Account</h2>
+                  <p className="text-foreground-muted mb-6">
                     Choose an existing account or create a new one to continue.
                   </p>
 
@@ -336,14 +336,14 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                     {availableUsers.map((user) => (
                       <div
                         key={user}
-                        className="group flex items-center gap-1 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-500/50 rounded-lg transition-all"
+                        className="group flex items-center gap-1 bg-surface-sunken hover:bg-surface-sunken/70 border border-border hover:border-blue-500/50 rounded-lg transition-all"
                       >
                         <button
                           onClick={() => handleSelectUser(user)}
                           className="flex-1 min-w-0 p-4 text-left flex items-center gap-2"
                         >
                           <UserAvatar username={user} size="md" />
-                          <span className="text-white font-medium truncate">{user}</span>
+                          <span className="text-foreground font-medium truncate">{user}</span>
                           {effectiveMainUser === user && (
                             <span className="shrink-0 text-meta text-amber-400 font-normal">
                               (Main)
@@ -354,7 +354,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                           <div className="relative group/icon pr-2">
                             <button
                               onClick={(e) => handleSetMainUser(user, e)}
-                              className="p-2 opacity-0 group-hover:opacity-100 hover:bg-amber-500/20 rounded-lg text-slate-400 hover:text-amber-400 transition-all"
+                              className="p-2 opacity-0 group-hover:opacity-100 hover:bg-amber-500/20 rounded-lg text-foreground-muted hover:text-amber-400 transition-all"
                               aria-label="Set as main account"
                             >
                               <svg
@@ -382,16 +382,16 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 </>
               ) : (
                 <>
-                  <h2 className="text-heading font-bold text-white mb-4">Create Your First Account</h2>
-                  <p className="text-slate-400 mb-6">
+                  <h2 className="text-heading font-bold text-foreground mb-4">Create Your First Account</h2>
+                  <p className="text-foreground-muted mb-6">
                     This folder has no accounts yet. Create one to continue.
                   </p>
                 </>
               )}
 
-              <div className={availableUsers.length > 0 ? "border-t border-white/10 pt-6" : ""}>
+              <div className={availableUsers.length > 0 ? "border-t border-border pt-6" : ""}>
                 {availableUsers.length > 0 && (
-                  <h3 className="text-body font-medium text-slate-300 mb-3">Create New Account</h3>
+                  <h3 className="text-body font-medium text-foreground-muted mb-3">Create New Account</h3>
                 )}
                 <div className="flex gap-2">
                   <input
@@ -399,7 +399,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                     value={newUsername}
                     onChange={(e) => setNewUsername(e.target.value)}
                     placeholder="Enter username"
-                    className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 px-4 py-2 bg-surface-sunken border border-border rounded-lg text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 focus:ring-blue-500"
                     onKeyDown={(e) => e.key === "Enter" && handleCreateUser()}
                   />
                   <button
@@ -411,15 +411,15 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                   </button>
                 </div>
                 {createError && (
-                  <p className="text-red-400 text-body mt-2">{createError}</p>
+                  <p className="text-red-600 dark:text-red-400 text-body mt-2">{createError}</p>
                 )}
               </div>
 
-              <div className="border-t border-white/10 pt-4 mt-6">
-                <h3 className="text-body font-medium text-slate-300 mb-2">
+              <div className="border-t border-border pt-4 mt-6">
+                <h3 className="text-body font-medium text-foreground-muted mb-2">
                   Coming from LabArchives?
                 </h3>
-                <p className="text-meta text-slate-400 mb-3">
+                <p className="text-meta text-foreground-muted mb-3">
                   Import a LabArchives Offline Notebook ZIP into your
                   workspace. Pages become tasks, folders can become projects.
                   Other ELNs (Benchling, Notion, paper notebooks) coming later.
@@ -441,7 +441,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 />
                 <a
                   href="/wiki/getting-started/labarchives-export"
-                  className="mt-2 inline-flex items-center gap-1 text-meta text-blue-300 hover:text-blue-200 underline"
+                  className="mt-2 inline-flex items-center gap-1 text-meta text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline"
                 >
                   How to export from LabArchives →
                 </a>
@@ -452,7 +452,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           <div className="text-center mt-6 flex items-center justify-center gap-4">
             <button
               onClick={openBugReport}
-              className="text-slate-500 hover:text-white text-meta transition-colors flex items-center gap-1"
+              className="text-foreground-muted hover:text-foreground text-meta transition-colors flex items-center gap-1"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -527,7 +527,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
 
   if (needsInitialization) {
     return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-surface via-surface-sunken to-surface">
         <div className="absolute inset-0 opacity-5">
           <div
             className="absolute inset-0"
@@ -550,16 +550,16 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 className="w-8 h-8 text-white"
               />
             </div>
-            <h1 className="text-display font-extrabold tracking-tight text-white">ResearchOS</h1>
-            <p className="text-slate-400 mt-2">Connected to: {directoryName}</p>
+            <h1 className="text-display font-extrabold tracking-tight text-foreground">ResearchOS</h1>
+            <p className="text-foreground-muted mt-2">Connected to: {directoryName}</p>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+          <div className="bg-surface-raised backdrop-blur-xl rounded-2xl shadow-2xl border border-border overflow-hidden">
             <div className="p-6">
-              <h2 className="text-heading font-bold text-white mb-4 text-center">
+              <h2 className="text-heading font-bold text-foreground mb-4 text-center">
                 Initialize New Folder
               </h2>
-              <p className="text-slate-400 mb-6 text-center">
+              <p className="text-foreground-muted mb-6 text-center">
                 This folder doesn&apos;t have the required structure. Would you like to initialize it as a ResearchOS folder?
               </p>
 
@@ -582,15 +582,15 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 </button>
                 <button
                   onClick={() => window.location.reload()}
-                  className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg transition-all"
+                  className="px-4 py-3 bg-surface-sunken hover:bg-surface-sunken/70 text-foreground font-medium rounded-lg transition-all"
                 >
                   Cancel
                 </button>
               </div>
 
               {error && (
-                <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
-                  <p className="text-body text-red-300">{error}</p>
+                <div className="mt-4 p-3 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+                  <p className="text-body text-red-700 dark:text-red-300">{error}</p>
                 </div>
               )}
             </div>
@@ -599,7 +599,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           <div className="text-center mt-6 flex items-center justify-center gap-4">
             <button
               onClick={openBugReport}
-              className="text-slate-500 hover:text-white text-meta transition-colors flex items-center gap-1"
+              className="text-foreground-muted hover:text-foreground text-meta transition-colors flex items-center gap-1"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -621,7 +621,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
 
   if (lastConnectedFolder) {
     return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-surface via-surface-sunken to-surface">
         <div className="absolute inset-0 opacity-5">
           <div
             className="absolute inset-0"
@@ -644,16 +644,16 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 className="w-8 h-8 text-white"
               />
             </div>
-            <h1 className="text-display font-extrabold tracking-tight text-white">ResearchOS</h1>
-            <p className="text-slate-400 mt-2">Local-first research data management</p>
+            <h1 className="text-display font-extrabold tracking-tight text-foreground">ResearchOS</h1>
+            <p className="text-foreground-muted mt-2">Local-first research data management</p>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+          <div className="bg-surface-raised backdrop-blur-xl rounded-2xl shadow-2xl border border-border overflow-hidden">
             <div className="p-6">
-              <h2 className="text-heading font-bold text-white mb-4 text-center">
-                Reconnect to <span className="text-blue-300">{lastConnectedFolder}</span>
+              <h2 className="text-heading font-bold text-foreground mb-4 text-center">
+                Reconnect to <span className="text-blue-600 dark:text-blue-400">{lastConnectedFolder}</span>
               </h2>
-              <p className="text-slate-300 mb-6 text-center">
+              <p className="text-foreground-muted mb-6 text-center">
                 We remember the folder you picked last time. Continue to re-attach without going through the OS picker.
               </p>
 
@@ -682,14 +682,14 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
               <button
                 onClick={handleConnect}
                 disabled={isLoading}
-                className="w-full mt-3 py-2 text-body text-slate-400 hover:text-white transition-colors disabled:opacity-50"
+                className="w-full mt-3 py-2 text-body text-foreground-muted hover:text-foreground transition-colors disabled:opacity-50"
               >
                 Pick a different folder
               </button>
 
               {error && (
-                <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
-                  <p className="text-body text-red-300">{error}</p>
+                <div className="mt-4 p-3 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+                  <p className="text-body text-red-700 dark:text-red-300">{error}</p>
                 </div>
               )}
             </div>
@@ -698,7 +698,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           <div className="text-center mt-6 flex items-center justify-center gap-4">
             <button
               onClick={openBugReport}
-              className="text-slate-500 hover:text-white text-meta transition-colors flex items-center gap-1"
+              className="text-foreground-muted hover:text-foreground text-meta transition-colors flex items-center gap-1"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -719,7 +719,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-surface via-surface-sunken to-surface">
       <VersionBadge tone="onDark" className="fixed top-3 left-4 z-[110]" />
       <BetaNotice className="hidden sm:block fixed bottom-4 left-4 z-[110] max-w-xs shadow-lg" />
       <div className="absolute inset-0 opacity-5">
@@ -733,7 +733,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
 
       <div className="relative z-10 w-full max-w-3xl mx-4">
         {/* Page title, centered. */}
-        <h1 className="mb-8 text-center text-display font-extrabold tracking-tight text-white">
+        <h1 className="mb-8 text-center text-display font-extrabold tracking-tight text-foreground">
           Welcome to ResearchOS
         </h1>
 
@@ -815,10 +815,10 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`relative bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden transition-all ${
+            className={`relative bg-surface-raised backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden transition-all ${
               isDragOver
                 ? "border-2 border-dashed border-blue-400 bg-blue-500/15 ring-4 ring-blue-400/30"
-                : "border-2 border-dashed border-white/25 hover:border-white/40"
+                : "border-2 border-dashed border-border hover:border-foreground-muted"
             }`}
           >
             <div className="p-6">
@@ -838,9 +838,9 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                     />
                   </svg>
                 </div>
-                <h2 className="text-heading font-bold text-white">Link a folder</h2>
+                <h2 className="text-heading font-bold text-foreground">Link a folder</h2>
               </div>
-              <p className="text-slate-400 text-body mb-4">
+              <p className="text-foreground-muted text-body mb-4">
                 Point ResearchOS at a folder on your computer. It can be an
                 existing ResearchOS folder (with your projects and data, maybe
                 synced via OneDrive or iCloud), or a brand-new empty folder. We
@@ -850,18 +850,18 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                   cannot create a folder for you (the OS picker blocks the
                   parent locations we would need, even Documents root), so the
                   reliable path is: you make an empty folder, then link it. */}
-              <div className="mb-4 rounded-lg bg-white/5 border border-white/10 p-3">
-                <p className="text-meta font-medium text-slate-300 mb-1">
+              <div className="mb-4 rounded-lg bg-surface-sunken border border-border p-3">
+                <p className="text-meta font-medium text-foreground-muted mb-1">
                   Starting fresh? Make an empty folder first:
                 </p>
                 <ol
                   data-testid="picker-make-folder-steps"
-                  className="text-meta text-slate-400 leading-relaxed list-decimal list-inside space-y-0.5"
+                  className="text-meta text-foreground-muted leading-relaxed list-decimal list-inside space-y-0.5"
                 >
                   <li>
                     Open your file manager and make a <strong>new</strong>{" "}
                     folder anywhere you like (Documents/ResearchOS works well).{" "}
-                    <span className="text-amber-300 font-medium">
+                    <span className="text-amber-700 dark:text-amber-300 font-medium">
                       <strong>IMPORTANT</strong>: Chrome blocks Desktop,
                       Documents, and Downloads themselves, but a folder you make
                       INSIDE any of them works fine.
@@ -876,7 +876,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
               </div>
               <p
                 className={`text-meta mb-4 transition-colors ${
-                  isDragOver ? "text-blue-200 font-medium" : "text-slate-500"
+                  isDragOver ? "text-blue-600 dark:text-blue-200 font-medium" : "text-foreground-muted"
                 }`}
               >
                 {isDragOver
@@ -903,7 +903,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 <p
                   role="alert"
                   data-testid="link-folder-drop-error"
-                  className="mt-3 text-meta text-red-300"
+                  className="mt-3 text-meta text-red-600 dark:text-red-300"
                 >
                   {dropError}
                 </p>
@@ -914,8 +914,8 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
         </div>
 
         {error && (
-          <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg max-w-3xl mx-auto">
-            <p className="text-body text-red-300">{error}</p>
+          <div className="mt-4 p-3 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg max-w-3xl mx-auto">
+            <p className="text-body text-red-700 dark:text-red-300">{error}</p>
           </div>
         )}
 
@@ -940,7 +940,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           >
             <div
               data-testid="picker-system-folder-recovery"
-              className="w-full max-w-md rounded-2xl bg-slate-900 border border-amber-300/30 shadow-2xl p-6"
+              className="w-full max-w-md rounded-2xl bg-surface-raised border border-amber-300/30 shadow-2xl p-6"
             >
               <div className="flex items-start gap-3">
                 <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-amber-500/20">
@@ -958,18 +958,18 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                 <div className="flex-1">
                   <h3
                     id="picker-system-folder-recovery-title"
-                    className="text-title font-semibold text-white"
+                    className="text-title font-semibold text-foreground"
                   >
                     That folder can&apos;t be used. Pick a different spot.
                   </h3>
-                  <p className="mt-2 text-body text-amber-100/90 leading-relaxed">
+                  <p className="mt-2 text-body text-amber-700 dark:text-amber-100/90 leading-relaxed">
                     If Chrome just told you a folder &quot;contains system
                     files&quot;, that is its block on sensitive locations. Chrome
                     blocks the top-level Desktop, Documents, Downloads, and home
                     folders themselves, but a subfolder you make inside any of
                     them works fine.
                   </p>
-                  <p className="mt-2 text-body text-amber-100/90 leading-relaxed">
+                  <p className="mt-2 text-body text-amber-700 dark:text-amber-100/90 leading-relaxed">
                     Make an empty folder with your file manager (like
                     Documents/ResearchOS, or even one on your Desktop), then link
                     that folder here, not its top-level parent. We set up an
@@ -984,7 +984,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                     setShowSystemFolderHint(false);
                     setSystemFolderHintDismissed(true);
                   }}
-                  className="px-3 py-2 text-body rounded-lg text-amber-100/80 hover:text-white hover:bg-white/10 transition-colors"
+                  className="px-3 py-2 text-body rounded-lg text-amber-700 dark:text-amber-100/80 hover:text-foreground hover:bg-surface-sunken transition-colors"
                   data-testid="picker-system-folder-recovery-dismiss"
                 >
                   Got it
@@ -1010,7 +1010,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
         <div className="mt-4 flex flex-col items-center gap-2">
           <Link
             href="/demo"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-100 hover:text-white border border-amber-300/40 hover:border-amber-300/70 rounded-lg text-body font-semibold transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/20 dark:hover:bg-amber-500/30 text-amber-800 hover:text-amber-900 dark:text-amber-100 dark:hover:text-white border border-amber-300/60 hover:border-amber-400 dark:border-amber-300/40 dark:hover:border-amber-300/70 rounded-lg text-body font-semibold transition-colors"
           >
             <svg
               aria-hidden
@@ -1030,11 +1030,11 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           </Link>
           <a
             href="/demo-lab.zip"
-            className="text-meta text-slate-400 hover:text-amber-200 underline-offset-2 hover:underline transition-colors"
+            className="text-meta text-foreground-muted hover:text-amber-600 dark:hover:text-amber-200 underline-offset-2 hover:underline transition-colors"
           >
             Or download as a starter folder
           </a>
-          <p className="text-meta text-slate-500">
+          <p className="text-meta text-foreground-muted">
             An entirely fake yeast-lab dataset to explore the app with.
           </p>
         </div>
@@ -1042,7 +1042,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
         <div className="text-center mt-6 flex items-center justify-center gap-4 flex-wrap">
           <a
             href="/wiki/getting-started/connecting-your-folder"
-            className="text-slate-400 hover:text-white text-meta transition-colors flex items-center gap-1"
+            className="text-foreground-muted hover:text-foreground text-meta transition-colors flex items-center gap-1"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <circle cx="12" cy="12" r="10" />
@@ -1053,7 +1053,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           </a>
           <a
             href="/wiki/shared-lab-accounts"
-            className="text-slate-400 hover:text-white text-meta transition-colors flex items-center gap-1"
+            className="text-foreground-muted hover:text-foreground text-meta transition-colors flex items-center gap-1"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-5.13a4 4 0 11-8 0 4 4 0 018 0zm6 0a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -1062,7 +1062,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           </a>
           <button
             onClick={openBugReport}
-            className="text-slate-500 hover:text-white text-meta transition-colors flex items-center gap-1"
+            className="text-foreground-muted hover:text-foreground text-meta transition-colors flex items-center gap-1"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -1109,7 +1109,7 @@ function ImportFromELNButton({ onOpen }: { onOpen: () => void }) {
       type="button"
       onClick={onOpen}
       data-testid="import-eln-cta"
-      className="w-full px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-500/50 rounded-lg text-white text-body font-medium transition-all"
+      className="w-full px-4 py-2 bg-surface-sunken hover:bg-surface-sunken/70 border border-border hover:border-blue-500/50 rounded-lg text-foreground text-body font-medium transition-all"
     >
       Import from LabArchives
     </button>
