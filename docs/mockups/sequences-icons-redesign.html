@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sequences icons - proposed redesigns</title>
+<style>
+  :root{ --line:#e2e8f0; --ink:#0f172a; --muted:#64748b; --slate:#475569; --sky:#0284c7; --bad:#e11d48; --good:#16a34a; }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:#f8fafc;padding:24px}
+  .wrap{max-width:900px;margin:0 auto}
+  h1{font-size:20px;margin:0 0 4px}
+  .lede{color:var(--muted);margin:0 0 8px;max-width:680px}
+  .note{background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;color:#b45309;font-weight:600;max-width:680px;margin:8px 0 20px}
+  .row{display:grid;grid-template-columns:150px 90px 36px 90px 1fr;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-bottom:12px}
+  .nm{font-weight:700;font-size:13.5px}
+  .nm small{display:block;color:var(--muted);font-weight:500;font-size:11.5px}
+  .cell{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .cell svg{width:34px;height:34px;color:var(--slate)}
+  .cell .tag{font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+  .old .tag{color:var(--bad)} .new .tag{color:var(--good)}
+  .arrow{color:#cbd5e1;text-align:center;font-size:18px}
+  .why{color:var(--slate);font-size:12.5px}
+  .reuse{font-size:11px;color:var(--sky);font-weight:700}
+  h2{font-size:15px;margin:24px 0 8px;color:var(--slate)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Proposed icon redesigns</h1>
+  <p class="lede">Old glyph leads to proposed new glyph for each icon you flagged. The new ones are authored to your references. First pass, tell me which to tweak. Two of them just reuse glyphs you already praised.</p>
+  <div class="note">These render the real SVGs. If a shape looks rough, say so and I will refine it before any of this touches the editor.</div>
+
+  <h2>Reuse glyphs you already liked</h2>
+
+  <div class="row">
+    <div class="nm">Primers (rail)<small>RailIcons.primers</small></div>
+    <div class="cell old"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h10"/><path d="m14 9 4 3-4 3"/></svg><span class="tag">old</span></div>
+    <div class="arrow">&rarr;</div>
+    <div class="cell new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="17" x2="21" y2="17"/><path d="M6 11h9l-2.5-2.5M6 11l2.5 2.5"/></svg><span class="tag">new</span></div>
+    <div class="why"><span class="reuse">Reuses the Primers-tab glyph you loved.</span> Bare arrow becomes the annealing arrow over a strand. The rail tool and the Primers tab now match.</div>
+  </div>
+
+  <div class="row">
+    <div class="nm">Align (rail + inspector)<small>RailIcons.align, ActionGlyphs.align</small></div>
+    <div class="cell old"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h12M4 12h16M4 17h9"/></svg><span class="tag">old</span></div>
+    <div class="arrow">&rarr;</div>
+    <div class="cell new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="17" x2="20" y2="17"/><line x1="8" y1="7" x2="8" y2="17" stroke-dasharray="1.5 2.5"/><line x1="12" y1="7" x2="12" y2="17" stroke-dasharray="1.5 2.5"/><line x1="16" y1="7" x2="16" y2="17" stroke-dasharray="1.5 2.5"/></svg><span class="tag">new</span></div>
+    <div class="why"><span class="reuse">Reuses the sidebar Align you said to match.</span> Ragged lines (read as text-align) become two strands with paired columns. Both align spots use this now.</div>
+  </div>
+
+  <h2>New glyphs from your references</h2>
+
+  <div class="row">
+    <div class="nm">Tree of life<small>rail + inspector + lineage + list-row (4 spots)</small></div>
+    <div class="cell old"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="12" r="2"/><path d="m8 6.7 8 4.3M8 17.3l8-4.3"/></svg><span class="tag">old</span></div>
+    <div class="arrow">&rarr;</div>
+    <div class="cell new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.5V7"/><path d="M10.5 20.5h3"/><circle cx="12" cy="4.8" r="1.7"/><path d="M12 11 7.6 8.4"/><circle cx="6.2" cy="7.6" r="1.7"/><path d="M12 11 16.4 8.4"/><circle cx="17.8" cy="7.6" r="1.7"/><path d="M12 15 8 12.9"/><circle cx="6.6" cy="12.1" r="1.7"/><path d="M12 15 16 12.9"/><circle cx="17.4" cy="12.1" r="1.7"/></svg><span class="tag">new</span></div>
+    <div class="why">The share-style node graph becomes a branching tree (trunk, base, branched nodes), per your reference. Now distinct from Share. Replaces all four tree glyphs at once.</div>
+  </div>
+
+  <div class="row">
+    <div class="nm">Protein (rail + inspector)<small>RailIcons.protein, ActionGlyphs.protein</small></div>
+    <div class="cell old"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5c4 4 10 6 14 14M5 19c4-4 10-6 14-14"/></svg><span class="tag">old</span></div>
+    <div class="arrow">&rarr;</div>
+    <div class="cell new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8.5c1.5-2.5 4.5-2 5.5.5s-1.5 4 0 5.5 4 .5 5.5-2"/><circle cx="4.6" cy="9.2" r="1.5"/><circle cx="7.8" cy="7.6" r="1.5"/><circle cx="10.6" cy="9.6" r="1.5"/><circle cx="11.2" cy="13" r="1.5"/><circle cx="9.4" cy="15.8" r="1.5"/><circle cx="12.6" cy="16.6" r="1.5"/><circle cx="15.6" cy="15.2" r="1.5"/><circle cx="17.4" cy="12.2" r="1.5"/></svg><span class="tag">new</span></div>
+    <div class="why">The plain X becomes a folded chain of amino-acid beads, per your reference. Reads clearly as a polypeptide.</div>
+  </div>
+
+  <div class="row">
+    <div class="nm">Cloning (rail)<small>RailIcons.cloning</small></div>
+    <div class="cell old"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="3"/><circle cx="17" cy="17" r="3"/><path d="m9.5 9.5 5 5"/></svg><span class="tag">old</span></div>
+    <div class="arrow">&rarr;</div>
+    <div class="cell new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4.6a8 8 0 1 0 3.4 3"/><path d="M16.5 8.5 19 10l-2.6 1.7"/><path d="M20 14.5v3.5M18.2 16.2h3.6"/></svg><span class="tag">new</span></div>
+    <div class="why">Two abstract nodes become a plasmid ring with a fragment going in (plus a join mark), per your reference. Reads as assemble a construct.</div>
+  </div>
+
+  <div class="row">
+    <div class="nm">Annotate (rail)<small>RailIcons.annotate</small></div>
+    <div class="cell old"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5 5L20 6"/></svg><span class="tag">old</span></div>
+    <div class="arrow">&rarr;</div>
+    <div class="cell new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h6"/><path d="M14.5 5.5 18.5 9.5 9 19l-4 1 1-4z"/><path d="M13 7 17 11"/></svg><span class="tag">new</span></div>
+    <div class="why">The checkmark (read as done) becomes a pen marking a line, annotate / mark up. Alternative if you prefer: a label tag with a plus. Tell me which.</div>
+  </div>
+
+  <div class="row">
+    <div class="nm">Sequence (tab)<small>IconSequence</small></div>
+    <div class="cell old"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="17" x2="21" y2="17"/><path d="M5 13V8M5 8h2.5a1.5 1.5 0 0 1 0 3H5"/><path d="M11 13V8l4 5V8"/><path d="M19 8h-2v5h2"/></svg><span class="tag">old</span></div>
+    <div class="arrow">&rarr;</div>
+    <div class="cell new"><svg viewBox="0 0 24 24" fill="none"><text x="12" y="13" text-anchor="middle" font-size="8.5" font-weight="800" letter-spacing="1" fill="currentColor" font-family="ui-monospace,Menlo,monospace">AGC</text><line x1="3" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span class="tag">new</span></div>
+    <div class="why">The PNI-looking letters become a clean A G C over the strand, so it reads as the base-level view.</div>
+  </div>
+
+  <div class="row">
+    <div class="nm">Download from NCBI<small>NcbiCloudIcon</small></div>
+    <div class="cell old"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9"/><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/></svg><span class="tag">old</span></div>
+    <div class="arrow">&rarr;</div>
+    <div class="cell new"><svg viewBox="0 0 24 24" fill="none"><g stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9"/><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/></g><g><rect x="13" y="2.5" width="9.5" height="6" rx="1.5" fill="#20558a"/><text x="17.75" y="7" text-anchor="middle" font-size="3.6" font-weight="800" fill="#fff" font-family="Arial,sans-serif">NCBI</text></g></svg><span class="tag">new</span></div>
+    <div class="why">Same cloud-download, with a small real NCBI-blue badge in the corner (not in our line style), as you asked. Note: that uses NCBI's name/brand, fine for an attribution badge but worth a conscious yes.</div>
+  </div>
+
+  <p class="lede" style="margin-top:18px">Everything you marked Good stays as is. Tell me which proposals to keep or tweak, and I will wire the approved ones into the editor (the tree change updates all four tree spots, align updates both, protein both).</p>
+</div>
+</body>
+</html>
