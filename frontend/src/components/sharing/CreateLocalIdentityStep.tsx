@@ -165,11 +165,11 @@ export default function CreateLocalIdentityStep({
       onClick={onClose}
     >
       <div
-        className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-md w-full mx-4 overflow-hidden"
+        className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-3xl w-full mx-4 max-h-[90vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         data-testid="create-local-identity"
       >
-        <div className="px-6 py-4 border-b border-border flex items-start justify-between">
+        <div className="px-6 py-4 border-b border-border flex items-start justify-between shrink-0">
           <div>
             <h3 className="text-title font-semibold text-foreground">
               Create your account
@@ -187,7 +187,7 @@ export default function CreateLocalIdentityStep({
           </Tooltip>
         </div>
 
-        <div className="px-6 py-5">
+        <div className="px-6 py-5 flex-1 overflow-y-auto">
           {!recoveryCode ? (
             <div className="py-8 flex flex-col items-center text-center">
               <div className="w-10 h-10 rounded-full border-2 border-border border-t-blue-500 animate-spin" />
@@ -205,95 +205,103 @@ export default function CreateLocalIdentityStep({
               )}
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-5">
               <p className="text-body text-foreground-muted leading-relaxed">
                 Your account is a keypair on this device. It works offline, with
                 no password and no sign-in. Set up a one-tap unlock and save your
-                recovery code below.
+                recovery code.
               </p>
 
-              {/* Passkey, the everyday unlock. Optional, the recovery code is the
-                  backstop and the account works without one. */}
-              <div className="rounded-lg border border-border bg-surface-sunken p-3 space-y-2">
-                <div className="flex items-center gap-2 text-blue-300">
-                  <KeyIcon className="w-5 h-5" />
-                  <p className="text-body font-medium text-foreground">One-tap unlock</p>
-                </div>
-                {isPasskeySupported() ? (
-                  passkeyEnrolled ? (
-                    <div className="flex items-start gap-2 text-emerald-200">
-                      <span className="text-emerald-300 mt-0.5">
-                        <CheckIcon className="w-4 h-4" />
-                      </span>
-                      <p className="text-meta leading-relaxed">
-                        Passkey ready. You can unlock on this device, and your
-                        synced devices, with no code to type.
-                      </p>
-                    </div>
+              {/* Two columns side by side so the modal uses the screen width
+                  instead of one tall scroll: passkey (everyday unlock) on the
+                  left, recovery code (backstop) on the right. */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                {/* Passkey, the everyday unlock. Optional, the recovery code is
+                    the backstop and the account works without one. */}
+                <div className="rounded-lg border border-border bg-surface-sunken p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                    <KeyIcon className="w-5 h-5" />
+                    <p className="text-body font-medium text-foreground">
+                      One-tap unlock
+                    </p>
+                  </div>
+                  {isPasskeySupported() ? (
+                    passkeyEnrolled ? (
+                      <div className="flex items-start gap-2">
+                        <span className="text-emerald-600 dark:text-emerald-400 mt-0.5">
+                          <CheckIcon className="w-4 h-4" />
+                        </span>
+                        <p className="text-meta text-foreground-muted leading-relaxed">
+                          Passkey ready. You can unlock on this device, and your
+                          synced devices, with no code to type.
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-meta text-foreground-muted leading-relaxed">
+                          Add a passkey so you can unlock with your fingerprint,
+                          face, or device PIN. It syncs through your Google or
+                          Apple keychain, so a new device just works.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={enrollPasskeyForIdentity}
+                          disabled={passkeyEnrolling}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+                        >
+                          <KeyIcon className="w-3.5 h-3.5" />
+                          {passkeyEnrolling
+                            ? "Waiting for your passkey…"
+                            : "Set up a passkey"}
+                        </button>
+                      </>
+                    )
                   ) : (
-                    <>
-                      <p className="text-meta text-foreground-muted leading-relaxed">
-                        Add a passkey so you can unlock with your fingerprint,
-                        face, or device PIN. It syncs through your Google or Apple
-                        keychain, so a new device just works.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={enrollPasskeyForIdentity}
-                        disabled={passkeyEnrolling}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
-                      >
-                        <KeyIcon className="w-3.5 h-3.5" />
-                        {passkeyEnrolling
-                          ? "Waiting for your passkey…"
-                          : "Set up a passkey"}
-                      </button>
-                    </>
-                  )
-                ) : (
+                    <p className="text-meta text-foreground-muted leading-relaxed">
+                      Passkeys are not available in this browser. Your recovery
+                      code is how you unlock on another device.
+                    </p>
+                  )}
+                  {passkeyError && <ErrorNotice message={passkeyError} />}
+                </div>
+
+                {/* Recovery code, the backstop. */}
+                <div className="rounded-lg border border-border bg-surface-sunken p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                    <KeyIcon className="w-5 h-5" />
+                    <p className="text-body font-medium text-foreground">
+                      Your recovery code
+                    </p>
+                  </div>
                   <p className="text-meta text-foreground-muted leading-relaxed">
-                    Passkeys are not available in this browser. Your recovery code
-                    below is how you unlock on another device.
+                    Save this somewhere safe. It is your backstop if you lose your
+                    passkey and this device, and the only way to restore your
+                    account. If you lose it, it cannot be recovered.
                   </p>
-                )}
-                {passkeyError && <ErrorNotice message={passkeyError} />}
+                  <div className="p-3 bg-surface border border-border rounded-lg">
+                    <p className="font-mono text-body text-foreground tracking-wide break-all text-center">
+                      {recoveryCode}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={copyCode}
+                    className="flex items-center gap-1.5 text-meta text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    {copied ? (
+                      <>
+                        <CheckIcon className="w-3.5 h-3.5" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <CopyIcon className="w-3.5 h-3.5" />
+                        Copy code
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-
-              <div className="flex items-center gap-2 text-blue-300">
-                <KeyIcon className="w-5 h-5" />
-                <p className="text-body font-medium text-foreground">
-                  Your recovery code
-                </p>
-              </div>
-              <p className="text-body text-foreground-muted leading-relaxed">
-                Save this code somewhere safe. It is your backstop if you lose
-                your passkey and this device, and the only way to restore your
-                account. If you lose it, it cannot be recovered.
-              </p>
-
-              <div className="p-3 bg-surface-sunken border border-border rounded-lg">
-                <p className="font-mono text-body text-foreground tracking-wide break-all text-center">
-                  {recoveryCode}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={copyCode}
-                className="flex items-center gap-1.5 text-meta text-blue-400 hover:text-blue-300"
-              >
-                {copied ? (
-                  <>
-                    <CheckIcon className="w-3.5 h-3.5" />
-                    Copied
-                  </>
-                ) : (
-                  <>
-                    <CopyIcon className="w-3.5 h-3.5" />
-                    Copy code
-                  </>
-                )}
-              </button>
 
               <label className="flex items-start gap-2 cursor-pointer select-none">
                 <input
@@ -314,7 +322,7 @@ export default function CreateLocalIdentityStep({
                 type="button"
                 onClick={onComplete}
                 disabled={!recoverySaved}
-                className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+                className="w-full py-2.5 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
                 data-testid="create-local-identity-continue"
               >
                 Continue
