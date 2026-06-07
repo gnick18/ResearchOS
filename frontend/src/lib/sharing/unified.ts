@@ -120,8 +120,22 @@ export function canRead(record: ShareableRecord, viewer: Viewer): boolean {
  */
 export function canWrite(record: ShareableRecord, viewer: Viewer): boolean {
   if (!record) return false;
+  if (canWriteIgnoringPiRole(record, viewer)) return true;
+  return viewer.account_type === "lab_head";
+}
+
+/**
+ * The write check WITHOUT the lab-head role grant, owner or explicit edit-share
+ * only. Used to decide whether a lab head's write right comes purely from their
+ * role (so the popups gate it behind the once-per-session confirm) or from a
+ * normal owner / edit-share basis (no confirm needed, they edit like anyone).
+ */
+export function canWriteIgnoringPiRole(
+  record: ShareableRecord,
+  viewer: Viewer,
+): boolean {
+  if (!record) return false;
   if (record.owner === viewer.username) return true;
-  if (viewer.account_type === "lab_head") return true;
   const list = normalizeSharedWith(record.shared_with);
   return list.some(
     (s) =>

@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import {
   canRead,
   canWrite,
+  canWriteIgnoringPiRole,
   expandSharedWith,
   normalizeSharedEntry,
   normalizeSharedWith,
@@ -74,6 +75,14 @@ describe("canWrite", () => {
   });
   it("lab_head writes any member's record (role-based PI edit, no session)", () => {
     expect(canWrite(rec("alex", []), mira)).toBe(true);
+  });
+  it("canWriteIgnoringPiRole denies a lab_head with no owner/edit-share basis", () => {
+    // The popups use this to decide whether to gate the PI edit behind the
+    // once-per-session confirm: true here means "no confirm needed".
+    expect(canWriteIgnoringPiRole(rec("alex", []), mira)).toBe(false);
+    expect(
+      canWriteIgnoringPiRole(rec("alex", [{ username: "mira", level: "edit" }]), mira),
+    ).toBe(true);
   });
   it("non-owner with level:read cannot write", () => {
     expect(
