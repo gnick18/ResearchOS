@@ -122,7 +122,7 @@ function ChoiceStep({
     <div className="p-6 sm:p-7">
       <div className="flex items-start gap-3 mb-5">
         <div className="mt-0.5 flex-shrink-0 rounded-lg bg-brand-action/10 p-2">
-          <Icon name="vial" className="h-5 w-5 text-brand-action" />
+          <Icon name="box" className="h-5 w-5 text-brand-action" />
         </div>
         <div>
           <h2 className="text-title font-semibold text-foreground mb-0.5">
@@ -146,13 +146,13 @@ function ChoiceStep({
         />
         <ChoiceButton
           onClick={onAddToExisting}
-          icon={<Icon name="layer" className="h-5 w-5 text-brand-action" />}
+          icon={<Icon name="merge" className="h-5 w-5 text-brand-action" />}
           title="Add stock to an existing item"
           description="You already have this reagent. Add the new batch."
         />
         <ChoiceButton
           onClick={onSkip}
-          icon={<Icon name="close" className="h-5 w-5 text-foreground-muted" />}
+          icon={<Icon name="skip" className="h-5 w-5 text-foreground-muted" />}
           title="Skip"
           description="Services, one-offs, or items you do not track."
           muted
@@ -198,7 +198,7 @@ function ChoiceButton({
       </span>
       {!muted && (
         <span className="ml-auto mt-1 flex-shrink-0 text-foreground-muted">
-          <Icon name="caret" className="h-4 w-4 -rotate-90" />
+          <Icon name="chevronRight" className="h-4 w-4" />
         </span>
       )}
     </button>
@@ -285,7 +285,7 @@ function CreateNewStep({
         onClick={onBack}
         className="inline-flex items-center gap-1.5 text-meta font-medium text-foreground-muted hover:text-foreground mb-4 transition-colors"
       >
-        <Icon name="caret" className="h-3.5 w-3.5 rotate-90" />
+        <Icon name="chevronLeft" className="h-3.5 w-3.5" />
         Back
       </button>
 
@@ -491,7 +491,7 @@ function AddToExistingStep({
         onClick={onBack}
         className="inline-flex items-center gap-1.5 text-meta font-medium text-foreground-muted hover:text-foreground mb-4 transition-colors"
       >
-        <Icon name="caret" className="h-3.5 w-3.5 rotate-90" />
+        <Icon name="chevronLeft" className="h-3.5 w-3.5" />
         Back
       </button>
 

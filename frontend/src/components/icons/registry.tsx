@@ -571,6 +571,46 @@ const ICONS_RAW = {
     concept: "Minus / step down",
     body: <path d="M5 12h14" />,
   },
+
+  // ── Receive-to-inventory dialog chrome (chunk 4, Grant sign-off 2026-06-07).
+  //    Bodies verbatim from the shipped ReceiveToInventoryDialog (434107790).
+  box: {
+    concept: "Box / package",
+    body: (
+      <>
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+        <line x1="12" y1="22.08" x2="12" y2="12" />
+      </>
+    ),
+  },
+  merge: {
+    concept: "Merge / add to existing",
+    body: (
+      <>
+        <circle cx="18" cy="18" r="3" />
+        <circle cx="6" cy="6" r="3" />
+        <path d="M6 21V9a9 9 0 0 0 9 9" />
+      </>
+    ),
+  },
+  skip: {
+    concept: "Skip / not tracked",
+    body: (
+      <>
+        <circle cx="12" cy="12" r="10" />
+        <path d="M4.93 4.93 19.07 19.07" />
+      </>
+    ),
+  },
+  chevronLeft: {
+    concept: "Chevron left / back",
+    body: <polyline points="15 18 9 12 15 6" />,
+  },
+  chevronRight: {
+    concept: "Chevron right / forward",
+    body: <polyline points="9 18 15 12 9 6" />,
+  },
 } satisfies Record<string, IconEntry>;
 
 export type IconName = keyof typeof ICONS_RAW;
