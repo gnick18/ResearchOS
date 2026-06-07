@@ -11,7 +11,7 @@ import { HISTORY_ENGINE_ENABLED, recordNoteHistory, recordTaskHistory, recordPro
 import type { HistoryEditKind } from "./history";
 // Phase 2 chunk 4: when the Loro pilot is on, the note's Loro doc IS the
 // history store; the legacy delta writer is suppressed to avoid double-writing.
-import { LORO_PILOT_ENABLED } from "./loro/config";
+import { LORO_PILOT_ENABLED, PURCHASE_LORO_ENABLED } from "./loro/config";
 import { getCurrentUser, getMainUser, storeCurrentUser, storeMainUser, clearCurrentUser, clearMainUser } from "./file-system/indexeddb-store";
 import { shiftTask } from "./engine/shift";
 import { formatDate, parseDate } from "./engine/dates";
@@ -3780,11 +3780,37 @@ export const purchasesApi = {
     if (!existing) return { item: null, notified: false };
     const priorStatus = normalizeOrderStatus(existing.order_status);
 
-    const updated = await purchasesApi.update(
-      id,
-      { order_status: status },
-      options?.owner,
-    );
+    // Purchase items on Loro (docs/proposals/PURCHASE_LORO.md) chunk 4 = the
+    // last purchase write seam, setOrderStatus, routed to match chunk 3. When
+    // PURCHASE_LORO_ENABLED the order_status flip lands in the item's Loro doc
+    // (persisting the .loro sidecar AND the byte-identical .json mirror + relay
+    // fan-out); the mirror keeps every legacy reader correct and `updated`
+    // stays the projected PurchaseItem so the bell-gating below is unchanged.
+    // Flag off, it falls through to purchasesApi.update EXACTLY as before. The
+    // helper is loaded with a lazy `await import` because purchase-write-through
+    // statically imports buildPurchaseUpdatePatch FROM this module; a static
+    // import here would close that cycle. openPurchaseDoc needs a concrete
+    // sidecar-folder owner, so we pass `requester` (already resolved above as
+    // options?.owner ?? current user, the same folder the legacy update would
+    // have written into).
+    let updated: PurchaseItem | null;
+    if (PURCHASE_LORO_ENABLED) {
+      const { writePurchaseUpdateThroughLoro } = await import(
+        "./loro/purchase-write-through"
+      );
+      updated = await writePurchaseUpdateThroughLoro(
+        requester,
+        id,
+        { order_status: status },
+        actor || undefined,
+      );
+    } else {
+      updated = await purchasesApi.update(
+        id,
+        { order_status: status },
+        options?.owner,
+      );
+    }
     if (!updated) return { item: null, notified: false };
 
     const enteringOrdered = status === "ordered" && priorStatus !== "ordered";
