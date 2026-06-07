@@ -39,6 +39,7 @@ import type {
   InventoryStockUpdate,
 } from "@/lib/types";
 import ItemFormDialog from "@/components/inventory/ItemFormDialog";
+import ImportInventoryDialog from "@/components/inventory/ImportInventoryDialog";
 import ScanFlow from "@/components/inventory/ScanFlow";
 import SuppliesTabs from "@/components/inventory/SuppliesTabs";
 import StockFormDialog from "@/components/inventory/StockFormDialog";
@@ -111,6 +112,8 @@ export default function InventoryPage() {
   const [deletingItem, setDeletingItem] = useState<InventoryItem | null>(null);
   // The barcode scanner popup (chunk 6). Open holds the scanner + result flow.
   const [scanOpen, setScanOpen] = useState(false);
+  // The spreadsheet-import popup (cold-start path, 2026-06-07).
+  const [importOpen, setImportOpen] = useState(false);
   // The id of the stock currently mid-write (disables its row controls so a
   // double tap can't race two updates).
   const [busyStockId, setBusyStockId] = useState<number | null>(null);
@@ -142,6 +145,14 @@ export default function InventoryPage() {
     }
     return map;
   }, [stocks]);
+
+  // The user's own items (not shared-in), the merge-don't-duplicate target for
+  // the spreadsheet import. Import always writes into the current user's dir, so
+  // only own items can be merged into.
+  const ownItems = useMemo(
+    () => items.filter((it) => !it.is_shared_with_me),
+    [items],
+  );
 
   // Vendor list for the item form's vendor datalist.
   const vendorOptions = useMemo(() => {
@@ -359,6 +370,14 @@ export default function InventoryPage() {
             </button>
             <button
               type="button"
+              onClick={() => setImportOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-2 text-body text-foreground hover:bg-surface-sunken"
+            >
+              <Icon name="import" className="h-4 w-4" />
+              Import
+            </button>
+            <button
+              type="button"
               onClick={() => setItemDialog({ mode: "add" })}
               className="btn-brand inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-body"
             >
@@ -407,6 +426,7 @@ export default function InventoryPage() {
           <EmptyState
             hasItems={items.length > 0}
             onAdd={() => setItemDialog({ mode: "add" })}
+            onImport={() => setImportOpen(true)}
           />
         ) : (
           <div className="space-y-3">
@@ -679,6 +699,30 @@ export default function InventoryPage() {
         )}
       </LivingPopup>
 
+      {/* Spreadsheet import (cold-start path) */}
+      <LivingPopup
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        label="Import inventory"
+        widthClassName="max-w-2xl"
+        card
+        closeOnScrimClick={false}
+        fillHeight
+      >
+        {importOpen && (
+          <div className="overflow-y-auto">
+            <ImportInventoryDialog
+              existingItems={ownItems}
+              onCancel={() => setImportOpen(false)}
+              onDone={() => {
+                setImportOpen(false);
+                refresh();
+              }}
+            />
+          </div>
+        )}
+      </LivingPopup>
+
       {/* Barcode scanner + scan flow (chunk 6) */}
       <LivingPopup
         open={scanOpen}
@@ -826,9 +870,11 @@ function stockMetaSuffix(stock: InventoryStock): string {
 function EmptyState({
   hasItems,
   onAdd,
+  onImport,
 }: {
   hasItems: boolean;
   onAdd: () => void;
+  onImport: () => void;
 }) {
   return (
     <div className="rounded-xl border border-dashed border-border bg-surface-raised px-6 py-12 text-center">
@@ -844,14 +890,24 @@ function EmptyState({
           : "Add the reagents and kits your lab keeps on hand. Containers, status, and expiry come next."}
       </p>
       {!hasItems && (
-        <button
-          type="button"
-          onClick={onAdd}
-          className="btn-brand mt-4 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-body"
-        >
-          <Icon name="plus" className="h-4 w-4" />
-          Add your first item
-        </button>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={onAdd}
+            className="btn-brand inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-body"
+          >
+            <Icon name="plus" className="h-4 w-4" />
+            Add your first item
+          </button>
+          <button
+            type="button"
+            onClick={onImport}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-4 py-2 text-body text-foreground hover:bg-surface-sunken"
+          >
+            <Icon name="import" className="h-4 w-4" />
+            Import a spreadsheet
+          </button>
+        </div>
       )}
     </div>
   );
