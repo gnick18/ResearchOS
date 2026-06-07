@@ -93,7 +93,7 @@ export default function InventoryPage() {
   const queryClient = useQueryClient();
 
   const [query, setQuery] = useState("");
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // The active health-tile filter, or null for the normal item list (chunk 3).
   const [activeSignal, setActiveSignal] = useState<InventorySignalKind | null>(
     null,
@@ -124,12 +124,15 @@ export default function InventoryPage() {
   const stocks = useMemo(() => stocksQuery.data ?? [], [stocksQuery.data]);
 
   // Group stocks under their item for the row list + the summary.
+  // Key is `${owner}:${item_id}` to prevent collision when two users each have
+  // a stock with the same item_id (possible once SHARING_ENABLED goes live).
   const stocksByItem = useMemo(() => {
-    const map = new Map<number, InventoryStock[]>();
+    const map = new Map<string, InventoryStock[]>();
     for (const s of stocks) {
-      const arr = map.get(s.item_id) ?? [];
+      const k = `${s.owner}:${s.item_id}`;
+      const arr = map.get(k) ?? [];
       arr.push(s);
-      map.set(s.item_id, arr);
+      map.set(k, arr);
     }
     return map;
   }, [stocks]);
@@ -171,23 +174,26 @@ export default function InventoryPage() {
     queryClient.invalidateQueries({ queryKey: ["inventory-stocks"] });
   };
 
-  const toggleExpanded = (id: number) =>
+  const toggleExpanded = (key: string) =>
     setExpanded((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
 
   // "Open" affordance on a signal record: clear the filter, expand that item in
   // the normal list, and scroll it into view. Reuses the existing expand state.
-  const openItemInList = useCallback((itemId: number) => {
+  // key is `${owner}:${item_id}`; the DOM id uses a hyphen separator instead.
+  const openItemInList = useCallback((key: string) => {
     setActiveSignal(null);
     setQuery("");
-    setExpanded((prev) => new Set(prev).add(itemId));
+    setExpanded((prev) => new Set(prev).add(key));
     // Defer to the next frame so the normal list has re-rendered before scroll.
     requestAnimationFrame(() => {
-      const el = document.getElementById(`inventory-item-${itemId}`);
+      const el = document.getElementById(
+        `inventory-item-${key.replace(":", "-")}`,
+      );
       el?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
   }, []);
@@ -216,7 +222,8 @@ export default function InventoryPage() {
     const owner = effectiveOwnerOf(deletingItem, currentUser);
     // Soft-delete (chunk 5): moves records to _trash so they can be restored
     // from /trash. Delete stocks first so none are left pointing at a gone item.
-    const itemStocks = stocksByItem.get(deletingItem.id) ?? [];
+    const itemStocks =
+      stocksByItem.get(`${deletingItem.owner}:${deletingItem.id}`) ?? [];
     for (const s of itemStocks) {
       await inventoryStocksApi.delete(s.id, owner);
     }
@@ -385,21 +392,22 @@ export default function InventoryPage() {
         ) : (
           <div className="space-y-3">
             {filteredItems.map((item) => {
-              const itemStocks = stocksByItem.get(item.id) ?? [];
+              const itemKey = `${item.owner}:${item.id}`;
+              const itemStocks = stocksByItem.get(itemKey) ?? [];
               const summary = summarizeStocks(itemStocks);
-              const isOpen = expanded.has(item.id);
+              const isOpen = expanded.has(itemKey);
               const editable = canEditItem(item, currentUser);
               return (
                 <div
-                  key={`${item.owner}:${item.id}`}
-                  id={`inventory-item-${item.id}`}
+                  key={itemKey}
+                  id={`inventory-item-${item.owner}-${item.id}`}
                   className="overflow-hidden rounded-xl border border-border bg-surface-raised"
                 >
                   {/* Item summary row */}
                   <div className="flex items-center justify-between gap-4 px-5 py-4">
                     <button
                       type="button"
-                      onClick={() => toggleExpanded(item.id)}
+                      onClick={() => toggleExpanded(itemKey)}
                       className="flex min-w-0 flex-1 items-center gap-3 text-left"
                       aria-expanded={isOpen}
                     >
@@ -613,8 +621,8 @@ export default function InventoryPage() {
             </h2>
             <p className="mt-2 text-body text-foreground-muted">
               This moves the item and its{" "}
-              {(stocksByItem.get(deletingItem.id) ?? []).length} stock
-              {(stocksByItem.get(deletingItem.id) ?? []).length === 1
+              {(stocksByItem.get(`${deletingItem.owner}:${deletingItem.id}`) ?? []).length} stock
+              {(stocksByItem.get(`${deletingItem.owner}:${deletingItem.id}`) ?? []).length === 1
                 ? ""
                 : "s"}{" "}
               to Trash. You can restore them from the Trash page.
@@ -654,7 +662,7 @@ function SignalView({
   kind: InventorySignalKind;
   signals: ReturnType<typeof computeInventorySignals>;
   onClear: () => void;
-  onOpen: (itemId: number) => void;
+  onOpen: (key: string) => void;
 }) {
   const meta = SIGNAL_CHIP[kind];
   const count =
@@ -697,7 +705,7 @@ function SignalView({
                 metaSuffix={stockMetaSuffix(sig.stock)}
                 annotation={sig.annotation}
                 chipStatus={sig.expired ? "expired" : sig.stock.status}
-                onOpen={() => onOpen(sig.item.id)}
+                onOpen={() => onOpen(`${sig.item.owner}:${sig.item.id}`)}
               />
             ))}
           {kind === "stale" &&
@@ -709,7 +717,7 @@ function SignalView({
                 metaSuffix={stockMetaSuffix(sig.stock)}
                 annotation={sig.annotation}
                 chipStatus={sig.stock.status}
-                onOpen={() => onOpen(sig.item.id)}
+                onOpen={() => onOpen(`${sig.item.owner}:${sig.item.id}`)}
               />
             ))}
           {kind === "low" &&
@@ -721,7 +729,7 @@ function SignalView({
                 metaSuffix="total across stocks"
                 annotation={sig.annotation}
                 chipStatus={sig.chipStatus}
-                onOpen={() => onOpen(sig.item.id)}
+                onOpen={() => onOpen(`${sig.item.owner}:${sig.item.id}`)}
               />
             ))}
         </div>
