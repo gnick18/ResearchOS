@@ -4607,13 +4607,15 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                   legacyAttachmentsDir={pdfsDir}
                   // Experiment-collab chunk 1: when the pilot flag is on and the
                   // task notes handle is open, the CRDT owns the live text (the
-                  // editor seeds from + syncs to the doc's "content"). collab
-                  // cursors render only while a session is live. Flag-off / open-
-                  // failure leaves these undefined so the legacy disk path is
-                  // unchanged.
-                  loroTaskHandle={
+                  // editor seeds from + syncs to the doc's "content"). The task
+                  // surface is a single text, so loroEntryIndex is 0 and there is
+                  // no loroBaseNote. collab cursors render only while a session is
+                  // live. Flag-off / open-failure leaves these undefined so the
+                  // legacy disk path is unchanged.
+                  loroHandle={
                     LORO_PILOT_ENABLED ? (loroHandle ?? undefined) : undefined
                   }
+                  loroEntryIndex={LORO_PILOT_ENABLED ? 0 : undefined}
                   collabEphemeral={collabActive ? collab.ephemeral : undefined}
                   collabUser={collabActive ? collabUser : undefined}
                 />
@@ -5306,13 +5308,15 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
                 // Experiment-collab chunk 2: when the pilot flag is on and the
                 // Results handle is open, the CRDT owns the live text (the
                 // editor seeds from + syncs to the Results doc's "content").
-                // This is the Results doc, independent of the Lab Notes doc.
-                // collab cursors render only while a session is live. Flag-off /
-                // open-failure leaves these undefined so the legacy disk path is
-                // unchanged.
-                loroTaskHandle={
+                // This is the Results doc, independent of the Lab Notes doc. The
+                // task surface is a single text, so loroEntryIndex is 0 and there
+                // is no loroBaseNote. collab cursors render only while a session
+                // is live. Flag-off / open-failure leaves these undefined so the
+                // legacy disk path is unchanged.
+                loroHandle={
                   LORO_PILOT_ENABLED ? (loroHandle ?? undefined) : undefined
                 }
+                loroEntryIndex={LORO_PILOT_ENABLED ? 0 : undefined}
                 collabEphemeral={collabActive ? collab.ephemeral : undefined}
                 collabUser={collabActive ? collabUser : undefined}
               />

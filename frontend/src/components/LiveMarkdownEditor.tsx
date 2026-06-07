@@ -13,8 +13,7 @@ import remarkUnderline from "@/lib/markdown/remark-underline";
 import { extractUserContent } from "@/lib/stamp-utils";
 import { attachmentsApi } from "@/lib/local-api";
 import InlineMarkdownEditor from "./InlineMarkdownEditor";
-import type { NoteHandle } from "@/lib/loro/store";
-import type { TaskDocHandle } from "@/lib/loro/task-store";
+import type { EditorLoroHandle } from "@/lib/loro/editor-handle";
 import type { Note } from "@/lib/types";
 import MarkdownShortcutsSidebar from "./MarkdownShortcutsSidebar";
 import { blobUrlResolver, encodeAttachmentRefPath } from "@/lib/utils/blob-url-resolver";
@@ -220,15 +219,14 @@ interface LiveMarkdownEditorProps {
   // Loro CRDT pilot pass-through props (forwarded to InlineMarkdownEditor only)
   // When absent, behavior is entirely unchanged.
   // ---------------------------------------------------------------------------
-  /** Loro note handle; when set, InlineMarkdownEditor runs in Loro mode. */
-  loroHandle?: NoteHandle;
-  /** Active entry index within the Loro doc. Defaults to 0. */
+  /** Loro handle (note or task surface); when set, InlineMarkdownEditor runs in
+   *  Loro mode. Either model is accepted via the shared EditorLoroHandle shape. */
+  loroHandle?: EditorLoroHandle;
+  /** Active entry index within the Loro doc. Defaults to 0. A task surface
+   *  ignores it. */
   loroEntryIndex?: number;
-  /** The live Note object for debounced-commit stamping. */
+  /** The live Note object for debounced-commit stamping (note path only). */
   loroBaseNote?: Note;
-  /** Experiment-collab chunk 1: a task's single-text markdown surface handle
-   *  (Lab Notes / Results). Mutually exclusive with loroHandle. */
-  loroTaskHandle?: TaskDocHandle;
   /**
    * The shared EphemeralStore for the live collab session.
    * Forwarded to InlineMarkdownEditor; when absent the editor is sync-only.
@@ -271,7 +269,6 @@ export default function LiveMarkdownEditor({
   loroHandle,
   loroEntryIndex,
   loroBaseNote,
-  loroTaskHandle,
   collabEphemeral,
   collabUser,
 }: LiveMarkdownEditorProps) {
@@ -2338,7 +2335,6 @@ export default function LiveMarkdownEditor({
                   loroHandle={loroHandle}
                   loroEntryIndex={loroEntryIndex}
                   loroBaseNote={loroBaseNote}
-                  loroTaskHandle={loroTaskHandle}
                   collabEphemeral={collabEphemeral}
                   collabUser={collabUser}
                 />
