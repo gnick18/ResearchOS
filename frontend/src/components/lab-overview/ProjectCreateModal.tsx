@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import Tooltip from "@/components/Tooltip";
+import LivingPopup from "@/components/ui/LivingPopup";
 import { projectsApi } from "@/lib/local-api";
 import type { Project } from "@/lib/types";
 
@@ -107,14 +108,7 @@ export default function ProjectCreateModal({
     };
   }, []);
 
-  // Escape closes the modal (matches the house popups).
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  // Escape / scrim close are owned by LivingPopup below.
 
   const submit = async () => {
     const trimmed = name.trim();
@@ -152,21 +146,24 @@ export default function ProjectCreateModal({
   };
 
   return (
-    <div
-      // z=440 mirrors SnapshotTilePopup: above InputLockOverlay (420) so the
-      // modal stays interactive inside the v4 tour, below the speech bubble
-      // (450) so a tour spotlight anchored on the panel is not occluded.
-      className="fixed inset-0 z-[440] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-label="New Research Project"
-      onClick={onClose}
+    // elevated -> z-[440], so the panel clears the v4 tour input lock (z-[420])
+    // the same way the old bespoke z-[440] scrim did. card=false keeps the
+    // panel's own chrome + header X (showClose=false); no blur per the popup
+    // policy (forms dim only).
+    <LivingPopup
+      open
+      onClose={onClose}
+      label="New Research Project"
+      card={false}
+      widthClassName="max-w-lg"
+      elevated
+      showClose={false}
     >
       <div
         // §6.1 FILL beat anchor: spotlights the whole create-form panel.
         data-tour-target="home-project-create-form"
         data-testid="project-create-modal"
-        className="bg-surface-raised rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col overflow-hidden"
+        className="pointer-events-auto bg-surface-raised rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden"
         style={{
           boxShadow:
             "0 1px 3px rgba(0,0,0,0.06), 0 20px 50px -10px rgba(0,0,0,0.25)",
@@ -293,6 +290,6 @@ export default function ProjectCreateModal({
           </button>
         </footer>
       </div>
-    </div>
+    </LivingPopup>
   );
 }

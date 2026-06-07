@@ -61,6 +61,28 @@ describe("LivingPopup editor knobs", () => {
     expect(wrap.className).not.toContain("items-start");
   });
 
+  it("elevated raises the root to z-[440] (clears a high-z overlay); default stays z-[400]", async () => {
+    const { container: elev } = render(
+      <LivingPopup open onClose={() => {}} label="Elevated" elevated>
+        <div>elevated body</div>
+      </LivingPopup>,
+    );
+    await screen.findByText("elevated body");
+    const elevRoot = elev.querySelector(".fixed.inset-0") as HTMLElement;
+    expect(elevRoot.className).toContain("z-[440]");
+    expect(elevRoot.className).not.toContain("z-[400]");
+
+    const { container: norm } = render(
+      <LivingPopup open onClose={() => {}} label="Normal">
+        <div>normal body</div>
+      </LivingPopup>,
+    );
+    await screen.findByText("normal body");
+    const normRoot = norm.querySelector(".fixed.inset-0") as HTMLElement;
+    expect(normRoot.className).toContain("z-[400]");
+    expect(normRoot.className).not.toContain("z-[440]");
+  });
+
   it("showClose=false hides the corner X (editors bring their own close)", async () => {
     const { container } = render(
       <LivingPopup open onClose={() => {}} label="Editor" showClose={false}>
