@@ -56,6 +56,7 @@ import { createCollabProvider, type CollabProvider } from "./relay-provider";
 import { createWebSocketTransport } from "./websocket-transport";
 import { encodeSessionLink, decodeSessionLink } from "./session-link";
 import { COLLAB_RELAY_URL } from "@/lib/loro/config";
+import { buildConnectTokenSuffix } from "@/lib/collab/client/connect-token";
 import { recordActor } from "@/lib/loro/actors";
 import { persistNote } from "@/lib/loro/sidecar-store";
 import type { NoteHandle } from "@/lib/loro/store";
@@ -214,7 +215,12 @@ export function useCollabSession(args: {
       });
 
       // Build the relay URL: relay's /ws endpoint, session capability in query.
-      const relayUrl = `${COLLAB_RELAY_URL}/ws?session=${encodeURIComponent(sessionId)}`;
+      // Always attach a member connect token when this device has a sharing
+      // identity. An OPEN doc ignores it; an ENFORCED doc requires it. Never
+      // gated by a flag and never blocks the connect (empty suffix on no
+      // identity / signing error), so the existing in-lab path is unchanged.
+      const authSuffix = buildConnectTokenSuffix(sessionId);
+      const relayUrl = `${COLLAB_RELAY_URL}/ws?session=${encodeURIComponent(sessionId)}${authSuffix}`;
       const transport = createWebSocketTransport(relayUrl);
 
       // Reuse the stable EphemeralStore created once for this hook instance.
