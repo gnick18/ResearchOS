@@ -40,6 +40,7 @@ import type {
 } from "@/lib/types";
 import ItemFormDialog from "@/components/inventory/ItemFormDialog";
 import ScanFlow from "@/components/inventory/ScanFlow";
+import SuppliesTabs from "@/components/inventory/SuppliesTabs";
 import StockFormDialog from "@/components/inventory/StockFormDialog";
 import StockRow from "@/components/inventory/StockRow";
 import InventoryHealth from "@/components/inventory/InventoryHealth";
@@ -321,6 +322,11 @@ export default function InventoryPage() {
   return (
     <AppShell>
       <div className="flex-1 overflow-auto p-6">
+        {/* Supplies hub header + loop strip (Supplies hub, 2026-06-07). Self-
+            gated on INVENTORY_ENABLED, and this branch is only reached when the
+            flag is on, so it sits above the Inventory header when the hub is
+            live and is absent otherwise. */}
+        <SuppliesTabs />
         {/* Header */}
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>

@@ -11,6 +11,7 @@ import NewPurchaseModal from "@/components/NewPurchaseModal";
 import PurchaseEditor from "@/components/PurchaseEditor";
 import SpendingDashboard from "@/components/SpendingDashboard";
 import DemoPurchasesViewer from "@/components/DemoPurchasesViewer";
+import SuppliesTabs from "@/components/inventory/SuppliesTabs";
 import FundingAccountsManager from "@/components/FundingAccountsManager";
 import LivingPopup from "@/components/ui/LivingPopup";
 import Tooltip from "@/components/Tooltip";
@@ -324,6 +325,12 @@ export default function PurchasesPage() {
   return (
     <AppShell>
       <div className="flex-1 overflow-auto p-6">
+        {/* Supplies hub header + loop strip (Supplies hub, 2026-06-07).
+            SuppliesTabs self-gates on INVENTORY_ENABLED and returns null when
+            the flag is off, so with the flag off (prod default) /purchases
+            renders EXACTLY as before. When the flag is on it adds the shared
+            tab header above the Purchases content. */}
+        <SuppliesTabs />
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-heading font-semibold text-foreground">Purchases</h2>
