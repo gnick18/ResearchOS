@@ -19,6 +19,14 @@ export const runtime = "nodejs";
 /** Palette for revenue sources, indexed deterministically by appearance order. */
 const REVENUE_COLORS = ["#10b981", "#0ea5e9", "#8b5cf6", "#f59e0b", "#ec4899", "#14b8a6"];
 
+/**
+ * Mobile platform / dev accounts (fixed business cost, not infra usage). Apple
+ * Developer Program is $99/year, shown amortized to a monthly line so the cost
+ * picture includes it. Google Play is a $25 one-time fee, recorded in the ledger
+ * when paid (not a monthly recurring line). See docs/ops/mobile-dev-accounts.
+ */
+const APPLE_DEV_MONTHLY_CENTS = Math.round(9900 / 12); // $99/yr -> ~$8.25/mo
+
 /** YYYY-MM prefix of the current month, for filtering ledger dates. */
 function monthPrefix(): string {
   return new Date().toISOString().slice(0, 7);
@@ -40,6 +48,7 @@ export async function GET(): Promise<Response> {
       { label: "Doc storage", vendor: "Durable Objects", cents: cost.doCents, fixed: false, color: "#0ea5e9" },
       { label: "File storage", vendor: "Cloudflare R2", cents: cost.r2Cents, fixed: false, color: "#10b981" },
       { label: "Activity", vendor: "Cloudflare", cents: cost.activityCents, fixed: false, color: "#8b5cf6" },
+      { label: "Dev accounts", vendor: "Apple Developer ($99/yr)", cents: APPLE_DEV_MONTHLY_CENTS, fixed: true, color: "#a855f7" },
     ];
 
     // Money IN, recorded revenue THIS MONTH grouped by category (empty until we
@@ -67,8 +76,9 @@ export async function GET(): Promise<Response> {
       // ledger unavailable, leave revenue empty
     }
 
+    const outTotalCents = outCategories.reduce((s, c) => s + c.cents, 0);
     return json(200, {
-      out: { categories: outCategories, totalCents: cost.totalCents },
+      out: { categories: outCategories, totalCents: outTotalCents },
       in: { categories: inCategories, totalCents: inTotalCents },
     });
   } catch {
