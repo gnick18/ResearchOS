@@ -818,6 +818,29 @@ const FIXTURE_ROUTES = [
     },
   },
   {
+    // The 1:1 (Mentoring / Check-ins) surface for the features/one-on-ones wiki
+    // page. The fixture's PI is mira (alex is a member), so sign in via
+    // ?fixtureUser=mira to surface the role-gated Mentoring tab. Click into the
+    // tab, then capture the left mentee list plus the four-area pane. Needs the
+    // 1:1 demo seed (mira's one_on_ones / weekly_goals / action items) to render
+    // populated; an unseeded fixture falls back to the "No 1:1s yet" empty state.
+    path: "/workbench?fixtureUser=mira",
+    file: "one-on-ones-surface.png",
+    waitFor: "text=Workbench",
+    settleMs: 800,
+    action: async (page) => {
+      try {
+        const tab = page
+          .locator('[data-tour-target="workbench-oneonone-tab"]')
+          .first();
+        if (await tab.count()) {
+          await tab.click({ timeout: 3000 });
+          await page.waitForTimeout(900);
+        }
+      } catch {}
+    },
+  },
+  {
     path: "/workbench",
     file: "experiments-editor.png",
     waitFor: "text=Workbench, text=Experiments",
