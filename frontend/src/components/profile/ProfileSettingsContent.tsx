@@ -11,9 +11,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import AppearanceCard from "@/components/profile/AppearanceCard";
-import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
+import CreateLocalIdentityStep from "@/components/sharing/CreateLocalIdentityStep";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
-import { startSharingClaimOAuth } from "@/lib/sharing/claim-oauth";
 import SharingSection, {
   ProfileEditorCard,
   RotateIdentityPopup,
@@ -50,6 +49,11 @@ export default function ProfileSettingsContent() {
   const [wizardStep, setWizardStep] = useState<"choose" | "email-enter">(
     "choose",
   );
+  // Create-account flow (P-local model, IDENTITY_OAUTH_ONLY.md 2026-06-06). The
+  // account is a LOCAL keypair minted offline with no OAuth, so the none-state
+  // leads with this instead of the provider buttons (which dead-end where OAuth
+  // is unconfigured). Publishing a findable profile stays an optional later step.
+  const [createOpen, setCreateOpen] = useState(false);
   const [rotateOpen, setRotateOpen] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [disconnectOpen, setDisconnectOpen] = useState(false);
@@ -151,30 +155,31 @@ export default function ProfileSettingsContent() {
 
       {/* Account and keys + Inbox and storage + Cloud storage (moved here from
           Settings, 2026-06-06, this is your account, not an app setting). When
-          nothing is set up yet, lead with the friendly four-button sign-in
-          instead of the plain identity stub. */}
+          no account exists on this device yet, lead with creating one. Under the
+          P-local model (IDENTITY_OAUTH_ONLY.md) the account is a LOCAL keypair
+          minted offline with no OAuth, so this opens CreateLocalIdentityStep,
+          the same flow the shared-folder login gate uses. Publishing a findable
+          profile (OAuth, or email) becomes the optional secondary step, offered
+          by SharingSection once the keypair exists. */}
       {sharing.status === "none" ? (
         <section className="bg-surface-raised rounded-xl border border-border p-6">
           <div className="mb-4">
             <h2 className="text-title font-semibold text-foreground">
-              Set up sharing
+              Set up your account
             </h2>
             <p className="text-meta text-foreground-muted mt-1 leading-relaxed">
-              Claim your account so colleagues can find you and confirm your
-              fingerprint before sending you work. It takes about a minute and
-              you stay in control of your keys.
+              Your account is a keypair created on this device. It works offline,
+              with no password and no sign-in, and it is what proves it is you
+              when you share work. You can publish a findable profile later so
+              colleagues can look you up, that part is optional.
             </p>
           </div>
-          <SharingProviderButtons onProvider={startSharingClaimOAuth} />
           <button
             type="button"
-            onClick={() => {
-              setWizardStep("email-enter");
-              setWizardOpen(true);
-            }}
-            className="mt-3 text-meta text-foreground-muted hover:text-foreground underline"
+            onClick={() => setCreateOpen(true)}
+            className="px-4 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
           >
-            Use email instead
+            Create your account
           </button>
         </section>
       ) : (
@@ -200,6 +205,25 @@ export default function ProfileSettingsContent() {
         />
       )}
 
+      {/* Create-account modal, the local-keypair path. createLocalIdentity mints
+          the keypair offline, parks the unlocked key in the session, and writes
+          the sidecar, so on complete we just refresh and the surface flips to the
+          identity card (status "ready"). Closing may leave a created account
+          behind (the keypair is minted before the recovery code shows), so we
+          refresh either way. */}
+      {createOpen && currentUser && (
+        <CreateLocalIdentityStep
+          username={currentUser}
+          onComplete={() => {
+            setCreateOpen(false);
+            void sharing.refresh();
+          }}
+          onClose={() => {
+            setCreateOpen(false);
+            void sharing.refresh();
+          }}
+        />
+      )}
       {wizardOpen && currentUser && (
         <SharingSetupWizard
           username={currentUser}
