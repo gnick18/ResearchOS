@@ -159,9 +159,17 @@ function monthStartISO(): string {
     .slice(0, 10);
 }
 
+/** The fixed monthly base split by vendor (Workers + Vercel = $25). */
+export const WORKERS_BASE_CENTS = 500;
+export const VERCEL_BASE_CENTS = 2000;
+
 export interface GlobalCostEstimate {
   /** Variable storage cost above the free tiers (DO + R2), excludes the base. */
   storageCents: number;
+  /** Variable Durable Objects (collab doc) storage cost. */
+  doCents: number;
+  /** Variable R2 (file) storage cost. */
+  r2Cents: number;
   /** Variable activity cost from this month's writes. */
   activityCents: number;
   /** The fixed monthly base (Workers + Vercel), shown for context, NOT budgeted. */
@@ -197,6 +205,8 @@ export async function estimateGlobalMonthlyCostCents(): Promise<GlobalCostEstima
   const variableCents = storageCents + activityCents;
   return {
     storageCents,
+    doCents: storage.doCents,
+    r2Cents: storage.r2Cents,
     activityCents,
     fixedBaseCents: storage.fixedBaseCents,
     variableCents,

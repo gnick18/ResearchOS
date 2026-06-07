@@ -16,6 +16,7 @@ import OperatorSignIn from "@/components/admin/OperatorSignIn";
 import Link from "next/link";
 import AppFooter from "@/components/AppFooter";
 import CostBreakerPanel from "@/components/admin/CostBreakerPanel";
+import SpendByCategoryPanel from "@/components/admin/SpendByCategoryPanel";
 import {
   computeSummary,
   emailArchiveMarkdown,
@@ -852,6 +853,10 @@ export default function BusinessTracker() {
 
       <div className="mt-6">
         <CostBreakerPanel />
+      </div>
+
+      <div className="mt-6">
+        <SpendByCategoryPanel />
       </div>
 
       <div className="mt-2">

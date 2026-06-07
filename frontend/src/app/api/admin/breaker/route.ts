@@ -14,6 +14,8 @@ import { auth } from "@/lib/sharing/auth";
 import { isAdminEmail } from "@/lib/sharing/admin";
 import { json } from "@/lib/sharing/directory/guard";
 import {
+  VERCEL_BASE_CENTS,
+  WORKERS_BASE_CENTS,
   ensureBreakerSchema,
   estimateGlobalMonthlyCostCents,
   getBreakerState,
@@ -39,7 +41,15 @@ export async function GET(): Promise<Response> {
       getBreakerState(),
       estimateGlobalMonthlyCostCents(),
     ]);
-    return json(200, { state, cost });
+    // Monthly spend broken into categories (vendor-tagged) for the visual.
+    const categories = [
+      { label: "Hosting", vendor: "Vercel", cents: VERCEL_BASE_CENTS, fixed: true, color: "#6366f1" },
+      { label: "Compute base", vendor: "Cloudflare Workers", cents: WORKERS_BASE_CENTS, fixed: true, color: "#f59e0b" },
+      { label: "Doc storage", vendor: "Durable Objects", cents: cost.doCents, fixed: false, color: "#0ea5e9" },
+      { label: "File storage", vendor: "Cloudflare R2", cents: cost.r2Cents, fixed: false, color: "#10b981" },
+      { label: "Activity", vendor: "Cloudflare", cents: cost.activityCents, fixed: false, color: "#8b5cf6" },
+    ];
+    return json(200, { state, cost, spend: { categories, totalCents: cost.totalCents } });
   } catch {
     return json(500, { error: "breaker status failed" });
   }
