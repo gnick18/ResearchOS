@@ -136,18 +136,34 @@ holds, the actions, and the selection / hover / on-screen model, then BeakerSear
 context card, suggested actions, navigable entities, and recent results for that
 page, with concrete examples.
 
-Each of these four now has a standalone, build-ready companion spec (the full
-context model mapped to real state, every Suggested variant wired to its real
-handler, the navigable entities, results, the long-tail command set, a typed
+Every top-level nav page now has a standalone, build-ready companion spec (the
+full context model mapped to real state, every Suggested variant wired to its
+real handler, the navigable entities, results, the long-tail command set, a typed
 `useBeakerSearchSource` sketch, and keyboard / permission / edge-case coverage):
 - Gantt, [`beakersearch-gantt.md`](./beakersearch-gantt.md)
 - Calendar, [`beakersearch-calendar.md`](./beakersearch-calendar.md)
 - Workbench, [`beakersearch-workbench.md`](./beakersearch-workbench.md)
 - Purchases, [`beakersearch-purchases.md`](./beakersearch-purchases.md)
+- Methods, [`beakersearch-methods.md`](./beakersearch-methods.md)
+- Lab Overview, [`beakersearch-lab-overview.md`](./beakersearch-lab-overview.md)
+- Home, [`beakersearch-home.md`](./beakersearch-home.md)
+- Links, [`beakersearch-links.md`](./beakersearch-links.md)
+
+Sequences is the built reference (no separate spec needed), and `/search` stays
+the deep faceted page that BeakerSearch's inline global search complements rather
+than replaces. That is the whole nav covered.
 
 The sections below stay as the concept-level summary; the companion docs are the
-implementation source of truth, and two grounding corrections they surfaced are
-folded in here.
+implementation source of truth. The grounding corrections the planners surfaced
+against this master doc are folded in below, the most important being that Home
+(`/`) is now a pure REDIRECT ROUTER, not a dashboard, it bounces lab heads to
+`/lab-overview` and everyone else to `/workbench`, so it likely needs no page
+source at all, just a global launchpad card and the global layer. Lab Overview is
+lab-head-only and gates every mutating command behind the live edit session
+(`useLiveEditSession`, `isLive && username === currentUser`), except the
+Announcements composer which is intentionally ungated. Methods has no persistent
+type/category filter (only free-text search), and Links has a stub preview fetch
+plus no category-filter state yet, both noted in their specs.
 
 ### Gantt (`/gantt`)
 

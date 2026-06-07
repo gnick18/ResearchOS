@@ -67,13 +67,33 @@ build-ready follow-up spec per page (done, see below).
   (its relationship to the existing full-page `/search`, composite `owner:id`
   keys, deep-link param preservation), rollout, open questions. Links out to the
   four companion specs.
-- `beakersearch-gantt.md` (720 lines), `beakersearch-calendar.md` (~700),
-  `beakersearch-workbench.md` (717), `beakersearch-purchases.md` (560). Each is
-  the build-ready spec for that page: entity model + composite/query keys, the
+- One build-ready companion spec PER top-level nav page, all on `main`:
+  `beakersearch-gantt.md` (720), `beakersearch-calendar.md` (~700),
+  `beakersearch-workbench.md` (717), `beakersearch-purchases.md` (560),
+  `beakersearch-methods.md` (711), `beakersearch-lab-overview.md` (747),
+  `beakersearch-home.md` (608), `beakersearch-links.md` (686). Each is the
+  build-ready spec for that page: entity model + composite/query keys, the
   four-signal context model mapped to real state vars, every Suggested variant
   wired to its exact real handler + `enabled` predicate, navigable entities,
   results, the long-tail command set, a typed `useBeakerSearchSource`
-  implementation sketch, and keyboard / permission / edge-case coverage.
+  implementation sketch, and keyboard / permission / edge-case coverage. The
+  whole nav is now covered. Sequences is the built reference (no spec needed),
+  and `/search` is the deep faceted page BeakerSearch's inline global search
+  complements.
+
+  Grounding corrections the planners surfaced (all folded into the master doc):
+  - Home (`/`) is a pure REDIRECT ROUTER now (bounces lab heads to
+    `/lab-overview`, everyone else to `/workbench`), not a dashboard, so it
+    likely needs no page source, just a global launchpad card.
+  - Gantt filter is `"all" | "explicit"` over a custom React grid; window is
+    `ganttStartDate` + `viewMode` store state.
+  - Lab Overview is lab-head-only and gates every mutating command behind
+    `useLiveEditSession` (`isLive && username === currentUser`), EXCEPT the
+    Announcements composer which is intentionally ungated.
+  - Methods has no persistent type/category filter (only free-text search) and
+    no viewer-level fork button (fork lives in `DeviationModal`).
+  - Links has a stub `getPreview` and no category-filter state yet (both need a
+    small lift).
 
 ### Two grounding corrections the planners surfaced (folded into the master doc)
 
