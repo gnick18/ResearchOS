@@ -34,13 +34,11 @@ function IconMap({ className }: { className?: string }) {
   );
 }
 function IconSequence({ className }: { className?: string }) {
-  // base letters on a strand
+  // base letters A G C over the strand
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <line x1="3" y1="17" x2="21" y2="17" />
-      <path d="M5 13V8M5 8h2.5a1.5 1.5 0 0 1 0 3H5" />
-      <path d="M11 13V8l4 5V8" />
-      <path d="M19 8h-2v5h2" />
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <text x="12" y="13" textAnchor="middle" fontSize="8.5" fontWeight="800" letterSpacing="1" fill="currentColor" fontFamily="ui-monospace, Menlo, monospace">AGC</text>
+      <line x1="3" y1="18" x2="21" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }

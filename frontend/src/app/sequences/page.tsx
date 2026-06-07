@@ -209,10 +209,16 @@ function AlignIcon({ className }: { className?: string }) {
  *  remote database into the local collection). Inline SVG, stroke-only. */
 function NcbiCloudIcon({ className }: { className?: string }) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <path d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9" />
-      <polyline points="8 17 12 21 16 17" />
-      <line x1="12" y1="12" x2="12" y2="21" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <g stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9" />
+        <polyline points="8 17 12 21 16 17" />
+        <line x1="12" y1="12" x2="12" y2="21" />
+      </g>
+      <g>
+        <rect x="13" y="2.5" width="9.5" height="6" rx="1.5" fill="#20558a" />
+        <text x="17.75" y="7" textAnchor="middle" fontSize="3.6" fontWeight="800" fill="#fff" fontFamily="Arial, sans-serif">NCBI</text>
+      </g>
     </svg>
   );
 }
@@ -1528,10 +1534,17 @@ export default function SequencesPage() {
                         aria-hidden="true"
                         className="h-3 w-3 shrink-0"
                       >
-                        <circle cx="6" cy="6" r="2.2" />
-                        <circle cx="6" cy="18" r="2.2" />
-                        <circle cx="18" cy="12" r="2.2" />
-                        <path d="M8.2 6.8 15.6 11M8.2 17.2 15.6 13" />
+                        <path d="M12 20.5V7" />
+                        <path d="M10.5 20.5h3" />
+                        <circle cx="12" cy="4.8" r="1.7" />
+                        <path d="M12 11 7.6 8.4" />
+                        <circle cx="6.2" cy="7.6" r="1.7" />
+                        <path d="M12 11 16.4 8.4" />
+                        <circle cx="17.8" cy="7.6" r="1.7" />
+                        <path d="M12 15 8 12.9" />
+                        <circle cx="6.6" cy="12.1" r="1.7" />
+                        <path d="M12 15 16 12.9" />
+                        <circle cx="17.4" cy="12.1" r="1.7" />
                       </svg>
                       <span className="truncate">{selected.organism}</span>
                     </span>
@@ -1884,10 +1897,17 @@ export default function SequencesPage() {
                               aria-hidden="true"
                               className="h-3 w-3 shrink-0"
                             >
-                              <circle cx="6" cy="6" r="2.2" />
-                              <circle cx="6" cy="18" r="2.2" />
-                              <circle cx="18" cy="12" r="2.2" />
-                              <path d="M8.2 6.8 15.6 11M8.2 17.2 15.6 13" />
+                              <path d="M12 20.5V7" />
+                              <path d="M10.5 20.5h3" />
+                              <circle cx="12" cy="4.8" r="1.7" />
+                              <path d="M12 11 7.6 8.4" />
+                              <circle cx="6.2" cy="7.6" r="1.7" />
+                              <path d="M12 11 16.4 8.4" />
+                              <circle cx="17.8" cy="7.6" r="1.7" />
+                              <path d="M12 15 8 12.9" />
+                              <circle cx="6.6" cy="12.1" r="1.7" />
+                              <path d="M12 15 16 12.9" />
+                              <circle cx="17.4" cy="12.1" r="1.7" />
                             </svg>
                             <span className="truncate">{s.organism}</span>
                           </span>

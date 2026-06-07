@@ -323,15 +323,14 @@ function railSvg(children: React.ReactNode) {
 const RailIcons = {
   primers: railSvg(
     <>
-      <path d="M4 12h10" />
-      <path d="M14 9l4 3-4 3" />
+      <line x1="3" y1="17" x2="21" y2="17" />
+      <path d="M6 11h9l-2.5-2.5M6 11l2.5 2.5" />
     </>,
   ),
   cloning: railSvg(
     <>
-      <circle cx="7" cy="7" r="3" />
-      <circle cx="17" cy="17" r="3" />
-      <path d="M9.5 9.5l5 5" />
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 4a8 8 0 0 1 6.9 4" strokeWidth="4" />
     </>,
   ),
   cut: railSvg(
@@ -341,15 +340,45 @@ const RailIcons = {
       <path d="M8 7l12 9M8 17L20 8" />
     </>,
   ),
-  annotate: railSvg(<path d="M4 12l5 5L20 6" />),
-  align: railSvg(<path d="M4 7h12M4 12h16M4 17h9" />),
-  protein: railSvg(<path d="M5 5c4 4 10 6 14 14M5 19c4-4 10-6 14-14" />),
+  annotate: railSvg(
+    <>
+      <path d="M4 20 13.5 10.5" />
+      <path d="M16 3.5l1.3 2.7 2.9 1.3-2.9 1.3L16 11.5l-1.3-2.7L11.8 7.5l2.9-1.3z" />
+      <path d="M6 5l.6 1.4L8 7l-1.4.6L6 9l-.6-1.4L4 7l1.4-.6z" />
+    </>,
+  ),
+  align: railSvg(
+    <>
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="4" y1="17" x2="20" y2="17" />
+      <line x1="8" y1="7" x2="8" y2="17" strokeDasharray="1.5 2.5" />
+      <line x1="12" y1="7" x2="12" y2="17" strokeDasharray="1.5 2.5" />
+      <line x1="16" y1="7" x2="16" y2="17" strokeDasharray="1.5 2.5" />
+    </>,
+  ),
+  protein: railSvg(
+    <>
+      <path d="M4.5 13 8 8.5 12 12.5 16 8.5 19.5 13" strokeWidth="1.6" />
+      <circle cx="4.5" cy="13" r="1.8" />
+      <circle cx="8" cy="8.5" r="1.8" />
+      <circle cx="12" cy="12.5" r="1.8" />
+      <circle cx="16" cy="8.5" r="1.8" />
+      <circle cx="19.5" cy="13" r="1.8" />
+    </>,
+  ),
   tree: railSvg(
     <>
-      <circle cx="6" cy="6" r="2" />
-      <circle cx="6" cy="18" r="2" />
-      <circle cx="18" cy="12" r="2" />
-      <path d="M8 6.7l8 4.3M8 17.3l8-4.3" />
+      <path d="M12 20.5V7" />
+      <path d="M10.5 20.5h3" />
+      <circle cx="12" cy="4.8" r="1.7" />
+      <path d="M12 11 7.6 8.4" />
+      <circle cx="6.2" cy="7.6" r="1.7" />
+      <path d="M12 11 16.4 8.4" />
+      <circle cx="17.8" cy="7.6" r="1.7" />
+      <path d="M12 15 8 12.9" />
+      <circle cx="6.6" cy="12.1" r="1.7" />
+      <path d="M12 15 16 12.9" />
+      <circle cx="17.4" cy="12.1" r="1.7" />
     </>,
   ),
   export: railSvg(
@@ -406,14 +435,38 @@ const ActionGlyphs = {
       <path d="M4 20v-5h5" />
     </>,
   ),
-  align: actionSvg(<path d="M4 7h12M4 12h16M4 17h9" />),
-  protein: actionSvg(<path d="M5 5c4 4 10 6 14 14M5 19c4-4 10-6 14-14" />),
+  align: actionSvg(
+    <>
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="4" y1="17" x2="20" y2="17" />
+      <line x1="8" y1="7" x2="8" y2="17" strokeDasharray="1.5 2.5" />
+      <line x1="12" y1="7" x2="12" y2="17" strokeDasharray="1.5 2.5" />
+      <line x1="16" y1="7" x2="16" y2="17" strokeDasharray="1.5 2.5" />
+    </>,
+  ),
+  protein: actionSvg(
+    <>
+      <path d="M4.5 13 8 8.5 12 12.5 16 8.5 19.5 13" strokeWidth="1.6" />
+      <circle cx="4.5" cy="13" r="1.8" />
+      <circle cx="8" cy="8.5" r="1.8" />
+      <circle cx="12" cy="12.5" r="1.8" />
+      <circle cx="16" cy="8.5" r="1.8" />
+      <circle cx="19.5" cy="13" r="1.8" />
+    </>,
+  ),
   tree: actionSvg(
     <>
-      <circle cx="6" cy="6" r="2" />
-      <circle cx="6" cy="18" r="2" />
-      <circle cx="18" cy="12" r="2" />
-      <path d="M8 6.7l8 4.3M8 17.3l8-4.3" />
+      <path d="M12 20.5V7" />
+      <path d="M10.5 20.5h3" />
+      <circle cx="12" cy="4.8" r="1.7" />
+      <path d="M12 11 7.6 8.4" />
+      <circle cx="6.2" cy="7.6" r="1.7" />
+      <path d="M12 11 16.4 8.4" />
+      <circle cx="17.8" cy="7.6" r="1.7" />
+      <path d="M12 15 8 12.9" />
+      <circle cx="6.6" cy="12.1" r="1.7" />
+      <path d="M12 15 16 12.9" />
+      <circle cx="17.4" cy="12.1" r="1.7" />
     </>,
   ),
   search: actionSvg(
