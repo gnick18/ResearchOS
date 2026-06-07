@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Inventory icon chooser (round 2)</title>
+<style>
+  :root{--surface:#ffffff;--raised:#ffffff;--sunken:#f8fafc;--fg:#171717;--muted:#6b7280;--border:#e5e7eb;--action:#1283C9;--purple:#5B47D6;--rose:#be123c;--emerald:#047857;--amber:#b45309;--slate:#475569;--page:#eef2f7}
+  [data-theme="dark"]{--surface:#0a0e1a;--raised:#131c2e;--sunken:#0d1424;--fg:#f1f5f9;--muted:#b4bfd0;--border:rgba(255,255,255,.22);--action:#3aa0e0;--purple:#8170e6;--rose:#fda4af;--emerald:#6ee7b7;--amber:#fcd34d;--slate:#cbd5e1;--page:#05080f}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--page);color:var(--fg)}
+  .topbar{position:sticky;top:0;z-index:50;background:var(--page);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .topbar h1{font-size:16px;margin:0;font-weight:700}.topbar .sub{font-size:12.5px;color:var(--muted)}
+  .spacer{flex:1}
+  .btn{font:inherit;font-size:13px;border:1px solid var(--border);background:var(--raised);color:var(--fg);border-radius:8px;padding:7px 12px;cursor:pointer}
+  .btn-brand{background:linear-gradient(135deg,var(--action),var(--purple));color:#fff;border:none}
+  .wrap{max-width:1000px;margin:0 auto;padding:20px 20px 110px}
+  .note{font-size:12.5px;color:var(--muted);max-width:820px;margin:12px 0 16px}
+  .locked{display:flex;gap:14px;flex-wrap:wrap;border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:14px 16px;margin-bottom:8px}
+  .locked .lk{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
+  .locked .lk .g{width:22px;height:22px;color:var(--fg)}
+  .locked .lk b{color:var(--fg);font-weight:600}
+  .iconrow{border:1px solid var(--border);border-radius:14px;background:var(--surface);margin:18px 0;overflow:hidden}
+  .iconrow .head{padding:12px 16px;border-bottom:1px solid var(--border);background:var(--sunken)}
+  .iconrow .head .nm{font-size:14px;font-weight:700}
+  .iconrow .head .use{font-size:12px;color:var(--muted);margin-top:2px}
+  .variants{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;padding:16px}
+  .opt{border:1px solid var(--border);border-radius:11px;background:var(--raised);padding:14px 8px;text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px}
+  .opt:hover{background:var(--sunken)}
+  .opt.sel{outline:2px solid var(--action);outline-offset:-1px;background:color-mix(in srgb,var(--action) 8%,var(--raised))}
+  .opt .glyph{height:40px;display:flex;align-items:center;justify-content:center}
+  .opt .glyph svg{width:28px;height:28px}
+  .opt .tile{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:8px;padding:3px 8px;font-size:11px;color:var(--muted)}
+  .opt .tile svg{width:15px;height:15px;color:var(--rose)}
+  .opt .vlabel{font-size:11px;color:var(--muted)}
+  .opt.cur{border-color:var(--action)}
+  .opt.cur .vlabel b{color:var(--action)}
+  svg{display:block;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  /* open section */
+  .openexpl{padding:16px}
+  .demorow{display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid var(--border);border-left:3px solid var(--rose);border-radius:9px;background:var(--raised);padding:11px 14px;max-width:560px}
+  .demorow .nm{font-size:13.5px;font-weight:600}.demorow .meta{font-size:12px;color:var(--muted)}
+  .demorow .signal{font-size:12px;font-weight:600;color:var(--rose);margin-top:2px}
+  .openopts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px;max-width:560px}
+  .miniact{height:26px;width:26px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--muted);display:inline-flex;align-items:center;justify-content:center}
+  .miniact svg{width:14px;height:14px}
+  #exportModal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+  #exportModal .box{background:var(--raised);color:var(--fg);border-radius:14px;max-width:680px;width:100%;padding:18px;border:1px solid var(--border)}
+  #exportModal textarea{width:100%;min-height:200px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--fg);padding:10px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div><h1>Inventory icon chooser, round 2</h1><div class="sub">Two left to settle: the low/gauge glyph and the open affordance. Pick, then Export.</div></div>
+  <div class="spacer"></div>
+  <button class="btn" id="themeBtn">Dark mode</button>
+  <button class="btn btn-brand" id="exportBtn">Export picks</button>
+</div>
+<div class="wrap">
+  <p class="note">Three are locked from round 1, shown below for reference. Below that, more options for the low/gauge glyph (gauge-low kept in so you can compare), and a short explanation of the open affordance with the simplest answer being no icon at all.</p>
+
+  <div class="locked" id="locked"></div>
+  <div style="font-size:11.5px;color:var(--muted);margin:4px 0 6px">Locked from round 1, no action needed.</div>
+
+  <div id="lowRow"></div>
+  <div id="openRow"></div>
+</div>
+
+<div id="exportModal"><div class="box">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><strong style="font-size:14px">Icon picks (round 2)</strong><span class="spacer" style="flex:1"></span><button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('exportText').value)">Copy</button><button class="btn" onclick="document.getElementById('exportModal').style.display='none'">Close</button></div>
+  <textarea id="exportText" readonly></textarea>
+</div></div>
+
+<script>
+const locked=[
+ ["Expiring",'<svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 10v3l2 2"/><path d="M5 4 2.5 6.5M19 4l2.5 2.5M7 20l-1.5 2M17 20l1.5 2"/></svg>',"alarm clock"],
+ ["Stale",'<svg viewBox="0 0 24 24"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/></svg>',"hourglass"],
+ ["Minus",'<svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>',"plain minus"],
+];
+document.getElementById('locked').innerHTML=locked.map(l=>'<span class="lk"><span class="g">'+l[1]+'</span><b>'+l[0]+'</b> '+l[2]+'</span>').join('');
+
+// LOW variants (more options). v0 = the round-1 gauge-low (current favorite).
+const lowVariants=[
+ ["gauge low (current)",'<path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l-3-4"/><circle cx="12" cy="18" r="1.2" fill="currentColor" stroke="none"/>'],
+ ["fuel gauge E-F",'<path d="M3 17a9 9 0 1 1 18 0"/><path d="M12 17l-4.5-3"/><circle cx="12" cy="17" r="1.1" fill="currentColor" stroke="none"/><path d="M5.5 16h.5M18 16h.5"/>'],
+ ["battery low",'<rect x="2" y="8" width="16" height="9" rx="2"/><path d="M22 11v3"/><rect x="4.5" y="10.5" width="3.5" height="4" fill="currentColor" stroke="none"/>'],
+ ["test tube low",'<path d="M8 2h8M9.5 2v14a2.5 2.5 0 0 0 5 0V2"/><path d="M9.5 13.5a2.5 2.5 0 0 0 5 0V13h-5z" fill="currentColor" stroke="none"/>'],
+ ["beaker low",'<path d="M8 3h8M10 3v6l-4.5 9.2A1 1 0 0 0 6.4 20h11.2a1 1 0 0 0 .9-1.8L14 9V3"/><path d="M7.4 16.5l1-2h7.2l1 2z" fill="currentColor" stroke="none"/>'],
+ ["bottle low",'<path d="M10 2h4v3.2l1.8 2.6A2 2 0 0 1 16 9v9a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V9a2 2 0 0 1 .2-1.2L10 5.2z"/><path d="M8 15.5h8V18a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2z" fill="currentColor" stroke="none"/>'],
+ ["dropper low",'<path d="M12 3s5 6 5 10a5 5 0 0 1-10 0c0-4 5-10 5-10z"/><path d="M7.4 14.5a5 5 0 0 0 9.2 0z" fill="currentColor" stroke="none"/>'],
+ ["bars descending",'<path d="M5 9v9M5 18H3.5M12 13v5M19 16v2"/><circle cx="5" cy="6" r="1" fill="currentColor" stroke="none"/>'],
+ ["level line low",'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M5 15h14"/><path d="M5 15h14v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z" fill="currentColor" stroke="none"/>'],
+ ["arrow down",'<path d="M12 4v14"/><path d="M18 12l-6 6-6-6"/>'],
+];
+
+const KEY='inv-icon-picks-r2-2026-06-07';
+const picks=JSON.parse(localStorage.getItem(KEY)||'{}');
+function save(){localStorage.setItem(KEY,JSON.stringify(picks));}
+
+// build LOW row
+(function(){
+  const row=document.createElement('div');row.className='iconrow';
+  let h='<div class="head"><div class="nm" style="color:var(--rose)">Low or empty</div><div class="use">the low tile + chip. You liked gauge-low, here are more to compare (several lean on lab containers running low).</div></div><div class="variants">';
+  lowVariants.forEach((v,i)=>{
+    const svg='<svg viewBox="0 0 24 24">'+v[1]+'</svg>';
+    const cur=i===0?' cur':'';
+    h+='<div class="opt'+cur+'" data-k="low" data-v="'+i+'"><div class="glyph" style="color:var(--rose)">'+svg+'</div><div class="tile">'+svg+' tile</div><div class="vlabel">'+(i===0?'<b>'+v[0]+'</b>':v[0])+'</div></div>';
+  });
+  h+='</div>';row.innerHTML=h;document.getElementById('lowRow').appendChild(row);
+})();
+
+// build OPEN row (explanation + 3 choices)
+(function(){
+  const row=document.createElement('div');row.className='iconrow';
+  const chevron='<svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg>';
+  const arrow='<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+  let h='<div class="head"><div class="nm" style="color:var(--action)">Open / go to</div><div class="use">This is the affordance on a signal row that takes you to that item in the main list. Below is a real low-or-empty row so you can see where it sits.</div></div>';
+  h+='<div class="openexpl">';
+  h+='<div class="demorow"><div><div class="nm">Q5 High-Fidelity DNA Polymerase</div><div class="meta">Reagent &middot; NEB &middot; total across stocks</div><div class="signal">1 vial, below your threshold of 2</div></div><div id="demoafford"></div></div>';
+  h+='<div class="openopts">';
+  h+='<div class="opt" data-k="open" data-v="rowclick"><div class="glyph" style="color:var(--muted);font-size:11px;text-align:center">whole row<br>is clickable</div><div class="vlabel"><b>no icon</b> (recommended)</div></div>';
+  h+='<div class="opt" data-k="open" data-v="chevron"><div class="glyph" style="color:var(--action)">'+chevron+'</div><div class="vlabel">small chevron</div></div>';
+  h+='<div class="opt" data-k="open" data-v="arrow"><div class="glyph" style="color:var(--action)">'+arrow+'</div><div class="vlabel">arrow</div></div>';
+  h+='</div></div>';
+  row.innerHTML=h;document.getElementById('openRow').appendChild(row);
+})();
+
+function demoAfford(){
+  const v=picks.open;const host=document.getElementById('demoafford');if(!host)return;
+  if(v==='chevron')host.innerHTML='<span class="miniact" style="color:var(--action)"><svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></span>';
+  else if(v==='arrow')host.innerHTML='<span class="miniact" style="color:var(--action)"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>';
+  else host.innerHTML='<span style="font-size:11px;color:var(--muted)">click row &rarr;</span>';
+}
+function paint(){document.querySelectorAll('.opt').forEach(o=>{o.classList.toggle('sel',String(picks[o.dataset.k])===String(o.dataset.v));});demoAfford();}
+document.querySelectorAll('.opt').forEach(o=>{o.onclick=()=>{picks[o.dataset.k]=o.dataset.v;save();paint();};});
+if(picks.open===undefined){picks.open='rowclick';}
+paint();
+
+document.getElementById('themeBtn').onclick=function(){const r=document.documentElement;const d=r.getAttribute('data-theme')==='dark';r.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Dark mode':'Light mode';};
+document.getElementById('exportBtn').onclick=function(){
+  let out='INVENTORY ICON PICKS (round 2) — '+new Date().toString().slice(0,21)+'\\n'+'='.repeat(44)+'\\n\\n';
+  out+='Locked from round 1: Expiring=alarm clock, Stale=hourglass, Minus=plain minus\\n\\n';
+  const lv=picks.low;out+='Low or empty: '+(lv!=null?'variant '+(Number(lv)+1)+' ('+lowVariants[Number(lv)][0]+')':'(not picked)')+'\\n';
+  const ov=picks.open;out+='Open / go to: '+(ov==='rowclick'?'NO ICON, whole row clickable':ov==='chevron'?'small chevron':ov==='arrow'?'arrow':'(not picked)')+'\\n';
+  document.getElementById('exportText').value=out;document.getElementById('exportModal').style.display='flex';
+};
+</script>
+</body>
+</html>
