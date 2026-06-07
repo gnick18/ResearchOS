@@ -177,11 +177,21 @@ all five docs are committed. Likely next moves, in priority order:
        (no per-page task route), so that handler was extended to resolve the
        composite `taskKey` (Grant approved pulling the shared-task opener into v1,
        to match methods/projects/sequences which already open shared records).
-     - CHUNKS 2 to 4 (NEXT): chunk 2 the global NAVIGATE source (grouping,
-       type-weight + recency ranking, caps, 120ms debounce, on-page de-dup);
-       chunk 3 the `/search` "Search everything for <q>" handoff row +
-       `?keywords=` reader; chunk 4 the per-user `localStorage` Recent-records
-       MRU. All scoped in the decisions doc.
+     - CHUNK 2 DONE + on `main` (commit `864416a79`): the global NAVIGATE source
+       is now VISIBLE in the palette. `global-source.ts` (pure `rankGlobalEntries`
+       + `activePageTypeForPath`, type-weight + recency ranking, 5-per-type /
+       12-overall caps, on-page de-dup, empty-query yields nothing), a new
+       `"object"` PaletteItem kind in `editor-commands.ts` spliced between the
+       page's own groups and the global Go to / App commands, the palette renders
+       + 120ms-debounces the object ranking, and `BeakerSearchProvider` feeds the
+       index + active page type + a router-push navigate. 15 new unit tests, tsc
+       clean, all green. This is the first chunk Grant can test live (Cmd-K on any
+       page, type a task/project/method/sequence name, Enter jumps via its
+       deep-link; shared-task jumps exercise the chunk-1 opener).
+     - CHUNKS 3 to 4 (NEXT): chunk 3 the `/search` "Search everything for <q>"
+       handoff row + `?keywords=` reader; chunk 4 the per-user `localStorage`
+       Recent-records MRU (the empty-query global section). Both scoped in the
+       decisions doc.
    - Step 3, add page sources one at a time per the specs (Gantt, Calendar,
      Workbench, Purchases, Methods, Lab Overview, Links).
    - Step 4, app-wide mouse-awareness (`[data-beaker-target]` hover capture) last.
