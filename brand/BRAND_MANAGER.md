@@ -100,8 +100,11 @@ Always commit new assets + their generator + a line in `brand/README.md`.
 - **Bluesky:** `@researchos.bsky.social` (display name ResearchOS). Can later
   switch the handle to `@research-os.app` (Settings > Account > Handle > "I have
   my own domain" -> add a DNS TXT record in Vercel -> verify). Banner 3:1, avatar.
-- **LinkedIn company page:** `linkedin.com/company/research-os-app`
-  (numeric id 125604102). Branded: logo, cover, tagline, website, About.
+- **LinkedIn company page:** canonical page is numeric id `125434048` (admin at
+  `linkedin.com/company/125434048/admin/`). Branded: logo, banner, tagline,
+  website, industry, description, company type Privately Held, year founded 2026.
+  An earlier duplicate `research-os-app` (id 125604102) was deactivated, do not
+  use it. Grant's profile lists Founder at ResearchOS linked to this page.
 - **Email:** `support@research-os.app` already forwards to gnickles@wisc.edu via
   ForwardEmail (MX is forwardemail.net). DNS for research-os.app is on Vercel.
   Add aliases with a `forward-email=<alias>:gnickles@wisc.edu` TXT record. This
