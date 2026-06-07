@@ -250,9 +250,30 @@ all five docs are committed. Likely next moves, in priority order:
          via a pure `parseCalendarDate` (strict YYYY-MM-DD + today/tomorrow + "Jun
          9" style) -> a "Go to <date>" row calling goToDate. General, any page can
          interpret typed input ("Create a task named <query>", etc.). 9 new tests.
-     - NEXT pages per the same pattern (mockup -> approve -> build): Workbench,
-       Purchases, Methods, Lab Overview, Links. Reuse buildGantt/buildCalendar as
-       templates; the `interpretQuery` seam exists now for typed-input niceties.
+     - WORKBENCH DONE + on `main` (commit `839a0eb98`, mockup
+       `docs/mockups/beakersearch-workbench-palette.html` approved): the main hub,
+       one source spanning all five tabs. Pure `buildWorkbenchSource()`
+       (`app/workbench/workbench-beaker-source.ts`, 23 tests) +
+       `useWorkbenchBeakerSource()` + the page wire. Context card (tab + filter +
+       selection), selection-aware Suggested, the HEADLINE cross-tab jump-to-any
+       (experiment "task"/amber, project "project"/violet, note+notebook "note"/
+       indigo, 1:1 "person"/pink) + tab switches, Recently opened (cross-tab
+       localStorage MRU), Create / Filter / Open-a-notebook commands. Added "note"
+       + "person" PaletteTones. The cross-tab jump uses a lifted `pendingOpen`
+       intent on the page + a new `initialOpen` prop on all four panels
+       (Experiments/Lists/Notes/1:1), modeled on NotesPanel's `initialNotebookId`.
+       tsc clean, 76 tests green.
+       - SIMPLIFICATIONS (spec-authorized, v1): the focused SELECTION is the page's
+         lifted "most recently opened via the palette" entity, NOT a live read of
+         each panel's private popup state (lifting all of it is a big rewrite). So
+         the context card / Suggested name the last palette-opened entity, not one
+         opened by a raw card click. Hover-as-context (spec 3.4, [data-beaker-
+         target]) is NOT wired (that is Step 4). Row actions open the entity +
+         switch tab rather than re-implementing each mutation. Detail echoes are
+         light approximations, not the panel's full assignSection.
+     - NEXT pages per the same pattern (mockup -> approve -> build): Purchases,
+       Methods, Lab Overview, Links. Reuse buildGantt/Calendar/Workbench as
+       templates; interpretQuery seam exists for typed-input niceties.
    - Step 4, app-wide mouse-awareness (`[data-beaker-target]` hover capture) last.
 3. **Optional small follow-up:** the EventModal task-picker UI so a user can
    actually create an event-to-task link (the field exists, the UI does not).
