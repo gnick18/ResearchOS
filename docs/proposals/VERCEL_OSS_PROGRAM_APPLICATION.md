@@ -102,11 +102,13 @@ sharp niche (a local-first, fully open ELN that researchers actually own) at a m
 when labs need NIH Data Management and Sharing compliance and a credible alternative
 to vendor-locked notebooks.
 
-Real numbers as of June 2026 (update right before submitting): GitHub repo created
-2026-02-15, roughly 3,300 commits, 1 primary contributor (the maintainer). Add by
-submit time: GitHub stars (grow these before applying), demo visit numbers from
-Vercel Web Analytics, any beta testers, and any lab or institutional pilots. Keep it
-honest, the reviewers weight growth potential and do not reward inflated figures.
+Real numbers as of June 2026 (update right before submitting): the hosted demo is
+already drawing roughly 20 to 30 visitors a day (Vercel Web Analytics), which for a
+four-month-old project with no paid promotion is real early traction. GitHub repo
+created 2026-02-15, roughly 3,300 commits, 1 primary contributor (the maintainer).
+Add by submit time: the latest daily and monthly visit numbers, GitHub stars (grow
+these before applying), any beta testers, and any lab or institutional pilots. Keep
+it honest, the reviewers weight growth potential and do not reward inflated figures.
 
 ### Maintainer
 
