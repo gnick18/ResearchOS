@@ -274,8 +274,8 @@ function IconSave({ className }: { className?: string }) {
 function IconCopy({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <rect x="9" y="9" width="13" height="13" rx="2" />
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15V5a2 2 0 0 1 2-2h10" />
     </svg>
   );
 }
@@ -471,8 +471,8 @@ const ActionGlyphs = {
   ),
   search: actionSvg(
     <>
-      <circle cx="11" cy="11" r="7" />
-      <path d="m20 20-3-3" />
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
     </>,
   ),
   download: actionSvg(
@@ -495,8 +495,8 @@ const ActionGlyphs = {
   ),
   pencil: actionSvg(
     <>
-      <path d="M14.5 4.5l5 5L8 21H3v-5z" />
-      <path d="M12.5 6.5l5 5" />
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z" />
     </>,
   ),
 } as const;
@@ -4851,8 +4851,8 @@ export default function SequenceEditView({
                 className="h-3.5 w-3.5"
                 aria-hidden="true"
               >
-                <circle cx="11" cy="11" r="7" />
-                <path d="m21 21-4.3-4.3" />
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
               <span>Find</span>
             </button>

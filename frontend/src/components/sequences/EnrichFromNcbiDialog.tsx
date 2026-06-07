@@ -48,10 +48,17 @@ function svgBase(className?: string) {
 function TreeIcon({ className }: { className?: string }) {
   return (
     <svg {...svgBase(className)}>
-      <circle cx="6" cy="6" r="2.5" />
-      <circle cx="6" cy="18" r="2.5" />
-      <circle cx="18" cy="12" r="2.5" />
-      <path d="M8.5 6.8 15.5 11M8.5 17.2 15.5 13" />
+      <path d="M12 20.5V7" />
+      <path d="M10.5 20.5h3" />
+      <circle cx="12" cy="4.8" r="1.7" />
+      <path d="M12 11 7.6 8.4" />
+      <circle cx="6.2" cy="7.6" r="1.7" />
+      <path d="M12 11 16.4 8.4" />
+      <circle cx="17.8" cy="7.6" r="1.7" />
+      <path d="M12 15 8 12.9" />
+      <circle cx="6.6" cy="12.1" r="1.7" />
+      <path d="M12 15 16 12.9" />
+      <circle cx="17.4" cy="12.1" r="1.7" />
     </svg>
   );
 }

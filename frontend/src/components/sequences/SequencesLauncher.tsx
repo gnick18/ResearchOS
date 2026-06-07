@@ -97,10 +97,17 @@ function NcbiIcon(props: IconProps) {
 function TaxonomyIcon(props: IconProps) {
   return (
     <svg {...baseSvg(props)}>
-      <circle cx="6" cy="6" r="2.5" />
-      <circle cx="6" cy="18" r="2.5" />
-      <circle cx="18" cy="12" r="2.5" />
-      <path d="M8.5 6.8 15.5 11M8.5 17.2 15.5 13" />
+      <path d="M12 20.5V7" />
+      <path d="M10.5 20.5h3" />
+      <circle cx="12" cy="4.8" r="1.7" />
+      <path d="M12 11 7.6 8.4" />
+      <circle cx="6.2" cy="7.6" r="1.7" />
+      <path d="M12 11 16.4 8.4" />
+      <circle cx="17.8" cy="7.6" r="1.7" />
+      <path d="M12 15 8 12.9" />
+      <circle cx="6.6" cy="12.1" r="1.7" />
+      <path d="M12 15 16 12.9" />
+      <circle cx="17.4" cy="12.1" r="1.7" />
     </svg>
   );
 }
@@ -146,8 +153,8 @@ function ScissorsIcon(props: IconProps) {
 function DetectIcon(props: IconProps) {
   return (
     <svg {...baseSvg(props)}>
-      <circle cx="11" cy="11" r="6" />
-      <line x1="20" y1="20" x2="15.5" y2="15.5" />
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
     </svg>
   );
 }
