@@ -30,6 +30,7 @@ import { evaluateUnlockMatch } from "@/lib/sharing/identity/unlock-match";
 import { GoogleIcon, GitHubIcon, LinkedInIcon } from "@/components/sharing/icons";
 import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
 import { startSharingClaimOAuth } from "@/lib/sharing/claim-oauth";
+import { isOAuthPublishAvailable } from "@/lib/sharing/oauth-availability";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
 import CreateLocalIdentityStep from "@/components/sharing/CreateLocalIdentityStep";
 import {
@@ -712,8 +713,11 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           setForceProfileFor({ username });
           return;
         }
-        // Solo first user. Offer the optional profile step before the app.
-        setProfileStep({ username });
+        // Solo first user. Offer the optional OAuth-publish step only where it
+        // works; otherwise enter straight in (the account is a local keypair the
+        // user can set up later from Profile, OAuth publish is optional).
+        if (isOAuthPublishAvailable()) setProfileStep({ username });
+        else onLogin();
       } catch {
         setError("Failed to create user. Please try again.");
         setLoggingIn(null);
@@ -766,8 +770,11 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         return;
       }
 
-      // Solo first user. Offer the optional profile step before the app.
-      setProfileStep({ username });
+      // Solo first user. Offer the optional OAuth-publish step only where it
+      // works; otherwise enter straight in (OAuth publish is optional, the local
+      // account can be set up later from Profile).
+      if (isOAuthPublishAvailable()) setProfileStep({ username });
+      else onLogin();
     } catch (err) {
       console.error("Failed to finalize user creation:", err);
       setError("Failed to create user. Please try again.");

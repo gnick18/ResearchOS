@@ -12,6 +12,7 @@ import {
   LinkedInIcon,
   OrcidIcon,
 } from "./icons";
+import { isOAuthPublishAvailable } from "@/lib/sharing/oauth-availability";
 
 export type SharingProvider = "orcid" | "google" | "github" | "linkedin";
 
@@ -20,6 +21,12 @@ export default function SharingProviderButtons({
 }: {
   onProvider: (provider: SharingProvider) => void;
 }) {
+  // OAuth publish is optional and only works where it is configured. When it is
+  // not (dev, prod with sharing off), do not offer it, the buttons would just
+  // dead-end at NextAuth's /api/auth/error. The account itself is a local keypair
+  // created elsewhere, so hiding these costs nothing.
+  if (!isOAuthPublishAvailable()) return null;
+
   return (
     <div className="space-y-2">
       {/* White button (not ORCID green) so the iD logo's green circle stays

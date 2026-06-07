@@ -28,6 +28,7 @@ import {
   type IdentityKeys,
 } from "@/lib/sharing/identity/keys";
 import { wrapDeviceKeyWithWords } from "@/lib/sharing/identity/device-key";
+import { isOAuthPublishAvailable } from "@/lib/sharing/oauth-availability";
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 import { downloadRecoveryKit } from "@/lib/sharing/identity/recovery-kit";
 import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
@@ -758,44 +759,51 @@ function ChooseStep({
         a keypair so your shares stay private.
       </p>
       <div className="space-y-2">
-        {/* White button (not ORCID green) so the iD logo's green circle stays
-            visible, matching the welcome page + the Google button below. */}
-        <button
-          type="button"
-          onClick={() => onOAuth("orcid")}
-          className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-surface-raised text-slate-800 hover:bg-slate-100 font-medium transition-colors border border-border"
-        >
-          <OrcidIcon className="w-4 h-4" />
-          Sign in with ORCID
-        </button>
-        <button
-          type="button"
-          onClick={() => onOAuth("google")}
-          className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-surface-raised text-slate-800 hover:bg-slate-100 font-medium transition-colors"
-        >
-          <GoogleIcon className="w-4 h-4" />
-          Continue with Google
-        </button>
-        <button
-          type="button"
-          onClick={() => onOAuth("github")}
-          className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-[#24292e] text-white hover:bg-[#2f363d] font-medium transition-colors"
-        >
-          <GitHubIcon className="w-4 h-4" />
-          Continue with GitHub
-        </button>
-        {/* Microsoft button is deferred until the Entra app registration
-            exists. The provider is gated on AUTH_MICROSOFT_ENTRA_ID_ID in
-            @/lib/sharing/auth, so re-add this button (and MicrosoftIcon) once
-            those credentials are set. */}
-        <button
-          type="button"
-          onClick={() => onOAuth("linkedin")}
-          className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-[#0A66C2] text-white hover:bg-[#004182] font-medium transition-colors"
-        >
-          <LinkedInIcon className="w-4 h-4" />
-          Continue with LinkedIn
-        </button>
+        {/* OAuth providers are only offered where they actually work (sharing
+            configured). Where they are not, only the email path shows, so the
+            chooser never dead-ends at NextAuth's /api/auth/error. */}
+        {isOAuthPublishAvailable() && (
+          <>
+            {/* White button (not ORCID green) so the iD logo's green circle stays
+                visible, matching the welcome page + the Google button below. */}
+            <button
+              type="button"
+              onClick={() => onOAuth("orcid")}
+              className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-surface-raised text-slate-800 hover:bg-slate-100 font-medium transition-colors border border-border"
+            >
+              <OrcidIcon className="w-4 h-4" />
+              Sign in with ORCID
+            </button>
+            <button
+              type="button"
+              onClick={() => onOAuth("google")}
+              className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-surface-raised text-slate-800 hover:bg-slate-100 font-medium transition-colors"
+            >
+              <GoogleIcon className="w-4 h-4" />
+              Continue with Google
+            </button>
+            <button
+              type="button"
+              onClick={() => onOAuth("github")}
+              className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-[#24292e] text-white hover:bg-[#2f363d] font-medium transition-colors"
+            >
+              <GitHubIcon className="w-4 h-4" />
+              Continue with GitHub
+            </button>
+            {/* Microsoft button is deferred until the Entra app registration
+                exists. The provider is gated on AUTH_MICROSOFT_ENTRA_ID_ID in
+                @/lib/sharing/auth, so re-add this button (and MicrosoftIcon) once
+                those credentials are set. */}
+            <button
+              type="button"
+              onClick={() => onOAuth("linkedin")}
+              className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-[#0A66C2] text-white hover:bg-[#004182] font-medium transition-colors"
+            >
+              <LinkedInIcon className="w-4 h-4" />
+              Continue with LinkedIn
+            </button>
+          </>
+        )}
         <button
           type="button"
           onClick={onEmail}
