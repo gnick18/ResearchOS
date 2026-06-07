@@ -4991,6 +4991,35 @@ export const oneOnOnesApi = {
   },
 
   /**
+   * Set a 1:1 weekly goal's complete state. A goal lives in the folder of
+   * whichever member CREATED it (its `owner`), so this MUST route to that owner
+   * (the goals returned by `labApi.getOneOnOneWeeklyGoals` are decorated with
+   * `owner` for exactly this call). Without owner-routing the other member's
+   * `weeklyGoalsApi.update` would silently miss the record, so both-member
+   * check-off (the locked design) would not work. Returns null if not found.
+   */
+  setWeeklyGoalComplete: async (
+    id: number,
+    owner: string,
+    isComplete: boolean,
+  ): Promise<WeeklyGoal | null> => {
+    return weeklyGoalsStore.updateForUser(
+      id,
+      { is_complete: isComplete },
+      owner,
+    );
+  },
+
+  /**
+   * Delete a 1:1 weekly goal from its creator's folder (its `owner`, decorated
+   * by `getOneOnOneWeeklyGoals`). Either member may delete. Returns false if
+   * not found.
+   */
+  deleteWeeklyGoal: async (id: number, owner: string): Promise<boolean> => {
+    return weeklyGoalsStore.deleteForUser(id, owner);
+  },
+
+  /**
    * Add a weekly MEETING NOTE to a 1:1 (`note_kind: "meeting"`). One entry per
    * meeting, keyed by `date`. Lands in the current user's notes folder with
    * `one_on_one_id` + both-at-edit sharing. Throws if the 1:1 is missing or the
