@@ -158,7 +158,9 @@ const SplicedNamedElement = (props: {
   };
 
   const height = props.height * 0.8;
-  const stroke = color ? COLOR_BORDER_MAP[color] || darkerColor(color) : "gray";
+  // Opposite-mode border (light edge in dark, dark edge in light) so a feature's
+  // outline reads against any background and any fill color. See --seq-feature-stroke.
+  const stroke = "var(--seq-feature-stroke)";
 
   // Normalize + sort exons (genomic order). end is exclusive.
   const exons = (element.segments || [])
@@ -428,7 +430,7 @@ const SingleNamedElement = (props: {
         d={linePath}
         fill={color}
         id={element.id}
-        stroke={color ? COLOR_BORDER_MAP[color] || darkerColor(color) : "gray"}
+        stroke="var(--seq-feature-stroke)"
         style={annotation}
         onBlur={() => {
           // do nothing

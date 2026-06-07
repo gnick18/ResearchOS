@@ -72,7 +72,7 @@
   --seq-enzyme-hover: #dc2626; /* hovered cut / bracket red */
   --seq-start: #dc2626; /* start-codon M + special markers */
   --seq-primer: #ec4899; /* primer pink */
-  --seq-feature-stroke: rgba(15, 23, 42, 0.28); /* hairline edge on colored shapes */
+  --seq-feature-stroke: rgba(15, 23, 42, 0.45); /* opposite-mode edge on colored shapes */
   --seq-selection-fill: rgb(222, 246, 255); /* fill behind selected bases */
   --seq-tape-minor: #94a3b8; /* per-base ruler tick (faintest) */
   --seq-tape-five: #64748b; /* every-5 tick (medium) */
@@ -165,7 +165,7 @@
   --seq-enzyme-hover: #f87171;
   --seq-start: #f87171;
   --seq-primer: #f472b6;
-  --seq-feature-stroke: rgba(255, 255, 255, 0.30);
+  --seq-feature-stroke: rgba(255, 255, 255, 0.55);
   --seq-selection-fill: rgba(56, 189, 248, 0.20);
   --seq-tape-minor: #475569; /* faintest on dark */
   --seq-tape-five: #94a3b8; /* medium */
@@ -216,7 +216,7 @@
   --seq-enzyme-hover: #dc2626;
   --seq-start: #dc2626;
   --seq-primer: #ec4899;
-  --seq-feature-stroke: rgba(15, 23, 42, 0.28);
+  --seq-feature-stroke: rgba(15, 23, 42, 0.45);
   --seq-selection-fill: rgb(222, 246, 255);
   --seq-tape-minor: #94a3b8;
   --seq-tape-five: #64748b;

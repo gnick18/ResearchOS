@@ -81,7 +81,8 @@ export const indexTickLabel: CSS.Properties = {
 export const annotation: CSS.Properties = {
   fillOpacity: "0.7",
   shapeRendering: "geometricPrecision",
-  strokeWidth: "0.5",
+  stroke: "var(--seq-feature-stroke)",
+  strokeWidth: "1",
 };
 
 export const annotationLabel: CSS.Properties = {

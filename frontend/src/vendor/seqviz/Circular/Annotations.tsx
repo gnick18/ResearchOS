@@ -223,7 +223,7 @@ const SingleAnnotation = (props: SingleAnnotationProps) => {
         d={path}
         fill={a.color}
         id={a.id}
-        stroke={a.color ? COLOR_BORDER_MAP[a.color] || calcBorderColor(a.color) : "gray"}
+        stroke="var(--seq-feature-stroke)"
         style={annotation}
         onBlur={() => {
           // do nothing
