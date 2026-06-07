@@ -12,8 +12,7 @@ import { deleteEncryptedBackup } from "@/lib/telegram/encrypted-backup";
 import { folderRequiresLogin } from "@/lib/auth/login-policy";
 import { discoverUsers } from "@/lib/file-system/user-discovery";
 import { readUserSettings } from "@/lib/settings/user-settings";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
-import { usePopupLayer } from "@/lib/ui/popup-stack";
+import LivingPopup from "@/components/ui/LivingPopup";
 import Tooltip from "./Tooltip";
 
 interface AccountPasswordPopupProps {
@@ -47,15 +46,6 @@ export default function AccountPasswordPopup({
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
   // Removing the login is allowed only in a genuinely solo folder.
   const [canRemove, setCanRemove] = useState(false);
-
-  useEscapeToClose(onClose);
-
-  // Register both scrims with the shared popup stack so blur never compounds:
-  // the main popup blurs only when it is the bottom-most blur layer (it can open
-  // over the profile modal), and the nested forgot confirm blurs only when it is
-  // (it stacks on the main popup). Each just dims otherwise.
-  const { shouldBlur } = usePopupLayer(true, true);
-  const { shouldBlur: shouldBlurForgot } = usePopupLayer(showForgot, true);
 
   useEffect(() => {
     let cancelled = false;
@@ -191,15 +181,20 @@ export default function AccountPasswordPopup({
   };
 
   return (
-    <div
-      className={`fixed inset-0 z-[200] flex items-center justify-center bg-black/50 ${
-        shouldBlur ? "backdrop-blur-sm" : ""
-      }`}
-      data-tour-popup-occluding="account-password"
-      onClick={onClose}
+    <>
+    {/* Main popup. Escape closes it only when the nested forgot confirm is not
+        open, so Escape dismisses the forgot layer first. */}
+    <LivingPopup
+      open
+      onClose={onClose}
+      label="Account password"
+      card={false}
+      widthClassName="max-w-md"
+      showClose={false}
+      closeOnEscape={!showForgot}
     >
       <div
-        className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-md w-full mx-4 overflow-hidden"
+        className="pointer-events-auto bg-surface-raised rounded-2xl shadow-2xl border border-border w-full overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 py-4 border-b border-border flex items-start justify-between">
@@ -397,17 +392,22 @@ export default function AccountPasswordPopup({
           </div>
         )}
       </div>
+    </LivingPopup>
 
-      {showForgot && (
-        <div
-          className={`fixed inset-0 z-[210] flex items-center justify-center bg-black/60 ${
-            shouldBlurForgot ? "backdrop-blur-sm" : ""
-          }`}
-          data-tour-popup-occluding="account-password-forgot"
-          onClick={() => setShowForgot(false)}
-        >
+    {/* Nested forgot-password confirm. A sibling LivingPopup so it joins the
+        popup stack (single dim, no double-darken) and, rendered after the main
+        popup, layers above it by DOM order. */}
+    {showForgot && (
+      <LivingPopup
+        open
+        onClose={() => setShowForgot(false)}
+        label="Forgot your password?"
+        card={false}
+        widthClassName="max-w-md"
+        showClose={false}
+      >
           <div
-            className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-md w-full mx-4 p-6"
+            className="pointer-events-auto bg-surface-raised rounded-2xl shadow-2xl border border-border w-full p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between mb-3">
@@ -450,8 +450,8 @@ export default function AccountPasswordPopup({
               </button>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+      </LivingPopup>
+    )}
+    </>
   );
 }

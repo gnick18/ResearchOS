@@ -9,7 +9,7 @@ import {
   type TelegramPairing,
 } from "@/lib/telegram/telegram-store";
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import LivingPopup from "@/components/ui/LivingPopup";
 import { writeEncryptedBackup } from "@/lib/telegram/encrypted-backup";
 import { loadIdentity } from "@/lib/sharing/identity/storage";
 import Tooltip from "./Tooltip";
@@ -236,10 +236,9 @@ export default function TelegramPairingModal({
     onClose(undefined);
   };
 
-  // Escape closes this modal (app-wide convention), through the same cancel
-  // path the close button uses. Skip in inline mode: the wizard shell that
-  // embeds the pair flow owns dismissal there.
-  useEscapeToClose(handleCancel, !inline);
+  // In modal mode, Escape / scrim close are owned by LivingPopup below (routed
+  // through handleCancel). Inline mode has no chrome, the wizard shell owns
+  // dismissal there.
 
   // The pair-flow card body. Identical between modal and inline modes;
   // the only difference is the surrounding chrome (fixed-position
@@ -496,20 +495,20 @@ export default function TelegramPairingModal({
   // card stops propagation so the user doesn't accidentally close while
   // pasting a token.
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="telegram-pairing"
-      onClick={handleCancel}
+    <LivingPopup
+      open
+      onClose={handleCancel}
+      label="Connect Telegram"
+      card={false}
+      widthClassName="max-w-md"
+      showClose={false}
     >
       <div
-        className="bg-surface-raised rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+        className="pointer-events-auto bg-surface-raised rounded-xl shadow-2xl w-full overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {cardBody}
       </div>
-    </div>
+    </LivingPopup>
   );
 }
