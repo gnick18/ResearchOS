@@ -84,4 +84,4 @@ Chunks 1 to 4 are best serialized (each builds on the last, all touch `local-api
 
 ## Open follow-up before chunk 6
 
-The best-effort barcode-lookup source (UPCitemdb vs Barcode Lookup API vs GS1, CORS and lab-reagent coverage and cost). Recommended as a short research pass before chunk 6, not blocking chunks 1 to 5.
+The best-effort barcode-lookup source was researched 2026-06-07 (`docs/research/barcode-lookup-apis.md`). Outcome: lab reagents rarely carry retail barcodes, so the manufacturer-lookup is low value. Chunk 6 should make the per-container `container_code` (lab-applied) and manual entry the PRIMARY scan path, and ship the manufacturer-barcode online lookup behind a flag, default off, bring-your-own-key (Go-UPC browser-direct, or UPCitemdb keyless trial if CORS checks out). A live CORS check is still needed before wiring browser-direct vs a proxy. This refines decision B3 and is pending Grant's confirmation, not blocking chunks 1 to 5.
