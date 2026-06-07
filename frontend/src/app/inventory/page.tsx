@@ -13,7 +13,7 @@
 // icon-only buttons, brand + semantic (dark-mode) tokens, no emojis / em-dashes
 // / mid-sentence colons.
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import AppShell from "@/components/AppShell";
@@ -41,14 +41,18 @@ import type {
 import ItemFormDialog from "@/components/inventory/ItemFormDialog";
 import StockFormDialog from "@/components/inventory/StockFormDialog";
 import StockRow from "@/components/inventory/StockRow";
+import InventoryHealth from "@/components/inventory/InventoryHealth";
+import SignalRecordRow from "@/components/inventory/SignalRecordRow";
 import {
   CATEGORY_LABEL,
   STATUS_LABEL,
+  computeInventorySignals,
   containerCountLabel,
   formatDate,
   statusChipClass,
   summarizeStocks,
 } from "@/components/inventory/inventory-ui";
+import type { InventorySignalKind } from "@/components/inventory/inventory-ui";
 
 /** Owner to route a write through. A record shared INTO me at edit permission
  *  writes back to the owner's directory; my own records pass undefined and
@@ -90,6 +94,10 @@ export default function InventoryPage() {
 
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  // The active health-tile filter, or null for the normal item list (chunk 3).
+  const [activeSignal, setActiveSignal] = useState<InventorySignalKind | null>(
+    null,
+  );
   const [itemDialog, setItemDialog] = useState<ItemDialogState>({
     mode: "closed",
   });
@@ -150,6 +158,14 @@ export default function InventoryPage() {
     });
   }, [items, query]);
 
+  // The three zero-upkeep signals, computed at load from the already-fetched
+  // items + stocks (chunk 3, design 2.4 / 10). `new Date()` is fine at runtime;
+  // the pure functions take it as a parameter so tests stay deterministic.
+  const signals = useMemo(
+    () => computeInventorySignals(items, stocks, new Date()),
+    [items, stocks],
+  );
+
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
     queryClient.invalidateQueries({ queryKey: ["inventory-stocks"] });
@@ -162,6 +178,22 @@ export default function InventoryPage() {
       else next.add(id);
       return next;
     });
+
+  // "Open" affordance on a signal record: clear the filter, expand that item in
+  // the normal list, and scroll it into view. Reuses the existing expand state.
+  const openItemInList = useCallback((itemId: number) => {
+    setActiveSignal(null);
+    setQuery("");
+    setExpanded((prev) => new Set(prev).add(itemId));
+    // Defer to the next frame so the normal list has re-rendered before scroll.
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`inventory-item-${itemId}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, []);
+
+  const toggleSignal = (kind: InventorySignalKind) =>
+    setActiveSignal((prev) => (prev === kind ? null : kind));
 
   // ── Item CRUD ──────────────────────────────────────────────────────────
   const submitItem = async (data: InventoryItemCreate | InventoryItemUpdate) => {
@@ -310,6 +342,15 @@ export default function InventoryPage() {
           </div>
         </div>
 
+        {/* Health strip (chunk 3): the three zero-upkeep signals, above search. */}
+        {!isLoading && items.length > 0 && (
+          <InventoryHealth
+            signals={signals}
+            activeKind={activeSignal}
+            onSelect={toggleSignal}
+          />
+        )}
+
         {/* Search */}
         <div className="mb-5 max-w-md">
           <div className="relative">
@@ -325,8 +366,16 @@ export default function InventoryPage() {
           </div>
         </div>
 
-        {/* List */}
-        {isLoading ? (
+        {/* Signal view (chunk 3): the filtered, annotated record list shown
+            while a health tile is active, replacing the normal list. */}
+        {!isLoading && activeSignal !== null ? (
+          <SignalView
+            kind={activeSignal}
+            signals={signals}
+            onClear={() => setActiveSignal(null)}
+            onOpen={openItemInList}
+          />
+        ) : isLoading ? (
           <p className="text-body text-foreground-muted">Loading inventory.</p>
         ) : filteredItems.length === 0 ? (
           <EmptyState
@@ -343,6 +392,7 @@ export default function InventoryPage() {
               return (
                 <div
                   key={`${item.owner}:${item.id}`}
+                  id={`inventory-item-${item.id}`}
                   className="overflow-hidden rounded-xl border border-border bg-surface-raised"
                 >
                   {/* Item summary row */}
@@ -591,6 +641,123 @@ export default function InventoryPage() {
       </LivingPopup>
     </AppShell>
   );
+}
+
+/** The chunk 3 filtered signal view: a filter chip, a clear button, and the
+ *  annotated read-only record rows for the active signal. */
+function SignalView({
+  kind,
+  signals,
+  onClear,
+  onOpen,
+}: {
+  kind: InventorySignalKind;
+  signals: ReturnType<typeof computeInventorySignals>;
+  onClear: () => void;
+  onOpen: (itemId: number) => void;
+}) {
+  const meta = SIGNAL_CHIP[kind];
+  const count =
+    kind === "expiring"
+      ? signals.expiring.length
+      : kind === "stale"
+        ? signals.stale.length
+        : signals.low.length;
+
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-meta font-medium ${meta.chip}`}
+        >
+          <Icon name={meta.icon} className="h-3.5 w-3.5" />
+          Showing {meta.label} ({count})
+        </span>
+        <button
+          type="button"
+          onClick={onClear}
+          className="text-meta font-medium text-brand-action hover:underline"
+        >
+          Clear filter, show all
+        </button>
+      </div>
+
+      {count === 0 ? (
+        <p className="rounded-xl border border-dashed border-border bg-surface-raised px-5 py-8 text-center text-body text-foreground-muted">
+          Nothing {meta.label} right now.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {kind === "expiring" &&
+            signals.expiring.map((sig) => (
+              <SignalRecordRow
+                key={`exp-${sig.stock.id}`}
+                kind="expiring"
+                item={sig.item}
+                metaSuffix={stockMetaSuffix(sig.stock)}
+                annotation={sig.annotation}
+                chipStatus={sig.expired ? "expired" : sig.stock.status}
+                onOpen={() => onOpen(sig.item.id)}
+              />
+            ))}
+          {kind === "stale" &&
+            signals.stale.map((sig) => (
+              <SignalRecordRow
+                key={`stale-${sig.stock.id}`}
+                kind="stale"
+                item={sig.item}
+                metaSuffix={stockMetaSuffix(sig.stock)}
+                annotation={sig.annotation}
+                chipStatus={sig.stock.status}
+                onOpen={() => onOpen(sig.item.id)}
+              />
+            ))}
+          {kind === "low" &&
+            signals.low.map((sig) => (
+              <SignalRecordRow
+                key={`low-${sig.item.id}`}
+                kind="low"
+                item={sig.item}
+                metaSuffix="total across stocks"
+                annotation={sig.annotation}
+                chipStatus={sig.chipStatus}
+                onOpen={() => onOpen(sig.item.id)}
+              />
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Per-signal chip styling + label + icon for the filter chip. */
+const SIGNAL_CHIP: Record<
+  InventorySignalKind,
+  { label: string; icon: Parameters<typeof Icon>[0]["name"]; chip: string }
+> = {
+  expiring: {
+    label: "expiring soon",
+    icon: "history",
+    chip: "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30",
+  },
+  stale: {
+    label: "stale",
+    icon: "history",
+    chip: "bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-500/10 dark:text-slate-300 dark:border-slate-500/30",
+  },
+  low: {
+    label: "low or empty",
+    icon: "caret",
+    chip: "bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30",
+  },
+};
+
+/** The lot / location tail for a stock-level signal record meta line. */
+function stockMetaSuffix(stock: InventoryStock): string {
+  const parts: string[] = [];
+  if (stock.lot_number) parts.push(`Lot ${stock.lot_number}`);
+  if (stock.location_text) parts.push(stock.location_text);
+  return parts.join(" · ");
 }
 
 function EmptyState({

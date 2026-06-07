@@ -5,6 +5,7 @@
 
 import type {
   InventoryCategory,
+  InventoryItem,
   InventoryStock,
   InventoryStockStatus,
 } from "@/lib/types";
@@ -160,4 +161,257 @@ export function isoToDateInput(iso: string | null | undefined): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   return d.toISOString().slice(0, 10);
+}
+
+// ── Chunk 3 signals (the three zero-upkeep computations, design 2.4 / 10) ────
+//
+// All three are pure and take an explicit `now: Date` so they are
+// deterministically testable. The component passes `new Date()`; tests pass a
+// fixed date. None of these reads any new field or storage; they are computed
+// from the items + stocks already fetched in chunk 2.
+
+/** The window, in days, that "expiring soon" looks ahead (design 2.4). */
+export const EXPIRING_SOON_DAYS = 30;
+/** The default staleness threshold, in months (design 2.4, locked at 6). */
+export const STALE_AFTER_MONTHS = 6;
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/** Whole-day difference between two dates (b - a), rounded toward zero so a
+ *  same-day expiry reads as 0 days, not a fractional value. */
+function wholeDaysBetween(a: Date, b: Date): number {
+  return Math.round((b.getTime() - a.getTime()) / MS_PER_DAY);
+}
+
+/** Subtract whole months from a date (calendar-aware), for the stale cutoff. */
+function subtractMonths(d: Date, months: number): Date {
+  const out = new Date(d.getTime());
+  out.setMonth(out.getMonth() - months);
+  return out;
+}
+
+/** The three signal kinds. Used for the tile colors and the active filter. */
+export type InventorySignalKind = "expiring" | "stale" | "low";
+
+/** A stock that fired the expiring-soon signal, with its display annotation. */
+export interface ExpiringSignal {
+  item: InventoryItem;
+  stock: InventoryStock;
+  /** Days until expiry. Negative when already expired. */
+  daysToExpiry: number;
+  expired: boolean;
+  /** "Expires in 9 days (Jun 16, 2026)" / "Expired 4 days ago (Jun 3, 2026)". */
+  annotation: string;
+}
+
+/** A stock that fired the stale signal, with its display annotation. */
+export interface StaleSignal {
+  item: InventoryItem;
+  stock: InventoryStock;
+  /** The most-recent touch we measured staleness from (ISO). */
+  referenceDate: string;
+  /** "Received Oct 1, 2025, not touched in 8 months". */
+  annotation: string;
+}
+
+/** An item that fired the low-or-empty signal, with its display annotation. */
+export interface LowSignal {
+  item: InventoryItem;
+  totalContainers: number;
+  empty: boolean;
+  /** The status chip to show ("empty" when 0, else "low"). */
+  chipStatus: InventoryStockStatus;
+  /** "1 vial, below your threshold of 2" / "0 vials, empty". */
+  annotation: string;
+}
+
+/** Build the expiring annotation for a stock given days-to-expiry. */
+function expiringAnnotation(
+  daysToExpiry: number,
+  expirationDate: string,
+): string {
+  const when = formatDate(expirationDate);
+  if (daysToExpiry < 0) {
+    const days = Math.abs(daysToExpiry);
+    return `Expired ${days} day${days === 1 ? "" : "s"} ago (${when})`;
+  }
+  if (daysToExpiry === 0) return `Expires today (${when})`;
+  return `Expires in ${daysToExpiry} day${
+    daysToExpiry === 1 ? "" : "s"
+  } (${when})`;
+}
+
+/**
+ * EXPIRING SOON: stocks whose `expiration_date` is within
+ * `EXPIRING_SOON_DAYS` of `now`, PLUS any already-expired stock. Sorted
+ * soonest-first (most-expired at the top). Stocks with no expiry are ignored.
+ */
+export function computeExpiringSignals(
+  items: InventoryItem[],
+  stocks: InventoryStock[],
+  now: Date,
+): ExpiringSignal[] {
+  const itemById = new Map(items.map((it) => [it.id, it] as const));
+  const out: ExpiringSignal[] = [];
+  for (const stock of stocks) {
+    if (!stock.expiration_date) continue;
+    const exp = new Date(stock.expiration_date);
+    if (Number.isNaN(exp.getTime())) continue;
+    const daysToExpiry = wholeDaysBetween(now, exp);
+    if (daysToExpiry > EXPIRING_SOON_DAYS) continue;
+    const item = itemById.get(stock.item_id);
+    if (!item) continue;
+    out.push({
+      item,
+      stock,
+      daysToExpiry,
+      expired: daysToExpiry < 0,
+      annotation: expiringAnnotation(daysToExpiry, stock.expiration_date),
+    });
+  }
+  out.sort((a, b) => a.daysToExpiry - b.daysToExpiry);
+  return out;
+}
+
+/** Approximate whole-month gap between two dates for the "not touched in N
+ *  months" phrase. Calendar-aware enough for a coarse age label. */
+function wholeMonthsBetween(from: Date, to: Date): number {
+  let months =
+    (to.getFullYear() - from.getFullYear()) * 12 +
+    (to.getMonth() - from.getMonth());
+  if (to.getDate() < from.getDate()) months -= 1;
+  return Math.max(0, months);
+}
+
+/**
+ * STALE: stocks whose most-recent touch (`last_touched_at` if present, else
+ * `received_date`) is older than `STALE_AFTER_MONTHS` months. A stock with no
+ * received_date AND no last_touched_at cannot be aged, so it never fires.
+ * Sorted oldest-first.
+ */
+export function computeStaleSignals(
+  items: InventoryItem[],
+  stocks: InventoryStock[],
+  now: Date,
+): StaleSignal[] {
+  const itemById = new Map(items.map((it) => [it.id, it] as const));
+  const cutoff = subtractMonths(now, STALE_AFTER_MONTHS);
+  const out: StaleSignal[] = [];
+  for (const stock of stocks) {
+    // The most-recent touch wins, so a recently-edited old stock is NOT stale.
+    const candidates: string[] = [];
+    if (stock.last_touched_at) candidates.push(stock.last_touched_at);
+    if (stock.received_date) candidates.push(stock.received_date);
+    if (candidates.length === 0) continue;
+    let mostRecent: Date | null = null;
+    let mostRecentIso = "";
+    for (const iso of candidates) {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) continue;
+      if (mostRecent === null || d.getTime() > mostRecent.getTime()) {
+        mostRecent = d;
+        mostRecentIso = iso;
+      }
+    }
+    if (mostRecent === null) continue;
+    if (mostRecent.getTime() >= cutoff.getTime()) continue;
+    const item = itemById.get(stock.item_id);
+    if (!item) continue;
+    const months = wholeMonthsBetween(mostRecent, now);
+    // Lead with received_date when we have it (matches the mockup phrasing),
+    // otherwise lead with the last-touched stamp.
+    const lead = stock.received_date
+      ? `Received ${formatDate(stock.received_date)}`
+      : `Last touched ${formatDate(stock.last_touched_at)}`;
+    out.push({
+      item,
+      stock,
+      referenceDate: mostRecentIso,
+      annotation: `${lead}, not touched in ${months} month${
+        months === 1 ? "" : "s"
+      }`,
+    });
+  }
+  out.sort(
+    (a, b) =>
+      new Date(a.referenceDate).getTime() - new Date(b.referenceDate).getTime(),
+  );
+  return out;
+}
+
+/**
+ * LOW OR EMPTY (item-level): items whose SUMMED `container_count` across their
+ * stocks is below the item's `low_at_count`, UNIONED with items that have any
+ * stock manually flagged `low` or `empty`. An item with `low_at_count == null`
+ * only fires via a manual low/empty tap. Empty (0 total) is annotated as empty.
+ * Sorted by total ascending (emptiest first).
+ */
+export function computeLowSignals(
+  items: InventoryItem[],
+  stocks: InventoryStock[],
+): LowSignal[] {
+  const stocksByItem = new Map<number, InventoryStock[]>();
+  for (const s of stocks) {
+    const arr = stocksByItem.get(s.item_id) ?? [];
+    arr.push(s);
+    stocksByItem.set(s.item_id, arr);
+  }
+  const out: LowSignal[] = [];
+  for (const item of items) {
+    const itemStocks = stocksByItem.get(item.id) ?? [];
+    let total = 0;
+    let manualLowOrEmpty = false;
+    for (const s of itemStocks) {
+      total += Number.isFinite(s.container_count) ? s.container_count : 0;
+      if (s.status === "low" || s.status === "empty") manualLowOrEmpty = true;
+    }
+    const belowThreshold =
+      typeof item.low_at_count === "number" && total < item.low_at_count;
+    if (!belowThreshold && !manualLowOrEmpty) continue;
+    const empty = total <= 0;
+    const countLabel = containerCountLabel(total, item.container_label);
+    let annotation: string;
+    if (empty) {
+      annotation = `${countLabel}, empty`;
+    } else if (belowThreshold && typeof item.low_at_count === "number") {
+      annotation = `${countLabel}, below your threshold of ${item.low_at_count}`;
+    } else {
+      // Manually tapped low/empty without a numeric threshold to cite.
+      annotation = `${countLabel}, flagged low`;
+    }
+    out.push({
+      item,
+      totalContainers: total,
+      empty,
+      chipStatus: empty ? "empty" : "low",
+      annotation,
+    });
+  }
+  out.sort((a, b) => a.totalContainers - b.totalContainers);
+  return out;
+}
+
+/** Bundle of all three signal lists plus their counts, computed once at load. */
+export interface InventorySignals {
+  expiring: ExpiringSignal[];
+  stale: StaleSignal[];
+  low: LowSignal[];
+  allClear: boolean;
+}
+
+/** Compute the full signal bundle from the loaded items + stocks. */
+export function computeInventorySignals(
+  items: InventoryItem[],
+  stocks: InventoryStock[],
+  now: Date,
+): InventorySignals {
+  const expiring = computeExpiringSignals(items, stocks, now);
+  const stale = computeStaleSignals(items, stocks, now);
+  const low = computeLowSignals(items, stocks);
+  return {
+    expiring,
+    stale,
+    low,
+    allClear: expiring.length === 0 && stale.length === 0 && low.length === 0,
+  };
 }
