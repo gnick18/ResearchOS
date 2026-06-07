@@ -2,7 +2,7 @@
 
 exports[`ResearchFolderSetupNew drop zone > renders the drop-zone with default hint copy and dashed border (snapshot) 1`] = `
 <div
-  class="relative bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden transition-all border-2 border-dashed border-white/25 hover:border-white/40"
+  class="relative bg-surface-raised backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden transition-all border-2 border-dashed border-border hover:border-foreground-muted"
   data-testid="link-folder-drop-zone"
 >
   <div
@@ -29,26 +29,26 @@ exports[`ResearchFolderSetupNew drop zone > renders the drop-zone with default h
         </svg>
       </div>
       <h2
-        class="text-heading font-bold text-white"
+        class="text-heading font-bold text-foreground"
       >
         Link a folder
       </h2>
     </div>
     <p
-      class="text-slate-400 text-body mb-4"
+      class="text-foreground-muted text-body mb-4"
     >
       Point ResearchOS at a folder on your computer. It can be an existing ResearchOS folder (with your projects and data, maybe synced via OneDrive or iCloud), or a brand-new empty folder. We set up an empty folder automatically the first time you link it.
     </p>
     <div
-      class="mb-4 rounded-lg bg-white/5 border border-white/10 p-3"
+      class="mb-4 rounded-lg bg-surface-sunken border border-border p-3"
     >
       <p
-        class="text-meta font-medium text-slate-300 mb-1"
+        class="text-meta font-medium text-foreground-muted mb-1"
       >
         Starting fresh? Make an empty folder first:
       </p>
       <ol
-        class="text-meta text-slate-400 leading-relaxed list-decimal list-inside space-y-0.5"
+        class="text-meta text-foreground-muted leading-relaxed list-decimal list-inside space-y-0.5"
         data-testid="picker-make-folder-steps"
       >
         <li>
@@ -60,7 +60,7 @@ exports[`ResearchFolderSetupNew drop zone > renders the drop-zone with default h
           folder anywhere you like (Documents/ResearchOS works well).
            
           <span
-            class="text-amber-300 font-medium"
+            class="text-amber-700 dark:text-amber-300 font-medium"
           >
             <strong>
               IMPORTANT
@@ -77,7 +77,7 @@ exports[`ResearchFolderSetupNew drop zone > renders the drop-zone with default h
       </ol>
     </div>
     <p
-      class="text-meta mb-4 transition-colors text-slate-500"
+      class="text-meta mb-4 transition-colors text-foreground-muted"
     >
       Drop your folder here, or click below to pick
     </p>
