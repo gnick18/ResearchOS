@@ -3,7 +3,10 @@ import RadioCard from "./RadioCard";
 import type { SetupStepProps } from "./types";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { patchUserSettings } from "@/lib/settings/user-settings";
-import { hasPassword, setPassword } from "@/lib/auth/password";
+import {
+  createAndPersistAccount,
+  hasLocalAccount,
+} from "@/lib/auth/account-store";
 
 /**
  * Q1c: lab head follow-up. Only fires when the user picked "Lab" on
@@ -22,13 +25,19 @@ import { hasPassword, setPassword } from "@/lib/auth/password";
  * purchases, and read audit trails across the lab. We now REQUIRE the
  * PI to set an account password here before they can move on. When the
  * user picks "Yes, I run this lab" a set + confirm password block
- * appears and Next stays disabled until a valid password is saved to
- * `users/<username>/_auth.json` via `setPassword`. Picking "No, I'm a
- * member" hides the block and clears the requirement (members keep the
- * optional-password behavior; only PIs are forced). If the PI already
- * has a password (e.g. they back-stepped, or set one earlier from the
- * login screen) we detect it via `hasPassword` and treat the gate as
- * satisfied without re-prompting.
+ * appears and Next stays disabled until the account exists.
+ *
+ * Identity cutover: the password no longer writes a PBKDF2 hash to
+ * `_auth.json`. It now CREATES the local keypair account via
+ * `createAndPersistAccount` (the password wraps the keypair in
+ * `users/<username>/_account.json`), which returns a one-time recovery
+ * code we surface here, the only way back in if the PI forgets the
+ * password. Picking "No, I'm a member" hides the block and clears the
+ * requirement (members keep the optional-account behavior; only PIs are
+ * forced). If the PI already has an account (e.g. they back-stepped, or
+ * created one earlier from the login screen) we detect it via
+ * `hasLocalAccount` and treat the gate as satisfied without re-prompting,
+ * so we never overwrite an existing keypair.
  *
  * Walkthrough audit fix manager (2026-05-25): rewrote the prose +
  * radio descriptions to drop the stale "Lab Overview tour" framing.
@@ -79,6 +88,10 @@ export default function Q1cLabHeadStep({
   const [passwordSaved, setPasswordSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  // Shown once, right after this step creates the account. Null when the
+  // account already existed (back-step / earlier login-screen creation), so
+  // we never invent a recovery code we cannot actually reproduce.
+  const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
 
   // On mount (and whenever the user changes), check whether a password
   // already exists. A back-stepping PI who set one a moment ago should
@@ -88,7 +101,7 @@ export default function Q1cLabHeadStep({
     if (!currentUser) return;
     void (async () => {
       try {
-        const exists = await hasPassword(currentUser);
+        const exists = await hasLocalAccount(currentUser);
         if (!cancelled && exists) setPasswordSaved(true);
       } catch {
         // Read failure: leave passwordSaved as-is. The PI can still set
@@ -150,12 +163,22 @@ export default function Q1cLabHeadStep({
     }
     setSaving(true);
     try {
-      await setPassword(currentUser, newPassword);
+      // Guard: never overwrite an existing keypair. If an account already
+      // exists (race with the login force-gate, or a back-step that missed
+      // the mount check), treat the gate as satisfied without recreating.
+      if (await hasLocalAccount(currentUser)) {
+        setPasswordSaved(true);
+        setNewPassword("");
+        setConfirmPassword("");
+        return;
+      }
+      const created = await createAndPersistAccount(currentUser, newPassword);
+      setRecoveryCode(created.recoveryCode);
       setPasswordSaved(true);
       setNewPassword("");
       setConfirmPassword("");
     } catch (err) {
-      console.error("[Q1cLabHeadStep] setPassword failed", err);
+      console.error("[Q1cLabHeadStep] createAndPersistAccount failed", err);
       setPasswordError("Failed to save password. Please try again.");
     } finally {
       setSaving(false);
@@ -253,7 +276,27 @@ export default function Q1cLabHeadStep({
                 Password set. You can continue.
               </p>
             </div>
-          ) : (
+          ) : null}
+
+          {passwordSaved && recoveryCode && (
+            <div
+              data-testid="q1c-pi-recovery-code"
+              className="rounded-md border border-blue-200 bg-blue-50 px-3 py-3 space-y-1.5"
+            >
+              <p className="text-meta font-medium text-blue-900">
+                Save your recovery code
+              </p>
+              <p className="font-mono text-body text-gray-900 tracking-wide break-all text-center">
+                {recoveryCode}
+              </p>
+              <p className="text-meta text-gray-600 leading-relaxed">
+                This is the only way back into your account if you forget
+                your password. It is not shown again, so write it down now.
+              </p>
+            </div>
+          )}
+
+          {!passwordSaved && (
             <div className="space-y-2">
               <div>
                 <label
@@ -310,13 +353,13 @@ export default function Q1cLabHeadStep({
                 {saving ? "Saving…" : "Set password"}
               </button>
               <p className="text-meta text-gray-500 leading-relaxed">
-                Stored only on your disk, hashed with PBKDF2-SHA-256.
-                Never sent to any server. If you forget it, delete
+                Stored only on your disk, it wraps your account keypair in
                 {" "}
                 <code className="px-1 py-0.5 bg-gray-100 rounded">
-                  _auth.json
-                </code>{" "}
-                from your user folder to reset.
+                  _account.json
+                </code>
+                . Never sent to any server. If you forget it, use the
+                recovery code we show you next.
               </p>
             </div>
           )}

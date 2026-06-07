@@ -51,7 +51,7 @@ import {
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { ANIMATION_METADATA, renderAnimationIcon, type AnimationType, type RealAnimationType } from "@/components/animations";
 import DynamicAnimation from "@/components/DynamicAnimation";
-import { hasPassword, verifyPassword } from "@/lib/auth/password";
+import { hasLocalAccount } from "@/lib/auth/account-store";
 import LabRoster from "@/components/lab-head/LabRoster";
 import { loadIdentity } from "@/lib/sharing/identity/storage";
 import {
@@ -338,7 +338,7 @@ export function SettingsBody() {
         return;
       }
       const s = await readUserSettings(currentUser);
-      const exists = await hasPassword(currentUser);
+      const exists = await hasLocalAccount(currentUser);
       if (cancelled) return;
       setSettings(s);
       setPwExists(exists);
@@ -351,7 +351,7 @@ export function SettingsBody() {
 
   const refreshPwExists = useCallback(async () => {
     if (!currentUser) return;
-    setPwExists(await hasPassword(currentUser));
+    setPwExists(await hasLocalAccount(currentUser));
   }, [currentUser]);
 
   // Single canonical save path. Each section calls update({ fieldX: value }).
