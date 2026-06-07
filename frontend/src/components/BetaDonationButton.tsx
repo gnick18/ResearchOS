@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { DONATION_CONFIG, isDonationConfigured } from "@/lib/config/donation";
 import Tooltip from "@/components/Tooltip";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 interface BetaDonationButtonProps {
   variant?: "floating" | "link";
@@ -61,9 +62,7 @@ export default function BetaDonationButton({
           Support this project
         </button>
 
-        {showModal && (
-          <DonationModal onClose={() => setShowModal(false)} />
-        )}
+        <DonationModal open={showModal} onClose={() => setShowModal(false)} />
       </>
     );
   }
@@ -85,55 +84,44 @@ export default function BetaDonationButton({
         </button>
       </Tooltip>
 
-      {showModal && (
-        <DonationModal onClose={() => setShowModal(false)} />
-      )}
+      <DonationModal open={showModal} onClose={() => setShowModal(false)} />
     </>
   );
 }
 
-function DonationModal({ onClose }: { onClose: () => void }) {
+function DonationModal({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
   return (
-    <div
-      // pointer-events-auto (Grant 2026-05-27): DonationModal is
-      // rendered inside AppShell's floating-cluster div which has
-      // `pointer-events-none` so the cluster's bounding box doesn't
-      // eat clicks on the underlying page. Without this override the
-      // modal subtree inherits `pointer-events: none`, so the X
-      // close button (and the backdrop) silently no-op. The heart
-      // trigger button has its own `pointer-events-auto`; the modal
-      // it spawns needs the same treatment.
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-auto"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="donation-modal"
-    >
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-      <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-heading font-bold text-gray-900 flex items-center gap-2">
-              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-rose-100 text-rose-600">
-                <HeartIcon className="w-4 h-4" />
-              </span>
-              Support ResearchOS
-            </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              className="text-gray-400 hover:text-gray-600 transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300"
-            >
-              <svg aria-hidden className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+    // pointer-events-auto wrapper (Grant 2026-05-27): DonationModal is
+    // rendered inside AppShell's floating-cluster div which has
+    // `pointer-events-none` so the cluster's bounding box doesn't eat
+    // clicks on the underlying page. Without re-enabling pointer events the
+    // LivingPopup scrim + X would silently no-op (the property inherits
+    // through the DOM). The LivingPopup root is `fixed inset-0`, so this
+    // wrapper has no layout box of its own.
+    <div className="pointer-events-auto">
+      <LivingPopup
+        open={open}
+        onClose={onClose}
+        label="Support ResearchOS"
+        widthClassName="max-w-md"
+        card={false}
+      >
+        <div className="relative bg-white rounded-2xl shadow-2xl w-full overflow-hidden">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-heading font-bold text-gray-900 flex items-center gap-2">
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-rose-100 text-rose-600">
+                  <HeartIcon className="w-4 h-4" />
+                </span>
+                Support ResearchOS
+              </h2>
+            </div>
 
           <p className="text-gray-600 text-body mb-5">
             {DONATION_CONFIG.message}
@@ -181,8 +169,9 @@ function DonationModal({ onClose }: { onClose: () => void }) {
             way to support ResearchOS today is to use it, tell another lab about
             it, and send us feedback.
           </p>
+          </div>
         </div>
-      </div>
+      </LivingPopup>
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 import { defaultFundingStringForProject } from "@/lib/funding/prefill";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 /**
  * Quick "+ New Purchase" modal mounted from the /purchases page.
@@ -303,15 +304,7 @@ export default function NewPurchaseModal({
     }
   }, [open, projectsLoaded, userProjects, form.category]);
 
-  // Esc to close. Mounted only while the modal is open.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  // Escape closes via LivingPopup's built-in handler.
 
   // Existing funding accounts power the datalist autocomplete so the
   // user (and the cursor demo) can either pick an existing line or type
@@ -534,25 +527,23 @@ export default function NewPurchaseModal({
     [form, fundingAccounts, queryClient, onClose, currentUser, clearDraft],
   );
 
-  if (!open) return null;
+  // Scrim click / Escape / X close, but never mid-write (matches the old
+  // guarded backdrop behaviour).
+  const handleClose = () => {
+    if (!saving) onClose();
+  };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="new-purchase-modal"
-      onMouseDown={(e) => {
-        // Click outside the form closes — match the TaskModal click-
-        // outside behaviour. Saving guard prevents accidental dismiss
-        // mid-write.
-        if (e.target === e.currentTarget && !saving) onClose();
-      }}
+    <LivingPopup
+      open={open}
+      onClose={handleClose}
+      label="New purchase"
+      widthClassName="max-w-md"
+      card={false}
     >
       <form
         onSubmit={handleSave}
-        className="bg-surface-raised rounded-xl shadow-2xl max-w-md w-full mx-4 p-6"
+        className="bg-surface-raised rounded-xl shadow-2xl w-full p-6"
         data-tour-target="purchases-form"
       >
         <h3 className="text-heading font-semibold text-foreground mb-4">
@@ -794,6 +785,6 @@ export default function NewPurchaseModal({
           </button>
         </div>
       </form>
-    </div>
+    </LivingPopup>
   );
 }

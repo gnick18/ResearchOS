@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import Tooltip from "@/components/Tooltip";
+import LivingPopup from "@/components/ui/LivingPopup";
 import {
   evaluateExpression,
   type AngleMode,
@@ -66,14 +67,6 @@ function CalculatorIcon({ className = "w-5 h-5" }: { className?: string }) {
   );
 }
 
-function CloseIcon() {
-  return (
-    <svg aria-hidden className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-    </svg>
-  );
-}
-
 export default function CalculatorsButton() {
   const [showModal, setShowModal] = useState(false);
 
@@ -125,38 +118,32 @@ function CalculatorsModal({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<TabId>("scientific");
 
   return (
-    <div
-      // pointer-events-auto: this modal renders inside AppShell's
-      // floating-cluster div which is `pointer-events-none`, so without
-      // this override the backdrop + close button would silently no-op.
-      // Mirrors the BetaDonationButton DonationModal pattern.
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-auto"
-      // Marker for TourSpotlight popup-occluding sweep so the walkthrough
-      // ring hides while this modal is mounted.
-      data-tour-popup-occluding="calculators-modal"
-    >
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+    // pointer-events-auto wrapper: this modal renders inside AppShell's
+    // floating-cluster div which is `pointer-events-none`, so without
+    // re-enabling pointer events the LivingPopup scrim + X would silently
+    // no-op (the property inherits through the DOM). The LivingPopup root
+    // is `fixed inset-0`, so this wrapper has no layout box of its own.
+    <div className="pointer-events-auto">
+      <LivingPopup
+        open
+        onClose={onClose}
+        label="Lab calculators"
+        widthClassName="max-w-4xl"
+        card={false}
+        fillHeight
+      >
+        <div className="relative bg-white rounded-2xl shadow-2xl w-full h-full max-h-[88vh] overflow-hidden flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <h2 className="text-heading font-bold text-gray-900 flex items-center gap-2">
+              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-sky-100 text-sky-600">
+                <CalculatorIcon className="w-4 h-4" />
+              </span>
+              Lab calculators
+            </h2>
+          </div>
 
-      <div className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[88vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-heading font-bold text-gray-900 flex items-center gap-2">
-            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-sky-100 text-sky-600">
-              <CalculatorIcon className="w-4 h-4" />
-            </span>
-            Lab calculators
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="text-gray-400 hover:text-gray-600 transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300"
-          >
-            <CloseIcon />
-          </button>
-        </div>
-
-        {/* Tabs */}
+          {/* Tabs */}
         <div
           role="tablist"
           aria-label="Calculator type"
@@ -200,7 +187,8 @@ function CalculatorsModal({ onClose }: { onClose: () => void }) {
           Quick bench math, computed live in your browser. Nothing here is
           saved.
         </p>
-      </div>
+        </div>
+      </LivingPopup>
     </div>
   );
 }
