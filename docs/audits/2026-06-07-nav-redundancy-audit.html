@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nav redundancy audit</title>
+<style>
+  :root{--surface:#ffffff;--raised:#ffffff;--sunken:#f8fafc;--fg:#171717;--muted:#6b7280;--border:#e5e7eb;--action:#1283C9;--purple:#5B47D6;--rose:#be123c;--amber:#b45309;--emerald:#047857;--page:#eef2f7}
+  [data-theme="dark"]{--surface:#0a0e1a;--raised:#131c2e;--sunken:#0d1424;--fg:#f1f5f9;--muted:#b4bfd0;--border:rgba(255,255,255,.22);--action:#3aa0e0;--purple:#8170e6;--rose:#fda4af;--amber:#fcd34d;--emerald:#6ee7b7;--page:#05080f}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--page);color:var(--fg)}
+  .topbar{position:sticky;top:0;z-index:50;background:var(--page);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .topbar h1{font-size:16px;margin:0;font-weight:700}.topbar .sub{font-size:12.5px;color:var(--muted)}
+  .spacer{flex:1}
+  .btn{font:inherit;font-size:13px;border:1px solid var(--border);background:var(--raised);color:var(--fg);border-radius:8px;padding:7px 12px;cursor:pointer}
+  .btn-brand{background:linear-gradient(135deg,var(--action),var(--purple));color:#fff;border:none}
+  .wrap{max-width:1000px;margin:0 auto;padding:20px 20px 110px}
+  .note{font-size:12.5px;color:var(--muted);max-width:840px;margin:12px 0 18px}
+  h2.s{font-size:14px;margin:26px 0 10px}
+  table{width:100%;border-collapse:collapse;font-size:12px;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{background:var(--sunken);color:var(--muted);font-weight:600}
+  .pill{font-size:10.5px;border-radius:999px;padding:1px 8px;font-weight:600;white-space:nowrap}
+  .p-high{background:rgba(190,18,60,.14);color:var(--rose)}
+  .p-med{background:rgba(180,83,9,.14);color:var(--amber)}
+  .p-low{background:rgba(100,116,139,.18);color:var(--muted)}
+  .p-ok{background:rgba(4,120,87,.14);color:var(--emerald)}
+  .card{border:1px solid var(--border);border-radius:13px;background:var(--surface);margin:14px 0;overflow:hidden}
+  .card.high{border-left:4px solid var(--rose)}.card.med{border-left:4px solid var(--amber)}.card.ok{border-left:4px solid var(--emerald)}
+  .card .ch{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--sunken)}
+  .card .ch .t{font-size:13.5px;font-weight:700}
+  .card .cb{padding:14px 16px;font-size:13px;line-height:1.5}
+  .card .cb .lab{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:10px 0 3px}
+  .card .cb code{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;background:var(--sunken);border:1px solid var(--border);border-radius:5px;padding:0 5px}
+  .rec{border:1px solid var(--border);border-radius:9px;background:var(--sunken);padding:10px 12px;margin-top:8px}
+  .rec .rl{font-size:11px;font-weight:700;color:var(--action);text-transform:uppercase;letter-spacing:.04em}
+  .decide{display:flex;align-items:center;gap:8px;padding:10px 16px;border-top:1px solid var(--border);flex-wrap:wrap}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .seg button{font:inherit;font-size:12px;padding:6px 12px;border:none;background:var(--raised);color:var(--muted);cursor:pointer}
+  .seg button.on.agree{background:#16a34a;color:#fff}.seg button.on.keep{background:#64748b;color:#fff}.seg button.on.disc{background:var(--amber);color:#fff}
+  .noteinput{flex:1;min-width:200px;font:inherit;font-size:12.5px;border:1px dashed var(--border);border-radius:8px;background:var(--raised);color:var(--fg);padding:6px 9px}
+  svg{display:block}
+  #exportModal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+  #exportModal .box{background:var(--raised);color:var(--fg);border-radius:14px;max-width:720px;width:100%;padding:18px;border:1px solid var(--border)}
+  #exportModal textarea{width:100%;min-height:260px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--fg);padding:10px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div><h1>Nav redundancy audit</h1><div class="sub">All 11 primary nav items mapped; 2 real overlaps to decide. Mark each, then Export.</div></div>
+  <div class="spacer"></div>
+  <button class="btn" id="themeBtn">Dark mode</button>
+  <button class="btn btn-brand" id="exportBtn">Export decisions</button>
+</div>
+<div class="wrap">
+  <p class="note">Grounded in a read of AppShell.tsx and each page. The nav has 11 items, but feature-picks already let users hide several (Calendar, Links, Purchases). Two genuine redundancies are worth acting on (one HIGH, one MEDIUM); the rest are distinct or already handled. Context table first, then decision cards.</p>
+
+  <h2 class="s">All 11 nav items (context)</h2>
+  <table>
+    <thead><tr><th>Item</th><th>Route</th><th>What it is</th><th>Gating</th><th>Overlap</th></tr></thead>
+    <tbody>
+      <tr><td>Home</td><td><code>/</code></td><td>Pure router now (no page of its own); bounces PIs to Lab Overview, members to Workbench</td><td>always</td><td><span class="pill p-high">redundant</span></td></tr>
+      <tr><td>Workbench</td><td><code>/workbench</code></td><td>Member hub: Projects / Experiments / Notes / Lists / Mentoring tabs</td><td>always</td><td><span class="pill p-high">landing overlap</span></td></tr>
+      <tr><td>Lab Overview</td><td><code>/lab-overview</code></td><td>PI-only action dashboard (approvals, flags, mentions, activity, workload)</td><td>lab_head</td><td><span class="pill p-high">landing overlap</span></td></tr>
+      <tr><td>Search</td><td><code>/search</code></td><td>Full-page advanced search + filters + export</td><td>always</td><td><span class="pill p-med">vs Cmd-K</span></td></tr>
+      <tr><td>GANTT</td><td><code>/gantt</code></td><td>Task timeline + dependencies + goals</td><td>always</td><td><span class="pill p-low">minor</span></td></tr>
+      <tr><td>Calendar</td><td><code>/calendar</code></td><td>Events, month/week/day, external feeds, PTO</td><td>feature-pick</td><td><span class="pill p-low">minor</span></td></tr>
+      <tr><td>Methods</td><td><code>/methods</code></td><td>Protocol library + editor</td><td>always</td><td><span class="pill p-ok">distinct</span></td></tr>
+      <tr><td>Sequences</td><td><code>/sequences</code></td><td>SnapGene-style sequence editor</td><td>always</td><td><span class="pill p-ok">distinct</span></td></tr>
+      <tr><td>Inventory</td><td><code>/inventory</code></td><td>Inventory (Supplies tab)</td><td>flag</td><td><span class="pill p-ok">Supplies hub</span></td></tr>
+      <tr><td>Purchases</td><td><code>/purchases</code></td><td>Purchase tracker (Supplies tab)</td><td>feature-pick</td><td><span class="pill p-ok">Supplies hub</span></td></tr>
+      <tr><td>Links</td><td><code>/links</code></td><td>Curated lab-resource link library</td><td>feature-pick</td><td><span class="pill p-ok">distinct</span></td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="s">Decisions</h2>
+  <div id="cards"></div>
+</div>
+
+<div id="exportModal"><div class="box">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><strong style="font-size:14px">Audit decisions</strong><span class="spacer" style="flex:1"></span><button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('exportText').value)">Copy</button><button class="btn" onclick="document.getElementById('exportModal').style.display='none'">Close</button></div>
+  <textarea id="exportText" readonly></textarea>
+</div></div>
+
+<script>
+const cards=[
+ {id:"home", sev:"high", title:"Home / Workbench / Lab Overview, the triple landing",
+  body:`<div class="lab">What's there</div><code>/</code> is now a pure router with no page of its own. For members the nav has no real "Home", they land on Workbench. For PIs the "Home" nav entry is relabeled "Lab Overview" and points at <code>/lab-overview</code>. So "Home" means different things per role, and a PI can still click into Workbench and see the same tabs, two doors to the same place.
+  <div class="lab">Why it's a problem</div>Three surfaces, an account-aware label, and routing logic split across three files. It reads as clutter and is the confusing part of the nav.
+  <div class="rec"><span class="rl">Recommendation</span><br>Drop the standalone "Home" nav item (it has no page). Make the role landing the clearly-named top item: members see <b>Workbench</b> as their first item, PIs see <b>Lab Overview</b>. No ambiguous "Home". This removes the triple-landing without losing any surface.</div>`},
+ {id:"search", sev:"med", title:"Search nav item vs the Cmd-K palette",
+  body:`<div class="lab">What's there</div>A full-page <code>/search</code> (keyword + filters + export) AND the BeakerSearch Cmd-K palette that floats on every page and is the more discoverable front door.
+  <div class="lab">Why it's a problem</div>Two search entry points. The palette is always one keystroke away; the nav tab forces a full navigation for the same job.
+  <div class="rec"><span class="rl">Recommendation</span><br>Make Cmd-K the primary search and <b>drop "Search" from the top nav</b>. Keep the <code>/search</code> page for advanced filtering + bulk export, reached from a "More filters / export" link inside the palette results. Fewer nav items, one obvious search door.</div>`},
+ {id:"calgantt", sev:"ok", title:"Calendar vs GANTT (no action)",
+  body:`Both show time, but they are distinct: GANTT is task timeline + dependencies + goals (planning); Calendar is events + external feeds + PTO (availability). No data overlap, different jobs. <div class="rec"><span class="rl">Recommendation</span><br>Keep both as-is. Calendar is already feature-pick hideable.</div>`},
+ {id:"links", sev:"ok", title:"Links (no action)",
+  body:`A standalone curated link library (cards, categories, per-link sharing). Not a duplicate of anything, and already feature-pick gated so users who don't want it can hide it. <div class="rec"><span class="rl">Recommendation</span><br>Keep as-is.</div>`},
+ {id:"supplies", sev:"ok", title:"Inventory + Purchases = Supplies hub (already done)",
+  body:`Already consolidated this session: when INVENTORY_ENABLED is on, the two collapse into one "Supplies" nav item with tabs. No further action. <div class="rec"><span class="rl">Recommendation</span><br>Done. Listed for completeness.</div>`},
+];
+
+const KEY='nav-audit-2026-06-07';const store=JSON.parse(localStorage.getItem(KEY)||'{}');function save(){localStorage.setItem(KEY,JSON.stringify(store));}
+const host=document.getElementById('cards');
+cards.forEach(c=>{
+  const cur=store[c.id]||{v:'',n:''};
+  const el=document.createElement('div');el.className='card '+c.sev;
+  const sevpill=c.sev==='high'?'<span class="pill p-high">HIGH</span>':c.sev==='med'?'<span class="pill p-med">MEDIUM</span>':'<span class="pill p-ok">no action</span>';
+  el.innerHTML=`<div class="ch">${sevpill}<span class="t">${c.title}</span></div><div class="cb">${c.body}</div>
+   <div class="decide" data-id="${c.id}">
+     <span class="seg">
+       <button class="agree ${cur.v==='agree'?'on':''}" data-v="agree">Agree</button>
+       <button class="keep ${cur.v==='keep'?'on':''}" data-v="keep">Keep as-is</button>
+       <button class="disc ${cur.v==='disc'?'on':''}" data-v="disc">Discuss</button>
+     </span>
+     <input class="noteinput" placeholder="Note (optional)" value="${(cur.n||'').replace(/"/g,'&quot;')}" />
+   </div>`;
+  host.appendChild(el);
+  const seg=el.querySelector('.seg');
+  seg.querySelectorAll('button').forEach(b=>b.onclick=()=>{store[c.id]={...(store[c.id]||{}),v:b.dataset.v};save();seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.v===b.dataset.v));});
+  el.querySelector('.noteinput').oninput=e=>{store[c.id]={...(store[c.id]||{}),n:e.target.value};save();};
+});
+
+document.getElementById('themeBtn').onclick=function(){const r=document.documentElement;const d=r.getAttribute('data-theme')==='dark';r.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Dark mode':'Light mode';};
+document.getElementById('exportBtn').onclick=function(){
+  let out='NAV REDUNDANCY AUDIT — decisions — '+new Date().toString().slice(0,21)+'\\n'+'='.repeat(48)+'\\n\\n';
+  cards.forEach(c=>{const cur=store[c.id]||{};const v=cur.v==='agree'?'AGREE':cur.v==='keep'?'KEEP AS-IS':cur.v==='disc'?'DISCUSS':'(not marked)';out+='['+v+'] '+c.title+'\\n';if(cur.n&&cur.n.trim())out+='   note: '+cur.n.trim()+'\\n';out+='\\n';});
+  document.getElementById('exportText').value=out;document.getElementById('exportModal').style.display='flex';
+};
+</script>
+</body>
+</html>
