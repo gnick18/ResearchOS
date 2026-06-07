@@ -64,17 +64,25 @@ two anchor links, "Sponsors" and "Built on open source".
   NOTICE) and the Biopython Tm port (BSD). These are obligations, not just
   niceties.
 
-## BeakerBot tier art
+## BeakerBot tier art (approved 2026-06-07, mockup reviewed)
 
-Reuse the existing BeakerBot SVG (the rainbow-liquid beaker from `brand/`). Three
-states by fill level, generated from the same geometry so they stay on-model:
+Decision changed after the mockup: do NOT vary the fill level. Keep a standard
+healthy rainbow fill across all tiers, and instead escalate BeakerBot's EXCITEMENT
+as the tier rises. The beaker is the same; the mascot reacts more.
 
-- Bench: a shallow rainbow at the bottom of the beaker.
-- Lab: filled to about half.
-- Institute: full, with the meniscus just cresting the rim.
+Use the OFFICIAL `BeakerBot` component (`frontend/src/components/BeakerBot.tsx`),
+NOT a hand-traced SVG. It already has a `pose` system; map the tiers to real poses:
 
-No emojis anywhere on the page (every icon is a custom SVG, per the house rule).
-Static SVG per tier, no animation needed for v1.
+- Bench ($5): `pose="idle"` with `alive` (content, gently alive).
+- Lab ($25): `pose="bouncing"` or `pose="giggle"` (excited). Pick whichever reads
+  best in a static-ish card; both are official.
+- Institute ($100): `pose="cheering"` (the celebration / ta-da pose), plus a light
+  layer of custom-SVG confetti on the card for the payoff.
+
+Respect `prefers-reduced-motion` (the component already gates animation on it).
+No emojis anywhere; confetti is custom SVG shapes in the rainbow palette. The
+mockup at `docs/mockups/thanks-page.html` shows the intended escalation (content ->
+excited -> celebrating) and is the approved reference.
 
 ## Data and sources
 
