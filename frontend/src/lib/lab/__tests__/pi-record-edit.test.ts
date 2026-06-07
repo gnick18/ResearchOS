@@ -25,7 +25,7 @@ describe("savePiRecordEdit", () => {
     const result = await savePiRecordEdit({
       targetOwner: "alex",
       actor: "mira",
-      recordType: "purchase",
+      recordType: "purchase_item",
       recordId: 5,
       fieldPaths: ["item_name"],
       oldRecord: { item_name: "EDTA" },
@@ -40,7 +40,7 @@ describe("savePiRecordEdit", () => {
     await savePiRecordEdit({
       targetOwner: "alex",
       actor: "mira",
-      recordType: "purchase",
+      recordType: "purchase_item",
       recordId: 5,
       fieldPaths: ["item_name", "quantity", "notes"],
       oldRecord: { item_name: "EDTA", quantity: 1, notes: null },
@@ -55,7 +55,7 @@ describe("savePiRecordEdit", () => {
       expect(e.session_id).toBe("lab-head-edit");
       expect(e.actor).toBe("mira");
       expect(e.target_user).toBe("alex");
-      expect(e.record_type).toBe("purchase");
+      expect(e.record_type).toBe("purchase_item");
       expect(e.record_id).toBe(5);
     }
     const byField = Object.fromEntries(entries.map((e) => [e.field_path, e]));
@@ -70,7 +70,7 @@ describe("savePiRecordEdit", () => {
     await savePiRecordEdit({
       targetOwner: "alex",
       actor: "mira",
-      recordType: "purchase",
+      recordType: "purchase_item",
       recordId: 9,
       fieldPaths: ["item_name", "quantity"],
       oldRecord: { item_name: "Tris", quantity: 2 },
@@ -84,7 +84,7 @@ describe("savePiRecordEdit", () => {
     await savePiRecordEdit({
       targetOwner: "alex",
       actor: "mira",
-      recordType: "purchase",
+      recordType: "purchase_item",
       recordId: 1,
       fieldPaths: ["notes"],
       oldRecord: { notes: null },

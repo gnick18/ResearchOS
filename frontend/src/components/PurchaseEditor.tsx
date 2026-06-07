@@ -30,6 +30,7 @@ import PiEditAuditNote from "@/components/lab-head/PiEditAuditNote";
 import { usePiEditGate } from "@/hooks/usePiEditGate";
 import { usePiRecordMenu } from "@/hooks/usePiRecordMenu";
 import { savePiRecordEdit } from "@/lib/lab/pi-record-edit";
+import { auditRecordTypeFor } from "@/lib/lab/pi-record-menu";
 import { normalizeOrderStatus } from "@/lib/types";
 import type { CatalogItem, PurchaseItem, Task } from "@/lib/types";
 
@@ -551,7 +552,10 @@ export default function PurchaseEditor({
         await savePiRecordEdit({
           targetOwner: purchaseOwner,
           actor: currentUser,
-          recordType: "purchase",
+          // Audit record_type for a purchase is "purchase_item" (one home in
+          // auditRecordTypeFor), matching pi-actions + the per-record viewer
+          // filter so a purchase's history is not split across two types.
+          recordType: auditRecordTypeFor("purchase"),
           recordId: editingItemId,
           fieldPaths: Object.keys(newPayload),
           oldRecord: (beforeItem ?? {}) as unknown as Record<string, unknown>,
