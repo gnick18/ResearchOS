@@ -289,6 +289,10 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
           selectionKind={effectiveSource.selectionKind}
           hasOrganism={effectiveSource.hasOrganism}
           context={effectiveSource.context}
+          contextCard={effectiveSource.contextCard}
+          suggestedIds={effectiveSource.suggestedIds}
+          suggestedHint={effectiveSource.suggestedHint}
+          navGroups={effectiveSource.navGroups}
           sequences={effectiveSource.sequences}
           artifacts={effectiveSource.artifacts}
           collectionLabel={effectiveSource.collectionLabel}

@@ -19,6 +19,8 @@ import type {
   ArtifactNavItem,
   EditorCommand,
   PaletteContext,
+  PaletteContextCard,
+  PaletteNavGroup,
   SequenceNavItem,
 } from "@/components/sequences/editor-commands";
 import type { SelectionKind } from "@/lib/sequences/inspector-context";
@@ -31,6 +33,9 @@ export type {
   ArtifactNavItem,
   EditorCommand,
   PaletteContext,
+  PaletteContextCard,
+  PaletteNavGroup,
+  PaletteNavItem,
   SequenceNavItem,
 } from "@/components/sequences/editor-commands";
 export type { SelectionKind } from "@/lib/sequences/inspector-context";
@@ -45,11 +50,13 @@ export interface BeakerSearchSource {
   id: string;
   /** The page's full command set (the same list the editor already builds). */
   commands: EditorCommand[];
-  /** The live selection kind, so the empty-query Suggested group is biased. */
-  selectionKind: SelectionKind;
+  /** The live selection kind, so the empty-query Suggested group is biased.
+   *  Sequence-editor only; generic pages omit it (the provider defaults "none"). */
+  selectionKind?: SelectionKind;
   /** Whether the focused entity carries an organism (also biases Suggested). */
-  hasOrganism: boolean;
-  /** The "what am I looking at" context card data. Absent self-hides the card. */
+  hasOrganism?: boolean;
+  /** The "what am I looking at" context card data. Absent self-hides the card.
+   *  Sequence-editor path; generic pages use contextCard below. */
   context?: PaletteContext;
   /** Navigable sibling objects (the other sequences in the collection). */
   sequences?: SequenceNavItem[];
@@ -57,4 +64,17 @@ export interface BeakerSearchSource {
   artifacts?: ArtifactNavItem[];
   /** The collection name, for the "Jump to a sequence" group hint. */
   collectionLabel?: string;
+
+  // BeakerSearch website-wide (step 3), the GENERIC per-page contract. A page
+  // that is not the sequence editor supplies these instead of the sequence-shaped
+  // fields above. The provider feeds them straight through to the palette.
+  /** The page-agnostic "what am I looking at" card (icon + title + meta + chips). */
+  contextCard?: PaletteContextCard;
+  /** Ordered command ids the page wants lifted into the empty-query Suggested
+   *  group (the page reads its own context to choose them). */
+  suggestedIds?: string[];
+  /** Optional hint clause after the Suggested heading (e.g. "for this experiment"). */
+  suggestedHint?: string;
+  /** The page's navigable entity / result groups (each under its own heading). */
+  navGroups?: PaletteNavGroup[];
 }

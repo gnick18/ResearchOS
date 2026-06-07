@@ -28,8 +28,10 @@ import {
   type ArtifactNavItem,
   type EditorCommand,
   type PaletteContext,
+  type PaletteContextCard,
   type PaletteGroup,
   type PaletteItem,
+  type PaletteNavGroup,
   type SequenceNavItem,
 } from "./editor-commands";
 // BeakerSearch global object search, chunk 2. The palette ranks the flat
@@ -46,6 +48,7 @@ import type { GlobalIndexEntry } from "@/components/beaker-search/global-index";
 // Stable empty defaults so an omitted prop does not churn the result memo.
 const EMPTY_SEQUENCES: SequenceNavItem[] = [];
 const EMPTY_ARTIFACTS: ArtifactNavItem[] = [];
+const EMPTY_NAV_GROUPS: PaletteNavGroup[] = [];
 const EMPTY_OBJECT_INDEX: GlobalIndexEntry[] = [];
 const EMPTY_PALETTE_GROUPS: PaletteGroup[] = [];
 const EMPTY_RECENT_RECORDS: PaletteItem[] = [];
@@ -114,6 +117,17 @@ function paletteRowParts(item: PaletteItem): {
       label: `Search everything for "${item.query}"`,
       sub: "Open the full search with filters",
       hint: "Search",
+    };
+  }
+  if (item.kind === "nav") {
+    // A generic page entity / result (step 3, the per-page contract). The page
+    // supplies the icon, label, detail, an optional per-type tone, and the run.
+    return {
+      iconName: item.item.iconName,
+      label: item.item.label,
+      sub: item.item.detail,
+      hint: "Open",
+      tone: item.item.tone,
     };
   }
   return {
@@ -196,17 +210,95 @@ function ContextCard({
   );
 }
 
+/** The GENERIC context card (step 3, the per-page contract). The page-agnostic
+ *  equivalent of the sequence ContextCard, driven by a PaletteContextCard the
+ *  active page supplies (icon + title + meta + optional chips). A full card at
+ *  rest, a slim one-line header while typing. Self-hides with no card. */
+function GenericContextCard({
+  card,
+  slim,
+}: {
+  card: PaletteContextCard | undefined;
+  slim: boolean;
+}) {
+  if (!card) return null;
+
+  if (slim) {
+    return (
+      <div className="flex items-center gap-2 border-b border-border px-4 py-2 text-meta text-foreground-muted">
+        <Icon
+          name={card.iconName}
+          className="h-3.5 w-3.5 flex-none text-sky-600 dark:text-sky-300"
+        />
+        <span className="truncate font-medium text-foreground">{card.title}</span>
+        {card.meta ? <span className="truncate">{card.meta}</span> : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-3 pb-1 pt-2">
+      <div className="px-1 pb-1 text-[10px] font-extrabold uppercase tracking-wide text-foreground-muted">
+        In view
+      </div>
+      <div className="rounded-xl border border-sky-100 bg-sky-50 px-3 py-2.5 dark:border-sky-900/40 dark:bg-sky-900/20">
+        <div className="flex items-center gap-2">
+          <Icon
+            name={card.iconName}
+            className="h-4 w-4 flex-none text-sky-600 dark:text-sky-300"
+          />
+          <span className="truncate text-body font-semibold text-foreground">
+            {card.title}
+          </span>
+        </div>
+        {card.meta ? (
+          <div className="mt-1 pl-6 text-meta text-foreground-muted">{card.meta}</div>
+        ) : null}
+        {card.chips && card.chips.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-1.5 pl-6">
+            {card.chips.map((chip, i) => (
+              <span
+                key={i}
+                className={`inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-meta font-medium text-foreground-muted ${
+                  chip.italic ? "italic" : ""
+                }`}
+              >
+                {chip.swatch ? (
+                  <span
+                    className="h-2 w-2 flex-none rounded-sm"
+                    style={{ background: chip.swatch }}
+                  />
+                ) : null}
+                {chip.label}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
   commands: EditorCommand[];
-  /** The live selection kind, so the empty-query Suggested group is biased. */
-  selectionKind: SelectionKind;
+  /** The live selection kind, so the empty-query Suggested group is biased.
+   *  Sequence-editor only; generic pages omit it (defaults to "none"). */
+  selectionKind?: SelectionKind;
   /** Whether the open sequence carries an organism (biases Suggested too). */
-  hasOrganism: boolean;
+  hasOrganism?: boolean;
   /** The "On this sequence" context card data (open sequence + live selection).
    *  Absent in older callers / tests; the card just self-hides then. */
   context?: PaletteContext;
+  /** BeakerSearch website-wide (step 3), the GENERIC per-page contract a non-
+   *  sequence page supplies. The page-agnostic context card, its ordered Suggested
+   *  command ids + hint, and its navigable entity / result groups. Absent on the
+   *  sequence editor (which uses the typed fields above). */
+  contextCard?: PaletteContextCard;
+  suggestedIds?: string[];
+  suggestedHint?: string;
+  navGroups?: PaletteNavGroup[];
   /** The OTHER sequences in the open collection, to jump to. Default empty. */
   sequences?: SequenceNavItem[];
   /** The latest saved results for the open sequence, newest first. Default empty. */
@@ -240,9 +332,13 @@ export function CommandPalette({
   open,
   onClose,
   commands,
-  selectionKind,
-  hasOrganism,
+  selectionKind = "none",
+  hasOrganism = false,
   context,
+  contextCard,
+  suggestedIds,
+  suggestedHint,
+  navGroups = EMPTY_NAV_GROUPS,
   sequences = EMPTY_SEQUENCES,
   artifacts = EMPTY_ARTIFACTS,
   collectionLabel,
@@ -323,6 +419,9 @@ export function CommandPalette({
         collectionLabel,
         selectionKind,
         hasOrganism,
+        suggestedIds,
+        suggestedHint,
+        navGroups,
         objectGroups,
         recentRecords,
       },
@@ -348,6 +447,9 @@ export function CommandPalette({
     collectionLabel,
     selectionKind,
     hasOrganism,
+    suggestedIds,
+    suggestedHint,
+    navGroups,
     objectGroups,
     recentRecords,
     query,
@@ -512,6 +614,7 @@ export function CommandPalette({
             one-line header while typing. Display only, outside the listbox so it
             is never a selectable / highlighted row. */}
         <ContextCard context={context} slim={typing} />
+        <GenericContextCard card={contextCard} slim={typing} />
 
         {/* Result list. Grouped, scrollable, with a flat highlight cursor across
             commands, sequences, and saved results. */}

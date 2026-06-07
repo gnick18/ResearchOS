@@ -100,19 +100,67 @@ export interface ArtifactNavItem {
   onRun: () => void;
 }
 
+/** BeakerSearch website-wide (step 3), the GENERIC per-page contract types. A
+ *  page that is not the sequence editor plugs into the palette by supplying these
+ *  instead of the sequence-specific shapes above. The sequence editor keeps its
+ *  own typed path (PaletteContext / SequenceNavItem / ArtifactNavItem) unchanged;
+ *  these are the page-agnostic equivalents the provider feeds through for Gantt,
+ *  Calendar, Workbench, and the rest. */
+
+/** A page's "what am I looking at" context card. Generic over any page, the
+ *  sequence editor renders its own richer PaletteContext card instead. */
+export interface PaletteContextCard {
+  iconName: IconName;
+  /** The focused entity's name (the card title). */
+  title: string;
+  /** A meta line under the title, e.g. "Experiment in Mitochondria QC". */
+  meta?: string;
+  /** Small chips under the title, e.g. a status, a date range, a selection echo.
+   *  A swatch paints a leading color dot; italic styles a softer descriptor. */
+  chips?: { label: string; swatch?: string; italic?: boolean }[];
+}
+
+/** One navigable / reopenable page object (an entity or a recent result). The
+ *  page-agnostic equivalent of SequenceNavItem, fuzzy-matched on label + keywords
+ *  + detail. `tone` optionally tints the icon chip (per-type color). */
+export interface PaletteNavItem {
+  id: string;
+  label: string;
+  detail?: string;
+  /** Extra fuzzy-match text (tags, owner, organism) beyond the label. */
+  keywords?: string;
+  iconName: IconName;
+  /** Optional icon-chip tone (per-type color), reusing the global-object hues.
+   *  Typed off GlobalIndexEntry to avoid a circular import on global-source. */
+  tone?: GlobalIndexEntry["type"];
+  /** Absent defaults to true; false greys the row and the cursor skips it. */
+  enabled?: boolean;
+  onRun: () => void;
+}
+
+/** A page-defined group of navigable items the palette prints under one heading.
+ *  On the empty query the items show whole (capped); while typing they are
+ *  fuzzy-scored with everything else and re-bucketed under this title. */
+export interface PaletteNavGroup {
+  title: string;
+  hint?: string;
+  items: PaletteNavItem[];
+}
+
 /** The heterogeneous things the palette can highlight and run. A discriminated
  *  union so the keyboard cursor, the renderer, and Enter all branch on `kind`.
  *  "command" runs the editor handler, "sequence" switches the open sequence,
  *  "artifact" reopens a saved result, "object" jumps to a cross-app record (the
  *  global object source, chunk 2) via its deep-link href, "searchAll" is the
- *  trailing handoff row that escapes to the full faceted /search for the current
- *  query (the global object search, chunk 3). */
+ *  trailing handoff row that escapes to the full faceted /search (chunk 3), "nav"
+ *  is a generic page entity / result (step 3, the per-page contract). */
 export type PaletteItem =
   | { kind: "command"; command: EditorCommand }
   | { kind: "sequence"; sequence: SequenceNavItem }
   | { kind: "artifact"; artifact: ArtifactNavItem }
   | { kind: "object"; entry: GlobalIndexEntry; onRun: () => void }
-  | { kind: "searchAll"; query: string; onRun: () => void };
+  | { kind: "searchAll"; query: string; onRun: () => void }
+  | { kind: "nav"; item: PaletteNavItem; group: string };
 
 /** The visible heading a palette group prints under. The command intent groups,
  *  the synthetic "Suggested", the sequence-editor navigation groups, plus the
@@ -131,7 +179,11 @@ export type PaletteGroupTitle =
   // handoff row to the full faceted /search.
   | "More"
   // BeakerSearch global object search, chunk 4, the empty-query cross-app MRU.
-  | "Recent records";
+  | "Recent records"
+  // BeakerSearch website-wide (step 3), any page-defined nav-group heading
+  // (e.g. "Milestones", "Projects on the chart"). The `& {}` keeps autocomplete
+  // for the known literals above while accepting an arbitrary page heading.
+  | (string & {});
 
 /** A grouped block of heterogeneous palette items the component renders. `hint`
  *  is an optional muted clause after the heading (e.g. "for your selection" or
@@ -147,6 +199,7 @@ export interface PaletteGroup {
 export function isPaletteItemEnabled(item: PaletteItem): boolean {
   if (item.kind === "command") return isCommandEnabled(item.command);
   if (item.kind === "object") return item.entry.enabled;
+  if (item.kind === "nav") return item.item.enabled !== false;
   return true;
 }
 
@@ -158,6 +211,7 @@ export function paletteItemKey(item: PaletteItem): string {
   if (item.kind === "sequence") return `sequence-${item.sequence.id}`;
   if (item.kind === "object") return `object-${item.entry.type}-${item.entry.key}`;
   if (item.kind === "searchAll") return "search-all";
+  if (item.kind === "nav") return `nav-${item.group}-${item.item.id}`;
   return `artifact-${item.artifact.id}`;
 }
 
@@ -177,6 +231,10 @@ export function runPaletteItem(item: PaletteItem): void {
   }
   if (item.kind === "searchAll") {
     item.onRun();
+    return;
+  }
+  if (item.kind === "nav") {
+    if (item.item.enabled !== false) item.item.onRun();
     return;
   }
   item.artifact.onRun();
@@ -284,6 +342,21 @@ export function scoreArtifactNav(
   const detailScore = item.detail ? fuzzyScore(query, item.detail) : null;
   if (labelScore == null && detailScore == null) return null;
   return Math.max(labelScore ?? -Infinity, (detailScore ?? -Infinity) - 2);
+}
+
+/** Score a generic page nav item (step 3, the per-page contract) across its
+ *  label, its keywords, AND its detail, taking the best (keyword / detail hits
+ *  worth a touch less than a label hit). Returns null when none match. */
+export function scoreNavItem(query: string, item: PaletteNavItem): number | null {
+  const labelScore = fuzzyScore(query, item.label);
+  const kwScore = item.keywords ? fuzzyScore(query, item.keywords) : null;
+  const detailScore = item.detail ? fuzzyScore(query, item.detail) : null;
+  if (labelScore == null && kwScore == null && detailScore == null) return null;
+  return Math.max(
+    labelScore ?? -Infinity,
+    (kwScore ?? -Infinity) - 2,
+    (detailScore ?? -Infinity) - 2,
+  );
 }
 
 /** The command ids the palette should lift into a "Suggested" group at the top
@@ -430,14 +503,26 @@ export const RECENT_RESULTS_CAP = 5;
 /** The full input the palette assembles its heterogeneous view from. */
 export interface PaletteInput {
   commands: EditorCommand[];
-  /** OTHER sequences in the open collection, already excluding the open one. */
-  sequences: SequenceNavItem[];
-  /** The latest saved results for the open sequence, newest first. */
-  artifacts: ArtifactNavItem[];
+  /** OTHER sequences in the open collection, already excluding the open one.
+   *  Sequence-editor path only; generic pages omit it. */
+  sequences?: SequenceNavItem[];
+  /** The latest saved results for the open sequence, newest first. Sequence path
+   *  only; generic pages use navGroups instead. */
+  artifacts?: ArtifactNavItem[];
   /** The collection name, for the "Jump to a sequence" group hint. */
   collectionLabel?: string;
-  selectionKind: SelectionKind;
-  hasOrganism: boolean;
+  /** Sequence-editor selection state, drives its Suggested rule. Generic pages
+   *  omit it (defaults to "none") and supply suggestedIds instead. */
+  selectionKind?: SelectionKind;
+  hasOrganism?: boolean;
+  /** BeakerSearch website-wide (step 3), the GENERIC per-page contract. A page
+   *  source supplies its own Suggested as an ordered list of command ids (the
+   *  page decides what is relevant for its current context), an optional hint for
+   *  that group, and its navigable entity / result groups. The sequence editor
+   *  leaves these unset and uses its selection-driven path above. */
+  suggestedIds?: string[];
+  suggestedHint?: string;
+  navGroups?: PaletteNavGroup[];
   /** BeakerSearch global object search, chunk 2. Pre-ranked per-type object
    *  groups (Tasks / Projects / Methods / Sequences), built by the app-shell
    *  global source from the pure rankGlobalEntries (already scored, capped, and
@@ -471,6 +556,16 @@ const EMPTY_OBJECT_GROUPS: PaletteGroup[] = [];
 /** Stable empty default so an omitted recentRecords prop does not churn the memo. */
 const EMPTY_RECENT_RECORDS: PaletteItem[] = [];
 
+/** Stable empty defaults so an omitted generic-contract prop does not churn the memo. */
+const EMPTY_SEQUENCE_NAV: SequenceNavItem[] = [];
+const EMPTY_ARTIFACT_NAV: ArtifactNavItem[] = [];
+const EMPTY_NAV_GROUPS: PaletteNavGroup[] = [];
+
+/** How many items a generic page nav group shows on the EMPTY query before the
+ *  user types, so a page that hands over a long entity list does not flood the
+ *  resting view (the page should hand the on-screen-scoped set anyway). */
+const NAV_EMPTY_CAP = 6;
+
 /** Build the palette's heterogeneous, grouped view.
  *
  *  Empty query => the orienting glue, top to bottom: Suggested (selection-biased
@@ -495,11 +590,14 @@ export function buildPaletteResultsForQuery(
 ): PaletteGroup[] {
   const {
     commands,
-    sequences,
-    artifacts,
+    sequences = EMPTY_SEQUENCE_NAV,
+    artifacts = EMPTY_ARTIFACT_NAV,
     collectionLabel,
-    selectionKind,
-    hasOrganism,
+    selectionKind = "none",
+    hasOrganism = false,
+    suggestedIds,
+    suggestedHint,
+    navGroups = EMPTY_NAV_GROUPS,
     objectGroups = EMPTY_OBJECT_GROUPS,
     recentRecords = EMPTY_RECENT_RECORDS,
   } = input;
@@ -508,11 +606,16 @@ export function buildPaletteResultsForQuery(
   if (trimmed === "") {
     const groups: PaletteGroup[] = [];
 
-    // 1. Suggested, biased by the live selection (reuse the command rule).
+    // 1. Suggested. The sequence editor derives its ids from the live selection;
+    // a generic page (step 3) hands its own ordered suggestedIds, the page having
+    // already read its own context. Either way the ids name existing command ids,
+    // and any id not in the live command list is silently skipped.
     const byId = new Map(commands.map((c) => [c.id, c]));
     const seen = new Set<string>();
     const suggested: PaletteItem[] = [];
-    for (const id of suggestionIdsForSelection({ selectionKind, hasOrganism })) {
+    const suggestionIds =
+      suggestedIds ?? suggestionIdsForSelection({ selectionKind, hasOrganism });
+    for (const id of suggestionIds) {
       if (seen.has(id)) continue;
       const cmd = byId.get(id);
       if (cmd) {
@@ -521,11 +624,12 @@ export function buildPaletteResultsForQuery(
       }
     }
     if (suggested.length > 0) {
-      groups.push({
-        title: "Suggested",
-        hint: selectionKind === "none" ? undefined : "for your selection",
-        items: suggested,
-      });
+      const hint = suggestedIds
+        ? suggestedHint
+        : selectionKind === "none"
+          ? undefined
+          : "for your selection";
+      groups.push({ title: "Suggested", hint, items: suggested });
     }
 
     // 2. Jump to a sequence (the other sequences in the collection).
@@ -545,6 +649,21 @@ export function buildPaletteResultsForQuery(
         items: artifacts
           .slice(0, RECENT_RESULTS_CAP)
           .map((a) => ({ kind: "artifact" as const, artifact: a })),
+      });
+    }
+
+    // 3a. Generic page nav groups (step 3, the per-page entities + results). Each
+    // page-defined group prints under its own heading, capped so the resting view
+    // stays calm. The page leads with these (its own objects) before the global
+    // recents and the command list.
+    for (const navGroup of navGroups) {
+      if (navGroup.items.length === 0) continue;
+      groups.push({
+        title: navGroup.title,
+        hint: navGroup.hint,
+        items: navGroup.items
+          .slice(0, NAV_EMPTY_CAP)
+          .map((item) => ({ kind: "nav" as const, item, group: navGroup.title })),
       });
     }
 
@@ -586,6 +705,19 @@ export function buildPaletteResultsForQuery(
       scored.push({ item: { kind: "artifact", artifact: art }, score: s });
     }
   }
+  // Generic page nav items (step 3), scored alongside everything else and tagged
+  // with their group so they re-bucket under the page's own heading below.
+  for (const navGroup of navGroups) {
+    for (const navItem of navGroup.items) {
+      const s = scoreNavItem(trimmed, navItem);
+      if (s != null) {
+        scored.push({
+          item: { kind: "nav", item: navItem, group: navGroup.title },
+          score: s,
+        });
+      }
+    }
+  }
   scored.sort((a, b) => b.score - a.score);
 
   // Bucket the survivors. Sequences and artifacts each get their own heading;
@@ -608,6 +740,22 @@ export function buildPaletteResultsForQuery(
     .map((s) => s.item);
   if (artItems.length > 0) {
     pageGroups.push({ title: "Recent results", items: artItems });
+  }
+
+  // Generic page nav items, re-bucketed under their page-defined headings in the
+  // page's group order (best-first within each, preserved from the global sort).
+  const navByGroup = new Map<string, PaletteItem[]>();
+  for (const s of scored) {
+    if (s.item.kind !== "nav") continue;
+    const bucket = navByGroup.get(s.item.group);
+    if (bucket) bucket.push(s.item);
+    else navByGroup.set(s.item.group, [s.item]);
+  }
+  for (const navGroup of navGroups) {
+    const items = navByGroup.get(navGroup.title);
+    if (items && items.length > 0) {
+      pageGroups.push({ title: navGroup.title, items });
+    }
   }
 
   // The page's own command intent groups (everything that is NOT the global
@@ -674,6 +822,7 @@ function paletteGroupTitleOf(item: PaletteItem): PaletteGroupTitle {
   if (item.kind === "artifact") return "Recent results";
   if (item.kind === "object") return objectGroupTitle(item.entry.type);
   if (item.kind === "searchAll") return "More";
+  if (item.kind === "nav") return item.group;
   return item.command.group;
 }
 

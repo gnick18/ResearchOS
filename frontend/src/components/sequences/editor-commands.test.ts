@@ -15,11 +15,13 @@ import {
   flattenPaletteItems,
   scoreSequenceNav,
   scoreArtifactNav,
+  scoreNavItem,
   RECENT_RESULTS_CAP,
   COMMAND_GROUP_ORDER,
   type EditorCommand,
   type SequenceNavItem,
   type ArtifactNavItem,
+  type PaletteNavGroup,
 } from "./editor-commands";
 
 const noop = () => {};
@@ -271,5 +273,112 @@ describe("buildPaletteResultsForQuery (typed, across kinds)", () => {
       (i) => i.kind === "artifact" && i.artifact.label === "Domains in EGFP",
     );
     expect(artHit).toBeTruthy();
+  });
+});
+
+// BeakerSearch website-wide (step 3), the GENERIC per-page contract. A non-
+// sequence page supplies suggestedIds + navGroups instead of the sequence shapes.
+function makeNavGroups(): PaletteNavGroup[] {
+  return [
+    {
+      title: "Milestones",
+      hint: "on the chart",
+      items: [
+        { id: "m1", label: "Submit IRB packet", detail: "Mar 3", iconName: "list", onRun: noop },
+        { id: "m2", label: "Plasmid prep deadline", keywords: "cloning", iconName: "list", onRun: noop },
+      ],
+    },
+    {
+      title: "Projects on the chart",
+      items: [
+        { id: "p1", label: "Mitochondria QC", iconName: "folder", tone: "project", onRun: noop },
+      ],
+    },
+  ];
+}
+
+describe("scoreNavItem", () => {
+  it("matches a nav item by its label, keywords, or detail", () => {
+    const item = { id: "m2", label: "Plasmid prep deadline", keywords: "cloning", detail: "Apr 9", iconName: "list" as const, onRun: noop };
+    expect(scoreNavItem("plasmid", item)).not.toBeNull();
+    expect(scoreNavItem("cloning", item)).not.toBeNull();
+    expect(scoreNavItem("apr", item)).not.toBeNull();
+    expect(scoreNavItem("zzzz", item)).toBeNull();
+  });
+});
+
+describe("generic per-page contract (empty query)", () => {
+  const input = {
+    commands: makeCommands(),
+    suggestedIds: ["protein-domains", "view-map"],
+    suggestedHint: "for this page",
+    navGroups: makeNavGroups(),
+    selectionKind: "none" as const,
+  };
+
+  it("lifts the page's suggestedIds into the Suggested group, in order", () => {
+    const groups = buildPaletteResults(input);
+    const suggested = groups.find((g) => g.title === "Suggested");
+    expect(suggested?.hint).toBe("for this page");
+    const labels = suggested?.items.map((i) =>
+      i.kind === "command" ? i.command.label : "",
+    );
+    expect(labels).toEqual(["Find protein domains", "Go to the Map view"]);
+  });
+
+  it("renders the page's nav groups under their own headings", () => {
+    const groups = buildPaletteResults(input);
+    const titles = groups.map((g) => g.title);
+    expect(titles).toContain("Milestones");
+    expect(titles).toContain("Projects on the chart");
+    const milestones = groups.find((g) => g.title === "Milestones");
+    expect(milestones?.hint).toBe("on the chart");
+    expect(milestones?.items.every((i) => i.kind === "nav")).toBe(true);
+  });
+
+  it("caps a nav group on the empty view", () => {
+    const many: PaletteNavGroup[] = [
+      {
+        title: "Milestones",
+        items: Array.from({ length: 12 }, (_, i) => ({
+          id: `m${i}`,
+          label: `Milestone ${i}`,
+          iconName: "list" as const,
+          onRun: noop,
+        })),
+      },
+    ];
+    const groups = buildPaletteResults({ ...input, navGroups: many });
+    const milestones = groups.find((g) => g.title === "Milestones");
+    expect(milestones!.items.length).toBeLessThanOrEqual(6);
+  });
+});
+
+describe("generic per-page contract (typed)", () => {
+  const input = {
+    commands: makeCommands(),
+    navGroups: makeNavGroups(),
+    selectionKind: "none" as const,
+  };
+
+  it("scores nav items and re-buckets them under their page heading", () => {
+    const groups = buildPaletteResultsForQuery(input, "plasmid");
+    const flat = flattenPaletteItems(groups);
+    const navHit = flat.find(
+      (i) => i.kind === "nav" && i.item.label === "Plasmid prep deadline",
+    );
+    expect(navHit).toBeTruthy();
+    const milestones = groups.find((g) => g.title === "Milestones");
+    expect(milestones).toBeTruthy();
+    // No Suggested group once typing.
+    expect(groups.some((g) => g.title === "Suggested")).toBe(false);
+  });
+
+  it("finds a nav item by a keyword that is not in its label", () => {
+    const groups = buildPaletteResultsForQuery(input, "cloning");
+    const flat = flattenPaletteItems(groups);
+    expect(
+      flat.some((i) => i.kind === "nav" && i.item.label === "Plasmid prep deadline"),
+    ).toBe(true);
   });
 });
