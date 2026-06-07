@@ -11,6 +11,27 @@
 // are the public keys (directory) and the wrapped backup blobs (backup.ts).
 
 import type { IdentityKeys } from "./keys";
+import type { KdfParams } from "./backup";
+import { generateDeviceSalt } from "./backup";
+import {
+  clearSessionIdentity,
+  getSessionIdentity,
+  setSessionIdentity,
+} from "./session-key";
+import {
+  type WrappedDeviceKey,
+  addPasskeyToDeviceKey,
+  removePasskeyFromDeviceKey,
+  unlockDeviceKeyWithPasskey,
+  unlockDeviceKeyWithRecovery,
+  wrapDeviceKey,
+} from "./device-key";
+import {
+  type SharingIdentitySidecar,
+  readSharingIdentity,
+  writeSharingIdentity,
+} from "./sidecar";
+import { ensureGitignoreEntries } from "../../file-system/gitignore";
 
 const DB_NAME = "researchos-sharing-identity";
 const DB_VERSION = 1;
@@ -69,6 +90,11 @@ function tx<T>(
  * directly with no serialization.
  */
 export async function saveIdentity(identity: StoredIdentity): Promise<void> {
+  // OAuth-only model: the unlocked key lives in process memory for the session.
+  setSessionIdentity(identity);
+  // Transition fallback: also keep the legacy IndexedDB record so a page reload
+  // before the passkey-unlock login lands still finds the key. This raw-at-rest
+  // store is removed once the login ceremony populates the session on boot.
   const db = await openDb();
   try {
     await tx(db, "readwrite", (store) =>
@@ -80,9 +106,13 @@ export async function saveIdentity(identity: StoredIdentity): Promise<void> {
 }
 
 /**
- * Loads this device's identity, or null if none has been saved.
+ * The unlocked identity for this session, or null. Prefers the in-memory session
+ * key (populated by an unlock ceremony); falls back to the legacy IndexedDB raw
+ * record during the transition so existing callers keep working.
  */
 export async function loadIdentity(): Promise<StoredIdentity | null> {
+  const session = getSessionIdentity();
+  if (session) return session;
   const db = await openDb();
   try {
     const record = await tx<StoredIdentity | undefined>(db, "readonly", (store) =>
@@ -106,10 +136,168 @@ export async function hasIdentity(): Promise<boolean> {
  * not delete the database itself, so a later save reuses the same store.
  */
 export async function clearIdentity(): Promise<void> {
+  // Lock the session AND drop the legacy raw record.
+  clearSessionIdentity();
   const db = await openDb();
   try {
     await tx(db, "readwrite", (store) => store.delete(IDENTITY_KEY));
   } finally {
     db.close();
   }
+}
+
+// ---------------------------------------------------------------------------
+// OAuth-only identity model, the at-rest unlock + persistence (Option A).
+//
+// The wrapped device key lives in the per-user sharing sidecar
+// (_sharing_identity.json). These functions read/write those wrapped blobs and
+// park the unlocked key in the session holder. They are additive, the login
+// screen and setup wizard wire them in the next steps.
+// ---------------------------------------------------------------------------
+
+function sidecarToWrapped(
+  sc: SharingIdentitySidecar,
+): WrappedDeviceKey | null {
+  if (!sc.recoveryBlob) return null;
+  return {
+    version: 2,
+    x25519PublicKey: sc.x25519PublicKey,
+    ed25519PublicKey: sc.ed25519PublicKey,
+    fingerprint: sc.fingerprint,
+    recoveryBlob: sc.recoveryBlob,
+    passkeyBlob: sc.passkeyBlob,
+    passkeyCredentialId: sc.passkeyCredentialId,
+  };
+}
+
+function toStored(keys: IdentityKeys): StoredIdentity {
+  // deviceSalt is vestigial under the new wrapping (recovery/passkey, not a
+  // device-bound passphrase), but StoredIdentity still carries it; a fresh one
+  // is harmless and keeps the shape stable for existing consumers.
+  return { keys, deviceSalt: generateDeviceSalt() };
+}
+
+/** The passkey credential id to ask for at unlock, or null when none enrolled. */
+export async function getPasskeyCredentialId(
+  username: string,
+): Promise<string | null> {
+  const sc = await readSharingIdentity(username);
+  return sc?.passkeyCredentialId ?? null;
+}
+
+/** Whether this user's folder identity has a passkey door on this device. */
+export async function sidecarHasPasskey(username: string): Promise<boolean> {
+  const sc = await readSharingIdentity(username);
+  return !!sc?.passkeyBlob;
+}
+
+/** Unlocks the folder identity with the recovery code or 12 words. */
+export async function unlockIdentityWithRecovery(
+  username: string,
+  codeOrWords: string,
+): Promise<StoredIdentity | null> {
+  const sc = await readSharingIdentity(username);
+  if (!sc) return null;
+  const wrapped = sidecarToWrapped(sc);
+  if (!wrapped) return null;
+  const keys = unlockDeviceKeyWithRecovery(wrapped, codeOrWords);
+  if (!keys) return null;
+  const identity = toStored(keys);
+  setSessionIdentity(identity);
+  return identity;
+}
+
+/** Unlocks the folder identity with a passkey PRF output (from webauthn.ts). */
+export async function unlockIdentityWithPasskey(
+  username: string,
+  prfOutput: Uint8Array,
+): Promise<StoredIdentity | null> {
+  const sc = await readSharingIdentity(username);
+  if (!sc) return null;
+  const wrapped = sidecarToWrapped(sc);
+  if (!wrapped) return null;
+  const keys = unlockDeviceKeyWithPasskey(wrapped, prfOutput);
+  if (!keys) return null;
+  const identity = toStored(keys);
+  setSessionIdentity(identity);
+  return identity;
+}
+
+/**
+ * Seals a freshly created keypair into the user's sidecar under a new recovery
+ * code, parks it in the session, and gitignores the now-key-bearing sidecar.
+ * Returns the one-time recovery code/words. The sidecar must already exist (the
+ * setup wizard writes its public fields first).
+ */
+export async function sealIdentityIntoSidecar(
+  username: string,
+  keys: IdentityKeys,
+  params?: KdfParams,
+): Promise<{ recoveryCode: string; recoveryWords: string }> {
+  const sc = await readSharingIdentity(username);
+  if (!sc) {
+    throw new Error(
+      "sealIdentityIntoSidecar: no sharing sidecar to attach the wrapped key to",
+    );
+  }
+  const { wrapped, recoveryCode, recoveryWords } = params
+    ? wrapDeviceKey(keys, params)
+    : wrapDeviceKey(keys);
+  await writeSharingIdentity(username, {
+    ...sc,
+    recoveryBlob: wrapped.recoveryBlob,
+  });
+  try {
+    await ensureGitignoreEntries([
+      "_sharing_identity.json",
+      "users/*/_sharing_identity.json",
+    ]);
+  } catch {
+    // best-effort, the sidecar still works if the append fails
+  }
+  setSessionIdentity(toStored(keys));
+  return { recoveryCode, recoveryWords };
+}
+
+/**
+ * Adds (or replaces) the passkey door on the user's sidecar, using the current
+ * session key plus a fresh PRF output from an enrollment ceremony.
+ */
+export async function enrollPasskeyIntoSidecar(
+  username: string,
+  prfOutput: Uint8Array,
+  credentialId: string,
+): Promise<boolean> {
+  const sc = await readSharingIdentity(username);
+  const session = getSessionIdentity();
+  if (!sc || !sc.recoveryBlob || !session) return false;
+  const wrapped = addPasskeyToDeviceKey(
+    sidecarToWrapped(sc) as WrappedDeviceKey,
+    session.keys,
+    prfOutput,
+    credentialId,
+  );
+  await writeSharingIdentity(username, {
+    ...sc,
+    passkeyBlob: wrapped.passkeyBlob,
+    passkeyCredentialId: wrapped.passkeyCredentialId,
+    passkeyEnrolledAt: new Date().toISOString(),
+  });
+  return true;
+}
+
+/** Removes the passkey door, leaving recovery-only unlock. */
+export async function removePasskeyFromSidecar(
+  username: string,
+): Promise<boolean> {
+  const sc = await readSharingIdentity(username);
+  if (!sc || !sc.recoveryBlob) return false;
+  const stripped = removePasskeyFromDeviceKey(sidecarToWrapped(sc) as WrappedDeviceKey);
+  await writeSharingIdentity(username, {
+    ...sc,
+    passkeyBlob: stripped.passkeyBlob,
+    passkeyCredentialId: stripped.passkeyCredentialId,
+    passkeyEnrolledAt: null,
+  });
+  return true;
 }
