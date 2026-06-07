@@ -194,6 +194,17 @@ function planStorageBytes(sub: SubscriptionRecord | null): number {
 }
 
 /**
+ * Whether a subscription is actively sponsoring a lab, derived from its PLAN (a
+ * paid LAB plan) rather than the legacy lab_billing flag, so the plan is the
+ * single source of truth in the flat-plan model.
+ */
+function isLabSponsor(sub: SubscriptionRecord | null): boolean {
+  if (!sub || sub.status !== "active") return false;
+  const plan = getPlan(sub.planId);
+  return !!plan && plan.audience === "lab" && plan.priceCents > 0;
+}
+
+/**
  * Total storage quota (bytes) for an owner. This is the single number the collab
  * / relay enforcement layer checks a write against. Defined here so billing owns
  * it and the enforcement just reads it.
@@ -208,7 +219,7 @@ export async function quotaBytesForOwner(ownerKey: string): Promise<number> {
   const sponsorKey = await getSponsoringLab(ownerKey).catch(() => null);
   if (sponsorKey) {
     const lab = await getSubscription(sponsorKey);
-    if (lab && lab.status === "active" && lab.labBilling) {
+    if (isLabSponsor(lab)) {
       return planStorageBytes(lab);
     }
   }
@@ -230,8 +241,8 @@ export async function activityAllowanceForOwner(ownerKey: string): Promise<numbe
   const sponsorKey = await getSponsoringLab(ownerKey).catch(() => null);
   if (sponsorKey) {
     const lab = await getSubscription(sponsorKey);
-    if (lab && lab.status === "active" && lab.labBilling) {
-      return getPlan(lab.planId)?.activityWritesPerMonth ?? freeWrites;
+    if (isLabSponsor(lab)) {
+      return getPlan(lab?.planId)?.activityWritesPerMonth ?? freeWrites;
     }
   }
   const sub = await getSubscription(ownerKey);

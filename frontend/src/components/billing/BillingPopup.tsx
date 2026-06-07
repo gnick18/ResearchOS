@@ -29,8 +29,6 @@ import {
   inviteMember,
   removeMember,
   respondToInvite,
-  setLabBilling,
-  startCheckout,
 } from "@/lib/billing/client";
 
 // --- small shared pieces ----------------------------------------------------
@@ -356,13 +354,13 @@ function MemberInvites({
 function LabSponsorSection({
   lab,
   busy,
-  onToggle,
+  onChoosePlan,
   onInvite,
   onRemove,
 }: {
   lab: LabStatus;
   busy: boolean;
-  onToggle: (on: boolean) => void;
+  onChoosePlan: (planId: string) => void;
   onInvite: (email: string) => void;
   onRemove: (email: string) => void;
 }) {
@@ -381,64 +379,97 @@ function LabSponsorSection({
   return (
     <Section
       title="Sponsor your lab"
-      description="Pay for your whole lab's storage on one invoice. Each member keeps their own free gigabyte (pooled), and you are billed only for the lab's combined use above that pool."
+      description="One lab plan covers your whole lab's storage and editing activity, pooled across members, on a single monthly invoice. Members never pay separately."
     >
-      {!lab.canSponsor ? (
-        <p className="rounded-lg border border-border bg-surface-sunken px-4 py-3 text-meta text-foreground-muted">
-          Add a payment method first (raise your own storage limit) to start
-          sponsoring your lab.
-        </p>
-      ) : (
-        <>
-          <label className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              checked={lab.labBilling}
-              disabled={busy}
-              onChange={(e) => onToggle(e.target.checked)}
-              className="h-5 w-5 rounded border-border"
-            />
-            <span className="text-body font-medium text-foreground">
-              {lab.labBilling
-                ? "Lab billing is on, you sponsor the members below"
-                : "Turn on lab billing"}
-            </span>
-          </label>
+      <>
+        {/* Lab plan picker, the single control. */}
+        <div className="flex flex-wrap gap-2">
+          {lab.labPlans.map((p) => {
+            const selected = p.id === lab.labPlanId;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                disabled={busy}
+                onClick={() => onChoosePlan(p.id)}
+                className={`flex-1 min-w-[8rem] rounded-xl border px-4 py-3 text-left disabled:opacity-50 ${
+                  selected
+                    ? "border-sky-500 bg-sky-50 dark:bg-sky-500/15"
+                    : "border-border bg-surface-raised hover:bg-surface-sunken"
+                }`}
+              >
+                <span className="block text-body font-bold text-foreground">
+                  {p.name}
+                </span>
+                <span className="block text-meta text-foreground">
+                  {humanBytes(p.storageBytes)} pooled
+                </span>
+                <span className="block text-meta text-foreground">
+                  {formatWrites(p.activityWritesPerMonth)} edits/mo
+                </span>
+                <span className="mt-1 block text-meta font-semibold text-foreground-muted">
+                  {p.priceCents === 0 ? "Free" : `${usd(p.priceCents)}/mo`}
+                </span>
+              </button>
+            );
+          })}
+        </div>
 
-          {lab.labBilling ? (
-            <>
-              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <StatTile
-                  label="Members"
-                  value={String(lab.sponsoredOwners)}
-                  hint="you + active members"
-                />
-                <StatTile
-                  label="Pooled free"
-                  value={humanBytes(lab.poolBytes)}
-                  hint="1 GB each"
-                />
-                <StatTile
-                  label="Est. this month"
-                  value={usd(lab.estimatedChargeCents)}
-                  hint={
-                    lab.estimatedChargeCents === 0
-                      ? "Under the minimum"
-                      : "If usage holds"
-                  }
-                  strong
+        {lab.labBilling ? (
+          <>
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <StatTile
+                label="Members"
+                value={String(lab.sponsoredOwners)}
+                hint="you + active members"
+              />
+              <StatTile
+                label="Lab plan"
+                value={lab.labPlanName}
+                hint={`${humanBytes(lab.labCapBytes)} pooled`}
+              />
+              <StatTile
+                label="This month"
+                value={usd(lab.estimatedChargeCents)}
+                hint="flat lab plan"
+                strong
+              />
+            </div>
+
+            <div className="mt-4">
+              <p className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
+                Lab storage, pooled
+              </p>
+              <UsageBar
+                used={lab.aggregateUsedBytes}
+                quota={lab.labCapBytes}
+                freeBytes={lab.labCapBytes}
+              />
+            </div>
+
+            <div className="mt-3">
+              <p className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
+                Lab activity this month
+              </p>
+              <div className="mt-1.5 flex items-end justify-between gap-3">
+                <p className="text-body font-semibold text-foreground">
+                  {formatWrites(lab.aggregateWrites)}{" "}
+                  <span className="font-normal text-foreground-muted">
+                    of {formatWrites(lab.labActivityAllowance)} edit syncs
+                  </span>
+                </p>
+              </div>
+              <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-surface-sunken ring-1 ring-inset ring-border">
+                <div
+                  className="h-full rounded-full bg-sky-500 transition-all"
+                  style={{
+                    width: `${Math.min(100, lab.labActivityAllowance > 0 ? (lab.aggregateWrites / lab.labActivityAllowance) * 100 : 0)}%`,
+                  }}
                 />
               </div>
+            </div>
 
-              <div className="mt-4">
-                <UsageBar
-                  used={lab.aggregateUsedBytes}
-                  quota={Math.max(lab.poolBytes, lab.aggregateUsedBytes)}
-                  freeBytes={lab.poolBytes}
-                />
-              </div>
-
-              {/* Invite by email */}
+            {/* Invite by email */}
               <div className="mt-5">
                 <p className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
                   Invite a member
@@ -483,11 +514,8 @@ function LabSponsorSection({
                         </span>
                         <span className="text-meta text-foreground-muted">
                           {m.status === "active" ? "Active" : "Invited"}
-                          {m.usedBytes != null
-                            ? ` · ${humanBytes(m.usedBytes)}`
-                            : m.status === "active"
-                              ? " · usage private"
-                              : ""}
+                          {m.usedBytes != null ? ` · ${humanBytes(m.usedBytes)}` : ""}
+                          {m.writes != null ? ` · ${formatWrites(m.writes)} edits` : ""}
                         </span>
                       </span>
                       <button
@@ -513,8 +541,7 @@ function LabSponsorSection({
               )}
             </>
           ) : null}
-        </>
-      )}
+      </>
     </Section>
   );
 }
@@ -575,23 +602,6 @@ export default function BillingPopup() {
         return;
       }
       if (res.ok) await load();
-      setBusy(false);
-    },
-    [load],
-  );
-
-  const toggleLab = useCallback(
-    async (on: boolean) => {
-      setBusy(true);
-      const res = await setLabBilling(on);
-      if (res.needsCheckout) {
-        const url = await startCheckout();
-        if (url) {
-          window.location.href = url;
-          return;
-        }
-      }
-      await load();
       setBusy(false);
     },
     [load],
@@ -683,7 +693,7 @@ export default function BillingPopup() {
                 <LabSponsorSection
                   lab={lab}
                   busy={busy}
-                  onToggle={toggleLab}
+                  onChoosePlan={pickPlan}
                   onInvite={doInvite}
                   onRemove={doRemove}
                 />
