@@ -62,11 +62,22 @@ export async function ensureBusinessSchema(): Promise<void> {
     )
   `;
   // Additive columns for a business_entity table created by an earlier version.
-  // ADD COLUMN IF NOT EXISTS is idempotent.
+  // ADD COLUMN IF NOT EXISTS is idempotent. This MUST cover every column getEntity
+  // reads, otherwise a table that predates a column makes the SELECT fail with
+  // "column does not exist" and the whole /admin/business read 500s. Complete the
+  // set so the schema self-heals regardless of which version created the table.
+  await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS legal_name text DEFAULT ''`;
+  await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS state text DEFAULT 'Wisconsin'`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS entity_id text`;
+  await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS formation_date date`;
+  await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS ein text`;
+  await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS registered_agent text`;
+  await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS bank_label text`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS docs_folder text`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS sales_tax_status text`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS sales_tax_note text`;
+  await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS reserve_pct numeric NOT NULL DEFAULT 30`;
+  await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now()`;
   await sql`
     CREATE TABLE IF NOT EXISTS business_ledger (
       id bigserial primary key,
@@ -79,6 +90,7 @@ export async function ensureBusinessSchema(): Promise<void> {
       created_at timestamptz default now()
     )
   `;
+  await sql`ALTER TABLE business_ledger ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'manual'`;
   await sql`
     CREATE TABLE IF NOT EXISTS business_tasks (
       id bigserial primary key,
@@ -89,6 +101,8 @@ export async function ensureBusinessSchema(): Promise<void> {
       done_at timestamptz
     )
   `;
+  await sql`ALTER TABLE business_tasks ADD COLUMN IF NOT EXISTS sort int NOT NULL DEFAULT 0`;
+  await sql`ALTER TABLE business_tasks ADD COLUMN IF NOT EXISTS done_at timestamptz`;
   await sql`
     CREATE TABLE IF NOT EXISTS business_emails (
       id bigserial primary key,
