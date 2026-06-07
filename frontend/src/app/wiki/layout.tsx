@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import WikiSidebar from "@/components/wiki/WikiSidebar";
 import WikiTopBar from "@/components/wiki/WikiTopBar";
+import SponsorStrip from "@/components/SponsorStrip";
 
 export const metadata: Metadata = {
   title: "ResearchOS Wiki",
@@ -20,6 +21,9 @@ export default function WikiLayout({ children }: { children: ReactNode }) {
         <WikiSidebar />
         <main className="flex-1 min-w-0">{children}</main>
       </div>
+      {/* Site-wide sponsor recognition. Renders nothing until a real Lab or
+          Institute sponsor exists, so the wiki footer stays clean today. */}
+      <SponsorStrip variant="wiki-footer" />
     </div>
   );
 }

@@ -35,21 +35,9 @@ import BeakerBot from "@/components/BeakerBot";
 import AppFooter from "@/components/AppFooter";
 import ConfettiLayer from "@/components/animations/ConfettiLayer";
 import { Icon } from "@/components/icons";
-import sponsorsData from "@/data/sponsors.json";
+import { sponsors } from "@/data/sponsors";
 
 const GITHUB_SPONSORS_URL = "https://github.com/sponsors/ResearchOS-LLC";
-
-/** A single backer on the sponsor wall. Seeded empty in sponsors.json; the
- *  list is hand-curated for now (a live GitHub Sponsors fetch needs a token
- *  and a server route, not worth it for v1). */
-export interface Sponsor {
-  name: string;
-  url?: string;
-  logo?: string;
-  tier: "bench" | "lab" | "institute";
-}
-
-const sponsors = sponsorsData as Sponsor[];
 
 /* ───────────── tier cards ──────────────────────────────────────────────── */
 

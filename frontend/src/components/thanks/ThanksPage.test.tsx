@@ -1,7 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 
-import ThanksPage, { type Sponsor } from "./ThanksPage";
+import ThanksPage from "./ThanksPage";
+import { type Sponsor } from "@/data/sponsors";
 import sponsorsData from "@/data/sponsors.json";
 
 /**
