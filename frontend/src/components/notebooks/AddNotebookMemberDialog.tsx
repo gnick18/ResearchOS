@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { notebooksApi, usersApi } from "@/lib/local-api";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import type { Notebook } from "@/lib/types";
+import { Icon } from "@/components/icons";
 
 // Notebooks Generalization Phase 2 (notebooks-gen Phase 2 bot, 2026-06-06).
 // The PROMOTION-FLIP flow (locked decision 5): adding a member to a notebook
@@ -20,43 +21,8 @@ interface AddNotebookMemberDialogProps {
   onAdded: (notebook: Notebook) => void;
 }
 
-const CLOSE_SVG = (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <line x1="18" y1="6" x2="6" y2="18" />
-    <line x1="6" y1="6" x2="18" y2="18" />
-  </svg>
-);
-
-const ADD_PERSON_SVG = (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-    <circle cx="9" cy="7" r="4" />
-    <line x1="19" y1="8" x2="19" y2="14" />
-    <line x1="22" y1="11" x2="16" y2="11" />
-  </svg>
-);
+const CLOSE_SVG = <Icon name="close" className="h-[18px] w-[18px]" />;
+const ADD_PERSON_SVG = <Icon name="userPlus" className="h-[18px] w-[18px]" />;
 
 export default function AddNotebookMemberDialog({
   notebook,

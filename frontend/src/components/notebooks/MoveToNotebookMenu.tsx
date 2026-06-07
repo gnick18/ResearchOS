@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { Notebook } from "@/lib/types";
+import { Icon } from "@/components/icons";
 
 // Notebooks Generalization Phase 2 (notebooks-gen Phase 2 bot, 2026-06-06).
 // A cursor-anchored menu that moves a note into one of the viewer's notebooks
@@ -22,18 +23,7 @@ interface MoveToNotebookMenuProps {
 }
 
 const CHECK_SVG = (
-  <svg
-    className="ml-auto h-4 w-4 text-brand-action"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={2}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <polyline points="20 6 9 17 4 12" />
-  </svg>
+  <Icon name="check" className="ml-auto h-4 w-4 text-brand-action" />
 );
 
 export default function MoveToNotebookMenu({

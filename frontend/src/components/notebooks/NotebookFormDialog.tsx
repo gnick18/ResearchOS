@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { notebooksApi } from "@/lib/local-api";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import type { Notebook } from "@/lib/types";
+import { Icon } from "@/components/icons";
 
 // Notebooks Generalization Phase 2 (notebooks-gen Phase 2 bot, 2026-06-06).
 // A small create / rename dialog for PERSONAL notebooks, mirroring the shape
@@ -21,41 +22,8 @@ interface NotebookFormDialogProps {
   onSaved: (notebook: Notebook) => void;
 }
 
-const CLOSE_SVG = (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <line x1="18" y1="6" x2="6" y2="18" />
-    <line x1="6" y1="6" x2="18" y2="18" />
-  </svg>
-);
-
-const BOOK_SVG = (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-  </svg>
-);
+const CLOSE_SVG = <Icon name="close" className="h-[18px] w-[18px]" />;
+const BOOK_SVG = <Icon name="book" className="h-[18px] w-[18px]" />;
 
 export default function NotebookFormDialog({
   mode,

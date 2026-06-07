@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import type { Notebook } from "@/lib/types";
 import Tooltip from "@/components/Tooltip";
 import ContextMenu from "@/components/ContextMenu";
+import { Icon } from "@/components/icons";
 
 // Notebooks Generalization Phase 2 (notebooks-gen Phase 2 bot, 2026-06-06).
 // The Notes-tab LEFT RAIL of notebook containers. Replaces the old flat
@@ -46,129 +47,18 @@ interface NotebookRailProps {
   onAddMember: (notebook: Notebook) => void;
 }
 
-const BOOK_SVG = (
-  <svg
-    className="h-4 w-4 flex-shrink-0"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={2}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-  </svg>
-);
-
-const SHARED_BOOK_SVG = (
-  <svg
-    className="h-4 w-4 flex-shrink-0"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={2}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-    <circle cx="9" cy="7" r="4" />
-    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-  </svg>
-);
-
-const ALL_SVG = (
-  <svg
-    className="h-4 w-4 flex-shrink-0"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={2}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <line x1="8" y1="6" x2="21" y2="6" />
-    <line x1="8" y1="12" x2="21" y2="12" />
-    <line x1="8" y1="18" x2="21" y2="18" />
-    <line x1="3" y1="6" x2="3.01" y2="6" />
-    <line x1="3" y1="12" x2="3.01" y2="12" />
-    <line x1="3" y1="18" x2="3.01" y2="18" />
-  </svg>
-);
-
-const UNFILED_SVG = (
-  <svg
-    className="h-4 w-4 flex-shrink-0"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={2}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-    <polyline points="14 2 14 8 20 8" />
-  </svg>
-);
-
-const PLUS_SVG = (
-  <svg
-    className="h-3.5 w-3.5"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={2}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <line x1="12" y1="5" x2="12" y2="19" />
-    <line x1="5" y1="12" x2="19" y2="12" />
-  </svg>
-);
-
-const OVERFLOW_SVG = (
-  <svg
-    className="h-4 w-4"
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    aria-hidden="true"
-  >
-    <circle cx="5" cy="12" r="1.6" />
-    <circle cx="12" cy="12" r="1.6" />
-    <circle cx="19" cy="12" r="1.6" />
-  </svg>
-);
-
-const RENAME_ICON = (
-  <svg className="h-4 w-4 text-foreground-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-    <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z" />
-  </svg>
-);
-
+const ICON_CLASS = "h-4 w-4 flex-shrink-0";
+const BOOK_SVG = <Icon name="book" className={ICON_CLASS} />;
+const SHARED_BOOK_SVG = <Icon name="users" className={ICON_CLASS} />;
+const ALL_SVG = <Icon name="list" className={ICON_CLASS} />;
+const UNFILED_SVG = <Icon name="file" className={ICON_CLASS} />;
+const PLUS_SVG = <Icon name="plus" className="h-3.5 w-3.5" />;
+const OVERFLOW_SVG = <Icon name="more" className="h-4 w-4" />;
+const RENAME_ICON = <Icon name="pencil" className="h-4 w-4 text-foreground-muted" />;
 const ADD_MEMBER_ICON = (
-  <svg className="h-4 w-4 text-foreground-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-    <circle cx="9" cy="7" r="4" />
-    <line x1="19" y1="8" x2="19" y2="14" />
-    <line x1="22" y1="11" x2="16" y2="11" />
-  </svg>
+  <Icon name="userPlus" className="h-4 w-4 text-foreground-muted" />
 );
-
-const DELETE_ICON = (
-  <svg className="h-4 w-4 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <polyline points="3 6 5 6 21 6" />
-    <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
-    <path d="M10 11v6M14 11v6" />
-    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-  </svg>
-);
+const DELETE_ICON = <Icon name="trash" className="h-4 w-4 text-red-500" />;
 
 function RailButton({
   active,
