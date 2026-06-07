@@ -48,11 +48,12 @@ The calculators reproduce published methods. The parameters and equations come s
 
 The full per-package list with versions and source links is in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES). Grouped by license, the runtime dependencies are:
 
-- **MIT** (31): @codemirror/commands, @codemirror/lang-markdown, @codemirror/language, @codemirror/state, @codemirror/view, @lezer/common, @lezer/highlight, @lezer/markdown, @react-pdf/renderer, @tanstack/react-query, @vercel/analytics, date-fns, expr-eval-fork, frappe-gantt, konva, marked, next, react, react-dom, react-konva, react-markdown, recharts, rehype-highlight, rehype-raw, rehype-sanitize, remark-gfm, remark-parse, remark-rehype, turndown, unified, zustand
+- **MIT** (43): @codemirror/commands, @codemirror/lang-markdown, @codemirror/language, @codemirror/state, @codemirror/view, @lezer/common, @lezer/highlight, @lezer/markdown, @neondatabase/serverless, @noble/ciphers, @noble/curves, @noble/hashes, @react-pdf/renderer, @scure/bip39, @tanstack/react-query, @upstash/ratelimit, @upstash/redis, @vercel/analytics, date-fns, expr-eval-fork, fflate, frappe-gantt, konva, loro-codemirror, loro-crdt, marked, next, react, react-dom, react-konva, react-markdown, recharts, rehype-highlight, rehype-raw, rehype-sanitize, remark-gfm, remark-parse, remark-rehype, resend, stripe, turndown, unified, zustand
+- **ISC** (8): d3-hierarchy, d3-interpolate, d3-scale, d3-selection, d3-shape, d3-transition, d3-zoom, next-auth
 - **Apache-2.0** (3): @aws-sdk/client-s3, @aws-sdk/s3-request-presigner, idb-keyval
+- **(MIT OR GPL-3.0-or-later)** (1): jszip
 - **BSD-3-Clause** (1): diff
 - **MPL-2.0** (1): ical.js
-- **MIT OR GPL-3.0-or-later** (1): jszip
 
 ---
 

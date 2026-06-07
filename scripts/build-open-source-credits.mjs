@@ -21,6 +21,13 @@
  *        require keeping attribution; Apache-2.0 wants a NOTICE; this file is
  *        how we satisfy all of them in one place.
  *
+ *   3. ACKNOWLEDGEMENTS.md   (repo root) — by-license section only
+ *        The warmer, human-readable thank-you. Its curated prose sections
+ *        ("What powers each part of the app", "Code we recycle", "Scientific
+ *        references") are hand-written and left untouched; only the machine-
+ *        derived "Every dependency we ship, by license" tally is regenerated
+ *        in place from the same dependency data, so all three artifacts agree.
+ *
  * The vendored-code and scientific-reference facts are NOT auto-derived: they
  * come from the actual source headers (src/vendor/<x>/LICENSE and
  * src/lib/calculators/tm-nn.ts). They are transcribed here verbatim so the
@@ -55,6 +62,7 @@ const PKG_FILE = path.join(FRONTEND, "package.json");
 const NODE_MODULES = path.join(FRONTEND, "node_modules");
 const JSON_OUT = path.join(FRONTEND, "public", "open-source", "credits.json");
 const NOTICES_OUT = path.join(REPO_ROOT, "THIRD_PARTY_NOTICES");
+const ACK_OUT = path.join(REPO_ROOT, "ACKNOWLEDGEMENTS.md");
 
 const isQuiet = process.argv.includes("--quiet");
 const isCheck = process.argv.includes("--check");
@@ -419,6 +427,73 @@ function renderNotices(credits) {
   return lines.join("\n");
 }
 
+/* ───────────── ACKNOWLEDGEMENTS.md by-license section ─────────────────────── */
+
+// The machine-derived "Every dependency we ship, by license" section of
+// ACKNOWLEDGEMENTS.md is regenerated in place. Everything else in that file
+// (the curated prose: "What powers each part of the app", "Code we recycle",
+// "Scientific references") is hand-written and left untouched. These two
+// markers bound the region we own. The opening marker is the section heading;
+// the closing marker is the "---" rule that precedes the final gratitude line.
+const ACK_SECTION_HEADING = "## Every dependency we ship, by license";
+
+/** Render the by-license bullet list from the resolved dependency tree.
+ *  Licenses are ordered by descending package count, ties broken
+ *  alphabetically; package names within a group are sorted alphabetically. */
+function renderAckLicenseSection(credits) {
+  const byLicense = new Map();
+  for (const d of credits.dependencies) {
+    if (!byLicense.has(d.license)) byLicense.set(d.license, []);
+    byLicense.get(d.license).push(d.name);
+  }
+  const ordered = [...byLicense.entries()].sort((a, b) => {
+    if (b[1].length !== a[1].length) return b[1].length - a[1].length;
+    return a[0].localeCompare(b[0]);
+  });
+
+  const lines = [];
+  lines.push(ACK_SECTION_HEADING);
+  lines.push("");
+  lines.push(
+    "The full per-package list with versions and source links is in " +
+      "[THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES). Grouped by license, the " +
+      "runtime dependencies are:",
+  );
+  lines.push("");
+  for (const [license, names] of ordered) {
+    names.sort((a, b) => a.localeCompare(b));
+    lines.push(`- **${license}** (${names.length}): ${names.join(", ")}`);
+  }
+  lines.push("");
+  return lines.join("\n");
+}
+
+/** Splice the freshly rendered by-license section into the existing
+ *  ACKNOWLEDGEMENTS.md, replacing only the machine-owned region (the section
+ *  heading through the "---" rule that follows it) and preserving every curated
+ *  paragraph before and after. Throws if the markers can't be located so we
+ *  never silently corrupt the hand-written prose. */
+function renderAcknowledgements(credits) {
+  const existing = readFileSync(ACK_OUT, "utf8");
+  const headingIdx = existing.indexOf(ACK_SECTION_HEADING);
+  if (headingIdx === -1) {
+    throw new Error(
+      `Could not find "${ACK_SECTION_HEADING}" in ACKNOWLEDGEMENTS.md; refusing to regenerate.`,
+    );
+  }
+  // The closing rule is the first "---" line at or after the section heading.
+  const ruleMatch = existing.slice(headingIdx).match(/\n---\n/);
+  if (!ruleMatch) {
+    throw new Error(
+      "Could not find the closing '---' rule after the by-license section in ACKNOWLEDGEMENTS.md.",
+    );
+  }
+  const ruleIdx = headingIdx + ruleMatch.index + 1; // start of the "---" line
+  const before = existing.slice(0, headingIdx);
+  const after = existing.slice(ruleIdx);
+  return before + renderAckLicenseSection(credits) + "\n" + after;
+}
+
 /* ───────────── main ──────────────────────────────────────────────────────── */
 
 /** Stable JSON for both writing and the --check comparison. The generatedAt
@@ -435,6 +510,7 @@ function main() {
   const credits = buildCredits();
   const json = stableJson(credits);
   const notices = renderNotices(credits);
+  const acknowledgements = renderAcknowledgements(credits);
 
   if (isCheck) {
     let ok = true;
@@ -452,6 +528,10 @@ function main() {
       process.stderr.write(`✗ ${path.relative(REPO_ROOT, NOTICES_OUT)} is stale. Run: node scripts/build-open-source-credits.mjs\n`);
       ok = false;
     }
+    if (!existsSync(ACK_OUT) || readFileSync(ACK_OUT, "utf8") !== acknowledgements) {
+      process.stderr.write(`✗ ${path.relative(REPO_ROOT, ACK_OUT)} by-license section is stale. Run: node scripts/build-open-source-credits.mjs\n`);
+      ok = false;
+    }
     if (!ok) process.exit(1);
     if (!isQuiet) process.stdout.write("Open-source credits are up to date.\n");
     process.exit(0);
@@ -460,6 +540,7 @@ function main() {
   mkdirSync(path.dirname(JSON_OUT), { recursive: true });
   writeFileSync(JSON_OUT, json, "utf8");
   writeFileSync(NOTICES_OUT, notices, "utf8");
+  writeFileSync(ACK_OUT, acknowledgements, "utf8");
 
   if (!isQuiet) {
     const licenses = Object.entries(credits.licenseCounts)
@@ -476,6 +557,7 @@ function main() {
         `Licenses:              ${licenses}`,
         `Data:                  ${path.relative(REPO_ROOT, JSON_OUT)}`,
         `Notices:               ${path.relative(REPO_ROOT, NOTICES_OUT)}`,
+        `Acknowledgements:      ${path.relative(REPO_ROOT, ACK_OUT)} (by-license section)`,
         "",
       ].join("\n"),
     );
@@ -493,6 +575,8 @@ export {
   resolveDependency,
   buildCredits,
   renderNotices,
+  renderAckLicenseSection,
+  renderAcknowledgements,
   HIGHLIGHT_GROUPS,
   VENDORED,
   SCIENTIFIC_REFERENCES,
