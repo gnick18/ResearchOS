@@ -11,12 +11,15 @@ confirmation before fixing.
 
 ## Cross-cutting
 
-- **[P2] Demo lab-head login is hard to reach.** Signing into the demo as a lab
-  head goes through the new passkey/identity-keypair enrollment, and any
-  `?wikiCapture=1` hard-nav reseeds back to alex. There is no frictionless way to
-  land in a lab-head view for testing/demos/screenshots. Recommend a fixture
-  affordance (pre-enrolled mira + a soft `as=mira` seed) so lab-head features are
-  demoable at all. (The committed demo password is now moot for login.)
+- **[RESOLVED, was a false alarm] Demo lab-head access.** Frictionless lab-head
+  sign-in ALREADY EXISTS: `?wikiCapture=1&fixtureUser=mira` lands directly on the
+  lab-head Lab Overview with NO login screen and NO passkey enrollment (mira is
+  in `WIKI_CAPTURE_FIXTURE_USERS`, and `fixtureUser` keeps the session across
+  hard-navs too). The earlier "hard to reach" reading was my mistake (I used
+  picker mode + manual enrollment). No fix needed; just use `fixtureUser=mira`
+  for any lab-head audit/demo/screenshot. (A known demo lab-head password "demo"
+  was set in passing; harmless and still useful if edit-session elevation reads
+  the lab-head auth.)
 - **[P2] Em-dashes in user-facing copy** (house style = none). Confirmed in:
   - `AnnouncementsWidget.tsx:255` placeholder "Share an update with the lab — e.g. ..."
   - `lab-head/LabRoster.tsx:336` "— archived"
@@ -68,32 +71,51 @@ confirmation before fixing.
 - `FlagBanner.tsx`, `RequestEditButton.tsx`, `CommentsThread.tsx` are part of
   this surface; source-review only so far, want a live walk.
 
-## 4. Settings + nav [src]
+## 4. Settings + nav — live as mira
 
-- **[P2]** `settings/page.tsx:1619` em-dash (above).
-- Lab-head sections: change-lab-head-password, active-session status pill, audit
-  log. **[P3]** Needs a live pass to confirm these still match the current
-  identity/passkey model (login moved to keypair/passkey; verify the lab-head
-  password settings copy is not stale relative to that).
-- **[P3]** Nav: "Lab Overview" appears for lab heads; confirm the member vs
-  lab-head nav difference is intentional and that the Mentoring tab is reachable.
+- **[P2, NEW] No lab-head session controls render for a lab head.** On Settings
+  as mira, there is NO visible "Change lab-head password", "Active session"
+  pill, or audit-log control. The source (settings page ~1108) describes these,
+  but they do not appear. Likely stale/dead relative to the identity/passkey
+  migration (login moved to keypair/passkey). Needs a decision: re-surface them,
+  or remove the dead code if the identity model replaced them.
+- **[P2, NEW] Security section shows wrong state for a lab head.** It reads
+  "Password is currently not set" for mira even though she has
+  `_lab_head_auth.json`. The generic Security/Password section reflects
+  `_auth.json` only, so a lab head sees a misleading "no password" state.
+- **[P2, DONE]** `settings/page.tsx:1619` em-dash fixed.
+- Nav: "Lab Overview" correctly appears for lab heads; member vs lab-head nav
+  difference looks intentional.
 
-## 5. Purchases + sharing [src]
+## 5. Purchases + sharing — purchases live as mira
 
-- `PurchaseEditor.tsx`: empty-value "—" glyphs (P3 above). **[P3]** Live pass of
-  the lab-head purchase-approval flow (the pinned announcement tells members
-  orders route through purchases for one-pass PI approval — verify that approval
-  UX exists and is clean).
-- `sharing/ShareDialog.tsx`: no UI-copy em-dashes found; wants a live pass.
+- **Good:** the Purchases page for a lab head shows a clear callout, "40 items
+  across the lab await your approval. This page shows your personal purchases.
+  The lab-wide approval queue lives on Lab Overview. [Open Lab Overview]". The
+  approval-queue indirection is well signposted.
+- **[P3]** The lab-head spending dashboard + funding accounts render but are all
+  $0 in the demo (no seeded purchase data for the PI view). Fixture-richness, not
+  a bug; worth seeding for a convincing PI demo.
+- `PurchaseEditor.tsx`: empty-value "—" glyphs (P3 above).
+- `sharing/ShareDialog.tsx`: no UI-copy em-dashes found; still wants a live pass.
 
 ## Recommended fix batches
 
-1. **Em-dash sweep** (P2): the 5 confirmed UI-copy strings. One small commit,
-   safe, no behavior change.
-2. **Empty-value glyph decision** (P3): pick a convention, apply or exempt.
-3. **TraineeNotesWidget vs Mentoring** (P2, design): decide retire vs
-   differentiate. Needs Grant.
-4. **Demo lab-head access** (P2): fixture affordance for frictionless lab-head
-   sign-in; unblocks future audits/demos/screenshots.
-5. **Live walks** of surfaces 3/4/5 as mira to confirm the [src] items and catch
-   visual/state issues a source scan cannot.
+1. **Em-dash sweep** (P2): DONE (commit `6d5ff2cd2`).
+2. **TraineeNotesWidget retired** (P2): DONE (commit `c6e9ba2b9`).
+3. **Demo lab-head access**: NOT NEEDED, already works via `fixtureUser=mira`.
+4. **Live walks**: DONE for Lab Overview, Mentoring, Settings, Purchases. Task
+   edit-session interactions (surface 3) still want a focused interactive pass.
+
+## Still open (post-this-pass)
+
+- **[P2] Lab-head settings stale vs identity/passkey model** (surface 4): no
+  edit-session / change-lab-head-password / audit controls render, and the
+  Security section shows a misleading "Password is currently not set" for a lab
+  head. Decide re-surface vs remove-dead-code. Needs Grant.
+- **[P3] Empty-value "—" glyph** convention: pick keep-and-exempt vs swap to a
+  middot, apply once.
+- **[P3] Surface 3 live walk**: TaskDetailPopup edit-session password modal +
+  soft-write flow, comments, archiving, FlagBanner, as mira.
+- **[P3] Demo richness**: seed lab-head purchase/spending data so the PI demo
+  isn't all $0.
