@@ -216,12 +216,26 @@ all five docs are committed. Likely next moves, in priority order:
        resting view). Additive, the sequence editor keeps its exact typed path
        unchanged. 6 new unit tests, 90 green. INVISIBLE until a page registers a
        generic source.
-     - NEXT, Gantt is the first real page source per `beakersearch-gantt.md`
-       (build the source inside the Gantt page from its real state/handlers, wire
-       `useBeakerSearchSource`). Per Grant's locked review workflow, this is
-       user-facing palette behavior, so show him an interactive before/after HTML
-       mockup of the Gantt palette before treating it final. Then Calendar,
-       Workbench, Purchases, Methods, Lab Overview, Links.
+     - FOUNDATION FULLY DONE: page-defined command groups (`731e1f8b7`), the
+       context-card selection line (`3d09931c9`), and a `goal` PaletteTone +
+       teal chip (`eb526fcc8`). The generic contract now covers everything a page
+       needs (context card incl. a selection line, suggestedIds, navGroups with
+       per-type tones incl. goals, and page-defined command + nav-group headings).
+     - GANTT DONE + on `main` (commit `70d6a1a99` cherry-picked): the first real
+       page source, Grant approved the mockup
+       (`docs/mockups/beakersearch-gantt-palette.html`) then I built it. A pure
+       `buildGanttSource()` (`app/gantt/gantt-beaker-source.ts`, 25 unit tests) +
+       a `useGanttBeakerSource()` hook reading the live store/queries + one wire in
+       `app/gantt/page.tsx`. Context card (scope + selection), selection-aware
+       Suggested (task + goal action sets, read-only gated), Jump to task/project/
+       goal, Recently opened (session-local), and the Create / Filter and scope /
+       Timeline view command groups. tsc clean, 69 tests green. ICON NOTE, the
+       registry has no "calendar" glyph, so the build substitutes registered icons
+       (history for the timeline/scope card, map for goals, etc.), a minor visual
+       deviation from the mockup worth a live glance.
+     - NEXT pages per the same pattern (mockup -> approve -> build): Calendar,
+       Workbench, Purchases, Methods, Lab Overview, Links. Each registers its own
+       generic source; reuse `buildGanttSource` as the template.
    - Step 4, app-wide mouse-awareness (`[data-beaker-target]` hover capture) last.
 3. **Optional small follow-up:** the EventModal task-picker UI so a user can
    actually create an event-to-task link (the field exists, the UI does not).
