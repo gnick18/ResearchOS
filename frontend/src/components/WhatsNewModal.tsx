@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import BeakerBot from "./BeakerBot";
 import BeakerBotMouseWaveScene from "./BeakerBotMouseWaveScene";
+import LivingPopup from "@/components/ui/LivingPopup";
 import { GoogleIcon, GitHubIcon, LinkedInIcon, OrcidIcon } from "@/components/sharing/icons";
 import { FREE_STORAGE_BYTES, TTL_DAYS } from "@/lib/sharing/relay/limits";
 import { APP_CHANNEL } from "@/lib/version";
@@ -32,6 +33,9 @@ import type { ReleaseNote } from "@/lib/release-notes";
  */
 
 interface Props {
+  /** Controlled open state. Parents always render the modal (so the exit
+   *  animation can play) and toggle this. */
+  open: boolean;
   /** Releases to display, NEWEST FIRST. The first entry is the headline. */
   releases: ReadonlyArray<ReleaseNote>;
   /** Called when the user dismisses (Got it / close / Escape / backdrop). */
@@ -321,6 +325,7 @@ function SignInChoiceCards({
 }
 
 export default function WhatsNewModal({
+  open,
   releases,
   onDismiss,
   onStartAccount,
@@ -331,22 +336,26 @@ export default function WhatsNewModal({
   const [expanded, setExpanded] = useState(showAllExpanded);
   const [waveActive, setWaveActive] = useState(waveOnOpen);
 
-  // Escape-to-dismiss, matching the rest of the modal family.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onDismiss();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onDismiss]);
+  // With no releases there is nothing to show; keep the modal closed but
+  // still let LivingPopup mount (so a transition out can finish) by passing
+  // an empty body. The wave scene is suppressed too.
+  const isOpen = open && releases.length > 0;
 
-  if (releases.length === 0) return null;
+  // Snapshot the last non-empty release list so the body stays rendered
+  // through LivingPopup's close animation after the parent clears releases.
+  // Synced during render (the supported pattern, mirrors ExportFormatDialog's
+  // prevIsOpen sync) so no ref is read during render.
+  const [shownReleases, setShownReleases] =
+    useState<ReadonlyArray<ReleaseNote>>(releases);
+  if (releases.length > 0 && releases !== shownReleases) {
+    setShownReleases(releases);
+  }
 
-  const [headline, ...rest] = releases;
+  const [headline, ...rest] = shownReleases;
   const extra = rest.length;
   // Releases are newest-first, so the headline drives whether the footer
   // offers the explicit sign-in fork.
-  const offerSignInChoice = headline.signInChoice === true;
+  const offerSignInChoice = headline?.signInChoice === true;
   // In the catch-up view the older missed releases hide behind the
   // expander; in the full-history view they are always shown.
   const showRest = showAllExpanded || expanded;
@@ -354,29 +363,27 @@ export default function WhatsNewModal({
   return (
     <>
       {/* Corner wave flourish. Fire-and-forget overlay (portals to body),
-          mirroring how CelebrationManager mounts the same scene. */}
-      {waveActive && (
+          mirroring how CelebrationManager mounts the same scene. Only fires
+          while the popup is actually open. */}
+      {isOpen && waveActive && (
         <BeakerBotMouseWaveScene
           active
           onComplete={() => setWaveActive(false)}
         />
       )}
 
-      <div
-        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
-        // Hide the v4 walkthrough ring while this popup is mounted (the
-        // manager already suppresses during a tour, but keep parity with
-        // the rest of the modal family for the on-demand Settings re-open).
-        data-tour-popup-occluding="whats-new"
-        onClick={onDismiss}
+      <LivingPopup
+        open={isOpen}
+        onClose={onDismiss}
+        label="What's new"
+        widthClassName={offerSignInChoice ? "max-w-2xl" : "max-w-md"}
+        card={false}
       >
         <div
-          role="dialog"
-          aria-modal="true"
           aria-labelledby="whats-new-title"
           data-testid="whats-new-modal"
-          className={`relative w-full ${offerSignInChoice ? "max-w-2xl" : "max-w-md"} rounded-2xl bg-white border border-gray-200 shadow-2xl overflow-hidden`}
-          onClick={(e) => e.stopPropagation()}
+          // This popup brings its own white card chrome (card=false above).
+          className="relative w-full rounded-2xl bg-white border border-gray-200 shadow-2xl overflow-hidden"
         >
           {/* Brand rainbow hairline across the top edge (the same signature as
               the footer + welcome ribbon), so the launch popup reads on-brand at
@@ -388,27 +395,6 @@ export default function WhatsNewModal({
           />
           {/* Header: BeakerBot waving over a soft sky wash. */}
           <div className="relative flex flex-col items-center bg-gradient-to-b from-sky-50 to-white pt-6 pb-4 px-6">
-            <button
-              type="button"
-              onClick={onDismiss}
-              aria-label="Close what's new"
-              data-testid="whats-new-close"
-              className="absolute right-3 top-3 rounded-md p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                aria-hidden="true"
-              >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
             <BeakerBot
               pose="waving"
               alive
@@ -434,7 +420,7 @@ export default function WhatsNewModal({
               offerSignInChoice ? "pb-6 max-h-[72vh]" : "pb-2 max-h-[50vh]"
             }`}
           >
-            <ReleaseBlock release={headline} />
+            {headline && <ReleaseBlock release={headline} />}
 
             {extra > 0 && !showAllExpanded && !expanded && (
               <button
@@ -443,7 +429,7 @@ export default function WhatsNewModal({
                 data-testid="whats-new-view-all"
                 className="text-body font-medium text-sky-600 hover:text-sky-700 hover:underline"
               >
-                View all {releases.length} updates
+                View all {shownReleases.length} updates
               </button>
             )}
 
@@ -482,7 +468,7 @@ export default function WhatsNewModal({
             </div>
           )}
         </div>
-      </div>
+      </LivingPopup>
     </>
   );
 }

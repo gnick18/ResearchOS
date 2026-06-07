@@ -3852,14 +3852,13 @@ function TipsSection() {
           What&apos;s new
         </button>
       </div>
-      {whatsNewOpen && (
-        <WhatsNewModal
-          releases={RELEASE_NOTES}
-          showAllExpanded
-          waveOnOpen={false}
-          onDismiss={() => setWhatsNewOpen(false)}
-        />
-      )}
+      <WhatsNewModal
+        open={whatsNewOpen}
+        releases={RELEASE_NOTES}
+        showAllExpanded
+        waveOnOpen={false}
+        onDismiss={() => setWhatsNewOpen(false)}
+      />
 
       {/* Revisit the first-time-visitor landing ("sell") page. It is gated
           to truly-new visitors at "/", so a connected user can only re-see

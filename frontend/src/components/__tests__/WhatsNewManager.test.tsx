@@ -175,7 +175,11 @@ describe("WhatsNewManager", () => {
       const settings = await readUserSettings(USER);
       expect(settings.lastSeenAnnouncementVersion).toBe("0.3.0");
     });
-    expect(screen.queryByTestId("whats-new-modal")).toBeNull();
+    // The modal now lives inside LivingPopup, which plays a short exit
+    // animation before unmounting, so wait for it to leave the DOM.
+    await waitFor(() => {
+      expect(screen.queryByTestId("whats-new-modal")).toBeNull();
+    });
   });
 
   it("up-to-date: a returning account at the latest sees nothing", async () => {

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { DuplicateInfo } from "@/lib/attachments/duplicate-check";
 import Tooltip from "./Tooltip";
 import { ImageIcon, PaperclipIcon } from "@/lib/utils/icons";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 /**
  * User-facing dialog shown when a dropped/picked file collides with an
@@ -76,6 +77,11 @@ export default function DuplicateUploadDialog({
 }: Props) {
   const [applyToAll, setApplyToAll] = useState(false);
   const renameButtonRef = useRef<HTMLButtonElement>(null);
+  // Retain the last collision so the body stays rendered through
+  // LivingPopup's close animation after `current` clears. Synced during
+  // render (no ref read in render) the way ExportFormatDialog syncs state.
+  const [shown, setShown] = useState<DuplicateInfo | null>(current);
+  if (current && current !== shown) setShown(current);
 
   // Reset "apply to all" each time the dialog re-opens for a new
   // collision queue. Without this, a previous batch's checkbox state
@@ -97,18 +103,6 @@ export default function DuplicateUploadDialog({
     return () => window.clearTimeout(id);
   }, [isOpen, current?.existingName]);
 
-  // Esc closes the dialog as a "cancel this one" (not cancel-all).
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onChoose("cancel", false);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, onChoose]);
-
   const handleClick = useCallback(
     (action: DuplicateAction) => {
       onChoose(action, applyToAll);
@@ -116,29 +110,23 @@ export default function DuplicateUploadDialog({
     [applyToAll, onChoose],
   );
 
-  if (!isOpen || !current) return null;
-
-  const isImage = current.file.type.startsWith("image/");
-  const size = formatFileSize(current.file.size);
-  const modified = formatModified(current.file.lastModified);
+  const isImage = shown ? shown.file.type.startsWith("image/") : false;
+  const size = shown ? formatFileSize(shown.file.size) : "";
+  const modified = shown ? formatModified(shown.file.lastModified) : "";
 
   return (
-    <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="duplicate-upload"
-      // Click on backdrop = cancel this collision (does not propagate
-      // to "apply to all" — the user didn't make an explicit choice).
-      onClick={() => onChoose("cancel", false)}
+    <LivingPopup
+      // Escape / scrim click = cancel this collision (no apply-to-all).
+      open={isOpen && current !== null}
+      onClose={() => onChoose("cancel", false)}
+      label="A file with this name already exists"
+      widthClassName="max-w-md"
+      card={false}
     >
+      {/* This dialog brings its own white card chrome (card=false above). */}
       <div
-        role="dialog"
-        aria-modal="true"
         aria-labelledby="dup-upload-title"
-        className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
+        className="relative w-full rounded-2xl bg-white shadow-2xl overflow-hidden"
       >
         {/* Header */}
         <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
@@ -166,9 +154,9 @@ export default function DuplicateUploadDialog({
               </Tooltip>
               <span
                 className="text-body font-mono text-gray-800 truncate"
-                title={current.existingName}
+                title={shown?.existingName}
               >
-                {current.existingName}
+                {shown?.existingName}
               </span>
             </div>
           </div>
@@ -184,9 +172,9 @@ export default function DuplicateUploadDialog({
               </Tooltip>
               <span
                 className="text-body font-mono text-gray-800 truncate"
-                title={current.file.name}
+                title={shown?.file.name}
               >
-                {current.file.name}
+                {shown?.file.name}
               </span>
             </div>
             <p className="text-meta text-gray-500 mt-1">
@@ -206,7 +194,7 @@ export default function DuplicateUploadDialog({
           >
             Save as{" "}
             <span className="font-mono text-meta bg-blue-700 px-1.5 py-0.5 rounded">
-              {current.suggestedName}
+              {shown?.suggestedName}
             </span>
           </button>
           <button
@@ -243,7 +231,7 @@ export default function DuplicateUploadDialog({
           </div>
         )}
       </div>
-    </div>
+    </LivingPopup>
   );
 }
 

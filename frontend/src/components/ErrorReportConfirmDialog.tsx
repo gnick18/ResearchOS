@@ -1,7 +1,7 @@
 "use client";
 
 import { type ErrorInfo } from "@/lib/error-reporting";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 interface ErrorReportConfirmDialogProps {
   isOpen: boolean;
@@ -32,26 +32,20 @@ export default function ErrorReportConfirmDialog({
   onSend,
   onDismiss,
 }: ErrorReportConfirmDialogProps) {
-  // Escape dismisses this dialog (app-wide convention). Only bound while open.
-  useEscapeToClose(onDismiss, isOpen && error !== null);
-
-  if (!isOpen || !error) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      data-testid="error-report-confirm-dialog"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="error-report-confirm"
+    <LivingPopup
+      open={isOpen && error !== null}
+      onClose={onDismiss}
+      label="Caught a bug"
+      widthClassName="max-w-md"
+      card={false}
     >
+      {/* This dialog brings its own white card chrome (card=false above).
+          `error` can briefly be null during the close animation, so guard. */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onDismiss}
-      />
-
-      <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+        className="relative bg-white rounded-2xl shadow-2xl w-full overflow-hidden"
+        data-testid="error-report-confirm-dialog"
+      >
         <div className="p-6 border-b border-gray-100">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -79,25 +73,6 @@ export default function ErrorReportConfirmDialog({
                 </p>
               </div>
             </div>
-            <button
-              onClick={onDismiss}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-              aria-label="Dismiss bug report"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
           </div>
         </div>
 
@@ -112,9 +87,9 @@ export default function ErrorReportConfirmDialog({
             </label>
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 max-h-32 overflow-y-auto">
               <p className="text-body text-red-800 font-mono break-all">
-                {error.message}
+                {error?.message}
               </p>
-              {error.stack && (
+              {error?.stack && (
                 <pre className="text-meta text-red-600 mt-2 whitespace-pre-wrap">
                   {error.stack.split("\n").slice(0, 4).join("\n")}
                 </pre>
@@ -138,6 +113,6 @@ export default function ErrorReportConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }

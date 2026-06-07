@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useAppStore } from "@/lib/store";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { tasksApi } from "@/lib/local-api";
 import { useQueryClient } from "@tanstack/react-query";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 export default function BulkMoveModal() {
   const bulkMoveData = useAppStore((s) => s.bulkMoveData);
@@ -33,21 +33,23 @@ export default function BulkMoveModal() {
     await queryClient.refetchQueries({ queryKey: ["tasks"] });
   }, [queryClient, setBulkMoveData]);
 
-  // Escape closes this confirm modal (app-wide convention), through the same
-  // cancel path that reverts the visual changes. Only bound while open.
-  useEscapeToClose(handleCancel, !!bulkMoveData);
-
-  if (!bulkMoveData) return null;
+  // Retain the last non-null payload so the body stays rendered through
+  // LivingPopup's close animation after the store clears bulkMoveData.
+  // Synced during render (no ref read in render), mirroring the
+  // ExportFormatDialog prevIsOpen pattern.
+  const [data, setData] = useState(bulkMoveData);
+  if (bulkMoveData && bulkMoveData !== data) setData(bulkMoveData);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="bulk-move-confirm"
+    <LivingPopup
+      open={!!bulkMoveData}
+      onClose={handleCancel}
+      label="Confirm Bulk Move"
+      widthClassName="max-w-md"
+      card={false}
     >
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
+      {/* This confirm modal brings its own white card chrome (card=false). */}
+      <div className="bg-white rounded-xl shadow-2xl w-full p-6">
         <h3 className="text-heading font-semibold text-gray-900 mb-2">
           Confirm Bulk Move
         </h3>
@@ -55,18 +57,18 @@ export default function BulkMoveModal() {
         <p className="text-body text-gray-600 mb-4">
           This move affects{" "}
           <span className="font-bold text-gray-900">
-            {bulkMoveData.affectedCount}
+            {data?.affectedCount}
           </span>{" "}
-          dependent task{bulkMoveData.affectedCount !== 1 ? "s" : ""}. Shift
+          dependent task{data?.affectedCount !== 1 ? "s" : ""}. Shift
           all?
         </p>
 
-        {bulkMoveData.warnings.length > 0 && (
+        {data && data.warnings.length > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
             <p className="text-meta font-semibold text-amber-700 mb-1">
               ⚠ Warnings
             </p>
-            {bulkMoveData.warnings.map((w, i) => (
+            {data.warnings.map((w, i) => (
               <p key={i} className="text-meta text-amber-600">
                 {w}
               </p>
@@ -89,6 +91,6 @@ export default function BulkMoveModal() {
           </button>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }

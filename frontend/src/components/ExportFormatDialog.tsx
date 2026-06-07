@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { ExportFormat } from "@/lib/export/types";
 import {
   formatBytes,
@@ -8,6 +8,7 @@ import {
   supportsFileSystemAccessSave,
   type ExportSizeEstimate,
 } from "@/lib/export/stream-output";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 interface ExportFormatDialogProps {
   isOpen: boolean;
@@ -120,23 +121,14 @@ export default function ExportFormatDialog({
   const showSaveToDisk =
     !!onExportToFile && supportsFileSystemAccessSave() && taskCount > 1;
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !isExporting) onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, isExporting, onClose]);
-
-  if (!isOpen) return null;
-
   const heading =
     taskCount === 1 && taskName
       ? `Export ${taskName}`
       : `Export ${taskCount} experiments`;
 
-  const handleBackdropClick = () => {
+  // Scrim click / Escape / X close, but never mid-export (matches the
+  // old guarded backdrop + Escape behavior).
+  const handleClose = () => {
     if (!isExporting) onClose();
   };
 
@@ -153,18 +145,15 @@ export default function ExportFormatDialog({
     isLargeExport(taskCount, sizeEstimate);
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="export-format-dialog"
-      onClick={handleBackdropClick}
+    <LivingPopup
+      open={isOpen}
+      onClose={handleClose}
+      label={heading}
+      widthClassName="max-w-lg"
+      card={false}
     >
-      <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
+      {/* This dialog brings its own white card chrome (card=false above). */}
+      <div className="bg-white rounded-xl shadow-xl w-full overflow-hidden">
         <div className="px-6 pt-5 pb-3 border-b border-gray-100">
           <h2 className="text-title font-semibold text-gray-900 line-clamp-2">
             {heading}
@@ -316,7 +305,7 @@ export default function ExportFormatDialog({
           </>
         )}
       </div>
-    </div>
+    </LivingPopup>
   );
 }
 

@@ -213,12 +213,16 @@ export default function WhatsNewManager({ username }: Props) {
     />
   ) : null;
 
-  if (phase.kind !== "showing") return emailWizard;
+  // Always render the modal so its close animation can play. WhatsNewModal
+  // snapshots the releases internally so the body stays filled through the
+  // exit even after `phase` flips back to idle.
+  const showing = phase.kind === "showing";
 
   return (
     <>
       <WhatsNewModal
-        releases={phase.missed}
+        open={showing}
+        releases={showing ? phase.missed : []}
         onDismiss={handleDismiss}
         onStartAccount={handleStartAccount}
         onStartEmail={handleStartEmail}
