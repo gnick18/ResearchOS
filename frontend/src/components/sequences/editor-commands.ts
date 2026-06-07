@@ -34,7 +34,13 @@ export type CommandGroup =
   // sequences editor never emits them, so its own palette is unchanged in
   // ordering except that the global rows trail after Export.
   | "Go to"
-  | "App";
+  | "App"
+  // BeakerSearch website-wide (step 3), any page-defined command group (e.g.
+  // "Create", "Filter and scope", "Timeline view"). The `& {}` keeps autocomplete
+  // for the known literals while accepting an arbitrary page group. Such groups
+  // render between the page's nav groups and the global "Go to" / "App" layer, in
+  // first-appearance order.
+  | (string & {});
 
 /** The order groups print in, so the list reads top to bottom the way the rail
  *  does (do at the bench, then learn about the sequence, then edit bases, then
@@ -550,6 +556,26 @@ const GLOBAL_COMMAND_GROUPS: ReadonlySet<CommandGroup> = new Set<CommandGroup>([
   "App",
 ]);
 
+/** The command-group render order for a given command list. The known sequence-
+ *  editor groups lead (Design..Export, COMMAND_GROUP_ORDER), then any PAGE-DEFINED
+ *  groups not in that list in first-appearance order (step 3, e.g. a Gantt page's
+ *  "Create" / "Filter and scope" / "Timeline view"), then the global "Go to" /
+ *  "App" layer trails. The sequence editor emits only known groups, so its order
+ *  is unchanged. */
+function commandGroupOrder(commands: EditorCommand[]): CommandGroup[] {
+  const known = COMMAND_GROUP_ORDER.filter((g) => !GLOBAL_COMMAND_GROUPS.has(g));
+  const globals = COMMAND_GROUP_ORDER.filter((g) => GLOBAL_COMMAND_GROUPS.has(g));
+  const seen = new Set<CommandGroup>([...known, ...globals]);
+  const pageDefined: CommandGroup[] = [];
+  for (const c of commands) {
+    if (!seen.has(c.group)) {
+      seen.add(c.group);
+      pageDefined.push(c.group);
+    }
+  }
+  return [...known, ...pageDefined, ...globals];
+}
+
 /** Stable empty default so an omitted objectGroups prop does not churn the memo. */
 const EMPTY_OBJECT_GROUPS: PaletteGroup[] = [];
 
@@ -675,8 +701,9 @@ export function buildPaletteResultsForQuery(
       groups.push({ title: "Recent records", items: recentRecords });
     }
 
-    // 4. Then every command intent group in source order.
-    for (const group of COMMAND_GROUP_ORDER) {
+    // 4. Then every command intent group in order (known sequence groups, then
+    // page-defined groups, then the global layer).
+    for (const group of commandGroupOrder(commands)) {
       const inGroup = commands
         .filter((c) => c.group === group)
         .map((c) => ({ kind: "command" as const, command: c }));
@@ -761,7 +788,7 @@ export function buildPaletteResultsForQuery(
   // The page's own command intent groups (everything that is NOT the global
   // "Go to" / "App" layer), so the object groups can slot in just above those.
   const globalCommandGroups: PaletteGroup[] = [];
-  for (const group of COMMAND_GROUP_ORDER) {
+  for (const group of commandGroupOrder(commands)) {
     const inGroup = scored
       .filter((s) => s.item.kind === "command" && s.item.command.group === group)
       .map((s) => s.item);

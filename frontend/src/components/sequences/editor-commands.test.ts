@@ -382,3 +382,30 @@ describe("generic per-page contract (typed)", () => {
     ).toBe(true);
   });
 });
+
+describe("page-defined command groups (step 3)", () => {
+  // A page (e.g. Gantt) emits commands under its own group names. Those groups
+  // render in first-appearance order, between the page nav groups and the global
+  // "Go to" / "App" layer.
+  const pageCommands: EditorCommand[] = [
+    { id: "new-task", label: "New task", group: "Create", iconName: "plus", run: noop },
+    { id: "filter-proj", label: "Filter by project", group: "Filter and scope", iconName: "list", run: noop },
+    { id: "view-2w", label: "View, 2 weeks", group: "Timeline view", iconName: "list", run: noop },
+    { id: "new-goal", label: "New high-level goal", group: "Create", iconName: "check", run: noop },
+    { id: "goto-workbench", label: "Go to Workbench", group: "Go to", iconName: "folder", run: noop },
+  ];
+
+  it("renders page-defined groups in first-appearance order, global layer last", () => {
+    const groups = buildPaletteResults({ commands: pageCommands, selectionKind: "none" });
+    const titles = groups.map((g) => g.title);
+    expect(titles).toEqual(["Create", "Filter and scope", "Timeline view", "Go to"]);
+  });
+
+  it("buckets a page-defined group when typing", () => {
+    const groups = buildPaletteResultsForQuery({ commands: pageCommands, selectionKind: "none" }, "view");
+    const flat = flattenPaletteItems(groups);
+    const hit = flat.find((i) => i.kind === "command" && i.command.label === "View, 2 weeks");
+    expect(hit).toBeTruthy();
+    expect(groups.some((g) => g.title === "Timeline view")).toBe(true);
+  });
+});
