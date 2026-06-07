@@ -10,6 +10,7 @@ import { useAccountType } from "@/hooks/useAccountType";
 import { PURCHASE_LORO_ENABLED } from "@/lib/loro/config";
 import { usePurchaseRowLoro } from "@/lib/loro/use-purchase-row-loro";
 import { getPurchaseFields } from "@/lib/loro/purchase-doc";
+import { writePurchaseUpdateThroughLoro } from "@/lib/loro/purchase-write-through";
 import {
   PurchaseApprovalToggle,
   PurchaseApprovalBadge,
@@ -414,10 +415,26 @@ export default function PurchaseEditor({
         vendor: editingRow.vendor.trim() || null,
         category: editingRow.category.trim() || null,
       };
-      // Phase 5 R1: purchasesApi is owner-scoped — write routes to the
-      // owner's purchase_items folder + audit entries emitted automatically
-      // when a PI edit session is unlocked.
-      await purchasesApi.update(editingItemId, newPayload);
+      // Purchase items on Loro (docs/proposals/PURCHASE_LORO.md) chunk 3 =
+      // WRITE routing. When PURCHASE_LORO_ENABLED, the save lands in the Loro
+      // doc (the same cached handle this row already has open from chunk 2),
+      // which persists the .loro sidecar AND the .json mirror and fans the
+      // change out over the relay. The mirror is byte-identical to what the
+      // legacy .update wrote, so every legacy reader stays correct. Flag off,
+      // it falls through to the existing owner-scoped purchasesApi.update
+      // EXACTLY as before. rowLoroOwner is the folder the items live under
+      // (the lab-mode `username` when present, else the current user), the same
+      // owner chunk 2 opened the read handle against.
+      if (PURCHASE_LORO_ENABLED) {
+        await writePurchaseUpdateThroughLoro(
+          rowLoroOwner,
+          editingItemId,
+          newPayload,
+          currentUser,
+        );
+      } else {
+        await purchasesApi.update(editingItemId, newPayload);
+      }
 
       setEditingItemId(null);
       setEditingRow({ ...EMPTY_ROW });
@@ -436,6 +453,8 @@ export default function PurchaseEditor({
     refetch,
     queryClient,
     purchasesApi,
+    rowLoroOwner,
+    currentUser,
   ]);
 
   const handleFieldChange = useCallback(

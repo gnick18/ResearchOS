@@ -3467,6 +3467,36 @@ export const massSpecApi = {
   }),
 };
 
+/**
+ * Purchase items on Loro (docs/proposals/PURCHASE_LORO.md) chunk 3. Build the
+ * EFFECTIVE patch a purchase update writes, given the existing record and the
+ * caller's partial data. This is the SAME total_price recompute + attribution
+ * stamp that purchasesApi.update applies, factored out so the Loro write-through
+ * path produces a byte-identical .json mirror (legacy readers stay correct).
+ *
+ * The returned object is a PARTIAL: it carries only the caller's changed fields
+ * plus the derived total_price and the attribution stamp, never a full record.
+ * That keeps the Loro merge-at-save per-key (a concurrent remote edit to an
+ * untouched field is preserved). `existing` supplies the prior price / quantity
+ * / shipping so total_price recomputes the same way whether or not those three
+ * are part of this edit.
+ *
+ * No em-dashes, no emojis, no mid-sentence colons.
+ */
+export async function buildPurchaseUpdatePatch(
+  existing: Pick<PurchaseItem, "price_per_unit" | "quantity" | "shipping_fees">,
+  data: PurchaseItemUpdate,
+): Promise<PurchaseItemUpdate & { total_price: number; last_edited_by: string; last_edited_at: string }> {
+  const pricePerUnit = data.price_per_unit ?? existing.price_per_unit;
+  const quantity = data.quantity ?? existing.quantity;
+  const shippingFees = data.shipping_fees ?? existing.shipping_fees;
+  const total = pricePerUnit * quantity + shippingFees;
+  return {
+    ...data,
+    total_price: total,
+    ...(await buildAttributionStamp(data.last_edited_by)),
+  };
+}
 
 export const purchasesApi = {
   // `owner` routes the read into a specific user's `purchase_items/` directory
@@ -3650,17 +3680,10 @@ export const purchasesApi = {
       : await purchaseItemsStore.get(id);
     if (!existing) return null;
 
-    const pricePerUnit = data.price_per_unit ?? existing.price_per_unit;
-    const quantity = data.quantity ?? existing.quantity;
-    const shippingFees = data.shipping_fees ?? existing.shipping_fees;
-    const total = pricePerUnit * quantity + shippingFees;
-
-    // VCP R3 attribution stamps.
-    const patch = {
-      ...data,
-      total_price: total,
-      ...(await buildAttributionStamp(data.last_edited_by)),
-    };
+    // VCP R3 attribution stamps + total_price recompute, factored into
+    // buildPurchaseUpdatePatch so the Loro write-through path (chunk 3) produces
+    // the same effective patch and a byte-identical .json mirror.
+    const patch = await buildPurchaseUpdatePatch(existing, data);
     return owner
       ? purchaseItemsStore.updateForUser(id, patch, owner)
       : purchaseItemsStore.update(id, patch);
