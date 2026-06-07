@@ -205,7 +205,23 @@ all five docs are committed. Likely next moves, in priority order:
        is the rest of the website-wide rollout, Step 3 (per-page sources) and
        Step 4 (mouse-awareness), below.
    - Step 3, add page sources one at a time per the specs (Gantt, Calendar,
-     Workbench, Purchases, Methods, Lab Overview, Links).
+     Workbench, Purchases, Methods, Lab Overview, Links). Grant chose the FULL
+     per-page contract (context card + Suggested + entities), one page at a time.
+     - FOUNDATION DONE + on `main` (commit `86aedc5f7`): the generic per-page
+       source contract. `BeakerSearchSource` now accepts `contextCard` +
+       `suggestedIds` (+ `suggestedHint`) + `navGroups` (generic entity/result
+       groups), the palette renders a `GenericContextCard` + a `"nav"` PaletteItem
+       kind, `buildPaletteResultsForQuery` has a generic path (suggestedIds ->
+       Suggested, navGroups scored + bucketed under page headings, capped on the
+       resting view). Additive, the sequence editor keeps its exact typed path
+       unchanged. 6 new unit tests, 90 green. INVISIBLE until a page registers a
+       generic source.
+     - NEXT, Gantt is the first real page source per `beakersearch-gantt.md`
+       (build the source inside the Gantt page from its real state/handlers, wire
+       `useBeakerSearchSource`). Per Grant's locked review workflow, this is
+       user-facing palette behavior, so show him an interactive before/after HTML
+       mockup of the Gantt palette before treating it final. Then Calendar,
+       Workbench, Purchases, Methods, Lab Overview, Links.
    - Step 4, app-wide mouse-awareness (`[data-beaker-target]` hover capture) last.
 3. **Optional small follow-up:** the EventModal task-picker UI so a user can
    actually create an event-to-task link (the field exists, the UI does not).
