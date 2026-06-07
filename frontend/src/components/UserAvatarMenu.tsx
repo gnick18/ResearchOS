@@ -83,7 +83,7 @@ function DropdownItem({
   children: React.ReactNode;
 }) {
   const cls =
-    "flex items-center gap-2 w-full px-4 py-2.5 text-body text-gray-700 hover:bg-gray-50 transition-colors text-left";
+    "flex items-center gap-2 w-full px-4 py-2.5 text-body text-foreground hover:bg-surface-sunken transition-colors text-left";
 
   if (href) {
     return (
@@ -109,7 +109,7 @@ function PersonIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="w-4 h-4 shrink-0 text-gray-400"
+      className="w-4 h-4 shrink-0 text-foreground-muted"
       aria-hidden="true"
     >
       <circle cx="12" cy="8" r="4" />
@@ -128,7 +128,7 @@ function DirectoryIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="w-4 h-4 shrink-0 text-gray-400"
+      className="w-4 h-4 shrink-0 text-foreground-muted"
       aria-hidden="true"
     >
       <circle cx="9" cy="9" r="3" />
@@ -149,7 +149,7 @@ function GearIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="w-4 h-4 shrink-0 text-gray-400"
+      className="w-4 h-4 shrink-0 text-foreground-muted"
       aria-hidden="true"
     >
       <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
@@ -295,7 +295,7 @@ export default function UserAvatarMenu({
                 : "ring-2 ring-white/40 hover:ring-white/80"
               : open || onSettings
               ? "ring-2 ring-blue-500"
-              : "hover:ring-2 hover:ring-gray-300"
+              : "hover:ring-2 hover:ring-border"
           }`}
           style={avatarStyle}
         >
@@ -306,11 +306,11 @@ export default function UserAvatarMenu({
 
       {open && (
         <div
-          className="absolute right-0 top-[calc(100%+8px)] z-[300] w-52 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden"
+          className="absolute right-0 top-[calc(100%+8px)] z-[300] w-52 rounded-xl border border-border bg-surface-raised shadow-lg overflow-hidden"
           role="menu"
         >
           {/* Username header */}
-          <div className="px-4 py-3 border-b border-gray-100">
+          <div className="px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2.5">
               <div
                 className="relative w-8 h-8 rounded-full flex items-center justify-center text-body font-semibold shrink-0"
@@ -321,10 +321,10 @@ export default function UserAvatarMenu({
                 <span className="relative">{initial(currentUser)}</span>
               </div>
               <div className="min-w-0">
-                <p className="text-body font-semibold text-gray-900 truncate">
+                <p className="text-body font-semibold text-foreground truncate">
                   {currentUser}
                 </p>
-                <p className="text-meta text-gray-400">ResearchOS</p>
+                <p className="text-meta text-foreground-muted">ResearchOS</p>
               </div>
             </div>
           </div>

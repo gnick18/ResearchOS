@@ -130,17 +130,17 @@ export default function UnifiedShareDialog({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
+        className="bg-surface-raised rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Shared header chrome (title + record name + close). */}
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b border-border">
           <div className="flex items-center justify-between">
-            <h2 className="text-heading font-semibold text-gray-900">Share</h2>
+            <h2 className="text-heading font-semibold text-foreground">Share</h2>
             <Tooltip label="Close" placement="bottom">
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-foreground-muted hover:text-foreground-muted transition-colors"
                 aria-label="Close share dialog"
               >
                 <svg
@@ -159,7 +159,7 @@ export default function UnifiedShareDialog({
               </button>
             </Tooltip>
           </div>
-          <p className="text-body text-gray-500 mt-1 truncate">
+          <p className="text-body text-foreground-muted mt-1 truncate">
             {recordName(target)}
           </p>
         </div>
@@ -181,7 +181,7 @@ export default function UnifiedShareDialog({
           </div>
         ) : (
           <div className="px-6 pt-3">
-            <span className="inline-block px-3 py-1.5 text-body font-medium text-gray-900 border-b-2 border-blue-600">
+            <span className="inline-block px-3 py-1.5 text-body font-medium text-foreground border-b-2 border-blue-600">
               Outside your lab
             </span>
           </div>
@@ -191,7 +191,7 @@ export default function UnifiedShareDialog({
         <div className="flex-1 overflow-y-auto">
           {activeTab === "lab" ? (
             <div>
-              <p className="px-6 pt-3 pb-1 text-meta text-gray-500 leading-relaxed">
+              <p className="px-6 pt-3 pb-1 text-meta text-foreground-muted leading-relaxed">
                 People in your folder. They see your live copy and your edits.
               </p>
               <LabTabBody
@@ -202,7 +202,7 @@ export default function UnifiedShareDialog({
             </div>
           ) : (
             <div>
-              <p className="px-6 pt-3 pb-1 text-meta text-gray-500 leading-relaxed">
+              <p className="px-6 pt-3 pb-1 text-meta text-foreground-muted leading-relaxed">
                 Send an encrypted copy to someone by email. A snapshot, their own
                 copy.
               </p>
@@ -234,8 +234,8 @@ function TabButton({
       onClick={onClick}
       className={`px-3 py-1.5 text-body font-medium border-b-2 transition-colors ${
         active
-          ? "border-blue-600 text-gray-900"
-          : "border-transparent text-gray-500 hover:text-gray-700"
+          ? "border-blue-600 text-foreground"
+          : "border-transparent text-foreground-muted hover:text-foreground"
       }`}
     >
       {label}

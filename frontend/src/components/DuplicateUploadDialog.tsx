@@ -126,17 +126,17 @@ export default function DuplicateUploadDialog({
       {/* This dialog brings its own white card chrome (card=false above). */}
       <div
         aria-labelledby="dup-upload-title"
-        className="relative w-full rounded-2xl bg-white shadow-2xl overflow-hidden"
+        className="relative w-full rounded-2xl bg-surface-raised shadow-2xl overflow-hidden"
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
+        <div className="px-5 py-4 border-b border-border bg-surface-sunken">
           <h2
             id="dup-upload-title"
-            className="text-title font-semibold text-gray-900"
+            className="text-title font-semibold text-foreground"
           >
             A file with this name already exists
           </h2>
-          <p className="text-meta text-gray-500 mt-1">
+          <p className="text-meta text-foreground-muted mt-1">
             Choose what to do with the file you just added.
           </p>
         </div>
@@ -150,10 +150,10 @@ export default function DuplicateUploadDialog({
             </p>
             <div className="flex items-center gap-2">
               <Tooltip label={isImage ? "Image" : "File"} placement="top">
-                {isImage ? <ImageIcon className="w-4 h-4 text-gray-400" /> : <PaperclipIcon className="w-4 h-4 text-gray-400" />}
+                {isImage ? <ImageIcon className="w-4 h-4 text-foreground-muted" /> : <PaperclipIcon className="w-4 h-4 text-foreground-muted" />}
               </Tooltip>
               <span
-                className="text-body font-mono text-gray-800 truncate"
+                className="text-body font-mono text-foreground truncate"
                 title={shown?.existingName}
               >
                 {shown?.existingName}
@@ -168,16 +168,16 @@ export default function DuplicateUploadDialog({
             </p>
             <div className="flex items-center gap-2">
               <Tooltip label={isImage ? "Image" : "File"} placement="top">
-                {isImage ? <ImageIcon className="w-4 h-4 text-gray-400" /> : <PaperclipIcon className="w-4 h-4 text-gray-400" />}
+                {isImage ? <ImageIcon className="w-4 h-4 text-foreground-muted" /> : <PaperclipIcon className="w-4 h-4 text-foreground-muted" />}
               </Tooltip>
               <span
-                className="text-body font-mono text-gray-800 truncate"
+                className="text-body font-mono text-foreground truncate"
                 title={shown?.file.name}
               >
                 {shown?.file.name}
               </span>
             </div>
-            <p className="text-meta text-gray-500 mt-1">
+            <p className="text-meta text-foreground-muted mt-1">
               {size}
               {modified ? ` • Modified ${modified}` : ""}
             </p>
@@ -200,14 +200,14 @@ export default function DuplicateUploadDialog({
           <button
             type="button"
             onClick={() => handleClick("replace")}
-            className="w-full py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 text-body font-medium rounded-lg transition-colors"
+            className="w-full py-2 px-4 bg-surface-sunken hover:bg-surface-sunken text-foreground text-body font-medium rounded-lg transition-colors"
           >
             Replace existing
           </button>
           <button
             type="button"
             onClick={() => handleClick("cancel")}
-            className="w-full py-2 px-4 text-meta text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+            className="w-full py-2 px-4 text-meta text-foreground-muted hover:text-foreground hover:bg-surface-sunken rounded-lg transition-colors"
           >
             Cancel
           </button>
@@ -215,15 +215,15 @@ export default function DuplicateUploadDialog({
 
         {/* Apply-to-all batch shortcut */}
         {remainingCount > 0 && (
-          <div className="px-5 pb-4 border-t border-gray-100 pt-3">
+          <div className="px-5 pb-4 border-t border-border pt-3">
             <label className="flex items-start gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={applyToAll}
                 onChange={(e) => setApplyToAll(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                className="mt-0.5 h-4 w-4 rounded border-border text-blue-600 focus:ring-blue-500"
               />
-              <span className="text-meta text-gray-600">
+              <span className="text-meta text-foreground-muted">
                 Apply this choice to the other {remainingCount} file
                 {remainingCount === 1 ? "" : "s"} with name collisions
               </span>

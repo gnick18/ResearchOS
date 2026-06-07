@@ -136,7 +136,7 @@ function StepRail({ step }: { step: Step }) {
           <div key={s} className="flex items-center gap-2">
             <div
               className={`flex items-center gap-1.5 text-meta font-medium ${
-                active ? "text-blue-700" : done ? "text-gray-500" : "text-gray-400"
+                active ? "text-blue-700" : done ? "text-foreground-muted" : "text-foreground-muted"
               }`}
             >
               <span
@@ -145,7 +145,7 @@ function StepRail({ step }: { step: Step }) {
                     ? "bg-blue-600 text-white"
                     : done
                       ? "bg-green-500 text-white"
-                      : "bg-gray-200 text-gray-500"
+                      : "bg-surface-sunken text-foreground-muted"
                 }`}
               >
                 {done ? <CheckIcon /> : i + 1}
@@ -153,7 +153,7 @@ function StepRail({ step }: { step: Step }) {
               {STEP_LABELS[s]}
             </div>
             {i < STEP_ORDER.length - 1 ? (
-              <span className="w-6 h-px bg-gray-200" aria-hidden />
+              <span className="w-6 h-px bg-surface-sunken" aria-hidden />
             ) : null}
           </div>
         );
@@ -380,17 +380,17 @@ export default function ProjectDepositDialog({
       }}
     >
       <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden"
+        className="bg-surface-raised rounded-xl shadow-xl w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 pt-5 pb-3 border-b border-gray-100">
+        <div className="px-6 pt-5 pb-3 border-b border-border">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <h2 className="text-title font-semibold text-gray-900 line-clamp-2">
+              <h2 className="text-title font-semibold text-foreground line-clamp-2">
                 Deposit to a repository
               </h2>
-              <p className="text-meta text-gray-500 mt-1 line-clamp-1">
+              <p className="text-meta text-foreground-muted mt-1 line-clamp-1">
                 {project.name}
               </p>
             </div>
@@ -398,7 +398,7 @@ export default function ProjectDepositDialog({
               type="button"
               onClick={() => !building && onClose()}
               aria-label="Close"
-              className="text-gray-400 hover:text-gray-600 p-1 -mr-1"
+              className="text-foreground-muted hover:text-foreground-muted p-1 -mr-1"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -414,7 +414,7 @@ export default function ProjectDepositDialog({
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {loading ? (
-            <div className="flex items-center gap-2 text-body text-gray-500 py-8 justify-center">
+            <div className="flex items-center gap-2 text-body text-foreground-muted py-8 justify-center">
               <Spinner />
               Reading the project...
             </div>
@@ -467,7 +467,7 @@ export default function ProjectDepositDialog({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-between gap-3">
+        <div className="px-6 py-3 border-t border-border flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={() => {
@@ -479,7 +479,7 @@ export default function ProjectDepositDialog({
               } else onClose();
             }}
             disabled={building}
-            className="px-3 py-1.5 text-body text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+            className="px-3 py-1.5 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg disabled:opacity-50"
           >
             {step === "select" ? "Cancel" : built ? "Build again" : "Back"}
           </button>
@@ -573,11 +573,11 @@ function SelectStep({
 
       {/* Experiments */}
       <div>
-        <div className="text-meta font-medium text-gray-700 mb-1.5">
+        <div className="text-meta font-medium text-foreground mb-1.5">
           Experiments ({prefill.experiments.length})
         </div>
         {prefill.experiments.length === 0 ? (
-          <div className="text-meta text-gray-400 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+          <div className="text-meta text-foreground-muted rounded-lg border border-border bg-surface-sunken px-3 py-2">
             This project has no experiments yet.
           </div>
         ) : (
@@ -587,7 +587,7 @@ function SelectStep({
               return (
                 <label
                   key={exp.id}
-                  className="flex items-center gap-2.5 rounded-md border border-gray-200 px-2.5 py-1.5 cursor-pointer hover:border-blue-300"
+                  className="flex items-center gap-2.5 rounded-md border border-border px-2.5 py-1.5 cursor-pointer hover:border-blue-300"
                 >
                   <input
                     type="checkbox"
@@ -595,7 +595,7 @@ function SelectStep({
                     onChange={() => toggleExp(exp.id)}
                     data-testid={`project-deposit-exp-${exp.id}`}
                   />
-                  <span className="flex-1 min-w-0 text-body text-gray-800 truncate">
+                  <span className="flex-1 min-w-0 text-body text-foreground truncate">
                     {exp.name || `Experiment ${exp.id}`}
                   </span>
                   {exp.is_complete ? (
@@ -603,7 +603,7 @@ function SelectStep({
                       complete
                     </span>
                   ) : (
-                    <span className="text-meta text-gray-500 bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5">
+                    <span className="text-meta text-foreground-muted bg-surface-sunken border border-border rounded px-1.5 py-0.5">
                       in progress
                     </span>
                   )}
@@ -616,11 +616,11 @@ function SelectStep({
 
       {/* Notes */}
       <div>
-        <div className="text-meta font-medium text-gray-700 mb-1.5">
+        <div className="text-meta font-medium text-foreground mb-1.5">
           Notes ({prefill.notes.length})
         </div>
         {prefill.notes.length === 0 ? (
-          <div className="text-meta text-gray-400 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+          <div className="text-meta text-foreground-muted rounded-lg border border-border bg-surface-sunken px-3 py-2">
             No notes to attach.
           </div>
         ) : (
@@ -630,7 +630,7 @@ function SelectStep({
               return (
                 <label
                   key={note.id}
-                  className="flex items-center gap-2.5 rounded-md border border-gray-200 px-2.5 py-1.5 cursor-pointer hover:border-blue-300"
+                  className="flex items-center gap-2.5 rounded-md border border-border px-2.5 py-1.5 cursor-pointer hover:border-blue-300"
                 >
                   <input
                     type="checkbox"
@@ -638,11 +638,11 @@ function SelectStep({
                     onChange={() => toggleNote(note.id)}
                     data-testid={`project-deposit-note-${note.id}`}
                   />
-                  <span className="flex-1 min-w-0 text-body text-gray-800 truncate">
+                  <span className="flex-1 min-w-0 text-body text-foreground truncate">
                     {note.title || `Note ${note.id}`}
                   </span>
                   {note.is_running_log ? (
-                    <span className="text-meta text-gray-500 bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5">
+                    <span className="text-meta text-foreground-muted bg-surface-sunken border border-border rounded px-1.5 py-0.5">
                       running log
                     </span>
                   ) : null}
@@ -655,7 +655,7 @@ function SelectStep({
 
       {/* Per-item presentation format */}
       <div>
-        <div className="text-meta font-medium text-gray-700 mb-1.5">
+        <div className="text-meta font-medium text-foreground mb-1.5">
           Per-item format
         </div>
         <div className="flex gap-2">
@@ -673,14 +673,14 @@ function SelectStep({
               className={`px-3 py-1.5 text-meta rounded-lg border ${
                 bundleFormat === fmt
                   ? "border-blue-500 bg-blue-50 text-blue-700 font-medium"
-                  : "border-gray-200 text-gray-600 hover:border-gray-300"
+                  : "border-border text-foreground-muted hover:border-border"
               }`}
             >
               {label}
             </button>
           ))}
         </div>
-        <p className="text-meta text-gray-400 mt-1.5">
+        <p className="text-meta text-foreground-muted mt-1.5">
           How each experiment is rendered in the bundle. The combined navigable
           PDF and the raw re-importable bundles are always included as well.
         </p>
@@ -702,8 +702,8 @@ function FieldLabel({
 }) {
   return (
     <div className="flex items-baseline justify-between">
-      <label className="text-meta font-medium text-gray-700">{children}</label>
-      {hint ? <span className="text-meta text-gray-400">{hint}</span> : null}
+      <label className="text-meta font-medium text-foreground">{children}</label>
+      {hint ? <span className="text-meta text-foreground-muted">{hint}</span> : null}
     </div>
   );
 }
@@ -767,7 +767,7 @@ function MetadataStep({
         <FieldLabel hint="from the project name">
           Title <PrefilledBadge />
         </FieldLabel>
-        <div className="text-body text-gray-900 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+        <div className="text-body text-foreground rounded-lg border border-border bg-surface-sunken px-3 py-2">
           {metadata.titles[0]?.title}
         </div>
       </div>
@@ -777,7 +777,7 @@ function MetadataStep({
         <FieldLabel hint="from your profile">
           Creator {prefill.ownerOrcid ? <PrefilledBadge /> : null}
         </FieldLabel>
-        <div className="text-body text-gray-900 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+        <div className="text-body text-foreground rounded-lg border border-border bg-surface-sunken px-3 py-2">
           {prefill.ownerDisplayName}
         </div>
         <div className="mt-1.5">
@@ -791,7 +791,7 @@ function MetadataStep({
                 if (n) setOrcidDraft(n);
               }}
               placeholder="ORCID iD, e.g. 0000-0002-1825-0097"
-              className="w-full text-body rounded-lg border border-gray-300 px-3 py-2 pr-9 focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none"
+              className="w-full text-body rounded-lg border border-border px-3 py-2 pr-9 focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none"
               data-testid="project-deposit-orcid"
             />
             {orcidDraft.trim().length > 0 ? (
@@ -830,11 +830,11 @@ function MetadataStep({
           onChange={(e) => setAbstract(e.target.value)}
           rows={4}
           placeholder="A short summary of the dataset for the repository record."
-          className="w-full text-body rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none resize-y"
+          className="w-full text-body rounded-lg border border-border px-3 py-2 focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none resize-y"
           data-testid="project-deposit-abstract"
         />
         {issues.abstractMissing ? (
-          <p className="text-meta text-gray-400">
+          <p className="text-meta text-foreground-muted">
             Optional, but a description helps people find and reuse your data.
           </p>
         ) : null}
@@ -846,18 +846,18 @@ function MetadataStep({
           <FieldLabel hint="from project tags">
             Keywords {metadata.subjects.length > 0 ? <PrefilledBadge /> : null}
           </FieldLabel>
-          <div className="flex flex-wrap gap-1 min-h-[2.25rem] rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5">
+          <div className="flex flex-wrap gap-1 min-h-[2.25rem] rounded-lg border border-border bg-surface-sunken px-2 py-1.5">
             {metadata.subjects.length > 0 ? (
               metadata.subjects.map((s) => (
                 <span
                   key={s.subject}
-                  className="text-meta bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-700"
+                  className="text-meta bg-surface-raised border border-border rounded px-1.5 py-0.5 text-foreground"
                 >
                   {s.subject}
                 </span>
               ))
             ) : (
-              <span className="text-meta text-gray-400 self-center">
+              <span className="text-meta text-foreground-muted self-center">
                 No tags on this project.
               </span>
             )}
@@ -869,7 +869,7 @@ function MetadataStep({
             type="date"
             value={publicationDate}
             onChange={(e) => setPublicationDate(e.target.value)}
-            className="w-full text-body rounded-lg border border-gray-300 px-3 py-[0.4rem] focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none"
+            className="w-full text-body rounded-lg border border-border px-3 py-[0.4rem] focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none"
           />
         </div>
       </div>
@@ -885,7 +885,7 @@ function MetadataStep({
             {fundingRefs.map((funding, i) => (
               <div
                 key={`${funding.funderName}-${funding.awardNumber ?? ""}-${i}`}
-                className="text-body text-gray-900 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 space-y-0.5"
+                className="text-body text-foreground rounded-lg border border-border bg-surface-sunken px-3 py-2 space-y-0.5"
               >
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{funding.funderName}</span>
@@ -900,20 +900,20 @@ function MetadataStep({
                   )}
                 </div>
                 {funding.awardNumber ? (
-                  <div className="text-meta text-gray-600">
+                  <div className="text-meta text-foreground-muted">
                     Award {funding.awardNumber}
                     {funding.awardTitle ? ` - ${funding.awardTitle}` : ""}
                   </div>
                 ) : null}
                 {funding.funderIdentifier ? (
-                  <div className="text-meta text-gray-400">
+                  <div className="text-meta text-foreground-muted">
                     {funding.funderIdentifierType ?? "ID"}: {funding.funderIdentifier}
                   </div>
                 ) : null}
               </div>
             ))}
             {derivedFunderCount > 0 ? (
-              <p className="text-meta text-gray-400">
+              <p className="text-meta text-foreground-muted">
                 {derivedFunderCount} additional{" "}
                 {derivedFunderCount === 1 ? "grant" : "grants"} derived from
                 purchases charged in this project.
@@ -921,7 +921,7 @@ function MetadataStep({
             ) : null}
           </div>
         ) : (
-          <div className="text-meta text-gray-400 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+          <div className="text-meta text-foreground-muted rounded-lg border border-border bg-surface-sunken px-3 py-2">
             {hasDerived
               ? "Grants were charged in this project but carry no funder name or award number yet. Add award metadata in Purchases & Funding to prefill funding."
               : "No grant is linked to this project and nothing was charged. Add a grant in the project settings to prefill funding, or leave it out."}
@@ -948,7 +948,7 @@ function MetadataStep({
         <select
           value={licenseChoice}
           onChange={(e) => setLicenseChoice(e.target.value)}
-          className="w-full text-body rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none bg-white"
+          className="w-full text-body rounded-lg border border-border px-3 py-2 focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none bg-surface-raised"
           data-testid="project-deposit-license"
         >
           <option value="" disabled>
@@ -970,12 +970,12 @@ function MetadataStep({
             value={licenseCustom}
             onChange={(e) => setLicenseCustom(e.target.value)}
             placeholder="License name or SPDX id, e.g. ODbL-1.0"
-            className="w-full text-body rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none"
+            className="w-full text-body rounded-lg border border-border px-3 py-2 focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none"
             data-testid="project-deposit-license-custom"
           />
         ) : null}
         {selectedLicense ? (
-          <p className="text-meta text-gray-500 leading-relaxed">
+          <p className="text-meta text-foreground-muted leading-relaxed">
             {selectedLicense.explainer}
           </p>
         ) : null}
@@ -1003,7 +1003,7 @@ function HandoffPickStep({
 }) {
   return (
     <div className="space-y-3">
-      <p className="text-meta text-gray-500 leading-relaxed">
+      <p className="text-meta text-foreground-muted leading-relaxed">
         Pick where this dataset will live. ResearchOS builds a ready-to-upload
         bundle and the metadata file. The repository mints the DOI; ResearchOS
         does not.
@@ -1015,7 +1015,7 @@ function HandoffPickStep({
             className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 cursor-pointer ${
               repoId === r.id
                 ? "border-blue-500 bg-blue-50"
-                : "border-gray-200 hover:border-gray-300"
+                : "border-border hover:border-border"
             }`}
           >
             <input
@@ -1027,7 +1027,7 @@ function HandoffPickStep({
             />
             <span className="min-w-0">
               <span className="flex items-center gap-2">
-                <span className="text-body font-medium text-gray-900">
+                <span className="text-body font-medium text-foreground">
                   {r.name}
                 </span>
                 {r.oneClickComingSoon ? (
@@ -1036,10 +1036,10 @@ function HandoffPickStep({
                   </span>
                 ) : null}
               </span>
-              <span className="block text-meta text-gray-500 mt-0.5">
+              <span className="block text-meta text-foreground-muted mt-0.5">
                 {r.blurb}
               </span>
-              <span className="block text-meta text-gray-400 mt-1">
+              <span className="block text-meta text-foreground-muted mt-1">
                 {r.guidedNote}
               </span>
             </span>
@@ -1083,23 +1083,23 @@ function HandoffDownloadStep({
         </div>
       </div>
 
-      <ol className="space-y-2 text-body text-gray-700">
+      <ol className="space-y-2 text-body text-foreground">
         <li className="flex gap-2">
-          <span className="font-medium text-gray-400">1.</span>
+          <span className="font-medium text-foreground-muted">1.</span>
           <span>
             Open {repo?.name ?? "your repository"}&apos;s new-upload page (the
             button below opens it in a new tab).
           </span>
         </li>
         <li className="flex gap-2">
-          <span className="font-medium text-gray-400">2.</span>
+          <span className="font-medium text-foreground-muted">2.</span>
           <span>
             Drag <span className="font-mono">{built.filename}</span> into the
             upload area.
           </span>
         </li>
         <li className="flex gap-2">
-          <span className="font-medium text-gray-400">3.</span>
+          <span className="font-medium text-foreground-muted">3.</span>
           <span>
             Copy the metadata below and paste each field into the
             repository&apos;s form (title, authors, description, keywords,
@@ -1110,13 +1110,13 @@ function HandoffDownloadStep({
 
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-meta font-medium text-gray-700">
+          <span className="text-meta font-medium text-foreground">
             Prefilled metadata (datacite.json)
           </span>
           <button
             type="button"
             onClick={onCopy}
-            className="inline-flex items-center gap-1.5 text-meta px-2.5 py-1 rounded-md border border-gray-200 text-gray-600 hover:border-gray-300"
+            className="inline-flex items-center gap-1.5 text-meta px-2.5 py-1 rounded-md border border-border text-foreground-muted hover:border-border"
           >
             {copied ? (
               <>

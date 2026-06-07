@@ -227,7 +227,7 @@ export default function ImportExperimentDialog({
       card={false}
       fillHeight
     >
-      <div className="bg-white rounded-xl shadow-2xl w-full flex flex-col overflow-hidden max-h-full">
+      <div className="bg-surface-raised rounded-xl shadow-2xl w-full flex flex-col overflow-hidden max-h-full">
         <input
           ref={fileInputRef}
           type="file"
@@ -236,12 +236,12 @@ export default function ImportExperimentDialog({
           onChange={onFileInputChange}
         />
 
-        <div className="px-6 pt-5 pb-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between gap-4">
+        <div className="px-6 pt-5 pb-3 border-b border-border bg-surface-sunken flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-title font-semibold text-gray-900">
+            <h2 className="text-title font-semibold text-foreground">
               {isMethod ? "Import method" : "Import experiment"}
             </h2>
-            <p className="text-meta text-gray-500 mt-1">
+            <p className="text-meta text-foreground-muted mt-1">
               {isMethod
                 ? "Bring a method shared by another ResearchOS user into your library."
                 : "Bring an experiment shared by another ResearchOS user into your workspace."}
@@ -276,11 +276,11 @@ export default function ImportExperimentDialog({
         </div>
 
         {stage === "review" && plan && (
-          <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-end gap-2 bg-gray-50">
+          <div className="px-6 py-3 border-t border-border flex items-center justify-end gap-2 bg-surface-sunken">
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-2 text-body text-gray-600 hover:text-gray-900"
+              className="px-3 py-2 text-body text-foreground-muted hover:text-foreground"
             >
               Cancel
             </button>
@@ -294,7 +294,7 @@ export default function ImportExperimentDialog({
           </div>
         )}
         {stage === "success" && (
-          <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-end gap-2 bg-gray-50">
+          <div className="px-6 py-3 border-t border-border flex items-center justify-end gap-2 bg-surface-sunken">
             <button
               type="button"
               onClick={onClose}
@@ -312,8 +312,8 @@ export default function ImportExperimentDialog({
 function PickerStage({ onPick }: { onPick: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-8">
-      <p className="text-body text-gray-700 text-center max-w-md">
-        Select a <code className="px-1 py-0.5 bg-gray-100 rounded text-meta">-raw.zip</code> bundle
+      <p className="text-body text-foreground text-center max-w-md">
+        Select a <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">-raw.zip</code> bundle
         exported by another ResearchOS user. You&apos;ll review what gets created before anything is written.
       </p>
       <button
@@ -331,7 +331,7 @@ function SpinnerStage({ label }: { label: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-12">
       <div className="h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-      <p className="text-body text-gray-600">{label}</p>
+      <p className="text-body text-foreground-muted">{label}</p>
     </div>
   );
 }
@@ -344,7 +344,7 @@ function ErrorStage({ message, onRetry }: { message: string; onRetry: () => void
       <button
         type="button"
         onClick={onRetry}
-        className="mt-4 px-3 py-2 text-body bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg"
+        className="mt-4 px-3 py-2 text-body bg-surface-sunken hover:bg-gray-300 text-foreground rounded-lg"
       >
         Try another file
       </button>
@@ -367,14 +367,14 @@ function SuccessStage({ result }: { result: ImportResult }) {
         <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-3">
           <CheckGlyph className="w-6 h-6" />
         </div>
-        <p className="text-title font-semibold text-gray-900">Imported successfully</p>
+        <p className="text-title font-semibold text-foreground">Imported successfully</p>
       </div>
       {isMethodOnly ? (
-        <p className="text-body text-gray-600 mt-2 text-center">
+        <p className="text-body text-foreground-muted mt-2 text-center">
           The method was added to your method library.
         </p>
       ) : (
-        <p className="text-body text-gray-600 mt-2 text-center">
+        <p className="text-body text-foreground-muted mt-2 text-center">
           New task id <strong>{result.newTaskId}</strong> created in your workspace.
           {result.newProjectId !== null && (
             <> Linked to project id <strong>{result.newProjectId}</strong>.</>
@@ -382,7 +382,7 @@ function SuccessStage({ result }: { result: ImportResult }) {
         </p>
       )}
       {Object.keys(result.importedMethodIds).length > 0 && (
-        <p className="text-meta text-gray-500 mt-2 text-center">
+        <p className="text-meta text-foreground-muted mt-2 text-center">
           {Object.keys(result.importedMethodIds).length} method{Object.keys(result.importedMethodIds).length === 1 ? "" : "s"} resolved.
         </p>
       )}
@@ -480,30 +480,30 @@ function ReviewStage({
         // task + project resolution blocks don't apply. Show a short
         // provenance line and let the Methods section below drive the import.
         <div>
-          <p className="text-meta uppercase tracking-wide text-gray-500 font-medium">Method</p>
-          <p className="text-body text-gray-900 mt-1">
-            Shared <span className="text-gray-500">by {sourceOwner || "(unknown user)"}</span>
+          <p className="text-meta uppercase tracking-wide text-foreground-muted font-medium">Method</p>
+          <p className="text-body text-foreground mt-1">
+            Shared <span className="text-foreground-muted">by {sourceOwner || "(unknown user)"}</span>
           </p>
-          <p className="text-meta text-gray-500 mt-1">
+          <p className="text-meta text-foreground-muted mt-1">
             The method will be added to your library. No experiment or project is created.
           </p>
         </div>
       ) : (
         <>
           <div>
-            <p className="text-meta uppercase tracking-wide text-gray-500 font-medium">Experiment</p>
-            <p className="text-body text-gray-900 mt-1">
+            <p className="text-meta uppercase tracking-wide text-foreground-muted font-medium">Experiment</p>
+            <p className="text-body text-foreground mt-1">
               <strong>{taskName}</strong>{" "}
-              <span className="text-gray-500">from {sourceOwner || "(unknown user)"}</span>
+              <span className="text-foreground-muted">from {sourceOwner || "(unknown user)"}</span>
             </p>
-            <p className="text-meta text-gray-500 mt-1">
+            <p className="text-meta text-foreground-muted mt-1">
               A new task will be created in your workspace. Notes, results, files, and images come along.
             </p>
           </div>
 
           <div>
-            <p className="text-meta uppercase tracking-wide text-gray-500 font-medium">Project</p>
-            <p className="text-body text-gray-700 mt-1">
+            <p className="text-meta uppercase tracking-wide text-foreground-muted font-medium">Project</p>
+            <p className="text-body text-foreground mt-1">
               Source: <strong>{plan.project.sourceProjectName}</strong>
             </p>
             <div className="mt-2 space-y-2">
@@ -520,7 +520,7 @@ function ReviewStage({
                   <select
                     value={plan.project.existingProjectId ?? ""}
                     onChange={(e) => setProjectDecision("use-existing", Number(e.target.value))}
-                    className="ml-2 text-meta border border-gray-200 rounded px-2 py-1"
+                    className="ml-2 text-meta border border-border rounded px-2 py-1"
                   >
                     {plan.project.candidates.map((c) => (
                       <option key={c.id} value={c.id}>{c.name}</option>
@@ -534,7 +534,7 @@ function ReviewStage({
               >
                 Create a new project
                 {plan.project.decision === "import-new" && (
-                  <span className="ml-2 text-meta text-gray-500">→ &ldquo;{projectImportedName}&rdquo;</span>
+                  <span className="ml-2 text-meta text-foreground-muted">→ &ldquo;{projectImportedName}&rdquo;</span>
                 )}
               </DecisionRow>
               <DecisionRow
@@ -550,7 +550,7 @@ function ReviewStage({
 
       {plan.methods.length > 0 && (
         <div>
-          <p className="text-meta uppercase tracking-wide text-gray-500 font-medium">
+          <p className="text-meta uppercase tracking-wide text-foreground-muted font-medium">
             Methods ({plan.methods.length})
           </p>
           <div className="mt-2 space-y-3">
@@ -560,10 +560,10 @@ function ReviewStage({
               const pcrProtocolBundled = isPcr && entry?.pcrProtocol != null;
               const importNewDisabled = isPcr && !pcrProtocolBundled;
               return (
-                <div key={`${m.sourceMethodId}:${idx}`} className="rounded-lg border border-gray-200 p-3">
-                  <p className="text-body text-gray-900">
+                <div key={`${m.sourceMethodId}:${idx}`} className="rounded-lg border border-border p-3">
+                  <p className="text-body text-foreground">
                     <strong>{m.sourceMethodName}</strong>
-                    <span className="ml-2 text-meta text-gray-500">
+                    <span className="ml-2 text-meta text-foreground-muted">
                       ({m.sourceMethodType ?? "unknown type"})
                     </span>
                   </p>
@@ -581,7 +581,7 @@ function ReviewStage({
                         <select
                           value={m.existingMethodId ?? ""}
                           onChange={(e) => setMethodDecision(idx, "use-existing", Number(e.target.value))}
-                          className="ml-2 text-meta border border-gray-200 rounded px-2 py-1"
+                          className="ml-2 text-meta border border-border rounded px-2 py-1"
                         >
                           {m.candidates.map((c) => (
                             <option key={c.id} value={c.id}>{c.name}</option>
@@ -598,7 +598,7 @@ function ReviewStage({
                         ? "Import as new (this bundle didn't carry the PCR protocol record)"
                         : "Import as a new method"}
                       {m.decision === "import-new" && methodImportedNames[idx] && (
-                        <span className="ml-2 text-meta text-gray-500">→ &ldquo;{methodImportedNames[idx]}&rdquo;</span>
+                        <span className="ml-2 text-meta text-foreground-muted">→ &ldquo;{methodImportedNames[idx]}&rdquo;</span>
                       )}
                     </DecisionRow>
                     <DecisionRow
@@ -616,7 +616,7 @@ function ReviewStage({
       )}
 
       {droppedUnattached.length > 0 && (
-        <p className="text-meta text-slate-500 flex items-start gap-1.5">
+        <p className="text-meta text-foreground-muted flex items-start gap-1.5">
           <svg
             aria-hidden
             className="w-3.5 h-3.5 flex-shrink-0 mt-0.5"
@@ -657,7 +657,7 @@ function DecisionRow({
   return (
     <label
       className={`flex items-center gap-2 text-body cursor-pointer ${
-        disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50"
+        disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-surface-sunken"
       } rounded px-2 py-1`}
     >
       <input
@@ -666,7 +666,7 @@ function DecisionRow({
         onChange={onSelect}
         disabled={disabled}
       />
-      <span className="text-gray-800">{children}</span>
+      <span className="text-foreground">{children}</span>
     </label>
   );
 }

@@ -150,13 +150,13 @@ export default function SendToTaskPicker({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden"
+        className="bg-surface-raised rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
           <div>
-            <h3 className="text-title font-semibold text-gray-900">{headerLabel}</h3>
-            <p className="text-meta text-gray-500 mt-0.5">
+            <h3 className="text-title font-semibold text-foreground">{headerLabel}</h3>
+            <p className="text-meta text-foreground-muted mt-0.5">
               Files land in the task&apos;s{" "}
               {subTab === "notes" ? "Lab Notes" : "Results"} folder.
             </p>
@@ -164,7 +164,7 @@ export default function SendToTaskPicker({
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-700 text-heading leading-none p-1"
+            className="text-foreground-muted hover:text-foreground text-heading leading-none p-1"
             aria-label="Close"
           >
             ×
@@ -177,7 +177,7 @@ export default function SendToTaskPicker({
           <div
             role="group"
             aria-label="Destination folder"
-            className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-gray-50"
+            className="inline-flex rounded-lg border border-border p-0.5 bg-surface-sunken"
           >
             <button
               type="button"
@@ -185,8 +185,8 @@ export default function SendToTaskPicker({
               onClick={() => setSubTab("notes")}
               className={`px-3 py-1 text-meta font-medium rounded-md transition-colors ${
                 subTab === "notes"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-surface-raised text-foreground shadow-sm"
+                  : "text-foreground-muted hover:text-foreground"
               }`}
             >
               Lab Notes
@@ -197,8 +197,8 @@ export default function SendToTaskPicker({
               onClick={() => setSubTab("results")}
               className={`px-3 py-1 text-meta font-medium rounded-md transition-colors ${
                 subTab === "results"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-surface-raised text-foreground shadow-sm"
+                  : "text-foreground-muted hover:text-foreground"
               }`}
             >
               Results
@@ -206,28 +206,28 @@ export default function SendToTaskPicker({
           </div>
         </div>
 
-        <div className="px-5 py-3 border-b border-gray-100">
+        <div className="px-5 py-3 border-b border-border">
           <input
             type="text"
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search tasks…"
-            className="w-full px-3 py-2 text-body border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+            className="w-full px-3 py-2 text-body border border-border rounded-lg focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
           />
         </div>
 
         <div className="flex-1 overflow-y-auto px-2 py-2">
           {tasksLoading ? (
-            <p className="text-body text-gray-500 text-center py-6">Loading…</p>
+            <p className="text-body text-foreground-muted text-center py-6">Loading…</p>
           ) : visible.length === 0 ? (
-            <p className="text-body text-gray-400 italic text-center py-6">
+            <p className="text-body text-foreground-muted italic text-center py-6">
               {trimmed ? "No tasks match." : "No experiment tasks yet."}
             </p>
           ) : (
             <ul className="space-y-1">
               {!trimmed && (
-                <li className="px-3 pt-1 pb-1 text-meta font-medium uppercase tracking-wide text-gray-400">
+                <li className="px-3 pt-1 pb-1 text-meta font-medium uppercase tracking-wide text-foreground-muted">
                   Recent
                 </li>
               )}
@@ -248,10 +248,10 @@ export default function SendToTaskPicker({
                         aria-hidden
                       />
                       <span className="flex-1 min-w-0">
-                        <span className="block text-body text-gray-900 truncate">
+                        <span className="block text-body text-foreground truncate">
                           {t.name}
                         </span>
-                        <span className="block text-meta text-gray-500 truncate">
+                        <span className="block text-meta text-foreground-muted truncate">
                           {proj ? proj.name : "No project"}
                           {t.is_shared_with_me ? ` · shared by ${t.owner}` : ""}
                           {" · "}

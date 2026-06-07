@@ -527,13 +527,13 @@ export default function MethodPicker({
       onKeyDown={handleKeyDown}
     >
       <div
-        className="w-full max-w-5xl bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden"
+        className="w-full max-w-5xl bg-surface-raised rounded-xl shadow-2xl flex flex-col overflow-hidden"
         style={{ maxHeight: "80vh", minHeight: "min(80vh, 480px)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
           <svg
-            className="w-4 h-4 text-gray-400 shrink-0"
+            className="w-4 h-4 text-foreground-muted shrink-0"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -555,7 +555,7 @@ export default function MethodPicker({
           />
           <button
             onClick={onClose}
-            className="text-meta text-gray-400 hover:text-gray-600 px-2 py-1 border border-gray-200 rounded"
+            className="text-meta text-foreground-muted hover:text-foreground-muted px-2 py-1 border border-border rounded"
             aria-label="Close picker"
           >
             Esc
@@ -563,21 +563,21 @@ export default function MethodPicker({
         </div>
 
         <div className="flex-1 flex overflow-hidden">
-        <div ref={listRef} className="w-full md:w-[560px] md:shrink-0 overflow-y-auto bg-gray-50/40 md:border-r md:border-gray-100">
+        <div ref={listRef} className="w-full md:w-[560px] md:shrink-0 overflow-y-auto bg-surface-sunken/40 md:border-r md:border-border">
           {isLoading ? (
-            <div className="px-4 py-8 text-center text-body text-gray-400">
+            <div className="px-4 py-8 text-center text-body text-foreground-muted">
               Loading methods…
             </div>
           ) : allMethods.length === 0 ? (
-            <div className="px-4 py-8 text-center text-body text-gray-400">
+            <div className="px-4 py-8 text-center text-body text-foreground-muted">
               No methods available. Create some in the Methods section first.
             </div>
           ) : methods.length === 0 ? (
-            <div className="px-4 py-8 text-center text-body text-gray-400">
+            <div className="px-4 py-8 text-center text-body text-foreground-muted">
               All methods are already attached.
             </div>
           ) : flatRows.length === 0 ? (
-            <div className="px-4 py-8 text-center text-body text-gray-400">
+            <div className="px-4 py-8 text-center text-body text-foreground-muted">
               No methods match &ldquo;{query}&rdquo;. Try a different search or
               clear the input.
             </div>
@@ -606,14 +606,14 @@ export default function MethodPicker({
                     const headerCls = isPinned
                       ? "col-span-full sticky top-0 z-10 bg-blue-50/95 backdrop-blur px-1 py-2 text-meta uppercase tracking-wide font-semibold text-blue-700 border-b border-blue-200"
                       : isSection
-                        ? "col-span-full px-1 pt-2 pb-1 text-meta uppercase tracking-wide font-bold text-gray-800 border-b border-gray-300"
-                        : "col-span-full px-1 py-1.5 text-meta uppercase tracking-wide font-semibold text-gray-500";
+                        ? "col-span-full px-1 pt-2 pb-1 text-meta uppercase tracking-wide font-bold text-foreground border-b border-border"
+                        : "col-span-full px-1 py-1.5 text-meta uppercase tracking-wide font-semibold text-foreground-muted";
                     return (
                       <div key={`h:${row.sectionKey}`} className={headerCls}>
                         {row.label}
                         <span
                           className={`ml-2 normal-case tracking-normal font-normal ${
-                            isPinned ? "text-blue-400" : "text-gray-400"
+                            isPinned ? "text-blue-400" : "text-foreground-muted"
                           }`}
                         >
                           {row.count}
@@ -655,29 +655,29 @@ export default function MethodPicker({
             </div>
           )}
         </div>
-        <div className="hidden md:flex md:flex-1 flex-col bg-gray-50/40 overflow-hidden">
+        <div className="hidden md:flex md:flex-1 flex-col bg-surface-sunken/40 overflow-hidden">
           <MethodPreview method={highlightedMethod} />
         </div>
         </div>
 
-        <div className="flex items-center gap-4 px-4 py-2 border-t border-gray-100 text-meta text-gray-400 bg-gray-50">
+        <div className="flex items-center gap-4 px-4 py-2 border-t border-border text-meta text-foreground-muted bg-surface-sunken">
           <span>
-            <kbd className="px-1 py-0.5 bg-white border border-gray-200 rounded text-gray-600">
+            <kbd className="px-1 py-0.5 bg-surface-raised border border-border rounded text-foreground-muted">
               ↑
             </kbd>
-            <kbd className="ml-0.5 px-1 py-0.5 bg-white border border-gray-200 rounded text-gray-600">
+            <kbd className="ml-0.5 px-1 py-0.5 bg-surface-raised border border-border rounded text-foreground-muted">
               ↓
             </kbd>{" "}
             navigate
           </span>
           <span>
-            <kbd className="px-1 py-0.5 bg-white border border-gray-200 rounded text-gray-600">
+            <kbd className="px-1 py-0.5 bg-surface-raised border border-border rounded text-foreground-muted">
               ↵
             </kbd>{" "}
             select
           </span>
           <span>
-            <kbd className="px-1 py-0.5 bg-white border border-gray-200 rounded text-gray-600">
+            <kbd className="px-1 py-0.5 bg-surface-raised border border-border rounded text-foreground-muted">
               esc
             </kbd>{" "}
             close
@@ -747,7 +747,7 @@ function MethodPreview({ method }: { method: Method | null }) {
 
   if (!method) {
     return (
-      <div className="h-full flex items-center justify-center p-8 text-center text-body text-gray-400">
+      <div className="h-full flex items-center justify-center p-8 text-center text-body text-foreground-muted">
         Hover or use ↑↓ to preview a method here.
       </div>
     );
@@ -759,9 +759,9 @@ function MethodPreview({ method }: { method: Method | null }) {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="px-5 pt-4 pb-3 border-b border-gray-100 bg-white">
+      <div className="px-5 pt-4 pb-3 border-b border-border bg-surface-raised">
         <div className="flex items-center gap-2 flex-wrap">
-          <h3 className="text-body font-semibold text-gray-900 truncate">
+          <h3 className="text-body font-semibold text-foreground truncate">
             {method.name}
           </h3>
           {isPcr && (
@@ -790,7 +790,7 @@ function MethodPreview({ method }: { method: Method | null }) {
             );
           })()}
           {method.folder_path && (
-            <span className="text-meta text-gray-400 truncate">
+            <span className="text-meta text-foreground-muted truncate">
               {method.folder_path}
             </span>
           )}
@@ -800,7 +800,7 @@ function MethodPreview({ method }: { method: Method | null }) {
             {method.tags.map((tag) => (
               <span
                 key={tag}
-                className="text-meta px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
+                className="text-meta px-1.5 py-0.5 bg-surface-sunken text-foreground-muted rounded"
               >
                 #{tag}
               </span>
@@ -810,31 +810,31 @@ function MethodPreview({ method }: { method: Method | null }) {
       </div>
       <div className="flex-1 flex flex-col overflow-hidden">
         {isPcr ? (
-          <div className="overflow-y-auto px-5 py-4 text-body text-gray-500">
+          <div className="overflow-y-auto px-5 py-4 text-body text-foreground-muted">
             PCR protocol — select the method to view and edit its gradient and
             recipe.
           </div>
         ) : isLc ? (
-          <div className="overflow-y-auto px-5 py-4 text-body text-gray-500">
+          <div className="overflow-y-auto px-5 py-4 text-body text-foreground-muted">
             LC gradient — select the method to view its solvent gradient, column,
             and ingredients.
           </div>
         ) : isPlate ? (
-          <div className="overflow-y-auto px-5 py-4 text-body text-gray-500">
+          <div className="overflow-y-auto px-5 py-4 text-body text-foreground-muted">
             Plate layout — select the method to view the plate grid and any
             pre-labeled regions.
           </div>
         ) : isCellCulture ? (
-          <div className="overflow-y-auto px-5 py-4 text-body text-gray-500">
+          <div className="overflow-y-auto px-5 py-4 text-body text-foreground-muted">
             Cell culture passaging — select the method to view its schedule,
             media, and planned cadence.
           </div>
         ) : !canFetchFile ? (
-          <div className="overflow-y-auto px-5 py-4 text-body text-gray-500">
+          <div className="overflow-y-auto px-5 py-4 text-body text-foreground-muted">
             No content available.
           </div>
         ) : isLoading ? (
-          <div className="overflow-y-auto px-5 py-4 text-body text-gray-400 animate-pulse">
+          <div className="overflow-y-auto px-5 py-4 text-body text-foreground-muted animate-pulse">
             Loading preview…
           </div>
         ) : isError ? (
@@ -845,11 +845,11 @@ function MethodPreview({ method }: { method: Method | null }) {
           pdfUrl ? (
             <iframe
               src={pdfUrl}
-              className="flex-1 w-full bg-white border-0"
+              className="flex-1 w-full bg-surface-raised border-0"
               title={method.name}
             />
           ) : (
-            <div className="overflow-y-auto px-5 py-4 text-body text-gray-500">
+            <div className="overflow-y-auto px-5 py-4 text-body text-foreground-muted">
               Unable to display PDF.
             </div>
           )

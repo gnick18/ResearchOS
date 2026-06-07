@@ -88,7 +88,7 @@ export default function PurchaseAssigneePicker({
 
   // Read-only contexts (lab mode, shared-into-me): chip only, no edit.
   if (readOnly) {
-    if (!showChip) return <span className="text-gray-300 text-meta">—</span>;
+    if (!showChip) return <span className="text-foreground-muted text-meta">—</span>;
     return (
       <span
         className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-meta font-medium border border-emerald-200"
@@ -135,7 +135,7 @@ export default function PurchaseAssigneePicker({
             type="button"
             onClick={() => setOpen((o) => !o)}
             disabled={busy}
-            className="inline-flex items-center gap-1 text-meta text-gray-400 hover:text-emerald-700 disabled:opacity-50"
+            className="inline-flex items-center gap-1 text-meta text-foreground-muted hover:text-emerald-700 disabled:opacity-50"
             data-testid="purchase-assignee-trigger"
           >
             <AssigneeIcon />
@@ -146,7 +146,7 @@ export default function PurchaseAssigneePicker({
 
       {open && (
         <div
-          className="absolute z-20 mt-1 right-0 w-52 bg-white border border-gray-200 rounded-lg shadow-lg p-1"
+          className="absolute z-20 mt-1 right-0 w-52 bg-surface-raised border border-border rounded-lg shadow-lg p-1"
           data-testid="purchase-assignee-menu"
         >
           {/* Unassign option, only when something is set. */}
@@ -155,7 +155,7 @@ export default function PurchaseAssigneePicker({
               type="button"
               onClick={() => handlePick(null)}
               disabled={busy}
-              className="w-full text-left px-2 py-1.5 text-meta text-gray-600 rounded hover:bg-gray-100 disabled:opacity-50"
+              className="w-full text-left px-2 py-1.5 text-meta text-foreground-muted rounded hover:bg-surface-sunken disabled:opacity-50"
             >
               Unassign
             </button>
@@ -175,18 +175,18 @@ export default function PurchaseAssigneePicker({
                   onClick={() => handlePick(u.username)}
                   disabled={busy}
                   className={`w-full text-left px-2 py-1.5 text-meta rounded hover:bg-emerald-50 disabled:opacity-50 ${
-                    isCurrent ? "bg-emerald-50 text-emerald-800 font-medium" : "text-gray-700"
+                    isCurrent ? "bg-emerald-50 text-emerald-800 font-medium" : "text-foreground"
                   }`}
                 >
                   {label}{" "}
-                  <span className="text-gray-400">({u.username})</span>
+                  <span className="text-foreground-muted">({u.username})</span>
                 </button>
               );
             })}
           {users.filter(
             (u) => !archivedSet.has(u.username) && u.username !== currentUser,
           ).length === 0 && (
-            <p className="px-2 py-1.5 text-meta text-gray-400">
+            <p className="px-2 py-1.5 text-meta text-foreground-muted">
               No other lab members to assign.
             </p>
           )}

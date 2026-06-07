@@ -175,16 +175,16 @@ export function RestoreParentPromptHost() {
         role="dialog"
         aria-modal="true"
         aria-labelledby="restore-parent-title"
-        className="bg-white rounded-lg shadow-xl w-full p-6 space-y-4"
+        className="bg-surface-raised rounded-lg shadow-xl w-full p-6 space-y-4"
       >
         <div className="space-y-1">
           <h2
             id="restore-parent-title"
-            className="text-heading font-semibold text-gray-900"
+            className="text-heading font-semibold text-foreground"
           >
             Restore parent {parentTypeLabel} too?
           </h2>
-          <p className="text-body text-gray-600">
+          <p className="text-body text-foreground-muted">
             The parent <strong>{parentTypeLabel}</strong>{" "}
             <span className="font-medium">{parentName}</span> is also in trash.
             Restoring{" "}
@@ -208,7 +208,7 @@ export function RestoreParentPromptHost() {
             <button
               type="button"
               onClick={() => resolve?.("just-this")}
-              className="w-full px-4 py-2 text-body rounded-md border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400"
+              className="w-full px-4 py-2 text-body rounded-md border border-border bg-surface-raised text-foreground hover:bg-surface-sunken focus:outline-none focus:ring-2 focus:ring-gray-400"
             >
               Just this record
             </button>
@@ -216,7 +216,7 @@ export function RestoreParentPromptHost() {
           <button
             type="button"
             onClick={() => resolve?.("cancel")}
-            className="w-full px-4 py-2 text-body rounded-md text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400"
+            className="w-full px-4 py-2 text-body rounded-md text-foreground-muted hover:bg-surface-sunken focus:outline-none focus:ring-2 focus:ring-gray-400"
           >
             Cancel
           </button>

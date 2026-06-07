@@ -88,7 +88,7 @@ function HighlightList({ highlights }: { highlights: string[] }) {
   return (
     <ul className="mt-2 space-y-1.5">
       {highlights.map((h, i) => (
-        <li key={i} className="flex gap-2 text-body text-gray-700 leading-snug">
+        <li key={i} className="flex gap-2 text-body text-foreground leading-snug">
           <span
             aria-hidden="true"
             className="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-sky-400"
@@ -112,12 +112,12 @@ function ReleaseMessage({
     <div className="mt-2 space-y-3">
       {message.map((block, i) =>
         block.kind === "para" ? (
-          <p key={i} className="text-body text-gray-700 leading-relaxed">
+          <p key={i} className="text-body text-foreground leading-relaxed">
             {block.text}
           </p>
         ) : (
-          <div key={i} className="text-body text-gray-700 leading-relaxed">
-            <span className="font-semibold text-gray-900">{block.title}</span>{" "}
+          <div key={i} className="text-body text-foreground leading-relaxed">
+            <span className="font-semibold text-foreground">{block.title}</span>{" "}
             {block.text}
             {block.items && block.items.length > 0 && (
               <ul className="mt-1.5 space-y-1.5">
@@ -143,10 +143,10 @@ function ReleaseBlock({ release }: { release: ReleaseNote }) {
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
-        <h3 className="text-title font-semibold text-gray-900">
+        <h3 className="text-title font-semibold text-foreground">
           {releaseHeading(release.version)}
         </h3>
-        <span className="text-meta text-gray-400 whitespace-nowrap">
+        <span className="text-meta text-foreground-muted whitespace-nowrap">
           {formatDate(release.date)}
         </span>
       </div>
@@ -205,7 +205,7 @@ function SignInChoiceCards({
   return (
     <div className="grid w-full gap-4 text-left md:grid-cols-2">
       {/* Path A: keep using locally. Nothing changes for the existing user. */}
-      <div className="flex flex-col rounded-2xl border border-[#d3deec] bg-white p-5 shadow-[0_2px_12px_rgba(15,40,80,0.06)]">
+      <div className="flex flex-col rounded-2xl border border-[#d3deec] bg-surface-raised p-5 shadow-[0_2px_12px_rgba(15,40,80,0.06)]">
         <div className="font-mono text-meta font-semibold uppercase tracking-[0.1em] text-brand-action">
           // free
         </div>
@@ -274,7 +274,7 @@ function SignInChoiceCards({
             type="button"
             onClick={() => onStartAccount?.("orcid")}
             data-testid="whats-new-signin-orcid"
-            className={`${oauthBtn} border-[#d7dde5] bg-white text-gray-800`}
+            className={`${oauthBtn} border-[#d7dde5] bg-surface-raised text-foreground`}
           >
             <OrcidIcon className="h-4 w-4 shrink-0" />
             ORCID
@@ -283,7 +283,7 @@ function SignInChoiceCards({
             type="button"
             onClick={() => onStartAccount?.("google")}
             data-testid="whats-new-signin-google"
-            className={`${oauthBtn} border-[#d7dde5] bg-white text-gray-800`}
+            className={`${oauthBtn} border-[#d7dde5] bg-surface-raised text-foreground`}
           >
             <GoogleIcon className="h-4 w-4 shrink-0" />
             Google
@@ -383,7 +383,7 @@ export default function WhatsNewModal({
           aria-labelledby="whats-new-title"
           data-testid="whats-new-modal"
           // This popup brings its own white card chrome (card=false above).
-          className="relative w-full rounded-2xl bg-white border border-gray-200 shadow-2xl overflow-hidden"
+          className="relative w-full rounded-2xl bg-surface-raised border border-border shadow-2xl overflow-hidden"
         >
           {/* Brand rainbow hairline across the top edge (the same signature as
               the footer + welcome ribbon), so the launch popup reads on-brand at
@@ -403,11 +403,11 @@ export default function WhatsNewModal({
             />
             <p
               id="whats-new-title"
-              className="mt-2 text-heading font-bold text-gray-900"
+              className="mt-2 text-heading font-bold text-foreground"
             >
               What&apos;s new
             </p>
-            <p className="text-meta text-gray-500">
+            <p className="text-meta text-foreground-muted">
               Here is what changed since you were last in.
             </p>
           </div>
@@ -438,7 +438,7 @@ export default function WhatsNewModal({
               rest.map((r) => (
                 <div
                   key={r.version}
-                  className="border-t border-gray-100 pt-4"
+                  className="border-t border-border pt-4"
                 >
                   <ReleaseBlock release={r} />
                 </div>

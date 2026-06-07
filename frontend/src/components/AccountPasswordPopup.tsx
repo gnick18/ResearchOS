@@ -197,12 +197,12 @@ export default function AccountPasswordPopup({
             <h3 className="text-heading font-semibold text-white">
               Account password
             </h3>
-            <p className="text-meta text-slate-400 mt-0.5">for {username}</p>
+            <p className="text-meta text-foreground-muted mt-0.5">for {username}</p>
           </div>
           <Tooltip label="Close" placement="bottom">
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-white text-lg leading-none"
+              className="text-foreground-muted hover:text-white text-lg leading-none"
               aria-label="Close"
             >
               ✕
@@ -216,7 +216,7 @@ export default function AccountPasswordPopup({
           </div>
         ) : (
           <div className="px-6 py-5 space-y-4">
-            <p className="text-meta text-slate-400 leading-relaxed">
+            <p className="text-meta text-foreground-muted leading-relaxed">
               Your password unlocks this account on this device. It does not
               encrypt your files on disk, anyone with access to the shared folder
               can still read raw markdown and images.
@@ -234,7 +234,7 @@ export default function AccountPasswordPopup({
                   className={`flex-1 py-2 text-meta rounded-lg border transition-colors ${
                     mode === "change"
                       ? "bg-blue-500/20 border-blue-400/40 text-blue-200"
-                      : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"
+                      : "bg-white/5 border-white/10 text-foreground-muted hover:bg-white/10"
                   }`}
                 >
                   Change
@@ -250,7 +250,7 @@ export default function AccountPasswordPopup({
                     className={`flex-1 py-2 text-meta rounded-lg border transition-colors ${
                       mode === "remove"
                         ? "bg-red-500/20 border-red-400/40 text-red-200"
-                        : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"
+                        : "bg-white/5 border-white/10 text-foreground-muted hover:bg-white/10"
                     }`}
                   >
                     Remove
@@ -261,7 +261,7 @@ export default function AccountPasswordPopup({
 
             {(mode === "change" || mode === "remove") && (
               <div>
-                <label className="block text-meta font-medium text-slate-300 mb-1">
+                <label className="block text-meta font-medium text-foreground-muted mb-1">
                   Current password
                 </label>
                 <input
@@ -279,7 +279,7 @@ export default function AccountPasswordPopup({
               <>
                 <div>
                   <div className="flex items-center gap-1.5 mb-1">
-                    <label className="text-meta font-medium text-slate-300">
+                    <label className="text-meta font-medium text-foreground-muted">
                       New password
                     </label>
                     <Tooltip
@@ -289,7 +289,7 @@ export default function AccountPasswordPopup({
                       <button
                         type="button"
                         aria-label="Where does this go?"
-                        className="text-slate-500 hover:text-slate-300 text-meta leading-none"
+                        className="text-foreground-muted hover:text-foreground-muted text-meta leading-none"
                       >
                         (?)
                       </button>
@@ -305,7 +305,7 @@ export default function AccountPasswordPopup({
                   />
                 </div>
                 <div>
-                  <label className="block text-meta font-medium text-slate-300 mb-1">
+                  <label className="block text-meta font-medium text-foreground-muted mb-1">
                     Confirm new password
                   </label>
                   <input
@@ -330,7 +330,7 @@ export default function AccountPasswordPopup({
                 <p className="font-mono text-body text-slate-100 tracking-wide break-all text-center">
                   {recoveryCode}
                 </p>
-                <p className="text-meta text-slate-400 leading-relaxed">
+                <p className="text-meta text-foreground-muted leading-relaxed">
                   This is the only way back in if you forget your password. It is
                   not shown again.
                 </p>
@@ -405,18 +405,18 @@ export default function AccountPasswordPopup({
               <Tooltip label="Close" placement="bottom">
                 <button
                   onClick={() => setShowForgot(false)}
-                  className="text-slate-400 hover:text-white text-lg leading-none"
+                  className="text-foreground-muted hover:text-white text-lg leading-none"
                   aria-label="Close"
                 >
                   ✕
                 </button>
               </Tooltip>
             </div>
-            <p className="text-body text-slate-300 mb-3 leading-relaxed">
+            <p className="text-body text-foreground-muted mb-3 leading-relaxed">
               There is no recovery email or reset link, everything is local. To
               get back into this account:
             </p>
-            <ol className="text-body text-slate-300 space-y-2 list-decimal list-inside mb-4">
+            <ol className="text-body text-foreground-muted space-y-2 list-decimal list-inside mb-4">
               <li>On the sign-in screen, click this account.</li>
               <li>
                 Choose <strong>Use your recovery code</strong> instead of the
@@ -424,7 +424,7 @@ export default function AccountPasswordPopup({
               </li>
               <li>Enter the recovery code you saved when you set the password.</li>
             </ol>
-            <p className="text-meta text-slate-400 mb-4">
+            <p className="text-meta text-foreground-muted mb-4">
               If you also lost the recovery code, a lab admin can reset this
               member from their own account. Your other notes and files are not
               affected.

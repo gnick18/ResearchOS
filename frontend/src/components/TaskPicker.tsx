@@ -213,18 +213,18 @@ export default function TaskPicker({
       onKeyDown={handleKeyDown}
     >
       <div
-        className="w-full max-w-2xl bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden"
+        className="w-full max-w-2xl bg-surface-raised rounded-xl shadow-2xl flex flex-col overflow-hidden"
         style={{ maxHeight: "75vh" }}
         onClick={(e) => e.stopPropagation()}
       >
         {title && (
-          <div className="px-4 pt-3 pb-1 text-meta uppercase tracking-wide font-semibold text-gray-500">
+          <div className="px-4 pt-3 pb-1 text-meta uppercase tracking-wide font-semibold text-foreground-muted">
             {title}
           </div>
         )}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
           <svg
-            className="w-4 h-4 text-gray-400 shrink-0"
+            className="w-4 h-4 text-foreground-muted shrink-0"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -246,7 +246,7 @@ export default function TaskPicker({
           />
           <button
             onClick={onClose}
-            className="text-meta text-gray-400 hover:text-gray-600 px-2 py-1 border border-gray-200 rounded"
+            className="text-meta text-foreground-muted hover:text-foreground-muted px-2 py-1 border border-border rounded"
             aria-label="Close picker"
           >
             Esc
@@ -255,11 +255,11 @@ export default function TaskPicker({
 
         <div ref={listRef} className="flex-1 overflow-y-auto">
           {availableTasks.length === 0 ? (
-            <div className="px-4 py-8 text-center text-body text-gray-400">
+            <div className="px-4 py-8 text-center text-body text-foreground-muted">
               No eligible experiments available.
             </div>
           ) : flatRows.length === 0 ? (
-            <div className="px-4 py-8 text-center text-body text-gray-400">
+            <div className="px-4 py-8 text-center text-body text-foreground-muted">
               No experiments match &ldquo;{query}&rdquo;. Try a different search
               or clear the input.
             </div>
@@ -269,10 +269,10 @@ export default function TaskPicker({
                 return (
                   <div
                     key={`h:${row.sectionKey}`}
-                    className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur px-4 py-1.5 text-meta uppercase tracking-wide font-semibold text-gray-500 border-b border-gray-100"
+                    className="sticky top-0 z-10 bg-surface-sunken/95 backdrop-blur px-4 py-1.5 text-meta uppercase tracking-wide font-semibold text-foreground-muted border-b border-border"
                   >
                     {row.label}
-                    <span className="ml-2 text-gray-400 normal-case tracking-normal font-normal">
+                    <span className="ml-2 text-foreground-muted normal-case tracking-normal font-normal">
                       {row.count}
                     </span>
                   </div>
@@ -289,15 +289,15 @@ export default function TaskPicker({
                   }}
                   onMouseEnter={() => setHighlightedIndex(index)}
                   onClick={() => void onSelect(t.id)}
-                  className={`w-full text-left px-4 py-2.5 border-b border-gray-50 transition-colors ${
-                    isHighlighted ? "bg-blue-50" : "bg-white hover:bg-gray-50"
+                  className={`w-full text-left px-4 py-2.5 border-b border-border transition-colors ${
+                    isHighlighted ? "bg-blue-50" : "bg-surface-raised hover:bg-surface-sunken"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <span
                         className={`text-body font-medium truncate ${
-                          t.is_complete ? "text-gray-400 line-through" : "text-gray-900"
+                          t.is_complete ? "text-foreground-muted line-through" : "text-foreground"
                         }`}
                       >
                         {t.name}
@@ -306,7 +306,7 @@ export default function TaskPicker({
                         <span className="text-meta text-green-600 shrink-0">✓</span>
                       )}
                     </div>
-                    <span className="text-meta text-gray-400 shrink-0 whitespace-nowrap">
+                    <span className="text-meta text-foreground-muted shrink-0 whitespace-nowrap">
                       {formatDate(t.start_date)} → {formatDate(t.end_date)}
                     </span>
                   </div>
@@ -315,7 +315,7 @@ export default function TaskPicker({
                       {t.tags.map((tag) => (
                         <span
                           key={tag}
-                          className="text-meta px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
+                          className="text-meta px-1.5 py-0.5 bg-surface-sunken text-foreground-muted rounded"
                         >
                           #{tag}
                         </span>
@@ -328,24 +328,24 @@ export default function TaskPicker({
           )}
         </div>
 
-        <div className="flex items-center gap-4 px-4 py-2 border-t border-gray-100 text-meta text-gray-400 bg-gray-50">
+        <div className="flex items-center gap-4 px-4 py-2 border-t border-border text-meta text-foreground-muted bg-surface-sunken">
           <span>
-            <kbd className="px-1 py-0.5 bg-white border border-gray-200 rounded text-gray-600">
+            <kbd className="px-1 py-0.5 bg-surface-raised border border-border rounded text-foreground-muted">
               ↑
             </kbd>
-            <kbd className="ml-0.5 px-1 py-0.5 bg-white border border-gray-200 rounded text-gray-600">
+            <kbd className="ml-0.5 px-1 py-0.5 bg-surface-raised border border-border rounded text-foreground-muted">
               ↓
             </kbd>{" "}
             navigate
           </span>
           <span>
-            <kbd className="px-1 py-0.5 bg-white border border-gray-200 rounded text-gray-600">
+            <kbd className="px-1 py-0.5 bg-surface-raised border border-border rounded text-foreground-muted">
               ↵
             </kbd>{" "}
             select
           </span>
           <span>
-            <kbd className="px-1 py-0.5 bg-white border border-gray-200 rounded text-gray-600">
+            <kbd className="px-1 py-0.5 bg-surface-raised border border-border rounded text-foreground-muted">
               esc
             </kbd>{" "}
             close

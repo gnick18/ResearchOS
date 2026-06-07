@@ -106,13 +106,13 @@ export default function DayDetailDrawer({
       onClick={onClose}
     >
       <div
-        className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col animate-slide-in"
+        className="bg-surface-raised w-full max-w-md h-full shadow-2xl flex flex-col animate-slide-in"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-start justify-between">
+        <div className="px-5 py-4 border-b border-border bg-surface-sunken flex items-start justify-between">
           <div>
-            <h3 className="text-title font-semibold text-gray-900">{heading}</h3>
-            <p className="text-meta text-gray-500 mt-0.5">
+            <h3 className="text-title font-semibold text-foreground">{heading}</h3>
+            <p className="text-meta text-foreground-muted mt-0.5">
               {totalCount === 0
                 ? "No events"
                 : `${totalCount} event${totalCount === 1 ? "" : "s"}`}
@@ -121,7 +121,7 @@ export default function DayDetailDrawer({
           <Tooltip label="Close (Esc)" placement="bottom">
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-lg"
+              className="text-foreground-muted hover:text-foreground-muted text-lg"
             >
               ✕
             </button>
@@ -131,13 +131,13 @@ export default function DayDetailDrawer({
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
           {totalCount === 0 && (
             <div className="text-center py-8">
-              <p className="text-body text-gray-400">Nothing scheduled.</p>
+              <p className="text-body text-foreground-muted">Nothing scheduled.</p>
             </div>
           )}
 
           {allDay.length > 0 && (
             <section>
-              <h4 className="text-meta font-semibold uppercase tracking-wide text-gray-400 mb-2">
+              <h4 className="text-meta font-semibold uppercase tracking-wide text-foreground-muted mb-2">
                 All-day
               </h4>
               <ul className="space-y-1.5">
@@ -156,7 +156,7 @@ export default function DayDetailDrawer({
 
           {timed.length > 0 && (
             <section>
-              <h4 className="text-meta font-semibold uppercase tracking-wide text-gray-400 mb-2">
+              <h4 className="text-meta font-semibold uppercase tracking-wide text-foreground-muted mb-2">
                 Scheduled
               </h4>
               <ul className="space-y-1.5">
@@ -174,7 +174,7 @@ export default function DayDetailDrawer({
           )}
         </div>
 
-        <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex justify-end">
+        <div className="px-5 py-3 border-t border-border bg-surface-sunken flex justify-end">
           <button
             onClick={() => onCreate(dateStr)}
             className="px-3 py-1.5 text-body bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -234,7 +234,7 @@ function DayDetailRow({
     <li>
       <button
         onClick={onClick}
-        className={`w-full text-left flex items-start gap-3 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors ${ended ? ENDED_CLASSES : ""}`}
+        className={`w-full text-left flex items-start gap-3 px-3 py-2 rounded-lg border border-border hover:border-border hover:bg-surface-sunken transition-colors ${ended ? ENDED_CLASSES : ""}`}
       >
         <span
           className="w-1 self-stretch rounded-full flex-shrink-0 mt-0.5"
@@ -242,7 +242,7 @@ function DayDetailRow({
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <p className="text-body font-medium text-gray-900 truncate">
+            <p className="text-body font-medium text-foreground truncate">
               {item.event.title}
             </p>
             {item.kind === "external" && (
@@ -265,9 +265,9 @@ function DayDetailRow({
               </span>
             )}
           </div>
-          <p className="text-meta text-gray-500 mt-0.5">{timeLabel}</p>
+          <p className="text-meta text-foreground-muted mt-0.5">{timeLabel}</p>
           {item.event.location && (
-            <p className="text-meta text-gray-400 mt-0.5 truncate">
+            <p className="text-meta text-foreground-muted mt-0.5 truncate">
               {item.event.location}
             </p>
           )}

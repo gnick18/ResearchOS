@@ -84,14 +84,14 @@ export default function SidebarContentsPopup({ onClose, anchorRef }: Props) {
   return (
     <div
       ref={popupRef}
-      className="absolute left-full top-0 ml-2 w-72 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden"
+      className="absolute left-full top-0 ml-2 w-72 bg-surface-raised rounded-xl shadow-xl border border-border z-50 overflow-hidden"
     >
-      <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-        <h3 className="text-body font-semibold text-gray-900">Sidebar contents</h3>
+      <div className="px-4 py-3 border-b border-border bg-surface-sunken flex items-center justify-between">
+        <h3 className="text-body font-semibold text-foreground">Sidebar contents</h3>
         <Tooltip label="Close" placement="bottom">
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-title"
+            className="text-foreground-muted hover:text-foreground-muted text-title"
           >
             ✕
           </button>
@@ -99,20 +99,20 @@ export default function SidebarContentsPopup({ onClose, anchorRef }: Props) {
       </div>
 
       <div className="p-4 space-y-3">
-        <label className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-gray-200 hover:bg-gray-50 cursor-pointer">
+        <label className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-border hover:bg-surface-sunken cursor-pointer">
           <input
             type="checkbox"
             checked={showTasks}
             onChange={(e) => void save({ sidebarShowTasks: e.target.checked })}
             className="accent-blue-600"
           />
-          <span className="text-meta text-gray-800">Tasks</span>
-          <span className="ml-auto text-meta text-gray-400">
+          <span className="text-meta text-foreground">Tasks</span>
+          <span className="ml-auto text-meta text-foreground-muted">
             today · overdue · upcoming
           </span>
         </label>
 
-        <label className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-gray-200 hover:bg-gray-50 cursor-pointer">
+        <label className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-border hover:bg-surface-sunken cursor-pointer">
           <input
             type="checkbox"
             checked={showEvents}
@@ -121,12 +121,12 @@ export default function SidebarContentsPopup({ onClose, anchorRef }: Props) {
             }
             className="accent-blue-600"
           />
-          <span className="text-meta text-gray-800">Calendar events</span>
-          <span className="ml-auto text-meta text-gray-400">today and beyond</span>
+          <span className="text-meta text-foreground">Calendar events</span>
+          <span className="ml-auto text-meta text-foreground-muted">today and beyond</span>
         </label>
 
         <div className={showEvents ? "" : "opacity-50 pointer-events-none"}>
-          <label className="block text-meta font-medium text-gray-600 mb-1">
+          <label className="block text-meta font-medium text-foreground-muted mb-1">
             How much calendar to show
           </label>
           <select
@@ -135,7 +135,7 @@ export default function SidebarContentsPopup({ onClose, anchorRef }: Props) {
             onChange={(e) =>
               void save({ sidebarEventsHorizonDays: parseInt(e.target.value, 10) })
             }
-            className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-meta bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+            className="w-full px-2 py-1.5 border border-border rounded-md text-meta bg-surface-raised focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-surface-sunken"
           >
             {SIDEBAR_HORIZON_CHOICES.map((c) => (
               <option key={c.value} value={c.value}>
@@ -152,7 +152,7 @@ export default function SidebarContentsPopup({ onClose, anchorRef }: Props) {
         )}
       </div>
 
-      <div className="px-4 py-2 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+      <div className="px-4 py-2 border-t border-border bg-surface-sunken flex items-center justify-between">
         <Link
           href="/settings"
           onClick={onClose}
@@ -160,7 +160,7 @@ export default function SidebarContentsPopup({ onClose, anchorRef }: Props) {
         >
           Open full settings →
         </Link>
-        <span className="text-meta text-gray-400">Auto-saves</span>
+        <span className="text-meta text-foreground-muted">Auto-saves</span>
       </div>
     </div>
   );

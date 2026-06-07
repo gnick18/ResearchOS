@@ -106,12 +106,12 @@ export default function AttachmentViewerModal({
       onClick={onClose}
     >
       <div
-        className="flex flex-col w-full max-w-4xl h-[80vh] bg-white rounded-2xl shadow-xl overflow-hidden"
+        className="flex flex-col w-full max-w-4xl h-[80vh] bg-surface-raised rounded-2xl shadow-xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center gap-2 px-6 py-3 border-b border-gray-100">
-          <span className="text-body font-medium text-gray-700 truncate flex-1" title={name}>
+        <div className="flex items-center gap-2 px-6 py-3 border-b border-border">
+          <span className="text-body font-medium text-foreground truncate flex-1" title={name}>
             {name}
           </span>
           <Tooltip label="Close" placement="bottom">
@@ -119,7 +119,7 @@ export default function AttachmentViewerModal({
               type="button"
               onClick={onClose}
               aria-label="Close viewer"
-              className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+              className="p-1.5 text-foreground-muted hover:text-foreground hover:bg-surface-sunken rounded-md transition-colors"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -132,7 +132,7 @@ export default function AttachmentViewerModal({
         {/* Body */}
         <div className="flex-1 overflow-hidden">
           {failed ? (
-            <div className="p-6 text-body text-gray-500">Failed to load this file.</div>
+            <div className="p-6 text-body text-foreground-muted">Failed to load this file.</div>
           ) : isMarkdown ? (
             markdownContent !== null ? (
               <div className="h-full overflow-y-auto p-6 prose prose-sm prose-gray max-w-none">
@@ -142,20 +142,20 @@ export default function AttachmentViewerModal({
               </div>
             ) : (
               <div className="p-6 space-y-2 animate-pulse" aria-busy="true">
-                <div className="h-3 w-1/3 bg-gray-200 rounded" />
-                <div className="h-3 w-full bg-gray-200 rounded" />
-                <div className="h-3 w-5/6 bg-gray-200 rounded" />
-                <div className="h-3 w-4/5 bg-gray-100 rounded" />
+                <div className="h-3 w-1/3 bg-surface-sunken rounded" />
+                <div className="h-3 w-full bg-surface-sunken rounded" />
+                <div className="h-3 w-5/6 bg-surface-sunken rounded" />
+                <div className="h-3 w-4/5 bg-surface-sunken rounded" />
               </div>
             )
           ) : fileUrl ? (
             <iframe src={fileUrl} className="w-full h-full" title={name} />
           ) : (
             <div className="p-6 space-y-2 animate-pulse" aria-busy="true">
-              <div className="h-3 w-1/3 bg-gray-200 rounded" />
-              <div className="h-3 w-full bg-gray-200 rounded" />
-              <div className="h-3 w-5/6 bg-gray-200 rounded" />
-              <div className="h-3 w-4/5 bg-gray-100 rounded" />
+              <div className="h-3 w-1/3 bg-surface-sunken rounded" />
+              <div className="h-3 w-full bg-surface-sunken rounded" />
+              <div className="h-3 w-5/6 bg-surface-sunken rounded" />
+              <div className="h-3 w-4/5 bg-surface-sunken rounded" />
             </div>
           )}
         </div>

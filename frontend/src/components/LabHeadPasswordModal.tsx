@@ -155,23 +155,23 @@ export default function LabHeadPasswordModal({
       aria-labelledby="lab-head-password-modal-title"
     >
       <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6 space-y-4"
+        className="bg-surface-raised rounded-xl shadow-xl w-full max-w-md mx-4 p-6 space-y-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div>
           <h2
             id="lab-head-password-modal-title"
-            className="text-title font-semibold text-gray-900"
+            className="text-title font-semibold text-foreground"
           >
             {mode === "reset" ? "Set a new edit password" : "Unlock edit mode"}
           </h2>
           {targetLabel ? (
-            <p className="text-meta text-gray-500 mt-1">
-              Editing <span className="font-medium text-gray-700">{targetLabel}</span>.
+            <p className="text-meta text-foreground-muted mt-1">
+              Editing <span className="font-medium text-foreground">{targetLabel}</span>.
               All changes are attributed to you with a timestamp.
             </p>
           ) : (
-            <p className="text-meta text-gray-500 mt-1">
+            <p className="text-meta text-foreground-muted mt-1">
               Editing another lab member&apos;s record. All changes are attributed
               to you with a timestamp.
             </p>
@@ -204,7 +204,7 @@ export default function LabHeadPasswordModal({
         <div>
           <label
             htmlFor="lab-head-password-modal-input"
-            className="block text-meta font-medium text-gray-700 mb-1"
+            className="block text-meta font-medium text-foreground mb-1"
           >
             {mode === "reset"
               ? "New edit password"
@@ -226,7 +226,7 @@ export default function LabHeadPasswordModal({
             }}
             disabled={busy}
             autoComplete={mode === "reset" ? "new-password" : "current-password"}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-gray-50 disabled:text-gray-400"
+            className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-surface-sunken disabled:text-foreground-muted"
           />
         </div>
 
@@ -245,7 +245,7 @@ export default function LabHeadPasswordModal({
               setMode(mode === "reset" ? "unlock" : "reset");
             }}
             disabled={busy}
-            className="text-meta text-gray-500 hover:text-gray-700 underline-offset-2 hover:underline disabled:opacity-50"
+            className="text-meta text-foreground-muted hover:text-foreground underline-offset-2 hover:underline disabled:opacity-50"
           >
             {mode === "reset" ? "Back to unlock" : "Forgot or reset password?"}
           </button>
@@ -254,7 +254,7 @@ export default function LabHeadPasswordModal({
               type="button"
               onClick={onClose}
               disabled={busy}
-              className="px-3 py-1.5 rounded-md text-meta text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+              className="px-3 py-1.5 rounded-md text-meta text-foreground-muted hover:bg-surface-sunken disabled:opacity-50"
             >
               Cancel
             </button>

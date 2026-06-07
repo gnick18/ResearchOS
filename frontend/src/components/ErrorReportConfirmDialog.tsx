@@ -43,10 +43,10 @@ export default function ErrorReportConfirmDialog({
       {/* This dialog brings its own white card chrome (card=false above).
           `error` can briefly be null during the close animation, so guard. */}
       <div
-        className="relative bg-white rounded-2xl shadow-2xl w-full overflow-hidden"
+        className="relative bg-surface-raised rounded-2xl shadow-2xl w-full overflow-hidden"
         data-testid="error-report-confirm-dialog"
       >
-        <div className="p-6 border-b border-gray-100">
+        <div className="p-6 border-b border-border">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
@@ -65,10 +65,10 @@ export default function ErrorReportConfirmDialog({
                 </svg>
               </div>
               <div>
-                <h2 className="text-heading font-bold text-gray-900">
+                <h2 className="text-heading font-bold text-foreground">
                   Caught a bug
                 </h2>
-                <p className="text-meta text-gray-500">
+                <p className="text-meta text-foreground-muted">
                   Want to send this bug report?
                 </p>
               </div>
@@ -77,12 +77,12 @@ export default function ErrorReportConfirmDialog({
         </div>
 
         <div className="p-6 space-y-3">
-          <p className="text-body text-gray-600">
+          <p className="text-body text-foreground-muted">
             We caught an error in the background. Send the details to the
             team so we can fix it, or dismiss to keep working.
           </p>
           <div>
-            <label className="block text-meta font-medium text-gray-500 mb-1.5">
+            <label className="block text-meta font-medium text-foreground-muted mb-1.5">
               Error
             </label>
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 max-h-32 overflow-y-auto">
@@ -98,10 +98,10 @@ export default function ErrorReportConfirmDialog({
           </div>
         </div>
 
-        <div className="p-4 border-t border-gray-100 bg-gray-50 flex gap-3 justify-end">
+        <div className="p-4 border-t border-border bg-surface-sunken flex gap-3 justify-end">
           <button
             onClick={onDismiss}
-            className="px-4 py-2 text-body text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
+            className="px-4 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg transition-colors"
           >
             Dismiss
           </button>

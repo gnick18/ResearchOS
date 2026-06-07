@@ -246,15 +246,15 @@ export default function TelegramPairingModal({
   // overlay + max-w-md card vs. fits-the-wizard-body container).
   const cardBody = (
     <>
-      <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
-          <h3 className="text-title font-semibold text-gray-900">Connect Telegram</h3>
-          <p className="text-meta text-gray-500 mt-0.5">
+      <div className="px-5 py-4 border-b border-border bg-surface-sunken">
+          <h3 className="text-title font-semibold text-foreground">Connect Telegram</h3>
+          <p className="text-meta text-foreground-muted mt-0.5">
             Send lab-bench photos straight into the open experiment.
           </p>
         </div>
 
         {step.kind === "loading" && (
-          <div className="px-5 py-8 text-center text-body text-gray-500">Loading…</div>
+          <div className="px-5 py-8 text-center text-body text-foreground-muted">Loading…</div>
         )}
 
         {step.kind === "alreadyPaired" && (
@@ -269,7 +269,7 @@ export default function TelegramPairingModal({
                 Chat id: {step.pairing.chatId}
               </p>
             </div>
-            <div className="text-meta text-gray-600 space-y-2">
+            <div className="text-meta text-foreground-muted space-y-2">
               <p>
                 Send a photo to{" "}
                 <span className="font-medium">@{step.pairing.botUsername}</span>{" "}
@@ -285,7 +285,7 @@ export default function TelegramPairingModal({
                   badge) to file later.
                 </li>
               </ol>
-              <p className="text-gray-500">
+              <p className="text-foreground-muted">
                 After each photo the bot asks for a caption. Reply with a
                 sentence, or send <span className="font-mono">/skip</span>.
               </p>
@@ -305,7 +305,7 @@ export default function TelegramPairingModal({
                 Keep paired
               </button>
             </div>
-            <p className="text-meta text-gray-400 text-center pt-1">
+            <p className="text-meta text-foreground-muted text-center pt-1">
               &quot;Keep paired&quot; just closes this dialog — your connection stays active.
             </p>
           </div>
@@ -313,7 +313,7 @@ export default function TelegramPairingModal({
 
         {step.kind === "enterToken" && (
           <div className="px-5 py-4 space-y-4">
-            <ol className="text-meta text-gray-600 space-y-1 list-decimal list-inside">
+            <ol className="text-meta text-foreground-muted space-y-1 list-decimal list-inside">
               <li>
                 Open Telegram on your phone and message{" "}
                 <span className="font-mono">@BotFather</span>.
@@ -326,7 +326,7 @@ export default function TelegramPairingModal({
             </ol>
             <div>
               <div className="flex items-center gap-1.5 mb-2">
-                <label className="text-meta font-medium text-gray-500">
+                <label className="text-meta font-medium text-foreground-muted">
                   Bot token
                 </label>
                 <Tooltip
@@ -336,7 +336,7 @@ export default function TelegramPairingModal({
                   <button
                     type="button"
                     aria-label="Where does this go?"
-                    className="text-gray-400 hover:text-gray-600 text-meta leading-none"
+                    className="text-foreground-muted hover:text-foreground-muted text-meta leading-none"
                   >
                     (?)
                   </button>
@@ -353,14 +353,14 @@ export default function TelegramPairingModal({
                   placeholder="123456:ABC-DEF…"
                   autoFocus
                   autoComplete="off"
-                  className={`w-full pl-3 pr-10 py-2 border border-gray-200 rounded-lg text-body font-mono focus:outline-none focus:ring-2 focus:ring-blue-500${!showToken ? " [-webkit-text-security:disc]" : ""}`}
+                  className={`w-full pl-3 pr-10 py-2 border border-border rounded-lg text-body font-mono focus:outline-none focus:ring-2 focus:ring-blue-500${!showToken ? " [-webkit-text-security:disc]" : ""}`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowToken((v) => !v)}
                   aria-label={showToken ? "Hide token" : "Show token"}
                   aria-pressed={showToken}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-foreground-muted hover:text-foreground-muted rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {showToken ? (
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -382,17 +382,17 @@ export default function TelegramPairingModal({
               )}
             </div>
             {hasIdentity ? (
-              <div className="space-y-2 border-t border-gray-100 pt-3">
+              <div className="space-y-2 border-t border-border pt-3">
                 <label className="flex items-start gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={saveBackup}
                     onChange={(e) => setSaveBackup(e.target.checked)}
-                    className="mt-0.5 h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="mt-0.5 h-3.5 w-3.5 rounded border-border text-blue-600 focus:ring-blue-500"
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-meta font-medium text-gray-700">
+                      <span className="text-meta font-medium text-foreground">
                         Save encrypted backup for auto-reconnect
                       </span>
                       <Tooltip
@@ -402,7 +402,7 @@ export default function TelegramPairingModal({
                         <button
                           type="button"
                           aria-label="What does this do?"
-                          className="text-gray-400 hover:text-gray-600 text-meta leading-none"
+                          className="text-foreground-muted hover:text-foreground-muted text-meta leading-none"
                         >
                           (?)
                         </button>
@@ -426,7 +426,7 @@ export default function TelegramPairingModal({
             <div className="flex items-center justify-end gap-2">
               <button
                 onClick={handleCancel}
-                className="px-4 py-2 text-body text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                className="px-4 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg transition-colors"
               >
                 Cancel
               </button>
@@ -443,11 +443,11 @@ export default function TelegramPairingModal({
 
         {step.kind === "waitForStart" && (
           <div className="px-5 py-6 space-y-4 text-center">
-            <p className="text-body text-gray-700">
+            <p className="text-body text-foreground">
               Token accepted for{" "}
               <span className="font-medium">@{step.botUsername}</span>.
             </p>
-            <p className="text-body text-gray-600">
+            <p className="text-body text-foreground-muted">
               Open Telegram on your phone, message{" "}
               <span className="font-medium">@{step.botUsername}</span>, and send{" "}
               <span className="font-mono">/start</span> (or any message).
@@ -461,7 +461,7 @@ export default function TelegramPairingModal({
             </p>
             <button
               onClick={handleCancel}
-              className="text-meta text-gray-400 hover:text-gray-600 underline"
+              className="text-meta text-foreground-muted hover:text-foreground-muted underline"
             >
               Cancel pairing
             </button>
@@ -485,7 +485,7 @@ export default function TelegramPairingModal({
   // the wizard's white card already provides those.
   if (inline) {
     return (
-      <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
+      <div className="border border-border rounded-xl overflow-hidden bg-surface-raised">
         {cardBody}
       </div>
     );
@@ -505,7 +505,7 @@ export default function TelegramPairingModal({
       onClick={handleCancel}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+        className="bg-surface-raised rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {cardBody}

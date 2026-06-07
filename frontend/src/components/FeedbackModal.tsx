@@ -334,7 +334,7 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
       fillHeight
     >
       <div
-        className="relative bg-white rounded-2xl shadow-2xl w-full overflow-hidden flex flex-col max-h-full"
+        className="relative bg-surface-raised rounded-2xl shadow-2xl w-full overflow-hidden flex flex-col max-h-full"
         onPaste={confirmStep ? undefined : handlePaste}
         onDragOver={confirmStep ? undefined : handleDragOver}
         onDragLeave={confirmStep ? undefined : handleDragLeave}
@@ -350,7 +350,7 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
 
         {confirmStep ? (
           <div className="flex flex-col">
-            <div className="p-6 border-b border-gray-100">
+            <div className="p-6 border-b border-border">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-green-100">
                   <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -358,8 +358,8 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
                   </svg>
                 </div>
                 <div>
-                  <h2 className="text-heading font-bold text-gray-900">Last step: add your screenshots</h2>
-                  <p className="text-meta text-gray-500">The GitHub issue opened in a new tab</p>
+                  <h2 className="text-heading font-bold text-foreground">Last step: add your screenshots</h2>
+                  <p className="text-meta text-foreground-muted">The GitHub issue opened in a new tab</p>
                 </div>
               </div>
             </div>
@@ -380,7 +380,7 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
               )}
 
               {images.length > 1 && (
-                <p className="text-meta text-gray-500">
+                <p className="text-meta text-foreground-muted">
                   The clipboard holds one image at a time. After pasting the first, come back here and use the Copy button on each remaining screenshot, then paste it into GitHub. Repeat for all of them.
                 </p>
               )}
@@ -389,7 +389,7 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
                 {images.map((img, idx) => (
                   <div
                     key={img.id}
-                    className="relative group rounded-lg border border-gray-200 overflow-hidden bg-gray-50"
+                    className="relative group rounded-lg border border-border overflow-hidden bg-surface-sunken"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element -- ephemeral in-memory object URL, never a network asset */}
                     <img src={img.previewUrl} alt={img.name} className="w-full h-20 object-cover" />
@@ -422,7 +422,7 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
               </div>
             </div>
 
-            <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+            <div className="p-4 border-t border-border bg-surface-sunken flex justify-end">
               <button
                 onClick={onClose}
                 className="px-4 py-2 text-body text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
@@ -433,7 +433,7 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
           </div>
         ) : (
         <>
-        <div className="p-6 border-b border-gray-100">
+        <div className="p-6 border-b border-border">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {/* Type-specific icon. The warning triangle reads as
@@ -497,8 +497,8 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
                 )}
               </div>
               <div>
-                <h2 className="text-heading font-bold text-gray-900">{heading}</h2>
-                <p className="text-meta text-gray-500">Help us improve ResearchOS</p>
+                <h2 className="text-heading font-bold text-foreground">{heading}</h2>
+                <p className="text-meta text-foreground-muted">Help us improve ResearchOS</p>
               </div>
             </div>
           </div>
@@ -506,13 +506,13 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
 
         <div className="p-6 space-y-4 overflow-y-auto flex-1">
           <div>
-            <label className="block text-body font-medium text-gray-700 mb-1.5">
+            <label className="block text-body font-medium text-foreground mb-1.5">
               Type
             </label>
             <div
               role="radiogroup"
               aria-label="Feedback type"
-              className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5"
+              className="inline-flex rounded-lg border border-border bg-surface-sunken p-0.5"
             >
               {TYPE_OPTIONS.map((opt) => {
                 const selected = type === opt.value;
@@ -525,8 +525,8 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
                     onClick={() => handleTypeChange(opt.value)}
                     className={`px-3 py-1.5 text-body rounded-md transition-colors ${
                       selected
-                        ? "bg-white text-gray-900 shadow-sm font-medium"
-                        : "text-gray-600 hover:text-gray-900"
+                        ? "bg-surface-raised text-foreground shadow-sm font-medium"
+                        : "text-foreground-muted hover:text-foreground"
                     }`}
                   >
                     {opt.label}
@@ -538,7 +538,7 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
 
           {type !== "feedback" && (
             <div>
-              <label className="block text-body font-medium text-gray-700 mb-1.5">
+              <label className="block text-body font-medium text-foreground mb-1.5">
                 {type === "bug" ? "Title (optional)" : "Feature title"}
               </label>
               <input
@@ -550,13 +550,13 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
                     ? "Short summary of the issue"
                     : "Short summary of the feature"
                 }
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           )}
 
           <div>
-            <label className="block text-body font-medium text-gray-700 mb-1.5">
+            <label className="block text-body font-medium text-foreground mb-1.5">
               {descriptionLabel}
             </label>
             <textarea
@@ -564,14 +564,14 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
               onChange={(e) => setDescription(e.target.value)}
               placeholder={descriptionPlaceholder}
               rows={type === "feedback" ? 5 : 3}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
             {/* Empty descriptions create unactionable issues — gate the
                 Submit button on a non-empty description and surface a
                 small hint so the disabled state isn't a mystery.
                 (feedback polish R1) */}
             {!isDescriptionValid && (
-              <p className="mt-1.5 text-meta text-gray-500">
+              <p className="mt-1.5 text-meta text-foreground-muted">
                 Tell us a bit more so we can act on this.
               </p>
             )}
@@ -579,7 +579,7 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
 
           {showErrorPreview && (
             <div>
-              <label className="block text-body font-medium text-gray-700 mb-1.5">
+              <label className="block text-body font-medium text-foreground mb-1.5">
                 Error Details
               </label>
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 max-h-32 overflow-y-auto">
@@ -596,8 +596,8 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
           )}
 
           {type === "bug" && (
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-meta text-gray-500">
+            <div className="bg-surface-sunken rounded-lg p-3">
+              <p className="text-meta text-foreground-muted">
                 <span className="font-medium">Browser:</span> {getBrowserInfo()}
               </p>
             </div>
@@ -609,18 +609,18 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
               pastes them into the GitHub description. (feedback-screenshots
               bot) */}
           <div>
-            <label className="block text-body font-medium text-gray-700 mb-1.5">
+            <label className="block text-body font-medium text-foreground mb-1.5">
               Screenshots (optional)
             </label>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="w-full rounded-lg border-2 border-dashed border-gray-200 hover:border-sky-300 hover:bg-sky-50/40 transition-colors px-3 py-4 flex flex-col items-center gap-1.5 text-center"
+              className="w-full rounded-lg border-2 border-dashed border-border hover:border-sky-300 hover:bg-sky-50/40 transition-colors px-3 py-4 flex flex-col items-center gap-1.5 text-center"
             >
-              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-foreground-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <span className="text-body text-gray-600 font-medium">
+              <span className="text-body text-foreground-muted font-medium">
                 Drop, paste, or click to add images
               </span>
             </button>
@@ -633,7 +633,7 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
               className="hidden"
               aria-label="Attach screenshot images"
             />
-            <p className="mt-1.5 text-meta text-gray-500">
+            <p className="mt-1.5 text-meta text-foreground-muted">
               Screenshots help us act on your report. You will paste them into GitHub on the next screen.
             </p>
 
@@ -648,7 +648,7 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
                 {images.map((img) => (
                   <div
                     key={img.id}
-                    className="relative group rounded-lg border border-gray-200 overflow-hidden bg-gray-50"
+                    className="relative group rounded-lg border border-border overflow-hidden bg-surface-sunken"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element -- ephemeral in-memory object URL, never a network asset */}
                     <img src={img.previewUrl} alt={img.name} className="w-full h-20 object-cover" />
@@ -698,22 +698,22 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
             )}
           </div>
 
-          <p className="text-meta text-gray-400">
+          <p className="text-meta text-foreground-muted">
             Clicking &quot;{submitLabel}&quot; will open a new tab where you can review and submit on GitHub.
             You&apos;ll need a GitHub account.
           </p>
         </div>
 
-        <div className="p-4 border-t border-gray-100 bg-gray-50 flex gap-3">
+        <div className="p-4 border-t border-border bg-surface-sunken flex gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-body text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
+            className="px-4 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleCopy}
-            className="px-4 py-2 text-body text-gray-600 hover:bg-gray-200 rounded-lg transition-colors flex items-center gap-2"
+            className="px-4 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg transition-colors flex items-center gap-2"
           >
             {copied ? (
               <>

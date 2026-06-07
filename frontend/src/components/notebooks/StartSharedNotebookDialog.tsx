@@ -132,18 +132,18 @@ export default function StartSharedNotebookDialog({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+      <div className="w-full max-w-md rounded-xl bg-surface-raised shadow-xl">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
+        <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">
             <span aria-hidden="true" className="text-sky-500">
               {PEOPLE_SVG}
             </span>
             <div>
-              <h2 className="text-title font-semibold text-gray-900">
+              <h2 className="text-title font-semibold text-foreground">
                 Start a shared notebook
               </h2>
-              <p className="text-meta text-gray-500">
+              <p className="text-meta text-foreground-muted">
                 A private 1:1 space for notes and weekly tasks, shared with one
                 lab member.
               </p>
@@ -153,7 +153,7 @@ export default function StartSharedNotebookDialog({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex-shrink-0 rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            className="flex-shrink-0 rounded-lg p-1 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground-muted"
           >
             {CLOSE_SVG}
           </button>
@@ -164,14 +164,14 @@ export default function StartSharedNotebookDialog({
           <div className="flex flex-col gap-1.5">
             <label
               htmlFor="notebook-partner"
-              className="text-meta font-semibold uppercase tracking-wide text-gray-500"
+              className="text-meta font-semibold uppercase tracking-wide text-foreground-muted"
             >
               Share with
             </label>
             {loadingRoster ? (
-              <p className="text-body italic text-gray-400">Loading lab members…</p>
+              <p className="text-body italic text-foreground-muted">Loading lab members…</p>
             ) : roster.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50/50 px-3 py-3 text-body text-gray-500">
+              <p className="rounded-lg border border-dashed border-border bg-surface-sunken/50 px-3 py-3 text-body text-foreground-muted">
                 No other lab members yet. Invite someone to your data folder
                 first.
               </p>
@@ -181,7 +181,7 @@ export default function StartSharedNotebookDialog({
                 value={selected}
                 onChange={(e) => setSelected(e.target.value)}
                 data-testid="notebook-partner-select"
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-body focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                className="w-full rounded-lg border border-border px-3 py-2 text-body focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
               >
                 <option value="">Pick a lab member…</option>
                 {roster.map((u) => (
@@ -203,9 +203,9 @@ export default function StartSharedNotebookDialog({
           <div className="flex flex-col gap-1.5">
             <label
               htmlFor="notebook-title"
-              className="text-meta font-semibold uppercase tracking-wide text-gray-500"
+              className="text-meta font-semibold uppercase tracking-wide text-foreground-muted"
             >
-              Title <span className="font-normal text-gray-400">(optional)</span>
+              Title <span className="font-normal text-foreground-muted">(optional)</span>
             </label>
             <input
               id="notebook-title"
@@ -214,7 +214,7 @@ export default function StartSharedNotebookDialog({
               onChange={(e) => setTitle(e.target.value)}
               placeholder={selected ? `1:1 with ${selected}` : "e.g. Thesis 1:1"}
               data-testid="notebook-title-input"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-body focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+              className="w-full rounded-lg border border-border px-3 py-2 text-body focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
             />
           </div>
 
@@ -222,11 +222,11 @@ export default function StartSharedNotebookDialog({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3">
+        <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-4 py-2 text-body font-medium text-gray-600 transition-colors hover:bg-gray-100"
+            className="rounded-lg px-4 py-2 text-body font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
           >
             Cancel
           </button>

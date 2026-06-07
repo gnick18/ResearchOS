@@ -49,14 +49,14 @@ export default function BulkMoveModal() {
       card={false}
     >
       {/* This confirm modal brings its own white card chrome (card=false). */}
-      <div className="bg-white rounded-xl shadow-2xl w-full p-6">
-        <h3 className="text-heading font-semibold text-gray-900 mb-2">
+      <div className="bg-surface-raised rounded-xl shadow-2xl w-full p-6">
+        <h3 className="text-heading font-semibold text-foreground mb-2">
           Confirm Bulk Move
         </h3>
 
-        <p className="text-body text-gray-600 mb-4">
+        <p className="text-body text-foreground-muted mb-4">
           This move affects{" "}
-          <span className="font-bold text-gray-900">
+          <span className="font-bold text-foreground">
             {data?.affectedCount}
           </span>{" "}
           dependent task{data?.affectedCount !== 1 ? "s" : ""}. Shift
@@ -79,7 +79,7 @@ export default function BulkMoveModal() {
         <div className="flex gap-3 justify-end">
           <button
             onClick={handleCancel}
-            className="px-4 py-2 text-body text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
+            className="px-4 py-2 text-body text-foreground-muted hover:text-foreground rounded-lg hover:bg-surface-sunken transition-colors"
           >
             Cancel
           </button>

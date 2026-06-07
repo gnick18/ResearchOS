@@ -155,16 +155,16 @@ export default function ImageGalleryPopup({
       data-tour-popup-occluding="image-gallery"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[85vh] flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+      <div className="bg-surface-raised rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
-            <h3 className="text-title font-semibold text-gray-900">Image Gallery</h3>
-            <p className="text-meta text-gray-400 mt-0.5">
+            <h3 className="text-title font-semibold text-foreground">Image Gallery</h3>
+            <p className="text-meta text-foreground-muted mt-0.5">
               {experimentName} · {experimentDate}
             </p>
           </div>
           <Tooltip label="Close" placement="bottom">
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">
+            <button onClick={onClose} className="text-foreground-muted hover:text-foreground-muted text-lg">
               ✕
             </button>
           </Tooltip>
@@ -175,7 +175,7 @@ export default function ImageGalleryPopup({
             {loading ? (
               <div className="flex items-center justify-center h-48">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                <span className="ml-3 text-body text-gray-500">Loading images...</span>
+                <span className="ml-3 text-body text-foreground-muted">Loading images...</span>
               </div>
             ) : error ? (
               <div className="flex flex-col items-center justify-center h-48 text-center">
@@ -183,16 +183,16 @@ export default function ImageGalleryPopup({
                 <p className="text-body text-red-500">{error}</p>
                 <button
                   onClick={loadImages}
-                  className="mt-2 px-3 py-1.5 text-meta bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200"
+                  className="mt-2 px-3 py-1.5 text-meta bg-surface-sunken text-foreground-muted rounded-lg hover:bg-surface-sunken"
                 >
                   Retry
                 </button>
               </div>
             ) : images.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-center">
-                <ImageIcon className="w-10 h-10 text-gray-300 mb-3" />
-                <p className="text-body text-gray-500 mb-1">No images attached yet</p>
-                <p className="text-meta text-gray-400">
+                <ImageIcon className="w-10 h-10 text-foreground-muted mb-3" />
+                <p className="text-body text-foreground-muted mb-1">No images attached yet</p>
+                <p className="text-meta text-foreground-muted">
                   Upload images using the &quot;Add Image&quot; button in the editor
                 </p>
               </div>
@@ -201,14 +201,14 @@ export default function ImageGalleryPopup({
                 {images.map((image) => (
                   <div
                     key={image.absolutePath}
-                    className={`group relative bg-gray-50 border-2 rounded-lg overflow-hidden cursor-pointer transition-all hover:shadow-md ${
+                    className={`group relative bg-surface-sunken border-2 rounded-lg overflow-hidden cursor-pointer transition-all hover:shadow-md ${
                       selectedImage?.absolutePath === image.absolutePath
                         ? "border-blue-500 ring-2 ring-blue-200"
-                        : "border-gray-200 hover:border-gray-300"
+                        : "border-border hover:border-border"
                     }`}
                     onClick={() => setSelectedImage(image)}
                   >
-                    <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
+                    <div className="aspect-square bg-surface-sunken flex items-center justify-center overflow-hidden">
                       {image.blobUrl ? (
                         <img
                           src={image.blobUrl}
@@ -216,18 +216,18 @@ export default function ImageGalleryPopup({
                           className="max-w-full max-h-full object-contain"
                         />
                       ) : (
-                        <ImageIcon className="w-8 h-8 text-gray-300" />
+                        <ImageIcon className="w-8 h-8 text-foreground-muted" />
                       )}
                     </div>
 
-                    <div className="p-2 border-t border-gray-100">
+                    <div className="p-2 border-t border-border">
                       <p
-                        className="text-meta font-medium text-gray-700 truncate"
+                        className="text-meta font-medium text-foreground truncate"
                         title={image.filename}
                       >
                         {image.filename}
                       </p>
-                      <p className="text-meta text-gray-400 mt-0.5">{formatFileSize(image.size)}</p>
+                      <p className="text-meta text-foreground-muted mt-0.5">{formatFileSize(image.size)}</p>
                     </div>
 
                     <button
@@ -249,9 +249,9 @@ export default function ImageGalleryPopup({
           </div>
 
           {selectedImage && (
-            <div className="w-64 border-l border-gray-100 flex flex-col bg-gray-50">
-              <div className="p-3 border-b border-gray-100">
-                <p className="text-meta font-medium text-gray-700">Preview</p>
+            <div className="w-64 border-l border-border flex flex-col bg-surface-sunken">
+              <div className="p-3 border-b border-border">
+                <p className="text-meta font-medium text-foreground">Preview</p>
               </div>
 
               <div className="flex-1 flex items-center justify-center p-3 overflow-hidden">
@@ -264,21 +264,21 @@ export default function ImageGalleryPopup({
                 )}
               </div>
 
-              <div className="p-3 border-t border-gray-100 space-y-2">
+              <div className="p-3 border-t border-border space-y-2">
                 <div>
-                  <p className="text-meta text-gray-400 uppercase">Filename</p>
-                  <p className="text-meta text-gray-700 truncate" title={selectedImage.filename}>
+                  <p className="text-meta text-foreground-muted uppercase">Filename</p>
+                  <p className="text-meta text-foreground truncate" title={selectedImage.filename}>
                     {selectedImage.filename}
                   </p>
                 </div>
                 <div>
-                  <p className="text-meta text-gray-400 uppercase">Size</p>
-                  <p className="text-meta text-gray-700">{formatFileSize(selectedImage.size)}</p>
+                  <p className="text-meta text-foreground-muted uppercase">Size</p>
+                  <p className="text-meta text-foreground">{formatFileSize(selectedImage.size)}</p>
                 </div>
                 {selectedImage.lastModified > 0 && (
                   <div>
-                    <p className="text-meta text-gray-400 uppercase">Modified</p>
-                    <p className="text-meta text-gray-700">
+                    <p className="text-meta text-foreground-muted uppercase">Modified</p>
+                    <p className="text-meta text-foreground">
                       {new Date(selectedImage.lastModified).toLocaleDateString()}
                     </p>
                   </div>
@@ -295,13 +295,13 @@ export default function ImageGalleryPopup({
           )}
         </div>
 
-        <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100 bg-gray-50">
-          <p className="text-meta text-gray-400">
+        <div className="flex items-center justify-between px-6 py-3 border-t border-border bg-surface-sunken">
+          <p className="text-meta text-foreground-muted">
             {images.length} image{images.length !== 1 ? "s" : ""} found
           </p>
           <button
             onClick={onClose}
-            className="px-4 py-2 text-meta text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 text-meta text-foreground-muted bg-surface-raised border border-border rounded-lg hover:bg-surface-sunken transition-colors"
           >
             Close
           </button>

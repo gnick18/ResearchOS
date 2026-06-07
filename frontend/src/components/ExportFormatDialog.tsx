@@ -153,12 +153,12 @@ export default function ExportFormatDialog({
       card={false}
     >
       {/* This dialog brings its own white card chrome (card=false above). */}
-      <div className="bg-white rounded-xl shadow-xl w-full overflow-hidden">
-        <div className="px-6 pt-5 pb-3 border-b border-gray-100">
-          <h2 className="text-title font-semibold text-gray-900 line-clamp-2">
+      <div className="bg-surface-raised rounded-xl shadow-xl w-full overflow-hidden">
+        <div className="px-6 pt-5 pb-3 border-b border-border">
+          <h2 className="text-title font-semibold text-foreground line-clamp-2">
             {heading}
           </h2>
-          <p className="text-meta text-gray-500 mt-1">
+          <p className="text-meta text-foreground-muted mt-1">
             Choose a format. Multi-experiment exports produce a zip with one
             file per experiment.
           </p>
@@ -185,7 +185,7 @@ export default function ExportFormatDialog({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 py-1.5 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="px-3 py-1.5 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg"
               >
                 Cancel
               </button>
@@ -207,12 +207,12 @@ export default function ExportFormatDialog({
                   type="button"
                   disabled={isExporting}
                   onClick={() => onExport(opt.format)}
-                  className="w-full text-left rounded-lg border border-gray-200 px-4 py-3 hover:border-blue-400 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-white"
+                  className="w-full text-left rounded-lg border border-border px-4 py-3 hover:border-blue-400 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-border disabled:hover:bg-surface-raised"
                 >
-                  <div className="text-body font-medium text-gray-900">
+                  <div className="text-body font-medium text-foreground">
                     {opt.title}
                   </div>
-                  <div className="text-meta text-gray-500 mt-1 leading-relaxed">
+                  <div className="text-meta text-foreground-muted mt-1 leading-relaxed">
                     {opt.description}
                   </div>
                 </button>
@@ -223,12 +223,12 @@ export default function ExportFormatDialog({
                   type="button"
                   disabled={isExporting}
                   onClick={onExportCombined}
-                  className="w-full text-left rounded-lg border border-gray-200 px-4 py-3 hover:border-blue-400 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-white"
+                  className="w-full text-left rounded-lg border border-border px-4 py-3 hover:border-blue-400 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-border disabled:hover:bg-surface-raised"
                 >
-                  <div className="text-body font-medium text-gray-900">
+                  <div className="text-body font-medium text-foreground">
                     Combined PDF
                   </div>
-                  <div className="text-meta text-gray-500 mt-1 leading-relaxed">
+                  <div className="text-meta text-foreground-muted mt-1 leading-relaxed">
                     One PDF for all selected experiments, with a cover page,
                     clickable index, and bookmarks.
                   </div>
@@ -236,23 +236,23 @@ export default function ExportFormatDialog({
               ) : null}
 
               {showSaveToDisk ? (
-                <div className="rounded-lg border border-gray-200 px-4 py-3 bg-gray-50">
-                  <div className="text-body font-medium text-gray-900">
+                <div className="rounded-lg border border-border px-4 py-3 bg-surface-sunken">
+                  <div className="text-body font-medium text-foreground">
                     Save as ZIP to a folder on your disk
                   </div>
-                  <div className="text-meta text-gray-500 mt-1 leading-relaxed">
+                  <div className="text-meta text-foreground-muted mt-1 leading-relaxed">
                     Streams straight to a file you pick, keeping memory low for
                     large exports (Chrome / Edge only).
                   </div>
                   <div className="mt-2 flex items-center gap-2">
-                    <label className="text-meta text-gray-600">Format:</label>
+                    <label className="text-meta text-foreground-muted">Format:</label>
                     <select
                       value={saveToDiskFormat}
                       onChange={(e) =>
                         setSaveToDiskFormat(e.target.value as ExportFormat)
                       }
                       disabled={isExporting}
-                      className="text-meta border border-gray-300 rounded px-1.5 py-1 bg-white disabled:opacity-50"
+                      className="text-meta border border-border rounded px-1.5 py-1 bg-surface-raised disabled:opacity-50"
                     >
                       {FORMAT_OPTIONS.map((opt) => (
                         <option key={opt.format} value={opt.format}>
@@ -277,12 +277,12 @@ export default function ExportFormatDialog({
               {isExporting && progress ? (
                 <ExportProgressLine progress={progress} />
               ) : isExporting ? (
-                <div className="text-meta text-gray-500 flex items-center gap-2">
+                <div className="text-meta text-foreground-muted flex items-center gap-2">
                   <Spinner />
                   Preparing export…
                 </div>
               ) : (
-                <div className="text-meta text-gray-500 min-h-[1.25rem]">
+                <div className="text-meta text-foreground-muted min-h-[1.25rem]">
                   {sizeEstimate && taskCount > 1 ? (
                     <span>
                       ~{formatBytes(sizeEstimate.totalBytes)} of attachments
@@ -296,7 +296,7 @@ export default function ExportFormatDialog({
                   type="button"
                   onClick={onClose}
                   disabled={isExporting}
-                  className="px-3 py-1.5 text-body text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-1.5 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
@@ -351,11 +351,11 @@ function ExportProgressLine({ progress }: { progress: ExportProgressUi }) {
 
   return (
     <div className="space-y-1.5">
-      <div className="text-meta text-gray-600 flex items-center gap-2">
+      <div className="text-meta text-foreground-muted flex items-center gap-2">
         <Spinner />
         <span className="line-clamp-1">{label}</span>
       </div>
-      <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+      <div className="h-1.5 w-full rounded-full bg-surface-sunken overflow-hidden">
         <div
           className="h-full bg-blue-500 transition-all duration-200"
           style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}

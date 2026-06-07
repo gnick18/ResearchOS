@@ -252,11 +252,11 @@ export default function ShareDialog({
         <div className="px-6 py-4 flex-1 overflow-y-auto">
           {/* Currently shared */}
           <div className="mb-4">
-            <h3 className="text-body font-medium text-gray-700 mb-2">
+            <h3 className="text-body font-medium text-foreground mb-2">
               Currently shared with
             </h3>
             {shared.length === 0 ? (
-              <p className="text-meta text-gray-400 italic">
+              <p className="text-meta text-foreground-muted italic">
                 Only you can see this {labelForType(recordType)}.
               </p>
             ) : (
@@ -264,18 +264,18 @@ export default function ShareDialog({
                 {shared.map((s) => (
                   <div
                     key={s.username}
-                    className="bg-gray-50 rounded-lg px-3 py-2"
+                    className="bg-surface-sunken rounded-lg px-3 py-2"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-2">
                         <SharedUserAvatar username={s.username} />
                         <div className="min-w-0">
-                          <p className="truncate text-body font-medium text-gray-900">
+                          <p className="truncate text-body font-medium text-foreground">
                             {s.username === WHOLE_LAB_SENTINEL
                               ? "Whole lab"
                               : `@${s.username}`}
                             {archivedSet.has(s.username) && (
-                              <span className="ml-1 text-meta text-gray-400">
+                              <span className="ml-1 text-meta text-foreground-muted">
                                 (archived)
                               </span>
                             )}
@@ -291,7 +291,7 @@ export default function ShareDialog({
                                 ? "the whole lab"
                                 : `@${s.username}`
                             }`}
-                            className="mt-1 inline-flex rounded-md border border-gray-300 bg-white p-0.5"
+                            className="mt-1 inline-flex rounded-md border border-border bg-surface-raised p-0.5"
                           >
                             {(
                               [
@@ -311,7 +311,7 @@ export default function ShareDialog({
                                   className={`rounded px-2.5 py-1 text-meta font-medium transition-colors ${
                                     active
                                       ? "bg-brand-action text-white shadow-sm"
-                                      : "text-gray-500 hover:text-gray-800"
+                                      : "text-foreground-muted hover:text-foreground"
                                   }`}
                                 >
                                   {opt.label}
@@ -323,7 +323,7 @@ export default function ShareDialog({
                       </div>
                       <button
                         onClick={() => handleRemove(s.username)}
-                        className="shrink-0 text-meta font-medium text-gray-400 hover:text-red-600"
+                        className="shrink-0 text-meta font-medium text-foreground-muted hover:text-red-600"
                         aria-label={`Remove access for ${s.username}`}
                       >
                         Remove
@@ -336,19 +336,19 @@ export default function ShareDialog({
                      *  no extra writes — just visibility. */}
                     {s.username === WHOLE_LAB_SENTINEL && (
                       <div
-                        className="mt-2 pt-2 border-t border-gray-200 text-meta text-gray-600"
+                        className="mt-2 pt-2 border-t border-border text-meta text-foreground-muted"
                         data-testid="share-dialog-whole-lab-roster"
                       >
                         {wholeLabRoster.length === 0 ? (
-                          <span className="italic text-gray-400">
+                          <span className="italic text-foreground-muted">
                             No other active members in this lab yet.
                           </span>
                         ) : (
                           <>
-                            <span className="text-gray-500">
+                            <span className="text-foreground-muted">
                               Currently includes ({wholeLabRoster.length}):{" "}
                             </span>
-                            <span className="text-gray-700">
+                            <span className="text-foreground">
                               {wholeLabRoster
                                 .map((u) => `@${u}`)
                                 .join(", ")}
@@ -371,13 +371,13 @@ export default function ShareDialog({
               className={`w-full text-left px-3 py-2 rounded-lg border transition-colors text-body font-medium ${
                 wholeLab
                   ? "bg-emerald-50 border-emerald-300 text-emerald-700"
-                  : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                  : "border-border text-foreground hover:bg-surface-sunken"
               }`}
               data-tour-target="share-dialog-whole-lab"
             >
               {wholeLab ? "Remove Whole-lab share" : "+ Share with the whole lab"}
             </button>
-            <p className="text-meta text-gray-500 mt-1">
+            <p className="text-meta text-foreground-muted mt-1">
               Whole-lab shares default to read-only. Toggle the level above
               after adding.
             </p>
@@ -385,14 +385,14 @@ export default function ShareDialog({
 
           {/* Add someone */}
           <div className="mb-4">
-            <h3 className="text-body font-medium text-gray-700 mb-2">
+            <h3 className="text-body font-medium text-foreground mb-2">
               Add someone
             </h3>
             <div className="flex gap-2">
               <select
                 value={addUsername}
                 onChange={(e) => setAddUsername(e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="flex-1 px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 data-tour-target="share-dialog-user-row"
               >
                 <option value="">Pick a user…</option>
@@ -407,7 +407,7 @@ export default function ShareDialog({
                 onChange={(e) =>
                   setAddLevel(e.target.value as "read" | "edit")
                 }
-                className="px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-body"
+                className="px-2 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-body"
                 aria-label="Permission level for new share"
               >
                 <option value="edit">Edit</option>
@@ -456,11 +456,11 @@ export default function ShareDialog({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-2">
+        <div className="px-6 py-4 border-t border-border flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            className="px-4 py-2 text-foreground hover:bg-surface-sunken rounded-lg transition-colors"
           >
             Cancel
           </button>
@@ -493,17 +493,17 @@ export default function ShareDialog({
       data-tour-popup-occluding="share-dialog"
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-surface-raised rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b border-border">
           <div className="flex items-center justify-between">
-            <h2 className="text-heading font-semibold text-gray-900">
+            <h2 className="text-heading font-semibold text-foreground">
               Share {labelForType(recordType)}
             </h2>
             <Tooltip label="Close" placement="bottom">
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-foreground-muted hover:text-foreground-muted transition-colors"
                 aria-label="Close share dialog"
               >
                 <svg
@@ -522,7 +522,7 @@ export default function ShareDialog({
               </button>
             </Tooltip>
           </div>
-          <p className="text-body text-gray-500 mt-1 truncate">{recordName}</p>
+          <p className="text-body text-foreground-muted mt-1 truncate">{recordName}</p>
         </div>
         {inner}
       </div>

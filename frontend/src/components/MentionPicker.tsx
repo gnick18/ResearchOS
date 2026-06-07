@@ -140,7 +140,7 @@ export default function MentionPicker({
       ref={popupRef}
       role="listbox"
       aria-label="Mention picker"
-      className="fixed z-50 w-64 max-h-48 overflow-y-auto bg-white rounded-lg shadow-xl border border-gray-200"
+      className="fixed z-50 w-64 max-h-48 overflow-y-auto bg-surface-raised rounded-lg shadow-xl border border-border"
       style={{ left: position.left, top: position.top }}
     >
       <ul className="py-1">
@@ -160,14 +160,14 @@ export default function MentionPicker({
                 onPick(m.username);
               }}
               className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer ${
-                isActive ? "bg-emerald-50" : "hover:bg-gray-50"
+                isActive ? "bg-emerald-50" : "hover:bg-surface-sunken"
               }`}
             >
               <UserAvatar username={m.username} size="sm" />
               <div className="flex-1 min-w-0">
-                <div className="text-body text-gray-900 truncate">{label}</div>
+                <div className="text-body text-foreground truncate">{label}</div>
                 {m.displayName && m.displayName.trim() && (
-                  <div className="text-meta text-gray-500 truncate">
+                  <div className="text-meta text-foreground-muted truncate">
                     @{m.username}
                   </div>
                 )}

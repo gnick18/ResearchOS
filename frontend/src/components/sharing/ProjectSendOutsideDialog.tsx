@@ -105,22 +105,22 @@ export default function ProjectSendOutsideDialog({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
+        className="bg-surface-raised rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 py-4 border-b border-gray-200 flex items-start justify-between">
+        <div className="px-5 py-4 border-b border-border flex items-start justify-between">
           <div>
-            <h3 className="text-title font-semibold text-gray-900">
+            <h3 className="text-title font-semibold text-foreground">
               Share outside this folder
             </h3>
-            <p className="text-meta text-gray-500 mt-0.5">
+            <p className="text-meta text-foreground-muted mt-0.5">
               Send an encrypted copy of this project to someone on ResearchOS
             </p>
           </div>
           <Tooltip label="Close" placement="bottom">
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-foreground-muted hover:text-foreground-muted"
               aria-label="Close"
             >
               <CloseGlyph className="w-5 h-5" />
@@ -137,8 +137,8 @@ export default function ProjectSendOutsideDialog({
 function LoadingBody() {
   return (
     <div className="py-8 flex flex-col items-center text-center">
-      <div className="w-9 h-9 rounded-full border-2 border-gray-200 border-t-blue-500 animate-spin" />
-      <p className="text-body text-gray-500 mt-4">Checking your sharing setup</p>
+      <div className="w-9 h-9 rounded-full border-2 border-border border-t-blue-500 animate-spin" />
+      <p className="text-body text-foreground-muted mt-4">Checking your sharing setup</p>
     </div>
   );
 }
@@ -151,10 +151,10 @@ function NoIdentityBody({ onSetUp }: { onSetUp: () => void }) {
           <KeyGlyph className="w-5 h-5" />
         </span>
         <div>
-          <p className="text-body font-medium text-gray-900">
+          <p className="text-body font-medium text-foreground">
             Set up sharing to send this outside your lab
           </p>
-          <p className="text-body text-gray-600 mt-1 leading-relaxed">
+          <p className="text-body text-foreground-muted mt-1 leading-relaxed">
             Sending across folders needs a one-time setup that proves your email
             and generates a keypair, so your copy stays private end to end. It
             takes a minute and you only do it once.
@@ -180,10 +180,10 @@ function NeedsRestoreBody() {
           <WarnGlyph className="w-5 h-5" />
         </span>
         <div>
-          <p className="text-body font-medium text-gray-900">
+          <p className="text-body font-medium text-foreground">
             Restore your key on this device first
           </p>
-          <p className="text-body text-gray-600 mt-1 leading-relaxed">
+          <p className="text-body text-foreground-muted mt-1 leading-relaxed">
             You already set up sharing, but this device does not have your
             private key, so it cannot send. Restore it with your recovery words
             on this device, then come back to send.
@@ -345,10 +345,10 @@ function SendForm({
             <MailGlyph className="w-5 h-5" />
           </span>
           <div>
-            <p className="text-body font-medium text-gray-900">
+            <p className="text-body font-medium text-foreground">
               {state.recipient} is not on ResearchOS yet
             </p>
-            <p className="text-body text-gray-600 mt-1 leading-relaxed">
+            <p className="text-body text-foreground-muted mt-1 leading-relaxed">
               ResearchOS can email them an invitation with a private link to this
               project. They create a free account to open it, the project stays
               encrypted until they do.
@@ -369,7 +369,7 @@ function SendForm({
           <button
             type="button"
             onClick={() => setState({ phase: "idle" })}
-            className="flex-1 py-2 text-body rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+            className="flex-1 py-2 text-body rounded-lg bg-surface-sunken text-foreground hover:bg-surface-sunken transition-colors"
           >
             Back
           </button>
@@ -388,8 +388,8 @@ function SendForm({
   if (state.phase === "inviting") {
     return (
       <div className="py-8 flex flex-col items-center text-center">
-        <div className="w-9 h-9 rounded-full border-2 border-gray-200 border-t-blue-500 animate-spin" />
-        <p className="text-body text-gray-500 mt-4">Inviting {state.recipient}</p>
+        <div className="w-9 h-9 rounded-full border-2 border-border border-t-blue-500 animate-spin" />
+        <p className="text-body text-foreground-muted mt-4">Inviting {state.recipient}</p>
       </div>
     );
   }
@@ -401,10 +401,10 @@ function SendForm({
           <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
             <CheckGlyph className="w-6 h-6" />
           </div>
-          <p className="text-title font-semibold text-gray-900 mt-3">
+          <p className="text-title font-semibold text-foreground mt-3">
             We have invited {state.recipient}
           </p>
-          <p className="text-body text-gray-600 mt-1 leading-relaxed">
+          <p className="text-body text-foreground-muted mt-1 leading-relaxed">
             They will get an email with a private link to this project. Once they
             create a free account and open it, it lands in their workspace as a
             new project. The project is held encrypted for 30 days.
@@ -428,10 +428,10 @@ function SendForm({
           <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
             <CheckGlyph className="w-6 h-6" />
           </div>
-          <p className="text-title font-semibold text-gray-900 mt-3">
+          <p className="text-title font-semibold text-foreground mt-3">
             Sent to {state.recipient}
           </p>
-          <p className="text-body text-gray-600 mt-1 leading-relaxed">
+          <p className="text-body text-foreground-muted mt-1 leading-relaxed">
             They will see it in their inbox and choose to import it as a new
             project. You sent a copy, so any later edits you make stay on your
             version.
@@ -450,19 +450,19 @@ function SendForm({
 
   return (
     <div className="space-y-4">
-      <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">
-        <p className="text-meta text-gray-500">Sending this project</p>
-        <p className="text-body font-medium text-gray-900 mt-0.5 break-words">
+      <div className="bg-surface-sunken border border-border rounded-lg px-3 py-2.5">
+        <p className="text-meta text-foreground-muted">Sending this project</p>
+        <p className="text-body font-medium text-foreground mt-0.5 break-words">
           {project.name || "Untitled project"}
         </p>
         {expCount !== null && (
-          <p className="text-meta text-gray-500 mt-0.5">
+          <p className="text-meta text-foreground-muted mt-0.5">
             {expCount} experiment{expCount === 1 ? "" : "s"}
           </p>
         )}
       </div>
 
-      <p className="text-body text-gray-600 leading-relaxed">
+      <p className="text-body text-foreground-muted leading-relaxed">
         This sends an encrypted copy, a snapshot of the project as it looks now,
         with its experiments, notes, results, files, and methods. It is not live
         shared editing, the recipient gets their own copy as a new project.
@@ -471,7 +471,7 @@ function SendForm({
       <div>
         <label
           htmlFor="project-send-outside-recipient"
-          className="block text-meta font-medium text-gray-700 mb-1"
+          className="block text-meta font-medium text-foreground mb-1"
         >
           Recipient email
         </label>
@@ -489,7 +489,7 @@ function SendForm({
           placeholder="them@university.edu"
           autoComplete="email"
           disabled={sending}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-body text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-60"
+          className="w-full px-3 py-2 border border-border rounded-lg text-body text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-60"
         />
       </div>
 
@@ -507,7 +507,7 @@ function SendForm({
           type="button"
           onClick={onClose}
           disabled={sending}
-          className="flex-1 py-2 text-body rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors disabled:opacity-60"
+          className="flex-1 py-2 text-body rounded-lg bg-surface-sunken text-foreground hover:bg-surface-sunken transition-colors disabled:opacity-60"
         >
           Cancel
         </button>

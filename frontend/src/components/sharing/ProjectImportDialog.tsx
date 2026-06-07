@@ -141,16 +141,16 @@ export default function ProjectImportDialog({
       onClick={stage === "applying" ? undefined : onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col overflow-hidden"
+        className="bg-surface-raised rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-          <h3 className="text-title font-semibold text-gray-900">Import shared project</h3>
+        <div className="px-5 py-3 border-b border-border bg-surface-sunken flex items-center justify-between">
+          <h3 className="text-title font-semibold text-foreground">Import shared project</h3>
           <Tooltip label="Close" placement="bottom">
             <button
               onClick={onClose}
               disabled={stage === "applying"}
-              className="text-gray-400 hover:text-gray-700 disabled:opacity-40"
+              className="text-foreground-muted hover:text-foreground disabled:opacity-40"
               aria-label="Close"
             >
               <CloseIcon className="w-5 h-5" />
@@ -159,15 +159,15 @@ export default function ProjectImportDialog({
         </div>
 
         <div className="flex-1 overflow-y-auto p-5">
-          <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 mb-4">
-            <p className="text-meta text-gray-500 mb-1">From</p>
-            <p className="text-body font-medium text-gray-800 break-all">
+          <div className="rounded-lg border border-border bg-surface-sunken px-4 py-3 mb-4">
+            <p className="text-meta text-foreground-muted mb-1">From</p>
+            <p className="text-body font-medium text-foreground break-all">
               {provenanceLabel}
             </p>
           </div>
 
           {stage === "loading" && (
-            <p className="text-body text-gray-500 text-center py-8">
+            <p className="text-body text-foreground-muted text-center py-8">
               Opening the project bundle…
             </p>
           )}
@@ -178,10 +178,10 @@ export default function ProjectImportDialog({
 
           {(stage === "review" || stage === "applying") && inventory && (
             <>
-              <h4 className="text-heading font-semibold text-gray-900 mb-3">
+              <h4 className="text-heading font-semibold text-foreground mb-3">
                 {inventory.projectName || "Untitled project"}
               </h4>
-              <p className="text-body text-gray-600 leading-relaxed mb-4">
+              <p className="text-body text-foreground-muted leading-relaxed mb-4">
                 This imports a copy as a brand new project in your folder, with its
                 experiments, notes, results, files, and methods. Your existing
                 projects are not touched. The original sender keeps their version.
@@ -210,10 +210,10 @@ export default function ProjectImportDialog({
               <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-3">
                 <CheckIcon className="w-6 h-6" />
               </div>
-              <p className="text-title font-semibold text-gray-900">
+              <p className="text-title font-semibold text-foreground">
                 Project imported
               </p>
-              <p className="text-body text-gray-600 mt-1">
+              <p className="text-body text-foreground-muted mt-1">
                 {droppedCount > 0
                   ? "Some content was not carried over (see below). Everything else landed as a new project."
                   : "It landed as a new project in your folder."}
@@ -244,7 +244,7 @@ export default function ProjectImportDialog({
           )}
         </div>
 
-        <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-end gap-2">
+        <div className="px-5 py-3 border-t border-border bg-surface-sunken flex items-center justify-end gap-2">
           {stage === "success" ? (
             <button
               type="button"
@@ -259,7 +259,7 @@ export default function ProjectImportDialog({
                 type="button"
                 onClick={onClose}
                 disabled={stage === "applying"}
-                className="px-3 py-1.5 text-meta text-gray-600 hover:bg-gray-100 rounded-md transition-colors disabled:opacity-40"
+                className="px-3 py-1.5 text-meta text-foreground-muted hover:bg-surface-sunken rounded-md transition-colors disabled:opacity-40"
               >
                 Cancel
               </button>
@@ -281,9 +281,9 @@ export default function ProjectImportDialog({
 
 function InventoryRow({ label, value }: { label: string; value: number }) {
   return (
-    <li className="flex items-center justify-between text-body text-gray-700 px-3 py-1.5 rounded bg-gray-50">
+    <li className="flex items-center justify-between text-body text-foreground px-3 py-1.5 rounded bg-surface-sunken">
       <span>{label}</span>
-      <span className="font-semibold text-gray-900">{value}</span>
+      <span className="font-semibold text-foreground">{value}</span>
     </li>
   );
 }

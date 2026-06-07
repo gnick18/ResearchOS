@@ -52,7 +52,7 @@ export default function ContextMenu({
     <div
       ref={ref}
       role="menu"
-      className="fixed z-[60] min-w-[180px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+      className="fixed z-[60] min-w-[180px] rounded-lg border border-border bg-surface-raised py-1 shadow-lg"
       style={{ left, top }}
     >
       {items.map((it, i) => (
@@ -64,7 +64,7 @@ export default function ContextMenu({
             it.onClick();
             onClose();
           }}
-          className="flex w-full items-center gap-2 px-3 py-2 text-left text-body text-gray-700 hover:bg-gray-50"
+          className="flex w-full items-center gap-2 px-3 py-2 text-left text-body text-foreground hover:bg-surface-sunken"
         >
           {it.icon}
           {it.label}

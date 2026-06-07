@@ -196,32 +196,32 @@ export default function SendToNotePicker({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden"
+        className="bg-surface-raised rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
           <div>
-            <h3 className="text-title font-semibold text-gray-900">{headerLabel}</h3>
-            <p className="text-meta text-gray-500 mt-0.5">{subLabelText}</p>
+            <h3 className="text-title font-semibold text-foreground">{headerLabel}</h3>
+            <p className="text-meta text-foreground-muted mt-0.5">{subLabelText}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-700 text-heading leading-none p-1"
+            className="text-foreground-muted hover:text-foreground text-heading leading-none p-1"
             aria-label="Close"
           >
             ×
           </button>
         </div>
 
-        <div className="px-5 py-3 border-b border-gray-100">
+        <div className="px-5 py-3 border-b border-border">
           <input
             type="text"
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search notes…"
-            className="w-full px-3 py-2 text-body border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+            className="w-full px-3 py-2 text-body border border-border rounded-lg focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
           />
         </div>
 
@@ -250,10 +250,10 @@ export default function SendToNotePicker({
                     </svg>
                   </span>
                   <span className="flex-1 min-w-0">
-                    <span className="block text-body font-medium text-gray-900 truncate">
+                    <span className="block text-body font-medium text-foreground truncate">
                       {creating ? "Creating note…" : "New note"}
                     </span>
-                    <span className="block text-meta text-gray-500 truncate">
+                    <span className="block text-meta text-foreground-muted truncate">
                       Create &ldquo;{newNoteTitle}&rdquo; and add the map
                     </span>
                   </span>
@@ -262,17 +262,17 @@ export default function SendToNotePicker({
             </ul>
           )}
           {notesLoading ? (
-            <p className="text-body text-gray-500 text-center py-6">Loading…</p>
+            <p className="text-body text-foreground-muted text-center py-6">Loading…</p>
           ) : visible.length === 0 ? (
             allowCreateNew ? null : (
-              <p className="text-body text-gray-400 italic text-center py-6">
+              <p className="text-body text-foreground-muted italic text-center py-6">
                 {trimmed ? "No notes match." : "No notes yet."}
               </p>
             )
           ) : (
             <ul className="space-y-1" data-testid="send-to-note-picker-list">
               {!trimmed && (
-                <li className="px-3 pt-1 pb-1 text-meta font-medium uppercase tracking-wide text-gray-400">
+                <li className="px-3 pt-1 pb-1 text-meta font-medium uppercase tracking-wide text-foreground-muted">
                   Recent
                 </li>
               )}
@@ -294,12 +294,12 @@ export default function SendToNotePicker({
                         aria-hidden
                       />
                       <span className="flex-1 min-w-0">
-                        <span className="block text-body text-gray-900 truncate">
+                        <span className="block text-body text-foreground truncate">
                           {n.title || "Untitled note"}
                         </span>
-                        <span className="block text-meta text-gray-500 truncate">
+                        <span className="block text-meta text-foreground-muted truncate">
                           {snippet || (
-                            <span className="italic text-gray-400">No content yet</span>
+                            <span className="italic text-foreground-muted">No content yet</span>
                           )}
                         </span>
                       </span>
@@ -311,7 +311,7 @@ export default function SendToNotePicker({
                 );
               })}
               {truncated && (
-                <li className="px-3 pt-2 text-meta text-gray-400">
+                <li className="px-3 pt-2 text-meta text-foreground-muted">
                   Showing the {RECENT_LIMIT} most recent. Type to search older notes.
                 </li>
               )}

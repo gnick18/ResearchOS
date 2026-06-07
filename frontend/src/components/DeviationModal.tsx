@@ -107,18 +107,18 @@ export default function DeviationModal({
       widthClassName="max-w-lg"
       card={false}
     >
-      <div className="bg-white rounded-xl shadow-2xl w-full p-6">
-        <h3 className="text-heading font-semibold text-gray-900 mb-1">
+      <div className="bg-surface-raised rounded-xl shadow-2xl w-full p-6">
+        <h3 className="text-heading font-semibold text-foreground mb-1">
           Note Deviations
         </h3>
-        <p className="text-meta text-gray-400 mb-4">
+        <p className="text-meta text-foreground-muted mb-4">
           Task: {shownTask.name}
           {shownMethod && ` · Method: ${shownMethod.name}`}
         </p>
 
         {/* Deviation text */}
         <div className="mb-4">
-          <label className="block text-meta font-medium text-gray-500 mb-1">
+          <label className="block text-meta font-medium text-foreground-muted mb-1">
             What was different during this run?
           </label>
           <textarea
@@ -126,7 +126,7 @@ export default function DeviationModal({
             onChange={(e) => setDeviations(e.target.value)}
             placeholder="Describe any protocol deviations, altered steps, or unexpected changes..."
             rows={5}
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
           />
         </div>
 
@@ -135,12 +135,12 @@ export default function DeviationModal({
           <div className="space-y-2 mb-4">
             <button
               onClick={() => setMode("save")}
-              className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              className="w-full text-left px-4 py-3 border border-border rounded-lg hover:bg-surface-sunken transition-colors"
             >
-              <p className="text-body font-medium text-gray-900">
+              <p className="text-body font-medium text-foreground">
                 Save to task results only
               </p>
-              <p className="text-meta text-gray-400 mt-0.5">
+              <p className="text-meta text-foreground-muted mt-0.5">
                 Deviations are recorded in this task&apos;s log but the method
                 stays unchanged.
               </p>
@@ -148,12 +148,12 @@ export default function DeviationModal({
             {shownMethod && (
               <button
                 onClick={() => setMode("fork")}
-                className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                className="w-full text-left px-4 py-3 border border-border rounded-lg hover:bg-surface-sunken transition-colors"
               >
-                <p className="text-body font-medium text-gray-900">
+                <p className="text-body font-medium text-foreground">
                   Fork as new method
                 </p>
-                <p className="text-meta text-gray-400 mt-0.5">
+                <p className="text-meta text-foreground-muted mt-0.5">
                   Create a new method file with these deviations baked in.
                   Becomes a child of &ldquo;{shownMethod.name}&rdquo;.
                 </p>
@@ -165,7 +165,7 @@ export default function DeviationModal({
         {/* Fork name input */}
         {mode === "fork" && (
           <div className="mb-4">
-            <label className="block text-meta font-medium text-gray-500 mb-1">
+            <label className="block text-meta font-medium text-foreground-muted mb-1">
               New method name
             </label>
             <input
@@ -173,7 +173,7 @@ export default function DeviationModal({
               value={forkName}
               onChange={(e) => setForkName(e.target.value)}
               placeholder={`${shownMethod?.name} v2`}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         )}
@@ -182,7 +182,7 @@ export default function DeviationModal({
         <div className="flex gap-3 justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-body text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
+            className="px-4 py-2 text-body text-foreground-muted hover:text-foreground rounded-lg hover:bg-surface-sunken transition-colors"
           >
             Cancel
           </button>

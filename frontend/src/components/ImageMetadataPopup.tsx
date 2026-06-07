@@ -178,16 +178,16 @@ export default function ImageMetadataPopup({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden"
+        className="bg-surface-raised rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-          <h3 className="text-title font-semibold text-gray-900 truncate" title={filename}>
+        <div className="px-5 py-3 border-b border-border bg-surface-sunken flex items-center justify-between">
+          <h3 className="text-title font-semibold text-foreground truncate" title={filename}>
             {filename}
           </h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-700 text-heading leading-none"
+            className="text-foreground-muted hover:text-foreground text-heading leading-none"
             aria-label="Close"
           >
             ×
@@ -196,7 +196,7 @@ export default function ImageMetadataPopup({
 
         <div className="flex">
           {/* Preview */}
-          <div className="w-1/2 bg-gray-100 flex items-center justify-center min-h-[280px] max-h-[60vh] overflow-hidden">
+          <div className="w-1/2 bg-surface-sunken flex items-center justify-center min-h-[280px] max-h-[60vh] overflow-hidden">
             {previewUrl ? (
               // AnnotatedImage (not a bare <img>) so the annotation overlay
               // renders in the preview too, and updates live via imageEvents
@@ -209,19 +209,19 @@ export default function ImageMetadataPopup({
                 className="max-w-full max-h-[60vh] object-contain"
               />
             ) : (
-              <span className="text-meta text-gray-400">Loading preview…</span>
+              <span className="text-meta text-foreground-muted">Loading preview…</span>
             )}
           </div>
 
           {/* Metadata + actions */}
           <div className="w-1/2 px-5 py-4 flex flex-col overflow-y-auto max-h-[60vh]">
             {!loaded ? (
-              <p className="text-body text-gray-500">Loading…</p>
+              <p className="text-body text-foreground-muted">Loading…</p>
             ) : (
               <>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-meta font-medium text-gray-500 mb-1">
+                    <label className="block text-meta font-medium text-foreground-muted mb-1">
                       Description
                     </label>
                     <textarea
@@ -229,12 +229,12 @@ export default function ImageMetadataPopup({
                       onChange={(e) => setDescription(e.target.value)}
                       rows={4}
                       placeholder="What does this image show? Conditions, time, etc."
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                      className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
                     />
                   </div>
                   {onRename && (
-                    <div className="pt-2 border-t border-gray-100">
-                      <label className="block text-meta font-medium text-gray-500 mb-1">
+                    <div className="pt-2 border-t border-border">
+                      <label className="block text-meta font-medium text-foreground-muted mb-1">
                         Filename
                       </label>
                       <div className="flex items-center gap-2">
@@ -245,7 +245,7 @@ export default function ImageMetadataPopup({
                             setRenameInput(e.target.value);
                             setRenameError(null);
                           }}
-                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-body font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="flex-1 px-3 py-2 border border-border rounded-lg text-body font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                         <button
                           type="button"
@@ -262,7 +262,7 @@ export default function ImageMetadataPopup({
                     </div>
                   )}
                   {sidecar?.source && (
-                    <div className="text-meta text-gray-400 pt-1 space-y-0.5">
+                    <div className="text-meta text-foreground-muted pt-1 space-y-0.5">
                       <p>
                         Source: <span className="font-mono">{sidecar.source}</span>
                       </p>
@@ -328,7 +328,7 @@ export default function ImageMetadataPopup({
           </div>
         </div>
 
-        <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-2">
+        <div className="px-5 py-3 bg-surface-sunken border-t border-border flex items-center justify-end gap-2">
             {onMoveToActive && activeTask && (
               <button
                 type="button"
@@ -343,7 +343,7 @@ export default function ImageMetadataPopup({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-body text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+              className="px-4 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg transition-colors"
             >
               Cancel
             </button>
