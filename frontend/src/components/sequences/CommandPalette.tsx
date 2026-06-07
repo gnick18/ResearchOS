@@ -224,6 +224,8 @@ function GenericContextCard({
   if (!card) return null;
 
   if (slim) {
+    // While typing, the card collapses to one line, the title, the meta, and the
+    // selection folded in so the user keeps their bearings.
     return (
       <div className="flex items-center gap-2 border-b border-border px-4 py-2 text-meta text-foreground-muted">
         <Icon
@@ -232,6 +234,9 @@ function GenericContextCard({
         />
         <span className="truncate font-medium text-foreground">{card.title}</span>
         {card.meta ? <span className="truncate">{card.meta}</span> : null}
+        {card.selection ? (
+          <span className="truncate">{card.selection.text}</span>
+        ) : null}
       </div>
     );
   }
@@ -272,6 +277,15 @@ function GenericContextCard({
                 {chip.label}
               </span>
             ))}
+          </div>
+        ) : null}
+        {card.selection ? (
+          <div className="mt-2 flex items-center gap-2 border-t border-sky-100 pt-2 text-meta font-medium text-foreground dark:border-sky-900/40">
+            <Icon
+              name={card.selection.iconName}
+              className="h-3.5 w-3.5 flex-none text-sky-600 dark:text-sky-300"
+            />
+            <span className="truncate">{card.selection.text}</span>
           </div>
         ) : null}
       </div>

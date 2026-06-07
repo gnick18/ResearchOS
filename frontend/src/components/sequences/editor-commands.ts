@@ -124,6 +124,10 @@ export interface PaletteContextCard {
   /** Small chips under the title, e.g. a status, a date range, a selection echo.
    *  A swatch paints a leading color dot; italic styles a softer descriptor. */
   chips?: { label: string; swatch?: string; italic?: boolean }[];
+  /** An optional second stacked line under a hairline divider, its own icon plus
+   *  text, e.g. the selected task on the Gantt scope card ("PCR optimization,
+   *  Jun 12 to Jun 19"). Folds into the slim header while typing. */
+  selection?: { iconName: IconName; text: string };
 }
 
 /** One navigable / reopenable page object (an entity or a recent result). The
