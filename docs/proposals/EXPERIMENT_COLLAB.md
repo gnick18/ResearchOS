@@ -54,6 +54,24 @@ Edge: a per-experiment "presence room" vs reusing the per-doc ephemeral stores. 
 4. Box-scoped cursor polish: confirm cursors only show on the shared tab; presence-route as needed.
 5. (Optional) structured Details fields via Loro meta.
 
+## Chunk 1 implementation plan (Lab Notes doc collab)
+
+Mapped against the notes infra. The collab CLIENT is entity-agnostic (it operates on any LoroDoc), so chunk 1 is mostly a task-doc Loro model + open path + editor wiring, NOT a new engine.
+
+What the notes path looks like (the reuse target):
+- `lib/loro/store.ts openNote(base, owner)` -> `loadOrRebuild` (sidecar `users/<owner>/.researchos/notes/<id>.loro`) -> a Loro doc (`seed.ts seedNoteDoc`: a `meta` map + an `entries` MovableList, each entry a LoroMap with a nested LoroText "content") -> `NoteHandleImpl` -> collab (adopt from DO via `buildCollabBaseDoc`, `getCollabDocId`, auto-connect, the cursor plugin).
+- `NoteDetailPopup` wires the handle into `LiveMarkdownEditor` via `loroHandle` + `loroEntryIndex` (binds the CM6 LoroSyncPlugin to that entry's "content" text) + `collabEphemeral` + `collabUser`.
+
+New pieces for a task markdown doc (Lab Notes is ONE markdown string, simpler than a note's entries):
+1. `lib/loro/task-doc.ts` (or reuse): a Loro doc shape = a `meta` map + a single "content" LoroText (no entries list). Seed from the task's `notes.md` string.
+2. `lib/loro/task-sidecar-store.ts`: `loadOrRebuild` + `persist` for `users/<owner>/.researchos/tasks/<id>/notes.loro` (new path; mirror the notes sidecar-store).
+3. `openTaskDoc(owner, taskId, which: "notes"|"results")` (in store.ts or a task-store.ts): mirror `openNote`, simpler (single text container, no entry-set reconcile, no JSON mirror unless we want one). Returns a handle.
+4. Wire `TaskDetailPopup`'s Lab Notes `LiveMarkdownEditor` to the handle. KEY DECISION at build: (a) model the task doc as a degenerate single-entry note so the existing editor wiring (`loroEntryIndex=0`) works unchanged but drags note-mirror coupling, OR (b) a focused task-doc model + a small editor generalization to bind LoroSyncPlugin to a named text container. Lean (b) for cleanliness; (a) is the fast path.
+5. Mint + grant `collab_doc_id` on share: `grant-on-share` for the task notes doc (the share dialog already supports `kind:"experiment"`). One experiment shares -> mint/grant its notes doc (results doc in chunk 2).
+6. Auto-connect on open: mirror NoteDetailPopup's `connectFromDocId` effect in TaskDetailPopup for the Lab Notes doc.
+
+Open build questions: editor single-text binding (decision 4a/4b); whether task docs get version history (the notes VC engine is entry-based, may need adapting or skipping for v1); the sidecar path + whether to keep a JSON mirror of notes.md for legacy readers. BUILD IN A WORKTREE off main (TaskDetailPopup is 5160 lines + other agents are in it).
+
 ## Non-goals
 
 - Not changing notes (the engine is shared, notes stay as-is).
