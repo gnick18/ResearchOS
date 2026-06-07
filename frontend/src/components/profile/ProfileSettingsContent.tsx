@@ -22,6 +22,8 @@ import SharingSection, {
 } from "@/components/settings/SharingSection";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
+import { unlockIdentityWithPasskey, getPasskeyCredentialId } from "@/lib/sharing/identity/storage";
+import { getPasskeyPrf } from "@/lib/sharing/identity/webauthn";
 import { useAppStore } from "@/lib/store";
 import { listInbox } from "@/lib/sharing/relay/client";
 import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
@@ -36,6 +38,26 @@ export default function ProfileSettingsContent() {
   const sharing = useSharingIdentity();
   const queryClient = useQueryClient();
   const hydrateFromSettings = useAppStore((s) => s.hydrateFromSettings);
+
+  // Everyday unlock for the "Key not in this browser" state, the passkey. Runs
+  // the same WebAuthn PRF ceremony the login screen uses, unwraps the on-device
+  // key into the session, then refreshes so the panel flips to "ready". The
+  // recovery-words restore + reset stay as fallbacks if the passkey is missing
+  // or cancelled. (2026-06-07, closes the gap where a passkey-enrolled account
+  // could only be recovered with recovery words.)
+  const handleUnlockPasskey = useCallback(async () => {
+    if (!currentUser) return;
+    try {
+      const credentialId = await getPasskeyCredentialId(currentUser);
+      if (!credentialId) return;
+      const prf = await getPasskeyPrf(credentialId);
+      const identity = await unlockIdentityWithPasskey(currentUser, prf);
+      if (identity) await sharing.refresh();
+    } catch {
+      // Best-effort. A missing / cancelled passkey leaves the restore + reset
+      // buttons in place, so this is never a dead end.
+    }
+  }, [currentUser, sharing]);
 
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -189,6 +211,7 @@ export default function ProfileSettingsContent() {
           onSetUp={() => setWizardOpen(true)}
           onRotate={() => setRotateOpen(true)}
           onRestore={() => setRestoreOpen(true)}
+          onUnlockPasskey={handleUnlockPasskey}
           onDisconnect={() => setDisconnectOpen(true)}
           onReset={() => setResetOpen(true)}
         />
