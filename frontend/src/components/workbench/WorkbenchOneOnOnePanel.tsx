@@ -12,6 +12,7 @@
 // no emojis, no mid-sentence colons in copy.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { labApi, oneOnOnesApi, usersApi } from "@/lib/local-api";
 import { oneOnOneLabel } from "@/lib/one-on-one/label";
@@ -112,11 +113,19 @@ export default function WorkbenchOneOnOnePanel({
         </div>
 
         {oneOnOnes.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border bg-surface-sunken/50 px-3 py-3 text-body text-foreground-muted">
-            {isLabHead
-              ? "No 1:1s yet. Start one with a lab member to share weekly goals, meeting notes, and an agenda."
-              : "You are not in any 1:1s yet. Your lab head sets these up."}
-          </p>
+          <div className="rounded-lg border border-dashed border-border bg-surface-sunken/50 px-3 py-3 text-body text-foreground-muted">
+            <p>
+              {isLabHead
+                ? "No 1:1s yet. Start one with a lab member to share weekly goals, meeting notes, and an agenda."
+                : "You are not in any 1:1s yet. Your lab head sets these up."}
+            </p>
+            <Link
+              href="/wiki/features/one-on-ones"
+              className="mt-2 inline-block text-meta font-medium text-brand-action hover:underline"
+            >
+              Learn more
+            </Link>
+          </div>
         ) : (
           <ul className="flex flex-col gap-1">
             {oneOnOnes.map((oo) => {
