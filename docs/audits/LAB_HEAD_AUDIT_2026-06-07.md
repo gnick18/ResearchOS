@@ -121,7 +121,14 @@ confirmation before fixing.
   migration. Not dead code; evaluate deliberately if at all.
 - **[P3] Empty-value "—" glyph** convention: pick keep-and-exempt vs swap to a
   middot, apply once.
-- **[P3] Surface 3 live walk**: TaskDetailPopup edit-session password modal +
-  soft-write flow, comments, archiving, FlagBanner, as mira.
-- **[P3] Demo richness**: seed lab-head purchase/spending data so the PI demo
-  isn't all $0.
+- **[P3] Surface 3 live walk** (BLOCKED on demo data): TaskDetailPopup
+  edit-session password modal + soft-write flow, comments, archiving,
+  FlagBanner. As mira the Gantt is empty (no tasks of her own, no member tasks
+  shared into her view), so the PI soft-write workflow (which acts on a member's
+  shared record) cannot be exercised. Do the demo-data seeding first, then walk.
+- **[P3] Demo richness** (enabler for surface 3): the demo PI has no tasks, no
+  shared member records in her Gantt, and $0 across funding accounts, yet Lab
+  Overview claims "40 approvals". Seed a coherent PI dataset: a couple member
+  tasks shared into the PI view, a pending purchase or two to approve, a
+  comment/mention, and some funding usage. Reconcile the "40 approvals" count
+  with actual seeded approvals.
