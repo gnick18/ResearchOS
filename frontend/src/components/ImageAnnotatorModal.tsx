@@ -497,29 +497,35 @@ export default function ImageAnnotatorModal({
 
   return (
     <div
-      className="fixed inset-0 z-[450] flex flex-col bg-gray-900/95 backdrop-blur-sm"
+      className="fixed inset-0 z-[450] flex items-center justify-center p-3 sm:p-6 bg-slate-900/40 backdrop-blur-md"
       data-tour-popup-occluding="image-annotator"
-      // This full-screen editor mounts as a sibling of ImageMetadataPopup's
-      // LivingPopup (z-[400]), so z-[450] keeps it above the metadata card.
-      // stopPropagation stays as a self-containment guard so a click on any
-      // tool (Rectangle, Arrow, ...) or the canvas cannot bubble to anything
-      // that would exit annotate mode; the editor owns its own Cancel / Save /
-      // Escape exits (ImageMetadataPopup sets closeOnEscape=false while open).
+      // Mounts as a sibling of ImageMetadataPopup's LivingPopup (z-[400]), so
+      // z-[450] keeps the editor above the metadata card. stopPropagation is a
+      // self-containment guard so a click on a tool or the canvas cannot bubble
+      // out and exit annotate mode; the editor owns its own Cancel / Save /
+      // Escape exits. The scrim does NOT close on click, so unsaved annotations
+      // are never lost to a stray outside click.
       onClick={(e) => e.stopPropagation()}
     >
+      <div className="relative flex h-full w-full max-w-[1400px] flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl ring-1 ring-border">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-700 bg-gray-900">
-        <div className="flex items-center gap-2 min-w-0">
-          <IconPencil className="text-sky-400 flex-shrink-0" />
-          <h3 className="text-body font-medium text-gray-100 truncate" title={filename}>
-            Annotate: {filename}
-          </h3>
+      <div className="flex items-center justify-between gap-3 border-b border-border bg-surface-raised px-4 py-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-brand-action/10 text-brand-action">
+            <IconPencil />
+          </span>
+          <div className="min-w-0">
+            <h3 className="text-title font-semibold text-foreground leading-tight">Annotate image</h3>
+            <p className="text-meta text-foreground-muted truncate leading-tight" title={filename}>
+              {filename}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1.5 text-body text-foreground-muted hover:text-white hover:bg-gray-700 rounded-md transition-colors"
+            className="rounded-lg px-3.5 py-2 text-body font-medium text-foreground-muted hover:bg-surface-sunken hover:text-foreground transition-colors"
           >
             Cancel
           </button>
@@ -527,7 +533,7 @@ export default function ImageAnnotatorModal({
             type="button"
             onClick={() => void handleSave()}
             disabled={saving || !img}
-            className="btn-brand px-4 py-1.5 text-body font-medium rounded-md disabled:opacity-50"
+            className="btn-brand px-4 py-2 text-body font-medium rounded-lg disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save"}
           </button>
@@ -535,7 +541,7 @@ export default function ImageAnnotatorModal({
       </div>
 
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3 px-4 py-2 border-b border-gray-700 bg-gray-800">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border bg-surface-sunken px-4 py-2.5">
         <div className="flex items-center gap-1">
           <ToolButton label="Select / move" active={tool === "select"} onClick={() => setTool("select")}>
             <IconCursor />
@@ -560,7 +566,7 @@ export default function ImageAnnotatorModal({
           </ToolButton>
         </div>
 
-        <div className="w-px h-6 bg-gray-600" />
+        <div className="w-px h-6 bg-border" />
 
         {/* Colors */}
         <div className="flex items-center gap-1">
@@ -574,7 +580,9 @@ export default function ImageAnnotatorModal({
                 }}
                 aria-label={`Color ${c}`}
                 className={`w-6 h-6 rounded-full border transition-transform ${
-                  color === c ? "ring-2 ring-sky-400 scale-110 border-white" : "border-gray-500"
+                  color === c
+                    ? "ring-2 ring-brand-action ring-offset-1 ring-offset-surface-sunken scale-110 border-transparent"
+                    : "border-border"
                 }`}
                 style={{ backgroundColor: c }}
               />
@@ -582,7 +590,7 @@ export default function ImageAnnotatorModal({
           ))}
         </div>
 
-        <div className="w-px h-6 bg-gray-600" />
+        <div className="w-px h-6 bg-border" />
 
         {/* Stroke width */}
         <div className="flex items-center gap-1">
@@ -594,8 +602,8 @@ export default function ImageAnnotatorModal({
               onClick={() => applyStrokeWidth(w)}
               className={`px-2 py-1 text-meta rounded transition-colors ${
                 effStroke === w
-                  ? "bg-sky-600 text-white"
-                  : "text-foreground-muted hover:bg-gray-700"
+                  ? "bg-brand-action text-white"
+                  : "text-foreground-muted hover:bg-surface-raised"
               }`}
             >
               {w}
@@ -607,12 +615,12 @@ export default function ImageAnnotatorModal({
             max={40}
             value={effStroke}
             onChange={(e) => applyStrokeWidth(Number(e.target.value))}
-            className="w-12 px-1 py-1 text-meta rounded bg-gray-700 text-gray-100 text-center outline-none focus:ring-1 focus:ring-sky-500"
+            className="w-12 px-1 py-1 text-meta rounded bg-surface-raised text-foreground border border-border text-center outline-none focus:ring-1 focus:ring-brand-action"
             aria-label="Custom stroke width"
           />
         </div>
 
-        <div className="w-px h-6 bg-gray-600" />
+        <div className="w-px h-6 bg-border" />
 
         {/* Font size */}
         <div className="flex items-center gap-1">
@@ -624,8 +632,8 @@ export default function ImageAnnotatorModal({
               onClick={() => applyFontSize(f)}
               className={`px-2 py-1 text-meta rounded transition-colors ${
                 effFontSize === f
-                  ? "bg-sky-600 text-white"
-                  : "text-foreground-muted hover:bg-gray-700"
+                  ? "bg-brand-action text-white"
+                  : "text-foreground-muted hover:bg-surface-raised"
               }`}
             >
               {f}
@@ -637,12 +645,12 @@ export default function ImageAnnotatorModal({
             max={200}
             value={effFontSize}
             onChange={(e) => applyFontSize(Number(e.target.value))}
-            className="w-12 px-1 py-1 text-meta rounded bg-gray-700 text-gray-100 text-center outline-none focus:ring-1 focus:ring-sky-500"
+            className="w-12 px-1 py-1 text-meta rounded bg-surface-raised text-foreground border border-border text-center outline-none focus:ring-1 focus:ring-brand-action"
             aria-label="Custom text size"
           />
         </div>
 
-        <div className="w-px h-6 bg-gray-600" />
+        <div className="w-px h-6 bg-border" />
 
         {/* Undo / redo / delete */}
         <div className="flex items-center gap-1">
@@ -664,7 +672,7 @@ export default function ImageAnnotatorModal({
       </div>
 
       {/* Stage area */}
-      <div ref={containerRef} className="flex-1 flex items-center justify-center overflow-hidden p-4">
+      <div ref={containerRef} className="flex-1 flex items-center justify-center overflow-hidden bg-surface-sunken/50 p-4">
         {imgError ? (
           <p className="text-body text-foreground-muted">Could not load the image.</p>
         ) : !img ? (
@@ -738,23 +746,23 @@ export default function ImageAnnotatorModal({
               commitTextEdit();
             }
           }}
+          className="bg-surface-raised text-foreground ring-2 ring-brand-action shadow-lg"
           style={{
             position: "fixed",
             top: editingText.screenY,
             left: editingText.screenX,
-            zIndex: 210,
+            zIndex: 460,
             minWidth: 120,
             fontSize: Math.max(12, editFontSize * scale),
             color: editColor,
-            background: "rgba(255,255,255,0.95)",
-            border: "1px solid #38bdf8",
-            borderRadius: 4,
+            borderRadius: 6,
             padding: "2px 4px",
             outline: "none",
             resize: "none",
           }}
         />
       )}
+      </div>
     </div>
   );
 }
@@ -968,7 +976,7 @@ function ToolButton({
         aria-label={label}
         aria-pressed={active}
         className={`w-8 h-8 flex items-center justify-center rounded-md transition-colors disabled:opacity-40 ${
-          active ? "bg-sky-600 text-white" : "text-foreground-muted hover:bg-gray-700"
+          active ? "bg-brand-action text-white" : "text-foreground-muted hover:bg-surface-raised"
         }`}
       >
         {children}
