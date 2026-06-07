@@ -183,8 +183,18 @@ export function useCollabSession(args: {
   // without re-creating callbacks.
   const providerRef = useRef<CollabProvider | null>(null);
 
+  // Heartbeat that re-broadcasts this peer's ephemeral cursor + user state while
+  // connected, so an idle peer's name does not lapse. The EphemeralStore TTL is
+  // 30s; without a refresh, loro-codemirror renders an expired peer's remote
+  // cursor label as "unknown". Cleared when the provider tears down.
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Cleanup helper: destroy the provider if one is live and reset state.
   const destroyProvider = useCallback(() => {
+    if (heartbeatRef.current) {
+      clearInterval(heartbeatRef.current);
+      heartbeatRef.current = null;
+    }
     if (providerRef.current) {
       providerRef.current.destroy();
       providerRef.current = null;
@@ -235,6 +245,31 @@ export function useCollabSession(args: {
       });
 
       providerRef.current = provider;
+
+      // Keep this peer's ephemeral cursor + user state alive while connected so
+      // an idle peer's name never expires (TTL 30s; refresh every 10s). Both
+      // loro-codemirror keys (`<peerId>-cm-user` / `<peerId>-cm-cursor`) are
+      // re-set with their current value, which resets the TTL and re-broadcasts.
+      // Re-setting an identical value is visually a no-op; it only refreshes the
+      // expiry. Only runs once a value exists (i.e. after the first cursor set).
+      {
+        const userKey = `${doc.peerIdStr}-cm-user`;
+        const cursorKey = `${doc.peerIdStr}-cm-cursor`;
+        heartbeatRef.current = setInterval(() => {
+          // loro-codemirror stores per-peer entries under dynamic string keys
+          // (`<peerId>-cm-user` / `<peerId>-cm-cursor`), which the typed
+          // EphemeralStore generic does not model, so access via a permissive
+          // view (the same shape loro-codemirror uses internally).
+          const store = ephemeralRef.current as unknown as {
+            get(key: string): unknown;
+            set(key: string, value: unknown): void;
+          };
+          const userVal = store.get(userKey);
+          if (userVal !== undefined) store.set(userKey, userVal);
+          const cursorVal = store.get(cursorKey);
+          if (cursorVal !== undefined) store.set(cursorKey, cursorVal);
+        }, 10_000);
+      }
 
       // Build the join link now (before onOpen fires) so the UI can show it
       // immediately in the "connecting" state. The link encodes the raw key for
