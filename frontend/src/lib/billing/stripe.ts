@@ -22,13 +22,45 @@ export function getStripe(): Stripe {
   return stripeSingleton;
 }
 
-/** The recurring storage-block price the checkout subscribes to. */
+/** The metered storage price the checkout subscribes to (no quantity). */
 export function getStoragePriceId(): string {
   const id = process.env.STRIPE_STORAGE_PRICE_ID;
   if (!id) {
     throw new Error("STRIPE_STORAGE_PRICE_ID is not set.");
   }
   return id;
+}
+
+/**
+ * The Stripe Billing Meter event name the metered price is tied to. The monthly
+ * report job sends usage as meter events with this name; Stripe aggregates them
+ * over the billing period and the price turns them into the invoice line.
+ */
+export function getMeterEventName(): string {
+  const name = process.env.STRIPE_METER_EVENT_NAME;
+  if (!name) {
+    throw new Error("STRIPE_METER_EVENT_NAME is not set.");
+  }
+  return name;
+}
+
+/**
+ * Reports a customer's billable usage (in GB-month) to the storage meter. One
+ * event per customer per month, the value is the month's billable gigabytes
+ * (already free-tier-subtracted and minimum-waived by reportableGb). Stripe 22
+ * removed the old usage records in favor of this Meter Events API.
+ */
+export async function reportStorageUsage(
+  stripeCustomerId: string,
+  billableGb: number,
+): Promise<void> {
+  await getStripe().billing.meterEvents.create({
+    event_name: getMeterEventName(),
+    payload: {
+      stripe_customer_id: stripeCustomerId,
+      value: String(billableGb),
+    },
+  });
 }
 
 /** The webhook signing secret used to verify Stripe event authenticity. */

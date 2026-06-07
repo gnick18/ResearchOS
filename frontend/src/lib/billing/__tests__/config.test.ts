@@ -11,6 +11,7 @@ import {
   maxMonthlyCostCents,
   monthlyChargeCents,
   rawChargeCents,
+  reportableGb,
 } from "../config";
 
 const GB = 1024 ** 3;
@@ -58,5 +59,13 @@ describe("maxMonthlyCostCents", () => {
 describe("gbToBytes", () => {
   it("converts GB to bytes", () => {
     expect(gbToBytes(5)).toBe(5 * BYTES_PER_GB);
+  });
+});
+
+describe("reportableGb", () => {
+  it("reports the billable GB once the minimum is met, else 0 (waived)", () => {
+    expect(reportableGb(1.5 * GB)).toBe(0); // 15 cents, waived
+    expect(reportableGb(0.5 * GB)).toBe(0); // within free tier
+    expect(reportableGb(8 * GB)).toBe(7); // 7 GB billable, $2.10 charge
   });
 });

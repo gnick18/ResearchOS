@@ -81,3 +81,15 @@ export function monthlyChargeCents(avgUsedBytes: number): number {
 export function maxMonthlyCostCents(capGb: number): number {
   return rawChargeCents(gbToBytes(capGb));
 }
+
+/**
+ * The billable GB to report to Stripe's meter for a month's average usage. This
+ * is what the monthly report job sends. It is 0 when the charge would fall under
+ * the minimum (so sub-minimum months are waived, not billed), otherwise the
+ * billable gigabytes above the free tier. Stripe's metered price multiplies this
+ * by the per-GB rate, so reporting 0 means a $0 invoice line.
+ */
+export function reportableGb(avgUsedBytes: number): number {
+  if (monthlyChargeCents(avgUsedBytes) === 0) return 0;
+  return billableBytes(avgUsedBytes) / BYTES_PER_GB;
+}
