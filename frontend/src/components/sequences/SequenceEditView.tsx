@@ -203,6 +203,8 @@ import {
   buildContextBar,
   type SelectionKind,
 } from "@/lib/sequences/inspector-context";
+import { CommandPalette } from "./CommandPalette";
+import type { EditorCommand } from "./editor-commands";
 import { useAutoOpenInspector } from "./useAutoOpenInspector";
 import HoverCardActionHint from "./HoverCardActionHint";
 import {
@@ -768,6 +770,10 @@ export default function SequenceEditView({
     (id: string) => setActiveOp((cur) => (cur === id ? null : id)),
     [],
   );
+  // sequence editor master (redesign phase 4). The Cmd-K COMMAND PALETTE is the
+  // keyboard route to every operation. It opens on Cmd-K / Ctrl-K (a global
+  // listener while the editor is mounted) and from the rail "More" launcher.
+  const [paletteOpen, setPaletteOpen] = useState(false);
   // Phase 2e — the primer-design dialog (SnapGene "Add Primer"). null = closed.
   const [primerRequest, setPrimerRequest] = useState<PrimerDialogRequest | null>(null);
   // primer dialog bot — the SnapGene-style "Edit Primer" dialog (distinct from
@@ -3046,6 +3052,25 @@ export default function SequenceEditView({
     readOnly,
   ]);
 
+  // sequence editor master (redesign phase 4). The GLOBAL Cmd-K / Ctrl-K
+  // listener for the command palette. It lives on the window (not the editor
+  // element) so the palette opens whether or not focus is inside the canvas,
+  // which is the standard palette behavior. We deliberately do NOT exclude
+  // inputs / textareas, a palette should open from anywhere; the only place
+  // Cmd-K is inert is the palette's own input, which the palette itself owns. We
+  // never mount the listener in the chrome-slim embedded preview.
+  useEffect(() => {
+    if (embedded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((cur) => !cur);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [embedded]);
+
   // overview featclick bot — the selection the readout describes. A FEATURE
   // selection (Map / overview / Features list) sets `externalSel` but, because
   // SeqViz never fires onSelection for a programmatic prop selection, it never
@@ -4152,20 +4177,38 @@ export default function SequenceEditView({
       ),
     });
 
-    // MORE. The long-tail placeholder for the phase 4 command palette. Kept
-    // minimal in phase 1.
+    // MORE. The doorway to the Cmd-K command palette (redesign phase 4). The
+    // palette is the keyboard route to every operation, including any that do
+    // not earn a permanent rail slot, so the More launcher just opens it and
+    // names the shortcut. Available in read-only too (the palette filters to
+    // non-mutating commands there).
     ops.push({
       id: "more",
       label: "More",
       title: "More tools",
-      sub: "The long tail",
+      sub: "Search every operation",
       icon: RailIcons.more,
       panel: (
-        <InspectorCue>
-          Tools that do not earn a permanent rail slot will live here and in the
-          command palette (a later phase). For now, every operation has a rail
-          icon above.
-        </InspectorCue>
+        <>
+          <ActionList
+            actions={[
+              {
+                id: "op-more-palette",
+                label: "Open the command palette",
+                sub: "search or run any tool",
+                glyph: ActionGlyphs.search,
+                tileClass: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
+                onRun: () => setPaletteOpen(true),
+              },
+            ]}
+          />
+          <div className="mt-3">
+            <InspectorCue>
+              Press Cmd K anywhere in the editor to open the palette and reach
+              every operation from the keyboard.
+            </InspectorCue>
+          </div>
+        </>
       ),
     });
 
@@ -4203,6 +4246,377 @@ export default function SequenceEditView({
     readout,
     selectFeature,
     openProteinDrawerForFeature,
+    setPaletteOpen,
+  ]);
+
+  // sequence editor master (redesign phase 4). THE COMMAND SOURCE for the Cmd-K
+  // palette. Every command's `run` points at the SAME handler the rail / menu /
+  // view switcher already uses, so nothing is re-implemented here. Mutating
+  // commands are omitted on the read-only surface, exactly as the rail and the
+  // menu bar already hide them. Each iconName is a real entry in the verified
+  // icon registry (no new glyphs). The aspirational off-rail long tail (codon
+  // optimize, gel sim, dot plot, GC skew) the mockup name-drops is intentionally
+  // NOT here, those tools do not exist yet; this list ships only real commands,
+  // and the rail "More" launcher + this palette leave a clean home for them.
+  const commands = useMemo<EditorCommand[]>(() => {
+    const list: EditorCommand[] = [];
+
+    // DESIGN ------------------------------------------------------------------
+    if (!readOnly) {
+      list.push({
+        id: "primer-design",
+        label: sel.hasRange ? "Design primers from selection" : "Design primers",
+        group: "Design",
+        iconName: "primers",
+        keywords: "oligo forward reverse pcr amplify",
+        run: () => openPrimerDialog("standard"),
+      });
+      list.push({
+        id: "primer-mutagenesis",
+        label: "Design a mutagenesis primer",
+        group: "Design",
+        iconName: "primers",
+        keywords: "site-directed mutation oligo",
+        run: () => openPrimerDialog("mutagenesis"),
+      });
+    }
+    list.push({
+      id: "primer-list",
+      label: "Open the Primers tab",
+      group: "Design",
+      iconName: "primers",
+      keywords: "list primers oligos",
+      run: () => setViewMode("primers"),
+    });
+    if (selectedPrimerInfo) {
+      if (!readOnly) {
+        list.push({
+          id: "primer-edit",
+          label: "Edit this primer",
+          group: "Design",
+          iconName: "pencil",
+          run: () => openEditPrimer(selectedPrimerInfo.idx),
+        });
+      }
+      list.push({
+        id: "primer-specificity",
+        label: "Check primer specificity",
+        group: "Design",
+        iconName: "search",
+        keywords: "off-target binding template",
+        run: openSpecificityCheck,
+      });
+    }
+    if (!readOnly && onOpenAssemble) {
+      list.push({
+        id: "cloning-assemble",
+        label: "Assemble a construct",
+        group: "Design",
+        iconName: "cloning",
+        keywords: "gibson overlap restriction ligation golden gate gateway clone",
+        run: onOpenAssemble,
+      });
+    }
+    list.push({
+      id: "enzyme-picker",
+      label: "Choose restriction enzymes",
+      group: "Design",
+      iconName: "cut",
+      keywords: "digest cutters sites",
+      run: () => setEnzymePickerOpen(true),
+    });
+    list.push({
+      id: "enzyme-toggle",
+      label: view.showEnzymes ? "Hide cut sites on the map" : "Show cut sites on the map",
+      group: "Design",
+      iconName: "layer",
+      keywords: "restriction enzyme digest",
+      run: () => setView((v) => ({ ...v, showEnzymes: !v.showEnzymes })),
+    });
+
+    // ANNOTATE (mutating, edit-only) lives under Design at the bench.
+    if (!readOnly) {
+      list.push({
+        id: "annotate-add",
+        label: selectionKind === "region" ? "Add feature from selection" : "Add a feature",
+        group: "Design",
+        iconName: "plus",
+        keywords: "annotate feature region",
+        run: openAddFeature,
+      });
+      list.push({
+        id: "annotate-detect",
+        label: "Detect common features",
+        group: "Design",
+        iconName: "annotate",
+        keywords: "auto detect database annotate",
+        run: openDetectFeatures,
+      });
+      list.push({
+        id: "annotate-ref",
+        label: "Annotate from a reference",
+        group: "Design",
+        iconName: "refresh",
+        keywords: "copy features reference known sequence",
+        run: openAnnotateFromReference,
+      });
+    }
+
+    // ANALYZE -----------------------------------------------------------------
+    list.push({
+      id: "align-open",
+      label: "Align to another sequence",
+      group: "Analyze",
+      iconName: "align",
+      keywords: "compare pairwise multiple alignment",
+      run: () => setCompareOpen(true),
+    });
+    if (selectionKind === "feature-cds" && selectedFeatureIdx != null) {
+      const cdsIdx = selectedFeatureIdx;
+      list.push({
+        id: "protein-translate",
+        label: "Translate this CDS to protein",
+        group: "Analyze",
+        iconName: "translation",
+        keywords: "amino acids translate cds protein",
+        run: () => {
+          selectFeature(cdsIdx);
+          setView((v) => ({ ...v, showTranslation: true }));
+        },
+      });
+      list.push({
+        id: "protein-domains",
+        label: "Find protein domains",
+        group: "Analyze",
+        iconName: "protein",
+        keywords: "hmmer domain scan pfam",
+        run: () => openProteinDrawerForFeature(cdsIdx),
+      });
+    }
+    list.push({
+      id: "protein-props",
+      label: "Protein properties",
+      group: "Analyze",
+      iconName: "protein",
+      keywords: "mass pi composition hydropathy extinction",
+      run: () => setProteinPropsOpen(true),
+    });
+    if (onExploreInTree) {
+      list.push({
+        id: "tree-explore",
+        label: "Explore in the tree of life",
+        group: "Analyze",
+        iconName: "tree",
+        keywords: "taxonomy phylogeny organism lineage",
+        run: () => onExploreInTree(sequence.tax_id),
+      });
+    }
+    if (onLookupTaxonomy) {
+      list.push({
+        id: "tree-lookup",
+        label: "Look up an organism",
+        group: "Analyze",
+        iconName: "search",
+        keywords: "taxonomy tax id lineage organism",
+        run: () => onLookupTaxonomy(),
+      });
+    }
+    if (!readOnly && onEnriched) {
+      list.push({
+        id: "tree-enrich",
+        label: "Enrich taxonomy from NCBI",
+        group: "Analyze",
+        iconName: "ncbi",
+        keywords: "ncbi organism lineage taxonomy fetch",
+        run: () => setEnrichOpen(true),
+      });
+    }
+
+    // EDIT --------------------------------------------------------------------
+    // Carry the wired handlers AND the shortcut hints straight from the Edit
+    // menu so the palette shows the same accelerators.
+    for (const item of editMenuItems) {
+      const iconName: EditorCommand["iconName"] =
+        item.id.startsWith("copy")
+          ? "copy"
+          : item.id === "paste" || item.id === "paste-rc"
+            ? "paste"
+            : item.id === "cut"
+              ? "cut"
+              : item.id === "delete"
+                ? "trash"
+                : item.id === "find" || item.id === "goto"
+                  ? "search"
+                  : "pencil";
+      list.push({
+        id: `edit-${item.id}`,
+        label: item.label.replace(/…$/, ""),
+        group: "Edit",
+        iconName,
+        shortcut: item.shortcut,
+        run: item.onRun,
+        enabled: item.enabled,
+      });
+    }
+
+    // VIEW --------------------------------------------------------------------
+    const viewTabs: Array<{ id: SequenceViewMode; label: string; icon: EditorCommand["iconName"] }> = [
+      { id: "map", label: "Go to the Map view", icon: "map" },
+      { id: "sequence", label: "Go to the Sequence view", icon: "sequence" },
+      { id: "features", label: "Go to the Features view", icon: "features" },
+      { id: "primers", label: "Go to the Primers view", icon: "primers" },
+      { id: "history", label: "Go to the History view", icon: "history" },
+    ];
+    for (const tab of viewTabs) {
+      list.push({
+        id: `view-${tab.id}`,
+        label: tab.label,
+        group: "View",
+        iconName: tab.icon,
+        keywords: "switch tab view",
+        run: () => setViewMode(tab.id),
+      });
+    }
+    const toggles: Array<{
+      id: string;
+      on: boolean;
+      onLabel: string;
+      offLabel: string;
+      icon: EditorCommand["iconName"];
+      keywords: string;
+      flip: () => void;
+    }> = [
+      {
+        id: "features",
+        on: view.showFeatures,
+        onLabel: "Hide features",
+        offLabel: "Show features",
+        icon: "features",
+        keywords: "annotation layer",
+        flip: () => setView((v) => ({ ...v, showFeatures: !v.showFeatures })),
+      },
+      {
+        id: "primers",
+        on: view.showPrimers,
+        onLabel: "Hide primers on the map",
+        offLabel: "Show primers on the map",
+        icon: "primers",
+        keywords: "primer track annealing",
+        flip: () => setView((v) => ({ ...v, showPrimers: !v.showPrimers })),
+      },
+      {
+        id: "enzymes",
+        on: view.showEnzymes,
+        onLabel: "Hide enzyme sites",
+        offLabel: "Show enzyme sites",
+        icon: "cut",
+        keywords: "restriction cut digest",
+        flip: () => setView((v) => ({ ...v, showEnzymes: !v.showEnzymes })),
+      },
+      {
+        id: "translation",
+        on: view.showTranslation,
+        onLabel: "Hide translation",
+        offLabel: "Show translation",
+        icon: "translation",
+        keywords: "amino acid protein track",
+        flip: () => setView((v) => ({ ...v, showTranslation: !v.showTranslation })),
+      },
+      {
+        id: "orfs",
+        on: view.showOrfs,
+        onLabel: "Hide open reading frames",
+        offLabel: "Show open reading frames",
+        icon: "orfs",
+        keywords: "orf reading frame",
+        flip: () => setView((v) => ({ ...v, showOrfs: !v.showOrfs })),
+      },
+      {
+        id: "ruler",
+        on: view.showIndex,
+        onLabel: "Hide the ruler",
+        offLabel: "Show the ruler",
+        icon: "ruler",
+        keywords: "index coordinates",
+        flip: () => setView((v) => ({ ...v, showIndex: !v.showIndex })),
+      },
+      {
+        id: "wrap",
+        on: view.wrapSequence,
+        onLabel: "Switch to a single line",
+        offLabel: "Wrap the sequence",
+        icon: view.wrapSequence ? "singleLine" : "wrapped",
+        keywords: "wrap single line layout",
+        flip: () => setView((v) => ({ ...v, wrapSequence: !v.wrapSequence })),
+      },
+      {
+        id: "topology",
+        on: view.forceLinear,
+        onLabel: "Show the circular map",
+        offLabel: "Show as linear",
+        icon: view.forceLinear ? "moleculeCircular" : "moleculeLinear",
+        keywords: "linear circular topology plasmid",
+        flip: () => setView((v) => ({ ...v, forceLinear: !v.forceLinear })),
+      },
+    ];
+    for (const t of toggles) {
+      list.push({
+        id: `view-toggle-${t.id}`,
+        label: t.on ? t.onLabel : t.offLabel,
+        group: "View",
+        iconName: t.on ? "eyeOff" : "eye",
+        keywords: t.keywords,
+        run: t.flip,
+      });
+    }
+
+    // EXPORT ------------------------------------------------------------------
+    for (const item of exportMenuItems) {
+      list.push({
+        id: `export-${item.id}`,
+        label: item.label.replace(/…$/, ""),
+        group: "Export",
+        iconName: item.id.includes("map") ? "map" : "export",
+        keywords: `download save ${item.hint ?? ""}`.trim(),
+        run: item.onRun,
+        enabled: item.enabled,
+      });
+    }
+
+    return list;
+  }, [
+    readOnly,
+    sel.hasRange,
+    selectionKind,
+    selectedPrimerInfo,
+    selectedFeatureIdx,
+    openPrimerDialog,
+    openEditPrimer,
+    openSpecificityCheck,
+    onOpenAssemble,
+    setEnzymePickerOpen,
+    view.showEnzymes,
+    view.showFeatures,
+    view.showPrimers,
+    view.showTranslation,
+    view.showOrfs,
+    view.showIndex,
+    view.wrapSequence,
+    view.forceLinear,
+    openAddFeature,
+    openDetectFeatures,
+    openAnnotateFromReference,
+    setCompareOpen,
+    selectFeature,
+    openProteinDrawerForFeature,
+    setProteinPropsOpen,
+    onExploreInTree,
+    onLookupTaxonomy,
+    onEnriched,
+    setEnrichOpen,
+    sequence.tax_id,
+    editMenuItems,
+    exportMenuItems,
   ]);
 
   return (
@@ -5172,6 +5586,21 @@ export default function SequenceEditView({
             </svg>
           </button>
         </div>
+      ) : null}
+
+      {/* sequence editor master (redesign phase 4). The Cmd-K COMMAND PALETTE,
+          the keyboard route to every operation. Not mounted in the chrome-slim
+          embedded preview; in read-only the command source already drops the
+          mutating commands. The palette portals to the body, so it sits here at
+          the end without affecting layout. */}
+      {!embedded ? (
+        <CommandPalette
+          open={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+          commands={commands}
+          selectionKind={selectionKind}
+          hasOrganism={hasOrganism}
+        />
       ) : null}
     </div>
   );
