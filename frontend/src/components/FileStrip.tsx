@@ -272,7 +272,7 @@ export default function FileStrip({
   if (entries.length === 0) {
     return (
       <div className={wrapperClass}>
-        <p className="text-meta text-gray-400 italic px-3 py-2 bg-gray-50 border-t border-gray-200">
+        <p className="text-meta text-foreground-muted italic px-3 py-2 bg-surface-sunken border-t border-border">
           No files attached to this {recordType} yet. Drag a file in or use the Add File button.
         </p>
       </div>
@@ -283,8 +283,8 @@ export default function FileStrip({
 
   return (
     <div className={wrapperClass}>
-      <div className="flex items-center gap-2 px-3 py-2 overflow-x-auto bg-gray-50 border-t border-gray-200">
-        <span className="text-meta text-gray-500 font-medium flex-shrink-0 mr-1">
+      <div className="flex items-center gap-2 px-3 py-2 overflow-x-auto bg-surface-sunken border-t border-border">
+        <span className="text-meta text-foreground-muted font-medium flex-shrink-0 mr-1">
           {entries.length} file{entries.length === 1 ? "" : "s"}
           {linkedOnlyCount > 0 && (
             <span className="ml-1 text-blue-600">({linkedOnlyCount} unlinked)</span>
@@ -326,13 +326,13 @@ export default function FileStrip({
               }
               onDragEnd={draggable ? () => fileEvents.emitDragEnd() : undefined}
               onClick={() => handleView(entry)}
-              className={`group relative flex-shrink-0 w-28 h-16 rounded-md border border-gray-200 bg-white overflow-hidden hover:border-blue-400 hover:ring-2 hover:ring-blue-200 transition-all flex items-center gap-2 px-2 ${
+              className={`group relative flex-shrink-0 w-28 h-16 rounded-md border border-border bg-surface-raised overflow-hidden hover:border-blue-400 hover:ring-2 hover:ring-blue-200 transition-all flex items-center gap-2 px-2 ${
                 draggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
               }`}
               title={tooltip}
             >
               <FileExtBadge filename={entry.filename} />
-              <span className="text-meta text-gray-700 truncate flex-1" title={entry.filename}>
+              <span className="text-meta text-foreground truncate flex-1" title={entry.filename}>
                 {entry.filename}
               </span>
               {!entry.inDocument && entry.source === "files" && (
@@ -350,7 +350,7 @@ export default function FileStrip({
                   }}
                   aria-label={`Delete ${entry.filename}`}
                   data-force-hover-controls-target
-                  className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-all bg-white/80"
+                  className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 p-1 text-foreground-muted hover:text-red-600 hover:bg-red-50 rounded transition-all bg-white/80"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                     <line x1="18" y1="6" x2="6" y2="18" />

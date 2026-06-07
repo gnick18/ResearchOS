@@ -252,7 +252,7 @@ export default function ImageStrip({
   if (entries.length === 0) {
     return (
       <div className={wrapperClass} data-tour-target="hybrid-editor-image-strip">
-        <p className="text-meta text-gray-400 italic px-3 py-2 bg-gray-50 border-t border-gray-200">
+        <p className="text-meta text-foreground-muted italic px-3 py-2 bg-surface-sunken border-t border-border">
           No images linked to this {recordType} yet. Send one via Telegram or drag a file in.
         </p>
       </div>
@@ -263,8 +263,8 @@ export default function ImageStrip({
 
   return (
     <div className={wrapperClass} data-tour-target="hybrid-editor-image-strip">
-      <div className="flex items-center gap-2 px-3 py-2 overflow-x-auto bg-gray-50 border-t border-gray-200">
-        <span className="text-meta text-gray-500 font-medium flex-shrink-0 mr-1">
+      <div className="flex items-center gap-2 px-3 py-2 overflow-x-auto bg-surface-sunken border-t border-border">
+        <span className="text-meta text-foreground-muted font-medium flex-shrink-0 mr-1">
           {entries.length} image{entries.length === 1 ? "" : "s"}
           {linkedOnlyCount > 0 && (
             <span className="ml-1 text-blue-600">({linkedOnlyCount} new)</span>
@@ -323,7 +323,7 @@ export default function ImageStrip({
                   else setViewingLegacy({ path: entry.fullPath, name: entry.filename });
                 }
               }}
-              className={`group relative flex-shrink-0 w-16 h-16 rounded-md border border-gray-200 bg-white overflow-hidden hover:border-blue-400 hover:ring-2 hover:ring-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+              className={`group relative flex-shrink-0 w-16 h-16 rounded-md border border-border bg-surface-raised overflow-hidden hover:border-blue-400 hover:ring-2 hover:ring-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
                 draggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
               }`}
               title={tooltip}
@@ -337,7 +337,7 @@ export default function ImageStrip({
                   className="w-full h-full object-cover pointer-events-none"
                 />
               ) : (
-                <div className="w-full h-full bg-gray-100" />
+                <div className="w-full h-full bg-surface-sunken" />
               )}
               {!entry.inDocument && (
                 <span

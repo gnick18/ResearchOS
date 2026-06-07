@@ -49,8 +49,8 @@ export default function BetaDonationButton({
   if (variant === "link") {
     const toneCls =
       tone === "light"
-        ? "text-slate-500 hover:text-rose-600 focus-visible:ring-offset-white"
-        : "text-slate-500 hover:text-white focus-visible:ring-offset-slate-900";
+        ? "text-foreground-muted hover:text-rose-600 focus-visible:ring-offset-white"
+        : "text-foreground-muted hover:text-white focus-visible:ring-offset-slate-900";
     return (
       <>
         <button
@@ -112,10 +112,10 @@ function DonationModal({
         widthClassName="max-w-md"
         card={false}
       >
-        <div className="relative bg-white rounded-2xl shadow-2xl w-full overflow-hidden">
+        <div className="relative bg-surface-raised rounded-2xl shadow-2xl w-full overflow-hidden">
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-heading font-bold text-gray-900 flex items-center gap-2">
+              <h2 className="text-heading font-bold text-foreground flex items-center gap-2">
                 <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-rose-100 text-rose-600">
                   <HeartIcon className="w-4 h-4" />
                 </span>
@@ -123,31 +123,31 @@ function DonationModal({
               </h2>
             </div>
 
-          <p className="text-gray-600 text-body mb-5">
+          <p className="text-foreground-muted text-body mb-5">
             {DONATION_CONFIG.message}
           </p>
 
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 mb-5">
-            <p className="mb-3 text-meta font-semibold uppercase tracking-wide text-gray-500">
+          <div className="rounded-xl border border-border bg-surface-sunken p-4 mb-5">
+            <p className="mb-3 text-meta font-semibold uppercase tracking-wide text-foreground-muted">
               How ResearchOS stays free
             </p>
-            <ul className="space-y-2.5 text-body text-gray-700">
+            <ul className="space-y-2.5 text-body text-foreground">
               <li>
-                <span className="font-semibold text-gray-900">
+                <span className="font-semibold text-foreground">
                   Free for every lab.
                 </span>{" "}
                 The hosted app and self-hosting are both free, with no paid tiers
                 and no per-seat fees.
               </li>
               <li>
-                <span className="font-semibold text-gray-900">
+                <span className="font-semibold text-foreground">
                   Funded by a fellowship.
                 </span>{" "}
                 A UW-Madison RISE fellowship supports ResearchOS, so there is
                 nothing to pay to use it.
               </li>
               <li>
-                <span className="font-semibold text-gray-900">
+                <span className="font-semibold text-foreground">
                   Voluntary support, later.
                 </span>{" "}
                 Down the road, labs that come to rely on it and can afford to
@@ -155,7 +155,7 @@ function DonationModal({
                 that cannot.
               </li>
               <li>
-                <span className="font-semibold text-gray-900">
+                <span className="font-semibold text-foreground">
                   Open source, yours to keep.
                 </span>{" "}
                 You can always run ResearchOS yourself from the public repo, even
@@ -164,7 +164,7 @@ function DonationModal({
             </ul>
           </div>
 
-          <p className="text-body text-gray-600">
+          <p className="text-body text-foreground-muted">
             There is nothing to pay, not now and never as a requirement. The best
             way to support ResearchOS today is to use it, tell another lab about
             it, and send us feedback.

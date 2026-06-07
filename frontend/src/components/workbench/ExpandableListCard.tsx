@@ -47,8 +47,8 @@ interface CelebrationState {
 const DATE_CHIP_CLASSES: Record<DateSignalKind, string> = {
   overdue: "text-red-700 bg-red-50 border border-red-200",
   doing: "text-blue-700 bg-blue-50 border border-blue-200",
-  upcoming: "text-gray-600 bg-gray-50 border border-gray-200",
-  done: "text-gray-500 bg-gray-50 border border-gray-200",
+  upcoming: "text-foreground-muted bg-surface-sunken border border-border",
+  done: "text-foreground-muted bg-surface-sunken border border-border",
 };
 
 export interface ExpandableListCardProps {
@@ -339,10 +339,10 @@ export default function ExpandableListCard({
 
   return (
     <div
-      className={`bg-white border rounded-lg transition-all ${
+      className={`bg-surface-raised border rounded-lg transition-all ${
         isExpanded
           ? "border-violet-300 shadow-sm"
-          : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
+          : "border-border hover:border-border hover:shadow-sm"
       }`}
       data-testid="expandable-list-card"
       data-expanded={isExpanded ? "true" : "false"}
@@ -382,7 +382,7 @@ export default function ExpandableListCard({
             className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors ${
               task.is_complete
                 ? "bg-emerald-500 border border-emerald-500 text-white hover:bg-emerald-600"
-                : "border border-gray-300 hover:border-emerald-500 hover:bg-emerald-50"
+                : "border border-border hover:border-emerald-500 hover:bg-emerald-50"
             } ${canToggleComplete ? "" : "opacity-50 cursor-not-allowed"}`}
           >
             {task.is_complete && (
@@ -409,8 +409,8 @@ export default function ExpandableListCard({
             <span
               className={`text-body flex-1 min-w-0 truncate ${
                 task.is_complete
-                  ? "text-gray-500 line-through"
-                  : "text-gray-900 font-medium"
+                  ? "text-foreground-muted line-through"
+                  : "text-foreground font-medium"
               }`}
             >
               {task.name}
@@ -425,7 +425,7 @@ export default function ExpandableListCard({
           </div>
 
           <div className="mt-1 flex items-center gap-2 flex-wrap text-meta">
-            <span className="inline-flex items-center gap-1.5 text-gray-500">
+            <span className="inline-flex items-center gap-1.5 text-foreground-muted">
               <span
                 className="w-2 h-2 rounded-full flex-shrink-0"
                 style={{ backgroundColor: projectColor }}
@@ -464,7 +464,7 @@ export default function ExpandableListCard({
         {/* Chevron — rotates 90° when expanded. */}
         <svg
           aria-hidden
-          className={`w-4 h-4 mt-1 text-gray-400 flex-shrink-0 transition-transform duration-200 ${
+          className={`w-4 h-4 mt-1 text-foreground-muted flex-shrink-0 transition-transform duration-200 ${
             isExpanded ? "rotate-90" : ""
           }`}
           fill="none"
@@ -497,11 +497,11 @@ export default function ExpandableListCard({
       >
         <div
           ref={contentRef}
-          className="border-t border-gray-100 px-4 py-3 bg-gray-50/40"
+          className="border-t border-border px-4 py-3 bg-surface-sunken/40"
         >
           {/* Editable name row */}
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-meta uppercase tracking-wide text-gray-400 flex-shrink-0">
+            <span className="text-meta uppercase tracking-wide text-foreground-muted flex-shrink-0">
               Name
             </span>
             {editingName && !readOnly ? (
@@ -530,8 +530,8 @@ export default function ExpandableListCard({
                 onClick={() => !readOnly && setEditingName(true)}
                 className={`flex-1 text-left text-body px-2 py-1 rounded-md ${
                   readOnly
-                    ? "text-gray-500 cursor-default"
-                    : "text-gray-800 hover:bg-white hover:ring-1 hover:ring-gray-200"
+                    ? "text-foreground-muted cursor-default"
+                    : "text-foreground hover:bg-surface-raised hover:ring-1 hover:ring-border"
                 }`}
                 title={readOnly ? undefined : "Click to rename"}
               >
@@ -543,7 +543,7 @@ export default function ExpandableListCard({
           {/* Items checklist */}
           <ul className="space-y-1 mb-3" data-testid="expandable-list-items">
             {subTasks.length === 0 && (
-              <li className="text-meta text-gray-400 italic px-1 py-1">
+              <li className="text-meta text-foreground-muted italic px-1 py-1">
                 No items yet.
               </li>
             )}
@@ -552,7 +552,7 @@ export default function ExpandableListCard({
               return (
                 <li
                   key={st.id}
-                  className={`flex items-center gap-2.5 group py-1.5 px-2 rounded-md hover:bg-white transition-colors ${
+                  className={`flex items-center gap-2.5 group py-1.5 px-2 rounded-md hover:bg-surface-raised transition-colors ${
                     st.is_complete ? "opacity-60" : ""
                   }`}
                 >
@@ -589,7 +589,7 @@ export default function ExpandableListCard({
                       className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all flex-shrink-0 ${
                         st.is_complete
                           ? "bg-violet-500 border-violet-500"
-                          : "border-gray-300 hover:border-violet-400"
+                          : "border-border hover:border-violet-400"
                       } ${readOnly ? "cursor-default" : ""}`}
                     >
                       {st.is_complete && (
@@ -639,12 +639,12 @@ export default function ExpandableListCard({
                       }}
                       className={`flex-1 text-left text-body px-1 py-0.5 rounded ${
                         st.is_complete
-                          ? "line-through text-gray-400"
-                          : "text-gray-700"
+                          ? "line-through text-foreground-muted"
+                          : "text-foreground"
                       } ${
                         readOnly
                           ? "cursor-default"
-                          : "hover:bg-white"
+                          : "hover:bg-surface-raised"
                       }`}
                     >
                       {st.text}
@@ -657,7 +657,7 @@ export default function ExpandableListCard({
                         type="button"
                         aria-label="Delete item"
                         onClick={() => handleDeleteItem(st.id)}
-                        className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-opacity"
+                        className="opacity-0 group-hover:opacity-100 text-foreground-muted hover:text-red-500 transition-opacity"
                         data-force-hover-controls-target
                       >
                         <svg
@@ -703,7 +703,7 @@ export default function ExpandableListCard({
                 // input). Stamped so the workbench-list-create-shell
                 // cursor demo can type the 3 demo items.
                 data-tour-target="workbench-list-add-item-input"
-                className="flex-1 px-3 py-1.5 text-body border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-300 focus:border-transparent bg-white"
+                className="flex-1 px-3 py-1.5 text-body border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-violet-300 focus:border-transparent bg-surface-raised"
               />
               <button
                 type="button"
@@ -717,7 +717,7 @@ export default function ExpandableListCard({
           )}
 
           {/* Footer actions */}
-          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+          <div className="flex items-center justify-between pt-2 border-t border-border">
             {!readOnly ? (
               <button
                 type="button"
@@ -736,7 +736,7 @@ export default function ExpandableListCard({
                 data-tour-target="workbench-list-mark-complete"
                 className={`text-meta px-3 py-1.5 rounded-md font-medium transition-colors ${
                   task.is_complete
-                    ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    ? "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
                     : "bg-emerald-600 text-white hover:bg-emerald-700"
                 } disabled:opacity-50`}
               >
@@ -745,7 +745,7 @@ export default function ExpandableListCard({
                   : "Mark list complete"}
               </button>
             ) : (
-              <span className="text-meta text-gray-400 italic">
+              <span className="text-meta text-foreground-muted italic">
                 View only (shared)
               </span>
             )}
@@ -757,7 +757,7 @@ export default function ExpandableListCard({
                   e.stopPropagation();
                   onOpenFullView();
                 }}
-                className="text-meta text-gray-500 hover:text-gray-800 underline-offset-2 hover:underline"
+                className="text-meta text-foreground-muted hover:text-foreground underline-offset-2 hover:underline"
               >
                 Open full view
               </button>

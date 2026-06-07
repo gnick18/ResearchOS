@@ -346,16 +346,16 @@ export default function LabGanttChart({
 
   if (filteredTasks.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-gray-400 text-body bg-white rounded-xl p-8 border border-gray-200">
+      <div className="flex-1 flex flex-col items-center justify-center text-foreground-muted text-body bg-surface-raised rounded-xl p-8 border border-border">
         <p className="mb-2">No tasks to display.</p>
-        <p className="text-meta text-gray-500">
+        <p className="text-meta text-foreground-muted">
           {tasks.length === 0 
             ? "No tasks found in the database." 
             : selectedUsernames.size === 0 
               ? "Select users to view their tasks."
               : "All tasks are filtered out (lists are hidden from GANTT)."}
         </p>
-        <p className="text-meta text-gray-500 mt-2">
+        <p className="text-meta text-foreground-muted mt-2">
           Total tasks: {tasks.length} | Selected users: {selectedUsernames.size} | Filtered: {filteredTasks.length}
         </p>
       </div>
@@ -370,10 +370,10 @@ export default function LabGanttChart({
   let firstBarStamped = false;
 
   return (
-    <div className="flex-1 overflow-auto bg-white rounded-xl p-4 relative border border-gray-200">
+    <div className="flex-1 overflow-auto bg-surface-raised rounded-xl p-4 relative border border-border">
       {/* View mode selector */}
       <div className="mb-4 flex items-center gap-2">
-        <span className="text-meta text-gray-500">View:</span>
+        <span className="text-meta text-foreground-muted">View:</span>
         <div className="flex gap-1">
           {["1week", "2week", "3week", "1month", "3month", "6month", "1year"].map((mode) => (
             <button
@@ -382,7 +382,7 @@ export default function LabGanttChart({
               className={`px-2 py-1 text-meta rounded transition-colors ${
                 viewMode === mode
                   ? "bg-emerald-100 text-emerald-700"
-                  : "bg-gray-100 text-gray-500 hover:text-gray-900"
+                  : "bg-surface-sunken text-foreground-muted hover:text-foreground"
               }`}
             >
               {mode === "1week" ? "1W" : mode === "2week" ? "2W" : mode === "3week" ? "3W" : mode === "1month" ? "1M" : mode === "3month" ? "3M" : mode === "6month" ? "6M" : "1Y"}
@@ -405,12 +405,12 @@ export default function LabGanttChart({
         return (
           <div key={weekIdx} className="mb-6 relative" style={{ zIndex: 1 }}>
             {/* Week header */}
-            <div className="text-meta font-semibold text-gray-500 mb-2 px-1">
+            <div className="text-meta font-semibold text-foreground-muted mb-2 px-1">
               {weekLabel}
             </div>
 
             {/* Day headers */}
-            <div className="grid gap-px bg-gray-200 rounded-t-lg overflow-hidden"
+            <div className="grid gap-px bg-surface-sunken rounded-t-lg overflow-hidden"
               style={{ gridTemplateColumns: `repeat(${weekDates.length}, 1fr)` }}
             >
               {weekDates.map((d) => {
@@ -424,8 +424,8 @@ export default function LabGanttChart({
                       isToday
                         ? "bg-red-500 text-white"
                         : isWeekendDay
-                        ? "bg-gray-100 text-gray-400"
-                        : "bg-white text-gray-600"
+                        ? "bg-surface-sunken text-foreground-muted"
+                        : "bg-surface-raised text-foreground-muted"
                     }`}
                   >
                     {formatDayLabel(d)}
@@ -435,9 +435,9 @@ export default function LabGanttChart({
             </div>
 
             {/* Task rows */}
-            <div className="bg-white border border-gray-200 border-t-0 rounded-b-lg overflow-hidden relative">
+            <div className="bg-surface-raised border border-border border-t-0 rounded-b-lg overflow-hidden relative">
               {weekTasks.length === 0 ? (
-                <div className="h-12 flex items-center justify-center text-meta text-gray-400">
+                <div className="h-12 flex items-center justify-center text-meta text-foreground-muted">
                   No tasks this week
                 </div>
               ) : (
@@ -465,7 +465,7 @@ export default function LabGanttChart({
                     return (
                       <div
                         key={`row-${weekIdx}-${rowNum}`}
-                        className="relative h-12 border-b border-gray-100 last:border-b-0"
+                        className="relative h-12 border-b border-border last:border-b-0"
                         style={{
                           display: "grid",
                           gridTemplateColumns: `repeat(${weekDates.length}, 1fr)`,
@@ -479,8 +479,8 @@ export default function LabGanttChart({
                           return (
                             <div
                               key={`cell-${weekIdx}-row${rowNum}-${ds}`}
-                              className={`border-r border-gray-100 last:border-r-0 ${
-                                isWeekendDay ? "bg-gray-50" : ""
+                              className={`border-r border-border last:border-r-0 ${
+                                isWeekendDay ? "bg-surface-sunken" : ""
                               } ${isToday2 ? "bg-red-50" : ""}`}
                             />
                           );
@@ -631,8 +631,8 @@ export default function LabGanttChart({
                                 {/* Hover tooltip */}
                                 <div className="absolute left-0 top-full mt-1 bg-gray-900 text-white text-meta px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none" data-force-hover-controls-target>
                                   <div className="font-medium">{task.name}</div>
-                                  <div className="text-gray-300">{task.username} • {getProjectName(task.project_id, task.username)}</div>
-                                  <div className="text-gray-400">{task.start_date} → {task.end_date}</div>
+                                  <div className="text-foreground-muted">{task.username} • {getProjectName(task.project_id, task.username)}</div>
+                                  <div className="text-foreground-muted">{task.start_date} → {task.end_date}</div>
                                 </div>
                               </div>
                             </div>
@@ -649,7 +649,7 @@ export default function LabGanttChart({
       })}
 
       {/* Legend */}
-      <div className="mt-4 flex flex-wrap items-center gap-4 text-meta text-gray-500">
+      <div className="mt-4 flex flex-wrap items-center gap-4 text-meta text-foreground-muted">
         <span>Tasks colored by user:</span>
         {Array.from(selectedUsernames).map(username => {
           const user = users.find(u => u.username === username);

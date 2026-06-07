@@ -114,7 +114,7 @@ export default function ExperimentResultCard({
       // Per-row id keeps the selector specific so a future tour beat
       // can target a particular experiment if needed.
       data-tour-target={`workbench-experiment-row-${task.id}`}
-      className={`group text-left bg-white rounded-xl border border-gray-200 overflow-hidden hover:border-emerald-300 hover:shadow-sm transition flex flex-col${
+      className={`group text-left bg-surface-raised rounded-xl border border-border overflow-hidden hover:border-emerald-300 hover:shadow-sm transition flex flex-col${
         stripOnly ? " border-l-4" : ""
       }`}
       style={stripOnly ? { borderLeftColor: heroBg } : undefined}
@@ -144,7 +144,7 @@ export default function ExperimentResultCard({
           ) : resultsPreview ? (
             <MarkdownPreview content={resultsPreview} />
           ) : (
-            <div className="flex flex-col items-center justify-center text-gray-400 text-meta">
+            <div className="flex flex-col items-center justify-center text-foreground-muted text-meta">
               <svg
                 className="w-8 h-8 mb-1 opacity-50"
                 fill="none"
@@ -176,12 +176,12 @@ export default function ExperimentResultCard({
               aria-hidden
             />
           ) : null}
-          <h3 className="text-body font-medium text-gray-900 truncate flex-1">
+          <h3 className="text-body font-medium text-foreground truncate flex-1">
             {task.name}
           </h3>
         </div>
 
-        <div className="flex items-center gap-2 text-meta text-gray-500 min-w-0">
+        <div className="flex items-center gap-2 text-meta text-foreground-muted min-w-0">
           <span
             onClick={(e) => {
               if (!onAvatarClick) return;
@@ -196,7 +196,7 @@ export default function ExperimentResultCard({
             {task.username}
             {task.project_name ? (
               <>
-                <span className="text-gray-300 mx-1">•</span>
+                <span className="text-foreground-muted mx-1">•</span>
                 {task.project_name}
               </>
             ) : null}
@@ -214,7 +214,7 @@ export default function ExperimentResultCard({
               />
             ))}
             {methods.length > 3 ? (
-              <span className="text-meta text-gray-400 self-center">
+              <span className="text-meta text-foreground-muted self-center">
                 +{methods.length - 3}
               </span>
             ) : null}
@@ -253,7 +253,7 @@ export default function ExperimentResultCard({
  */
 export function MarkdownPreview({ content }: { content: string }) {
   return (
-    <div className="text-meta leading-snug text-gray-700 px-3 py-2 max-h-full overflow-hidden w-full">
+    <div className="text-meta leading-snug text-foreground px-3 py-2 max-h-full overflow-hidden w-full">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkUnderline]}
         rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}
@@ -288,12 +288,12 @@ export function MarkdownPreview({ content }: { content: string }) {
             <span className="text-blue-600 underline">{children}</span>
           ),
           code: ({ children }) => (
-            <code className="font-mono text-[10px] bg-gray-100 rounded px-0.5">
+            <code className="font-mono text-[10px] bg-surface-sunken rounded px-0.5">
               {children}
             </code>
           ),
           pre: ({ children }) => (
-            <pre className="font-mono text-[10px] bg-gray-100 rounded p-1 max-h-12 overflow-hidden">
+            <pre className="font-mono text-[10px] bg-surface-sunken rounded p-1 max-h-12 overflow-hidden">
               {children}
             </pre>
           ),

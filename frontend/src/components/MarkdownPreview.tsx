@@ -98,19 +98,19 @@ export default function MarkdownPreview({
       card={false}
       fillHeight
     >
-      <div className="bg-white rounded-xl shadow-2xl w-full max-h-[88vh] flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+      <div className="bg-surface-raised rounded-xl shadow-2xl w-full max-h-[88vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
-            <h3 className="text-body font-semibold text-gray-900">
+            <h3 className="text-body font-semibold text-foreground">
               {shownPath?.split("/").pop()}
             </h3>
-            <p className="text-meta text-gray-400 mt-0.5">{shownPath}</p>
+            <p className="text-meta text-foreground-muted mt-0.5">{shownPath}</p>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {loading && (
-            <p className="text-body text-gray-400 animate-pulse">Loading...</p>
+            <p className="text-body text-foreground-muted animate-pulse">Loading...</p>
           )}
           {error && <p className="text-body text-red-500">{error}</p>}
           {!loading && !error && (

@@ -183,7 +183,7 @@ export default function LabExperimentsPanel({
 
   if (experiments.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-gray-400 text-body bg-white rounded-xl p-8 border border-gray-200">
+      <div className="flex-1 flex items-center justify-center text-foreground-muted text-body bg-surface-raised rounded-xl p-8 border border-border">
         No experiments found for selected users.
       </div>
     );
@@ -269,25 +269,25 @@ export default function LabExperimentsPanel({
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
-          <h2 className="text-heading font-semibold text-gray-900">
+          <h2 className="text-heading font-semibold text-foreground">
             {viewMode === "compare" ? "Comparing by method" : "Experiments"}
           </h2>
-          <p className="text-body text-gray-500">
+          <p className="text-body text-foreground-muted">
             {viewMode === "compare"
               ? "Grouped by method to compare replicates."
               : "Outcome cards led by results.md content or the first image in each task's Images folder."}
           </p>
         </div>
 
-        <div className="inline-flex items-center bg-gray-100 rounded-lg p-1 text-body">
+        <div className="inline-flex items-center bg-surface-sunken rounded-lg p-1 text-body">
           <button
             type="button"
             onClick={() => setAndPersistMode("gallery")}
             className={
               "px-3 py-1 rounded-md transition " +
               (viewMode === "gallery"
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-900")
+                ? "bg-surface-raised text-foreground shadow-sm"
+                : "text-foreground-muted hover:text-foreground")
             }
           >
             Gallery
@@ -298,8 +298,8 @@ export default function LabExperimentsPanel({
             className={
               "px-3 py-1 rounded-md transition " +
               (viewMode === "compare"
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-900")
+                ? "bg-surface-raised text-foreground shadow-sm"
+                : "text-foreground-muted hover:text-foreground")
             }
           >
             Compare
@@ -352,13 +352,13 @@ function GalleryLayout({
         return (
           <section key={key}>
             <div className="flex items-baseline justify-between mb-3">
-              <h3 className="text-body font-semibold text-gray-900 uppercase tracking-wide">
+              <h3 className="text-body font-semibold text-foreground uppercase tracking-wide">
                 {SECTION_LABEL[key]}
-                <span className="ml-2 text-gray-400 normal-case font-normal">
+                <span className="ml-2 text-foreground-muted normal-case font-normal">
                   ({items.length})
                 </span>
               </h3>
-              <span className="text-meta text-gray-400">{SECTION_HELP[key]}</span>
+              <span className="text-meta text-foreground-muted">{SECTION_HELP[key]}</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {items.map(cardFor)}
@@ -423,9 +423,9 @@ function CompareLayout({
       {sortedGroups.map((group) => (
         <section key={group.key}>
           <div className="flex items-baseline justify-between mb-3">
-            <h3 className="text-body font-semibold text-gray-900">
+            <h3 className="text-body font-semibold text-foreground">
               {group.label}
-              <span className="ml-2 text-gray-400 font-normal">
+              <span className="ml-2 text-foreground-muted font-normal">
                 {group.entries.length} run
                 {group.entries.length === 1 ? "" : "s"}
               </span>

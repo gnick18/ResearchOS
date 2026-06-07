@@ -109,7 +109,7 @@ export default function EditSessionTopNavChip() {
           role="menu"
           aria-label="Edit session actions"
           data-testid="edit-session-chip-menu"
-          className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden"
+          className="absolute right-0 mt-2 w-56 bg-surface-raised border border-border rounded-lg shadow-lg z-50 overflow-hidden"
         >
           <div className="px-3 py-2 bg-amber-50 border-b border-amber-100">
             <p className="text-meta text-amber-900">
@@ -127,7 +127,7 @@ export default function EditSessionTopNavChip() {
             onClick={() => {
               extendEditSession();
             }}
-            className="w-full text-left px-3 py-2 text-body text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+            className="w-full text-left px-3 py-2 text-body text-foreground hover:bg-surface-sunken flex items-center gap-2"
             data-testid="edit-session-chip-extend"
           >
             <svg
@@ -140,7 +140,7 @@ export default function EditSessionTopNavChip() {
               strokeLinecap="round"
               strokeLinejoin="round"
               aria-hidden="true"
-              className="flex-shrink-0 text-gray-500"
+              className="flex-shrink-0 text-foreground-muted"
             >
               <path d="M12 8v4l3 3" />
               <circle cx="12" cy="12" r="10" />
@@ -154,7 +154,7 @@ export default function EditSessionTopNavChip() {
               endEditSession();
               setOpen(false);
             }}
-            className="w-full text-left px-3 py-2 text-body text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-t border-gray-100"
+            className="w-full text-left px-3 py-2 text-body text-foreground hover:bg-surface-sunken flex items-center gap-2 border-t border-border"
             data-testid="edit-session-chip-lock"
           >
             <svg
@@ -167,7 +167,7 @@ export default function EditSessionTopNavChip() {
               strokeLinecap="round"
               strokeLinejoin="round"
               aria-hidden="true"
-              className="flex-shrink-0 text-gray-500"
+              className="flex-shrink-0 text-foreground-muted"
             >
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />

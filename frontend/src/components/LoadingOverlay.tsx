@@ -16,7 +16,7 @@ export default function LoadingOverlay({ message }: LoadingOverlayProps) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl px-8 py-6 flex flex-col items-center gap-4">
+      <div className="bg-surface-raised rounded-xl shadow-2xl px-8 py-6 flex flex-col items-center gap-4">
         {/* Spinner */}
         <div className="relative w-12 h-12">
           <div className="absolute inset-0 border-4 border-blue-200 rounded-full"></div>
@@ -25,8 +25,8 @@ export default function LoadingOverlay({ message }: LoadingOverlayProps) {
         
         {/* Message */}
         <div className="text-center">
-          <p className="text-body font-medium text-gray-900">{displayMessage}</p>
-          <p className="text-meta text-gray-500 mt-1">Please do not click any buttons</p>
+          <p className="text-body font-medium text-foreground">{displayMessage}</p>
+          <p className="text-meta text-foreground-muted mt-1">Please do not click any buttons</p>
         </div>
       </div>
     </div>

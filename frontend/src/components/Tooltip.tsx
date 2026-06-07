@@ -282,7 +282,7 @@ export default function Tooltip({
                 zIndex: 1000,
                 maxWidth: 300,
               }}
-              className="rounded-lg bg-white text-gray-800 text-meta shadow-xl ring-1 ring-sky-300 overflow-hidden"
+              className="rounded-lg bg-surface-raised text-foreground text-meta shadow-xl ring-1 ring-sky-300 overflow-hidden"
             >
               {/* Header strip — sky tint + inline BeakerBot mark.
                   Matches the project's BeakerBot color (sky-500) so the
@@ -334,10 +334,10 @@ export default function Tooltip({
                 </span>
               </div>
               <div className="px-3 pt-2.5 pb-2">
-                <span className="block font-semibold text-gray-900 mb-1 text-meta">
+                <span className="block font-semibold text-foreground mb-1 text-meta">
                   {label}
                 </span>
-                <span className="block font-normal text-gray-600 leading-snug">
+                <span className="block font-normal text-foreground-muted leading-snug">
                   {body}
                 </span>
               </div>

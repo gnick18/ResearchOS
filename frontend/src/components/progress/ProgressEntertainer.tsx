@@ -197,16 +197,16 @@ export default function ProgressEntertainer({
         aria-label={title}
         data-testid="progress-entertainer"
       >
-        <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 pointer-events-auto">
+        <div className="bg-surface-raised rounded-xl shadow-2xl w-full max-w-md p-6 pointer-events-auto">
           <h2
-            className="text-title font-semibold text-gray-900"
+            className="text-title font-semibold text-foreground"
             data-testid="progress-entertainer-title"
           >
             {title}
           </h2>
           {subtitle ? (
             <p
-              className="text-meta text-gray-500 mt-1 leading-relaxed"
+              className="text-meta text-foreground-muted mt-1 leading-relaxed"
               data-testid="progress-entertainer-subtitle"
             >
               {subtitle}
@@ -215,7 +215,7 @@ export default function ProgressEntertainer({
 
           <div className="mt-4">
             <div
-              className="h-2 w-full rounded-full bg-gray-100 overflow-hidden"
+              className="h-2 w-full rounded-full bg-surface-sunken overflow-hidden"
               role="progressbar"
               aria-valuemin={0}
               aria-valuemax={100}
@@ -245,7 +245,7 @@ export default function ProgressEntertainer({
               )}
             </div>
             {isDeterminate ? (
-              <div className="text-meta text-gray-500 mt-1 text-right tabular-nums">
+              <div className="text-meta text-foreground-muted mt-1 text-right tabular-nums">
                 {percent}%
               </div>
             ) : null}
@@ -256,7 +256,7 @@ export default function ProgressEntertainer({
               <button
                 type="button"
                 onClick={onCancel}
-                className="px-3 py-1.5 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="px-3 py-1.5 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg"
                 data-testid="progress-entertainer-cancel"
               >
                 Cancel

@@ -426,7 +426,7 @@ export default function NotesPanel({
         className={`px-3 py-1.5 text-body rounded-lg transition-colors ${
           activeNotebook === null
             ? "bg-emerald-100 text-emerald-700"
-            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
         }`}
       >
         Personal
@@ -446,7 +446,7 @@ export default function NotesPanel({
             className={`px-3 py-1.5 text-body rounded-lg transition-colors max-w-[220px] truncate ${
               isActive
                 ? "bg-sky-100 text-sky-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
             }`}
           >
             {label}
@@ -457,7 +457,7 @@ export default function NotesPanel({
         type="button"
         onClick={() => setShowStartDialog(true)}
         data-testid="notebook-start-button"
-        className="flex items-center gap-1.5 px-3 py-1.5 text-body rounded-lg border border-dashed border-gray-300 text-gray-600 hover:border-sky-400 hover:text-sky-600 transition-colors"
+        className="flex items-center gap-1.5 px-3 py-1.5 text-body rounded-lg border border-dashed border-border text-foreground-muted hover:border-sky-400 hover:text-sky-600 transition-colors"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -547,7 +547,7 @@ export default function NotesPanel({
   // 1/2/3/4-col card grid; list = a hairline-divided stack of dense rows).
   const NotesContainer = ({ children }: { children: ReactNode }) =>
     viewMode === "list" ? (
-      <div className="divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden bg-white">
+      <div className="divide-y divide-border border border-border rounded-lg overflow-hidden bg-surface-raised">
         {children}
       </div>
     ) : (
@@ -581,7 +581,7 @@ export default function NotesPanel({
                 className="flex items-center gap-2 w-full text-left mb-2 group/header"
               >
                 <svg
-                  className={`w-4 h-4 text-gray-400 transition-transform ${collapsed ? "" : "rotate-90"}`}
+                  className={`w-4 h-4 text-foreground-muted transition-transform ${collapsed ? "" : "rotate-90"}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -589,8 +589,8 @@ export default function NotesPanel({
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
-                <span className="text-body font-semibold text-gray-700">{group.label}</span>
-                <span className="text-meta text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                <span className="text-body font-semibold text-foreground">{group.label}</span>
+                <span className="text-meta text-foreground-muted bg-surface-sunken px-2 py-0.5 rounded-full">
                   {group.notes.length}
                 </span>
               </button>
@@ -625,7 +625,7 @@ export default function NotesPanel({
         {/* Search */}
         <div className="relative flex-1 min-w-[200px] max-w-md">
           <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-muted"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -642,7 +642,7 @@ export default function NotesPanel({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search notes..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 text-body"
+            className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:outline-none focus:border-emerald-500 text-body"
           />
         </div>
 
@@ -656,7 +656,7 @@ export default function NotesPanel({
             className={`px-3 py-1.5 text-body rounded-lg transition-colors ${
               filterType === "all"
                 ? "bg-emerald-100 text-emerald-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
             }`}
           >
             All
@@ -666,7 +666,7 @@ export default function NotesPanel({
             className={`px-3 py-1.5 text-body rounded-lg transition-colors ${
               filterType === "single"
                 ? "bg-blue-100 text-blue-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
             }`}
           >
             Single
@@ -676,7 +676,7 @@ export default function NotesPanel({
             className={`px-3 py-1.5 text-body rounded-lg transition-colors ${
               filterType === "running"
                 ? "bg-purple-100 text-purple-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
             }`}
           >
             Running Logs
@@ -691,7 +691,7 @@ export default function NotesPanel({
             className={`flex items-center gap-1 px-3 py-1.5 text-body rounded-lg transition-colors ${
               sharedOnly
                 ? "bg-emerald-100 text-emerald-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
             }`}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -711,7 +711,7 @@ export default function NotesPanel({
             value={sortKey}
             onChange={(e) => setSortKey(e.target.value as SortKey)}
             data-testid="notes-sort"
-            className="px-2 py-1.5 text-body rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 border-none focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
+            className="px-2 py-1.5 text-body rounded-lg bg-surface-sunken text-foreground hover:bg-surface-sunken border-none focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
           >
             <option value="updated">Recently updated</option>
             <option value="created">Recently created</option>
@@ -725,18 +725,18 @@ export default function NotesPanel({
             value={groupBy}
             onChange={(e) => setGroupBy(e.target.value as GroupBy)}
             data-testid="notes-group"
-            className="px-2 py-1.5 text-body rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 border-none focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
+            className="px-2 py-1.5 text-body rounded-lg bg-surface-sunken text-foreground hover:bg-surface-sunken border-none focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
           >
             <option value="none">No grouping</option>
             <option value="month">By month</option>
           </select>
 
-          <span className="w-px h-6 bg-gray-200 mx-0.5" aria-hidden="true" />
+          <span className="w-px h-6 bg-surface-sunken mx-0.5" aria-hidden="true" />
 
           {/* View-mode toggle (notes-scale bot): grid (current cards) | list
               (dense rows). Each icon-only button wrapped in Tooltip. */}
           <div
-            className="flex items-center rounded-lg bg-gray-100 p-0.5"
+            className="flex items-center rounded-lg bg-surface-sunken p-0.5"
             data-testid="notes-view-toggle"
             role="group"
             aria-label="Note view mode"
@@ -749,8 +749,8 @@ export default function NotesPanel({
                 data-testid="notes-view-grid"
                 className={`p-1.5 rounded-md transition-colors ${
                   viewMode === "grid"
-                    ? "bg-white text-emerald-700 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
+                    ? "bg-surface-raised text-emerald-700 shadow-sm"
+                    : "text-foreground-muted hover:text-foreground"
                 }`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -766,8 +766,8 @@ export default function NotesPanel({
                 data-testid="notes-view-list"
                 className={`p-1.5 rounded-md transition-colors ${
                   viewMode === "list"
-                    ? "bg-white text-emerald-700 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
+                    ? "bg-surface-raised text-emerald-700 shadow-sm"
+                    : "text-foreground-muted hover:text-foreground"
                 }`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -794,10 +794,10 @@ export default function NotesPanel({
             </button>
 
             {showNewNoteDropdown && (
-              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-[180px]">
+              <div className="absolute right-0 top-full mt-1 bg-surface-raised border border-border rounded-lg shadow-lg py-1 z-50 min-w-[180px]">
                 <button
                   onClick={() => handleCreateNote(false)}
-                  className="w-full px-4 py-2 text-left text-body text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                  className="w-full px-4 py-2 text-left text-body text-foreground hover:bg-surface-sunken flex items-center gap-2"
                 >
                   <div className="w-6 h-6 rounded bg-blue-100 flex items-center justify-center">
                     <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -806,12 +806,12 @@ export default function NotesPanel({
                   </div>
                   <div>
                     <p className="font-medium">Single Note</p>
-                    <p className="text-meta text-gray-400">One-time meeting notes</p>
+                    <p className="text-meta text-foreground-muted">One-time meeting notes</p>
                   </div>
                 </button>
                 <button
                   onClick={() => handleCreateNote(true)}
-                  className="w-full px-4 py-2 text-left text-body text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                  className="w-full px-4 py-2 text-left text-body text-foreground hover:bg-surface-sunken flex items-center gap-2"
                 >
                   <div className="w-6 h-6 rounded bg-purple-100 flex items-center justify-center">
                     <svg className="w-3 h-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -820,7 +820,7 @@ export default function NotesPanel({
                   </div>
                   <div>
                     <p className="font-medium">Running Log</p>
-                    <p className="text-meta text-gray-400">Multiple timestamped entries</p>
+                    <p className="text-meta text-foreground-muted">Multiple timestamped entries</p>
                   </div>
                 </button>
               </div>
@@ -833,12 +833,12 @@ export default function NotesPanel({
       {sortedNotes.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-16 h-16 rounded-full bg-surface-sunken flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-foreground-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
-            <p className="text-gray-500 mb-2">
+            <p className="text-foreground-muted mb-2">
               {sharedOnly
                 ? "No notes shared with the lab match your filters"
                 : searchQuery || filterType !== "all"
@@ -848,7 +848,7 @@ export default function NotesPanel({
                 : "No notes yet"}
             </p>
             {!isLabMode && !searchQuery && filterType === "all" && !sharedOnly && (
-              <p className="text-body text-gray-400 mb-4">
+              <p className="text-body text-foreground-muted mb-4">
                 Add a note to see it here
               </p>
             )}
@@ -867,7 +867,7 @@ export default function NotesPanel({
                 type="button"
                 onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
                 data-testid="notes-show-more"
-                className="px-4 py-2 text-body rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                className="px-4 py-2 text-body rounded-lg bg-surface-sunken text-foreground hover:bg-surface-sunken transition-colors"
               >
                 Show more ({totalNotes - visibleCount} more)
               </button>
@@ -886,7 +886,7 @@ export default function NotesPanel({
             {
               label: (noteMenu.note.comments?.length ?? 0) > 0 ? "View / add comment" : "Add a comment",
               icon: (
-                <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                <svg className="h-4 w-4 text-foreground-muted" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M7 8h10M7 12h6m-7 9l4-4h10a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h1v4z" />
                 </svg>
               ),

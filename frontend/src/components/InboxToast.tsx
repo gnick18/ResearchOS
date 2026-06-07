@@ -132,27 +132,27 @@ export default function InboxToast() {
           return (
             <div
               key={item.id}
-              className="pointer-events-auto flex items-center gap-3 p-2 pr-3 bg-white border border-amber-200 rounded-xl shadow-lg shadow-amber-100/60"
+              className="pointer-events-auto flex items-center gap-3 p-2 pr-3 bg-surface-raised border border-amber-200 rounded-xl shadow-lg shadow-amber-100/60"
             >
               {item.thumbUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={item.thumbUrl}
                   alt={item.filename}
-                  className="w-12 h-12 rounded-lg object-cover flex-shrink-0 bg-gray-100"
+                  className="w-12 h-12 rounded-lg object-cover flex-shrink-0 bg-surface-sunken"
                 />
               ) : (
                 <div
-                  className="w-12 h-12 rounded-lg bg-gray-100 flex-shrink-0"
+                  className="w-12 h-12 rounded-lg bg-surface-sunken flex-shrink-0"
                 />
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-meta font-medium text-gray-800 truncate">
+                <p className="text-meta font-medium text-foreground truncate">
                   {item.caption ?? filenameToCaptionStem(item.filename) ?? (
-                    <span className="italic text-gray-400">No caption</span>
+                    <span className="italic text-foreground-muted">No caption</span>
                   )}
                 </p>
-                <p className="text-meta text-gray-400">
+                <p className="text-meta text-foreground-muted">
                   Inbox — {activeTask ? `file to ${activeTask.name}?` : "no experiment open"}
                 </p>
               </div>
@@ -178,7 +178,7 @@ export default function InboxToast() {
                 <button
                   type="button"
                   onClick={() => dismiss(item.id)}
-                  className="px-2 py-0.5 text-meta text-gray-400 hover:text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                  className="px-2 py-0.5 text-meta text-foreground-muted hover:text-foreground hover:bg-surface-sunken rounded-md transition-colors"
                 >
                   ✕
                 </button>

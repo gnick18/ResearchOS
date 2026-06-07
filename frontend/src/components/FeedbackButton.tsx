@@ -12,7 +12,7 @@ export default function FeedbackButton({ onClick }: FeedbackButtonProps) {
       <button
         onClick={onClick}
         aria-label="Send feedback"
-        className="pointer-events-auto w-12 h-12 rounded-full bg-white border border-gray-200 shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center text-gray-600 hover:text-blue-600"
+        className="pointer-events-auto w-12 h-12 rounded-full bg-surface-raised border border-border shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center text-foreground-muted hover:text-blue-600"
       >
         {/* Chat-bubble (generic "send feedback") rather than a red
             warning triangle. The button covers all three feedback

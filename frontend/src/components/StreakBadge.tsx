@@ -232,24 +232,24 @@ export default function StreakBadge({ username }: StreakBadgeProps) {
           role="dialog"
           aria-label="Streak details"
           data-testid="streak-badge-popover"
-          className="absolute left-0 top-full mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-200 z-50 p-3 text-body"
+          className="absolute left-0 top-full mt-2 w-64 bg-surface-raised rounded-xl shadow-xl border border-border z-50 p-3 text-body"
         >
-          <div className="flex items-center gap-2 font-semibold text-gray-900">
+          <div className="flex items-center gap-2 font-semibold text-foreground">
             <FlameIcon className="w-4 h-4 text-sky-500" />
             <span>
               {count} day {count === 1 ? "streak" : "streak"}
             </span>
           </div>
           {sidecar.started_on && (
-            <div className="mt-2 text-meta text-gray-600">
+            <div className="mt-2 text-meta text-foreground-muted">
               Started {sidecar.started_on}
             </div>
           )}
-          <div className="text-meta text-gray-600">
+          <div className="text-meta text-foreground-muted">
             Personal best: {sidecar.longest_count}{" "}
             {sidecar.longest_count === 1 ? "day" : "days"}
           </div>
-          <div className="mt-3 pt-2 border-t border-gray-100 text-meta text-gray-500">
+          <div className="mt-3 pt-2 border-t border-border text-meta text-foreground-muted">
             Private to you. Edit in Settings.
           </div>
         </div>

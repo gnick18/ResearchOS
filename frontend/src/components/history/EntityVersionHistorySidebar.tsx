@@ -421,16 +421,16 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
 
   return (
     <div
-      className="w-80 flex-shrink-0 border-l border-gray-200 bg-white flex flex-col h-full"
+      className="w-80 flex-shrink-0 border-l border-border bg-surface-raised flex flex-col h-full"
       role="dialog"
       aria-label="Version history"
       data-testid="note-version-history-sidebar"
     >
       {/* Sidebar header */}
-      <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+      <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
           <svg
-            className="w-4 h-4 text-gray-500"
+            className="w-4 h-4 text-foreground-muted"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -443,14 +443,14 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
             <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
             <path d="M12 7v5l3 2" />
           </svg>
-          <h3 className="text-body font-semibold text-gray-800">Version history</h3>
+          <h3 className="text-body font-semibold text-foreground">Version history</h3>
         </div>
         <Tooltip label="Exit history" placement="left">
           <button
             type="button"
             onClick={onClose}
             data-testid="version-history-exit"
-            className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-1.5 text-foreground-muted hover:text-foreground hover:bg-surface-sunken rounded-lg transition-colors"
           >
             <svg
               className="w-4 h-4"
@@ -472,17 +472,17 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
 
       {/* Compare toggle */}
       {!isEmpty && (
-        <div className="px-4 py-2 border-b border-gray-100 flex items-center gap-2 flex-shrink-0">
-          <span className="text-meta text-gray-500">Compare against</span>
-          <div className="inline-flex rounded-lg bg-gray-100 p-0.5 text-meta">
+        <div className="px-4 py-2 border-b border-border flex items-center gap-2 flex-shrink-0">
+          <span className="text-meta text-foreground-muted">Compare against</span>
+          <div className="inline-flex rounded-lg bg-surface-sunken p-0.5 text-meta">
             <button
               type="button"
               onClick={() => setCompareCurrent(false)}
               data-testid="compare-previous"
               className={`px-2 py-0.5 rounded-md transition-colors ${
                 !compareCurrent
-                  ? "bg-white text-gray-800 shadow-sm font-medium"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-surface-raised text-foreground shadow-sm font-medium"
+                  : "text-foreground-muted hover:text-foreground"
               }`}
             >
               Previous
@@ -493,8 +493,8 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
               data-testid="compare-current"
               className={`px-2 py-0.5 rounded-md transition-colors ${
                 compareCurrent
-                  ? "bg-white text-gray-800 shadow-sm font-medium"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-surface-raised text-foreground shadow-sm font-medium"
+                  : "text-foreground-muted hover:text-foreground"
               }`}
             >
               Current
@@ -514,14 +514,14 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
         data-testid="version-list"
       >
         {rows === null && (
-          <div className="p-4 text-meta text-gray-400 animate-pulse">
+          <div className="p-4 text-meta text-foreground-muted animate-pulse">
             Loading version history...
           </div>
         )}
 
         {isEmpty && (
-          <div className="p-6 text-center text-body text-gray-400" data-testid="version-empty">
-            <p className="font-medium text-gray-500">No earlier versions yet</p>
+          <div className="p-6 text-center text-body text-foreground-muted" data-testid="version-empty">
+            <p className="font-medium text-foreground-muted">No earlier versions yet</p>
             <p className="mt-1 text-meta">
               {loadError
                 ? "This note has no readable history."
@@ -532,7 +532,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
 
         {model?.days.map((day) => (
           <div key={day.dayKey}>
-            <div className="sticky top-0 bg-gray-50/95 backdrop-blur px-4 py-1.5 text-meta font-semibold uppercase tracking-wide text-gray-400 border-b border-gray-100">
+            <div className="sticky top-0 bg-surface-sunken/95 backdrop-blur px-4 py-1.5 text-meta font-semibold uppercase tracking-wide text-foreground-muted border-b border-border">
               {day.label}
             </div>
             {day.sessions.map((session, si) => {
@@ -553,7 +553,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
                     key={sessionKey}
                     type="button"
                     onClick={() => toggleSession(sessionKey)}
-                    className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-50 text-left transition-colors"
+                    className="w-full flex items-center gap-2 px-4 py-2 hover:bg-surface-sunken text-left transition-colors"
                     data-testid="session-collapsed"
                   >
                     {/* Stacked avatars for multi-author; single avatar for solo */}
@@ -577,11 +577,11 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
                         </span>
                       ))}
                     </span>
-                    <span className="flex-1 text-meta text-gray-600 truncate">
+                    <span className="flex-1 text-meta text-foreground-muted truncate">
                       {sessionRangeLabel(session, resolvedNames)}
                     </span>
                     <svg
-                      className="w-3 h-3 text-gray-400 flex-shrink-0"
+                      className="w-3 h-3 text-foreground-muted flex-shrink-0"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -603,7 +603,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
                     <button
                       type="button"
                       onClick={() => toggleSession(sessionKey)}
-                      className="w-full flex items-center gap-1 px-4 pt-2 text-meta text-gray-400 hover:text-gray-600"
+                      className="w-full flex items-center gap-1 px-4 pt-2 text-meta text-foreground-muted hover:text-foreground-muted"
                       data-testid="session-expanded-header"
                     >
                       <svg
@@ -645,13 +645,13 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
         {/* Folded-rows summary (compaction ran). */}
         {model?.summarized && (
           <div
-            className="px-4 py-3 border-t border-gray-100 bg-amber-50/40"
+            className="px-4 py-3 border-t border-border bg-amber-50/40"
             data-testid="version-summarized"
           >
-            <p className="text-meta font-medium text-gray-600">
+            <p className="text-meta font-medium text-foreground-muted">
               Earlier versions (summarized)
             </p>
-            <p className="mt-1 text-meta text-gray-500 leading-snug">
+            <p className="mt-1 text-meta text-foreground-muted leading-snug">
               {model.summarized.compactedRowCount} intermediate saves before{" "}
               {model.summarized.dayLabel} were summarized to keep history fast.
               Row by row detail stops here.
@@ -661,12 +661,12 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
 
         {/* Pagination. */}
         {model?.hasMore && (
-          <div className="px-4 py-3 border-t border-gray-100">
+          <div className="px-4 py-3 border-t border-border">
             <button
               type="button"
               onClick={() => setPageCount((p) => p + 1)}
               data-testid="load-older"
-              className="w-full px-3 py-1.5 text-meta text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              className="w-full px-3 py-1.5 text-meta text-foreground-muted bg-surface-sunken hover:bg-surface-sunken rounded-lg transition-colors"
             >
               Load older versions
             </button>
@@ -683,7 +683,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
           rule. */}
       {canRestore && onRestore && selectedEntry && !selectedEntry.isHead && (
         <div
-          className="border-t border-gray-200 bg-white px-4 py-3 flex-shrink-0"
+          className="border-t border-border bg-surface-raised px-4 py-3 flex-shrink-0"
           data-testid="restore-footer"
         >
           {!confirmingRestore ? (
@@ -711,7 +711,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
             </button>
           ) : (
             <div className="space-y-2" data-testid="restore-confirm">
-              <p className="text-meta text-gray-600 leading-snug">
+              <p className="text-meta text-foreground-muted leading-snug">
                 Make this version the current note? Your current version stays in
                 history, and you can undo this for 24 hours.
               </p>
@@ -730,7 +730,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
                   onClick={() => setConfirmingRestore(false)}
                   disabled={restoring}
                   data-testid="restore-cancel-button"
-                  className="px-3 py-2 text-body font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:opacity-60 rounded-lg transition-colors"
+                  className="px-3 py-2 text-body font-medium text-foreground-muted bg-surface-sunken hover:bg-surface-sunken disabled:opacity-60 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
@@ -764,7 +764,7 @@ function VersionRow({
       data-testid="version-row"
       data-version-index={entry.versionIndex}
       className={`w-full flex items-start gap-2 px-4 py-2 text-left transition-colors ${
-        selected ? "bg-emerald-50 ring-1 ring-inset ring-emerald-200" : "hover:bg-gray-50"
+        selected ? "bg-emerald-50 ring-1 ring-inset ring-emerald-200" : "hover:bg-surface-sunken"
       }`}
     >
       <span className="pt-0.5 flex-shrink-0">
@@ -772,18 +772,18 @@ function VersionRow({
       </span>
       <span className="flex-1 min-w-0">
         <span className="flex items-center gap-1.5">
-          <span className="text-meta font-medium text-gray-800 truncate">{label}</span>
+          <span className="text-meta font-medium text-foreground truncate">{label}</span>
           {entry.isHead && (
             <span className="text-meta font-semibold uppercase tracking-wide text-emerald-600 flex-shrink-0">
               Current version
             </span>
           )}
         </span>
-        <span className="block text-meta text-gray-500 truncate">
+        <span className="block text-meta text-foreground-muted truncate">
           {entry.summary}
         </span>
         <Tooltip label={`${formatFullDate(entry.ts)} · ${entry.ts}`} placement="bottom">
-          <span className="block text-meta text-gray-400 w-fit">
+          <span className="block text-meta text-foreground-muted w-fit">
             {formatRelative(entry.ts)}
           </span>
         </Tooltip>

@@ -199,7 +199,7 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
   if (status === "loading") {
     return (
       <div className="flex-1 overflow-y-auto p-4">
-        <p className="text-body text-gray-500 text-center py-8">Loading…</p>
+        <p className="text-body text-foreground-muted text-center py-8">Loading…</p>
       </div>
     );
   }
@@ -208,8 +208,8 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
     return (
       <>
         <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center gap-3">
-          <InboxArrowIcon className="w-8 h-8 text-gray-300" />
-          <p className="text-body text-gray-600 max-w-xs">
+          <InboxArrowIcon className="w-8 h-8 text-foreground-muted" />
+          <p className="text-body text-foreground-muted max-w-xs">
             Set up sharing to receive shared items. You claim an email-linked
             identity once, then notes, methods, and sequences other labs send you
             land here.
@@ -237,7 +237,7 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
     return (
       <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center gap-3">
         <KeyOutlineIcon className="w-8 h-8 text-amber-400" />
-        <p className="text-body text-gray-600 max-w-xs">
+        <p className="text-body text-foreground-muted max-w-xs">
           Encrypted items may be waiting. Restore your key on this device to open
           them. The shared content stays sealed until your key is back.
         </p>
@@ -250,7 +250,7 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
     <>
       <div className="flex-1 overflow-y-auto p-4">
         {loading ? (
-          <p className="text-body text-gray-500 text-center py-8">Loading…</p>
+          <p className="text-body text-foreground-muted text-center py-8">Loading…</p>
         ) : loadError ? (
           <div className="text-center py-8">
             <p className="text-body text-red-600">{loadError}</p>
@@ -263,7 +263,7 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
             </button>
           </div>
         ) : items.length === 0 ? (
-          <p className="text-body text-gray-400 italic text-center py-8">
+          <p className="text-body text-foreground-muted italic text-center py-8">
             Nothing has been shared with you yet.
           </p>
         ) : (
@@ -271,7 +271,7 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
             {items.map((item) => (
               <li
                 key={item.bundleId}
-                className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 bg-white hover:border-blue-200 hover:bg-blue-50/30 transition-colors"
+                className="flex items-center gap-3 p-3 rounded-lg border border-border bg-surface-raised hover:border-blue-200 hover:bg-blue-50/30 transition-colors"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
@@ -284,7 +284,7 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
                       <InboxArrowIcon className="w-3 h-3" />
                       Shared item
                     </span>
-                    <span className="text-body font-medium text-gray-800 truncate">
+                    <span className="text-body font-medium text-foreground truncate">
                       Encrypted item
                     </span>
                   </div>
@@ -302,11 +302,11 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
                       />
                     </div>
                   ) : (
-                    <p className="text-meta text-gray-500 truncate">
+                    <p className="text-meta text-foreground-muted truncate">
                       {senderLabel(item.senderEmailHash)}
                     </p>
                   )}
-                  <p className="text-meta text-gray-400">
+                  <p className="text-meta text-foreground-muted">
                     {new Date(item.createdAt).toLocaleString()} ·{" "}
                     {formatBytes(item.sizeBytes)} ·{" "}
                     <span className="text-amber-600">
@@ -829,15 +829,15 @@ function ReviewImportModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col overflow-hidden"
+        className="bg-surface-raised rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-          <h3 className="text-title font-semibold text-gray-900">Review shared item</h3>
+        <div className="px-5 py-3 border-b border-border bg-surface-sunken flex items-center justify-between">
+          <h3 className="text-title font-semibold text-foreground">Review shared item</h3>
           <Tooltip label="Close" placement="bottom">
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-700"
+              className="text-foreground-muted hover:text-foreground"
               aria-label="Close"
             >
               <CloseIcon className="w-5 h-5" />
@@ -850,17 +850,17 @@ function ReviewImportModal({
               from the sealed bundle. Falls back to the relay key hash before
               decrypt, or for a pre-sender bundle that carries no embedded
               identity. */}
-          <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 mb-4">
-            <p className="text-meta text-gray-500 mb-1">From</p>
-            <p className="text-body font-medium text-gray-800 break-all">
+          <div className="rounded-lg border border-border bg-surface-sunken px-4 py-3 mb-4">
+            <p className="text-meta text-foreground-muted mb-1">From</p>
+            <p className="text-body font-medium text-foreground break-all">
               {received?.sender?.email ?? senderLabel(item.senderEmailHash)}
             </p>
             {received?.sender?.fingerprint ? (
-              <p className="text-meta text-gray-400 break-all">
+              <p className="text-meta text-foreground-muted break-all">
                 key fingerprint {received.sender.fingerprint}
               </p>
             ) : (
-              <p className="text-meta text-gray-400 break-all">
+              <p className="text-meta text-foreground-muted break-all">
                 key hash {item.senderEmailHash.slice(0, 24)}…
               </p>
             )}
@@ -874,30 +874,30 @@ function ReviewImportModal({
           </div>
 
           {loading ? (
-            <p className="text-body text-gray-500 text-center py-8">
+            <p className="text-body text-foreground-muted text-center py-8">
               Opening the sealed item…
             </p>
           ) : error ? (
             <p className="text-body text-red-600 text-center py-6">{error}</p>
           ) : unsupported ? (
-            <p className="text-body text-gray-600 text-center py-6">
+            <p className="text-body text-foreground-muted text-center py-6">
               Unsupported item type. ResearchOS can import notes, experiments,
               methods, projects, and sequences here; this item is a different
               kind. You can decline it.
             </p>
           ) : kind === "sequence" && sequencePayload ? (
             <>
-              <p className="text-meta uppercase tracking-wide text-gray-500 font-semibold mb-1">
+              <p className="text-meta uppercase tracking-wide text-foreground-muted font-semibold mb-1">
                 Shared sequence
               </p>
-              <h4 className="text-heading font-semibold text-gray-900 mb-1">
+              <h4 className="text-heading font-semibold text-foreground mb-1">
                 {sequencePayload.display_name || "Untitled sequence"}
               </h4>
-              <p className="text-body text-gray-600">
+              <p className="text-body text-foreground-muted">
                 {seqTypeLabel(sequencePayload.seq_type)} ·{" "}
                 {sequencePayload.circular ? "Circular" : "Linear"}
               </p>
-              <p className="text-meta text-gray-500 mt-3 leading-relaxed">
+              <p className="text-meta text-foreground-muted mt-3 leading-relaxed">
                 Saving adds a copy to your sequence library. It is not linked to
                 any of the sender&rsquo;s projects. Your copy is yours to edit.
               </p>
@@ -906,11 +906,11 @@ function ReviewImportModal({
                   dialog's three): leave it unfiled, or file it into one of the
                   receiver's OWN projects. */}
               <div className="mt-4">
-                <p className="text-meta uppercase tracking-wide text-gray-500 font-semibold mb-1.5">
+                <p className="text-meta uppercase tracking-wide text-foreground-muted font-semibold mb-1.5">
                   Where to save it
                 </p>
                 <div className="space-y-1">
-                  <label className="flex items-center gap-2 text-body cursor-pointer rounded px-2 py-1 hover:bg-gray-50">
+                  <label className="flex items-center gap-2 text-body cursor-pointer rounded px-2 py-1 hover:bg-surface-sunken">
                     <input
                       type="radio"
                       name="seq-placement"
@@ -918,13 +918,13 @@ function ReviewImportModal({
                       onChange={() => setSeqPlacement("unfiled")}
                       disabled={importing}
                     />
-                    <span className="text-gray-800">Leave unfiled</span>
+                    <span className="text-foreground">Leave unfiled</span>
                   </label>
                   <label
                     className={`flex items-center gap-2 text-body rounded px-2 py-1 ${
                       seqProjects.length === 0
                         ? "opacity-50 cursor-not-allowed"
-                        : "cursor-pointer hover:bg-gray-50"
+                        : "cursor-pointer hover:bg-surface-sunken"
                     }`}
                   >
                     <input
@@ -939,13 +939,13 @@ function ReviewImportModal({
                       }}
                       disabled={importing || seqProjects.length === 0}
                     />
-                    <span className="text-gray-800">File into a project</span>
+                    <span className="text-foreground">File into a project</span>
                     {seqPlacement === "project" && seqProjects.length > 0 && (
                       <select
                         value={seqProjectId ?? ""}
                         onChange={(e) => setSeqProjectId(Number(e.target.value))}
                         disabled={importing}
-                        className="ml-1 text-meta border border-gray-200 rounded px-2 py-1"
+                        className="ml-1 text-meta border border-border rounded px-2 py-1"
                       >
                         {seqProjects.map((p) => (
                           <option key={p.id} value={p.id}>
@@ -956,7 +956,7 @@ function ReviewImportModal({
                     )}
                   </label>
                   {seqProjects.length === 0 && (
-                    <p className="text-meta text-gray-400 px-2">
+                    <p className="text-meta text-foreground-muted px-2">
                       You have no projects yet, so it saves unfiled.
                     </p>
                   )}
@@ -965,28 +965,28 @@ function ReviewImportModal({
             </>
           ) : preview ? (
             <>
-              <h4 className="text-heading font-semibold text-gray-900 mb-2">
+              <h4 className="text-heading font-semibold text-foreground mb-2">
                 {preview.title || "Untitled note"}
               </h4>
               <div className="space-y-3 mb-4">
                 {preview.entries.length === 0 ? (
-                  <p className="text-body text-gray-400 italic">
+                  <p className="text-body text-foreground-muted italic">
                     This note has no entries.
                   </p>
                 ) : (
                   preview.entries.map((entry, idx) => (
                     <div
                       key={idx}
-                      className="rounded-md border border-gray-100 bg-white px-3 py-2"
+                      className="rounded-md border border-border bg-surface-raised px-3 py-2"
                     >
                       {entry.title && (
-                        <p className="text-body font-medium text-gray-800 mb-1">
+                        <p className="text-body font-medium text-foreground mb-1">
                           {entry.title}
                         </p>
                       )}
-                      <p className="text-body text-gray-600 whitespace-pre-wrap break-words">
+                      <p className="text-body text-foreground-muted whitespace-pre-wrap break-words">
                         {entry.content || (
-                          <span className="italic text-gray-400">No content</span>
+                          <span className="italic text-foreground-muted">No content</span>
                         )}
                       </p>
                     </div>
@@ -996,17 +996,17 @@ function ReviewImportModal({
 
               {received && received.attachments.length > 0 && (
                 <div>
-                  <p className="text-meta font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
+                  <p className="text-meta font-semibold uppercase tracking-wide text-foreground-muted mb-1.5">
                     Attachments
                   </p>
                   <ul className="space-y-1">
                     {received.attachments.map((att) => (
                       <li
                         key={att.name}
-                        className="flex items-center justify-between text-meta text-gray-600 px-2 py-1 rounded bg-gray-50"
+                        className="flex items-center justify-between text-meta text-foreground-muted px-2 py-1 rounded bg-surface-sunken"
                       >
                         <span className="truncate">{att.name}</span>
-                        <span className="text-gray-400 flex-shrink-0 ml-2">
+                        <span className="text-foreground-muted flex-shrink-0 ml-2">
                           {formatBytes(att.bytes.byteLength)}
                         </span>
                       </li>
@@ -1018,7 +1018,7 @@ function ReviewImportModal({
           ) : null}
         </div>
 
-        <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-end gap-2">
+        <div className="px-5 py-3 border-t border-border bg-surface-sunken flex items-center justify-end gap-2">
           {/* Decline: ack without importing. Available regardless of preview
               state so an unsupported / unreadable item can still be cleared. */}
           <button
@@ -1033,7 +1033,7 @@ function ReviewImportModal({
             type="button"
             onClick={onClose}
             disabled={importing}
-            className="px-3 py-1.5 text-meta text-gray-600 hover:bg-gray-100 rounded-md transition-colors disabled:opacity-40"
+            className="px-3 py-1.5 text-meta text-foreground-muted hover:bg-surface-sunken rounded-md transition-colors disabled:opacity-40"
           >
             Cancel
           </button>

@@ -63,7 +63,7 @@ export default function NoteCard({ note, onClick, isLabMode = false, tourTarget 
     <div
       onClick={onClick}
       data-tour-target={tourTarget}
-      className="bg-white rounded-xl border border-gray-200 p-4 cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all duration-200 group"
+      className="bg-surface-raised rounded-xl border border-border p-4 cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all duration-200 group"
     >
       {/* Header with icon and type indicator */}
       <div className="flex items-start justify-between mb-2">
@@ -122,7 +122,7 @@ export default function NoteCard({ note, onClick, isLabMode = false, tourTarget 
               className={`px-2 py-0.5 text-meta rounded-full transition-colors ${
                 note.is_shared
                   ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
               } disabled:opacity-50`}
               title={
                 note.is_shared
@@ -137,20 +137,20 @@ export default function NoteCard({ note, onClick, isLabMode = false, tourTarget 
         
         {/* Running log entry count */}
         {note.is_running_log && note.entries && (
-          <span className="text-meta text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
+          <span className="text-meta text-foreground-muted bg-surface-sunken px-2 py-0.5 rounded">
             {note.entries.length} {note.entries.length === 1 ? "entry" : "entries"}
           </span>
         )}
       </div>
 
       {/* Title */}
-      <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-emerald-600 transition-colors line-clamp-2">
+      <h3 className="font-semibold text-foreground mb-1 group-hover:text-emerald-600 transition-colors line-clamp-2">
         {note.title}
       </h3>
 
       {/* Description */}
       {note.description && (
-        <p className="text-body text-gray-500 mb-3 line-clamp-2">{note.description}</p>
+        <p className="text-body text-foreground-muted mb-3 line-clamp-2">{note.description}</p>
       )}
 
       {/* Cross-boundary sharing provenance. Renders only on an imported note;
@@ -167,12 +167,12 @@ export default function NoteCard({ note, onClick, isLabMode = false, tourTarget 
       )}
 
       {/* Footer with date and user info */}
-      <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-100">
+      <div className="flex items-center justify-between mt-auto pt-2 border-t border-border">
         <div className="flex items-center gap-2">
-          <span className="text-meta text-gray-400">{getLatestEntryDate()}</span>
+          <span className="text-meta text-foreground-muted">{getLatestEntryDate()}</span>
           {note.comments && note.comments.length > 0 && (
             <span
-              className="inline-flex items-center gap-1 text-meta text-gray-500"
+              className="inline-flex items-center gap-1 text-meta text-foreground-muted"
               title={`${note.comments.length} comment${note.comments.length === 1 ? "" : "s"}`}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -187,7 +187,7 @@ export default function NoteCard({ note, onClick, isLabMode = false, tourTarget 
         {isLabMode && isLabNote(note) && (
           <div className="flex items-center gap-1.5">
             <UserAvatar username={note.username} size="xs" />
-            <span className="text-meta text-gray-500">{note.username}</span>
+            <span className="text-meta text-foreground-muted">{note.username}</span>
           </div>
         )}
       </div>

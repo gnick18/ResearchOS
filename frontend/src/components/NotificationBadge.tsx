@@ -70,8 +70,8 @@ export default function NotificationBadge({ pill = false }: NotificationBadgePro
           onClick={() => setShowPopup(!showPopup)}
           className={`relative transition-colors ${
             pill
-              ? "p-1.5 bg-white/75 hover:bg-white text-gray-700 hover:text-gray-900 rounded-full shadow-sm"
-              : "p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+              ? "p-1.5 bg-white/75 hover:bg-surface-raised text-foreground hover:text-foreground rounded-full shadow-sm"
+              : "p-2 text-foreground-muted hover:text-foreground hover:bg-surface-sunken rounded-lg"
           }`}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

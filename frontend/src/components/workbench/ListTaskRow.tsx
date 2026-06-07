@@ -26,8 +26,8 @@ export interface ListTaskRowProps {
 const DATE_CHIP_CLASSES: Record<DateSignalKind, string> = {
   overdue: "text-red-700 bg-red-50 border border-red-200",
   doing: "text-blue-700 bg-blue-50 border border-blue-200",
-  upcoming: "text-gray-600 bg-gray-50 border border-gray-200",
-  done: "text-gray-500 bg-gray-50 border border-gray-200",
+  upcoming: "text-foreground-muted bg-surface-sunken border border-border",
+  done: "text-foreground-muted bg-surface-sunken border border-border",
 };
 
 export default function ListTaskRow({
@@ -56,7 +56,7 @@ export default function ListTaskRow({
           onOpen();
         }
       }}
-      className="group flex items-start gap-3 px-3 py-2.5 bg-white border border-gray-200 rounded-lg hover:border-gray-300 hover:shadow-sm transition-all cursor-pointer text-left"
+      className="group flex items-start gap-3 px-3 py-2.5 bg-surface-raised border border-border rounded-lg hover:border-border hover:shadow-sm transition-all cursor-pointer text-left"
     >
       {/* Parent completion checkbox */}
       <Tooltip
@@ -78,7 +78,7 @@ export default function ListTaskRow({
           className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors ${
             task.is_complete
               ? "bg-emerald-500 border border-emerald-500 text-white hover:bg-emerald-600"
-              : "border border-gray-300 hover:border-emerald-500 hover:bg-emerald-50"
+              : "border border-border hover:border-emerald-500 hover:bg-emerald-50"
           } ${canToggleComplete ? "" : "opacity-50 cursor-not-allowed"}`}
         >
           {task.is_complete && (
@@ -105,8 +105,8 @@ export default function ListTaskRow({
           <span
             className={`text-body flex-1 min-w-0 truncate ${
               task.is_complete
-                ? "text-gray-500 line-through"
-                : "text-gray-900 font-medium"
+                ? "text-foreground-muted line-through"
+                : "text-foreground font-medium"
             }`}
           >
             {task.name}
@@ -121,7 +121,7 @@ export default function ListTaskRow({
         </div>
 
         <div className="mt-1 flex items-center gap-2 flex-wrap text-meta">
-          <span className="inline-flex items-center gap-1.5 text-gray-500">
+          <span className="inline-flex items-center gap-1.5 text-foreground-muted">
             <span
               className="w-2 h-2 rounded-full flex-shrink-0"
               style={{ backgroundColor: projectColor }}

@@ -104,13 +104,13 @@ export default function HighLevelGoalSidebar({
 
   if (activeGoals.length === 0) {
     return (
-      <div className="w-72 bg-white border-l border-gray-200 p-4 flex flex-col">
+      <div className="w-72 bg-surface-raised border-l border-border p-4 flex flex-col">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-body font-semibold text-gray-700">
+          <h3 className="text-body font-semibold text-foreground">
             High Level Goals
           </h3>
         </div>
-        <div className="flex-1 flex items-center justify-center text-gray-400 text-body">
+        <div className="flex-1 flex items-center justify-center text-foreground-muted text-body">
           No active goals
         </div>
       </div>
@@ -118,12 +118,12 @@ export default function HighLevelGoalSidebar({
   }
 
   return (
-    <div className="w-72 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
-      <div className="p-4 border-b border-gray-100">
-        <h3 className="text-body font-semibold text-gray-700">
+    <div className="w-72 bg-surface-raised border-l border-border flex flex-col overflow-hidden">
+      <div className="p-4 border-b border-border">
+        <h3 className="text-body font-semibold text-foreground">
           High Level Goals
         </h3>
-        <p className="text-meta text-gray-400 mt-1">
+        <p className="text-meta text-foreground-muted mt-1">
           {activeGoals.length} active
         </p>
       </div>
@@ -143,14 +143,14 @@ export default function HighLevelGoalSidebar({
           return (
             <div
               key={goal.id}
-              className="bg-white rounded-lg shadow-sm border-l-4 relative group"
+              className="bg-surface-raised rounded-lg shadow-sm border-l-4 relative group"
               style={{ borderLeftColor: goal.color || "#f59e0b" }}
             >
               <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" data-force-hover-controls-target>
                 <Tooltip label="Edit goal" placement="bottom">
                   <button
                     onClick={() => onEditGoal(goal)}
-                    className="text-gray-400 hover:text-gray-600 p-1"
+                    className="text-foreground-muted hover:text-foreground-muted p-1"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -175,7 +175,7 @@ export default function HighLevelGoalSidebar({
                         e.stopPropagation();
                         onDeleteGoal(goal);
                       }}
-                      className="text-gray-400 hover:text-red-500 p-1"
+                      className="text-foreground-muted hover:text-red-500 p-1"
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -198,7 +198,7 @@ export default function HighLevelGoalSidebar({
 
               <div className="p-3 pr-8">
                 <div className="flex items-center gap-2">
-                  <h4 className="text-body font-medium text-gray-900 truncate">
+                  <h4 className="text-body font-medium text-foreground truncate">
                     {goal.name}
                   </h4>
                   {goal.project_id === null && (
@@ -226,13 +226,13 @@ export default function HighLevelGoalSidebar({
 
                 {totalCount > 0 && (
                   <div className="mt-2">
-                    <div className="flex justify-between text-meta text-gray-500 mb-1">
+                    <div className="flex justify-between text-meta text-foreground-muted mb-1">
                       <span>Progress</span>
                       <span>
                         {completedCount}/{totalCount}
                       </span>
                     </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-surface-sunken rounded-full overflow-hidden">
                       <div
                         className="h-full transition-all duration-300"
                         style={{ 
@@ -249,7 +249,7 @@ export default function HighLevelGoalSidebar({
                     {goal.smart_goals.filter(sg => !sg.is_complete).map((sg) => (
                       <div
                         key={sg.id}
-                        className={`flex items-start gap-2 p-1.5 rounded hover:bg-gray-50 transition-colors group ${
+                        className={`flex items-start gap-2 p-1.5 rounded hover:bg-surface-sunken transition-colors group ${
                           sg.is_complete ? "opacity-60" : ""
                         }`}
                       >
@@ -259,13 +259,13 @@ export default function HighLevelGoalSidebar({
                           onChange={(e) =>
                             handleToggleSmartGoal(goal, sg.id, e)
                           }
-                          className="mt-0.5 w-3.5 h-3.5 text-green-600 border-gray-300 rounded focus:ring-green-500 flex-shrink-0"
+                          className="mt-0.5 w-3.5 h-3.5 text-green-600 border-border rounded focus:ring-green-500 flex-shrink-0"
                         />
                         <span
                           className={`text-meta flex-1 ${
                             sg.is_complete
-                              ? "text-gray-400 line-through"
-                              : "text-gray-600"
+                              ? "text-foreground-muted line-through"
+                              : "text-foreground-muted"
                           }`}
                         >
                           {sg.text}
@@ -276,7 +276,7 @@ export default function HighLevelGoalSidebar({
                               e.stopPropagation();
                               handleDeleteSmartGoal(goal, sg.id);
                             }}
-                            className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition-opacity flex-shrink-0"
+                            className="opacity-0 group-hover:opacity-100 text-foreground-muted hover:text-red-500 transition-opacity flex-shrink-0"
                             data-force-hover-controls-target
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -289,7 +289,7 @@ export default function HighLevelGoalSidebar({
                   </div>
                 )}
 
-                <div className="text-meta text-gray-400 mt-2">
+                <div className="text-meta text-foreground-muted mt-2">
                   {goal.start_date} &rarr; {goal.end_date}
                 </div>
               </div>

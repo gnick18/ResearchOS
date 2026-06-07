@@ -82,10 +82,10 @@ const SelectorCard = forwardRef<HTMLButtonElement, SelectorCardProps>(
         onMouseEnter={onMouseEnter}
         onKeyDown={onKeyDown}
         className={[
-          "group relative flex w-full flex-col overflow-hidden rounded-xl border bg-white text-left transition-shadow",
+          "group relative flex w-full flex-col overflow-hidden rounded-xl border bg-surface-raised text-left transition-shadow",
           selected
             ? "border-blue-300 ring-2 ring-blue-400"
-            : "border-gray-200 hover:ring-1 hover:ring-blue-200 hover:shadow-sm",
+            : "border-border hover:ring-1 hover:ring-blue-200 hover:shadow-sm",
           dimmed ? "opacity-60" : "",
           className ?? "",
         ]
@@ -98,7 +98,7 @@ const SelectorCard = forwardRef<HTMLButtonElement, SelectorCardProps>(
           // pointer-events-none + aria-hidden per the brief's guardrails.
           <div
             aria-hidden="true"
-            className="pointer-events-none relative h-16 shrink-0 overflow-hidden border-b border-gray-100 bg-gray-50/60 px-3 py-2"
+            className="pointer-events-none relative h-16 shrink-0 overflow-hidden border-b border-border bg-surface-sunken/60 px-3 py-2"
           >
             {hero}
           </div>
@@ -108,13 +108,13 @@ const SelectorCard = forwardRef<HTMLButtonElement, SelectorCardProps>(
           <div className="flex items-start justify-between gap-2">
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="min-w-0 truncate text-body font-semibold text-gray-900">
+                <span className="min-w-0 truncate text-body font-semibold text-foreground">
                   {title}
                 </span>
                 {badges}
               </div>
               {subtitle != null && (
-                <span className="truncate text-meta text-gray-500">
+                <span className="truncate text-meta text-foreground-muted">
                   {subtitle}
                 </span>
               )}

@@ -278,17 +278,17 @@ export default function QpcrAnalysisEditor({
 
       {/* Section 1: chemistry + description + ΔΔCq toggle */}
       <section className="space-y-3">
-        <h4 className="text-meta font-semibold text-gray-600 uppercase tracking-wider">
+        <h4 className="text-meta font-semibold text-foreground-muted uppercase tracking-wider">
           Chemistry &amp; protocol
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <label className="text-meta text-gray-600 space-y-1">
+          <label className="text-meta text-foreground-muted space-y-1">
             <span className="block">Chemistry</span>
             <select
               value={chemistry}
               onChange={(e) => onChemistryChange?.(e.target.value as QPCRChemistry)}
               disabled={readOnly || !onChemistryChange}
-              className={`w-full px-2 py-1.5 border border-gray-200 rounded bg-white ${
+              className={`w-full px-2 py-1.5 border border-border rounded bg-surface-raised ${
                 chemistryModified ? MODIFIED_CELL_CLASSES : ""
               }`}
               title={
@@ -305,7 +305,7 @@ export default function QpcrAnalysisEditor({
             </select>
           </label>
           {chemistry === "other" && (
-            <label className="text-meta text-gray-600 space-y-1">
+            <label className="text-meta text-foreground-muted space-y-1">
               <span className="block">Chemistry label (free text)</span>
               <input
                 type="text"
@@ -313,14 +313,14 @@ export default function QpcrAnalysisEditor({
                 onChange={(e) => onChemistryLabelChange?.(e.target.value || null)}
                 readOnly={readOnly || !onChemistryLabelChange}
                 placeholder="e.g. proprietary master mix"
-                className={`w-full px-2 py-1.5 border border-gray-200 rounded ${
+                className={`w-full px-2 py-1.5 border border-border rounded ${
                   chemistryLabelModified ? MODIFIED_CELL_CLASSES : ""
                 }`}
               />
             </label>
           )}
         </div>
-        <label className="text-meta text-gray-600 block space-y-1">
+        <label className="text-meta text-foreground-muted block space-y-1">
           <span>Description</span>
           <textarea
             value={description ?? ""}
@@ -328,12 +328,12 @@ export default function QpcrAnalysisEditor({
             readOnly={readOnly || !onDescriptionChange}
             placeholder="e.g. ΔΔCq fold-change of flbA relative to ACT1 in induced vs uninduced FakeYeast cultures."
             rows={2}
-            className={`w-full px-2 py-1.5 border border-gray-200 rounded resize-y ${
+            className={`w-full px-2 py-1.5 border border-border rounded resize-y ${
               descriptionModified ? MODIFIED_CELL_CLASSES : ""
             }`}
           />
         </label>
-        <label className="flex items-center gap-2 text-meta text-gray-700">
+        <label className="flex items-center gap-2 text-meta text-foreground">
           <input
             type="checkbox"
             checked={useDeltaDeltaCq}
@@ -350,39 +350,39 @@ export default function QpcrAnalysisEditor({
       {/* Section 2: targets / references table */}
       <section className="space-y-2">
         <div className="flex items-center justify-between">
-          <h4 className="text-meta font-semibold text-gray-600 uppercase tracking-wider">
+          <h4 className="text-meta font-semibold text-foreground-muted uppercase tracking-wider">
             Targets &amp; reference genes
           </h4>
           {!readOnly && onReferencesChange && (
             <Tooltip label="Add target row" placement="left">
               <button
                 onClick={addReference}
-                className="px-2 py-1 text-meta rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
+                className="px-2 py-1 text-meta rounded border border-border text-foreground-muted hover:bg-surface-sunken"
               >
                 + Target
               </button>
             </Tooltip>
           )}
         </div>
-        <p className="text-meta text-gray-500">
+        <p className="text-meta text-foreground-muted">
           The row marked &ldquo;Reference?&rdquo; is the housekeeping gene for ΔΔCq. The other rows are the
           experimental targets whose fold-change you want to compute.
         </p>
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="border border-border rounded-lg overflow-hidden">
           <table className="w-full text-meta">
-            <thead className="bg-gray-50">
+            <thead className="bg-surface-sunken">
               <tr>
-                <th className="px-2 py-1.5 text-left font-medium text-gray-600">Target gene</th>
-                <th className="px-2 py-1.5 text-left font-medium text-gray-600 w-24">Channel</th>
-                <th className="px-2 py-1.5 text-left font-medium text-gray-600 w-20">Reference?</th>
-                <th className="px-2 py-1.5 text-left font-medium text-gray-600 w-24">Expected Cq</th>
+                <th className="px-2 py-1.5 text-left font-medium text-foreground-muted">Target gene</th>
+                <th className="px-2 py-1.5 text-left font-medium text-foreground-muted w-24">Channel</th>
+                <th className="px-2 py-1.5 text-left font-medium text-foreground-muted w-20">Reference?</th>
+                <th className="px-2 py-1.5 text-left font-medium text-foreground-muted w-24">Expected Cq</th>
                 <th className="px-2 py-1.5 w-8"></th>
               </tr>
             </thead>
             <tbody>
               {references.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-3 text-center text-gray-400">
+                  <td colSpan={5} className="px-3 py-3 text-center text-foreground-muted">
                     No targets defined yet. Add at least one experimental target plus one housekeeping reference.
                   </td>
                 </tr>
@@ -393,8 +393,8 @@ export default function QpcrAnalysisEditor({
                     status === "added"
                       ? ADDED_ROW_CLASSES
                       : idx % 2 === 0
-                        ? "bg-white"
-                        : "bg-gray-50";
+                        ? "bg-surface-raised"
+                        : "bg-surface-sunken";
                   const orig = originalRefsById?.get(ref.id);
                   return (
                     <tr key={ref.id} className={rowClass}>
@@ -405,7 +405,7 @@ export default function QpcrAnalysisEditor({
                           onChange={(e) => updateReference(idx, { target: e.target.value })}
                           readOnly={readOnly || !onReferencesChange}
                           placeholder="flbA"
-                          className={`w-full px-2 py-1 border border-gray-200 rounded ${
+                          className={`w-full px-2 py-1 border border-border rounded ${
                             status === "modified" && orig && orig.target !== ref.target
                               ? MODIFIED_CELL_CLASSES
                               : ""
@@ -424,7 +424,7 @@ export default function QpcrAnalysisEditor({
                           onChange={(e) => updateReference(idx, { channel: e.target.value })}
                           readOnly={readOnly || !onReferencesChange}
                           placeholder="FAM"
-                          className={`w-full px-2 py-1 border border-gray-200 rounded ${
+                          className={`w-full px-2 py-1 border border-border rounded ${
                             status === "modified" && orig && orig.channel !== ref.channel
                               ? MODIFIED_CELL_CLASSES
                               : ""
@@ -454,7 +454,7 @@ export default function QpcrAnalysisEditor({
                           }
                           readOnly={readOnly || !onReferencesChange}
                           placeholder="—"
-                          className="w-full px-2 py-1 border border-gray-200 rounded"
+                          className="w-full px-2 py-1 border border-border rounded"
                         />
                       </td>
                       <td className="px-2 py-1 text-center">
@@ -462,7 +462,7 @@ export default function QpcrAnalysisEditor({
                           <Tooltip label="Remove target" placement="left">
                             <button
                               onClick={() => removeReference(idx)}
-                              className="text-gray-400 hover:text-red-500"
+                              className="text-foreground-muted hover:text-red-500"
                             >
                               ✕
                             </button>
@@ -475,13 +475,13 @@ export default function QpcrAnalysisEditor({
               )}
               {removedRefs.map((r) => (
                 <tr key={`removed-${r.id}`} className={REMOVED_ROW_CLASSES}>
-                  <td className="px-2 py-1 line-through text-gray-500">{r.target || "(blank)"}</td>
-                  <td className="px-2 py-1 line-through text-gray-500">{r.channel}</td>
-                  <td className="px-2 py-1 text-center text-gray-500">
+                  <td className="px-2 py-1 line-through text-foreground-muted">{r.target || "(blank)"}</td>
+                  <td className="px-2 py-1 line-through text-foreground-muted">{r.channel}</td>
+                  <td className="px-2 py-1 text-center text-foreground-muted">
                     {r.is_reference ? "ref" : ""}
                   </td>
-                  <td className="px-2 py-1 line-through text-gray-500">{fmtNumber(r.expected_cq)}</td>
-                  <td className="px-2 py-1 text-center text-meta text-gray-400">removed</td>
+                  <td className="px-2 py-1 line-through text-foreground-muted">{fmtNumber(r.expected_cq)}</td>
+                  <td className="px-2 py-1 text-center text-meta text-foreground-muted">removed</td>
                 </tr>
               ))}
             </tbody>
@@ -493,10 +493,10 @@ export default function QpcrAnalysisEditor({
       <section className="space-y-2">
         <div className="flex items-center justify-between">
           <div>
-            <h4 className="text-meta font-semibold text-gray-600 uppercase tracking-wider">
+            <h4 className="text-meta font-semibold text-foreground-muted uppercase tracking-wider">
               Standard curve (optional)
             </h4>
-            <p className="text-meta text-gray-500 mt-0.5">
+            <p className="text-meta text-foreground-muted mt-0.5">
               Dilution-series Cq readouts used to derive primer efficiency. Leave empty when efficiency
               isn&rsquo;t being computed for this protocol.
             </p>
@@ -505,7 +505,7 @@ export default function QpcrAnalysisEditor({
             <Tooltip label="Add curve point" placement="left">
               <button
                 onClick={addCurvePoint}
-                className="px-2 py-1 text-meta rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
+                className="px-2 py-1 text-meta rounded border border-border text-foreground-muted hover:bg-surface-sunken"
               >
                 + Point
               </button>
@@ -513,19 +513,19 @@ export default function QpcrAnalysisEditor({
           )}
         </div>
         {standardCurve.length > 0 && (
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <div className="border border-border rounded-lg overflow-hidden">
             <table className="w-full text-meta">
-              <thead className="bg-gray-50">
+              <thead className="bg-surface-sunken">
                 <tr>
-                  <th className="px-2 py-1.5 text-left font-medium text-gray-600 w-32">log₁₀(quantity)</th>
-                  <th className="px-2 py-1.5 text-left font-medium text-gray-600 w-24">Cq</th>
-                  <th className="px-2 py-1.5 text-left font-medium text-gray-600 w-24">Replicates</th>
+                  <th className="px-2 py-1.5 text-left font-medium text-foreground-muted w-32">log₁₀(quantity)</th>
+                  <th className="px-2 py-1.5 text-left font-medium text-foreground-muted w-24">Cq</th>
+                  <th className="px-2 py-1.5 text-left font-medium text-foreground-muted w-24">Replicates</th>
                   <th className="px-2 py-1.5 w-8"></th>
                 </tr>
               </thead>
               <tbody>
                 {standardCurve.map((p, idx) => (
-                  <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                  <tr key={idx} className={idx % 2 === 0 ? "bg-surface-raised" : "bg-surface-sunken"}>
                     <td className="px-2 py-1">
                       <input
                         type="number"
@@ -537,7 +537,7 @@ export default function QpcrAnalysisEditor({
                           })
                         }
                         readOnly={readOnly || !onStandardCurveChange}
-                        className="w-full px-2 py-1 border border-gray-200 rounded"
+                        className="w-full px-2 py-1 border border-border rounded"
                       />
                     </td>
                     <td className="px-2 py-1">
@@ -549,7 +549,7 @@ export default function QpcrAnalysisEditor({
                           updateCurvePoint(idx, { cq: parseNumberOrNull(e.target.value) ?? 0 })
                         }
                         readOnly={readOnly || !onStandardCurveChange}
-                        className="w-full px-2 py-1 border border-gray-200 rounded"
+                        className="w-full px-2 py-1 border border-border rounded"
                       />
                     </td>
                     <td className="px-2 py-1">
@@ -564,7 +564,7 @@ export default function QpcrAnalysisEditor({
                         }}
                         readOnly={readOnly || !onStandardCurveChange}
                         placeholder="3"
-                        className="w-full px-2 py-1 border border-gray-200 rounded"
+                        className="w-full px-2 py-1 border border-border rounded"
                       />
                     </td>
                     <td className="px-2 py-1 text-center">
@@ -572,7 +572,7 @@ export default function QpcrAnalysisEditor({
                         <Tooltip label="Remove point" placement="left">
                           <button
                             onClick={() => removeCurvePoint(idx)}
-                            className="text-gray-400 hover:text-red-500"
+                            className="text-foreground-muted hover:text-red-500"
                           >
                             ✕
                           </button>
@@ -593,10 +593,10 @@ export default function QpcrAnalysisEditor({
       {/* Section 4: melt-curve sweep */}
       <section className="space-y-2">
         <div className="flex items-center justify-between">
-          <h4 className="text-meta font-semibold text-gray-600 uppercase tracking-wider">
+          <h4 className="text-meta font-semibold text-foreground-muted uppercase tracking-wider">
             Melt-curve sweep
           </h4>
-          <label className="flex items-center gap-1.5 text-meta text-gray-600">
+          <label className="flex items-center gap-1.5 text-meta text-foreground-muted">
             <input
               type="checkbox"
               checked={meltCurve !== null}
@@ -608,7 +608,7 @@ export default function QpcrAnalysisEditor({
         </div>
         {meltCurve && (
           <div className={`grid grid-cols-1 md:grid-cols-3 gap-3 ${meltCurveModified ? "ring-1 ring-amber-200 rounded p-2" : ""}`}>
-            <label className="text-meta text-gray-600 space-y-1">
+            <label className="text-meta text-foreground-muted space-y-1">
               <span>Start (°C)</span>
               <input
                 type="number"
@@ -618,10 +618,10 @@ export default function QpcrAnalysisEditor({
                   updateMelt({ start_c: parseNumberOrNull(e.target.value) ?? 60 })
                 }
                 readOnly={readOnly || !onMeltCurveChange}
-                className="w-full px-2 py-1.5 border border-gray-200 rounded"
+                className="w-full px-2 py-1.5 border border-border rounded"
               />
             </label>
-            <label className="text-meta text-gray-600 space-y-1">
+            <label className="text-meta text-foreground-muted space-y-1">
               <span>End (°C)</span>
               <input
                 type="number"
@@ -631,10 +631,10 @@ export default function QpcrAnalysisEditor({
                   updateMelt({ end_c: parseNumberOrNull(e.target.value) ?? 95 })
                 }
                 readOnly={readOnly || !onMeltCurveChange}
-                className="w-full px-2 py-1.5 border border-gray-200 rounded"
+                className="w-full px-2 py-1.5 border border-border rounded"
               />
             </label>
-            <label className="text-meta text-gray-600 space-y-1">
+            <label className="text-meta text-foreground-muted space-y-1">
               <span>Ramp rate (°C/sec)</span>
               <input
                 type="number"
@@ -644,7 +644,7 @@ export default function QpcrAnalysisEditor({
                   updateMelt({ ramp_rate_c_per_sec: parseNumberOrNull(e.target.value) ?? 0.1 })
                 }
                 readOnly={readOnly || !onMeltCurveChange}
-                className="w-full px-2 py-1.5 border border-gray-200 rounded"
+                className="w-full px-2 py-1.5 border border-border rounded"
               />
             </label>
           </div>
