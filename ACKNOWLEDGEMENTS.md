@@ -49,7 +49,7 @@ The calculators reproduce published methods. The parameters and equations come s
 The full per-package list with versions and source links is in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES). Grouped by license, the runtime dependencies are:
 
 - **MIT** (31): @codemirror/commands, @codemirror/lang-markdown, @codemirror/language, @codemirror/state, @codemirror/view, @lezer/common, @lezer/highlight, @lezer/markdown, @react-pdf/renderer, @tanstack/react-query, @vercel/analytics, date-fns, expr-eval-fork, frappe-gantt, konva, marked, next, react, react-dom, react-konva, react-markdown, recharts, rehype-highlight, rehype-raw, rehype-sanitize, remark-gfm, remark-parse, remark-rehype, turndown, unified, zustand
-- **Apache-2.0** (2): @vercel/speed-insights, idb-keyval
+- **Apache-2.0** (3): @aws-sdk/client-s3, @aws-sdk/s3-request-presigner, idb-keyval
 - **BSD-3-Clause** (1): diff
 - **MPL-2.0** (1): ical.js
 - **MIT OR GPL-3.0-or-later** (1): jszip

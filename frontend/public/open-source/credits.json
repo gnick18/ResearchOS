@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-06-06T00:42:56.149Z",
+  "generatedAt": "2026-06-07T22:02:12.779Z",
   "appVersion": "3.5.0",
-  "dependencyCount": 58,
+  "dependencyCount": 57,
   "licenseCounts": {
-    "Apache-2.0": 4,
+    "Apache-2.0": 3,
     "MIT": 43,
     "ISC": 8,
     "BSD-3-Clause": 1,
@@ -361,12 +361,6 @@
       "version": "2.0.1",
       "license": "MIT",
       "repo": "https://github.com/vercel/analytics"
-    },
-    {
-      "name": "@vercel/speed-insights",
-      "version": "2.0.0",
-      "license": "Apache-2.0",
-      "repo": "https://github.com/vercel/speed-insights"
     },
     {
       "name": "d3-hierarchy",
