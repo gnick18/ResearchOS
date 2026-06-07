@@ -211,6 +211,7 @@ export default function HighLevelGoalModal({
   }, [name, startDate, endDate, projectId, color, smartGoals, isEditing, editingGoal, queryClient, onClose, clearGoalDraft]);
 
   return (
+    <>
     <LivingPopup
       open={open}
       onClose={onClose}
@@ -487,18 +488,24 @@ export default function HighLevelGoalModal({
           </div>
         </div>
       </form>
-
-      {/* Celebration Animation. Kept as a child of LivingPopup so it shares
-          the modal's mount lifecycle; the animation renders with its own
-          fixed-position full-screen layer regardless of nesting. */}
-      {celebrationPosition && (
-        <DynamicAnimation
-          type={animationType}
-          x={celebrationPosition.x}
-          y={celebrationPosition.y}
-          onComplete={handleAnimationComplete}
-        />
-      )}
     </LivingPopup>
+
+      {/* Celebration burst, OUTSIDE the popup. The animation layers use
+          `fixed inset-0`, but LivingPopup's card carries a transform (the
+          zoom), which would make those fixed layers resolve against the card
+          and get clipped by its overflow. Rendering here (a sibling of the
+          popup) keeps the full-screen layer, and the z-[450] wrapper lifts it
+          above the popup root (z-400) so the burst pops over the modal. */}
+      {celebrationPosition && (
+        <div className="fixed inset-0 z-[450] pointer-events-none">
+          <DynamicAnimation
+            type={animationType}
+            x={celebrationPosition.x}
+            y={celebrationPosition.y}
+            onComplete={handleAnimationComplete}
+          />
+        </div>
+      )}
+    </>
   );
 }
