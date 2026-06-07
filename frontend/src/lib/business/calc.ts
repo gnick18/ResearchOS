@@ -149,8 +149,15 @@ export const DEFAULT_ENTITY: EntityConfig = {
 
 // --- date helpers, all in UTC so a timezone never shifts a due date ---
 
-function parseISODate(iso: string): Date {
-  const [y, m, d] = iso.split("-").map(Number);
+function parseISODate(iso: string | Date): Date {
+  // The Postgres `date` column can arrive as a JS Date (Neon driver) rather than
+  // an ISO string, so accept both rather than assuming `.split` exists.
+  if (iso instanceof Date) {
+    return new Date(
+      Date.UTC(iso.getUTCFullYear(), iso.getUTCMonth(), iso.getUTCDate()),
+    );
+  }
+  const [y, m, d] = String(iso).split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d));
 }
 

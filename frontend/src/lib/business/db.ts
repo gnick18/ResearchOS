@@ -206,12 +206,22 @@ function normalizeSalesTaxStatus(v: string | null): EntityConfig["salesTaxStatus
   return v === "taxable" || v === "exempt" ? v : "pending";
 }
 
+/** A Postgres `date` column can arrive as a JS Date (Neon driver) or an ISO
+ *  string. Normalize to a plain "YYYY-MM-DD" string so the UI date input and the
+ *  deadline math (which assume strings) never choke on a Date object. */
+function toIsoDateString(v: unknown): string | null {
+  if (v == null) return null;
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (typeof v === "string") return v.slice(0, 10);
+  return null;
+}
+
 function rowToEntity(r: EntityRow): EntityConfig {
   return {
     legalName: r.legal_name ?? "",
     state: r.state ?? "Wisconsin",
     entityId: r.entity_id ?? null,
-    formationDate: r.formation_date ?? null,
+    formationDate: toIsoDateString(r.formation_date),
     ein: r.ein ?? null,
     registeredAgent: r.registered_agent ?? null,
     bankLabel: r.bank_label ?? null,
@@ -374,7 +384,7 @@ type LedgerRow = {
 function rowToEntry(r: LedgerRow): LedgerEntry {
   return {
     id: Number(r.id),
-    date: r.entry_date,
+    date: toIsoDateString(r.entry_date) ?? "",
     direction: (r.direction === "in" ? "in" : "out") as LedgerDirection,
     category: r.category ?? "",
     amountCents: Number(r.amount_cents),
