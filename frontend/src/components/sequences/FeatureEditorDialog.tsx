@@ -24,7 +24,7 @@ import {
   FEATURE_TYPE_COLORS,
   colorForType,
 } from "@/lib/sequences/feature-colors";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import LivingPopup from "@/components/ui/LivingPopup";
 import FeatureSegmentDiagram from "./FeatureSegmentDiagram";
 import StrandSelector, {
   type StrandDisplay,
@@ -93,9 +93,6 @@ export default function FeatureEditorDialog({
   const [translate, setTranslate] = useState(false);
   const [prioritize, setPrioritize] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
-
-  // Escape closes this dialog (app-wide convention). Only bound while open.
-  useEscapeToClose(() => request?.onCancel(), !!request);
 
   // Seed the form whenever a new request opens.
   useEffect(() => {
@@ -204,13 +201,12 @@ export default function FeatureEditorDialog({
     setQualifiers((q) => q.filter((_, i) => i !== idx));
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      data-testid="feature-editor-dialog"
-      data-tour-popup-occluding="feature-editor"
-    >
-      <div className="absolute inset-0 bg-black/40" onClick={request.onCancel} />
-      <div className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+    <LivingPopup open onClose={request.onCancel} label="Edit feature" selfSize>
+      <div
+        className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl"
+        data-testid="feature-editor-dialog"
+        data-tour-popup-occluding="feature-editor"
+      >
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <span
             className="h-4 w-4 shrink-0 rounded-sm seq-swatch-border"
@@ -565,7 +561,7 @@ export default function FeatureEditorDialog({
           </div>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }
 

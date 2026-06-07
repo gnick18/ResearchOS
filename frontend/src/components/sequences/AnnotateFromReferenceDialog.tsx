@@ -26,7 +26,7 @@ import {
   type AnnotateResult,
 } from "@/lib/sequences/annotate-from-reference";
 import type { SequenceRecord } from "@/lib/types";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 export interface AnnotateFromReferenceRequest {
   /** The open document's bases (the target the features land on). */
@@ -59,9 +59,6 @@ export default function AnnotateFromReferenceDialog({
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<AnnotateResult | null>(null);
   const [rows, setRows] = useState<ReviewRow[]>([]);
-
-  // Escape closes this dialog (app-wide convention). Only bound while open.
-  useEscapeToClose(() => request?.onCancel(), !!request);
 
   // Reset everything whenever the dialog opens fresh.
   useEffect(() => {
@@ -177,17 +174,8 @@ export default function AnnotateFromReferenceDialog({
   if (!request) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Annotate from reference"
-    >
-      <div
-        className="absolute inset-0 bg-black/40"
-        onClick={request.onCancel}
-      />
-      <div className="relative flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+    <LivingPopup open onClose={request.onCancel} label="Annotate from reference" selfSize>
+      <div className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         {/* Header */}
         <div className="flex items-center gap-2 border-b border-border px-5 py-3.5">
           <TransferIcon className="h-4 w-4 shrink-0 text-sky-500" />
@@ -276,7 +264,7 @@ export default function AnnotateFromReferenceDialog({
           </div>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }
 

@@ -14,11 +14,11 @@
 // public government API, and we receive a public sequence. The copy says so.
 //
 // Inline stroke-only SVG icons (no emoji), <Tooltip> for icon-only controls,
-// useEscapeToClose, site typography tokens. No em-dash, no mid-sentence colon.
+// LivingPopup shell, site typography tokens. No em-dash, no mid-sentence colon.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tooltip from "@/components/Tooltip";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import LivingPopup from "@/components/ui/LivingPopup";
 import {
   previewGeneBySymbol,
   previewGenomeByAccession,
@@ -187,10 +187,6 @@ export default function NcbiDownloadDialog({
   const efetchTextRef = useRef<string | null>(null);
 
   const busy = phase === "previewing" || phase === "downloading";
-  useEscapeToClose(() => {
-    if (busy) return; // let the in-flight cancel button own the abort
-    handleClose();
-  }, open);
 
   const resetState = useCallback(() => {
     setPhase("form");
@@ -476,15 +472,20 @@ export default function NcbiDownloadDialog({
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      data-testid="ncbi-download-dialog"
+    <LivingPopup
+      open
+      onClose={() => {
+        if (!busy) handleClose();
+      }}
+      closeOnScrimClick={!busy}
+      label="Download from NCBI"
+      selfSize
+      showClose={false}
     >
       <div
-        className="absolute inset-0 bg-black/40"
-        onClick={busy ? undefined : handleClose}
-      />
-      <div className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+        className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl"
+        data-testid="ncbi-download-dialog"
+      >
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-500/15">
@@ -747,7 +748,7 @@ export default function NcbiDownloadDialog({
           ) : null}
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }
 

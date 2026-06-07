@@ -31,6 +31,7 @@ import {
 import { computeDotplot, dotplotWordSize } from "@/lib/sequences/compare-dotplot";
 import type { SequenceRecord } from "@/lib/types";
 import type { AlignmentArtifactResult } from "@/lib/sequences/artifacts";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 // Above this many bases on EITHER side we refuse the full DP (O(m*n) memory and
 // time would hang the tab). Plasmid-scale (a few tens of kb) is comfortable.
@@ -511,19 +512,6 @@ export default function CompareSequencesDialog({
     setError(null);
   }, [open, defaultAId, seeded]);
 
-  // Esc closes.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [open, onClose]);
-
   const runCompare = useCallback(async () => {
     if (aId == null || bId == null) return;
     setRunning(true);
@@ -662,12 +650,11 @@ export default function CompareSequencesDialog({
     sequences.find((s) => s.id === bId)?.display_name ?? seeded?.bName ?? undefined;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      data-testid="compare-sequences-dialog"
-    >
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+    <LivingPopup open onClose={onClose} label="Align sequences" selfSize showClose={false}>
+      <div
+        className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl"
+        data-testid="compare-sequences-dialog"
+      >
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-500/15">
@@ -839,6 +826,6 @@ export default function CompareSequencesDialog({
           ) : null}
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }

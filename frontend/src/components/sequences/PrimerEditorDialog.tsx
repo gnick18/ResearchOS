@@ -36,7 +36,7 @@ import {
 } from "@/lib/sequences/primer";
 import { colorForType } from "@/lib/sequences/feature-colors";
 import ColorSwatchPicker from "./ColorSwatchPicker";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 /** What the dialog hands back on Save. The parent re-derives the feature
  *  geometry from `oligo` (the same findBindingSites path) and persists. */
@@ -242,9 +242,6 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
   const [siteIdx, setSiteIdx] = useState(0);
   const seqRef = useRef<HTMLTextAreaElement>(null);
 
-  // Escape closes this dialog (app-wide convention). Only bound while open.
-  useEscapeToClose(() => request?.onCancel(), !!request);
-
   useEffect(() => {
     if (!request) return;
     setName(request.initialName ?? "");
@@ -294,13 +291,12 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      data-testid="primer-editor-dialog"
-      data-tour-popup-occluding="primer-editor"
-    >
-      <div className="absolute inset-0 bg-black/40" onClick={request.onCancel} />
-      <div className="relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+    <LivingPopup open onClose={request.onCancel} label="Edit primer" selfSize>
+      <div
+        className="pointer-events-auto relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl"
+        data-testid="primer-editor-dialog"
+        data-tour-popup-occluding="primer-editor"
+      >
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-pink-50 dark:bg-pink-500/15 text-pink-600 dark:text-pink-300">
             <IconPrimer className="h-4 w-4" />
@@ -596,6 +592,6 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
           </div>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }

@@ -22,6 +22,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tooltip from "@/components/Tooltip";
+import LivingPopup from "@/components/ui/LivingPopup";
 import type { SeqType } from "@/vendor/seqviz/elements";
 import {
   allEnzymeInfos,
@@ -352,13 +353,12 @@ export default function EnzymePickerDialog({
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      data-testid="enzyme-picker-dialog"
-      data-tour-popup-occluding="enzyme-picker"
-    >
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative flex h-[80vh] max-h-[640px] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+    <LivingPopup open onClose={onClose} label="Choose enzymes" selfSize showClose={false}>
+      <div
+        className="pointer-events-auto relative flex h-[80vh] max-h-[640px] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl"
+        data-testid="enzyme-picker-dialog"
+        data-tour-popup-occluding="enzyme-picker"
+      >
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-border px-5 py-3.5">
           <span className="flex h-7 w-7 items-center justify-center rounded-md bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300">
@@ -813,6 +813,6 @@ export default function EnzymePickerDialog({
           </button>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }

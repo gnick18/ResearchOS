@@ -31,6 +31,7 @@ import {
 import ProteinPropertiesView, {
   NonStandardNotice,
 } from "./ProteinPropertiesView";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 function ProteinIcon({ className }: { className?: string }) {
   // A small chain-of-beads glyph, reading as a polypeptide. Inline SVG to match
@@ -131,19 +132,6 @@ export default function ProteinPropertiesDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Esc closes.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [open, onClose]);
-
   const onPickFeature = (idx: number) => {
     setFeatureIdx(idx);
     setSource("feature");
@@ -176,15 +164,11 @@ export default function ProteinPropertiesDialog({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      data-testid="protein-properties-dialog"
-    >
+    <LivingPopup open onClose={onClose} label="Protein properties" selfSize showClose={false}>
       <div
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
-      />
-      <div className="relative flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+        className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl"
+        data-testid="protein-properties-dialog"
+      >
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-500/15">
@@ -286,6 +270,6 @@ export default function ProteinPropertiesDialog({
           )}
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }

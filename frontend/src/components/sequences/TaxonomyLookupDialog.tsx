@@ -8,12 +8,12 @@
 // PRIVACY. The only thing sent out is the public organism name or tax id the user
 // typed, to NCBI's public taxonomy API. Nothing of the user's own data leaves.
 //
-// Inline SVG icons (no emoji), <Tooltip> for icon-only controls, useEscapeToClose,
-// site typography tokens. No em-dash, no mid-sentence colon.
+// Inline SVG icons (no emoji), <Tooltip> for icon-only controls, LivingPopup
+// shell, site typography tokens. No em-dash, no mid-sentence colon.
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import Tooltip from "@/components/Tooltip";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import LivingPopup from "@/components/ui/LivingPopup";
 import {
   resolveTaxonomy,
   majorRanks,
@@ -116,8 +116,6 @@ export default function TaxonomyLookupDialog({
     onClose();
   }, [onClose]);
 
-  useEscapeToClose(handleClose, open);
-
   const handleLookup = useCallback(async () => {
     const q = query.trim();
     if (!q) return;
@@ -151,15 +149,18 @@ export default function TaxonomyLookupDialog({
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      data-testid="taxonomy-lookup-dialog"
+    <LivingPopup
+      open
+      onClose={handleClose}
+      closeOnScrimClick={!busy}
+      label="Look up an organism"
+      selfSize
+      showClose={false}
     >
       <div
-        className="absolute inset-0 bg-black/40"
-        onClick={busy ? undefined : handleClose}
-      />
-      <div className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+        className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl"
+        data-testid="taxonomy-lookup-dialog"
+      >
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-500/15">
             <TreeIcon className="h-5 w-5 text-sky-600 dark:text-sky-300" />
@@ -338,6 +339,6 @@ export default function TaxonomyLookupDialog({
           </button>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }

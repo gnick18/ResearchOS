@@ -19,7 +19,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Tooltip from "@/components/Tooltip";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import LivingPopup from "@/components/ui/LivingPopup";
 import type { FeatureDraft } from "@/lib/sequences/feature-edit";
 import { colorForType } from "@/lib/sequences/feature-colors";
 import {
@@ -103,9 +103,6 @@ export default function DetectFeaturesDialog({
   const [rows, setRows] = useState<Row[]>([]);
   const [closest, setClosest] = useState<ClosestMatch[]>([]);
   const [ran, setRan] = useState(false);
-
-  // Escape closes this dialog (app-wide convention). Only bound while open.
-  useEscapeToClose(() => request?.onCancel(), !!request);
 
   useEffect(() => {
     if (!request) return;
@@ -213,17 +210,8 @@ export default function DetectFeaturesDialog({
   if (!request) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Detect common features"
-    >
-      <div
-        className="absolute inset-0 bg-black/40"
-        onClick={request.onCancel}
-      />
-      <div className="relative flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+    <LivingPopup open onClose={request.onCancel} label="Detect common features" selfSize>
+      <div className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         {/* Header */}
         <div className="flex items-center gap-2 border-b border-border px-5 py-3.5">
           <ScanIcon className="h-4 w-4 shrink-0 text-sky-500" />
@@ -342,7 +330,7 @@ export default function DetectFeaturesDialog({
           </div>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }
 

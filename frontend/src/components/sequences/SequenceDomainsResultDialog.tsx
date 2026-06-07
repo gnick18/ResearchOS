@@ -7,8 +7,8 @@
 // re-run happens. Icons via <Icon> only (no inline svg); no em-dashes, no mid-
 // sentence colons, dark-mode tokens.
 
-import { useEffect } from "react";
 import { Icon } from "@/components/icons";
+import LivingPopup from "@/components/ui/LivingPopup";
 import type { DomainsArtifactResult } from "@/lib/sequences/artifacts";
 
 const SOURCE_LABEL: Record<DomainsArtifactResult["source"], string> = {
@@ -32,30 +32,16 @@ export default function SequenceDomainsResultDialog({
   /** Re-run the live scan (shown only when stale and a live re-run is wired). */
   onRerun?: () => void;
 }) {
-  // Esc closes.
-  useEffect(() => {
-    if (!result) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [result, onClose]);
-
   if (!result) return null;
 
   const hits = result.hits;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      data-testid="domains-result-dialog"
-    >
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+    <LivingPopup open onClose={onClose} label="Domains" selfSize showClose={false}>
+      <div
+        className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl"
+        data-testid="domains-result-dialog"
+      >
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-500/15">
@@ -142,6 +128,6 @@ export default function SequenceDomainsResultDialog({
           )}
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }
