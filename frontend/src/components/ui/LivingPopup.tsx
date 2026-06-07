@@ -35,6 +35,7 @@ import { useEffect, useRef, useState } from "react";
 
 import Tooltip from "@/components/Tooltip";
 import type { OpenOrigin } from "@/lib/ui/create-popup-store";
+import { usePopupLayer } from "@/lib/ui/popup-stack";
 
 // Duration of the open / close animation. Matched by the inline transitions.
 const ANIM_MS = 340;
@@ -151,6 +152,11 @@ export default function LivingPopup({
     };
   }, []);
 
+  // Register in the shared popup stack while mounted. Only the bottom-most
+  // popup blurs the page; a popup stacked on top dims without re-blurring, so
+  // blur never compounds (Grant 2026-06-06: no blur-on-blur).
+  const { isBottom } = usePopupLayer(mounted);
+
   if (!mounted) return null;
 
   const closeLabel = `Close ${label.toLowerCase()}`;
@@ -193,12 +199,16 @@ export default function LivingPopup({
       // do not each re-stamp data-tour-popup-occluding on their own overlay.
       data-tour-popup-occluding="living-popup"
     >
-      {/* Hazy, blurred scrim over the live page behind. Click closes. */}
+      {/* Scrim over the live page behind. Click closes. Only the bottom-most
+          popup blurs; a popup stacked on top just dims, so blur never
+          compounds (see popup-stack). */}
       <button
         type="button"
         aria-label={closeLabel}
         onClick={onClose}
-        className="absolute inset-0 h-full w-full cursor-default bg-slate-900/25 backdrop-blur-md"
+        className={`absolute inset-0 h-full w-full cursor-default bg-slate-900/25 ${
+          isBottom ? "backdrop-blur-md" : ""
+        }`}
         style={{ opacity: shown ? 1 : 0, transition: `opacity ${ANIM_MS}ms ease` }}
       />
 

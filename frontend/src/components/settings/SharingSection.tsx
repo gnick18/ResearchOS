@@ -36,6 +36,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import Tooltip from "@/components/Tooltip";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import { usePopupLayer } from "@/lib/ui/popup-stack";
 import {
   CheckIcon,
   CloseIcon,
@@ -1320,9 +1321,15 @@ function ModalShell({
 }) {
   // Escape closes any dialog built on this shell (app-wide convention).
   useEscapeToClose(onClose);
+  // These identity dialogs open from inside the profile popup, so only blur
+  // when this is the bottom-most popup; stacked on top it dims without
+  // re-blurring (no blur-on-blur).
+  const { isBottom } = usePopupLayer(true);
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className={`fixed inset-0 z-[200] flex items-center justify-center bg-black/50 ${
+        isBottom ? "backdrop-blur-sm" : ""
+      }`}
       onClick={onClose}
     >
       <div
