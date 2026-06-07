@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mobile pairing mockup (Chunk 1)</title>
+<style>
+  :root{--surface:#ffffff;--raised:#ffffff;--sunken:#f8fafc;--fg:#171717;--muted:#6b7280;--border:#e5e7eb;--action:#1283C9;--purple:#5B47D6;--emerald-bg:#d1fae5;--emerald-fg:#047857;--page:#eef2f7}
+  [data-theme="dark"]{--surface:#0a0e1a;--raised:#131c2e;--sunken:#0d1424;--fg:#f1f5f9;--muted:#b4bfd0;--border:rgba(255,255,255,.22);--action:#3aa0e0;--purple:#8170e6;--emerald-bg:rgba(16,185,129,.20);--emerald-fg:#6ee7b7;--page:#05080f}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--page);color:var(--fg)}
+  .topbar{position:sticky;top:0;z-index:50;background:var(--page);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .topbar h1{font-size:16px;margin:0;font-weight:700}.topbar .sub{font-size:12.5px;color:var(--muted)}
+  .spacer{flex:1}
+  .btn{font:inherit;font-size:13px;border:1px solid var(--border);background:var(--raised);color:var(--fg);border-radius:8px;padding:7px 12px;cursor:pointer}
+  .btn-brand{background:linear-gradient(135deg,var(--action),var(--purple));color:#fff;border:none}
+  .legend{display:flex;gap:10px;font-size:12px;color:var(--muted);align-items:center;flex-wrap:wrap}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px}.dot.ok{background:#16a34a}.dot.warn{background:#d97706}.dot.none{background:#cbd5e1}
+  .wrap{max-width:1000px;margin:0 auto;padding:20px 20px 110px}
+  .note{font-size:12.5px;color:var(--muted);max-width:840px;margin:12px 0 8px}
+  .section{margin:24px 0;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--page)}
+  .section-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--sunken)}
+  .section-head .name{font-size:13px;font-weight:700}.section-head .id{font-size:11px;color:var(--muted)}
+  .review{margin-left:auto;display:flex;gap:6px}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .seg button{font:inherit;font-size:12px;padding:5px 10px;border:none;background:var(--raised);color:var(--muted);cursor:pointer}
+  .seg button.active.ok{background:#16a34a;color:#fff}.seg button.active.warn{background:#d97706;color:#fff}.seg button.active.none{background:#64748b;color:#fff}
+  .cmt{width:100%;margin-top:8px;font:inherit;font-size:12.5px;border:1px dashed var(--border);border-radius:8px;background:var(--raised);color:var(--fg);padding:7px 9px;resize:vertical;min-height:34px}
+  .stage{padding:18px;background:var(--surface)}
+  .muted{color:var(--muted)}.t-meta{font-size:12px}.t-body{font-size:13.5px}
+  .two{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+  .pane{flex:1;min-width:280px}
+  .panelabel{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+  /* desktop card */
+  .deskcard{border:1px solid var(--border);border-radius:12px;background:var(--raised);padding:18px}
+  .h-title{font-size:15px;font-weight:600;margin:0}
+  .qr{width:160px;height:160px;margin:14px auto;display:grid;grid-template-columns:repeat(11,1fr);gap:2px;background:var(--raised);padding:8px;border:1px solid var(--border);border-radius:10px}
+  .qr i{background:var(--fg);border-radius:1px}
+  .qr i.off{background:transparent}
+  .expire{font-size:11.5px;color:var(--muted);text-align:center}
+  .waiting{display:flex;align-items:center;gap:8px;justify-content:center;font-size:12.5px;color:var(--muted);margin-top:10px}
+  .pulse{width:9px;height:9px;border-radius:50%;background:var(--action);animation:p 1.2s infinite}
+  @keyframes p{0%,100%{opacity:.3}50%{opacity:1}}
+  /* phone */
+  .phone{width:240px;margin:0 auto;border:8px solid #111;border-radius:34px;overflow:hidden;background:var(--surface)}
+  [data-theme="dark"] .phone{border-color:#333}
+  .phonescr{padding:18px 14px;min-height:380px;display:flex;flex-direction:column;gap:12px}
+  .viewfinder{height:180px;background:#0b1220;border-radius:12px;position:relative;display:flex;align-items:center;justify-content:center}
+  .reticle{width:62%;height:62%;border:2px solid rgba(255,255,255,.85);border-radius:10px;position:relative}
+  .reticle .c{position:absolute;width:16px;height:16px;border:3px solid var(--action)}
+  .c1{top:-2px;left:-2px;border-right:none;border-bottom:none;border-top-left-radius:7px}
+  .c2{top:-2px;right:-2px;border-left:none;border-bottom:none;border-top-right-radius:7px}
+  .c3{bottom:-2px;left:-2px;border-right:none;border-top:none;border-bottom-left-radius:7px}
+  .c4{bottom:-2px;right:-2px;border-left:none;border-top:none;border-bottom-right-radius:7px}
+  .scanline{position:absolute;left:6%;right:6%;height:2px;background:linear-gradient(90deg,transparent,var(--action),transparent);animation:scan 2s ease-in-out infinite}
+  @keyframes scan{0%{top:10%}50%{top:86%}100%{top:10%}}
+  .successwrap{align-items:center;justify-content:center;text-align:center;flex:1;display:flex;flex-direction:column;gap:8px}
+  .check{height:48px;width:48px;border-radius:50%;background:var(--emerald-bg);color:var(--emerald-fg);display:flex;align-items:center;justify-content:center}
+  /* how it works */
+  .steps{counter-reset:s;display:flex;flex-direction:column;gap:8px}
+  .step{display:flex;gap:10px;font-size:13px;align-items:flex-start}
+  .step .n{counter-increment:s;flex-shrink:0;width:20px;height:20px;border-radius:50%;background:var(--action);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center}
+  .step .n::before{content:counter(s)}
+  .secnote{font-size:12px;color:var(--emerald-fg);margin-top:10px;display:flex;gap:6px;align-items:flex-start}
+  /* decisions */
+  .opt{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:8px;cursor:pointer}
+  .opt:hover{background:var(--sunken)}
+  .opt.sel{outline:2px solid var(--action);outline-offset:-1px}
+  .opt .t{font-size:13px;font-weight:600}.opt .d{font-size:12px;color:var(--muted);margin-top:2px}
+  .reco{font-size:10.5px;font-weight:700;color:var(--action);border:1px solid var(--action);border-radius:999px;padding:1px 7px;margin-left:6px}
+  svg{display:block}
+  #exportModal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+  #exportModal .box{background:var(--raised);color:var(--fg);border-radius:14px;max-width:680px;width:100%;padding:18px;border:1px solid var(--border)}
+  #exportModal textarea{width:100%;min-height:220px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--fg);padding:10px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div><h1>Mobile pairing mockup</h1><div class="sub">Chunk 1: pair the phone to your lab identity. UX + the security model. Design proposal.</div></div>
+  <div class="spacer"></div>
+  <div class="legend"><span><span class="dot ok"></span>Approve</span><span><span class="dot warn"></span>Needs change</span><span><span class="dot none"></span>Undecided</span></div>
+  <button class="btn" id="themeBtn">Dark mode</button>
+  <button class="btn btn-brand" id="exportBtn">Export feedback</button>
+</div>
+<div class="wrap">
+  <p class="note">Pairing is what turns the shell into the companion: it links your phone to your ResearchOS identity so its captures are trusted as yours. The UX is a QR on the desktop and a camera on the phone. The substance is the security model and one real decision (how the grant works). Sample UI below.</p>
+
+  <!-- 1: the two-sided flow -->
+  <div class="section" data-sec="flow" data-label="The two-sided pairing flow (desktop QR + phone scan)">
+    <div class="section-head"><span class="name">The pairing flow</span><span class="id">#flow</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="two">
+        <div class="pane">
+          <div class="panelabel">Desktop (the web app)</div>
+          <div class="deskcard">
+            <h2 class="h-title">Pair your phone</h2>
+            <p class="t-meta muted" style="margin:4px 0 0">Open ResearchOS on your phone and scan this code.</p>
+            <div class="qr" id="qr"></div>
+            <div class="expire">Expires in 1:47</div>
+            <div class="waiting"><span class="pulse"></span> Waiting for your phone...</div>
+          </div>
+        </div>
+        <div class="pane">
+          <div class="panelabel">Phone (the companion)</div>
+          <div class="phone"><div class="phonescr">
+            <h2 class="h-title">Pair with your desktop</h2>
+            <p class="t-meta muted">On your computer, open Pair phone and point your camera at the code.</p>
+            <div class="viewfinder"><div class="reticle"><span class="c c1"></span><span class="c c2"></span><span class="c c3"></span><span class="c c4"></span><span class="scanline"></span></div></div>
+            <p class="t-meta muted" style="text-align:center">or enter a code manually</p>
+          </div></div>
+        </div>
+      </div>
+      <p class="t-meta muted" style="margin-top:12px">On success the desktop flips to "Paired, iPhone connected" and the phone shows the success screen (next section). The phone has the better camera, so the phone scans the desktop, not the other way around.</p>
+    </div>
+  </div>
+
+  <!-- 2: success states -->
+  <div class="section" data-sec="success" data-label="Paired state (both sides)">
+    <div class="section-head"><span class="name">Paired</span><span class="id">#success</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="two">
+        <div class="pane">
+          <div class="panelabel">Desktop</div>
+          <div class="deskcard">
+            <h2 class="h-title">Paired devices</h2>
+            <div style="display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-top:10px">
+              <div><div class="t-body" style="font-weight:600">Grant's iPhone</div><div class="t-meta muted">paired today &middot; last seen just now</div></div>
+              <button class="btn" style="font-size:12px">Unpair</button>
+            </div>
+            <button class="btn" style="margin-top:10px">__PLUS__ Pair another phone</button>
+          </div>
+        </div>
+        <div class="pane">
+          <div class="panelabel">Phone</div>
+          <div class="phone"><div class="phonescr">
+            <div class="successwrap">
+              <span class="check">__CHECK__</span>
+              <h2 class="h-title">You're paired</h2>
+              <p class="t-meta muted">Connected to the Fungal Interactions Lab. Bench captures will sync to your folder.</p>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3: how it works (security) -->
+  <div class="section" data-sec="security" data-label="How it works (the security model)">
+    <div class="section-head"><span class="name">How it works</span><span class="id">#security</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="steps">
+        <div class="step"><span class="n"></span><div>Your desktop creates a short-lived pairing code, signed with your ResearchOS identity key (the same Ed25519 key the sharing/collab features already use). The QR carries that signed grant plus where to sync.</div></div>
+        <div class="step"><span class="n"></span><div>Your phone scans it and generates its OWN device key, which never leaves the phone (stored in the iOS keychain via the secure enclave).</div></div>
+        <div class="step"><span class="n"></span><div>The phone registers its device public key with the capture relay (the small Cloudflare Worker), authorized by the signed grant. The relay now trusts this device as yours.</div></div>
+        <div class="step"><span class="n"></span><div>From then on the phone signs each capture upload with its device key. The relay verifies the device is registered to you before accepting. You can unpair a device anytime from the desktop, which revokes it.</div></div>
+      </div>
+      <div class="secnote">__LOCK__ <span>Private keys never leave their device. The QR grant is short-lived (a couple of minutes). The relay only ever holds captures in transit to your folder, never your private notes.</span></div>
+      <p class="t-meta muted" style="margin-top:10px">Note: this depends on the capture relay (the small Worker from the build-plan D2 decision), the phone registers with it during pairing. So Chunk 1 and that Worker get built together.</p>
+    </div>
+  </div>
+
+  <!-- 4: the decision -->
+  <div class="section" data-sec="grantmodel" data-label="DECISION: the grant model">
+    <div class="section-head"><span class="name">Decision: the grant model</span><span class="id">#grantmodel</span><span class="review"></span></div>
+    <div class="stage">
+      <p class="t-meta muted" style="margin:0 0 4px">How much security vs simplicity for v0. The flow above shows option A.</p>
+      <div id="grantopts"></div>
+    </div>
+  </div>
+
+  <!-- 5: where the desktop UI lives -->
+  <div class="section" data-sec="deskhome" data-label="DECISION: where the desktop Pair-phone UI lives">
+    <div class="section-head"><span class="name">Decision: desktop UI home</span><span class="id">#deskhome</span><span class="review"></span></div>
+    <div class="stage">
+      <div id="homeopts"></div>
+    </div>
+  </div>
+
+</div>
+
+<div id="exportModal"><div class="box">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><strong style="font-size:14px">Feedback summary</strong><span class="spacer" style="flex:1"></span><button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('exportText').value)">Copy</button><button class="btn" onclick="document.getElementById('exportModal').style.display='none'">Close</button></div>
+  <textarea id="exportText" readonly></textarea>
+</div></div>
+
+<script>
+const I={
+ plus:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:inline-block;vertical-align:-2px"><path d="M12 5v14M5 12h14"/></svg>',
+ check:'<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+ lock:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>'
+};
+// fake QR (deterministic-ish pattern)
+(function(){const q=document.getElementById('qr');let h='';const pat=[1,1,1,0,1,0,1,1,0,1,1, 1,0,1,0,0,1,0,1,1,0,1, 1,1,0,1,1,0,1,0,0,1,1, 0,0,1,0,1,1,0,1,1,0,0, 1,0,1,1,0,0,1,0,1,1,1, 0,1,0,0,1,1,0,1,0,0,1, 1,1,0,1,0,1,1,0,1,1,0, 0,0,1,1,0,0,1,1,0,1,1, 1,0,1,0,1,1,0,0,1,0,1, 1,1,0,1,0,0,1,1,0,1,0, 0,1,1,0,1,1,0,1,1,0,1];for(let i=0;i<121;i++)h+='<i class="'+(pat[i]?'':'off')+'"></i>';q.innerHTML=h;})();
+document.body.innerHTML=document.body.innerHTML.replaceAll('__PLUS__',I.plus).replaceAll('__CHECK__',I.check).replaceAll('__LOCK__',I.lock);
+
+const KEY='mobile-pairing-2026-06-07';const store=JSON.parse(localStorage.getItem(KEY)||'{}');function save(){localStorage.setItem(KEY,JSON.stringify(store));}
+const grantOpts=[["Device registration",1,"Each phone registers its own key and is individually revocable (unpair a lost phone without re-pairing others). More secure. The QR grant is just a one-time authorization, not a reusable token."],["Bearer grant",0,"The QR is a self-contained token the phone stores and presents. Simplest, no device registry, but anyone who scans the (short-lived) QR gets access, and you cannot revoke one phone without rotating."]];
+const homeOpts=[["Settings, a Devices section",1,"Pair phone lives under Settings alongside your account + appearance. Discoverable where other account/device stuff is. Fewer surfaces."],["A dedicated Devices page",0,"Its own top-nav or profile entry. More prominent, but adds a surface to a nav we just trimmed."]];
+function picker(hostId,key,opts){const host=document.getElementById(hostId);opts.forEach((o,i)=>{const el=document.createElement('div');el.className='opt'+(String(store[key])===String(i)?' sel':'');el.innerHTML='<div><div class="t">'+o[0]+(o[1]?'<span class="reco">recommended</span>':'')+'</div><div class="d">'+o[2]+'</div></div>';el.onclick=()=>{store[key]=i;save();document.querySelectorAll('#'+hostId+' .opt').forEach((e,j)=>e.classList.toggle('sel',j===i));};host.appendChild(el);});}
+picker('grantopts','grant_pick',grantOpts);
+picker('homeopts','home_pick',homeOpts);
+
+document.querySelectorAll('.section').forEach(sec=>{const id=sec.dataset.sec;const host=sec.querySelector('.review');if(!host)return;const cur=store[id]||{v:'',c:''};const seg=document.createElement('div');seg.className='seg';[['ok','Approve'],['warn','Needs change'],['none','Undecided']].forEach(([v,lbl])=>{const b=document.createElement('button');b.textContent=lbl;b.className=(cur.v===v?'active '+v:'');b.onclick=()=>{store[id]={...(store[id]||{}),v};save();render();};seg.appendChild(b);});host.appendChild(seg);const stage=sec.querySelector('.stage');const ta=document.createElement('textarea');ta.className='cmt';ta.placeholder='Comment (optional)';ta.value=cur.c||'';ta.oninput=()=>{store[id]={...(store[id]||{}),c:ta.value};save();};stage.appendChild(ta);});
+function render(){document.querySelectorAll('.section').forEach(sec=>{const id=sec.dataset.sec;const cur=store[id]||{};sec.querySelectorAll('.seg button').forEach(b=>{const v=b.textContent==='Approve'?'ok':b.textContent==='Needs change'?'warn':'none';b.className=(cur.v===v?'active '+v:'');});});}
+render();
+document.getElementById('themeBtn').onclick=function(){const r=document.documentElement;const d=r.getAttribute('data-theme')==='dark';r.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Dark mode':'Light mode';};
+document.getElementById('exportBtn').onclick=function(){let out='MOBILE PAIRING MOCKUP (chunk 1) — '+new Date().toString().slice(0,21)+'\\n'+'='.repeat(46)+'\\n\\n';document.querySelectorAll('.section').forEach(sec=>{const id=sec.dataset.sec;const cur=store[id]||{};const verdict=cur.v==='ok'?'APPROVE':cur.v==='warn'?'NEEDS CHANGE':cur.v==='none'?'undecided':'(not marked)';out+='['+verdict+'] '+sec.dataset.label+'\\n';if(cur.c&&cur.c.trim())out+='   note: '+cur.c.trim()+'\\n';});out+='\\n';const g=store.grant_pick;out+='Grant model: '+(g!=null?grantOpts[g][0]:'(not picked)')+'\\n';const h=store.home_pick;out+='Desktop UI home: '+(h!=null?homeOpts[h][0]:'(not picked)')+'\\n';document.getElementById('exportText').value=out;document.getElementById('exportModal').style.display='flex';};
+</script>
+</body>
+</html>
