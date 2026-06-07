@@ -71,6 +71,9 @@ class TaskDocHandleImpl implements TaskDocHandle {
   readonly doc: LoroDoc;
   private readonly _task: TaskRef;
   private readonly _which: TaskMarkdownSurface;
+  // Carried so persist resolves the SAME on-disk base the open used (legacy
+  // global vs per-user), keeping the `.loro` sidecar + `.md` mirror co-located.
+  private readonly _currentUser?: string;
   private _pendingTimer: ReturnType<typeof setTimeout> | null = null;
   private _pending = false;
   private _flushWaiters: Array<() => void> = [];
@@ -80,10 +83,16 @@ class TaskDocHandleImpl implements TaskDocHandle {
   private _commitPending = false;
   private _commitPendingSubs: Array<(p: boolean) => void> = [];
 
-  constructor(doc: LoroDoc, task: TaskRef, which: TaskMarkdownSurface) {
+  constructor(
+    doc: LoroDoc,
+    task: TaskRef,
+    which: TaskMarkdownSurface,
+    currentUser?: string,
+  ) {
     this.doc = doc;
     this._task = task;
     this._which = which;
+    this._currentUser = currentUser;
   }
 
   private _setCommitPending(v: boolean): void {
@@ -147,7 +156,7 @@ class TaskDocHandleImpl implements TaskDocHandle {
       return;
     }
     this._pending = false;
-    await persistTaskDoc(this._task, this._which, this.doc);
+    await persistTaskDoc(this._task, this._which, this.doc, this._currentUser);
     if (this._pendingTimer === null) this._setCommitPending(false);
     const waiters = this._flushWaiters;
     this._flushWaiters = [];
@@ -208,12 +217,13 @@ function cacheKey(task: TaskRef, which: TaskMarkdownSurface): string {
 export async function openTaskDoc(
   task: TaskRef,
   which: TaskMarkdownSurface,
+  currentUser?: string,
 ): Promise<TaskDocHandle> {
   const key = cacheKey(task, which);
   const cached = _handleCache.get(key);
   if (cached) return cached;
 
-  const localDoc = await loadOrRebuildTaskDoc(task, which);
+  const localDoc = await loadOrRebuildTaskDoc(task, which, currentUser);
 
   const collabDocId = LORO_PILOT_ENABLED ? getCollabDocId(localDoc) : undefined;
   let doc = localDoc;
@@ -226,13 +236,13 @@ export async function openTaskDoc(
 
   doc.setPeerId(getDevicePeerId());
 
-  const handle = new TaskDocHandleImpl(doc, task, which);
+  const handle = new TaskDocHandleImpl(doc, task, which, currentUser);
   _handleCache.set(key, handle);
 
   if (collabDocId && adopted) {
     // Align the local sidecar with the adopted canonical so the next open loads
     // it and never forks again. Best-effort.
-    void persistTaskDoc(task, which, doc);
+    void persistTaskDoc(task, which, doc, currentUser);
   }
 
   return handle;
