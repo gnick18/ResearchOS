@@ -30,8 +30,8 @@
 import { useMemo, useState } from "react";
 
 import Tooltip from "@/components/Tooltip";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
-import { usePopupLayer } from "@/lib/ui/popup-stack";
+import LivingPopup from "@/components/ui/LivingPopup";
+import type { OpenOrigin } from "@/lib/ui/create-popup-store";
 import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
 import SendOutsideDialog from "@/components/sharing/SendOutsideDialog";
 import ExperimentSendOutsideDialog from "@/components/sharing/ExperimentSendOutsideDialog";
@@ -72,6 +72,9 @@ export interface UnifiedShareDialogProps {
   /** Called after a lab-ACL save completes so the caller refetches. The
    *  cross-boundary send path is self-contained and does not need this. */
   onShared?: () => void;
+  /** Screen point the Share button was clicked, for the zoom animation.
+   *  Optional; LivingPopup falls back to a soft default zoom when absent. */
+  origin?: OpenOrigin | null;
 }
 
 type TabKey = "lab" | "outside";
@@ -96,6 +99,7 @@ export default function UnifiedShareDialog({
   onClose,
   target,
   onShared,
+  origin = null,
 }: UnifiedShareDialogProps) {
   // Sequences have no lab-ACL model, so the lab tab is not shown for them.
   const hasLabTab = target.kind !== "sequence";
@@ -117,33 +121,27 @@ export default function UnifiedShareDialog({
   const defaultTab: TabKey = hasLabTab && !isSolo ? "lab" : "outside";
   const [tab, setTab] = useState<TabKey>(defaultTab);
 
-  // Escape closes this dialog (app-wide convention).
-  useEscapeToClose(onClose, isOpen);
-
-  // Share is a little popup, so it never blurs. It dims ONLY when it is the
-  // bottom-most popup; opened on top of another popup (e.g. the task / note
-  // detail popup, which already dims the page) it paints no scrim of its own, so
-  // the dim never stacks into a muddy double-darken (Grant's popup-stack rule).
-  const { shouldDim } = usePopupLayer(isOpen, false);
-
-  if (!isOpen) return null;
+  // Escape, scrim click, and the close X are all owned by LivingPopup below.
 
   const activeTab: TabKey = hasLabTab ? tab : "outside";
 
   return (
-    <div
-      className={`fixed inset-0 flex items-center justify-center z-[60] ${
-        shouldDim ? "bg-black bg-opacity-50" : ""
-      }`}
-      data-tour-target="share-dialog"
-      // Marker for TourSpotlight (popup-occluding sweep manager). Hides the v4
-      // walkthrough ring while this popup is mounted.
-      data-tour-popup-occluding="share-dialog"
-      onClick={onClose}
+    <LivingPopup
+      open={isOpen}
+      onClose={onClose}
+      origin={origin}
+      label="Share"
+      widthClassName="max-w-md"
+      // This dialog brings its own card chrome (header + tabs + scroll body),
+      // and its own header X, so LivingPopup contributes only the scrim, the
+      // zoom, and the shared popup-stack membership (so it stacks above whatever
+      // popup opened it and never double-dims the page behind it).
+      card={false}
+      showClose={false}
     >
       <div
-        className="bg-surface-raised rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
-        onClick={(e) => e.stopPropagation()}
+        className="relative w-full rounded-xl bg-surface-raised shadow-xl max-h-[88vh] overflow-hidden flex flex-col"
+        data-tour-target="share-dialog"
       >
         {/* Shared header chrome (title + record name + close). */}
         <div className="px-6 py-4 border-b border-border">
@@ -226,7 +224,7 @@ export default function UnifiedShareDialog({
           )}
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }
 

@@ -1358,38 +1358,6 @@ export default function NoteDetailPopup({
     <>
     <FileRenamePopup />
     <DuplicateDialog />
-    {showShare && currentUser && (
-      <UnifiedShareDialog
-        isOpen
-        target={{ kind: "note", note, owner: currentUser }}
-        onClose={() => setShowShare(false)}
-        onShared={() => {
-          // Refetch the note so the chips + provenance reflect the new ACL.
-          notesApi.get(note.id).then((updated) => {
-            if (updated) {
-              onUpdate(updated);
-              // Phase 3c chunk 2: grant newly-added members on the collab server
-              // so their openCollabDoc call succeeds. Best-effort, never throws.
-              if (LORO_PILOT_ENABLED && loroHandle && currentUser) {
-                void grantCollabOnShare({
-                  doc: loroHandle.doc,
-                  ownerEmail: myDirectoryEmail ?? "",
-                  previousSharedWith: sharedWithBeforeShareRef.current,
-                  nextSharedWith: updated.shared_with ?? [],
-                }).then((docId) => {
-                  // Go live right after sharing, not only on reopen: minting the
-                  // doc id does not change the auto-connect effect's deps, so
-                  // trigger the connect here when the session is still idle.
-                  if (docId && collab.state.status === "idle") {
-                    collab.connectFromDocId(docId);
-                  }
-                });
-              }
-            }
-          });
-        }}
-      />
-    )}
     <LivingPopup
       open
       onClose={handleClose}
@@ -2292,6 +2260,41 @@ export default function NoteDetailPopup({
         currentUser={moveCurrentUser}
         onMove={(notebookId) => onMoveToNotebook(notebookId)}
         onClose={() => setMoveMenuAnchor(null)}
+      />
+    )}
+    {/* Share dialog. Now on LivingPopup itself, so it joins the shared popup
+        stack (single dim, no double-scrim) and, rendered AFTER the host popup,
+        paints above it by DOM order. No z-index wrapper needed. */}
+    {showShare && currentUser && (
+      <UnifiedShareDialog
+        isOpen
+        target={{ kind: "note", note, owner: currentUser }}
+        onClose={() => setShowShare(false)}
+        onShared={() => {
+          // Refetch the note so the chips + provenance reflect the new ACL.
+          notesApi.get(note.id).then((updated) => {
+            if (updated) {
+              onUpdate(updated);
+              // Phase 3c chunk 2: grant newly-added members on the collab server
+              // so their openCollabDoc call succeeds. Best-effort, never throws.
+              if (LORO_PILOT_ENABLED && loroHandle && currentUser) {
+                void grantCollabOnShare({
+                  doc: loroHandle.doc,
+                  ownerEmail: myDirectoryEmail ?? "",
+                  previousSharedWith: sharedWithBeforeShareRef.current,
+                  nextSharedWith: updated.shared_with ?? [],
+                }).then((docId) => {
+                  // Go live right after sharing, not only on reopen. Minting the
+                  // doc id does not change the auto-connect effect's deps, so
+                  // trigger the connect here when the session is still idle.
+                  if (docId && collab.state.status === "idle") {
+                    collab.connectFromDocId(docId);
+                  }
+                });
+              }
+            }
+          });
+        }}
       />
     )}
     </>
