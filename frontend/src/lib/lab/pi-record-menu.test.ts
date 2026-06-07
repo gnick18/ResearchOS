@@ -129,6 +129,48 @@ describe("buildPiRecordMenuItems task items", () => {
   });
 });
 
+describe("buildPiRecordMenuItems includeEditAsPi", () => {
+  const base = {
+    recordType: "task" as const,
+    viewerUsername: "mira",
+    accountType: "lab_head" as const,
+    record: { owner: "alex", id: 7, flagged: false },
+  };
+
+  it("includes Edit as lab head by default (Pass 1 list rows unchanged)", () => {
+    const items = buildPiRecordMenuItems({ ...base, callbacks: callbacks() });
+    expect(items.map((i) => i.id)).toContain("pi-edit-as-lab-head");
+  });
+
+  it("drops Edit as lab head when includeEditAsPi is false but keeps the rest", () => {
+    const items = buildPiRecordMenuItems({
+      ...base,
+      includeEditAsPi: false,
+      callbacks: callbacks(),
+    });
+    const ids = items.map((i) => i.id);
+    expect(ids).not.toContain("pi-edit-as-lab-head");
+    // The role actions remain: flag toggle + task assign.
+    expect(ids).toEqual(["pi-flag-for-review", "pi-assign-to-member"]);
+  });
+
+  it("includeEditAsPi=false on a purchase keeps flag + approve/decline only", () => {
+    const items = buildPiRecordMenuItems({
+      recordType: "purchase",
+      viewerUsername: "mira",
+      accountType: "lab_head",
+      record: { owner: "alex", id: 5, flagged: false, approved: false },
+      includeEditAsPi: false,
+      callbacks: callbacks(),
+    });
+    const ids = items.map((i) => i.id);
+    expect(ids).not.toContain("pi-edit-as-lab-head");
+    expect(ids).toContain("pi-flag-for-review");
+    expect(ids).toContain("pi-approve-purchase");
+    expect(ids).toContain("pi-decline-purchase");
+  });
+});
+
 describe("buildPiRecordMenuItems note items", () => {
   it("emits edit + flag only (no assign / approve / decline)", () => {
     const items = buildPiRecordMenuItems({

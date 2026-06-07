@@ -63,6 +63,7 @@ import FlagForReviewButton from "./lab-head/FlagForReviewButton";
 import PiEditButton from "./lab-head/PiEditButton";
 import PiEditConfirmDialog from "./lab-head/PiEditConfirmDialog";
 import PiEditAuditNote from "./lab-head/PiEditAuditNote";
+import PiActionsHeaderButton from "./lab-head/PiActionsHeaderButton";
 import { usePiEditGate } from "@/hooks/usePiEditGate";
 import FlagBanner from "./lab-head/FlagBanner";
 // VC Phase 3 (VC-Phase3-Task sub-bot of HR, 2026-05-31): version history +
@@ -1109,6 +1110,21 @@ export default function TaskDetailPopup({
             {piActive && (
               <PiEditAuditNote memberName={recordOwnerForGate} className="mr-1" />
             )}
+            {/* PI Phase 2 pass 2 (2026-06-07): consolidated "Lab head actions"
+                kebab. Self-gates on isPiViewingMemberRecord (a lab head viewing
+                a member's task), opens the shared PI menu (flag toggle + assign)
+                with "Edit as lab head" omitted since the task is already open. */}
+            <PiActionsHeaderButton
+              recordType="task"
+              record={{
+                owner: task.owner,
+                id: task.id,
+                flagged: !!task.flagged,
+              }}
+              viewerUsername={currentUser}
+              accountType={accountType}
+              onEditAsPi={() => {}}
+            />
             {/* PI Phase 3 (PI Phase 3 manager, 2026-05-23):
                 Assign + Flag-for-review buttons. A lab head viewing a
                 member's task can still assign + flag it (role privileges,

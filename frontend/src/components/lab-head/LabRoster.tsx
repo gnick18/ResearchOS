@@ -15,6 +15,8 @@ import UserAvatar from "@/components/UserAvatar";
 import Tooltip from "@/components/Tooltip";
 import { ARCHIVED_USERS_QUERY_KEY } from "@/hooks/useArchivedUsers";
 import { LAB_USER_PROFILES_QUERY_KEY } from "@/hooks/useLabUserProfiles";
+import { useContextMenu } from "@/components/context-menu/ContextMenuProvider";
+import type { EditMenuItem } from "@/components/sequences/SequenceEditMenu";
 
 /**
  * Lab Head Phase 6 (lab head Phase 6 manager, 2026-05-23): Lab Roster
@@ -77,11 +79,61 @@ function SharingIdentityIcon({ className }: { className?: string }) {
 
 const LAB_ROSTER_QUERY_KEY = ["lab-roster"] as const;
 
+/**
+ * PI capability revamp Phase 2 pass 2 (sharing + collaboration manager,
+ * 2026-06-07): build the right-click context menu for ONE roster row. These are
+ * MEMBER-scoped actions (archive / restore), not record actions, so this is a
+ * small local builder rather than buildPiRecordMenuItems (which is record
+ * scoped). Returns [] for a non-lab-head, or a lab head right-clicking their OWN
+ * row, so openMenu(e, []) falls through to the normal right-click glyph and the
+ * behavior is byte-identical for everyone else.
+ *
+ * The items route through the SAME pending-action confirm the inline Archive /
+ * Restore buttons use (setPendingAction), so the confirmation dialog is never
+ * bypassed. "Open member overview" is intentionally omitted: the roster has no
+ * member-overview surface to navigate to today, and the brief says omit rather
+ * than invent a route.
+ */
+export function buildRosterRowMenuItems(args: {
+  row: RosterRow;
+  isLabHead: boolean;
+  currentUser: string | null | undefined;
+  onArchive: () => void;
+  onRestore: () => void;
+}): EditMenuItem[] {
+  const { row, isLabHead, currentUser, onArchive, onRestore } = args;
+  // Non-lab-head, or a lab head on their OWN row: no menu. Self-archive is
+  // blocked by the locked design, so the own-row case shows nothing either.
+  if (!isLabHead) return [];
+  if (!currentUser) return [];
+  if (row.username === currentUser) return [];
+
+  if (row.archived) {
+    return [
+      {
+        id: "roster-restore-member",
+        label: "Restore member",
+        enabled: true,
+        onRun: onRestore,
+      },
+    ];
+  }
+  return [
+    {
+      id: "roster-archive-member",
+      label: "Archive member",
+      enabled: true,
+      onRun: onArchive,
+    },
+  ];
+}
+
 export default function LabRoster() {
   const { isConnected } = useFileSystem();
   const { currentUser } = useCurrentUser();
   const accountType = useAccountType(currentUser);
   const queryClient = useQueryClient();
+  const { openMenu } = useContextMenu();
 
   const isLabHead = accountType === "lab_head";
 
@@ -238,6 +290,20 @@ export default function LabRoster() {
                   row.archived ? "bg-surface-sunken" : "bg-surface-raised"
                 }`}
                 data-testid={`lab-roster-row-${row.username}`}
+                onContextMenu={(e) =>
+                  openMenu(
+                    e,
+                    buildRosterRowMenuItems({
+                      row,
+                      isLabHead,
+                      currentUser,
+                      // Route through the EXISTING pending-action confirm flow so
+                      // the confirmation dialog is never bypassed.
+                      onArchive: () => setPendingAction({ kind: "archive", row }),
+                      onRestore: () => setPendingAction({ kind: "restore", row }),
+                    }),
+                  )
+                }
               >
                 <UserAvatar username={row.username} size="sm" />
                 <div className="flex-1 min-w-0">
