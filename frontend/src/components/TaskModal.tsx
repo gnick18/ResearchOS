@@ -9,6 +9,7 @@ import { getMethodTypeMeta } from "@/lib/methods/method-type-registry";
 import { createNewFileContent } from "@/lib/stamp-utils";
 import { taskResultsBase } from "@/lib/tasks/results-paths";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import LivingPopup from "@/components/ui/LivingPopup";
 import MethodPicker from "@/components/MethodPicker";
 import TaskPicker from "@/components/TaskPicker";
 import Tooltip from "@/components/Tooltip";
@@ -220,14 +221,8 @@ export default function TaskModal({ projects }: TaskModalProps) {
     return startDate;
   }, [selectedParentTask, depType, durationDays, startDate]);
 
-  useEffect(() => {
-    if (!isCreatingTask) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsCreatingTask(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isCreatingTask, setIsCreatingTask]);
+  // Escape close is owned by LivingPopup (closeOnEscape default) for both the
+  // form and the nested dialogs, so no manual keydown handler here.
 
   // Reset form when modal opens. Mirrors the NewPurchaseModal draft-race
   // fix: when the form already carries meaningful content (either restored
@@ -472,19 +467,22 @@ export default function TaskModal({ projects }: TaskModalProps) {
     setSubTasks(subTasks.filter(st => st.id !== subTaskId));
   }, [subTasks]);
 
-  if (!isCreatingTask) return null;
+  const closeAndReset = () => {
+    setIsCreatingTask(false);
+    resetForm();
+  };
 
   // If no active projects, show a message
   if (activeProjects.length === 0) {
     return (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
-        // Marker for TourSpotlight (popup-occluding sweep manager,
-        // 2026-05-27). Hides the v4 walkthrough ring while this popup
-        // is mounted; see SnapshotTilePopup for the canonical example.
-        data-tour-popup-occluding="task-modal-no-projects"
+      <LivingPopup
+        open={isCreatingTask}
+        onClose={closeAndReset}
+        label="Cannot create task"
+        widthClassName="max-w-md"
+        card={false}
       >
-        <div className="bg-surface-raised rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
+        <div className="bg-surface-raised rounded-xl shadow-2xl w-full p-6">
           <h3 className="text-heading font-semibold text-foreground mb-4">
             Cannot Create Task
           </h3>
@@ -493,90 +491,30 @@ export default function TaskModal({ projects }: TaskModalProps) {
           </p>
           <div className="flex justify-end">
             <button
-              onClick={() => {
-                setIsCreatingTask(false);
-                resetForm();
-              }}
+              onClick={closeAndReset}
               className="px-4 py-2 text-body text-foreground-muted hover:text-foreground rounded-lg hover:bg-surface-sunken transition-colors"
             >
               Close
             </button>
           </div>
         </div>
-      </div>
+      </LivingPopup>
     );
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="task-modal"
-    >
-      {/* Duplicate Warning Modal */}
-      {duplicateWarning && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30"
-          data-tour-popup-occluding="task-modal-duplicate-warning"
-        >
-          <div className="bg-surface-raised rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
-            <h3 className="text-heading font-semibold text-red-600 mb-4">
-              Duplicate Task Name Detected
-            </h3>
-            <p className="text-body text-foreground-muted mb-3">
-              A task with the same name already exists in this project with the same task type:
-            </p>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-              {duplicateWarning.matching_tasks.map((task) => (
-                <div key={task.id} className="text-body text-red-700 mb-2">
-                  <strong>{task.name}</strong>
-                  <span className="text-red-500 ml-2">
-                    (Started: {task.start_date}, {task.is_complete ? "Completed" : "In Progress"})
-                  </span>
-                </div>
-              ))}
-            </div>
-            <p className="text-body text-foreground-muted mb-4">
-              Rename it, or create it anyway?
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => {
-                  setDuplicateWarning(null);
-                  // Focus back on the name input
-                }}
-                className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-              >
-                Change Name
-              </button>
-              <button
-                onClick={() => {
-                  setDuplicateWarning(null);
-                  createTask();
-                }}
-                className="px-4 py-2 text-body text-red-600 border border-red-300 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                Create Anyway
-              </button>
-              <button
-                onClick={() => {
-                  setIsCreatingTask(false);
-                  resetForm();
-                }}
-                className="px-4 py-2 text-body text-foreground-muted hover:text-foreground rounded-lg hover:bg-surface-sunken transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+    <>
+      <LivingPopup
+        open={isCreatingTask}
+        onClose={closeAndReset}
+        label="New task"
+        widthClassName="max-w-lg"
+        card={false}
+        closeOnScrimClick={false}
+      >
       <form
         onSubmit={handleSubmit}
-        className="bg-surface-raised rounded-xl shadow-2xl max-w-lg w-full mx-4 p-6 max-h-[90vh] overflow-y-auto"
+        className="bg-surface-raised rounded-xl shadow-2xl w-full p-6 max-h-[90vh] overflow-y-auto"
       >
         <h3 className="text-heading font-semibold text-foreground mb-4">
           {taskType === "experiment"
@@ -1045,9 +983,67 @@ export default function TaskModal({ projects }: TaskModalProps) {
           </button>
         </div>
       </form>
-      
+      </LivingPopup>
+
+      {/* Duplicate-name warning, its own popup layered above the create form. */}
+      {duplicateWarning && (
+        <LivingPopup
+          open
+          onClose={() => setDuplicateWarning(null)}
+          label="Duplicate task name"
+          widthClassName="max-w-md"
+          card={false}
+          closeOnScrimClick={false}
+        >
+          <div className="bg-surface-raised rounded-xl shadow-2xl w-full p-6">
+            <h3 className="text-heading font-semibold text-red-600 mb-4">
+              Duplicate Task Name Detected
+            </h3>
+            <p className="text-body text-foreground-muted mb-3">
+              A task with the same name already exists in this project with the same task type:
+            </p>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+              {duplicateWarning.matching_tasks.map((task) => (
+                <div key={task.id} className="text-body text-red-700 mb-2">
+                  <strong>{task.name}</strong>
+                  <span className="text-red-500 ml-2">
+                    (Started: {task.start_date}, {task.is_complete ? "Completed" : "In Progress"})
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="text-body text-foreground-muted mb-4">
+              Rename it, or create it anyway?
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDuplicateWarning(null)}
+                className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              >
+                Change Name
+              </button>
+              <button
+                onClick={() => {
+                  setDuplicateWarning(null);
+                  createTask();
+                }}
+                className="px-4 py-2 text-body text-red-600 border border-red-300 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                Create Anyway
+              </button>
+              <button
+                onClick={closeAndReset}
+                className="px-4 py-2 text-body text-foreground-muted hover:text-foreground rounded-lg hover:bg-surface-sunken transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </LivingPopup>
+      )}
+
       {/* Loading overlay for task creation */}
       <LoadingOverlay />
-    </div>
+    </>
   );
 }
