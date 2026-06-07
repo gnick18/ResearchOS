@@ -72,6 +72,9 @@ export default function WikiTopBar() {
 
   return (
     <div className="sticky top-0 z-40 bg-surface-raised/95 backdrop-blur border-b border-border">
+      {/* Brand rainbow ribbon pinned to the top edge, matching the welcome and
+          thanks pages. Stays visible since the whole bar is sticky. */}
+      <div aria-hidden className="h-[4px] w-full" style={{ background: "var(--brand-rainbow)" }} />
       <div className="px-5 py-2 flex items-center gap-3">
         <Link
           href="/"
