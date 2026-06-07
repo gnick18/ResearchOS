@@ -205,7 +205,7 @@ export default function AddNotebookMemberDialog({
             {busy
               ? "Adding…"
               : confirming
-                ? "Share with everyone"
+                ? `Share with ${selected}`
                 : hasNotes
                   ? "Continue"
                   : "Add member"}
