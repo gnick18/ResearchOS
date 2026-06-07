@@ -296,8 +296,22 @@ all five docs are committed. Likely next moves, in priority order:
        - PRE-EXISTING (not ours): 7 failures in `purchases-page.misc-filter` /
          `purchases-page.shared-gate` from a `usePathname` mock gap in SuppliesTabs
          (verified by stash, 7 before + after).
-     - NEXT pages per the same pattern (mockup -> approve -> build): Methods, Lab
-       Overview, Links. Reuse the four built sources as templates.
+     - METHODS DONE + on `main` (commit `02203f358`, mockup
+       `docs/mockups/beakersearch-methods-palette.html` approved): pure
+       `buildMethodsSource()` (`app/methods/methods-beaker-source.ts`, 28 tests) +
+       `useMethodsBeakerSource()` + page wire. Context card (library scope + open
+       method), permission-aware Suggested (Edit/Rename/Move/Fork/Extend/Share/
+       Delete/Retire, gated on `useMethodPermissions().canModifyMethod`; fork
+       ALWAYS enabled; retire only when is_public; delete/share excluded for
+       shared-into-me; shared-with-edit writes owner-routed via ownerScopedMethods
+       Api), the TWO navigate kinds (Your methods tone "method"/emerald + Open;
+       Template library NEUTRAL chip + library glyph + Use), Recent methods MRU,
+       and the Create/Templates/Open-edit/Kits/Share/Copy/Delete/Find commands. No
+       new tone (templates icon-distinguished per Grant). Catalog manifest
+       prefetched via the existing fetchMethodCatalogManifest. tsc clean, 28 + 53
+       tests green. Hovered-as-context inert (Step 4).
+     - NEXT pages per the same pattern (mockup -> approve -> build): Lab Overview,
+       Links (the last two). Reuse the five built sources as templates.
    - Step 4, app-wide mouse-awareness (`[data-beaker-target]` hover capture) last.
 3. **Optional small follow-up:** the EventModal task-picker UI so a user can
    actually create an event-to-task link (the field exists, the UI does not).
