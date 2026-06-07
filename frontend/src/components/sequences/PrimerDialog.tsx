@@ -327,7 +327,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
       data-testid="primer-dialog"
       data-tour-popup-occluding="primer"
     >
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={request.onCancel} />
+      <div className="absolute inset-0 bg-black/40" onClick={request.onCancel} />
       <div className="relative flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300">

@@ -181,7 +181,7 @@ export default function ProteinPropertiesDialog({
       data-testid="protein-properties-dialog"
     >
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/40"
         onClick={onClose}
       />
       <div className="relative flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">

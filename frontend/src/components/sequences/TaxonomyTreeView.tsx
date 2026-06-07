@@ -1541,7 +1541,7 @@ export default function TaxonomyTreeView({
       role="dialog"
       aria-label="Explore the tree of life"
     >
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={handleClose} />
+      <div className="absolute inset-0 bg-black/40" onClick={handleClose} />
       {panel}
     </div>
   );

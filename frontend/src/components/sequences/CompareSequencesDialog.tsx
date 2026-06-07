@@ -666,7 +666,7 @@ export default function CompareSequencesDialog({
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       data-testid="compare-sequences-dialog"
     >
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">

@@ -79,7 +79,7 @@ export default function SequenceConfirmDialog({ request }: { request: SequenceCo
       data-testid="sequence-confirm-dialog"
       data-tour-popup-occluding="sequence-confirm"
     >
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={request.onCancel} />
+      <div className="absolute inset-0 bg-black/40" onClick={request.onCancel} />
       <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${accent.bg}`}>

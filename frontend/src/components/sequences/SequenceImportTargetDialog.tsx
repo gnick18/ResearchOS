@@ -98,7 +98,7 @@ export default function SequenceImportTargetDialog({
       data-tour-popup-occluding="sequence-import-target"
     >
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/40"
         onClick={request.onCancel}
       />
       <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">

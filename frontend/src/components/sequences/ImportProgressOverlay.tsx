@@ -56,7 +56,7 @@ export default function ImportProgressOverlay({
     >
       {/* Backdrop. No onClick to dismiss — this is a blocking progress modal,
           so clicking outside must not cancel an in-flight import. */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/40" />
 
       <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-surface-raised px-6 py-7 text-center shadow-2xl">
         {/* BeakerBot, working away. The `thinking` pose loops a gentle
