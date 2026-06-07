@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Inventory UI review (chunk 2)</title>
+<style>
+  :root{
+    --surface:#ffffff; --surface-raised:#ffffff; --surface-sunken:#f8fafc;
+    --foreground:#171717; --foreground-muted:#6b7280; --border:#e5e7eb;
+    --brand-action:#1283C9; --brand-purple:#5B47D6;
+    --emerald-bg:#d1fae5; --emerald-fg:#047857;
+    --amber-bg:#fef3c7; --amber-fg:#b45309;
+    --slate-bg:#e2e8f0; --slate-fg:#475569;
+    --rose-bg:#ffe4e6; --rose-fg:#be123c;
+    --page:#eef2f7;
+  }
+  [data-theme="dark"]{
+    --surface:#0a0e1a; --surface-raised:#131c2e; --surface-sunken:#0d1424;
+    --foreground:#f1f5f9; --foreground-muted:#b4bfd0; --border:rgba(255,255,255,0.22);
+    --brand-action:#3aa0e0; --brand-purple:#8170e6;
+    --emerald-bg:rgba(16,185,129,0.20); --emerald-fg:#6ee7b7;
+    --amber-bg:rgba(245,158,11,0.20); --amber-fg:#fcd34d;
+    --slate-bg:rgba(100,116,139,0.25); --slate-fg:#cbd5e1;
+    --rose-bg:rgba(244,63,94,0.20); --rose-fg:#fda4af;
+    --page:#05080f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--page);color:var(--foreground);transition:background .2s,color .2s}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px 20px 96px}
+  .topbar{position:sticky;top:0;z-index:50;background:var(--page);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .topbar h1{font-size:16px;margin:0;font-weight:700}
+  .topbar .sub{font-size:12.5px;color:var(--foreground-muted)}
+  .spacer{flex:1}
+  .btn{font:inherit;font-size:13px;border:1px solid var(--border);background:var(--surface-raised);color:var(--foreground);border-radius:8px;padding:7px 12px;cursor:pointer}
+  .btn:hover{background:var(--surface-sunken)}
+  .btn-brand{background:linear-gradient(135deg,var(--brand-action),var(--brand-purple));color:#fff;border:none}
+  .legend{display:flex;gap:10px;font-size:12px;color:var(--foreground-muted);align-items:center;flex-wrap:wrap}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:middle}
+  .dot.ok{background:#16a34a}.dot.warn{background:#d97706}.dot.none{background:#cbd5e1}
+
+  .note{font-size:12.5px;color:var(--foreground-muted);max-width:780px;margin:14px 0 8px}
+
+  /* review section wrapper */
+  .section{margin:26px 0;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--page)}
+  .section-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface-sunken)}
+  .section-head .name{font-size:13px;font-weight:700}
+  .section-head .id{font-size:11px;color:var(--foreground-muted)}
+  .review{margin-left:auto;display:flex;align-items:center;gap:6px}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .seg button{font:inherit;font-size:12px;padding:5px 10px;border:none;background:var(--surface-raised);color:var(--foreground-muted);cursor:pointer}
+  .seg button.active.ok{background:#16a34a;color:#fff}
+  .seg button.active.warn{background:#d97706;color:#fff}
+  .seg button.active.none{background:#64748b;color:#fff}
+  .cmt{width:100%;margin-top:8px;font:inherit;font-size:12.5px;border:1px dashed var(--border);border-radius:8px;background:var(--surface-raised);color:var(--foreground);padding:7px 9px;resize:vertical;min-height:34px}
+  .stage{padding:18px;background:var(--surface)}
+  .stage.dlgstage{display:flex;justify-content:center}
+
+  /* ---- faithful app UI ---- */
+  .app{background:var(--surface);color:var(--foreground);border:1px solid var(--border);border-radius:12px;padding:22px;width:100%}
+  .muted{color:var(--foreground-muted)}
+  .h-head{font-size:21px;font-weight:600;margin:0}
+  .h-title{font-size:15px;font-weight:600;margin:0}
+  .t-body{font-size:13.5px}.t-meta{font-size:12px}
+  .row-between{display:flex;align-items:center;justify-content:space-between;gap:16px}
+  .iconbtn{display:inline-flex;align-items:center;justify-content:center;height:36px;width:36px;border:1px solid var(--border);border-radius:8px;color:var(--foreground-muted);background:transparent;cursor:pointer}
+  .iconbtn.sm{height:32px;width:32px;border:none}
+  .iconbtn:hover{background:var(--surface-sunken);color:var(--foreground)}
+  .cta{display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:8px 13px;font-size:13.5px;background:linear-gradient(135deg,var(--brand-action),var(--brand-purple));color:#fff;border:none;cursor:pointer}
+  .search{position:relative;max-width:430px;margin-top:18px}
+  .search input{width:100%;border:1px solid var(--border);background:var(--surface-raised);border-radius:8px;padding:9px 12px 9px 34px;font-size:13.5px;color:var(--foreground)}
+  .search .s-ic{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--foreground-muted)}
+  .card{border:1px solid var(--border);border-radius:12px;background:var(--surface-raised);overflow:hidden;margin-top:12px}
+  .item-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px 18px}
+  .item-left{display:flex;align-items:center;gap:12px;min-width:0;text-align:left;background:none;border:none;cursor:pointer;color:inherit}
+  .chev{display:inline-flex;color:var(--foreground-muted);transition:transform .15s}
+  .chev.open{transform:rotate(180deg)}
+  .chip{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:2px 8px;font-size:11.5px}
+  .chip.share{background:var(--surface-sunken);color:var(--foreground-muted)}
+  .status{border-radius:6px;padding:4px 10px;font-size:12px;font-weight:500}
+  .st-in{background:var(--emerald-bg);color:var(--emerald-fg)}
+  .st-low{background:var(--amber-bg);color:var(--amber-fg)}
+  .st-empty{background:var(--slate-bg);color:var(--slate-fg)}
+  .st-exp{background:var(--rose-bg);color:var(--rose-fg)}
+  .item-right{display:flex;align-items:center;gap:12px;flex-shrink:0}
+  .summary{text-align:right}
+  .summary .big{font-size:13.5px;font-weight:600}
+  .expand{border-top:1px solid var(--border);background:color-mix(in srgb,var(--surface-sunken) 60%, transparent);padding:14px 18px}
+  .stock{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--border);border-radius:9px;background:var(--surface-raised);padding:10px 14px;margin-top:8px}
+  .stepper{display:flex;align-items:center;gap:6px}
+  .step{height:28px;width:28px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--foreground);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+  .count{min-width:40px;text-align:center;font-size:15px;font-weight:600}
+  .seg-status{display:inline-flex;gap:4px;background:var(--surface-sunken);padding:2px;border-radius:9px}
+  .seg-status button{border:none;background:none;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:500;color:var(--foreground-muted);cursor:pointer}
+  .seg-status button.on.st-in{background:var(--emerald-bg);color:var(--emerald-fg)}
+  .seg-status button.on.st-low{background:var(--amber-bg);color:var(--amber-fg)}
+  .seg-status button.on.st-empty{background:var(--slate-bg);color:var(--slate-fg)}
+  .addstock{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--foreground);padding:6px 12px;font-size:12px;font-weight:500;cursor:pointer;margin-top:12px}
+  .empty{border:1px dashed var(--border);border-radius:12px;background:var(--surface-raised);text-align:center;padding:46px 22px;margin-top:12px}
+  .circle{height:44px;width:44px;border-radius:50%;background:var(--surface-sunken);color:var(--foreground-muted);display:flex;align-items:center;justify-content:center;margin:0 auto 12px}
+
+  /* dialog */
+  .dialog{width:560px;max-width:100%;background:var(--surface-raised);border:1px solid var(--border);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.28)}
+  .dialog .pad{padding:24px}
+  .field{margin-top:14px}
+  .field label{display:block;font-size:12px;font-weight:500;color:var(--foreground-muted);margin-bottom:5px}
+  .field input,.field select,.field textarea{width:100%;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--foreground);padding:8px 11px;font:inherit;font-size:13.5px}
+  .help{font-size:12px;color:var(--foreground-muted);margin-top:5px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .dlg-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:22px}
+  .ghost{border:1px solid var(--border);background:transparent;color:var(--foreground);border-radius:8px;padding:8px 15px;font:inherit;font-size:13.5px;cursor:pointer}
+  .danger{display:inline-flex;align-items:center;gap:6px;background:#e11d48;color:#fff;border:none;border-radius:8px;padding:8px 15px;font:inherit;font-size:13.5px;cursor:pointer}
+  .optbox{border:1px solid var(--border);background:var(--surface-sunken);border-radius:9px;padding:12px 14px;margin-top:14px}
+  .link-add{display:inline-flex;align-items:center;gap:6px;color:var(--brand-action);font-size:12px;font-weight:500;background:none;border:none;cursor:pointer;margin-top:14px;padding:0}
+  .sugg{position:relative}
+  .sugg ul{position:absolute;z-index:5;width:100%;margin:4px 0 0;padding:0;list-style:none;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);box-shadow:0 10px 24px rgba(0,0,0,.18);overflow:hidden}
+  .sugg li button{display:block;width:100%;text-align:left;background:none;border:none;padding:8px 11px;cursor:pointer;color:var(--foreground)}
+  .sugg li button:hover{background:var(--surface-sunken)}
+  svg{display:block}
+  .pill-faint{font-size:11px;color:var(--foreground-muted);border:1px solid var(--border);border-radius:999px;padding:2px 8px}
+  #exportModal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+  #exportModal .box{background:var(--surface-raised);color:var(--foreground);border-radius:14px;max-width:760px;width:100%;padding:18px;border:1px solid var(--border)}
+  #exportModal textarea{width:100%;min-height:320px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--foreground);padding:10px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div>
+    <h1>Inventory UI review</h1>
+    <div class="sub">Chunk 2, the /inventory surface (built, on local main behind the flag). Mark each section, add comments, then Export.</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="legend">
+    <span><span class="dot ok"></span>Approve</span>
+    <span><span class="dot warn"></span>Needs change</span>
+    <span><span class="dot none"></span>Undecided</span>
+  </div>
+  <button class="btn" id="themeBtn">Dark mode</button>
+  <button class="btn btn-brand" id="exportBtn">Export feedback</button>
+</div>
+
+<div class="wrap">
+  <p class="note">This is the real built UI rendered faithfully (same copy, layout, and light/dark tokens as the app). It is interactive only where it helps you judge (expand an item, toggle the amount field). Your Approve / Needs-change marks and comments persist in this browser and export to plain text you paste back to me. Toggle dark mode top-right, every section is themed.</p>
+
+  <!-- SECTION: header -->
+  <div class="section" data-sec="header" data-label="Page header + intro copy">
+    <div class="section-head"><span class="name">Page header + intro copy</span><span class="id">#header</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="app">
+        <div class="row-between">
+          <div>
+            <h2 class="h-head">Inventory</h2>
+            <p class="muted t-body" style="margin:3px 0 0">Count containers, tap a status, type an expiry once. The inventory you will actually keep.</p>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="iconbtn" title="Refresh">__REFRESH__</button>
+            <button class="cta">__PLUS__ Add item</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION: search -->
+  <div class="section" data-sec="search" data-label="Search bar">
+    <div class="section-head"><span class="name">Search bar</span><span class="id">#search</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="app">
+        <div class="search">
+          <span class="s-ic">__SEARCH__</span>
+          <input placeholder="Search by name, vendor, catalog, CAS, category" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION: item list + expanded stock -->
+  <div class="section" data-sec="list" data-label="Item list row + expanded stock rows (the core)">
+    <div class="section-head"><span class="name">Item list + expanded stock rows (the core)</span><span class="id">#list</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="app">
+        <!-- collapsed item -->
+        <div class="card">
+          <div class="item-row">
+            <button class="item-left" onclick="toggleEx('ex1',this)">
+              <span class="chev" id="chev-ex1">__CHEV__</span>
+              <span style="min-width:0">
+                <span style="display:flex;align-items:center;gap:8px">
+                  <span class="h-title">Taq DNA Polymerase</span>
+                </span>
+                <span class="t-meta muted" style="display:block">Enzyme &middot; NEB &middot; M0273S</span>
+              </span>
+            </button>
+            <div class="item-right">
+              <div class="summary">
+                <div class="big">2 vials</div>
+                <div class="t-meta muted">Soonest expiry Sep 12, 2026</div>
+              </div>
+              <span class="status st-in">In stock</span>
+              <div style="display:flex;gap:4px">
+                <button class="iconbtn sm" title="Edit item">__PENCIL__</button>
+                <button class="iconbtn sm" title="Delete item">__TRASH__</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- expanded item -->
+        <div class="card">
+          <div class="item-row">
+            <button class="item-left" onclick="toggleEx('ex2',this)">
+              <span class="chev open" id="chev-ex2">__CHEV__</span>
+              <span style="min-width:0">
+                <span style="display:flex;align-items:center;gap:8px">
+                  <span class="h-title">Q5 High-Fidelity DNA Polymerase</span>
+                  <span class="chip share">__USERS__ morgan</span>
+                </span>
+                <span class="t-meta muted" style="display:block">Reagent &middot; NEB &middot; M0491S</span>
+              </span>
+            </button>
+            <div class="item-right">
+              <div class="summary">
+                <div class="big">3 vials</div>
+                <div class="t-meta muted">Soonest expiry Aug 1, 2026</div>
+              </div>
+              <span class="status st-low">Low</span>
+              <div style="display:flex;gap:4px">
+                <button class="iconbtn sm" title="Edit item">__PENCIL__</button>
+                <button class="iconbtn sm" title="Delete item">__TRASH__</button>
+              </div>
+            </div>
+          </div>
+          <div class="expand" id="ex2">
+            <p class="t-meta muted" style="margin:0 0 10px">Aliquot in -80 box 3. Do not freeze-thaw more than 5 times.</p>
+            <!-- stock row 1 -->
+            <div class="stock">
+              <div style="display:flex;align-items:center;gap:12px">
+                <div class="stepper">
+                  <button class="step" title="Use one vial (count down)">&minus;</button>
+                  <span class="count">3</span>
+                  <button class="step" title="Add one vial">__PLUSXS__</button>
+                </div>
+                <span class="t-meta muted">vials</span>
+              </div>
+              <div style="min-width:0;flex:1;padding:0 16px">
+                <div class="t-meta">Lot AB1207 &middot; 2 U/uL &middot; -80 door, left</div>
+                <div class="t-meta muted">Received Jun 1, 2026 &middot; Expires Aug 1, 2026</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div class="seg-status">
+                  <button class="on st-in">In stock</button>
+                  <button>Low</button>
+                  <button>Empty</button>
+                </div>
+                <button class="iconbtn sm" title="Edit stock">__PENCIL__</button>
+                <button class="iconbtn sm" title="Delete stock">__TRASH__</button>
+              </div>
+            </div>
+            <!-- stock row 2 (manual low) -->
+            <div class="stock">
+              <div style="display:flex;align-items:center;gap:12px">
+                <div class="stepper">
+                  <button class="step" title="Use one vial (count down)">&minus;</button>
+                  <span class="count">1</span>
+                  <button class="step" title="Add one vial">__PLUSXS__</button>
+                </div>
+                <span class="t-meta muted">vial</span>
+              </div>
+              <div style="min-width:0;flex:1;padding:0 16px">
+                <div class="t-meta">Lot AB0borrowed &middot; -20 shelf 2</div>
+                <div class="t-meta muted">Received Jan 9, 2026 &middot; Expires Aug 1, 2026</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div class="seg-status">
+                  <button>In stock</button>
+                  <button class="on st-low">Low</button>
+                  <button>Empty</button>
+                </div>
+                <button class="iconbtn sm" title="Edit stock">__PENCIL__</button>
+                <button class="iconbtn sm" title="Delete stock">__TRASH__</button>
+              </div>
+            </div>
+            <button class="addstock">__PLUSXS__ Add stock</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION: add/edit item dialog -->
+  <div class="section" data-sec="itemdlg" data-label="Add / edit item dialog">
+    <div class="section-head"><span class="name">Add / edit item dialog</span><span class="id">#itemdlg</span><span class="review"></span></div>
+    <div class="stage dlgstage">
+      <div class="dialog">
+        <div class="pad">
+          <h2 class="h-title">Add item</h2>
+          <p class="t-meta muted" style="margin:4px 0 16px">What this thing is. Add containers as a stock after saving.</p>
+          <div class="sugg">
+            <div class="field" style="margin-top:0">
+              <label>Name</label>
+              <input value="Q5 High-Fidelity DNA Pol" />
+            </div>
+            <ul>
+              <li><button>Q5 High-Fidelity DNA Polymerase<br><span class="t-meta muted">CAS 9012-90-2</span></button></li>
+              <li><button>Q5 Reaction Buffer</button></li>
+            </ul>
+          </div>
+          <p class="help" style="margin-top:42px">Suggestions come from your past purchases.</p>
+          <div class="field">
+            <label>Category</label>
+            <select><option>Reagent</option><option>Antibody</option><option>Plasmid</option><option>Enzyme</option><option>Kit</option></select>
+          </div>
+          <div class="grid2">
+            <div class="field"><label>Vendor</label><input value="NEB" /></div>
+            <div class="field"><label>Catalog number</label><input placeholder="M0491S" /></div>
+          </div>
+          <div class="grid2">
+            <div class="field"><label>CAS number</label><input placeholder="Chemicals only" /></div>
+            <div class="field"><label>Container word</label><input placeholder="vial, tube, bottle, plate, box" /><p class="help">How one container reads in the count. Defaults to container.</p></div>
+          </div>
+          <div class="field"><label>Product page</label><input placeholder="https://" /></div>
+          <div class="grid2">
+            <div class="field"><label>Flag low when below</label><input placeholder="containers (leave blank for off)" /><p class="help">Counts every container across this item. Blank means no auto flag.</p></div>
+            <div class="field"><label>Product barcode</label><input placeholder="UPC / EAN, optional" /></div>
+          </div>
+          <div class="field"><label>Notes</label><textarea placeholder="Anything worth remembering about this item." style="min-height:70px"></textarea></div>
+          <div class="dlg-actions">
+            <button class="ghost">Cancel</button>
+            <button class="cta">__CHECK__ Add item</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION: add/edit stock dialog -->
+  <div class="section" data-sec="stockdlg" data-label="Add / edit stock dialog (with opt-in amount)">
+    <div class="section-head"><span class="name">Add / edit stock dialog (opt-in amount)</span><span class="id">#stockdlg</span><span class="review"></span></div>
+    <div class="stage dlgstage">
+      <div class="dialog">
+        <div class="pad">
+          <h2 class="h-title">Add stock</h2>
+          <p class="t-meta muted" style="margin:4px 0 16px">A lot of vials for Q5 High-Fidelity DNA Polymerase. Change the count only when a container is finished or a new one arrives.</p>
+          <div class="grid2">
+            <div class="field" style="margin-top:0"><label>Container count (vials)</label><input value="3" /></div>
+            <div class="field" style="margin-top:0"><label>Lot number</label><input placeholder="Optional" /></div>
+          </div>
+          <div class="grid2">
+            <div class="field"><label>Received date</label><input value="2026-06-01" /></div>
+            <div class="field"><label>Expiration date</label><input value="2026-08-01" /><p class="help">Type it once. The clock flags expiring soon forever.</p></div>
+          </div>
+          <div class="grid2">
+            <div class="field"><label>Concentration</label><input placeholder="10 uM, 5 mg/mL" /></div>
+            <div class="field"><label>Location</label><input placeholder="-80 door, left" /></div>
+          </div>
+          <div class="field"><label>Container code</label><input placeholder="A lab label or QR id, optional" /></div>
+          <div id="amtCollapsed">
+            <button class="link-add" onclick="document.getElementById('amtCollapsed').style.display='none';document.getElementById('amtOpen').style.display='block'">__PLUSXS__ Add an amount per container</button>
+          </div>
+          <div class="optbox" id="amtOpen" style="display:none">
+            <div class="grid2">
+              <div class="field" style="margin-top:0"><label>Amount per container</label><input placeholder="Optional label" /></div>
+              <div class="field" style="margin-top:0"><label>Unit</label><input placeholder="uL, mg, rxn" /></div>
+            </div>
+            <p class="help" style="margin-top:8px">A label on each container, never a running total. The low-stock signal still counts containers.</p>
+          </div>
+          <div class="field"><label>Notes</label><textarea placeholder="Anything worth remembering about this lot." style="min-height:58px"></textarea></div>
+          <div class="dlg-actions">
+            <button class="ghost">Cancel</button>
+            <button class="cta">__CHECK__ Add stock</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION: delete confirm -->
+  <div class="section" data-sec="deldlg" data-label="Delete confirm dialog">
+    <div class="section-head"><span class="name">Delete confirm dialog</span><span class="id">#deldlg</span><span class="review"></span></div>
+    <div class="stage dlgstage">
+      <div class="dialog" style="width:420px">
+        <div class="pad">
+          <h2 class="h-title">Delete Q5 High-Fidelity DNA Polymerase?</h2>
+          <p class="t-body muted" style="margin-top:8px">This removes the item and its 2 stocks. This cannot be undone.</p>
+          <div class="dlg-actions">
+            <button class="ghost">Cancel</button>
+            <button class="danger">__TRASH__ Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION: empty + disabled -->
+  <div class="section" data-sec="states" data-label="Empty state + flag-off state">
+    <div class="section-head"><span class="name">Empty state + flag-off state</span><span class="id">#states</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="app">
+        <div class="empty">
+          <div class="circle">__LIST__</div>
+          <h3 class="h-title">No inventory yet</h3>
+          <p class="t-body muted" style="max-width:360px;margin:6px auto 0">Add the reagents and kits your lab keeps on hand. Containers, status, and expiry come next.</p>
+          <button class="cta" style="margin-top:16px">__PLUS__ Add your first item</button>
+        </div>
+        <div style="height:16px"></div>
+        <div class="empty" style="border-style:solid">
+          <div class="circle">__LIST__</div>
+          <h3 class="h-title">Inventory is not enabled</h3>
+          <p class="t-body muted" style="margin-top:6px">This area is still being built. Check back soon.</p>
+          <div style="margin-top:8px"><span class="pill-faint">shown when INVENTORY_ENABLED is off</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="exportModal">
+  <div class="box">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <strong style="font-size:14px">Feedback summary</strong>
+      <span class="t-meta muted">copy this back into the chat</span>
+      <span class="spacer" style="flex:1"></span>
+      <button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('exportText').value)">Copy</button>
+      <button class="btn" onclick="document.getElementById('exportModal').style.display='none'">Close</button>
+    </div>
+    <textarea id="exportText" readonly></textarea>
+  </div>
+</div>
+
+<script>
+// ---- tiny inline icons (mockup only) ----
+const I={
+  refresh:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>',
+  plus:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  plusxs:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  search:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>',
+  chev:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+  pencil:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+  trash:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>',
+  check:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  users:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16 5.2a3.2 3.2 0 0 1 0 6"/><path d="M19 20c0-2.4-1.1-4.2-2.8-5"/></svg>',
+  list:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>'
+};
+document.body.innerHTML=document.body.innerHTML
+ .replaceAll('__REFRESH__',I.refresh).replaceAll('__PLUSXS__',I.plusxs).replaceAll('__PLUS__',I.plus)
+ .replaceAll('__SEARCH__',I.search).replaceAll('__CHEV__',I.chev).replaceAll('__PENCIL__',I.pencil)
+ .replaceAll('__TRASH__',I.trash).replaceAll('__CHECK__',I.check).replaceAll('__USERS__',I.users)
+ .replaceAll('__LIST__',I.list);
+
+function toggleEx(id,btn){const el=document.getElementById(id);const ch=document.getElementById('chev-'+id);if(!el)return;const open=el.style.display!=='none';el.style.display=open?'none':'block';if(ch)ch.classList.toggle('open',!open);}
+
+// ---- review controls ----
+const KEY='inv-ui-review-2026-06-07';
+const store=JSON.parse(localStorage.getItem(KEY)||'{}');
+function save(){localStorage.setItem(KEY,JSON.stringify(store));}
+document.querySelectorAll('.section').forEach(sec=>{
+  const id=sec.dataset.sec;const host=sec.querySelector('.review');
+  const cur=store[id]||{v:'',c:''};
+  const seg=document.createElement('div');seg.className='seg';
+  [['ok','Approve'],['warn','Needs change'],['none','Undecided']].forEach(([v,lbl])=>{
+    const b=document.createElement('button');b.textContent=lbl;b.className=(cur.v===v?'active '+v:'');
+    b.onclick=()=>{store[id]={...(store[id]||{}),v};save();render();};
+    seg.appendChild(b);
+  });
+  host.appendChild(seg);
+  const stage=sec.querySelector('.stage');
+  const ta=document.createElement('textarea');ta.className='cmt';ta.placeholder='Comment on this section (optional)';ta.value=cur.c||'';
+  ta.oninput=()=>{store[id]={...(store[id]||{}),c:ta.value};save();};
+  stage.appendChild(ta);
+});
+function render(){
+  document.querySelectorAll('.section').forEach(sec=>{
+    const id=sec.dataset.sec;const cur=store[id]||{};
+    sec.querySelectorAll('.seg button').forEach(b=>{
+      const v=b.textContent==='Approve'?'ok':b.textContent==='Needs change'?'warn':'none';
+      b.className=(cur.v===v?'active '+v:'');
+    });
+  });
+}
+render();
+
+document.getElementById('themeBtn').onclick=function(){
+  const r=document.documentElement;const d=r.getAttribute('data-theme')==='dark';
+  r.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Dark mode':'Light mode';
+};
+document.getElementById('exportBtn').onclick=function(){
+  let out='INVENTORY UI REVIEW (chunk 2) — '+new Date().toString().slice(0,21)+'\\n';
+  out+='='.repeat(52)+'\\n\\n';
+  let any=false;
+  document.querySelectorAll('.section').forEach(sec=>{
+    const id=sec.dataset.sec;const cur=store[id]||{};
+    const verdict=cur.v==='ok'?'APPROVE':cur.v==='warn'?'NEEDS CHANGE':cur.v==='none'?'undecided':'(not marked)';
+    if(cur.v||cur.c)any=true;
+    out+='['+verdict+'] '+sec.dataset.label+'  (#'+id+')\\n';
+    if(cur.c&&cur.c.trim())out+='   note: '+cur.c.trim()+'\\n';
+    out+='\\n';
+  });
+  if(!any)out+='(nothing marked yet)\\n';
+  document.getElementById('exportText').value=out;
+  document.getElementById('exportModal').style.display='flex';
+};
+</script>
+</body>
+</html>
