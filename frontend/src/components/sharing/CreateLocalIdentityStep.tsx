@@ -15,7 +15,7 @@
 // so the spinner shown while it runs MUST be CSS-animated and we defer one frame
 // before kicking it off so the loading state actually paints.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
 import {
@@ -77,23 +77,31 @@ export default function CreateLocalIdentityStep({
   const [passkeyError, setPasskeyError] = useState<string | null>(null);
 
   // Mint the identity once, deferred a frame so the CSS spinner paints before
-  // Argon2id locks the main thread. The ref guards against Strict Mode's double
-  // mount minting two keypairs (the second would overwrite the first's sidecar).
-  const creating = useRef(false);
+  // Argon2id locks the main thread. StrictMode-safe: a LOCAL cancelled flag, not
+  // a persistent ref. Under React Strict Mode the first mount's cleanup cancels
+  // its own (still-pending) timeout, and the second mount schedules + runs the
+  // real one. A persistent ref guard here is the classic footgun, the cleanup
+  // clears the only scheduled run and the second mount skips it, so the spinner
+  // hangs forever. Only the surviving mount's timeout fires, so the keypair is
+  // still minted exactly once (no double-mint).
   useEffect(() => {
-    if (creating.current) return;
-    creating.current = true;
+    let cancelled = false;
     const id = window.setTimeout(() => {
       void (async () => {
         try {
           const { recoveryCode: code } = await createLocalIdentity(username);
-          setRecoveryCode(code);
+          if (!cancelled) setRecoveryCode(code);
         } catch {
-          setError("Could not create your account. Close and try again.");
+          if (!cancelled) {
+            setError("Could not create your account. Close and try again.");
+          }
         }
       })();
     }, 50);
-    return () => window.clearTimeout(id);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(id);
+    };
   }, [username]);
 
   const copyCode = useCallback(async () => {
