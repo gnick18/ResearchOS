@@ -11,6 +11,7 @@
 // House style: no em-dashes, no emojis, no mid-sentence colons. Inline SVG.
 
 import { useCallback, useEffect, useState } from "react";
+import OperatorSignIn from "@/components/admin/OperatorSignIn";
 
 import Link from "next/link";
 import AppFooter from "@/components/AppFooter";
@@ -816,6 +817,7 @@ export default function BusinessTracker() {
           Not authorized. This page is for operator accounts on the ADMIN_EMAILS
           allow-list, and it is dark unless sharing is enabled on this deployment.
         </p>
+        <OperatorSignIn />
       </Shell>
     );
   }
@@ -823,8 +825,10 @@ export default function BusinessTracker() {
     return (
       <Shell>
         <p className="text-body text-foreground-muted leading-relaxed">
-          Could not load the business data right now. Try again in a moment.
+          Could not load the business data right now. If you are not signed in as
+          an operator, sign in below, otherwise try again in a moment.
         </p>
+        <OperatorSignIn />
       </Shell>
     );
   }

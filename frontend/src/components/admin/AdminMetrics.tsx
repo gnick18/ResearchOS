@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import AppFooter from "@/components/AppFooter";
 import BeakerBotGreeting from "@/components/admin/BeakerBotGreeting";
+import OperatorSignIn from "@/components/admin/OperatorSignIn";
 import {
   capacityStatus,
   pctUsed,
@@ -388,6 +389,9 @@ export default function AdminMetrics() {
             This page is for operators. Sign in with an admin account, or this
             account is not on the allow-list.
           </p>
+          <div className="mx-auto mt-1 max-w-md text-left">
+            <OperatorSignIn />
+          </div>
         </div>
       </Shell>
     );
@@ -400,7 +404,13 @@ export default function AdminMetrics() {
           <h1 className="text-heading font-semibold text-foreground">
             Could not load metrics
           </h1>
-          <p className="mt-2 text-body text-foreground-muted">Try again in a moment.</p>
+          <p className="mt-2 text-body text-foreground-muted">
+            If you are not signed in as an operator, sign in below, otherwise try
+            again in a moment.
+          </p>
+          <div className="mx-auto mt-1 max-w-md text-left">
+            <OperatorSignIn />
+          </div>
         </div>
       </Shell>
     );
