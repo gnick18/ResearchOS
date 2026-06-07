@@ -36,6 +36,31 @@ describe("LivingPopup editor knobs", () => {
     expect(dialog.className).toContain("pointer-events-none");
   });
 
+  it("align=top drops the card from near the top (command-palette placement)", async () => {
+    render(
+      <LivingPopup open onClose={() => {}} label="Picker" card={false} selfSize align="top">
+        <div>picker body</div>
+      </LivingPopup>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Picker" });
+    const wrap = dialog.parentElement as HTMLElement;
+    expect(wrap.className).toContain("items-start");
+    expect(wrap.className).toContain("pt-[10vh]");
+    expect(wrap.className).not.toContain("items-center");
+  });
+
+  it("align defaults to center (every normal popup)", async () => {
+    render(
+      <LivingPopup open onClose={() => {}} label="Centered" card={false} selfSize>
+        <div>centered body</div>
+      </LivingPopup>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Centered" });
+    const wrap = dialog.parentElement as HTMLElement;
+    expect(wrap.className).toContain("items-center");
+    expect(wrap.className).not.toContain("items-start");
+  });
+
   it("showClose=false hides the corner X (editors bring their own close)", async () => {
     const { container } = render(
       <LivingPopup open onClose={() => {}} label="Editor" showClose={false}>
