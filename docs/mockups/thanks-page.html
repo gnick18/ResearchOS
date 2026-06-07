@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Thanks page mockup — ResearchOS</title>
+<style>
+  :root{
+    --ink:#0f172a; --muted:#5b6b7f; --identity:#1AA0E6; --action:#1283C9;
+    --surface:#ffffff; --bg:#f6f9fc; --border:#e4ebf2; --raised:#ffffff;
+    --shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px rgba(15,23,42,.06);
+  }
+  html.dark{
+    --ink:#e7eef6; --muted:#9fb0c2; --surface:#0e1622; --bg:#0a111b;
+    --border:#1f2c3a; --raised:#121c29;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.55}
+  a{color:var(--action);text-decoration:none}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 24px}
+  header.bar{display:flex;align-items:center;justify-content:space-between;
+    padding:18px 0;border-bottom:1px solid var(--border)}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px}
+  .toggle{font-size:13px;color:var(--muted);border:1px solid var(--border);
+    background:var(--raised);border-radius:999px;padding:6px 12px;cursor:pointer}
+  /* hero */
+  .hero{text-align:center;padding:64px 0 40px}
+  .hero h1{font-size:40px;line-height:1.1;margin:18px 0 12px;letter-spacing:-.02em}
+  .hero p{font-size:18px;color:var(--muted);max-width:620px;margin:0 auto 26px}
+  .hero .anchors{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:15px;
+    padding:11px 18px;border-radius:12px;cursor:pointer;border:1px solid transparent}
+  .btn.primary{background:var(--action);color:#fff}
+  .btn.ghost{background:var(--raised);color:var(--ink);border-color:var(--border)}
+  /* sections */
+  section{padding:48px 0}
+  .eyebrow{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--identity);margin:0 0 6px}
+  h2{font-size:28px;margin:0 0 8px;letter-spacing:-.01em}
+  .lead{color:var(--muted);max-width:680px;margin:0 0 28px}
+  /* tiers */
+  .tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .tier{background:var(--raised);border:1px solid var(--border);border-radius:18px;
+    padding:24px 22px;box-shadow:var(--shadow);display:flex;flex-direction:column}
+  .tier.feature{border-color:var(--identity);box-shadow:0 0 0 1px var(--identity),var(--shadow)}
+  .tier .beaker{width:84px;height:108px;margin:0 auto 6px;display:block}
+  .tier .tname{font-size:20px;font-weight:700;text-align:center}
+  .tier .price{text-align:center;color:var(--muted);font-size:14px;margin-top:2px}
+  .tier .price b{color:var(--ink);font-size:24px}
+  .tier .perks{list-style:none;padding:0;margin:18px 0 20px;font-size:14.5px;flex:1}
+  .tier .perks li{display:flex;gap:9px;align-items:flex-start;margin:9px 0;color:var(--ink)}
+  .tier .perks svg{flex:0 0 auto;margin-top:3px;color:var(--identity)}
+  .badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--identity);background:rgba(26,160,230,.1);
+    border-radius:999px;padding:3px 9px;margin:0 auto 10px}
+  /* wall */
+  .wall{background:var(--raised);border:1px dashed var(--border);border-radius:18px;
+    padding:40px;text-align:center;color:var(--muted)}
+  .wall .be{font-weight:600;color:var(--ink);font-size:17px;margin-bottom:6px}
+  /* credits teaser */
+  .credits{background:var(--raised);border:1px solid var(--border);border-radius:18px;
+    padding:26px 28px;box-shadow:var(--shadow)}
+  .credits .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px 32px;margin-top:14px}
+  .credits h4{margin:0 0 4px;font-size:15px}
+  .credits .dep{color:var(--muted);font-size:14px}
+  .credits .dep b{color:var(--ink);font-weight:600}
+  .note{margin-top:18px;font-size:13.5px;color:var(--muted);border-top:1px solid var(--border);padding-top:14px}
+  footer{padding:40px 0 60px;color:var(--muted);font-size:13px;text-align:center;border-top:1px solid var(--border)}
+  @media(max-width:760px){.tiers{grid-template-columns:1fr}.credits .grid{grid-template-columns:1fr}.hero h1{font-size:32px}}
+</style>
+</head>
+<body>
+
+<!-- shared beaker symbol; liquid fill set per-use via the <use> y on the rect through CSS vars -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="liq" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/>
+      <stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/>
+      <stop offset="100%" stop-color="#D6B5F0"/>
+    </linearGradient>
+    <clipPath id="cup"><path d="M 12 12 L 12 24 C 12 30,16 32,20 32 C 24 32,28 30,28 24 L 28 12 Z"/></clipPath>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <header class="bar">
+    <div class="brand">
+      <svg width="22" height="28" viewBox="8 3 24 31" fill="none" stroke="#1AA0E6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 12 L12 24 C 12 30,16 32,20 32 C 24 32,28 30,28 24 L28 12"/>
+        <path d="M11 12 L29 12"/><path d="M22 8 C 22 6,24 4,26 6"/>
+      </svg>
+      ResearchOS
+    </div>
+    <button class="toggle" onclick="document.documentElement.classList.toggle('dark')">Toggle light / dark</button>
+  </header>
+
+  <!-- HERO -->
+  <div class="hero">
+    <!-- full beaker, brand hero -->
+    <svg class="beaker" width="96" height="124" viewBox="8 3 24 31" fill="none" stroke="#1AA0E6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto">
+      <g clip-path="url(#cup)"><rect x="11" y="15" width="18" height="20" fill="url(#liq)"/></g>
+      <ellipse cx="20" cy="15" rx="8" ry="1.4" fill="#FFF1A8" stroke="none" opacity=".7"/>
+      <path d="M22 8 C 22 6,24 4,26 6"/>
+      <path d="M12 12 L12 24 C 12 30,16 32,20 32 C 24 32,28 30,28 24 L28 12"/>
+      <path d="M11 12 L29 12"/>
+      <circle cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/>
+      <circle cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/>
+      <path d="M18 22 Q 20 24,22 22"/>
+      <path d="M14 26 L15.5 26"/><path d="M24.5 26 L26 26"/>
+    </svg>
+    <h1>ResearchOS is free and open<br/>because of people like you.</h1>
+    <p>The people who fund it and the open-source projects it stands on. Both keep the whole thing free for the research community. Thank you.</p>
+    <div class="anchors">
+      <a class="btn primary" href="#sponsors">Become a sponsor</a>
+      <a class="btn ghost" href="#oss">See what we are built on</a>
+    </div>
+  </div>
+
+  <!-- SPONSORS -->
+  <section id="sponsors">
+    <p class="eyebrow">Sponsors</p>
+    <h2>Fund the science you want to exist</h2>
+    <p class="lead">ResearchOS has no paid tier and no investors deciding its direction. Sponsorship covers hosting and development so it stays free and open. GitHub handles the rest.</p>
+
+    <div class="tiers">
+      <!-- BENCH -->
+      <div class="tier">
+        <svg class="beaker" viewBox="8 3 24 31" fill="none" stroke="#1AA0E6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <g clip-path="url(#cup)"><rect x="11" y="26" width="18" height="9" fill="url(#liq)"/></g>
+          <ellipse cx="20" cy="26" rx="8" ry="1.2" fill="#FFD2B0" stroke="none" opacity=".7"/>
+          <path d="M22 8 C 22 6,24 4,26 6"/><path d="M12 12 L12 24 C 12 30,16 32,20 32 C 24 32,28 30,28 24 L28 12"/><path d="M11 12 L29 12"/>
+          <circle cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/><circle cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/>
+          <path d="M18 22 Q 20 24,22 22"/><path d="M14 26 L15.5 26"/><path d="M24.5 26 L26 26"/>
+        </svg>
+        <div class="tname">Bench</div>
+        <div class="price"><b>$5</b> / month</div>
+        <ul class="perks">
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg> The GitHub Sponsor badge on your profile</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg> Your name on the sponsor wall below</li>
+        </ul>
+        <a class="btn ghost" href="#" style="justify-content:center">Sponsor on GitHub</a>
+      </div>
+
+      <!-- LAB (featured) -->
+      <div class="tier feature">
+        <span class="badge">Most chosen</span>
+        <svg class="beaker" viewBox="8 3 24 31" fill="none" stroke="#1AA0E6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <g clip-path="url(#cup)"><rect x="11" y="20" width="18" height="15" fill="url(#liq)"/></g>
+          <ellipse cx="20" cy="20" rx="8" ry="1.3" fill="#B7EBB1" stroke="none" opacity=".7"/>
+          <path d="M22 8 C 22 6,24 4,26 6"/><path d="M12 12 L12 24 C 12 30,16 32,20 32 C 24 32,28 30,28 24 L28 12"/><path d="M11 12 L29 12"/>
+          <circle cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/><circle cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/>
+          <path d="M18 22 Q 20 24,22 22"/><path d="M14 26 L15.5 26"/><path d="M24.5 26 L26 26"/>
+        </svg>
+        <div class="tname">Lab</div>
+        <div class="price"><b>$25</b> / month</div>
+        <ul class="perks">
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg> Everything in Bench</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg> Your name or handle in SPONSORS.md in the repo</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg> A spot in the sponsor wall</li>
+        </ul>
+        <a class="btn primary" href="#" style="justify-content:center">Sponsor on GitHub</a>
+      </div>
+
+      <!-- INSTITUTE -->
+      <div class="tier">
+        <svg class="beaker" viewBox="8 3 24 31" fill="none" stroke="#1AA0E6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <g clip-path="url(#cup)"><rect x="11" y="13.5" width="18" height="21.5" fill="url(#liq)"/></g>
+          <ellipse cx="20" cy="13.6" rx="8" ry="1.4" fill="#D6B5F0" stroke="none" opacity=".75"/>
+          <path d="M16 12.2 q 1.5 -1.6 3 0" stroke="#D6B5F0" stroke-width="1.4"/>
+          <path d="M22 8 C 22 6,24 4,26 6"/><path d="M12 12 L12 24 C 12 30,16 32,20 32 C 24 32,28 30,28 24 L28 12"/><path d="M11 12 L29 12"/>
+          <circle cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/><circle cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/>
+          <path d="M18 22 Q 20 24,22 22"/><path d="M14 26 L15.5 26"/><path d="M24.5 26 L26 26"/>
+        </svg>
+        <div class="tname">Institute</div>
+        <div class="price"><b>$100</b> / month</div>
+        <ul class="perks">
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg> Everything in Lab</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg> Your logo and link, featured on this page</li>
+        </ul>
+        <a class="btn ghost" href="#" style="justify-content:center">Sponsor on GitHub</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- WALL -->
+  <section>
+    <p class="eyebrow">Sponsor wall</p>
+    <h2>The people behind ResearchOS</h2>
+    <p class="lead">Everyone who sponsors shows up here. Empty for now, this is where you would be.</p>
+    <div class="wall">
+      <div class="be">Be the first to back ResearchOS.</div>
+      <div>Your name will sit right here, in good company.</div>
+    </div>
+  </section>
+
+  <!-- OSS -->
+  <section id="oss">
+    <p class="eyebrow">Built on open source</p>
+    <h2>We stand on a lot of other people's work</h2>
+    <p class="lead">Every screen rests on open-source software written by volunteers, students, and engineers who chose to share. Several licenses also require attribution, so this is both a thank-you and an obligation we take seriously.</p>
+    <div class="credits">
+      <div class="grid">
+        <div><h4>The writing surface</h4><div class="dep"><b>CodeMirror</b>, <b>marked</b>, the <b>unified</b> remark/rehype pipeline, <b>turndown</b></div></div>
+        <div><h4>Sequence and cloning</h4><div class="dep"><b>Konva</b> and <b>react-konva</b>, plus vendored <b>SeqViz</b> and <b>TeselaGen</b> bio-parsers</div></div>
+        <div><h4>Calculators and math</h4><div class="dep"><b>expr-eval-fork</b>, and a primer Tm ported from <b>Biopython</b></div></div>
+        <div><h4>Charts, files, and state</h4><div class="dep"><b>Recharts</b>, <b>frappe-gantt</b>, <b>JSZip</b>, <b>Zustand</b>, <b>TanStack Query</b>, <b>date-fns</b></div></div>
+        <div><h4>The framework</h4><div class="dep"><b>React</b> and <b>Next.js</b></div></div>
+        <div><h4>Code we recycle</h4><div class="dep">SeqViz (MIT), TeselaGen bio-parsers (MIT), the Biopython Tm port (BSD), carried with their licenses</div></div>
+      </div>
+      <div class="note">The full per-package license inventory lives on the <a href="#">open source page</a> and in THIRD_PARTY_NOTICES, generated straight from the installed dependency tree so it never drifts.</div>
+    </div>
+  </section>
+</div>
+
+<footer>
+  Mockup for review — /thanks page. ResearchOS LLC. Built with the community.
+</footer>
+
+</body>
+</html>
