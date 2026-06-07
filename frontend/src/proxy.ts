@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * Maintenance-mode gate.
+ * Maintenance-mode gate (Next.js "proxy" file convention, formerly middleware).
  *
  * When MAINTENANCE_MODE is "true", every page request is rewritten to the
  * /maintenance holding page so a half-finished app never reaches users during
  * heavy backend migration work. A bypass cookie (set by visiting
  * /?unlock=<MAINTENANCE_BYPASS_SECRET>) lets the operator through to test the
- * real site. With the flag unset or not "true", this middleware is a no-op, so
- * committing it does not change normal behavior until the flag is flipped in
- * the deployment env.
+ * real site. With the flag unset or not "true", this is a no-op, so committing
+ * it does not change normal behavior until the flag is flipped in the deploy
+ * env.
  *
  * Scope: page navigations only. The matcher excludes Next internals, static
  * assets, /_vercel, and /api (API routes have their own env gating, and the UI
@@ -22,7 +22,7 @@ import { NextRequest, NextResponse } from "next/server";
 const UNLOCK_COOKIE = "ros_maint_unlock";
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
-export function middleware(req: NextRequest): NextResponse {
+export function proxy(req: NextRequest): NextResponse {
   // Off unless deliberately enabled, so this is a no-op in normal operation.
   if (process.env.MAINTENANCE_MODE !== "true") {
     return NextResponse.next();
