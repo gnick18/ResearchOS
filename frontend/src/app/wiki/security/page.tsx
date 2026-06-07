@@ -249,24 +249,21 @@ export default function SecurityPage() {
 
       <h2>What we collect, and what we don&apos;t</h2>
       <p>
-        We collect anonymous page-view pings via Vercel Web Analytics and
-        anonymous Core Web Vitals (load and responsiveness timings) via
-        Vercel Speed Insights. When you navigate between pages, anonymous
-        beacons go to Vercel. No IDs, no folder contents, no typed text, no
-        markdown bodies. We use this to know which pages get used, which sit
-        idle, and where the app feels slow.{" "}
-        <strong>Settings &rarr; Offline mode</strong> disables both durably,
-        neither script is injected when the toggle is on, and the toggle is
-        read at component-mount time so the choice survives reloads.
+        We collect anonymous page-view pings via Vercel Web Analytics. When
+        you navigate between pages, anonymous beacons go to Vercel. No IDs, no
+        folder contents, no typed text, no markdown bodies. We use this to know
+        which pages get used and which sit idle.{" "}
+        <strong>Settings &rarr; Offline mode</strong> disables it durably, the
+        script is not injected when the toggle is on, and the toggle is read at
+        component-mount time so the choice survives reloads.
       </p>
       <p>
         We do not collect anything else. No Sentry, no Google Analytics, no
         Mixpanel, no PostHog, no Hotjar, no Datadog, no Amplitude. No
         background phone-home. No crash reporter. No content telemetry.
         Running <code>npm ls</code> against the repo will confirm only{" "}
-        <code>@vercel/analytics</code> and{" "}
-        <code>@vercel/speed-insights</code> are present, and the network tab
-        will confirm no other endpoints are contacted.
+        <code>@vercel/analytics</code> is present, and the network tab will
+        confirm no other endpoints are contacted.
       </p>
       <p>
         The <strong>Report an issue</strong> button does not auto-submit
