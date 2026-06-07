@@ -174,6 +174,15 @@
   .inv-row b { color: var(--foreground); font-weight: 650; }
   .inv-row.total { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px; font-size: 14px; }
   .inv-row.total span { color: var(--foreground); font-weight: 600; }
+
+  /* bundled plan picker */
+  .plans { display: flex; flex-wrap: wrap; gap: 10px; }
+  .plan { flex: 1; min-width: 140px; border: 1px solid var(--border); background: var(--surface-raised);
+    border-radius: 12px; padding: 12px 14px; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+  .plan.sel { border-color: var(--sky); background: var(--sky-tint); }
+  .plan b { font-size: 15px; font-weight: 700; }
+  .plan .plan-line { font-size: 12px; color: var(--foreground); }
+  .plan small { margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--foreground-muted); }
 </style>
 </head>
 <body>
@@ -187,10 +196,13 @@
     <button class="seg" id="themeBtn">Dark</button>
   </div>
   <div class="toolbar" id="activityToolbar">
-    <span class="label">Activity state (point 1)</span>
+    <span class="label">Activity state</span>
     <button class="seg active" data-activity="normal">Normal</button>
     <button class="seg" data-activity="near">Near allowance</button>
     <button class="seg" data-activity="throttled">Throttled</button>
+    <span class="label" style="margin-left:14px">Pricing model</span>
+    <button class="seg active" data-pricing="bundled">Bundled plan (1 control)</button>
+    <button class="seg" data-pricing="alacarte">A la carte (2 meters)</button>
   </div>
 
   <div class="scrim">
@@ -307,6 +319,20 @@ const sponsorCard = () => `
    </div>
    <div class="mt16">${usage("9.4 GB","9.4 GB",100,43,"4 GB")}</div>
    ${labBreakdown()}
+   ${pricingModel === "bundled" ? `
+   <div class="mt16">
+     <p class="uppermini">Lab plan</p>
+     <p class="micro" style="margin-top:4px">One plan for the whole lab covers storage and activity, pooled across members. Members never pay separately; it is your single monthly invoice line.</p>
+     <div class="plans mt12">
+       <button class="plan"><b>Lab Free</b><span class="plan-line">1 GB / member</span><span class="plan-line">Normal editing</span><small>$0</small></button>
+       <button class="plan sel"><b>Lab Plus</b><span class="plan-line">10 GB pooled</span><span class="plan-line">Heavy, pooled</span><small>up to $15/mo</small></button>
+       <button class="plan"><b>Lab Pro</b><span class="plan-line">50 GB pooled</span><span class="plan-line">Very heavy</span><small>up to $45/mo</small></button>
+     </div>
+   </div>
+   <div class="invoice mt16">
+     <p class="uppermini">Your monthly invoice, one bill, one line</p>
+     <div class="inv-row total"><span>Lab Plus plan, storage + activity pooled</span><b>$11.62 / mo</b></div>
+   </div>` : `
    <div class="mt16">
      <p class="uppermini">Lab activity tier</p>
      <p class="micro" style="margin-top:4px">One tier for the whole lab, pooled like storage. Members never pay separately; this rides on your single monthly invoice.</p>
@@ -322,7 +348,7 @@ const sponsorCard = () => `
      <div class="inv-row"><span>Storage, 9.4 GB pooled above free</span><b>$1.62</b></div>
      <div class="inv-row"><span>Lab activity tier, 50M syncs</span><b>$10.00</b></div>
      <div class="inv-row total"><span>Estimated total</span><b>$11.62 / mo</b></div>
-   </div>
+   </div>`}
    <div class="mt16">
      <p class="uppermini">Invite a member</p>
      <div class="pills mt12" style="flex-wrap:nowrap">
@@ -357,6 +383,7 @@ const memberInviteCard = `
 // The allowance is monthly "edit syncs" (write operations), separate from storage.
 // Editing is always free; past the allowance we slow cloud sync, never charge.
 let activityState = "normal";
+let pricingModel = "bundled"; // "bundled" (one plan) or "alacarte" (two meters)
 // Activity tiers (flat steps, parallel to the storage cap). Picking a paid tier
 // lifts the throttle; it lands on the SAME monthly invoice as storage.
 const ACT_TIERS = [
@@ -376,6 +403,36 @@ function activityTierPicker(selIndex){
   </div>`;
 }
 
+// --- Bundled-plan model: ONE control raises storage AND activity together ----
+// Each plan pairs a storage allowance with an activity allowance, one price, one
+// invoice line. This is the friendlier alternative to two separate meters.
+const PLANS = [
+  { name: "Free",  storage: "1 GB",   activity: "Normal editing", price: "$0",        sel: false },
+  { name: "Plus",  storage: "25 GB",  activity: "Heavy editing",  price: "up to $7/mo",  sel: true },
+  { name: "Pro",   storage: "100 GB", activity: "Very heavy",     price: "up to $15/mo", sel: false },
+];
+const LAB_PLANS = [
+  { name: "Lab Free",  storage: "1 GB / member", activity: "Normal editing", price: "$0",         sel: false },
+  { name: "Lab Plus",  storage: "10 GB pooled",  activity: "Heavy, pooled",  price: "up to $15/mo", sel: true },
+  { name: "Lab Pro",   storage: "50 GB pooled",  activity: "Very heavy",     price: "up to $45/mo", sel: false },
+];
+function planCard(plans, title, desc){
+  const pills = plans.map(p=>`
+    <button class="plan ${p.sel?'sel':''}">
+      <b>${p.name}</b>
+      <span class="plan-line">${p.storage}</span>
+      <span class="plan-line">${p.activity}</span>
+      <small>${p.price}</small>
+    </button>`).join("");
+  return `<div class="card"><h3>${title}</h3>
+    <p class="desc">${desc}</p>
+    <div class="body"><div class="plans">${pills}</div>
+    <p class="micro mt12">One choice, one monthly invoice line. You only pay for the storage you actually use up to the plan's cap; activity headroom is included.</p>
+    </div></div>`;
+}
+const planCardIndividual = () => planCard(PLANS, "Your plan",
+  "One plan covers your storage and your editing activity. Pick the plan that fits; upgrading raises both at once. Most people stay on Free.");
+
 function activityCard(ctx){
   // ctx: "individual" (own activity + tier picker) or "member" (covered by lab).
   const states = {
@@ -390,7 +447,12 @@ function activityCard(ctx){
   const selIndex = activityState === "throttled" ? 1 : 0; // suggest first paid tier when throttled
   let footer = "";
   if (ctx === "member") {
-    footer = `<p class="hint mt12">Your activity is covered by Chen Lab. If the lab passes its allowance, ask your lab head to raise the lab's activity tier.</p>`;
+    footer = `<p class="hint mt12">Your activity is covered by Chen Lab. If the lab passes its allowance, ask your lab head to raise the lab's plan.</p>`;
+  } else if (pricingModel === "bundled") {
+    // One control lives in the plan card below; here we only reassure / point.
+    footer = activityState === "throttled"
+      ? `<div class="cta">You have passed your plan's activity headroom. Upgrade your plan below to restore instant sync, it also raises your storage.</div>`
+      : `<p class="hint mt12">Included in your plan. Upgrading your plan (below) raises this along with storage.</p>`;
   } else {
     footer = activityState === "throttled"
       ? `<div class="cta">Hit your allowance. Raise your activity tier to restore instant sync, billed on your usual invoice.</div>${activityTierPicker(selIndex)}`
@@ -437,8 +499,10 @@ function operatorPanel(){
 }
 
 const personas = {
-  individual: () => summary("free") + usageCard(usage("0.4 GB","1 GB",40,null,"1 GB")) + activityCard("individual") + capCard,
-  pi: () => summary("individual") + usageCard(usage("3.1 GB","25 GB",12,4,"1 GB")) + activityCard("individual") + capCard + sponsorCard(),
+  individual: () => summary("free") + usageCard(usage("0.4 GB","1 GB",40,null,"1 GB")) + activityCard("individual")
+                    + (pricingModel === "bundled" ? planCardIndividual() : capCard),
+  pi: () => summary("individual") + usageCard(usage("3.1 GB","25 GB",12,4,"1 GB")) + activityCard("individual")
+            + (pricingModel === "bundled" ? planCardIndividual() : capCard) + sponsorCard(),
   member: () => summary("lab") + coveredCard + activityCard("member"),
   operator: () => operatorPanel(),
 };
@@ -468,6 +532,12 @@ document.querySelectorAll("[data-activity]").forEach(b=>{
   b.onclick = () => {
     document.querySelectorAll("[data-activity]").forEach(x=>x.classList.remove("active"));
     b.classList.add("active"); activityState = b.dataset.activity; render();
+  };
+});
+document.querySelectorAll("[data-pricing]").forEach(b=>{
+  b.onclick = () => {
+    document.querySelectorAll("[data-pricing]").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active"); pricingModel = b.dataset.pricing; render();
   };
 });
 const themeBtn = document.getElementById("themeBtn");
