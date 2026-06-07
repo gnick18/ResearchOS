@@ -29,9 +29,30 @@
 
 import { fileService } from "../file-system/file-service";
 import { getCurrentUserCached } from "../storage/json-store";
-import type { SharedNotebook } from "../types";
+import type { Notebook, SharedNotebook } from "../types";
 
 const ENTITY = "shared_notebooks";
+
+/**
+ * Lazy-normalize on read (notebooks-gen Phase 1, 2026-06-06; AGENTS.md
+ * field-migration pattern). On-disk notebook records may carry the legacy
+ * `members: [string, string]` tuple shape OR the generalized `string[]` shape.
+ * Coerce `members` to a plain `string[]` so callers never see the legacy tuple.
+ * Drops non-string / empty member entries and dedupes while preserving order.
+ * No on-disk cutover; this runs at every read boundary.
+ */
+export function normalizeNotebookRecord(raw: Notebook): Notebook {
+  const seen = new Set<string>();
+  const members: string[] = [];
+  const source = Array.isArray(raw?.members) ? raw.members : [];
+  for (const m of source) {
+    if (typeof m !== "string" || m.length === 0) continue;
+    if (seen.has(m)) continue;
+    seen.add(m);
+    members.push(m);
+  }
+  return { ...raw, members };
+}
 
 export class SharedNotebookStore {
   private dirPath(username: string): string {
@@ -86,7 +107,10 @@ export class SharedNotebookStore {
 
   /** Read a notebook from a specific user's folder (cross-user aggregation). */
   async getForUser(id: string, username: string): Promise<SharedNotebook | null> {
-    return fileService.readJson<SharedNotebook>(this.filePath(username, id));
+    const record = await fileService.readJson<SharedNotebook>(
+      this.filePath(username, id),
+    );
+    return record ? normalizeNotebookRecord(record) : null;
   }
 
   /** List the current user's OWN notebooks (those they created). */
@@ -105,7 +129,7 @@ export class SharedNotebookStore {
       const record = await fileService.readJson<SharedNotebook>(
         `${dir}/${fileName}`,
       );
-      if (record) records.push(record);
+      if (record) records.push(normalizeNotebookRecord(record));
     }
     return records;
   }

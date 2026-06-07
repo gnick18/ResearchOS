@@ -215,8 +215,25 @@ export function removeSharedEntry(
  * identical ones; in normal use a !== b.
  */
 export function pairingSharedWith(a: string, b: string): SharedUser[] {
+  return membersSharedWith([a, b]);
+}
+
+/**
+ * Notebooks generalization (notebooks-gen Phase 1, 2026-06-06): the canonical
+ * `shared_with` for an N-member notebook. Every member at level "edit", so each
+ * can read AND write. Used for the `Notebook` record itself AND for every note /
+ * weekly task created inside it. Generalizes `pairingSharedWith` from exactly
+ * two members to 1..N.
+ *
+ * Returns a NEW array. Deduplicates by username (so degenerate repeats yield a
+ * single entry). For a single-member array this returns `[{username: owner,
+ * level: "edit"}]`, which is harmless (the owner already has access via the
+ * owner branch of canRead/canWrite); a private notebook stays readable/writable
+ * only by its owner because no OTHER username is in the list.
+ */
+export function membersSharedWith(members: string[]): SharedUser[] {
   const byUser = new Map<string, "read" | "edit">();
-  for (const username of [a, b]) {
+  for (const username of members) {
     if (typeof username !== "string" || username.length === 0) continue;
     byUser.set(username, "edit");
   }

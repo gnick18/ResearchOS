@@ -2488,29 +2488,42 @@ export interface WeeklyGoalUpdate {
 // a thin string-keyed per-user store (lib/shared-notebooks/store.ts) that
 // mirrors JsonStore's `users/<owner>/<entity>/<id>.json` layout; JsonStore
 // itself is `<T extends { id: number }>` and cannot hold a string id.
-export interface SharedNotebook {
+// GENERALIZED 1..N MODEL (notebooks-gen Phase 1, 2026-06-06): a `Notebook` is a
+// single container that holds 1..N members. members.length === 1 is a PRIVATE
+// (unshared) notebook living only in the owner's folder; members.length >= 2 is
+// a SHARED notebook. The former 1:1 PI<->student `SharedNotebook` is the
+// two-member special case. On-disk records may still carry the legacy
+// `[string, string]` tuple shape; `normalizeNotebookRecord` coerces them to
+// `string[]` lazily at the read boundary (no on-disk cutover, folder name
+// `shared_notebooks` unchanged).
+export interface Notebook {
   /** Globally-unique id (crypto.randomUUID). Referenced by `Note.notebook_id`
-   *  and `WeeklyGoal.notebook_id` across BOTH members' folders. */
+   *  and `WeeklyGoal.notebook_id` across ALL members' folders. */
   id: string;
-  /** The two members, exactly. members[0] is the creator (=== created_by ===
-   *  owner); members[1] is the other person. Both are real usernames. */
-  members: [string, string];
+  /** The members, 1..N. members[0] is the creator (=== created_by === owner).
+   *  length 1 = private/unshared; length >= 2 = shared. All are real usernames. */
+  members: string[];
   /** Username that created the notebook (either a PI or a student; no role
    *  gate on creation). Equals `owner` and `members[0]`. */
   created_by: string;
   /** ISO timestamp of creation. */
   created_at: string;
   /** Optional human title. Absent = the UI falls back to "<other member>".
-   *  Editable by the creator via `sharedNotebooksApi.updateTitle`. */
+   *  Editable by the creator via `notebooksApi.updateTitle`. */
   title?: string;
   /** Sharing owner — drives `canRead`/`canWrite`'s owner branch and the
    *  per-user folder the record lives in. Equals `created_by`. Kept as its
    *  own field so the record satisfies the unified `ShareableRecord` shape
    *  (owner + shared_with), exactly like WeeklyGoal carries `owner`. */
   owner: string;
-  /** Always `pairingSharedWith(members[0], members[1])` - both at "edit". */
+  /** Always `membersSharedWith(members)` - every member at "edit", deduped.
+   *  For a single-member (private) notebook this is just the owner, which is
+   *  harmless (owner already has access via canRead/canWrite's owner branch). */
   shared_with: SharedUser[];
 }
+
+/** @deprecated use Notebook (Phase 2 removes this alias + renames callers). */
+export type SharedNotebook = Notebook;
 
 // ── Lab Mode Notes ─────────────────────────────────────────────────────────────
 

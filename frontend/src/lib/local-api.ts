@@ -127,10 +127,12 @@ import {
   normalizeSharedWith,
   canRead,
   pairingSharedWith,
+  membersSharedWith,
   type Viewer,
 } from "./sharing/unified";
 import { mondayOf } from "./weekly-goals/week";
 import { SharedNotebookStore } from "./shared-notebooks/store";
+import type { Notebook } from "./types";
 
 const projectsStore = new JsonStore<Project>("projects");
 const tasksStore = new JsonStore<Task>("tasks");
@@ -4551,28 +4553,113 @@ async function findSharedNotebook(id: string): Promise<SharedNotebook | null> {
   return null;
 }
 
-export const sharedNotebooksApi = {
+/**
+ * Re-stamp every note AND weekly task currently carrying `notebookId` with a
+ * fresh `shared_with` (notebooks-gen Phase 1, the add/remove-member share-list
+ * flip). Items live in their author's own folder, so we walk every user's
+ * folder and route each write to that owner. `is_shared` is kept in lockstep
+ * with whether the new share list reaches anyone besides the item's owner.
+ * Best-effort per item; a single write failure must not abort the whole flip.
+ */
+async function restampNotebookItems(
+  notebookId: string,
+  shared_with: SharedUser[],
+): Promise<void> {
+  const usernames = await discoverUsers();
+  const isShared = shared_with.length > 0;
+  for (const username of usernames) {
+    const userNotes = await notesStore.listAllForUser(username);
+    for (const note of userNotes) {
+      if (note.notebook_id !== notebookId) continue;
+      try {
+        await notesStore.updateForUser(
+          note.id,
+          { shared_with, is_shared: isShared },
+          username,
+        );
+      } catch {
+        // best-effort
+      }
+    }
+    const userGoals = await weeklyGoalsStore.listAllForUser(username);
+    for (const goal of userGoals) {
+      if (goal.notebook_id !== notebookId) continue;
+      try {
+        await weeklyGoalsStore.updateForUser(
+          goal.id,
+          { shared_with, is_shared: isShared },
+          username,
+        );
+      } catch {
+        // best-effort
+      }
+    }
+  }
+}
+
+export const notebooksApi = {
+  /**
+   * Create a generalized notebook with an explicit member list (notebooks-gen
+   * Phase 1). The creator MUST be `members[0]` (= created_by = owner); pass the
+   * full member array INCLUDING the creator. length 1 = private/unshared,
+   * length >= 2 = shared. `shared_with` = `membersSharedWith(members)` (every
+   * member at "edit"). Both `create` (shared) and `createPersonal` (private)
+   * route through this.
+   */
+  createForMembers: async (params: {
+    members: string[];
+    title?: string;
+  }): Promise<Notebook> => {
+    const creator = await getCurrentUserCached();
+    // Normalize: dedupe, ensure the creator is members[0].
+    const seen = new Set<string>();
+    const members: string[] = [];
+    for (const m of [creator, ...params.members]) {
+      if (typeof m !== "string" || m.length === 0) continue;
+      if (seen.has(m)) continue;
+      seen.add(m);
+      members.push(m);
+    }
+    const now = new Date().toISOString();
+    const data: Omit<Notebook, "id"> = {
+      members,
+      created_by: creator,
+      created_at: now,
+      owner: creator,
+      shared_with: membersSharedWith(members),
+    };
+    if (params.title !== undefined) data.title = params.title;
+    return sharedNotebooksStore.create(data);
+  },
+
+  /**
+   * Create a PERSONAL (private, unshared) notebook owned solely by the current
+   * user (`members: [creator]`). It lives only in the creator's folder; no
+   * other username is in `shared_with`, so it stays readable/writable only by
+   * the owner. Promote it later with `addMember`.
+   */
+  createPersonal: async (params: { title?: string } = {}): Promise<Notebook> => {
+    return notebooksApi.createForMembers({
+      members: [],
+      ...(params.title !== undefined ? { title: params.title } : {}),
+    });
+  },
+
   /**
    * Create a shared notebook between the current user and `otherMember`. The
    * creator becomes `members[0]` / `created_by` / `owner`; both members are
    * written into `shared_with` at "edit". No role gate: a PI or a student may
-   * create one.
+   * create one. Kept for back-compat; routes through the generalized
+   * member/share-list logic (`membersSharedWith`).
    */
   create: async (params: {
     otherMember: string;
     title?: string;
-  }): Promise<SharedNotebook> => {
-    const creator = await getCurrentUserCached();
-    const now = new Date().toISOString();
-    const data: Omit<SharedNotebook, "id"> = {
-      members: [creator, params.otherMember],
-      created_by: creator,
-      created_at: now,
-      owner: creator,
-      shared_with: pairingSharedWith(creator, params.otherMember),
-    };
-    if (params.title !== undefined) data.title = params.title;
-    return sharedNotebooksStore.create(data);
+  }): Promise<Notebook> => {
+    return notebooksApi.createForMembers({
+      members: [params.otherMember],
+      ...(params.title !== undefined ? { title: params.title } : {}),
+    });
   },
 
   /** Read a notebook from the current user's folder (creator-scoped). For a
@@ -4612,6 +4699,109 @@ export const sharedNotebooksApi = {
       return;
     }
     await sharedNotebooksStore.deleteForMembers(id, notebook.members);
+  },
+
+  /**
+   * Add a member to a notebook (notebooks-gen Phase 1, the locked "promotion
+   * flip"). Recomputes `shared_with = membersSharedWith(members)` on the
+   * notebook (mirrored to every member folder), THEN re-stamps EVERY note and
+   * weekly task currently carrying this `notebook_id` with the new share list,
+   * so the notebook's existing contents become shared with the new member.
+   * Items live in their author's folder, so we route each re-stamp to that
+   * owner. The confirm-dialog warning is a Phase 2/UI concern. Returns the
+   * updated notebook, or null if the notebook can't be found. No-op (returns the
+   * notebook unchanged) if `username` is already a member.
+   */
+  addMember: async (
+    id: string,
+    username: string,
+  ): Promise<Notebook | null> => {
+    if (typeof username !== "string" || username.length === 0) return null;
+    const notebook = await findSharedNotebook(id);
+    if (!notebook) return null;
+    if (notebook.members.includes(username)) return notebook;
+    const members = [...notebook.members, username];
+    const shared_with = membersSharedWith(members);
+    const updated = await sharedNotebooksStore.updateForMembers(id, members, {
+      members,
+      shared_with,
+    });
+    // Promotion flip: re-share every existing item in this notebook.
+    await restampNotebookItems(id, shared_with);
+    return updated;
+  },
+
+  /**
+   * Remove a member from a notebook. Recomputes `shared_with` on the notebook
+   * and on its items so the removed member loses access. The LAST/OWNER member
+   * (members[0]) cannot be removed (returns null no-op); deleting the notebook
+   * entirely is the path for that. Returns the updated notebook, or null if the
+   * notebook can't be found, the user isn't a member, or the target is the
+   * owner.
+   */
+  removeMember: async (
+    id: string,
+    username: string,
+  ): Promise<Notebook | null> => {
+    const notebook = await findSharedNotebook(id);
+    if (!notebook) return null;
+    if (!notebook.members.includes(username)) return null;
+    // Never remove the owner (members[0]); the notebook must always have one.
+    if (username === notebook.members[0]) return null;
+    const members = notebook.members.filter((m) => m !== username);
+    const shared_with = membersSharedWith(members);
+    // Walk the OLD member set so the removed member's mirror copy is rewritten
+    // too (we narrow its share list); then drop its copy.
+    const updated = await sharedNotebooksStore.updateForMembers(
+      id,
+      notebook.members,
+      { members, shared_with },
+    );
+    await sharedNotebooksStore.deleteForMembers(id, [username]);
+    await restampNotebookItems(id, shared_with);
+    return updated;
+  },
+
+  /**
+   * Move a note INTO a notebook (`notebookId` set) or OUT to floating
+   * (`notebookId === null`). Enforces exactly-one-notebook-per-note: a single
+   * `notebook_id` is replaced, never appended. Recomputes the note's
+   * `shared_with` to the target notebook's `membersSharedWith(members)`, or
+   * clears it (back to the note's own owner) when moving to floating. Routes
+   * through the owner-aware note update path. Pass `owner` when moving a note
+   * that lives in another member's folder. Returns the updated note.
+   */
+  moveNoteToNotebook: async (
+    noteId: number,
+    notebookId: string | null,
+    owner?: string,
+  ): Promise<Note> => {
+    if (notebookId === null) {
+      const patch: Partial<Note> = { notebook_id: undefined, shared_with: [] };
+      const updated = await notesStore.updateForUser(
+        noteId,
+        patch,
+        owner ?? (await getCurrentUserCached()),
+      );
+      if (!updated) throw new Error(`Note ${noteId} not found`);
+      return healLegacyNoteShare(updated);
+    }
+    const notebook = await findSharedNotebook(notebookId);
+    if (!notebook) {
+      throw new Error(`Notebook ${notebookId} not found`);
+    }
+    const patch: Partial<Note> = {
+      notebook_id: notebookId,
+      is_shared: notebook.members.length >= 2,
+      shared_with: membersSharedWith(notebook.members),
+    };
+    const updated = await notesStore.updateForUser(
+      noteId,
+      patch,
+      owner ?? (await getCurrentUserCached()),
+    );
+    if (!updated) throw new Error(`Note ${noteId} not found`);
+    return healLegacyNoteShare(updated);
   },
 
   /**
@@ -4662,7 +4852,7 @@ export const sharedNotebooksApi = {
       updated_at: now,
       username: author,
       notebook_id: params.notebookId,
-      shared_with: pairingSharedWith(notebook.members[0], notebook.members[1]),
+      shared_with: membersSharedWith(notebook.members),
     });
   },
 
@@ -4698,7 +4888,7 @@ export const sharedNotebooksApi = {
       created_at: now,
       created_by: author,
       is_shared: true,
-      shared_with: pairingSharedWith(notebook.members[0], notebook.members[1]),
+      shared_with: membersSharedWith(notebook.members),
       notebook_id: params.notebookId,
     });
   },
@@ -4779,6 +4969,10 @@ export const sharedNotebooksApi = {
     return weeklyGoalsStore.updateForUser(params.taskId, patch, params.owner);
   },
 };
+
+/** @deprecated use `notebooksApi` (notebooks-gen Phase 1 renamed the export;
+ *  Phase 2 removes this alias + renames call sites). */
+export const sharedNotebooksApi = notebooksApi;
 
 export const attachmentsApi = {
   /**
