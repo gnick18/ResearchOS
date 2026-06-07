@@ -32,12 +32,19 @@
 import Link from "next/link";
 
 import BeakerBot from "@/components/BeakerBot";
+import Wordmark from "@/components/Wordmark";
 import AppFooter from "@/components/AppFooter";
 import ConfettiLayer from "@/components/animations/ConfettiLayer";
 import { Icon } from "@/components/icons";
 import { sponsors } from "@/data/sponsors";
 
 const GITHUB_SPONSORS_URL = "https://github.com/sponsors/ResearchOS-LLC";
+
+// Brand rainbow ramps, the same ones the welcome page, footer, and avatars use.
+// RAINBOW is the pastel fill (the top ribbon); RAINBOW_TEXT is the saturated ramp
+// clipped into the gradient headline word.
+const RAINBOW = "var(--brand-rainbow)";
+const RAINBOW_TEXT = "var(--brand-rainbow-vivid)";
 
 /* ───────────── tier cards ──────────────────────────────────────────────── */
 
@@ -264,14 +271,14 @@ const OSS_GROUPS: { title: string; body: React.ReactNode }[] = [
 export default function ThanksPage() {
   return (
     <div className="flex min-h-screen flex-col bg-surface-sunken text-foreground">
+      {/* Thin rainbow ribbon pinned to the very top edge, the brand signature. */}
+      <div aria-hidden className="h-[5px] w-full" style={{ background: RAINBOW }} />
+
       {/* Header / back to app */}
       <header className="border-b border-border bg-surface-raised">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <Link
-            href="/"
-            className="text-body font-medium text-foreground-muted underline-offset-2 hover:text-foreground hover:underline"
-          >
-            ResearchOS
+          <Link href="/" aria-label="ResearchOS home" className="inline-flex">
+            <Wordmark size="md" animated={false} className="gap-2.5" />
           </Link>
           <Link
             href="/"
@@ -289,7 +296,18 @@ export default function ThanksPage() {
             <BeakerBot pose="idle" alive animated className="h-28 w-auto" ariaLabel="BeakerBot, the ResearchOS mascot" />
           </div>
           <h1 className="mx-auto mb-3 max-w-2xl text-4xl font-bold leading-tight tracking-tight text-foreground">
-            ResearchOS is free and open because of people like you.
+            ResearchOS is{" "}
+            <span
+              style={{
+                background: RAINBOW_TEXT,
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+                color: "transparent",
+              }}
+            >
+              free and open
+            </span>{" "}
+            because of people like you.
           </h1>
           <p className="mx-auto mb-7 max-w-xl text-title text-foreground-muted">
             The people who fund it and the open-source projects it stands on.
