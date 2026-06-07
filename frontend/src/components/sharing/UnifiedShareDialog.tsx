@@ -39,6 +39,7 @@ import ProjectSendOutsideDialog from "@/components/sharing/ProjectSendOutsideDia
 import SequenceSendOutsideDialog from "@/components/sharing/SequenceSendOutsideDialog";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import { useArchivedUsers } from "@/hooks/useArchivedUsers";
+import SharingServerCopyNotice from "@/components/sharing/SharingServerCopyNotice";
 import type {
   Note,
   Task,
@@ -194,6 +195,7 @@ export default function UnifiedShareDialog({
               <p className="px-6 pt-3 pb-1 text-meta text-foreground-muted leading-relaxed">
                 People in your folder. They see your live copy and your edits.
               </p>
+              <SharingServerCopyNotice className="mx-6 mt-1 mb-2" />
               <LabTabBody
                 target={target}
                 onClose={onClose}
