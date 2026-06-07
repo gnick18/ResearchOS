@@ -672,12 +672,18 @@ def axes(s, ymax, dates, ylabel=""):
 
 
 def milestone_markers(s, dates, milestones, plot_w, plot_h):
-    """Dashed phase-start lines topped with a small numbered badge. Badges match
-    the numbering in phases.svg; they de-collide horizontally so clustered phases
-    stay legible (the roadmap is the legend)."""
+    """Dashed phase-start lines topped with small numbered badges (matching the
+    numbering in phases.svg, which is the legend).
+
+    Phases that started on the SAME day share one dashed line and stack their
+    badges vertically down it, instead of fanning out sideways -- so a day that
+    kicked off eight initiatives reads as one dated column of 5-6-7-8, not a
+    smear of badges disconnected from their date. Distinct-but-adjacent days are
+    nudged apart horizontally just enough that their columns don't touch."""
     idx = {d: i for i, d in enumerate(dates)}
     n = len(dates)
-    marks = []
+    # group phases by the date index they resolve to (same day -> one column)
+    groups = {}
     for m in milestones:
         if m["day"] in idx:
             i = idx[m["day"]]
@@ -686,37 +692,42 @@ def milestone_markers(s, dates, milestones, plot_w, plot_h):
             if not cand:
                 continue
             i = idx[cand[0]]
-        x = PAD_L + (plot_w * i / max(1, n - 1))
-        marks.append((x, m.get("n", "")))
-    marks.sort()
-    # push badges apart so circles don't overlap (forward pass)
+        groups.setdefault(i, []).append(m.get("n", ""))
+    items = sorted(groups.items())                       # by date index
+    xs = [PAD_L + (plot_w * i / max(1, n - 1)) for i, _ in items]
+
+    # nudge whole columns apart so neighbouring-day circles don't overlap
     min_gap = 17
     bx = []
-    for x, _num in marks:
-        nx = x
-        if bx and nx < bx[-1] + min_gap:
-            nx = bx[-1] + min_gap
+    for x in xs:
+        nx = x if not bx else max(x, bx[-1] + min_gap)
         bx.append(nx)
-    # if a late cluster pushed the last badge past the right edge, clamp it back
-    # in-bounds and propagate left so nothing clips the SVG.
     right_max = W - PAD_R - 9
     if bx and bx[-1] > right_max:
         bx[-1] = right_max
         for j in range(len(bx) - 2, -1, -1):
-            if bx[j] > bx[j + 1] - min_gap:
-                bx[j] = bx[j + 1] - min_gap
-    for (x, num), badge_x in zip(marks, bx):
+            bx[j] = min(bx[j], bx[j + 1] - min_gap)
+
+    r, step, cy0 = 7.5, 16.0, PAD_T - 8
+    for (i, nums), x, badge_x in zip(items, xs, bx):
+        # one dashed line at the true date
         s.append(
             f'<line x1="{x:.1f}" y1="{PAD_T}" x2="{x:.1f}" y2="{PAD_T+plot_h}" '
             f'stroke="{PALETTE["accent"]}" stroke-width="1" stroke-dasharray="3 3" opacity="0.45"/>'
         )
-        cy = PAD_T - 8
+        # if the column was nudged off its date, draw a faint guide for the stack
         if abs(badge_x - x) > 0.5:
-            s.append(f'<line x1="{x:.1f}" y1="{PAD_T}" x2="{badge_x:.1f}" y2="{cy+6:.1f}" '
+            s.append(f'<line x1="{x:.1f}" y1="{PAD_T}" x2="{badge_x:.1f}" y2="{cy0+6:.1f}" '
                      f'stroke="{PALETTE["accent"]}" stroke-width="0.7" opacity="0.4"/>')
-        s.append(f'<circle cx="{badge_x:.1f}" cy="{cy:.1f}" r="7.5" fill="{PALETTE["accent"]}"/>')
-        s.append(f'<text x="{badge_x:.1f}" y="{cy+3.5:.1f}" font-size="9.5" font-weight="700" '
-                 f'text-anchor="middle" fill="#ffffff">{num}</text>')
+            s.append(f'<line x1="{badge_x:.1f}" y1="{cy0:.1f}" '
+                     f'x2="{badge_x:.1f}" y2="{cy0 + (len(nums)-1)*step:.1f}" '
+                     f'stroke="{PALETTE["accent"]}" stroke-width="0.7" opacity="0.3"/>')
+        # stack same-day badges down the column
+        for k, num in enumerate(nums):
+            cy = cy0 + k * step
+            s.append(f'<circle cx="{badge_x:.1f}" cy="{cy:.1f}" r="{r}" fill="{PALETTE["accent"]}"/>')
+            s.append(f'<text x="{badge_x:.1f}" y="{cy+3.5:.1f}" font-size="9.5" font-weight="700" '
+                     f'text-anchor="middle" fill="#ffffff">{num}</text>')
 
 
 def _legend(s, items, x=None, y=None):
