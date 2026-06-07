@@ -131,10 +131,10 @@ export default function SequenceTabBar({
     <div
       role="tablist"
       aria-label="Sequence view"
-      className={`flex shrink-0 items-stretch gap-0.5 bg-gray-50 px-1.5 ${
+      className={`flex shrink-0 items-stretch gap-0.5 bg-surface-sunken px-1.5 ${
         position === "top"
-          ? "border-b border-gray-200 pb-0 pt-0.5"
-          : "border-t border-gray-200 py-0.5"
+          ? "border-b border-border pb-0 pt-0.5"
+          : "border-t border-border py-0.5"
       }`}
     >
       {tabs.map((t) => {
@@ -148,8 +148,8 @@ export default function SequenceTabBar({
               onClick={() => onChange(t.id)}
               className={`relative flex items-center gap-1.5 rounded-t-md px-3 py-1.5 text-meta font-medium transition-colors ${
                 selected
-                  ? "bg-white text-sky-700 shadow-[inset_0_-2px_0_0_#0284c7]"
-                  : "text-gray-500 hover:bg-white/70 hover:text-gray-700"
+                  ? "bg-surface text-sky-700 shadow-[inset_0_-2px_0_0_#0284c7] dark:text-sky-300"
+                  : "text-foreground-muted hover:bg-surface/70 hover:text-foreground"
               }`}
             >
               <t.Icon className="h-4 w-4" />
