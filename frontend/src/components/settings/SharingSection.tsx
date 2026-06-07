@@ -1362,10 +1362,10 @@ function ModalShell({
       onClick={onClose}
     >
       <div
-        className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-md w-full mx-4 overflow-hidden"
+        className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-xl w-full mx-4 max-h-[90vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-6 py-4 border-b border-border flex items-start justify-between">
+        <div className="px-6 py-4 border-b border-border flex items-start justify-between shrink-0">
           <div>
             <h3 className="text-title font-semibold text-foreground">{title}</h3>
             {subtitle && (
@@ -1382,7 +1382,7 @@ function ModalShell({
             </button>
           </Tooltip>
         </div>
-        <div className="px-6 py-5">{children}</div>
+        <div className="px-6 py-5 flex-1 overflow-y-auto">{children}</div>
       </div>
     </div>
   );
