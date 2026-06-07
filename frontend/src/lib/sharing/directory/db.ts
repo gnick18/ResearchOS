@@ -278,15 +278,22 @@ function splitCodes(v: string | null): string[] {
 
 /**
  * Creates the directory_profiles table and the pg_trgm-backed trigram search
- * index. Idempotent, safe to call on every request. Must be called AFTER
- * ensureSchema because directory_profiles has a FK to directory_identities.
+ * index. Idempotent, safe to call on every request.
+ *
+ * NOTE: directory_profiles.fingerprint is NOT a FK to directory_identities.
+ * `directory_identities.fingerprint` is a plain (non-unique) column, only
+ * `email_hash` is its primary key, so a foreign key referencing it is invalid
+ * and CREATE TABLE fails with Postgres 42830 ("no unique constraint matching
+ * given keys"), which 500'd every /api/admin/* and directory call. The profile
+ * is keyed by its own fingerprint PK and rows are deleted explicitly
+ * (deleteProfile), so no cascade is needed.
  */
 export async function ensureProfileSchema(): Promise<void> {
   const sql = getSql();
   await sql`CREATE EXTENSION IF NOT EXISTS pg_trgm`;
   await sql`
     CREATE TABLE IF NOT EXISTS directory_profiles (
-      fingerprint        text primary key references directory_identities(fingerprint) on delete cascade,
+      fingerprint        text primary key,
       display_name       text not null,
       affiliation        text,
       affiliation_domain text,
