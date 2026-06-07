@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchAllTasksIncludingShared,
@@ -19,6 +19,7 @@ import {
 import { type DateSignalKind } from "@/components/workbench/ListTaskRow";
 import ExpandableListCard from "@/components/workbench/ExpandableListCard";
 import SharedFromPill from "@/components/workbench/SharedFromPill";
+import type { WorkbenchInitialOpen } from "@/app/workbench/workbench-beaker-source";
 
 const DEFAULT_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -90,9 +91,19 @@ function dateSignalFor(task: Task, today: string): DateSignal {
 
 interface Props {
   projects: Project[];
+  /** BeakerSearch cross-tab jump (spec 4.2). A pending {kind:"list", key} intent
+   *  opens the matching list task in full view once on mount, then clears via
+   *  onInitialOpenConsumed. The full view is used (not the inline accordion) so a
+   *  cross-tab jump lands somewhere visible regardless of bucket scroll. */
+  initialOpen?: WorkbenchInitialOpen;
+  onInitialOpenConsumed?: () => void;
 }
 
-export default function WorkbenchListsPanel({ projects }: Props) {
+export default function WorkbenchListsPanel({
+  projects,
+  initialOpen = null,
+  onInitialOpenConsumed,
+}: Props) {
   const queryClient = useQueryClient();
   // The popup mount path stays alive ONLY as the "Open full view" escape
   // hatch from inside the inline-expanded panel. Card clicks themselves
@@ -166,6 +177,17 @@ export default function WorkbenchListsPanel({ projects }: Props) {
     },
     [projects],
   );
+
+  // BeakerSearch cross-tab jump (spec 4.2). Resolve the pending taskKey to the
+  // full Task (owner-correct) and open its full view once, then clear the intent.
+  useEffect(() => {
+    if (!initialOpen || initialOpen.kind !== "list") return;
+    if (allTasks.length === 0) return;
+    const t = allTasks.find((x) => taskKey(x) === initialOpen.key);
+    if (t) setSelectedTask(t);
+    onInitialOpenConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialOpen, allTasks]);
 
   const handleCreateListTask = useCallback(() => {
     setNewTaskStartDate(null);

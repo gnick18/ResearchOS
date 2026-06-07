@@ -32,6 +32,7 @@ import {
   type WorkbenchSection,
 } from "@/lib/workbench/sectionAssignment";
 import { BEAKERBOT_LAB_USERNAME } from "@/components/onboarding/v4/steps/lab/lib/lab-fake-user";
+import type { WorkbenchInitialOpen } from "@/app/workbench/workbench-beaker-source";
 
 const DEFAULT_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -141,9 +142,18 @@ function freshnessFor(entry: SectionEntry): {
 
 interface Props {
   projects: Project[];
+  /** BeakerSearch cross-tab jump (spec 4.2). A pending {kind:"experiment", key}
+   *  intent opens the matching experiment popup once on mount, then clears via
+   *  onInitialOpenConsumed (modeled on NotesPanel's initialNotebookId). */
+  initialOpen?: WorkbenchInitialOpen;
+  onInitialOpenConsumed?: () => void;
 }
 
-export default function WorkbenchExperimentsPanel({ projects }: Props) {
+export default function WorkbenchExperimentsPanel({
+  projects,
+  initialOpen = null,
+  onInitialOpenConsumed,
+}: Props) {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   // Right-click "Add a comment": opens the popup with the comments rail expanded.
   const [commentIntent, setCommentIntent] = useState(false);
@@ -409,6 +419,18 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
     },
     [allTasks, currentUser],
   );
+
+  // BeakerSearch cross-tab jump (spec 4.2). Once the experiment list is loaded,
+  // resolve the pending taskKey to the full Task (owner-correct, not a bare-id
+  // lookup) and open its popup, then clear the intent. Runs once per intent.
+  useEffect(() => {
+    if (!initialOpen || initialOpen.kind !== "experiment") return;
+    if (allTasks.length === 0) return;
+    const t = allTasks.find((x) => taskKey(x) === initialOpen.key);
+    if (t) setSelectedTask(t);
+    onInitialOpenConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialOpen, allTasks]);
 
   const totalCount = visibleEntries.length;
 

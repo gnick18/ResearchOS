@@ -19,6 +19,7 @@ import MoveToNotebookMenu from "./notebooks/MoveToNotebookMenu";
 import LivingPopup from "@/components/ui/LivingPopup";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import Tooltip from "./Tooltip";
+import type { WorkbenchInitialOpen } from "@/app/workbench/workbench-beaker-source";
 
 // Notes scale controls (notes-scale bot, 2026-06-02). The Notes tab is a
 // pleasant card grid at 7 notes but becomes an unnavigable sea of cards at
@@ -79,12 +80,22 @@ interface NotesPanelProps {
   // Absent / null = the default Personal section. The id only seeds the INITIAL
   // selection; the user can switch away freely afterward.
   initialNotebookId?: string | null;
+  // BeakerSearch cross-tab jump (spec 4.2). A pending {kind:"note"|"notebook"}
+  // intent opens the matching note popup / selects the notebook rail entry once
+  // on mount, then clears via onInitialOpenConsumed. The "__create__" /
+  // "__create-log__" / "__all__" / "__unfiled__" sentinels run the matching
+  // action instead (create a note, jump the rail). This is the same deep-link-
+  // on-mount seam as initialNotebookId, generalized for cross-tab opens.
+  initialOpen?: WorkbenchInitialOpen;
+  onInitialOpenConsumed?: () => void;
 }
 
 export default function NotesPanel({
   isLabMode = false,
   selectedUsernames,
   initialNotebookId = null,
+  initialOpen = null,
+  onInitialOpenConsumed,
 }: NotesPanelProps) {
   const queryClient = useQueryClient();
   const { currentUser } = useCurrentUser();
@@ -301,6 +312,45 @@ export default function NotesPanel({
           ],
     });
   }, [createNoteMutation]);
+
+  // BeakerSearch cross-tab jump (spec 4.2). A pending note / notebook intent
+  // opens the matching note popup or selects the rail entry once on mount; the
+  // sentinels run their action (create a note / running log, jump the rail to
+  // All / Unfiled). Then the intent clears. Personal-mode only (Lab Mode keeps
+  // its own browser); a no-op when nothing pending.
+  useEffect(() => {
+    if (!initialOpen || isLabMode) return;
+    if (initialOpen.kind === "notebook") {
+      if (initialOpen.key === "__all__") setSelection({ kind: "all" });
+      else if (initialOpen.key === "__unfiled__")
+        setSelection({ kind: "unfiled" });
+      else {
+        const id = initialOpen.key.replace(/^notebook-/, "");
+        setSelection({ kind: "notebook", id });
+      }
+      onInitialOpenConsumed?.();
+      return;
+    }
+    if (initialOpen.kind === "note") {
+      if (initialOpen.key === "__create__") {
+        handleCreateNote(false);
+        onInitialOpenConsumed?.();
+        return;
+      }
+      if (initialOpen.key === "__create-log__") {
+        handleCreateNote(true);
+        onInitialOpenConsumed?.();
+        return;
+      }
+      if (notes.length === 0) return; // wait for the list, then resolve.
+      const target = notes.find(
+        (n) => `note-${n.username || currentUser}:${n.id}` === initialOpen.key,
+      );
+      if (target) setSelectedNote(target);
+      onInitialOpenConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialOpen, notes, isLabMode]);
 
   // Handle note update
   const handleNoteUpdate = useCallback((updatedNote: Note) => {

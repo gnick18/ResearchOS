@@ -21,6 +21,11 @@ import { shouldShowOneOnOneTab } from "@/components/workbench/oneOnOneGate";
 import { oneOnOneTabLabel } from "@/lib/one-on-one/label";
 import { Icon } from "@/components/icons";
 import { matchesAnyProjectFilter } from "@/lib/search/filterKey";
+import { useWorkbenchBeakerSource } from "./useWorkbenchBeakerSource";
+import type {
+  WorkbenchPendingOpen,
+  WorkbenchSelection,
+} from "./useWorkbenchBeakerSource";
 import type { Project } from "@/lib/types";
 
 type TabType = "projects" | "experiments" | "notes" | "lists" | "oneonone";
@@ -56,6 +61,28 @@ export default function WorkbenchPage() {
   const [initialNotebookId, setInitialNotebookId] = useState<string | null>(
     null,
   );
+
+  // BeakerSearch cross-tab jump seam (spec 4.2). A palette jump sets pendingOpen
+  // then switches the tab; each panel reads its slice on mount via an initialOpen
+  // prop (modeled on NotesPanel's initialNotebookId), opens the target once, and
+  // calls back to clear pendingOpen. The page also tracks a lightweight focused
+  // selection (the most recently opened entity) so the source's context card +
+  // Suggested actions can name the open thing without rewiring panel state.
+  const [pendingOpen, setPendingOpen] = useState<WorkbenchPendingOpen>(null);
+  const [selection, setSelection] = useState<WorkbenchSelection>(null);
+  // Clearing the pending intent once a panel has consumed it. The same call also
+  // promotes the consumed intent to the focused selection so the source echoes
+  // it (a "__create__" / "__all__" sentinel is a transient action, not a real
+  // selection, so those do not become the selection).
+  const consumePendingOpen = () => {
+    if (
+      pendingOpen &&
+      !pendingOpen.key.startsWith("__")
+    ) {
+      setSelection(pendingOpen);
+    }
+    setPendingOpen(null);
+  };
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -94,6 +121,19 @@ export default function WorkbenchPage() {
   });
   const showOneOnOneTab = shouldShowOneOnOneTab(accountType, oneOnOnes.length);
   const oneOnOneLabelText = oneOnOneTabLabel(isLabHead ? "lab_head" : "lab");
+
+  // Register the Workbench BeakerSearch source while this page is mounted. It is
+  // a READER over the same queries above + the panels' real handlers; the only
+  // page state it drives is setActiveTab + the pendingOpen cross-tab seam.
+  useWorkbenchBeakerSource({
+    activeTab,
+    setActiveTab,
+    setPendingOpen,
+    selection,
+    oneOnOneTabLabel: oneOnOneLabelText,
+    showOneOnOneTab,
+    isLabHead,
+  });
 
   // If the gate hides the tab while it is active (e.g. the viewer's last 1:1
   // was removed), fall back to the default Projects view.
@@ -253,18 +293,47 @@ export default function WorkbenchPage() {
           <WorkbenchProjectsPanel projects={projects} />
         )}
         {activeTab === "notes" && (
-          <NotesPanel initialNotebookId={initialNotebookId} />
+          <NotesPanel
+            initialNotebookId={initialNotebookId}
+            initialOpen={
+              pendingOpen &&
+              (pendingOpen.kind === "note" || pendingOpen.kind === "notebook")
+                ? pendingOpen
+                : null
+            }
+            onInitialOpenConsumed={consumePendingOpen}
+          />
         )}
         {activeTab === "experiments" && (
-          <WorkbenchExperimentsPanel projects={projects} />
+          <WorkbenchExperimentsPanel
+            projects={projects}
+            initialOpen={
+              pendingOpen && pendingOpen.kind === "experiment"
+                ? pendingOpen
+                : null
+            }
+            onInitialOpenConsumed={consumePendingOpen}
+          />
         )}
         {activeTab === "lists" && (
-          <WorkbenchListsPanel projects={projects} />
+          <WorkbenchListsPanel
+            projects={projects}
+            initialOpen={
+              pendingOpen && pendingOpen.kind === "list" ? pendingOpen : null
+            }
+            onInitialOpenConsumed={consumePendingOpen}
+          />
         )}
         {activeTab === "oneonone" && showOneOnOneTab && (
           <WorkbenchOneOnOnePanel
             currentUser={currentUser}
             isLabHead={isLabHead}
+            initialOpen={
+              pendingOpen && pendingOpen.kind === "oneonone"
+                ? pendingOpen
+                : null
+            }
+            onInitialOpenConsumed={consumePendingOpen}
           />
         )}
       </div>
