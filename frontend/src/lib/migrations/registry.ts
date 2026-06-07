@@ -21,6 +21,10 @@ import {
   cleanupOrphanAuthJson,
   AUTH_JSON_CLEANUP_ID,
 } from "./cleanup-auth-json";
+import {
+  reconcileHostedDriftOwnerOnly,
+  RECONCILE_HOSTED_ID,
+} from "./reconcile-hosted";
 import type { Migration, MigrationReport } from "./types";
 
 /** The lib/repair/* functions share a `{ total, repaired, unrecoverable }`
@@ -116,5 +120,12 @@ export const MIGRATIONS: Migration[] = [
     title: "Remove orphaned _auth.json files",
     destructive: true,
     run: cleanupOrphanAuthJson,
+  },
+  {
+    // Owner-only: scoped so every manifest write lands in the current user's own
+    // hosted manifest (no cross-owner write, no shared-manifest race).
+    id: RECONCILE_HOSTED_ID,
+    title: "Reconcile cross-owner project sharing",
+    run: reconcileHostedDriftOwnerOnly,
   },
 ];

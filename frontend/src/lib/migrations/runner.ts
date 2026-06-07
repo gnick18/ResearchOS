@@ -22,7 +22,7 @@ export async function runPendingMigrations(
   for (const migration of MIGRATIONS) {
     if (applied.has(migration.id)) continue;
     try {
-      const report = await migration.run();
+      const report = await migration.run({ username });
       summary.ran.push(migration.id);
       summary.totalChanged += report.changed;
       // Mark applied even when it changed 0: it scanned and found nothing to do,

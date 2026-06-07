@@ -12,6 +12,13 @@ export interface MigrationReport {
   failed: number;
 }
 
+/** Context handed to every migration run. `username` is the connected user the
+ *  pass is running for, used by owner-scoped migrations (e.g. cross-owner
+ *  reconcile runs owner-only). Most migrations ignore it. */
+export interface MigrationContext {
+  username: string;
+}
+
 export interface Migration {
   /** Stable id recorded in the marker, e.g. "method-source-paths-v1". Never
    *  reuse an id for a different migration. */
@@ -19,9 +26,9 @@ export interface Migration {
   /** Human label for logs / the support panel. */
   title: string;
   /** When true, the migration removes data and MUST move-to-trash rather than
-   *  hard-delete (the no-data-loss contract). Phase 1 has none. */
+   *  hard-delete (the no-data-loss contract). */
   destructive?: boolean;
-  run(): Promise<MigrationReport>;
+  run(ctx: MigrationContext): Promise<MigrationReport>;
 }
 
 export interface MigrationRunSummary {
