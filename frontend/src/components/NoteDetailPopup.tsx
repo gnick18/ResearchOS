@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import LivingPopup from "@/components/ui/LivingPopup";
-import type { Note, NoteEntry, NoteRestorePayload } from "@/lib/types";
+import type { Note, NoteEntry, NoteRestorePayload, Notebook } from "@/lib/types";
+import MoveToNotebookMenu from "./notebooks/MoveToNotebookMenu";
 import { ownerScopedNotesApi } from "@/lib/notes/owner-scoped-api";
 import { emitNoteDeleted } from "@/lib/notes/delete-toast-bus";
 import { canDeleteNoteFromPopup } from "@/lib/notes/delete-permission";
@@ -62,6 +63,15 @@ interface NoteDetailPopupProps {
   // Open with the comments rail already expanded + composer focused (used by the
   // right-click "Add a comment" action).
   initialCommentsOpen?: boolean;
+  // Notebooks Generalization Phase 2 (notebooks-gen Phase 2 bot, 2026-06-06):
+  // a "Move to notebook" header control. When `onMoveToNotebook` is provided
+  // (personal mode, not lab mode), the header shows a notebook icon that opens
+  // a picker of the viewer's notebooks + "Remove from notebook". Omitted in Lab
+  // Mode / read-only contexts so the control never appears there.
+  onMoveToNotebook?: (notebookId: string | null) => void;
+  myNotebooks?: Notebook[];
+  sharedNotebooks?: Notebook[];
+  currentUser?: string | null;
 }
 
 export default function NoteDetailPopup({
@@ -71,7 +81,17 @@ export default function NoteDetailPopup({
   onDelete,
   readOnly: propReadOnly = false,
   initialCommentsOpen = false,
+  onMoveToNotebook,
+  myNotebooks = [],
+  sharedNotebooks = [],
+  currentUser: moveCurrentUser,
 }: NoteDetailPopupProps) {
+  // Move-to-notebook menu anchor (notebooks-gen Phase 2). Cursor-anchored from
+  // the header notebook button when `onMoveToNotebook` is wired.
+  const [moveMenuAnchor, setMoveMenuAnchor] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   // Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23): wrap the
   // prop-passed readOnly flag with the PI edit-mode gate. When the active
   // user is a lab head and has unlocked a session for this note, the
@@ -1537,6 +1557,29 @@ export default function NoteDetailPopup({
                   currentFlag={note.flagged ?? null}
                 />
               )}
+              {/* Move-to-notebook (notebooks-gen Phase 2). Personal mode only:
+                  the parent wires `onMoveToNotebook` and the notebook lists.
+                  Hidden in Lab Mode / read-only contexts (no callback). */}
+              {onMoveToNotebook && !readOnly && (
+                <Tooltip label="Move to notebook" placement="bottom">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      const rect = (
+                        e.currentTarget as HTMLElement
+                      ).getBoundingClientRect();
+                      setMoveMenuAnchor({ x: rect.left, y: rect.bottom });
+                    }}
+                    data-testid="note-header-move-notebook"
+                    className="p-2 text-foreground-muted hover:text-brand-action hover:bg-surface-sunken rounded-lg transition-colors"
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                    </svg>
+                  </button>
+                </Tooltip>
+              )}
               {/* Header Delete affordance (delete-affordances bot,
                   2026-05-29): the soft-delete used to live only as a small
                   text link in the footer, which Grant could not find. This
@@ -2227,6 +2270,18 @@ export default function NoteDetailPopup({
             (next to the access state) instead of a floating pill. */}
       </div>
     </LivingPopup>
+    {moveMenuAnchor && onMoveToNotebook && (
+      <MoveToNotebookMenu
+        x={moveMenuAnchor.x}
+        y={moveMenuAnchor.y}
+        currentNotebookId={note.notebook_id}
+        myNotebooks={myNotebooks}
+        sharedNotebooks={sharedNotebooks}
+        currentUser={moveCurrentUser}
+        onMove={(notebookId) => onMoveToNotebook(notebookId)}
+        onClose={() => setMoveMenuAnchor(null)}
+      />
+    )}
     </>
   );
 }

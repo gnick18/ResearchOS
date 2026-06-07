@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { notesApi, labApi } from "@/lib/local-api";
-import type { Note, NoteCreate, LabNote, SharedNotebook } from "@/lib/types";
+import { notesApi, labApi, notebooksApi } from "@/lib/local-api";
+import type { Note, NoteCreate, LabNote, SharedNotebook, Notebook } from "@/lib/types";
 import NoteCard from "./NoteCard";
 import NoteListRow from "./NoteListRow";
 import NoteDetailPopup from "./NoteDetailPopup";
@@ -11,6 +11,10 @@ import ContextMenu from "./ContextMenu";
 import { emitNoteDeleted } from "@/lib/notes/delete-toast-bus";
 import SharedNotebookView from "./notebooks/SharedNotebookView";
 import StartSharedNotebookDialog from "./notebooks/StartSharedNotebookDialog";
+import NotebookRail, { type RailSelection } from "./notebooks/NotebookRail";
+import NotebookFormDialog from "./notebooks/NotebookFormDialog";
+import AddNotebookMemberDialog from "./notebooks/AddNotebookMemberDialog";
+import MoveToNotebookMenu from "./notebooks/MoveToNotebookMenu";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import Tooltip from "./Tooltip";
 
@@ -116,36 +120,58 @@ export default function NotesPanel({
   // Incremental render window: how many notes are currently mounted.
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  // Shared Notebooks Phase 2 (notebooks-phase2 sub-bot, 2026-06-02). The Notes
-  // tab becomes NOTEBOOK-AWARE: a switcher section lists "Personal" (today's
-  // notes, unchanged) plus every shared 1:1 notebook the viewer is in. The
-  // switcher + the shared-notebook view are PERSONAL-mode only; Lab Mode keeps
-  // the existing shared-notes browser untouched.
-  // `null` = the Personal section (default); a notebook id = that notebook's
-  // shared view. Phase 4: seed from `initialNotebookId` so a deep-link from the
-  // Shared Notebook widget lands on the chosen notebook. The id is resolved
-  // against the LIVE list below, so a stale / no-longer-shared id harmlessly
-  // falls back to Personal.
-  const [activeNotebookId, setActiveNotebookId] = useState<string | null>(
-    initialNotebookId,
+  // Notebooks Generalization Phase 2 (notebooks-gen Phase 2 bot, 2026-06-06).
+  // The Notes tab is now a LEFT RAIL of notebook containers (All / Unfiled /
+  // My notebooks / Shared) instead of the old flat "Personal + shared 1:1
+  // switcher". Selecting a rail entry filters the main note pane; the existing
+  // scale controls (view/sort/group/show-more) apply WITHIN the selection.
+  // The rail is PERSONAL-mode only; Lab Mode keeps its separate shared-notes
+  // browser untouched.
+  // The initial selection seeds from `initialNotebookId` (deep-link from the
+  // Shared Notebook home widget); otherwise it defaults to All notes. A stale /
+  // no-longer-visible id harmlessly falls back to All (resolved below).
+  const [selection, setSelection] = useState<RailSelection>(
+    initialNotebookId
+      ? { kind: "notebook", id: initialNotebookId }
+      : { kind: "all" },
   );
   const [showStartDialog, setShowStartDialog] = useState(false);
+  // Notebook create / rename / add-member dialogs + delete confirm.
+  const [notebookForm, setNotebookForm] = useState<
+    { mode: "create" } | { mode: "rename"; notebook: Notebook } | null
+  >(null);
+  const [addMemberFor, setAddMemberFor] = useState<Notebook | null>(null);
+  const [deleteConfirmFor, setDeleteConfirmFor] = useState<Notebook | null>(null);
+  // The "Move to notebook" cursor-anchored menu for a single note.
+  const [moveMenu, setMoveMenu] = useState<{
+    x: number;
+    y: number;
+    note: Note;
+  } | null>(null);
 
-  const { data: sharedNotebooks = [] } = useQuery<SharedNotebook[]>({
+  // Every notebook the viewer participates in (personal + shared), one query.
+  // `getSharedNotebooks` returns all notebooks where the viewer is a member,
+  // including personal (single-member) ones, so we split by member count.
+  const { data: allNotebooks = [] } = useQuery<SharedNotebook[]>({
     queryKey: ["shared-notebooks", "mine"],
     queryFn: () => labApi.getSharedNotebooks(),
     enabled: !isLabMode,
   });
 
-  // Resolve the selected notebook from the LIVE list. If the stored id no
-  // longer matches a notebook the viewer is in (e.g. the other member deleted
-  // it, or the list has not loaded yet), this is simply `null`, so the view
-  // falls back to Personal without any setState-in-effect churn. The stale id
-  // stays in state harmlessly and re-resolves if the notebook reappears.
+  const myNotebooks = allNotebooks.filter((n) => n.members.length === 1);
+  const sharedNotebooks = allNotebooks.filter((n) => n.members.length >= 2);
+
+  // Resolve the selected notebook from the LIVE list. A stale / no-longer-
+  // visible id (the other member deleted it, list not loaded yet) resolves to
+  // null, so the pane falls back to All without setState-in-effect churn.
   const activeNotebook =
-    activeNotebookId !== null
-      ? (sharedNotebooks.find((n) => n.id === activeNotebookId) ?? null)
+    selection.kind === "notebook"
+      ? (allNotebooks.find((n) => n.id === selection.id) ?? null)
       : null;
+  // A shared (2+ member) active notebook uses the dedicated cross-member view
+  // (banner + weekly tasks); a personal one filters the local grid below.
+  const activeSharedNotebook =
+    activeNotebook && activeNotebook.members.length >= 2 ? activeNotebook : null;
 
   // Fetch notes based on mode
   const { data: notes = [], isLoading, error } = useQuery({
@@ -158,17 +184,68 @@ export default function NotesPanel({
       : () => notesApi.list(),
   });
 
-  // Create note mutation
+  // Create note mutation. When a notebook rail entry is active, the note is
+  // created INSIDE that notebook (via notebooksApi.createNote, which stamps the
+  // notebook_id + share list); otherwise it is a normal floating note.
   const createNoteMutation = useMutation({
-    mutationFn: (data: NoteCreate) => notesApi.create(data),
+    mutationFn: (data: NoteCreate) => {
+      if (selection.kind === "notebook" && activeNotebook) {
+        return notebooksApi.createNote({
+          notebookId: activeNotebook.id,
+          title: data.title,
+          description: data.description ?? "",
+          is_running_log: data.is_running_log ?? false,
+          entries: data.entries,
+        });
+      }
+      return notesApi.create(data);
+    },
     onSuccess: (newNote) => {
       queryClient.invalidateQueries({ queryKey: ["notes"] });
+      queryClient.invalidateQueries({ queryKey: ["notebook"] });
       setSelectedNote(newNote);
       setShowNewNoteDropdown(false);
     },
     onError: (error) => {
       console.error("Failed to create note:", error);
       alert("Failed to create note. Please try again.");
+    },
+  });
+
+  // Move a note into / out of a notebook (single-notebook-per-note; replaces).
+  const moveNoteMutation = useMutation({
+    mutationFn: ({
+      noteId,
+      notebookId,
+      owner,
+    }: {
+      noteId: number;
+      notebookId: string | null;
+      owner?: string;
+    }) => notebooksApi.moveNoteToNotebook(noteId, notebookId, owner),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      queryClient.invalidateQueries({ queryKey: ["notebook"] });
+      if (selectedNote?.id === updated.id) setSelectedNote(updated);
+    },
+    onError: (error) => {
+      console.error("Failed to move note:", error);
+      alert("Could not move the note. Please try again.");
+    },
+  });
+
+  // Delete a notebook (container only; its notes become floating-readable per
+  // the API). Invalidates the notebook list + notes.
+  const deleteNotebookMutation = useMutation({
+    mutationFn: (id: string) => notebooksApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["shared-notebooks", "mine"] });
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      setSelection({ kind: "all" });
+    },
+    onError: (error) => {
+      console.error("Failed to delete notebook:", error);
+      alert("Could not delete the notebook. Please try again.");
     },
   });
 
@@ -261,8 +338,24 @@ export default function NotesPanel({
     }
   }, [deleteNoteMutation, selectedNote, notes, queryClient]);
 
-  // Filter notes based on search and type
+  // Rail bucket counts (over the full visible list, independent of the active
+  // selection so the rail always shows totals). `notebook_id` lives on `Note`;
+  // narrow with an `in` check for the union with `LabNote`.
+  const notebookIdOf = (note: Note | LabNote): string | undefined =>
+    "notebook_id" in note ? (note as Note).notebook_id : undefined;
+  const allCount = notes.length;
+  const unfiledCount = notes.filter((n) => !notebookIdOf(n)).length;
+
+  // Filter notes based on the active rail selection, search, and type. A shared
+  // (2+ member) notebook is rendered by SharedNotebookView instead (it reads
+  // cross-member notes), so the grid filter only ever narrows the LOCAL list to
+  // All / Unfiled / a PERSONAL notebook.
   const filteredNotes = notes.filter((note) => {
+    // Rail selection filter
+    if (selection.kind === "unfiled" && notebookIdOf(note)) return false;
+    if (selection.kind === "notebook" && notebookIdOf(note) !== selection.id)
+      return false;
+
     // Type filter
     if (filterType === "single" && note.is_running_log) return false;
     if (filterType === "running" && !note.is_running_log) return false;
@@ -372,7 +465,7 @@ export default function NotesPanel({
   // window. Grouping + view-mode don't change membership, so they're excluded.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [searchQuery, filterType, sharedOnly, sortKey]);
+  }, [searchQuery, filterType, sharedOnly, sortKey, selection]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -410,95 +503,148 @@ export default function NotesPanel({
     );
   }
 
-  // The notebook switcher: "Personal" + one chip per shared notebook + a
-  // "Start a shared notebook" action. Personal-mode only (Lab Mode renders the
-  // existing shared-notes browser, no switcher).
-  const notebookSwitcher = !isLabMode ? (
-    <div
-      className="flex flex-wrap items-center gap-2 mb-4"
-      data-testid="notebook-switcher"
-    >
-      <button
-        type="button"
-        onClick={() => setActiveNotebookId(null)}
-        aria-pressed={activeNotebook === null}
-        data-testid="notebook-switch-personal"
-        className={`px-3 py-1.5 text-body rounded-lg transition-colors ${
-          activeNotebook === null
-            ? "bg-emerald-100 text-emerald-700"
-            : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
-        }`}
-      >
-        Personal
-      </button>
-      {sharedNotebooks.map((nb) => {
-        const partner =
-          nb.members.find((m) => m !== currentUser) ?? nb.members[1];
-        const label = nb.title?.trim() ? nb.title : `1:1 with ${partner}`;
-        const isActive = activeNotebook?.id === nb.id;
-        return (
-          <button
-            key={nb.id}
-            type="button"
-            onClick={() => setActiveNotebookId(nb.id)}
-            aria-pressed={isActive}
-            data-testid={`notebook-switch-${nb.id}`}
-            className={`px-3 py-1.5 text-body rounded-lg transition-colors max-w-[220px] truncate ${
-              isActive
-                ? "bg-sky-100 text-sky-700"
-                : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
-            }`}
-          >
-            {label}
-          </button>
-        );
-      })}
-      <button
-        type="button"
-        onClick={() => setShowStartDialog(true)}
-        data-testid="notebook-start-button"
-        className="flex items-center gap-1.5 px-3 py-1.5 text-body rounded-lg border border-dashed border-border text-foreground-muted hover:border-sky-400 hover:text-sky-600 transition-colors"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-        </svg>
-        Start a shared notebook
-      </button>
-    </div>
+  // The notebook left rail (personal-mode only). Lab Mode renders no rail.
+  const rail = !isLabMode ? (
+    <NotebookRail
+      selection={selection}
+      onSelect={setSelection}
+      myNotebooks={myNotebooks}
+      sharedNotebooks={sharedNotebooks}
+      currentUser={currentUser}
+      allCount={allCount}
+      unfiledCount={unfiledCount}
+      onNewNotebook={() => setNotebookForm({ mode: "create" })}
+      onStartShared={() => setShowStartDialog(true)}
+      onRenameNotebook={(nb) => setNotebookForm({ mode: "rename", notebook: nb })}
+      onDeleteNotebook={(nb) => setDeleteConfirmFor(nb)}
+      onAddMember={(nb) => setAddMemberFor(nb)}
+    />
   ) : null;
 
-  const startDialog =
-    !isLabMode && showStartDialog ? (
-      <StartSharedNotebookDialog
-        existingPartners={
-          new Set(
-            sharedNotebooks
-              .map((nb) => nb.members.find((m) => m !== currentUser))
-              .filter((m): m is string => Boolean(m)),
-          )
-        }
-        onClose={() => setShowStartDialog(false)}
-        onCreated={(nb) => {
-          setShowStartDialog(false);
-          queryClient.invalidateQueries({
-            queryKey: ["shared-notebooks", "mine"],
-          });
-          setActiveNotebookId(nb.id);
-        }}
-      />
+  // Notebook dialogs (create / rename / add-member / delete confirm), shared by
+  // every render path below.
+  const notebookDialogs =
+    !isLabMode ? (
+      <>
+        {showStartDialog && (
+          <StartSharedNotebookDialog
+            existingPartners={
+              new Set(
+                sharedNotebooks
+                  .map((nb) => nb.members.find((m) => m !== currentUser))
+                  .filter((m): m is string => Boolean(m)),
+              )
+            }
+            onClose={() => setShowStartDialog(false)}
+            onCreated={(nb) => {
+              setShowStartDialog(false);
+              queryClient.invalidateQueries({
+                queryKey: ["shared-notebooks", "mine"],
+              });
+              setSelection({ kind: "notebook", id: nb.id });
+            }}
+          />
+        )}
+        {notebookForm && (
+          <NotebookFormDialog
+            mode={notebookForm.mode}
+            notebook={
+              notebookForm.mode === "rename" ? notebookForm.notebook : undefined
+            }
+            onClose={() => setNotebookForm(null)}
+            onSaved={(nb) => {
+              const wasCreate = notebookForm.mode === "create";
+              setNotebookForm(null);
+              queryClient.invalidateQueries({
+                queryKey: ["shared-notebooks", "mine"],
+              });
+              if (wasCreate) setSelection({ kind: "notebook", id: nb.id });
+            }}
+          />
+        )}
+        {addMemberFor && (
+          <AddNotebookMemberDialog
+            notebook={addMemberFor}
+            noteCount={
+              notes.filter((n) => notebookIdOf(n) === addMemberFor.id).length
+            }
+            onClose={() => setAddMemberFor(null)}
+            onAdded={() => {
+              setAddMemberFor(null);
+              queryClient.invalidateQueries({
+                queryKey: ["shared-notebooks", "mine"],
+              });
+              queryClient.invalidateQueries({ queryKey: ["notes"] });
+              queryClient.invalidateQueries({ queryKey: ["notebook"] });
+            }}
+          />
+        )}
+        {deleteConfirmFor && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Delete notebook"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setDeleteConfirmFor(null);
+            }}
+          >
+            <div className="w-full max-w-md rounded-xl bg-surface-raised shadow-xl">
+              <div className="border-b border-border px-5 py-4">
+                <h2 className="text-title font-semibold text-foreground">
+                  Delete notebook
+                </h2>
+              </div>
+              <div className="px-5 py-4 text-body text-foreground-muted">
+                Delete{" "}
+                <span className="font-medium text-foreground">
+                  {deleteConfirmFor.title?.trim() || "this notebook"}
+                </span>
+                ? The notes inside it are not deleted, they become unfiled.
+                {deleteConfirmFor.members.length >= 2 && (
+                  <span>
+                    {" "}
+                    This removes the notebook for every member.
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmFor(null)}
+                  className="rounded-lg px-4 py-2 text-body font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  data-testid="notebook-delete-confirm"
+                  onClick={() => {
+                    deleteNotebookMutation.mutate(deleteConfirmFor.id);
+                    setDeleteConfirmFor(null);
+                  }}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-body font-medium text-white transition-colors hover:bg-red-700"
+                >
+                  Delete notebook
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
     ) : null;
 
-  // When a shared notebook is selected, render the switcher + its dedicated
-  // view in place of the personal notes list. Personal stays byte-for-byte
-  // unchanged.
-  if (!isLabMode && activeNotebook) {
+  // When a SHARED (2+ member) notebook is selected, render the rail + its
+  // dedicated cross-member view (banner + weekly tasks) in place of the local
+  // grid. Personal notebooks and All / Unfiled stay in the grid below.
+  if (!isLabMode && activeSharedNotebook) {
     return (
-      <div className="h-full flex flex-col">
-        {notebookSwitcher}
+      <div className="h-full flex gap-4">
+        {rail}
         <div className="flex-1 min-h-0">
-          <SharedNotebookView notebook={activeNotebook} />
+          <SharedNotebookView notebook={activeSharedNotebook} />
         </div>
-        {startDialog}
+        {notebookDialogs}
       </div>
     );
   }
@@ -615,8 +761,9 @@ export default function NotesPanel({
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {notebookSwitcher}
+    <div className={isLabMode ? "h-full flex flex-col" : "h-full flex gap-4"}>
+      {rail}
+      <div className="h-full flex flex-1 min-w-0 flex-col">
       {/* Header with search and filters. Wraps gracefully on tablet widths:
           the row flex-wraps, and the related controls are kept in coherent
           clusters (type filters; sort + group-by + view toggle) so the wrap
@@ -876,7 +1023,7 @@ export default function NotesPanel({
         </div>
       )}
 
-      {/* Note Detail Popup */}
+      {/* Note tile context menu */}
       {noteMenu && (
         <ContextMenu
           x={noteMenu.x}
@@ -892,7 +1039,45 @@ export default function NotesPanel({
               ),
               onClick: () => openNoteComments(noteMenu.note),
             },
+            // Move-to-notebook: personal mode only (Lab Mode is read-only).
+            ...(!isLabMode
+              ? [
+                  {
+                    label: "Move to notebook",
+                    icon: (
+                      <svg className="h-4 w-4 text-foreground-muted" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                      </svg>
+                    ),
+                    onClick: () => {
+                      const { x, y, note } = noteMenu;
+                      setMoveMenu({ x, y, note: note as Note });
+                    },
+                  },
+                ]
+              : []),
           ]}
+        />
+      )}
+
+      {/* Move-to-notebook picker (single note). */}
+      {moveMenu && (
+        <MoveToNotebookMenu
+          x={moveMenu.x}
+          y={moveMenu.y}
+          currentNotebookId={moveMenu.note.notebook_id}
+          myNotebooks={myNotebooks}
+          sharedNotebooks={sharedNotebooks}
+          currentUser={currentUser}
+          onMove={(notebookId) =>
+            moveNoteMutation.mutate({
+              noteId: moveMenu.note.id,
+              notebookId,
+              owner: moveMenu.note.username || undefined,
+            })
+          }
+          onClose={() => setMoveMenu(null)}
         />
       )}
 
@@ -907,10 +1092,24 @@ export default function NotesPanel({
           onDelete={handleNoteDelete}
           readOnly={isLabMode}
           initialCommentsOpen={noteCommentIntent}
+          {...(!isLabMode
+            ? {
+                onMoveToNotebook: (notebookId: string | null) =>
+                  moveNoteMutation.mutate({
+                    noteId: (selectedNote as Note).id,
+                    notebookId,
+                    owner: (selectedNote as Note).username || undefined,
+                  }),
+                myNotebooks,
+                sharedNotebooks,
+                currentUser,
+              }
+            : {})}
         />
       )}
+      </div>
 
-      {startDialog}
+      {notebookDialogs}
     </div>
   );
 }

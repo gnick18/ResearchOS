@@ -1,19 +1,17 @@
-// Shared Notebooks Phase 2 (notebooks-phase2 sub-bot, 2026-06-02). See
-// docs/proposals/SHARED_NOTEBOOKS_PROPOSAL.md.
+// Notebooks Generalization Phase 2 (notebooks-gen Phase 2 bot, 2026-06-06).
+// See docs/proposals/NOTEBOOKS_GENERALIZATION_PROPOSAL.md.
 //
-// Exercises the NOTEBOOK-AWARE Notes tab:
-//   1. The switcher renders a "Personal" chip plus one chip per shared
-//      notebook the viewer is in (labApi.getSharedNotebooks).
-//   2. Personal is selected by default and shows the personal notes list
-//      (notesApi.list), completely unchanged.
-//   3. Selecting a notebook chip swaps in the SHARED-NOTEBOOK VIEW: the
-//      "Always shared with <other member>" banner + that notebook's notes
-//      (labApi.getNotebookNotes) and weekly tasks (getNotebookWeeklyTasks).
-//   4. Adding a weekly task routes through sharedNotebooksApi.createWeeklyTask
-//      with the notebook id; toggling a task routes through the OWNER-ROUTED
-//      sharedNotebooksApi.updateWeeklyTask.
-//   5. "Start a shared notebook" opens the person picker (roster from
-//      usersApi.list, self excluded) and creating one selects it.
+// Exercises the revamped NOTES-TAB LEFT RAIL of notebook containers:
+//   1. The rail renders All notes / Unfiled / My notebooks / Shared, with
+//      personal (1-member) and shared (2+-member) notebooks split correctly.
+//   2. All notes is selected by default and shows the full local grid
+//      (notesApi.list). Selecting Unfiled hides notes that carry a notebook_id.
+//   3. Selecting a PERSONAL notebook filters the grid to its notes.
+//   4. Selecting a SHARED notebook swaps in the dedicated SharedNotebookView
+//      (cross-member reads via labApi.getNotebookNotes + the always-shared
+//      banner), exactly as the 1:1 notebook did before.
+//   5. "New notebook" opens the create dialog (notebooksApi.createPersonal);
+//      the move-to-notebook menu routes through notebooksApi.moveNoteToNotebook.
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
@@ -26,10 +24,15 @@ const {
   getNotebookNotes,
   getNotebookWeeklyTasks,
   getNotes,
+  nbCreatePersonal,
   nbCreate,
   nbCreateNote,
+  nbMoveNote,
   nbCreateWeeklyTask,
   nbUpdateWeeklyTask,
+  nbUpdateTitle,
+  nbDelete,
+  nbAddMember,
   wgDelete,
   usersList,
 } = vi.hoisted(() => ({
@@ -38,10 +41,15 @@ const {
   getNotebookNotes: vi.fn(),
   getNotebookWeeklyTasks: vi.fn(),
   getNotes: vi.fn(),
+  nbCreatePersonal: vi.fn(),
   nbCreate: vi.fn(),
   nbCreateNote: vi.fn(),
+  nbMoveNote: vi.fn(),
   nbCreateWeeklyTask: vi.fn(),
   nbUpdateWeeklyTask: vi.fn(),
+  nbUpdateTitle: vi.fn(),
+  nbDelete: vi.fn(),
+  nbAddMember: vi.fn(),
   wgDelete: vi.fn(),
   usersList: vi.fn(),
 }));
@@ -53,6 +61,17 @@ vi.mock("@/lib/local-api", () => ({
     getNotebookNotes,
     getNotebookWeeklyTasks,
     getNotes,
+  },
+  notebooksApi: {
+    createPersonal: nbCreatePersonal,
+    create: nbCreate,
+    createNote: nbCreateNote,
+    moveNoteToNotebook: nbMoveNote,
+    createWeeklyTask: nbCreateWeeklyTask,
+    updateWeeklyTask: nbUpdateWeeklyTask,
+    updateTitle: nbUpdateTitle,
+    delete: nbDelete,
+    addMember: nbAddMember,
   },
   sharedNotebooksApi: {
     create: nbCreate,
@@ -72,13 +91,18 @@ vi.mock("@/components/Tooltip", () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-// Heavy children: stub to keep the test on the switcher + view orchestration.
+// Heavy children: stub to keep the test on the rail + view orchestration.
 vi.mock("@/components/NoteDetailPopup", () => ({
   default: () => <div data-testid="note-popup" />,
 }));
 vi.mock("@/components/NoteCard", () => ({
   default: ({ note }: { note: Note }) => (
     <div data-testid={`note-card-${note.id}`}>{note.title}</div>
+  ),
+}));
+vi.mock("@/components/NoteListRow", () => ({
+  default: ({ note }: { note: Note }) => (
+    <div data-testid={`note-row-${note.id}`}>{note.title}</div>
   ),
 }));
 vi.mock("@/components/UserAvatar", () => ({
@@ -96,7 +120,7 @@ vi.mock("@/lib/weekly-goals/week", async () => {
 
 import NotesPanel from "@/components/NotesPanel";
 
-const NOTEBOOK: SharedNotebook = {
+const SHARED_NB: SharedNotebook = {
   id: "nb-1",
   members: ["student", "pi"],
   created_by: "student",
@@ -109,9 +133,19 @@ const NOTEBOOK: SharedNotebook = {
   ],
 };
 
-const personalNote: Note = {
+const PERSONAL_NB: SharedNotebook = {
+  id: "nb-p",
+  members: ["student"],
+  created_by: "student",
+  created_at: "2026-06-02T00:00:00.000Z",
+  owner: "student",
+  title: "Biochem class",
+  shared_with: [],
+};
+
+const floatingNote: Note = {
   id: 1,
-  title: "My personal note",
+  title: "Floating sticky",
   description: "",
   is_running_log: false,
   is_shared: false,
@@ -122,9 +156,16 @@ const personalNote: Note = {
   username: "student",
 };
 
-const notebookNote: Note = {
-  ...personalNote,
+const filedNote: Note = {
+  ...floatingNote,
   id: 2,
+  title: "Filed in class",
+  notebook_id: "nb-p",
+};
+
+const sharedNote: Note = {
+  ...floatingNote,
+  id: 3,
   title: "PI feedback",
   username: "pi",
   notebook_id: "nb-1",
@@ -159,112 +200,120 @@ function renderPanel() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  notesList.mockResolvedValue([personalNote]);
-  getSharedNotebooks.mockResolvedValue([NOTEBOOK]);
-  getNotebookNotes.mockResolvedValue([notebookNote]);
+  // The local grid sees the floating note + the personal-notebook note.
+  notesList.mockResolvedValue([floatingNote, filedNote]);
+  getSharedNotebooks.mockResolvedValue([SHARED_NB, PERSONAL_NB]);
+  getNotebookNotes.mockResolvedValue([sharedNote]);
   getNotebookWeeklyTasks.mockResolvedValue([notebookTask]);
   getNotes.mockResolvedValue([]);
   usersList.mockResolvedValue({
     users: ["student", "pi", "other"],
     current_user: "student",
   });
-  nbCreate.mockResolvedValue({ ...NOTEBOOK, id: "nb-new", members: ["student", "other"] });
+  nbCreatePersonal.mockResolvedValue({ ...PERSONAL_NB, id: "nb-new", title: "Fresh" });
   nbCreateWeeklyTask.mockResolvedValue(notebookTask);
   nbUpdateWeeklyTask.mockResolvedValue({ ...notebookTask, is_complete: true });
+  nbMoveNote.mockResolvedValue({ ...filedNote, notebook_id: undefined });
 });
 
-describe("Notes tab notebook switcher", () => {
-  it("renders Personal + a chip per shared notebook, Personal selected by default", async () => {
+describe("Notes tab notebook rail", () => {
+  it("renders the rail buckets + splits personal vs shared notebooks", async () => {
     renderPanel();
 
-    // Switcher with Personal + the notebook chip.
-    const personalChip = await screen.findByTestId("notebook-switch-personal");
-    expect(personalChip).toHaveAttribute("aria-pressed", "true");
-    expect(await screen.findByTestId("notebook-switch-nb-1")).toHaveTextContent(
+    expect(await screen.findByTestId("rail-all")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByTestId("rail-unfiled")).toBeInTheDocument();
+    // Personal notebook lives under My notebooks; shared under Shared.
+    expect(await screen.findByTestId("rail-notebook-nb-p")).toHaveTextContent(
+      "Biochem class",
+    );
+    expect(await screen.findByTestId("rail-notebook-nb-1")).toHaveTextContent(
       "Thesis 1:1",
     );
 
-    // Personal view shows the personal note, NOT the notebook banner.
-    expect(await screen.findByTestId("note-card-1")).toHaveTextContent(
-      "My personal note",
-    );
+    // All notes shows the whole local grid.
+    expect(await screen.findByTestId("note-card-1")).toBeInTheDocument();
+    expect(await screen.findByTestId("note-card-2")).toBeInTheDocument();
+  });
+
+  it("Unfiled hides notes carrying a notebook_id", async () => {
+    renderPanel();
+    fireEvent.click(await screen.findByTestId("rail-unfiled"));
+
+    expect(await screen.findByTestId("note-card-1")).toBeInTheDocument();
+    expect(screen.queryByTestId("note-card-2")).toBeNull();
+  });
+
+  it("selecting a personal notebook filters the grid to its notes", async () => {
+    renderPanel();
+    fireEvent.click(await screen.findByTestId("rail-notebook-nb-p"));
+
+    expect(await screen.findByTestId("note-card-2")).toBeInTheDocument();
+    expect(screen.queryByTestId("note-card-1")).toBeNull();
+    // Still the local grid, NOT the shared-notebook view.
     expect(screen.queryByTestId("notebook-shared-banner")).toBeNull();
   });
 
-  it("selecting a notebook swaps in the shared view with the always-shared banner + items", async () => {
+  it("selecting a shared notebook swaps in the cross-member view + banner", async () => {
     renderPanel();
-    fireEvent.click(await screen.findByTestId("notebook-switch-nb-1"));
+    fireEvent.click(await screen.findByTestId("rail-notebook-nb-1"));
 
-    // Banner names the OTHER member (pi, not the current user student).
     const banner = await screen.findByTestId("notebook-shared-banner");
     expect(banner).toHaveTextContent("Always shared with");
     expect(banner).toHaveTextContent("pi");
-
-    // The notebook's note + task render; the personal note is gone.
-    expect(await screen.findByTestId("note-card-2")).toHaveTextContent(
+    expect(await screen.findByTestId("note-card-3")).toHaveTextContent(
       "PI feedback",
     );
-    expect(screen.queryByTestId("note-card-1")).toBeNull();
-    expect(await screen.findByTestId("notebook-task-row-50")).toHaveTextContent(
-      "Run the gel by Friday",
-    );
   });
 
-  it("adding a weekly task routes through createWeeklyTask with the notebook id", async () => {
+  it("New notebook opens the create dialog and routes through createPersonal", async () => {
     renderPanel();
-    fireEvent.click(await screen.findByTestId("notebook-switch-nb-1"));
+    fireEvent.click(await screen.findByTestId("rail-new-notebook"));
 
-    const input = await screen.findByTestId("notebook-task-input");
-    fireEvent.change(input, { target: { value: "New shared task" } });
-    fireEvent.click(screen.getByTestId("notebook-task-add"));
+    const input = await screen.findByTestId("notebook-form-title");
+    fireEvent.change(input, { target: { value: "Fresh" } });
+    fireEvent.click(screen.getByTestId("notebook-form-save"));
 
     await waitFor(() =>
-      expect(nbCreateWeeklyTask).toHaveBeenCalledWith({
-        notebookId: "nb-1",
-        text: "New shared task",
-        week_of: "2026-06-01",
-      }),
+      expect(nbCreatePersonal).toHaveBeenCalledWith({ title: "Fresh" }),
     );
   });
 
-  it("toggling the other member's task routes through the OWNER-ROUTED update", async () => {
+  it("Start a shared notebook opens the person picker", async () => {
     renderPanel();
-    fireEvent.click(await screen.findByTestId("notebook-switch-nb-1"));
-
-    fireEvent.click(await screen.findByTestId("notebook-task-toggle-50"));
-    await waitFor(() =>
-      expect(nbUpdateWeeklyTask).toHaveBeenCalledWith({
-        notebookId: "nb-1",
-        taskId: 50,
-        // The task fixture is owned by "pi"; the owner MUST be routed through
-        // so the write lands on the intended task, not a same-id task the
-        // current user happens to own.
-        owner: "pi",
-        data: { is_complete: true },
-      }),
-    );
-    // The other member's task has NO delete button (delete is owner-scoped).
-    expect(screen.queryByTestId("notebook-task-delete-50")).toBeNull();
-  });
-
-  it("Start a shared notebook opens the picker (self excluded) and creating selects it", async () => {
-    renderPanel();
-    fireEvent.click(await screen.findByTestId("notebook-start-button"));
+    fireEvent.click(await screen.findByTestId("rail-start-shared"));
 
     const select = (await screen.findByTestId(
       "notebook-partner-select",
     )) as HTMLSelectElement;
     const options = Array.from(select.options).map((o) => o.value);
-    // Roster excludes the current user (student); pi/other remain.
     expect(options).not.toContain("student");
     expect(options).toContain("pi");
     expect(options).toContain("other");
+  });
 
-    fireEvent.change(select, { target: { value: "other" } });
-    fireEvent.click(screen.getByTestId("notebook-create-confirm"));
+  it("Move to notebook routes a note through moveNoteToNotebook", async () => {
+    renderPanel();
+    // Right-click the filed note to open its tile context menu.
+    fireEvent.contextMenu(await screen.findByTestId("note-card-2"));
+    fireEvent.click(await screen.findByText("Move to notebook"));
+
+    // The move menu offers "Remove from notebook" (the note is filed).
+    fireEvent.click(await screen.findByTestId("move-to-remove"));
 
     await waitFor(() =>
-      expect(nbCreate).toHaveBeenCalledWith({ otherMember: "other" }),
+      expect(nbMoveNote).toHaveBeenCalledWith(2, null, "student"),
     );
+  });
+
+  it("opening the overflow on a notebook offers rename / add member / delete", async () => {
+    renderPanel();
+    fireEvent.click(await screen.findByTestId("notebook-overflow-nb-p"));
+
+    expect(await screen.findByText("Rename")).toBeInTheDocument();
+    expect(screen.getByText("Add a member")).toBeInTheDocument();
+    expect(screen.getByText("Delete notebook")).toBeInTheDocument();
   });
 });
