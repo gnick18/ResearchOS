@@ -109,6 +109,15 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // with Yes (login) or No (expand to the full picker so a new person can add an
   // account). Expanding sticks for the rest of this screen's life.
   const [expandPicker, setExpandPicker] = useState(false);
+  // Identity model simplification Phase 2 (2026-06-07): a one-time warning shown
+  // when the user adds the SECOND account to a folder that has one user today.
+  // Crossing 1 -> 2 turns the folder into a shared lab (lab mode is now derived
+  // from "2 or more users"), and the consequence is that every user, including
+  // the person already here, must set up an account with a login before the app
+  // features work. The warning informs before that transition; the ref remembers
+  // the acknowledgement so the re-invoked create proceeds.
+  const [showSharedFolderWarn, setShowSharedFolderWarn] = useState(false);
+  const sharedFolderWarnAckedRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [loggingIn, setLoggingIn] = useState<string | null>(null);
   const [mainUser, setMainUser] = useState<string | null>(null);
@@ -748,6 +757,15 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     // picker isn't the right surface to surface the collision message.
     if (users.includes(username)) {
       setError(`User '${username}' already exists. Pick a different name.`);
+      return;
+    }
+
+    // Adding the SECOND user to a one-user folder makes it a shared lab. Warn
+    // once before that transition so the user understands every account
+    // (including the one already here) will then need a login to use features.
+    // The ack ref lets the modal's Continue re-invoke this and skip the gate.
+    if (users.length === 1 && !sharedFolderWarnAckedRef.current) {
+      setShowSharedFolderWarn(true);
       return;
     }
 
@@ -1953,6 +1971,50 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 data-testid="profile-step-skip"
               >
                 Skip for now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Shared-folder warning, shown once before the SECOND user is added to a
+          one-user folder (the 1 -> 2 transition that makes it a shared lab). */}
+      {showSharedFolderWarn && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div
+            className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-sm w-full mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-border">
+              <h3 className="text-title font-semibold text-foreground">
+                This becomes a shared lab folder
+              </h3>
+              <p className="text-meta text-foreground-muted mt-0.5 leading-relaxed">
+                Adding a second user turns this folder into a shared lab. Once it
+                is shared, every user{soleUser ? `, including ${soleUser},` : ""}{" "}
+                has to set up an account with a login before the app features
+                work. You can still continue.
+              </p>
+            </div>
+            <div className="px-6 py-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowSharedFolderWarn(false)}
+                className="flex-1 py-2 text-body font-medium text-foreground-muted hover:text-foreground rounded-lg border border-border hover:bg-surface-sunken"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  sharedFolderWarnAckedRef.current = true;
+                  setShowSharedFolderWarn(false);
+                  void handleCreateUser();
+                }}
+                className="flex-1 py-2 text-body font-semibold text-white bg-sky-600 hover:bg-sky-500 rounded-lg"
+                data-testid="shared-folder-warn-continue"
+              >
+                Continue
               </button>
             </div>
           </div>
