@@ -44,33 +44,48 @@ export interface Env {
   COLLAB_BACKUPS: R2Bucket;
 }
 
+/** Permissive CORS for the cross-origin /snapshot fetch from the app. The
+ *  session id is the capability; the response carries only that doc's bytes. */
+const CORS_HEADERS = { "Access-Control-Allow-Origin": "*" };
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-
-    if (url.pathname !== "/ws") {
-      return new Response("Not found", { status: 404 });
-    }
-
-    if (request.headers.get("Upgrade") !== "websocket") {
-      return new Response("This endpoint requires a WebSocket upgrade", {
-        status: 426,
-        headers: { Upgrade: "websocket" },
-      });
-    }
-
     const sessionId = url.searchParams.get("session");
-    if (!sessionId || sessionId.trim() === "") {
-      return new Response("Missing required query parameter: session", {
-        status: 400,
-      });
+
+    // Live transport: WebSocket fan-out + persistence.
+    if (url.pathname === "/ws") {
+      if (request.headers.get("Upgrade") !== "websocket") {
+        return new Response("This endpoint requires a WebSocket upgrade", {
+          status: 426,
+          headers: { Upgrade: "websocket" },
+        });
+      }
+      if (!sessionId || sessionId.trim() === "") {
+        return new Response("Missing required query parameter: session", {
+          status: 400,
+        });
+      }
+      const stub = env.COLLAB_ROOM.get(env.COLLAB_ROOM.idFromName(sessionId));
+      return stub.fetch(request);
     }
 
-    // Each sessionId maps to its own DO instance (isolated room). idFromName is
-    // deterministic, so any client that knows the sessionId joins the same room.
-    const id = env.COLLAB_ROOM.idFromName(sessionId);
-    const stub = env.COLLAB_ROOM.get(id);
-    return stub.fetch(request);
+    // Canonical snapshot read (storage-migration phase 1 chunk 5). The client
+    // adopts this as its base for a collab doc instead of reading Neon, which
+    // is the fork-fix source of truth (Option B server-canonical), now served
+    // by the DO. GET only; the session id is the capability.
+    if (url.pathname === "/snapshot") {
+      if (!sessionId || sessionId.trim() === "") {
+        return new Response("Missing required query parameter: session", {
+          status: 400,
+          headers: CORS_HEADERS,
+        });
+      }
+      const stub = env.COLLAB_ROOM.get(env.COLLAB_ROOM.idFromName(sessionId));
+      return stub.fetch(request);
+    }
+
+    return new Response("Not found", { status: 404 });
   },
 };
 
@@ -206,6 +221,27 @@ export class CollabRoom {
   }
 
   async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+
+    // Canonical snapshot read (HTTP GET, no WebSocket). The client adopts this
+    // as its base for a collab doc. 200 with the snapshot bytes when stored,
+    // 204 when the room is empty (the client keeps its local copy).
+    if (url.pathname === "/snapshot") {
+      const headers: Record<string, string> = {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "no-store",
+      };
+      const d = this.ensureDoc();
+      if (!this.hasStored) {
+        return new Response(null, { status: 204, headers });
+      }
+      const snapshot = d.export({ mode: "snapshot" });
+      return new Response(snapshot, {
+        status: 200,
+        headers: { ...headers, "Content-Type": "application/octet-stream" },
+      });
+    }
+
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("Expected WebSocket upgrade", { status: 426 });
     }
@@ -213,7 +249,7 @@ export class CollabRoom {
     // Record the sessionId (from the connect URL) so the R2 backup key is
     // stable and meaningful. The DO is addressed by idFromName(sessionId) but
     // does not otherwise know its own session string.
-    const sid = new URL(request.url).searchParams.get("session");
+    const sid = url.searchParams.get("session");
     if (sid) {
       this.sql().exec(
         "INSERT INTO meta (k, v) VALUES ('session_id', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v",
