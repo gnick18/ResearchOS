@@ -115,6 +115,10 @@ export interface DemoLoopProps {
   frameUrl?: string;
   /** Extra classes on the media element / aspect box. */
   className?: string;
+  /** HTML preload hint. Use "metadata" for the first visible showcase so the
+   *  clip starts loading before the IntersectionObserver fires; leave "none"
+   *  (the default) for everything below the fold. */
+  preload?: "none" | "metadata" | "auto";
 }
 
 /**
@@ -128,6 +132,7 @@ export default function DemoLoop({
   framed = false,
   frameUrl,
   className,
+  preload = "none",
 }: DemoLoopProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const reduced = usePrefersReducedMotion();
@@ -174,7 +179,7 @@ export default function DemoLoop({
       muted
       loop
       playsInline
-      preload="none"
+      preload={preload}
       poster={poster}
       aria-label={label}
       className="block h-full w-full object-cover object-top"

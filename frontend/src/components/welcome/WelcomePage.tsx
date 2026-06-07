@@ -292,7 +292,7 @@ function CheckGlyph() {
 
 /** Section eyebrow kicker in the page's monospace accent style. Uses the
  *  brand-action blue (the accessible UI accent from the brand tokens). */
-function Kicker({ children }: { children: ReactNode; dark?: boolean }) {
+function Kicker({ children }: { children: ReactNode }) {
   return (
     <div className="font-mono text-meta font-semibold uppercase tracking-[0.12em] text-brand-action">
       {children}
@@ -688,6 +688,7 @@ export default function WelcomePage() {
                 label="A circular plasmid map rendering in the ResearchOS sequence editor, with annotated feature arcs"
                 framed
                 frameUrl="research-os.app/sequences"
+                preload="metadata"
               />
             </BeakerBotPeek>
           </div>
@@ -918,7 +919,7 @@ export default function WelcomePage() {
         <section className="border-y border-[#d8e3f1] bg-[#f4f8fd] text-[#0f1b2e]">
           <div className="mx-auto grid max-w-[1180px] items-center gap-12 px-6 py-20 sm:px-12 md:grid-cols-[1.05fr_1fr]">
             <div>
-              <Kicker dark={false}>// a different deal than a cloud notebook</Kicker>
+              <Kicker>// a different deal than a cloud notebook</Kicker>
               <h2 className="mt-3 max-w-[16ch] text-3xl font-extrabold leading-[1.08] tracking-tight md:text-[38px]">
                 No cloud. No lock-in. Just your files.
               </h2>
