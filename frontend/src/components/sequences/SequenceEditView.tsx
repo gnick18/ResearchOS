@@ -894,12 +894,34 @@ export default function SequenceEditView({
     return m;
   }, [doc.features]);
 
+  // translation on the feature. The features whose translation is currently
+  // shown (global toggle or per-feature opt-in). When a feature is translated it
+  // renders as the amino-acid row sitting on its own feature-colored translation
+  // handle, so we SUPPRESS its duplicate annotation bar below (otherwise the
+  // same feature paints twice, the detached "extra feature" look). Keyed
+  // name|start|end to match the annotation projection. Shared with the
+  // cdsTranslations track build so the selection logic runs once.
+  const translatedFeatures = useMemo(
+    () =>
+      selectTranslationFeatures(doc.features, {
+        globalOn: view.showTranslation,
+        isExplicit: (f) => readNoteFlag(f.notes, TRANSLATE_NOTE_KEY),
+      }),
+    [doc.features, view.showTranslation],
+  );
+  const translatedKeys = useMemo(
+    () => new Set(translatedFeatures.map((f) => `${f.name}|${f.start}|${f.end}`)),
+    [translatedFeatures],
+  );
+
   // VIEW CONTROLS are the lever for the calm default: SeqViz is prop-driven, so
   // a hidden layer is just a filtered prop. We filter the annotations by the
   // per-type / per-feature / master toggles before handing them to SeqViz.
   const annotations: AnnotationProp[] = useMemo(
     () =>
       docAnnotations
+        // Drop the bar for a feature that is rendering as its translation handle.
+        .filter((a) => !translatedKeys.has(`${a.name}|${a.start}|${a.end}`))
         .filter((a) =>
           isFeatureVisible(view, {
             name: a.name,
@@ -929,7 +951,7 @@ export default function SequenceEditView({
             ...(a.segments && a.segments.length > 1 ? { segments: a.segments } : {}),
           };
         }),
-    [docAnnotations, view, featureIndexByKey],
+    [docAnnotations, view, featureIndexByKey, translatedKeys],
   );
 
   // Distinct feature types present (lowercase keys, sorted), for the per-type
@@ -951,29 +973,21 @@ export default function SequenceEditView({
   // whose coordinates the editor shifts ATOMICALLY with the bases on each edit,
   // so they are always in sync with the live sequence and stay LIVE (cheap).
   const cdsTranslations: TranslationProp[] = useMemo(() => {
-    const out: TranslationProp[] = [];
-    // Central-dogma dedup: when a locus carries overlapping gene/mRNA/CDS, only
-    // the one closest to the protein gets a track, so the same translation is
-    // not painted multiple times. Per-feature opt-ins are always kept.
-    const chosen = selectTranslationFeatures(doc.features, {
-      globalOn: view.showTranslation,
-      isExplicit: (f) => readNoteFlag(f.notes, TRANSLATE_NOTE_KEY),
-    });
-    for (const f of chosen) {
-      out.push({
-        start: f.start,
-        end: f.end,
-        direction: f.strand === -1 ? -1 : 1,
-        name: f.name,
-        color: colorForType(f.type),
-        // seq introns bot — for a multi-exon (join) CDS, pass the exon spans so
-        // SeqViz splices the protein (translates concatenated exon bases, not the
-        // raw span through the introns) and shows a dashed gap over the introns.
-        ...(f.locations && f.locations.length > 1 ? { segments: f.locations } : {}),
-      });
-    }
-    return out;
-  }, [doc.features, view.showTranslation]);
+    // The chosen set (central-dogma dedup: one track per locus) is computed once
+    // in `translatedFeatures` above and shared, so the same features that get a
+    // translation track are exactly the ones whose annotation bar is suppressed.
+    return translatedFeatures.map((f) => ({
+      start: f.start,
+      end: f.end,
+      direction: f.strand === -1 ? -1 : 1,
+      name: f.name,
+      color: colorForType(f.type),
+      // seq introns bot — for a multi-exon (join) CDS, pass the exon spans so
+      // SeqViz splices the protein (translates concatenated exon bases, not the
+      // raw span through the introns) and shows a dashed gap over the introns.
+      ...(f.locations && f.locations.length > 1 ? { segments: f.locations } : {}),
+    }));
+  }, [translatedFeatures]);
 
   // debounce-perf bot — ORF overlay tracks are COMPUTED from the WHOLE sequence
   // (ATG-to-stop runs), an ~O(n) scan that re-ran on every keystroke when the
