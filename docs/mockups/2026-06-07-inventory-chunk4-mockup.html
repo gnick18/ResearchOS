@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Inventory chunk 4 mockup (Purchases self-populate)</title>
+<style>
+  :root{--surface:#ffffff;--raised:#ffffff;--sunken:#f8fafc;--fg:#171717;--muted:#6b7280;--border:#e5e7eb;--action:#1283C9;--purple:#5B47D6;--emerald-bg:#d1fae5;--emerald-fg:#047857;--amber-bg:#fef3c7;--amber-fg:#b45309;--rose-bg:#ffe4e6;--rose-fg:#be123c;--slate-bg:#e2e8f0;--slate-fg:#475569;--page:#eef2f7}
+  [data-theme="dark"]{--surface:#0a0e1a;--raised:#131c2e;--sunken:#0d1424;--fg:#f1f5f9;--muted:#b4bfd0;--border:rgba(255,255,255,.22);--action:#3aa0e0;--purple:#8170e6;--emerald-bg:rgba(16,185,129,.20);--emerald-fg:#6ee7b7;--amber-bg:rgba(245,158,11,.20);--amber-fg:#fcd34d;--rose-bg:rgba(244,63,94,.20);--rose-fg:#fda4af;--slate-bg:rgba(100,116,139,.25);--slate-fg:#cbd5e1;--page:#05080f}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--page);color:var(--fg)}
+  .topbar{position:sticky;top:0;z-index:50;background:var(--page);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .topbar h1{font-size:16px;margin:0;font-weight:700}.topbar .sub{font-size:12.5px;color:var(--muted)}
+  .spacer{flex:1}
+  .btn{font:inherit;font-size:13px;border:1px solid var(--border);background:var(--raised);color:var(--fg);border-radius:8px;padding:7px 12px;cursor:pointer}
+  .btn-brand{background:linear-gradient(135deg,var(--action),var(--purple));color:#fff;border:none}
+  .legend{display:flex;gap:10px;font-size:12px;color:var(--muted);align-items:center;flex-wrap:wrap}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px}.dot.ok{background:#16a34a}.dot.warn{background:#d97706}.dot.none{background:#cbd5e1}
+  .wrap{max-width:980px;margin:0 auto;padding:20px 20px 110px}
+  .note{font-size:12.5px;color:var(--muted);max-width:800px;margin:12px 0 8px}
+  .section{margin:24px 0;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--page)}
+  .section-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--sunken)}
+  .section-head .name{font-size:13px;font-weight:700}.section-head .id{font-size:11px;color:var(--muted)}
+  .review{margin-left:auto;display:flex;gap:6px}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .seg button{font:inherit;font-size:12px;padding:5px 10px;border:none;background:var(--raised);color:var(--muted);cursor:pointer}
+  .seg button.active.ok{background:#16a34a;color:#fff}.seg button.active.warn{background:#d97706;color:#fff}.seg button.active.none{background:#64748b;color:#fff}
+  .cmt{width:100%;margin-top:8px;font:inherit;font-size:12.5px;border:1px dashed var(--border);border-radius:8px;background:var(--raised);color:var(--fg);padding:7px 9px;resize:vertical;min-height:34px}
+  .stage{padding:18px;background:var(--surface);display:flex;justify-content:center}
+  .muted{color:var(--muted)}.t-meta{font-size:12px}.t-body{font-size:13.5px}
+  .dialog{width:560px;max-width:100%;background:var(--raised);border:1px solid var(--border);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.28)}
+  .pad{padding:24px}
+  .h-title{font-size:15px;font-weight:600;margin:0}
+  .ordersum{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:10px;background:var(--sunken);padding:11px 13px;margin:14px 0 18px}
+  .ordersum .ic{height:32px;width:32px;border-radius:8px;background:var(--emerald-bg);color:var(--emerald-fg);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .choice{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--border);border-radius:11px;padding:13px 14px;margin-top:10px;cursor:pointer}
+  .choice:hover{background:var(--sunken)}
+  .choice.reco{border-color:var(--action);outline:1px solid var(--action)}
+  .choice .ic{height:30px;width:30px;border-radius:8px;background:var(--sunken);color:var(--action);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .choice .ttl{font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .choice .desc{font-size:12px;color:var(--muted);margin-top:2px}
+  .badge{font-size:10.5px;font-weight:600;color:var(--action);border:1px solid var(--action);border-radius:999px;padding:1px 7px}
+  .field{margin-top:13px}
+  .field label{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-bottom:5px}
+  .field input,.field select{width:100%;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--fg);padding:8px 11px;font:inherit;font-size:13.5px}
+  .field input.pre{background:var(--sunken)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+  .help{font-size:12px;color:var(--muted);margin-top:5px}
+  .prefill{font-size:11px;color:var(--emerald-fg);margin-left:6px;font-weight:500}
+  .dlg-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+  .ghost{border:1px solid var(--border);background:transparent;color:var(--fg);border-radius:8px;padding:8px 15px;font:inherit;font-size:13.5px;cursor:pointer}
+  .cta{display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:8px 14px;font-size:13.5px;background:linear-gradient(135deg,var(--action),var(--purple));color:#fff;border:none;cursor:pointer}
+  .pickrow{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:9px;padding:9px 12px;margin-top:8px;cursor:pointer}
+  .pickrow:hover{background:var(--sunken)}
+  .pickrow.on{border-color:var(--action);outline:1px solid var(--action)}
+  .status{border-radius:6px;padding:3px 9px;font-size:12px;font-weight:500}
+  .st-low{background:var(--amber-bg);color:var(--amber-fg)}.st-empty{background:var(--slate-bg);color:var(--slate-fg)}
+  /* reorder shortcut */
+  .recwrap{width:620px;max-width:100%}
+  .rec{display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid var(--border);border-left:3px solid var(--rose-fg);border-radius:9px;background:var(--raised);padding:11px 14px;margin-top:8px}
+  .rec .nm{font-size:13.5px;font-weight:600}.rec .meta{font-size:12px;color:var(--muted);margin-top:2px}
+  .rec .signal{font-size:12px;font-weight:600;color:var(--rose-fg);margin-top:3px}
+  .rec .right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .cartbtn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--action);color:var(--action);background:transparent;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:500;cursor:pointer}
+  .cartbtn:hover{background:color-mix(in srgb,var(--action) 10%,transparent)}
+  .miniact{height:28px;width:28px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+  .toast{display:inline-flex;align-items:center;gap:8px;background:var(--fg);color:var(--surface);border-radius:10px;padding:9px 13px;font-size:12.5px;margin-top:14px}
+  svg{display:block;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #exportModal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+  #exportModal .box{background:var(--raised);color:var(--fg);border-radius:14px;max-width:680px;width:100%;padding:18px;border:1px solid var(--border)}
+  #exportModal textarea{width:100%;min-height:260px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--fg);padding:10px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div><h1>Inventory chunk 4 mockup</h1><div class="sub">Purchases self-populate + the reorder shortcut. Design proposal, NOT built. Approve, then I build.</div></div>
+  <div class="spacer"></div>
+  <div class="legend"><span><span class="dot ok"></span>Approve</span><span><span class="dot warn"></span>Needs change</span><span><span class="dot none"></span>Undecided</span></div>
+  <button class="btn" id="themeBtn">Dark mode</button>
+  <button class="btn btn-brand" id="exportBtn">Export feedback</button>
+</div>
+<div class="wrap">
+  <p class="note">Chunk 4 makes the inventory build itself from ordering you already do, and adds the reorder shortcut held back from chunk 3. When you mark a Purchase received, you get a one-click offer to add it to inventory (pre-filled from the order). Sample data below.</p>
+
+  <!-- 1: three-way choice -->
+  <div class="section" data-sec="choice" data-label="Receive, the three-way 'Add to inventory?' choice">
+    <div class="section-head"><span class="name">Receive: the "Add to inventory?" choice</span><span class="id">#choice</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="dialog"><div class="pad">
+        <h2 class="h-title">Add to inventory?</h2>
+        <p class="t-meta muted" style="margin:4px 0 0">You just marked this order received.</p>
+        <div class="ordersum">
+          <span class="ic">__BOX__</span>
+          <div><div class="t-body" style="font-weight:600">Q5 High-Fidelity DNA Polymerase</div><div class="t-meta muted">NEB &middot; M0491S &middot; quantity 3 &middot; received today</div></div>
+        </div>
+        <div class="choice reco">
+          <span class="ic">__PLUS__</span>
+          <div><div class="ttl">Create new item <span class="badge">recommended</span></div><div class="desc">Make a new inventory item from this order, pre-filled. You add expiry and location.</div></div>
+        </div>
+        <div class="choice">
+          <span class="ic">__STACK__</span>
+          <div><div class="ttl">Add stock to an existing item</div><div class="desc">You already track this. Add 3 more vials as a new lot.</div></div>
+        </div>
+        <div class="choice">
+          <span class="ic">__SKIP__</span>
+          <div><div class="ttl">Not this time</div><div class="desc">Skip inventory for this order (services, one-offs).</div></div>
+        </div>
+        <div class="dlg-actions"><button class="ghost">Close</button></div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- 2: prefilled create -->
+  <div class="section" data-sec="create" data-label="Create-new, pre-filled from the order (only expiry + location to add)">
+    <div class="section-head"><span class="name">Create new item, pre-filled from the order</span><span class="id">#create</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="dialog"><div class="pad">
+        <h2 class="h-title">Add to inventory</h2>
+        <p class="t-meta muted" style="margin:4px 0 16px">Pre-filled from your order. Just confirm and add what only you know.</p>
+        <div class="field" style="margin-top:0"><label>Name <span class="prefill">from order</span></label><input class="pre" value="Q5 High-Fidelity DNA Polymerase" /></div>
+        <div class="grid2">
+          <div class="field"><label>Vendor <span class="prefill">from order</span></label><input class="pre" value="NEB" /></div>
+          <div class="field"><label>Container count <span class="prefill">from quantity</span></label><input class="pre" value="3" /></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>Received date <span class="prefill">stamped today</span></label><input class="pre" value="2026-06-07" /></div>
+          <div class="field"><label>Container word</label><input placeholder="vial, tube, bottle" /></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>Expiration date <span style="color:var(--amber-fg)">you add</span></label><input placeholder="yyyy-mm-dd" /><p class="help">Type once, the clock does the rest.</p></div>
+          <div class="field"><label>Location <span class="muted">optional</span></label><input placeholder="-80 door, left" /></div>
+        </div>
+        <div class="dlg-actions"><button class="ghost">Cancel</button><button class="cta">__CHECK__ Add to inventory</button></div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- 3: add to existing -->
+  <div class="section" data-sec="existing" data-label="Add stock to an existing item (the matcher)">
+    <div class="section-head"><span class="name">Add stock to an existing item</span><span class="id">#existing</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="dialog"><div class="pad">
+        <h2 class="h-title">Which item is this?</h2>
+        <p class="t-meta muted" style="margin:4px 0 14px">Pick the item to add 3 vials to. Matches from your inventory.</p>
+        <div class="field" style="margin-top:0"><input placeholder="Search your inventory" value="Q5" /></div>
+        <div class="pickrow on"><div><div class="t-body" style="font-weight:600">Q5 High-Fidelity DNA Polymerase</div><div class="t-meta muted">Reagent &middot; NEB &middot; 1 vial on hand</div></div><span class="status st-low">Low</span></div>
+        <div class="pickrow"><div><div class="t-body" style="font-weight:600">Q5 Reaction Buffer</div><div class="t-meta muted">Reagent &middot; NEB &middot; 4 tubes on hand</div></div></div>
+        <p class="help" style="margin-top:12px">If the location, lot, and expiry match an existing lot, the count is bumped instead of creating a duplicate lot.</p>
+        <div class="dlg-actions"><button class="ghost">Cancel</button><button class="cta">__CHECK__ Add 3 vials</button></div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- 4: reorder shortcut -->
+  <div class="section" data-sec="reorder" data-label="Reorder shortcut on low/empty signal rows (deferred from chunk 3)">
+    <div class="section-head"><span class="name">Reorder shortcut on low/empty rows</span><span class="id">#reorder</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="recwrap">
+        <p class="t-meta muted" style="margin:0 0 6px">On the Low or empty signal view, each row gets a one-click add to the Purchases needs-ordering queue.</p>
+        <div class="rec">
+          <div><div class="nm">Q5 High-Fidelity DNA Polymerase</div><div class="meta">Reagent &middot; NEB &middot; total across stocks</div><div class="signal">1 vial, below your threshold of 2</div></div>
+          <div class="right"><span class="status st-low">Low</span><button class="cartbtn">__CART__ Reorder</button><button class="miniact" title="Open">__ARROW__</button></div>
+        </div>
+        <div class="rec">
+          <div><div class="nm">Ampicillin (100 mg/mL)</div><div class="meta">Reagent &middot; Sigma &middot; total across stocks</div><div class="signal">0 vials, empty</div></div>
+          <div class="right"><span class="status st-empty">Empty</span><button class="cartbtn">__CART__ Reorder</button><button class="miniact" title="Open">__ARROW__</button></div>
+        </div>
+        <div class="toast">__CHECK__ Added Q5 Polymerase to your needs-ordering queue. <span style="text-decoration:underline;cursor:pointer">View in Purchases</span></div>
+        <p class="help" style="margin-top:12px">This reuses the Purchases needs-ordering queue you already have (the smart-reorder feature). It does not place an order, just queues it. Flag if you want the button labeled "Reorder" or just the cart icon.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="exportModal"><div class="box">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><strong style="font-size:14px">Feedback summary</strong><span class="spacer" style="flex:1"></span><button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('exportText').value)">Copy</button><button class="btn" onclick="document.getElementById('exportModal').style.display='none'">Close</button></div>
+  <textarea id="exportText" readonly></textarea>
+</div></div>
+
+<script>
+const I={
+ box:'<svg viewBox="0 0 24 24"><path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>',
+ plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+ stack:'<svg viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 13l9 5 9-5"/></svg>',
+ skip:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>',
+ check:'<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>',
+ cart:'<svg viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12.4a1.6 1.6 0 0 0 1.6 1.3h8.2a1.6 1.6 0 0 0 1.6-1.3L22 7H6"/></svg>',
+ arrow:'<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'
+};
+document.body.innerHTML=document.body.innerHTML.replaceAll('__BOX__',I.box).replaceAll('__PLUS__',I.plus).replaceAll('__STACK__',I.stack).replaceAll('__SKIP__',I.skip).replaceAll('__CHECK__',I.check).replaceAll('__CART__',I.cart).replaceAll('__ARROW__',I.arrow);
+const KEY='inv-chunk4-mockup-2026-06-07';const store=JSON.parse(localStorage.getItem(KEY)||'{}');function save(){localStorage.setItem(KEY,JSON.stringify(store));}
+document.querySelectorAll('.section').forEach(sec=>{const id=sec.dataset.sec;const host=sec.querySelector('.review');const cur=store[id]||{v:'',c:''};const seg=document.createElement('div');seg.className='seg';[['ok','Approve'],['warn','Needs change'],['none','Undecided']].forEach(([v,lbl])=>{const b=document.createElement('button');b.textContent=lbl;b.className=(cur.v===v?'active '+v:'');b.onclick=()=>{store[id]={...(store[id]||{}),v};save();render();};seg.appendChild(b);});host.appendChild(seg);const stage=sec.querySelector('.stage');const ta=document.createElement('textarea');ta.className='cmt';ta.placeholder='Comment on this section (optional)';ta.value=cur.c||'';ta.oninput=()=>{store[id]={...(store[id]||{}),c:ta.value};save();};sec.appendChild(ta);});
+function render(){document.querySelectorAll('.section').forEach(sec=>{const id=sec.dataset.sec;const cur=store[id]||{};sec.querySelectorAll('.seg button').forEach(b=>{const v=b.textContent==='Approve'?'ok':b.textContent==='Needs change'?'warn':'none';b.className=(cur.v===v?'active '+v:'');});});}
+render();
+document.getElementById('themeBtn').onclick=function(){const r=document.documentElement;const d=r.getAttribute('data-theme')==='dark';r.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Dark mode':'Light mode';};
+document.getElementById('exportBtn').onclick=function(){let out='INVENTORY CHUNK 4 MOCKUP — '+new Date().toString().slice(0,21)+'\\n'+'='.repeat(44)+'\\n\\n';let any=false;document.querySelectorAll('.section').forEach(sec=>{const id=sec.dataset.sec;const cur=store[id]||{};const verdict=cur.v==='ok'?'APPROVE':cur.v==='warn'?'NEEDS CHANGE':cur.v==='none'?'undecided':'(not marked)';if(cur.v||cur.c)any=true;out+='['+verdict+'] '+sec.dataset.label+'  (#'+id+')\\n';if(cur.c&&cur.c.trim())out+='   note: '+cur.c.trim()+'\\n';out+='\\n';});if(!any)out+='(nothing marked yet)\\n';document.getElementById('exportText').value=out;document.getElementById('exportModal').style.display='flex';};
+</script>
+</body>
+</html>
