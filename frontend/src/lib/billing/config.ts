@@ -1,15 +1,10 @@
-// Metered-storage billing, configuration + pure helpers (no server imports).
+// Flat-plan billing, configuration + pure helpers (no server imports).
 //
-// Hybrid metered model (Grant, 2026-06-07): every user gets a free tier, then
-// pays for the storage they ACTUALLY use above it, by the gigabyte-month, billed
-// on the monthly average and aggregated into one Stripe invoice. There are no
-// blocks to buy. Instead a user raises their own storage CAP, which is at once
-// the enforcement wall, their monthly spend ceiling, and the opt-in (the default
-// cap is the free tier, so nobody is billed without raising it).
-//
-// Cost basis is Cloudflare Durable Objects SQLite at $0.20/GB-month; the price
-// adds a $0.10 margin to $0.30/GB-month. Operations (requests/compute) are not
-// metered to users, they sit inside Cloudflare's free tiers and the fixed base.
+// Flat bundle plans (Grant 2026-06-07): every user is on a PLAN that pairs a
+// storage allowance with a monthly activity allowance for one flat price (see
+// plans.ts). The free plan is the default, so nobody is charged without choosing
+// a paid plan. This file holds the free tier constant + the operations-cost
+// helper used to estimate (never bill) what activity costs us.
 //
 // The whole billing surface is dark unless BILLING_ENABLED is "true", the same
 // fail-closed pattern as SHARING_ENABLED, so a deploy without it configured can
@@ -25,9 +20,9 @@ export function isBillingEnabled(): boolean {
 export const BYTES_PER_GB = 1024 ** 3;
 
 /**
- * Free server-storage allowance per user before any metered charge. 1 GB (Grant
- * 2026-06-05), aligned with the relay inbox cap. Also the default cap, so an
- * account is never billed until the user raises the cap above this.
+ * Free server-storage allowance per user, the storage the free plan grants. 1 GB
+ * (Grant 2026-06-05), aligned with the relay inbox cap. An account stays on this
+ * until the user chooses a paid plan.
  */
 export const FREE_ALLOWANCE_BYTES = 1 * BYTES_PER_GB;
 

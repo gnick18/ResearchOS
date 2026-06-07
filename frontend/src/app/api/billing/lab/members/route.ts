@@ -1,4 +1,4 @@
-// Metered-storage billing, lab roster management (the PI side).
+// Flat-plan billing, lab roster management (the PI side).
 //
 // POST   /api/billing/lab/members   body { email }   invite a member to the lab.
 // DELETE /api/billing/lab/members   body { email }   remove a member or rescind

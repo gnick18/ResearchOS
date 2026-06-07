@@ -1,4 +1,4 @@
-// Metered-storage billing, lab-level (consolidated) sponsorship.
+// Flat-plan billing, lab-level (consolidated) sponsorship.
 //
 // A lab head (PI) can pay for their whole lab on one invoice. This file owns the
 // membership registry and the resolution helpers that decide who pays for a
@@ -19,7 +19,8 @@
 //
 // Resolution. getSponsoringLab(memberKey) returns the lab_owner_key that an
 // active row points at, or null. Payer resolution for a doc is then: the doc
-// owner's sponsoring lab if it has lab billing on, else the owner individually.
+// owner's sponsoring lab if that lab is on a paid lab plan, else the owner's own
+// plan.
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 

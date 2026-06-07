@@ -1,4 +1,4 @@
-// Metered-storage billing, the owner key.
+// Flat-plan billing, the owner key.
 //
 // Billing keys a paying lab by the SAME peppered email hash the directory and
 // relay use, so a purchased quota and the storage enforcement line up on one

@@ -1,4 +1,4 @@
-// Metered-storage billing, the Stripe client and the env it needs.
+// Flat-plan billing, the Stripe client and the env it needs.
 //
 // The client is built lazily from STRIPE_SECRET_KEY so importing this during
 // build or tsc never requires a secret. Dev uses the test key (sk_test_); the

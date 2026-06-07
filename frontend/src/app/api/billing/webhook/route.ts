@@ -1,4 +1,4 @@
-// Metered-storage billing, the Stripe webhook.
+// Flat-plan billing, the Stripe webhook.
 //
 // POST /api/billing/webhook
 //

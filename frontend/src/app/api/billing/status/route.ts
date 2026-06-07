@@ -1,12 +1,12 @@
-// Metered-storage billing, the caller's storage status.
+// Flat-plan billing, the caller's storage status.
 //
 // GET /api/billing/status
 //
-// Returns the signed-in owner's usage, free tier, current cap, the metered rate,
-// and the cap options (each with its max monthly cost), so the Settings UI can
-// draw the usage panel and the "raise limit" picker. Shows usage even when
-// BILLING_ENABLED is off (against the real enforced ceiling) so a signed-in
-// sharing user always sees their footprint; the buy/raise controls gate on
+// Returns the signed-in owner's usage, free tier, current plan + the plan
+// catalog, and this month's activity (writes vs the plan allowance), so the
+// billing popup can draw the usage panel + plan picker + activity bar. Shows
+// usage even when BILLING_ENABLED is off (against the real enforced ceiling) so a
+// signed-in sharing user always sees their footprint; the plan controls gate on
 // billing. Not signed in returns signedIn:false and the UI hides.
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
@@ -60,7 +60,7 @@ export async function GET(): Promise<Response> {
     const usedBytes = await ownerUsedBytes(ownerKey);
 
     // Billing off (pre-launch default): show usage against the real enforced
-    // ceiling (the fairness wall), no metered controls.
+    // ceiling (the fairness wall), no plan controls.
     if (!billingOn) {
       const quotaBytes = await getOwnerQuotaBytes(ownerKey).catch(
         () => FREE_ALLOWANCE_BYTES,

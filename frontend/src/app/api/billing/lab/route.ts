@@ -1,12 +1,12 @@
-// Metered-storage billing, lab-level (consolidated) sponsorship.
+// Flat-plan billing, lab-level (consolidated) sponsorship.
 //
-// GET  /api/billing/lab   the caller's lab role, roster, and pending invites.
-// POST /api/billing/lab   body { on: boolean }   the PI turns lab billing on/off.
+// GET /api/billing/lab   the caller's lab plan, roster, aggregate usage +
+//                        activity, and pending invites.
 //
-// Lab billing lets a PI pay for the whole lab on one metered invoice. Enabling it
-// requires the PI to already have an active subscription (a card on file), since
-// the lab aggregate bills against it. The roster shows the lab aggregate usage
-// always, and each member's individual usage only where that member opted in.
+// A PI sponsors the whole lab by being on a paid LAB PLAN (picked via
+// /api/billing/plan), which pools one storage allowance + activity allowance for
+// a flat monthly price across all members. The PI is the payer, so the roster
+// shows every member's storage and activity.
 //
 // Dark unless BILLING_ENABLED is on. Sign-in required.
 //

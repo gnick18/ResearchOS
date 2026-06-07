@@ -1,4 +1,4 @@
-// Metered-storage billing, the member's response to a lab invite.
+// Flat-plan billing, the member's response to a lab invite.
 //
 // POST /api/billing/lab/respond
 //   body { labKey: string, action: "accept" | "decline",

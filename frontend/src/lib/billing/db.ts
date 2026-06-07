@@ -1,11 +1,9 @@
-// Metered-storage billing, persistence on Neon.
+// Flat-plan billing, persistence on Neon.
 //
-// Three tables.
+// Two tables.
 //   billing_subscriptions: one row per owner (peppered email hash), the Stripe
-//     ids, the metered subscription item id (usage is reported against it), the
-//     owner's storage CAP in bytes, and the status.
-//   billing_usage_samples: a daily snapshot of each owner's used bytes, so the
-//     monthly report can bill the AVERAGE GB-month (the basis Cloudflare uses).
+//     ids, the owner's PLAN id (drives the storage + activity allowance), and the
+//     status (active on a paid plan).
 //   billing_events: an idempotency guard, every Stripe event id is recorded once
 //     so a redelivered webhook never double-counts.
 //
@@ -58,14 +56,6 @@ export async function ensureBillingSchema(): Promise<void> {
   // model. Defaults to the free plan, so an account is never on a paid plan
   // without choosing one. cap_bytes is kept for legacy/anchor reference only.
   await sql`ALTER TABLE billing_subscriptions ADD COLUMN IF NOT EXISTS plan_id text not null default 'free'`;
-  await sql`
-    CREATE TABLE IF NOT EXISTS billing_usage_samples (
-      owner_key text not null,
-      sampled_on date not null,
-      used_bytes bigint not null,
-      primary key (owner_key, sampled_on)
-    )
-  `;
   await sql`
     CREATE TABLE IF NOT EXISTS billing_events (
       id text primary key,
@@ -258,7 +248,7 @@ export async function setPlan(ownerKey: string, planId: string): Promise<void> {
 }
 
 /**
- * Ends a member's own metered subscription when their lab takes over paying, so
+ * Ends a member's own paid subscription when their lab takes over paying, so
  * no one is double-billed. We mark the row inactive and drop the cap back to the
  * free tier; the member's effective ceiling then comes from the lab via
  * quotaBytesForOwner. Their Stripe ids are kept for receipts/history.
