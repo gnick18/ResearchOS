@@ -107,11 +107,11 @@ export default function PreviewStep({
       </div>
 
       {missingCount > 0 && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
-          <p className="text-body font-medium text-amber-900">
+        <div className="rounded-lg border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-4 py-3">
+          <p className="text-body font-medium text-amber-900 dark:text-amber-300">
             {missingCount} online-only image{missingCount === 1 ? "" : "s"} not bundled in the ZIP
           </p>
-          <p className="text-meta text-amber-800 mt-1">
+          <p className="text-meta text-amber-800 dark:text-amber-300 mt-1">
             LabArchives stores some pasted images as URLs that aren&apos;t
             embedded in the offline export. We&apos;ll record the URLs so you
             can relink them later from a LabArchives login.
@@ -193,12 +193,12 @@ function ChangedPagesPanel({
   ).length;
 
   return (
-    <div className="rounded-lg border border-blue-300 bg-blue-50">
-      <div className="px-4 py-3 border-b border-blue-200">
-        <p className="text-body font-medium text-blue-900">
+    <div className="rounded-lg border border-blue-300 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/15">
+      <div className="px-4 py-3 border-b border-blue-200 dark:border-blue-500/30">
+        <p className="text-body font-medium text-blue-900 dark:text-blue-300">
           {changedPages.length} page{changedPages.length === 1 ? " has" : "s have"} changed since your last import
         </p>
-        <p className="text-meta text-blue-800 mt-1">
+        <p className="text-meta text-blue-800 dark:text-blue-300 mt-1">
           These pages match notebooks you&apos;ve imported before, but their
           content was edited in LabArchives after that. By default they&apos;ll
           be skipped (current behavior). Tick a page to overwrite the existing
@@ -206,7 +206,7 @@ function ChangedPagesPanel({
           project, sharing, dates) is preserved.
         </p>
         {changedPages.length > 1 && (
-          <label className="mt-2 flex items-center gap-2 text-meta text-blue-900 cursor-pointer select-none">
+          <label className="mt-2 flex items-center gap-2 text-meta text-blue-900 dark:text-blue-300 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={allSelected}
@@ -236,7 +236,7 @@ function ChangedPagesPanel({
                 className="mt-0.5 rounded border-blue-400"
               />
               <div className="flex-1 min-w-0">
-                <p className="text-meta font-medium text-blue-900 truncate">
+                <p className="text-meta font-medium text-blue-900 dark:text-blue-300 truncate">
                   {p.pageName}
                   <span className="text-blue-700/80 font-normal ml-2">
                     → existing task #{p.existingTaskId}

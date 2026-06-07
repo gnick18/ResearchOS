@@ -344,7 +344,7 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
             modal, so it's obvious where to drop. (feedback-screenshots bot) */}
         {isDragging && !confirmStep && (
           <div className="absolute inset-0 z-10 m-2 rounded-xl border-2 border-dashed border-sky-400 bg-sky-50/80 flex items-center justify-center pointer-events-none">
-            <p className="text-body font-medium text-sky-700">Drop images to attach</p>
+            <p className="text-body font-medium text-sky-700 dark:text-sky-300">Drop images to attach</p>
           </div>
         )}
 
@@ -352,8 +352,8 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
           <div className="flex flex-col">
             <div className="p-6 border-b border-border">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-green-100">
-                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-green-100 dark:bg-green-500/15">
+                  <svg className="w-5 h-5 text-green-600 dark:text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
@@ -366,12 +366,12 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
 
             <div className="p-6 space-y-4 overflow-y-auto flex-1">
               {clipboardError ? (
-                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
-                  <p className="text-body text-amber-800">{clipboardError}</p>
+                <div className="rounded-lg bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 p-3">
+                  <p className="text-body text-amber-800 dark:text-amber-300">{clipboardError}</p>
                 </div>
               ) : (
-                <div className="rounded-lg bg-green-50 border border-green-200 p-3">
-                  <p className="text-body text-green-800">
+                <div className="rounded-lg bg-green-50 dark:bg-green-500/15 border border-green-200 dark:border-green-500/30 p-3">
+                  <p className="text-body text-green-800 dark:text-green-300">
                     {images.length === 1
                       ? "Your screenshot is on the clipboard. Switch to the GitHub tab and paste it into the description (Cmd/Ctrl+V) under the Screenshots heading."
                       : "The first screenshot is on the clipboard. Switch to the GitHub tab and paste it (Cmd/Ctrl+V) under the Screenshots heading."}
@@ -446,15 +446,15 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
               <div
                 className={`w-10 h-10 rounded-lg flex items-center justify-center ${
                   type === "bug"
-                    ? "bg-red-100"
+                    ? "bg-red-100 dark:bg-red-500/15"
                     : type === "feature"
-                    ? "bg-amber-100"
-                    : "bg-blue-100"
+                    ? "bg-amber-100 dark:bg-amber-500/15"
+                    : "bg-blue-100 dark:bg-blue-500/15"
                 }`}
               >
                 {type === "bug" ? (
                   <svg
-                    className="w-5 h-5 text-red-600"
+                    className="w-5 h-5 text-red-600 dark:text-red-300"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -468,7 +468,7 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
                   </svg>
                 ) : type === "feature" ? (
                   <svg
-                    className="w-5 h-5 text-amber-600"
+                    className="w-5 h-5 text-amber-600 dark:text-amber-300"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -482,7 +482,7 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
                   </svg>
                 ) : (
                   <svg
-                    className="w-5 h-5 text-blue-600"
+                    className="w-5 h-5 text-blue-600 dark:text-blue-300"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -582,12 +582,12 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
               <label className="block text-body font-medium text-foreground mb-1.5">
                 Error Details
               </label>
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 max-h-32 overflow-y-auto">
-                <p className="text-body text-red-800 font-mono break-all">
+              <div className="bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg p-3 max-h-32 overflow-y-auto">
+                <p className="text-body text-red-800 dark:text-red-300 font-mono break-all">
                   {errorInfo!.message}
                 </p>
                 {errorInfo!.stack && (
-                  <pre className="text-meta text-red-600 mt-2 whitespace-pre-wrap">
+                  <pre className="text-meta text-red-600 dark:text-red-300 mt-2 whitespace-pre-wrap">
                     {errorInfo!.stack.split("\n").slice(0, 5).join("\n")}
                   </pre>
                 )}
@@ -638,8 +638,8 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
             </p>
 
             {clipboardError && (
-              <div className="mt-2 rounded-lg bg-amber-50 border border-amber-200 p-2.5">
-                <p className="text-meta text-amber-800">{clipboardError}</p>
+              <div className="mt-2 rounded-lg bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 p-2.5">
+                <p className="text-meta text-amber-800 dark:text-amber-300">{clipboardError}</p>
               </div>
             )}
 
@@ -717,7 +717,7 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
           >
             {copied ? (
               <>
-                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-green-600 dark:text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
                 Copied!

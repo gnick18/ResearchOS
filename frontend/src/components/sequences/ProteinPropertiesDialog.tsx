@@ -187,8 +187,8 @@ export default function ProteinPropertiesDialog({
       <div className="relative flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100">
-            <ProteinIcon className="h-5 w-5 text-sky-600" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-500/15">
+            <ProteinIcon className="h-5 w-5 text-sky-600 dark:text-sky-300" />
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="text-title font-semibold text-foreground">

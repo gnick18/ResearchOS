@@ -802,7 +802,7 @@ export default function NotesPanel({
             onClick={() => setFilterType("all")}
             className={`px-3 py-1.5 text-body rounded-lg transition-colors ${
               filterType === "all"
-                ? "bg-emerald-100 text-emerald-700"
+                ? "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                 : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
             }`}
           >
@@ -812,7 +812,7 @@ export default function NotesPanel({
             onClick={() => setFilterType("single")}
             className={`px-3 py-1.5 text-body rounded-lg transition-colors ${
               filterType === "single"
-                ? "bg-blue-100 text-blue-700"
+                ? "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300"
                 : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
             }`}
           >
@@ -822,7 +822,7 @@ export default function NotesPanel({
             onClick={() => setFilterType("running")}
             className={`px-3 py-1.5 text-body rounded-lg transition-colors ${
               filterType === "running"
-                ? "bg-purple-100 text-purple-700"
+                ? "bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300"
                 : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
             }`}
           >
@@ -837,7 +837,7 @@ export default function NotesPanel({
             data-testid="notes-filter-shared"
             className={`flex items-center gap-1 px-3 py-1.5 text-body rounded-lg transition-colors ${
               sharedOnly
-                ? "bg-emerald-100 text-emerald-700"
+                ? "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                 : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
             }`}
           >
@@ -896,7 +896,7 @@ export default function NotesPanel({
                 data-testid="notes-view-grid"
                 className={`p-1.5 rounded-md transition-colors ${
                   viewMode === "grid"
-                    ? "bg-surface-raised text-emerald-700 shadow-sm"
+                    ? "bg-surface-raised text-emerald-700 dark:text-emerald-300 shadow-sm"
                     : "text-foreground-muted hover:text-foreground"
                 }`}
               >
@@ -913,7 +913,7 @@ export default function NotesPanel({
                 data-testid="notes-view-list"
                 className={`p-1.5 rounded-md transition-colors ${
                   viewMode === "list"
-                    ? "bg-surface-raised text-emerald-700 shadow-sm"
+                    ? "bg-surface-raised text-emerald-700 dark:text-emerald-300 shadow-sm"
                     : "text-foreground-muted hover:text-foreground"
                 }`}
               >
@@ -946,8 +946,8 @@ export default function NotesPanel({
                   onClick={() => handleCreateNote(false)}
                   className="w-full px-4 py-2 text-left text-body text-foreground hover:bg-surface-sunken flex items-center gap-2"
                 >
-                  <div className="w-6 h-6 rounded bg-blue-100 flex items-center justify-center">
-                    <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-6 h-6 rounded bg-blue-100 dark:bg-blue-500/15 flex items-center justify-center">
+                    <svg className="w-3 h-3 text-blue-600 dark:text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                   </div>
@@ -960,8 +960,8 @@ export default function NotesPanel({
                   onClick={() => handleCreateNote(true)}
                   className="w-full px-4 py-2 text-left text-body text-foreground hover:bg-surface-sunken flex items-center gap-2"
                 >
-                  <div className="w-6 h-6 rounded bg-purple-100 flex items-center justify-center">
-                    <svg className="w-3 h-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-6 h-6 rounded bg-purple-100 dark:bg-purple-500/15 flex items-center justify-center">
+                    <svg className="w-3 h-3 text-purple-600 dark:text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                   </div>

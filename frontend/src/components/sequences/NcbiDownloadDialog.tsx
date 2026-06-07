@@ -487,8 +487,8 @@ export default function NcbiDownloadDialog({
       <div className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100">
-            <DownloadCloudIcon className="h-5 w-5 text-sky-600" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-500/15">
+            <DownloadCloudIcon className="h-5 w-5 text-sky-600 dark:text-sky-300" />
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="text-title font-semibold text-foreground">
@@ -564,7 +564,7 @@ export default function NcbiDownloadDialog({
                       setGeneSequenceOnly(e.target.checked);
                       resetState();
                     }}
-                    className="mt-0.5 h-4 w-4 rounded border-border text-sky-600 focus:ring-sky-200 disabled:opacity-50"
+                    className="mt-0.5 h-4 w-4 rounded border-border text-sky-600 dark:text-sky-300 focus:ring-sky-200 disabled:opacity-50"
                   />
                   <span className="text-meta leading-relaxed text-foreground-muted">
                     Sequence only. Skip the annotated whole-gene record and
@@ -599,17 +599,17 @@ export default function NcbiDownloadDialog({
 
           {/* Error */}
           {error ? (
-            <div className="mt-3 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5">
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/15 px-3 py-2.5">
               <WarnIcon className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
-              <p className="text-meta leading-relaxed text-rose-700">{error}</p>
+              <p className="text-meta leading-relaxed text-rose-700 dark:text-rose-300">{error}</p>
             </div>
           ) : null}
 
           {/* Calm note (not an error), e.g. a gene with no RefSeqGene record. */}
           {note ? (
-            <div className="mt-3 flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2.5">
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/15 px-3 py-2.5">
               <InfoIcon className="mt-0.5 h-4 w-4 shrink-0 text-sky-500" />
-              <p className="text-meta leading-relaxed text-sky-800">{note}</p>
+              <p className="text-meta leading-relaxed text-sky-800 dark:text-sky-300">{note}</p>
             </div>
           ) : null}
 
@@ -620,7 +620,7 @@ export default function NcbiDownloadDialog({
                 <h3 className="truncate text-body font-semibold text-foreground">
                   {efetchPreview.name}
                 </h3>
-                <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-meta font-medium uppercase tracking-wide text-emerald-700">
+                <span className="shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-500/15 px-2 py-0.5 text-meta font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
                   Annotated
                 </span>
               </div>
@@ -650,7 +650,7 @@ export default function NcbiDownloadDialog({
                 <h3 className="truncate text-body font-semibold text-foreground">
                   {preview.title}
                 </h3>
-                <span className="shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-meta font-medium uppercase tracking-wide text-sky-700">
+                <span className="shrink-0 rounded-full bg-sky-100 dark:bg-sky-500/15 px-2 py-0.5 text-meta font-medium uppercase tracking-wide text-sky-700 dark:text-sky-300">
                   {preview.kind}
                 </span>
               </div>
@@ -679,9 +679,9 @@ export default function NcbiDownloadDialog({
 
               {/* Caps gate: an over-cap preview disables Download with the reason. */}
               {!capCheck.ok && capCheck.reason ? (
-                <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-3 py-2.5">
                   <WarnIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-                  <p className="text-meta leading-relaxed text-amber-800">
+                  <p className="text-meta leading-relaxed text-amber-800 dark:text-amber-300">
                     {capCheck.reason}
                   </p>
                 </div>

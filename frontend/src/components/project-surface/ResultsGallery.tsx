@@ -228,7 +228,7 @@ export default function ResultsGallery({ project }: ResultsGalleryProps) {
                     {g.images.length} image{g.images.length === 1 ? "" : "s"}
                   </span>
                   {g.task.is_shared_with_me && (
-                    <span className="text-meta px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full flex-shrink-0">
+                    <span className="text-meta px-2 py-0.5 bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 rounded-full flex-shrink-0">
                       Shared by {g.task.owner}
                     </span>
                   )}

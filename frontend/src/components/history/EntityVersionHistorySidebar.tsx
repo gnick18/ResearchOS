@@ -764,7 +764,7 @@ function VersionRow({
       data-testid="version-row"
       data-version-index={entry.versionIndex}
       className={`w-full flex items-start gap-2 px-4 py-2 text-left transition-colors ${
-        selected ? "bg-emerald-50 ring-1 ring-inset ring-emerald-200" : "hover:bg-surface-sunken"
+        selected ? "bg-emerald-50 dark:bg-emerald-500/15 ring-1 ring-inset ring-emerald-200" : "hover:bg-surface-sunken"
       }`}
     >
       <span className="pt-0.5 flex-shrink-0">
@@ -774,7 +774,7 @@ function VersionRow({
         <span className="flex items-center gap-1.5">
           <span className="text-meta font-medium text-foreground truncate">{label}</span>
           {entry.isHead && (
-            <span className="text-meta font-semibold uppercase tracking-wide text-emerald-600 flex-shrink-0">
+            <span className="text-meta font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-300 flex-shrink-0">
               Current version
             </span>
           )}

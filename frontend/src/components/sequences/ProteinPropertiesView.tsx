@@ -36,7 +36,7 @@ function ResultRow({ label, value }: { label: string; value: string }) {
 function NonStandardNotice({ chars }: { chars: string[] }) {
   if (chars.length === 0) return null;
   return (
-    <p className="text-body text-amber-700">
+    <p className="text-body text-amber-700 dark:text-amber-300">
       Ignored non-standard residue{chars.length > 1 ? "s" : ""}{" "}
       <span className="font-mono font-semibold">{chars.join(" ")}</span>. Only
       the 20 standard amino acids are included in the math.

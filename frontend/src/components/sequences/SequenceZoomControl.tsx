@@ -122,7 +122,7 @@ export default function SequenceZoomControl({
             onClick={() => set(floor)}
             aria-pressed={atFloor}
             className={`flex h-6 items-center gap-1 rounded px-1.5 text-meta font-medium transition-colors ${
-              atFloor ? "bg-sky-50 text-sky-700" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              atFloor ? "bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
             }`}
           >
             <IconFitMap className="h-3.5 w-3.5" />

@@ -57,13 +57,13 @@ function Shell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-4">
             <Link
               href="/admin"
-              className="text-body font-medium text-sky-700 underline-offset-2 hover:underline"
+              className="text-body font-medium text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
             >
               Operator metrics
             </Link>
             <Link
               href="/"
-              className="text-body font-medium text-sky-700 underline-offset-2 hover:underline"
+              className="text-body font-medium text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
             >
               Back to the app
             </Link>
@@ -87,9 +87,9 @@ function StatCard({
 }) {
   const valueClass =
     tone === "good"
-      ? "text-emerald-700"
+      ? "text-emerald-700 dark:text-emerald-300"
       : tone === "reserve"
-        ? "text-amber-700"
+        ? "text-amber-700 dark:text-amber-300"
         : "text-foreground";
   return (
     <div className="rounded-2xl border border-border bg-surface-raised p-5">
@@ -106,15 +106,15 @@ function StatCard({
 function deadlineTone(daysUntil: number): { box: string; text: string; chip: string } {
   if (daysUntil < 0) {
     return {
-      box: "border-rose-200 bg-rose-50",
-      text: "text-rose-700",
+      box: "border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/15",
+      text: "text-rose-700 dark:text-rose-300",
       chip: "overdue",
     };
   }
   if (daysUntil <= 14) {
     return {
-      box: "border-amber-200 bg-amber-50",
-      text: "text-amber-700",
+      box: "border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15",
+      text: "text-amber-700 dark:text-amber-300",
       chip: `in ${daysUntil} day${daysUntil === 1 ? "" : "s"}`,
     };
   }
@@ -317,7 +317,7 @@ function EntityCard({
         >
           {saving ? "Saving..." : "Save entity facts"}
         </button>
-        {saved ? <span className="text-meta text-emerald-600">Saved.</span> : null}
+        {saved ? <span className="text-meta text-emerald-600 dark:text-emerald-300">Saved.</span> : null}
         <span className="text-meta text-foreground-muted">
           The reserve % is a placeholder until your accountant sets it.
         </span>
@@ -443,7 +443,7 @@ function Ledger({
           {busy ? "Adding..." : "Add"}
         </button>
       </div>
-      {err ? <p className="mt-2 text-meta text-rose-600">{err}</p> : null}
+      {err ? <p className="mt-2 text-meta text-rose-600 dark:text-rose-300">{err}</p> : null}
 
       <div className="mt-5 overflow-x-auto">
         {ledger.length === 0 ? (
@@ -469,7 +469,7 @@ function Ledger({
                   <td className="px-2 py-2 text-foreground-muted">{e.note || "-"}</td>
                   <td
                     className={`px-2 py-2 text-right font-mono ${
-                      e.direction === "in" ? "text-emerald-700" : "text-foreground"
+                      e.direction === "in" ? "text-emerald-700 dark:text-emerald-300" : "text-foreground"
                     }`}
                   >
                     {e.direction === "in" ? "+" : "-"}
@@ -656,11 +656,11 @@ function SalesTaxBanner({
 }) {
   if (status === "exempt") {
     return (
-      <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-        <p className="text-body font-semibold text-emerald-800">
+      <div className="mb-4 rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/15 px-4 py-3">
+        <p className="text-body font-semibold text-emerald-800 dark:text-emerald-300">
           Wisconsin sales tax: exempt. Clear to charge.
         </p>
-        {note ? <p className="mt-1 text-meta text-emerald-700">{note}</p> : null}
+        {note ? <p className="mt-1 text-meta text-emerald-700 dark:text-emerald-300">{note}</p> : null}
       </div>
     );
   }
@@ -668,12 +668,12 @@ function SalesTaxBanner({
   return (
     <div
       className={`mb-4 rounded-xl border px-4 py-3 ${
-        taxable ? "border-amber-300 bg-amber-50" : "border-rose-300 bg-rose-50"
+        taxable ? "border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15" : "border-rose-300 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/15"
       }`}
     >
       <p
         className={`text-body font-semibold ${
-          taxable ? "text-amber-800" : "text-rose-800"
+          taxable ? "text-amber-800 dark:text-amber-300" : "text-rose-800 dark:text-rose-300"
         }`}
       >
         {taxable
@@ -681,7 +681,7 @@ function SalesTaxBanner({
           : "Hard gate: sales-tax determination pending. Do not bill a real customer until the WI DOR replies."}
       </p>
       {note ? (
-        <p className={`mt-1 text-meta ${taxable ? "text-amber-700" : "text-rose-700"}`}>
+        <p className={`mt-1 text-meta ${taxable ? "text-amber-700 dark:text-amber-300" : "text-rose-700 dark:text-rose-300"}`}>
           {note}
         </p>
       ) : null}
@@ -928,7 +928,7 @@ export default function BusinessTracker() {
                 <tr
                   key={t.service}
                   className={`border-b border-border align-top last:border-0 ${
-                    t.actionNow ? "bg-amber-50" : ""
+                    t.actionNow ? "bg-amber-50 dark:bg-amber-500/15" : ""
                   }`}
                 >
                   <td className="px-3 py-2">
@@ -939,7 +939,7 @@ export default function BusinessTracker() {
                   <td className="px-3 py-2 text-foreground-muted">{t.paid}</td>
                   <td
                     className={`px-3 py-2 ${
-                      t.actionNow ? "font-medium text-amber-700" : "text-foreground-muted"
+                      t.actionNow ? "font-medium text-amber-700 dark:text-amber-300" : "text-foreground-muted"
                     }`}
                   >
                     {t.upgradeWhen}

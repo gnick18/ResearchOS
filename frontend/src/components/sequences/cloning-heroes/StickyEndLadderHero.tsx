@@ -82,7 +82,7 @@ export default function StickyEndLadderHero({ product, pieces, enzymeNames }: Pr
                   </div>
                 </div>
                 {jn.kind !== "blunt" ? (
-                  <div className="mt-1 text-center font-mono text-meta font-medium text-sky-700">
+                  <div className="mt-1 text-center font-mono text-meta font-medium text-sky-700 dark:text-sky-300">
                     {jn.overhang}
                   </div>
                 ) : null}
@@ -96,7 +96,7 @@ export default function StickyEndLadderHero({ product, pieces, enzymeNames }: Pr
 
       {/* Internal-site warning (the restriction footgun), via the proxy. */}
       {flags.length > 0 ? (
-        <div className="mt-2.5 flex items-start gap-1.5 rounded bg-amber-50 px-2 py-1.5 text-meta text-amber-700">
+        <div className="mt-2.5 flex items-start gap-1.5 rounded bg-amber-50 dark:bg-amber-500/15 px-2 py-1.5 text-meta text-amber-700 dark:text-amber-300">
           <WarnIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
             The enzyme cut{" "}

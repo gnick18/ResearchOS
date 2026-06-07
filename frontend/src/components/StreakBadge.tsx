@@ -217,10 +217,10 @@ export default function StreakBadge({ username }: StreakBadgeProps) {
           aria-label={`Streak: ${count} ${count === 1 ? "day" : "days"}. Click for details.`}
           onClick={() => setPopoverOpen((o) => !o)}
           data-testid="streak-badge"
-          className="inline-flex items-center gap-1 bg-sky-50 border border-sky-200 rounded-full px-2 py-0.5 hover:bg-sky-100 transition-colors"
+          className="inline-flex items-center gap-1 bg-sky-50 dark:bg-sky-500/15 border border-sky-200 dark:border-sky-500/30 rounded-full px-2 py-0.5 hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors"
         >
           <FlameIcon className="w-3.5 h-3.5 text-sky-500" />
-          <span className="text-meta font-semibold text-sky-700 tabular-nums">
+          <span className="text-meta font-semibold text-sky-700 dark:text-sky-300 tabular-nums">
             {count}
           </span>
         </button>
@@ -363,7 +363,7 @@ function FirstRevealBubble({
           borderBottom: "6px solid rgb(186 230 253)",
         }}
       />
-      <div className="bg-sky-50 border border-sky-200 text-sky-700 rounded-lg shadow-md px-3 py-2 text-meta">
+      <div className="bg-sky-50 dark:bg-sky-500/15 border border-sky-200 dark:border-sky-500/30 text-sky-700 dark:text-sky-300 rounded-lg shadow-md px-3 py-2 text-meta">
         Your streak is private to you. Disable in Settings anytime.
       </div>
     </div>,

@@ -253,11 +253,11 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
           <p className="text-body text-foreground-muted text-center py-8">Loading…</p>
         ) : loadError ? (
           <div className="text-center py-8">
-            <p className="text-body text-red-600">{loadError}</p>
+            <p className="text-body text-red-600 dark:text-red-300">{loadError}</p>
             <button
               type="button"
               onClick={() => void loadList()}
-              className="mt-2 text-meta font-medium text-blue-600 hover:text-blue-800"
+              className="mt-2 text-meta font-medium text-blue-600 dark:text-blue-300 hover:text-blue-800"
             >
               Retry
             </button>
@@ -280,7 +280,7 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
                         kind is only known after Review decrypts and sniffs the
                         bundle, so the row shows a neutral "Shared item" badge
                         and the modal reveals note-vs-experiment. */}
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-meta font-semibold uppercase tracking-wide bg-violet-100 text-violet-700">
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-meta font-semibold uppercase tracking-wide bg-violet-100 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300">
                       <InboxArrowIcon className="w-3 h-3" />
                       Shared item
                     </span>
@@ -309,7 +309,7 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
                   <p className="text-meta text-foreground-muted">
                     {new Date(item.createdAt).toLocaleString()} ·{" "}
                     {formatBytes(item.sizeBytes)} ·{" "}
-                    <span className="text-amber-600">
+                    <span className="text-amber-600 dark:text-amber-300">
                       {expiryCountdown(item.expiresAt)}
                     </span>
                   </p>
@@ -325,7 +325,7 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
                   <button
                     type="button"
                     onClick={() => void handleDecline(item)}
-                    className="px-3 py-1.5 text-meta text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                    className="px-3 py-1.5 text-meta text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-md transition-colors"
                   >
                     Decline
                   </button>
@@ -358,7 +358,7 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
 
       {toast && (
         <div
-          className="fixed z-[120] right-6 bottom-6 max-w-sm rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-body text-emerald-900 shadow-lg pointer-events-none"
+          className="fixed z-[120] right-6 bottom-6 max-w-sm rounded-lg border border-emerald-300 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/15 px-4 py-3 text-body text-emerald-900 dark:text-emerald-300 shadow-lg pointer-events-none"
           role="status"
         >
           {toast}
@@ -865,7 +865,7 @@ function ReviewImportModal({
               </p>
             )}
             {received?.valid && (
-              <p className="text-meta text-emerald-600 mt-1.5">
+              <p className="text-meta text-emerald-600 dark:text-emerald-300 mt-1.5">
                 {received?.sender?.email
                   ? "ResearchOS verified this bundle was sealed to your key, signed by the sender, and passed its integrity check."
                   : "ResearchOS verified this bundle opened with your key and passed its integrity check."}
@@ -878,7 +878,7 @@ function ReviewImportModal({
               Opening the sealed item…
             </p>
           ) : error ? (
-            <p className="text-body text-red-600 text-center py-6">{error}</p>
+            <p className="text-body text-red-600 dark:text-red-300 text-center py-6">{error}</p>
           ) : unsupported ? (
             <p className="text-body text-foreground-muted text-center py-6">
               Unsupported item type. ResearchOS can import notes, experiments,
@@ -1025,7 +1025,7 @@ function ReviewImportModal({
             type="button"
             onClick={() => onDeclined(item)}
             disabled={importing}
-            className="px-3 py-1.5 text-meta text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-40"
+            className="px-3 py-1.5 text-meta text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-md transition-colors disabled:opacity-40"
           >
             Decline
           </button>

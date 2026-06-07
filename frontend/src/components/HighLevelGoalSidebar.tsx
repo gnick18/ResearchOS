@@ -202,7 +202,7 @@ export default function HighLevelGoalSidebar({
                     {goal.name}
                   </h4>
                   {goal.project_id === null && (
-                    <span className="text-meta px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded flex-shrink-0">
+                    <span className="text-meta px-1.5 py-0.5 bg-purple-100 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300 rounded flex-shrink-0">
                       Personal
                     </span>
                   )}
@@ -211,10 +211,10 @@ export default function HighLevelGoalSidebar({
                 <div
                   className={`text-meta font-medium mt-1 ${
                     isOverdue
-                      ? "text-red-600"
+                      ? "text-red-600 dark:text-red-300"
                       : isUrgent
-                        ? "text-orange-600"
-                        : "text-green-600"
+                        ? "text-orange-600 dark:text-orange-300"
+                        : "text-green-600 dark:text-green-300"
                   }`}
                 >
                   {isOverdue
@@ -259,7 +259,7 @@ export default function HighLevelGoalSidebar({
                           onChange={(e) =>
                             handleToggleSmartGoal(goal, sg.id, e)
                           }
-                          className="mt-0.5 w-3.5 h-3.5 text-green-600 border-border rounded focus:ring-green-500 flex-shrink-0"
+                          className="mt-0.5 w-3.5 h-3.5 text-green-600 dark:text-green-300 border-border rounded focus:ring-green-500 flex-shrink-0"
                         />
                         <span
                           className={`text-meta flex-1 ${

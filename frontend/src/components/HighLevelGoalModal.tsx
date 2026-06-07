@@ -299,10 +299,10 @@ export default function HighLevelGoalModal({
           {daysRemaining !== null && (
             <div className={`text-body font-medium ${
               daysRemaining < 0 
-                ? "text-red-600" 
+                ? "text-red-600 dark:text-red-300" 
                 : daysRemaining < 7 
-                  ? "text-orange-600" 
-                  : "text-green-600"
+                  ? "text-orange-600 dark:text-orange-300" 
+                  : "text-green-600 dark:text-green-300"
             }`}>
               {daysRemaining < 0 
                 ? `${Math.abs(daysRemaining)} days overdue` 
@@ -347,7 +347,7 @@ export default function HighLevelGoalModal({
                   key={sg.id}
                   className={`flex items-center gap-2 p-2 rounded-lg border ${
                     sg.is_complete 
-                      ? "bg-green-50 border-green-200" 
+                      ? "bg-green-50 dark:bg-green-500/15 border-green-200 dark:border-green-500/30" 
                       : "bg-surface-sunken border-border"
                   }`}
                 >
@@ -356,7 +356,7 @@ export default function HighLevelGoalModal({
                     type="checkbox"
                     checked={sg.is_complete}
                     onChange={(e) => handleToggleSmartGoal(sg.id, e)}
-                    className="w-4 h-4 text-green-600 border-border rounded focus:ring-green-500"
+                    className="w-4 h-4 text-green-600 dark:text-green-300 border-border rounded focus:ring-green-500"
                   />
                   {editingSmartGoalId === sg.id ? (
                     <input
@@ -374,12 +374,12 @@ export default function HighLevelGoalModal({
                           handleCancelEditSmartGoal();
                         }
                       }}
-                      className="flex-1 px-2 py-1 text-body border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 px-2 py-1 text-body border border-blue-300 dark:border-blue-500/30 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   ) : (
                     <span 
                       className={`flex-1 text-body cursor-pointer ${
-                        sg.is_complete ? "text-green-700 line-through" : "text-foreground"
+                        sg.is_complete ? "text-green-700 dark:text-green-300 line-through" : "text-foreground"
                       }`}
                       onDoubleClick={() => handleStartEditSmartGoal(sg)}
                       title="Double-click to edit"
@@ -464,7 +464,7 @@ export default function HighLevelGoalModal({
               <button
                 type="button"
                 onClick={() => onDeleteGoal(editingGoal)}
-                className="px-4 py-2 text-body text-red-600 hover:text-white hover:bg-red-600 border border-red-300 rounded-lg transition-colors"
+                className="px-4 py-2 text-body text-red-600 dark:text-red-300 hover:text-white hover:bg-red-600 border border-red-300 dark:border-red-500/30 rounded-lg transition-colors"
               >
                 Delete Goal
               </button>

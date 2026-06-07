@@ -174,7 +174,7 @@ function AlignmentView({ model }: { model: CompareModel }) {
                   key={i}
                   className={
                     block.kinds[i] === "mismatch"
-                      ? "bg-rose-100 text-rose-700"
+                      ? "bg-rose-100 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300"
                       : block.kinds[i] === "gap"
                         ? "text-foreground-muted"
                         : "text-foreground"
@@ -204,7 +204,7 @@ function AlignmentView({ model }: { model: CompareModel }) {
                   key={i}
                   className={
                     block.kinds[i] === "mismatch"
-                      ? "bg-rose-100 text-rose-700"
+                      ? "bg-rose-100 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300"
                       : block.kinds[i] === "gap"
                         ? "text-foreground-muted"
                         : "text-foreground"
@@ -368,14 +368,14 @@ function HspCard({ hsp, rank }: { hsp: Hsp; rank: number }) {
         className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-left transition-colors hover:bg-surface-sunken"
       >
         <span className="text-meta font-semibold text-foreground-muted">#{rank}</span>
-        <span className="rounded bg-sky-50 px-1.5 py-0.5 text-meta font-medium text-sky-700">
+        <span className="rounded bg-sky-50 dark:bg-sky-500/15 px-1.5 py-0.5 text-meta font-medium text-sky-700 dark:text-sky-300">
           {idPct}% identity
         </span>
         <span
           className={
             hsp.strand === 1
-              ? "rounded bg-emerald-50 px-1.5 py-0.5 text-meta font-medium text-emerald-700"
-              : "rounded bg-violet-50 px-1.5 py-0.5 text-meta font-medium text-violet-700"
+              ? "rounded bg-emerald-50 dark:bg-emerald-500/15 px-1.5 py-0.5 text-meta font-medium text-emerald-700 dark:text-emerald-300"
+              : "rounded bg-violet-50 dark:bg-violet-500/15 px-1.5 py-0.5 text-meta font-medium text-violet-700 dark:text-violet-300"
           }
         >
           {hsp.strand === 1 ? "+ strand" : "- strand"}
@@ -584,8 +584,8 @@ export default function CompareSequencesDialog({
       <div className="relative flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100">
-            <AlignIcon className="h-5 w-5 text-sky-600" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-500/15">
+            <AlignIcon className="h-5 w-5 text-sky-600 dark:text-sky-300" />
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="text-title font-semibold text-foreground">Align sequences</h2>
@@ -643,7 +643,7 @@ export default function CompareSequencesDialog({
                 checked={iupac}
                 disabled={scheme === "protein"}
                 onChange={(e) => setIupac(e.target.checked)}
-                className="h-4 w-4 rounded border-border text-sky-600 focus:ring-sky-400 disabled:opacity-50"
+                className="h-4 w-4 rounded border-border text-sky-600 dark:text-sky-300 focus:ring-sky-400 disabled:opacity-50"
               />
               <span className={scheme === "protein" ? "text-foreground-muted" : undefined}>
                 IUPAC-aware scoring
@@ -654,7 +654,7 @@ export default function CompareSequencesDialog({
                 type="checkbox"
                 checked={showDotplot}
                 onChange={(e) => setShowDotplot(e.target.checked)}
-                className="h-4 w-4 rounded border-border text-sky-600 focus:ring-sky-400"
+                className="h-4 w-4 rounded border-border text-sky-600 dark:text-sky-300 focus:ring-sky-400"
               />
               Show dotplot
             </label>
@@ -668,7 +668,7 @@ export default function CompareSequencesDialog({
             </button>
           </div>
           {sameSeq ? (
-            <p className="mt-2 text-meta text-amber-600">
+            <p className="mt-2 text-meta text-amber-600 dark:text-amber-300">
               Sequence A and B are the same; the alignment will be a perfect self-match.
             </p>
           ) : null}
@@ -677,10 +677,10 @@ export default function CompareSequencesDialog({
         {/* Result body */}
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {error ? (
-            <div className="rounded-lg bg-rose-50 px-4 py-3 text-body text-rose-700">{error}</div>
+            <div className="rounded-lg bg-rose-50 dark:bg-rose-500/15 px-4 py-3 text-body text-rose-700 dark:text-rose-300">{error}</div>
           ) : largeResult && lastBasesRef.current ? (
             <div className="space-y-4">
-              <div className="rounded-md bg-amber-50 px-3 py-2 text-meta text-amber-700">
+              <div className="rounded-md bg-amber-50 dark:bg-amber-500/15 px-3 py-2 text-meta text-amber-700 dark:text-amber-300">
                 These sequences are too large for a full base-level alignment
                 ({lastBasesRef.current.a.length.toLocaleString()} bp and{" "}
                 {lastBasesRef.current.b.length.toLocaleString()} bp; the exact
@@ -712,7 +712,7 @@ export default function CompareSequencesDialog({
             <div className="space-y-4">
               {/* Summary stat line */}
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                <span className="rounded-md bg-sky-50 px-2.5 py-1 text-body font-medium text-sky-700">
+                <span className="rounded-md bg-sky-50 dark:bg-sky-500/15 px-2.5 py-1 text-body font-medium text-sky-700 dark:text-sky-300">
                   {formatSummaryLine(visibleModel.summary)}
                 </span>
                 <span className="rounded-md bg-surface-sunken px-2 py-0.5 text-meta font-medium text-foreground-muted">
@@ -731,7 +731,7 @@ export default function CompareSequencesDialog({
               </div>
 
               {truncated ? (
-                <p className="rounded-md bg-amber-50 px-3 py-2 text-meta text-amber-700">
+                <p className="rounded-md bg-amber-50 dark:bg-amber-500/15 px-3 py-2 text-meta text-amber-700 dark:text-amber-300">
                   Showing the first {MAX_RENDER_COLUMNS.toLocaleString()} of{" "}
                   {result.ops.length.toLocaleString()} alignment columns. The identity
                   stat above covers the full alignment.

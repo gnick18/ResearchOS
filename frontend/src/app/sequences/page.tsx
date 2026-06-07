@@ -1505,7 +1505,7 @@ export default function SequencesPage() {
                           }
                           className={`shrink-0 rounded p-1.5 transition-colors ${
                             listCollapsed
-                              ? "bg-sky-100 text-sky-600 hover:bg-sky-200"
+                              ? "bg-sky-100 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300 hover:bg-sky-200"
                               : "text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
                           }`}
                         >
@@ -1774,7 +1774,7 @@ export default function SequencesPage() {
                   type="button"
                   onClick={handleDeleteChecked}
                   disabled={deleting}
-                  className="flex items-center gap-1 rounded-md border border-rose-200 bg-surface-raised px-2.5 py-1 text-meta font-medium text-rose-700 transition-colors hover:bg-rose-50 disabled:opacity-50"
+                  className="flex items-center gap-1 rounded-md border border-rose-200 dark:border-rose-500/30 bg-surface-raised px-2.5 py-1 text-meta font-medium text-rose-700 dark:text-rose-300 transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/20 disabled:opacity-50"
                 >
                   <TrashIcon className="h-3.5 w-3.5" />
                   {deleting
@@ -1922,7 +1922,7 @@ export default function SequencesPage() {
                         onClick={() => handleDeleteOne(s)}
                         disabled={deleting}
                         aria-label={`Move ${s.display_name} to Trash`}
-                        className="shrink-0 rounded p-1 text-foreground-muted opacity-0 transition-opacity hover:bg-rose-50 hover:text-rose-600 focus:opacity-100 group-hover:opacity-100 disabled:opacity-50"
+                        className="shrink-0 rounded p-1 text-foreground-muted opacity-0 transition-opacity hover:bg-rose-50 dark:hover:bg-rose-500/20 hover:text-rose-600 focus:opacity-100 group-hover:opacity-100 disabled:opacity-50"
                       >
                         <TrashIcon className="h-3.5 w-3.5" />
                       </button>

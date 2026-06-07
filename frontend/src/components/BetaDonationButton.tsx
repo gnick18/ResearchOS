@@ -116,7 +116,7 @@ function DonationModal({
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-heading font-bold text-foreground flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-rose-100 text-rose-600">
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-rose-100 dark:bg-rose-500/15 text-rose-600 dark:text-rose-300">
                   <HeartIcon className="w-4 h-4" />
                 </span>
                 Support ResearchOS

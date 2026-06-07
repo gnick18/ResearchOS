@@ -34,7 +34,7 @@ export default function TransparencyView() {
         </Link>
 
         <header className="mt-6 rounded-2xl border border-border bg-surface-raised p-8 shadow-sm sm:p-10">
-          <p className="mb-3 text-body font-semibold uppercase tracking-wide text-sky-600">Method validation</p>
+          <p className="mb-3 text-body font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-300">Method validation</p>
           <h1 className="mb-5 text-display font-bold tracking-tight text-foreground sm:text-4xl">
             Validation of bioinformatic calculations against peer-reviewed alternatives
           </h1>
@@ -49,7 +49,7 @@ export default function TransparencyView() {
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-2 text-meta">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-500/15 px-3 py-1 font-semibold text-emerald-700 dark:text-emerald-300 ring-1 ring-inset ring-emerald-200">
               {counts.exact} exact
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-sunken px-3 py-1 font-semibold text-foreground-muted">
@@ -61,7 +61,7 @@ export default function TransparencyView() {
               </span>
             ) : null}
             {counts.larger > 0 ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 dark:bg-amber-500/15 px-3 py-1 font-semibold text-amber-700 dark:text-amber-300 ring-1 ring-inset ring-amber-200">
                 {counts.larger} larger difference{counts.larger === 1 ? "" : "s"}
               </span>
             ) : null}

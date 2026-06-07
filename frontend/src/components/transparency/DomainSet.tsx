@@ -49,7 +49,7 @@ export default function DomainSet({
     return (
       <div
         className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-meta font-medium ${
-          clean ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
+          clean ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : "bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300"
         }`}
       >
         {clean ? <CheckIcon /> : <CrossIcon />}
@@ -85,12 +85,12 @@ export default function DomainSet({
                 <td className="px-3 py-2 text-right font-mono text-foreground">{span(d.ours)}</td>
                 <td className="px-3 py-2">
                   {d.exact ? (
-                    <span className="inline-flex items-center gap-1 text-emerald-700">
+                    <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
                       <CheckIcon />
                       exact
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-red-700">
+                    <span className="inline-flex items-center gap-1 text-red-700 dark:text-red-300">
                       <CrossIcon />
                       differs
                     </span>

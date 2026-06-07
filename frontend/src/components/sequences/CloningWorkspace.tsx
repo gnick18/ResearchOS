@@ -748,7 +748,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
             aria-current={method === m ? "true" : undefined}
             className={`rounded-md px-3 py-1.5 text-meta font-medium ${
               method === m
-                ? "bg-sky-100 text-sky-700"
+                ? "bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300"
                 : "text-foreground-muted hover:bg-surface-sunken"
             }`}
           >
@@ -799,7 +799,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                   return (
                     <li key={`${p.kind}-${i}-${p.name}`} className="rounded-md border border-border bg-surface-raised px-3 py-2">
                       <div className="flex items-center gap-2">
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-meta font-semibold text-sky-700">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-100 dark:bg-sky-500/15 text-meta font-semibold text-sky-700 dark:text-sky-300">
                           {i + 1}
                         </span>
                         <span className="min-w-0 flex-1">
@@ -820,7 +820,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                           </button>
                         </Tooltip>
                         <Tooltip label="Remove">
-                          <button type="button" onClick={() => remove(i)} className="rounded p-1 text-foreground-muted hover:bg-rose-50 hover:text-rose-600" aria-label="Remove">
+                          <button type="button" onClick={() => remove(i)} className="rounded p-1 text-foreground-muted hover:bg-rose-50 dark:hover:bg-rose-500/20 hover:text-rose-600" aria-label="Remove">
                             <TrashIcon className="h-4 w-4" />
                           </button>
                         </Tooltip>
@@ -885,14 +885,14 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                     <button
                       type="button"
                       onClick={() => setGatewayReaction("BP")}
-                      className={`rounded-md border px-3 py-1.5 text-meta font-medium ${gatewayReaction === "BP" ? "border-sky-500 bg-sky-50 text-sky-700" : "border-border text-foreground-muted hover:bg-surface-sunken"}`}
+                      className={`rounded-md border px-3 py-1.5 text-meta font-medium ${gatewayReaction === "BP" ? "border-sky-500 bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300" : "border-border text-foreground-muted hover:bg-surface-sunken"}`}
                     >
                       BP (attB x attP)
                     </button>
                     <button
                       type="button"
                       onClick={() => setGatewayReaction("LR")}
-                      className={`rounded-md border px-3 py-1.5 text-meta font-medium ${gatewayReaction === "LR" ? "border-sky-500 bg-sky-50 text-sky-700" : "border-border text-foreground-muted hover:bg-surface-sunken"}`}
+                      className={`rounded-md border px-3 py-1.5 text-meta font-medium ${gatewayReaction === "LR" ? "border-sky-500 bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300" : "border-border text-foreground-muted hover:bg-surface-sunken"}`}
                     >
                       LR (attL x attR)
                     </button>
@@ -905,7 +905,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                   {/* Phase C: gentle hint when the two picked substrates do not
                       match the chosen reaction, so the empty product is explained. */}
                   {gatewayMatch && gatewayMatch.hint ? (
-                    <div className="mt-2 flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-meta text-amber-700">
+                    <div className="mt-2 flex items-start gap-1.5 rounded-md border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-2 py-1.5 text-meta text-amber-700 dark:text-amber-300">
                       <WarnIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                       <span>{gatewayMatch.hint}</span>
                     </div>
@@ -931,7 +931,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                           }
                           className={`rounded-md border px-2.5 py-1 font-mono text-meta ${
                             on
-                              ? "border-sky-500 bg-sky-50 text-sky-700"
+                              ? "border-sky-500 bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300"
                               : "border-border text-foreground-muted hover:bg-surface-sunken"
                           }`}
                         >
@@ -951,10 +951,10 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
               <div>
                 <span className="mb-1.5 block text-meta font-medium uppercase tracking-wide text-foreground-muted">Product topology</span>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setCircular(true)} className={`rounded-md border px-3 py-1.5 text-meta font-medium ${circular ? "border-sky-500 bg-sky-50 text-sky-700" : "border-border text-foreground-muted hover:bg-surface-sunken"}`}>
+                  <button type="button" onClick={() => setCircular(true)} className={`rounded-md border px-3 py-1.5 text-meta font-medium ${circular ? "border-sky-500 bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300" : "border-border text-foreground-muted hover:bg-surface-sunken"}`}>
                     Circular (plasmid)
                   </button>
-                  <button type="button" onClick={() => setCircular(false)} className={`rounded-md border px-3 py-1.5 text-meta font-medium ${!circular ? "border-sky-500 bg-sky-50 text-sky-700" : "border-border text-foreground-muted hover:bg-surface-sunken"}`}>
+                  <button type="button" onClick={() => setCircular(false)} className={`rounded-md border px-3 py-1.5 text-meta font-medium ${!circular ? "border-sky-500 bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300" : "border-border text-foreground-muted hover:bg-surface-sunken"}`}>
                     Linear
                   </button>
                 </div>
@@ -970,7 +970,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                     type="checkbox"
                     checked={carryAnnotations}
                     onChange={(e) => setCarryAnnotations(e.target.checked)}
-                    className="h-4 w-4 rounded border-border text-sky-600 focus:ring-sky-500"
+                    className="h-4 w-4 rounded border-border text-sky-600 dark:text-sky-300 focus:ring-sky-500"
                   />
                   Carry annotations from source sequences
                 </label>
@@ -995,7 +995,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                     </span>
                   ) : null}
                 </div>
-                <button type="button" onClick={() => setShowAdvanced((s) => !s)} className="mt-2 text-meta font-medium text-sky-600 hover:text-sky-800">
+                <button type="button" onClick={() => setShowAdvanced((s) => !s)} className="mt-2 text-meta font-medium text-sky-600 dark:text-sky-300 hover:text-sky-800">
                   {showAdvanced ? "Hide advanced" : "Advanced: size by Tm"}
                 </button>
                 {showAdvanced ? (
@@ -1056,7 +1056,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                     aria-pressed={topologyFilter === t}
                     className={`flex-1 rounded px-2 py-1 text-meta font-medium capitalize ${
                       topologyFilter === t
-                        ? "bg-sky-100 text-sky-700"
+                        ? "bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300"
                         : "text-foreground-muted hover:bg-surface-sunken"
                     }`}
                   >
@@ -1088,7 +1088,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                 <ul>
                   {filteredLibrary.map((s) => (
                     <li key={s.id}>
-                      <button type="button" onClick={() => addLibrary(s)} className="flex w-full items-center justify-between gap-2 border-b border-border px-4 py-2 text-left hover:bg-sky-50">
+                      <button type="button" onClick={() => addLibrary(s)} className="flex w-full items-center justify-between gap-2 border-b border-border px-4 py-2 text-left hover:bg-sky-50 dark:hover:bg-sky-500/20">
                         <span className="min-w-0">
                           <span className="block truncate text-body font-medium text-foreground">{s.display_name}</span>
                           <span className="block text-meta text-foreground-muted">{s.length.toLocaleString()} bp{s.circular ? " · circular" : ""}</span>
@@ -1328,7 +1328,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                           {up?.fragmentName} <span className="text-foreground-muted">-&gt;</span> {down?.fragmentName}
                         </div>
                         {jn.warning ? (
-                          <div className="mb-2 flex items-start gap-1.5 rounded bg-amber-50 px-2 py-1 text-meta text-amber-700">
+                          <div className="mb-2 flex items-start gap-1.5 rounded bg-amber-50 dark:bg-amber-500/15 px-2 py-1 text-meta text-amber-700 dark:text-amber-300">
                             <WarnIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {jn.warning}
                           </div>
                         ) : null}
@@ -1432,11 +1432,11 @@ function ReviewShell({
       </label>
 
       {warnings.length > 0 ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
-          <div className="mb-1 flex items-center gap-1.5 text-meta font-semibold text-amber-800">
+        <div className="rounded-md border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 p-3">
+          <div className="mb-1 flex items-center gap-1.5 text-meta font-semibold text-amber-800 dark:text-amber-300">
             <WarnIcon className="h-4 w-4" /> Notes
           </div>
-          <ul className="list-inside list-disc space-y-0.5 text-meta text-amber-700">
+          <ul className="list-inside list-disc space-y-0.5 text-meta text-amber-700 dark:text-amber-300">
             {warnings.map((w, i) => <li key={i}>{w}</li>)}
           </ul>
         </div>
@@ -1445,7 +1445,7 @@ function ReviewShell({
       {children}
 
       <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
-        {saveError ? <span className="text-meta text-rose-600">{saveError}</span> : null}
+        {saveError ? <span className="text-meta text-rose-600 dark:text-rose-300">{saveError}</span> : null}
         <button type="button" onClick={onBack} className="rounded-md border border-border px-4 py-2 text-body font-medium text-foreground hover:bg-surface-sunken">
           Back
         </button>
@@ -1480,7 +1480,7 @@ function SitesPerFragment({ summary, goldenGate }: { summary: FragmentSiteSummar
           return (
             <span
               key={e.name}
-              className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 font-mono text-meta text-amber-700"
+              className="inline-flex items-center gap-1 rounded bg-amber-50 dark:bg-amber-500/15 px-1.5 py-0.5 font-mono text-meta text-amber-700 dark:text-amber-300"
             >
               <WarnIcon className="h-3 w-3 shrink-0" />
               {e.name}: no sites
@@ -1490,7 +1490,7 @@ function SitesPerFragment({ summary, goldenGate }: { summary: FragmentSiteSummar
         return (
           <span
             key={e.name}
-            className="inline-flex items-center rounded bg-emerald-50 px-1.5 py-0.5 font-mono text-meta text-emerald-700"
+            className="inline-flex items-center rounded bg-emerald-50 dark:bg-emerald-500/15 px-1.5 py-0.5 font-mono text-meta text-emerald-700 dark:text-emerald-300"
           >
             {e.name} x{e.count}
           </span>
@@ -1499,7 +1499,7 @@ function SitesPerFragment({ summary, goldenGate }: { summary: FragmentSiteSummar
       {/* Golden Gate health note: a Type IIS part is normally flanked by exactly
           two sites (one per end), so flag a part with no sites to excise. */}
       {goldenGate && summary.hasNoncutter ? (
-        <span className="text-meta text-amber-600">cannot be excised</span>
+        <span className="text-meta text-amber-600 dark:text-amber-300">cannot be excised</span>
       ) : null}
     </div>
   );
@@ -1516,7 +1516,7 @@ function GatewaySubstrateChip({ kind, label }: { kind: string; label: string }) 
     <div className="mt-1.5 pl-8">
       <span
         className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-meta font-medium ${
-          recognized ? "bg-sky-50 text-sky-700" : "bg-amber-50 text-amber-700"
+          recognized ? "bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300" : "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300"
         }`}
       >
         {recognized ? <CheckIcon className="h-3 w-3 shrink-0" /> : <WarnIcon className="h-3 w-3 shrink-0" />}
@@ -1538,12 +1538,12 @@ function LibraryPickerRow({
   onAdd: (rec: SequenceRecord) => void;
 }) {
   return (
-    <button type="button" onClick={() => onAdd(rec)} className="flex w-full items-center justify-between gap-2 border-b border-border px-4 py-2 text-left hover:bg-sky-50">
+    <button type="button" onClick={() => onAdd(rec)} className="flex w-full items-center justify-between gap-2 border-b border-border px-4 py-2 text-left hover:bg-sky-50 dark:hover:bg-sky-500/20">
       <span className="min-w-0">
         <span className="block truncate text-body font-medium text-foreground">{rec.display_name}</span>
         <span className="block text-meta text-foreground-muted">{rec.length.toLocaleString()} bp{rec.circular ? " · circular" : ""}</span>
         {attLabel ? (
-          <span className="mt-1 inline-flex items-center gap-1 rounded bg-sky-50 px-1.5 py-0.5 text-meta font-medium text-sky-700">
+          <span className="mt-1 inline-flex items-center gap-1 rounded bg-sky-50 dark:bg-sky-500/15 px-1.5 py-0.5 text-meta font-medium text-sky-700 dark:text-sky-300">
             <CheckIcon className="h-3 w-3 shrink-0" />
             {attLabel}
           </span>
@@ -1578,7 +1578,7 @@ function GatewayLibraryList({
       ) : null}
       {groups.att.length > 0 ? (
         <>
-          <div className="bg-sky-50/60 px-4 py-1.5 text-meta font-medium uppercase tracking-wide text-sky-700">
+          <div className="bg-sky-50/60 px-4 py-1.5 text-meta font-medium uppercase tracking-wide text-sky-700 dark:text-sky-300">
             att-flanked substrates
           </div>
           <ul>
@@ -1624,7 +1624,7 @@ function ReviewEmptyState({ resolving, message, warnings }: { resolving: boolean
     <div className="flex h-full flex-col items-center justify-center gap-2 text-body text-foreground-muted">
       <span>{message}</span>
       {warnings && warnings.length ? (
-        <ul className="list-inside list-disc text-meta text-amber-600">
+        <ul className="list-inside list-disc text-meta text-amber-600 dark:text-amber-300">
           {warnings.map((w, i) => <li key={i}>{w}</li>)}
         </ul>
       ) : null}
@@ -1648,7 +1648,7 @@ function PrimerCell({ label, primer }: { label: string; primer?: { sequence: str
         <span className="font-sans text-foreground-muted">{primer.length} nt · anneal {Number.isFinite(primer.annealTm) ? primer.annealTm.toFixed(0) : "—"} °C</span>
       </div>
       <div className="font-mono break-all">
-        {primer.tail ? <span className="text-sky-600">{primer.tail}</span> : null}
+        {primer.tail ? <span className="text-sky-600 dark:text-sky-300">{primer.tail}</span> : null}
         <span className="text-foreground">{primer.anneal}</span>
       </div>
     </div>

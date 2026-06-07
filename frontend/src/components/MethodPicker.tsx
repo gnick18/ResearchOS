@@ -602,7 +602,7 @@ export default function MethodPicker({
                       row.sectionKey === "own-section" ||
                       row.sectionKey === "shared-section";
                     const headerCls = isPinned
-                      ? "col-span-full sticky top-0 z-10 bg-blue-50/95 backdrop-blur px-1 py-2 text-meta uppercase tracking-wide font-semibold text-blue-700 border-b border-blue-200"
+                      ? "col-span-full sticky top-0 z-10 bg-blue-50/95 backdrop-blur px-1 py-2 text-meta uppercase tracking-wide font-semibold text-blue-700 dark:text-blue-300 border-b border-blue-200 dark:border-blue-500/30"
                       : isSection
                         ? "col-span-full px-1 pt-2 pb-1 text-meta uppercase tracking-wide font-bold text-foreground border-b border-border"
                         : "col-span-full px-1 py-1.5 text-meta uppercase tracking-wide font-semibold text-foreground-muted";
@@ -763,12 +763,12 @@ function MethodPreview({ method }: { method: Method | null }) {
             {method.name}
           </h3>
           {isPcr && (
-            <span className="text-meta px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded shrink-0">
+            <span className="text-meta px-1.5 py-0.5 bg-purple-100 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300 rounded shrink-0">
               PCR
             </span>
           )}
           {isLc && (
-            <span className="text-meta px-1.5 py-0.5 bg-sky-100 text-sky-600 rounded shrink-0">
+            <span className="text-meta px-1.5 py-0.5 bg-sky-100 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300 rounded shrink-0">
               LC
             </span>
           )}
@@ -836,7 +836,7 @@ function MethodPreview({ method }: { method: Method | null }) {
             Loading preview…
           </div>
         ) : isError ? (
-          <div className="overflow-y-auto px-5 py-4 text-body text-red-600">
+          <div className="overflow-y-auto px-5 py-4 text-body text-red-600 dark:text-red-300">
             Couldn&rsquo;t load preview.
           </div>
         ) : isPdf ? (

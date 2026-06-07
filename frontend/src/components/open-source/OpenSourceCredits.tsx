@@ -104,7 +104,7 @@ function PackageLink({ name, repo }: { name: string; repo: string | null }) {
       href={repo}
       target="_blank"
       rel="noopener noreferrer"
-      className="font-mono text-body text-sky-700 underline-offset-2 hover:text-sky-900 hover:underline"
+      className="font-mono text-body text-sky-700 dark:text-sky-300 underline-offset-2 hover:text-sky-900 hover:underline"
     >
       {name}
       <ExternalIcon />
@@ -150,7 +150,7 @@ export default function OpenSourceCredits() {
           </Link>
           <Link
             href="/"
-            className="text-body font-medium text-sky-700 underline-offset-2 hover:text-sky-900 hover:underline"
+            className="text-body font-medium text-sky-700 dark:text-sky-300 underline-offset-2 hover:text-sky-900 hover:underline"
           >
             Back to the app
           </Link>
@@ -160,7 +160,7 @@ export default function OpenSourceCredits() {
       <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12">
         {/* ── Heartfelt intro ── */}
         <section className="mb-14">
-          <p className="mb-3 text-body font-semibold uppercase tracking-wide text-sky-600">
+          <p className="mb-3 text-body font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-300">
             Thank you
           </p>
           <h1 className="mb-6 text-display font-bold tracking-tight text-foreground sm:text-4xl">
@@ -190,7 +190,7 @@ export default function OpenSourceCredits() {
         </section>
 
         {error && (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-body text-amber-800">
+          <p className="rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-4 py-3 text-body text-amber-800 dark:text-amber-300">
             The credits data could not be loaded right now. The full list also
             lives in THIRD_PARTY_NOTICES and ACKNOWLEDGEMENTS.md in the source
             repository.
@@ -286,7 +286,7 @@ export default function OpenSourceCredits() {
                         href={v.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-title font-semibold text-sky-700 underline-offset-2 hover:text-sky-900 hover:underline"
+                        className="text-title font-semibold text-sky-700 dark:text-sky-300 underline-offset-2 hover:text-sky-900 hover:underline"
                       >
                         {v.name}
                         <ExternalIcon />
@@ -414,7 +414,7 @@ function FeaturedCard({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="group block rounded-xl border border-sky-100 bg-sky-50/60 p-5 transition-colors hover:border-sky-200 hover:bg-sky-50"
+      className="group block rounded-xl border border-sky-100 bg-sky-50/60 p-5 transition-colors hover:border-sky-200 hover:bg-sky-50 dark:hover:bg-sky-500/20"
     >
       <div className="mb-2 flex items-center gap-2">
         <span className="text-title font-semibold text-foreground group-hover:text-sky-800">

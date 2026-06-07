@@ -170,11 +170,11 @@ export default function ExportFormatDialog({
           // attachment file sizes + per-task text overhead; uncompressed
           // ceiling, so the eventual download is typically smaller).
           <div className="p-5 space-y-3">
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-              <div className="text-body font-medium text-amber-900">
+            <div className="rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-4 py-3">
+              <div className="text-body font-medium text-amber-900 dark:text-amber-300">
                 Large export
               </div>
-              <div className="text-meta text-amber-800 mt-1 leading-relaxed">
+              <div className="text-meta text-amber-800 dark:text-amber-300 mt-1 leading-relaxed">
                 Exporting {taskCount} experiments (~
                 {formatBytes(sizeEstimate.totalBytes)} of attachments). This
                 may take a minute and use significant memory. The browser may
@@ -207,7 +207,7 @@ export default function ExportFormatDialog({
                   type="button"
                   disabled={isExporting}
                   onClick={() => onExport(opt.format)}
-                  className="w-full text-left rounded-lg border border-border px-4 py-3 hover:border-blue-400 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-border disabled:hover:bg-surface-raised"
+                  className="w-full text-left rounded-lg border border-border px-4 py-3 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-border disabled:hover:bg-surface-raised"
                 >
                   <div className="text-body font-medium text-foreground">
                     {opt.title}
@@ -223,7 +223,7 @@ export default function ExportFormatDialog({
                   type="button"
                   disabled={isExporting}
                   onClick={onExportCombined}
-                  className="w-full text-left rounded-lg border border-border px-4 py-3 hover:border-blue-400 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-border disabled:hover:bg-surface-raised"
+                  className="w-full text-left rounded-lg border border-border px-4 py-3 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-border disabled:hover:bg-surface-raised"
                 >
                   <div className="text-body font-medium text-foreground">
                     Combined PDF

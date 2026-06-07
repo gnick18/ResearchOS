@@ -418,12 +418,12 @@ function RestoreProvenanceRow({ line }: { line: string }) {
       className="flex items-start gap-2 border-b border-amber-100 bg-amber-50/50 px-4 py-2.5"
       data-testid="sequence-restore-provenance"
     >
-      <IconRestore className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+      <IconRestore className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-300" />
       <span className="min-w-0">
-        <span className="block text-meta font-semibold text-amber-800">
+        <span className="block text-meta font-semibold text-amber-800 dark:text-amber-300">
           Restored from Trash
         </span>
-        <span className="block text-meta text-amber-700">{line}</span>
+        <span className="block text-meta text-amber-700 dark:text-amber-300">{line}</span>
       </span>
     </div>
   );
@@ -466,7 +466,7 @@ function SequenceVersionRow({
         <span className="flex items-center gap-1.5">
           <span className="truncate text-meta font-medium text-foreground">{label}</span>
           {entry.isHead && (
-            <span className="flex-shrink-0 text-meta font-semibold uppercase tracking-wide text-emerald-600">
+            <span className="flex-shrink-0 text-meta font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-300">
               Current version
             </span>
           )}
@@ -487,7 +487,7 @@ function SequenceVersionRow({
             type="button"
             onClick={onStartConfirm}
             data-testid="sequence-restore-button"
-            className="mt-1 inline-flex items-center gap-1 rounded-md border border-emerald-200 px-2 py-0.5 text-meta font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
+            className="mt-1 inline-flex items-center gap-1 rounded-md border border-emerald-200 dark:border-emerald-500/30 px-2 py-0.5 text-meta font-medium text-emerald-700 dark:text-emerald-300 transition-colors hover:bg-emerald-50 dark:hover:bg-emerald-500/20"
           >
             <IconRestore className="h-3 w-3" />
             Restore this version

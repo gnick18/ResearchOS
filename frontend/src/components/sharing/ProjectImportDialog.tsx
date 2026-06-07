@@ -173,7 +173,7 @@ export default function ProjectImportDialog({
           )}
 
           {stage === "error" && (
-            <p className="text-body text-red-600 text-center py-6">{errorMsg}</p>
+            <p className="text-body text-red-600 dark:text-red-300 text-center py-6">{errorMsg}</p>
           )}
 
           {(stage === "review" || stage === "applying") && inventory && (
@@ -207,7 +207,7 @@ export default function ProjectImportDialog({
 
           {stage === "success" && result && (
             <div className="text-center py-4">
-              <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-3">
+              <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center text-emerald-600 dark:text-emerald-300 mb-3">
                 <CheckIcon className="w-6 h-6" />
               </div>
               <p className="text-title font-semibold text-foreground">
@@ -219,11 +219,11 @@ export default function ProjectImportDialog({
                   : "It landed as a new project in your folder."}
               </p>
               {droppedCount > 0 && (
-                <div className="mt-4 text-left rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-                  <p className="text-meta font-semibold uppercase tracking-wide text-amber-700 mb-1.5">
+                <div className="mt-4 text-left rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-4 py-3">
+                  <p className="text-meta font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300 mb-1.5">
                     Not carried over
                   </p>
-                  <ul className="space-y-1 text-meta text-amber-800">
+                  <ul className="space-y-1 text-meta text-amber-800 dark:text-amber-300">
                     {result.notCarried.methodRefs.map((m, i) => (
                       <li key={`m-${i}`}>
                         {m.sourceMethodName

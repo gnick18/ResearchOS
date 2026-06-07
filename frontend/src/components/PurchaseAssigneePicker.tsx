@@ -91,7 +91,7 @@ export default function PurchaseAssigneePicker({
     if (!showChip) return <span className="text-foreground-muted text-meta">—</span>;
     return (
       <span
-        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-meta font-medium border border-emerald-200"
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-meta font-medium border border-emerald-200 dark:border-emerald-500/30"
         data-testid="purchase-assignee-chip"
       >
         <AssigneeIcon />
@@ -121,7 +121,7 @@ export default function PurchaseAssigneePicker({
             type="button"
             onClick={() => setOpen((o) => !o)}
             disabled={busy}
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-meta font-medium border border-emerald-200 hover:bg-emerald-100 disabled:opacity-50"
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-meta font-medium border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 disabled:opacity-50"
             data-testid="purchase-assignee-chip"
           >
             <AssigneeIcon />
@@ -174,8 +174,8 @@ export default function PurchaseAssigneePicker({
                   type="button"
                   onClick={() => handlePick(u.username)}
                   disabled={busy}
-                  className={`w-full text-left px-2 py-1.5 text-meta rounded hover:bg-emerald-50 disabled:opacity-50 ${
-                    isCurrent ? "bg-emerald-50 text-emerald-800 font-medium" : "text-foreground"
+                  className={`w-full text-left px-2 py-1.5 text-meta rounded hover:bg-emerald-50 dark:hover:bg-emerald-500/20 disabled:opacity-50 ${
+                    isCurrent ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 font-medium" : "text-foreground"
                   }`}
                 >
                   {label}{" "}

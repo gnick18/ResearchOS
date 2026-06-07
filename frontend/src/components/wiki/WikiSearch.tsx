@@ -262,8 +262,8 @@ export default function WikiSearch() {
 
       {showErrorState ? (
         <div
-          className="absolute left-3 right-3 mt-1 px-3 py-2 text-meta text-rose-600
-            bg-surface-raised border border-rose-200 rounded-md shadow-sm z-50"
+          className="absolute left-3 right-3 mt-1 px-3 py-2 text-meta text-rose-600 dark:text-rose-300
+            bg-surface-raised border border-rose-200 dark:border-rose-500/30 rounded-md shadow-sm z-50"
         >
           Couldn&apos;t load the search index. Reload the page to try again.
         </div>
@@ -316,7 +316,7 @@ export default function WikiSearch() {
                     transition-colors cursor-pointer
                     ${
                       isActive
-                        ? "bg-blue-50 text-blue-900"
+                        ? "bg-blue-50 dark:bg-blue-500/15 text-blue-900 dark:text-blue-300"
                         : "hover:bg-surface-sunken text-foreground"
                     }`}
                 >
@@ -356,7 +356,7 @@ function SnippetLine({ hit, query }: { hit: WikiSearchHit; query: string }) {
   return (
     <div className="mt-0.5 text-meta text-foreground-muted leading-snug line-clamp-2">
       {before}
-      <mark className="bg-yellow-100 text-foreground px-0.5 rounded-sm">{matched}</mark>
+      <mark className="bg-yellow-100 dark:bg-yellow-500/15 text-foreground px-0.5 rounded-sm">{matched}</mark>
       {after}
     </div>
   );

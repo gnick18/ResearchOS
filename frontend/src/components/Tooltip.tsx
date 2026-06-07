@@ -301,7 +301,7 @@ export default function Tooltip({
                   matches the BeakerBot brand mark (sky-500, beaker
                   silhouette + face) per the project's mascot-is-BeakerBot
                   rule. */}
-              <div className="flex items-center gap-1.5 bg-sky-50 px-3 py-1.5 border-b border-sky-100">
+              <div className="flex items-center gap-1.5 bg-sky-50 dark:bg-sky-500/15 px-3 py-1.5 border-b border-sky-100">
                 <svg
                   width="14"
                   height="14"
@@ -329,7 +329,7 @@ export default function Tooltip({
                   <path d="M14 26 L15.5 26" />
                   <path d="M24.5 26 L26 26" />
                 </svg>
-                <span className="text-meta uppercase tracking-wide font-semibold text-sky-700">
+                <span className="text-meta uppercase tracking-wide font-semibold text-sky-700 dark:text-sky-300">
                   Quick tip
                 </span>
               </div>
@@ -349,7 +349,7 @@ export default function Tooltip({
                       e.stopPropagation();
                       onPrimaryAction();
                     }}
-                    className="text-meta font-medium text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 px-2 py-0.5 rounded transition-colors"
+                    className="text-meta font-medium text-sky-700 dark:text-sky-300 hover:text-sky-900 bg-sky-50 dark:bg-sky-500/15 hover:bg-sky-100 dark:hover:bg-sky-500/20 px-2 py-0.5 rounded transition-colors"
                   >
                     Got it
                   </button>

@@ -238,7 +238,7 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
             className={`w-full text-left px-3 py-1.5 text-body transition-colors ${
               isAnyReceiver
                 ? "text-foreground-muted cursor-not-allowed"
-                : "text-red-600 hover:bg-red-50"
+                : "text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/20"
             }`}
           >
             Delete
@@ -286,16 +286,16 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
             <p className="text-body text-foreground-muted mb-4">
               Are you sure you want to archive &quot;{project.name}&quot;?
             </p>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
-              <p className="text-meta text-amber-700">
+            <div className="bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 rounded-lg p-3 mb-4">
+              <p className="text-meta text-amber-700 dark:text-amber-300">
                 <strong>This will:</strong>
               </p>
-              <ul className="text-meta text-amber-600 mt-1 list-disc list-inside">
+              <ul className="text-meta text-amber-600 dark:text-amber-300 mt-1 list-disc list-inside">
                 <li>Hide the project from the main project list</li>
                 <li>Remove tasks from Gantt chart and task sidebar</li>
                 <li>Prevent adding new tasks to this project</li>
               </ul>
-              <p className="text-meta text-amber-700 mt-2">
+              <p className="text-meta text-amber-700 dark:text-amber-300 mt-2">
                 <strong>All data will be preserved</strong> and you can unarchive at any time.
               </p>
             </div>

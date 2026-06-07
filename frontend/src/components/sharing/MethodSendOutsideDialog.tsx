@@ -368,11 +368,11 @@ function SendForm({
             </p>
           </div>
         </div>
-        <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+        <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 rounded-lg">
           <span className="text-amber-500 mt-0.5">
             <WarnGlyph className="w-4 h-4" />
           </span>
-          <p className="text-meta text-amber-800 leading-relaxed">
+          <p className="text-meta text-amber-800 dark:text-amber-300 leading-relaxed">
             An invite is a lower-assurance channel than sending to an existing
             account. The unlock key travels in the email link, so anyone who can
             read that email can open the method. Only invite an address you trust.
@@ -411,7 +411,7 @@ function SendForm({
     return (
       <div className="space-y-4">
         <div className="flex flex-col items-center text-center py-2">
-          <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+          <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center text-emerald-600 dark:text-emerald-300">
             <CheckGlyph className="w-6 h-6" />
           </div>
           <p className="text-title font-semibold text-foreground mt-3">
@@ -438,7 +438,7 @@ function SendForm({
     return (
       <div className="space-y-4">
         <div className="flex flex-col items-center text-center py-2">
-          <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+          <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center text-emerald-600 dark:text-emerald-300">
             <CheckGlyph className="w-6 h-6" />
           </div>
           <p className="text-title font-semibold text-foreground mt-3">
@@ -501,11 +501,11 @@ function SendForm({
       </div>
 
       {state.phase === "error" && (
-        <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+        <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
           <span className="text-red-500 mt-0.5">
             <WarnGlyph className="w-4 h-4" />
           </span>
-          <p className="text-meta text-red-700 leading-relaxed">{state.message}</p>
+          <p className="text-meta text-red-700 dark:text-red-300 leading-relaxed">{state.message}</p>
         </div>
       )}
 

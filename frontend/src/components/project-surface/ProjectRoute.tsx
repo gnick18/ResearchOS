@@ -464,7 +464,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
         </p>
         <Link
           href="/"
-          className="mt-2 text-body text-blue-600 hover:text-blue-700 hover:underline"
+          className="mt-2 text-body text-blue-600 dark:text-blue-300 hover:text-blue-700 hover:underline"
         >
           ← Back to projects
         </Link>
@@ -535,7 +535,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
                 </span>
               )}
               {project.is_shared_with_me && (
-                <span className="text-meta px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full flex-shrink-0">
+                <span className="text-meta px-2 py-0.5 bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 rounded-full flex-shrink-0">
                   Shared by {project.owner}
                 </span>
               )}
@@ -576,7 +576,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
                       data-testid="project-undo-restore-button"
                       className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-meta font-medium rounded-lg transition-colors ${
                         canRestore && !restoreBusy
-                          ? "text-amber-700 bg-amber-50 hover:bg-amber-100"
+                          ? "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/15 hover:bg-amber-100 dark:hover:bg-amber-500/20"
                           : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
                       }`}
                     >
@@ -616,7 +616,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
                     aria-pressed={historyOpen}
                     className={`p-2 rounded-lg transition-colors ${
                       historyOpen
-                        ? "text-emerald-600 bg-emerald-50"
+                        ? "text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/15"
                         : "text-foreground-muted hover:text-foreground-muted hover:bg-surface-sunken"
                     }`}
                     aria-label="Version history"
@@ -738,8 +738,8 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
                       isViewOnlyReceiver
                         ? "text-foreground-muted cursor-not-allowed"
                         : project.is_archived
-                          ? "text-green-600 hover:text-green-700 hover:bg-green-50"
-                          : "text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                          ? "text-green-600 dark:text-green-300 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-500/20"
+                          : "text-amber-600 dark:text-amber-300 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-500/20"
                     }`}
                     aria-label={project.is_archived ? "Unarchive project" : "Archive project"}
                   >
@@ -765,7 +765,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
                     className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
                       isAnyReceiver
                         ? "text-foreground-muted cursor-not-allowed"
-                        : "text-red-600 hover:text-red-700 hover:bg-red-50"
+                        : "text-red-600 dark:text-red-300 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-500/20"
                     }`}
                     aria-label="Delete project"
                   >
@@ -820,7 +820,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
         <div className="px-6 pt-3">
           <div
             data-testid="project-undo-confirm"
-            className="text-meta text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug max-w-4xl"
+            className="text-meta text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 rounded-lg px-3 py-2 leading-snug max-w-4xl"
           >
             <p>
               You have edited this project since the restore. Undoing will
@@ -888,7 +888,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
               <div className="px-6 pb-6 max-w-4xl">
                 <p
                   data-testid="project-restore-error"
-                  className="text-meta text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-snug"
+                  className="text-meta text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 rounded-lg px-3 py-2 leading-snug"
                   role="alert"
                 >
                   {restoreError}
@@ -993,16 +993,16 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
             <p className="text-body text-foreground-muted mb-4">
               Are you sure you want to archive &quot;{project.name}&quot;?
             </p>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
-              <p className="text-meta text-amber-700">
+            <div className="bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 rounded-lg p-3 mb-4">
+              <p className="text-meta text-amber-700 dark:text-amber-300">
                 <strong>This will:</strong>
               </p>
-              <ul className="text-meta text-amber-600 mt-1 list-disc list-inside">
+              <ul className="text-meta text-amber-600 dark:text-amber-300 mt-1 list-disc list-inside">
                 <li>Hide the project from the main project list</li>
                 <li>Remove tasks from Gantt chart and task sidebar</li>
                 <li>Prevent adding new tasks to this project</li>
               </ul>
-              <p className="text-meta text-amber-700 mt-2">
+              <p className="text-meta text-amber-700 dark:text-amber-300 mt-2">
                 <strong>All data will be preserved</strong> and you can unarchive at any time.
               </p>
             </div>
@@ -1331,7 +1331,7 @@ export function EditProjectModal({ project, onClose, onSave }: EditProjectModalP
               type="checkbox"
               checked={weekendActive}
               onChange={(e) => setWeekendActive(e.target.checked)}
-              className="rounded border-border text-blue-600"
+              className="rounded border-border text-blue-600 dark:text-blue-300"
             />
             <span className="text-body text-foreground-muted">7-day schedule (weekends active)</span>
           </label>

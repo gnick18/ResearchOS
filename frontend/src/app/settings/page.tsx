@@ -568,7 +568,7 @@ export function SettingsBody() {
 
 function SavedIndicator({ saving, recentlySaved }: { saving: boolean; recentlySaved: boolean }) {
   if (saving) return <span className="text-meta text-foreground-muted">Saving…</span>;
-  if (recentlySaved) return <span className="text-meta text-emerald-600">Saved</span>;
+  if (recentlySaved) return <span className="text-meta text-emerald-600 dark:text-emerald-300">Saved</span>;
   return null;
 }
 
@@ -989,13 +989,13 @@ function AccountTypeSection({ settings, update }: SectionProps) {
               aria-pressed={selected}
               className={`flex flex-col items-start gap-1 p-3 rounded-lg border-2 text-left transition-colors ${
                 selected
-                  ? "border-amber-400 bg-amber-50"
+                  ? "border-amber-400 bg-amber-50 dark:bg-amber-500/15"
                   : "border-border hover:border-border hover:bg-surface-sunken"
               }`}
             >
               <span
                 className={`text-body font-semibold ${
-                  selected ? "text-amber-800" : "text-foreground"
+                  selected ? "text-amber-800 dark:text-amber-300" : "text-foreground"
                 }`}
               >
                 {opt.title}
@@ -1141,7 +1141,7 @@ function LabHeadSection({
       ? "Session ended"
       : "Not active";
   const statusClass = isActive
-    ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+    ? "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/15 border-emerald-200 dark:border-emerald-500/30"
     : "text-foreground-muted bg-surface-sunken border-border";
 
   return (
@@ -1258,7 +1258,7 @@ function SettingsTabStrip({
         data-tour-target="settings-tab-personal"
         className={`px-4 py-2 rounded-lg text-body font-medium transition-colors ${
           activeTab === "personal"
-            ? "bg-blue-100 text-blue-700"
+            ? "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300"
             : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
         }`}
       >
@@ -1272,7 +1272,7 @@ function SettingsTabStrip({
         data-tour-target="settings-tab-lab"
         className={`px-4 py-2 rounded-lg text-body font-medium transition-colors ${
           activeTab === "lab"
-            ? "bg-amber-100 text-amber-800"
+            ? "bg-amber-100 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300"
             : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
         }`}
       >
@@ -1413,7 +1413,7 @@ function ChangeLabHeadPasswordPopup({
         </h2>
         {done ? (
           <div className="space-y-3">
-            <p className="text-body text-emerald-700">
+            <p className="text-body text-emerald-700 dark:text-emerald-300">
               Password updated. New unlocks will require the new password.
             </p>
             <div className="flex justify-end">
@@ -1455,7 +1455,7 @@ function ChangeLabHeadPasswordPopup({
                 </button>
               </div>
             ) : (
-              <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-meta text-amber-900">
+              <div className="rounded-md bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 p-3 text-meta text-amber-900 dark:text-amber-300">
                 <p className="font-medium">
                   Resetting without the current password.
                 </p>
@@ -1509,7 +1509,7 @@ function ChangeLabHeadPasswordPopup({
               />
             </div>
             {error && (
-              <p className="text-meta text-red-600" role="alert">
+              <p className="text-meta text-red-600 dark:text-red-300" role="alert">
                 {error}
               </p>
             )}
@@ -1674,7 +1674,7 @@ function SidebarSection({ settings, update }: SectionProps) {
       </div>
 
       {bothOff && (
-        <p className="text-meta text-amber-600 mt-1">
+        <p className="text-meta text-amber-600 dark:text-amber-300 mt-1">
           Both off — the sidebar will be empty on non-calendar pages.
         </p>
       )}
@@ -1866,15 +1866,15 @@ function AppearanceSection() {
               data-theme-choice={opt.value}
               className={`flex flex-col items-start gap-2 p-3 rounded-lg border-2 text-left transition-colors ${
                 selected
-                  ? "border-blue-400 bg-blue-50"
+                  ? "border-blue-400 bg-blue-50 dark:bg-blue-500/15"
                   : "border-border hover:border-border hover:bg-surface-sunken"
               }`}
             >
-              <span className={selected ? "text-blue-600" : "text-foreground-muted"}>
+              <span className={selected ? "text-blue-600 dark:text-blue-300" : "text-foreground-muted"}>
                 {opt.icon}
               </span>
               <div className="min-w-0">
-                <p className={`text-body font-medium ${selected ? "text-blue-700" : "text-foreground"}`}>
+                <p className={`text-body font-medium ${selected ? "text-blue-700 dark:text-blue-300" : "text-foreground"}`}>
                   {opt.label}
                 </p>
                 <p className="text-meta text-foreground-muted">{opt.description}</p>
@@ -1941,12 +1941,12 @@ function AnimationSection({ settings, update }: SectionProps) {
               data-animation-theme={type}
               onClick={(e) => handlePick(type, e)}
               className={`flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-colors ${
-                selected ? "border-purple-400 bg-purple-50" : "border-border hover:border-border hover:bg-surface-sunken"
+                selected ? "border-purple-400 bg-purple-50 dark:bg-purple-500/15" : "border-border hover:border-border hover:bg-surface-sunken"
               }`}
             >
               {renderAnimationIcon(meta.icon, meta.color, "text-heading", "w-7 h-7")}
               <div className="min-w-0 flex-1">
-                <p className={`text-body font-medium ${selected ? "text-purple-700" : "text-foreground"}`}>
+                <p className={`text-body font-medium ${selected ? "text-purple-700 dark:text-purple-300" : "text-foreground"}`}>
                   {meta.name}
                 </p>
                 <p className="text-meta text-foreground-muted truncate">{meta.description}</p>
@@ -1966,7 +1966,7 @@ function AnimationSection({ settings, update }: SectionProps) {
           onClick={() => void update({ animationType: "none" })}
           className={`flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-colors ${
             settings.animationType === "none"
-              ? "border-purple-400 bg-purple-50"
+              ? "border-purple-400 bg-purple-50 dark:bg-purple-500/15"
               : "border-border hover:border-border hover:bg-surface-sunken"
           }`}
         >
@@ -1979,7 +1979,7 @@ function AnimationSection({ settings, update }: SectionProps) {
           <div className="min-w-0 flex-1">
             <p
               className={`text-body font-medium ${
-                settings.animationType === "none" ? "text-purple-700" : "text-foreground"
+                settings.animationType === "none" ? "text-purple-700 dark:text-purple-300" : "text-foreground"
               }`}
             >
               None / off
@@ -2088,7 +2088,7 @@ function TelegramPointerRow() {
           <p className="text-meta text-foreground-muted mt-0.5">
             {paired ? (
               <>
-                <span className="text-emerald-600 font-medium">
+                <span className="text-emerald-600 dark:text-emerald-300 font-medium">
                   Connected as @{pairing.botUsername}
                 </span>
                 . Manage it from the paper-plane button in the top bar.
@@ -2311,7 +2311,7 @@ function DataInventorySection() {
                 selected folder.
               </p>
             ) : null}
-            {error && <p className="text-meta text-red-600 mt-2">{error}</p>}
+            {error && <p className="text-meta text-red-600 dark:text-red-300 mt-2">{error}</p>}
           </div>
           <button
             type="button"
@@ -2389,8 +2389,8 @@ function DataInventorySection() {
                 <p
                   className={`text-meta mt-2 ${
                     forgetStatus.kind === "ok"
-                      ? "text-emerald-700"
-                      : "text-red-600"
+                      ? "text-emerald-700 dark:text-emerald-300"
+                      : "text-red-600 dark:text-red-300"
                   }`}
                 >
                   {forgetStatus.text}
@@ -2407,7 +2407,7 @@ function DataInventorySection() {
           <span
             className={`ml-2 align-middle inline-flex items-center rounded-md px-1.5 py-0.5 text-meta font-semibold ${
               encryptedBackup.state === "present"
-                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-200"
                 : "bg-surface-sunken text-foreground-muted ring-1 ring-border"
             }`}
           >
@@ -2559,7 +2559,7 @@ function TrashAndHistorySection({ settings, update }: SectionProps) {
                     name="trash-cleanup-window"
                     checked={checked}
                     onChange={() => void handleChange(opt.value)}
-                    className="text-blue-600 focus:ring-blue-500"
+                    className="text-blue-600 dark:text-blue-300 focus:ring-blue-500"
                   />
                   <span>{opt.label}</span>
                 </label>
@@ -2631,7 +2631,7 @@ function MaintenanceSection() {
       searchKeywords="repair method links source paths split lab notes results attachments stamp formats reconcile cross-owner project sharing import experiment zip LabArchives orphan credentials"
     >
       {orphanNotice !== null && (
-        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-meta text-amber-900">
+        <div className="rounded-md border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-3 py-2 text-meta text-amber-900 dark:text-amber-300">
           Orphaned LabArchives credential file(s) detected ({orphanNotice}). See the
           &ldquo;Clean up orphaned LabArchives credentials&rdquo; button below.
         </div>
@@ -2826,7 +2826,7 @@ function LabArchivesOrphanCleanupRow() {
           these files anymore.
         </p>
         {orphans && orphans.length > 0 && !status && (
-          <p className="text-meta text-amber-700 mt-2">
+          <p className="text-meta text-amber-700 dark:text-amber-300 mt-2">
             Cancelled. {orphans.length} orphan file(s) still on disk: {orphans.join(", ")}
           </p>
         )}
@@ -2834,9 +2834,9 @@ function LabArchivesOrphanCleanupRow() {
           <p
             className={`text-meta mt-2 ${
               statusKind === "ok"
-                ? "text-emerald-700"
+                ? "text-emerald-700 dark:text-emerald-300"
                 : statusKind === "err"
-                ? "text-red-600"
+                ? "text-red-600 dark:text-red-300"
                 : "text-foreground-muted"
             }`}
           >
@@ -2936,7 +2936,7 @@ function LabArchivesSection() {
         footer={
           <a
             href="/wiki/integrations/labarchives#exporting-from-labarchives"
-            className="inline-flex items-center gap-1 text-meta text-blue-600 hover:text-blue-700 underline"
+            className="inline-flex items-center gap-1 text-meta text-blue-600 dark:text-blue-300 hover:text-blue-700 underline"
           >
             How to export from LabArchives →
           </a>
@@ -2996,7 +2996,7 @@ function LabArchivesOptionCard({
               <div className="mt-1.5">
                 <Link
                   href={helpHref}
-                  className="text-blue-600 hover:underline"
+                  className="text-blue-600 dark:text-blue-300 hover:underline"
                 >
                   Read more in the wiki →
                 </Link>
@@ -3066,12 +3066,12 @@ function RepairRow({
             {result.failed > 0 && (
               <>
                 {" · "}
-                <span className="text-red-600">failed <strong>{result.failed}</strong></span>
+                <span className="text-red-600 dark:text-red-300">failed <strong>{result.failed}</strong></span>
               </>
             )}
           </p>
         )}
-        {error && <p className="text-meta text-red-600 mt-2">{error}</p>}
+        {error && <p className="text-meta text-red-600 dark:text-red-300 mt-2">{error}</p>}
       </div>
       <button
         type="button"
@@ -3182,7 +3182,7 @@ function ReconcileRow() {
             <strong>{result.unknownDestinations.length}</strong> unknown destinations
           </p>
         )}
-        {error && <p className="text-meta text-red-600 mt-2">{error}</p>}
+        {error && <p className="text-meta text-red-600 dark:text-red-300 mt-2">{error}</p>}
       </div>
       <button
         type="button"
@@ -3535,7 +3535,7 @@ function AIHelperSection() {
                   data-tour-target={tourTarget}
                   className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
                     selected
-                      ? "border-blue-300 bg-blue-50"
+                      ? "border-blue-300 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/15"
                       : "border-border hover:border-border"
                   }`}
                 >
@@ -3578,7 +3578,7 @@ function AIHelperSection() {
                 : "Prompt unavailable"}
           </button>
           {fetchError && (
-            <p className="text-meta text-red-600 mt-2">{fetchError}</p>
+            <p className="text-meta text-red-600 dark:text-red-300 mt-2">{fetchError}</p>
           )}
         </div>
 
@@ -3604,7 +3604,7 @@ function AIHelperSection() {
             Paste it as your first message, or save it as a Claude Project / Custom GPT / Gem for a
             persistent helper.
           </p>
-          <p className="text-meta text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mt-2">
+          <p className="text-meta text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 rounded-md px-3 py-2 mt-2">
             <span className="font-medium">Heads up:</span> this is for the chat interface
             (claude.ai, chatgpt.com, gemini.google.com, copilot.microsoft.com). Your Claude Max
             / ChatGPT Plus / Gemini Advanced subscription works fine, and Microsoft Copilot is
@@ -3616,7 +3616,7 @@ function AIHelperSection() {
 
         {/* Inline status toast (4s auto-dismiss) */}
         {status && (
-          <p className="text-meta text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
+          <p className="text-meta text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 rounded-md px-3 py-2">
             {status}
           </p>
         )}
@@ -3624,7 +3624,7 @@ function AIHelperSection() {
         {/* Freshness footer */}
         <div className="pt-3 border-t border-border text-meta text-foreground-muted">
           {manifestError ? (
-            <p className="text-amber-700">
+            <p className="text-amber-700 dark:text-amber-300">
               Couldn&apos;t load freshness info: {manifestError}
             </p>
           ) : !manifest ? (
@@ -3640,15 +3640,15 @@ function AIHelperSection() {
         {/* Stale-prompt callout (only when running-app commit differs from
             manifest commit; suppressed in demo/fixture mode). */}
         {showStaleCallout && (
-          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-meta text-amber-900 space-y-2">
+          <div className="rounded-md border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-3 py-2 text-meta text-amber-900 dark:text-amber-300 space-y-2">
             <p>
               <span aria-hidden>⚠ </span>
               These prompts are from{" "}
-              <code className="px-1 py-0.5 bg-amber-100 rounded text-meta">
+              <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-500/15 rounded text-meta">
                 {shortManifestCommit}
               </code>{" "}
               but the running app is at{" "}
-              <code className="px-1 py-0.5 bg-amber-100 rounded text-meta">
+              <code className="px-1 py-0.5 bg-amber-100 dark:bg-amber-500/15 rounded text-meta">
                 {shortRunningCommit}
               </code>
               . They may be older than the running app.
@@ -3676,7 +3676,7 @@ function AIHelperSection() {
           <Link
             href={`/ai-helper/${selectedSize}.md`}
             target="_blank"
-            className="text-blue-600 hover:underline"
+            className="text-blue-600 dark:text-blue-300 hover:underline"
           >
             View prompt source →
           </Link>
@@ -3802,7 +3802,7 @@ function TipsSection() {
     >
       {orphanedArtifactCount > 0 && (
         <div
-          className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-meta text-amber-900"
+          className="mb-3 rounded-md border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-3 py-2 text-meta text-amber-900 dark:text-amber-300"
           data-testid="settings-orphan-artifact-banner"
         >
           Your previous tour left {orphanedArtifactCount} demo
@@ -3819,7 +3819,7 @@ function TipsSection() {
             this once on first sign-in; existing users can opt back in
             here.
           </p>
-          {status && <p className="text-meta text-emerald-600 mt-2">{status}</p>}
+          {status && <p className="text-meta text-emerald-600 dark:text-emerald-300 mt-2">{status}</p>}
         </div>
         <button
           type="button"
@@ -3884,7 +3884,7 @@ function TipsSection() {
           <Link
             href="/dev/beakerbot-gallery"
             data-testid="settings-beakerbot-gallery-link"
-            className="text-blue-600 hover:underline"
+            className="text-blue-600 dark:text-blue-300 hover:underline"
           >
             BeakerBot Gallery (dev)
           </Link>
@@ -3930,7 +3930,7 @@ function SecuritySection({
         <div>
           <p className="text-body text-foreground">
             Password is currently{" "}
-            <span className={pwExists ? "text-emerald-600 font-medium" : "text-foreground-muted"}>
+            <span className={pwExists ? "text-emerald-600 dark:text-emerald-300 font-medium" : "text-foreground-muted"}>
               {pwExists === null ? "…" : pwExists ? "set" : "not set"}
             </span>
             .
@@ -3974,7 +3974,7 @@ function OfflineModeSection({ settings, update }: SectionProps) {
         onChange={(v) => void update({ offlineMode: v })}
       />
       {settings.offlineMode && (
-        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-meta text-amber-900">
+        <div className="rounded-md border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-3 py-2 text-meta text-amber-900 dark:text-amber-300">
           Offline mode active. Calendar feeds and Telegram file downloads are blocked.
           Direct Telegram polling still works.
         </div>

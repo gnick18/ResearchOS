@@ -23,9 +23,9 @@ export default function ApplyProgressStep({
   if (errorMessage) {
     return (
       <div className="space-y-4">
-        <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3">
-          <p className="text-body font-semibold text-red-900">Import failed</p>
-          <p className="text-meta text-red-700 mt-1 whitespace-pre-wrap break-words">{errorMessage}</p>
+        <div className="rounded-lg border border-red-300 dark:border-red-500/30 bg-red-50 dark:bg-red-500/15 px-4 py-3">
+          <p className="text-body font-semibold text-red-900 dark:text-red-300">Import failed</p>
+          <p className="text-meta text-red-700 dark:text-red-300 mt-1 whitespace-pre-wrap break-words">{errorMessage}</p>
         </div>
         <div className="flex items-center justify-end gap-2">
           <button

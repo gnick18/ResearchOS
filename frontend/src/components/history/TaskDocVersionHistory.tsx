@@ -215,7 +215,7 @@ export function TaskDocHistoryButton({
         aria-pressed={controller.isOpen}
         className={`p-1.5 rounded-lg transition-colors ${
           controller.isOpen
-            ? "text-emerald-600 bg-emerald-50"
+            ? "text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/15"
             : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
         }`}
       >

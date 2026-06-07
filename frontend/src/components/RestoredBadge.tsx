@@ -66,13 +66,13 @@ export default function RestoredBadge({ audit, small = false }: RestoredBadgePro
       <span
         className={
           small
-            ? "inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-meta font-medium text-amber-700"
-            : "inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-meta font-medium text-amber-800"
+            ? "inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-500/15 px-2 py-0.5 text-meta font-medium text-amber-700 dark:text-amber-300"
+            : "inline-flex items-center gap-1.5 rounded-md border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-2.5 py-1 text-meta font-medium text-amber-800 dark:text-amber-300"
         }
         data-testid="restored-badge"
       >
         <RestoreIcon
-          className={small ? "h-3 w-3" : "h-3.5 w-3.5 flex-shrink-0 text-amber-600"}
+          className={small ? "h-3 w-3" : "h-3.5 w-3.5 flex-shrink-0 text-amber-600 dark:text-amber-300"}
         />
         Restored
       </span>

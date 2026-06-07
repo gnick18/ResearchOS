@@ -56,14 +56,14 @@ export default function NoteListRow({ note, onClick, isLabMode = false }: NoteLi
     >
       {/* Type icon: single note vs running log */}
       {note.is_running_log ? (
-        <div className="w-7 h-7 flex-shrink-0 rounded-lg bg-purple-100 flex items-center justify-center">
-          <svg className="w-3.5 h-3.5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <div className="w-7 h-7 flex-shrink-0 rounded-lg bg-purple-100 dark:bg-purple-500/15 flex items-center justify-center">
+          <svg className="w-3.5 h-3.5 text-purple-600 dark:text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         </div>
       ) : (
-        <div className="w-7 h-7 flex-shrink-0 rounded-lg bg-blue-100 flex items-center justify-center">
-          <svg className="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <div className="w-7 h-7 flex-shrink-0 rounded-lg bg-blue-100 dark:bg-blue-500/15 flex items-center justify-center">
+          <svg className="w-3.5 h-3.5 text-blue-600 dark:text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         </div>
@@ -77,7 +77,7 @@ export default function NoteListRow({ note, onClick, isLabMode = false }: NoteLi
             {note.title || "Untitled"}
           </span>
           {isShared && (
-            <span className="flex-shrink-0 px-2 py-0.5 text-meta bg-emerald-100 text-emerald-700 rounded-full">
+            <span className="flex-shrink-0 px-2 py-0.5 text-meta bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 rounded-full">
               Shared with lab
             </span>
           )}

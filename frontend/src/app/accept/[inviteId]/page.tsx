@@ -597,7 +597,7 @@ function Header({ headline }: { headline: string }) {
     <div className="px-6 pt-6 pb-4 border-b border-border flex items-center gap-3">
       <BeakerBot pose="idle" alive className="w-10 h-10 text-sky-500" />
       <div>
-        <p className="text-meta uppercase tracking-wide text-blue-600 font-semibold">
+        <p className="text-meta uppercase tracking-wide text-blue-600 dark:text-blue-300 font-semibold">
           ResearchOS
         </p>
         <h1 className="text-title font-semibold text-foreground">{headline}</h1>
@@ -654,7 +654,7 @@ function ReadyBody({
   if (imp.phase === "done") {
     return (
       <div className="py-6 text-center">
-        <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+        <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center text-emerald-600 dark:text-emerald-300">
           <CheckGlyph className="w-6 h-6" />
         </div>
         <h2 className="text-title font-semibold text-foreground mt-3">
@@ -681,7 +681,7 @@ function ReadyBody({
           {senderLabel}
         </p>
         {valid && (
-          <p className="text-meta text-emerald-600 mt-1.5">
+          <p className="text-meta text-emerald-600 dark:text-emerald-300 mt-1.5">
             ResearchOS verified this note opened with the invite key and passed
             its integrity check.
           </p>
@@ -727,8 +727,8 @@ function ReadyBody({
       </div>
 
       {imp.phase === "error" && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-meta text-red-700 leading-relaxed">{imp.message}</p>
+        <div className="p-3 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+          <p className="text-meta text-red-700 dark:text-red-300 leading-relaxed">{imp.message}</p>
         </div>
       )}
 
@@ -796,7 +796,7 @@ function ImportItemBody({
   if (imp.phase === "done") {
     return (
       <div className="py-6 text-center">
-        <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+        <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center text-emerald-600 dark:text-emerald-300">
           <CheckGlyph className="w-6 h-6" />
         </div>
         <h2 className="text-title font-semibold text-foreground mt-3">
@@ -819,7 +819,7 @@ function ImportItemBody({
         <p className="text-body font-medium text-foreground break-all">
           {senderLabel}
         </p>
-        <p className="text-meta text-emerald-600 mt-1.5">
+        <p className="text-meta text-emerald-600 dark:text-emerald-300 mt-1.5">
           ResearchOS opened this {noun} with the invite key and passed its
           integrity check.
         </p>
@@ -837,8 +837,8 @@ function ImportItemBody({
       </div>
 
       {imp.phase === "error" && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-meta text-red-700 leading-relaxed">{imp.message}</p>
+        <div className="p-3 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+          <p className="text-meta text-red-700 dark:text-red-300 leading-relaxed">{imp.message}</p>
         </div>
       )}
 
@@ -910,7 +910,7 @@ function SequenceBody({
   if (imp.phase === "done") {
     return (
       <div className="py-6 text-center">
-        <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+        <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center text-emerald-600 dark:text-emerald-300">
           <CheckGlyph className="w-6 h-6" />
         </div>
         <h2 className="text-title font-semibold text-foreground mt-3">
@@ -940,7 +940,7 @@ function SequenceBody({
         <p className="text-body font-medium text-foreground break-all">
           {senderLabel}
         </p>
-        <p className="text-meta text-emerald-600 mt-1.5">
+        <p className="text-meta text-emerald-600 dark:text-emerald-300 mt-1.5">
           ResearchOS opened this sequence with the invite key and passed its
           integrity check.
         </p>
@@ -963,8 +963,8 @@ function SequenceBody({
       </div>
 
       {imp.phase === "error" && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-meta text-red-700 leading-relaxed">{imp.message}</p>
+        <div className="p-3 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+          <p className="text-meta text-red-700 dark:text-red-300 leading-relaxed">{imp.message}</p>
         </div>
       )}
 

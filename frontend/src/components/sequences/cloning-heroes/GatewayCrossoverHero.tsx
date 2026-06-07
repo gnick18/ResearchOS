@@ -36,10 +36,10 @@ interface Props {
 function AttChip({ name, tone }: { name: string; tone: "substrate" | "clone" | "byproduct" }) {
   const cls =
     tone === "clone"
-      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+      ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-emerald-200"
       : tone === "byproduct"
         ? "bg-surface-sunken text-foreground-muted ring-border"
-        : "bg-sky-50 text-sky-700 ring-sky-200";
+        : "bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 ring-sky-200";
   return (
     <span className={`rounded px-1.5 py-0.5 font-mono text-meta font-medium ring-1 ${cls}`}>
       {name}
@@ -109,7 +109,7 @@ export default function GatewayCrossoverHero({ reaction, clone, byproduct, subst
               {cloneAtts.map((n, i) => (
                 <AttChip key={i} name={n} tone="clone" />
               ))}
-              <span className="text-meta font-medium text-emerald-700">clone</span>
+              <span className="text-meta font-medium text-emerald-700 dark:text-emerald-300">clone</span>
             </div>
             {byproductAtts.length > 0 ? (
               <div className="flex items-center gap-1.5">
@@ -129,7 +129,7 @@ export default function GatewayCrossoverHero({ reaction, clone, byproduct, subst
         <span className="font-medium text-foreground">{substrateNames[0]}</span> + {" "}
         <span className="font-medium text-foreground">{substrateNames[1]}</span>{" "}
         <span className="text-foreground-muted">{"->"}</span>{" "}
-        <span className="font-medium text-emerald-700">clone</span>
+        <span className="font-medium text-emerald-700 dark:text-emerald-300">clone</span>
         {byproduct ? (
           <>
             {" "}+ <span className="text-foreground-muted">byproduct</span>

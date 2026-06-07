@@ -539,7 +539,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                   onClick={() => setTaskType("list")}
                   className={`flex-1 px-3 py-2.5 text-body rounded-lg border transition-colors ${
                     taskType === "list"
-                      ? "bg-blue-50 border-blue-300 text-blue-700 font-medium"
+                      ? "bg-blue-50 dark:bg-blue-500/15 border-blue-300 dark:border-blue-500/30 text-blue-700 dark:text-blue-300 font-medium"
                       : "border-border text-foreground-muted hover:bg-surface-sunken"
                   }`}
                 >
@@ -550,7 +550,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                   onClick={() => setTaskType("experiment")}
                   className={`flex-1 px-3 py-2.5 text-body rounded-lg border transition-colors ${
                     taskType === "experiment"
-                      ? "bg-purple-50 border-purple-300 text-purple-700 font-medium"
+                      ? "bg-purple-50 dark:bg-purple-500/15 border-purple-300 dark:border-purple-500/30 text-purple-700 dark:text-purple-300 font-medium"
                       : "border-border text-foreground-muted hover:bg-surface-sunken"
                   }`}
                 >
@@ -561,7 +561,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                   onClick={() => setTaskType("purchase")}
                   className={`flex-1 px-3 py-2.5 text-body rounded-lg border transition-colors ${
                     taskType === "purchase"
-                      ? "bg-amber-50 border-amber-300 text-amber-700 font-medium"
+                      ? "bg-amber-50 dark:bg-amber-500/15 border-amber-300 dark:border-amber-500/30 text-amber-700 dark:text-amber-300 font-medium"
                       : "border-border text-foreground-muted hover:bg-surface-sunken"
                   }`}
                 >
@@ -704,7 +704,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                   onClick={() => setSchedulingMode("date")}
                   className={`flex-1 px-4 py-2.5 text-body rounded-lg border transition-colors ${
                     schedulingMode === "date"
-                      ? "bg-purple-50 border-purple-300 text-purple-700 font-medium"
+                      ? "bg-purple-50 dark:bg-purple-500/15 border-purple-300 dark:border-purple-500/30 text-purple-700 dark:text-purple-300 font-medium"
                       : "border-border text-foreground-muted hover:bg-surface-sunken"
                   }`}
                 >
@@ -715,7 +715,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                   onClick={() => setSchedulingMode("dependency")}
                   className={`flex-1 px-4 py-2.5 text-body rounded-lg border transition-colors ${
                     schedulingMode === "dependency"
-                      ? "bg-orange-50 border-orange-300 text-orange-700 font-medium"
+                      ? "bg-orange-50 dark:bg-orange-500/15 border-orange-300 dark:border-orange-500/30 text-orange-700 dark:text-orange-300 font-medium"
                       : "border-border text-foreground-muted hover:bg-surface-sunken"
                   }`}
                 >
@@ -835,11 +835,11 @@ export default function TaskModal({ projects }: TaskModalProps) {
 
               {/* Show calculated start date */}
               {selectedParentTask && (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                  <p className="text-meta text-orange-700">
+                <div className="bg-orange-50 dark:bg-orange-500/15 border border-orange-200 dark:border-orange-500/30 rounded-lg p-3">
+                  <p className="text-meta text-orange-700 dark:text-orange-300">
                     <strong>Calculated Start Date:</strong> {suggestedStartDate}
                   </p>
-                  <p className="text-meta text-orange-600 mt-1">
+                  <p className="text-meta text-orange-600 dark:text-orange-300 mt-1">
                     {depType === "FS" && `Starts the day after "${selectedParentTask.name}" ends (${selectedParentTask.end_date})`}
                     {depType === "SS" && `Starts at the same time as "${selectedParentTask.name}" (${selectedParentTask.start_date})`}
                     {depType === "SF" && `Starts ${durationDays} day(s) before "${selectedParentTask.name}" begins`}
@@ -931,8 +931,8 @@ export default function TaskModal({ projects }: TaskModalProps) {
 
           {/* Experiment info box */}
           {taskType === "experiment" && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-              <p className="text-meta text-green-700">
+            <div className="bg-green-50 dark:bg-green-500/15 border border-green-200 dark:border-green-500/30 rounded-lg p-3">
+              <p className="text-meta text-green-700 dark:text-green-300">
                 <strong>Experiment tasks</strong> include lab notes (Markdown
                 with images), results tracking, and method deviations. Add notes
                 and results after creating the task.
@@ -942,8 +942,8 @@ export default function TaskModal({ projects }: TaskModalProps) {
 
           {/* Purchase info box */}
           {taskType === "purchase" && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-              <p className="text-meta text-amber-700">
+            <div className="bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 rounded-lg p-3">
+              <p className="text-meta text-amber-700 dark:text-amber-300">
                 <strong>Purchase tasks</strong> track items to buy. Open the
                 task to add quantities, prices, and links. Past purchases are
                 suggested as you type.
@@ -996,15 +996,15 @@ export default function TaskModal({ projects }: TaskModalProps) {
           closeOnScrimClick={false}
         >
           <div className="bg-surface-raised rounded-xl shadow-2xl w-full p-6">
-            <h3 className="text-heading font-semibold text-red-600 mb-4">
+            <h3 className="text-heading font-semibold text-red-600 dark:text-red-300 mb-4">
               Duplicate Task Name Detected
             </h3>
             <p className="text-body text-foreground-muted mb-3">
               A task with the same name already exists in this project with the same task type:
             </p>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+            <div className="bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg p-3 mb-4">
               {duplicateWarning.matching_tasks.map((task) => (
-                <div key={task.id} className="text-body text-red-700 mb-2">
+                <div key={task.id} className="text-body text-red-700 dark:text-red-300 mb-2">
                   <strong>{task.name}</strong>
                   <span className="text-red-500 ml-2">
                     (Started: {task.start_date}, {task.is_complete ? "Completed" : "In Progress"})
@@ -1027,7 +1027,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
                   setDuplicateWarning(null);
                   createTask();
                 }}
-                className="px-4 py-2 text-body text-red-600 border border-red-300 hover:bg-red-50 rounded-lg transition-colors"
+                className="px-4 py-2 text-body text-red-600 dark:text-red-300 border border-red-300 dark:border-red-500/30 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-lg transition-colors"
               >
                 Create Anyway
               </button>

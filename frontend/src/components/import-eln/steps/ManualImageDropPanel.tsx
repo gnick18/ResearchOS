@@ -140,7 +140,7 @@ export default function ManualImageDropPanel({
         onDragLeave={onDragLeave}
         className={`block rounded-xl border-2 border-dashed cursor-pointer transition-colors px-5 py-6 text-center ${
           dragOver
-            ? "border-blue-400 bg-blue-50"
+            ? "border-blue-400 bg-blue-50 dark:bg-blue-500/15"
             : "border-border hover:border-gray-400 bg-surface-sunken"
         } ${processing ? "opacity-60 pointer-events-none" : ""}`}
       >
@@ -167,7 +167,7 @@ export default function ManualImageDropPanel({
         <p className="mt-2 text-meta text-foreground-muted">Processing dropped files…</p>
       )}
       {error && (
-        <p className="mt-2 text-meta text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+        <p className="mt-2 text-meta text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-md px-3 py-2">
           {error}
         </p>
       )}
@@ -175,7 +175,7 @@ export default function ManualImageDropPanel({
       {match && !processing && (
         <div className="mt-3 space-y-2">
           <div className="rounded-lg border border-border bg-surface-raised px-3 py-2 text-meta space-y-1">
-            <p className="text-emerald-800">
+            <p className="text-emerald-800 dark:text-emerald-300">
               <span className="font-medium">{matchedCount}</span> image
               {matchedCount === 1 ? "" : "s"} matched and ready to import.
             </p>
@@ -186,13 +186,13 @@ export default function ManualImageDropPanel({
               </p>
             )}
             {unusedCount > 0 && (
-              <p className="text-amber-800">
+              <p className="text-amber-800 dark:text-amber-300">
                 <span className="font-medium">{unusedCount}</span> dropped file
                 {unusedCount === 1 ? "" : "s"} didn&apos;t match any expected image and will be ignored.
               </p>
             )}
             {zipErrors.length > 0 && (
-              <p className="text-red-700">
+              <p className="text-red-700 dark:text-red-300">
                 Couldn&apos;t read {zipErrors.length} ZIP archive
                 {zipErrors.length === 1 ? "" : "s"}:{" "}
                 {zipErrors.map((z) => z.name).join(", ")}.

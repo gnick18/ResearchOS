@@ -316,7 +316,7 @@ export default function WorkbenchListsPanel({ projects }: Props) {
                 <div className="flex items-baseline justify-between mb-3">
                   <h3
                     className={`text-body font-semibold uppercase tracking-wide ${
-                      key === "overdue" ? "text-red-700" : "text-gray-900"
+                      key === "overdue" ? "text-red-700 dark:text-red-300" : "text-gray-900"
                     }`}
                   >
                     {SECTION_LABEL[key]}
@@ -379,7 +379,7 @@ export default function WorkbenchListsPanel({ projects }: Props) {
           )}
 
           {totalActive === 0 && (
-            <div className="text-meta text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2 inline-block">
+            <div className="text-meta text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 rounded-md px-3 py-2 inline-block">
               No active list tasks — your queue is clear.
             </div>
           )}

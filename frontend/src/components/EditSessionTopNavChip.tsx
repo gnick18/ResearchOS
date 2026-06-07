@@ -77,7 +77,7 @@ export default function EditSessionTopNavChip() {
           aria-expanded={open}
           aria-label={`Edit session: ${remaining} remaining`}
           data-testid="edit-session-chip"
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-meta font-medium transition-colors"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-500/15 hover:bg-amber-200 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-500/30 text-meta font-medium transition-colors"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -111,11 +111,11 @@ export default function EditSessionTopNavChip() {
           data-testid="edit-session-chip-menu"
           className="absolute right-0 mt-2 w-56 bg-surface-raised border border-border rounded-lg shadow-lg z-50 overflow-hidden"
         >
-          <div className="px-3 py-2 bg-amber-50 border-b border-amber-100">
-            <p className="text-meta text-amber-900">
+          <div className="px-3 py-2 bg-amber-50 dark:bg-amber-500/15 border-b border-amber-100">
+            <p className="text-meta text-amber-900 dark:text-amber-300">
               <span className="font-semibold">Edit session active</span>
             </p>
-            <p className="text-meta text-amber-700 mt-0.5">
+            <p className="text-meta text-amber-700 dark:text-amber-300 mt-0.5">
               <span className="font-mono tabular-nums">{remaining}</span>{" "}
               remaining for{" "}
               <span className="font-medium">@{session.active.username}</span>

@@ -41,7 +41,7 @@ export default function SequenceMatch({
       <div className="px-4 py-3">
         <div
           className={`mb-2 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-meta font-medium ${
-            matches ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
+            matches ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : "bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300"
           }`}
         >
           {matches ? <CheckIcon /> : <CrossIcon />}

@@ -275,7 +275,7 @@ export default function ProteinPropertiesDrawer({
         ) : (
           <>
             {hasInternalStop ? (
-              <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-meta text-amber-700">
+              <div className="mb-3 rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 p-2.5 text-meta text-amber-700 dark:text-amber-300">
                 Not a clean ORF. The translation has an internal stop, so this may
                 be the wrong frame or range. The numbers below cover the standard
                 residues only.
@@ -329,7 +329,7 @@ export default function ProteinPropertiesDrawer({
               type="button"
               onClick={() => setExpanded((v) => !v)}
               aria-expanded={expanded}
-              className="mt-3 flex w-full items-center gap-1.5 rounded-md px-1 py-1.5 text-body font-medium text-sky-700 transition-colors hover:bg-sky-50"
+              className="mt-3 flex w-full items-center gap-1.5 rounded-md px-1 py-1.5 text-body font-medium text-sky-700 dark:text-sky-300 transition-colors hover:bg-sky-50 dark:hover:bg-sky-500/20"
             >
               <ChevronIcon open={expanded} className="h-4 w-4" />
               Full properties

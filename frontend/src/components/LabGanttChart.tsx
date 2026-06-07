@@ -381,7 +381,7 @@ export default function LabGanttChart({
               onClick={() => useAppStore.getState().setViewMode(mode as "1week" | "2week" | "3week" | "1month" | "3month" | "6month" | "1year" | "all")}
               className={`px-2 py-1 text-meta rounded transition-colors ${
                 viewMode === mode
-                  ? "bg-emerald-100 text-emerald-700"
+                  ? "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                   : "bg-surface-sunken text-foreground-muted hover:text-foreground"
               }`}
             >
@@ -481,7 +481,7 @@ export default function LabGanttChart({
                               key={`cell-${weekIdx}-row${rowNum}-${ds}`}
                               className={`border-r border-border last:border-r-0 ${
                                 isWeekendDay ? "bg-surface-sunken" : ""
-                              } ${isToday2 ? "bg-red-50" : ""}`}
+                              } ${isToday2 ? "bg-red-50 dark:bg-red-500/15" : ""}`}
                             />
                           );
                         })}

@@ -161,8 +161,8 @@ export default function TaxonomyLookupDialog({
       />
       <div className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100">
-            <TreeIcon className="h-5 w-5 text-sky-600" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-500/15">
+            <TreeIcon className="h-5 w-5 text-sky-600 dark:text-sky-300" />
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="text-title font-semibold text-foreground">
@@ -213,9 +213,9 @@ export default function TaxonomyLookupDialog({
           </p>
 
           {error ? (
-            <div className="mt-3 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5">
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/15 px-3 py-2.5">
               <WarnIcon className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
-              <p className="text-meta leading-relaxed text-rose-700">{error}</p>
+              <p className="text-meta leading-relaxed text-rose-700 dark:text-rose-300">{error}</p>
             </div>
           ) : null}
 
@@ -232,7 +232,7 @@ export default function TaxonomyLookupDialog({
                 <h3 className="truncate text-body font-semibold text-foreground">
                   {result.name}
                 </h3>
-                <span className="shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-meta font-medium uppercase tracking-wide text-sky-700">
+                <span className="shrink-0 rounded-full bg-sky-100 dark:bg-sky-500/15 px-2 py-0.5 text-meta font-medium uppercase tracking-wide text-sky-700 dark:text-sky-300">
                   {rankLabel(result.rank) || "Taxon"}
                 </span>
               </div>
@@ -268,7 +268,7 @@ export default function TaxonomyLookupDialog({
                     type="button"
                     onClick={() => setExpanded((v) => !v)}
                     aria-expanded={expanded}
-                    className="mt-3 text-meta font-medium text-sky-600 transition-colors hover:text-sky-700"
+                    className="mt-3 text-meta font-medium text-sky-600 dark:text-sky-300 transition-colors hover:text-sky-700"
                   >
                     {expanded ? "Hide full lineage" : "Show full lineage"}
                   </button>
@@ -295,7 +295,7 @@ export default function TaxonomyLookupDialog({
                   <button
                     type="button"
                     onClick={() => onExploreInTree(result.taxId)}
-                    className="inline-flex items-center gap-1.5 text-meta font-medium text-sky-600 transition-colors hover:text-sky-700"
+                    className="inline-flex items-center gap-1.5 text-meta font-medium text-sky-600 dark:text-sky-300 transition-colors hover:text-sky-700"
                   >
                     <TreeIcon className="h-3.5 w-3.5" />
                     Explore in tree

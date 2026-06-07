@@ -140,7 +140,7 @@ export default function RehydrateMissingImagesModal({
             />
           )}
           {applyState.kind === "error" && (
-            <p className="mt-3 text-meta text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+            <p className="mt-3 text-meta text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-md px-3 py-2">
               {applyState.message}
             </p>
           )}
@@ -189,14 +189,14 @@ function useStagedOkCount(staged: Map<string, FetchedImage>): number {
 function ApplySummary({ result }: { result: RehydrateResult }) {
   return (
     <div className="space-y-3">
-      <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3">
-        <p className="text-body font-medium text-emerald-900">
+      <div className="rounded-xl border border-emerald-300 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/15 px-4 py-3">
+        <p className="text-body font-medium text-emerald-900 dark:text-emerald-300">
           {result.applied === 0
             ? "Nothing was applied."
             : `Applied ${result.applied} image${result.applied === 1 ? "" : "s"}.`}
         </p>
         {result.sidecar && (
-          <p className="text-meta text-emerald-800 mt-1">
+          <p className="text-meta text-emerald-800 dark:text-emerald-300 mt-1">
             {result.sidecar.missingInlineImages.length === 0
               ? "All your inline images are now in the note."
               : `${result.sidecar.missingInlineImages.length} image${
@@ -206,11 +206,11 @@ function ApplySummary({ result }: { result: RehydrateResult }) {
         )}
       </div>
       {result.warnings.length > 0 && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
-          <p className="text-body font-medium text-amber-900">
+        <div className="rounded-xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-4 py-3">
+          <p className="text-body font-medium text-amber-900 dark:text-amber-300">
             Some images couldn&apos;t be written:
           </p>
-          <ul className="mt-1 list-disc list-inside text-meta text-amber-800 space-y-0.5">
+          <ul className="mt-1 list-disc list-inside text-meta text-amber-800 dark:text-amber-300 space-y-0.5">
             {result.warnings.slice(0, 8).map((w, i) => (
               <li key={i}>
                 <code className="text-meta">{w.filename}</code> — {w.message}

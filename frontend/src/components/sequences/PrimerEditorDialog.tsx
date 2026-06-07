@@ -302,7 +302,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={request.onCancel} />
       <div className="relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-pink-50 text-pink-600">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-pink-50 dark:bg-pink-500/15 text-pink-600 dark:text-pink-300">
             <IconPrimer className="h-4 w-4" />
           </span>
           <h2 className="text-title font-semibold text-foreground">
@@ -386,7 +386,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
               checked={phosphorylated}
               disabled={readOnly}
               onChange={(e) => setPhosphorylated(e.target.checked)}
-              className="h-3.5 w-3.5 rounded border-border text-sky-600 focus:ring-sky-400"
+              className="h-3.5 w-3.5 rounded border-border text-sky-600 dark:text-sky-300 focus:ring-sky-400"
             />
             5&apos; Phosphorylated
           </label>
@@ -422,7 +422,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
                 Enter a sequence to see where it anneals.
               </p>
             ) : sites.length === 0 ? (
-              <p className="rounded-md border border-dashed border-amber-200 bg-amber-50 px-2.5 py-2 text-meta text-amber-700">
+              <p className="rounded-md border border-dashed border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-2.5 py-2 text-meta text-amber-700 dark:text-amber-300">
                 This oligo does not anneal to the template. Saving keeps the
                 primer&apos;s current position on the map.
               </p>
@@ -510,7 +510,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
                       return (
                         <span
                           key={i}
-                          className={match ? "font-semibold text-sky-700" : "font-semibold text-rose-600"}
+                          className={match ? "font-semibold text-sky-700 dark:text-sky-300" : "font-semibold text-rose-600 dark:text-rose-300"}
                         >
                           {pb}
                         </span>
@@ -568,7 +568,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
                 <button
                   type="button"
                   onClick={request.onDelete}
-                  className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-body font-medium text-red-600 transition-colors hover:bg-red-50"
+                  className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-body font-medium text-red-600 dark:text-red-300 transition-colors hover:bg-red-50 dark:hover:bg-red-500/20"
                 >
                   <IconTrash className="h-4 w-4" />
                   Delete

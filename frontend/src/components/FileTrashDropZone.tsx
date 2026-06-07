@@ -55,8 +55,8 @@ export default function FileTrashDropZone({
       // strip emits drag events at a time.
       className={`fixed bottom-20 right-6 z-[120] flex flex-col items-center justify-center w-24 h-24 rounded-2xl border-2 border-dashed transition-all ${
         over
-          ? "border-red-500 bg-red-100 scale-110 shadow-lg"
-          : "border-red-300 bg-red-50/90 backdrop-blur-sm"
+          ? "border-red-500 bg-red-100 dark:bg-red-500/15 scale-110 shadow-lg"
+          : "border-red-300 dark:border-red-500/30 bg-red-50/90 backdrop-blur-sm"
       }`}
       onDragOver={(e) => {
         if (Array.from(e.dataTransfer.types).includes(FILE_STRIP_DRAG_MIME)) {
@@ -103,7 +103,7 @@ export default function FileTrashDropZone({
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="w-8 h-8 text-red-600"
+        className="w-8 h-8 text-red-600 dark:text-red-300"
         aria-hidden
       >
         <polyline points="3 6 5 6 21 6" />
@@ -111,7 +111,7 @@ export default function FileTrashDropZone({
         <path d="M10 11v6M14 11v6" />
         <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
       </svg>
-      <span className="text-meta text-red-700 font-medium mt-1">
+      <span className="text-meta text-red-700 dark:text-red-300 font-medium mt-1">
         Drop to delete
       </span>
     </div>

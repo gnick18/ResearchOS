@@ -35,10 +35,10 @@ const STATUS_LABEL: Record<Status, string> = {
 };
 
 const STATUS_CLS: Record<Status, string> = {
-  "in-progress": "bg-emerald-100 text-emerald-700",
-  "building-next": "bg-sky-100 text-sky-700",
-  "coming-soon": "bg-violet-100 text-violet-700",
-  exploring: "bg-amber-100 text-amber-700",
+  "in-progress": "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+  "building-next": "bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300",
+  "coming-soon": "bg-violet-100 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300",
+  exploring: "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300",
   "on-the-horizon": "bg-surface-sunken text-foreground-muted",
 };
 
@@ -69,7 +69,7 @@ function CollabIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      className="text-sky-600"
+      className="text-sky-600 dark:text-sky-300"
     >
       <rect x="3" y="4" width="11" height="14" rx="1.5" />
       <rect x="10" y="7" width="11" height="14" rx="1.5" />
@@ -91,7 +91,7 @@ function SharingIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      className="text-sky-600"
+      className="text-sky-600 dark:text-sky-300"
     >
       <rect x="2" y="6" width="20" height="14" rx="2" />
       <path d="M2 8l10 7 10-7" />
@@ -114,7 +114,7 @@ function CloudUploadIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      className="text-sky-600"
+      className="text-sky-600 dark:text-sky-300"
     >
       <path d="M12 15V3m0 0l-3 3m3-3l3 3" />
       <path d="M8 19H5a2 2 0 01-2-2v-1" />
@@ -137,7 +137,7 @@ function BarcodeIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      className="text-sky-600"
+      className="text-sky-600 dark:text-sky-300"
     >
       <path d="M4 7V5h3" />
       <path d="M17 5h3v2" />
@@ -164,7 +164,7 @@ function PhoneIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      className="text-sky-600"
+      className="text-sky-600 dark:text-sky-300"
     >
       <rect x="7" y="2" width="10" height="20" rx="2.5" />
       <line x1="12" y1="18" x2="12" y2="18" strokeWidth="2.5" strokeLinecap="round" />
@@ -186,7 +186,7 @@ function SyncIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      className="text-sky-600"
+      className="text-sky-600 dark:text-sky-300"
     >
       <path d="M4 9a8 8 0 0 1 13.7-4.3L20 7" />
       <path d="M20 4v3h-3" />

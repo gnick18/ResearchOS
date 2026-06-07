@@ -365,7 +365,7 @@ export default function FeatureEditorDialog({
                             type="button"
                             onClick={() => onSplit(i)}
                             disabled={s.end - s.start < 2}
-                            className="rounded px-1.5 py-0.5 text-meta text-sky-600 hover:bg-sky-50 disabled:opacity-30"
+                            className="rounded px-1.5 py-0.5 text-meta text-sky-600 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-500/20 disabled:opacity-30"
                           >
                             Split
                           </button>
@@ -373,7 +373,7 @@ export default function FeatureEditorDialog({
                             <button
                               type="button"
                               onClick={() => onMerge(i)}
-                              className="rounded px-1.5 py-0.5 text-meta text-sky-600 hover:bg-sky-50"
+                              className="rounded px-1.5 py-0.5 text-meta text-sky-600 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-500/20"
                             >
                               Merge
                             </button>
@@ -382,7 +382,7 @@ export default function FeatureEditorDialog({
                             type="button"
                             onClick={() => onDeleteSeg(i)}
                             disabled={segments.length <= 1}
-                            className="rounded px-1.5 py-0.5 text-meta text-rose-600 hover:bg-rose-50 disabled:opacity-30"
+                            className="rounded px-1.5 py-0.5 text-meta text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-500/20 disabled:opacity-30"
                             aria-label={`Delete segment ${i + 1}`}
                           >
                             Remove
@@ -448,7 +448,7 @@ export default function FeatureEditorDialog({
               <button
                 type="button"
                 onClick={addQualifier}
-                className="rounded px-1.5 py-0.5 text-meta font-medium text-sky-600 hover:bg-sky-50"
+                className="rounded px-1.5 py-0.5 text-meta font-medium text-sky-600 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-500/20"
               >
                 + Add qualifier
               </button>
@@ -480,7 +480,7 @@ export default function FeatureEditorDialog({
                     <button
                       type="button"
                       onClick={() => removeQualifier(i)}
-                      className="mt-0.5 rounded px-1.5 py-1 text-meta text-rose-600 hover:bg-rose-50"
+                      className="mt-0.5 rounded px-1.5 py-1 text-meta text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-500/20"
                       aria-label={`Remove qualifier ${i + 1}`}
                     >
                       Remove
@@ -539,7 +539,7 @@ export default function FeatureEditorDialog({
               <button
                 type="button"
                 onClick={request.onDelete}
-                className="rounded-lg px-3 py-2 text-body font-medium text-rose-600 transition-colors hover:bg-rose-50"
+                className="rounded-lg px-3 py-2 text-body font-medium text-rose-600 dark:text-rose-300 transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/20"
               >
                 Delete
               </button>
@@ -652,7 +652,7 @@ function ReadOnlyBody({
           <div className="space-y-1">
             {qualifiers.map((q, i) => (
               <div key={i} className="flex gap-2 text-body">
-                <span className="shrink-0 font-mono text-meta text-sky-700">/{q.key}</span>
+                <span className="shrink-0 font-mono text-meta text-sky-700 dark:text-sky-300">/{q.key}</span>
                 <span className="break-words text-foreground">{q.value}</span>
               </div>
             ))}

@@ -128,7 +128,7 @@ export default function TelegramEncryptedRecoveryPrompt() {
       aria-live="polite"
       className="fixed bottom-6 right-6 z-[120] pointer-events-none"
     >
-      <div className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-xl shadow-lg shadow-emerald-100/60 text-emerald-800 text-body">
+      <div className="pointer-events-auto flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 rounded-xl shadow-lg shadow-emerald-100/60 text-emerald-800 dark:text-emerald-300 text-body">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="16"

@@ -434,7 +434,7 @@ export default function DomainAnnotationPanel({
         type="button"
         onClick={onClickAnnotate}
         disabled={disabled}
-        className="flex w-full items-center justify-center gap-1.5 rounded-md border border-sky-200 bg-sky-50 px-3 py-1.5 text-body font-medium text-sky-700 transition-colors hover:bg-sky-100 disabled:cursor-not-allowed disabled:border-border disabled:bg-surface-sunken disabled:text-foreground-muted"
+        className="flex w-full items-center justify-center gap-1.5 rounded-md border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/15 px-3 py-1.5 text-body font-medium text-sky-700 dark:text-sky-300 transition-colors hover:bg-sky-100 dark:hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:border-border disabled:bg-surface-sunken disabled:text-foreground-muted"
       >
         <DomainIcon className="h-4 w-4" />
         Annotate domains
@@ -463,14 +463,14 @@ export default function DomainAnnotationPanel({
           <button
             type="button"
             onClick={onChooseCurated}
-            className="flex items-start gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-left transition-colors hover:bg-indigo-100"
+            className="flex items-start gap-2 rounded-md border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-500/15 px-3 py-2 text-left transition-colors hover:bg-indigo-100 dark:hover:bg-indigo-500/20"
           >
-            <IconDownload className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" />
+            <IconDownload className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-300" />
             <span className="min-w-0">
-              <span className="block text-body font-medium text-indigo-800">
+              <span className="block text-body font-medium text-indigo-800 dark:text-indigo-300">
                 Common domains (on your computer, downloads once)
               </span>
-              <span className="block text-meta text-indigo-700">
+              <span className="block text-meta text-indigo-700 dark:text-indigo-300">
                 A curated set of common Pfam domains. Runs entirely on your
                 computer; downloads once, then works offline.
               </span>
@@ -479,14 +479,14 @@ export default function DomainAnnotationPanel({
           <button
             type="button"
             onClick={onChooseLocal}
-            className="flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-left transition-colors hover:bg-emerald-100"
+            className="flex items-start gap-2 rounded-md border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/15 px-3 py-2 text-left transition-colors hover:bg-emerald-100 dark:hover:bg-emerald-500/20"
           >
-            <IconLaptop className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+            <IconLaptop className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-300" />
             <span className="min-w-0">
-              <span className="block text-body font-medium text-emerald-800">
+              <span className="block text-body font-medium text-emerald-800 dark:text-emerald-300">
                 Local database (.hmm, on your machine)
               </span>
-              <span className="block text-meta text-emerald-700">
+              <span className="block text-meta text-emerald-700 dark:text-emerald-300">
                 Runs entirely on your computer. Your sequence and your database
                 never leave your machine.
               </span>
@@ -495,14 +495,14 @@ export default function DomainAnnotationPanel({
           <button
             type="button"
             onClick={onChooseEbi}
-            className="flex items-start gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-left transition-colors hover:bg-sky-100"
+            className="flex items-start gap-2 rounded-md border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/15 px-3 py-2 text-left transition-colors hover:bg-sky-100 dark:hover:bg-sky-500/20"
           >
-            <IconGlobe className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />
+            <IconGlobe className="mt-0.5 h-4 w-4 shrink-0 text-sky-600 dark:text-sky-300" />
             <span className="min-w-0">
-              <span className="block text-body font-medium text-sky-800">
+              <span className="block text-body font-medium text-sky-800 dark:text-sky-300">
                 EBI InterProScan (full Pfam, online)
               </span>
-              <span className="block text-meta text-sky-700">
+              <span className="block text-meta text-sky-700 dark:text-sky-300">
                 Submits this protein to EBI for the full Pfam library. Leaves
                 your machine; you confirm first.
               </span>
@@ -526,12 +526,12 @@ export default function DomainAnnotationPanel({
   if (phase.kind === "curated") {
     const familyCount = curatedManifest?.families;
     return (
-      <div className="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-meta text-indigo-800">
+      <div className="rounded-md border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-500/15 px-3 py-2.5 text-meta text-indigo-800 dark:text-indigo-300">
         <p className="flex items-start gap-1.5 font-medium">
           <IconDownload className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           Search this protein against a curated set of common Pfam domains.
         </p>
-        <p className="mt-1 text-indigo-700">
+        <p className="mt-1 text-indigo-700 dark:text-indigo-300">
           A curated set of common Pfam domains. Runs entirely on your computer;
           downloads once, then works offline. The database is about 3 MB; the
           first run downloads it, later runs are instant.
@@ -551,7 +551,7 @@ export default function DomainAnnotationPanel({
           <button
             type="button"
             onClick={() => setPhase({ kind: "source" })}
-            className="rounded-md px-2.5 py-1 text-meta font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
+            className="rounded-md px-2.5 py-1 text-meta font-medium text-indigo-700 dark:text-indigo-300 transition-colors hover:bg-indigo-100 dark:hover:bg-indigo-500/20"
           >
             Back
           </button>
@@ -563,12 +563,12 @@ export default function DomainAnnotationPanel({
   // --- LOCAL: pick a .hmm and run on-device -------------------------------
   if (phase.kind === "local") {
     return (
-      <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-meta text-emerald-800">
+      <div className="rounded-md border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/15 px-3 py-2.5 text-meta text-emerald-800 dark:text-emerald-300">
         <p className="flex items-start gap-1.5 font-medium">
           <IconLaptop className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           Search this protein against your own HMM database, on your computer.
         </p>
-        <p className="mt-1 text-emerald-700">
+        <p className="mt-1 text-emerald-700 dark:text-emerald-300">
           Runs entirely on your computer. Your sequence and your database never
           leave your machine. Choose a Pfam or HMMER .hmm file to search
           against. Large databases run slower in the browser; a curated subset
@@ -586,7 +586,7 @@ export default function DomainAnnotationPanel({
           <button
             type="button"
             onClick={() => setPhase({ kind: "source" })}
-            className="rounded-md px-2.5 py-1 text-meta font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
+            className="rounded-md px-2.5 py-1 text-meta font-medium text-emerald-700 dark:text-emerald-300 transition-colors hover:bg-emerald-100 dark:hover:bg-emerald-500/20"
           >
             Back
           </button>
@@ -598,13 +598,13 @@ export default function DomainAnnotationPanel({
   // --- CONSENT: the one-time privacy notice -------------------------------
   if (phase.kind === "consent") {
     return (
-      <div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2.5 text-meta text-sky-800">
+      <div className="rounded-md border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/15 px-3 py-2.5 text-meta text-sky-800 dark:text-sky-300">
         <p className="flex items-start gap-1.5 font-medium">
           <IconGlobe className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           This sends the translated protein of this CDS to EBI InterProScan to
           find domains.
         </p>
-        <p className="mt-1 text-sky-700">
+        <p className="mt-1 text-sky-700 dark:text-sky-300">
           Your sequence file and your other data stay on your machine. Only this
           protein is submitted. Domains found are added as features you review
           first.
@@ -621,7 +621,7 @@ export default function DomainAnnotationPanel({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md px-2.5 py-1 text-meta font-medium text-sky-700 transition-colors hover:bg-sky-100"
+            className="rounded-md px-2.5 py-1 text-meta font-medium text-sky-700 dark:text-sky-300 transition-colors hover:bg-sky-100 dark:hover:bg-sky-500/20"
           >
             Cancel
           </button>
@@ -638,18 +638,18 @@ export default function DomainAnnotationPanel({
         ? Math.min(100, Math.round((receivedBytes / totalBytes) * 100))
         : null;
     return (
-      <div className="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-meta text-indigo-700">
-        <p className="flex items-center gap-2 font-medium text-indigo-800">
+      <div className="rounded-md border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-500/15 px-3 py-2.5 text-meta text-indigo-700 dark:text-indigo-300">
+        <p className="flex items-center gap-2 font-medium text-indigo-800 dark:text-indigo-300">
           <Spinner className="h-3.5 w-3.5 shrink-0" />
           Downloading the common-domain database (~3 MB), one time…
         </p>
-        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-indigo-100">
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-indigo-100 dark:bg-indigo-500/15">
           <div
             className="h-full rounded-full bg-indigo-500 transition-[width]"
             style={{ width: pct !== null ? `${pct}%` : "33%" }}
           />
         </div>
-        <p className="mt-1 text-indigo-600 tabular-nums">
+        <p className="mt-1 text-indigo-600 dark:text-indigo-300 tabular-nums">
           {pct !== null
             ? `${pct}% downloaded. Later annotations are instant.`
             : "Downloading. Later annotations are instant."}
@@ -657,7 +657,7 @@ export default function DomainAnnotationPanel({
         <button
           type="button"
           onClick={onCancel}
-          className="mt-2 rounded-md px-2.5 py-1 text-meta font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
+          className="mt-2 rounded-md px-2.5 py-1 text-meta font-medium text-indigo-700 dark:text-indigo-300 transition-colors hover:bg-indigo-100 dark:hover:bg-indigo-500/20"
         >
           Cancel
         </button>
@@ -691,9 +691,9 @@ export default function DomainAnnotationPanel({
   // --- ERROR: message + retry ---------------------------------------------
   if (phase.kind === "error") {
     return (
-      <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-meta text-rose-700">
+      <div className="rounded-md border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/15 px-3 py-2.5 text-meta text-rose-700 dark:text-rose-300">
         <p className="font-medium">Domain search did not finish.</p>
-        <p className="mt-1 text-rose-600">{phase.message}</p>
+        <p className="mt-1 text-rose-600 dark:text-rose-300">{phase.message}</p>
         <div className="mt-2 flex items-center gap-2">
           <button
             type="button"
@@ -705,7 +705,7 @@ export default function DomainAnnotationPanel({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md px-2.5 py-1 text-meta font-medium text-rose-700 transition-colors hover:bg-rose-100"
+            className="rounded-md px-2.5 py-1 text-meta font-medium text-rose-700 dark:text-rose-300 transition-colors hover:bg-rose-100 dark:hover:bg-rose-500/20"
           >
             Dismiss
           </button>

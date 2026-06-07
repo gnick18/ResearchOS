@@ -150,8 +150,8 @@ export default function FlagForReviewButton({
           onClick={() => setOpen(true)}
           className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-meta font-medium ${
             isFlagged
-              ? "border border-red-300 bg-red-50 text-red-800 hover:bg-red-100"
-              : "border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+              ? "border border-red-300 dark:border-red-500/30 bg-red-50 dark:bg-red-500/15 text-red-800 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-500/20"
+              : "border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-500/20"
           }`}
           data-testid="lab-head-flag-button"
         >

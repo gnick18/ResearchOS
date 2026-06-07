@@ -107,7 +107,7 @@ export default function ProfileCard({
       <div className="px-6 pb-6 sm:px-8 sm:pb-7">
         {/* Avatar overlapping the cover */}
         <div className="-mt-12 mb-3 flex sm:-mt-14">
-          <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-3xl font-bold text-sky-600 ring-4 ring-white sm:h-28 sm:w-28">
+          <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-sky-50 dark:bg-sky-500/15 text-3xl font-bold text-sky-600 dark:text-sky-300 ring-4 ring-white sm:h-28 sm:w-28">
             {initials(profile.displayName)}
           </div>
         </div>
@@ -121,7 +121,7 @@ export default function ProfileCard({
               label={`Institutional login verified at ${profile.affiliationDomain}`}
               placement="top"
             >
-              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-meta font-medium text-emerald-700">
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/15 px-2.5 py-1 text-meta font-medium text-emerald-700 dark:text-emerald-300">
                 <BadgeCheckIcon className="h-3.5 w-3.5" />
                 Verified
               </span>
@@ -149,7 +149,7 @@ export default function ProfileCard({
                 href={`https://orcid.org/${profile.orcid}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-body text-sky-700 hover:underline underline-offset-2"
+                className="inline-flex items-center gap-2 text-body text-sky-700 dark:text-sky-300 hover:underline underline-offset-2"
               >
                 <span className="font-mono">{profile.orcid}</span>
                 <span className="text-foreground-muted">View publications on ORCID</span>
@@ -189,7 +189,7 @@ export default function ProfileCard({
                 <button
                   type="button"
                   onClick={copyFingerprint}
-                  className="inline-flex items-center gap-1 text-meta text-sky-600 hover:text-sky-700"
+                  className="inline-flex items-center gap-1 text-meta text-sky-600 dark:text-sky-300 hover:text-sky-700"
                 >
                   {copied ? (
                     "Copied"

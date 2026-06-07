@@ -70,9 +70,9 @@ export default function NoteCard({ note, onClick, isLabMode = false, tourTarget 
         <div className="flex items-center gap-2">
           {/* Icon based on type */}
           {note.is_running_log ? (
-            <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-500/15 flex items-center justify-center">
               <svg
-                className="w-4 h-4 text-purple-600"
+                className="w-4 h-4 text-purple-600 dark:text-purple-300"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -86,9 +86,9 @@ export default function NoteCard({ note, onClick, isLabMode = false, tourTarget 
               </svg>
             </div>
           ) : (
-            <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-500/15 flex items-center justify-center">
               <svg
-                className="w-4 h-4 text-blue-600"
+                className="w-4 h-4 text-blue-600 dark:text-blue-300"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -107,7 +107,7 @@ export default function NoteCard({ note, onClick, isLabMode = false, tourTarget 
               own view; static label in lab mode (can't flip others' notes). */}
           {isLabMode ? (
             note.is_shared && (
-              <span className="px-2 py-0.5 text-meta bg-emerald-100 text-emerald-700 rounded-full">
+              <span className="px-2 py-0.5 text-meta bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 rounded-full">
                 Shared with lab
               </span>
             )
@@ -121,7 +121,7 @@ export default function NoteCard({ note, onClick, isLabMode = false, tourTarget 
               disabled={toggleShareMutation.isPending}
               className={`px-2 py-0.5 text-meta rounded-full transition-colors ${
                 note.is_shared
-                  ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                  ? "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200"
                   : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
               } disabled:opacity-50`}
               title={

@@ -240,8 +240,8 @@ export default function ShareDialog({
     <>
         {/* PI hint */}
         {viewerIsLabHead && viewerUsername !== ownerUsername && (
-          <div className="px-6 py-2 bg-amber-50 border-b border-amber-200">
-            <p className="text-meta text-amber-800">
+          <div className="px-6 py-2 bg-amber-50 dark:bg-amber-500/15 border-b border-amber-200 dark:border-amber-500/30">
+            <p className="text-meta text-amber-800 dark:text-amber-300">
               PI: you can see and edit this record regardless of these
               share entries.
             </p>
@@ -370,7 +370,7 @@ export default function ShareDialog({
               onClick={handleToggleWholeLab}
               className={`w-full text-left px-3 py-2 rounded-lg border transition-colors text-body font-medium ${
                 wholeLab
-                  ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+                  ? "bg-emerald-50 dark:bg-emerald-500/15 border-emerald-300 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
                   : "border-border text-foreground hover:bg-surface-sunken"
               }`}
               data-tour-target="share-dialog-whole-lab"
@@ -427,19 +427,19 @@ export default function ShareDialog({
 
           {/* Project-specific cascade option */}
           {recordType === "project" && (
-            <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <div className="mb-4 bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 rounded-lg p-3">
               <label className="flex items-start gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={cascadeToTasks}
                   onChange={(e) => setCascadeToTasks(e.target.checked)}
-                  className="mt-1 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                  className="mt-1 rounded border-amber-300 dark:border-amber-500/30 text-amber-600 dark:text-amber-300 focus:ring-amber-500"
                 />
                 <div>
-                  <p className="text-body font-medium text-amber-800">
+                  <p className="text-body font-medium text-amber-800 dark:text-amber-300">
                     Also share all tasks in this project
                   </p>
-                  <p className="text-meta text-amber-700">
+                  <p className="text-meta text-amber-700 dark:text-amber-300">
                     Each task&apos;s sharing list will be updated to match.
                     New tasks added later are NOT auto-shared.
                   </p>
@@ -449,8 +449,8 @@ export default function ShareDialog({
           )}
 
           {error && (
-            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-body text-red-700">{error}</p>
+            <div className="mt-3 p-3 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+              <p className="text-body text-red-700 dark:text-red-300">{error}</p>
             </div>
           )}
         </div>
@@ -552,14 +552,14 @@ function labelForType(type: ShareDialogRecordType): string {
 function SharedUserAvatar({ username }: { username: string }) {
   if (username === WHOLE_LAB_SENTINEL) {
     return (
-      <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-title">
+      <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center text-emerald-700 dark:text-emerald-300 text-title">
         *
       </div>
     );
   }
   return (
-    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-      <span className="text-body font-medium text-blue-700">
+    <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-500/15 flex items-center justify-center">
+      <span className="text-body font-medium text-blue-700 dark:text-blue-300">
         {username.charAt(0).toUpperCase()}
       </span>
     </div>
