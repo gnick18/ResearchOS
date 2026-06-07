@@ -1078,6 +1078,7 @@
     catch (e) { toast("Storage is full. Download your bundle to keep the images, then Clear to free space."); return false; }
   }
   var state = load();
+  var hoverCard = null;
 
   var cards = Array.prototype.slice.call(document.querySelectorAll(".card"));
   function sectionOf(card) {
@@ -1157,7 +1158,7 @@
       '<button type="button" data-v="bad">Bad</button></div>' +
       '<textarea class="audit-note" placeholder="Notes (what reads wrong, or what it should be). You can paste an image here too."></textarea>' +
       '<div class="audit-attach"><label class="pick">Attach image<input type="file" accept="image/*" multiple hidden></label>' +
-      '<span class="hint">or drop a file on this card, or paste into the note</span></div>' +
+      '<span class="hint">or drop a file here, or hover this card and paste (Cmd+V)</span></div>' +
       '<div class="audit-thumbs"></div>';
     card.appendChild(ctr);
 
@@ -1172,14 +1173,12 @@
       Array.prototype.slice.call(fileInput.files || []).forEach(function (f) { ingestFile(key, f, thumbsEl); });
       fileInput.value = "";
     });
-    noteEl.addEventListener("paste", function (e) {
-      var items = (e.clipboardData && e.clipboardData.items) || [];
-      for (var n = 0; n < items.length; n++) {
-        if (items[n].type && items[n].type.indexOf("image") === 0) {
-          var blob = items[n].getAsFile(); if (blob) ingestFile(key, blob, thumbsEl);
-        }
-      }
-    });
+    // Card-wide paste: hovering this card (or focusing its note) makes it the
+    // paste target, handled by the single document listener below.
+    card._auditKey = key;
+    card._auditThumbs = thumbsEl;
+    card.addEventListener("mouseenter", function () { hoverCard = card; });
+    card.addEventListener("mouseleave", function () { if (hoverCard === card) hoverCard = null; });
     card.addEventListener("dragover", function (e) { e.preventDefault(); card.classList.add("dragover"); });
     card.addEventListener("dragleave", function () { card.classList.remove("dragover"); });
     card.addEventListener("drop", function (e) {
@@ -1201,6 +1200,25 @@
       state[key] = Object.assign({}, state[key], { note: noteEl.value, name: name, section: section });
       save(); updateBar();
     });
+  });
+
+  // One paste listener for the whole page. A clipboard image attaches to the
+  // card you are hovering, or the card whose note is focused. Text pastes fall
+  // through untouched.
+  document.addEventListener("paste", function (e) {
+    var items = (e.clipboardData && e.clipboardData.items) || [];
+    var imgItem = null;
+    for (var n = 0; n < items.length; n++) {
+      if (items[n].type && items[n].type.indexOf("image") === 0) { imgItem = items[n]; break; }
+    }
+    if (!imgItem) return;
+    var active = document.activeElement;
+    var target = (active && active.closest) ? active.closest(".card") : null;
+    if (!target) target = hoverCard;
+    if (!target) { toast("Hover over an icon card, then paste"); return; }
+    e.preventDefault();
+    var blob = imgItem.getAsFile();
+    if (blob) { ingestFile(target._auditKey, blob, target._auditThumbs); toast("Image attached"); }
   });
 
   function records() {
