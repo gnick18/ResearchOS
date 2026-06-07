@@ -130,6 +130,11 @@ export interface PaletteContextCard {
   selection?: { iconName: IconName; text: string };
 }
 
+/** The icon-chip tones the palette can paint, the four global object types plus
+ *  "goal" (page entities like Gantt milestones). Typed off GlobalIndexEntry to
+ *  avoid a circular import on global-source. */
+export type PaletteTone = GlobalIndexEntry["type"] | "goal";
+
 /** One navigable / reopenable page object (an entity or a recent result). The
  *  page-agnostic equivalent of SequenceNavItem, fuzzy-matched on label + keywords
  *  + detail. `tone` optionally tints the icon chip (per-type color). */
@@ -140,9 +145,8 @@ export interface PaletteNavItem {
   /** Extra fuzzy-match text (tags, owner, organism) beyond the label. */
   keywords?: string;
   iconName: IconName;
-  /** Optional icon-chip tone (per-type color), reusing the global-object hues.
-   *  Typed off GlobalIndexEntry to avoid a circular import on global-source. */
-  tone?: GlobalIndexEntry["type"];
+  /** Optional icon-chip tone (per-type color). */
+  tone?: PaletteTone;
   /** Absent defaults to true; false greys the row and the cursor skips it. */
   enabled?: boolean;
   onRun: () => void;

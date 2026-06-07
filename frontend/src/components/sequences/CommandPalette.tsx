@@ -32,6 +32,7 @@ import {
   type PaletteGroup,
   type PaletteItem,
   type PaletteNavGroup,
+  type PaletteTone,
   type SequenceNavItem,
 } from "./editor-commands";
 // BeakerSearch global object search, chunk 2. The palette ranks the flat
@@ -53,14 +54,15 @@ const EMPTY_OBJECT_INDEX: GlobalIndexEntry[] = [];
 const EMPTY_PALETTE_GROUPS: PaletteGroup[] = [];
 const EMPTY_RECENT_RECORDS: PaletteItem[] = [];
 
-/** Per-type icon-chip classes for a cross-app record row (the redesign's per-type
- *  color coding, so a mixed global-results list is scannable by hue). Tasks amber,
- *  Projects violet, Methods emerald, Sequences sky. */
-const CHIP_TONE: Record<GlobalObjectType, string> = {
+/** Per-type icon-chip classes for a tinted row (the redesign's per-type color
+ *  coding, so a mixed list is scannable by hue). Tasks amber, Projects violet,
+ *  Methods emerald, Sequences sky, Goals teal (page entities like milestones). */
+const CHIP_TONE: Record<PaletteTone, string> = {
   task: "bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300",
   project: "bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-300",
   method: "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300",
   sequence: "bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-300",
+  goal: "bg-cyan-50 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-300",
 };
 /** The default chip for commands / sequence-nav / artifacts / the search-all row
  *  (everything that is not a typed cross-app record). */
@@ -79,7 +81,7 @@ function paletteRowParts(item: PaletteItem): {
    *  carry a per-type hue (Tasks amber, Projects violet, Methods emerald,
    *  Sequences sky). Absent for commands / sequence-nav / artifacts, which keep
    *  the default sky chip. */
-  tone?: GlobalObjectType;
+  tone?: PaletteTone;
 } {
   if (item.kind === "command") {
     return {
