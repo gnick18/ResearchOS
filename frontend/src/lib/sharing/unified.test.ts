@@ -2,7 +2,7 @@
 // truth-table tests for the unified sharing primitive. Covers:
 //
 //   - canRead under owner / lab_head / "*" sentinel / explicit entry
-//   - canWrite under owner / lab_head + edit session / shared edit
+//   - canWrite under owner / lab_head role-based / shared edit
 //   - expandSharedWith resolves "*" to current lab members
 //   - normalizeSharedWith handles legacy `permission` → `level` mapping
 //   - "*" + explicit entry: highest level wins on collision
@@ -72,8 +72,8 @@ describe("canWrite", () => {
   it("owner always writes", () => {
     expect(canWrite(rec("alex", []), alex)).toBe(true);
   });
-  it("lab_head has no implicit write on a member's record (PI edit-mode removed)", () => {
-    expect(canWrite(rec("alex", []), mira)).toBe(false);
+  it("lab_head writes any member's record (role-based PI edit, no session)", () => {
+    expect(canWrite(rec("alex", []), mira)).toBe(true);
   });
   it("non-owner with level:read cannot write", () => {
     expect(

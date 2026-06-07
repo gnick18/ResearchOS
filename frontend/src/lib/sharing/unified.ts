@@ -107,16 +107,21 @@ export function canRead(record: ShareableRecord, viewer: Viewer): boolean {
  * Can this viewer modify this record?
  *
  *   - Owner always writes.
+ *   - Lab Head always writes (implicit write-all over the lab's records).
  *   - Otherwise the viewer must be in shared_with with level: "edit".
  *     The "*" sentinel with level: "edit" grants the whole lab edit.
  *
- * A lab head has no implicit write-anywhere privilege; they edit only
- * records they own or that are shared with them at edit permission, same
- * as any other user. (The old PI edit-session soft-write was removed.)
+ * The lab head's write-all is the role-based PI edit (PI capability revamp,
+ * 2026-06-07). In a local shared folder the folder is the lab, so a lab head
+ * may edit any member's record. This is a pure permission predicate, it carries
+ * NO password or session. The accidental-edit guard (a once-per-session confirm)
+ * and the audit-trail write routing live in the record popups, not here, because
+ * this function is pure and cannot hold session state.
  */
 export function canWrite(record: ShareableRecord, viewer: Viewer): boolean {
   if (!record) return false;
   if (record.owner === viewer.username) return true;
+  if (viewer.account_type === "lab_head") return true;
   const list = normalizeSharedWith(record.shared_with);
   return list.some(
     (s) =>
