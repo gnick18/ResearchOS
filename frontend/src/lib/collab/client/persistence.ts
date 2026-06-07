@@ -195,11 +195,29 @@ export async function pushCollabUpdate(
     },
     identity.keys.signing.privateKey,
   );
-  const res = await postJson<{ ok: boolean; version: number }>(
-    "/api/collab/push",
-    { ...body, update: updateB64 },
-  );
-  return { version: res.version };
+  // Retry on the activity throttle (HTTP 429, flat-plan model). The server
+  // spaces out an over-allowance owner's pushes; a 429 means "try again
+  // shortly", not a failure. We resend the SAME update bytes after a short wait,
+  // bounded, so the edit still persists (degraded to periodic sync). If it is
+  // still throttled after the attempts, we give up this push and the next edit
+  // or reconcile carries it, rather than blocking forever.
+  const maxThrottleRetries = 4;
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      const res = await postJson<{ ok: boolean; version: number }>(
+        "/api/collab/push",
+        { ...body, update: updateB64 },
+      );
+      return { version: res.version };
+    } catch (err) {
+      const throttled = err instanceof CollabError && err.status === 429;
+      if (throttled && attempt < maxThrottleRetries) {
+        await new Promise((r) => setTimeout(r, 5000));
+        continue;
+      }
+      throw err;
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------

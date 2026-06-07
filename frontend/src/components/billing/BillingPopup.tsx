@@ -19,16 +19,16 @@ import { useCallback, useEffect, useState } from "react";
 
 import LivingPopup from "@/components/ui/LivingPopup";
 import { useBillingModal } from "@/lib/billing/billing-modal-store";
-import { GB_BYTES, humanBytes, usd } from "@/lib/billing/format";
+import { humanBytes, usd } from "@/lib/billing/format";
 import {
   type BillingStatus,
   type LabStatus,
+  choosePlan,
   fetchBillingStatus,
   fetchLabStatus,
   inviteMember,
   removeMember,
   respondToInvite,
-  setCap,
   setLabBilling,
   startCheckout,
 } from "@/lib/billing/client";
@@ -176,68 +176,123 @@ function PlanSummary({
 
 // --- cap picker (individual payers) -----------------------------------------
 
-function CapPicker({
+/** Compact write-count label, e.g. "1.2M" or "500k". */
+function formatWrites(n: number): string {
+  if (n >= 1_000_000) {
+    return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
+  }
+  if (n >= 1_000) return `${Math.round(n / 1_000)}k`;
+  return String(n);
+}
+
+// --- plan picker (the single bundle control) --------------------------------
+
+function PlanPicker({
   status,
   busy,
   onChoose,
 }: {
   status: BillingStatus;
   busy: boolean;
-  onChoose: (gb: number) => void;
+  onChoose: (planId: string) => void;
 }) {
-  const freeGb = Math.round(status.freeBytes / GB_BYTES);
-  const capGbNow = Math.round(Math.max(1, status.quotaBytes) / GB_BYTES);
+  const plans = status.plans ?? [];
+  const current = status.planId ?? "free";
+  if (plans.length === 0) return null;
   return (
     <Section
-      title="Storage limit"
-      description={`Pick a limit. You are billed only for your monthly average use above the ${humanBytes(status.freeBytes)} free tier, at ${usd(status.rateCents ?? 30)} per GB, one invoice a month, with a ${usd(status.minChargeCents ?? 200)} minimum (smaller months are free). The limit is your spend ceiling; the number on each option is the most it could ever cost.`}
+      title="Your plan"
+      description="One plan covers your storage and your editing activity. Upgrading raises both at once, on one monthly invoice. Most people stay on Free."
     >
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => onChoose(freeGb)}
-          className={`rounded-lg border px-3 py-2 text-left disabled:opacity-50 ${
-            capGbNow <= freeGb
-              ? "border-sky-500 bg-sky-50 dark:bg-sky-500/15"
-              : "border-border bg-surface-raised hover:bg-surface-sunken"
-          }`}
-        >
-          <span className="block text-body font-semibold text-foreground">
-            {freeGb} GB
-          </span>
-          <span className="block text-meta text-foreground-muted">Free</span>
-        </button>
-        {(status.capOptions ?? []).map((opt) => {
-          const selected = capGbNow === opt.gb;
+        {plans.map((p) => {
+          const selected = p.id === current;
           return (
             <button
-              key={opt.gb}
+              key={p.id}
               type="button"
               disabled={busy}
-              onClick={() => onChoose(opt.gb)}
-              className={`rounded-lg border px-3 py-2 text-left disabled:opacity-50 ${
+              onClick={() => onChoose(p.id)}
+              className={`flex-1 min-w-[8rem] rounded-xl border px-4 py-3 text-left disabled:opacity-50 ${
                 selected
                   ? "border-sky-500 bg-sky-50 dark:bg-sky-500/15"
                   : "border-border bg-surface-raised hover:bg-surface-sunken"
               }`}
             >
-              <span className="block text-body font-semibold text-foreground">
-                {opt.gb} GB
+              <span className="block text-body font-bold text-foreground">
+                {p.name}
               </span>
-              <span className="block text-meta text-foreground-muted">
-                up to {usd(opt.maxCostCents)}/mo
+              <span className="block text-meta text-foreground">
+                {humanBytes(p.storageBytes)}
+              </span>
+              <span className="block text-meta text-foreground">
+                {formatWrites(p.activityWritesPerMonth)} edits/mo
+              </span>
+              <span className="mt-1 block text-meta font-semibold text-foreground-muted">
+                {p.priceCents === 0 ? "Free" : `up to ${usd(p.priceCents)}/mo`}
               </span>
             </button>
           );
         })}
       </div>
+      {/* A-la-carte comparison anchor (not separately purchasable). */}
+      <div className="mt-3 rounded-lg px-4 py-2.5 text-meta ring-1 ring-inset ring-emerald-200 dark:ring-emerald-500/30">
+        <p className="text-foreground-muted line-through">
+          Buying storage and activity separately would cost more.
+        </p>
+        <p className="font-semibold text-emerald-700 dark:text-emerald-300">
+          A plan bundles both for about 10% more value. You save by bundling.
+        </p>
+      </div>
       {!status.active ? (
         <p className="mt-2 text-meta text-foreground-muted">
-          Choosing a paid limit adds a payment method first. Nothing is charged
-          today. Any tax is added at checkout where it applies.
+          A paid plan adds a payment method first. Nothing is charged today. Any
+          tax is added at checkout where it applies.
         </p>
       ) : null}
+    </Section>
+  );
+}
+
+// --- activity (the throttle ceiling, shown as a bar) ------------------------
+
+function ActivityCard({ status }: { status: BillingStatus }) {
+  const used = status.activityWrites ?? 0;
+  const allowance = status.activityAllowance ?? 0;
+  if (allowance <= 0) return null;
+  const pct = Math.min(100, (used / allowance) * 100);
+  const over = used >= allowance;
+  const near = !over && pct >= 80;
+  const tone = over
+    ? { bar: "bg-red-500", text: "text-red-700 dark:text-red-300" }
+    : near
+      ? { bar: "bg-amber-500", text: "text-amber-700 dark:text-amber-300" }
+      : { bar: "bg-sky-500", text: "text-sky-700 dark:text-sky-300" };
+  const message = over
+    ? "You have passed your plan's activity allowance, so cloud sync is slowed to keep costs fair. Editing still works. Upgrade your plan to restore instant sync."
+    : near
+      ? "You are a heavy user this month. Still real-time, but upgrading your plan raises this if you pass it."
+      : "Plenty of headroom. Editing is included in your plan, never charged per edit.";
+  return (
+    <Section
+      title="Activity this month"
+      description="How much you edit through the cloud, separate from storage. Past your plan's allowance we slow sync rather than bill you, so there are no surprise charges."
+    >
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+        <p className="text-heading font-bold tracking-tight text-foreground">
+          {formatWrites(used)}{" "}
+          <span className="text-body font-semibold text-foreground-muted">
+            of {formatWrites(allowance)} edit syncs
+          </span>
+        </p>
+      </div>
+      <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-surface-sunken ring-1 ring-inset ring-border">
+        <div
+          className={`h-full rounded-full ${tone.bar} transition-all`}
+          style={{ width: `${Math.max(pct, used > 0 ? 1.5 : 0)}%` }}
+        />
+      </div>
+      <p className={`mt-2 text-meta leading-relaxed ${tone.text}`}>{message}</p>
     </Section>
   );
 }
@@ -510,28 +565,19 @@ export default function BillingPopup() {
     if (modal.isOpen) void load();
   }, [modal.isOpen, load]);
 
-  const chooseCap = useCallback(
-    async (gb: number) => {
-      if (!status) return;
-      const freeGb = Math.round(status.freeBytes / GB_BYTES);
-      if (gb > freeGb && !status.active) {
-        const url = await startCheckout();
-        if (url) window.location.href = url;
-        return;
-      }
+  const pickPlan = useCallback(
+    async (planId: string) => {
       setBusy(true);
-      const res = await setCap(gb);
-      if (res.needsCheckout) {
-        const url = await startCheckout();
-        if (url) {
-          window.location.href = url;
-          return;
-        }
+      const res = await choosePlan(planId);
+      // A paid plan returns a Stripe Checkout url to finish payment.
+      if (res.url) {
+        window.location.href = res.url;
+        return;
       }
       if (res.ok) await load();
       setBusy(false);
     },
-    [status, load],
+    [load],
   );
 
   const toggleLab = useCallback(
@@ -581,7 +627,8 @@ export default function BillingPopup() {
     [load],
   );
 
-  const showCapPicker = !!status?.enabled && !lab?.sponsoredByLab;
+  // A member covered by a lab does not pick their own plan; the lab does.
+  const showPlanPicker = !!status?.enabled && !lab?.sponsoredByLab;
 
   return (
     <LivingPopup
@@ -622,12 +669,14 @@ export default function BillingPopup() {
                 />
               </Section>
 
+              {status.enabled ? <ActivityCard status={status} /> : null}
+
               {lab ? (
                 <MemberInvites lab={lab} busy={busy} onRespond={doRespond} />
               ) : null}
 
-              {showCapPicker ? (
-                <CapPicker status={status} busy={busy} onChoose={chooseCap} />
+              {showPlanPicker ? (
+                <PlanPicker status={status} busy={busy} onChoose={pickPlan} />
               ) : null}
 
               {lab ? (
