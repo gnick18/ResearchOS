@@ -1,0 +1,31 @@
+{
+  "id": 1,
+  "item_id": 1,
+  "lot_number": "01155432",
+  "container_count": 1,
+  "status": "low",
+  "received_date": "2026-01-15",
+  "expiration_date": "2026-09-30",
+  "opened_date": null,
+  "last_touched_at": "2026-05-10T09:00:00Z",
+  "amount_per_container": 5,
+  "unit": "mL",
+  "concentration": "2x",
+  "location_text": "-20 qPCR drawer, tray 1",
+  "location_node_id": null,
+  "position": null,
+  "purchase_item_id": null,
+  "container_code": null,
+  "notes": "[Demo] One tube left — flag at next order.",
+  "owner": "morgan",
+  "shared_with": [
+    {
+      "username": "*",
+      "level": "edit",
+      "permission": "edit"
+    }
+  ],
+  "created_by": "morgan",
+  "last_edited_by": "morgan",
+  "last_edited_at": "2026-05-10T09:00:00Z"
+}

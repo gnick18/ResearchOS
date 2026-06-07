@@ -466,6 +466,12 @@ function buildEntries() {
       // 1:1 revamp (notes-revamp bot, 2026-06-07): 1 weekly goal seeded below
       // for the mira<->alex 1:1 (alex adds his own goal to the shared list).
       weekly_goals: 1,
+      // Inventory fixture (behind INVENTORY_ENABLED). alex owns the demo
+      // storage tree + 7 catalog items / 8 stocks. Counters set to the max
+      // seeded id so a new create in the demo does not collide.
+      inventory_items: 7,
+      inventory_stocks: 8,
+      storage_nodes: 3,
     },
   ]);
   out.push([
@@ -1946,6 +1952,22 @@ function buildEntries() {
     "Ran out of T4 ligase mid-cleanup — borrowed two aliquots from morgan's bench (label `T4-2026-05-09`). Need to add to next purchase order.\n\n" +
     "Will write up the full library QC + sequence-verification results once we hit the end-of-week milestone. For now this is just the bench-side build log.\n"]);
 
+  // ── alex inventory (Inventory feature, behind INVENTORY_ENABLED) ───────────
+  //
+  // Catalog items (`inventory_items`), physical stocks (`inventory_stocks`),
+  // and a small storage tree (`storage_nodes`) for the demo lab. Whole-lab
+  // EDIT sharing per design §6.1 (the `*` sentinel). All dates are HARDCODED
+  // relative to the demo anchor TODAY (2026-05-13) so the expiring / expired
+  // signals fire deterministically; the demo rebase preserves those offsets.
+  //
+  // Signal coverage across alex's stocks:
+  //   - EXPIRING soon (2026-05-30, 17 d out, inside the 30-day window): dNTP mix
+  //   - EXPIRED (2026-04-20, before TODAY): Taq stock
+  //   - LOW (summed count 1 < low_at_count 2): Q5 enzyme
+  //   - EMPTY (container_count 0): Ampicillin
+  //   - in_stock: the rest
+  out.push(...inventory("alex", ALEX_COLOR));
+
   // ── User: morgan ──────────────────────────────────────────────────────────
   out.push([
     "users/morgan/_counters.json",
@@ -1966,6 +1988,11 @@ function buildEntries() {
       // recipes, meeting notes, and a calibration running log.
       notes: 6,
       dependencies: 2,
+      // Inventory fixture (behind INVENTORY_ENABLED). morgan owns 4 catalog
+      // items / 5 stocks; she uses free-text locations (alex owns the demo
+      // storage tree). Counters set to the max seeded id.
+      inventory_items: 4,
+      inventory_stocks: 5,
     },
   ]);
   out.push([
@@ -2394,6 +2421,12 @@ function buildEntries() {
     "- Scope booked Tue 9-noon for the dissection scope (transformant pick prep).\n" +
     "- Cleaned lamp housing per the BioTek docs link before the run, dust film was visible.\n" +
     "- If R² drops below 0.99 the lamp is on its way out — order replacement now, do not wait.\n"]);
+
+  // ── morgan inventory (Inventory feature, behind INVENTORY_ENABLED) ────────
+  // Mirrors alex's inventory shape for the second demo user. Whole-lab EDIT
+  // sharing, dates hardcoded relative to TODAY (2026-05-13). Adds qPCR / assay
+  // reagents that fit morgan's fluorescence-screening + qPCR work.
+  out.push(...inventory("morgan", MORGAN_COLOR));
 
   // ── User: mira (Dr. Mira Castellanos, demo PI) ───────────────────────────
   //
@@ -3310,6 +3343,11 @@ function buildEntries() {
       lab_links: 4,
       notes: 7,
       dependencies: 2,
+      // Inventory fixture (behind INVENTORY_ENABLED). morgan owns 4 catalog
+      // items / 5 stocks; she uses free-text locations (alex owns the demo
+      // storage tree). Counters set to the max seeded id.
+      inventory_items: 4,
+      inventory_stocks: 5,
     },
   ]);
   out.push([
@@ -3515,6 +3553,160 @@ function buildEntries() {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// Whole-lab EDIT sharing sentinel for inventory records (design §6.1). Carries
+// both the unified `level` and the legacy `permission` so old + new read paths
+// resolve it (mirrors the notes fixtures above).
+const LAB_EDIT_SHARE = [{ username: "*", level: "edit", permission: "edit" }];
+
+/**
+ * Inventory fixture for one demo user (behind INVENTORY_ENABLED). Emits the
+ * three inventory stores — `inventory_items` (what a thing IS),
+ * `inventory_stocks` (the physical containers), and, for alex only, a small
+ * `storage_nodes` location tree (freezer -> rack -> box) with a couple of
+ * stocks placed into box positions.
+ *
+ * Every date is HARDCODED relative to the demo anchor TODAY (2026-05-13) — no
+ * `Date.now()` / `new Date()`. The demo rebase preserves these offsets so the
+ * expiring / expired signals fire deterministically when the demo is opened.
+ */
+function inventory(owner, color) {
+  const out = [];
+  const stamp = "2026-05-10T09:00:00Z";
+
+  /** @param {object} it */
+  const item = (it) => [
+    `users/${owner}/inventory_items/${it.id}.json`,
+    {
+      id: it.id,
+      name: it.name,
+      category: it.category,
+      catalog_number: it.catalog_number ?? null,
+      vendor: it.vendor ?? null,
+      cas: it.cas ?? null,
+      url: it.url ?? null,
+      container_label: it.container_label ?? null,
+      notes: it.notes ?? null,
+      low_at_count: it.low_at_count ?? null,
+      track_consumption: it.track_consumption ?? false,
+      product_barcode: it.product_barcode ?? null,
+      registry: it.registry ?? null,
+      tags: it.tags ?? ["demo"],
+      owner,
+      shared_with: LAB_EDIT_SHARE,
+      created_by: owner,
+      last_edited_by: owner,
+      last_edited_at: stamp,
+    },
+  ];
+
+  /** @param {object} s */
+  const stock = (s) => [
+    `users/${owner}/inventory_stocks/${s.id}.json`,
+    {
+      id: s.id,
+      item_id: s.item_id,
+      lot_number: s.lot_number ?? null,
+      container_count: s.container_count,
+      status: s.status,
+      received_date: s.received_date ?? null,
+      expiration_date: s.expiration_date ?? null,
+      opened_date: s.opened_date ?? null,
+      last_touched_at: s.last_touched_at ?? stamp,
+      amount_per_container: s.amount_per_container ?? null,
+      unit: s.unit ?? null,
+      concentration: s.concentration ?? null,
+      location_text: s.location_text ?? null,
+      location_node_id: s.location_node_id ?? null,
+      position: s.position ?? null,
+      purchase_item_id: s.purchase_item_id ?? null,
+      container_code: s.container_code ?? null,
+      notes: s.notes ?? null,
+      owner,
+      shared_with: LAB_EDIT_SHARE,
+      created_by: owner,
+      last_edited_by: owner,
+      last_edited_at: stamp,
+    },
+  ];
+
+  /** @param {object} n */
+  const node = (n) => [
+    `users/${owner}/storage_nodes/${n.id}.json`,
+    {
+      id: n.id,
+      name: n.name,
+      kind: n.kind,
+      parent_id: n.parent_id ?? null,
+      temperature: n.temperature ?? null,
+      box_rows: n.box_rows ?? null,
+      box_cols: n.box_cols ?? null,
+      notes: n.notes ?? null,
+      owner,
+      shared_with: LAB_EDIT_SHARE,
+      created_by: owner,
+      last_edited_by: owner,
+      last_edited_at: stamp,
+    },
+  ];
+
+  if (owner === "alex") {
+    // Storage tree: freezer "-80 #2" -> rack "Rack 3" -> box "Box: Enzymes".
+    out.push(node({ id: 1, name: "-80 #2", kind: "freezer", parent_id: null, temperature: "-80 C", notes: "[Demo] Enzyme + competent-cell freezer, bench-row B." }));
+    out.push(node({ id: 2, name: "Rack 3", kind: "rack", parent_id: 1, temperature: "-80 C" }));
+    out.push(node({ id: 3, name: "Box: Enzymes", kind: "box", parent_id: 2, temperature: "-80 C", box_rows: 9, box_cols: 9, notes: "[Demo] 9x9 cardboard box, polymerases + ligases." }));
+
+    // Catalog items (what each thing IS).
+    out.push(item({ id: 1, name: "Q5 High-Fidelity DNA Polymerase", category: "enzyme", catalog_number: "M0491S", vendor: "NEB", url: "https://www.neb.com/en-us/products/m0491-q5-high-fidelity-dna-polymerase", container_label: "vial", low_at_count: 2, product_barcode: "0656472012345", notes: "[Demo] Primary high-fidelity polymerase for cloning PCRs.", tags: ["demo", "PCR", "cloning"] }));
+    out.push(item({ id: 2, name: "Taq DNA Polymerase (with Standard Buffer)", category: "enzyme", catalog_number: "M0273S", vendor: "NEB", url: "https://www.neb.com/en-us/products/m0273-taq-dna-polymerase-with-standard-taq-buffer", container_label: "vial", low_at_count: null, notes: "[Demo] Colony-screen PCR workhorse.", tags: ["demo", "PCR", "screen"] }));
+    out.push(item({ id: 3, name: "dNTP Mix (10 mM each)", category: "reagent", catalog_number: "R0192", vendor: "Thermo Fisher", url: "https://www.thermofisher.com/order/catalog/product/R0192", container_label: "tube", low_at_count: 3, notes: "[Demo] 10 mM each dATP/dCTP/dGTP/dTTP. Aliquoted to avoid freeze-thaw.", tags: ["demo", "PCR"] }));
+    out.push(item({ id: 4, name: "Anti-beta-actin antibody (HRP)", category: "antibody", catalog_number: "ab197277", vendor: "Abcam", url: "https://www.abcam.com/en-us/products/primary-antibodies/beta-actin-antibody", container_label: "vial", low_at_count: null, notes: "[Demo] Loading-control antibody for Western blots.", tags: ["demo", "antibody", "WB"], registry: { target: "beta-actin", host_species: "Rabbit", clonality: "monoclonal", clone: "EPR-DEMO", conjugate: "HRP", isotype: "IgG", reactivity: "Human, Mouse, Yeast (demo)", applications: ["WB", "FACS"], rrid: "AB_0000000 (demo)", recommended_dilution: "1:1000 (WB)" } }));
+    out.push(item({ id: 5, name: "pUC19-GFP (demo plasmid)", category: "plasmid", catalog_number: null, vendor: "in-house", url: null, container_label: "tube", low_at_count: null, notes: "[Demo] GFP reporter cloned into pUC19; AmpR selection.", tags: ["demo", "plasmid", "cloning"], registry: { backbone: "pUC19", insert: "GFP", resistance: "Ampicillin", bacterial_host: "DH5-alpha", size_bp: 2686, source: "in-house", addgene_id: null, sequence_file_path: null, map_notes: "lacZ alpha / MCS replaced with GFP CDS; AmpR; ColE1 ori." } }));
+    out.push(item({ id: 6, name: "Lysozyme (from chicken egg white)", category: "reagent", catalog_number: "L6876", vendor: "Sigma-Aldrich", cas: "12650-88-3", url: "https://www.sigmaaldrich.com/US/en/product/sigma/l6876", container_label: "bottle", low_at_count: null, notes: "[Demo] Cell-wall lysis for bacterial preps. Store desiccated.", tags: ["demo", "lysis"] }));
+    out.push(item({ id: 7, name: "Ampicillin (100 mg/mL, sterile)", category: "reagent", catalog_number: "A9518", vendor: "Sigma-Aldrich", cas: "69-53-4", url: "https://www.sigmaaldrich.com/US/en/product/sigma/a9518", container_label: "tube", low_at_count: 4, notes: "[Demo] 1000x stock for LB-Amp plates + liquid selection.", tags: ["demo", "selection"] }));
+
+    // Stocks (the physical containers). Signals: LOW (Q5), EXPIRED (Taq),
+    // EXPIRING soon (dNTP), EMPTY (Amp); the rest in_stock.
+    // Q5: summed count 1 < low_at_count 2 -> LOW. Placed in the box (B4).
+    out.push(stock({ id: 1, item_id: 1, lot_number: "10148321", container_count: 1, status: "low", received_date: "2026-03-02", expiration_date: "2027-03-01", amount_per_container: 500, unit: "U", concentration: "2 U/uL", location_node_id: 3, position: "B4", container_code: "Q5-2026-03", notes: "[Demo] Down to the last vial — reorder queued." }));
+    // Taq: expiration before TODAY (2026-05-13) -> EXPIRED. Placed in the box (C3).
+    out.push(stock({ id: 2, item_id: 2, lot_number: "10142887", container_count: 2, status: "expired", received_date: "2025-04-18", expiration_date: "2026-04-20", amount_per_container: 2000, unit: "U", concentration: "5 U/uL", location_node_id: 3, position: "C3", container_code: "TAQ-2025-04", notes: "[Demo] Past expiry — pull from rotation, was kept for non-critical screens." }));
+    // dNTP: expiration 2026-05-30 (17 d after TODAY, inside the 30-day window)
+    // -> EXPIRING soon. Placed in the box (B5).
+    out.push(stock({ id: 3, item_id: 3, lot_number: "00845512", container_count: 4, status: "in_stock", received_date: "2025-11-20", expiration_date: "2026-05-30", amount_per_container: 1, unit: "mL", concentration: "10 mM each", location_node_id: 3, position: "B5", notes: "[Demo] 4 aliquots left; one nearing expiry — use these first." }));
+    // beta-actin antibody: in_stock, free-text fridge location.
+    out.push(stock({ id: 4, item_id: 4, lot_number: "GR3300000-5", container_count: 1, status: "in_stock", received_date: "2026-02-14", expiration_date: "2026-12-31", amount_per_container: 100, unit: "uL", concentration: "1 mg/mL", location_text: "4 C antibody fridge, door shelf 2", notes: "[Demo] Aliquot before first use to avoid freeze-thaw." }));
+    // pUC19-GFP plasmid: in_stock, free-text -20 location.
+    out.push(stock({ id: 5, item_id: 5, lot_number: "pUC19GFP-prep4", container_count: 6, status: "in_stock", received_date: "2026-04-05", expiration_date: null, amount_per_container: 50, unit: "uL", concentration: "120 ng/uL", location_text: "-20 plasmid box 'Reporters', row C", notes: "[Demo] Mini-prep batch 4; Sanger-verified." }));
+    // Lysozyme: in_stock, RT shelf, no expiry.
+    out.push(stock({ id: 6, item_id: 6, lot_number: "SLCK4521", container_count: 1, status: "in_stock", received_date: "2025-09-10", expiration_date: "2028-09-01", amount_per_container: 5, unit: "g", location_text: "RT reagent shelf 4, desiccator", notes: "[Demo] Lyophilized powder; weigh fresh per prep." }));
+    // Ampicillin: container_count 0 -> EMPTY.
+    out.push(stock({ id: 7, item_id: 7, lot_number: "SLCH9007", container_count: 0, status: "empty", received_date: "2025-12-01", expiration_date: "2026-12-01", amount_per_container: 1, unit: "mL", concentration: "100 mg/mL", location_text: "-20 stocks box 'Antibiotics'", notes: "[Demo] Out — last tube used making LB-Amp plates Friday. Reorder." }));
+    // Ampicillin second stock: a fresh in_stock tube so the item is not all-empty.
+    out.push(stock({ id: 8, item_id: 7, lot_number: "SLCJ1188", container_count: 5, status: "in_stock", received_date: "2026-05-02", expiration_date: "2027-05-01", amount_per_container: 1, unit: "mL", concentration: "100 mg/mL", location_text: "-20 stocks box 'Antibiotics'", notes: "[Demo] New batch, 5 aliquots." }));
+  } else {
+    // morgan — qPCR / fluorescence-screening reagents; free-text locations only.
+    out.push(item({ id: 1, name: "PowerUp SYBR Green Master Mix (2x)", category: "kit", catalog_number: "A25742", vendor: "Thermo Fisher", url: "https://www.thermofisher.com/order/catalog/product/A25742", container_label: "tube", low_at_count: 2, notes: "[Demo] 2x master mix for ACT1-normalized qPCR.", tags: ["demo", "qPCR"] }));
+    out.push(item({ id: 2, name: "Fluorescein sodium salt", category: "reagent", catalog_number: "F6377", vendor: "Sigma-Aldrich", cas: "518-47-8", url: "https://www.sigmaaldrich.com/US/en/product/sigma/f6377", container_label: "bottle", low_at_count: null, notes: "[Demo] Plate-reader calibration standard (60 nM in PBS).", tags: ["demo", "calibration", "fluorescence"] }));
+    out.push(item({ id: 3, name: "T4 DNA Ligase", category: "enzyme", catalog_number: "M0202S", vendor: "NEB", url: "https://www.neb.com/en-us/products/m0202-t4-dna-ligase", container_label: "vial", low_at_count: 2, notes: "[Demo] Sticky/blunt-end ligation for library cloning.", tags: ["demo", "cloning"] }));
+    out.push(item({ id: 4, name: "Gibson Assembly Master Mix (2x)", category: "kit", catalog_number: "E2611S", vendor: "NEB", url: "https://www.neb.com/en-us/products/e2611-gibson-assembly-master-mix", container_label: "tube", low_at_count: null, notes: "[Demo] One-pot isothermal assembly. Warm slowly from -20.", tags: ["demo", "cloning", "Gibson"] }));
+
+    // Stocks. Signals: LOW (SYBR), EXPIRED (T4 old tube), EXPIRING soon (Gibson);
+    // the rest in_stock.
+    // SYBR: summed count 1 < low_at_count 2 -> LOW.
+    out.push(stock({ id: 1, item_id: 1, lot_number: "01155432", container_count: 1, status: "low", received_date: "2026-01-15", expiration_date: "2026-09-30", amount_per_container: 5, unit: "mL", concentration: "2x", location_text: "-20 qPCR drawer, tray 1", notes: "[Demo] One tube left — flag at next order." }));
+    // Fluorescein: in_stock, RT.
+    out.push(stock({ id: 2, item_id: 2, lot_number: "MKCR5520", container_count: 1, status: "in_stock", received_date: "2025-08-22", expiration_date: "2028-08-01", amount_per_container: 25, unit: "g", location_text: "RT reagent shelf 2 (amber bottle)", notes: "[Demo] Light-sensitive; keep in amber bottle." }));
+    // T4 ligase: expired old tube (2026-04-10, before TODAY).
+    out.push(stock({ id: 3, item_id: 3, lot_number: "10141200", container_count: 1, status: "expired", received_date: "2025-04-05", expiration_date: "2026-04-10", amount_per_container: 20000, unit: "U", concentration: "400 U/uL", location_text: "-20 enzyme drawer, tray 2", notes: "[Demo] Old tube past expiry — kept as backup only." }));
+    // T4 ligase: a fresh in_stock tube.
+    out.push(stock({ id: 4, item_id: 3, lot_number: "10148990", container_count: 3, status: "in_stock", received_date: "2026-05-02", expiration_date: "2027-05-01", amount_per_container: 20000, unit: "U", concentration: "400 U/uL", location_text: "-20 enzyme drawer, tray 2", notes: "[Demo] Working stock, 3 vials." }));
+    // Gibson: expiration 2026-05-28 (15 d after TODAY) -> EXPIRING soon.
+    out.push(stock({ id: 5, item_id: 4, lot_number: "10145667", container_count: 2, status: "in_stock", received_date: "2025-11-28", expiration_date: "2026-05-28", amount_per_container: 0.6, unit: "mL", concentration: "2x", location_text: "-20 enzyme drawer, tray 3", notes: "[Demo] Use the nearer-expiry tube first; thaw on ice." }));
+  }
+
+  return out;
+}
 
 function projects(owner, list) {
   return list.map((p) => [

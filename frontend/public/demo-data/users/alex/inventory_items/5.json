@@ -1,0 +1,41 @@
+{
+  "id": 5,
+  "name": "pUC19-GFP (demo plasmid)",
+  "category": "plasmid",
+  "catalog_number": null,
+  "vendor": "in-house",
+  "cas": null,
+  "url": null,
+  "container_label": "tube",
+  "notes": "[Demo] GFP reporter cloned into pUC19; AmpR selection.",
+  "low_at_count": null,
+  "track_consumption": false,
+  "product_barcode": null,
+  "registry": {
+    "backbone": "pUC19",
+    "insert": "GFP",
+    "resistance": "Ampicillin",
+    "bacterial_host": "DH5-alpha",
+    "size_bp": 2686,
+    "source": "in-house",
+    "addgene_id": null,
+    "sequence_file_path": null,
+    "map_notes": "lacZ alpha / MCS replaced with GFP CDS; AmpR; ColE1 ori."
+  },
+  "tags": [
+    "demo",
+    "plasmid",
+    "cloning"
+  ],
+  "owner": "alex",
+  "shared_with": [
+    {
+      "username": "*",
+      "level": "edit",
+      "permission": "edit"
+    }
+  ],
+  "created_by": "alex",
+  "last_edited_by": "alex",
+  "last_edited_at": "2026-05-10T09:00:00Z"
+}

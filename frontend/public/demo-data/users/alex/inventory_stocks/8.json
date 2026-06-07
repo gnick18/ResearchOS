@@ -1,0 +1,31 @@
+{
+  "id": 8,
+  "item_id": 7,
+  "lot_number": "SLCJ1188",
+  "container_count": 5,
+  "status": "in_stock",
+  "received_date": "2026-05-02",
+  "expiration_date": "2027-05-01",
+  "opened_date": null,
+  "last_touched_at": "2026-05-10T09:00:00Z",
+  "amount_per_container": 1,
+  "unit": "mL",
+  "concentration": "100 mg/mL",
+  "location_text": "-20 stocks box 'Antibiotics'",
+  "location_node_id": null,
+  "position": null,
+  "purchase_item_id": null,
+  "container_code": null,
+  "notes": "[Demo] New batch, 5 aliquots.",
+  "owner": "alex",
+  "shared_with": [
+    {
+      "username": "*",
+      "level": "edit",
+      "permission": "edit"
+    }
+  ],
+  "created_by": "alex",
+  "last_edited_by": "alex",
+  "last_edited_at": "2026-05-10T09:00:00Z"
+}

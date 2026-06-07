@@ -1,0 +1,21 @@
+{
+  "id": 2,
+  "name": "Rack 3",
+  "kind": "rack",
+  "parent_id": 1,
+  "temperature": "-80 C",
+  "box_rows": null,
+  "box_cols": null,
+  "notes": null,
+  "owner": "alex",
+  "shared_with": [
+    {
+      "username": "*",
+      "level": "edit",
+      "permission": "edit"
+    }
+  ],
+  "created_by": "alex",
+  "last_edited_by": "alex",
+  "last_edited_at": "2026-05-10T09:00:00Z"
+}

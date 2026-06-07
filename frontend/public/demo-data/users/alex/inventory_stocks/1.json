@@ -1,0 +1,31 @@
+{
+  "id": 1,
+  "item_id": 1,
+  "lot_number": "10148321",
+  "container_count": 1,
+  "status": "low",
+  "received_date": "2026-03-02",
+  "expiration_date": "2027-03-01",
+  "opened_date": null,
+  "last_touched_at": "2026-05-10T09:00:00Z",
+  "amount_per_container": 500,
+  "unit": "U",
+  "concentration": "2 U/uL",
+  "location_text": null,
+  "location_node_id": 3,
+  "position": "B4",
+  "purchase_item_id": null,
+  "container_code": "Q5-2026-03",
+  "notes": "[Demo] Down to the last vial — reorder queued.",
+  "owner": "alex",
+  "shared_with": [
+    {
+      "username": "*",
+      "level": "edit",
+      "permission": "edit"
+    }
+  ],
+  "created_by": "alex",
+  "last_edited_by": "alex",
+  "last_edited_at": "2026-05-10T09:00:00Z"
+}

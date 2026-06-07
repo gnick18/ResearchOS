@@ -1,0 +1,30 @@
+{
+  "id": 3,
+  "name": "dNTP Mix (10 mM each)",
+  "category": "reagent",
+  "catalog_number": "R0192",
+  "vendor": "Thermo Fisher",
+  "cas": null,
+  "url": "https://www.thermofisher.com/order/catalog/product/R0192",
+  "container_label": "tube",
+  "notes": "[Demo] 10 mM each dATP/dCTP/dGTP/dTTP. Aliquoted to avoid freeze-thaw.",
+  "low_at_count": 3,
+  "track_consumption": false,
+  "product_barcode": null,
+  "registry": null,
+  "tags": [
+    "demo",
+    "PCR"
+  ],
+  "owner": "alex",
+  "shared_with": [
+    {
+      "username": "*",
+      "level": "edit",
+      "permission": "edit"
+    }
+  ],
+  "created_by": "alex",
+  "last_edited_by": "alex",
+  "last_edited_at": "2026-05-10T09:00:00Z"
+}

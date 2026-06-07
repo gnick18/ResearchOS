@@ -15,5 +15,8 @@
   "lab_links": 6,
   "notes": 7,
   "dependencies": 8,
-  "weekly_goals": 1
+  "weekly_goals": 1,
+  "inventory_items": 7,
+  "inventory_stocks": 8,
+  "storage_nodes": 3
 }

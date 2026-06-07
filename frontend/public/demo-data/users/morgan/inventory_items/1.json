@@ -1,0 +1,30 @@
+{
+  "id": 1,
+  "name": "PowerUp SYBR Green Master Mix (2x)",
+  "category": "kit",
+  "catalog_number": "A25742",
+  "vendor": "Thermo Fisher",
+  "cas": null,
+  "url": "https://www.thermofisher.com/order/catalog/product/A25742",
+  "container_label": "tube",
+  "notes": "[Demo] 2x master mix for ACT1-normalized qPCR.",
+  "low_at_count": 2,
+  "track_consumption": false,
+  "product_barcode": null,
+  "registry": null,
+  "tags": [
+    "demo",
+    "qPCR"
+  ],
+  "owner": "morgan",
+  "shared_with": [
+    {
+      "username": "*",
+      "level": "edit",
+      "permission": "edit"
+    }
+  ],
+  "created_by": "morgan",
+  "last_edited_by": "morgan",
+  "last_edited_at": "2026-05-10T09:00:00Z"
+}

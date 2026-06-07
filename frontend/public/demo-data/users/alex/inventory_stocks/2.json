@@ -1,0 +1,31 @@
+{
+  "id": 2,
+  "item_id": 2,
+  "lot_number": "10142887",
+  "container_count": 2,
+  "status": "expired",
+  "received_date": "2025-04-18",
+  "expiration_date": "2026-04-20",
+  "opened_date": null,
+  "last_touched_at": "2026-05-10T09:00:00Z",
+  "amount_per_container": 2000,
+  "unit": "U",
+  "concentration": "5 U/uL",
+  "location_text": null,
+  "location_node_id": 3,
+  "position": "C3",
+  "purchase_item_id": null,
+  "container_code": "TAQ-2025-04",
+  "notes": "[Demo] Past expiry — pull from rotation, was kept for non-critical screens.",
+  "owner": "alex",
+  "shared_with": [
+    {
+      "username": "*",
+      "level": "edit",
+      "permission": "edit"
+    }
+  ],
+  "created_by": "alex",
+  "last_edited_by": "alex",
+  "last_edited_at": "2026-05-10T09:00:00Z"
+}

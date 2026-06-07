@@ -8,5 +8,7 @@
   "purchase_items": 21,
   "lab_links": 4,
   "notes": 7,
-  "dependencies": 2
+  "dependencies": 2,
+  "inventory_items": 4,
+  "inventory_stocks": 5
 }

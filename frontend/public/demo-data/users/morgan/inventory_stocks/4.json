@@ -1,0 +1,31 @@
+{
+  "id": 4,
+  "item_id": 3,
+  "lot_number": "10148990",
+  "container_count": 3,
+  "status": "in_stock",
+  "received_date": "2026-05-02",
+  "expiration_date": "2027-05-01",
+  "opened_date": null,
+  "last_touched_at": "2026-05-10T09:00:00Z",
+  "amount_per_container": 20000,
+  "unit": "U",
+  "concentration": "400 U/uL",
+  "location_text": "-20 enzyme drawer, tray 2",
+  "location_node_id": null,
+  "position": null,
+  "purchase_item_id": null,
+  "container_code": null,
+  "notes": "[Demo] Working stock, 3 vials.",
+  "owner": "morgan",
+  "shared_with": [
+    {
+      "username": "*",
+      "level": "edit",
+      "permission": "edit"
+    }
+  ],
+  "created_by": "morgan",
+  "last_edited_by": "morgan",
+  "last_edited_at": "2026-05-10T09:00:00Z"
+}

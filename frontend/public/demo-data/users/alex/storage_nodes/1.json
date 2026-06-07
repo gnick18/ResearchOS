@@ -1,0 +1,21 @@
+{
+  "id": 1,
+  "name": "-80 #2",
+  "kind": "freezer",
+  "parent_id": null,
+  "temperature": "-80 C",
+  "box_rows": null,
+  "box_cols": null,
+  "notes": "[Demo] Enzyme + competent-cell freezer, bench-row B.",
+  "owner": "alex",
+  "shared_with": [
+    {
+      "username": "*",
+      "level": "edit",
+      "permission": "edit"
+    }
+  ],
+  "created_by": "alex",
+  "last_edited_by": "alex",
+  "last_edited_at": "2026-05-10T09:00:00Z"
+}

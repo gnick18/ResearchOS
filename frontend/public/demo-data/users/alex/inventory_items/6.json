@@ -1,0 +1,30 @@
+{
+  "id": 6,
+  "name": "Lysozyme (from chicken egg white)",
+  "category": "reagent",
+  "catalog_number": "L6876",
+  "vendor": "Sigma-Aldrich",
+  "cas": "12650-88-3",
+  "url": "https://www.sigmaaldrich.com/US/en/product/sigma/l6876",
+  "container_label": "bottle",
+  "notes": "[Demo] Cell-wall lysis for bacterial preps. Store desiccated.",
+  "low_at_count": null,
+  "track_consumption": false,
+  "product_barcode": null,
+  "registry": null,
+  "tags": [
+    "demo",
+    "lysis"
+  ],
+  "owner": "alex",
+  "shared_with": [
+    {
+      "username": "*",
+      "level": "edit",
+      "permission": "edit"
+    }
+  ],
+  "created_by": "alex",
+  "last_edited_by": "alex",
+  "last_edited_at": "2026-05-10T09:00:00Z"
+}

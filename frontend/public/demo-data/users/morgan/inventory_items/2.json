@@ -1,0 +1,31 @@
+{
+  "id": 2,
+  "name": "Fluorescein sodium salt",
+  "category": "reagent",
+  "catalog_number": "F6377",
+  "vendor": "Sigma-Aldrich",
+  "cas": "518-47-8",
+  "url": "https://www.sigmaaldrich.com/US/en/product/sigma/f6377",
+  "container_label": "bottle",
+  "notes": "[Demo] Plate-reader calibration standard (60 nM in PBS).",
+  "low_at_count": null,
+  "track_consumption": false,
+  "product_barcode": null,
+  "registry": null,
+  "tags": [
+    "demo",
+    "calibration",
+    "fluorescence"
+  ],
+  "owner": "morgan",
+  "shared_with": [
+    {
+      "username": "*",
+      "level": "edit",
+      "permission": "edit"
+    }
+  ],
+  "created_by": "morgan",
+  "last_edited_by": "morgan",
+  "last_edited_at": "2026-05-10T09:00:00Z"
+}

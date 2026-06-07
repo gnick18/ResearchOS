@@ -1,0 +1,31 @@
+{
+  "id": 2,
+  "item_id": 2,
+  "lot_number": "MKCR5520",
+  "container_count": 1,
+  "status": "in_stock",
+  "received_date": "2025-08-22",
+  "expiration_date": "2028-08-01",
+  "opened_date": null,
+  "last_touched_at": "2026-05-10T09:00:00Z",
+  "amount_per_container": 25,
+  "unit": "g",
+  "concentration": null,
+  "location_text": "RT reagent shelf 2 (amber bottle)",
+  "location_node_id": null,
+  "position": null,
+  "purchase_item_id": null,
+  "container_code": null,
+  "notes": "[Demo] Light-sensitive; keep in amber bottle.",
+  "owner": "morgan",
+  "shared_with": [
+    {
+      "username": "*",
+      "level": "edit",
+      "permission": "edit"
+    }
+  ],
+  "created_by": "morgan",
+  "last_edited_by": "morgan",
+  "last_edited_at": "2026-05-10T09:00:00Z"
+}
