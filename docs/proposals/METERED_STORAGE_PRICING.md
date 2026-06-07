@@ -27,9 +27,9 @@ users; they stay covered by the fixed base and watched on `/admin`.
   Stripe's flat fee eats most of the charge, so tiny overages are simply not
   billed (carried as goodwill, not accrued). A user pays $0 until their real
   monthly usage above 1 GB is worth at least ~$2 (about 6-7 GB stored).
-- Measure: average GB-month over the billing period (sampled daily), the same
-  basis Cloudflare bills us on, so what we charge tracks what we pay. (Open
-  question 1 covers peak-vs-average.)
+- Measure (DECIDED): average GB-month over the billing period, sampled daily.
+  Fairest, and the same basis Cloudflare bills us on, so what we charge tracks
+  what we pay. A user who spikes then deletes pays little.
 
 ## The cap replaces "buying blocks"
 
@@ -47,7 +47,33 @@ and we bill actual usage up to it. The cap does three jobs at once:
 
 The Settings storage panel (just rebuilt) becomes: usage bar against the cap, the
 current month's running estimated charge, and a "raise limit" control instead of
-"add storage".
+"add storage". The cap control (DECIDED) is a GB picker (e.g. 5 / 25 / 100 GB)
+with the maximum monthly cost shown beside each option, so the dollar exposure is
+always visible while the user thinks in concrete space.
+
+## Lab-level (consolidated) billing
+
+A lab head (PI) can pay for their whole lab in one invoice rather than each member
+billing individually. This is the normal research case, the PI holds the grant and
+the budget; members should not each need a card.
+
+- Two modes coexist. INDIVIDUAL (default): a user pays for their own usage above
+  their 1 GB free. LAB-SPONSORED: the PI turns on lab billing and one consolidated
+  metered invoice covers every member's usage. Members in a sponsored lab never see
+  a bill.
+- Pooled free tier. Each member keeps their own 1 GB free, so a sponsored lab's
+  free pool is 1 GB times the member count. The PI's invoice meters only aggregate
+  usage above that pool, so a small or light lab still pays $0.
+- One lab cap. The PI sets a single GB cap for the lab (with the max monthly cost
+  shown), which is the lab-wide enforcement wall and the PI's spend ceiling.
+- Payer resolution. For any shared doc, the bill goes to the doc owner's lab if
+  that lab sponsors billing, otherwise to the owner individually. This extends the
+  cancellation doc's "owner pays" rule with "...unless their lab sponsors them".
+- Membership follows the existing identity model (`isLabHead` plus the lab head's
+  shared-folder membership). A member who leaves reverts to individual billing for
+  docs they own; nothing is deleted, the same freeze rules apply.
+- When a PI turns on lab billing, any individual subscription a member already had
+  ends and the lab takes over their usage, so no one is double-billed.
 
 ## Stripe mechanics
 
@@ -97,13 +123,20 @@ the grace window, governed by the same never-delete-the-only-copy rule. Because
 billing is usage-based, stopping is graceful, usage simply falls back into the
 free tier and the bill goes to $0.
 
+## Decided
+
+- Billable measure: average GB-month, sampled daily.
+- Cap control: a GB picker showing the max monthly cost.
+- Lab-level billing: a PI can sponsor the whole lab on one invoice (above).
+
 ## Open questions for Grant
 
-1. Billable measure: average GB-month (fairest, matches our Cloudflare bill) or
-   peak GB during the month (simpler, slightly favors us)? Recommend average.
-2. Cap default and granularity: should the user pick the cap in GB (e.g., a 5 GB /
-   25 GB / 100 GB picker) or as a dollar ceiling that we convert to GB? GB is
-   more concrete; recommend a GB picker that shows the max monthly cost beside it.
+1. Lab free-tier pooling: confirm each member keeps their own 1 GB free (pool =
+   1 GB x members), versus a single flat lab allowance. Recommend per-member
+   pooling, it is friendlier and scales with lab size.
+2. Per-member visibility: can a PI see which members use the storage, or only the
+   lab aggregate? Per-member helps a PI manage a runaway user but is more
+   sensitive. Recommend aggregate by default, per-member usage opt-in.
 3. Minimum charge: ~$2/month proposed. Confirm the number and that sub-minimum
    overage is waived (not accrued to a future month).
 4. Rate: $0.30/GB-month (cost $0.20 + $0.10 margin). Confirm, or set a different
