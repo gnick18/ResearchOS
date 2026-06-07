@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Inventory typed fields mockup</title>
+<style>
+  :root{--surface:#ffffff;--raised:#ffffff;--sunken:#f8fafc;--fg:#171717;--muted:#6b7280;--border:#e5e7eb;--action:#1283C9;--purple:#5B47D6;--emerald-bg:#d1fae5;--emerald-fg:#047857;--page:#eef2f7}
+  [data-theme="dark"]{--surface:#0a0e1a;--raised:#131c2e;--sunken:#0d1424;--fg:#f1f5f9;--muted:#b4bfd0;--border:rgba(255,255,255,.22);--action:#3aa0e0;--purple:#8170e6;--emerald-bg:rgba(16,185,129,.20);--emerald-fg:#6ee7b7;--page:#05080f}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--page);color:var(--fg)}
+  .topbar{position:sticky;top:0;z-index:50;background:var(--page);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .topbar h1{font-size:16px;margin:0;font-weight:700}.topbar .sub{font-size:12.5px;color:var(--muted)}
+  .spacer{flex:1}
+  .btn{font:inherit;font-size:13px;border:1px solid var(--border);background:var(--raised);color:var(--fg);border-radius:8px;padding:7px 12px;cursor:pointer}
+  .btn-brand{background:linear-gradient(135deg,var(--action),var(--purple));color:#fff;border:none}
+  .legend{display:flex;gap:10px;font-size:12px;color:var(--muted);align-items:center;flex-wrap:wrap}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px}.dot.ok{background:#16a34a}.dot.warn{background:#d97706}.dot.none{background:#cbd5e1}
+  .wrap{max-width:980px;margin:0 auto;padding:20px 20px 110px}
+  .note{font-size:12.5px;color:var(--muted);max-width:820px;margin:12px 0 8px}
+  .section{margin:24px 0;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--page)}
+  .section-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--sunken)}
+  .section-head .name{font-size:13px;font-weight:700}.section-head .id{font-size:11px;color:var(--muted)}
+  .review{margin-left:auto;display:flex;gap:6px}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .seg button{font:inherit;font-size:12px;padding:5px 10px;border:none;background:var(--raised);color:var(--muted);cursor:pointer}
+  .seg button.active.ok{background:#16a34a;color:#fff}.seg button.active.warn{background:#d97706;color:#fff}.seg button.active.none{background:#64748b;color:#fff}
+  .cmt{width:100%;margin-top:8px;font:inherit;font-size:12.5px;border:1px dashed var(--border);border-radius:8px;background:var(--raised);color:var(--fg);padding:7px 9px;resize:vertical;min-height:34px}
+  .stage{padding:18px;background:var(--surface);display:flex;justify-content:center}
+  .muted{color:var(--muted)}.t-meta{font-size:12px}.t-body{font-size:13.5px}
+  .dialog{width:560px;max-width:100%;background:var(--raised);border:1px solid var(--border);border-radius:14px;padding:20px}
+  .field{margin-top:12px}.field label{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-bottom:5px}
+  .field input,.field select{width:100%;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--fg);padding:8px 11px;font:inherit;font-size:13px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .typed{border:1px solid var(--border);border-left:3px solid var(--action);border-radius:10px;background:var(--sunken);padding:12px 14px;margin-top:14px}
+  .typed .th{font-size:12px;font-weight:600;color:var(--action);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .chip{font-size:11.5px;border:1px solid var(--border);border-radius:999px;padding:2px 9px;color:var(--fg);background:var(--raised);cursor:pointer}
+  .chip.on{background:var(--action);color:#fff;border-color:var(--action)}
+  .row{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:9px;background:var(--raised);padding:11px 14px;margin-top:8px}
+  .nm{font-size:13.5px;font-weight:600}.typedline{font-size:12px;color:var(--muted);margin-top:2px}
+  .status{border-radius:6px;padding:2px 8px;font-size:11.5px;font-weight:500;background:var(--emerald-bg);color:var(--emerald-fg)}
+  svg{display:block;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #exportModal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+  #exportModal .box{background:var(--raised);color:var(--fg);border-radius:14px;max-width:680px;width:100%;padding:18px;border:1px solid var(--border)}
+  #exportModal textarea{width:100%;min-height:200px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--fg);padding:10px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div><h1>Inventory typed fields mockup</h1><div class="sub">Per-category fields (antibody, plasmid). The v3 registry phase. Design proposal, NOT built.</div></div>
+  <div class="spacer"></div>
+  <div class="legend"><span><span class="dot ok"></span>Approve</span><span><span class="dot warn"></span>Needs change</span><span><span class="dot none"></span>Undecided</span></div>
+  <button class="btn" id="themeBtn">Dark mode</button>
+  <button class="btn btn-brand" id="exportBtn">Export feedback</button>
+</div>
+<div class="wrap">
+  <p class="note">When an item's category is Antibody or Plasmid, the item form grows a small typed-fields section, and those fields show on the row. Same stock/signal/location backbone, only extra descriptive fields per type. Antibody + Plasmid first (the design's first two registries); enzyme, primer, cell line follow later. Fields are all optional. Sample data.</p>
+
+  <!-- 1: antibody form -->
+  <div class="section" data-sec="ab" data-label="Antibody typed fields (on the item form)">
+    <div class="section-head"><span class="name">Antibody fields</span><span class="id">#ab</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="dialog">
+        <div class="field" style="margin-top:0"><label>Category</label><select><option>Antibody</option><option>Plasmid</option><option>Reagent</option></select></div>
+        <div class="typed">
+          <div class="th">__TAG__ Antibody details</div>
+          <div class="grid2">
+            <div class="field" style="margin-top:6px"><label>Target</label><input value="beta-actin" /></div>
+            <div class="field" style="margin-top:6px"><label>Host species</label><input value="Rabbit" /></div>
+          </div>
+          <div class="grid2">
+            <div class="field"><label>Clonality</label><select><option>Monoclonal</option><option>Polyclonal</option></select></div>
+            <div class="field"><label>Conjugate</label><input placeholder="HRP, AlexaFluor-488, unconjugated" /></div>
+          </div>
+          <div class="grid2">
+            <div class="field"><label>Isotype</label><input placeholder="IgG1" /></div>
+            <div class="field"><label>RRID</label><input placeholder="AB_xxxxxxx" /></div>
+          </div>
+          <div class="field"><label>Applications</label>
+            <div class="chips"><span class="chip on">WB</span><span class="chip">IF</span><span class="chip">IHC</span><span class="chip on">FACS</span></div>
+          </div>
+          <div class="field"><label>Recommended dilution</label><input value="1:1000 (WB)" /></div>
+        </div>
+        <p class="t-meta muted" style="margin-top:10px">These appear only when Category is Antibody. All optional. RRID + applications + dilution feed the planned Western blot / IHC method types later.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2: plasmid form -->
+  <div class="section" data-sec="pl" data-label="Plasmid typed fields (on the item form)">
+    <div class="section-head"><span class="name">Plasmid fields</span><span class="id">#pl</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="dialog">
+        <div class="field" style="margin-top:0"><label>Category</label><select><option>Plasmid</option><option>Antibody</option><option>Reagent</option></select></div>
+        <div class="typed">
+          <div class="th">__TAG__ Plasmid details</div>
+          <div class="grid2">
+            <div class="field" style="margin-top:6px"><label>Backbone</label><input value="pUC19" /></div>
+            <div class="field" style="margin-top:6px"><label>Insert</label><input value="GFP" /></div>
+          </div>
+          <div class="grid2">
+            <div class="field"><label>Resistance</label><input value="Ampicillin" /></div>
+            <div class="field"><label>Bacterial host</label><input value="DH5-alpha" /></div>
+          </div>
+          <div class="grid2">
+            <div class="field"><label>Size (bp)</label><input value="2686" /></div>
+            <div class="field"><label>Addgene #</label><input placeholder="e.g. 12345" /></div>
+          </div>
+          <div class="field"><label>Sequence file</label><input placeholder="Attach .gb / .fasta / .dna" /></div>
+        </div>
+        <p class="t-meta muted" style="margin-top:10px">Appear only when Category is Plasmid. The sequence file attaches and downloads; an interactive feature map is out of scope here (that is the sequence editor's territory).</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3: typed info on the row -->
+  <div class="section" data-sec="row" data-label="How typed fields show on the item row">
+    <div class="section-head"><span class="name">Typed info on the row</span><span class="id">#row</span><span class="review"></span></div>
+    <div class="stage" style="justify-content:stretch">
+      <div style="width:100%">
+        <div class="row"><div><div class="nm">Anti-beta-actin</div><div class="typedline">Antibody &middot; Rabbit monoclonal &middot; HRP &middot; WB, FACS &middot; 1:1000</div></div><span class="status">In stock</span></div>
+        <div class="row"><div><div class="nm">pUC19-GFP</div><div class="typedline">Plasmid &middot; pUC19 backbone &middot; GFP insert &middot; AmpR &middot; 2686 bp</div></div><span class="status">In stock</span></div>
+        <div class="row"><div><div class="nm">Q5 Polymerase</div><div class="typedline">Reagent &middot; NEB &middot; M0491S</div></div><span class="status">In stock</span></div>
+        <p class="t-meta muted" style="margin-top:10px">A typed item shows its key descriptive fields inline; a plain reagent shows the usual vendor/catalog line. When you filter to a category, the inline line is its typed summary, the Quartzy "typed view" idea adapted to our row layout.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="exportModal"><div class="box">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><strong style="font-size:14px">Feedback summary</strong><span class="spacer" style="flex:1"></span><button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('exportText').value)">Copy</button><button class="btn" onclick="document.getElementById('exportModal').style.display='none'">Close</button></div>
+  <textarea id="exportText" readonly></textarea>
+</div></div>
+
+<script>
+const I={tag:'<svg viewBox="0 0 24 24" style="width:14px;height:14px;display:inline-block;vertical-align:-2px"><path d="M20 12.5 12.5 20a2 2 0 0 1-2.8 0l-6-6A2 2 0 0 1 3 12.7V5a2 2 0 0 1 2-2h7.7a2 2 0 0 1 1.4.6l6 6a2 2 0 0 1-.1 2.9z"/><circle cx="7.5" cy="7.5" r="1.3"/></svg>'};
+document.body.innerHTML=document.body.innerHTML.replaceAll('__TAG__',I.tag);
+document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>c.classList.toggle('on'));
+const KEY='inv-typed-2026-06-07';const store=JSON.parse(localStorage.getItem(KEY)||'{}');function save(){localStorage.setItem(KEY,JSON.stringify(store));}
+document.querySelectorAll('.section').forEach(sec=>{const id=sec.dataset.sec;const host=sec.querySelector('.review');const cur=store[id]||{v:'',c:''};const seg=document.createElement('div');seg.className='seg';[['ok','Approve'],['warn','Needs change'],['none','Undecided']].forEach(([v,lbl])=>{const b=document.createElement('button');b.textContent=lbl;b.className=(cur.v===v?'active '+v:'');b.onclick=()=>{store[id]={...(store[id]||{}),v};save();render();};seg.appendChild(b);});host.appendChild(seg);const stage=sec.querySelector('.stage');const ta=document.createElement('textarea');ta.className='cmt';ta.placeholder='Comment (optional)';ta.value=cur.c||'';ta.oninput=()=>{store[id]={...(store[id]||{}),c:ta.value};save();};sec.appendChild(ta);});
+function render(){document.querySelectorAll('.section').forEach(sec=>{const id=sec.dataset.sec;const cur=store[id]||{};sec.querySelectorAll('.seg button').forEach(b=>{const v=b.textContent==='Approve'?'ok':b.textContent==='Needs change'?'warn':'none';b.className=(cur.v===v?'active '+v:'');});});}
+render();
+document.getElementById('themeBtn').onclick=function(){const r=document.documentElement;const d=r.getAttribute('data-theme')==='dark';r.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Dark mode':'Light mode';};
+document.getElementById('exportBtn').onclick=function(){let out='INVENTORY TYPED FIELDS MOCKUP — '+new Date().toString().slice(0,21)+'\\n'+'='.repeat(42)+'\\n\\n';document.querySelectorAll('.section').forEach(sec=>{const id=sec.dataset.sec;const cur=store[id]||{};const verdict=cur.v==='ok'?'APPROVE':cur.v==='warn'?'NEEDS CHANGE':cur.v==='none'?'undecided':'(not marked)';out+='['+verdict+'] '+sec.dataset.label+'\\n';if(cur.c&&cur.c.trim())out+='   note: '+cur.c.trim()+'\\n';});document.getElementById('exportText').value=out;document.getElementById('exportModal').style.display='flex';};
+</script>
+</body>
+</html>
