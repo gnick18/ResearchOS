@@ -271,9 +271,33 @@ all five docs are committed. Likely next moves, in priority order:
          target]) is NOT wired (that is Step 4). Row actions open the entity +
          switch tab rather than re-implementing each mutation. Detail echoes are
          light approximations, not the panel's full assignSection.
-     - NEXT pages per the same pattern (mockup -> approve -> build): Purchases,
-       Methods, Lab Overview, Links. Reuse buildGantt/Calendar/Workbench as
-       templates; interpretQuery seam exists for typed-input niceties.
+     - PURCHASES DONE + on `main` (commit `e23b96bef`, mockup
+       `docs/mockups/beakersearch-purchases-palette.html` approved): pure
+       `buildPurchasesSource()` (`app/purchases/purchases-beaker-source.ts`, 21
+       tests) + `usePurchasesBeakerSource()` + page wire. Context card (scope +
+       spend total + lab-head approval line), role/permission-aware Suggested
+       (order status, Approve/Decline), Jump to a purchase (tone "task") + Funding
+       accounts (tone "funding"/green), the reopenable spending-export result, and
+       the Create / Order status / Approval / Filters / Funding / Spending / Order
+       management commands. Added the "funding" PaletteTone. tsc clean, 76 tests.
+       - SEAM CHANGE (important): my brief said Approve uses `useLiveEditSession`
+         (the sharing bot's seam). That was SUPERSEDED by the PI capability revamp
+         (also 2026-06-07): no `useEditSession.ts` exists. The current gate is the
+         per-record once-per-session confirm, `usePiEditGate` / `pi-edit-guard` /
+         `markPiEditConfirmed` (+ `piEditKey`). The build correctly wired
+         `hasLiveSession` to the PI edit-confirm state for the focused order's
+         owner; approve/decline `markPiEditConfirmed` before `setPurchaseApproval`
+         / `declinePurchase`. Approve is enabled only `isLabHead && hasLiveSession`,
+         greyed-with-reason for lab-head-not-confirmed, OMITTED for members.
+       - Export result uses a window-event bridge (`purchases:export-csv` /
+         `purchases:focus-dashboard`) the SpendingDashboard listens for (the export
+         handler lives in that component; lifting it would be a big refactor).
+       - HOVERED-as-context inert (provider has no hover tracking yet; Step 4).
+       - PRE-EXISTING (not ours): 7 failures in `purchases-page.misc-filter` /
+         `purchases-page.shared-gate` from a `usePathname` mock gap in SuppliesTabs
+         (verified by stash, 7 before + after).
+     - NEXT pages per the same pattern (mockup -> approve -> build): Methods, Lab
+       Overview, Links. Reuse the four built sources as templates.
    - Step 4, app-wide mouse-awareness (`[data-beaker-target]` hover capture) last.
 3. **Optional small follow-up:** the EventModal task-picker UI so a user can
    actually create an event-to-task link (the field exists, the UI does not).
