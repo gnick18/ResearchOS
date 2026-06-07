@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sequences icon audit</title>
+<style>
+  :root {
+    --slate: #475569;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --dark-bg: #0f172a;
+    --dark-card: #1e293b;
+    --dark-ink: #e2e8f0;
+    --sky: #0284c7;
+    --amber: #b45309;
+    --amber-bg: #fffbeb;
+    --amber-line: #fcd34d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.5;
+  }
+  header.page {
+    padding: 28px 32px 18px;
+    border-bottom: 1px solid var(--line);
+    background: var(--card);
+  }
+  header.page h1 { margin: 0 0 6px; font-size: 22px; }
+  header.page p { margin: 4px 0; color: var(--muted); font-size: 14px; max-width: 720px; }
+  .note {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: var(--amber-bg);
+    border: 1px solid var(--amber-line);
+    border-radius: 8px;
+    color: var(--amber);
+    font-size: 14px;
+    font-weight: 600;
+    max-width: 720px;
+  }
+  main { padding: 8px 32px 64px; }
+  section { margin-top: 36px; }
+  section > h2 {
+    font-size: 17px;
+    margin: 0 0 4px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--sky);
+    display: inline-block;
+  }
+  section > .sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .swatches { display: flex; gap: 10px; }
+  .swatch {
+    flex: 1;
+    height: 72px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line);
+  }
+  .swatch.light { background: #ffffff; color: var(--slate); }
+  .swatch.dark { background: var(--dark-bg); color: #cbd5e1; border-color: #334155; }
+  .swatch svg { width: 40px; height: 40px; }
+  .name { font-size: 14px; font-weight: 700; color: var(--ink); }
+  .name code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    background: #f1f5f9;
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: #334155;
+  }
+  .row { font-size: 12.5px; color: var(--muted); }
+  .row b { color: #334155; font-weight: 600; }
+  .means { font-size: 12.5px; color: #334155; }
+  .collide {
+    margin-top: 2px;
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--amber);
+    background: var(--amber-bg);
+    border: 1px solid var(--amber-line);
+    border-radius: 999px;
+    padding: 2px 9px;
+  }
+  .file-list { font-size: 13px; color: var(--muted); }
+  .file-list code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>Sequences page icon audit</h1>
+  <p>Every icon below is the exact SVG from the code. Mark the ones that do not read.</p>
+  <p>Grouped by where it appears in the editor. An icon reused in several spots is listed once, with all its homes noted. Amber pills flag likely confusable pairs.</p>
+  <div class="note">Look for: icons that say nothing on their own, two glyphs that look alike, and a glyph whose shape fights its meaning.</div>
+</header>
+<main>
+
+<!-- ============================ TOP ACTION BAR ============================ -->
+<section>
+  <h2>Top action bar</h2>
+  <p class="sub">The document-editing row at the very top of the editor (hidden in read-only / embedded). Undo, Redo, the Copy split button, Cut, Paste, Save.</p>
+  <div class="grid">
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-1" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-1" /></svg></div>
+      </div>
+      <div class="name">Undo <code>IconUndo</code></div>
+      <div class="row"><b>Label:</b> "Undo" / tooltip "Undo (Cmd+Z)"</div>
+      <div class="means">Step the document back one edit. Left-curving return arrow.</div>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5" /><path d="M20 9H9a5 5 0 0 0 0 10h1" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5" /><path d="M20 9H9a5 5 0 0 0 0 10h1" /></svg></div>
+      </div>
+      <div class="name">Redo <code>IconRedo</code></div>
+      <div class="row"><b>Label:</b> "Redo" / tooltip "Redo (Cmd+Shift+Z)"</div>
+      <div class="means">Step the document forward one edit. Right-curving return arrow (mirror of Undo).</div>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg></div>
+      </div>
+      <div class="name">Copy <code>IconCopy</code></div>
+      <div class="row"><b>Label:</b> "Copy" split button / tooltip "Copy (Cmd+C)"</div>
+      <div class="means">Copy the selected bases. Two overlapping sheets.</div>
+      <span class="collide">looks like: ActionGlyphs.copy (inspector), IconDuplicate (primer dialog) — same two-sheets shape</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M20 4L8.12 15.88" /><path d="M14.47 14.48L20 20" /><path d="M8.12 8.12L12 12" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M20 4L8.12 15.88" /><path d="M14.47 14.48L20 20" /><path d="M8.12 8.12L12 12" /></svg></div>
+      </div>
+      <div class="name">Cut <code>IconCut</code></div>
+      <div class="row"><b>Label:</b> "Cut" / tooltip "Cut (Cmd+X)"</div>
+      <div class="means">Remove the selected bases to the clipboard. Open scissors.</div>
+      <span class="collide">looks like: IconEnzymes (Show strip "Enzyme sites") — both are scissors; nearly identical paths</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" /><rect x="9" y="3" width="6" height="4" rx="1" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" /><rect x="9" y="3" width="6" height="4" rx="1" /></svg></div>
+      </div>
+      <div class="name">Paste <code>IconPasteTool</code></div>
+      <div class="row"><b>Label:</b> "Paste" / tooltip "Paste annotated sequence (Cmd+V)"</div>
+      <div class="means">Insert clipboard bases at the caret. Clipboard tool.</div>
+      <span class="collide">looks like: ActionGlyphs.paste (inspector) — a different clipboard glyph for the same idea</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg></div>
+      </div>
+      <div class="name">Save <code>IconSave</code></div>
+      <div class="row"><b>Label:</b> "Save" / "Saving…" / "Saved" / tooltip "Save (Cmd+S)"</div>
+      <div class="means">Write the edited document to disk. Floppy disk.</div>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9" /></svg></div>
+      </div>
+      <div class="name">Split-copy caret <code>Chevron</code> (SequenceEditMenu)</div>
+      <div class="row"><b>Label:</b> none. The caret on the right half of the Copy split button (and on the menu dropdowns).</div>
+      <div class="means">Open the full copy family menu (bottom strand, amino acids, FASTA, map image). Down chevron.</div>
+      <span class="collide">looks like: ChevronDownIcon (Import), IconCaret (Show strip), Chevron (Export), CaretIcon (lineage) — five separate down-chevron defs</span>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================ RIGHT RAIL ============================ -->
+<section>
+  <h2>Right rail (operations)</h2>
+  <p class="sub">The thin always-visible icon strip on the right edge. Each icon + its tiny label opens an inspector panel. Grouped Design then Analyze, then Export + More.</p>
+  <div class="grid">
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h10" /><path d="M14 9l4 3-4 3" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h10" /><path d="M14 9l4 3-4 3" /></svg></div>
+      </div>
+      <div class="name">Primers <code>RailIcons.primers</code></div>
+      <div class="row"><b>Label:</b> "Primers"</div>
+      <div class="means">Primer design / check tools. A line with a forward arrowhead (an oligo annealing 5' to 3').</div>
+      <span class="collide">looks like: IconPrimers (View tabs), IconOrfs (Show strip) — all arrow-on-a-line glyphs</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="3" /><circle cx="17" cy="17" r="3" /><path d="M9.5 9.5l5 5" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="3" /><circle cx="17" cy="17" r="3" /><path d="M9.5 9.5l5 5" /></svg></div>
+      </div>
+      <div class="name">Cloning <code>RailIcons.cloning</code></div>
+      <div class="row"><b>Label:</b> "Cloning"</div>
+      <div class="means">Assembly / cloning chemistries. Two circles joined by a link.</div>
+      <span class="collide">looks like: RailIcons.tree / ActionGlyphs.tree / lineage TreeGlyph — all "circles joined by lines" three-or-two-node shapes</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5" /><circle cx="6" cy="18" r="2.5" /><path d="M8 7l12 9M8 17L20 8" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5" /><circle cx="6" cy="18" r="2.5" /><path d="M8 7l12 9M8 17L20 8" /></svg></div>
+      </div>
+      <div class="name">Cut (rail) <code>RailIcons.cut</code></div>
+      <div class="row"><b>Label:</b> "Cut" (restriction-enzyme panel)</div>
+      <div class="means">Restriction digest tools. Scissors (closed X blades).</div>
+      <span class="collide">looks like: IconCut (top bar), IconEnzymes (Show strip) — three scissors glyphs for two different meanings (edit-cut vs enzyme-cut)</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6" /></svg></div>
+      </div>
+      <div class="name">Annotate <code>RailIcons.annotate</code></div>
+      <div class="row"><b>Label:</b> "Annotate"</div>
+      <div class="means">Add / detect features. A bare checkmark.</div>
+      <span class="collide">looks like: ActionGlyphs.check, the toast success check — a plain check that reads as "done", not "annotate"</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h12M4 12h16M4 17h9" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h12M4 12h16M4 17h9" /></svg></div>
+      </div>
+      <div class="name">Align <code>RailIcons.align</code></div>
+      <div class="row"><b>Label:</b> "Align"</div>
+      <div class="means">Compare / align sequences. Three ragged-length lines (like left-aligned text rows).</div>
+      <span class="collide">looks like: ActionGlyphs.list, ActionGlyphs.align (identical path), IconWrapped (Show strip) — four near-identical "stacked lines" glyphs</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5c4 4 10 6 14 14M5 19c4-4 10-6 14-14" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5c4 4 10 6 14 14M5 19c4-4 10-6 14-14" /></svg></div>
+      </div>
+      <div class="name">Protein <code>RailIcons.protein</code></div>
+      <div class="row"><b>Label:</b> "Protein"</div>
+      <div class="means">Protein properties of a coding feature. Two crossing curves (an X of helices).</div>
+      <span class="collide">looks like: ActionGlyphs.protein (identical path)</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2" /><circle cx="6" cy="18" r="2" /><circle cx="18" cy="12" r="2" /><path d="M8 6.7l8 4.3M8 17.3l8-4.3" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2" /><circle cx="6" cy="18" r="2" /><circle cx="18" cy="12" r="2" /><path d="M8 6.7l8 4.3M8 17.3l8-4.3" /></svg></div>
+      </div>
+      <div class="name">Tree <code>RailIcons.tree</code></div>
+      <div class="row"><b>Label:</b> "Tree" (taxonomy / lineage)</div>
+      <div class="means">Tree of life / taxonomy explorer. Three nodes joined (two on the left, one on the right).</div>
+      <span class="collide">looks like: ActionGlyphs.tree (identical), lineage TreeGlyph, list-row organism glyph, RailIcons.cloning — the most-reused node-graph shape</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10M8 10l4 4 4-4" /><path d="M5 19h14" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10M8 10l4 4 4-4" /><path d="M5 19h14" /></svg></div>
+      </div>
+      <div class="name">Export <code>RailIcons.export</code></div>
+      <div class="row"><b>Label:</b> "Export"</div>
+      <div class="means">Save the sequence out as a file. Down arrow onto a baseline.</div>
+      <span class="collide">looks like: ActionGlyphs.download (identical), NcbiCloudIcon down-arrow, IconExport (Export menu) — three download-style arrows</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.4" /><circle cx="12" cy="12" r="1.4" /><circle cx="19" cy="12" r="1.4" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.4" /><circle cx="12" cy="12" r="1.4" /><circle cx="19" cy="12" r="1.4" /></svg></div>
+      </div>
+      <div class="name">More <code>RailIcons.more</code></div>
+      <div class="row"><b>Label:</b> "More"</div>
+      <div class="means">Overflow / additional operations. Three dots.</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================ INSPECTOR TILES ============================ -->
+<section>
+  <h2>Inspector action tiles</h2>
+  <p class="sub">The small glyphs on the action tiles inside each rail inspector panel (about 14px). The inspector header reuses the matching rail icon at a larger size. Plus the inspector close + the context-bar markers.</p>
+  <div class="grid">
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14" /></svg></div>
+      </div>
+      <div class="name">Plus <code>ActionGlyphs.plus</code></div>
+      <div class="row"><b>Label:</b> "Add..." actions inside a panel.</div>
+      <div class="means">Create / add. Plus sign.</div>
+      <span class="collide">looks like: PlusIcon (sidebar "New") — same plus</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h10" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h10" /></svg></div>
+      </div>
+      <div class="name">List <code>ActionGlyphs.list</code></div>
+      <div class="row"><b>Label:</b> "list / show all" panel actions.</div>
+      <div class="means">A list of rows. Three lines (last shorter).</div>
+      <span class="collide">looks like: ActionGlyphs.align + RailIcons.align (Align's exact shape, last line slightly longer) — list and align are indistinguishable</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="2.5" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="2.5" /></svg></div>
+      </div>
+      <div class="name">Layer <code>ActionGlyphs.layer</code></div>
+      <div class="row"><b>Label:</b> a layer / target panel action.</div>
+      <div class="means">Concentric ring + dot (a target / layer).</div>
+      <span class="collide">looks like: IconCircular (Show strip topology), IconMap (View tabs ring) — all ring glyphs</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6" /></svg></div>
+      </div>
+      <div class="name">Check <code>ActionGlyphs.check</code></div>
+      <div class="row"><b>Label:</b> a confirm / apply panel action.</div>
+      <div class="means">Checkmark.</div>
+      <span class="collide">looks like: RailIcons.annotate (identical), the toast success check</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 13.5-5.5L20 9" /><path d="M20 4v5h-5" /><path d="M20 12a8 8 0 0 1-13.5 5.5L4 15" /><path d="M4 20v-5h5" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 13.5-5.5L20 9" /><path d="M20 4v5h-5" /><path d="M20 12a8 8 0 0 1-13.5 5.5L4 15" /><path d="M4 20v-5h5" /></svg></div>
+      </div>
+      <div class="name">Refresh <code>ActionGlyphs.refresh</code></div>
+      <div class="row"><b>Label:</b> a recompute / refresh panel action.</div>
+      <div class="means">Two curved arrows in a loop. Refresh / recompute.</div>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h12M4 12h16M4 17h9" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h12M4 12h16M4 17h9" /></svg></div>
+      </div>
+      <div class="name">Align <code>ActionGlyphs.align</code></div>
+      <div class="row"><b>Label:</b> an align panel action.</div>
+      <div class="means">Three ragged lines. Alignment rows.</div>
+      <span class="collide">looks like: RailIcons.align (byte-identical path), ActionGlyphs.list — three "stacked lines" all here</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5c4 4 10 6 14 14M5 19c4-4 10-6 14-14" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5c4 4 10 6 14 14M5 19c4-4 10-6 14-14" /></svg></div>
+      </div>
+      <div class="name">Protein <code>ActionGlyphs.protein</code></div>
+      <div class="row"><b>Label:</b> a protein panel action.</div>
+      <div class="means">Two crossing curves. Protein / helices.</div>
+      <span class="collide">looks like: RailIcons.protein (byte-identical path)</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2" /><circle cx="6" cy="18" r="2" /><circle cx="18" cy="12" r="2" /><path d="M8 6.7l8 4.3M8 17.3l8-4.3" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2" /><circle cx="6" cy="18" r="2" /><circle cx="18" cy="12" r="2" /><path d="M8 6.7l8 4.3M8 17.3l8-4.3" /></svg></div>
+      </div>
+      <div class="name">Tree <code>ActionGlyphs.tree</code></div>
+      <div class="row"><b>Label:</b> a taxonomy panel action.</div>
+      <div class="means">Three-node graph. Tree of life.</div>
+      <span class="collide">looks like: RailIcons.tree (byte-identical), lineage TreeGlyph, list-row organism glyph</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3-3" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3-3" /></svg></div>
+      </div>
+      <div class="name">Search <code>ActionGlyphs.search</code></div>
+      <div class="row"><b>Label:</b> a find / search panel action.</div>
+      <div class="means">Magnifying glass.</div>
+      <span class="collide">looks like: the "Find" button glyph (tabs spine) — same magnifier, two copies</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10M8 10l4 4 4-4" /><path d="M5 19h14" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10M8 10l4 4 4-4" /><path d="M5 19h14" /></svg></div>
+      </div>
+      <div class="name">Download <code>ActionGlyphs.download</code></div>
+      <div class="row"><b>Label:</b> an export / download panel action.</div>
+      <div class="means">Down arrow onto a baseline.</div>
+      <span class="collide">looks like: RailIcons.export (byte-identical)</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></svg></div>
+      </div>
+      <div class="name">Copy <code>ActionGlyphs.copy</code></div>
+      <div class="row"><b>Label:</b> a copy panel action.</div>
+      <div class="means">Two overlapping sheets. Copy.</div>
+      <span class="collide">looks like: IconCopy (top bar), IconDuplicate (primer dialog) — all two-sheet glyphs</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6v3H9zM7 5H5v15h14V5h-2" /><path d="M12 10v6M9 13l3 3 3-3" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6v3H9zM7 5H5v15h14V5h-2" /><path d="M12 10v6M9 13l3 3 3-3" /></svg></div>
+      </div>
+      <div class="name">Paste <code>ActionGlyphs.paste</code></div>
+      <div class="row"><b>Label:</b> a paste panel action.</div>
+      <div class="means">Clipboard with a down arrow inside. Paste.</div>
+      <span class="collide">looks like: IconPasteTool (top bar) — a different clipboard for the same idea</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4.5l5 5L8 21H3v-5z" /><path d="M12.5 6.5l5 5" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4.5l5 5L8 21H3v-5z" /><path d="M12.5 6.5l5 5" /></svg></div>
+      </div>
+      <div class="name">Pencil <code>ActionGlyphs.pencil</code></div>
+      <div class="row"><b>Label:</b> an edit / rename panel action.</div>
+      <div class="means">Pencil. Edit.</div>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18" /></svg></div>
+      </div>
+      <div class="name">Inspector close <code>SequenceOperationsRail</code> X</div>
+      <div class="row"><b>Label:</b> aria "Collapse the inspector" / tooltip "Collapse the inspector"</div>
+      <div class="means">Close the inspector panel back to the rail. An X.</div>
+      <span class="collide">looks like: the toast dismiss X (two crossing lines) — same X, different markup</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="currentColor" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="currentColor" /></svg></div>
+      </div>
+      <div class="name">Context-bar filled marker <code>InspectorContextBar</code></div>
+      <div class="row"><b>Label:</b> sits before "Acting on selection..." text (amber bar).</div>
+      <div class="means">The operation will act on the current selection. A solid disc.</div>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="9" height="9" rx="1.5" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="9" height="9" rx="1.5" /></svg></div>
+      </div>
+      <div class="name">Context-bar hollow marker <code>InspectorContextBar</code></div>
+      <div class="row"><b>Label:</b> sits before "Whole sequence" text (calm bar).</div>
+      <div class="means">The operation acts on the whole sequence (nothing selected). A hollow square.</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================ VIEW TABS ============================ -->
+<section>
+  <h2>View tabs (bottom)</h2>
+  <p class="sub">The SnapGene-style bottom tab bar that switches the main view. Map, Sequence, Features, Primers, History (each icon + a text label).</p>
+  <div class="grid">
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8" /><path d="M12 4v3M20 12h-3M12 20v-3M4 12h3" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8" /><path d="M12 4v3M20 12h-3M12 20v-3M4 12h3" /></svg></div>
+      </div>
+      <div class="name">Map <code>IconMap</code></div>
+      <div class="row"><b>Label:</b> "Map" / tooltip "Whole-molecule map view"</div>
+      <div class="means">Whole-molecule (plasmid ring) view. Circle with four ticks.</div>
+      <span class="collide">looks like: the "Map view" badge glyph + the circular-zoom indicator (identical ring+ticks path)</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="17" x2="21" y2="17" /><path d="M5 13V8M5 8h2.5a1.5 1.5 0 0 1 0 3H5" /><path d="M11 13V8l4 5V8" /><path d="M19 8h-2v5h2" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="17" x2="21" y2="17" /><path d="M5 13V8M5 8h2.5a1.5 1.5 0 0 1 0 3H5" /><path d="M11 13V8l4 5V8" /><path d="M19 8h-2v5h2" /></svg></div>
+      </div>
+      <div class="name">Sequence <code>IconSequence</code></div>
+      <div class="row"><b>Label:</b> "Sequence" / tooltip "Base-level sequence view"</div>
+      <div class="means">Base-level letters view. "PNF"-ish letters on a baseline.</div>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></svg></div>
+      </div>
+      <div class="name">Features <code>IconFeatures</code></div>
+      <div class="row"><b>Label:</b> "Features" + count / tooltip "Feature list and editing"</div>
+      <div class="means">Feature list. A price tag.</div>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="17" x2="21" y2="17" /><path d="M6 11h9l-2.5-2.5M6 11l2.5 2.5" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="17" x2="21" y2="17" /><path d="M6 11h9l-2.5-2.5M6 11l2.5 2.5" /></svg></div>
+      </div>
+      <div class="name">Primers <code>IconPrimers</code></div>
+      <div class="row"><b>Label:</b> "Primers" + count / tooltip "Primer list and design"</div>
+      <div class="means">Primer list. A short forward arrow over a baseline.</div>
+      <span class="collide">looks like: RailIcons.primers (the rail's Primers icon) — both arrow-on-line, two different drawings</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 4v4h4" /><path d="M12 8v4l3 2" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 4v4h4" /><path d="M12 8v4l3 2" /></svg></div>
+      </div>
+      <div class="name">History <code>IconHistory</code></div>
+      <div class="row"><b>Label:</b> "History" / tooltip "Edit and version history"</div>
+      <div class="means">Edit / version history. Clock with a counter-clockwise arrow.</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================ SHOW STRIP ============================ -->
+<section>
+  <h2>Show strip</h2>
+  <p class="sub">The horizontal "Show" chip row above the viewer. Each chip toggles a display layer. Plus the feature-types flyout caret and its eye toggles.</p>
+  <div class="grid">
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M20 4L8.12 15.88" /><path d="M14.47 14.48L20 20" /><path d="M8.12 8.12L12 12" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M20 4L8.12 15.88" /><path d="M14.47 14.48L20 20" /><path d="M8.12 8.12L12 12" /></svg></div>
+      </div>
+      <div class="name">Enzyme sites <code>IconEnzymes</code></div>
+      <div class="row"><b>Label:</b> "Enzyme sites" / tooltip "Show or hide restriction-enzyme cut sites"</div>
+      <div class="means">Restriction cut sites. Open scissors.</div>
+      <span class="collide">looks like: IconCut (top bar) — byte-identical scissors path for a different action</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2" /><path d="M7 15l1.8-5 1.8 5" /><path d="M7.4 13.4h2.8" /><path d="M14 15l1.8-5 1.8 5" /><path d="M14.4 13.4h2.8" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2" /><path d="M7 15l1.8-5 1.8 5" /><path d="M7.4 13.4h2.8" /><path d="M14 15l1.8-5 1.8 5" /><path d="M14.4 13.4h2.8" /></svg></div>
+      </div>
+      <div class="name">Translation <code>IconTranslation</code></div>
+      <div class="row"><b>Label:</b> "Translation" / tooltip "Show or hide the amino-acid translation of CDS features"</div>
+      <div class="means">Amino-acid translation. "AA" letters in a box.</div>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10l-3-3M3 8l3 3" /><path d="M21 16H11l3 3M21 16l-3-3" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10l-3-3M3 8l3 3" /><path d="M21 16H11l3 3M21 16l-3-3" /></svg></div>
+      </div>
+      <div class="name">Open reading frames <code>IconOrfs</code></div>
+      <div class="row"><b>Label:</b> "Open reading frames" / tooltip about ATG-to-stop runs</div>
+      <div class="means">Reading-frame direction. Two opposed double-headed arrows.</div>
+      <span class="collide">looks like: RailIcons.primers, IconPrimers — all directional-arrow glyphs</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="9" width="20" height="6" rx="1" /><line x1="6" y1="9" x2="6" y2="12" /><line x1="10" y1="9" x2="10" y2="12" /><line x1="14" y1="9" x2="14" y2="12" /><line x1="18" y1="9" x2="18" y2="12" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="9" width="20" height="6" rx="1" /><line x1="6" y1="9" x2="6" y2="12" /><line x1="10" y1="9" x2="10" y2="12" /><line x1="14" y1="9" x2="14" y2="12" /><line x1="18" y1="9" x2="18" y2="12" /></svg></div>
+      </div>
+      <div class="name">Ruler / index <code>IconRuler</code></div>
+      <div class="row"><b>Label:</b> "Ruler / index" / tooltip "Show or hide the ruler / index row"</div>
+      <div class="means">Coordinate ruler. A ruler with tick marks.</div>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8" /></svg></div>
+      </div>
+      <div class="name">Circular <code>IconCircular</code></div>
+      <div class="row"><b>Label:</b> "Circular" / tooltip "Show as circular" (topology chip)</div>
+      <div class="means">Plasmid topology, circular. A plain ring.</div>
+      <span class="collide">looks like: ActionGlyphs.layer (ring), IconMap (ring+ticks) — bare ring reads as "map" too</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="9" x2="3" y2="15" /><line x1="21" y1="9" x2="21" y2="15" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="9" x2="3" y2="15" /><line x1="21" y1="9" x2="21" y2="15" /></svg></div>
+      </div>
+      <div class="name">Linear <code>IconLinear</code></div>
+      <div class="row"><b>Label:</b> "Linear" / tooltip "Show as linear" (topology chip)</div>
+      <div class="means">Linear molecule topology. A line with end caps.</div>
+      <span class="collide">looks like: the list-row MoleculeIcon linear branch (line) — close in spirit</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="14" y2="17" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="14" y2="17" /></svg></div>
+      </div>
+      <div class="name">Wrapped <code>IconWrapped</code></div>
+      <div class="row"><b>Label:</b> "Wrapped" / tooltip "Switch to a single continuous line"</div>
+      <div class="means">Sequence wrapped into stacked rows. Three lines (last shorter).</div>
+      <span class="collide">looks like: RailIcons.align, ActionGlyphs.list / align — same three-lines family. Confusable with Align especially.</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="8" x2="21" y2="8" /><polyline points="6 14 3 17 6 20" /><polyline points="18 14 21 17 18 20" /><line x1="3" y1="17" x2="21" y2="17" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="8" x2="21" y2="8" /><polyline points="6 14 3 17 6 20" /><polyline points="18 14 21 17 18 20" /><line x1="3" y1="17" x2="21" y2="17" /></svg></div>
+      </div>
+      <div class="name">Single line <code>IconSingleLine</code></div>
+      <div class="row"><b>Label:</b> "Single line" / tooltip "Switch to wrapped rows"</div>
+      <div class="means">Sequence on one horizontal row (scrolls left-right). A row with a double-ended horizontal arrow.</div>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9" /></svg></div>
+      </div>
+      <div class="name">Feature-types caret <code>IconCaret</code></div>
+      <div class="row"><b>Label:</b> none. The disclosure caret on the right half of the Features chip.</div>
+      <div class="means">Open the per-feature-type show/hide flyout. Down chevron (heavier stroke).</div>
+      <span class="collide">looks like: Chevron (Copy/Export), ChevronDownIcon (Import), CaretIcon (lineage) — yet another down chevron</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg></div>
+      </div>
+      <div class="name">Eye (shown) <code>IconEye</code></div>
+      <div class="row"><b>Label:</b> per-type row in the Feature-types flyout (also reused in the Edit menu toggle rows).</div>
+      <div class="means">This feature type is visible. An open eye.</div>
+      <span class="collide">looks like: the SequenceEditMenu IconEye (byte-identical) — two defs</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg></div>
+      </div>
+      <div class="name">Eye off (hidden) <code>IconEyeOff</code></div>
+      <div class="row"><b>Label:</b> per-type row in the Feature-types flyout (also reused in the Edit menu toggle rows).</div>
+      <div class="means">This feature type is hidden. A slashed eye.</div>
+      <span class="collide">looks like: the SequenceEditMenu IconEyeOff (byte-identical) — two defs</span>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================ SIDEBAR + LIST ============================ -->
+<section>
+  <h2>Sidebar and list</h2>
+  <p class="sub">The /sequences left sidebar (the library): the create-row actions, search, collection chevron, list rows, the focus toggle and re-open handle, the open-sequence header.</p>
+  <div class="grid">
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8" /></svg></div>
+      </div>
+      <div class="name">Molecule, circular <code>MoleculeIcon</code> (circular branch)</div>
+      <div class="row"><b>Label:</b> none. Leads each list row + the open header.</div>
+      <div class="means">A circular (plasmid) molecule. A bare ring.</div>
+      <span class="collide">looks like: IconCircular (Show strip), ActionGlyphs.layer, IconMap — bare ring reused widely</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12" /></svg></div>
+      </div>
+      <div class="name">Molecule, linear <code>MoleculeIcon</code> (linear branch)</div>
+      <div class="row"><b>Label:</b> none. Leads each list row + the open header.</div>
+      <div class="means">A linear molecule. A single straight line (no end caps).</div>
+      <span class="collide">looks like: a plain divider / nothing. A bare line barely reads as a molecule.</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.6" y1="13.5" x2="15.4" y2="17.5" /><line x1="15.4" y1="6.5" x2="8.6" y2="10.5" /></svg></div>
+        <div class="swatch dark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.6" y1="13.5" x2="15.4" y2="17.5" /><line x1="15.4" y1="6.5" x2="8.6" y2="10.5" /></svg></div>
+      </div>
+      <div class="name">Share / send <code>ShareIcon</code></div>
+      <div class="row"><b>Label:</b> aria/tooltip "Share" (open header); "Send N selected" (bulk bar)</div>
+      <div class="means">Send a sequence outside the lab. Three connected nodes (a share graph).</div>
+      <span class="collide">looks like: RailIcons.tree / TreeGlyph / organism glyph — three-node graphs. Share vs tree-of-life is the same shape family.</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg></div>
+      </div>
+      <div class="name">Focus <code>FocusIcon</code></div>
+      <div class="row"><b>Label:</b> tooltip (sidebar header focus toggle). Reused from the markdown editor.</div>
+      <div class="means">Collapse the list so the viewer fills the page. Four expand-corner arrows.</div>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg></div>
+      </div>
+      <div class="name">Re-open handle <code>(inline chevron, page.tsx)</code></div>
+      <div class="row"><b>Label:</b> aria/tooltip "Show the sequence list"</div>
+      <div class="means">Re-open the collapsed list (the handle pinned to the left edge in focus mode). Right chevron.</div>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg></div>
+        <div class="swatch dark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg></div>
+      </div>
+      <div class="name">New <code>PlusIcon</code></div>
+      <div class="row"><b>Label:</b> "New" (primary sky button)</div>
+      <div class="means">Create a new blank sequence. Plus sign.</div>
+      <span class="collide">looks like: ActionGlyphs.plus</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8" stroke-dasharray="12.5 4.25" /></svg></div>
+        <div class="swatch dark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8" stroke-dasharray="12.5 4.25" /></svg></div>
+      </div>
+      <div class="name">Assemble <code>AssembleIcon</code></div>
+      <div class="row"><b>Label:</b> "Assemble" / tooltip about Gibson / Golden Gate / Gateway</div>
+      <div class="means">Build a construct from fragments. A ring drawn as three dashed arc segments (plasmid junctions).</div>
+      <span class="collide">looks like: IconCircular / MoleculeIcon ring (a dashed ring still reads as "circular")</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="17" x2="20" y2="17" /><line x1="8" y1="7" x2="8" y2="17" stroke-dasharray="1.5 2.5" /><line x1="12" y1="7" x2="12" y2="17" stroke-dasharray="1.5 2.5" /><line x1="16" y1="7" x2="16" y2="17" stroke-dasharray="1.5 2.5" /></svg></div>
+        <div class="swatch dark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="17" x2="20" y2="17" /><line x1="8" y1="7" x2="8" y2="17" stroke-dasharray="1.5 2.5" /><line x1="12" y1="7" x2="12" y2="17" stroke-dasharray="1.5 2.5" /><line x1="16" y1="7" x2="16" y2="17" stroke-dasharray="1.5 2.5" /></svg></div>
+      </div>
+      <div class="name">Align / Compare <code>AlignIcon</code></div>
+      <div class="row"><b>Label:</b> "Align" / tooltip about percent identity, dotplot</div>
+      <div class="means">Pairwise alignment. Two strands joined by dotted base-pair lines.</div>
+      <span class="collide">looks like: RailIcons.align (a separate three-lines drawing) — two different glyphs both meaning "align"</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 9 12 4 17 9" /><line x1="12" y1="4" x2="12" y2="16" /></svg></div>
+        <div class="swatch dark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 9 12 4 17 9" /><line x1="12" y1="4" x2="12" y2="16" /></svg></div>
+      </div>
+      <div class="name">Import <code>ImportIcon</code></div>
+      <div class="row"><b>Label:</b> "Import" / tooltip "Import files or a whole folder"</div>
+      <div class="means">Bring files in. Tray with an up arrow.</div>
+      <span class="collide">looks like: RailIcons.export / IconExport (down-arrow tray) — import-up vs export-down only differ by arrow direction</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9" /><polyline points="8 17 12 21 16 17" /><line x1="12" y1="12" x2="12" y2="21" /></svg></div>
+        <div class="swatch dark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9" /><polyline points="8 17 12 21 16 17" /><line x1="12" y1="12" x2="12" y2="21" /></svg></div>
+      </div>
+      <div class="name">Download from NCBI <code>NcbiCloudIcon</code></div>
+      <div class="row"><b>Label:</b> "Download from NCBI" / tooltip about gene / genome</div>
+      <div class="means">Pull a record from a remote database. Cloud with a down arrow.</div>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9" /></svg></div>
+        <div class="swatch dark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9" /></svg></div>
+      </div>
+      <div class="name">Import / collection chevron <code>ChevronDownIcon</code></div>
+      <div class="row"><b>Label:</b> none. The split-menu caret on the Import button (and collection dropdowns).</div>
+      <div class="means">Open the import / collection menu. Down chevron.</div>
+      <span class="collide">looks like: Chevron, IconCaret, CaretIcon — four+ down chevrons across the page</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg></div>
+        <div class="swatch dark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg></div>
+      </div>
+      <div class="name">Choose folder <code>FolderIcon</code></div>
+      <div class="row"><b>Label:</b> "Choose folder…" (Import dropdown item)</div>
+      <div class="means">Import a whole folder. A folder.</div>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg></div>
+        <div class="swatch dark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg></div>
+      </div>
+      <div class="name">Choose files <code>FileIcon</code></div>
+      <div class="row"><b>Label:</b> "Choose files…" (Import dropdown item)</div>
+      <div class="means">Import individual files. A document.</div>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg></div>
+        <div class="swatch dark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg></div>
+      </div>
+      <div class="name">Delete <code>TrashIcon</code> (page)</div>
+      <div class="row"><b>Label:</b> per-row delete + "Delete N selected" (bulk bar)</div>
+      <div class="means">Move sequence(s) to trash. A trash can with two slats.</div>
+      <span class="collide">looks like: IconTrash (primer dialog) — a near-identical trash can, one slat-line less</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.2" /><circle cx="6" cy="18" r="2.2" /><circle cx="18" cy="12" r="2.2" /><path d="M8.2 6.8 15.6 11M8.2 17.2 15.6 13" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.2" /><circle cx="6" cy="18" r="2.2" /><circle cx="18" cy="12" r="2.2" /><path d="M8.2 6.8 15.6 11M8.2 17.2 15.6 13" /></svg></div>
+      </div>
+      <div class="name">List-row organism glyph <code>(inline, page.tsx)</code></div>
+      <div class="row"><b>Label:</b> none. Precedes the italic organism binomial on a list row + the open header.</div>
+      <div class="means">This sequence carries an NCBI organism. A three-node tree glyph (emerald-tinted).</div>
+      <span class="collide">looks like: lineage TreeGlyph (near-identical), RailIcons.tree / ActionGlyphs.tree, ShareIcon — all three-node graphs</span>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================ OBJECT POPUPS ============================ -->
+<section>
+  <h2>Object popups</h2>
+  <p class="sub">The primer editor dialog icons, and the bottom-right taxonomy footer (the lineage chip). The feature editor dialog has no inline SVG icons.</p>
+  <div class="grid">
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12" /><path d="M5 8h11" /><polyline points="14 5.5 17 8 14 10.5" /><path d="M19 16H10" /><polyline points="12 13.5 9 16 12 18.5" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12" /><path d="M5 8h11" /><polyline points="14 5.5 17 8 14 10.5" /><path d="M19 16H10" /><polyline points="12 13.5 9 16 12 18.5" /></svg></div>
+      </div>
+      <div class="name">Primer <code>IconPrimer</code> (PrimerEditorDialog)</div>
+      <div class="row"><b>Label:</b> the dialog header glyph.</div>
+      <div class="means">An oligo. A baseline with a forward arrow above and a reverse arrow below.</div>
+      <span class="collide">looks like: RailIcons.primers, IconPrimers — a third distinct primer drawing</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></svg></div>
+      </div>
+      <div class="name">Swap <code>IconSwap</code> (PrimerEditorDialog)</div>
+      <div class="row"><b>Label:</b> a swap / reverse-complement action in the primer dialog.</div>
+      <div class="means">Reverse-complement / swap strand. Two looping arrows.</div>
+      <span class="collide">looks like: ActionGlyphs.refresh (two-loop arrows) — refresh vs swap are the same gesture</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg></div>
+      </div>
+      <div class="name">Delete <code>IconTrash</code> (PrimerEditorDialog)</div>
+      <div class="row"><b>Label:</b> a delete-primer action in the dialog.</div>
+      <div class="means">Delete this primer. A trash can (no slats).</div>
+      <span class="collide">looks like: TrashIcon (page) — two trash cans that differ only in inner slats</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h8" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h8" /></svg></div>
+      </div>
+      <div class="name">Duplicate <code>IconDuplicate</code> (PrimerEditorDialog)</div>
+      <div class="row"><b>Label:</b> the new Duplicate action in the primer dialog.</div>
+      <div class="means">Duplicate this primer. Two stacked sheets.</div>
+      <span class="collide">looks like: IconCopy (top bar) + ActionGlyphs.copy — Copy vs Duplicate share the two-sheets shape</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5" /><circle cx="6" cy="18" r="2.5" /><circle cx="18" cy="12" r="2.5" /><path d="M8.5 6.8 15.5 11M8.5 17.2 15.5 13" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5" /><circle cx="6" cy="18" r="2.5" /><circle cx="18" cy="12" r="2.5" /><path d="M8.5 6.8 15.5 11M8.5 17.2 15.5 13" /></svg></div>
+      </div>
+      <div class="name">Lineage tree glyph <code>TreeGlyph</code> (SequenceLineageFooter)</div>
+      <div class="row"><b>Label:</b> precedes the organism binomial in the bottom-bar taxonomy chip + the "Explore in tree" link. Tooltip "Taxonomy and lineage".</div>
+      <div class="means">Taxonomy / tree of life. A three-node tree glyph.</div>
+      <span class="collide">looks like: list-row organism glyph (near-identical), RailIcons.tree / ActionGlyphs.tree, ShareIcon — all three-node graphs</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15" /></svg></div>
+      </div>
+      <div class="name">Lineage caret <code>CaretIcon</code> (SequenceLineageFooter)</div>
+      <div class="row"><b>Label:</b> none. Sits after the organism name; rotates 180 when the popover opens.</div>
+      <div class="means">Open / close the lineage popover. An up chevron (flips to down when closed).</div>
+      <span class="collide">looks like: Chevron / ChevronDownIcon / IconCaret — same chevron, drawn pointing up</span>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================ MISC ============================ -->
+<section>
+  <h2>Misc</h2>
+  <p class="sub">Glyphs that float over the canvas or in toasts: the Find button, the Map-view badge, the circular whole-molecule indicator, the right-click hover hint, and the toast check / warning / dismiss marks.</p>
+  <div class="grid">
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg></div>
+      </div>
+      <div class="name">Find <code>(inline magnifier, tabs spine)</code></div>
+      <div class="row"><b>Label:</b> "Find" / tooltip "Find in this sequence (Cmd F)"</div>
+      <div class="means">Open the inline Find box. A magnifying glass.</div>
+      <span class="collide">looks like: ActionGlyphs.search (a near-identical magnifier)</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8" /><path d="M12 4v3M20 12h-3M12 20v-3M4 12h3" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8" /><path d="M12 4v3M20 12h-3M12 20v-3M4 12h3" /></svg></div>
+      </div>
+      <div class="name">Map-view badge + whole-molecule indicator <code>(inline, SequenceEditView)</code></div>
+      <div class="row"><b>Label:</b> "Map view" badge (top-left of the canvas) and "Whole molecule (N bp)" indicator.</div>
+      <div class="means">The canvas is showing the whole-molecule map. Ring with four ticks.</div>
+      <span class="collide">looks like: IconMap (View tabs) — byte-identical ring+ticks, used in three places</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" class="hint"><path d="M6 3l12 7-5 1.5L16 18l-2 1-3-5.5L7 17z" fill="currentColor" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" class="hint"><path d="M6 3l12 7-5 1.5L16 18l-2 1-3-5.5L7 17z" fill="currentColor" /></svg></div>
+      </div>
+      <div class="name">Right-click hint pointer <code>HoverCardActionHint</code></div>
+      <div class="row"><b>Label:</b> sits before "Right-click for actions" on the feature / primer hover cards.</div>
+      <div class="means">There is a right-click menu here. A filled cursor / pointer arrow.</div>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg></div>
+      </div>
+      <div class="name">Toast success check <code>(inline, SequenceEditView)</code></div>
+      <div class="row"><b>Label:</b> in the taxonomy / copy-map / map-to-note success toasts.</div>
+      <div class="means">The action succeeded. A checkmark in an emerald circle.</div>
+      <span class="collide">looks like: RailIcons.annotate, ActionGlyphs.check — three checkmarks, one of which means "annotate"</span>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg></div>
+      </div>
+      <div class="name">Toast warning mark <code>(inline, SequenceEditView)</code></div>
+      <div class="row"><b>Label:</b> in the copy-map toast when the browser cannot copy an image (amber).</div>
+      <div class="means">A gentle warning. An exclamation stroke + dot.</div>
+    </div>
+
+    <div class="card">
+      <div class="swatches">
+        <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg></div>
+        <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg></div>
+      </div>
+      <div class="name">Toast dismiss X <code>(inline, SequenceEditView)</code></div>
+      <div class="row"><b>Label:</b> aria "Dismiss" on each toast.</div>
+      <div class="means">Close the toast. An X (two crossing lines).</div>
+      <span class="collide">looks like: the inspector close X (same X, different markup)</span>
+    </div>
+
+  </div>
+</section>
+
+<footer style="margin-top:48px;padding-top:18px;border-top:1px solid var(--line);">
+  <p class="file-list">Every SVG above is copied verbatim from source. Files covered:
+    <code>SequenceEditView.tsx</code>, <code>SequenceOperationsRail.tsx</code>, <code>SequenceTabBar.tsx</code>,
+    <code>SequenceDisplayStrip.tsx</code>, <code>SequenceLineageFooter.tsx</code>, <code>PrimerEditorDialog.tsx</code>,
+    <code>SequenceEditMenu.tsx</code>, <code>SequenceExportMenu.tsx</code>, <code>HoverCardActionHint.tsx</code>,
+    <code>app/sequences/page.tsx</code>.
+    No inline icons found in <code>FeatureEditorDialog.tsx</code> or <code>SequenceSelectionReadout.tsx</code>.</p>
+</footer>
+
+</main>
+</body>
+</html>
