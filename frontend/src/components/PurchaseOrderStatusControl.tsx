@@ -10,6 +10,8 @@ import {
   type PurchaseItem,
   type PurchaseOrderStatus,
 } from "@/lib/types";
+import { INVENTORY_ENABLED } from "@/lib/inventory/config";
+import ReceiveToInventoryDialog from "@/components/inventory/ReceiveToInventoryDialog";
 
 interface PurchaseOrderStatusControlProps {
   item: PurchaseItem;
@@ -81,6 +83,10 @@ export default function PurchaseOrderStatusControl({
 }: PurchaseOrderStatusControlProps) {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
+  // When INVENTORY_ENABLED, set this after a successful "received" transition
+  // to offer the three-way inventory dialog. Null = dialog closed.
+  const [pendingReceiveForInventory, setPendingReceiveForInventory] =
+    useState<PurchaseItem | null>(null);
 
   const status = normalizeOrderStatus(item.order_status);
   const next = NEXT_STATUS[status];
@@ -102,6 +108,10 @@ export default function PurchaseOrderStatusControl({
       await queryClient.refetchQueries({ queryKey: ["purchases"] });
       await queryClient.refetchQueries({ queryKey: ["purchases-all"] });
       onChanged?.();
+      // Offer the inventory dialog only when marking an item as received.
+      if (target === "received" && INVENTORY_ENABLED) {
+        setPendingReceiveForInventory(item);
+      }
     } catch {
       alert("Failed to update ordering status");
     } finally {
@@ -123,37 +133,45 @@ export default function PurchaseOrderStatusControl({
   if (readOnly) return chip;
 
   return (
-    <div className="inline-flex items-center gap-1">
-      {prev && (
-        <Tooltip label={REVERT_LABEL[status]} placement="left">
-          <button
-            type="button"
-            onClick={() => apply(prev)}
-            disabled={busy}
-            aria-label={REVERT_LABEL[status]}
-            className="text-foreground-muted hover:text-foreground-muted disabled:opacity-40"
-            data-testid="purchase-order-status-back"
-          >
-            <ChevronLeftIcon />
-          </button>
-        </Tooltip>
+    <>
+      <div className="inline-flex items-center gap-1">
+        {prev && (
+          <Tooltip label={REVERT_LABEL[status]} placement="left">
+            <button
+              type="button"
+              onClick={() => apply(prev)}
+              disabled={busy}
+              aria-label={REVERT_LABEL[status]}
+              className="text-foreground-muted hover:text-foreground-muted disabled:opacity-40"
+              data-testid="purchase-order-status-back"
+            >
+              <ChevronLeftIcon />
+            </button>
+          </Tooltip>
+        )}
+        {chip}
+        {next && (
+          <Tooltip label={ADVANCE_LABEL[status]} placement="right">
+            <button
+              type="button"
+              onClick={() => apply(next)}
+              disabled={busy}
+              aria-label={ADVANCE_LABEL[status]}
+              className="text-foreground-muted hover:text-blue-600 dark:hover:text-blue-300 disabled:opacity-40"
+              data-testid="purchase-order-status-advance"
+            >
+              <ChevronRightIcon />
+            </button>
+          </Tooltip>
+        )}
+      </div>
+      {pendingReceiveForInventory && (
+        <ReceiveToInventoryDialog
+          purchaseItem={pendingReceiveForInventory}
+          onClose={() => setPendingReceiveForInventory(null)}
+        />
       )}
-      {chip}
-      {next && (
-        <Tooltip label={ADVANCE_LABEL[status]} placement="right">
-          <button
-            type="button"
-            onClick={() => apply(next)}
-            disabled={busy}
-            aria-label={ADVANCE_LABEL[status]}
-            className="text-foreground-muted hover:text-blue-600 dark:hover:text-blue-300 disabled:opacity-40"
-            data-testid="purchase-order-status-advance"
-          >
-            <ChevronRightIcon />
-          </button>
-        </Tooltip>
-      )}
-    </div>
+    </>
   );
 }
 
