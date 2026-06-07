@@ -5,20 +5,20 @@ import { useQueryClient } from "@tanstack/react-query";
 import { signIn, signOut } from "next-auth/react";
 import { usersApi } from "@/lib/local-api";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
-import { removePassword } from "@/lib/auth/password";
 import { folderRequiresLogin } from "@/lib/auth/login-policy";
 import {
-  hasLocalAccount,
-  loginWithPassword,
-  loginWithRecovery,
-  createAndPersistAccount,
-} from "@/lib/auth/account-store";
-import { type UnlockedKeys } from "@/lib/auth/local-identity";
-import { saveIdentity } from "@/lib/sharing/identity/storage";
-import { decodePublicKey } from "@/lib/sharing/identity/keys";
-import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
-import { deleteSharingIdentity } from "@/lib/sharing/identity/sidecar";
-import { deleteEncryptedBackup } from "@/lib/telegram/encrypted-backup";
+  unlockIdentityWithRecovery,
+  unlockIdentityWithPasskey,
+  getPasskeyCredentialId,
+  sidecarHasPasskey,
+} from "@/lib/sharing/identity/storage";
+import {
+  getPasskeyPrf,
+  isPasskeySupported,
+  PasskeyUnsupportedError,
+  PasskeyPrfUnavailableError,
+  PasskeyCancelledError,
+} from "@/lib/sharing/identity/webauthn";
 import { performUserDelete } from "@/lib/users/perform-delete";
 import { readUserSettings } from "@/lib/settings/user-settings";
 import { readArchivedSet } from "@/lib/lab/user-archive";
@@ -38,7 +38,6 @@ import {
 import { otherUsersOnlyAsync } from "@/lib/file-system/user-color-collisions";
 import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
 import type { UserMetadataEntry } from "@/lib/file-system/user-metadata";
-import AccountPasswordPopup from "@/components/AccountPasswordPopup";
 import BetaDonationButton from "@/components/BetaDonationButton";
 import FeedbackModal from "@/components/FeedbackModal";
 import UserAvatar from "@/components/UserAvatar";
@@ -126,33 +125,38 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmStep, setDeleteConfirmStep] = useState(0);
 
-  // Password gate state — populated when a protected user is clicked
-  const [passwordGate, setPasswordGate] = useState<{
+  // Unlock gate state (OAuth-only model) — populated when a user with a profile
+  // identity (a sidecar carrying a wrapped key) is clicked. The gate unlocks the
+  // on-device key with a passkey (everyday door) or the recovery code (offline
+  // fallback), then signs in. No app-managed password exists anymore.
+  const [unlockGate, setUnlockGate] = useState<{
     username: string;
-    nextAction: "user";
   } | null>(null);
-  const [passwordInput, setPasswordInput] = useState("");
-  const [verifyingPassword, setVerifyingPassword] = useState(false);
-  const passwordInputRef = useRef<HTMLInputElement>(null);
+  // Shared "working" flag for any in-flight unlock attempt (passkey or recovery).
+  const [unlocking, setUnlocking] = useState(false);
 
-  // Forgot-password fallback, unlock the keypair with the recovery code instead.
+  // Recovery-code fallback, unlock the keypair with the recovery code (or the
+  // 12 words) when the passkey is unavailable or fails.
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [recoveryInput, setRecoveryInput] = useState("");
+  const recoveryInputRef = useRef<HTMLInputElement>(null);
 
-  // D1 (cross-boundary sharing): provider-unlock alongside the password.
+  // Whether this user has a passkey door enrolled, read when the gate opens so
+  // the "Unlock with passkey" button only shows when there is one to use.
+  const [gateHasPasskey, setGateHasPasskey] = useState(false);
+
+  // D1 (cross-boundary sharing): provider-unlock as an online convenience.
   // For an account that has CLAIMED a global sharing identity (a
   // `_sharing_identity.json` sidecar exists for that user), and only when
-  // the app is ONLINE, the password gate additionally offers "Sign in with
+  // the app is ONLINE, the unlock gate additionally offers "Sign in with
   // Google or GitHub to unlock". A successful provider sign-in whose
-  // verified email matches the account's claimed identity email unlocks the
-  // account, the same effect as a correct password. The local password is
-  // never removed or weakened; it stays the always-available offline
-  // fallback. Offline or unclaimed accounts behave exactly as before.
+  // verified email matches the account's claimed identity email signs the user
+  // in. The passkey and recovery-code doors stay the always-available offline
+  // paths. Offline or unclaimed accounts simply do not see this option.
   //
   // `claimedUsers` is the fan-out set of users with a published sidecar,
-  // mirroring `lockedUsers` / `labHeadUsers`. A read failure leaves the user
-  // out of the set, so a missing or unreadable sidecar simply hides the
-  // provider option (the password gate is unchanged).
+  // mirroring `labHeadUsers`. A read failure leaves the user out of the set, so a
+  // missing or unreadable sidecar simply hides the OAuth-unlock option.
   const [claimedUsers, setClaimedUsers] = useState<Set<string>>(new Set());
   // Online status drives whether the provider buttons render. The provider
   // unlock needs the network (OAuth redirect + session read), so offline we
@@ -163,31 +167,18 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // "verifying" state instead of a bare password prompt.
   const [unlockingViaProvider, setUnlockingViaProvider] = useState(false);
 
-  // Mandatory-password gate for LAB HEADS (pi-password bot, 2026-06-02).
-  // A PI account REQUIRES a password to sign in. If a lab_head account
-  // has no password yet (e.g. an existing PI created before passwords
-  // became mandatory), we force them to SET one on this login before
-  // proceeding rather than letting them in unprotected. Members + solo
-  // accounts are never forced — they keep the optional-password
-  // behavior and skip this gate entirely.
-  const [forcePasswordGate, setForcePasswordGate] = useState<{
+  // Force-make-a-profile gate (OAuth-only model). A shared folder (two or more
+  // users) or a folder with a lab head requires every account to have a profile
+  // identity before it can sign in, so people cannot act as each other. When such
+  // a user has no profile yet, we open the SharingSetupWizard here, which mints
+  // the keypair, shows its own recovery code, and (on complete) signs the user in.
+  // Solo accounts are never forced, they keep the no-login behavior.
+  const [forceProfileFor, setForceProfileFor] = useState<{
     username: string;
   } | null>(null);
-  const [forceNewPassword, setForceNewPassword] = useState("");
-  const [forceConfirmPassword, setForceConfirmPassword] = useState("");
-  const [savingForcedPassword, setSavingForcedPassword] = useState(false);
-  const forcePasswordInputRef = useRef<HTMLInputElement>(null);
 
-  // After a new account is created, show its recovery code once before signing
-  // in. The code is the only fallback if the password is lost.
-  const [createdRecovery, setCreatedRecovery] = useState<{
-    username: string;
-    code: string;
-  } | null>(null);
-  const [recoveryCopied, setRecoveryCopied] = useState(false);
-
-  // After a brand-new account is established (solo create, or the forced
-  // password gate on a shared folder), offer an OPTIONAL "set up your profile"
+  // After a brand-new account is established (solo create, or the force-profile
+  // gate on a shared folder), offer an OPTIONAL "set up your profile"
   // step with the third-party sign-in buttons before entering the app. Skipping
   // is always allowed (the same buttons live in Settings to set up later). This
   // is the only place creation differs from a normal returning-user login,
@@ -198,13 +189,6 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // When the user clicks a provider in the profile step, mount the existing
   // SharingSetupWizard, which owns the whole OAuth + identity-claim flow.
   const [profileWizardOpen, setProfileWizardOpen] = useState(false);
-
-  // Per-user password management popup (set/change/remove)
-  const [managingPasswordFor, setManagingPasswordFor] = useState<string | null>(null);
-
-  // Per-user password-set status — drives the lock icon's appearance.
-  // Loaded after the user list comes back, refreshed after the password popup closes.
-  const [lockedUsers, setLockedUsers] = useState<Set<string>>(new Set());
 
   // Per-user `account_type` (Lab Head Phase 1). Drives both the PI badge
   // on lab_head tiles and the sort order (lab heads to the top). Loaded
@@ -280,20 +264,6 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // Roadmap modal state
   const [roadmapOpen, setRoadmapOpen] = useState(false);
 
-  const refreshLockStatus = async (usernames: string[]) => {
-    const next = new Set<string>();
-    await Promise.all(
-      usernames.map(async (u) => {
-        try {
-          if (await hasLocalAccount(u)) next.add(u);
-        } catch {
-          // If we can't read, treat as unlocked rather than crashing the screen.
-        }
-      })
-    );
-    setLockedUsers(next);
-  };
-
   // D1: fan-out read of every user's `_sharing_identity.json` to find
   // accounts that have CLAIMED a global sharing identity. Mirrors
   // `refreshLockStatus` — a per-user read failure leaves the user out of the
@@ -350,7 +320,6 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
 
   useEffect(() => {
     if (users.length > 0) {
-      refreshLockStatus(users);
       refreshLabHeadStatus(users);
       refreshArchivedStatus(users);
       refreshClaimedStatus(users);
@@ -375,16 +344,10 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   }, []);
 
   useEffect(() => {
-    if (passwordGate && passwordInputRef.current) {
-      passwordInputRef.current.focus();
+    if (recoveryMode && recoveryInputRef.current) {
+      recoveryInputRef.current.focus();
     }
-  }, [passwordGate]);
-
-  useEffect(() => {
-    if (forcePasswordGate && forcePasswordInputRef.current) {
-      forcePasswordInputRef.current.focus();
-    }
-  }, [forcePasswordGate]);
+  }, [recoveryMode]);
 
   useEffect(() => {
     loadUsers();
@@ -424,8 +387,9 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     if (!users.includes(target)) return;
 
     setUnlockingViaProvider(true);
-    setPasswordGate({ username: target, nextAction: "user" });
-    setPasswordInput("");
+    setUnlockGate({ username: target });
+    setRecoveryMode(false);
+    setRecoveryInput("");
     setError(null);
 
     (async () => {
@@ -450,21 +414,21 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         if (!match.ok) {
           setError(
             match.reason === "no-session-email"
-              ? "Could not confirm your sign-in. Use your password, or try the provider again."
-              : "That account does not match this identity. Use the password, or sign in with the email this identity is registered under.",
+              ? "Could not confirm your sign-in. Use your passkey or recovery code, or try the provider again."
+              : "That account does not match this identity. Use your passkey or recovery code, or sign in with the email this identity is registered under.",
           );
           setUnlockingViaProvider(false);
           return;
         }
-        // Verified email matches the claimed identity: unlock, the same
-        // effect as a correct password.
-        setPasswordGate(null);
-        setPasswordInput("");
+        // Verified email matches the claimed identity: sign in. The on-device
+        // key load is handled by the session (or the transition IndexedDB
+        // fallback); the passkey and recovery-code doors remain available.
+        setUnlockGate(null);
         setUnlockingViaProvider(false);
         await performLogin(target);
       } catch {
         setError(
-          "Could not confirm your sign-in. Use your password, or try the provider again.",
+          "Could not confirm your sign-in. Use your passkey or recovery code, or try the provider again.",
         );
         setUnlockingViaProvider(false);
       }
@@ -496,29 +460,9 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     }
   };
 
-  // Load an unlocked local-account keypair into this device's session so the
-  // sharing and collab features see the identity. Best-effort, a save failure
-  // never blocks the login itself (the user is still let into their folder).
-  const persistUnlockedIdentity = async (keys: UnlockedKeys) => {
-    try {
-      await saveIdentity({
-        keys: {
-          encryption: {
-            publicKey: decodePublicKey(keys.x25519PublicKey),
-            privateKey: keys.x25519PrivateKey,
-          },
-          signing: {
-            publicKey: decodePublicKey(keys.ed25519PublicKey),
-            privateKey: keys.ed25519PrivateKey,
-          },
-        },
-        deviceSalt: generateDeviceSalt(),
-      });
-    } catch {
-      // Non-fatal, the login proceeds without the keypair in the session.
-    }
-  };
-
+  // performLogin enters the app. The unlock paths (passkey / recovery / OAuth)
+  // already park the unwrapped key in the session before calling this, so it
+  // must NOT touch identity storage, it is purely "switch the active user".
   const performLogin = async (username: string) => {
     try {
       await usersApi.login(username);
@@ -543,22 +487,34 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     setLoggingIn(username);
     setError(null);
     try {
-      const hasAccount = await hasLocalAccount(username);
-      if (hasAccount) {
-        // The user has a local account, require the password that unwraps their
-        // keypair. handleSubmitPassword does the unwrap.
-        setPasswordGate({ username, nextAction: "user" });
-        setPasswordInput("");
+      // A profile identity exists when this user's sidecar carries a wrapped
+      // device key (recoveryBlob). That is the OAuth-only "account", so open the
+      // unlock gate (passkey + recovery code) to unwrap the on-device key.
+      const sidecar = await readSharingIdentity(username);
+      if (sidecar?.recoveryBlob) {
+        const hasPasskey = await sidecarHasPasskey(username);
+        setGateHasPasskey(hasPasskey);
+        // With a usable passkey, the gate leads with the passkey door. Without
+        // one (and without the online OAuth option), the recovery code is the
+        // only way in, so open straight into that input rather than a near-empty
+        // gate. The claimed + online case still surfaces OAuth in the default
+        // (non-recovery) view, so only fall to recovery when there is no passkey
+        // AND no online OAuth path.
+        const canPasskey = hasPasskey && isPasskeySupported();
+        const canOAuth = claimedUsers.has(username) && isOnline;
+        setRecoveryMode(!canPasskey && !canOAuth);
+        setRecoveryInput("");
+        setUnlockGate({ username });
         return;
       }
-      // No password on disk. Identity model phase 1, a login is mandatory once a
-      // folder is shared (two or more users) or a lab head is present, so force
-      // setting a password before signing in. A genuinely solo folder keeps the
-      // optional-password behavior and logs in directly. The `labHeadUsers` set
-      // loads async after the user list, so a click before the fan-out settles
-      // could miss a PI, we ALSO read this user's settings directly to make the
-      // lab_head determination authoritative at click time. The user count is
-      // already known synchronously from the loaded list.
+
+      // No profile yet. A login is mandatory once a folder is shared (two or
+      // more users) or a lab head is present, so the user must MAKE A PROFILE
+      // (OAuth) before signing in. A genuinely solo folder has no login and goes
+      // straight in. The `labHeadUsers` set loads async after the user list, so
+      // a click before the fan-out settles could miss a PI, we ALSO read this
+      // user's settings directly to make the lab_head call authoritative at
+      // click time. The user count is already known from the loaded list.
       let isLabHead = labHeadUsers.has(username);
       if (!isLabHead) {
         try {
@@ -571,135 +527,110 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         }
       }
       if (folderRequiresLogin(users.length, isLabHead || labHeadUsers.size > 0)) {
-        setForcePasswordGate({ username });
-        setForceNewPassword("");
-        setForceConfirmPassword("");
+        setForceProfileFor({ username });
         return;
       }
     } catch {
-      // If we can't read the auth file, fall through to normal login —
-      // safer than locking the user out due to a transient FS error.
+      // If we can't read the sidecar, fall through to a plain login — safer than
+      // locking the user out on a transient FS error.
     }
     await performLogin(username);
   };
 
-  const handleSubmitForcedPassword = async () => {
-    if (!forcePasswordGate) return;
+  // Everyday unlock door, the passkey. Runs the WebAuthn PRF ceremony, unwraps
+  // the on-device key into the session, then signs in. Degrades to the recovery
+  // code on the typed passkey errors so a missing or cancelled passkey is never
+  // a dead end.
+  const handleUnlockWithPasskey = async () => {
+    if (!unlockGate) return;
+    const { username } = unlockGate;
     setError(null);
-    if (forceNewPassword.length < 4) {
-      setError("Password must be at least 4 characters.");
-      return;
-    }
-    if (forceNewPassword !== forceConfirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-    setSavingForcedPassword(true);
+    setUnlocking(true);
     try {
-      const { username } = forcePasswordGate;
-      // Yield one frame so the CSS spinner paints before the heavy Argon2id work
-      // (createAndPersistAccount derives two wrapping keys synchronously).
-      await new Promise((r) => window.setTimeout(r, 50));
-      const created = await createAndPersistAccount(username, forceNewPassword);
-      // Wipe and re-establish, supersede any legacy password hash and any stale
-      // published-identity sidecar that pointed at the old keypair.
-      try {
-        await removePassword(username);
-      } catch {
-        // No legacy password to remove, fine.
-      }
-      try {
-        await deleteSharingIdentity(username);
-      } catch {
-        // No stale published identity, fine.
-      }
-      try {
-        // A Telegram backup keyed to the superseded keypair is now orphaned.
-        await deleteEncryptedBackup(username);
-      } catch {
-        // No stale backup, fine.
-      }
-      await persistUnlockedIdentity(created.keys);
-      setLockedUsers((prev) => new Set(prev).add(username));
-      setForceNewPassword("");
-      setForceConfirmPassword("");
-      setSavingForcedPassword(false);
-      // Show the recovery code once. The user continues into the app from there.
-      setForcePasswordGate(null);
-      setCreatedRecovery({ username, code: created.recoveryCode });
-    } catch {
-      setError("Could not set up your account. Please try again.");
-      setSavingForcedPassword(false);
-    }
-  };
-
-  const cancelForcePasswordGate = () => {
-    setForcePasswordGate(null);
-    setForceNewPassword("");
-    setForceConfirmPassword("");
-    setSavingForcedPassword(false);
-    setLoggingIn(null);
-    setError(null);
-  };
-
-  const handleSubmitPassword = async () => {
-    if (!passwordGate) return;
-    setError(null);
-    setVerifyingPassword(true);
-    try {
-      const keys = await loginWithPassword(passwordGate.username, passwordInput);
-      if (!keys) {
-        setError("Incorrect password.");
-        setVerifyingPassword(false);
+      const credentialId = await getPasskeyCredentialId(username);
+      if (!credentialId) {
+        // No passkey on this device, point the user at the recovery code.
+        setGateHasPasskey(false);
+        setRecoveryMode(true);
+        setError("No passkey is set up here. Use your recovery code instead.");
+        setUnlocking(false);
         return;
       }
-      await persistUnlockedIdentity(keys);
-      const { username } = passwordGate;
-      setPasswordGate(null);
-      setPasswordInput("");
-      setVerifyingPassword(false);
+      const prf = await getPasskeyPrf(credentialId);
+      const identity = await unlockIdentityWithPasskey(username, prf);
+      if (!identity) {
+        setError(
+          "That passkey could not unlock this account. Use your recovery code instead.",
+        );
+        setRecoveryMode(true);
+        setUnlocking(false);
+        return;
+      }
+      setUnlockGate(null);
+      setUnlocking(false);
       await performLogin(username);
-    } catch {
-      setError("Failed to verify password. Please try again.");
-      setVerifyingPassword(false);
+    } catch (err) {
+      // Typed passkey failures all degrade to the recovery-code path rather than
+      // hard-stopping. Cancellation is benign (the user can retry or switch).
+      if (err instanceof PasskeyCancelledError) {
+        setError("Passkey prompt cancelled. Try again or use your recovery code.");
+      } else if (err instanceof PasskeyUnsupportedError) {
+        setError(
+          "Passkeys are not available in this browser. Use your recovery code.",
+        );
+        setRecoveryMode(true);
+      } else if (err instanceof PasskeyPrfUnavailableError) {
+        setError(
+          "This passkey can't unlock your key. Use your recovery code instead.",
+        );
+        setRecoveryMode(true);
+      } else {
+        setError(
+          "Could not unlock with your passkey. Use your recovery code instead.",
+        );
+        setRecoveryMode(true);
+      }
+      setUnlocking(false);
     }
   };
 
-  const cancelPasswordGate = () => {
-    setPasswordGate(null);
-    setPasswordInput("");
-    setVerifyingPassword(false);
+  const cancelUnlockGate = () => {
+    setUnlockGate(null);
+    setUnlocking(false);
     setRecoveryMode(false);
     setRecoveryInput("");
+    setGateHasPasskey(false);
+    setUnlockingViaProvider(false);
     setLoggingIn(null);
     setError(null);
   };
 
-  // Forgot-password fallback. Unwrap the keypair with the recovery code (or the
-  // 12 words) instead of the password, then sign in. A wrong code fails the
-  // Poly1305 tag and loginWithRecovery returns null.
+  // Offline fallback door, the recovery code (or 12 words). Unwraps the
+  // on-device key with the code instead of the passkey, then signs in. A wrong
+  // code fails the Poly1305 tag and unlockIdentityWithRecovery returns null.
   const handleSubmitRecovery = async () => {
-    if (!passwordGate) return;
+    if (!unlockGate) return;
     setError(null);
-    setVerifyingPassword(true);
+    setUnlocking(true);
     try {
-      const keys = await loginWithRecovery(passwordGate.username, recoveryInput);
-      if (!keys) {
+      const identity = await unlockIdentityWithRecovery(
+        unlockGate.username,
+        recoveryInput,
+      );
+      if (!identity) {
         setError("That recovery code does not match this account.");
-        setVerifyingPassword(false);
+        setUnlocking(false);
         return;
       }
-      await persistUnlockedIdentity(keys);
-      const { username } = passwordGate;
-      setPasswordGate(null);
-      setPasswordInput("");
+      const { username } = unlockGate;
+      setUnlockGate(null);
       setRecoveryMode(false);
       setRecoveryInput("");
-      setVerifyingPassword(false);
+      setUnlocking(false);
       await performLogin(username);
     } catch {
       setError("Could not unlock with that recovery code. Please try again.");
-      setVerifyingPassword(false);
+      setUnlocking(false);
     }
   };
 
@@ -708,8 +639,9 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // stash WHICH user we are unlocking in the callback URL via
   // ?sharingUnlock=<username>. When the browser returns, the resume effect
   // below reads the signed-in session email and matches it against that
-  // user's claimed identity sidecar. This never touches the password path;
-  // a user can still cancel and type their password instead.
+  // user's claimed identity sidecar. This is an online convenience alongside the
+  // offline doors, a user can still cancel and unlock with their passkey or
+  // recovery code instead.
   const startUnlockOAuth = (provider: "google" | "github" | "linkedin", username: string) => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
@@ -767,17 +699,17 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       // creation entirely on a metadata read hiccup.
       try {
         await usersApi.create(username);
-        if (folderRequiresLogin(users.length + 1, labHeadUsers.size > 0)) {
-          setLoggingIn(null);
-          setForceNewPassword("");
-          setForceConfirmPassword("");
-          setForcePasswordGate({ username });
-          return;
-        }
-        // Solo first user. Enter the session, then offer the optional profile
-        // step before showing the app.
+        // Enter the session so the wizard / profile step can write this user's
+        // sidecar by path.
         await setCurrentUser(username);
         setLoggingIn(null);
+        if (folderRequiresLogin(users.length + 1, labHeadUsers.size > 0)) {
+          // Shared folder: a profile (OAuth) is mandatory before entering, so
+          // force the setup wizard rather than offering it as optional.
+          setForceProfileFor({ username });
+          return;
+        }
+        // Solo first user. Offer the optional profile step before the app.
         setProfileStep({ username });
       } catch {
         setError("Failed to create user. Please try again.");
@@ -817,23 +749,21 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       // 3. Finalize user creation.
       await usersApi.create(username);
       setColorPicker(null);
+      // Enter the session so the wizard / profile step can write this user's
+      // sidecar by path.
+      await setCurrentUser(username);
+      setLoggingIn(null);
 
       // In a shared folder (this new user makes it 2+, or a lab head is present)
-      // the user must set up a login + keypair before entering, so route them
-      // through the force-set-password gate (which creates the account and shows
-      // the recovery code). A solo first user stays login-free.
+      // the user must MAKE A PROFILE (OAuth) before entering, so force the setup
+      // wizard, which mints the keypair and shows its own recovery code. A solo
+      // first user stays login-free and just sees the optional profile step.
       if (folderRequiresLogin(users.length + 1, labHeadUsers.size > 0)) {
-        setLoggingIn(null);
-        setForceNewPassword("");
-        setForceConfirmPassword("");
-        setForcePasswordGate({ username });
+        setForceProfileFor({ username });
         return;
       }
 
-      // Solo first user. Enter the session, then offer the optional profile
-      // step before showing the app.
-      await setCurrentUser(username);
-      setLoggingIn(null);
+      // Solo first user. Offer the optional profile step before the app.
       setProfileStep({ username });
     } catch (err) {
       console.error("Failed to finalize user creation:", err);
@@ -1408,39 +1338,6 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                             </span>
                           </div>
 
-                          {/* Password button — visible-always when locked, hover-only when unlocked */}
-                          <div className="relative group/icon">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setManagingPasswordFor(user);
-                              }}
-                              disabled={loggingIn !== null}
-                              className={`p-2 rounded-lg transition-all ${
-                                lockedUsers.has(user)
-                                  ? "text-amber-300 hover:bg-amber-500/20 hover:text-amber-200"
-                                  : "opacity-0 group-hover:opacity-100 text-slate-400 hover:bg-white/10 hover:text-white"
-                              }`}
-                              aria-label={lockedUsers.has(user) ? "Password protected — manage" : "Set account password"}
-                              data-force-hover-controls-target
-                            >
-                              {lockedUsers.has(user) ? (
-                                // Closed padlock
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                </svg>
-                              ) : (
-                                // Open padlock
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
-                                </svg>
-                              )}
-                            </button>
-                            <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap px-2 py-1 text-meta font-medium rounded bg-slate-900/95 text-slate-100 border border-white/10 opacity-0 group-hover/icon:opacity-100 transition-opacity z-10">
-                              {lockedUsers.has(user) ? "Password set — manage" : "Set password"}
-                            </span>
-                          </div>
-
                           {/* Delete button */}
                           <div className="relative group/icon">
                             <button
@@ -1693,47 +1590,91 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         </div>
       )}
 
-      {/* Password gate — shown when a protected user is clicked */}
-      {passwordGate && (
+      {/* Unlock gate — shown when a user with a profile identity is clicked.
+          The passkey is the everyday door; the recovery code is the offline
+          fallback; an OAuth re-login is an optional online convenience. There is
+          no app-managed password anymore. */}
+      {unlockGate && (
         <div
           className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm"
-          onClick={cancelPasswordGate}
+          onClick={cancelUnlockGate}
         >
           <div
             className="bg-slate-800 rounded-2xl shadow-2xl border border-white/20 max-w-sm w-full mx-4 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
+            data-testid="unlock-gate"
           >
             <div className="px-6 py-4 border-b border-white/10">
-              <h3 className="text-title font-semibold text-white">Enter password</h3>
+              <h3 className="text-title font-semibold text-white">Unlock your account</h3>
               <p className="text-meta text-slate-400 mt-0.5">
-                Sign in to {passwordGate.username}
+                Sign in as {unlockGate.username}
               </p>
             </div>
             <div className="px-6 py-5 space-y-3">
-              {/* D1: optional provider unlock, shown ALONGSIDE the password
-                  only for a claimed account (sidecar present) and only when
-                  online. The verified provider email must match the claimed
-                  identity email to unlock. This is clearly secondary; the
-                  password below stays the always-available offline
-                  fallback. Offline or unclaimed, none of this renders and
-                  the gate is exactly as before. */}
-              {claimedUsers.has(passwordGate.username) && isOnline && (
-                <div className="space-y-2">
-                  {unlockingViaProvider ? (
-                    <p className="text-meta text-slate-400 text-center py-1">
-                      Confirming your sign-in...
-                    </p>
-                  ) : (
+              {unlockingViaProvider ? (
+                <p className="text-meta text-slate-400 text-center py-1">
+                  Confirming your sign-in...
+                </p>
+              ) : recoveryMode ? (
+                <>
+                  <p className="text-meta text-slate-400">
+                    Enter your recovery code (or the 12 words) to unlock.
+                  </p>
+                  <input
+                    ref={recoveryInputRef}
+                    type="text"
+                    value={recoveryInput}
+                    onChange={(e) => setRecoveryInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSubmitRecovery();
+                      if (e.key === "Escape") cancelUnlockGate();
+                    }}
+                    disabled={unlocking}
+                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body font-mono"
+                    placeholder="Recovery code or 12 words"
+                    data-testid="unlock-recovery-input"
+                    autoFocus
+                  />
+                </>
+              ) : (
+                <>
+                  {/* Everyday door, the passkey. Only shown when one is enrolled
+                      on this device; otherwise the recovery code stands alone. */}
+                  {gateHasPasskey && isPasskeySupported() && (
+                    <button
+                      type="button"
+                      onClick={handleUnlockWithPasskey}
+                      disabled={unlocking}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors disabled:opacity-50"
+                      data-testid="unlock-passkey-button"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 11v10m0-3l2 2m-2-5l2 2" />
+                      </svg>
+                      {unlocking ? "Unlocking…" : "Unlock with passkey"}
+                    </button>
+                  )}
+
+                  {/* Optional online convenience, an OAuth re-login. Shown only
+                      for a claimed account and only when online. The verified
+                      provider email must match the identity's email. */}
+                  {claimedUsers.has(unlockGate.username) && isOnline && (
                     <>
+                      {gateHasPasskey && (
+                        <div className="flex items-center gap-3 pt-1">
+                          <div className="h-px flex-1 bg-white/10" />
+                          <span className="text-meta text-slate-500">or</span>
+                          <div className="h-px flex-1 bg-white/10" />
+                        </div>
+                      )}
                       <p className="text-meta text-slate-400">
-                        Unlock with your sharing identity
+                        Sign in online to unlock
                       </p>
                       <button
                         type="button"
-                        onClick={() =>
-                          startUnlockOAuth("google", passwordGate.username)
-                        }
-                        disabled={verifyingPassword}
+                        onClick={() => startUnlockOAuth("google", unlockGate.username)}
+                        disabled={unlocking}
                         className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-white text-slate-800 hover:bg-slate-100 font-medium transition-colors disabled:opacity-50"
                       >
                         <GoogleIcon className="w-4 h-4" />
@@ -1741,10 +1682,8 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                       </button>
                       <button
                         type="button"
-                        onClick={() =>
-                          startUnlockOAuth("github", passwordGate.username)
-                        }
-                        disabled={verifyingPassword}
+                        onClick={() => startUnlockOAuth("github", unlockGate.username)}
+                        disabled={unlocking}
                         className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-[#24292e] text-white hover:bg-[#2f363d] font-medium transition-colors disabled:opacity-50"
                       >
                         <GitHubIcon className="w-4 h-4" />
@@ -1752,247 +1691,98 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                       </button>
                       <button
                         type="button"
-                        onClick={() =>
-                          startUnlockOAuth("linkedin", passwordGate.username)
-                        }
-                        disabled={verifyingPassword}
+                        onClick={() => startUnlockOAuth("linkedin", unlockGate.username)}
+                        disabled={unlocking}
                         className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-[#0A66C2] text-white hover:bg-[#004182] font-medium transition-colors disabled:opacity-50"
                       >
                         <LinkedInIcon className="w-4 h-4" />
                         Continue with LinkedIn
                       </button>
-                      <div className="flex items-center gap-3 pt-1">
-                        <div className="h-px flex-1 bg-white/10" />
-                        <span className="text-meta text-slate-500">
-                          or use your password
-                        </span>
-                        <div className="h-px flex-1 bg-white/10" />
-                      </div>
                     </>
                   )}
-                </div>
+                </>
               )}
-              {recoveryMode ? (
-                <input
-                  type="text"
-                  value={recoveryInput}
-                  onChange={(e) => setRecoveryInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleSubmitRecovery();
-                    if (e.key === "Escape") cancelPasswordGate();
-                  }}
-                  disabled={verifyingPassword}
-                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body font-mono"
-                  placeholder="Recovery code or 12 words"
-                  autoFocus
-                />
-              ) : (
-                <input
-                  ref={passwordInputRef}
-                  type="password"
-                  value={passwordInput}
-                  onChange={(e) => setPasswordInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleSubmitPassword();
-                    if (e.key === "Escape") cancelPasswordGate();
-                  }}
-                  disabled={verifyingPassword || unlockingViaProvider}
-                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
-                  autoComplete="current-password"
-                  placeholder="Password"
-                />
-              )}
+
               {error && (
                 <div className="p-2 bg-red-500/20 border border-red-500/30 rounded-lg">
                   <p className="text-meta text-red-300">{error}</p>
                 </div>
               )}
+
               <div className="flex gap-2 pt-1">
                 <button
-                  onClick={cancelPasswordGate}
-                  disabled={verifyingPassword}
+                  onClick={cancelUnlockGate}
+                  disabled={unlocking}
                   className="flex-1 py-2 text-body bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg disabled:opacity-50"
                 >
                   Cancel
                 </button>
-                <button
-                  onClick={
-                    recoveryMode ? handleSubmitRecovery : handleSubmitPassword
-                  }
-                  disabled={
-                    verifyingPassword ||
-                    (recoveryMode ? !recoveryInput : !passwordInput)
-                  }
-                  className="flex-1 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:opacity-50"
-                >
-                  {verifyingPassword
-                    ? "Unlocking…"
-                    : recoveryMode
-                      ? "Unlock"
-                      : "Sign in"}
-                </button>
+                {recoveryMode && (
+                  <button
+                    onClick={handleSubmitRecovery}
+                    disabled={unlocking || !recoveryInput}
+                    className="flex-1 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:opacity-50"
+                    data-testid="unlock-recovery-submit"
+                  >
+                    {unlocking ? "Unlocking…" : "Unlock"}
+                  </button>
+                )}
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setError(null);
-                  setRecoveryMode((m) => !m);
-                }}
-                disabled={verifyingPassword}
-                className="text-meta text-blue-400 hover:text-blue-300 disabled:opacity-50"
-              >
-                {recoveryMode
-                  ? "Back to password"
-                  : "Forgot your password? Use your recovery code"}
-              </button>
+
+              {/* Toggle between the everyday doors and the recovery-code
+                  fallback. Hidden while an OAuth resume is confirming, and hidden
+                  in recovery mode when there is no other door to go back to (no
+                  passkey and no online OAuth), since recovery is then the only
+                  way in. */}
+              {!unlockingViaProvider &&
+                !(
+                  recoveryMode &&
+                  !(gateHasPasskey && isPasskeySupported()) &&
+                  !(claimedUsers.has(unlockGate.username) && isOnline)
+                ) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError(null);
+                      setRecoveryMode((m) => !m);
+                    }}
+                    disabled={unlocking}
+                    className="text-meta text-blue-400 hover:text-blue-300 disabled:opacity-50"
+                    data-testid="unlock-toggle-recovery"
+                  >
+                    {recoveryMode
+                      ? "Back to other unlock options"
+                      : "Can't use your passkey? Use your recovery code"}
+                  </button>
+                )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Force-set-password gate — shown when a lab head with no
-          password yet tries to sign in. A PI account requires a
-          password; we make them set one here before proceeding. */}
-      {forcePasswordGate && (
-        <div
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm"
-          onClick={cancelForcePasswordGate}
-        >
-          <div
-            className="bg-slate-800 rounded-2xl shadow-2xl border border-white/20 max-w-sm w-full mx-4 overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-6 py-4 border-b border-white/10">
-              <h3 className="text-title font-semibold text-white">
-                Set a password for {forcePasswordGate.username}
-              </h3>
-              <p className="text-meta text-slate-400 mt-0.5">
-                This folder is shared, so each account needs a password to sign
-                in.
-              </p>
-            </div>
-            <div className="px-6 py-5 space-y-3">
-              <input
-                ref={forcePasswordInputRef}
-                type="password"
-                value={forceNewPassword}
-                onChange={(e) => setForceNewPassword(e.target.value)}
-                disabled={savingForcedPassword}
-                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
-                autoComplete="new-password"
-                placeholder="New password"
-                data-testid="force-pi-password-input"
-              />
-              <input
-                type="password"
-                value={forceConfirmPassword}
-                onChange={(e) => setForceConfirmPassword(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSubmitForcedPassword();
-                  if (e.key === "Escape") cancelForcePasswordGate();
-                }}
-                disabled={savingForcedPassword}
-                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
-                autoComplete="new-password"
-                placeholder="Confirm password"
-                data-testid="force-pi-password-confirm-input"
-              />
-              {error && (
-                <div className="p-2 bg-red-500/20 border border-red-500/30 rounded-lg">
-                  <p className="text-meta text-red-300">{error}</p>
-                </div>
-              )}
-              <p className="text-meta text-slate-400 leading-relaxed">
-                This password unlocks your account on this device and stays on
-                your disk, never sent to any server. You will get a recovery code
-                next, in case you forget it.
-              </p>
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={cancelForcePasswordGate}
-                  disabled={savingForcedPassword}
-                  className="flex-1 py-2 text-body bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSubmitForcedPassword}
-                  disabled={
-                    savingForcedPassword ||
-                    !forceNewPassword ||
-                    !forceConfirmPassword
-                  }
-                  className="flex-1 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:opacity-50"
-                  data-testid="force-pi-password-submit"
-                >
-                  {savingForcedPassword ? "Creating…" : "Create account"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Recovery code, shown once right after a new account is created. */}
-      {createdRecovery && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div
-            className="bg-slate-800 rounded-2xl shadow-2xl border border-white/20 max-w-sm w-full mx-4 overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-6 py-4 border-b border-white/10">
-              <h3 className="text-title font-semibold text-white">
-                Save your recovery code
-              </h3>
-              <p className="text-meta text-slate-400 mt-0.5">
-                This is the only way back in if you forget your password. Write it
-                somewhere safe, it is not shown again.
-              </p>
-            </div>
-            <div className="px-6 py-5 space-y-3">
-              <div className="p-3 bg-slate-900/60 border border-white/10 rounded-lg">
-                <p className="font-mono text-body text-slate-100 tracking-wide break-all text-center">
-                  {createdRecovery.code}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(createdRecovery.code);
-                    setRecoveryCopied(true);
-                    window.setTimeout(() => setRecoveryCopied(false), 1800);
-                  } catch {
-                    // Clipboard can be blocked, the code is still visible to copy.
-                  }
-                }}
-                className="text-meta text-blue-400 hover:text-blue-300"
-              >
-                {recoveryCopied ? "Copied" : "Copy code"}
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  const u = createdRecovery.username;
-                  setCreatedRecovery(null);
-                  // Establish the session without leaving the login screen, so
-                  // the optional profile step can render over it next.
-                  try {
-                    await usersApi.login(u);
-                  } catch {
-                    // The account was just created, a login hiccup is non-fatal.
-                  }
-                  await setCurrentUser(u);
-                  setProfileStep({ username: u });
-                }}
-                className="w-full py-2 text-body bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg"
-                data-testid="recovery-continue"
-              >
-                I saved it, continue
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Force-make-a-profile gate — shown when a shared folder (or a folder
+          with a lab head) requires a login and this user has no profile yet.
+          The SharingSetupWizard owns the whole OAuth + key-mint + recovery-code
+          flow; completing it signs the user in. There is no opt-out here (unlike
+          the optional profile step), so closing it returns to the picker. */}
+      {forceProfileFor && (
+        <SharingSetupWizard
+          username={forceProfileFor.username}
+          onComplete={() => {
+            const u = forceProfileFor.username;
+            setForceProfileFor(null);
+            // The wizard parked the unlocked key in the session via saveIdentity,
+            // so performLogin just switches the active user.
+            void performLogin(u);
+          }}
+          onClose={() => {
+            // Backed out without finishing setup. A shared folder still requires
+            // a profile, so we drop back to the picker rather than letting them
+            // in unprotected.
+            setForceProfileFor(null);
+            setLoggingIn(null);
+          }}
+        />
       )}
 
       {/* Optional profile setup, offered once right after a new account is
@@ -2047,21 +1837,8 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         />
       )}
 
-      {/* Account password management popup */}
-      {managingPasswordFor && (
-        <AccountPasswordPopup
-          username={managingPasswordFor}
-          onClose={() => {
-            setManagingPasswordFor(null);
-            // Re-read auth files so the lock icon flips immediately if the
-            // user set or removed a password. Cheap on a small user list.
-            refreshLockStatus(users);
-          }}
-        />
-      )}
-
       {/* User color picker — opens after the user types a name + clicks
-          Create. Mounted at the same z-tier as the password popups so it
+          Create. Mounted at the same z-tier as the gate popups so it
           floats above the entry-screen card. Accept persists the chosen
           color to _user_metadata.json BEFORE usersApi.create runs, so the
           new user's color is stored from the moment their account
@@ -2087,7 +1864,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
             <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" strokeLinecap="round" strokeLinejoin="round" />
             <line x1="12" y1="17" x2="12.01" y2="17" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          User & password help
+          User & account help
         </a>
         <a
           href="/wiki/shared-lab-accounts"
