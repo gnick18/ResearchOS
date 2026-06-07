@@ -51,8 +51,15 @@ import {
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { ANIMATION_METADATA, renderAnimationIcon, type AnimationType, type RealAnimationType } from "@/components/animations";
 import DynamicAnimation from "@/components/DynamicAnimation";
-import { hasPassword, verifyPassword } from "@/lib/auth/password";
+import { hasLocalAccount } from "@/lib/auth/account-store";
 import LabRoster from "@/components/lab-head/LabRoster";
+import { loadIdentity } from "@/lib/sharing/identity/storage";
+import {
+  deleteEncryptedBackup,
+  hasEncryptedBackup,
+  writeEncryptedBackup,
+} from "@/lib/telegram/encrypted-backup";
+import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 import { readPairing, type TelegramPairing } from "@/lib/telegram/telegram-store";
 import { useTelegramPopup } from "@/lib/telegram/telegram-popup-store";
 import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
@@ -331,7 +338,7 @@ export function SettingsBody() {
         return;
       }
       const s = await readUserSettings(currentUser);
-      const exists = await hasPassword(currentUser);
+      const exists = await hasLocalAccount(currentUser);
       if (cancelled) return;
       setSettings(s);
       setPwExists(exists);
@@ -344,7 +351,7 @@ export function SettingsBody() {
 
   const refreshPwExists = useCallback(async () => {
     if (!currentUser) return;
-    setPwExists(await hasPassword(currentUser));
+    setPwExists(await hasLocalAccount(currentUser));
   }, [currentUser]);
 
   // Single canonical save path. Each section calls update({ fieldX: value }).

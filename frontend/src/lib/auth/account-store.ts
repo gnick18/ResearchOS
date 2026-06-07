@@ -11,6 +11,7 @@
 // with Grant. See docs/proposals/IDENTITY_MODEL_SIMPLIFICATION.md.
 
 import { fileService } from "@/lib/file-system/file-service";
+import { deleteEncryptedBackup } from "@/lib/telegram/encrypted-backup";
 import { type KdfParams, PROD_KDF_PARAMS } from "@/lib/sharing/identity/backup";
 import {
   type CreatedLocalAccount,
@@ -66,6 +67,16 @@ export async function createAndPersistAccount(
 ): Promise<CreatedLocalAccount> {
   const created = createLocalAccount(password, params);
   await writeLocalAccount(username, created.file);
+  // A fresh account mints a fresh keypair, so any existing Telegram backup is
+  // necessarily orphaned. The backup is now keyed off the X25519 secret (option
+  // B), and a pre-cutover backup was keyed off the old password, so either way a
+  // prior `_telegram-encrypted.json` can no longer be decrypted. Clear it so the
+  // user re-pairs rather than leaving an unreadable blob behind. Best-effort.
+  try {
+    await deleteEncryptedBackup(username);
+  } catch {
+    /* no backup to clear, or the folder is read-only, either is fine */
+  }
   return created;
 }
 
