@@ -73,7 +73,10 @@ const sessionId = `sess-${Date.now()}`;
     data.invites[0].collabDocId === docId &&
     data.invites[0].sessionId === sessionId &&
     data.invites[0].title === "PCR setup" &&
-    data.invites[0].fromEmail === "sender@lab.edu";
+    data.invites[0].fromEmail === "sender@lab.edu" &&
+    // from_pubkey (external-collab chunk 4) round-trips through push -> list, so
+    // the recipient can confirm the sender's directory binding at accept time.
+    data.invites[0].fromPubkey === sender.pub;
   check("(b) recipient list returns the invite with metadata", found);
 }
 

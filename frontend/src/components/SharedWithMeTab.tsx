@@ -66,18 +66,45 @@ import { projectsApi } from "@/lib/local-api";
 import type { Note, Project } from "@/lib/types";
 import type { ImportResult } from "@/lib/import/types";
 import { EXTERNAL_COLLAB_ENABLED } from "@/lib/loro/config";
-import { listInvites, type PendingInvite } from "@/lib/collab/client/inbox";
+import {
+  listInvites,
+  dismissInvite,
+  type PendingInvite,
+} from "@/lib/collab/client/inbox";
+import { acceptInvite } from "@/lib/collab/client/accept";
 
-// ── Pending live-collab invitations (external-collab chunk 3) ────────────────
-// Read-only discovery of a live-collab grant from an outside ResearchOS user.
-// Polls listInvites() once on open and surfaces each pending invite. NOTHING is
-// materialized here: the recipient only learns an invite exists. Accept +
-// materialize-to-folder is chunk 4, so the action shows as a disabled
-// "Accept (coming soon)" placeholder. The whole section is gated by
-// EXTERNAL_COLLAB_ENABLED and only renders for a device with a directory
-// identity (the caller passes enabled accordingly).
-function PendingCollabInvites({ enabled }: { enabled: boolean }) {
+// ── Pending live-collab invitations (external-collab chunk 4) ────────────────
+// Discovery AND accept of a live-collab grant from an outside ResearchOS user.
+// Polls listInvites() once on open and surfaces each pending invite.
+//
+// ACCEPT (chunk 4) runs verify -> materialize -> dismiss. The verify step looks
+// the sender's claimed email up in the directory and confirms the registered
+// pubkey equals the invite's fromPubkey (acceptInvite / verifySenderBinding).
+// On a verify failure NOTHING materializes and a "could not verify sender"
+// warning is shown inline. On success a real local note lands in the recipient's
+// folder (it then auto-connects to the DO like any collab note) and the row is
+// removed. DECLINE just dismisses the invite (no materialize).
+//
+// The whole section is gated by EXTERNAL_COLLAB_ENABLED and only renders for a
+// device with a directory identity (the caller passes enabled accordingly).
+// Accept is impossible without a directory identity (the verify lookup + the
+// always-on connect token both need it).
+type RowState =
+  | { phase: "idle" }
+  | { phase: "working"; label: string }
+  | { phase: "error"; message: string };
+
+function PendingCollabInvites({
+  enabled,
+  currentUser,
+  onAccepted,
+}: {
+  enabled: boolean;
+  currentUser: string | null;
+  onAccepted?: (title: string) => void;
+}) {
   const [invites, setInvites] = useState<PendingInvite[]>([]);
+  const [rowState, setRowState] = useState<Record<string, RowState>>({});
 
   useEffect(() => {
     if (!enabled) return;
@@ -96,6 +123,53 @@ function PendingCollabInvites({ enabled }: { enabled: boolean }) {
     };
   }, [enabled]);
 
+  const setRow = useCallback((docId: string, state: RowState) => {
+    setRowState((prev) => ({ ...prev, [docId]: state }));
+  }, []);
+
+  const dropInvite = useCallback((docId: string) => {
+    setInvites((prev) => prev.filter((i) => i.collabDocId !== docId));
+    setRowState((prev) => {
+      const next = { ...prev };
+      delete next[docId];
+      return next;
+    });
+  }, []);
+
+  const handleAccept = useCallback(
+    async (inv: PendingInvite) => {
+      if (!currentUser) return;
+      setRow(inv.collabDocId, { phase: "working", label: "Verifying sender…" });
+      const result = await acceptInvite(inv, currentUser);
+      if (result.ok) {
+        dropInvite(inv.collabDocId);
+        onAccepted?.(inv.title || "the note");
+        return;
+      }
+      const message =
+        result.reason === "sender-mismatch" || result.reason === "unverifiable"
+          ? "Could not verify the sender. The invite's signing key does not match the directory record for that email, so nothing was added."
+          : "Could not add this shared note. Try again in a moment.";
+      setRow(inv.collabDocId, { phase: "error", message });
+    },
+    [currentUser, setRow, dropInvite, onAccepted],
+  );
+
+  const handleDecline = useCallback(
+    async (inv: PendingInvite) => {
+      setRow(inv.collabDocId, { phase: "working", label: "Declining…" });
+      try {
+        await dismissInvite(inv.collabDocId);
+      } catch (err) {
+        // A failed dismiss is non-fatal; the invite simply stays. Drop it from
+        // the local list anyway so the action feels responsive.
+        console.warn("[inbox] decline (dismiss) failed", err);
+      }
+      dropInvite(inv.collabDocId);
+    },
+    [setRow, dropInvite],
+  );
+
   if (!enabled || invites.length === 0) return null;
 
   return (
@@ -107,33 +181,54 @@ function PendingCollabInvites({ enabled }: { enabled: boolean }) {
         {invites.map((inv) => {
           const who = inv.fromName || inv.fromEmail || "Someone";
           const title = inv.title || "Untitled note";
+          const state = rowState[inv.collabDocId] ?? { phase: "idle" };
+          const working = state.phase === "working";
           return (
             <li
               key={inv.collabDocId}
-              className="flex items-center gap-3 p-3 rounded-lg border border-border bg-surface-raised"
+              className="flex flex-col gap-2 p-3 rounded-lg border border-border bg-surface-raised"
             >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-meta font-semibold uppercase tracking-wide bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300">
-                    Live collab
-                  </span>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-meta font-semibold uppercase tracking-wide bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300">
+                      Live collab
+                    </span>
+                  </div>
+                  <p className="text-body text-foreground truncate">
+                    <span className="font-medium">{who}</span> invited you to
+                    collaborate on <span className="font-medium">{title}</span>
+                  </p>
+                  <p className="text-meta text-foreground-muted">
+                    {new Date(inv.createdAt).toLocaleString()}
+                  </p>
                 </div>
-                <p className="text-body text-foreground truncate">
-                  <span className="font-medium">{who}</span> invited you to
-                  collaborate on <span className="font-medium">{title}</span>
-                </p>
-                <p className="text-meta text-foreground-muted">
-                  {new Date(inv.createdAt).toLocaleString()}
-                </p>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => void handleAccept(inv)}
+                    disabled={working || !currentUser}
+                    className="px-3 py-1.5 text-meta font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {working && state.label !== "Declining…"
+                      ? state.label
+                      : "Accept"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleDecline(inv)}
+                    disabled={working}
+                    className="px-3 py-1.5 text-meta text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-md transition-colors disabled:opacity-40"
+                  >
+                    Decline
+                  </button>
+                </div>
               </div>
-              <button
-                type="button"
-                disabled
-                title="Accepting a live-collab invite is coming soon"
-                className="px-3 py-1.5 text-meta font-medium text-white bg-blue-600/50 rounded-md cursor-not-allowed flex-shrink-0"
-              >
-                Accept (coming soon)
-              </button>
+              {state.phase === "error" && (
+                <p className="text-meta text-red-600 dark:text-red-300">
+                  {state.message}
+                </p>
+              )}
             </li>
           );
         })}
@@ -327,6 +422,10 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
       <div className="flex-1 overflow-y-auto p-4">
         <PendingCollabInvites
           enabled={EXTERNAL_COLLAB_ENABLED && status === "ready" && !!email}
+          currentUser={currentUser}
+          onAccepted={(title) =>
+            setToast(`Added ${title}. Open it to start collaborating.`)
+          }
         />
         {loading ? (
           <p className="text-body text-foreground-muted text-center py-8">Loading…</p>

@@ -40,6 +40,14 @@ export interface PendingInvite {
   kind: string | null;
   fromEmail: string | null;
   fromName: string | null;
+  /**
+   * The sender's hex Ed25519 signing pubkey, recorded by the inbox DO from the
+   * signed push (external-collab chunk 4). The recipient confirms this equals
+   * the directory binding for fromEmail before accepting, so a spoofed fromEmail
+   * cannot materialize a note. Null on an invite pushed before the column
+   * existed; the accept flow treats null as unverifiable and refuses.
+   */
+  fromPubkey: string | null;
   createdAt: number;
 }
 

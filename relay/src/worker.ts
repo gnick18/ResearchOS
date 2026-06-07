@@ -672,8 +672,19 @@ export class RecipientInbox {
     // One row per pending invite, keyed by the collab doc id (re-pushing the
     // same doc upserts rather than duplicating).
     this.sql().exec(
-      "CREATE TABLE IF NOT EXISTS invites (doc_id TEXT PRIMARY KEY, session_id TEXT, title TEXT, kind TEXT, from_email TEXT, from_name TEXT, created_at INTEGER)",
+      "CREATE TABLE IF NOT EXISTS invites (doc_id TEXT PRIMARY KEY, session_id TEXT, title TEXT, kind TEXT, from_email TEXT, from_name TEXT, from_pubkey TEXT, created_at INTEGER)",
     );
+    // from_pubkey was added in external-collab chunk 4 so the recipient can
+    // verify the sender's (email, pubkey) directory binding at accept time. An
+    // inbox table created before chunk 4 lacks the column, so add it idempotently
+    // (SQLite ADD COLUMN is a no-op-on-exists only if guarded, so swallow the
+    // duplicate-column error). A row pushed before this column existed reads it
+    // back as null, and the recipient treats a null from_pubkey as unverifiable.
+    try {
+      this.sql().exec("ALTER TABLE invites ADD COLUMN from_pubkey TEXT");
+    } catch {
+      // Column already present (fresh table above, or a prior migration).
+    }
     // meta holds 'recipient_pubkey' (hex, TOFU on the first push).
     this.sql().exec(
       "CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)",
@@ -791,13 +802,17 @@ export class RecipientInbox {
     }
 
     this.sql().exec(
-      "INSERT INTO invites (doc_id, session_id, title, kind, from_email, from_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(doc_id) DO UPDATE SET session_id = excluded.session_id, title = excluded.title, kind = excluded.kind, from_email = excluded.from_email, from_name = excluded.from_name, created_at = excluded.created_at",
+      "INSERT INTO invites (doc_id, session_id, title, kind, from_email, from_name, from_pubkey, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(doc_id) DO UPDATE SET session_id = excluded.session_id, title = excluded.title, kind = excluded.kind, from_email = excluded.from_email, from_name = excluded.from_name, from_pubkey = excluded.from_pubkey, created_at = excluded.created_at",
       invite.collabDocId,
       invite.sessionId,
       typeof invite.title === "string" ? invite.title : null,
       typeof invite.kind === "string" ? invite.kind : null,
       from.email,
       typeof from.name === "string" ? from.name : null,
+      // from.pubkey is already validated above and is the SAME key that signed
+      // this push (verifySig used from.pubkey), so persisting it records the key
+      // that the recipient will later confirm against the directory binding.
+      from.pubkey,
       Date.now(),
     );
 
@@ -876,9 +891,10 @@ export class RecipientInbox {
         kind: string | null;
         from_email: string | null;
         from_name: string | null;
+        from_pubkey: string | null;
         created_at: number;
       }>(
-        "SELECT doc_id, session_id, title, kind, from_email, from_name, created_at FROM invites ORDER BY created_at DESC",
+        "SELECT doc_id, session_id, title, kind, from_email, from_name, from_pubkey, created_at FROM invites ORDER BY created_at DESC",
       )
       .toArray();
 
@@ -889,6 +905,10 @@ export class RecipientInbox {
       kind: r.kind,
       fromEmail: r.from_email,
       fromName: r.from_name,
+      // The sender's signing pubkey (external-collab chunk 4). The recipient
+      // confirms this equals the directory binding for fromEmail before any
+      // materialize, so a spoofed from_email cannot pass accept.
+      fromPubkey: r.from_pubkey,
       createdAt: r.created_at,
     }));
 
