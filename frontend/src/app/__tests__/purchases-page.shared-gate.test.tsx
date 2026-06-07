@@ -95,6 +95,14 @@ vi.mock("@/components/AppShell", () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+// The page registers a BeakerSearch source on mount; this test renders the page
+// in isolation (AppShell stubbed, so no BeakerSearchProvider). Stub the
+// registration hook so the page mounts without the provider (the source itself
+// is unit-tested in purchases-beaker-source.test.ts).
+vi.mock("@/app/purchases/usePurchasesBeakerSource", () => ({
+  usePurchasesBeakerSource: () => {},
+}));
+
 vi.mock("@/components/PurchaseEditor", () => ({
   default: () => <div data-testid="purchase-editor-stub" />,
 }));

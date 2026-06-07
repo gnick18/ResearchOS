@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -362,11 +362,37 @@ export default function SpendingDashboard({
     category: "Category",
   };
 
+  // BeakerSearch Purchases source (2026-06-07): the palette's "Export current
+  // spending" + "Open the spending dashboard" commands drive these in-component
+  // actions through a window-event bridge, the same channel the page already
+  // uses for the tour's demo overlay. The dashboard owns the live range /
+  // breakdown state, so lifting it would be a large refactor; subscribing to two
+  // events keeps the change tiny and the export byte-identical. The export
+  // handler is held in a ref so the listener always runs the latest closure
+  // (current filteredItems) without re-subscribing on every render.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const exportRef = useRef(handleExportCsv);
+  useEffect(() => {
+    exportRef.current = handleExportCsv;
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onExport = () => exportRef.current();
+    const onFocus = () =>
+      rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.addEventListener("purchases:export-csv", onExport);
+    window.addEventListener("purchases:focus-dashboard", onFocus);
+    return () => {
+      window.removeEventListener("purchases:export-csv", onExport);
+      window.removeEventListener("purchases:focus-dashboard", onFocus);
+    };
+  }, []);
+
   const isEmpty = purchaseItems.length === 0;
   const exportDisabled = filteredItems.length === 0;
 
   return (
-    <div className="mt-12 border-t-2 border-border pt-8">
+    <div ref={rootRef} className="mt-12 border-t-2 border-border pt-8">
       <div className="flex items-baseline justify-between mb-4">
         <div>
           <h3 className="text-heading font-semibold text-foreground">

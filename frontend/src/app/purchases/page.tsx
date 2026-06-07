@@ -28,6 +28,7 @@ import {
   type Task,
   type PurchaseItem,
 } from "@/lib/types";
+import { usePurchasesBeakerSource } from "./usePurchasesBeakerSource";
 
 /**
  * Segmented filter on /purchases: gates which purchase tasks render.
@@ -321,6 +322,25 @@ export default function PurchasesPage() {
       setDeletingTaskId(null);
     }
   };
+
+  // Register the Purchases BeakerSearch source (step 3) while the page is
+  // mounted. The pure builder + the thin wiring live in the co-located
+  // purchases-beaker-source.ts / usePurchasesBeakerSource.ts; this hands it the
+  // page's selected order + the modal / filter setters + the delete handler.
+  // The heavier domain data (orders, items, funding, role, edit-gate) the hook
+  // reads itself from the same React Query caches this page already holds.
+  usePurchasesBeakerSource({
+    selectedTask,
+    setSelectedTask,
+    setShowNewPurchase,
+    setShowFundingManager,
+    categoryFilter,
+    orderStatusFilter,
+    setCategoryFilter,
+    setOrderStatusFilter,
+    handleDeleteTask,
+    router,
+  });
 
   return (
     <AppShell>
