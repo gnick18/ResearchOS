@@ -7,7 +7,7 @@ import {
   type TrashEntityType,
 } from "./trash";
 import { recordProjectActivity } from "./project-activity/event-log";
-import { HISTORY_ENGINE_ENABLED, recordNoteHistory, recordTaskHistory, recordProjectHistory } from "./history";
+import { HISTORY_ENGINE_ENABLED, recordNoteHistory, recordTaskHistory, recordProjectHistory, recordInventoryItemVersion, recordInventoryStockVersion } from "./history";
 import type { HistoryEditKind } from "./history";
 // Phase 2 chunk 4: when the Loro pilot is on, the note's Loro doc IS the
 // history store; the legacy delta writer is suppressed to avoid double-writing.
@@ -2488,7 +2488,9 @@ export const inventoryItemsApi = {
       last_edited_by: stamp.last_edited_by,
       last_edited_at: stamp.last_edited_at,
     });
-    return normalizeInventoryItemRecord(created, currentUser);
+    const normalized = normalizeInventoryItemRecord(created, currentUser);
+    void recordInventoryItemVersion(normalized, currentUser);
+    return normalized;
   },
 
   // Owner-routed create — bumps the TARGET user's counter so a PI / collaborator
@@ -2530,11 +2532,15 @@ export const inventoryItemsApi = {
     data: InventoryItemUpdate,
     owner?: string,
   ): Promise<InventoryItem | null> => {
+    const currentUser = await getCurrentUserCached();
     const patch = { ...data, ...(await buildAttributionStamp(data.last_edited_by)) };
     const updated = owner
       ? await inventoryItemsStore.updateForUser(id, patch, owner)
       : await inventoryItemsStore.update(id, patch);
-    return updated ? normalizeInventoryItemRecord(updated, owner) : null;
+    if (!updated) return null;
+    const normalized = normalizeInventoryItemRecord(updated, owner);
+    void recordInventoryItemVersion(normalized, currentUser);
+    return normalized;
   },
 
   saveForUser: async (
@@ -2546,14 +2552,35 @@ export const inventoryItemsApi = {
     return normalizeInventoryItemRecord(saved, owner);
   },
 
-  delete: async (id: number, owner?: string): Promise<void> => {
-    // v1: hard delete (trash mirror lands in chunk 5, FLAG-H). Owner-routed
-    // when a collaborator deletes from another member's namespace.
-    if (owner) {
-      await inventoryItemsStore.deleteForUser(id, owner);
-      return;
-    }
-    await inventoryItemsStore.delete(id);
+  // chunk-5 bot (2026-06-07): soft-delete via `_trash/inventory_items/`.
+  // Mirrors the VCP R2 "trash everywhere" pattern used by methods, tasks, etc.
+  delete: async (
+    id: number,
+    owner?: string,
+    options?: { actor?: string; sessionId?: string | null },
+  ): Promise<void> => {
+    const currentUser = (await getCurrentUserCached()) ?? "";
+    const actor = options?.actor ?? currentUser;
+    const sessionId = options?.sessionId ?? null;
+    const rec = owner
+      ? await inventoryItemsStore.getForUser(id, owner)
+      : await inventoryItemsStore.get(id);
+    if (!rec) return;
+    const targetOwner = rec.owner || owner || currentUser;
+    const attribution = resolveDeleteAttribution(
+      targetOwner,
+      actor,
+      sessionId,
+      "inventoryItemsApi.delete",
+    );
+    if (!attribution) return;
+    await softDeleteEntity({
+      owner: targetOwner,
+      entityType: "inventory_item",
+      id,
+      actor: attribution.actor,
+      sessionId: attribution.sessionId,
+    });
   },
 };
 
@@ -2673,7 +2700,9 @@ export const inventoryStocksApi = {
     const created = owner
       ? await inventoryStocksStore.createForUser(payload, owner)
       : await inventoryStocksStore.create(payload);
-    return normalizeInventoryStockRecord(created, targetOwner);
+    const normalized = normalizeInventoryStockRecord(created, targetOwner);
+    void recordInventoryStockVersion(normalized, currentUser);
+    return normalized;
   },
 
   update: async (
@@ -2733,7 +2762,10 @@ export const inventoryStocksApi = {
     const updated = owner
       ? await inventoryStocksStore.updateForUser(id, patch, owner)
       : await inventoryStocksStore.update(id, patch);
-    return updated ? normalizeInventoryStockRecord(updated, targetOwner) : null;
+    if (!updated) return null;
+    const normalized = normalizeInventoryStockRecord(updated, targetOwner);
+    void recordInventoryStockVersion(normalized, currentUser);
+    return normalized;
   },
 
   saveForUser: async (
@@ -2745,12 +2777,34 @@ export const inventoryStocksApi = {
     return normalizeInventoryStockRecord(saved, owner);
   },
 
-  delete: async (id: number, owner?: string): Promise<void> => {
-    if (owner) {
-      await inventoryStocksStore.deleteForUser(id, owner);
-      return;
-    }
-    await inventoryStocksStore.delete(id);
+  // chunk-5 bot (2026-06-07): soft-delete via `_trash/inventory_stocks/`.
+  delete: async (
+    id: number,
+    owner?: string,
+    options?: { actor?: string; sessionId?: string | null },
+  ): Promise<void> => {
+    const currentUser = (await getCurrentUserCached()) ?? "";
+    const actor = options?.actor ?? currentUser;
+    const sessionId = options?.sessionId ?? null;
+    const rec = owner
+      ? await inventoryStocksStore.getForUser(id, owner)
+      : await inventoryStocksStore.get(id);
+    if (!rec) return;
+    const targetOwner = rec.owner || owner || currentUser;
+    const attribution = resolveDeleteAttribution(
+      targetOwner,
+      actor,
+      sessionId,
+      "inventoryStocksApi.delete",
+    );
+    if (!attribution) return;
+    await softDeleteEntity({
+      owner: targetOwner,
+      entityType: "inventory_stock",
+      id,
+      actor: attribution.actor,
+      sessionId: attribution.sessionId,
+    });
   },
 };
 

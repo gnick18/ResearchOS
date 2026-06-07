@@ -58,6 +58,7 @@ const CHIP_TONE: Record<GlobalObjectType, string> = {
   project: "bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-300",
   method: "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300",
   sequence: "bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-300",
+  inventory: "bg-teal-50 text-teal-600 dark:bg-teal-900/30 dark:text-teal-300",
 };
 /** The default chip for commands / sequence-nav / artifacts / the search-all row
  *  (everything that is not a typed cross-app record). */

@@ -511,6 +511,20 @@ const ICONS_RAW = {
       </>
     ),
   },
+
+  // ── Vial / reagent (Inventory tab, chunk-5 bot 2026-06-07) ──────────────
+  // Standard lab-ware silhouette: a narrow cylinder with a rounded bottom.
+  // Consistent 2-px stroke, strokeLinecap round, viewBox 0 0 24 24.
+  vial: {
+    concept: "Vial / reagent",
+    body: (
+      <>
+        <line x1="9" y1="3" x2="15" y2="3" />
+        <path d="M9 3v8L5 19a2 2 0 0 0 1.8 2.8h10.4A2 2 0 0 0 19 19l-4-8V3" />
+        <line x1="6.4" y1="14" x2="17.6" y2="14" />
+      </>
+    ),
+  },
 } satisfies Record<string, IconEntry>;
 
 export type IconName = keyof typeof ICONS_RAW;

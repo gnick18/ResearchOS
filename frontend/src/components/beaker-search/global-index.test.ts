@@ -5,8 +5,8 @@
 // stamp, so the index brain is verified before any provider wiring.
 
 import { describe, it, expect } from "vitest";
-import { buildGlobalIndex, type GlobalIndexInput } from "./global-index";
-import type { Task, Method, Project, SequenceRecord } from "@/lib/types";
+import { buildGlobalIndex, buildInventoryEntry, type GlobalIndexInput } from "./global-index";
+import type { Task, Method, Project, SequenceRecord, InventoryItem } from "@/lib/types";
 
 const CURRENT_USER = "morgan";
 
@@ -72,6 +72,7 @@ function build(over: Partial<GlobalIndexInput> = {}) {
     projects: [],
     methods: [],
     sequences: [],
+    inventoryItems: [],
     currentUser: CURRENT_USER,
     ...over,
   });
@@ -209,5 +210,106 @@ describe("recency", () => {
     expect(withStamp.recencyAt).toBe(Date.parse("2026-06-05T10:00:00Z"));
     const [noStamp] = build({ tasks: [makeTask({ last_edited_at: undefined })] });
     expect(noStamp.recencyAt).toBe(0);
+  });
+});
+
+// ── Inventory entries (chunk-5 bot 2026-06-07) ───────────────────────────────
+// buildInventoryEntry is tested directly (the pure per-item builder) so the
+// entry shape is verified independently of INVENTORY_ENABLED (which is false
+// by default and cannot be flipped in unit tests). The gating behavior (flag
+// off => no entries in buildGlobalIndex) is covered by a separate assertion.
+
+function makeInventoryItem(over: Partial<InventoryItem> = {}): InventoryItem {
+  return {
+    id: 5,
+    name: "Q5 Polymerase",
+    category: "enzyme",
+    catalog_number: "M0491S",
+    vendor: "NEB",
+    cas: null,
+    url: null,
+    container_label: null,
+    notes: null,
+    low_at_count: 2,
+    product_barcode: null,
+    owner: CURRENT_USER,
+    shared_with: [],
+    created_by: CURRENT_USER,
+    last_edited_at: "2026-06-06T09:00:00Z",
+    ...over,
+  } as InventoryItem;
+}
+
+describe("buildInventoryEntry (pure entry builder)", () => {
+  it("builds the composite key and base href", () => {
+    const entry = buildInventoryEntry(makeInventoryItem({ id: 5, owner: CURRENT_USER }));
+    expect(entry.type).toBe("inventory");
+    expect(entry.key).toBe(`${CURRENT_USER}:5`);
+    expect(entry.href).toBe("/inventory");
+    expect(entry.enabled).toBe(true);
+  });
+
+  it("uses the owner namespace for a shared item", () => {
+    const entry = buildInventoryEntry(makeInventoryItem({ id: 9, owner: "alex" }));
+    expect(entry.key).toBe("alex:9");
+  });
+
+  it("sets the label to the item name", () => {
+    const entry = buildInventoryEntry(makeInventoryItem({ name: "Q5 Polymerase" }));
+    expect(entry.label).toBe("Q5 Polymerase");
+  });
+
+  it("builds the meta subline from category, vendor, catalog_number", () => {
+    const entry = buildInventoryEntry(
+      makeInventoryItem({ category: "enzyme", vendor: "NEB", catalog_number: "M0491S" }),
+    );
+    expect(entry.meta).toContain("enzyme");
+    expect(entry.meta).toContain("NEB");
+    expect(entry.meta).toContain("M0491S");
+  });
+
+  it("falls back to category-only when vendor and catalog_number are null", () => {
+    const entry = buildInventoryEntry(
+      makeInventoryItem({ vendor: null, catalog_number: null }),
+    );
+    expect(entry.meta).toBe("enzyme");
+  });
+
+  it("folds name + vendor + catalog_number + cas + notes into a lowercased haystack", () => {
+    const entry = buildInventoryEntry(
+      makeInventoryItem({ name: "Q5", vendor: "NEB", cas: "9007-49-2", notes: "premium" }),
+    );
+    expect(entry.haystack).toContain("q5");
+    expect(entry.haystack).toContain("neb");
+    expect(entry.haystack).toContain("9007-49-2");
+    expect(entry.haystack).toContain("premium");
+    expect(entry.haystack).toBe(entry.haystack.toLowerCase());
+  });
+
+  it("parses last_edited_at to epoch ms for recency", () => {
+    const entry = buildInventoryEntry(
+      makeInventoryItem({ last_edited_at: "2026-06-06T09:00:00Z" }),
+    );
+    expect(entry.recencyAt).toBe(Date.parse("2026-06-06T09:00:00Z"));
+  });
+
+  it("falls back to 0 recency when the stamp is absent", () => {
+    const entry = buildInventoryEntry(
+      makeInventoryItem({ last_edited_at: undefined }),
+    );
+    expect(entry.recencyAt).toBe(0);
+  });
+
+  it("uses the vial icon name", () => {
+    const entry = buildInventoryEntry(makeInventoryItem());
+    expect(entry.iconName).toBe("vial");
+  });
+});
+
+describe("buildGlobalIndex inventory gating", () => {
+  it("suppresses inventory entries when INVENTORY_ENABLED is false (default)", () => {
+    // The config default is false; the index builder skips the inventory loop.
+    const entries = build({ inventoryItems: [makeInventoryItem()] });
+    expect(entries.filter((e) => e.type === "inventory")).toHaveLength(0);
   });
 });

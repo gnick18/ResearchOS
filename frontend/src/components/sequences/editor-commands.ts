@@ -127,6 +127,9 @@ export type PaletteGroupTitle =
   | "Projects"
   | "Methods"
   | "Sequences"
+  // chunk-5 bot (2026-06-07): inventory items are indexed alongside the four
+  // core types; the heading follows the same pattern.
+  | "Inventory"
   // BeakerSearch global object search, chunk 3, the trailing "Search everything"
   // handoff row to the full faceted /search.
   | "More"
@@ -665,6 +668,8 @@ export function objectGroupTitle(type: GlobalIndexEntry["type"]): PaletteGroupTi
       return "Methods";
     case "sequence":
       return "Sequences";
+    case "inventory":
+      return "Inventory";
   }
 }
 

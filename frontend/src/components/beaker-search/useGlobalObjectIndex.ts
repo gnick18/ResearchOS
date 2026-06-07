@@ -30,10 +30,12 @@ import {
   fetchAllTasksIncludingShared,
   fetchAllProjectsIncludingShared,
   fetchAllMethodsIncludingShared,
+  fetchAllInventoryItemsIncludingShared,
   sequencesApi,
 } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { buildGlobalIndex, type GlobalIndexEntry } from "./global-index";
+import { INVENTORY_ENABLED } from "@/lib/inventory/config";
 
 /** Subscribe to the four canonical caches and assemble the flat index. The
  *  useMemo rebuilds only when one of the four results changes identity, which is
@@ -61,7 +63,13 @@ export function useGlobalObjectIndex(): GlobalIndexEntry[] {
     queryFn: () => sequencesApi.list(),
   });
 
-  // Eager-once prefetch (decision 2). Fire-and-forget the four loaders once per
+  const { data: inventoryItems = [] } = useQuery({
+    queryKey: ["inventory_items", user],
+    queryFn: fetchAllInventoryItemsIncludingShared,
+    enabled: INVENTORY_ENABLED && !!user,
+  });
+
+  // Eager-once prefetch (decision 2). Fire-and-forget the loaders once per
   // session so the cache is warm before the user visits each page. prefetchQuery
   // is a no-op when the cache is already fresh, so this never double-fetches a
   // page the user has already opened. Re-runs only if the active user changes
@@ -75,10 +83,16 @@ export function useGlobalObjectIndex(): GlobalIndexEntry[] {
     void queryClient.prefetchQuery({ queryKey: ["projects", user], queryFn: fetchAllProjectsIncludingShared });
     void queryClient.prefetchQuery({ queryKey: ["methods", user], queryFn: fetchAllMethodsIncludingShared });
     void queryClient.prefetchQuery({ queryKey: ["sequences"], queryFn: () => sequencesApi.list() });
+    if (INVENTORY_ENABLED && user) {
+      void queryClient.prefetchQuery({
+        queryKey: ["inventory_items", user],
+        queryFn: fetchAllInventoryItemsIncludingShared,
+      });
+    }
   }, [queryClient, user]);
 
   return useMemo(
-    () => buildGlobalIndex({ tasks, projects, methods, sequences, currentUser: user }),
-    [tasks, projects, methods, sequences, user],
+    () => buildGlobalIndex({ tasks, projects, methods, sequences, inventoryItems, currentUser: user }),
+    [tasks, projects, methods, sequences, inventoryItems, user],
   );
 }

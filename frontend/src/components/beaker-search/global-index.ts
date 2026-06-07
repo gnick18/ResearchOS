@@ -22,14 +22,15 @@
 // mid-sentence colons.
 
 import type { IconName } from "@/components/icons";
-import { taskKey, type Task, type Method, type Project, type SequenceRecord } from "@/lib/types";
+import { taskKey, type Task, type Method, type Project, type SequenceRecord, type InventoryItem } from "@/lib/types";
 import { getMethodTypeMeta } from "@/lib/methods/method-type-registry";
+import { INVENTORY_ENABLED } from "@/lib/inventory/config";
 
 /** The uniform record the global source ranks and renders. One per core record.
  *  Ranking and rendering branch only on `type`, `iconName`, and `open`, never on
  *  the source record shape, so chunk 2 stays type-agnostic. */
 export interface GlobalIndexEntry {
-  type: "task" | "project" | "method" | "sequence";
+  type: "task" | "project" | "method" | "sequence" | "inventory";
   /** Composite identity, taskKey() / `${owner}:${id}` / the sequence id as a
    *  string. The dedup key AND the carrier of the owner into the jump. */
   key: string;
@@ -54,13 +55,14 @@ export interface GlobalIndexEntry {
   enabled: boolean;
 }
 
-/** The four core record sets plus the active user, exactly the four canonical
+/** The five core record sets plus the active user, exactly the canonical
  *  React Query caches useGlobalObjectIndex subscribes to. */
 export interface GlobalIndexInput {
   tasks: Task[];
   projects: Project[];
   methods: Method[];
   sequences: SequenceRecord[];
+  inventoryItems: InventoryItem[];
   currentUser: string;
 }
 
@@ -188,12 +190,34 @@ function buildSequenceEntry(s: SequenceRecord): GlobalIndexEntry {
   };
 }
 
-/** Map the four core record sets into one flat index. Pure and O(n) over the
- *  four arrays, the project-name lookup is built once so the task subline does
+/** Map a single InventoryItem to a GlobalIndexEntry. Exported for unit tests.
+ *  The index gate (INVENTORY_ENABLED) lives in buildGlobalIndex, not here, so
+ *  the entry shape can be tested independently of the flag. */
+export function buildInventoryEntry(item: InventoryItem): GlobalIndexEntry {
+  const key = `${item.owner}:${item.id}`;
+  const metaParts = [item.category, item.vendor, item.catalog_number].filter(
+    (p): p is string => Boolean(p && p.trim()),
+  );
+  const meta = metaParts.join(" · ") || item.category;
+  return {
+    type: "inventory",
+    key,
+    label: item.name,
+    meta,
+    haystack: buildHaystack([item.name, item.vendor, item.catalog_number, item.cas, item.notes]),
+    recencyAt: toEpoch(item.last_edited_at),
+    iconName: "vial" as IconName,
+    href: "/inventory",
+    enabled: true,
+  };
+}
+
+/** Map the five core record sets into one flat index. Pure and O(n) over the
+ *  five arrays, the project-name lookup is built once so the task subline does
  *  not re-scan. The merged loaders already dedup own vs shared by composite key,
  *  so this trusts their output and does not re-dedup. */
 export function buildGlobalIndex(input: GlobalIndexInput): GlobalIndexEntry[] {
-  const { tasks, projects, methods, sequences, currentUser } = input;
+  const { tasks, projects, methods, sequences, inventoryItems, currentUser } = input;
 
   const projectNameByKey = new Map<string, string>();
   for (const p of projects) projectNameByKey.set(`${p.owner}:${p.id}`, p.name);
@@ -203,5 +227,8 @@ export function buildGlobalIndex(input: GlobalIndexInput): GlobalIndexEntry[] {
   for (const p of projects) entries.push(buildProjectEntry(p, currentUser));
   for (const m of methods) entries.push(buildMethodEntry(m, currentUser));
   for (const s of sequences) entries.push(buildSequenceEntry(s));
+  if (INVENTORY_ENABLED) {
+    for (const item of inventoryItems) entries.push(buildInventoryEntry(item));
+  }
   return entries;
 }
