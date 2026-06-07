@@ -24,6 +24,8 @@
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { LoroDoc } from "loro-crdt";
+import { ed25519 } from "@noble/curves/ed25519.js";
+import { bytesToHex } from "@noble/hashes/utils.js";
 import type { SharedUser } from "@/lib/types";
 import { getOrMintCollabDocId } from "./doc-id";
 import { collabSessionFromDocId } from "@/lib/loro/collab/doc-id-session";
@@ -33,7 +35,9 @@ import { getCollabSignerEmail } from "./current-email";
 import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
 import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
 import { canonicalizeEmail } from "@/lib/sharing/directory/email";
-import { COLLAB_RELAY_URL } from "@/lib/loro/config";
+import { buildNotifyInvitePayload } from "@/lib/sharing/directory/signature";
+import { encodePublicKey } from "@/lib/sharing/identity/keys";
+import { EXTERNAL_COLLAB_ENABLED, COLLAB_RELAY_URL } from "@/lib/loro/config";
 
 /** A resolved outside collaborator, the canonical directory email + hex Ed25519
  *  signing pubkey returned by the directory lookup. */
@@ -209,7 +213,64 @@ export async function grantExternalCollab(
     // Push is non-fatal; the grant already succeeded.
   }
 
+  // Optional email nudge (external-collab email notification). The recipient
+  // already has the in-app inbox invite above; this only ADDS an email if the
+  // recipient's published directory preference allows it (the server decides).
+  // Strictly best-effort: an email failure must NEVER fail the grant, so we
+  // await but swallow everything. Gated by the same flag as the rest of the arc.
+  if (EXTERNAL_COLLAB_ENABLED) {
+    try {
+      await notifyInviteEmail({
+        ownerEmail,
+        ownerPubkey: encodePublicKey(signing.publicKey),
+        ownerSigningPrivateKey: signing.privateKey,
+        recipientEmail: canonicalizeEmail(outside.email),
+        noteTitle: title ?? "Untitled note",
+      });
+    } catch {
+      // Email is non-fatal; the grant and inbox push already succeeded.
+    }
+  }
+
   return { ok: true, docId };
+}
+
+/**
+ * Best-effort: asks the server to send the recipient an email NUDGE about the
+ * collaboration invite, IF the recipient opted in (the server reads their
+ * published directory preference). The owner signs the canonical
+ * `notify-invite\n<recipient>\n<title>\n<issuedAt>` bytes so the server can tie
+ * the request to a real directory key. Never throws on a network or server
+ * failure; the caller swallows the result either way.
+ */
+async function notifyInviteEmail(params: {
+  ownerEmail: string;
+  ownerPubkey: string;
+  ownerSigningPrivateKey: Uint8Array;
+  recipientEmail: string;
+  noteTitle: string;
+}): Promise<void> {
+  const issuedAt = new Date().toISOString();
+  const payload = buildNotifyInvitePayload({
+    recipientEmail: params.recipientEmail,
+    noteTitle: params.noteTitle,
+    issuedAt,
+  });
+  const signature = bytesToHex(
+    ed25519.sign(payload, params.ownerSigningPrivateKey),
+  );
+
+  await fetch("/api/collab/notify-invite", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: { email: params.ownerEmail, pubkey: params.ownerPubkey },
+      recipientEmail: params.recipientEmail,
+      noteTitle: params.noteTitle,
+      issuedAt,
+      signature,
+    }),
+  });
 }
 
 // ---------------------------------------------------------------------------

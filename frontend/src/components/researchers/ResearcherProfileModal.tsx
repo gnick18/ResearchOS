@@ -15,10 +15,10 @@
 
 import { useEffect, useState } from "react";
 
-import Link from "next/link";
 import LivingPopup from "@/components/ui/LivingPopup";
 import ProfileCard from "./ProfileCard";
 import { useProfileModal } from "@/lib/sharing/profile-modal-store";
+import { useProfileSettingsModal } from "@/lib/profile/profile-settings-modal-store";
 import {
   type PublishedProfile,
   fetchProfileByFingerprint,
@@ -28,6 +28,7 @@ export default function ResearcherProfileModal() {
   const fingerprint = useProfileModal((s) => s.fingerprint);
   const origin = useProfileModal((s) => s.origin);
   const close = useProfileModal((s) => s.close);
+  const openProfileSettings = useProfileSettingsModal((s) => s.open);
 
   const [profile, setProfile] = useState<PublishedProfile | null | undefined>(
     undefined,
@@ -71,13 +72,17 @@ export default function ResearcherProfileModal() {
             This researcher has not published a profile, or the link is out of
             date.
           </p>
-          <Link
-            href="/settings#researcher-profile"
-            onClick={close}
+          <button
+            type="button"
+            onClick={(e) => {
+              const { clientX: x, clientY: y } = e;
+              close();
+              openProfileSettings({ x, y });
+            }}
             className="mt-4 inline-block text-body font-medium text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
           >
             Set up your own profile
-          </Link>
+          </button>
         </div>
       ) : (
         <ProfileCard profile={profile} />

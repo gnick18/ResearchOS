@@ -329,15 +329,17 @@ export function clearDemoMode(): void {
  *  out" exits cleanly: no fixture mode, no preview mode, no half-state
  *  that survives until they close the tab.
  *
- *  Clears `DEMO_MODE_KEY` plus the wiki-capture fixture flags
- *  (`FORCE_CONTROLS_STICKY_KEY`, `UNLOCK_SESSION_STICKY_KEY`). The
- *  wiki-capture sticky itself is cleared via its own helper path;
- *  the fixture-only flags ride along here since they're guarded by
- *  `isWikiCaptureMode()` and only meaningful while it's active. */
+ *  Clears `DEMO_MODE_KEY`, the `WIKI_CAPTURE_STICKY_KEY` itself, and the
+ *  wiki-capture fixture flags (`FORCE_CONTROLS_STICKY_KEY`,
+ *  `UNLOCK_SESSION_STICKY_KEY`). The wiki-capture sticky is included so a tab
+ *  that picked it up from a `?wikiCapture` URL (and now has a real folder, so
+ *  capture was refused) stops re-triggering capture mode on every navigation.
+ *  Before, that sticky had no clear path and nagged until the tab closed. */
 export function clearAllStickyDemoFlags(): void {
   if (typeof window === "undefined") return;
   const keys: readonly string[] = [
     ...STICKY_DEMO_MODE_KEYS,
+    WIKI_CAPTURE_STICKY_KEY,
     FORCE_CONTROLS_STICKY_KEY,
     UNLOCK_SESSION_STICKY_KEY,
   ];

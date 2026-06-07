@@ -1,6 +1,16 @@
 export const LORO_PILOT_ENABLED = true;
 
 /**
+ * Purchase items on Loro (docs/proposals/PURCHASE_LORO.md). Gates the
+ * Loro-backed field-map model for purchase items (a structured record, not
+ * text). Default OFF and independent of LORO_PILOT_ENABLED, so the foundation
+ * (model + sidecar + handle) stays dormant until the read/write wiring chunks
+ * ship and it is deliberately turned on. When off, openPurchaseDoc skips the
+ * collab adopt path exactly as openTaskDoc gates on LORO_PILOT_ENABLED.
+ */
+export const PURCHASE_LORO_ENABLED = false;
+
+/**
  * External live-collaboration sharing (docs/proposals/EXTERNAL_COLLAB_SHARING.md).
  * Gates the OWNER grant flow that activates the collab DO access lock for an
  * outside ResearchOS user. Default OFF: chunk 2 is owner-side only (no recipient

@@ -164,6 +164,7 @@ export async function POST(request: Request): Promise<Response> {
     orcid: parsed.orcid,
     pinnedWorks: parsed.pinnedWorks,
     hiddenWorks: parsed.hiddenWorks,
+    notifyOnCollabInvite: parsed.notifyOnCollabInvite,
     issuedAt: parsed.issuedAt,
   });
 
@@ -198,6 +199,7 @@ export async function POST(request: Request): Promise<Response> {
     orcid: parsed.orcid,
     pinnedWorks: parsed.pinnedWorks,
     hiddenWorks: parsed.hiddenWorks,
+    notifyOnCollabInvite: parsed.notifyOnCollabInvite,
   });
 
   return json(200, { ok: true });

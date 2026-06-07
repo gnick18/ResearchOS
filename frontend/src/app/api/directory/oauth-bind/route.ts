@@ -138,6 +138,7 @@ export async function POST(request: Request): Promise<Response> {
         orcid: null,
         pinnedWorks: [],
         hiddenWorks: [],
+        notifyOnCollabInvite: true,
       });
     } catch {
       // Profile is best-effort; the user can finish it later in Settings.

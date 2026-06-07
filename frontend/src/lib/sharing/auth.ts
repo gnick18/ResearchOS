@@ -50,6 +50,32 @@ import Google from "next-auth/providers/google";
 import GitHub from "next-auth/providers/github";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
 import LinkedIn from "next-auth/providers/linkedin";
+import Credentials from "next-auth/providers/credentials";
+
+// DEV-ONLY mock provider so the third-party link flow can be exercised on
+// localhost without real OAuth credentials. STRICTLY gated: it only mounts when
+// AUTH_DEV_MOCK=1 AND this is not a production build, so it can never ship. It
+// authorizes any email handed to it (or AUTH_DEV_MOCK_EMAIL) and returns a
+// verified-email session, which is all the sharing-claim flow reads. Real
+// Google/GitHub are wired the same way once their creds exist; this just lets
+// us test passkey-then-link end to end today. (2026-06-07)
+const devMockProvider =
+  process.env.AUTH_DEV_MOCK === "1" && process.env.NODE_ENV !== "production"
+    ? [
+        Credentials({
+          id: "devmock",
+          name: "Dev mock sign-in",
+          credentials: { email: {} },
+          authorize(creds) {
+            const email =
+              (typeof creds?.email === "string" && creds.email.trim()) ||
+              process.env.AUTH_DEV_MOCK_EMAIL ||
+              "dev@researchos.test";
+            return { id: email, email, name: email.split("@")[0] };
+          },
+        }),
+      ]
+    : [];
 
 // Extend the built-in Session type with our custom fields so TypeScript knows
 // that session.orcidId and session.provider are valid accesses.
@@ -113,7 +139,7 @@ const orcidProvider = process.env.AUTH_ORCID_ID
   : [];
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  providers: [Google, GitHub, LinkedIn, ...microsoftEntra, ...orcidProvider],
+  providers: [Google, GitHub, LinkedIn, ...microsoftEntra, ...orcidProvider, ...devMockProvider],
   session: { strategy: "jwt" },
   trustHost: true,
   callbacks: {

@@ -2042,6 +2042,14 @@ export interface Event {
    *  push back into events. Optional / nullable for backward compat with
    *  pre-S5 event records. */
   is_pto?: boolean | null;
+  /** Optional link to a task. `task_id` is the numeric id in the owner's
+   *  namespace; `task_owner` is that owner's username, so the pair forms the
+   *  composite "<owner>:<id>" key (matching `taskKey`) and resolves correctly
+   *  for shared tasks. Both null/absent means the event is not linked. Same
+   *  cross-owner linkage convention as purchase items and task notifications.
+   *  Optional / nullable for backward compat with pre-link event records. */
+  task_id?: number | null;
+  task_owner?: string | null;
 }
 
 export interface EventCreate {
@@ -2056,6 +2064,8 @@ export interface EventCreate {
   notes?: string | null;
   color?: string | null;
   is_pto?: boolean | null;
+  task_id?: number | null;
+  task_owner?: string | null;
 }
 
 export interface EventUpdate {
@@ -2070,6 +2080,8 @@ export interface EventUpdate {
   notes?: string | null;
   color?: string | null;
   is_pto?: boolean | null;
+  task_id?: number | null;
+  task_owner?: string | null;
 }
 
 // ── External Calendar Feeds (Google/Outlook/iCloud via ICS) ──

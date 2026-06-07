@@ -30,7 +30,7 @@ import { evaluateUnlockMatch } from "@/lib/sharing/identity/unlock-match";
 import { GoogleIcon, GitHubIcon, LinkedInIcon } from "@/components/sharing/icons";
 import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
 import { startSharingClaimOAuth } from "@/lib/sharing/claim-oauth";
-import { isOAuthPublishAvailable } from "@/lib/sharing/oauth-availability";
+import { isOAuthPublishAvailable, isRealSharingEnabled } from "@/lib/sharing/oauth-availability";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
 import CreateLocalIdentityStep from "@/components/sharing/CreateLocalIdentityStep";
 import {
@@ -1437,7 +1437,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   would dead-end at /api/auth/error and the extra height shoved the
                   card into the fixed beta notice + footer. Hidden there. The
                   notebook works fully without any account regardless. */}
-              {isOnline && isOAuthPublishAvailable() && (
+              {isOnline && isRealSharingEnabled() && (
                 <div className="mt-6">
                   <div className="relative mb-4">
                     <div className="absolute inset-0 flex items-center">

@@ -251,6 +251,14 @@ export interface DirectoryProfile {
   orcid: string | null;
   pinnedWorks: string[];
   hiddenWorks: string[];
+  /**
+   * Whether the user wants an email nudge when invited to collaborate. Stored so
+   * the notify-invite route can read the recipient's preference at send time
+   * (the sender triggers the email, the recipient's preference decides whether
+   * it goes out). Defaults to true; an old row predating the column reads as
+   * true via the column default below.
+   */
+  notifyOnCollabInvite: boolean;
   updatedAt?: string;
 }
 
@@ -293,6 +301,9 @@ export async function ensureProfileSchema(): Promise<void> {
   // Additive migrations for columns that may not exist on older tables.
   await sql`ALTER TABLE directory_profiles ADD COLUMN IF NOT EXISTS hidden_works text`;
   await sql`ALTER TABLE directory_profiles ADD COLUMN IF NOT EXISTS pinned_works text`;
+  // notify_on_collab_invite defaults to true so any row that predates the column
+  // reads as opted-in, which is the backward-safe default for the preference.
+  await sql`ALTER TABLE directory_profiles ADD COLUMN IF NOT EXISTS notify_on_collab_invite boolean NOT NULL DEFAULT true`;
 }
 
 /**
@@ -305,19 +316,21 @@ export async function upsertProfile(profile: DirectoryProfile): Promise<void> {
   await sql`
     INSERT INTO directory_profiles
       (fingerprint, display_name, affiliation, affiliation_domain, orcid,
-       hidden_works, pinned_works, updated_at)
+       hidden_works, pinned_works, notify_on_collab_invite, updated_at)
     VALUES
       (${profile.fingerprint}, ${profile.displayName}, ${profile.affiliation},
        ${profile.affiliationDomain}, ${profile.orcid},
-       ${profile.hiddenWorks.join(",")}, ${profile.pinnedWorks.join(",")}, now())
+       ${profile.hiddenWorks.join(",")}, ${profile.pinnedWorks.join(",")},
+       ${profile.notifyOnCollabInvite}, now())
     ON CONFLICT (fingerprint) DO UPDATE SET
-      display_name       = EXCLUDED.display_name,
-      affiliation        = EXCLUDED.affiliation,
-      affiliation_domain = EXCLUDED.affiliation_domain,
-      orcid              = EXCLUDED.orcid,
-      hidden_works       = EXCLUDED.hidden_works,
-      pinned_works       = EXCLUDED.pinned_works,
-      updated_at         = now()
+      display_name            = EXCLUDED.display_name,
+      affiliation             = EXCLUDED.affiliation,
+      affiliation_domain      = EXCLUDED.affiliation_domain,
+      orcid                   = EXCLUDED.orcid,
+      hidden_works            = EXCLUDED.hidden_works,
+      pinned_works            = EXCLUDED.pinned_works,
+      notify_on_collab_invite = EXCLUDED.notify_on_collab_invite,
+      updated_at              = now()
   `;
 }
 
@@ -353,6 +366,7 @@ export async function searchProfiles(
       p.orcid,
       p.hidden_works,
       p.pinned_works,
+      p.notify_on_collab_invite,
       p.updated_at,
       i.x25519_pub,
       i.ed25519_pub
@@ -374,6 +388,7 @@ export async function searchProfiles(
     orcid: string | null;
     hidden_works: string | null;
     pinned_works: string | null;
+    notify_on_collab_invite: boolean | null;
     updated_at: string;
     x25519_pub: string;
     ed25519_pub: string;
@@ -387,6 +402,7 @@ export async function searchProfiles(
     orcid: r.orcid,
     hiddenWorks: splitCodes(r.hidden_works),
     pinnedWorks: splitCodes(r.pinned_works),
+    notifyOnCollabInvite: r.notify_on_collab_invite ?? true,
     updatedAt: r.updated_at,
     x25519PublicKey: r.x25519_pub,
     ed25519PublicKey: r.ed25519_pub,
@@ -404,7 +420,7 @@ export async function getProfileByFingerprint(
   const sql = getSql();
   const rows = (await sql`
     SELECT fingerprint, display_name, affiliation, affiliation_domain, orcid,
-           hidden_works, pinned_works, updated_at
+           hidden_works, pinned_works, notify_on_collab_invite, updated_at
     FROM directory_profiles
     WHERE fingerprint = ${fp}
     LIMIT 1
@@ -416,6 +432,7 @@ export async function getProfileByFingerprint(
     orcid: string | null;
     hidden_works: string | null;
     pinned_works: string | null;
+    notify_on_collab_invite: boolean | null;
     updated_at: string;
   }>;
   if (rows.length === 0) return null;
@@ -428,6 +445,9 @@ export async function getProfileByFingerprint(
     orcid: r.orcid,
     hiddenWorks: splitCodes(r.hidden_works),
     pinnedWorks: splitCodes(r.pinned_works),
+    // A null (column absent on a very old row before the migration ran) reads as
+    // the default true.
+    notifyOnCollabInvite: r.notify_on_collab_invite ?? true,
     updatedAt: r.updated_at,
   };
 }

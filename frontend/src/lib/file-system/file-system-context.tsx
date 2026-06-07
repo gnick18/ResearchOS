@@ -20,7 +20,7 @@ import { clearCurrentUserCache } from "../storage/json-store";
 import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./user-discovery";
 import { readUserSettings, patchUserSettings, userSettingsFileExists, DEFAULT_SETTINGS } from "../settings/user-settings";
 import { useAppStore, readLegacyLocalStorageSettings } from "../store";
-import { getWikiCaptureVariant, getDemoMode, markDemoMode, installWikiCaptureFixture, resolveFixtureUser } from "./wiki-capture-mock";
+import { getWikiCaptureVariant, getDemoMode, markDemoMode, installWikiCaptureFixture, resolveFixtureUser, clearAllStickyDemoFlags } from "./wiki-capture-mock";
 import { rebaseDemoDates, isDemoLab } from "../demo/rebase";
 import { appQueryClient } from "../query-client";
 import { FEED_EVENTS_PREFIX } from "../calendar/feed-cache-keys";
@@ -557,6 +557,15 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
               // watches this flag. This is the only place it is ever set, so
               // it never fires in normal use, true fixture installs, or /demo.
               setState((prev) => ({ ...prev, captureRefused: true }));
+              // Drop the stale sticky capture flags now. A real folder is
+              // present, so this tab is definitively NOT a capture/demo tab.
+              // Without this, the wiki-capture sticky set by getWikiCaptureVariant
+              // persists for the whole tab session: every navigation re-fires
+              // this banner, AND the per-tab demo isolation (isDemoTab keys off
+              // the same sticky) would mask the real folder. Clearing here, before
+              // the fall-through reconnect, un-masks the real folder this load and
+              // stops the nag on the next navigation. (2026-06-07)
+              clearAllStickyDemoFlags();
               // Fall through to the normal stored-handle reconnect path
               // below by NOT entering the fixture branch.
             } else {
