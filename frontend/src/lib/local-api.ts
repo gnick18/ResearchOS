@@ -4704,9 +4704,9 @@ export const notebooksApi = {
   /**
    * Add a member to a notebook (notebooks-gen Phase 1, the locked "promotion
    * flip"). Recomputes `shared_with = membersSharedWith(members)` on the
-   * notebook (mirrored to every member folder), THEN re-stamps EVERY note and
-   * weekly task currently carrying this `notebook_id` with the new share list,
-   * so the notebook's existing contents become shared with the new member.
+   * notebook (mirrored to every member folder), THEN re-stamps EVERY note
+   * currently carrying this `notebook_id` with the new share list, so the
+   * notebook's existing contents become shared with the new member.
    * Items live in their author's folder, so we route each re-stamp to that
    * owner. The confirm-dialog warning is a Phase 2/UI concern. Returns the
    * updated notebook, or null if the notebook can't be found. No-op (returns the

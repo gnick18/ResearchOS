@@ -9,7 +9,7 @@ import type { SharedNotebook } from "@/lib/types";
 // docs/proposals/SHARED_NOTEBOOKS_PROPOSAL.md.
 //
 // The SETUP flow: a small modal that lets the current user (PI or member, no
-// role gate) start a shared 1:1 notebook with another lab member. The roster
+// role gate) start a shared notebook with another lab member. The roster
 // comes from `usersApi.list()` (the same active-member list the share dialog
 // uses, archived + deleted users already filtered out); the current user is
 // excluded so a notebook is always between two DISTINCT people. On confirm we
@@ -18,7 +18,7 @@ import type { SharedNotebook } from "@/lib/types";
 // their own Notes page.
 
 interface StartSharedNotebookDialogProps {
-  /** Usernames that already have a 1:1 notebook with the current user, so the
+  /** Usernames that already have a shared notebook with the current user, so the
    *  picker can flag a duplicate before the user creates a second one. */
   existingPartners: Set<string>;
   onClose: () => void;
@@ -144,8 +144,8 @@ export default function StartSharedNotebookDialog({
                 Start a shared notebook
               </h2>
               <p className="text-meta text-foreground-muted">
-                A private 1:1 space for notes and weekly tasks, shared with one
-                lab member.
+                A shared place for notes, shared with one or more lab
+                members.
               </p>
             </div>
           </div>
@@ -195,7 +195,7 @@ export default function StartSharedNotebookDialog({
             {alreadyHas && (
               <p className="text-meta text-amber-600">
                 You already share a notebook with {selected}. Creating another
-                makes a second, separate 1:1 space.
+                makes a second, separate shared notebook.
               </p>
             )}
           </div>
@@ -212,7 +212,7 @@ export default function StartSharedNotebookDialog({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder={selected ? `1:1 with ${selected}` : "e.g. Thesis 1:1"}
+              placeholder={selected ? `Shared with ${selected}` : "e.g. Thesis notes"}
               data-testid="notebook-title-input"
               className="w-full rounded-lg border border-border px-3 py-2 text-body focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
             />
