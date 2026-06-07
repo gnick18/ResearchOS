@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Translation amino-acid box - tip options</title>
+<style>
+  :root{ --line:#e2e8f0; --ink:#0f172a; --muted:#64748b; --sky:#0284c7; }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:#f1f5f9;padding:24px}
+  .wrap{max-width:920px;margin:0 auto}
+  h1{font-size:20px;margin:0 0 4px}
+  .lede{color:var(--muted);margin:0 0 18px;max-width:720px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 18px 18px;margin-bottom:14px}
+  .card h2{font-size:15px;margin:0 0 2px}
+  .card .sub{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+  .pick{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--sky);margin-left:8px}
+  svg{display:block;background:#fafbfc;border:1px solid var(--line);border-radius:8px}
+  .aa{font:13px ui-monospace,Menlo,monospace;font-weight:700;fill:#1f2937}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Translation amino-acid box, tip options</h1>
+  <p class="lede">Each amino acid is drawn as a box with a directional tip. Today it is a fixed sharp chevron with a notched left edge that interlocks (option A). Here are cleaner treatments at the same zoom. Two AA colors shown so you can see how the tips read in a run. Pick a letter.</p>
+
+  <div class="card">
+    <h2>A. Current, sharp interlocking chevron</h2>
+    <p class="sub">Fixed 3px point on the right, a matching 3px notch on the left so boxes interlock. The fixed size reads sharp/jagged when zoomed.</p>
+    <svg id="A" width="600" height="40"></svg>
+  </div>
+
+  <div class="card">
+    <h2>B. Subtle chevron, proportional<span class="pick">recommended</span></h2>
+    <p class="sub">A gentler tip scaled to the box height, still interlocking and directional, just calmer.</p>
+    <svg id="B" width="600" height="40"></svg>
+  </div>
+
+  <div class="card">
+    <h2>C. Flat rounded boxes, one arrowhead at the run end</h2>
+    <p class="sub">Each amino acid is a clean rounded rectangle; a single arrowhead caps the whole run to show direction. Calmest, most SnapGene-like.</p>
+    <svg id="C" width="600" height="40"></svg>
+  </div>
+
+  <div class="card">
+    <h2>D. Rounded chevron tip</h2>
+    <p class="sub">Same interlocking chevron as A but with softened (rounded) points instead of hard corners.</p>
+    <svg id="D" width="600" height="40"></svg>
+  </div>
+
+  <p class="lede">Reply A, B, C, or D. Then I tune <code>genPath</code> in the SeqViz translation renderer to match.</p>
+</div>
+
+<script>
+  var COLORS = ["#bfdbfe","#bbf7d0","#fde68a","#ddd6fe","#fbcfe8","#a7f3d0"];
+  var LET = ["T","G","S","K","L","V"];
+  var W=80, H=24, Y=8, N=6; // box width, height, top y, count
+
+  function chevron(w,h,tip){ // right point + left notch, both = tip
+    return "M0 0 L"+w+" 0 L"+(w+tip)+" "+(h/2)+" L"+w+" "+h+" L0 "+h+" L"+tip+" "+(h/2)+" Z";
+  }
+  function roundedRect(w,h,r){
+    return "M"+r+" 0 H"+(w-r)+" Q"+w+" 0 "+w+" "+r+" V"+(h-r)+" Q"+w+" "+h+" "+(w-r)+" "+h+" H"+r+" Q0 "+h+" 0 "+(h-r)+" V"+r+" Q0 0 "+r+" 0 Z";
+  }
+  function roundedChevron(w,h,tip){
+    // chevron with quadratic-softened points
+    return "M2 0 H"+(w-1)+" Q"+(w+tip)+" "+(h/2)+" "+(w-1)+" "+h+" H2 Q"+(tip)+" "+(h/2)+" 2 0 Z";
+  }
+  function place(svgId, kind){
+    var svg=document.getElementById(svgId); var ns="http://www.w3.org/2000/svg";
+    for(var i=0;i<N;i++){
+      var g=document.createElementNS(ns,"g"); g.setAttribute("transform","translate("+(20+i*W)+","+Y+")");
+      var p=document.createElementNS(ns,"path");
+      if(kind==="A") p.setAttribute("d",chevron(W,H,3));
+      else if(kind==="B") p.setAttribute("d",chevron(W,H,H*0.32));
+      else if(kind==="C") p.setAttribute("d",roundedRect(W-2,H,5));
+      else p.setAttribute("d",roundedChevron(W,H,H*0.32));
+      p.setAttribute("fill",COLORS[i%COLORS.length]);
+      p.setAttribute("stroke","rgba(0,0,0,.18)"); p.setAttribute("stroke-width","1");
+      g.appendChild(p);
+      var t=document.createElementNS(ns,"text"); t.setAttribute("x",W/2); t.setAttribute("y",H/2+4);
+      t.setAttribute("text-anchor","middle"); t.setAttribute("class","aa"); t.textContent=LET[i%LET.length];
+      g.appendChild(t);
+      svg.appendChild(g);
+    }
+    if(kind==="C"){ // a single arrowhead capping the run
+      var ah=document.createElementNS(ns,"path");
+      ah.setAttribute("transform","translate("+(20+N*W)+","+Y+")");
+      ah.setAttribute("d","M-2 0 L"+(H*0.55)+" "+(H/2)+" L-2 "+H+" Z");
+      ah.setAttribute("fill","#94a3b8");
+      svg.appendChild(ah);
+    }
+  }
+  place("A","A"); place("B","B"); place("C","C"); place("D","D");
+</script>
+</body>
+</html>
