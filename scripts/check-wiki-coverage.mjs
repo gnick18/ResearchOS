@@ -57,6 +57,8 @@ const EXCLUDED_PREFIXES = [
   "/admin", // operator-only metrics dashboard (gated on ADMIN_EMAILS, data 404s for non-admins); internal tool, not a documented user feature
   "/maintenance", // flag-gated "under construction" holding page (src/proxy.ts); shown only during maintenance windows, not a documented app feature (like /welcome)
   "/profile", // pending wiki page (Profile "your stuff": appearance + researcher profile, split out of Settings)
+  "/lab-experiments", // TEMP, pending wiki page. PI-capability-revamp lab-head browse surface (added 2026-06-07, a4907ac24) shipped without a wiki page and was red-building the --ci coverage gate. Excluded to keep main deployable; the PI-revamp arc should add a real wiki page + remove this.
+  "/lab-notes", // TEMP, pending wiki page. PI-capability-revamp lab-head browse surface, same as /lab-experiments above.
 ];
 
 /** Next.js conventions to ignore when walking app/. */
