@@ -1,7 +1,8 @@
 # Identity, simplified: your profile is your account
 
-Status: proposed, awaiting sign-off (supersedes the password half of
-IDENTITY_MODEL_SIMPLIFICATION.md and reshapes PASSKEY_IDENTITY_UNLOCK.md)
+Status: decisions locked 2026-06-06, awaiting go-ahead to build (supersedes the
+password half of IDENTITY_MODEL_SIMPLIFICATION.md and reshapes
+PASSKEY_IDENTITY_UNLOCK.md)
 Author: HR (orchestrator)
 Date: 2026-06-06
 
@@ -49,8 +50,8 @@ recovery code is the lifeboat. Three doors to one key, no password.
 ## What gets retired
 
 - `_auth.json` (legacy password hash) and all readers.
-- `_account.json`'s password door. The file (or its successor) keeps only the
-  recovery and passkey blobs, no `passwordBlob`.
+- `_account.json` entirely. Its recovery + passkey blobs fold into the single
+  per-user sharing identity sidecar (no `passwordBlob`, no second file).
 - `frontend/src/lib/auth/local-identity.ts` `createLocalAccount` /
   `unlockWithPassword` / `changePassword` password paths, and
   `frontend/src/lib/auth/login-policy.ts` if `folderRequiresLogin` collapses
@@ -74,8 +75,8 @@ key, unlock with passkey, or sign in with OAuth."
   the directory, writes the encrypted key backup (recovery + passkey envelope),
   enrolls a passkey, and stores the key locally. One keypair from here on.
 - **Everyday open / switch user (same device, offline ok).** Pick your user,
-  the passkey ceremony unwraps the local key. No passkey enrolled or it fails,
-  fall back to OAuth re-login (you already have the profile).
+  the passkey ceremony unwraps the local key. No passkey or it fails, fall back
+  to OAuth re-login when online, or type the recovery code when offline.
 - **New device / lost device.** OAuth proves the email, the directory hands back
   the encrypted key backup, the passkey (if synced via the platform keychain) or
   the recovery code unwraps it, the key lands on the new device.
@@ -127,10 +128,13 @@ are dropped, the user re-establishes a profile. No production users to migrate
 4. Change-linked-email rebind (chunk 5).
 5. Verify, Grant tests the live passkey + OAuth flows (not headless-drivable).
 
-## Open questions
+## Locked decisions (Grant, 2026-06-06)
 
-- The no-passkey, no-network case on a shared machine, is OAuth re-login an
-  acceptable everyday fallback, or do we want the recovery code there too?
-- Do we keep a single `_account.json`-style local file for the recovery + passkey
-  blobs, or fold those into the existing sharing sidecar so there is literally
-  one identity file per user?
+- **Offline fallback = recovery code.** Everyday unlock is the passkey. When the
+  passkey is unavailable AND there is no network (shared lab machine, offline),
+  the user can still unlock by typing their recovery code. OAuth re-login remains
+  the path when online; the recovery code is the offline escape hatch.
+- **One identity file per user.** Fold the recovery + passkey blobs into the
+  existing sharing identity sidecar, there is literally one identity file on disk
+  per user. No separate `_account.json`. This is the cleaner end state and worth
+  the extra refactor.
