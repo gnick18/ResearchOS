@@ -15,7 +15,18 @@ ontology data-model project (see STRUCTURED_ROI_ONTOLOGY.md).
   editor over a fake data-URI plate image; `?wikiCapture=1` makes Save use the
   in-memory mock so testing never writes to the real folder.
 
-## Approved, not yet built
+## Built (3bd67b1de, 2026-06-07; needs a live pass on /dev/annotate-demo)
+
+- **Zoom + pan.** Viewport-sized stage + controlled view {zoom,x,y}; pinch /
+  ctrl+wheel zooms toward the cursor and blocks native page zoom (non-passive
+  wheel listener), two-finger scroll pans; floating -, % (Fit), + control;
+  recenters on load/resize. Drawing uses getRelativePointerPosition so it stays
+  accurate at any zoom/pan.
+- **Polygon tool.** Additive AnnotationShape "polygon" + shapeToSvgElements
+  branch (renders on every surface via AnnotatedImage); click to place vertices,
+  Enter / click-near-start closes, Escape cancels, dashed rubber band.
+
+## Approved, the original detail (kept for reference)
 
 1. **Zoom + pan (APPROVED 2026-06-07).** Smooth zoom and pan on the image inside
    the editor.
