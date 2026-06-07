@@ -1005,5 +1005,181 @@
 </footer>
 
 </main>
+
+<!-- ====== REVIEW LAYER (added so feedback can be captured in-page) ====== -->
+<style>
+  .audit-controls { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 8px; }
+  .audit-status { display: flex; gap: 6px; }
+  .audit-status button {
+    flex: 1; border: 1px solid var(--line); background: #fff; color: var(--slate);
+    font-weight: 700; font-size: 12px; padding: 6px 0; border-radius: 7px; cursor: pointer;
+  }
+  .audit-status button[data-v="good"].on { background: #ecfdf5; border-color: #6ee7b7; color: #047857; }
+  .audit-status button[data-v="bad"].on  { background: #fff1f2; border-color: #fda4af; color: #be123c; }
+  .audit-note {
+    width: 100%; min-height: 38px; resize: vertical; border: 1px solid var(--line);
+    border-radius: 7px; padding: 6px 8px; font: inherit; font-size: 12.5px; color: var(--ink);
+  }
+  .audit-note:focus { outline: 2px solid var(--sky); outline-offset: 0; }
+  .card.is-good { border-color: #6ee7b7; box-shadow: inset 3px 0 0 #10b981; }
+  .card.is-bad  { border-color: #fda4af; box-shadow: inset 3px 0 0 #e11d48; }
+
+  .audit-bar {
+    position: fixed; right: 16px; bottom: 16px; z-index: 50;
+    background: #0f172a; color: #e2e8f0; border-radius: 12px; padding: 10px 12px;
+    box-shadow: 0 16px 40px rgba(15,40,80,.35); display: flex; align-items: center; gap: 10px;
+    font-size: 13px;
+  }
+  .audit-bar .count { font-weight: 700; white-space: nowrap; }
+  .audit-bar .count b.bad { color: #fca5a5; } .audit-bar .count b.good { color: #6ee7b7; }
+  .audit-bar button {
+    border: 0; border-radius: 8px; padding: 7px 11px; font-weight: 700; font-size: 12.5px; cursor: pointer;
+    background: #1e293b; color: #e2e8f0;
+  }
+  .audit-bar button.primary { background: var(--sky); color: #fff; }
+  .audit-bar button.danger { background: transparent; color: #94a3b8; }
+  .audit-toast {
+    position: fixed; right: 16px; bottom: 70px; z-index: 51; background: #047857; color: #fff;
+    padding: 9px 14px; border-radius: 9px; font-weight: 700; font-size: 13px; opacity: 0;
+    transform: translateY(6px); transition: opacity .15s, transform .15s; pointer-events: none;
+  }
+  .audit-toast.show { opacity: 1; transform: translateY(0); }
+</style>
+<div class="audit-toast" id="auditToast"></div>
+<script>
+(function () {
+  var STORAGE_KEY = "seq-icon-audit-feedback-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch (e) { return {}; } }
+  function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  var state = load();
+
+  var cards = Array.prototype.slice.call(document.querySelectorAll(".card"));
+  function sectionOf(card) {
+    var sec = card.closest("section");
+    var h = sec ? sec.querySelector("h2") : null;
+    return h ? h.textContent.trim() : "";
+  }
+  function applyStatus(card, ctr, status) {
+    card.classList.toggle("is-good", status === "good");
+    card.classList.toggle("is-bad", status === "bad");
+    ctr.querySelectorAll("[data-v]").forEach(function (b) { b.classList.toggle("on", b.dataset.v === status); });
+  }
+
+  cards.forEach(function (card, i) {
+    var nameEl = card.querySelector(".name");
+    var name = nameEl ? nameEl.textContent.replace(/\s+/g, " ").trim() : "Icon " + i;
+    var section = sectionOf(card);
+    var key = i + "::" + name;
+    var rec = state[key] || {};
+
+    var ctr = document.createElement("div");
+    ctr.className = "audit-controls";
+    ctr.innerHTML =
+      '<div class="audit-status"><button type="button" data-v="good">Good</button>' +
+      '<button type="button" data-v="bad">Bad</button></div>' +
+      '<textarea class="audit-note" placeholder="Notes (what reads wrong, or what it should be)"></textarea>';
+    card.appendChild(ctr);
+
+    var noteEl = ctr.querySelector(".audit-note");
+    noteEl.value = rec.note || "";
+    applyStatus(card, ctr, rec.status);
+
+    ctr.querySelectorAll("[data-v]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var cur = (state[key] || {}).status;
+        var next = cur === b.dataset.v ? "" : b.dataset.v;
+        state[key] = Object.assign({}, state[key], { status: next, name: name, section: section });
+        save(); applyStatus(card, ctr, next); updateBar();
+      });
+    });
+    noteEl.addEventListener("input", function () {
+      state[key] = Object.assign({}, state[key], { note: noteEl.value, name: name, section: section });
+      save(); updateBar();
+    });
+  });
+
+  function records() {
+    return Object.keys(state).map(function (k) { return state[k]; }).filter(Boolean);
+  }
+  function counts() {
+    var r = records(), bad = 0, good = 0, noted = 0;
+    r.forEach(function (x) {
+      if (x.status === "bad") bad++;
+      else if (x.status === "good") good++;
+      if (x.note && x.note.trim()) noted++;
+    });
+    return { bad: bad, good: good, noted: noted, total: cards.length };
+  }
+  function buildText() {
+    var bad = [], notedOnly = [], good = [];
+    Object.keys(state).forEach(function (k) {
+      var x = state[k]; if (!x) return;
+      var label = (x.section ? x.section + " · " : "") + (x.name || k.split("::")[1] || k);
+      var note = (x.note || "").trim();
+      if (x.status === "bad") bad.push("[BAD]  " + label + (note ? " - " + note : ""));
+      else if (x.status === "good") good.push(label + (note ? " (" + note + ")" : ""));
+      else if (note) notedOnly.push("[NOTE] " + label + " - " + note);
+    });
+    var c = counts();
+    var NL = String.fromCharCode(10);
+    var nw = bad.concat(notedOnly);
+    return [
+      "SEQUENCES ICON AUDIT - feedback",
+      "Bad " + c.bad + " | Good " + c.good + " | Noted " + c.noted + " of " + c.total + " icons",
+      "",
+      "== NEEDS WORK ==",
+      nw.length ? nw.join(NL) : "(none)",
+      "",
+      "== MARKED GOOD ==",
+      good.length ? good.join(NL) : "(none)"
+    ].join(NL);
+  }
+  function toast(msg) {
+    var t = document.getElementById("auditToast");
+    t.textContent = msg; t.classList.add("show");
+    setTimeout(function () { t.classList.remove("show"); }, 1600);
+  }
+
+  var bar = document.createElement("div");
+  bar.className = "audit-bar";
+  bar.innerHTML =
+    '<span class="count" id="auditCount"></span>' +
+    '<button type="button" class="primary" id="auditCopy">Copy feedback</button>' +
+    '<button type="button" id="auditDownload">Download .md</button>' +
+    '<button type="button" class="danger" id="auditClear">Clear</button>';
+  document.body.appendChild(bar);
+
+  function updateBar() {
+    var c = counts();
+    document.getElementById("auditCount").innerHTML =
+      '<b class="bad">' + c.bad + ' bad</b> &middot; <b class="good">' + c.good + ' good</b> &middot; ' + c.noted + ' noted';
+  }
+  document.getElementById("auditCopy").addEventListener("click", function () {
+    var text = buildText();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { toast("Feedback copied, paste it into the chat"); },
+        function () { window.prompt("Copy this feedback:", text); });
+    } else { window.prompt("Copy this feedback:", text); }
+  });
+  document.getElementById("auditDownload").addEventListener("click", function () {
+    var blob = new Blob([buildText()], { type: "text/markdown" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "sequences-icon-feedback.md";
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+  document.getElementById("auditClear").addEventListener("click", function () {
+    if (!window.confirm("Clear all your marks and notes on this page?")) return;
+    state = {}; save();
+    document.querySelectorAll(".card").forEach(function (card) {
+      card.classList.remove("is-good", "is-bad");
+      var ta = card.querySelector(".audit-note"); if (ta) ta.value = "";
+      card.querySelectorAll("[data-v]").forEach(function (b) { b.classList.remove("on"); });
+    });
+    updateBar(); toast("Cleared");
+  });
+
+  updateBar();
+})();
+</script>
 </body>
 </html>
