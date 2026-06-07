@@ -24,7 +24,26 @@ import {
 } from "@/lib/billing/config";
 import { ownerKeyForEmail } from "@/lib/billing/owner";
 import { ensureBillingSchema, getSubscription } from "@/lib/billing/db";
+import { INDIVIDUAL_PLANS, planOrFree } from "@/lib/billing/plans";
+import { ensureOpsSchema, opsSince } from "@/lib/billing/ops";
 import { getOwnerUsage, getOwnerQuotaBytes } from "@/lib/collab/server/db";
+
+/** Plan catalog shape the UI renders the picker + activity bar from. */
+const planCatalog = INDIVIDUAL_PLANS.map((p) => ({
+  id: p.id,
+  name: p.name,
+  storageBytes: p.storageBytes,
+  activityWritesPerMonth: p.activityWritesPerMonth,
+  priceCents: p.priceCents,
+}));
+
+/** First day of the current month, YYYY-MM-DD, for the activity window. */
+function monthStartISO(): string {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1)
+    .toISOString()
+    .slice(0, 10);
+}
 
 export const runtime = "nodejs";
 
@@ -71,11 +90,18 @@ export async function GET(): Promise<Response> {
     }
 
     await ensureBillingSchema();
+    await ensureOpsSchema();
     const sub = await getSubscription(ownerKey);
     const active = sub?.status === "active";
-    const capBytes = active
-      ? Math.max(FREE_ALLOWANCE_BYTES, sub?.capBytes ?? FREE_ALLOWANCE_BYTES)
-      : FREE_ALLOWANCE_BYTES;
+    // Flat-plan model: storage cap + activity allowance come from the plan.
+    const plan = planOrFree(active ? sub?.planId : "free", "individual");
+    const capBytes = Math.max(FREE_ALLOWANCE_BYTES, plan.storageBytes);
+
+    // This month's activity (write ops) against the plan allowance.
+    const monthOps = await opsSince(ownerKey, monthStartISO()).catch(() => ({
+      writes: 0,
+      writtenBytes: 0,
+    }));
 
     return json(200, {
       enabled: true,
@@ -85,9 +111,15 @@ export async function GET(): Promise<Response> {
       freeBytes: FREE_ALLOWANCE_BYTES,
       capBytes,
       quotaBytes: capBytes,
+      // Flat-plan fields.
+      planId: plan.id,
+      planName: plan.name,
+      plans: planCatalog,
+      activityWrites: monthOps.writes,
+      activityAllowance: plan.activityWritesPerMonth,
+      // Metered fields kept for the a-la-carte comparison anchor in the UI.
       rateCents: Math.round(STORAGE_RATE_USD_PER_GB_MONTH * 100),
       minChargeCents: MIN_MONTHLY_CHARGE_CENTS,
-      // Running estimate if this month's usage holds at the current level.
       estimatedChargeCents: monthlyChargeCents(usedBytes),
       capOptions,
     });

@@ -18,8 +18,10 @@ import {
   claimEvent,
   ensureBillingSchema,
   getSubscriptionByStripeId,
+  setPlan,
   upsertSubscription,
 } from "@/lib/billing/db";
+import { getPlan } from "@/lib/billing/plans";
 import { getStripe, getWebhookSecret } from "@/lib/billing/stripe";
 import { formatUSD } from "@/lib/business/calc";
 import {
@@ -46,15 +48,23 @@ async function syncSubscription(sub: Stripe.Subscription): Promise<void> {
     ownerKey = existing?.ownerKey ?? null;
   }
   if (!ownerKey) return; // cannot attribute, skip
-  // The metered subscription has one item; usage is reported against its id.
   const stripeItemId = sub.items.data[0]?.id ?? null;
+  const status = normalizeStatus(sub.status);
   await upsertSubscription({
     ownerKey,
     stripeCustomerId: typeof sub.customer === "string" ? sub.customer : sub.customer.id,
     stripeSubscriptionId: sub.id,
     stripeItemId,
-    status: normalizeStatus(sub.status),
+    status,
   });
+  // Flat-plan model: record which plan this subscription is for, from the
+  // metadata the checkout set. A canceled/ended subscription reverts to free.
+  const planId = sub.metadata?.planId;
+  if (status === "active" && planId && getPlan(planId)) {
+    await setPlan(ownerKey, planId);
+  } else if (status !== "active") {
+    await setPlan(ownerKey, "free");
+  }
 }
 
 export async function POST(request: Request): Promise<Response> {

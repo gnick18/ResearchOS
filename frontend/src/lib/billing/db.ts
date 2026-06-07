@@ -18,6 +18,7 @@ import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 
 import { FREE_ALLOWANCE_BYTES } from "./config";
 import { getSponsoringLab } from "./lab";
+import { getPlan } from "./plans";
 
 let sqlSingleton: NeonQueryFunction<false, false> | null = null;
 
@@ -52,6 +53,11 @@ export async function ensureBillingSchema(): Promise<void> {
   // The monthly report bills such an owner on the lab aggregate, not their own
   // usage, against the pooled free tier.
   await sql`ALTER TABLE billing_subscriptions ADD COLUMN IF NOT EXISTS lab_billing boolean not null default false`;
+  // plan_id is the flat bundle plan an account is on (Grant 2026-06-07). It
+  // drives the storage cap + activity allowance and replaces the per-GB metered
+  // model. Defaults to the free plan, so an account is never on a paid plan
+  // without choosing one. cap_bytes is kept for legacy/anchor reference only.
+  await sql`ALTER TABLE billing_subscriptions ADD COLUMN IF NOT EXISTS plan_id text not null default 'free'`;
   await sql`
     CREATE TABLE IF NOT EXISTS billing_usage_samples (
       owner_key text not null,
@@ -91,6 +97,8 @@ export interface SubscriptionRecord {
   capBytes: number;
   status: string;
   labBilling: boolean;
+  /** The flat bundle plan the account is on (drives storage + activity). */
+  planId: string;
 }
 
 type SubRow = {
@@ -101,6 +109,7 @@ type SubRow = {
   cap_bytes: string | number;
   status: string;
   lab_billing: boolean | null;
+  plan_id: string | null;
 };
 
 function rowToSub(r: SubRow): SubscriptionRecord {
@@ -112,6 +121,7 @@ function rowToSub(r: SubRow): SubscriptionRecord {
     capBytes: Number(r.cap_bytes),
     status: r.status,
     labBilling: r.lab_billing === true,
+    planId: r.plan_id ?? "free",
   };
 }
 
@@ -120,7 +130,7 @@ export async function getSubscription(
 ): Promise<SubscriptionRecord | null> {
   const sql = getSql();
   const rows = (await sql`
-    SELECT owner_key, stripe_customer_id, stripe_subscription_id, stripe_item_id, cap_bytes, status, lab_billing
+    SELECT owner_key, stripe_customer_id, stripe_subscription_id, stripe_item_id, cap_bytes, status, lab_billing, plan_id
     FROM billing_subscriptions WHERE owner_key = ${ownerKey}
   `) as SubRow[];
   return rows.length ? rowToSub(rows[0]) : null;
@@ -132,7 +142,7 @@ export async function getSubscriptionByStripeId(
 ): Promise<SubscriptionRecord | null> {
   const sql = getSql();
   const rows = (await sql`
-    SELECT owner_key, stripe_customer_id, stripe_subscription_id, stripe_item_id, cap_bytes, status, lab_billing
+    SELECT owner_key, stripe_customer_id, stripe_subscription_id, stripe_item_id, cap_bytes, status, lab_billing, plan_id
     FROM billing_subscriptions WHERE stripe_subscription_id = ${stripeSubscriptionId}
   `) as SubRow[];
   return rows.length ? rowToSub(rows[0]) : null;
@@ -144,7 +154,7 @@ export async function getSubscriptionByStripeId(
  * so a webhook sync never overwrites them.
  */
 export async function upsertSubscription(
-  rec: Omit<SubscriptionRecord, "capBytes" | "labBilling">,
+  rec: Omit<SubscriptionRecord, "capBytes" | "labBilling" | "planId">,
 ): Promise<void> {
   const sql = getSql();
   await sql`
@@ -177,30 +187,77 @@ export async function setCapBytes(ownerKey: string, capBytes: number): Promise<v
   `;
 }
 
+/** The storage cap (bytes) a subscription's plan grants, free if unknown. */
+function planStorageBytes(sub: SubscriptionRecord | null): number {
+  const plan = getPlan(sub?.planId);
+  return plan ? Math.max(FREE_ALLOWANCE_BYTES, plan.storageBytes) : FREE_ALLOWANCE_BYTES;
+}
+
 /**
  * Total storage quota (bytes) for an owner. This is the single number the collab
  * / relay enforcement layer checks a write against. Defined here so billing owns
  * it and the enforcement just reads it.
  *
- * Payer resolution (chunk 3): if the owner is an active member of a lab whose PI
- * has lab billing on, their ceiling is the LAB's cap (the lab-wide wall doubles
- * as each member's individual ceiling), so a sponsored member is never blocked
- * below what the lab is willing to pay for. Otherwise the quota is the owner's
- * own active cap, else the free allowance.
+ * Flat-plan model (Grant 2026-06-07): the quota is the owner's PLAN storage cap
+ * (a flat included allowance), not a metered cap. Payer resolution (chunk 3): a
+ * member actively sponsored by a lab inherits the LAB plan's cap, so the lab-wide
+ * wall doubles as each member's ceiling. Otherwise it is the owner's own active
+ * plan, else the free plan.
  */
 export async function quotaBytesForOwner(ownerKey: string): Promise<number> {
   const sponsorKey = await getSponsoringLab(ownerKey).catch(() => null);
   if (sponsorKey) {
     const lab = await getSubscription(sponsorKey);
     if (lab && lab.status === "active" && lab.labBilling) {
-      return Math.max(FREE_ALLOWANCE_BYTES, lab.capBytes);
+      return planStorageBytes(lab);
     }
   }
   const sub = await getSubscription(ownerKey);
   if (sub && sub.status === "active") {
-    return Math.max(FREE_ALLOWANCE_BYTES, sub.capBytes);
+    return planStorageBytes(sub);
   }
   return FREE_ALLOWANCE_BYTES;
+}
+
+/**
+ * The monthly write-operation allowance for an owner, resolved the same way as
+ * the storage quota: an active lab member inherits the lab plan's allowance, an
+ * active individual gets their own plan's, else the free plan's. This is the
+ * throttle ceiling the activity enforcement (chunk C) checks the month against.
+ */
+export async function activityAllowanceForOwner(ownerKey: string): Promise<number> {
+  const freeWrites = getPlan("free")?.activityWritesPerMonth ?? 0;
+  const sponsorKey = await getSponsoringLab(ownerKey).catch(() => null);
+  if (sponsorKey) {
+    const lab = await getSubscription(sponsorKey);
+    if (lab && lab.status === "active" && lab.labBilling) {
+      return getPlan(lab.planId)?.activityWritesPerMonth ?? freeWrites;
+    }
+  }
+  const sub = await getSubscription(ownerKey);
+  if (sub && sub.status === "active") {
+    return getPlan(sub.planId)?.activityWritesPerMonth ?? freeWrites;
+  }
+  return freeWrites;
+}
+
+/**
+ * Sets an owner's plan and marks the subscription active for a paid plan (free
+ * reverts to inactive). The Stripe subscription itself is created at checkout;
+ * this records which plan the account is on so the quota + activity allowance
+ * resolve from it. Creates the row if needed.
+ */
+export async function setPlan(ownerKey: string, planId: string): Promise<void> {
+  const sql = getSql();
+  const plan = getPlan(planId);
+  const id = plan ? plan.id : "free";
+  const status = plan && plan.priceCents > 0 ? "active" : "inactive";
+  await sql`
+    INSERT INTO billing_subscriptions (owner_key, plan_id, status, updated_at)
+    VALUES (${ownerKey}, ${id}, ${status}, now())
+    ON CONFLICT (owner_key) DO UPDATE SET
+      plan_id = ${id}, status = ${status}, updated_at = now()
+  `;
 }
 
 /**
@@ -229,7 +286,8 @@ export async function endIndividualSubscription(ownerKey: string): Promise<void>
   const sql = getSql();
   await sql`
     UPDATE billing_subscriptions
-    SET status = 'inactive', cap_bytes = ${FREE_ALLOWANCE_BYTES}, updated_at = now()
+    SET status = 'inactive', cap_bytes = ${FREE_ALLOWANCE_BYTES},
+        plan_id = 'free', updated_at = now()
     WHERE owner_key = ${ownerKey}
   `;
 }
@@ -300,7 +358,7 @@ export async function pruneUsageSamples(beforeISODate: string): Promise<void> {
 export async function listActiveOwners(): Promise<SubscriptionRecord[]> {
   const sql = getSql();
   const rows = (await sql`
-    SELECT owner_key, stripe_customer_id, stripe_subscription_id, stripe_item_id, cap_bytes, status, lab_billing
+    SELECT owner_key, stripe_customer_id, stripe_subscription_id, stripe_item_id, cap_bytes, status, lab_billing, plan_id
     FROM billing_subscriptions WHERE status = 'active'
   `) as SubRow[];
   return rows.map(rowToSub);
