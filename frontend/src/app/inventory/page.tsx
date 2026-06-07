@@ -1,0 +1,628 @@
+"use client";
+
+// /inventory (chunk 2 of inventory v1). The catalog + stock CRUD surface for
+// the count-first, low-maintenance inventory (design sections 2, 5). The whole
+// route is gated behind INVENTORY_ENABLED (default off, on in Grant's working
+// tree for dogfooding); when off it renders a minimal "not enabled" state.
+//
+// The three zero-upkeep signal widgets (expiring / stale / low) are chunk 3,
+// the Purchases self-populate is chunk 4, history / trash / search are chunk 5,
+// and the camera scanner is chunk 6. Barcode fields are plain text here.
+//
+// House style: <Icon> only, LivingPopup for the add/edit dialogs, Tooltip for
+// icon-only buttons, brand + semantic (dark-mode) tokens, no emojis / em-dashes
+// / mid-sentence colons.
+
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+
+import AppShell from "@/components/AppShell";
+import LivingPopup from "@/components/ui/LivingPopup";
+import Tooltip from "@/components/Tooltip";
+import { Icon } from "@/components/icons";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { INVENTORY_ENABLED } from "@/lib/inventory/config";
+import {
+  fetchAllInventoryItemsIncludingShared,
+  fetchAllInventoryStocksIncludingShared,
+  inventoryItemsApi,
+  inventoryStocksApi,
+} from "@/lib/local-api";
+import { normalizeSharedWith, WHOLE_LAB_SENTINEL } from "@/lib/sharing/unified";
+import type {
+  InventoryItem,
+  InventoryItemCreate,
+  InventoryItemUpdate,
+  InventoryStock,
+  InventoryStockCreate,
+  InventoryStockStatus,
+  InventoryStockUpdate,
+} from "@/lib/types";
+import ItemFormDialog from "@/components/inventory/ItemFormDialog";
+import StockFormDialog from "@/components/inventory/StockFormDialog";
+import StockRow from "@/components/inventory/StockRow";
+import {
+  CATEGORY_LABEL,
+  STATUS_LABEL,
+  containerCountLabel,
+  formatDate,
+  statusChipClass,
+  summarizeStocks,
+} from "@/components/inventory/inventory-ui";
+
+/** Owner to route a write through. A record shared INTO me at edit permission
+ *  writes back to the owner's directory; my own records pass undefined and
+ *  write to my own directory (mirrors effectiveOwnerOf in /methods). */
+function effectiveOwnerOf(item: InventoryItem, currentUser: string | null) {
+  return item.is_shared_with_me && item.owner !== currentUser
+    ? item.owner
+    : undefined;
+}
+
+/** Can the current viewer edit this item? Owner always; otherwise an edit-level
+ *  entry for me or the whole-lab sentinel (mirrors canWrite in sharing/unified,
+ *  without needing the full Viewer, which uses a different account_type union).
+ */
+function canEditItem(item: InventoryItem, currentUser: string | null): boolean {
+  if (!currentUser) return false;
+  if (item.owner === currentUser) return true;
+  const list = normalizeSharedWith(item.shared_with);
+  return list.some(
+    (s) =>
+      (s.username === currentUser || s.username === WHOLE_LAB_SENTINEL) &&
+      s.level === "edit",
+  );
+}
+
+type ItemDialogState =
+  | { mode: "closed" }
+  | { mode: "add" }
+  | { mode: "edit"; item: InventoryItem };
+
+type StockDialogState =
+  | { mode: "closed" }
+  | { mode: "add"; item: InventoryItem }
+  | { mode: "edit"; item: InventoryItem; stock: InventoryStock };
+
+export default function InventoryPage() {
+  const { currentUser } = useCurrentUser();
+  const queryClient = useQueryClient();
+
+  const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [itemDialog, setItemDialog] = useState<ItemDialogState>({
+    mode: "closed",
+  });
+  const [stockDialog, setStockDialog] = useState<StockDialogState>({
+    mode: "closed",
+  });
+  const [deletingItem, setDeletingItem] = useState<InventoryItem | null>(null);
+  // The id of the stock currently mid-write (disables its row controls so a
+  // double tap can't race two updates).
+  const [busyStockId, setBusyStockId] = useState<number | null>(null);
+
+  const itemsQuery = useQuery({
+    queryKey: ["inventory-items", currentUser],
+    queryFn: fetchAllInventoryItemsIncludingShared,
+    enabled: INVENTORY_ENABLED && !!currentUser,
+  });
+  const stocksQuery = useQuery({
+    queryKey: ["inventory-stocks", currentUser],
+    queryFn: fetchAllInventoryStocksIncludingShared,
+    enabled: INVENTORY_ENABLED && !!currentUser,
+  });
+
+  const items = useMemo(() => itemsQuery.data ?? [], [itemsQuery.data]);
+  const stocks = useMemo(() => stocksQuery.data ?? [], [stocksQuery.data]);
+
+  // Group stocks under their item for the row list + the summary.
+  const stocksByItem = useMemo(() => {
+    const map = new Map<number, InventoryStock[]>();
+    for (const s of stocks) {
+      const arr = map.get(s.item_id) ?? [];
+      arr.push(s);
+      map.set(s.item_id, arr);
+    }
+    return map;
+  }, [stocks]);
+
+  // Vendor list for the item form's vendor datalist.
+  const vendorOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const it of items) if (it.vendor) set.add(it.vendor);
+    return [...set].sort();
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const sorted = [...items].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+    );
+    if (!q) return sorted;
+    return sorted.filter((it) => {
+      return (
+        it.name.toLowerCase().includes(q) ||
+        (it.vendor?.toLowerCase().includes(q) ?? false) ||
+        (it.catalog_number?.toLowerCase().includes(q) ?? false) ||
+        (it.cas?.toLowerCase().includes(q) ?? false) ||
+        CATEGORY_LABEL[it.category].toLowerCase().includes(q)
+      );
+    });
+  }, [items, query]);
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
+    queryClient.invalidateQueries({ queryKey: ["inventory-stocks"] });
+  };
+
+  const toggleExpanded = (id: number) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  // ── Item CRUD ──────────────────────────────────────────────────────────
+  const submitItem = async (data: InventoryItemCreate | InventoryItemUpdate) => {
+    if (itemDialog.mode === "edit") {
+      const owner = effectiveOwnerOf(itemDialog.item, currentUser);
+      await inventoryItemsApi.update(
+        itemDialog.item.id,
+        data as InventoryItemUpdate,
+        owner,
+      );
+    } else {
+      await inventoryItemsApi.create(data as InventoryItemCreate);
+    }
+    setItemDialog({ mode: "closed" });
+    refresh();
+  };
+
+  const confirmDeleteItem = async () => {
+    if (!deletingItem) return;
+    const owner = effectiveOwnerOf(deletingItem, currentUser);
+    // Hard delete the item then its orphaned stocks (v1 has no trash; that is
+    // chunk 5). Delete stocks first so none are left pointing at a gone item.
+    const itemStocks = stocksByItem.get(deletingItem.id) ?? [];
+    for (const s of itemStocks) {
+      await inventoryStocksApi.delete(s.id, owner);
+    }
+    await inventoryItemsApi.delete(deletingItem.id, owner);
+    setDeletingItem(null);
+    refresh();
+  };
+
+  // ── Stock CRUD ─────────────────────────────────────────────────────────
+  const submitStock = async (
+    data: InventoryStockCreate | InventoryStockUpdate,
+  ) => {
+    if (stockDialog.mode === "edit") {
+      const owner = effectiveOwnerOf(stockDialog.item, currentUser);
+      await inventoryStocksApi.update(
+        stockDialog.stock.id,
+        data as InventoryStockUpdate,
+        owner,
+      );
+    } else if (stockDialog.mode === "add") {
+      const owner = effectiveOwnerOf(stockDialog.item, currentUser);
+      await inventoryStocksApi.create(data as InventoryStockCreate, owner);
+    }
+    setStockDialog({ mode: "closed" });
+    refresh();
+  };
+
+  // One-tap status. Passes `status` so the API honors a manual low/empty tap;
+  // deriveInventoryStatus stays in the data layer (chunk 1). We never recompute
+  // it here.
+  const setStockStatus = async (
+    item: InventoryItem,
+    stock: InventoryStock,
+    status: InventoryStockStatus,
+  ) => {
+    setBusyStockId(stock.id);
+    try {
+      const owner = effectiveOwnerOf(item, currentUser);
+      await inventoryStocksApi.update(stock.id, { status }, owner);
+      refresh();
+    } finally {
+      setBusyStockId(null);
+    }
+  };
+
+  // One-tap container-count step (3 -> 2 when a container is finished, or up
+  // when one arrives). The API re-derives status from the new count.
+  const stepStockCount = async (
+    item: InventoryItem,
+    stock: InventoryStock,
+    next: number,
+  ) => {
+    setBusyStockId(stock.id);
+    try {
+      const owner = effectiveOwnerOf(item, currentUser);
+      await inventoryStocksApi.update(
+        stock.id,
+        { container_count: Math.max(0, Math.floor(next)) },
+        owner,
+      );
+      refresh();
+    } finally {
+      setBusyStockId(null);
+    }
+  };
+
+  // ── Flag-off graceful state ──────────────────────────────────────────────
+  if (!INVENTORY_ENABLED) {
+    return (
+      <AppShell>
+        <div className="flex flex-1 items-center justify-center p-6">
+          <div className="max-w-md rounded-xl border border-border bg-surface-raised px-6 py-8 text-center">
+            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-surface-sunken text-foreground-muted">
+              <Icon name="list" className="h-6 w-6" />
+            </div>
+            <h2 className="text-title font-semibold text-foreground">
+              Inventory is not enabled
+            </h2>
+            <p className="mt-1.5 text-body text-foreground-muted">
+              This area is still being built. Check back soon.
+            </p>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  const isLoading = itemsQuery.isLoading || stocksQuery.isLoading;
+
+  return (
+    <AppShell>
+      <div className="flex-1 overflow-auto p-6">
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-heading font-semibold text-foreground">
+              Inventory
+            </h2>
+            <p className="mt-0.5 text-body text-foreground-muted">
+              Count containers, tap a status, type an expiry once. The inventory
+              you will actually keep.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Tooltip label="Refresh">
+              <button
+                type="button"
+                onClick={refresh}
+                aria-label="Refresh inventory"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+              >
+                <Icon name="refresh" className="h-4 w-4" />
+              </button>
+            </Tooltip>
+            <button
+              type="button"
+              onClick={() => setItemDialog({ mode: "add" })}
+              className="btn-brand inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-body"
+            >
+              <Icon name="plus" className="h-4 w-4" />
+              Add item
+            </button>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="mb-5 max-w-md">
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-foreground-muted">
+              <Icon name="search" className="h-4 w-4" />
+            </span>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by name, vendor, catalog, CAS, category"
+              className="w-full rounded-lg border border-border bg-surface-raised py-2 pl-9 pr-3 text-body text-foreground placeholder:text-foreground-muted/70 focus:outline-none focus:ring-2 focus:ring-brand-action"
+            />
+          </div>
+        </div>
+
+        {/* List */}
+        {isLoading ? (
+          <p className="text-body text-foreground-muted">Loading inventory.</p>
+        ) : filteredItems.length === 0 ? (
+          <EmptyState
+            hasItems={items.length > 0}
+            onAdd={() => setItemDialog({ mode: "add" })}
+          />
+        ) : (
+          <div className="space-y-3">
+            {filteredItems.map((item) => {
+              const itemStocks = stocksByItem.get(item.id) ?? [];
+              const summary = summarizeStocks(itemStocks);
+              const isOpen = expanded.has(item.id);
+              const editable = canEditItem(item, currentUser);
+              return (
+                <div
+                  key={`${item.owner}:${item.id}`}
+                  className="overflow-hidden rounded-xl border border-border bg-surface-raised"
+                >
+                  {/* Item summary row */}
+                  <div className="flex items-center justify-between gap-4 px-5 py-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleExpanded(item.id)}
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                      aria-expanded={isOpen}
+                    >
+                      <span
+                        className={`flex h-6 w-6 flex-shrink-0 items-center justify-center text-foreground-muted transition-transform ${
+                          isOpen ? "rotate-180" : ""
+                        }`}
+                      >
+                        <Icon name="chevronDown" className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-title font-semibold text-foreground">
+                            {item.name}
+                          </span>
+                          {item.is_shared_with_me && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-surface-sunken px-2 py-0.5 text-meta text-foreground-muted">
+                              <Icon name="users" className="h-3 w-3" />
+                              {item.owner}
+                            </span>
+                          )}
+                        </div>
+                        <p className="truncate text-meta text-foreground-muted">
+                          {CATEGORY_LABEL[item.category]}
+                          {item.vendor ? ` · ${item.vendor}` : ""}
+                          {item.catalog_number ? ` · ${item.catalog_number}` : ""}
+                        </p>
+                      </div>
+                    </button>
+
+                    {/* Stocks summary */}
+                    <div className="flex flex-shrink-0 items-center gap-3">
+                      <div className="hidden text-right sm:block">
+                        <p className="text-body font-semibold text-foreground">
+                          {containerCountLabel(
+                            summary.totalContainers,
+                            item.container_label,
+                          )}
+                        </p>
+                        <p className="text-meta text-foreground-muted">
+                          {summary.stockCount === 0
+                            ? "No stocks yet"
+                            : summary.soonestExpiry
+                              ? `Soonest expiry ${formatDate(summary.soonestExpiry)}`
+                              : `${summary.stockCount} stock${
+                                  summary.stockCount === 1 ? "" : "s"
+                                }`}
+                        </p>
+                      </div>
+                      {summary.worstStatus && (
+                        <span
+                          className={`rounded-md px-2.5 py-1 text-meta font-medium ${statusChipClass(
+                            summary.worstStatus,
+                          )}`}
+                        >
+                          {STATUS_LABEL[summary.worstStatus]}
+                        </span>
+                      )}
+                      {editable && (
+                        <div className="flex items-center gap-1">
+                          <Tooltip label="Edit item">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setItemDialog({ mode: "edit", item })
+                              }
+                              aria-label="Edit item"
+                              className="flex h-8 w-8 items-center justify-center rounded-md text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+                            >
+                              <Icon name="pencil" className="h-4 w-4" />
+                            </button>
+                          </Tooltip>
+                          <Tooltip label="Delete item">
+                            <button
+                              type="button"
+                              onClick={() => setDeletingItem(item)}
+                              aria-label="Delete item"
+                              className="flex h-8 w-8 items-center justify-center rounded-md text-foreground-muted hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/15"
+                            >
+                              <Icon name="trash" className="h-4 w-4" />
+                            </button>
+                          </Tooltip>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Expanded stock rows */}
+                  {isOpen && (
+                    <div className="border-t border-border bg-surface-sunken/50 px-5 py-4">
+                      {item.notes && (
+                        <p className="mb-3 text-meta text-foreground-muted">
+                          {item.notes}
+                        </p>
+                      )}
+                      {itemStocks.length === 0 ? (
+                        <p className="text-meta text-foreground-muted">
+                          No stocks recorded yet.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {itemStocks.map((stock) => (
+                            <StockRow
+                              key={stock.id}
+                              item={item}
+                              stock={stock}
+                              canEdit={editable}
+                              busy={busyStockId === stock.id}
+                              onSetStatus={(status) =>
+                                setStockStatus(item, stock, status)
+                              }
+                              onStepCount={(next) =>
+                                stepStockCount(item, stock, next)
+                              }
+                              onEdit={() =>
+                                setStockDialog({ mode: "edit", item, stock })
+                              }
+                              onDelete={async () => {
+                                const owner = effectiveOwnerOf(
+                                  item,
+                                  currentUser,
+                                );
+                                await inventoryStocksApi.delete(
+                                  stock.id,
+                                  owner,
+                                );
+                                refresh();
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {editable && (
+                        <button
+                          type="button"
+                          onClick={() => setStockDialog({ mode: "add", item })}
+                          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-meta font-medium text-foreground hover:bg-surface-raised"
+                        >
+                          <Icon name="plus" className="h-3.5 w-3.5" />
+                          Add stock
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Add / edit item */}
+      <LivingPopup
+        open={itemDialog.mode !== "closed"}
+        onClose={() => setItemDialog({ mode: "closed" })}
+        label={itemDialog.mode === "edit" ? "Edit item" : "Add item"}
+        widthClassName="max-w-2xl"
+        card
+        closeOnScrimClick={false}
+        fillHeight
+      >
+        {itemDialog.mode !== "closed" && (
+          <div className="overflow-y-auto">
+            <ItemFormDialog
+              item={itemDialog.mode === "edit" ? itemDialog.item : null}
+              vendorOptions={vendorOptions}
+              onCancel={() => setItemDialog({ mode: "closed" })}
+              onSubmit={submitItem}
+            />
+          </div>
+        )}
+      </LivingPopup>
+
+      {/* Add / edit stock */}
+      <LivingPopup
+        open={stockDialog.mode !== "closed"}
+        onClose={() => setStockDialog({ mode: "closed" })}
+        label={stockDialog.mode === "edit" ? "Edit stock" : "Add stock"}
+        widthClassName="max-w-2xl"
+        card
+        closeOnScrimClick={false}
+        fillHeight
+      >
+        {stockDialog.mode !== "closed" && (
+          <div className="overflow-y-auto">
+            <StockFormDialog
+              item={stockDialog.item}
+              stock={
+                stockDialog.mode === "edit" ? stockDialog.stock : null
+              }
+              onCancel={() => setStockDialog({ mode: "closed" })}
+              onSubmit={submitStock}
+            />
+          </div>
+        )}
+      </LivingPopup>
+
+      {/* Delete item confirm */}
+      <LivingPopup
+        open={deletingItem !== null}
+        onClose={() => setDeletingItem(null)}
+        label="Delete item"
+        widthClassName="max-w-md"
+        card
+        padded
+      >
+        {deletingItem && (
+          <div>
+            <h2 className="text-title font-semibold text-foreground">
+              Delete {deletingItem.name}?
+            </h2>
+            <p className="mt-2 text-body text-foreground-muted">
+              This removes the item and its{" "}
+              {(stocksByItem.get(deletingItem.id) ?? []).length} stock
+              {(stocksByItem.get(deletingItem.id) ?? []).length === 1
+                ? ""
+                : "s"}
+              . This cannot be undone.
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeletingItem(null)}
+                className="rounded-lg border border-border px-4 py-2 text-body text-foreground hover:bg-surface-sunken"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteItem}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-2 text-body font-medium text-white hover:bg-rose-700"
+              >
+                <Icon name="trash" className="h-4 w-4" />
+                Delete
+              </button>
+            </div>
+          </div>
+        )}
+      </LivingPopup>
+    </AppShell>
+  );
+}
+
+function EmptyState({
+  hasItems,
+  onAdd,
+}: {
+  hasItems: boolean;
+  onAdd: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-dashed border-border bg-surface-raised px-6 py-12 text-center">
+      <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-surface-sunken text-foreground-muted">
+        <Icon name="list" className="h-6 w-6" />
+      </div>
+      <h3 className="text-title font-semibold text-foreground">
+        {hasItems ? "No items match your search" : "No inventory yet"}
+      </h3>
+      <p className="mx-auto mt-1.5 max-w-sm text-body text-foreground-muted">
+        {hasItems
+          ? "Try a different name, vendor, or category."
+          : "Add the reagents and kits your lab keeps on hand. Containers, status, and expiry come next."}
+      </p>
+      {!hasItems && (
+        <button
+          type="button"
+          onClick={onAdd}
+          className="btn-brand mt-4 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-body"
+        >
+          <Icon name="plus" className="h-4 w-4" />
+          Add your first item
+        </button>
+      )}
+    </div>
+  );
+}
