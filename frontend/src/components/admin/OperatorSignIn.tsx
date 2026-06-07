@@ -36,6 +36,11 @@ export default function OperatorSignIn() {
   const callbackUrl =
     typeof window !== "undefined" ? window.location.pathname : "/admin";
 
+  // Local dev has no real OAuth keys; a Credentials "devmock" provider signs you
+  // in as AUTH_DEV_MOCK_EMAIL. Exposed only when the public flag is on (it never
+  // mounts in a production build), so the Google/GitHub buttons are the real path.
+  const devMockOn = process.env.NEXT_PUBLIC_AUTH_DEV_MOCK === "1";
+
   return (
     <div className="mt-5 rounded-xl border border-border bg-surface-raised p-4">
       <p className="text-body font-medium text-foreground">Operator sign-in</p>
@@ -47,6 +52,15 @@ export default function OperatorSignIn() {
             : "Checking your session..."}
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
+        {devMockOn && (
+          <button
+            type="button"
+            onClick={() => void signIn("devmock", { callbackUrl })}
+            className="inline-flex items-center gap-2 rounded-lg border border-amber-400/50 bg-amber-50 dark:bg-amber-500/10 px-3.5 py-2 text-body font-medium text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-500/20"
+          >
+            Dev sign-in (local)
+          </button>
+        )}
         <button
           type="button"
           onClick={() => void signIn("google", { callbackUrl })}
