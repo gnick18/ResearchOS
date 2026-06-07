@@ -7,6 +7,8 @@ the project: Kilo Code in the early phase (Feb-Mar), then Claude Code (May-Jun).
 ```bash
 # one time, and any time you want to refresh the early-phase numbers:
 python3 scripts/activity-report/snapshot_kilo.py
+# classify commits into feature buckets (re-run after new commits land):
+python3 scripts/activity-report/classify_commits.py
 # every run:
 python3 scripts/activity-report/generate.py
 open scripts/activity-report/out/index.html
@@ -21,7 +23,16 @@ pastes into PowerPoint, Keynote, and Google Slides as crisp recolorable vectors.
 2. **Claude Code transcripts** for this project, at
    `~/.claude/projects/<repo-path-with-slashes-as-dashes>/*.jsonl` (your typed
    prompts and words, AI messages, tokens, tool calls, web searches).
-3. **Kilo Code history** via `kilo_snapshot.json`, produced by `snapshot_kilo.py`
+3. **A commit feature map** via `commit-map.json`, produced by `classify_commits.py`,
+   which assigns every commit to the initiative it was primarily building toward.
+   Classification parses conventional-commit scopes (`feat(scope):`) against
+   `SCOPE_MAP`, falls back to keyword matching on the subject, then to an early-era
+   heuristic for pre-Vercel commits. No API key, no network. Re-running only
+   processes commits not already in the map, so it is cheap and idempotent. Edit
+   `SCOPE_MAP` / `KEYWORD_MAP` in `classify_commits.py` to add or rename buckets.
+   `generate.py` reads the map if present (and silently uses regex `MILESTONES`
+   matching if it is missing).
+4. **Kilo Code history** via `kilo_snapshot.json`, produced by `snapshot_kilo.py`
    from the VS Code extension's local storage (`state.vscdb` task index +
    `tasks/<id>/ui_messages.json`). Tasks are filtered to this repo by exact
    workspace path.
@@ -51,7 +62,8 @@ your other projects are never counted.
 - `summary.json` -- all the totals, machine-readable.
 - `timeline.csv` -- one row per calendar day, every metric (including per-tool
   `kilo_*` and `claude_*` columns), for your own charts.
-- thirteen `*.svg` charts: project phases, AI requests per day (the tool handoff),
+- the `*.svg` charts: project phases, commits by feature (AI-classified, only when
+  `commit-map.json` exists), AI requests per day (the tool handoff),
   commits per day, cumulative lines of code, words you typed per day, cumulative
   words, AI output tokens per day, tokens per day by type, effort hours, models &
   providers used (two bars each, turns and output tokens), tokens by tool, cost by
@@ -70,11 +82,15 @@ your other projects are never counted.
   so the figure tracks authored source. Commit *count* is never filtered. Edit
   `EXCLUDE_PATH_RX` in `generate.py` to change this.
 - **Phases** are detected by matching commit subjects against the patterns in
-  `MILESTONES`. Each phase's date is its first matching commit. The bar on the
-  roadmap is the number of commits whose subject matches that initiative, so
-  parallel initiatives are each credited fairly (they are not carved into
-  non-overlapping time windows). A commit can match more than one phase. Edit
-  `MILESTONES` to add, rename, or reorder initiatives.
+  `MILESTONES`. Each phase's date is its first matching commit. A commit can match
+  more than one phase, so parallel initiatives are each credited fairly (they are
+  not carved into non-overlapping time windows). Edit `MILESTONES` to add, rename,
+  or reorder initiatives. The bar length on the roadmap comes from
+  `commit-map.json` (each commit counted once, toward its single primary feature)
+  when that file exists, so a milestone's label must exactly match a classifier
+  label to use the AI count; otherwise the bar falls back to counting subject
+  matches for that milestone's regex. The separate **Commits by feature** chart
+  shows the full AI-classified distribution sorted by volume.
 - **Words you typed (Kilo)** come from each task's first prompt plus every
   `user_feedback` message, with auto-injected file dumps and environment details
   stripped before counting.

@@ -41,6 +41,7 @@ REPO_ROOT = subprocess.check_output(
 ).strip()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(SCRIPT_DIR, "out")
+COMMIT_MAP_PATH = os.path.join(SCRIPT_DIR, "commit-map.json")
 
 # Claude Code stores per-project transcripts under ~/.claude/projects/<slug>,
 # where <slug> is the absolute repo path with every "/" turned into "-".
@@ -97,29 +98,38 @@ EXCLUDE_PATH_RX = re.compile(
 # The milestone's date = the earliest commit whose subject matches. This is how
 # we show "how many phases the project went through".
 MILESTONES = [
-    # Kilo Code era (Feb-May): the early desktop-app versions, before Claude Code.
-    ("Project start",          r"."),
-    ("Markdown note editor",   r"markdown editor"),
-    ("Multi-storage backend",  r"multiple storage|storage types"),
-    ("Shared-folder collab",   r"clones the repo"),
-    ("OneDrive sync backend",  r"onedrive"),
-    ("Cross-platform support", r"cross.?platform"),
-    ("Desktop installer",      r"\binstaller\b|electron"),
-    ("v1.0 release + branding", r"pinwheel|bump version|1\.0\.[0-9]"),
-    ("Vercel web migration",   r"vercel"),
-    # Claude Code era (May-Jun): the feature initiatives.
-    ("Onboarding tour",      r"onboard|tour|walkthrough"),
-    ("Gamification/streaks", r"gamif|streak"),
-    ("Version control",      r"version[ -]control|\bvc\b|vc phase|version history"),
-    ("Method/kit templates", r"kit template|method[ -]?catalog|method template|template library"),
-    ("LC-MS templates",      r"lc-?ms|mass[ -]?spec"),
-    ("Photo annotation",     r"annotat"),
-    ("NIH sharing/Zenodo",   r"zenodo|\bnih\b|figshare|data.?sharing"),
-    ("Cross-boundary share", r"cross-?boundary"),
-    ("AGPL relicense",       r"agpl|relicens|\blicense\b"),
-    ("Beta de-bloat",        r"de-?bloat|debloat"),
-    ("Sequence editor",      r"sequence|seqviz|\bove\b|\balign|primer|cloning"),
-    ("Typography system",    r"typograph|text-meta|type[ -]scale|type token"),
+    # Kilo Code era (Feb-May): early desktop app before the Vercel migration.
+    ("Early desktop app (Kilo era)", r"installer|electron|cross.?platform|onedrive|pinwheel|bump version|1\.0\.[0-9]|vercel"),
+    # Claude Code era (May-Jun): one entry per feature bucket in commit-map.json,
+    # ordered by the date of the earliest commit in that bucket.
+    ("Notes editor",             r"hybrid.?editor|hybridmarkdown|\bnotes?\b.*editor|HybridMarkdown"),
+    ("Cross-boundary sharing",   r"cross-?boundary|sharing|relay"),
+    ("Search",                   r"\bsearch\b|search.index"),
+    ("Folder / file system",     r"folder.pick|folder.gate|file.system|FSA|FileSystem"),
+    ("Tasks / experiments",      r"TaskDetailPopup|task.detail|experiment.collab|\btask\b.*popup"),
+    ("Method / kit templates",   r"kit.template|method.?catalog|method.template|template.library|protocol"),
+    ("Gamification / streaks",   r"gamif|streak|\bbadge\b"),
+    ("Telegram integration",     r"telegram"),
+    ("Calendar / scheduling",    r"calendar|scheduling"),
+    ("Wiki / docs",              r"\bwiki\b|AGENTS\.md|handoff"),
+    ("ELN import (LabArchives)", r"labarchives|lab.?archives|\beln\b"),
+    ("Onboarding tour",          r"onboard|tour|walkthrough"),
+    ("Brand / design",           r"beakerbot|\bbrand\b|favicon|logo"),
+    ("Welcome / landing page",   r"welcome|landing.page|wavefunc|showcase"),
+    ("Sequence editor",          r"sequence|seqviz|\bove\b|\balign|primer|cloning|hmmer"),
+    ("AI helper",                r"ai.helper|ai_helper"),
+    ("Admin / analytics",        r"\badmin\b|analytics|metrics"),
+    ("Real-time collab",         r"collab.*relay|websocket|durable.object|DO relay"),
+    ("Dark mode",                r"dark.mode|\btheme\b|theming|color-scheme"),
+    ("Real-time collab (Loro/notes)", r"loro|crdt|unified.model"),
+    ("Version control",          r"version.control|\bvc\b|vc phase|version.history"),
+    ("Photo annotation",         r"annotat"),
+    ("Auth / identity",          r"passkey|webauthn|identity.model|\bauth\b"),
+    ("Transparency / OSS credits", r"transparency|oss.credit|open.source.credit"),
+    ("Typography system",        r"typograph|text-meta|type.scale|type.token"),
+    ("Metered storage / billing",r"billing|stripe|metered.storage|storage.budget"),
+    ("LLC / business ops",       r"\bllc\b|business.ops|ein|mercury"),
+    ("Storage migration (D1/DO)",r"\bd1\b.*migrat|durable.objects.*migrat|r2.storage|cloudflare.d1"),
 ]
 
 
@@ -169,6 +179,20 @@ def collect_git():
         })
     commits.reverse()  # chronological
     return commits
+
+
+def load_commit_map() -> dict:
+    """Load the AI-classified commit->feature map if it exists."""
+    if os.path.exists(COMMIT_MAP_PATH):
+        with open(COMMIT_MAP_PATH) as f:
+            return json.load(f)
+    return {}
+
+
+def annotate_commits_with_features(commits, commit_map: dict) -> None:
+    """Add a 'feature' key to each commit dict using the AI map (or 'Unclassified')."""
+    for c in commits:
+        c["feature"] = commit_map.get(c["hash"], "Unclassified")
 
 
 def detect_milestones(commits):
@@ -957,12 +981,11 @@ def model_bars_chart(path, title, subtitle, rows):
     _write(path, "\n".join(s))
 
 
-def phases_chart(path, title, subtitle, milestones, commits, end_day):
+def phases_chart(path, title, subtitle, milestones, commits, end_day, feature_counts=None):
     """Vertical roadmap: phases in date order, each with a commit-volume bar.
 
-    Phase volume = commits whose subject matches that initiative (not a linear
-    "until next phase" window), because initiatives ran in parallel. The first
-    "Project start" phase counts the foundational commits before initiative #2.
+    If feature_counts is provided (from the AI commit map), bar lengths use those
+    counts directly. Otherwise falls back to regex matching against commit subjects.
     """
     row_h = 44
     top = 78
@@ -980,17 +1003,14 @@ def phases_chart(path, title, subtitle, milestones, commits, end_day):
         _write(path, "\n".join(s))
         return
 
-    # phase volume = commits whose subject matches that initiative's pattern;
-    # phase #1 ("Project start") = foundational commits before initiative #2.
-    second_day = milestones[1]["day"] if len(milestones) > 1 else end_day
+    # phase volume: use AI map counts if available, else regex-match subjects
     counts = []
-    for i, m in enumerate(milestones):
-        if i == 0:
-            c = sum(1 for cm in commits if cm["day"] < second_day)
+    for m in milestones:
+        if feature_counts and m["label"] in feature_counts:
+            counts.append(feature_counts[m["label"]])
         else:
             rx = re.compile(m.get("pat", r"$^"), re.I)
-            c = sum(1 for cm in commits if rx.search(cm["subject"]))
-        counts.append(c)
+            counts.append(sum(1 for cm in commits if rx.search(cm["subject"])))
     cmax = max(counts) if counts else 1
 
     spine_x = PAD_L + 12
@@ -1086,6 +1106,11 @@ def main():
 
     print("Reading git history ...")
     commits = collect_git()
+    commit_map = load_commit_map()
+    if commit_map:
+        annotate_commits_with_features(commits, commit_map)
+        classified = sum(1 for c in commits if c["feature"] != "Unclassified")
+        print(f"  AI commit map loaded ({classified}/{len(commits)} classified)")
     milestones = detect_milestones(commits)
 
     print(f"Reading transcripts from {TRANSCRIPT_DIR} ...")
@@ -1201,6 +1226,13 @@ def main():
                        "active_days": by_tool["claude"]["active_days"]},
         },
         "milestones": milestones,
+        "feature_distribution": (
+            sorted(
+                [{"feature": f, "commits": n}
+                 for f, n in Counter(c["feature"] for c in commits).items()],
+                key=lambda x: -x["commits"],
+            ) if commit_map else []
+        ),
     }
     with open(os.path.join(OUT_DIR, "summary.json"), "w") as f:
         json.dump(summary, f, indent=2)
@@ -1272,10 +1304,21 @@ def main():
                 "tokens / day", milestones_in(milestones, wd))
 
     # 8. project phases roadmap
+    feat_counts = Counter(c["feature"] for c in commits) if commit_map else None
     phases_chart(os.path.join(OUT_DIR, "phases.svg"),
                  "Project phases",
-                 f"{len(milestones)} initiatives in date order; bar = commits matching that initiative",
-                 milestones, commits, dates[-1] if dates else "")
+                 f"{len(milestones)} initiatives in date order; bar = commits per feature (AI-classified)",
+                 milestones, commits, dates[-1] if dates else "",
+                 feature_counts=feat_counts)
+
+    # 8b. AI-classified feature distribution (only when commit-map.json exists)
+    if commit_map:
+        feat_counts = Counter(c["feature"] for c in commits)
+        feat_rows = [(label, n, PALETTE["bar"]) for label, n in feat_counts.most_common()]
+        hbar_chart(os.path.join(OUT_DIR, "feature_distribution.svg"),
+                   "Commits by feature",
+                   "AI-classified; each commit assigned to the initiative it was primarily building toward",
+                   feat_rows)
 
     # 9. tokens by tool
     hbar_chart(os.path.join(OUT_DIR, "tokens_by_tool.svg"),
@@ -1358,7 +1401,9 @@ def write_index_html(summary):
     g = summary["git"]; e = summary["your_effort"]; a = summary["ai_usage"]
     eh = summary["effort_hours"]; cp = summary.get("kilo_checkpoints") or {}
     charts = [
-        "phases.svg", "ai_requests_per_day.svg", "commits_per_day.svg",
+        "phases.svg",
+        *(["feature_distribution.svg"] if os.path.exists(os.path.join(OUT_DIR, "feature_distribution.svg")) else []),
+        "ai_requests_per_day.svg", "commits_per_day.svg",
         "cumulative_loc.svg", "your_words_per_day.svg", "cumulative_words.svg",
         "output_tokens_per_day.svg", "tokens_per_day.svg",
         "effort_hours.svg", "models_used.svg",

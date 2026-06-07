@@ -60,3 +60,5 @@ tools/taxonomy-backbone/.taxdump-tmp/
 demo-recordings/
 ResearchOS_Beta_Testers.xlsx
 ResearchOS_Beta_Tracker.html
+scripts/activity-report/.venv/
+scripts/activity-report/commit-map.json
