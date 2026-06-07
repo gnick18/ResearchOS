@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -267,6 +268,19 @@ export default function ImageAnnotatorModal({
       zoomToPoint((z) => z * factor, containerSize.width / 2, containerSize.height / 2);
     },
     [zoomToPoint, containerSize.width, containerSize.height],
+  );
+
+  // Center the viewport on a content-space point (used by the navigator minimap),
+  // keeping the current zoom.
+  const panToContent = useCallback(
+    (contentX: number, contentY: number) => {
+      setView((v) => ({
+        ...v,
+        x: containerSize.width / 2 - contentX * v.zoom,
+        y: containerSize.height / 2 - contentY * v.zoom,
+      }));
+    },
+    [containerSize.width, containerSize.height],
   );
 
   // Native, NON-PASSIVE wheel handler so we can preventDefault and take over the
@@ -959,6 +973,52 @@ export default function ImageAnnotatorModal({
             </Stage>
         )}
       </div>
+
+      {/* Navigator minimap: the full image with a green box for the visible
+          region. Click or drag it to jump the view to another section. Only
+          shown when zoomed in (the whole image is visible at fit). */}
+      {img && containerSize.width > 0 && view.zoom > 1.01 && (() => {
+        const miniScale = Math.min(200 / stageSize.width, 160 / stageSize.height);
+        const miniW = Math.round(stageSize.width * miniScale);
+        const miniH = Math.round(stageSize.height * miniScale);
+        const z = view.zoom;
+        const vx = Math.max(0, -view.x / z) * miniScale;
+        const vy = Math.max(0, -view.y / z) * miniScale;
+        const vw = Math.min(miniW - vx, (containerSize.width / z) * miniScale);
+        const vh = Math.min(miniH - vy, (containerSize.height / z) * miniScale);
+        const onMini = (e: ReactPointerEvent<HTMLDivElement>) => {
+          // Click jumps; drag (button held) scrubs.
+          if (e.type === "pointermove" && e.buttons !== 1) return;
+          const r = e.currentTarget.getBoundingClientRect();
+          panToContent((e.clientX - r.left) / miniScale, (e.clientY - r.top) / miniScale);
+        };
+        return (
+          <div className="absolute bottom-4 right-4 z-10 rounded-xl border border-border bg-surface-raised/95 p-1 shadow-2xl ring-1 ring-black/5 backdrop-blur">
+            <div
+              className="relative cursor-pointer overflow-hidden rounded-md"
+              style={{ width: miniW, height: miniH }}
+              onPointerDown={onMini}
+              onPointerMove={onMini}
+            >
+              <img
+                src={img.src}
+                alt=""
+                draggable={false}
+                className="block h-full w-full select-none object-contain"
+              />
+              <div
+                className="pointer-events-none absolute rounded-sm border-2 border-green-400 bg-green-400/15"
+                style={{
+                  left: vx,
+                  top: vy,
+                  width: Math.max(4, vw),
+                  height: Math.max(4, vh),
+                }}
+              />
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Inline text editor overlay */}
       {editingText && (
