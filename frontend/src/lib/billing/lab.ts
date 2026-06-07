@@ -49,6 +49,13 @@ export interface LabMemberRecord {
    * the member turns this on (Grant 2026-06-07).
    */
   usageVisible: boolean;
+  /**
+   * The email the PI typed when inviting this member, kept so the PI's roster is
+   * readable (a list of bare hashes is useless). PI-only: it is returned to the
+   * lab owner for their own roster and never exposed to other members. The PI
+   * already possesses these addresses, this just remembers them.
+   */
+  label: string | null;
 }
 
 type MemberRow = {
@@ -56,6 +63,7 @@ type MemberRow = {
   member_owner_key: string;
   status: string;
   usage_visible: boolean | null;
+  label: string | null;
 };
 
 function rowToMember(r: MemberRow): LabMemberRecord {
@@ -64,6 +72,7 @@ function rowToMember(r: MemberRow): LabMemberRecord {
     memberOwnerKey: r.member_owner_key,
     status: r.status as LabMemberStatus,
     usageVisible: r.usage_visible === true,
+    label: r.label ?? null,
   };
 }
 
@@ -80,6 +89,7 @@ export async function ensureLabSchema(): Promise<void> {
     )
   `;
   await sql`ALTER TABLE billing_lab_members ADD COLUMN IF NOT EXISTS usage_visible boolean not null default false`;
+  await sql`ALTER TABLE billing_lab_members ADD COLUMN IF NOT EXISTS label text`;
   // A member can be sponsored by at most one lab at once. Enforced at the data
   // layer too, so a race cannot leave two active sponsors for one owner.
   await sql`
@@ -110,15 +120,17 @@ export async function setMemberUsageVisibility(
 export async function inviteMember(
   labOwnerKey: string,
   memberOwnerKey: string,
+  label: string | null = null,
 ): Promise<void> {
   if (labOwnerKey === memberOwnerKey) return; // a PI is not their own member
   const sql = getSql();
   await sql`
-    INSERT INTO billing_lab_members (lab_owner_key, member_owner_key, status, updated_at)
-    VALUES (${labOwnerKey}, ${memberOwnerKey}, 'invited', now())
+    INSERT INTO billing_lab_members (lab_owner_key, member_owner_key, status, label, updated_at)
+    VALUES (${labOwnerKey}, ${memberOwnerKey}, 'invited', ${label}, now())
     ON CONFLICT (lab_owner_key, member_owner_key) DO UPDATE SET
       status = CASE WHEN billing_lab_members.status = 'active'
                     THEN 'active' ELSE 'invited' END,
+      label = COALESCE(${label}, billing_lab_members.label),
       updated_at = now()
   `;
 }
@@ -186,7 +198,7 @@ export async function listLabMembers(
 ): Promise<LabMemberRecord[]> {
   const sql = getSql();
   const rows = (await sql`
-    SELECT lab_owner_key, member_owner_key, status, usage_visible
+    SELECT lab_owner_key, member_owner_key, status, usage_visible, label
     FROM billing_lab_members
     WHERE lab_owner_key = ${labOwnerKey} AND status <> 'declined'
     ORDER BY status, created_at
@@ -200,7 +212,7 @@ export async function listInvitesForMember(
 ): Promise<LabMemberRecord[]> {
   const sql = getSql();
   const rows = (await sql`
-    SELECT lab_owner_key, member_owner_key, status, usage_visible
+    SELECT lab_owner_key, member_owner_key, status, usage_visible, label
     FROM billing_lab_members
     WHERE member_owner_key = ${memberOwnerKey} AND status = 'invited'
     ORDER BY created_at

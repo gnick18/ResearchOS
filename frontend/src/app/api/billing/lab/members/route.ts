@@ -65,7 +65,8 @@ export async function POST(request: Request): Promise<Response> {
       });
     }
 
-    await inviteMember(ownerKey, memberKey);
+    const label = typeof body.email === "string" ? body.email.trim() : null;
+    await inviteMember(ownerKey, memberKey, label);
     return json(200, { ok: true, invited: memberKey });
   } catch {
     return json(500, { error: "invite failed" });

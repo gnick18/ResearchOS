@@ -15,12 +15,12 @@ import CreateLocalIdentityStep from "@/components/sharing/CreateLocalIdentitySte
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
 import SharingSection, {
   ProfileEditorCard,
-  StoragePlanSection,
   RotateIdentityPopup,
   RestoreIdentityPopup,
   DisconnectIdentityPopup,
   ResetIdentityPopup,
 } from "@/components/settings/SharingSection";
+import CloudStorageLauncher from "@/components/billing/CloudStorageLauncher";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import { unlockIdentityWithPasskey, getPasskeyCredentialId } from "@/lib/sharing/identity/storage";
@@ -176,9 +176,11 @@ export default function ProfileSettingsContent() {
           keys" identity, inbox, and storage sit below it. */}
       {sharing.status === "ready" && <ProfileEditorCard />}
 
-      {/* Cloud storage (usage + limit) sits right under your profile, above the
-          technical account/keys section. Self-hides for local-only users. */}
-      {sharing.status === "ready" && <StoragePlanSection />}
+      {/* Cloud storage glance + entry into the consolidated billing popup, right
+          under your profile, above the technical account/keys section. The popup
+          owns all billing (solo cap + payment + lab sponsorship). Self-hides for
+          local-only users. */}
+      {sharing.status === "ready" && <CloudStorageLauncher />}
 
       {/* Account and keys + Inbox and storage + Cloud storage (moved here from
           Settings, 2026-06-06, this is your account, not an app setting). When

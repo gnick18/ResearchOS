@@ -70,6 +70,7 @@ export async function GET(): Promise<Response> {
     let aggregateUsed = piUsed;
     const roster = [] as Array<{
       memberKey: string;
+      label: string | null;
       status: string;
       usageVisible: boolean;
       usedBytes: number | null;
@@ -79,6 +80,9 @@ export async function GET(): Promise<Response> {
       if (m.status === "active") aggregateUsed += u;
       roster.push({
         memberKey: m.memberOwnerKey,
+        // PI-only label (the email the PI typed). Safe here, this is the PI's
+        // own roster of their own lab.
+        label: m.label,
         status: m.status,
         usageVisible: m.usageVisible,
         // Per-member usage is private unless the member opted in.
