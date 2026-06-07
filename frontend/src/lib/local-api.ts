@@ -86,6 +86,8 @@ import type {
   WeeklyGoalCreate,
   WeeklyGoalUpdate,
   SharedNotebook,
+  OneOnOne,
+  OneOnOneActionItem,
   NoteComment,
   TaskComment,
   ImageMetadata,
@@ -132,6 +134,7 @@ import {
 } from "./sharing/unified";
 import { mondayOf } from "./weekly-goals/week";
 import { SharedNotebookStore } from "./shared-notebooks/store";
+import { OneOnOneStore, OneOnOneActionItemStore } from "./one-on-one/store";
 import type { Notebook } from "./types";
 
 const projectsStore = new JsonStore<Project>("projects");
@@ -173,6 +176,13 @@ const weeklyGoalsStore = new JsonStore<WeeklyGoal>("weekly_goals");
 // `lib/shared-notebooks/store.ts` for why). Reuses the same per-user file
 // layout so `labApi.getSharedNotebooks` walks notebooks like notes / goals.
 const sharedNotebooksStore = new SharedNotebookStore();
+// 1:1 revamp (oneonone data+strip bot, 2026-06-07). String-keyed per-user
+// stores at `users/<labHead>/one_on_ones/<uuid>.json` and
+// `users/<labHead>/one_on_one_action_items/<uuid>.json` (sibling of the notebook
+// store; see lib/one-on-one/store.ts). A 1:1 is owned by the lab head; the
+// member discovers it via `labApi.getOneOnOnes`.
+const oneOnOnesStore = new OneOnOneStore();
+const oneOnOneActionItemsStore = new OneOnOneActionItemStore();
 const fundingAccountsStore = getLabStore<FundingAccount>("funding_accounts");
 
 async function loadLabUsers(): Promise<{
@@ -4521,21 +4531,20 @@ export const weeklyGoalsApi = {
   },
 };
 
-// ── Shared 1:1 Notebooks (notebooks-data bot, 2026-06-02) ────────────────────
+// ── Shared Notebooks (notebooks-data bot, 2026-06-02) ────────────────────────
 //
-// See docs/proposals/SHARED_NOTEBOOKS_PROPOSAL.md. A SharedNotebook is a
-// shared workspace between EXACTLY two members. Everything inside it (notes +
-// weekly tasks) is ALWAYS shared between exactly those two people at "edit"
-// (via `pairingSharedWith`), so both read AND write. EITHER role can create
-// one (no role gate). Records live in the creator's folder; the other member
-// discovers + reads them through the sharing-respecting aggregations on
-// `labApi` below (mirroring how notes / weekly goals cross the lab).
+// See docs/proposals/SHARED_NOTEBOOKS_PROPOSAL.md +
+// docs/proposals/NOTEBOOKS_AND_ONE_ON_ONE_REVAMP.md. A Notebook is a shared
+// container of NOTES between 1..N members. Everything inside it is shared
+// between every member at "edit" (via `membersSharedWith`), so all read AND
+// write. EITHER role can create one (no role gate).
 //
-// CRUD here is creator-scoped (create / list-own / updateTitle / delete write
-// to the current user's folder). In-notebook ITEM creation routes through
-// `createNote` / `createWeeklyTask` so the item lands with the correct
-// `notebook_id` + `pairingSharedWith` share list; the personal notes / weekly
-// goals create paths are left completely untouched.
+// 1:1 revamp (oneonone data+strip bot, 2026-06-07): a notebook is now a PLAIN
+// NOTE CONTAINER. The weekly-task + meeting machinery that used to live here
+// moved to the distinct `oneOnOnesApi` (lab-head <-> member 1:1). A notebook no
+// longer holds weekly goals. In-notebook ITEM creation routes through
+// `createNote` so each note lands with the correct `notebook_id` +
+// `membersSharedWith` share list; the personal notes path is untouched.
 
 /**
  * Resolve a notebook by its (globally-unique) id across the lab. The record
@@ -4554,12 +4563,16 @@ async function findSharedNotebook(id: string): Promise<SharedNotebook | null> {
 }
 
 /**
- * Re-stamp every note AND weekly task currently carrying `notebookId` with a
- * fresh `shared_with` (notebooks-gen Phase 1, the add/remove-member share-list
- * flip). Items live in their author's own folder, so we walk every user's
- * folder and route each write to that owner. `is_shared` is kept in lockstep
- * with whether the new share list reaches anyone besides the item's owner.
- * Best-effort per item; a single write failure must not abort the whole flip.
+ * Re-stamp every NOTE currently carrying `notebookId` with a fresh
+ * `shared_with` (notebooks-gen Phase 1, the add/remove-member share-list flip).
+ * Notes live in their author's own folder, so we walk every user's folder and
+ * route each write to that owner. `is_shared` is kept in lockstep with whether
+ * the new share list reaches anyone besides the note's owner. Best-effort per
+ * note; a single write failure must not abort the whole flip.
+ *
+ * 1:1 revamp (oneonone data+strip bot, 2026-06-07): a notebook is a plain note
+ * container now, so this no longer touches weekly goals. Weekly goals belong to
+ * 1:1s (`one_on_one_id`), not notebooks.
  */
 async function restampNotebookItems(
   notebookId: string,
@@ -4574,19 +4587,6 @@ async function restampNotebookItems(
       try {
         await notesStore.updateForUser(
           note.id,
-          { shared_with, is_shared: isShared },
-          username,
-        );
-      } catch {
-        // best-effort
-      }
-    }
-    const userGoals = await weeklyGoalsStore.listAllForUser(username);
-    for (const goal of userGoals) {
-      if (goal.notebook_id !== notebookId) continue;
-      try {
-        await weeklyGoalsStore.updateForUser(
-          goal.id,
           { shared_with, is_shared: isShared },
           username,
         );
@@ -4863,29 +4863,119 @@ export const notebooksApi = {
     });
   },
 
+};
+
+/** @deprecated use `notebooksApi` (notebooks-gen Phase 1 renamed the export;
+ *  Phase 2 removes this alias + renames call sites). */
+export const sharedNotebooksApi = notebooksApi;
+
+// ── Lab-head <-> member 1:1 (oneonone data+strip bot, 2026-06-07) ────────────
+//
+// See docs/proposals/NOTEBOOKS_AND_ONE_ON_ONE_REVAMP.md. A OneOnOne is a
+// distinct advising workspace between exactly ONE lab head and ONE member
+// (NOT a notebook). The lab head sets it up (create is lab-head-only); both
+// people edit. It scopes weekly goals, weekly meeting notes, freeform shared
+// notes, and action items via `one_on_one_id`. Every item carries
+// `shared_with = membersSharedWith([labHead, member])` (both at "edit").
+//
+// CRUD here is owner-aware exactly like the notebook path: the 1:1 record +
+// action items live in the LAB HEAD's folder; notes + weekly goals live in
+// their author's folder. Cross-user reads route through `labApi.getOneOnOne*`.
+
+/**
+ * Resolve a 1:1 by its (globally-unique) id across the lab. The record lives in
+ * the lab head's folder, which may not be the current viewer, so we walk
+ * `discoverUsers()` and return the first hit. Stamps `owner` defensively.
+ * Returns null if no such 1:1 exists.
+ */
+async function findOneOnOne(id: string): Promise<OneOnOne | null> {
+  const usernames = await discoverUsers();
+  for (const username of usernames) {
+    const rec = await oneOnOnesStore.getForUser(id, username);
+    if (rec) return { ...rec, owner: rec.owner || username };
+  }
+  return null;
+}
+
+/** Throw unless the current user is a lab head (the create / delete gate). */
+async function requireLabHead(): Promise<string> {
+  const viewer = await buildCurrentViewer();
+  if (viewer.account_type !== "lab_head") {
+    throw new Error("Only a lab head can manage a 1:1.");
+  }
+  return viewer.username;
+}
+
+/** Throw unless `actor` is one of the 1:1's two members (the edit gate). */
+function assertMember(oneOnOne: OneOnOne, actor: string): void {
+  if (actor !== oneOnOne.labHead && actor !== oneOnOne.member) {
+    throw new Error(
+      `User ${actor} is not a member of 1:1 ${oneOnOne.id}`,
+    );
+  }
+}
+
+export const oneOnOnesApi = {
   /**
-   * Create a WEEKLY TASK inside a shared notebook. Reuses the `WeeklyGoal`
-   * record verbatim (the locked decision's preferred path): `text` is the
-   * task, `is_complete` the done toggle. Lands in the current user's
-   * weekly_goals folder, stamped with `notebook_id` + `shared_with` = both
-   * members at "edit", so either member can add a task and either can complete
-   * it. Throws if the notebook does not exist or the user is not a member.
+   * Create a 1:1 between the CURRENT user (who MUST be a lab head) and `member`.
+   * labHead = current user, member = param. `shared_with` =
+   * `membersSharedWith([labHead, member])` (both at "edit"). The record lands in
+   * the lab head's folder. Throws if the current user is not a lab head.
    */
-  createWeeklyTask: async (params: {
-    notebookId: string;
+  create: async (params: { member: string }): Promise<OneOnOne> => {
+    const labHead = await requireLabHead();
+    const now = new Date().toISOString();
+    const data: Omit<OneOnOne, "id"> = {
+      labHead,
+      member: params.member,
+      created_by: labHead,
+      created_at: now,
+      owner: labHead,
+      shared_with: membersSharedWith([labHead, params.member]),
+    };
+    return oneOnOnesStore.create(data);
+  },
+
+  /** Read a 1:1 by id, across the lab (it lives in the lab head's folder). */
+  get: async (id: string): Promise<OneOnOne | null> => {
+    return findOneOnOne(id);
+  },
+
+  /** Every 1:1 the current viewer participates in (lab head OR member). */
+  list: async (): Promise<OneOnOne[]> => {
+    return labApi.getOneOnOnes();
+  },
+
+  /** Delete a 1:1 (lab-head only). Removes the record from the lab head's
+   *  folder. Scoped items (notes / weekly goals / action items) are left in
+   *  place; a follow-up step can sweep them, but maintenance mode means no one
+   *  is in real use yet. Throws if the caller is not a lab head. */
+  delete: async (id: string): Promise<void> => {
+    const labHead = await requireLabHead();
+    const oneOnOne = await findOneOnOne(id);
+    if (!oneOnOne) return;
+    await oneOnOneActionItemsStore.deleteForUser(id, oneOnOne.labHead);
+    await oneOnOnesStore.deleteForUser(id, oneOnOne.labHead || labHead);
+  },
+
+  /**
+   * Add a WEEKLY GOAL to a 1:1. Reuses the `WeeklyGoal` record: `text` is the
+   * goal, `is_complete` the done toggle, `week_of` the grouping. Lands in the
+   * current user's weekly_goals folder, stamped with `one_on_one_id` +
+   * `shared_with` = both members at "edit", so either can add and either can
+   * check off. Throws if the 1:1 is missing or the user is not a member.
+   */
+  addWeeklyGoal: async (params: {
+    oneOnOneId: string;
     text: string;
     week_of?: string;
   }): Promise<WeeklyGoal> => {
-    const notebook = await findSharedNotebook(params.notebookId);
-    if (!notebook) {
-      throw new Error(`Shared notebook ${params.notebookId} not found`);
+    const oneOnOne = await findOneOnOne(params.oneOnOneId);
+    if (!oneOnOne) {
+      throw new Error(`1:1 ${params.oneOnOneId} not found`);
     }
     const author = await getCurrentUserCached();
-    if (!notebook.members.includes(author)) {
-      throw new Error(
-        `User ${author} is not a member of notebook ${params.notebookId}`,
-      );
-    }
+    assertMember(oneOnOne, author);
     const now = new Date().toISOString();
     return weeklyGoalsStore.create({
       owner: author,
@@ -4895,91 +4985,162 @@ export const notebooksApi = {
       created_at: now,
       created_by: author,
       is_shared: true,
-      shared_with: membersSharedWith(notebook.members),
-      notebook_id: params.notebookId,
+      shared_with: membersSharedWith([oneOnOne.labHead, oneOnOne.member]),
+      one_on_one_id: params.oneOnOneId,
     });
   },
 
   /**
-   * OWNER-ROUTED weekly-task update (notebooks-phase2 sub-bot, 2026-06-02;
-   * owner param added by the notebook-task-routing-fix sub-bot, 2026-06-02).
-   *
-   * A shared-notebook task lives in the folder of whichever member created it
-   * (`weeklyGoalsStore` keys records per-user). `weeklyGoalsApi.update` only
-   * writes the CURRENT user's folder, so a member could not check off / edit
-   * the OTHER member's task. This mirrors how `notesApi.update` accepts an
-   * `owner` and routes through `updateForUser`.
-   *
-   * The caller MUST pass the task `owner` (its `owner` username, decorated by
-   * `labApi.getNotebookWeeklyTasks`). We route the read + the write DIRECTLY to
-   * that owner's folder. We do NOT walk `notebook.members` looking for the first
-   * folder that holds a goal with this id: weekly-goal ids are PER-USER counters
-   * (`users/<user>/_counters.json`), so both members own a task with id 1, 2, 3,
-   * etc. A members-walk + first-by-id match would land an update on whichever
-   * member sorts first in `members[]`, NOT the intended owner, so checking off
-   * one member's task could flip the OTHER member's same-id task in the same
-   * notebook.
-   *
-   * Two guards stay in place:
-   *   (a) the actor must be a member of the notebook (the membership gate), and
-   *   (b) the targeted goal in the OWNER's folder must carry the matching
-   *       `notebook_id`, so a caller can never reach a non-notebook goal (or a
-   *       goal belonging to a different notebook) through this path.
-   *
-   * The partial-merge update then routes to the owner's folder via
-   * `weeklyGoalsStore.updateForUser`, keeping the no-PI-audit peer semantics:
-   * either member can toggle done, rename, or re-week any task in the notebook.
-   *
-   * Returns null if the owner has no such notebook task. Throws if the notebook
-   * is missing or the current user is not one of its two members.
+   * Add a weekly MEETING NOTE to a 1:1 (`note_kind: "meeting"`). One entry per
+   * meeting, keyed by `date`. Lands in the current user's notes folder with
+   * `one_on_one_id` + both-at-edit sharing. Throws if the 1:1 is missing or the
+   * user is not a member.
    */
-  updateWeeklyTask: async (params: {
-    notebookId: string;
-    taskId: number;
-    owner: string;
-    data: WeeklyGoalUpdate;
-  }): Promise<WeeklyGoal | null> => {
-    const notebook = await findSharedNotebook(params.notebookId);
-    if (!notebook) {
-      throw new Error(`Shared notebook ${params.notebookId} not found`);
+  addMeetingNote: async (params: {
+    oneOnOneId: string;
+    title: string;
+    date: string;
+  }): Promise<Note> => {
+    return createOneOnOneNote(params.oneOnOneId, {
+      title: params.title,
+      note_kind: "meeting",
+      entries: [{ title: params.title, date: params.date }],
+    });
+  },
+
+  /**
+   * Add a freeform SHARED NOTE to a 1:1 (`note_kind: "note"`), for anything that
+   * is not a goal or a meeting note. Throws if the 1:1 is missing or the user is
+   * not a member.
+   */
+  addSharedNote: async (params: {
+    oneOnOneId: string;
+    title: string;
+    description?: string;
+  }): Promise<Note> => {
+    return createOneOnOneNote(params.oneOnOneId, {
+      title: params.title,
+      note_kind: "note",
+      ...(params.description !== undefined
+        ? { description: params.description }
+        : {}),
+    });
+  },
+
+  /**
+   * Add an ACTION ITEM to a 1:1. Lands in the LAB HEAD's folder (the canonical
+   * home for the dedicated store) with both-at-edit sharing, so either member
+   * adds / toggles / deletes. Throws if the 1:1 is missing or the user is not a
+   * member.
+   */
+  addActionItem: async (params: {
+    oneOnOneId: string;
+    text: string;
+  }): Promise<OneOnOneActionItem> => {
+    const oneOnOne = await findOneOnOne(params.oneOnOneId);
+    if (!oneOnOne) {
+      throw new Error(`1:1 ${params.oneOnOneId} not found`);
     }
-    const actor = await getCurrentUserCached();
-    if (!notebook.members.includes(actor)) {
-      throw new Error(
-        `User ${actor} is not a member of notebook ${params.notebookId}`,
-      );
-    }
-    // Route DIRECTLY to the owner's folder. The id alone is ambiguous across
-    // members (per-user counters), so the explicit owner is the only safe key.
-    const existing = await weeklyGoalsStore.getForUser(
-      params.taskId,
-      params.owner,
+    const author = await getCurrentUserCached();
+    assertMember(oneOnOne, author);
+    const now = new Date().toISOString();
+    const data: Omit<OneOnOneActionItem, "id"> = {
+      one_on_one_id: params.oneOnOneId,
+      text: params.text,
+      is_done: false,
+      created_by: author,
+      created_at: now,
+      owner: oneOnOne.labHead,
+      shared_with: membersSharedWith([oneOnOne.labHead, oneOnOne.member]),
+    };
+    return oneOnOneActionItemsStore.create(data);
+  },
+
+  /**
+   * Toggle (or set) an action item's done state. Action items live in the lab
+   * head's folder; pass `owner` for explicitness (defaults to a discovery walk
+   * via `findOneOnOne` of the item's parent). Returns null if not found.
+   */
+  toggleActionItem: async (
+    id: string,
+    owner?: string,
+  ): Promise<OneOnOneActionItem | null> => {
+    const labHead = owner ?? (await resolveActionItemOwner(id));
+    if (!labHead) return null;
+    const existing = await oneOnOneActionItemsStore.getForUser(id, labHead);
+    if (!existing) return null;
+    return oneOnOneActionItemsStore.updateForUser(
+      id,
+      { is_done: !existing.is_done },
+      labHead,
     );
-    // Guard (b): confirm the targeted goal genuinely belongs to THIS notebook
-    // before writing, so a caller can never reach a non-notebook goal (or a
-    // goal in a different notebook) through this peer-edit path.
-    if (!existing || existing.notebook_id !== params.notebookId) {
-      return null;
-    }
-    // Notebook tasks are always shared between both members at "edit"; we never
-    // rewrite that share list from here (unlike the personal weekly goal path,
-    // which keeps `is_shared` + the "*" sentinel in lockstep). Only the
-    // editable fields (text / week_of / is_complete) flow through.
-    const patch: Partial<WeeklyGoal> = {};
-    if (params.data.text !== undefined) patch.text = params.data.text;
-    if (params.data.week_of !== undefined) {
-      patch.week_of = params.data.week_of;
-    }
-    if (params.data.is_complete !== undefined) {
-      patch.is_complete = params.data.is_complete;
-    }
-    return weeklyGoalsStore.updateForUser(params.taskId, patch, params.owner);
+  },
+
+  /** Delete an action item from the lab head's folder. Pass `owner` for
+   *  explicitness (defaults to a discovery walk). */
+  deleteActionItem: async (id: string, owner?: string): Promise<boolean> => {
+    const labHead = owner ?? (await resolveActionItemOwner(id));
+    if (!labHead) return false;
+    return oneOnOneActionItemsStore.deleteForUser(id, labHead);
   },
 };
 
-/** @deprecated use `notebooksApi` (notebooks-gen Phase 1 renamed the export;
- *  Phase 2 removes this alias + renames call sites). */
-export const sharedNotebooksApi = notebooksApi;
+/**
+ * Shared create path for a 1:1 note (meeting note OR freeform shared note). The
+ * note lands in the current user's notes folder, stamped with `one_on_one_id`,
+ * `note_kind`, and `shared_with` = both members at "edit". Throws if the 1:1 is
+ * missing or the current user is not a member.
+ */
+async function createOneOnOneNote(
+  oneOnOneId: string,
+  opts: {
+    title: string;
+    note_kind: "meeting" | "note";
+    description?: string;
+    entries?: Array<{ title: string; date: string; content?: string }>;
+  },
+): Promise<Note> {
+  const oneOnOne = await findOneOnOne(oneOnOneId);
+  if (!oneOnOne) {
+    throw new Error(`1:1 ${oneOnOneId} not found`);
+  }
+  const author = (await getCurrentUserCached()) ?? "";
+  assertMember(oneOnOne, author);
+  const now = new Date().toISOString();
+  const entries: NoteEntry[] = (opts.entries ?? []).map((e) => ({
+    id: crypto.randomUUID(),
+    title: e.title,
+    date: e.date,
+    content: e.content ?? "",
+    created_at: now,
+    updated_at: now,
+  }));
+  return notesStore.create({
+    title: opts.title,
+    description: opts.description ?? "",
+    is_running_log: false,
+    is_shared: true,
+    entries,
+    comments: [],
+    created_at: now,
+    updated_at: now,
+    username: author,
+    one_on_one_id: oneOnOneId,
+    note_kind: opts.note_kind,
+    shared_with: membersSharedWith([oneOnOne.labHead, oneOnOne.member]),
+  });
+}
+
+/** Resolve the lab-head owner folder for an action item id by walking the lab.
+ *  Action items live only in the lab head's folder, so the first hit is it. */
+async function resolveActionItemOwner(id: string): Promise<string | null> {
+  const usernames = await discoverUsers();
+  for (const username of usernames) {
+    const rec = await oneOnOneActionItemsStore.getForUser(id, username);
+    if (rec) return rec.owner || username;
+  }
+  return null;
+}
 
 export const attachmentsApi = {
   /**
@@ -6893,13 +7054,69 @@ export const labApi = {
     return out;
   },
 
+  // ── Lab-head <-> member 1:1 cross-user aggregation ───────────────────────
+  // 1:1 revamp (oneonone data+strip bot, 2026-06-07). See
+  // docs/proposals/NOTEBOOKS_AND_ONE_ON_ONE_REVAMP.md. A 1:1 record lives only
+  // in the lab head's folder; the member discovers it by walking every user's
+  // folder, exactly like getSharedNotebooks. Items (weekly goals / notes /
+  // action items) scoped to a 1:1 live in their author's own folder, so the
+  // item aggregations walk every folder and gate on `canRead` (the
+  // membersSharedWith share list both members carry).
+
   /**
-   * Every WEEKLY TASK in a given notebook, across BOTH members' folders, that
-   * the viewer can read. Same gate as `getNotebookNotes`; WeeklyGoal carries a
-   * real `owner` field, so `canRead` consumes the record directly.
+   * Every 1:1 the viewer participates in (as the lab head OR the member), across
+   * all users' folders, that the viewer can read. The lab head's folder is the
+   * canonical home, so a 1:1 is found once (no dedupe needed). The `owner` is
+   * stamped from the folder for any pre-stamp record.
    */
-  getNotebookWeeklyTasks: async (
-    notebookId: string,
+  getOneOnOnes: async (): Promise<OneOnOne[]> => {
+    const viewer = await buildCurrentViewer();
+    const usernames = await discoverUsers();
+    const out: OneOnOne[] = [];
+    for (const username of usernames) {
+      const records = await oneOnOnesStore.listAllForUser(username);
+      for (const oo of records) {
+        const rec: OneOnOne = { ...oo, owner: oo.owner || username };
+        const isParticipant =
+          rec.labHead === viewer.username || rec.member === viewer.username;
+        if (!isParticipant || !canRead(rec, viewer)) continue;
+        out.push(rec);
+      }
+    }
+    return out;
+  },
+
+  /**
+   * Every NOTE scoped to a 1:1 (`one_on_one_id` match), across all folders, that
+   * the viewer can read. Owner = the note's `username` creator, same mapping the
+   * notebook-note aggregation uses.
+   */
+  getOneOnOneNotes: async (oneOnOneId: string): Promise<Note[]> => {
+    const viewer = await buildCurrentViewer();
+    const usernames = await discoverUsers();
+    const out: Note[] = [];
+    for (const username of usernames) {
+      const userNotes = await notesStore.listAllForUser(username);
+      for (const note of userNotes) {
+        if (note.one_on_one_id !== oneOnOneId) continue;
+        const stamped = { ...note, username: note.username || username };
+        const shareable = {
+          owner: stamped.username,
+          shared_with: stamped.shared_with ?? [],
+        };
+        if (canRead(shareable, viewer)) out.push(stamped);
+      }
+    }
+    return out;
+  },
+
+  /**
+   * Every WEEKLY GOAL scoped to a 1:1 (`one_on_one_id` match), across all
+   * folders, that the viewer can read. WeeklyGoal carries a real `owner`, so
+   * `canRead` consumes the record directly.
+   */
+  getOneOnOneWeeklyGoals: async (
+    oneOnOneId: string,
   ): Promise<WeeklyGoal[]> => {
     const viewer = await buildCurrentViewer();
     const usernames = await discoverUsers();
@@ -6907,13 +7124,35 @@ export const labApi = {
     for (const username of usernames) {
       const userGoals = await weeklyGoalsStore.listAllForUser(username);
       for (const goal of userGoals) {
-        if (goal.notebook_id !== notebookId) continue;
+        if (goal.one_on_one_id !== oneOnOneId) continue;
         const stamped = { ...goal, owner: goal.owner || username };
         const shareable = {
           owner: stamped.owner,
           shared_with: stamped.shared_with ?? [],
         };
         if (canRead(shareable, viewer)) out.push(stamped);
+      }
+    }
+    return out;
+  },
+
+  /**
+   * Every ACTION ITEM scoped to a 1:1, across all folders, that the viewer can
+   * read. Action items live in the lab head's folder (their `owner`), so this
+   * finds them once. Gated on `canRead` (both members carry the share list).
+   */
+  getOneOnOneActionItems: async (
+    oneOnOneId: string,
+  ): Promise<OneOnOneActionItem[]> => {
+    const viewer = await buildCurrentViewer();
+    const usernames = await discoverUsers();
+    const out: OneOnOneActionItem[] = [];
+    for (const username of usernames) {
+      const items = await oneOnOneActionItemsStore.listAllForUser(username);
+      for (const item of items) {
+        if (item.one_on_one_id !== oneOnOneId) continue;
+        const stamped = { ...item, owner: item.owner || username };
+        if (canRead(stamped, viewer)) out.push(stamped);
       }
     }
     return out;

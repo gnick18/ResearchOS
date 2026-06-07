@@ -2328,6 +2328,19 @@ export interface Note {
   // it. Additive / back-compat: old notes read as `undefined` and stay
   // personal.
   notebook_id?: string;
+  // 1:1 revamp (oneonone data+strip bot, 2026-06-07). See
+  // docs/proposals/NOTEBOOKS_AND_ONE_ON_ONE_REVAMP.md. When set, this note
+  // belongs to a lab-head <-> member 1:1 (see `OneOnOne`), NOT a notebook. The
+  // value is the 1:1's globally-unique id. `notebook_id` and `one_on_one_id`
+  // are mutually exclusive: a note lives in a notebook OR a 1:1, never both.
+  // ABSENT = an ordinary note (unchanged). Notes carrying this are always
+  // created with `shared_with` = both 1:1 members at "edit", so both read +
+  // edit. Additive / back-compat: old notes read as `undefined`.
+  one_on_one_id?: string;
+  // 1:1 revamp: distinguishes a weekly MEETING note ("meeting") from a freeform
+  // SHARED note ("note") inside a 1:1. ABSENT on every ordinary (non-1:1) note.
+  // Read alongside `one_on_one_id`; meaningless without it.
+  note_kind?: "meeting" | "note";
   // Cross-boundary sharing (note-transfer adapter, 2026-06-03): provenance
   // marker stamped ONLY on notes imported from a received bundle (the locked
   // design in docs/proposals/CROSS_BOUNDARY_SHARING_INBOX_DESIGN.md). They keep
@@ -2458,16 +2471,17 @@ export interface WeeklyGoal {
    *  Optional on read so a record written before this field normalizes to
    *  owner-only (same back-compat shape as notes). */
   shared_with?: SharedUser[];
-  // Shared Notebooks Phase 1 (notebooks-data bot, 2026-06-02): when set, this
-  // weekly goal is a SHARED WEEKLY TASK inside a shared 1:1 notebook (see
-  // `SharedNotebook`). The value is the notebook's globally-unique id. We
-  // REUSE WeeklyGoal verbatim for in-notebook tasks (the locked decision's
-  // preferred path): `text` is the task, `is_complete` the done toggle,
-  // `week_of` the grouping. A task carrying a `notebook_id` is always created
-  // with `shared_with` = both notebook members at level "edit" (via
-  // `pairingSharedWith`), so either member can add a task and either can check
+  // 1:1 revamp (oneonone data+strip bot, 2026-06-07). See
+  // docs/proposals/NOTEBOOKS_AND_ONE_ON_ONE_REVAMP.md. When set, this weekly
+  // goal is a SHARED weekly goal inside a lab-head <-> member 1:1 (see
+  // `OneOnOne`). The value is the 1:1's globally-unique id. `text` is the goal,
+  // `is_complete` the done toggle, `week_of` the grouping. A goal carrying this
+  // is always created with `shared_with` = both 1:1 members at level "edit" (via
+  // `membersSharedWith`), so either member can add a goal and either can check
   // it off. ABSENT = a personal / whole-lab weekly goal (unchanged behavior).
-  notebook_id?: string;
+  // (Replaces the retired notebook weekly-task path; weekly goals belong to
+  // 1:1s now, not notebooks.)
+  one_on_one_id?: string;
 }
 
 export interface WeeklyGoalCreate {
@@ -2544,6 +2558,64 @@ export interface Notebook {
 
 /** @deprecated use Notebook (Phase 2 removes this alias + renames callers). */
 export type SharedNotebook = Notebook;
+
+// ── Lab-head <-> member 1:1 ──────────────────────────────────────────────────
+//
+// 1:1 revamp (oneonone data+strip bot, 2026-06-07). See
+// docs/proposals/NOTEBOOKS_AND_ONE_ON_ONE_REVAMP.md. A OneOnOne is a distinct
+// advising workspace between exactly ONE lab head and ONE member, separate from
+// a Notebook (which is now a plain note container). The lab head sets it up;
+// both people edit. It scopes weekly goals, weekly meeting notes, freeform
+// shared notes, and action items via `one_on_one_id`.
+//
+// ID + STORE: `id` is a globally-unique crypto.randomUUID (a cross-user query
+// key, exactly like `Notebook.id`), stored at
+// `users/<labHead>/one_on_ones/<uuid>.json` via the thin string-keyed per-user
+// store in lib/one-on-one/store.ts (a sibling of the notebook store). The lab
+// head's folder is the canonical home; the member discovers it via the
+// sharing-respecting aggregation on `labApi.getOneOnOnes`.
+export interface OneOnOne {
+  /** Globally-unique id (crypto.randomUUID). Referenced by `Note.one_on_one_id`,
+   *  `WeeklyGoal.one_on_one_id`, and `OneOnOneActionItem.one_on_one_id`. */
+  id: string;
+  /** The lab-head username. Creator + owner of the 1:1. */
+  labHead: string;
+  /** The member username. */
+  member: string;
+  /** Username that created the record (always === labHead). */
+  created_by: string;
+  /** ISO timestamp of creation. */
+  created_at: string;
+  /** Sharing owner — drives `canRead`/`canWrite`'s owner branch and the
+   *  per-user folder the record lives in. Equals `labHead`. */
+  owner: string;
+  /** Always `membersSharedWith([labHead, member])` — both at "edit", deduped.
+   *  Both people read AND write the 1:1 and everything scoped to it. */
+  shared_with: SharedUser[];
+}
+
+// A tracked agenda / action item inside a 1:1. Lightweight + dedicated store at
+// `users/<labHead>/one_on_one_action_items/<uuid>.json`. Carries the same
+// `shared_with` (both at "edit") so either person adds, toggles, or deletes.
+export interface OneOnOneActionItem {
+  /** Globally-unique id (crypto.randomUUID). */
+  id: string;
+  /** The owning 1:1's id. */
+  one_on_one_id: string;
+  /** Free-form action-item text. */
+  text: string;
+  /** Done toggle. */
+  is_done: boolean;
+  /** Username that created the item (either member). */
+  created_by: string;
+  /** ISO timestamp of creation. */
+  created_at: string;
+  /** Sharing owner — the lab head's folder the item lives in. Equals labHead.
+   *  Drives the per-user routing + the `canRead`/`canWrite` owner branch. */
+  owner: string;
+  /** Always `membersSharedWith([labHead, member])` — both at "edit". */
+  shared_with: SharedUser[];
+}
 
 // ── Lab Mode Notes ─────────────────────────────────────────────────────────────
 

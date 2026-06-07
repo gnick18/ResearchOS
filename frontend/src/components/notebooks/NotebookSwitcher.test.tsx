@@ -16,41 +16,33 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { Note, SharedNotebook, WeeklyGoal } from "@/lib/types";
+import type { Note, SharedNotebook } from "@/lib/types";
 
 const {
   notesList,
   getSharedNotebooks,
   getNotebookNotes,
-  getNotebookWeeklyTasks,
   getNotes,
   nbCreatePersonal,
   nbCreate,
   nbCreateNote,
   nbMoveNote,
-  nbCreateWeeklyTask,
-  nbUpdateWeeklyTask,
   nbUpdateTitle,
   nbDelete,
   nbAddMember,
-  wgDelete,
   usersList,
 } = vi.hoisted(() => ({
   notesList: vi.fn(),
   getSharedNotebooks: vi.fn(),
   getNotebookNotes: vi.fn(),
-  getNotebookWeeklyTasks: vi.fn(),
   getNotes: vi.fn(),
   nbCreatePersonal: vi.fn(),
   nbCreate: vi.fn(),
   nbCreateNote: vi.fn(),
   nbMoveNote: vi.fn(),
-  nbCreateWeeklyTask: vi.fn(),
-  nbUpdateWeeklyTask: vi.fn(),
   nbUpdateTitle: vi.fn(),
   nbDelete: vi.fn(),
   nbAddMember: vi.fn(),
-  wgDelete: vi.fn(),
   usersList: vi.fn(),
 }));
 
@@ -59,7 +51,6 @@ vi.mock("@/lib/local-api", () => ({
   labApi: {
     getSharedNotebooks,
     getNotebookNotes,
-    getNotebookWeeklyTasks,
     getNotes,
   },
   notebooksApi: {
@@ -67,8 +58,6 @@ vi.mock("@/lib/local-api", () => ({
     create: nbCreate,
     createNote: nbCreateNote,
     moveNoteToNotebook: nbMoveNote,
-    createWeeklyTask: nbCreateWeeklyTask,
-    updateWeeklyTask: nbUpdateWeeklyTask,
     updateTitle: nbUpdateTitle,
     delete: nbDelete,
     addMember: nbAddMember,
@@ -76,10 +65,7 @@ vi.mock("@/lib/local-api", () => ({
   sharedNotebooksApi: {
     create: nbCreate,
     createNote: nbCreateNote,
-    createWeeklyTask: nbCreateWeeklyTask,
-    updateWeeklyTask: nbUpdateWeeklyTask,
   },
-  weeklyGoalsApi: { delete: wgDelete },
   usersApi: { list: usersList },
 }));
 
@@ -171,22 +157,6 @@ const sharedNote: Note = {
   notebook_id: "nb-1",
 };
 
-const notebookTask: WeeklyGoal = {
-  id: 50,
-  owner: "pi",
-  text: "Run the gel by Friday",
-  week_of: "2026-06-01",
-  is_complete: false,
-  created_at: "2026-06-02T00:00:00.000Z",
-  created_by: "pi",
-  is_shared: true,
-  shared_with: [
-    { username: "student", level: "edit" },
-    { username: "pi", level: "edit" },
-  ],
-  notebook_id: "nb-1",
-};
-
 function renderPanel() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -204,15 +174,12 @@ beforeEach(() => {
   notesList.mockResolvedValue([floatingNote, filedNote]);
   getSharedNotebooks.mockResolvedValue([SHARED_NB, PERSONAL_NB]);
   getNotebookNotes.mockResolvedValue([sharedNote]);
-  getNotebookWeeklyTasks.mockResolvedValue([notebookTask]);
   getNotes.mockResolvedValue([]);
   usersList.mockResolvedValue({
     users: ["student", "pi", "other"],
     current_user: "student",
   });
   nbCreatePersonal.mockResolvedValue({ ...PERSONAL_NB, id: "nb-new", title: "Fresh" });
-  nbCreateWeeklyTask.mockResolvedValue(notebookTask);
-  nbUpdateWeeklyTask.mockResolvedValue({ ...notebookTask, is_complete: true });
   nbMoveNote.mockResolvedValue({ ...filedNote, notebook_id: undefined });
 });
 
@@ -261,7 +228,7 @@ describe("Notes tab notebook rail", () => {
     fireEvent.click(await screen.findByTestId("rail-notebook-nb-1"));
 
     const banner = await screen.findByTestId("notebook-shared-banner");
-    expect(banner).toHaveTextContent("Always shared with");
+    expect(banner).toHaveTextContent("Shared with");
     expect(banner).toHaveTextContent("pi");
     expect(await screen.findByTestId("note-card-3")).toHaveTextContent(
       "PI feedback",
