@@ -6,6 +6,7 @@ import { notesApi } from "@/lib/local-api";
 import UserAvatar from "@/components/UserAvatar";
 import AttributionChip from "@/components/AttributionChip";
 import ReceivedFromBadge from "@/components/ReceivedFromBadge";
+import Tooltip from "@/components/Tooltip";
 
 interface NoteCardProps {
   note: Note | LabNote;
@@ -63,7 +64,7 @@ export default function NoteCard({ note, onClick, isLabMode = false, tourTarget 
     <div
       onClick={onClick}
       data-tour-target={tourTarget}
-      className="bg-surface-raised rounded-xl border border-border p-4 cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all duration-200 group"
+      className="bg-surface-raised rounded-xl border border-border p-4 cursor-pointer hover:shadow-md hover:border-brand-action/30 transition-all duration-200 group"
     >
       {/* Header with icon and type indicator */}
       <div className="flex items-start justify-between mb-2">
@@ -112,26 +113,29 @@ export default function NoteCard({ note, onClick, isLabMode = false, tourTarget 
               </span>
             )
           ) : (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleShareMutation.mutate(!note.is_shared);
-              }}
-              disabled={toggleShareMutation.isPending}
-              className={`px-2 py-0.5 text-meta rounded-full transition-colors ${
-                note.is_shared
-                  ? "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200"
-                  : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
-              } disabled:opacity-50`}
-              title={
+            <Tooltip
+              label={
                 note.is_shared
                   ? "Visible in Lab Mode to all lab mates. Click to make private."
                   : "Private. Click to share with lab mates."
               }
             >
-              {note.is_shared ? "Shared with lab" : "Private"}
-            </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleShareMutation.mutate(!note.is_shared);
+                }}
+                disabled={toggleShareMutation.isPending}
+                className={`px-2 py-0.5 text-meta rounded-full transition-colors ${
+                  note.is_shared
+                    ? "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200"
+                    : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
+                } disabled:opacity-50`}
+              >
+                {note.is_shared ? "Shared with lab" : "Private"}
+              </button>
+            </Tooltip>
           )}
         </div>
         
@@ -144,7 +148,7 @@ export default function NoteCard({ note, onClick, isLabMode = false, tourTarget 
       </div>
 
       {/* Title */}
-      <h3 className="font-semibold text-foreground mb-1 group-hover:text-emerald-600 transition-colors line-clamp-2">
+      <h3 className="text-title font-semibold text-foreground mb-1 group-hover:text-brand-action transition-colors line-clamp-2">
         {note.title}
       </h3>
 
@@ -173,7 +177,6 @@ export default function NoteCard({ note, onClick, isLabMode = false, tourTarget 
           {note.comments && note.comments.length > 0 && (
             <span
               className="inline-flex items-center gap-1 text-meta text-foreground-muted"
-              title={`${note.comments.length} comment${note.comments.length === 1 ? "" : "s"}`}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h6m-7 9l4-4h10a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h1v4z" />

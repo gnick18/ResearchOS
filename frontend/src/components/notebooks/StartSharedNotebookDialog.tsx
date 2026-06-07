@@ -132,7 +132,7 @@ export default function StartSharedNotebookDialog({
         {/* Header */}
         <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">
-            <span aria-hidden="true" className="text-sky-500">
+            <span aria-hidden="true" className="text-brand-action">
               {PEOPLE_SVG}
             </span>
             <div>
@@ -177,7 +177,7 @@ export default function StartSharedNotebookDialog({
                 value={selected}
                 onChange={(e) => setSelected(e.target.value)}
                 data-testid="notebook-partner-select"
-                className="w-full rounded-lg border border-border px-3 py-2 text-body focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                className="w-full rounded-lg border border-border px-3 py-2 text-body focus:border-brand-action focus:outline-none focus:ring-2 focus:ring-brand-action/30"
               >
                 <option value="">Pick a lab member…</option>
                 {roster.map((u) => (
@@ -189,7 +189,7 @@ export default function StartSharedNotebookDialog({
               </select>
             )}
             {alreadyHas && (
-              <p className="text-meta text-amber-600">
+              <p className="text-meta text-amber-600 dark:text-amber-400">
                 You already share a notebook with {selected}. Creating another
                 makes a second, separate shared notebook.
               </p>
@@ -210,7 +210,7 @@ export default function StartSharedNotebookDialog({
               onChange={(e) => setTitle(e.target.value)}
               placeholder={selected ? `Shared with ${selected}` : "e.g. Thesis notes"}
               data-testid="notebook-title-input"
-              className="w-full rounded-lg border border-border px-3 py-2 text-body focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+              className="w-full rounded-lg border border-border px-3 py-2 text-body focus:border-brand-action focus:outline-none focus:ring-2 focus:ring-brand-action/30"
             />
           </div>
 
@@ -231,7 +231,7 @@ export default function StartSharedNotebookDialog({
             onClick={() => void handleCreate()}
             disabled={!selected || creating}
             data-testid="notebook-create-confirm"
-            className="rounded-lg bg-sky-600 px-4 py-2 text-body font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-40"
+            className="btn-brand rounded-lg px-4 py-2 text-body font-medium disabled:opacity-40"
           >
             {creating ? "Creating…" : "Create notebook"}
           </button>

@@ -133,8 +133,8 @@ function NotebookIconSlot({
   if (color) {
     return (
       <span
-        className="h-3.5 w-3.5 flex-shrink-0 rounded-full"
-        style={{ backgroundColor: color }}
+        className={`h-3.5 w-3.5 flex-shrink-0 rounded-full ${active ? "bg-brand-action" : ""}`}
+        style={{ backgroundColor: active ? undefined : color }}
       />
     );
   }

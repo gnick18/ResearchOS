@@ -5270,18 +5270,23 @@ export const notebooksApi = {
   },
 
   /** Set or clear the color / subject_icon appearance fields, mirrored to all
-   *  members' folders exactly like updateTitle. */
+   *  members' folders exactly like updateTitle. Pass null to REMOVE a field
+   *  (applyPatch treats null as "delete the key from the record"). */
   updateAppearance: async (
     id: string,
     patch: { color?: string | null; subject_icon?: string | null },
   ): Promise<SharedNotebook | null> => {
-    const fields: Partial<Pick<SharedNotebook, "color" | "subject_icon">> = {};
-    if ("color" in patch) fields.color = patch.color ?? undefined;
-    if ("subject_icon" in patch)
-      fields.subject_icon = patch.subject_icon ?? undefined;
+    const fields: Record<string, string | null> = {};
+    if (patch.color !== undefined) fields.color = patch.color;
+    if (patch.subject_icon !== undefined) fields.subject_icon = patch.subject_icon;
     const notebook = await findSharedNotebook(id);
-    if (!notebook) return sharedNotebooksStore.update(id, fields);
-    return sharedNotebooksStore.updateForMembers(id, notebook.members, fields);
+    if (!notebook)
+      return sharedNotebooksStore.update(id, fields as Partial<SharedNotebook>);
+    return sharedNotebooksStore.updateForMembers(
+      id,
+      notebook.members,
+      fields as Partial<SharedNotebook>,
+    );
   },
 
   /** Delete a shared notebook from BOTH members' folders (it is a shared

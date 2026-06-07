@@ -46,13 +46,14 @@ export default function NoteListRow({ note, onClick, isLabMode = false }: NoteLi
       onClick={onClick}
       role="button"
       tabIndex={0}
+      aria-label={note.title || "Untitled note"}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           onClick();
         }
       }}
-      className="flex items-center gap-3 px-3 py-2.5 min-h-[52px] cursor-pointer hover:bg-emerald-50/40 dark:hover:bg-emerald-500/15 transition-colors group"
+      className="flex items-center gap-3 px-3 py-2.5 min-h-[52px] cursor-pointer hover:bg-surface-sunken transition-colors group"
     >
       {/* Type icon: single note vs running log */}
       {note.is_running_log ? (
@@ -73,7 +74,7 @@ export default function NoteListRow({ note, onClick, isLabMode = false }: NoteLi
           muted and hidden on very narrow widths so the title always wins. */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="font-medium text-body text-foreground truncate group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">
+          <span className="font-medium text-body text-foreground truncate group-hover:text-brand-action transition-colors">
             {note.title || "Untitled"}
           </span>
           {isShared && (
@@ -99,14 +100,13 @@ export default function NoteListRow({ note, onClick, isLabMode = false }: NoteLi
           (lab mode) the author avatar. Hidden progressively on small widths. */}
       <div className="flex items-center gap-3 flex-shrink-0">
         {note.is_running_log && entryCount > 0 && (
-          <span className="hidden sm:inline text-meta text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
+          <span className="hidden sm:inline text-meta text-foreground-muted bg-surface-sunken px-2 py-0.5 rounded">
             {entryCount} {entryCount === 1 ? "entry" : "entries"}
           </span>
         )}
         {commentCount > 0 && (
           <span
-            className="hidden sm:inline-flex items-center gap-1 text-meta text-gray-500"
-            title={`${commentCount} comment${commentCount === 1 ? "" : "s"}`}
+            className="hidden sm:inline-flex items-center gap-1 text-meta text-foreground-muted"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h6m-7 9l4-4h10a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h1v4z" />
@@ -114,7 +114,7 @@ export default function NoteListRow({ note, onClick, isLabMode = false }: NoteLi
             {commentCount}
           </span>
         )}
-        <span className="text-meta text-gray-400 whitespace-nowrap w-[88px] text-right">
+        <span className="text-meta text-foreground-muted whitespace-nowrap w-[88px] text-right">
           {formatDate(note.updated_at)}
         </span>
         {isLabMode && isLabNote(note) && (

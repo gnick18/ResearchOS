@@ -143,8 +143,11 @@ export class SharedNotebookStore {
   ): SharedNotebook {
     const updated: SharedNotebook = { ...existing };
     for (const key of Object.keys(patch) as (keyof SharedNotebook)[]) {
-      const value = patch[key];
-      if (value !== undefined) {
+      const value = (patch as Record<string, unknown>)[key as string];
+      if (value === null) {
+        // null is an explicit clear: remove the optional key from the record.
+        delete (updated as unknown as Record<string, unknown>)[key as string];
+      } else if (value !== undefined) {
         (updated as unknown as Record<string, unknown>)[key as string] = value;
       }
     }

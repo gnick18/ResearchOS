@@ -99,6 +99,7 @@ export default function SharedNotebookView({ notebook }: SharedNotebookViewProps
         setSelectedNote(created);
       } catch (err) {
         console.error("Failed to add notebook note:", err);
+        alert("Failed to create note. Please try again.");
       } finally {
         setBusy(false);
       }
@@ -116,14 +117,14 @@ export default function SharedNotebookView({ notebook }: SharedNotebookViewProps
     <div className="flex h-full flex-col gap-4">
       {/* Members chip */}
       <div
-        className="flex items-center gap-2 rounded-lg border border-sky-100 bg-sky-50 dark:bg-sky-500/15 px-4 py-2.5"
+        className="flex items-center gap-2 rounded-lg border border-border bg-surface-sunken px-4 py-2.5"
         data-testid="notebook-shared-banner"
       >
         <span aria-hidden="true" className="text-sky-500">
           <Icon name="users" className="h-4 w-4" />
         </span>
         <UserAvatar username={otherMember} size="sm" />
-        <p className="text-body text-sky-900 dark:text-sky-300">
+        <p className="text-body text-foreground">
           Shared with{" "}
           <span className="font-semibold">{otherMember}</span>. Every note here
           is visible to both of you.
@@ -134,14 +135,14 @@ export default function SharedNotebookView({ notebook }: SharedNotebookViewProps
         {/* Notes */}
         <section>
           <div className="mb-2 flex items-center justify-between gap-3">
-            <h3 className="text-body font-semibold text-gray-800">Notes</h3>
+            <h3 className="text-body font-semibold text-foreground">Notes</h3>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => void handleAddNote(false)}
                 disabled={busy}
                 data-testid="notebook-add-note"
-                className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-body font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-40"
+                className="btn-brand flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-body font-medium disabled:opacity-40"
               >
                 <Icon name="plus" className="h-4 w-4" />
                 Note
@@ -151,7 +152,7 @@ export default function SharedNotebookView({ notebook }: SharedNotebookViewProps
                 onClick={() => void handleAddNote(true)}
                 disabled={busy}
                 data-testid="notebook-add-running-log"
-                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-body font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-40"
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-body font-medium text-foreground-muted transition-colors hover:bg-surface-sunken disabled:opacity-40"
               >
                 <Icon name="plus" className="h-4 w-4" />
                 Running log
@@ -160,11 +161,11 @@ export default function SharedNotebookView({ notebook }: SharedNotebookViewProps
           </div>
 
           {notesLoading ? (
-            <p className="text-body italic text-gray-400">Loading notes…</p>
+            <p className="text-body italic text-foreground-muted">Loading notes…</p>
           ) : sortedNotes.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/40 px-4 py-6 text-center">
-              <p className="text-body font-medium text-gray-700">No notes yet</p>
-              <p className="mt-1 text-meta text-gray-500">
+            <div className="rounded-lg border border-dashed border-border bg-surface-sunken/40 px-4 py-6 text-center">
+              <p className="text-body font-medium text-foreground">No notes yet</p>
+              <p className="mt-1 text-meta text-foreground-muted">
                 Add a note to start this shared notebook.
               </p>
             </div>

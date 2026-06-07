@@ -473,7 +473,7 @@ export default function NotesPanel({
   // window. Grouping + view-mode don't change membership, so they're excluded.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [searchQuery, filterType, sharedOnly, sortKey, selection]);
+  }, [searchQuery, filterType, sharedOnly, sortKey, selection, groupBy]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -492,7 +492,7 @@ export default function NotesPanel({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-action"></div>
       </div>
     );
   }
@@ -503,7 +503,7 @@ export default function NotesPanel({
         <p className="text-red-500 mb-4">Failed to load notes</p>
         <button
           onClick={() => queryClient.invalidateQueries({ queryKey: ["notes"] })}
-          className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+          className="btn-brand rounded-lg px-4 py-2"
         >
           Retry
         </button>
@@ -575,8 +575,13 @@ export default function NotesPanel({
           <NotebookAppearanceDialog
             notebook={appearanceFor}
             onClose={() => setAppearanceFor(null)}
-            onSaved={() => {
+            onSaved={(updated) => {
               setAppearanceFor(null);
+              queryClient.setQueryData(
+                ["shared-notebooks", "mine"],
+                (old: Notebook[] | undefined) =>
+                  old?.map((n) => (n.id === updated.id ? updated : n)),
+              );
               queryClient.invalidateQueries({
                 queryKey: ["shared-notebooks", "mine"],
               });
@@ -819,9 +824,10 @@ export default function NotesPanel({
           <div className="flex items-center gap-2">
           <button
             onClick={() => setFilterType("all")}
+            aria-pressed={filterType === "all"}
             className={`px-3 py-1.5 text-body rounded-lg transition-colors ${
               filterType === "all"
-                ? "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                ? "bg-brand-action/10 text-brand-action"
                 : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
             }`}
           >
@@ -829,9 +835,10 @@ export default function NotesPanel({
           </button>
           <button
             onClick={() => setFilterType("single")}
+            aria-pressed={filterType === "single"}
             className={`px-3 py-1.5 text-body rounded-lg transition-colors ${
               filterType === "single"
-                ? "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300"
+                ? "bg-brand-action/10 text-brand-action"
                 : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
             }`}
           >
@@ -839,9 +846,10 @@ export default function NotesPanel({
           </button>
           <button
             onClick={() => setFilterType("running")}
+            aria-pressed={filterType === "running"}
             className={`px-3 py-1.5 text-body rounded-lg transition-colors ${
               filterType === "running"
-                ? "bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300"
+                ? "bg-brand-action/10 text-brand-action"
                 : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
             }`}
           >
@@ -856,7 +864,7 @@ export default function NotesPanel({
             data-testid="notes-filter-shared"
             className={`flex items-center gap-1 px-3 py-1.5 text-body rounded-lg transition-colors ${
               sharedOnly
-                ? "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                ? "bg-brand-action/10 text-brand-action"
                 : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
             }`}
           >
@@ -915,7 +923,7 @@ export default function NotesPanel({
                 data-testid="notes-view-grid"
                 className={`p-1.5 rounded-md transition-colors ${
                   viewMode === "grid"
-                    ? "bg-surface-raised text-emerald-700 dark:text-emerald-300 shadow-sm"
+                    ? "bg-surface-raised text-brand-action shadow-sm"
                     : "text-foreground-muted hover:text-foreground"
                 }`}
               >
@@ -932,7 +940,7 @@ export default function NotesPanel({
                 data-testid="notes-view-list"
                 className={`p-1.5 rounded-md transition-colors ${
                   viewMode === "list"
-                    ? "bg-surface-raised text-emerald-700 dark:text-emerald-300 shadow-sm"
+                    ? "bg-surface-raised text-brand-action shadow-sm"
                     : "text-foreground-muted hover:text-foreground"
                 }`}
               >
@@ -951,7 +959,10 @@ export default function NotesPanel({
             <button
               onClick={() => setShowNewNoteDropdown(!showNewNoteDropdown)}
               data-tour-target="workbench-new-note-button"
-              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 text-body"
+              aria-haspopup="menu"
+              aria-expanded={showNewNoteDropdown}
+              aria-label="New Note"
+              className="btn-brand rounded-lg px-4 py-2 flex items-center gap-2 text-body"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

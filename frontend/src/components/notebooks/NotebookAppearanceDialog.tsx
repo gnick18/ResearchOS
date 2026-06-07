@@ -1,24 +1,21 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useEffect, useState } from "react";
 import { notebooksApi } from "@/lib/local-api";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import type { Notebook } from "@/lib/types";
-import { Icon } from "@/components/icons";
 import {
   NOTEBOOK_COLORS,
   SUBJECT_ICON_KEYS,
   SUBJECT_ICONS,
   type SubjectIconKey,
 } from "./subject-icons";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 interface NotebookAppearanceDialogProps {
   notebook: Notebook;
   onClose: () => void;
   onSaved: (notebook: Notebook) => void;
 }
-
-const CLOSE_SVG = <Icon name="close" className="h-[18px] w-[18px]" />;
 
 export default function NotebookAppearanceDialog({
   notebook,
@@ -31,8 +28,12 @@ export default function NotebookAppearanceDialog({
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const firstSwatchRef = useRef<HTMLButtonElement>(null);
 
-  useEscapeToClose(onClose);
+  // Move focus into the dialog on open.
+  useEffect(() => {
+    firstSwatchRef.current?.focus();
+  }, []);
 
   const handleSave = useCallback(async () => {
     if (busy) return;
@@ -53,34 +54,23 @@ export default function NotebookAppearanceDialog({
   }, [busy, notebook.id, color, icon, onSaved]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Customize notebook"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+    <LivingPopup
+      open
+      onClose={onClose}
+      label="Customize notebook"
+      widthClassName="max-w-sm"
+      card={false}
+      showClose={false}
     >
-      <div className="w-full max-w-sm rounded-xl bg-surface-raised shadow-xl">
+      <div className="w-full rounded-xl bg-surface-raised shadow-xl">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
-          <div>
-            <h2 className="text-title font-semibold text-foreground">
-              Customize notebook
-            </h2>
-            <p className="text-meta text-foreground-muted">
-              {notebook.title?.trim() || "Untitled notebook"}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="flex-shrink-0 rounded-lg p-1 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
-          >
-            {CLOSE_SVG}
-          </button>
+        <div className="border-b border-border px-5 py-4">
+          <h2 className="text-title font-semibold text-foreground">
+            Customize notebook
+          </h2>
+          <p className="text-meta text-foreground-muted">
+            {notebook.title?.trim() || "Untitled notebook"}
+          </p>
         </div>
 
         <div className="flex flex-col gap-5 px-5 py-4">
@@ -92,14 +82,15 @@ export default function NotebookAppearanceDialog({
             <div className="flex flex-wrap gap-2">
               {/* "None" swatch */}
               <button
+                ref={firstSwatchRef}
                 type="button"
                 aria-label="No color"
                 onClick={() => setColor(null)}
-                className={`h-7 w-7 rounded-full border-2 transition-all ${
+                className={`h-7 w-7 rounded-full border-2 bg-surface-sunken transition-all ${
                   color === null
-                    ? "border-foreground scale-110"
+                    ? "scale-110 border-foreground"
                     : "border-border hover:border-foreground-muted"
-                } bg-surface-sunken`}
+                }`}
               >
                 <svg
                   viewBox="0 0 28 28"
@@ -125,7 +116,7 @@ export default function NotebookAppearanceDialog({
                   onClick={() => setColor(hex)}
                   className={`h-7 w-7 rounded-full border-2 transition-all ${
                     color === hex
-                      ? "border-foreground scale-110"
+                      ? "scale-110 border-foreground"
                       : "border-transparent hover:scale-105"
                   }`}
                   style={{ backgroundColor: hex }}
@@ -147,7 +138,6 @@ export default function NotebookAppearanceDialog({
                   <button
                     key={key}
                     type="button"
-                    title={label}
                     aria-label={label}
                     aria-pressed={isSelected}
                     onClick={() => setIcon(isSelected ? null : key)}
@@ -158,7 +148,7 @@ export default function NotebookAppearanceDialog({
                     }`}
                   >
                     <SubIcon className="h-5 w-5" />
-                    <span className="text-[10px] leading-tight">{label}</span>
+                    <span className="text-meta leading-tight">{label}</span>
                   </button>
                 );
               })}
@@ -188,6 +178,6 @@ export default function NotebookAppearanceDialog({
           </button>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }
