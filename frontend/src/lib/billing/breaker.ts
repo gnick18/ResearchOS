@@ -160,17 +160,26 @@ function monthStartISO(): string {
 }
 
 export interface GlobalCostEstimate {
+  /** Variable storage cost above the free tiers (DO + R2), excludes the base. */
   storageCents: number;
+  /** Variable activity cost from this month's writes. */
   activityCents: number;
+  /** The fixed monthly base (Workers + Vercel), shown for context, NOT budgeted. */
+  fixedBaseCents: number;
+  /** What the budget is compared against: variable cost only (storage + activity). */
+  variableCents: number;
+  /** Everything including the fixed base, for display. */
   totalCents: number;
 }
 
 /**
- * The estimated TOTAL monthly cost across all providers: storage (Durable
- * Objects + R2 above their free tiers, plus the fixed base) from the live
- * capacity metrics, plus this month's activity cost from the write tracking.
- * This is what the breaker compares to the budget. Activity is included because
- * a viral spike shows up as writes long before it shows up as stored bytes.
+ * The estimated monthly cost across all providers. The breaker compares the
+ * budget against the VARIABLE cost only (storage above the free tiers + this
+ * month's activity), NOT the fixed base (Workers + Vercel), which we pay every
+ * month regardless and is not a runaway signal. So a budget of "$20" means "$20
+ * of variable spend above our normal fixed cost before we pause", which is the
+ * intuitive thing. Activity is included because a viral spike shows up as writes
+ * long before it shows up as stored bytes.
  */
 export async function estimateGlobalMonthlyCostCents(): Promise<GlobalCostEstimate> {
   await ensureOpsSchema();
@@ -182,11 +191,16 @@ export async function estimateGlobalMonthlyCostCents(): Promise<GlobalCostEstima
     metrics?.neon.collabBytes ?? null,
     metrics?.r2.usedBytes ?? null,
   );
+  // Variable storage = DO + R2 above their free tiers (excludes the fixed base).
+  const storageCents = storage.doCents + storage.r2Cents;
   const activityCents = estimatedOpsCostCents(writes);
+  const variableCents = storageCents + activityCents;
   return {
-    storageCents: storage.totalCents,
+    storageCents,
     activityCents,
-    totalCents: storage.totalCents + activityCents,
+    fixedBaseCents: storage.fixedBaseCents,
+    variableCents,
+    totalCents: variableCents + storage.fixedBaseCents,
   };
 }
 

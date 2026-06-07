@@ -21,6 +21,8 @@ interface BreakerState {
 interface CostEstimate {
   storageCents: number;
   activityCents: number;
+  fixedBaseCents: number;
+  variableCents: number;
   totalCents: number;
 }
 
@@ -72,7 +74,8 @@ export default function CostBreakerPanel() {
   if (!state || !cost) return null;
 
   const budget = state.budgetCents;
-  const pct = budget > 0 ? Math.min(100, (cost.totalCents / budget) * 100) : 0;
+  // The budget guards VARIABLE cost (storage + activity), not the fixed base.
+  const pct = budget > 0 ? Math.min(100, (cost.variableCents / budget) * 100) : 0;
   const near = budget > 0 && pct >= 80 && !state.tripped;
   const barColor = state.tripped
     ? "bg-red-500"
@@ -88,9 +91,10 @@ export default function CostBreakerPanel() {
             Cost circuit breaker
           </h2>
           <p className="mt-0.5 text-meta text-foreground-muted leading-relaxed">
-            A global guard against a runaway provider bill. If the estimated
-            monthly cost reaches the budget, cloud writes pause (the local-first
-            app keeps working). Reset is manual.
+            A global guard against a runaway provider bill. The budget caps
+            VARIABLE cost (storage + activity) above our fixed monthly base; if it
+            reaches the budget, cloud writes pause (the local-first app keeps
+            working). Reset is manual.
           </p>
         </div>
         <span
@@ -108,9 +112,10 @@ export default function CostBreakerPanel() {
       <div className="mt-4">
         <div className="flex items-end justify-between gap-3">
           <p className="text-body font-semibold text-foreground">
-            {usd(cost.totalCents)}{" "}
+            {usd(cost.variableCents)}{" "}
             <span className="font-normal text-foreground-muted">
-              est. this month {budget > 0 ? `of ${usd(budget)} budget` : "(no budget set)"}
+              variable this month{" "}
+              {budget > 0 ? `of ${usd(budget)} budget` : "(no budget set)"}
             </span>
           </p>
           {budget > 0 ? (
@@ -126,7 +131,9 @@ export default function CostBreakerPanel() {
           </div>
         ) : null}
         <p className="mt-1 text-meta text-foreground-muted">
-          Storage {usd(cost.storageCents)} + activity {usd(cost.activityCents)}.
+          Storage {usd(cost.storageCents)} + activity {usd(cost.activityCents)} ={" "}
+          {usd(cost.variableCents)} variable. Plus {usd(cost.fixedBaseCents)} fixed
+          base = {usd(cost.totalCents)} total (base not budgeted).
         </p>
       </div>
 

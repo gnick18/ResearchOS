@@ -31,12 +31,15 @@ export async function GET(request: Request): Promise<Response> {
   try {
     await ensureBreakerSchema();
     const cost = await estimateGlobalMonthlyCostCents();
-    const result = await evaluateBudget(cost.totalCents);
+    // Budget guards VARIABLE cost (storage + activity), not the fixed base.
+    const result = await evaluateBudget(cost.variableCents);
     return Response.json({
       ok: true,
-      costCents: cost.totalCents,
+      variableCents: cost.variableCents,
+      totalCents: cost.totalCents,
       storageCents: cost.storageCents,
       activityCents: cost.activityCents,
+      fixedBaseCents: cost.fixedBaseCents,
       budgetCents: result.budgetCents,
       tripped: result.tripped,
     });
