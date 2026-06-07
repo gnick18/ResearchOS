@@ -391,7 +391,7 @@ function LinkOuts() {
       </button>
       <button
         type="button"
-        onClick={() => router.push("/workbench?tab=notes")}
+        onClick={() => router.push("/lab-notes")}
         className="group inline-flex items-center gap-2 rounded-lg border border-border bg-surface-raised px-3.5 py-2 text-body font-medium text-foreground shadow-sm transition-colors hover:border-border hover:bg-surface-sunken"
       >
         <span aria-hidden="true" className="text-foreground-muted">
