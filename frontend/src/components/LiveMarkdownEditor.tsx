@@ -14,6 +14,7 @@ import { extractUserContent } from "@/lib/stamp-utils";
 import { attachmentsApi } from "@/lib/local-api";
 import InlineMarkdownEditor from "./InlineMarkdownEditor";
 import type { NoteHandle } from "@/lib/loro/store";
+import type { TaskDocHandle } from "@/lib/loro/task-store";
 import type { Note } from "@/lib/types";
 import MarkdownShortcutsSidebar from "./MarkdownShortcutsSidebar";
 import { blobUrlResolver, encodeAttachmentRefPath } from "@/lib/utils/blob-url-resolver";
@@ -225,6 +226,9 @@ interface LiveMarkdownEditorProps {
   loroEntryIndex?: number;
   /** The live Note object for debounced-commit stamping. */
   loroBaseNote?: Note;
+  /** Experiment-collab chunk 1: a task's single-text markdown surface handle
+   *  (Lab Notes / Results). Mutually exclusive with loroHandle. */
+  loroTaskHandle?: TaskDocHandle;
   /**
    * The shared EphemeralStore for the live collab session.
    * Forwarded to InlineMarkdownEditor; when absent the editor is sync-only.
@@ -267,6 +271,7 @@ export default function LiveMarkdownEditor({
   loroHandle,
   loroEntryIndex,
   loroBaseNote,
+  loroTaskHandle,
   collabEphemeral,
   collabUser,
 }: LiveMarkdownEditorProps) {
@@ -2333,6 +2338,7 @@ export default function LiveMarkdownEditor({
                   loroHandle={loroHandle}
                   loroEntryIndex={loroEntryIndex}
                   loroBaseNote={loroBaseNote}
+                  loroTaskHandle={loroTaskHandle}
                   collabEphemeral={collabEphemeral}
                   collabUser={collabUser}
                 />

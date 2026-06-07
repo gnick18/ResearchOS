@@ -615,6 +615,15 @@ export interface Task {
   received_from?: string;             // sender canonical email, set only on imported experiments
   received_from_fingerprint?: string; // sender key fingerprint
   received_at?: string;               // ISO 8601 timestamp of import
+  // Experiment-collab chunk 1 (FLAG: new Task field): the collab doc id for the
+  // experiment's Lab Notes document. Mirrors Note.collab_doc_id exactly. Written
+  // to the JSON record on import so the recipient's LabNotesTab can seed the
+  // Loro meta map with the correct id and auto-join the shared doc's relay room.
+  // ADDITIVE and backward-compatible: absent on every locally created task and
+  // every unshared experiment. The Loro sidecar (meta map collab_doc_id key) is
+  // the authoritative store; this JSON field is the bootstrap bridge for a
+  // freshly-imported experiment before its sidecar is written for the first time.
+  collab_doc_id?: string;
 }
 
 /**
