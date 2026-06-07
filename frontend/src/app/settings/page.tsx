@@ -1136,7 +1136,7 @@ function LabHeadSection({
 
   const isActive = session.state === "unlocked" && session.active;
   const statusLabel = isActive
-    ? `Active — ${formatRemaining(session.remainingMs)} remaining`
+    ? `Active, ${formatRemaining(session.remainingMs)} remaining`
     : session.state === "locked"
       ? "Session ended"
       : "Not active";

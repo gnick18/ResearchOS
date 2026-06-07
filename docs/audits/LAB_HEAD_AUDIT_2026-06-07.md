@@ -73,17 +73,22 @@ confirmation before fixing.
 
 ## 4. Settings + nav — live as mira
 
-- **[P2, NEW] No lab-head session controls render for a lab head.** On Settings
-  as mira, there is NO visible "Change lab-head password", "Active session"
-  pill, or audit-log control. The source (settings page ~1108) describes these,
-  but they do not appear. Likely stale/dead relative to the identity/passkey
-  migration (login moved to keypair/passkey). Needs a decision: re-surface them,
-  or remove the dead code if the identity model replaced them.
-- **[P2, NEW] Security section shows wrong state for a lab head.** It reads
-  "Password is currently not set" for mira even though she has
-  `_lab_head_auth.json`. The generic Security/Password section reflects
-  `_auth.json` only, so a lab head sees a misleading "no password" state.
-- **[P2, DONE]** `settings/page.tsx:1619` em-dash fixed.
+- **[CORRECTED, was a navigation error] Lab-head session controls DO exist.**
+  The "PI" section (Lab-head password / Change password, Active session, Lock
+  session now) lives on the **Lab Mode** settings tab (`LabModeTabContent` ->
+  `LabHeadSection`, gated `account_type === "lab_head"`). My first walk only
+  viewed the Personal tab, so I wrongly reported them missing. Confirmed present
+  live at `/settings?...&tab=lab-mode` as mira. NOT dead code; do not delete.
+- **[CORRECTED] Security "Password not set" is accurate.** The Personal-tab
+  Security section is the GENERIC account password (`_auth.json`), which mira
+  genuinely has not set; it is separate from the lab-head password
+  (`_lab_head_auth.json`) on the Lab Mode tab. Not misleading.
+- **[P2, DONE]** Two em-dashes fixed: `settings/page.tsx:1619` (sidebar desc)
+  and the "Active — N remaining" edit-session status pill.
+- **[P3, open design Q]** Whether the edit-session / lab-head-password
+  soft-write workflow is still the intended model after the identity/passkey
+  migration is a real question, but the code is LIVE, not orphaned. Evaluate
+  deliberately, do not blind-delete.
 - Nav: "Lab Overview" correctly appears for lab heads; member vs lab-head nav
   difference looks intentional.
 
@@ -109,10 +114,11 @@ confirmation before fixing.
 
 ## Still open (post-this-pass)
 
-- **[P2] Lab-head settings stale vs identity/passkey model** (surface 4): no
-  edit-session / change-lab-head-password / audit controls render, and the
-  Security section shows a misleading "Password is currently not set" for a lab
-  head. Decide re-surface vs remove-dead-code. Needs Grant.
+- **[P3, design] Edit-session / lab-head-password model vs identity/passkey**
+  (surface 4): the controls are LIVE on the Lab Mode tab (the earlier
+  "missing/dead" reading was my navigation error). Open question is only whether
+  the soft-write edit-session workflow is still the right model post-identity
+  migration. Not dead code; evaluate deliberately if at all.
 - **[P3] Empty-value "—" glyph** convention: pick keep-and-exempt vs swap to a
   middot, apply once.
 - **[P3] Surface 3 live walk**: TaskDetailPopup edit-session password modal +
