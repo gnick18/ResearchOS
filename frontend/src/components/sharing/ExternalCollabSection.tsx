@@ -68,6 +68,7 @@ export default function ExternalCollabSection({
         doc: handle.doc,
         outside,
         sharedWith: note.shared_with ?? null,
+        title: note.title ?? null,
       });
 
       if (result.ok) {

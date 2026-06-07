@@ -10,6 +10,13 @@ compatibility_date = "2024-12-01"
 name = "COLLAB_ROOM"
 class_name = "CollabRoom"
 
+# Per-recipient inbox for external-collab discovery (chunk 3). One DO instance
+# per recipient emailHash holds the pending live-collab invites addressed to that
+# recipient. Routing metadata only; never collab content.
+[[durable_objects.bindings]]
+name = "RECIPIENT_INBOX"
+class_name = "RecipientInbox"
+
 # R2 bucket for periodic per-doc snapshot backups (disaster-recovery net for the
 # DO SQLite store, storage-migration phase 1 chunk 4). The DO writes its current
 # compacted snapshot here on a throttled alarm cadence.
@@ -22,3 +29,8 @@ bucket_name = "researchos-collab-backups"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["CollabRoom"]
+
+# external-collab chunk 3: the per-recipient inbox DO.
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["RecipientInbox"]
