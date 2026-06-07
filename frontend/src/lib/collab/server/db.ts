@@ -26,6 +26,7 @@ import {
 } from "@/lib/collab/server/limits";
 import { isBillingEnabled } from "@/lib/billing/config";
 import { quotaBytesForOwner } from "@/lib/billing/db";
+import { recordWriteOp } from "@/lib/billing/ops";
 
 // ---------------------------------------------------------------------------
 // Lazy singleton
@@ -424,6 +425,15 @@ export async function appendUpdate(
        SET updated_at = now()
      WHERE doc_id = ${docId}
   `;
+
+  // Operations tracking (best effort, never blocks or fails the write). One
+  // write op is recorded against the DOC OWNER, not the author, so the cost
+  // lands on whoever's quota the bytes count toward, matching payer resolution.
+  // This accrues even when storage stays flat (compaction folds rows away), so
+  // it is what surfaces the chatty, low-storage user on /admin.
+  if (usage?.ownerHash) {
+    void recordWriteOp(usage.ownerHash, updateBytes.length).catch(() => {});
+  }
 
   return newId;
 }

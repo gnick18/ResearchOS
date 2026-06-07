@@ -87,13 +87,39 @@ the budget; members should not each need a card.
 - Live billing stays gated on `BILLING_ENABLED` + the WI DOR sales-tax gate, same
   as today.
 
-## Operations stay off the user bill
+## Operations: tracked + fair-use, not metered to the bill (Grant 2026-06-07)
 
-Requests, compute duration, and row writes are real costs (see the cost table in
-chat) but sit inside Cloudflare's large free allowances at our scale, and the
-fixed $5 Workers + $20 Vercel base covers the baseline. So they are not metered to
-users. `/admin` already watches the operation counts; if they ever approach a paid
-tier we revisit, rather than burdening every user's bill with micro-charges now.
+Requests, compute duration, and row writes are real costs and storage-only
+metering misses the worst case, a user who keeps active docs small but edits
+constantly. Such a user stores almost nothing (compaction folds old update rows
+into the snapshot, so storage stays flat) yet generates most of the cost through
+rows written, Durable Object active duration, and requests. At scale, many such
+users would cost far more than their storage bill recovers.
+
+The chosen model (Grant 2026-06-07, supersedes the earlier "operations stay off
+the bill, just watched" note):
+
+- Storage stays the ONLY thing with a dollar meter. It is predictable, it is what
+  a PI can budget, and it keeps the promise that collaboration itself is free. We
+  do not put a fluctuating compute charge on a researcher's invoice.
+- Operations are TRACKED per owner. We did not measure this before, only bytes.
+  We now count, per owner, the write operations and bytes written through the one
+  collab growth point (appendUpdate), which keeps accruing even when net storage
+  does not. `/admin` turns these into a true estimated cost-per-owner using the
+  published Cloudflare rates, so an expensive owner is visible instead of hidden
+  behind a near-zero storage bill.
+- A generous monthly activity allowance bounds the exposure. Past it we THROTTLE
+  (rate-limit writes, drop real-time sync to periodic) rather than bill. A normal
+  heavy lab barely notices; an automated or runaway client hits a wall. WebSocket
+  Hibernation already makes idle connections near-free, so only genuine heavy
+  editing is ever throttled.
+- Escalation held in reserve, data-driven. If tracking later shows many LEGIT
+  labs hitting the allowance, we convert it into a paid-plan activity gate (a plan
+  requirement above the free allowance), not per-unit compute billing.
+
+Build order. Tracking + the `/admin` cost-per-owner view first (no user-facing
+change, commits us to nothing, gives the data). The fair-use allowance + throttle
+is a separate, user-visible step gated on what the tracking shows.
 
 ## What changes in the existing code
 

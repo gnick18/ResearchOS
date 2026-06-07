@@ -46,6 +46,35 @@ export const MIN_MONTHLY_CHARGE_CENTS = 200;
 /** Storage caps a user can pick, in GB. The cap is the wall + spend ceiling. */
 export const CAP_OPTIONS_GB = [5, 25, 100, 250] as const;
 
+// --- operations cost (tracked, not billed; Grant 2026-06-07) ---
+//
+// Storage is the only thing on a user's bill, but it misses the high-activity,
+// low-storage case (constant edits compact away, so storage stays flat while
+// rows-written, requests, and Durable Object duration keep costing us). We track
+// write operations per owner and turn them into an ESTIMATED cost for /admin so
+// an expensive owner is visible. These are OUR costs, never charged to the user.
+//
+// Published Cloudflare rates (infra-tiers.ts): a write is one SQLite row written
+// (~$1.00 / M rows) plus roughly one request to reach the Durable Object
+// (~$0.15 / M requests). Duration is left out of this estimate for now, it needs
+// DO-side instrumentation to attribute fairly; rows + requests are the part we
+// can attribute from the one write path.
+
+/** Cost of a million rows written to the collab store (Durable Object SQLite). */
+export const DO_WRITE_USD_PER_M_ROWS = 1.0;
+/** Cost of a million requests to the collab Durable Object. */
+export const DO_REQUEST_USD_PER_M = 0.15;
+
+/**
+ * Estimated cost (cents) of an owner's write operations over a period. Each
+ * tracked write is one row written plus about one request. Duration is not
+ * included yet (see above), so this is a floor, not the full compute cost.
+ */
+export function estimatedOpsCostCents(writes: number): number {
+  const perMillionUsd = DO_WRITE_USD_PER_M_ROWS + DO_REQUEST_USD_PER_M;
+  return Math.round((Math.max(0, writes) / 1_000_000) * perMillionUsd * 100);
+}
+
 export function gbToBytes(gb: number): number {
   return Math.round(gb * BYTES_PER_GB);
 }
