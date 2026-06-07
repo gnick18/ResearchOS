@@ -12,7 +12,7 @@ quota bump with the money landing in the LLC account.
 As of 2026-06-05 the LLC admin side is essentially done, so the payout
 destination exists shortly.
 
-- EIN REDACTED-EIN (single-member LLC, disregarded entity default).
+- EIN obtained, on file (single-member LLC, disregarded entity default).
 - Operating agreement executed.
 - Grant is his own registered agent (WI Form 13 filed, Northwest cancelled).
 - Business bank account, Mercury, applied for and in review, approval expected
