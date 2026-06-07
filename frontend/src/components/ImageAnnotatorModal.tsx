@@ -497,15 +497,14 @@ export default function ImageAnnotatorModal({
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex flex-col bg-gray-900/95 backdrop-blur-sm"
+      className="fixed inset-0 z-[450] flex flex-col bg-gray-900/95 backdrop-blur-sm"
       data-tour-popup-occluding="image-annotator"
-      // This full-screen editor mounts as a child of ImageMetadataPopup's
-      // backdrop div, whose onClick closes the whole popup. Although we are
-      // position:fixed, we are still a DOM descendant of that backdrop, so a
-      // click on any tool (Rectangle, Arrow, ...) or on the canvas would bubble
-      // up and close the popup, exiting annotate mode. Stop propagation at our
-      // root so the editor is self-contained and owns its own Cancel / Save /
-      // Escape exits. (Mirrors the content-card stopPropagation in the popup.)
+      // This full-screen editor mounts as a sibling of ImageMetadataPopup's
+      // LivingPopup (z-[400]), so z-[450] keeps it above the metadata card.
+      // stopPropagation stays as a self-containment guard so a click on any
+      // tool (Rectangle, Arrow, ...) or the canvas cannot bubble to anything
+      // that would exit annotate mode; the editor owns its own Cancel / Save /
+      // Escape exits (ImageMetadataPopup sets closeOnEscape=false while open).
       onClick={(e) => e.stopPropagation()}
     >
       {/* Header */}

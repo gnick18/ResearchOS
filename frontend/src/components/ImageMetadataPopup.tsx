@@ -7,8 +7,8 @@ import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { sidecarPath, type ImageSidecar } from "@/lib/attachments/image-folder";
 import { useAppStore, type ActiveTask } from "@/lib/store";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import AnnotatedImage from "@/components/AnnotatedImage";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 // Konva touches window/canvas and breaks SSR, so the annotator is loaded
 // client-only. It mounts lazily only when the user clicks "Annotate".
@@ -60,9 +60,8 @@ export default function ImageMetadataPopup({
   const [loaded, setLoaded] = useState(false);
   const [annotating, setAnnotating] = useState(false);
 
-  // Escape closes this popup (app-wide convention). Suspended while the
+  // Escape close is owned by LivingPopup (closeOnEscape). Suspended while the
   // annotator overlay is open so its own Escape (deselect, then close) wins.
-  useEscapeToClose(onClose, !annotating);
 
   const sidecarFsPath = sidecarPath(basePath, filename);
 
@@ -169,18 +168,20 @@ export default function ImageMetadataPopup({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="image-metadata"
-      onClick={onClose}
+    <>
+    <LivingPopup
+      open
+      onClose={onClose}
+      label="Image details"
+      widthClassName="max-w-2xl"
+      card={false}
+      blur
+      // The annotator owns Escape and outside-clicks while it is open, so the
+      // metadata popup must not also close on those then.
+      closeOnEscape={!annotating}
+      closeOnScrimClick={!annotating}
     >
-      <div
-        className="bg-surface-raised rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="bg-surface-raised rounded-xl shadow-2xl w-full overflow-hidden">
         <div className="px-5 py-3 border-b border-border bg-surface-sunken flex items-center justify-between">
           <h3 className="text-title font-semibold text-foreground truncate" title={filename}>
             {filename}
@@ -357,7 +358,11 @@ export default function ImageMetadataPopup({
             </button>
         </div>
       </div>
+    </LivingPopup>
 
+      {/* The annotator is a full-screen overlay; it renders OUTSIDE LivingPopup
+          so the card's zoom transform cannot clip it, and at a higher z so it
+          sits above the metadata popup (see its z-[450] root). */}
       {annotating && (
         <ImageAnnotatorModal
           basePath={basePath}
@@ -366,6 +371,6 @@ export default function ImageMetadataPopup({
           onClose={() => setAnnotating(false)}
         />
       )}
-    </div>
+    </>
   );
 }
