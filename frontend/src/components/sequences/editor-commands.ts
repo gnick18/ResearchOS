@@ -20,7 +20,16 @@ export type CommandGroup =
   | "Analyze"
   | "Edit"
   | "View"
-  | "Export";
+  | "Export"
+  // BeakerSearch step 2a, the always-present GLOBAL layer. Two groups appended
+  // at the END so a page's own intent groups always lead and the global reach
+  // trails below. "Go to" is cross-page navigation (one row per NAV_ITEMS
+  // route); "App" is app-level safe commands (toggle theme, open settings).
+  // These two are fed by the app-shell global source, not by the editor; the
+  // sequences editor never emits them, so its own palette is unchanged in
+  // ordering except that the global rows trail after Export.
+  | "Go to"
+  | "App";
 
 /** The order groups print in, so the list reads top to bottom the way the rail
  *  does (do at the bench, then learn about the sequence, then edit bases, then
@@ -32,6 +41,9 @@ export const COMMAND_GROUP_ORDER: CommandGroup[] = [
   "Edit",
   "View",
   "Export",
+  // The global layer trails the page's own groups (see CommandGroup above).
+  "Go to",
+  "App",
 ];
 
 /** One palette command. `run` points at the SAME handler the rail / menu / view

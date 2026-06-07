@@ -45,6 +45,9 @@ import ResearcherProfileModal from "@/components/researchers/ResearcherProfileMo
 import ProfileSettingsModal from "@/components/profile/ProfileSettingsModal";
 import SettingsModal from "@/components/settings/SettingsModal";
 import SharingClaimResume from "@/components/sharing/SharingClaimResume";
+// BeakerSearch step 2a, the app-chrome front-door pill. Visible on every app
+// page, opens the always-present global Cmd-K palette.
+import BeakerSearchPill from "@/components/beaker-search/BeakerSearchPill";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -400,6 +403,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="flex-1" />
 
         <div className="flex items-center gap-2">
+          {/* BeakerSearch step 2a, the app-wide front door. Leads the action
+              cluster so the Cmd-K palette is discoverable on every page; the
+              Sequences toolbar keeps its own pill (minor redundancy is fine). */}
+          <BeakerSearchPill />
           <NotificationBadge pill={tinted} />
           <InboxBadge />
           <TelegramHeaderButton tinted={tinted} />
