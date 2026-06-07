@@ -13,6 +13,7 @@ import { folderRequiresLogin } from "@/lib/auth/login-policy";
 import { discoverUsers } from "@/lib/file-system/user-discovery";
 import { readUserSettings } from "@/lib/settings/user-settings";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import { usePopupLayer } from "@/lib/ui/popup-stack";
 import Tooltip from "./Tooltip";
 
 interface AccountPasswordPopupProps {
@@ -48,6 +49,13 @@ export default function AccountPasswordPopup({
   const [canRemove, setCanRemove] = useState(false);
 
   useEscapeToClose(onClose);
+
+  // Register both scrims with the shared popup stack so blur never compounds:
+  // the main popup blurs only when it is the bottom-most blur layer (it can open
+  // over the profile modal), and the nested forgot confirm blurs only when it is
+  // (it stacks on the main popup). Each just dims otherwise.
+  const { shouldBlur } = usePopupLayer(true, true);
+  const { shouldBlur: shouldBlurForgot } = usePopupLayer(showForgot, true);
 
   useEffect(() => {
     let cancelled = false;
@@ -184,7 +192,9 @@ export default function AccountPasswordPopup({
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className={`fixed inset-0 z-[200] flex items-center justify-center bg-black/50 ${
+        shouldBlur ? "backdrop-blur-sm" : ""
+      }`}
       data-tour-popup-occluding="account-password"
       onClick={onClose}
     >
@@ -390,7 +400,9 @@ export default function AccountPasswordPopup({
 
       {showForgot && (
         <div
-          className="fixed inset-0 z-[210] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          className={`fixed inset-0 z-[210] flex items-center justify-center bg-black/60 ${
+            shouldBlurForgot ? "backdrop-blur-sm" : ""
+          }`}
           data-tour-popup-occluding="account-password-forgot"
           onClick={() => setShowForgot(false)}
         >

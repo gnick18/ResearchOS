@@ -17,6 +17,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { usePopupLayer } from "@/lib/ui/popup-stack";
+
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
 import {
   createLocalIdentity,
@@ -63,6 +65,13 @@ export default function CreateLocalIdentityStep({
   onClose,
 }: CreateLocalIdentityStepProps) {
   useEscapeToClose(onClose);
+
+  // Account creation is a big, attention-demanding step, so it wants blur. But
+  // it frequently opens ON TOP of another popup (the profile modal, the sharing
+  // wizard), so it registers with the shared popup stack and only blurs when it
+  // is the bottom-most blur layer. That stops the muddy double-blur where its
+  // own backdrop-blur compounded on the popup already blurring behind it.
+  const { shouldBlur } = usePopupLayer(true, true);
 
   // The minted recovery code, shown once. Null while keygen runs.
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
@@ -161,7 +170,9 @@ export default function CreateLocalIdentityStep({
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className={`fixed inset-0 z-[200] flex items-center justify-center bg-black/50 ${
+        shouldBlur ? "backdrop-blur-sm" : ""
+      }`}
       onClick={onClose}
     >
       <div

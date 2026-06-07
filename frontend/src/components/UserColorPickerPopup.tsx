@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import UserAvatar from "@/components/UserAvatar";
 import RainbowOrb from "@/components/RainbowOrb";
+import { usePopupLayer } from "@/lib/ui/popup-stack";
 import {
   USER_METADATA_COLOR_PALETTE,
   RAINBOW_COLOR,
@@ -67,6 +68,10 @@ export default function UserColorPickerPopup({
   onAccept,
   onCancel,
 }: UserColorPickerPopupProps) {
+  // Opens over the profile modal, so register with the popup stack and blur only
+  // when bottom-most, never compounding on the popup already blurring behind it.
+  const { shouldBlur } = usePopupLayer(true, true);
+
   const [selectedColor, setSelectedColor] = useState<string>(defaultColor);
   const [selectedSecondary, setSelectedSecondary] = useState<string | null>(
     null,
@@ -221,7 +226,9 @@ export default function UserColorPickerPopup({
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className={`fixed inset-0 z-[200] flex items-center justify-center bg-black/60 ${
+        shouldBlur ? "backdrop-blur-sm" : ""
+      }`}
       // Marker for TourSpotlight (popup-occluding sweep manager,
       // 2026-05-27). Hides the v4 walkthrough ring while this popup
       // is mounted; see SnapshotTilePopup for the canonical example.
