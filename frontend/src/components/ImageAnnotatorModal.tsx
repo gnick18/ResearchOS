@@ -26,6 +26,7 @@ import {
 } from "@/lib/attachments/annotations";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
+import { usePopupLayer } from "@/lib/ui/popup-stack";
 import Tooltip from "@/components/Tooltip";
 
 /**
@@ -87,6 +88,11 @@ export default function ImageAnnotatorModal({
   // dynamic-import with ssr:false, but this is belt-and-braces).
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // The editor opens over ImageMetadataPopup's LivingPopup (which blurs), so it
+  // registers with the popup stack and only blurs when it is the bottom-most
+  // blur layer, never compounding into a double-blur.
+  const { shouldBlur } = usePopupLayer(true, true);
 
   // While the full-screen annotation editor is open, hide the global
   // floating action dock (bottom-right cluster) via a document flag + CSS.
@@ -497,19 +503,19 @@ export default function ImageAnnotatorModal({
 
   return (
     <div
-      className="fixed inset-0 z-[450] flex items-center justify-center p-3 sm:p-6 bg-slate-900/40 backdrop-blur-md"
+      className={`fixed inset-0 z-[450] bg-slate-900/40 ${
+        shouldBlur ? "backdrop-blur-md" : ""
+      }`}
       data-tour-popup-occluding="image-annotator"
-      // Mounts as a sibling of ImageMetadataPopup's LivingPopup (z-[400]), so
-      // z-[450] keeps the editor above the metadata card. stopPropagation is a
-      // self-containment guard so a click on a tool or the canvas cannot bubble
-      // out and exit annotate mode; the editor owns its own Cancel / Save /
-      // Escape exits. The scrim does NOT close on click, so unsaved annotations
-      // are never lost to a stray outside click.
+      // Full-viewport editor: the image fills the screen and the tools float
+      // OVER it (Grant 2026-06-07). Mounts as a sibling of ImageMetadataPopup's
+      // LivingPopup (z-[400]); z-[450] keeps it above the metadata card.
+      // stopPropagation keeps clicks self-contained; the scrim does NOT close on
+      // click, so unsaved annotations are never lost to a stray outside click.
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="relative flex h-full w-full max-w-[1400px] flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl ring-1 ring-border">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3 border-b border-border bg-surface-raised px-4 py-3">
+      {/* Floating actions, top-right */}
+      <div className="absolute right-4 top-4 z-10 flex items-center gap-3 rounded-2xl border border-border bg-surface-raised/95 px-3 py-2 shadow-2xl ring-1 ring-black/5 backdrop-blur">
         <div className="flex items-center gap-2.5 min-w-0">
           <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-brand-action/10 text-brand-action">
             <IconPencil />
@@ -540,8 +546,8 @@ export default function ImageAnnotatorModal({
         </div>
       </div>
 
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-border bg-surface-sunken px-4 py-2.5">
+      {/* Floating toolbar, top-left */}
+      <div className="absolute left-4 top-4 z-10 flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface-sunken/95 px-3 py-2 shadow-2xl ring-1 ring-black/5 backdrop-blur">
         <div className="flex items-center gap-1">
           <ToolButton label="Select / move" active={tool === "select"} onClick={() => setTool("select")}>
             <IconCursor />
@@ -671,8 +677,8 @@ export default function ImageAnnotatorModal({
         </div>
       </div>
 
-      {/* Stage area */}
-      <div ref={containerRef} className="flex-1 flex items-center justify-center overflow-hidden bg-surface-sunken/50 p-4">
+      {/* Full-viewport stage: the image fills the screen, tools float over it. */}
+      <div ref={containerRef} className="absolute inset-0 flex items-center justify-center overflow-hidden p-4">
         {imgError ? (
           <p className="text-body text-foreground-muted">Could not load the image.</p>
         ) : !img ? (
@@ -762,7 +768,6 @@ export default function ImageAnnotatorModal({
           }}
         />
       )}
-      </div>
     </div>
   );
 }

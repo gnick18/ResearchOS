@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Annotate editor redesign mockup</title>
+<style>
+  /* Real ResearchOS theme tokens (from frontend/src/app/globals.css). */
+  :root[data-theme="light"] {
+    --surface: #ffffff;
+    --surface-raised: #ffffff;
+    --surface-sunken: #f8fafc;
+    --foreground: #171717;
+    --foreground-muted: #6b7280;
+    --border: #e5e7eb;
+    --page: #eef2f7;
+  }
+  :root[data-theme="dark"] {
+    --surface: #0a0e1a;
+    --surface-raised: #131c2e;
+    --surface-sunken: #0d1424;
+    --foreground: #f1f5f9;
+    --foreground-muted: #b4bfd0;
+    --border: rgba(255, 255, 255, 0.22);
+    --page: #0a0e1a;
+  }
+  :root {
+    --brand-action: #1283c9;
+    --brand-sky: #1aa0e6;
+    --brand-purple: #5b47d6;
+    --shadow: 0 24px 60px -12px rgba(2, 8, 23, 0.45);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--page);
+    color: var(--foreground);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Faux blurred app page behind the editor, to show the backdrop treatment. */
+  .page-behind {
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(900px 600px at 18% 20%, rgba(18,131,201,0.18), transparent 60%),
+      radial-gradient(700px 500px at 85% 80%, rgba(91,71,214,0.16), transparent 60%),
+      var(--page);
+    filter: blur(2px);
+  }
+  .page-behind .ghost-rail { position:absolute; top:0; bottom:0; left:0; width:230px; background: var(--surface-raised); opacity:.5; border-right:1px solid var(--border); }
+  .page-behind .ghost-card { position:absolute; border-radius:14px; background: var(--surface-raised); opacity:.45; border:1px solid var(--border); }
+
+  /* Backdrop scrim: dim + blur, matches the site popup feel. */
+  .scrim {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+    background: rgba(15, 23, 42, 0.40);
+    backdrop-filter: blur(10px);
+  }
+
+  /* Bounded editor card. */
+  .editor {
+    position: relative;
+    display: flex; flex-direction: column;
+    width: 100%; max-width: 1400px; height: 100%;
+    background: var(--surface-raised);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    outline: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  /* Header */
+  .hd {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-raised);
+  }
+  .hd-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .glyph {
+    width: 36px; height: 36px; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--brand-action) 12%, transparent);
+    color: var(--brand-action);
+  }
+  .hd h3 { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.15; color: var(--foreground); }
+  .hd .sub { margin: 0; font-size: 12px; line-height: 1.2; color: var(--foreground-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+  .hd-right { display: flex; align-items: center; gap: 8px; }
+  .btn-ghost {
+    border: 0; cursor: pointer;
+    padding: 8px 14px; border-radius: 10px;
+    font-size: 14px; font-weight: 500;
+    color: var(--foreground-muted); background: transparent;
+  }
+  .btn-ghost:hover { background: var(--surface-sunken); color: var(--foreground); }
+  .btn-brand {
+    border: 0; cursor: pointer;
+    padding: 8px 16px; border-radius: 10px;
+    font-size: 14px; font-weight: 600; color: #fff;
+    background: linear-gradient(135deg, var(--brand-action), var(--brand-purple));
+    box-shadow: 0 1px 2px rgba(2,8,23,.25);
+  }
+
+  /* Toolbar */
+  .tb {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-sunken);
+  }
+  .group { display: flex; align-items: center; gap: 4px; }
+  .divider { width: 1px; height: 24px; background: var(--border); margin: 0 2px; }
+  .tool {
+    width: 34px; height: 34px; border: 0; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 9px; color: var(--foreground-muted); background: transparent;
+  }
+  .tool:hover { background: var(--surface-raised); color: var(--foreground); }
+  .tool.active { background: var(--brand-action); color: #fff; }
+  .swatch { width: 24px; height: 24px; border-radius: 999px; border: 1px solid var(--border); cursor: pointer; padding: 0; }
+  .swatch.sel { outline: 2px solid var(--brand-action); outline-offset: 2px; transform: scale(1.08); border-color: transparent; }
+  .lbl { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--foreground-muted); margin-right: 2px; }
+  .seg { border:0; cursor:pointer; padding:5px 9px; border-radius:8px; font-size:12px; color: var(--foreground-muted); background: transparent; }
+  .seg:hover { background: var(--surface-raised); color: var(--foreground); }
+  .seg.active { background: var(--brand-action); color:#fff; }
+  .num { width:46px; padding:5px 4px; border-radius:8px; font-size:12px; text-align:center; outline:none; color: var(--foreground); background: var(--surface-raised); border:1px solid var(--border); }
+
+  /* Stage */
+  .stage {
+    flex: 1; min-height: 0;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    background: color-mix(in srgb, var(--surface-sunken) 55%, transparent);
+  }
+  .canvas-wrap { position: relative; box-shadow: var(--shadow); border-radius: 4px; overflow: hidden; }
+
+  /* Theme toggle (mockup-only chrome) */
+  .toggle {
+    position: fixed; top: 14px; right: 16px; z-index: 50;
+    display: flex; gap: 6px; align-items: center;
+    background: var(--surface-raised); color: var(--foreground);
+    border: 1px solid var(--border); border-radius: 999px; padding: 6px 8px;
+    font-size: 12px; box-shadow: var(--shadow);
+  }
+  .toggle button { border:0; cursor:pointer; border-radius:999px; padding:5px 12px; font-size:12px; font-weight:600; background:transparent; color: var(--foreground-muted); }
+  .toggle button.on { background: var(--brand-action); color:#fff; }
+  .note { position: fixed; left: 16px; bottom: 14px; z-index: 50; font-size: 12px; color: var(--foreground-muted); background: var(--surface-raised); border:1px solid var(--border); border-radius:10px; padding:8px 12px; max-width: 520px; box-shadow: var(--shadow); }
+  svg { display:block; }
+</style>
+</head>
+<body>
+  <div class="toggle">
+    <span style="padding-left:6px">Theme</span>
+    <button id="t-light" onclick="setTheme('light')">Light</button>
+    <button id="t-dark" class="on" onclick="setTheme('dark')">Dark</button>
+  </div>
+
+  <div class="page-behind">
+    <div class="ghost-rail"></div>
+    <div class="ghost-card" style="top:90px; left:280px; width:360px; height:220px"></div>
+    <div class="ghost-card" style="top:90px; left:680px; width:360px; height:220px"></div>
+    <div class="ghost-card" style="top:340px; left:280px; width:760px; height:260px"></div>
+  </div>
+
+  <div class="scrim">
+    <div class="editor">
+      <!-- Header -->
+      <div class="hd">
+        <div class="hd-left">
+          <span class="glyph">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </span>
+          <div style="min-width:0">
+            <h3>Annotate image</h3>
+            <p class="sub" title="patch-plate.png">patch-plate.png</p>
+          </div>
+        </div>
+        <div class="hd-right">
+          <button class="btn-ghost">Cancel</button>
+          <button class="btn-brand">Save</button>
+        </div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="tb">
+        <div class="group">
+          <button class="tool active" title="Select / move"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l6 18 2.5-7.5L21 11z"/></svg></button>
+          <button class="tool" title="Arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></button>
+          <button class="tool" title="Line"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19 19 5"/></svg></button>
+          <button class="tool" title="Rectangle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="12" rx="1.5"/></svg></button>
+          <button class="tool" title="Ellipse"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="8" ry="6"/></svg></button>
+          <button class="tool" title="Freehand pen"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18c3 .5 4-3 6-3s2 2 4 1 3-7 6-7"/></svg></button>
+          <button class="tool" title="Text label"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14M12 6v12M9 18h6"/></svg></button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="group">
+          <button class="swatch sel" style="background:#e11d48" title="rose"></button>
+          <button class="swatch" style="background:#f59e0b" title="amber"></button>
+          <button class="swatch" style="background:#10b981" title="emerald"></button>
+          <button class="swatch" style="background:#3b82f6" title="blue"></button>
+          <button class="swatch" style="background:#8b5cf6" title="violet"></button>
+          <button class="swatch" style="background:#111827" title="near-black"></button>
+          <button class="swatch" style="background:#ffffff" title="white"></button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="group">
+          <span class="lbl">Stroke</span>
+          <button class="seg">2</button>
+          <button class="seg active">4</button>
+          <button class="seg">6</button>
+          <button class="seg">10</button>
+          <input class="num" value="4" />
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="group">
+          <span class="lbl">Text</span>
+          <button class="seg">18</button>
+          <button class="seg active">28</button>
+          <button class="seg">40</button>
+          <button class="seg">64</button>
+          <input class="num" value="28" />
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="group">
+          <button class="tool" title="Undo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></button>
+          <button class="tool" title="Redo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg></button>
+          <button class="tool" title="Delete selected"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>
+        </div>
+      </div>
+
+      <!-- Stage -->
+      <div class="stage">
+        <div class="canvas-wrap">
+          <svg width="640" height="460" viewBox="0 0 640 460">
+            <defs>
+              <radialGradient id="plate" cx="42%" cy="38%" r="70%">
+                <stop offset="0%" stop-color="#fff7d6"/>
+                <stop offset="55%" stop-color="#fcd34d"/>
+                <stop offset="100%" stop-color="#eab308"/>
+              </radialGradient>
+            </defs>
+            <rect width="640" height="460" fill="#f1eee6"/>
+            <text x="28" y="40" font-size="18" font-weight="700" fill="#1f2937">Patch plate (8 candidate transformants)</text>
+            <circle cx="330" cy="250" r="180" fill="url(#plate)" stroke="#111827" stroke-width="3"/>
+            <!-- example annotations to show on-canvas treatment -->
+            <rect x="250" y="180" width="120" height="90" fill="none" stroke="#e11d48" stroke-width="4" rx="3"/>
+            <path d="M150 360 L250 300" stroke="#3b82f6" stroke-width="4" marker-end="url(#a)"/>
+            <text x="118" y="375" font-size="20" fill="#10b981" font-weight="700">colony 3</text>
+            <defs><marker id="a" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#3b82f6"/></marker></defs>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">Mockup of the revamped annotate editor. Bounded card (most of the screen, not full-screen) over a blurred backdrop, full light/dark, brand-action accents, btn-brand Save. Toggle the theme top-right. Example annotations shown on the canvas.</div>
+
+  <script>
+    function setTheme(t){
+      document.documentElement.setAttribute('data-theme', t);
+      document.getElementById('t-light').classList.toggle('on', t==='light');
+      document.getElementById('t-dark').classList.toggle('on', t==='dark');
+    }
+  </script>
+</body>
+</html>
