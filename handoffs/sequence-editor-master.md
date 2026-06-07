@@ -233,9 +233,26 @@ all five docs are committed. Likely next moves, in priority order:
        registry has no "calendar" glyph, so the build substitutes registered icons
        (history for the timeline/scope card, map for goals, etc.), a minor visual
        deviation from the mockup worth a live glance.
-     - NEXT pages per the same pattern (mockup -> approve -> build): Calendar,
-       Workbench, Purchases, Methods, Lab Overview, Links. Each registers its own
-       generic source; reuse `buildGanttSource` as the template.
+     - CALENDAR DONE + on `main` (commit `feaea6af3`, mockup
+       `docs/mockups/beakersearch-calendar-palette.html` approved): pure
+       `buildCalendarSource()` (`app/calendar/calendar-beaker-source.ts`, 20 tests)
+       + `useCalendarBeakerSource()` hook + page wire. Context card (month/week/day
+       frame + selection), selection-aware Suggested (native event edit/duplicate/
+       PTO/link/open/delete + external open-in-source/show-feed/copy + day-in-view),
+       Jump to an event (native "event"/rose, external "feed"/slate tones), Next up
+       (upcoming events), and Create / Navigate / View / Feeds commands. PTO toggles
+       reuse syncEventPtoChange + expandDateRange (never raw pto_dates). Added the
+       "event" + "feed" PaletteTones. tsc clean, 70 tests green.
+       - KNOWN GAP, the jump-to-DATE nicety (spec 4) is NOT wired: the generic
+         contract feeds STATIC navGroups with no query-time callback, so a "Go to
+         <typed date>" row that reacts to the live query can't come from a page
+         source yet. Needs a query-aware nav seam in the palette (a per-source
+         `entitiesForQuery(query)` callback or a parseCalendarDate hook in the
+         palette). Worth adding to the contract before pages that lean on typed
+         input. The goToDate handler is wired and ready.
+     - NEXT pages per the same pattern (mockup -> approve -> build): Workbench,
+       Purchases, Methods, Lab Overview, Links. Reuse buildGantt/buildCalendar as
+       templates. Consider the query-aware nav seam first if a page needs it.
    - Step 4, app-wide mouse-awareness (`[data-beaker-target]` hover capture) last.
 3. **Optional small follow-up:** the EventModal task-picker UI so a user can
    actually create an event-to-task link (the field exists, the UI does not).
