@@ -1423,7 +1423,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               <button
                 onClick={() => setShowCreateForm(true)}
                 disabled={loggingIn !== null}
-                className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-border hover:border-foreground-muted rounded-xl text-foreground-muted hover:text-foreground transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-brand-action/45 bg-brand-action/[0.06] text-brand-action dark:text-brand-sky font-medium shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-action hover:bg-brand-action/[0.12] hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
