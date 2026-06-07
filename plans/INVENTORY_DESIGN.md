@@ -2,7 +2,7 @@
 
 Author: inventory-design-v2 sub-bot of HR
 Date: 2026-05-31
-Status: DESIGN ONLY. No app code in this slice. HR reviews with Grant before any build, and every data-shape FLAG below must clear Grant before a single field lands on disk.
+Status: DESIGN, decisions RESOLVED 2026-06-07 (see section 14). All nine open questions are answered and the barcode layer is designed (section 15). Ready for a build plan. No app code in this slice yet; every data-shape FLAG still lands only as the build plan is approved.
 Companion: `plans/COMPETITIVE_GAP_ANALYSIS.md` (inventory is the #1 universal gap; the box map reuses our plate grid; plasmid/antibody registries are the highest-traffic).
 
 ---
@@ -531,4 +531,71 @@ A pre-v1 spike worth doing: confirm the history-engine recorder/adapter wiring f
 
 ---
 
--- inventory-design-v2 sub-bot of HR
+## 14. Decisions resolved 2026-06-07 (Grant, via orchestrator walkthrough)
+
+All nine open questions from section 13 are now answered. This unblocks a build plan. The barcode question (old Q9) is REVERSED, see section 15.
+
+1. Count-first foundation (old Q1). CONFIRMED. `container_count` is the spine, `amount_per_container` / `unit` are optional and inert unless `track_consumption` is on, and the default low-stock signal is `low_at_count` (a count, not a volume).
+2. Status-only stocks (old Q2). CONFIRMED allowed. A stock with `container_count` left at 1 and only `status` maintained is valid; the lowest-effort labs still get expiry and low signals without touching a number.
+3. Self-populate from Purchases (old Q3). CONFIRMED in v1. The Purchases-receive "add to inventory" flow ships in the first release; it is the adoption mechanism, not a later add.
+4. v1 scope (old Q4). CONFIRMED. v1 = item + stock (count / status / expiry) + the expiring / stale / low widgets + Purchases self-populate + history / trash / sharing, with the `location_text` stopgap and the box map deferred to v2.
+5. Staleness defaults (old Q5). CONFIRMED. Stale threshold defaults to 6 months on `received_date` / `last_touched_at`, and `last_touched_at` is auto-stamped on ANY edit to keep the signal zero-effort.
+6. Location taxonomy (old Q6). CONFIRMED. The generic recursive `StorageNode` with a `kind` label, arbitrary depth, only `box` nodes carry grid dims. No hard-coded freezer / shelf / rack schema. Offer 9x9 and 10x10 as common box dims, do not force one.
+7. Zero new fields on PurchaseItem (old Q7). CONFIRMED. The order-to-stock relationship is computed from `InventoryStock.purchase_item_id` only. The Purchases shape stays frozen.
+8. Registries as categories (old Q8). CONFIRMED. Plasmid / antibody (and future cell-line / strain) are categories on `InventoryItem` with an optional `registry` blob, not separate top-level record types.
+9. Barcode / QR (old Q9). REVERSED from "defer past v3" to a designed v1 layer. The mobile-companion arc and Grant's barcode-driven reorder vision make scanning the primary interaction, and the count-first model makes a scan a thin layer over the existing finish-a-container event. Full design in section 15.
+
+## 15. Barcode layer (added 2026-06-07, promotes the deferred old-Q9)
+
+The count-first model is what makes barcode a clean addition rather than a redesign. In section 2.2 the maintenance-realistic action is "a whole container is finished, count goes 3 to 2," a roughly monthly one-tap event. Barcode simply makes that tap a scan. So the layer is additive, two optional fields plus a scanner and a resolver, with the spine untouched.
+
+### 15.1 Schema delta (additive, no spine change)
+
+```ts
+// On InventoryItem (the product level):
+product_barcode: string | null;   // manufacturer UPC / EAN / GTIN, shared by every
+                                   // container of this product. Drives scan-to-identify
+                                   // at receive and scan-to-find. Optional.
+
+// On InventoryStock (the container level):
+container_code: string | null;    // a per-container code: a lab-applied label or a
+                                   // generated QR id, identifying THIS specific container
+                                   // set (lot). Optional; null = identified only by product.
+```
+
+That is the entire schema change. Count, status, dates, registries, location, and sharing are all unchanged.
+
+### 15.2 Scan resolution
+
+A scanned string resolves `container_code` first (the exact container), then `product_barcode` (the product). Match to a stock opens the container actions (finish one, flag low, open). Match to a product with one stock acts on that stock; with multiple stocks it prompts which, or "finish one of any." No match starts the register flow (15.3).
+
+### 15.3 Scan to register (Grant 2026-06-07: best-effort lookup ON)
+
+Scanning an unknown code starts creation. A best-effort online product lookup pre-fills name and vendor where it hits, then the user creates an `InventoryItem` with `product_barcode` bound, optionally a first `InventoryStock`. The Purchases-receive self-populate (section 8.1) gains a "scan barcode" affordance to bind `product_barcode` at the moment the box arrives. The lookup NEVER blocks, it falls straight to manual entry, and for lab reagents it will miss often, so it is a bonus that fills fields when it can, not a dependency (see 15.6).
+
+### 15.4 Scan to consume (the core loop)
+
+A scan of a registered code means "I just finished one container." It decrements `container_count` by 1, re-derives `status` (to `empty` at 0, to `low` when crossing `low_at_count`), and when it crosses low it drops the item into the Purchases needs-ordering queue via the existing smart-reorder hook. A quick-undo toast guards a mis-scan. Precise per-use volume deduction stays in the opt-in `InventoryConsumption` path (section 8.2); the default scan never asks for an amount.
+
+### 15.5 Scanner surface (desktop-first, decoupled from the mobile app)
+
+v1 targets the desktop webcam via the browser `BarcodeDetector` API (the app is already Chrome / Edge only, see `[[reference_brave_blocks_fsa]]`), with a JS fallback (`@zxing/browser`) where `BarcodeDetector` is unavailable, and `getUserMedia` for the camera. The mobile companion reuses the SAME resolution and consume logic (15.2 to 15.4) with the native camera once it exists. This keeps inventory shipping independent of the mobile-app decision (Grant chose to decide the app later).
+
+### 15.6 Best-effort product lookup
+
+On an unknown `product_barcode`, attempt an online lookup to pre-fill name and vendor. Sources to evaluate (free or affordable, browser or proxy reachable) include UPCitemdb, the Barcode Lookup API, and GS1 GTIN. CORS must be checked per source (see `[[reference_zenodo_figshare_cors]]`); a browser-direct call is preferred, otherwise a thin `/api/barcode-lookup` proxy route on the existing proxy pattern with the rate-limit wrapper. Coverage for lab reagents is low, so this stays a graceful enhancement, never a hard dependency.
+
+### 15.7 Data-shape FLAGS (barcode)
+
+- FLAG-B1: `InventoryItem.product_barcode` (optional string).
+- FLAG-B2: `InventoryStock.container_code` (optional string).
+- FLAG-B3 (conditional): a `/api/barcode-lookup` proxy route, only if no browser-direct lookup source clears CORS. Browser-direct is preferred to avoid it.
+- No other shape change. The count spine, status, dates, registries, and location are untouched.
+
+### 15.8 Phasing
+
+The desktop-webcam scan loop (register plus consume) joins v1 as the motivating interaction, since the count model makes a scan a thin layer over the existing finish-a-container event. One hedge: if the scanner component proves heavier than expected, it can split to a fast v1.x with no data-shape change, because the `product_barcode` and `container_code` fields can ship in v1 regardless (typed or pasted until the camera lands), mirroring the history-as-v1.5 hedge in section 12. Phone scanning follows the mobile-companion decision.
+
+---
+
+-- inventory-design-v2 sub-bot of HR (sections 14-15 added by orchestrator, master bot, 2026-06-07)
