@@ -28,6 +28,7 @@
  * colons. Every icon is an inline SVG.
  */
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import BeakerBot from "@/components/BeakerBot";
@@ -117,8 +118,7 @@ const TIERS: Tier[] = [
     featured: true,
     perks: [
       "Everything in Bench",
-      "Your name or handle in SPONSORS.md in the repo",
-      "A spot in the sponsor wall",
+      "Your name or handle in the repo's SPONSORS.md, where contributors see it",
     ],
   },
   {
@@ -127,18 +127,40 @@ const TIERS: Tier[] = [
     price: "100",
     perks: [
       "Everything in Lab",
-      "Your logo and link, featured on this page",
+      "Your logo and link, featured at the top of this page",
     ],
   },
 ];
 
+/**
+ * Replays a one-shot BeakerBot pose on an interval so the expressive tiers stay
+ * lively instead of freezing after their single play. The official BeakerBot
+ * loops only the calm poses (idle/pointing); giggle and cheering run once with
+ * `forwards`, so without this they settle and look static next to Bench's alive
+ * idle. Remounting via a changing key replays the animation. Honors
+ * prefers-reduced-motion (no replay, just the resting pose).
+ */
+function ReplayingBeaker({ pose, intervalMs }: { pose: "giggle" | "cheering"; intervalMs: number }) {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (mq.matches) return;
+    const handle = window.setInterval(() => setTick((t) => t + 1), intervalMs);
+    return () => window.clearInterval(handle);
+  }, [intervalMs]);
+  return <BeakerBot key={tick} pose={pose} animated className="h-24 w-auto" ariaLabel="" />;
+}
+
 function TierBeaker({ id }: { id: string }) {
-  // Excitement escalates with the tier; the beaker fill stays constant.
+  // The beaker fill stays constant; BeakerBot's excitement escalates with the
+  // tier, and every tier stays continuously lively (Bench via the alive idle,
+  // Lab/Institute via periodic replay of their expressive pose).
   if (id === "lab") {
-    return <BeakerBot pose="giggle" animated className="h-24 w-auto" ariaLabel="" />;
+    return <ReplayingBeaker pose="giggle" intervalMs={3600} />;
   }
   if (id === "institute") {
-    return <BeakerBot pose="cheering" animated className="h-24 w-auto" ariaLabel="" />;
+    return <ReplayingBeaker pose="cheering" intervalMs={4200} />;
   }
   return <BeakerBot pose="idle" alive animated className="h-24 w-auto" ariaLabel="" />;
 }
