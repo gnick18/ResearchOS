@@ -21,6 +21,10 @@ export interface ListTaskRowProps {
   /** Whether the parent-completion checkbox is interactive. False for shared
    *  view-only tasks. */
   canToggleComplete?: boolean;
+  /** PI capability revamp Phase 2: right-click handler for the PI action menu.
+   *  Wired by the parent only when the active user is a lab head viewing a
+   *  member's task; falls through to the normal right-click otherwise. */
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
 const DATE_CHIP_CLASSES: Record<DateSignalKind, string> = {
@@ -40,6 +44,7 @@ export default function ListTaskRow({
   onOpen,
   onToggleComplete,
   canToggleComplete = true,
+  onContextMenu,
 }: ListTaskRowProps) {
   const totalSubTasks = task.sub_tasks?.length ?? 0;
   const completedSubTasks =
@@ -50,6 +55,7 @@ export default function ListTaskRow({
       role="button"
       tabIndex={0}
       onClick={onOpen}
+      onContextMenu={onContextMenu}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
