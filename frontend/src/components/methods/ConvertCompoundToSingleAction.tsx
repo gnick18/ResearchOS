@@ -30,6 +30,7 @@ export function ConvertCompoundToSingleAction({
   task,
   onConverted,
   disabled,
+  piActor,
 }: {
   compound: Method;
   /** Task-attached mode: also rewrites the task's `method_attachments`. */
@@ -40,6 +41,8 @@ export function ConvertCompoundToSingleAction({
   onConverted: (childMethodId: number | null) => void;
   /** Force-disable (e.g. when a sibling save is in progress). */
   disabled?: boolean;
+  /** PI capability revamp: lab head username when editing a member's task on the role, so writes route to the owner + audit. */
+  piActor?: string;
 }) {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
@@ -88,7 +91,7 @@ export function ConvertCompoundToSingleAction({
       // intact at each step. removeMethod drops the compound entry; addMethod
       // attaches the child (when there is one).
       if (task) {
-        const tasksApi = ownerScopedTasksApi(task);
+        const tasksApi = ownerScopedTasksApi(task, piActor ? { actor: piActor } : undefined);
         await tasksApi.removeMethod(task.id, compound.id);
         if (!isEmpty && child) {
           await tasksApi.addMethod(task.id, child.id, child.owner ?? null);

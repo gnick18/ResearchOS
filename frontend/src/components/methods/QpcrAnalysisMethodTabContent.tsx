@@ -48,6 +48,8 @@ interface QpcrAnalysisMethodTabContentProps {
    *  `compound_snapshots[child_id]` slot. Snapshot shape is QPCRAnalysisSnapshot. */
   nestedSnapshot?: NestedSnapshotAdapter<QPCRAnalysisSnapshot>;
   hideVariationNotes?: boolean;
+  /** PI capability revamp: lab head username when editing a member's task on the role, so writes route to the owner + audit. */
+  piActor?: string;
 }
 
 function extractQpcrAnalysisId(sourcePath: string): number | null {
@@ -91,9 +93,10 @@ export default function QpcrAnalysisMethodTabContent({
   readOnly = false,
   nestedSnapshot,
   hideVariationNotes = false,
+  piActor,
 }: QpcrAnalysisMethodTabContentProps) {
   const queryClient = useQueryClient();
-  const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
+  const tasksApi = useMemo(() => ownerScopedTasksApi(task, piActor ? { actor: piActor } : undefined), [task, piActor]);
 
   const protocolId = method.source_path ? extractQpcrAnalysisId(method.source_path) : null;
   const protocolOwner = method.owner || undefined;
@@ -276,6 +279,7 @@ export default function QpcrAnalysisMethodTabContent({
             queryClient.refetchQueries({ queryKey: ["allTasks"] });
           }}
           readOnly={readOnly}
+          piActor={piActor}
         />
       )}
       <div className="flex-1 overflow-y-auto p-6 space-y-6">

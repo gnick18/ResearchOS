@@ -32,6 +32,8 @@ interface PlateMethodTabContentProps {
   /** Hide the VariationNotesPanel; the compound parent owns variation
    *  notes once for the whole compound, not per-child. */
   hideVariationNotes?: boolean;
+  /** PI capability revamp: lab head username when editing a member's task on the role, so writes route to the owner + audit. */
+  piActor?: string;
 }
 
 function extractPlateProtocolId(sourcePath: string): number | null {
@@ -70,9 +72,10 @@ export default function PlateMethodTabContent({
   readOnly = false,
   nestedSnapshot,
   hideVariationNotes = false,
+  piActor,
 }: PlateMethodTabContentProps) {
   const queryClient = useQueryClient();
-  const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
+  const tasksApi = useMemo(() => ownerScopedTasksApi(task, piActor ? { actor: piActor } : undefined), [task, piActor]);
 
   const plateProtocolId = method.source_path ? extractPlateProtocolId(method.source_path) : null;
   const plateProtocolOwner = method.owner || undefined;
@@ -197,6 +200,7 @@ export default function PlateMethodTabContent({
             queryClient.refetchQueries({ queryKey: ["allTasks"] });
           }}
           readOnly={readOnly}
+          piActor={piActor}
         />
       )}
       <div className="flex-1 overflow-y-auto p-6 space-y-6">

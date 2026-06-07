@@ -89,6 +89,8 @@ interface VariationNotesPanelProps {
   // refetch was a no-op and the saved note never reappeared.
   onSaved: (updatedTask: Task | null) => void;
   readOnly?: boolean; // When true, all editing is disabled (for lab mode)
+  /** PI capability revamp: lab head username when editing a member's task on the role, so writes route to the owner + audit. */
+  piActor?: string;
 }
 
 // Debounce window for autosave-on-input. 700ms strikes a balance between
@@ -152,10 +154,10 @@ function SaveStatusIndicator({
   return null;
 }
 
-export default function VariationNotesPanel({ task, methodId, variationNotes, onSaved, readOnly = false }: VariationNotesPanelProps) {
+export default function VariationNotesPanel({ task, methodId, variationNotes, onSaved, readOnly = false, piActor }: VariationNotesPanelProps) {
   // Match MethodTabs: thread owner through saveVariationNote when this is a
   // shared-with-edit task — otherwise writes land in the wrong namespace.
-  const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
+  const tasksApi = useMemo(() => ownerScopedTasksApi(task, piActor ? { actor: piActor } : undefined), [task, piActor]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(variationNotes || "");

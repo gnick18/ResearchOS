@@ -38,6 +38,8 @@ interface PcrMethodTabContentProps {
    *  `pcr_gradient` + `pcr_ingredients` attachment fields. */
   nestedSnapshot?: NestedSnapshotAdapter<PCRSnapshotPayload>;
   hideVariationNotes?: boolean;
+  /** PI capability revamp: lab head username when editing a member's task on the role, so writes route to the owner + audit. */
+  piActor?: string;
 }
 
 // Extract PCR protocol ID from source_path like "pcr://protocol/123".
@@ -55,13 +57,14 @@ export default function PcrMethodTabContent({
   readOnly = false,
   nestedSnapshot,
   hideVariationNotes = false,
+  piActor,
 }: PcrMethodTabContentProps) {
   const queryClient = useQueryClient();
   // Receivers editing a shared task with `edit` permission must route every
   // mutation back to the OWNER's directory. Without this wrapper, direct
   // calls default to the current user's namespace and silently fork the
   // task on disk (orphan write under users/{receiver}/tasks/...).
-  const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
+  const tasksApi = useMemo(() => ownerScopedTasksApi(task, piActor ? { actor: piActor } : undefined), [task, piActor]);
 
   const pcrProtocolId = method.source_path ? extractPCRProtocolId(method.source_path) : null;
 
@@ -270,6 +273,7 @@ export default function PcrMethodTabContent({
             queryClient.refetchQueries({ queryKey: ["allTasks"] });
           }}
           readOnly={readOnly}
+          piActor={piActor}
         />
       )}
       <div className="flex-1 overflow-y-auto p-6 space-y-6">

@@ -24,16 +24,24 @@ interface MethodTabsProps {
   task: Task;
   onTaskUpdate?: (task: Task) => void;
   readOnly?: boolean; // When true, all editing is disabled (for lab mode)
+  /** PI capability revamp: the lab head's username when editing this member's
+   *  task on the role (after the confirm), so method mutations route to the
+   *  owner's folder + audit. */
+  piActor?: string;
 }
 
-export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: MethodTabsProps) {
+export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piActor }: MethodTabsProps) {
   const queryClient = useQueryClient();
   // Receivers editing a shared task with `edit` permission must route every
   // mutation back to the OWNER's directory. Without this wrapper, the direct
   // calls below (addMethod/removeMethod) default to the current user's
   // namespace and silently fork the task on disk (orphan write under
-  // users/{receiver}/tasks/...).
-  const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
+  // users/{receiver}/tasks/...). A PI editing a member's task on the role
+  // passes piActor so the same routing + audit fires.
+  const tasksApi = useMemo(
+    () => ownerScopedTasksApi(task, piActor ? { actor: piActor } : undefined),
+    [task, piActor],
+  );
   // Composite `(owner:method_id)` key — bare method_id can't disambiguate
   // two attachments that happen to share a numeric id but reference methods
   // in different owner namespaces (e.g. alex's private 5 vs the public 5).
@@ -222,6 +230,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
             <WrapAsCompoundAction
               method={activeMethod}
               task={task}
+              piActor={piActor}
               onWrapped={(compound) =>
                 setActiveAttachmentKey(
                   attachmentKey(
@@ -298,6 +307,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
                     readOnly={readOnly}
+                    piActor={piActor}
                   />
                 );
               case "lc_gradient":
@@ -309,6 +319,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
                     readOnly={readOnly}
+                    piActor={piActor}
                   />
                 );
               case "plate":
@@ -320,6 +331,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
                     readOnly={readOnly}
+                    piActor={piActor}
                   />
                 );
               case "cell_culture":
@@ -331,6 +343,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
                     readOnly={readOnly}
+                    piActor={piActor}
                   />
                 );
               case "qpcr_analysis":
@@ -342,6 +355,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
                     readOnly={readOnly}
+                    piActor={piActor}
                   />
                 );
               case "mass_spec":
@@ -385,6 +399,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                             ),
                       )
                     }
+                    piActor={piActor}
                   />
                 );
               case "coding_workflow":
@@ -408,6 +423,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false }: Met
                     attachment={activeAttachment}
                     onTaskUpdate={onTaskUpdate}
                     readOnly={readOnly}
+                    piActor={piActor}
                   />
                 );
             }

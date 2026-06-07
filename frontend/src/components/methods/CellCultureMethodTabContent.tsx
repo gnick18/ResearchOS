@@ -37,6 +37,8 @@ interface CellCultureMethodTabContentProps {
    *  `CellCultureScheduleInstance` produced by the editor. */
   nestedSnapshot?: NestedSnapshotAdapter<CellCultureScheduleInstance>;
   hideVariationNotes?: boolean;
+  /** PI capability revamp: lab head username when editing a member's task on the role, so writes route to the owner + audit. */
+  piActor?: string;
 }
 
 function extractCellCultureScheduleId(sourcePath: string): number | null {
@@ -84,9 +86,10 @@ export default function CellCultureMethodTabContent({
   readOnly = false,
   nestedSnapshot,
   hideVariationNotes = false,
+  piActor,
 }: CellCultureMethodTabContentProps) {
   const queryClient = useQueryClient();
-  const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
+  const tasksApi = useMemo(() => ownerScopedTasksApi(task, piActor ? { actor: piActor } : undefined), [task, piActor]);
 
   const scheduleId = method.source_path
     ? extractCellCultureScheduleId(method.source_path)
@@ -272,6 +275,7 @@ export default function CellCultureMethodTabContent({
             queryClient.refetchQueries({ queryKey: ["allTasks"] });
           }}
           readOnly={readOnly}
+          piActor={piActor}
         />
       )}
       <div className="flex-1 overflow-y-auto p-6 space-y-6">

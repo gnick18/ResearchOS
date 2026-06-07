@@ -56,6 +56,8 @@ interface CompoundMethodTabContentProps {
    *  child (or to null when the compound was empty). Omit in nested-snapshot
    *  mode — the action is hidden there. */
   onSwitchActiveMethod?: (methodId: number | null) => void;
+  /** PI capability revamp: lab head username when editing a member's task on the role, so writes route to the owner + audit. */
+  piActor?: string;
 }
 
 /** Empty payload used when neither the task attachment nor the nested
@@ -101,9 +103,10 @@ export default function CompoundMethodTabContent({
   nestedSnapshot,
   hideVariationNotes = false,
   onSwitchActiveMethod,
+  piActor,
 }: CompoundMethodTabContentProps) {
   const queryClient = useQueryClient();
-  const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
+  const tasksApi = useMemo(() => ownerScopedTasksApi(task, piActor ? { actor: piActor } : undefined), [task, piActor]);
 
   const { data: allMethods = [] } = useQuery({
     queryKey: ["methods"],
@@ -227,6 +230,7 @@ export default function CompoundMethodTabContent({
             queryClient.refetchQueries({ queryKey: ["allTasks"] });
           }}
           readOnly={readOnly}
+          piActor={piActor}
         />
       )}
       <div className="flex-1 overflow-y-auto">
@@ -240,6 +244,7 @@ export default function CompoundMethodTabContent({
               compound={method}
               task={task}
               onConverted={(childId) => onSwitchActiveMethod(childId)}
+              piActor={piActor}
             />
           </div>
         )}
@@ -326,6 +331,7 @@ export default function CompoundMethodTabContent({
                 readOnly={readOnly}
                 makeChildAdapter={makeChildAdapter}
                 idKey={idKey}
+                piActor={piActor}
               />
             );
           })}
@@ -405,6 +411,8 @@ interface CompoundChildSectionProps {
   readOnly: boolean;
   makeChildAdapter: <T>(childIdKey: string) => NestedSnapshotAdapter<T>;
   idKey: string;
+  /** PI capability revamp: lab head username when editing a member's task on the role, so writes route to the owner + audit. */
+  piActor?: string;
 }
 
 function CompoundChildSection({
@@ -419,6 +427,7 @@ function CompoundChildSection({
   readOnly,
   makeChildAdapter,
   idKey,
+  piActor,
 }: CompoundChildSectionProps) {
   const childType = (child.method_type ?? "markdown") as MethodTypeId | "markdown";
   const meta = getMethodTypeMeta(child.method_type ?? null);
@@ -452,6 +461,7 @@ function CompoundChildSection({
           makeChildAdapter={makeChildAdapter}
           idKey={idKey}
           childId={child.id}
+          piActor={piActor}
         />
       </div>
     </section>
@@ -469,6 +479,8 @@ interface CompoundChildBodyProps {
   makeChildAdapter: <T>(childIdKey: string) => NestedSnapshotAdapter<T>;
   idKey: string;
   childId: number;
+  /** PI capability revamp: lab head username when editing a member's task on the role, so writes route to the owner + audit. */
+  piActor?: string;
 }
 
 function CompoundChildBody({
@@ -481,6 +493,7 @@ function CompoundChildBody({
   makeChildAdapter,
   idKey,
   childId,
+  piActor,
 }: CompoundChildBodyProps) {
   switch (childType) {
     case "pcr":
@@ -494,6 +507,7 @@ function CompoundChildBody({
           readOnly={readOnly}
           hideVariationNotes
           nestedSnapshot={makeChildAdapter<PCRSnapshotPayload>(idKey)}
+          piActor={piActor}
         />
       );
     case "lc_gradient":
@@ -507,6 +521,7 @@ function CompoundChildBody({
           readOnly={readOnly}
           hideVariationNotes
           nestedSnapshot={makeChildAdapter<LCGradientProtocol>(idKey)}
+          piActor={piActor}
         />
       );
     case "plate":
@@ -520,6 +535,7 @@ function CompoundChildBody({
           readOnly={readOnly}
           hideVariationNotes
           nestedSnapshot={makeChildAdapter<PlateAnnotationSnapshot>(idKey)}
+          piActor={piActor}
         />
       );
     case "cell_culture":
@@ -533,6 +549,7 @@ function CompoundChildBody({
           readOnly={readOnly}
           hideVariationNotes
           nestedSnapshot={makeChildAdapter<CellCultureScheduleInstance>(idKey)}
+          piActor={piActor}
         />
       );
     case "qpcr_analysis":
@@ -546,6 +563,7 @@ function CompoundChildBody({
           readOnly={readOnly}
           hideVariationNotes
           nestedSnapshot={makeChildAdapter<QPCRAnalysisSnapshot>(idKey)}
+          piActor={piActor}
         />
       );
     case "mass_spec":
@@ -590,6 +608,7 @@ function CompoundChildBody({
           readOnly={readOnly}
           hideVariationNotes
           nestedSnapshot={makeChildAdapter<CompoundSnapshotPayload>(idKey)}
+          piActor={piActor}
         />
       );
     case "markdown":
@@ -604,6 +623,7 @@ function CompoundChildBody({
           readOnly={readOnly}
           hideVariationNotes
           nestedSnapshot={makeChildAdapter<{ body_override: string }>(idKey)}
+          piActor={piActor}
         />
       );
   }

@@ -30,6 +30,7 @@ export function WrapAsCompoundAction({
   task,
   onWrapped,
   className,
+  piActor,
 }: {
   method: Method;
   /** Task-attached mode: when provided, the task's attachment is swapped
@@ -41,6 +42,8 @@ export function WrapAsCompoundAction({
    *  modal (ViewMethodModal). */
   onWrapped?: (compound: Method) => void;
   className?: string;
+  /** PI capability revamp: lab head username when editing a member's task on the role, so writes route to the owner + audit. */
+  piActor?: string;
 }) {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
@@ -57,7 +60,7 @@ export function WrapAsCompoundAction({
     try {
       const compound = await methodsApi.wrapAsCompound(method.id);
       if (task) {
-        const tasksApi = ownerScopedTasksApi(task);
+        const tasksApi = ownerScopedTasksApi(task, piActor ? { actor: piActor } : undefined);
         // Drop the old attachment first, then attach the compound. Doing
         // both via the existing addMethod/removeMethod helpers keeps the
         // `method_ids` ↔ `method_attachments` invariant intact instead of

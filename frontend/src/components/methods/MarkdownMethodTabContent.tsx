@@ -36,6 +36,8 @@ interface MarkdownMethodTabContentProps {
    *  `{ body_override: string }`. */
   nestedSnapshot?: NestedSnapshotAdapter<{ body_override: string }>;
   hideVariationNotes?: boolean;
+  /** PI capability revamp: lab head username when editing a member's task on the role, so writes route to the owner + audit. */
+  piActor?: string;
 }
 
 // Tailwind utility bundles for the diff-line highlights. Kept inline rather
@@ -92,9 +94,10 @@ export default function MarkdownMethodTabContent({
   readOnly = false,
   nestedSnapshot,
   hideVariationNotes = false,
+  piActor,
 }: MarkdownMethodTabContentProps) {
   const queryClient = useQueryClient();
-  const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
+  const tasksApi = useMemo(() => ownerScopedTasksApi(task, piActor ? { actor: piActor } : undefined), [task, piActor]);
 
   const [sourceBody, setSourceBody] = useState("");
   const [loading, setLoading] = useState(true);
@@ -270,6 +273,7 @@ export default function MarkdownMethodTabContent({
             queryClient.refetchQueries({ queryKey: ["allTasks"] });
           }}
           readOnly={readOnly}
+          piActor={piActor}
         />
       )}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
