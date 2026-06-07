@@ -1,6 +1,10 @@
 # External live-collaboration sharing
 
-Status: PROPOSAL (design pass, no code yet). 2026-06-06.
+Status: DESIGN LOCKED (decisions made 2026-06-06; no code yet). Ready to build in chunks.
+
+DECISIONS LOCKED 2026-06-06 (Grant): (1) recipient copy = MATERIALIZE TO FOLDER (on accept, fetch the DO snapshot and write a real local sidecar in the recipient's folder; it then behaves like any collab note, local-first preserved). (2) membership = IN THE DURABLE OBJECT (the DO owns its member list in SQLite; a signed grant adds a member; the DO verifies the owner's signature and checks members on connect). NOTE the resulting dependency: to verify a connector's identity the DO must confirm the presented (email, Ed25519 pubkey) matches the directory binding, so it needs a directory lookup (Neon now, D1 after phase 2). This is migration chunk 3.
+
+Original proposal (design pass, no code yet). 2026-06-06.
 Author: orchestrator.
 Builds on the Option B server-canonical collab now running on the Durable Object (see `COLLAB_STORAGE_D1_DO_MIGRATION.md` and `project_unified_model_phase3`).
 
