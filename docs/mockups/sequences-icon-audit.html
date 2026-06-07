@@ -1044,13 +1044,39 @@
     transform: translateY(6px); transition: opacity .15s, transform .15s; pointer-events: none;
   }
   .audit-toast.show { opacity: 1; transform: translateY(0); }
+
+  .audit-attach { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .audit-attach .pick {
+    border: 1px dashed var(--line); background: #fff; color: var(--muted); font-weight: 700;
+    font-size: 12px; padding: 5px 9px; border-radius: 7px; cursor: pointer;
+  }
+  .audit-attach .pick:hover { color: var(--sky); border-color: var(--sky); }
+  .audit-attach .hint { font-size: 11px; color: var(--muted); }
+  .audit-thumbs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .audit-thumb { position: relative; width: 54px; height: 54px; border-radius: 7px; overflow: hidden; border: 1px solid var(--line); }
+  .audit-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: zoom-in; }
+  .audit-thumb .rm {
+    position: absolute; top: 1px; right: 1px; width: 16px; height: 16px; border: 0; border-radius: 50%;
+    background: rgba(15,23,42,.82); color: #fff; font-size: 11px; line-height: 16px; cursor: pointer; padding: 0;
+  }
+  .card.dragover { outline: 2px dashed var(--sky); outline-offset: 2px; }
+  .audit-lightbox {
+    position: fixed; inset: 0; z-index: 60; background: rgba(15,23,42,.8); display: none;
+    align-items: center; justify-content: center; padding: 24px; cursor: zoom-out;
+  }
+  .audit-lightbox.show { display: flex; }
+  .audit-lightbox img { max-width: 96vw; max-height: 92vh; border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
 </style>
 <div class="audit-toast" id="auditToast"></div>
+<div class="audit-lightbox" id="auditLightbox"><img alt="reference" /></div>
 <script>
 (function () {
   var STORAGE_KEY = "seq-icon-audit-feedback-v1";
   function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch (e) { return {}; } }
-  function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  function save() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); return true; }
+    catch (e) { toast("Storage is full. Download your bundle to keep the images, then Clear to free space."); return false; }
+  }
   var state = load();
 
   var cards = Array.prototype.slice.call(document.querySelectorAll(".card"));
@@ -1065,6 +1091,58 @@
     ctr.querySelectorAll("[data-v]").forEach(function (b) { b.classList.toggle("on", b.dataset.v === status); });
   }
 
+  // Downscale an attached/pasted image to a sane size so several fit in storage.
+  function downscale(dataURL, cb) {
+    var img = new Image();
+    img.onload = function () {
+      var max = 1100, w = img.width, h = img.height;
+      if (w > max || h > max) { var s = max / Math.max(w, h); w = Math.round(w * s); h = Math.round(h * s); }
+      var c = document.createElement("canvas"); c.width = w; c.height = h;
+      c.getContext("2d").drawImage(img, 0, 0, w, h);
+      try { cb(c.toDataURL("image/jpeg", 0.82)); } catch (e) { cb(dataURL); }
+    };
+    img.onerror = function () { cb(dataURL); };
+    img.src = dataURL;
+  }
+  function ingestFile(key, file, thumbsEl) {
+    if (!file || file.type.indexOf("image") !== 0) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      downscale(reader.result, function (small) {
+        var rec = state[key] || {};
+        var imgs = (rec.images || []).slice();
+        imgs.push({ id: "img" + Date.now() + "_" + Math.round(Math.random() * 1e4), src: small });
+        state[key] = Object.assign({}, rec, { images: imgs });
+        if (!save()) { state[key].images = (rec.images || []); return; }
+        renderThumbs(thumbsEl, key); updateBar();
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+  function renderThumbs(thumbsEl, key) {
+    var imgs = (state[key] || {}).images || [];
+    thumbsEl.innerHTML = "";
+    imgs.forEach(function (im) {
+      var d = document.createElement("div"); d.className = "audit-thumb";
+      var image = document.createElement("img"); image.src = im.src;
+      image.addEventListener("click", function () { lightbox(im.src); });
+      var rm = document.createElement("button"); rm.className = "rm"; rm.type = "button"; rm.textContent = "x";
+      rm.title = "Remove";
+      rm.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var rec = state[key] || {};
+        rec.images = (rec.images || []).filter(function (q) { return q.id !== im.id; });
+        state[key] = rec; save(); renderThumbs(thumbsEl, key); updateBar();
+      });
+      d.appendChild(image); d.appendChild(rm); thumbsEl.appendChild(d);
+    });
+  }
+  function lightbox(src) {
+    var lb = document.getElementById("auditLightbox");
+    lb.querySelector("img").src = src; lb.classList.add("show");
+  }
+  document.getElementById("auditLightbox").addEventListener("click", function () { this.classList.remove("show"); });
+
   cards.forEach(function (card, i) {
     var nameEl = card.querySelector(".name");
     var name = nameEl ? nameEl.textContent.replace(/\s+/g, " ").trim() : "Icon " + i;
@@ -1077,12 +1155,39 @@
     ctr.innerHTML =
       '<div class="audit-status"><button type="button" data-v="good">Good</button>' +
       '<button type="button" data-v="bad">Bad</button></div>' +
-      '<textarea class="audit-note" placeholder="Notes (what reads wrong, or what it should be)"></textarea>';
+      '<textarea class="audit-note" placeholder="Notes (what reads wrong, or what it should be). You can paste an image here too."></textarea>' +
+      '<div class="audit-attach"><label class="pick">Attach image<input type="file" accept="image/*" multiple hidden></label>' +
+      '<span class="hint">or drop a file on this card, or paste into the note</span></div>' +
+      '<div class="audit-thumbs"></div>';
     card.appendChild(ctr);
 
     var noteEl = ctr.querySelector(".audit-note");
+    var thumbsEl = ctr.querySelector(".audit-thumbs");
+    var fileInput = ctr.querySelector('input[type="file"]');
     noteEl.value = rec.note || "";
     applyStatus(card, ctr, rec.status);
+    renderThumbs(thumbsEl, key);
+
+    fileInput.addEventListener("change", function () {
+      Array.prototype.slice.call(fileInput.files || []).forEach(function (f) { ingestFile(key, f, thumbsEl); });
+      fileInput.value = "";
+    });
+    noteEl.addEventListener("paste", function (e) {
+      var items = (e.clipboardData && e.clipboardData.items) || [];
+      for (var n = 0; n < items.length; n++) {
+        if (items[n].type && items[n].type.indexOf("image") === 0) {
+          var blob = items[n].getAsFile(); if (blob) ingestFile(key, blob, thumbsEl);
+        }
+      }
+    });
+    card.addEventListener("dragover", function (e) { e.preventDefault(); card.classList.add("dragover"); });
+    card.addEventListener("dragleave", function () { card.classList.remove("dragover"); });
+    card.addEventListener("drop", function (e) {
+      e.preventDefault(); card.classList.remove("dragover");
+      Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.files) || []).forEach(function (f) {
+        ingestFile(key, f, thumbsEl);
+      });
+    });
 
     ctr.querySelectorAll("[data-v]").forEach(function (b) {
       b.addEventListener("click", function () {
@@ -1111,28 +1216,33 @@
     return { bad: bad, good: good, noted: noted, total: cards.length };
   }
   function buildText() {
-    var bad = [], notedOnly = [], good = [];
+    var bad = [], notedOnly = [], good = [], imgTotal = 0;
     Object.keys(state).forEach(function (k) {
       var x = state[k]; if (!x) return;
       var label = (x.section ? x.section + " · " : "") + (x.name || k.split("::")[1] || k);
       var note = (x.note || "").trim();
-      if (x.status === "bad") bad.push("[BAD]  " + label + (note ? " - " + note : ""));
-      else if (x.status === "good") good.push(label + (note ? " (" + note + ")" : ""));
-      else if (note) notedOnly.push("[NOTE] " + label + " - " + note);
+      var nimg = (x.images || []).length; imgTotal += nimg;
+      var tag = nimg ? " [" + nimg + " ref image" + (nimg > 1 ? "s" : "") + "]" : "";
+      if (x.status === "bad") bad.push("[BAD]  " + label + (note ? " - " + note : "") + tag);
+      else if (x.status === "good") good.push(label + (note ? " (" + note + ")" : "") + tag);
+      else if (note || nimg) notedOnly.push("[NOTE] " + label + (note ? " - " + note : "") + tag);
     });
     var c = counts();
     var NL = String.fromCharCode(10);
     var nw = bad.concat(notedOnly);
-    return [
+    var head = [
       "SEQUENCES ICON AUDIT - feedback",
-      "Bad " + c.bad + " | Good " + c.good + " | Noted " + c.noted + " of " + c.total + " icons",
+      "Bad " + c.bad + " | Good " + c.good + " | Noted " + c.noted + " of " + c.total + " icons"
+    ];
+    if (imgTotal) head.push(imgTotal + " reference image(s) attached. Click Download bundle and share the .json so the images come through.");
+    return head.concat([
       "",
       "== NEEDS WORK ==",
       nw.length ? nw.join(NL) : "(none)",
       "",
       "== MARKED GOOD ==",
       good.length ? good.join(NL) : "(none)"
-    ].join(NL);
+    ]).join(NL);
   }
   function toast(msg) {
     var t = document.getElementById("auditToast");
@@ -1145,7 +1255,8 @@
   bar.innerHTML =
     '<span class="count" id="auditCount"></span>' +
     '<button type="button" class="primary" id="auditCopy">Copy feedback</button>' +
-    '<button type="button" id="auditDownload">Download .md</button>' +
+    '<button type="button" id="auditBundle">Download bundle</button>' +
+    '<button type="button" id="auditDownload">.md</button>' +
     '<button type="button" class="danger" id="auditClear">Clear</button>';
   document.body.appendChild(bar);
 
@@ -1166,6 +1277,13 @@
     var a = document.createElement("a");
     a.href = URL.createObjectURL(blob); a.download = "sequences-icon-feedback.md";
     document.body.appendChild(a); a.click(); a.remove();
+  });
+  document.getElementById("auditBundle").addEventListener("click", function () {
+    var blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "sequences-icon-feedback.json";
+    document.body.appendChild(a); a.click(); a.remove();
+    toast("Bundle saved (text + images). Share the .json with me.");
   });
   document.getElementById("auditClear").addEventListener("click", function () {
     if (!window.confirm("Clear all your marks and notes on this page?")) return;
