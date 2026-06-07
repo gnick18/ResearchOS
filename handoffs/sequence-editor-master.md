@@ -310,9 +310,30 @@ all five docs are committed. Likely next moves, in priority order:
        new tone (templates icon-distinguished per Grant). Catalog manifest
        prefetched via the existing fetchMethodCatalogManifest. tsc clean, 28 + 53
        tests green. Hovered-as-context inert (Step 4).
-     - NEXT pages per the same pattern (mockup -> approve -> build): Lab Overview,
-       Links (the last two). Reuse the five built sources as templates.
-   - Step 4, app-wide mouse-awareness (`[data-beaker-target]` hover capture) last.
+     - LAB OVERVIEW DONE + on `main` (commit `67427c1e7`): the spec was STALE (PI
+       revamp removed the timed edit session); built to the current curated hub.
+       Lab-head-only, context card (members + inbox snapshot, NO session line),
+       and Grant chose to ADD INLINE APPROVALS, so approve/decline/flag run in the
+       palette via the per-record PI edit confirm (usePiEditGate, same as
+       Purchases). Announcements author-gated. Jump member (person/pink) + approval
+       (task/amber), Recent-actions MRU. Simplifications: assign + flag-composer
+       route to their surfaces; hovered inert (Step 4).
+     - LINKS DONE + on `main` (commit `865bbdfaf`): pure `buildLinksSource()` (30
+       tests) + `useLinksBeakerSource()` + page wire. Ownership-gated Suggested
+       (isOwnLink; shared-in = open/copy/jump only), the EXTERNAL-OPEN nav kind
+       (new tab + noopener, hostname shown, never auto-highlighted), the typed-url
+       quick-open via interpretQuery (parseLinkUrl), Jump-to-card + Recent links,
+       Create/Edit/Visibility/Delete/Open-copy/Filter commands. Added "link" (blue)
+       PaletteTone. activeCategory is palette-managed local state (the board-filter
+       lift is a follow-up). getPreview stub honored. tsc clean, 30 + 53 tests.
+   - STEP 3 COMPLETE. All 7 page sources built + on main (Gantt, Calendar,
+     Workbench, Purchases, Methods, Lab Overview, Links). Home is a pure redirect
+     router, no source needed. The full nav now drives BeakerSearch.
+   - Step 4 (the remaining optional layer), app-wide mouse-awareness, the
+     provider captures the last `[data-beaker-target]` hovered element before the
+     palette opens and exposes it as `hoveredKey`, which lights up the
+     hovered-as-context paths every source ALREADY supports (they pass null today).
+     Tag the hoverable rows/cards per page + add the capture in BeakerSearchProvider.
 3. **Optional small follow-up:** the EventModal task-picker UI so a user can
    actually create an event-to-task link (the field exists, the UI does not).
 
