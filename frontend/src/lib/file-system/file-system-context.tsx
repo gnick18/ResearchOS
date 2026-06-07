@@ -216,8 +216,18 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
       const exists = await userSettingsFileExists(username);
       let settings = await readUserSettings(username);
       if (!exists && fileService.isConnected()) {
+        // Never CREATE a user folder from a passive hydrate. patchUserSettings
+        // writes users/<username>/_settings.json, which materializes the folder.
+        // If `username` is a leaked pointer (e.g. a demo "alex" carried in the
+        // shared IndexedDB current-user key) on a real folder, that would stamp
+        // a stray empty users/alex into the real folder (the 2026-06-07 bug).
+        // Only migrate legacy settings for a user that genuinely exists here.
+        const userDirs = await fileService
+          .listDirectories("users")
+          .catch(() => [] as string[]);
+        const userIsReal = userDirs.includes(username);
         const legacy = readLegacyLocalStorageSettings();
-        if (legacy?.animationType) {
+        if (userIsReal && legacy?.animationType) {
           settings = await patchUserSettings(username, { animationType: legacy.animationType });
           // Consume the legacy blob so subsequent users (who never owned this
           // localStorage key) don't inherit the same animation choice when
