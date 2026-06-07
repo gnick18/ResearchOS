@@ -3,22 +3,29 @@
 // Shared gate for the cross-boundary sharing UI (Phase 2b).
 //
 // Both the send entry points and the inbox need the same answer, does the
-// current folder-local user have a usable global sharing identity. A usable
-// identity needs two halves, the published sidecar (users/<user>/
-// _sharing_identity.json, which carries the email and public keys) AND this
-// device's private key in IndexedDB. The two can diverge, a user who claimed
-// an identity on one machine and opened the folder on another has the sidecar
-// but not the local key, which is the "restore your key" state from the
-// identity-interaction doc (D3).
+// current folder-local user have a usable sharing identity. Under the revised
+// model (IDENTITY_OAUTH_ONLY.md, 2026-06-06) the ACCOUNT is a LOCAL keypair, so
+// "an identity exists" means the sidecar carries a wrapped key (recoveryBlob),
+// independent of any email. A usable identity needs two halves, that sidecar
+// (users/<user>/_sharing_identity.json) AND this device's unlocked private key
+// (session, or the legacy IndexedDB record). The two can diverge, a user who
+// created an identity on one machine and opened the folder on another has the
+// sidecar but no key on hand here, which is the "restore your key" state.
 //
 // Status values,
 //   "loading"       still reading the sidecar and the device store
-//   "none"          no sidecar, this account has never claimed an identity
-//   "needs-restore" sidecar present but no local key on this device
-//   "ready"         sidecar present and local key present, send and receive work
+//   "none"          no account here (no sidecar, or a sidecar with no
+//                   recoveryBlob, i.e. no local keypair was ever created)
+//   "needs-restore" account exists (recoveryBlob present) but no key on hand here
+//   "ready"         account exists AND the key is on hand, send and receive work
 //
-// The UI uses this to decide whether to launch the SharingSetupWizard ("none"),
-// prompt a recovery-words restore ("needs-restore"), or proceed ("ready").
+// PUBLISHED is orthogonal to all of this: an identity is "published" once it has
+// an email (bound to the directory via the optional OAuth publish step). A local
+// -only account can be "ready" with no email; the email/directory bits of the UI
+// gate on `published`, not on `status`.
+//
+// The UI uses status to decide whether to offer create-an-identity ("none"),
+// prompt a recovery-code restore ("needs-restore"), or proceed ("ready").
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -37,12 +44,18 @@ export type SharingIdentityStatus =
 
 export interface UseSharingIdentityResult {
   status: SharingIdentityStatus;
-  /** The published sidecar when one exists, else null. */
+  /** The sidecar when one exists, else null. */
   sidecar: SharingIdentitySidecar | null;
-  /** Canonical email of the claimed identity, convenience for the relay client. */
+  /** Canonical email of the PUBLISHED identity, or null for a local-only one. */
   email: string | null;
   /** True only when status is "ready" (both halves present). */
   isReady: boolean;
+  /**
+   * True when this identity has been PUBLISHED to the directory (it has an
+   * email). Orthogonal to status, a "ready" local-only account is NOT published.
+   * The email/directory bits of the UI gate on this, not on status.
+   */
+  published: boolean;
   /**
    * True only when every read attempt (the initial try plus the bounded
    * retries) timed out or threw. The status then carries a determinate
@@ -136,7 +149,10 @@ export function useSharingIdentity(): UseSharingIdentityResult {
         if (!isCurrent()) return;
         setSidecar(side);
         setStalled(false);
-        if (!side) {
+        // "An account exists here" = the sidecar carries a wrapped keypair
+        // (recoveryBlob), independent of email. A sidecar with no recoveryBlob
+        // means no local keypair was ever created, so it reads as "none".
+        if (!side || !side.recoveryBlob) {
           setStatus("none");
         } else if (!localKey) {
           setStatus("needs-restore");
@@ -173,6 +189,7 @@ export function useSharingIdentity(): UseSharingIdentityResult {
     sidecar,
     email: sidecar?.email ?? null,
     isReady: status === "ready",
+    published: !!sidecar?.email,
     stalled,
     refresh,
   };

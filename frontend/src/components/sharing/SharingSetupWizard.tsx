@@ -22,13 +22,21 @@ import {
   type BindRequestBody,
   type IdentityMaterial,
 } from "@/lib/sharing/identity/setup";
-import { decodePublicKey } from "@/lib/sharing/identity/keys";
+import {
+  decodePublicKey,
+  encodePublicKey,
+  type IdentityKeys,
+} from "@/lib/sharing/identity/keys";
 import { wrapDeviceKeyWithWords } from "@/lib/sharing/identity/device-key";
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 import { downloadRecoveryKit } from "@/lib/sharing/identity/recovery-kit";
 import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
 import { wrapKeysWithPrf, type PrfBackupBlob } from "@/lib/sharing/identity/passkey";
-import { addPasskeyToEnvelope } from "@/lib/sharing/identity/key-backup-envelope";
+import {
+  addPasskeyToEnvelope,
+  buildKeyBackupEnvelope,
+  serializeKeyBackupEnvelope,
+} from "@/lib/sharing/identity/key-backup-envelope";
 import { mnemonicToRecoveryCode } from "@/lib/sharing/identity/recovery-code";
 import {
   enrollPasskey,
@@ -37,8 +45,9 @@ import {
   PasskeyPrfUnavailableError,
 } from "@/lib/sharing/identity/webauthn";
 import { concatBytes } from "@noble/hashes/utils.js";
-import { saveIdentity } from "@/lib/sharing/identity/storage";
+import { loadIdentity, saveIdentity } from "@/lib/sharing/identity/storage";
 import {
+  readSharingIdentity,
   writeSharingIdentity,
   type SharingIdentitySidecar,
 } from "@/lib/sharing/identity/sidecar";
@@ -121,10 +130,27 @@ export default function SharingSetupWizard({
 
   // Generated identity material, held only in memory for the life of the
   // wizard. Private keys go to IndexedDB at publish, never to React devtools-
-  // friendly serialized state beyond this object.
+  // friendly serialized state beyond this object. ONLY used on the
+  // create-then-publish path (no pre-existing local identity).
   const [material, setMaterial] = useState<IdentityMaterial | null>(null);
   const [recoverySaved, setRecoverySaved] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // EXISTING local identity (the common case under the revised model,
+  // IDENTITY_OAUTH_ONLY.md 2026-06-06): the account is a LOCAL keypair created
+  // offline before this wizard ever runs. When one is present, publishing must
+  // BIND THE EXISTING keypair to the verified email, NOT mint a fresh one (the
+  // old two-keypair bug). We capture the existing keys (from the unlocked
+  // session) plus the existing sidecar (for its recoveryBlob/passkeyBlob, which
+  // become the directory backup blob without ever needing the recovery words).
+  // null = none found yet, so the wizard falls back to create-then-publish.
+  const [existing, setExisting] = useState<{
+    keys: IdentityKeys;
+    sidecar: SharingIdentitySidecar;
+  } | null>(null);
+  // Whether the existing-identity probe has finished, so the generate step does
+  // not flash the (wrong) "minting a fresh keypair" UI before we know.
+  const [existingResolved, setExistingResolved] = useState(false);
 
   // Passkey enrollment, the everyday unlock. Optional, the recovery code is the
   // backstop and the flow completes without a passkey (unsupported browser or a
@@ -216,6 +242,43 @@ export default function SharingSetupWizard({
     };
   }, []);
 
+  // Probe for an EXISTING local identity once on mount. If this user already has
+  // a sealed keypair (sidecar recoveryBlob) AND it is unlocked on this device
+  // (loadIdentity returns the session/IndexedDB key), publishing will BIND that
+  // keypair to the verified email rather than minting a new one. A locked or
+  // absent identity leaves `existing` null, so the wizard falls back to the
+  // create-then-publish path unchanged.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [sidecar, stored] = await Promise.all([
+          readSharingIdentity(username),
+          loadIdentity(),
+        ]);
+        if (cancelled) return;
+        if (sidecar?.recoveryBlob && stored?.keys) {
+          // Sanity check: the unlocked key must match the sidecar's published
+          // public key, otherwise we would bind the wrong keypair. If they
+          // disagree, fall back to create-then-publish (existing stays null).
+          if (
+            encodePublicKey(stored.keys.signing.publicKey) ===
+            sidecar.ed25519PublicKey
+          ) {
+            setExisting({ keys: stored.keys, sidecar });
+          }
+        }
+      } catch {
+        // Best-effort, a read failure just means the create-then-publish path.
+      } finally {
+        if (!cancelled) setExistingResolved(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [username]);
+
   const startOAuth = useCallback((provider: OAuthProvider) => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
@@ -263,6 +326,13 @@ export default function SharingSetupWizard({
   const generating = useRef(false);
   useEffect(() => {
     if (step !== "generate") return;
+    // EXISTING-identity publish path: there is already a keypair, so we never
+    // mint a new one. The generate step renders a "publish your existing keys"
+    // view instead, and publish() binds the existing keypair.
+    if (existing) return;
+    // Wait until the existing-identity probe settles, so we never kick off keygen
+    // a frame before learning the user already has a keypair.
+    if (!existingResolved) return;
     if (material) return; // already generated, do not regenerate on re-render
     if (generating.current) return;
     generating.current = true;
@@ -281,7 +351,7 @@ export default function SharingSetupWizard({
       }
     }, 50);
     return () => window.clearTimeout(id);
-  }, [step, material]);
+  }, [step, material, existing, existingResolved]);
 
   // The recovery code is the high-entropy backstop, the same 128-bit secret as
   // the 12 Recovery Words rendered as a friendlier grouped code. Derived from the
@@ -339,26 +409,62 @@ export default function SharingSetupWizard({
 
   // Step 4, publish to the directory then save locally.
   const publish = useCallback(async () => {
-    if (!material || !verifiedVia) return;
+    // Two sourcing paths for the keypair we bind:
+    //  - EXISTING: the account already has a local keypair (the common case),
+    //    so we bind THAT keypair, reusing its sidecar recoveryBlob as the
+    //    directory backup blob (no recovery words needed, it is the same wrapped
+    //    artifact). We must NOT mint a new keypair here.
+    //  - CREATE: no prior identity, fall back to the freshly minted `material`.
+    if (!verifiedVia) return;
+    if (!existing && !material) return;
     setError(null);
     setLocalLinkFailed(false);
     setStep("publish");
 
     const issuedAt = new Date().toISOString();
     const canonical = canonicalizeEmail(email);
-    // When a passkey was enrolled, fold its blob into the backup envelope so it
-    // ships in this same directory write. addPasskeyToEnvelope falls back to null
-    // only on an unparseable blob, in which case we publish the mnemonic-only
-    // envelope (the passkey can be added later from Settings).
-    const backupBlob = passkeyBlob
-      ? addPasskeyToEnvelope(material.backupBlob, passkeyBlob) ??
-        material.backupBlob
-      : material.backupBlob;
+
+    // The public keys (hex), the ed25519 private key (raw, for the signature),
+    // the local fingerprint, and the directory backup blob, all sourced from
+    // whichever path applies.
+    const x25519PublicKeyHex = existing
+      ? encodePublicKey(existing.keys.encryption.publicKey)
+      : material!.x25519PublicKey;
+    const ed25519PublicKeyHex = existing
+      ? encodePublicKey(existing.keys.signing.publicKey)
+      : material!.ed25519PublicKey;
+    const ed25519PrivateKey = existing
+      ? existing.keys.signing.privateKey
+      : material!.ed25519PrivateKey;
+    const localFingerprint = existing
+      ? existing.sidecar.fingerprint
+      : material!.fingerprint;
+
+    // The directory backup blob (the recovery-words-wrapped key envelope). On
+    // the existing path we rebuild it from the sidecar's stored recoveryBlob,
+    // folding in the existing passkey blob if any, so the directory copy matches
+    // the local one without ever needing the recovery words in memory. On the
+    // create path it is the freshly minted blob plus any just-enrolled passkey.
+    const baseBackupBlob = existing
+      ? serializeKeyBackupEnvelope(
+          buildKeyBackupEnvelope(
+            existing.sidecar.recoveryBlob!,
+            existing.sidecar.passkeyBlob,
+          ),
+        )
+      : material!.backupBlob;
+    // On the create path, when a passkey was enrolled in THIS wizard run, fold
+    // its blob into the envelope. (The existing path already carries any passkey
+    // via the sidecar blob above.)
+    const backupBlob =
+      !existing && passkeyBlob
+        ? addPasskeyToEnvelope(baseBackupBlob, passkeyBlob) ?? baseBackupBlob
+        : baseBackupBlob;
     const bind: BindRequestBody = buildBindRequest({
       email: canonical,
-      x25519PublicKey: material.x25519PublicKey,
-      ed25519PublicKey: material.ed25519PublicKey,
-      ed25519PrivateKey: material.ed25519PrivateKey,
+      x25519PublicKey: x25519PublicKeyHex,
+      ed25519PublicKey: ed25519PublicKeyHex,
+      ed25519PrivateKey,
       backupBlob,
       issuedAt,
     });
@@ -404,7 +510,7 @@ export default function SharingSetupWizard({
       const data = (await res.json()) as { fingerprint?: string };
       // Fall back to the locally computed fingerprint if the server omits it;
       // both are derived from the same Ed25519 key so they agree.
-      publishedFingerprint = data.fingerprint ?? material.fingerprint;
+      publishedFingerprint = data.fingerprint ?? localFingerprint;
       // Anonymous adoption counter, bare count (no email, fingerprint, or path).
       trackIdentityCreated();
     } catch {
@@ -413,64 +519,78 @@ export default function SharingSetupWizard({
       return;
     }
 
-    // Directory publish succeeded. Now persist the private keys on this device,
-    // and write the per-folder sidecar so the account reads as claimed. The
-    // private-key save is mandatory (without it the user cannot decrypt later);
-    // the sidecar is best-effort and only fails when no folder is connected.
-    try {
-      await saveIdentity({
-        keys: {
-          encryption: {
-            publicKey: decodePublicKey(material.x25519PublicKey),
-            privateKey: material.x25519PrivateKey,
+    // Directory publish succeeded. On the CREATE path we now persist the private
+    // keys on this device. On the EXISTING path the key is already in the session
+    // (and its sidecar recoveryBlob is untouched), so there is nothing to save.
+    if (!existing) {
+      try {
+        await saveIdentity({
+          keys: {
+            encryption: {
+              publicKey: decodePublicKey(material!.x25519PublicKey),
+              privateKey: material!.x25519PrivateKey,
+            },
+            signing: {
+              publicKey: decodePublicKey(material!.ed25519PublicKey),
+              privateKey: material!.ed25519PrivateKey,
+            },
           },
-          signing: {
-            publicKey: decodePublicKey(material.ed25519PublicKey),
-            privateKey: material.ed25519PrivateKey,
-          },
-        },
-        deviceSalt: generateDeviceSalt(),
-      });
-    } catch {
-      // If even IndexedDB is unavailable we still finished the directory
-      // publish, but the user should know the keys are not stored. Surface it
-      // through the same local-link notice rather than a hard failure.
-      setLocalLinkFailed(true);
+          deviceSalt: generateDeviceSalt(),
+        });
+      } catch {
+        // If even IndexedDB is unavailable we still finished the directory
+        // publish, but the user should know the keys are not stored. Surface it
+        // through the same local-link notice rather than a hard failure.
+        setLocalLinkFailed(true);
+      }
     }
 
     try {
-      // Option A (IDENTITY_OAUTH_ONLY.md): seal the SAME keypair into the sidecar
-      // under the SAME recovery words the directory blob used, so the folder is a
-      // self-contained identity with one recovery secret. The passkey blob +
-      // credential id ride along when a passkey was enrolled.
-      const recoveryBlob = wrapDeviceKeyWithWords(
-        {
-          encryption: {
-            publicKey: decodePublicKey(material.x25519PublicKey),
-            privateKey: material.x25519PrivateKey,
+      if (existing) {
+        // EXISTING path: bind only ADDS the email + claimedAt to the existing
+        // sidecar. The recoveryBlob / passkeyBlob / public keys / fingerprint
+        // are kept EXACTLY as they were, so the one local keypair stays the one
+        // identity (this is the unification, no fresh keypair, no second blob).
+        const updated: SharingIdentitySidecar = {
+          ...existing.sidecar,
+          email: canonical,
+          claimedAt: new Date().toISOString(),
+        };
+        await writeSharingIdentity(username, updated);
+      } else {
+        // CREATE path: seal the SAME freshly minted keypair into the sidecar
+        // under the SAME recovery words the directory blob used, so the folder
+        // is a self-contained identity with one recovery secret. The passkey
+        // blob + credential id ride along when a passkey was enrolled.
+        const recoveryBlob = wrapDeviceKeyWithWords(
+          {
+            encryption: {
+              publicKey: decodePublicKey(material!.x25519PublicKey),
+              privateKey: material!.x25519PrivateKey,
+            },
+            signing: {
+              publicKey: decodePublicKey(material!.ed25519PublicKey),
+              privateKey: material!.ed25519PrivateKey,
+            },
           },
-          signing: {
-            publicKey: decodePublicKey(material.ed25519PublicKey),
-            privateKey: material.ed25519PrivateKey,
-          },
-        },
-        material.recoveryWords,
-      ).recoveryBlob;
-      const sidecar: SharingIdentitySidecar = {
-        version: 1,
-        email: canonical,
-        x25519PublicKey: material.x25519PublicKey,
-        ed25519PublicKey: material.ed25519PublicKey,
-        fingerprint: publishedFingerprint,
-        claimedAt: new Date().toISOString(),
-        recoveryConfirmedAt: recoverySaved ? new Date().toISOString() : null,
-        passkeyEnrolledAt: passkeyBlob ? new Date().toISOString() : null,
-        recoveryBlob,
-        ...(passkeyBlob ? { passkeyBlob } : {}),
-        ...(passkeyCredentialId ? { passkeyCredentialId } : {}),
-      };
-      await writeSharingIdentity(username, sidecar);
-      // The sidecar now holds wrapped key material, keep it out of any git repo
+          material!.recoveryWords,
+        ).recoveryBlob;
+        const sidecar: SharingIdentitySidecar = {
+          version: 1,
+          email: canonical,
+          x25519PublicKey: material!.x25519PublicKey,
+          ed25519PublicKey: material!.ed25519PublicKey,
+          fingerprint: publishedFingerprint,
+          claimedAt: new Date().toISOString(),
+          recoveryConfirmedAt: recoverySaved ? new Date().toISOString() : null,
+          passkeyEnrolledAt: passkeyBlob ? new Date().toISOString() : null,
+          recoveryBlob,
+          ...(passkeyBlob ? { passkeyBlob } : {}),
+          ...(passkeyCredentialId ? { passkeyCredentialId } : {}),
+        };
+        await writeSharingIdentity(username, sidecar);
+      }
+      // The sidecar holds wrapped key material, keep it out of any git repo
       // in the data folder.
       try {
         await ensureGitignoreEntries([
@@ -491,6 +611,7 @@ export default function SharingSetupWizard({
     onComplete({ fingerprint: publishedFingerprint });
   }, [
     material,
+    existing,
     verifiedVia,
     email,
     otp,
@@ -573,7 +694,16 @@ export default function SharingSetupWizard({
             />
           )}
 
-          {step === "generate" && (
+          {step === "generate" && existing && (
+            <PublishExistingStep
+              displayName={displayName}
+              setDisplayName={setDisplayName}
+              error={error}
+              onContinue={publish}
+            />
+          )}
+
+          {step === "generate" && !existing && (
             <GenerateStep
               material={material}
               email={email}
@@ -1046,6 +1176,68 @@ function GenerateStep({
         className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
       >
         Publish my keys
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Step 3 (existing-identity variant), publish the EXISTING keypair.
+//
+// When the account already has a local keypair, publishing does NOT mint or show
+// a new recovery code, the user already has one. This step only collects the
+// optional profile name and binds the existing keys to the verified email.
+// ---------------------------------------------------------------------------
+
+function PublishExistingStep({
+  displayName,
+  setDisplayName,
+  error,
+  onContinue,
+}: {
+  displayName: string;
+  setDisplayName: (v: string) => void;
+  error: string | null;
+  onContinue: () => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <p className="text-body text-slate-300 leading-relaxed">
+        You already have an account on this device. Publishing links your existing
+        keys to this verified email so other researchers can find you. Your keys
+        and recovery code do not change.
+      </p>
+
+      <div>
+        <label
+          htmlFor="profile-name"
+          className="block text-meta font-medium text-slate-300 mb-1"
+        >
+          Name on your researcher profile
+        </label>
+        <input
+          id="profile-name"
+          type="text"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          placeholder="Your full name"
+          maxLength={100}
+          className="w-full px-3 py-2 text-body rounded-lg bg-slate-900/60 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-400"
+        />
+        <p className="text-meta text-slate-500 mt-1 leading-relaxed">
+          Other ResearchOS users can find you by this name. You can change it
+          anytime in Settings.
+        </p>
+      </div>
+
+      {error && <ErrorNotice message={error} />}
+
+      <button
+        type="button"
+        onClick={onContinue}
+        className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white"
+      >
+        Publish my profile
       </button>
     </div>
   );

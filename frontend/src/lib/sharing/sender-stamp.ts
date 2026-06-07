@@ -46,7 +46,11 @@ export async function readManifestSender(
 ): Promise<ManifestSender | undefined> {
   if (!currentUser) return undefined;
   const identity = await readSharingIdentity(currentUser);
-  if (!identity) return undefined;
+  // A LOCAL-ONLY identity has no email (it was never published to the directory),
+  // so it cannot stamp a verified-sender block. Ship sender-free in that case and
+  // let the recipient fall back to the relay hash, the same graceful path as a
+  // user who never set up sharing at all.
+  if (!identity || !identity.email) return undefined;
   return { email: identity.email, fingerprint: identity.fingerprint };
 }
 

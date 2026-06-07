@@ -27,13 +27,24 @@ import type { PrfBackupBlob } from "./passkey";
 /**
  * The per-user identity link. Public fields only, never a private key.
  *
- * - email, the canonical address this identity was bound under (lowercased,
+ * MODEL (IDENTITY_OAUTH_ONLY.md, revised 2026-06-06): the ACCOUNT is a LOCAL
+ * keypair, created offline with no OAuth. A LOCAL-ONLY identity carries the
+ * public keys + fingerprint + recoveryBlob (+ optional passkeyBlob) and NO
+ * email. Publishing a findable directory profile (OAuth) is optional and is what
+ * adds the email + claimedAt. So `email` and `claimedAt` are OPTIONAL, present
+ * only once the identity has been PUBLISHED.
+ *
+ * - email, the canonical address this identity was PUBLISHED under (lowercased,
  *   trimmed, see canonicalizeEmail). Stored so the UI can show which address an
- *   account is claimed under without a directory round-trip.
+ *   account is published under without a directory round-trip. ABSENT on a
+ *   local-only (unpublished) identity.
  * - x25519PublicKey / ed25519PublicKey, hex-encoded published public keys
  *   (encodePublicKey convention from identity/keys.ts).
  * - fingerprint, the grouped safety-check string for this identity.
- * - claimedAt, ISO-8601 timestamp the identity was claimed on this folder.
+ * - claimedAt, ISO-8601 timestamp the identity was PUBLISHED to the directory.
+ *   ABSENT on a local-only identity (use createdAt for "when set up").
+ * - createdAt, ISO-8601 timestamp the LOCAL identity was created on this folder.
+ *   Optional so pre-cutover sidecars (which only carried claimedAt) still parse.
  * - recoveryConfirmedAt, ISO-8601 timestamp the user confirmed they saved their
  *   Recovery Words, or null if they have not confirmed yet.
  * - passkeyEnrolledAt, ISO-8601 timestamp a passkey was enrolled to unlock this
@@ -43,8 +54,9 @@ import type { PrfBackupBlob } from "./passkey";
  * The wrapped device key (Option A, 2026-06-06). These are CIPHERTEXT, the device
  * keypair sealed at rest so the folder is a self-contained identity:
  * - recoveryBlob, the keypair sealed under the recovery code (Argon2id, 128-bit).
- *   Present once the account is set up under the OAuth-only model. Optional so
- *   pre-cutover sidecars (public-only) still parse.
+ *   Present once the account is set up (local-only or published). Optional so
+ *   pre-cutover sidecars (public-only) still parse. Its presence is the canonical
+ *   "an account exists here" signal.
  * - passkeyBlob, the keypair sealed under this device's passkey PRF, present once
  *   a passkey is enrolled on this device. Device-specific.
  * - passkeyCredentialId, which passkey to ask for at unlock.
@@ -52,11 +64,12 @@ import type { PrfBackupBlob } from "./passkey";
  */
 export interface SharingIdentitySidecar {
   version: 1;
-  email: string;
+  email?: string;
   x25519PublicKey: string;
   ed25519PublicKey: string;
   fingerprint: string;
-  claimedAt: string;
+  claimedAt?: string;
+  createdAt?: string;
   recoveryConfirmedAt: string | null;
   passkeyEnrolledAt?: string | null;
   recoveryBlob?: BackupBlob;

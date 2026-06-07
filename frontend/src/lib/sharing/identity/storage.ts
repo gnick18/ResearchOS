@@ -11,6 +11,11 @@
 // are the public keys (directory) and the wrapped backup blobs (backup.ts).
 
 import type { IdentityKeys } from "./keys";
+import {
+  encodePublicKey,
+  fingerprint as computeFingerprint,
+  generateIdentityKeys,
+} from "./keys";
 import type { KdfParams } from "./backup";
 import { generateDeviceSalt } from "./backup";
 import {
@@ -175,6 +180,47 @@ function toStored(keys: IdentityKeys): StoredIdentity {
   // device-bound passphrase), but StoredIdentity still carries it; a fresh one
   // is harmless and keeps the shape stable for existing consumers.
   return { keys, deviceSalt: generateDeviceSalt() };
+}
+
+/**
+ * Creates a brand-new LOCAL identity for a user, fully OFFLINE with NO OAuth and
+ * NO network. This is the account-creation path under the revised model
+ * (IDENTITY_OAUTH_ONLY.md, 2026-06-06): the account IS a local keypair.
+ *
+ * Steps:
+ *   1. generate a fresh keypair,
+ *   2. write a public-only sidecar (public keys + fingerprint + createdAt, NO
+ *      email, since publishing to the directory is a separate optional step),
+ *   3. seal the keypair into that sidecar under a fresh recovery code (this also
+ *      parks the unlocked key in the session and gitignores the now-key-bearing
+ *      sidecar).
+ *
+ * Returns the one-time recovery code (and the equivalent 12 words) to show the
+ * user once. A passkey can be enrolled afterwards via enrollPasskeyIntoSidecar.
+ *
+ * Argon2id runs inside sealIdentityIntoSidecar (heavy, blocking under PROD
+ * params), so call this off the critical paint path the same way the wizard does.
+ */
+export async function createLocalIdentity(
+  username: string,
+  params?: KdfParams,
+): Promise<{ recoveryCode: string; recoveryWords: string }> {
+  const keys = generateIdentityKeys();
+  // Public-only sidecar first, so sealIdentityIntoSidecar has a file to attach
+  // the wrapped key to. No email (local-only) and no claimedAt (not published);
+  // createdAt records when the account was made on this folder.
+  const publicSidecar: SharingIdentitySidecar = {
+    version: 1,
+    x25519PublicKey: encodePublicKey(keys.encryption.publicKey),
+    ed25519PublicKey: encodePublicKey(keys.signing.publicKey),
+    fingerprint: computeFingerprint(keys.signing.publicKey),
+    createdAt: new Date().toISOString(),
+    recoveryConfirmedAt: null,
+  };
+  await writeSharingIdentity(username, publicSidecar);
+  // Seals the keypair under a fresh recovery code, writes the recoveryBlob onto
+  // the sidecar, parks the unlocked key in the session, and gitignores the file.
+  return sealIdentityIntoSidecar(username, keys, params);
 }
 
 /** The passkey credential id to ask for at unlock, or null when none enrolled. */

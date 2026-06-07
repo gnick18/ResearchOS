@@ -436,9 +436,13 @@ function ReadyIdentity({
         />
       </div>
 
-      <InfoRow label="Email">
-        <span className="break-all">{sidecar.email}</span>
-      </InfoRow>
+      {/* The email row only exists once the identity has been PUBLISHED to the
+          directory (OAuth, optional). A local-only account has keys but no email. */}
+      {sidecar.email && (
+        <InfoRow label="Email">
+          <span className="break-all">{sidecar.email}</span>
+        </InfoRow>
+      )}
 
       <InfoRow
         label="Fingerprint"
@@ -468,7 +472,13 @@ function ReadyIdentity({
         </div>
       </InfoRow>
 
-      <InfoRow label="Set up">{formatDate(sidecar.claimedAt)}</InfoRow>
+      {/* "Set up" shows the publish date when published, else the local
+          create date. Both are optional on older/local-only sidecars. */}
+      {(sidecar.claimedAt ?? sidecar.createdAt) && (
+        <InfoRow label="Set up">
+          {formatDate((sidecar.claimedAt ?? sidecar.createdAt) as string)}
+        </InfoRow>
+      )}
 
       <InfoRow label="Recovery words">
         {sidecar.recoveryConfirmedAt ? (
@@ -541,9 +551,12 @@ function NeedsRestoreIdentity({
         />
       </div>
 
-      <InfoRow label="Email">
-        <span className="break-all">{sidecar.email}</span>
-      </InfoRow>
+      {/* Email only present once published to the directory (optional). */}
+      {sidecar.email && (
+        <InfoRow label="Email">
+          <span className="break-all">{sidecar.email}</span>
+        </InfoRow>
+      )}
       <InfoRow
         label="Fingerprint"
         labelTip="Read these characters aloud with the other person to confirm you are sending to the right identity."
@@ -552,7 +565,11 @@ function NeedsRestoreIdentity({
           {sidecar.fingerprint}
         </span>
       </InfoRow>
-      <InfoRow label="Set up">{formatDate(sidecar.claimedAt)}</InfoRow>
+      {(sidecar.claimedAt ?? sidecar.createdAt) && (
+        <InfoRow label="Set up">
+          {formatDate((sidecar.claimedAt ?? sidecar.createdAt) as string)}
+        </InfoRow>
+      )}
 
       <p className="text-body text-foreground leading-relaxed max-w-prose pt-1">
         Your account is set up. The private key that signs your shares just is
@@ -610,6 +627,22 @@ function InboxStorageSection({
             Encrypted items may be waiting. Restore your key on this device to see
             and open them.
           </p>
+        ) : status === "ready" ? (
+          // Account exists and is unlocked here, but it is local-only (no
+          // published email), so there is no directory inbox yet. Publishing a
+          // profile is what opens the inbox.
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-body text-gray-600 leading-relaxed">
+              Publish a profile to receive shares in your inbox.
+            </p>
+            <button
+              type="button"
+              onClick={onSetUp}
+              className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+            >
+              Publish a profile
+            </button>
+          </div>
         ) : (
           <div className="flex items-center justify-between gap-4">
             <p className="text-body text-foreground-muted leading-relaxed">
