@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Supplies hub mockup</title>
+<style>
+  :root{--surface:#ffffff;--raised:#ffffff;--sunken:#f8fafc;--fg:#171717;--muted:#6b7280;--border:#e5e7eb;--action:#1283C9;--purple:#5B47D6;--emerald-bg:#d1fae5;--emerald-fg:#047857;--amber-bg:#fef3c7;--amber-fg:#b45309;--rose-bg:#ffe4e6;--rose-fg:#be123c;--slate-bg:#e2e8f0;--slate-fg:#475569;--page:#eef2f7}
+  [data-theme="dark"]{--surface:#0a0e1a;--raised:#131c2e;--sunken:#0d1424;--fg:#f1f5f9;--muted:#b4bfd0;--border:rgba(255,255,255,.22);--action:#3aa0e0;--purple:#8170e6;--emerald-bg:rgba(16,185,129,.20);--emerald-fg:#6ee7b7;--amber-bg:rgba(245,158,11,.20);--amber-fg:#fcd34d;--rose-bg:rgba(244,63,94,.20);--rose-fg:#fda4af;--slate-bg:rgba(100,116,139,.25);--slate-fg:#cbd5e1;--page:#05080f}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--page);color:var(--fg)}
+  .topbar{position:sticky;top:0;z-index:50;background:var(--page);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .topbar h1{font-size:16px;margin:0;font-weight:700}.topbar .sub{font-size:12.5px;color:var(--muted)}
+  .spacer{flex:1}
+  .btn{font:inherit;font-size:13px;border:1px solid var(--border);background:var(--raised);color:var(--fg);border-radius:8px;padding:7px 12px;cursor:pointer}
+  .btn-brand{background:linear-gradient(135deg,var(--action),var(--purple));color:#fff;border:none}
+  .legend{display:flex;gap:10px;font-size:12px;color:var(--muted);align-items:center;flex-wrap:wrap}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px}.dot.ok{background:#16a34a}.dot.warn{background:#d97706}.dot.none{background:#cbd5e1}
+  .wrap{max-width:1000px;margin:0 auto;padding:20px 20px 110px}
+  .note{font-size:12.5px;color:var(--muted);max-width:820px;margin:12px 0 8px}
+  .section{margin:24px 0;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--page)}
+  .section-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--sunken)}
+  .section-head .name{font-size:13px;font-weight:700}.section-head .id{font-size:11px;color:var(--muted)}
+  .review{margin-left:auto;display:flex;gap:6px}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .seg button{font:inherit;font-size:12px;padding:5px 10px;border:none;background:var(--raised);color:var(--muted);cursor:pointer}
+  .seg button.active.ok{background:#16a34a;color:#fff}.seg button.active.warn{background:#d97706;color:#fff}.seg button.active.none{background:#64748b;color:#fff}
+  .cmt{width:100%;margin-top:8px;font:inherit;font-size:12.5px;border:1px dashed var(--border);border-radius:8px;background:var(--raised);color:var(--fg);padding:7px 9px;resize:vertical;min-height:34px}
+  .stage{padding:18px;background:var(--surface)}
+  .muted{color:var(--muted)}.t-meta{font-size:12px}.t-body{font-size:13.5px}
+
+  .frame{display:flex;border:1px solid var(--border);border-radius:12px;overflow:hidden;min-height:380px}
+  .rail{width:150px;background:var(--sunken);border-right:1px solid var(--border);padding:12px 8px;flex-shrink:0}
+  .rail .item{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:8px;font-size:12.5px;color:var(--muted);margin-bottom:2px}
+  .rail .item.on{background:var(--raised);color:var(--fg);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .rail .ic{width:15px;height:15px;flex-shrink:0}
+  .body{flex:1;background:var(--surface);padding:18px;overflow:hidden}
+
+  .hubhead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
+  .h-head{font-size:20px;font-weight:600;margin:0}
+  .tabs{display:inline-flex;gap:2px;background:var(--sunken);border-radius:10px;padding:3px;margin:12px 0 16px}
+  .tabs button{border:none;background:none;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer}
+  .tabs button.on{background:var(--raised);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  .tabcount{font-size:11px;margin-left:6px;background:var(--rose-bg);color:var(--rose-fg);border-radius:999px;padding:0 6px}
+
+  .loopstrip{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid var(--border);border-radius:10px;background:var(--sunken);padding:10px 13px;margin-bottom:14px;font-size:12.5px}
+  .loopstrip .stat{display:inline-flex;align-items:center;gap:6px}
+  .swatch{width:9px;height:9px;border-radius:50%}
+  .sw-exp{background:var(--amber-fg)}.sw-low{background:var(--rose-fg)}.sw-order{background:var(--action)}
+  .loopstrip .arrow{color:var(--muted)}
+
+  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+  .tile{border:1px solid var(--border);border-radius:10px;padding:11px;background:var(--raised)}
+  .tile .num{font-size:18px;font-weight:700}.tile .lbl{font-size:11.5px;color:var(--muted)}
+  .listrow{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:9px;background:var(--raised);padding:10px 12px;margin-top:8px}
+  .nm{font-size:13px;font-weight:600}.sub{font-size:11.5px;color:var(--muted)}
+  .status{border-radius:6px;padding:2px 8px;font-size:11.5px;font-weight:500}
+  .st-low{background:var(--amber-bg);color:var(--amber-fg)}.st-in{background:var(--emerald-bg);color:var(--emerald-fg)}.st-need{background:var(--rose-bg);color:var(--rose-fg)}
+  .cta{display:inline-flex;align-items:center;gap:5px;border-radius:8px;padding:6px 11px;font-size:12.5px;background:linear-gradient(135deg,var(--action),var(--purple));color:#fff;border:none;cursor:pointer}
+  .ghostbtn{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);background:transparent;color:var(--fg);border-radius:8px;padding:6px 11px;font-size:12.5px;cursor:pointer}
+
+  .opt{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:8px;cursor:pointer}
+  .opt:hover{background:var(--sunken)}
+  .opt.sel{outline:2px solid var(--action);outline-offset:-1px}
+  .opt .t{font-size:13px;font-weight:600}.opt .d{font-size:12px;color:var(--muted);margin-top:2px}
+  svg{display:block;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #exportModal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+  #exportModal .box{background:var(--raised);color:var(--fg);border-radius:14px;max-width:680px;width:100%;padding:18px;border:1px solid var(--border)}
+  #exportModal textarea{width:100%;min-height:240px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--fg);padding:10px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div><h1>Supplies hub mockup</h1><div class="sub">One nav home, Inventory + Purchases as tabs. Design proposal, NOT built. Approve + pick names, then I build.</div></div>
+  <div class="spacer"></div>
+  <div class="legend"><span><span class="dot ok"></span>Approve</span><span><span class="dot warn"></span>Needs change</span><span><span class="dot none"></span>Undecided</span></div>
+  <button class="btn" id="themeBtn">Dark mode</button>
+  <button class="btn btn-brand" id="exportBtn">Export feedback</button>
+</div>
+<div class="wrap">
+  <p class="note">The two surfaces become one nav item ("Supplies") with two tabs. The left rail shows the nav change (one item replacing two). Click the tabs in the frame to switch between Inventory and Purchases. A thin "loop" strip ties the two together (expiring / low feed into to-order). Naming options are at the bottom. Sample data.</p>
+
+  <!-- 1: the hub with tabs -->
+  <div class="section" data-sec="hub" data-label="The Supplies hub (nav change + tab shell)">
+    <div class="section-head"><span class="name">The Supplies hub</span><span class="id">#hub</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="frame">
+        <div class="rail">
+          <div class="item"><span class="ic">__HOME__</span> Home</div>
+          <div class="item"><span class="ic">__CAL__</span> Calendar</div>
+          <div class="item"><span class="ic">__FLASK__</span> Methods</div>
+          <div class="item on"><span class="ic">__BOX__</span> Supplies</div>
+          <div class="item"><span class="ic">__GANTT__</span> Gantt</div>
+          <div style="font-size:10.5px;color:var(--muted);margin:10px 0 0;padding:0 9px">one item replaces<br>Inventory + Purchases</div>
+        </div>
+        <div class="body">
+          <div class="hubhead"><h2 class="h-head">Supplies</h2></div>
+          <div class="loopstrip">
+            <span class="stat"><span class="swatch sw-exp"></span>3 expiring</span>
+            <span class="stat"><span class="swatch sw-low"></span>2 low or empty</span>
+            <span class="arrow">__ARROW__</span>
+            <span class="stat"><span class="swatch sw-order"></span>4 to order</span>
+            <span style="margin-left:auto;color:var(--muted)">the loop at a glance</span>
+          </div>
+          <div class="tabs">
+            <button class="on" onclick="hubTab('inv',this)">Inventory</button>
+            <button onclick="hubTab('pur',this)">Purchases <span class="tabcount">4</span></button>
+          </div>
+          <div id="tab-inv">
+            <div class="tiles">
+              <div class="tile"><div class="num" style="color:var(--amber-fg)">3</div><div class="lbl">Expiring soon</div></div>
+              <div class="tile"><div class="num" style="color:var(--slate-fg)">5</div><div class="lbl">Stale</div></div>
+              <div class="tile"><div class="num" style="color:var(--rose-fg)">2</div><div class="lbl">Low or empty</div></div>
+            </div>
+            <div class="listrow"><div><div class="nm">Q5 High-Fidelity DNA Polymerase</div><div class="sub">Reagent &middot; NEB &middot; 3 vials</div></div><span class="status st-in">In stock</span></div>
+            <div class="listrow"><div><div class="nm">Ampicillin (100 mg/mL)</div><div class="sub">Reagent &middot; Sigma &middot; 0 vials</div></div><span class="status st-low">Low</span></div>
+          </div>
+          <div id="tab-pur" style="display:none">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div class="t-meta muted">Needs ordering</div><button class="cta">__PLUS__ Add to order</button></div>
+            <div class="listrow"><div><div class="nm">Pipette tips, 200 uL</div><div class="sub">from low inventory &middot; qty 2 racks</div></div><span class="status st-need">Needs ordering</span></div>
+            <div class="listrow"><div><div class="nm">Ampicillin (100 mg/mL)</div><div class="sub">Sigma A9518 &middot; auto-added when emptied</div></div><span class="status st-need">Needs ordering</span></div>
+            <div class="t-meta muted" style="margin-top:14px">Reorder suggestions, ordered, and received history live here too.</div>
+          </div>
+        </div>
+      </div>
+      <p class="t-meta muted" style="margin-top:10px">Click the Inventory / Purchases tabs above to switch. Each tab is the existing surface, unchanged, just hosted under one home.</p>
+    </div>
+  </div>
+
+  <!-- 2: hub name -->
+  <div class="section" data-sec="hubname" data-label="Hub name (the nav label)">
+    <div class="section-head"><span class="name">Hub name</span><span class="id">#hubname</span><span class="review"></span></div>
+    <div class="stage">
+      <div id="hubnames"></div>
+    </div>
+  </div>
+
+  <!-- 3: tab labels -->
+  <div class="section" data-sec="tablabels" data-label="Tab labels">
+    <div class="section-head"><span class="name">Tab labels</span><span class="id">#tablabels</span><span class="review"></span></div>
+    <div class="stage">
+      <div id="tabnames"></div>
+    </div>
+  </div>
+
+  <!-- 4: loop strip -->
+  <div class="section" data-sec="loop" data-label="The loop strip (optional connector)">
+    <div class="section-head"><span class="name">The loop strip</span><span class="id">#loop</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="loopstrip" style="max-width:520px"><span class="stat"><span class="swatch sw-exp"></span>3 expiring</span><span class="stat"><span class="swatch sw-low"></span>2 low or empty</span><span class="arrow">__ARROW__</span><span class="stat"><span class="swatch sw-order"></span>4 to order</span></div>
+      <p class="t-meta muted" style="margin-top:10px">A one-line summary at the top of the hub that ties the two tabs together (what is expiring/low flows into what needs ordering). Keep it, or drop it for a plainer header? Mark Approve to keep, Needs change to drop or rework.</p>
+    </div>
+  </div>
+
+</div>
+
+<div id="exportModal"><div class="box">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><strong style="font-size:14px">Feedback summary</strong><span class="spacer" style="flex:1"></span><button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('exportText').value)">Copy</button><button class="btn" onclick="document.getElementById('exportModal').style.display='none'">Close</button></div>
+  <textarea id="exportText" readonly></textarea>
+</div></div>
+
+<script>
+const I={
+ home:'<svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>',
+ cal:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>',
+ flask:'<svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-4 9a1 1 0 0 0 1 1.5h10a1 1 0 0 0 1-1.5l-4-9V3"/></svg>',
+ box:'<svg viewBox="0 0 24 24"><path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/></svg>',
+ gantt:'<svg viewBox="0 0 24 24"><path d="M4 6h10M4 12h7M4 18h13"/></svg>',
+ plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+ arrow:'<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'
+};
+document.body.innerHTML=document.body.innerHTML.replaceAll('__HOME__',I.home).replaceAll('__CAL__',I.cal).replaceAll('__FLASK__',I.flask).replaceAll('__BOX__',I.box).replaceAll('__GANTT__',I.gantt).replaceAll('__PLUS__',I.plus).replaceAll('__ARROW__',I.arrow);
+
+function hubTab(which,btn){document.getElementById('tab-inv').style.display=which==='inv'?'block':'none';document.getElementById('tab-pur').style.display=which==='pur'?'block':'none';btn.parentNode.querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');}
+
+const KEY='supplies-hub-2026-06-07';const store=JSON.parse(localStorage.getItem(KEY)||'{}');function save(){localStorage.setItem(KEY,JSON.stringify(store));}
+const hubNames=[["Supplies","Covers both having and ordering. Clean, plain-English."],["Lab stock","Emphasizes on-hand; ordering reads as a sub-action."],["Inventory & ordering","Explicit but long for a nav item."],["Stockroom","Evocative, the physical place supplies live."]];
+const tabNames=[["Inventory / Purchases","Keep the familiar names."],["On hand / To order","Verb-forward, describes the question each answers."],["Stock / Ordering","Short."]];
+function buildPicker(hostId,key,opts){const host=document.getElementById(hostId);opts.forEach((o,i)=>{const el=document.createElement('div');el.className='opt'+(String(store[key])===String(i)?' sel':'');el.innerHTML='<div><div class="t">'+o[0]+'</div><div class="d">'+o[1]+'</div></div>';el.onclick=()=>{store[key]=i;save();document.querySelectorAll('#'+hostId+' .opt').forEach((e,j)=>e.classList.toggle('sel',j===i));};host.appendChild(el);});}
+buildPicker('hubnames','hubname_pick',hubNames);
+buildPicker('tabnames','tablabels_pick',tabNames);
+
+document.querySelectorAll('.section').forEach(sec=>{const id=sec.dataset.sec;const host=sec.querySelector('.review');if(!host)return;const cur=store[id]||{v:'',c:''};const seg=document.createElement('div');seg.className='seg';[['ok','Approve'],['warn','Needs change'],['none','Undecided']].forEach(([v,lbl])=>{const b=document.createElement('button');b.textContent=lbl;b.className=(cur.v===v?'active '+v:'');b.onclick=()=>{store[id]={...(store[id]||{}),v};save();render();};seg.appendChild(b);});host.appendChild(seg);const stage=sec.querySelector('.stage');const ta=document.createElement('textarea');ta.className='cmt';ta.placeholder='Comment (optional)';ta.value=cur.c||'';ta.oninput=()=>{store[id]={...(store[id]||{}),c:ta.value};save();};stage.appendChild(ta);});
+function render(){document.querySelectorAll('.section').forEach(sec=>{const id=sec.dataset.sec;const cur=store[id]||{};sec.querySelectorAll('.seg button').forEach(b=>{const v=b.textContent==='Approve'?'ok':b.textContent==='Needs change'?'warn':'none';b.className=(cur.v===v?'active '+v:'');});});}
+render();
+document.getElementById('themeBtn').onclick=function(){const r=document.documentElement;const d=r.getAttribute('data-theme')==='dark';r.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Dark mode':'Light mode';};
+document.getElementById('exportBtn').onclick=function(){let out='SUPPLIES HUB MOCKUP — '+new Date().toString().slice(0,21)+'\\n'+'='.repeat(40)+'\\n\\n';document.querySelectorAll('.section').forEach(sec=>{const id=sec.dataset.sec;const cur=store[id]||{};const verdict=cur.v==='ok'?'APPROVE':cur.v==='warn'?'NEEDS CHANGE':cur.v==='none'?'undecided':'(not marked)';out+='['+verdict+'] '+sec.dataset.label+'\\n';if(cur.c&&cur.c.trim())out+='   note: '+cur.c.trim()+'\\n';});out+='\\n';const hn=store.hubname_pick;out+='Hub name: '+(hn!=null?hubNames[hn][0]:'(not picked)')+'\\n';const tn=store.tablabels_pick;out+='Tab labels: '+(tn!=null?tabNames[tn][0]:'(not picked)')+'\\n';document.getElementById('exportText').value=out;document.getElementById('exportModal').style.display='flex';};
+</script>
+</body>
+</html>
