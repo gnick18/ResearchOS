@@ -220,13 +220,15 @@ import {
   buildContextBar,
   type SelectionKind,
 } from "@/lib/sequences/inspector-context";
-import { CommandPalette } from "./CommandPalette";
 import type {
   ArtifactNavItem,
   EditorCommand,
   PaletteContext,
   SequenceNavItem,
 } from "./editor-commands";
+import { useBeakerSearch } from "@/components/beaker-search/BeakerSearchProvider";
+import { useBeakerSearchSource } from "@/components/beaker-search/useBeakerSearchSource";
+import type { BeakerSearchSource } from "@/components/beaker-search/types";
 import { formatRelative } from "@/components/AttributionChip";
 import { useAutoOpenInspector } from "./useAutoOpenInspector";
 import HoverCardActionHint from "./HoverCardActionHint";
@@ -828,10 +830,12 @@ export default function SequenceEditView({
     (id: string) => setActiveOp((cur) => (cur === id ? null : id)),
     [],
   );
-  // sequence editor master (redesign phase 4). The Cmd-K COMMAND PALETTE is the
-  // keyboard route to every operation. It opens on Cmd-K / Ctrl-K (a global
-  // listener while the editor is mounted) and from the rail "More" launcher.
-  const [paletteOpen, setPaletteOpen] = useState(false);
+  // sequence editor master (BeakerSearch step 1). The Cmd-K COMMAND PALETTE now
+  // lives in the app-shell BeakerSearchProvider. This view OPENS it (the rail
+  // "More" launcher + the front-door pill) and REGISTERS its command source (see
+  // beakerSource below); the provider owns the open state and the global Cmd-K
+  // listener.
+  const { openPalette } = useBeakerSearch();
   // Phase 2e — the primer-design dialog (SnapGene "Add Primer"). null = closed.
   const [primerRequest, setPrimerRequest] = useState<PrimerDialogRequest | null>(null);
   // primer dialog bot — the SnapGene-style "Edit Primer" dialog (distinct from
@@ -3292,24 +3296,11 @@ export default function SequenceEditView({
     readOnly,
   ]);
 
-  // sequence editor master (redesign phase 4). The GLOBAL Cmd-K / Ctrl-K
-  // listener for the command palette. It lives on the window (not the editor
-  // element) so the palette opens whether or not focus is inside the canvas,
-  // which is the standard palette behavior. We deliberately do NOT exclude
-  // inputs / textareas, a palette should open from anywhere; the only place
-  // Cmd-K is inert is the palette's own input, which the palette itself owns. We
-  // never mount the listener in the chrome-slim embedded preview.
-  useEffect(() => {
-    if (embedded) return;
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setPaletteOpen((cur) => !cur);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [embedded]);
+  // sequence editor master (BeakerSearch step 1). The GLOBAL Cmd-K / Ctrl-K
+  // listener now lives in the app-shell BeakerSearchProvider, which owns it for
+  // every page. The embedded preview's "Cmd-K inert" behavior is preserved by
+  // NOT registering a source when embedded (see beakerSource below), so with no
+  // active source the provider's listener does nothing.
 
   // overview featclick bot — the selection the readout describes. A FEATURE
   // selection (Map / overview / Features list) sets `externalSel` but, because
@@ -4438,7 +4429,7 @@ export default function SequenceEditView({
                 sub: "search or run any tool (Cmd K)",
                 glyph: ActionGlyphs.search,
                 tileClass: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
-                onRun: () => setPaletteOpen(true),
+                onRun: () => openPalette(),
               },
             ]}
           />
@@ -4486,7 +4477,7 @@ export default function SequenceEditView({
     readout,
     selectFeature,
     openProteinDrawerForFeature,
-    setPaletteOpen,
+    openPalette,
   ]);
 
   // sequence editor master (redesign phase 4). THE COMMAND SOURCE for the Cmd-K
@@ -4968,6 +4959,34 @@ export default function SequenceEditView({
     [artifacts, handleOpenArtifact],
   );
 
+  // sequence editor master (BeakerSearch step 1). Register THIS editor as the
+  // shared palette's source. The object is the exact same data the palette mount
+  // used to receive as props. We ALWAYS call useMemo (never conditionally) and
+  // pass null when embedded, so the chrome-slim preview registers nothing and its
+  // Cmd-K stays inert, preserving today's behavior.
+  const beakerSource = useMemo<BeakerSearchSource>(
+    () => ({
+      id: "sequences-editor",
+      commands,
+      selectionKind,
+      hasOrganism,
+      context: paletteContext,
+      sequences: jumpSequences,
+      artifacts: recentArtifacts,
+      collectionLabel,
+    }),
+    [
+      commands,
+      selectionKind,
+      hasOrganism,
+      paletteContext,
+      jumpSequences,
+      recentArtifacts,
+      collectionLabel,
+    ],
+  );
+  useBeakerSearchSource(embedded ? null : beakerSource);
+
   return (
     <div ref={containerRef} className="flex h-full w-full flex-col" tabIndex={-1}>
       {/* Toolbar. The mutating affordances (undo/redo/cut/paste/primer/save) are
@@ -5050,7 +5069,7 @@ export default function SequenceEditView({
           <Tooltip label="Search every tool (Cmd K)">
             <button
               type="button"
-              onClick={() => setPaletteOpen(true)}
+              onClick={() => openPalette()}
               data-testid="beakersearch-pill"
               className="flex items-center gap-2 rounded-lg border border-border bg-surface-sunken px-2.5 py-1 text-foreground-muted transition-colors hover:border-sky-300 hover:text-foreground dark:hover:border-sky-700"
             >
@@ -6019,24 +6038,11 @@ export default function SequenceEditView({
         </div>
       ) : null}
 
-      {/* sequence editor master (redesign phase 4). The Cmd-K COMMAND PALETTE,
-          the keyboard route to every operation. Not mounted in the chrome-slim
-          embedded preview; in read-only the command source already drops the
-          mutating commands. The palette portals to the body, so it sits here at
-          the end without affecting layout. */}
-      {!embedded ? (
-        <CommandPalette
-          open={paletteOpen}
-          onClose={() => setPaletteOpen(false)}
-          commands={commands}
-          selectionKind={selectionKind}
-          hasOrganism={hasOrganism}
-          context={paletteContext}
-          sequences={jumpSequences}
-          artifacts={recentArtifacts}
-          collectionLabel={collectionLabel}
-        />
-      ) : null}
+      {/* sequence editor master (BeakerSearch step 1). The Cmd-K COMMAND PALETTE
+          is now rendered by the app-shell BeakerSearchProvider from the source
+          this view registers (beakerSource above). Not mounted here anymore. The
+          embedded preview registers no source, so its Cmd-K stays inert; in
+          read-only the command source already drops the mutating commands. */}
     </div>
   );
 }

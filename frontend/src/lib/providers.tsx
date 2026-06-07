@@ -35,6 +35,7 @@ import WhatsNewManager from "@/components/WhatsNewManager";
 import WikiCaptureBodyClass from "@/components/WikiCaptureBodyClass";
 import SharedFolderAutoRefresh from "@/components/SharedFolderAutoRefresh";
 import { ContextMenuProvider } from "@/components/context-menu/ContextMenuProvider";
+import { BeakerSearchProvider } from "@/components/beaker-search/BeakerSearchProvider";
 import { initializeErrorHandlers } from "@/lib/error-reporting";
 import { projectsApi } from "@/lib/local-api";
 
@@ -480,8 +481,17 @@ export function Providers({ children }: { children: ReactNode }) {
             every route (app, wiki, welcome, demo) and every pre-login surface.
             Components opt in with useContextMenu(); a bare right-click elsewhere
             gets the glyph, and editable text keeps the native menu. */}
+        {/* Website-wide BeakerSearch palette (sequence editor master).
+            Mounted here, inside ContextMenuProvider and above AppContent, so the
+            one shared Cmd-K command surface and its global keyboard listener
+            cover every route (app, wiki, welcome, demo) and every pre-login
+            surface, the same way the right-click framework does. Pages opt in
+            with useBeakerSearchSource(); with no source registered the global
+            Cmd-K is inert and the browser default is preserved. */}
         <ContextMenuProvider>
-          <AppContent>{children}</AppContent>
+          <BeakerSearchProvider>
+            <AppContent>{children}</AppContent>
+          </BeakerSearchProvider>
         </ContextMenuProvider>
       </FileSystemProvider>
     </ErrorBoundary>
