@@ -1011,7 +1011,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     !contextCurrentUser && !expandPicker && soleUser !== null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-surface via-surface-sunken to-surface">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto px-4 pt-16 pb-28 bg-gradient-to-br from-surface-sunken via-surface to-surface-sunken">
       {/* Beta surfacing: the "v0.5.0 beta" version badge top-left. The beta
           framing is already carried by this badge plus the "Report Bug" footer
           link below, so we no longer float the verbose BetaNotice paragraph
@@ -1019,10 +1019,14 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           rendered washed-out + overlapping once this gate moved to the light
           surface gradient. */}
       <VersionBadge tone="surface" className="fixed top-3 left-4 z-[110]" />
-      {/* Background pattern */}
-      <div className="absolute inset-0 opacity-5">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+      {/* Ambience so the gate reads with depth instead of flat white: a soft
+          brand-colored glow up top behind the logo + a faint slate dot texture.
+          Both are subtle and adapt to dark mode (the old layer used white dots
+          + no glow, which was invisible once the gate became light). */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute left-1/2 top-[-12%] h-[60vh] w-[85vw] -translate-x-1/2 rounded-full bg-gradient-to-br from-brand-sky/30 via-brand-purple/15 to-transparent opacity-70 blur-3xl dark:opacity-40" />
+        <div className="absolute inset-0 opacity-[0.05]" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23475569' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
         }} />
       </div>
 
@@ -1234,7 +1238,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                               handleLogin(user);
                             }
                           }}
-                          className={`w-full flex items-center gap-3 p-4 bg-surface-sunken hover:bg-surface-sunken/70 border border-border hover:border-border rounded-xl transition-all group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-raised ${
+                          className={`w-full flex items-center gap-3 p-4 bg-surface border border-border shadow-sm rounded-xl transition-all group cursor-pointer hover:-translate-y-0.5 hover:shadow-md hover:border-brand-sky/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-raised ${
                             loggingIn !== null ? 'opacity-50 cursor-not-allowed' : ''
                           }`}
                         >
@@ -1507,11 +1511,6 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
             </div>
           )}
         </div>
-
-        {/* Footer */}
-        <p className="text-center text-foreground-muted text-body mt-6">
-          Your data is stored locally in the folder you picked
-        </p>
       </div>
 
       {/* Delete User Confirmation Modal */}
@@ -1869,8 +1868,15 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         />
       )}
 
-      {/* Beta: Support this project */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 flex-wrap justify-center max-w-[90vw]">
+      {/* Bottom chrome: the data-locality reassurance + help / shared-account /
+          roadmap / report / support links, consolidated into one fixed cluster
+          with a soft fade up from the page so it stays legible and never stacks
+          on top of the centered card the way the separate rows used to. */}
+      <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col items-center gap-1.5 px-4 pb-4 pt-12 bg-gradient-to-t from-surface via-surface/85 to-transparent">
+        <p className="text-center text-meta text-foreground-muted">
+          Your data is stored locally in the folder you picked
+        </p>
+        <div className="flex items-center gap-4 flex-wrap justify-center max-w-[90vw]">
         <a
           href="/wiki/getting-started/creating-a-user"
           className="text-foreground-muted hover:text-foreground text-meta transition-colors flex items-center gap-1"
@@ -1912,6 +1918,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           Report Bug
         </button>
         <BetaDonationButton variant="link" />
+        </div>
       </div>
 
       {/* Bug Report Modal */}
