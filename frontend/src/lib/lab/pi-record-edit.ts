@@ -33,8 +33,11 @@ export interface SavePiRecordEditArgs<T> {
   targetOwner: string;
   /** The lab head doing the edit (the audit actor). */
   actor: string;
-  /** Record kind for the audit row. */
-  recordType: "note" | "task" | "purchase";
+  /** Record kind for the audit row. Must be the AUDIT record_type, which is
+   *  "purchase_item" for purchases (use auditRecordTypeFor from pi-record-menu)
+   *  so one purchase's history is not split across "purchase" and
+   *  "purchase_item". Tasks and notes are already their own audit type. */
+  recordType: "note" | "task" | "purchase_item";
   /** Record id in the target owner's namespace. */
   recordId: number | string;
   /** Field paths this save touches; only the ones that actually moved are

@@ -24,6 +24,22 @@ import type { AccountType } from "@/lib/settings/user-settings";
 /** The record types the PI menu surfaces actions for. */
 export type PiMenuRecordType = "task" | "note" | "purchase";
 
+/**
+ * The audit log's record_type for a given menu record type. The audit log and
+ * the on-disk folders standardize on "purchase_item" for purchases (matching
+ * pi-actions.ts setPurchaseApproval / declinePurchase, the purchase_items
+ * folder, and the PurchaseItem type), while the menu type is the shorter
+ * "purchase". Tasks and notes are already consistent. This is the ONE home for
+ * that mapping so the per-record audit filter (Pass B) and the Phase-1 content
+ * edit stamp the same record_type. House style is no em-dashes, no mid-sentence
+ * colons.
+ */
+export type AuditRecordType = "task" | "note" | "purchase_item";
+
+export function auditRecordTypeFor(menuType: PiMenuRecordType): AuditRecordType {
+  return menuType === "purchase" ? "purchase_item" : menuType;
+}
+
 /** The minimal record shape the builder needs. Each caller maps its own record
  *  (Task / Note / PurchaseItem) into this so the builder stays decoupled from
  *  the full record types. */
@@ -56,6 +72,9 @@ export interface PiMenuCallbacks {
   onApprove?: () => void;
   /** Purchase only: decline the item (currently approved or pending). */
   onDecline?: () => void;
+  /** Open the per-record audit trail for this record (the read-only viewer,
+   *  filtered to this one record). Always offered for a member record. */
+  onViewAudit?: () => void;
 }
 
 export interface BuildPiRecordMenuArgs {
@@ -175,6 +194,19 @@ export function buildPiRecordMenuItems(args: BuildPiRecordMenuArgs): EditMenuIte
         onRun: callbacks.onDecline,
       });
     }
+  }
+
+  // Read-only per-record audit trail, always last in its own group. Offered for
+  // every member record regardless of includeEditAsPi, since a reviewer wants
+  // the history both from a list row and from inside the open record.
+  if (callbacks.onViewAudit) {
+    items.push({
+      id: "pi-view-audit-trail",
+      label: "View audit trail",
+      enabled: true,
+      group: true,
+      onRun: callbacks.onViewAudit,
+    });
   }
 
   return items;

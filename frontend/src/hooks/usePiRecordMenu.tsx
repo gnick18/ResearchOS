@@ -18,7 +18,11 @@
 //
 // The hook owns a small Assign modal (tasks) so a row can offer "Assign to
 // member..." without the parent having to mount AssignTaskButton; the modal
-// reuses the same member dropdown + note field + assignTask call.
+// reuses the same member dropdown + note field + assignTask call. Phase 4 Pass
+// B: the hook ALSO owns the read-only AuditTrailViewer so the "View audit trail"
+// item works from every caller with no extra per-caller wiring beyond the record
+// it already passes (the record carries owner + id). The viewer opens with
+// targetUser = record.owner and a recordFilter mapped through auditRecordTypeFor.
 //
 // Voice: no em-dashes, no emojis, no mid-sentence colons.
 
@@ -41,9 +45,13 @@ import {
 } from "@/lib/lab/pi-actions";
 import {
   buildPiRecordMenuItems,
+  auditRecordTypeFor,
   type PiMenuRecord,
   type PiMenuRecordType,
 } from "@/lib/lab/pi-record-menu";
+import AuditTrailViewer, {
+  type AuditRecordFilter,
+} from "@/components/lab-head/AuditTrailViewer";
 import type { EditMenuItem } from "@/components/sequences/SequenceEditMenu";
 import type { PiFlag } from "@/lib/types";
 
@@ -104,6 +112,9 @@ export interface PiRecordMenuArgs {
   /** Optional override for the assign flow (tasks). When omitted, the hook's
    *  built-in Assign modal is used. */
   onAssign?: () => void;
+  /** Optional override for the View-audit item. When omitted, the hook's
+   *  built-in read-only AuditTrailViewer opens, filtered to this record. */
+  onViewAudit?: () => void;
   /** Whether to include the "Edit as lab head" row. Default true (Pass 1 list
    *  rows). The detail-popup header callers pass false, since the record is
    *  already open there, so the menu shows only the role actions. */
@@ -134,6 +145,12 @@ export function usePiRecordMenu(): PiRecordMenuApi {
 
   // Assign modal state (tasks). null = closed.
   const [assign, setAssign] = useState<AssignState | null>(null);
+
+  // Per-record audit-trail viewer state (Pass B). null = closed.
+  const [audit, setAudit] = useState<{
+    targetUser: string;
+    recordFilter: AuditRecordFilter;
+  } | null>(null);
 
   const runFlag = useCallback(
     async (recordType: PiMenuRecordType, record: PiMenuRecord) => {
@@ -203,7 +220,8 @@ export function usePiRecordMenu(): PiRecordMenuApi {
 
   const buildItems = useCallback(
     (args: PiRecordMenuArgs): EditMenuItem[] => {
-      const { recordType, record, onEditAsPi, onAssign, includeEditAsPi } = args;
+      const { recordType, record, onEditAsPi, onAssign, onViewAudit, includeEditAsPi } =
+        args;
       return buildPiRecordMenuItems({
         recordType,
         record,
@@ -222,6 +240,19 @@ export function usePiRecordMenu(): PiRecordMenuApi {
             recordType === "purchase" ? () => void runApprove(record) : undefined,
           onDecline:
             recordType === "purchase" ? () => void runDecline(record) : undefined,
+          // Default: open the hook-owned viewer filtered to this one record. The
+          // caller can override (onViewAudit) but no caller needs to, since the
+          // record already carries owner + id.
+          onViewAudit:
+            onViewAudit ??
+            (() =>
+              setAudit({
+                targetUser: record.owner,
+                recordFilter: {
+                  recordType: auditRecordTypeFor(recordType),
+                  recordId: record.id,
+                },
+              })),
         },
       });
     },
@@ -240,25 +271,36 @@ export function usePiRecordMenu(): PiRecordMenuApi {
     [buildItems, contextMenu],
   );
 
-  // Only MOUNT the assign modal when there is an active assign. The modal's
-  // data hooks (useLabData / useLabUserProfileMap / useArchivedUsers) reach for
-  // the FileSystem + lab-data providers, so keeping it unmounted while closed
-  // means a panel that never opens an assign (notes, purchases), plus isolated
-  // unit renders, do not pull those providers in.
+  // Only MOUNT each modal when it is active. The assign modal's data hooks
+  // (useLabData / useLabUserProfileMap / useArchivedUsers) reach for the
+  // FileSystem + lab-data providers, and the viewer reads the audit log, so
+  // keeping them unmounted while closed means a panel that never opens one
+  // (plus isolated unit renders) does not pull those providers in.
   const modals = useMemo(
-    () =>
-      assign ? (
-        <PiAssignModal
-          state={assign}
-          actor={currentUser ?? ""}
-          onClose={() => setAssign(null)}
-          onAssigned={async () => {
-            await invalidateForType(queryClient, "task");
-            setAssign(null);
-          }}
-        />
-      ) : null,
-    [assign, currentUser, queryClient],
+    () => (
+      <>
+        {assign ? (
+          <PiAssignModal
+            state={assign}
+            actor={currentUser ?? ""}
+            onClose={() => setAssign(null)}
+            onAssigned={async () => {
+              await invalidateForType(queryClient, "task");
+              setAssign(null);
+            }}
+          />
+        ) : null}
+        {audit ? (
+          <AuditTrailViewer
+            open
+            onClose={() => setAudit(null)}
+            targetUser={audit.targetUser}
+            recordFilter={audit.recordFilter}
+          />
+        ) : null}
+      </>
+    ),
+    [assign, audit, currentUser, queryClient],
   );
 
   return { buildItems, handleContextMenu, modals };

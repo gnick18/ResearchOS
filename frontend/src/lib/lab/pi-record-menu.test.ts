@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildPiRecordMenuItems,
   isPiViewingMemberRecord,
+  auditRecordTypeFor,
   type PiMenuCallbacks,
 } from "./pi-record-menu";
 
@@ -18,6 +19,7 @@ function callbacks(overrides: Partial<PiMenuCallbacks> = {}): PiMenuCallbacks {
     onAssign: vi.fn(),
     onApprove: vi.fn(),
     onDecline: vi.fn(),
+    onViewAudit: vi.fn(),
     ...overrides,
   };
 }
@@ -83,6 +85,7 @@ describe("buildPiRecordMenuItems task items", () => {
       "pi-edit-as-lab-head",
       "pi-flag-for-review",
       "pi-assign-to-member",
+      "pi-view-audit-trail",
     ]);
   });
 
@@ -150,8 +153,12 @@ describe("buildPiRecordMenuItems includeEditAsPi", () => {
     });
     const ids = items.map((i) => i.id);
     expect(ids).not.toContain("pi-edit-as-lab-head");
-    // The role actions remain: flag toggle + task assign.
-    expect(ids).toEqual(["pi-flag-for-review", "pi-assign-to-member"]);
+    // The role actions remain (flag toggle + task assign), then View audit.
+    expect(ids).toEqual([
+      "pi-flag-for-review",
+      "pi-assign-to-member",
+      "pi-view-audit-trail",
+    ]);
   });
 
   it("includeEditAsPi=false on a purchase keeps flag + approve/decline only", () => {
@@ -172,7 +179,7 @@ describe("buildPiRecordMenuItems includeEditAsPi", () => {
 });
 
 describe("buildPiRecordMenuItems note items", () => {
-  it("emits edit + flag only (no assign / approve / decline)", () => {
+  it("emits edit + flag + view-audit only (no assign / approve / decline)", () => {
     const items = buildPiRecordMenuItems({
       recordType: "note",
       record: { owner: "alex", id: 3, flagged: false },
@@ -183,6 +190,7 @@ describe("buildPiRecordMenuItems note items", () => {
     expect(items.map((i) => i.id)).toEqual([
       "pi-edit-as-lab-head",
       "pi-flag-for-review",
+      "pi-view-audit-trail",
     ]);
   });
 });
@@ -236,5 +244,99 @@ describe("buildPiRecordMenuItems purchase items", () => {
     items.find((i) => i.id === "pi-decline-purchase")!.onRun();
     expect(cbs.onApprove).toHaveBeenCalledOnce();
     expect(cbs.onDecline).toHaveBeenCalledOnce();
+  });
+});
+
+describe("auditRecordTypeFor", () => {
+  it("maps purchase to the audit record_type purchase_item", () => {
+    expect(auditRecordTypeFor("purchase")).toBe("purchase_item");
+  });
+  it("leaves task and note unchanged (already consistent)", () => {
+    expect(auditRecordTypeFor("task")).toBe("task");
+    expect(auditRecordTypeFor("note")).toBe("note");
+  });
+});
+
+describe("buildPiRecordMenuItems View audit trail", () => {
+  const base = {
+    viewerUsername: "mira",
+    accountType: "lab_head" as const,
+  };
+
+  it("appends View audit trail last, in its own group, when onViewAudit is supplied", () => {
+    const items = buildPiRecordMenuItems({
+      ...base,
+      recordType: "task",
+      record: { owner: "alex", id: 7, flagged: false },
+      callbacks: callbacks(),
+    });
+    const last = items[items.length - 1];
+    expect(last.id).toBe("pi-view-audit-trail");
+    expect(last.label).toBe("View audit trail");
+    expect(last.group).toBe(true);
+  });
+
+  it("is offered for a note (independent of the per-type role actions)", () => {
+    const items = buildPiRecordMenuItems({
+      ...base,
+      recordType: "note",
+      record: { owner: "alex", id: 3, flagged: false },
+      callbacks: callbacks(),
+    });
+    expect(items.map((i) => i.id)).toContain("pi-view-audit-trail");
+  });
+
+  it("is offered even with includeEditAsPi false (popup-header kebab)", () => {
+    const items = buildPiRecordMenuItems({
+      ...base,
+      recordType: "purchase",
+      record: { owner: "alex", id: 5, flagged: false, approved: false },
+      includeEditAsPi: false,
+      callbacks: callbacks(),
+    });
+    expect(items.map((i) => i.id)).toContain("pi-view-audit-trail");
+  });
+
+  it("runs onViewAudit when the item is invoked", () => {
+    const cbs = callbacks();
+    const items = buildPiRecordMenuItems({
+      ...base,
+      recordType: "task",
+      record: { owner: "alex", id: 7, flagged: false },
+      callbacks: cbs,
+    });
+    items.find((i) => i.id === "pi-view-audit-trail")!.onRun();
+    expect(cbs.onViewAudit).toHaveBeenCalledOnce();
+  });
+
+  it("is omitted when onViewAudit is not supplied", () => {
+    const items = buildPiRecordMenuItems({
+      ...base,
+      recordType: "task",
+      record: { owner: "alex", id: 7, flagged: false },
+      callbacks: callbacks({ onViewAudit: undefined }),
+    });
+    expect(items.map((i) => i.id)).not.toContain("pi-view-audit-trail");
+  });
+
+  it("is omitted for a non-PI / own record (whole menu is empty)", () => {
+    expect(
+      buildPiRecordMenuItems({
+        recordType: "task",
+        record: { owner: "alex", id: 7, flagged: false },
+        viewerUsername: "mira",
+        accountType: "member",
+        callbacks: callbacks(),
+      }),
+    ).toEqual([]);
+    expect(
+      buildPiRecordMenuItems({
+        recordType: "task",
+        record: { owner: "mira", id: 7, flagged: false },
+        viewerUsername: "mira",
+        accountType: "lab_head",
+        callbacks: callbacks(),
+      }),
+    ).toEqual([]);
   });
 });
