@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import LivingPopup from "@/components/ui/LivingPopup";
 import type { Note, NoteEntry, NoteRestorePayload } from "@/lib/types";
 import { ownerScopedNotesApi } from "@/lib/notes/owner-scoped-api";
 import { emitNoteDeleted } from "@/lib/notes/delete-toast-bus";
@@ -1357,13 +1358,18 @@ export default function NoteDetailPopup({
         }}
       />
     )}
-    <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="note-detail"
-      onClick={handleClose}
+    <LivingPopup
+      open
+      onClose={handleClose}
+      label="Note"
+      blur
+      card={false}
+      selfSize
+      // The note owns Escape (it closes the history panel / exits fullscreen
+      // before closing) and has its own header close button, so opt out of
+      // LivingPopup's Escape + corner X.
+      closeOnEscape={false}
+      showClose={false}
     >
       <div
         className={`relative bg-surface-raised rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden transition-all duration-300 ${
@@ -2218,7 +2224,7 @@ export default function NoteDetailPopup({
           </div>
         )}
       </div>
-    </div>
+    </LivingPopup>
     </>
   );
 }

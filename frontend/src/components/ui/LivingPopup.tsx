@@ -93,6 +93,21 @@ export interface LivingPopupProps {
    *  Even when set, blur never compounds (only the bottom-most blurs). Default
    *  false. */
   blur?: boolean;
+  /** Let the child fully control its own size (width AND height), e.g. a big
+   *  editor with an expand-to-fullscreen mode. LivingPopup centers it and plays
+   *  the zoom, but imposes no width/max-height; the child keeps its own sizing
+   *  classes. Implies card=false. Default false. */
+  selfSize?: boolean;
+  /** Close on the built-in Escape handler. Set false when the child owns Escape
+   *  with its own precedence (e.g. an editor that closes a sub-panel first).
+   *  Default true. */
+  closeOnEscape?: boolean;
+  /** Close when the scrim (outside the card) is clicked. Set false for forms
+   *  that must not be dismissed by a stray outside click. Default true. */
+  closeOnScrimClick?: boolean;
+  /** Show the top-right close X. Set false when the child has its own close
+   *  control (most big editors do). Default true. */
+  showClose?: boolean;
   children: React.ReactNode;
 }
 
@@ -106,6 +121,10 @@ export default function LivingPopup({
   padded = false,
   fillHeight = false,
   blur = false,
+  selfSize = false,
+  closeOnEscape = true,
+  closeOnScrimClick = true,
+  showClose = true,
   children,
 }: LivingPopupProps) {
   // mounted: in the DOM (stays true through the exit animation).
@@ -142,15 +161,15 @@ export default function LivingPopup({
   }, [open]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Escape closes.
+  // Escape closes, unless the child owns Escape (closeOnEscape=false).
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || !closeOnEscape) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [mounted, onClose]);
+  }, [mounted, onClose, closeOnEscape]);
 
   useEffect(() => {
     return () => {
@@ -180,15 +199,20 @@ export default function LivingPopup({
     willChange: "transform, opacity",
   };
 
-  const cardClass = [
-    "pointer-events-auto w-full",
-    widthClassName,
-    card ? "rounded-2xl bg-surface-raised shadow-2xl ring-1 ring-black/5" : "",
-    padded ? "p-6 sm:p-8" : "",
-    fillHeight ? "max-h-[88vh] flex flex-col overflow-hidden" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  // selfSize: a transparent transform wrapper that imposes no width/height, so
+  // the child (a big editor with its own sizing + expand mode) renders exactly
+  // as it would under a plain scrim. Otherwise the standard sized card.
+  const cardClass = selfSize
+    ? "pointer-events-auto w-full flex justify-center"
+    : [
+        "pointer-events-auto w-full",
+        widthClassName,
+        card ? "rounded-2xl bg-surface-raised shadow-2xl ring-1 ring-black/5" : "",
+        padded ? "p-6 sm:p-8" : "",
+        fillHeight ? "max-h-[88vh] flex flex-col overflow-hidden" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
 
   const cardEl = (
     <div className={cardClass} style={cardStyle} role="dialog" aria-label={label}>
@@ -213,17 +237,22 @@ export default function LivingPopup({
       <button
         type="button"
         aria-label={closeLabel}
-        onClick={onClose}
+        onClick={closeOnScrimClick ? onClose : undefined}
         className={`absolute inset-0 h-full w-full cursor-default bg-slate-900/25 ${
           shouldBlur ? "backdrop-blur-md" : ""
         }`}
         style={{ opacity: shown ? 1 : 0, transition: `opacity ${ANIM_MS}ms ease` }}
       />
 
-      {/* Close affordance, top-right. */}
+      {/* Close affordance, top-right. Hidden when the child has its own close
+          control (showClose=false). */}
       <div
         className="absolute right-4 top-4 z-10"
-        style={{ opacity: shown ? 1 : 0, transition: `opacity ${ANIM_MS}ms ease` }}
+        style={{
+          opacity: shown ? 1 : 0,
+          transition: `opacity ${ANIM_MS}ms ease`,
+          display: showClose ? undefined : "none",
+        }}
       >
         <Tooltip label="Close" placement="bottom">
           <button
@@ -237,10 +266,11 @@ export default function LivingPopup({
         </Tooltip>
       </div>
 
-      {/* Centered content. fillHeight = bounded card, children scroll inside;
-          otherwise the card grows to content and the whole popup scrolls. The
-          scrim shows through except on the card, so clicking outside closes. */}
-      {fillHeight ? (
+      {/* Centered content. fillHeight (or selfSize) = bounded/self-sized card
+          centered with the children scrolling inside; otherwise the card grows
+          to content and the whole popup scrolls. The scrim shows through except
+          on the card, so clicking outside closes (unless closeOnScrimClick). */}
+      {fillHeight || selfSize ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-4">
           {cardEl}
         </div>
