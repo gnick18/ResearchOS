@@ -237,9 +237,15 @@ function WeeklyGoalsArea({ oneOnOne }: { oneOnOne: OneOnOne }) {
     [queryClient, oneOnOne.id],
   );
 
+  const [weekDate, setWeekDate] = useState(todayISO());
+
   const addMutation = useMutation({
     mutationFn: (goalText: string) =>
-      oneOnOnesApi.addWeeklyGoal({ oneOnOneId: oneOnOne.id, text: goalText }),
+      oneOnOnesApi.addWeeklyGoal({
+        oneOnOneId: oneOnOne.id,
+        text: goalText,
+        week_of: mondayOfISO(weekDate),
+      }),
     onSuccess: invalidate,
   });
   const toggleMutation = useMutation({
@@ -278,6 +284,9 @@ function WeeklyGoalsArea({ oneOnOne }: { oneOnOne: OneOnOne }) {
         onSubmit={submit}
         placeholder="Add a weekly goal"
         busy={addMutation.isPending}
+        date={weekDate}
+        onDateChange={setWeekDate}
+        dateLabel="Week of"
       />
       {byWeek.length === 0 ? (
         <EmptyArea label="No weekly goals yet. Add the first one above." />
@@ -353,13 +362,15 @@ function NotesArea({
     [queryClient, oneOnOne.id],
   );
 
+  const [meetingDate, setMeetingDate] = useState(todayISO());
+
   const addMutation = useMutation({
     mutationFn: (noteTitle: string) =>
       kind === "meeting"
         ? oneOnOnesApi.addMeetingNote({
             oneOnOneId: oneOnOne.id,
             title: noteTitle,
-            date: new Date().toISOString().slice(0, 10),
+            date: meetingDate,
           })
         : oneOnOnesApi.addSharedNote({
             oneOnOneId: oneOnOne.id,
@@ -368,17 +379,17 @@ function NotesArea({
     onSuccess: invalidate,
   });
 
-  const visible = useMemo(
-    () =>
-      notes
-        .filter((n) => (n.note_kind ?? "note") === kind)
-        .sort((a, b) =>
-          (b.created_at ?? b.updated_at ?? "").localeCompare(
-            a.created_at ?? a.updated_at ?? "",
-          ),
-        ),
-    [notes, kind],
-  );
+  const visible = useMemo(() => {
+    // Meeting notes sort by the chosen meeting date (entry date); freeform
+    // notes by creation time. Newest first either way.
+    const sortKey = (n: Note) =>
+      kind === "meeting"
+        ? (n.entries?.[0]?.date ?? n.created_at ?? n.updated_at ?? "")
+        : (n.created_at ?? n.updated_at ?? "");
+    return notes
+      .filter((n) => (n.note_kind ?? "note") === kind)
+      .sort((a, b) => sortKey(b).localeCompare(sortKey(a)));
+  }, [notes, kind]);
 
   const submit = () => {
     const trimmed = title.trim();
@@ -395,6 +406,13 @@ function NotesArea({
         onSubmit={submit}
         placeholder={kind === "meeting" ? "New meeting note" : "New shared note"}
         busy={addMutation.isPending}
+        {...(kind === "meeting"
+          ? {
+              date: meetingDate,
+              onDateChange: setMeetingDate,
+              dateLabel: "Meeting date",
+            }
+          : {})}
       />
       {visible.length === 0 ? (
         <EmptyArea
@@ -420,11 +438,19 @@ function NotesArea({
                 <span className="min-w-0 flex-1 truncate text-body text-foreground">
                   {n.title || "Untitled"}
                 </span>
-                {n.created_at && (
-                  <span className="text-meta text-foreground-muted">
-                    {n.created_at.slice(0, 10)}
-                  </span>
-                )}
+                {(() => {
+                  // Meeting notes show the chosen meeting date (entry date);
+                  // freeform notes show their creation date.
+                  const shown =
+                    kind === "meeting"
+                      ? (n.entries?.[0]?.date ?? n.created_at)
+                      : n.created_at;
+                  return shown ? (
+                    <span className="text-meta text-foreground-muted">
+                      {shown.slice(0, 10)}
+                    </span>
+                  ) : null;
+                })()}
               </button>
             </li>
           ))}
@@ -558,15 +584,32 @@ function AddRow({
   onSubmit,
   placeholder,
   busy,
+  date,
+  onDateChange,
+  dateLabel,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSubmit: () => void;
   placeholder: string;
   busy: boolean;
+  /** When set with `onDateChange`, renders a leading date picker (meeting date
+   *  or the week a goal belongs to). */
+  date?: string;
+  onDateChange?: (v: string) => void;
+  dateLabel?: string;
 }) {
   return (
     <div className="flex items-center gap-2">
+      {onDateChange && (
+        <input
+          type="date"
+          value={date ?? ""}
+          onChange={(e) => onDateChange(e.target.value)}
+          aria-label={dateLabel ?? "Date"}
+          className="flex-shrink-0 rounded-lg border border-border bg-surface px-3 py-2 text-body text-foreground focus:border-brand-action focus:outline-none focus:ring-2 focus:ring-brand-action/30"
+        />
+      )}
       <input
         type="text"
         value={value}
@@ -588,6 +631,24 @@ function AddRow({
       </button>
     </div>
   );
+}
+
+/** ISO date (YYYY-MM-DD) of the Monday on or before `iso`. Matches the server
+ *  `mondayOf` grouping so a goal lands in the intended week bucket. */
+function mondayOfISO(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  const day = d.getDay(); // 0 = Sun
+  const diff = (day + 6) % 7; // days since Monday
+  d.setDate(d.getDate() - diff);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Today as YYYY-MM-DD in local time. */
+function todayISO(): string {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
 }
 
 function EmptyArea({ label }: { label: string }) {
