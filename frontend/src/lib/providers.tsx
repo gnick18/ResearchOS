@@ -490,9 +490,17 @@ export function Providers({ children }: { children: ReactNode }) {
             always-present global layer (cross-page nav + app commands) means
             Cmd-K and the front-door pill open the palette on every page. */}
         <ContextMenuProvider>
-          <BeakerSearchProvider>
-            <AppContent>{children}</AppContent>
-          </BeakerSearchProvider>
+          {/* BeakerSearchProvider calls useQueryClient (via useGlobalObjectIndex)
+              while mounted above AppContent, but AppContent owns the per-branch
+              QueryClientProviders, so without a client here the global Cmd-K
+              provider crashes the whole app ("No QueryClient set"). Provide the
+              shared appQueryClient singleton up here; AppContent's inner
+              providers reuse the same instance, so nothing double-fetches. */}
+          <QueryClientProvider client={appQueryClient}>
+            <BeakerSearchProvider>
+              <AppContent>{children}</AppContent>
+            </BeakerSearchProvider>
+          </QueryClientProvider>
         </ContextMenuProvider>
       </FileSystemProvider>
     </ErrorBoundary>
