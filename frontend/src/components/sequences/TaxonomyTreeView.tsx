@@ -969,20 +969,20 @@ export default function TaxonomyTreeView({
     <div
       className={
         embedded
-          ? "relative flex h-full w-full flex-col overflow-hidden rounded-2xl bg-white"
-          : "relative flex h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+          ? "relative flex h-full w-full flex-col overflow-hidden rounded-2xl bg-surface-raised"
+          : "relative flex h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl"
       }
     >
         {/* Header */}
-        <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-3">
+        <div className="flex items-center gap-3 border-b border-border px-5 py-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100">
             <TreeIcon className="h-5 w-5 text-sky-600" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-title font-semibold text-gray-900">
+            <h2 className="text-title font-semibold text-foreground">
               Explore the tree of life
             </h2>
-            <p className="text-meta text-gray-500">
+            <p className="text-meta text-foreground-muted">
               Branch thickness shows how many species each clade holds. Click a
               branch to center on it, click the center again to step back.
             </p>
@@ -994,7 +994,7 @@ export default function TaxonomyTreeView({
                 type="button"
                 onClick={handleClose}
                 aria-label="Close"
-                className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                className="rounded-md p-1.5 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground-muted"
               >
                 <CloseIcon className="h-5 w-5" />
               </button>
@@ -1004,9 +1004,9 @@ export default function TaxonomyTreeView({
 
         {/* Search. Hidden in embedded mode, since it calls suggestTaxa (live). */}
         {embedded ? null : (
-        <div className="border-b border-gray-100 px-5 py-2.5">
+        <div className="border-b border-border px-5 py-2.5">
           <div className="relative max-w-md">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-foreground-muted">
               <SearchIcon className="h-4 w-4" />
             </span>
             <input
@@ -1016,12 +1016,12 @@ export default function TaxonomyTreeView({
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => setSuggestOpen(suggestions.length > 0)}
               onBlur={() => window.setTimeout(() => setSuggestOpen(false), 120)}
-              className="w-full rounded-md border border-gray-200 py-2 pl-9 pr-3 text-body text-gray-900 placeholder:text-gray-300 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+              className="w-full rounded-md border border-border py-2 pl-9 pr-3 text-body text-foreground placeholder:text-foreground-muted focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
             />
             {suggestOpen && suggestions.length > 0 ? (
               <ul
                 role="listbox"
-                className="absolute left-0 right-0 top-full z-10 mt-1 max-h-64 overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+                className="absolute left-0 right-0 top-full z-10 mt-1 max-h-64 overflow-y-auto rounded-md border border-border bg-surface-raised py-1 shadow-lg"
               >
                 {suggestions.map((s) => (
                   <li key={s.taxId}>
@@ -1031,8 +1031,8 @@ export default function TaxonomyTreeView({
                       onClick={() => pickSuggestion(s)}
                       className="flex w-full items-baseline justify-between gap-3 px-3 py-2 text-left hover:bg-sky-50"
                     >
-                      <span className="truncate text-body text-gray-800">{s.name}</span>
-                      <span className="shrink-0 text-meta uppercase tracking-wide text-gray-400">
+                      <span className="truncate text-body text-foreground">{s.name}</span>
+                      <span className="shrink-0 text-meta uppercase tracking-wide text-foreground-muted">
                         {rankLabel(s.rank)}
                       </span>
                     </button>
@@ -1041,7 +1041,7 @@ export default function TaxonomyTreeView({
               </ul>
             ) : null}
           </div>
-          {note ? <p className="mt-1.5 text-meta text-gray-400">{note}</p> : null}
+          {note ? <p className="mt-1.5 text-meta text-foreground-muted">{note}</p> : null}
         </div>
         )}
 
@@ -1052,14 +1052,14 @@ export default function TaxonomyTreeView({
           <nav
             aria-label="Focus path"
             data-testid="taxonomy-breadcrumb"
-            className="flex items-center gap-1 overflow-x-auto border-b border-gray-100 px-5 py-2"
+            className="flex items-center gap-1 overflow-x-auto border-b border-border px-5 py-2"
           >
             {crumbs.map((c, i) => {
               const isLast = i === crumbs.length - 1;
               return (
                 <span key={c.id} className="flex shrink-0 items-center gap-1">
                   {i > 0 ? (
-                    <ChevronRightIcon className="h-3.5 w-3.5 text-gray-300" />
+                    <ChevronRightIcon className="h-3.5 w-3.5 text-foreground-muted" />
                   ) : null}
                   {isLast ? (
                     <span className="rounded-full bg-sky-50 px-2.5 py-1 text-meta font-medium text-sky-700">
@@ -1069,7 +1069,7 @@ export default function TaxonomyTreeView({
                     <button
                       type="button"
                       onClick={() => onCrumbClick(c.id)}
-                      className="rounded-full px-2.5 py-1 text-meta font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800"
+                      className="rounded-full px-2.5 py-1 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
                     >
                       {c.name}
                     </button>
@@ -1082,7 +1082,7 @@ export default function TaxonomyTreeView({
 
         {/* Body: the radial canvas + the click-detail */}
         <div className="relative flex min-h-0 flex-1">
-          <div ref={canvasRef} className="relative min-h-0 flex-1 bg-slate-50">
+          <div ref={canvasRef} className="relative min-h-0 flex-1 bg-surface-sunken">
             {error ? (
               <div className="absolute inset-x-0 top-4 z-10 mx-auto flex max-w-md items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5">
                 <WarnIcon className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
@@ -1091,7 +1091,7 @@ export default function TaxonomyTreeView({
             ) : null}
 
             {loading ? (
-              <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 text-meta text-gray-500">
+              <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 text-meta text-foreground-muted">
                 <SpinnerIcon className="h-4 w-4 text-sky-500" />
                 <span>Loading the tree of life...</span>
               </div>
@@ -1365,16 +1365,16 @@ export default function TaxonomyTreeView({
                 return (
                   <div
                     data-testid="taxonomy-hover-card"
-                    className="pointer-events-none absolute z-20 max-w-[280px] rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-lg"
+                    className="pointer-events-none absolute z-20 max-w-[280px] rounded-lg border border-border bg-surface-raised px-3 py-2 shadow-lg"
                     style={{ left, top }}
                   >
-                    <p className="text-body font-semibold leading-snug text-gray-900">
+                    <p className="text-body font-semibold leading-snug text-foreground">
                       {hover.name}
                     </p>
-                    <p className="text-meta uppercase tracking-wide text-gray-400">
+                    <p className="text-meta uppercase tracking-wide text-foreground-muted">
                       {rankLabel(hover.rank)}
                     </p>
-                    <p className="text-meta text-gray-500">{countLine}</p>
+                    <p className="text-meta text-foreground-muted">{countLine}</p>
                   </div>
                 );
               })()
@@ -1390,16 +1390,16 @@ export default function TaxonomyTreeView({
             {legend.length > 0 ? (
               <div
                 data-testid="taxonomy-thickness-legend"
-                className="absolute bottom-4 left-4 z-10 max-w-[15rem] rounded-lg border border-gray-200 bg-white/95 px-3 py-2.5 shadow-sm backdrop-blur-sm"
+                className="absolute bottom-4 left-4 z-10 max-w-[15rem] rounded-lg border border-border bg-white/95 px-3 py-2.5 shadow-sm backdrop-blur-sm"
                 onPointerDown={(e) => e.stopPropagation()}
                 onWheel={(e) => e.stopPropagation()}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-meta font-semibold text-gray-700">
+                    <p className="text-meta font-semibold text-foreground">
                       Branch thickness
                     </p>
-                    <p className="text-meta leading-snug text-gray-400">
+                    <p className="text-meta leading-snug text-foreground-muted">
                       {widthMetric === "assemblies"
                         ? "More genome assemblies, thicker branch."
                         : "More species, thicker branch."}
@@ -1411,7 +1411,7 @@ export default function TaxonomyTreeView({
                       onClick={() => setDisclaimerOpen((v) => !v)}
                       aria-expanded={disclaimerOpen}
                       aria-label="What this layout is, and is not"
-                      className="-mr-1 -mt-0.5 shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                      className="-mr-1 -mt-0.5 shrink-0 rounded-md p-1 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground-muted"
                     >
                       <InfoIcon className="h-3.5 w-3.5" />
                     </button>
@@ -1429,7 +1429,7 @@ export default function TaxonomyTreeView({
                         height={16}
                         viewBox="0 0 36 16"
                         aria-hidden="true"
-                        className="shrink-0 text-gray-500"
+                        className="shrink-0 text-foreground-muted"
                       >
                         <line
                           x1={2}
@@ -1441,7 +1441,7 @@ export default function TaxonomyTreeView({
                           strokeLinecap="round"
                         />
                       </svg>
-                      <span className="text-meta tabular-nums text-gray-600">
+                      <span className="text-meta tabular-nums text-foreground-muted">
                         ~{entry.value.toLocaleString()} {entry.unit}
                       </span>
                     </li>
@@ -1451,7 +1451,7 @@ export default function TaxonomyTreeView({
                 {disclaimerOpen ? (
                   <p
                     data-testid="taxonomy-not-phylogeny-note"
-                    className="mt-2.5 border-t border-gray-100 pt-2 text-meta leading-snug text-gray-500"
+                    className="mt-2.5 border-t border-border pt-2 text-meta leading-snug text-foreground-muted"
                   >
                     Not a phylogenetic tree. Branch length, angle, and distance
                     carry no evolutionary meaning. The layout only helps you browse
@@ -1468,7 +1468,7 @@ export default function TaxonomyTreeView({
                   type="button"
                   onClick={() => nudgeZoom(1.6)}
                   aria-label="Zoom in"
-                  className="flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 shadow-sm transition-colors hover:border-sky-300 hover:text-sky-700"
+                  className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-surface-raised text-foreground-muted shadow-sm transition-colors hover:border-sky-300 hover:text-sky-700"
                 >
                   <PlusIcon className="h-4 w-4" />
                 </button>
@@ -1478,7 +1478,7 @@ export default function TaxonomyTreeView({
                   type="button"
                   onClick={() => nudgeZoom(1 / 1.6)}
                   aria-label="Zoom out"
-                  className="flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 shadow-sm transition-colors hover:border-sky-300 hover:text-sky-700"
+                  className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-surface-raised text-foreground-muted shadow-sm transition-colors hover:border-sky-300 hover:text-sky-700"
                 >
                   <MinusIcon className="h-4 w-4" />
                 </button>
@@ -1488,7 +1488,7 @@ export default function TaxonomyTreeView({
                   type="button"
                   onClick={resetView}
                   aria-label="Reset the view"
-                  className="flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 shadow-sm transition-colors hover:border-sky-300 hover:text-sky-700"
+                  className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-surface-raised text-foreground-muted shadow-sm transition-colors hover:border-sky-300 hover:text-sky-700"
                 >
                   <HomeIcon className="h-4 w-4" />
                 </button>

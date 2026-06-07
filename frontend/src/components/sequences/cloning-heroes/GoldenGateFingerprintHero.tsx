@@ -73,15 +73,15 @@ export default function GoldenGateFingerprintHero({ product, enzymeNames }: Prop
 
   return (
     <section
-      className="rounded-md border border-gray-200 bg-gray-50/60 p-3"
+      className="rounded-md border border-border bg-surface-sunken/60 p-3"
       aria-label="Fusion-site fingerprint"
     >
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h4 className="text-meta font-semibold uppercase tracking-wide text-gray-500">
+        <h4 className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
           Fusion-site fingerprint
         </h4>
         {enzymeNames.length > 0 ? (
-          <span className="text-meta text-gray-500">{enzymeNames.join(", ")}</span>
+          <span className="text-meta text-foreground-muted">{enzymeNames.join(", ")}</span>
         ) : null}
       </div>
 
@@ -131,14 +131,14 @@ export default function GoldenGateFingerprintHero({ product, enzymeNames }: Prop
 
       {/* Ordered assembly chain. */}
       {chain.length > 0 ? (
-        <div className="mt-2 flex flex-wrap items-center gap-1 text-meta text-gray-600">
+        <div className="mt-2 flex flex-wrap items-center gap-1 text-meta text-foreground-muted">
           {chain.map((name, i) => (
             <span key={i} className="flex items-center gap-1">
-              <span className="rounded bg-white px-1.5 py-0.5 ring-1 ring-gray-200">{name}</span>
-              <span className="text-gray-300">{"->"}</span>
+              <span className="rounded bg-surface-raised px-1.5 py-0.5 ring-1 ring-border">{name}</span>
+              <span className="text-foreground-muted">{"->"}</span>
             </span>
           ))}
-          <span className="rounded bg-white px-1.5 py-0.5 text-gray-500 ring-1 ring-gray-200">close</span>
+          <span className="rounded bg-surface-raised px-1.5 py-0.5 text-foreground-muted ring-1 ring-border">close</span>
         </div>
       ) : null}
     </section>

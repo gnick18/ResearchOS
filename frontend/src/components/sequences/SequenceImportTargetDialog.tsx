@@ -101,26 +101,26 @@ export default function SequenceImportTargetDialog({
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={request.onCancel}
       />
-      <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
+      <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+        <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100">
             <FolderInIcon className="h-5 w-5 text-sky-600" />
           </div>
-          <h2 className="text-title font-semibold text-gray-900">
+          <h2 className="text-title font-semibold text-foreground">
             Import {count} {seqNoun} into
           </h2>
         </div>
 
         <div className="space-y-3 px-5 py-4">
           <label className="block">
-            <span className="mb-1 block text-meta font-medium uppercase tracking-wide text-gray-400">
+            <span className="mb-1 block text-meta font-medium uppercase tracking-wide text-foreground-muted">
               Collection
             </span>
             <select
               autoFocus
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              className="w-full rounded-md border border-gray-200 bg-white px-2.5 py-2 text-body text-gray-700 focus:border-sky-400 focus:outline-none"
+              className="w-full rounded-md border border-border bg-surface-raised px-2.5 py-2 text-body text-foreground focus:border-sky-400 focus:outline-none"
             >
               <option value={UNFILED_VALUE}>Unfiled (no project)</option>
               {request.projects.length > 0 ? (
@@ -135,19 +135,19 @@ export default function SequenceImportTargetDialog({
             </select>
           </label>
 
-          <p className="text-meta text-gray-500">
+          <p className="text-meta text-foreground-muted">
             These {seqNoun} will link to the chosen project collection. Pick
             Unfiled to keep them out of any project for now.
           </p>
 
-          {skipNote ? <p className="text-meta text-gray-500">{skipNote}</p> : null}
+          {skipNote ? <p className="text-meta text-foreground-muted">{skipNote}</p> : null}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-4 py-3">
+        <div className="flex justify-end gap-2 border-t border-border bg-surface-sunken px-4 py-3">
           <button
             type="button"
             onClick={request.onCancel}
-            className="rounded-lg px-4 py-2 text-body text-gray-600 transition-colors hover:bg-gray-200"
+            className="rounded-lg px-4 py-2 text-body text-foreground-muted transition-colors hover:bg-surface-sunken"
           >
             Cancel
           </button>

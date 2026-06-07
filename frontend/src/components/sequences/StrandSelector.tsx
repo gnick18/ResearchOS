@@ -88,7 +88,7 @@ export default function StrandSelector({
   onChange: (next: StrandDisplay) => void;
 }) {
   return (
-    <div className="inline-flex rounded-md border border-gray-200 bg-white p-0.5" role="group" aria-label="Strand direction">
+    <div className="inline-flex rounded-md border border-border bg-surface-raised p-0.5" role="group" aria-label="Strand direction">
       {OPTIONS.map((o) => {
         const active = o.value === value;
         return (
@@ -101,7 +101,7 @@ export default function StrandSelector({
               className={`flex h-7 w-9 items-center justify-center rounded transition-colors ${
                 active
                   ? "bg-sky-600 text-white"
-                  : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                  : "text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
               }`}
             >
               {o.icon}

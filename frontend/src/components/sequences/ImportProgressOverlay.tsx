@@ -58,7 +58,7 @@ export default function ImportProgressOverlay({
           so clicking outside must not cancel an in-flight import. */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
 
-      <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-white px-6 py-7 text-center shadow-2xl">
+      <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-surface-raised px-6 py-7 text-center shadow-2xl">
         {/* BeakerBot, working away. The `thinking` pose loops a gentle
             head-tilt with an ellipsis thought bubble, which reads as
             "processing" without the alarm of a spinner. */}
@@ -70,7 +70,7 @@ export default function ImportProgressOverlay({
           />
         </div>
 
-        <h2 className="mt-4 text-title font-semibold text-gray-900">
+        <h2 className="mt-4 text-title font-semibold text-foreground">
           Importing sequences
         </h2>
 
@@ -78,7 +78,7 @@ export default function ImportProgressOverlay({
             readers without re-reading the whole dialog. */}
         <p
           aria-live="polite"
-          className="mt-1 text-body text-gray-600"
+          className="mt-1 text-body text-foreground-muted"
         >
           Importing {safeDone} of {total} files ({percent}%)
         </p>
@@ -86,7 +86,7 @@ export default function ImportProgressOverlay({
         {/* Determinate progress bar. The track is a calm gray, the fill is
             the brand sky, width driven by the done/total fraction. */}
         <div
-          className="mt-4 h-2 w-full overflow-hidden rounded-full bg-gray-100"
+          className="mt-4 h-2 w-full overflow-hidden rounded-full bg-surface-sunken"
           role="progressbar"
           aria-valuemin={0}
           aria-valuemax={total}
@@ -101,7 +101,7 @@ export default function ImportProgressOverlay({
 
         {/* Calm but clear warning. No close button, no cancel — the only way
             out is to let it finish. */}
-        <p className="mt-5 text-meta text-gray-500">
+        <p className="mt-5 text-meta text-foreground-muted">
           Keep this tab open and stay on this page until the import finishes.
         </p>
       </div>

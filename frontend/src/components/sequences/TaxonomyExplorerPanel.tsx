@@ -387,17 +387,17 @@ export default function TaxonomyExplorerPanel({
       aria-label="Explore the tree of life"
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={handleClose} />
-      <div className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         {/* Header */}
-        <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
+        <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100">
             <TreeIcon className="h-5 w-5 text-sky-600" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-title font-semibold text-gray-900">
+            <h2 className="text-title font-semibold text-foreground">
               Explore the tree of life
             </h2>
-            <p className="text-meta text-gray-500">
+            <p className="text-meta text-foreground-muted">
               Walk up and down the taxonomy to see related organisms.
             </p>
           </div>
@@ -406,7 +406,7 @@ export default function TaxonomyExplorerPanel({
               type="button"
               onClick={handleClose}
               aria-label="Close"
-              className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              className="rounded-md p-1.5 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground-muted"
             >
               <CloseIcon className="h-5 w-5" />
             </button>
@@ -414,9 +414,9 @@ export default function TaxonomyExplorerPanel({
         </div>
 
         {/* Search */}
-        <div className="border-b border-gray-100 px-5 py-3">
+        <div className="border-b border-border px-5 py-3">
           <div className="relative">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-foreground-muted">
               <SearchIcon className="h-4 w-4" />
             </span>
             <input
@@ -429,12 +429,12 @@ export default function TaxonomyExplorerPanel({
                 // Delay so a click on a suggestion registers before close.
                 window.setTimeout(() => setSuggestOpen(false), 120);
               }}
-              className="w-full rounded-md border border-gray-200 py-2 pl-9 pr-3 text-body text-gray-900 placeholder:text-gray-300 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+              className="w-full rounded-md border border-border py-2 pl-9 pr-3 text-body text-foreground placeholder:text-foreground-muted focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
             />
             {suggestOpen && suggestions.length > 0 ? (
               <ul
                 role="listbox"
-                className="absolute left-0 right-0 top-full z-10 mt-1 max-h-64 overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+                className="absolute left-0 right-0 top-full z-10 mt-1 max-h-64 overflow-y-auto rounded-md border border-border bg-surface-raised py-1 shadow-lg"
               >
                 {suggestions.map((s) => (
                   <li key={s.taxId}>
@@ -444,8 +444,8 @@ export default function TaxonomyExplorerPanel({
                       onClick={() => pickSuggestion(s)}
                       className="flex w-full items-baseline justify-between gap-3 px-3 py-2 text-left hover:bg-sky-50"
                     >
-                      <span className="truncate text-body text-gray-800">{s.name}</span>
-                      <span className="shrink-0 text-meta uppercase tracking-wide text-gray-400">
+                      <span className="truncate text-body text-foreground">{s.name}</span>
+                      <span className="shrink-0 text-meta uppercase tracking-wide text-foreground-muted">
                         {rankLabel(s.rank)}
                       </span>
                     </button>
@@ -458,16 +458,16 @@ export default function TaxonomyExplorerPanel({
 
         {/* Breadcrumb */}
         {crumbs.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-x-1 gap-y-1 border-b border-gray-100 px-5 py-2.5 text-meta text-gray-500">
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-1 border-b border-border px-5 py-2.5 text-meta text-foreground-muted">
             {crumbs.map((c, i) => (
               <span key={c.taxId} className="inline-flex items-center gap-1">
                 {i > 0 ? (
-                  <span className="text-gray-300" aria-hidden="true">
+                  <span className="text-foreground-muted" aria-hidden="true">
                     ›
                   </span>
                 ) : null}
                 {c.taxId === centerId ? (
-                  <span className="font-medium text-gray-700">{c.name}</span>
+                  <span className="font-medium text-foreground">{c.name}</span>
                 ) : /^\d+$/.test(c.taxId) ? (
                   <button
                     type="button"
@@ -479,7 +479,7 @@ export default function TaxonomyExplorerPanel({
                 ) : (
                   // A label-only ancestor crumb (named by classification but with
                   // no tax id to recenter on).
-                  <span className="px-1 text-gray-500">{c.name}</span>
+                  <span className="px-1 text-foreground-muted">{c.name}</span>
                 )}
               </span>
             ))}
@@ -496,7 +496,7 @@ export default function TaxonomyExplorerPanel({
           ) : null}
 
           {loading && !node ? (
-            <div className="flex items-center justify-center gap-2 py-16 text-meta text-gray-500">
+            <div className="flex items-center justify-center gap-2 py-16 text-meta text-foreground-muted">
               <SpinnerIcon className="h-4 w-4 text-sky-500" />
               <span>Loading the tree...</span>
             </div>
@@ -510,31 +510,31 @@ export default function TaxonomyExplorerPanel({
                   <button
                     type="button"
                     onClick={() => recenter(parent.taxId)}
-                    className="group flex w-full max-w-md items-center gap-2 rounded-lg border border-gray-200 bg-gray-50/70 px-4 py-2.5 text-left transition-colors hover:border-sky-300 hover:bg-sky-50"
+                    className="group flex w-full max-w-md items-center gap-2 rounded-lg border border-border bg-surface-sunken/70 px-4 py-2.5 text-left transition-colors hover:border-sky-300 hover:bg-sky-50"
                   >
-                    <ChevronUpIcon className="h-4 w-4 shrink-0 text-gray-400 group-hover:text-sky-500" />
+                    <ChevronUpIcon className="h-4 w-4 shrink-0 text-foreground-muted group-hover:text-sky-500" />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-body font-medium text-gray-700">
+                      <span className="block truncate text-body font-medium text-foreground">
                         {parent.name}
                       </span>
-                      <span className="text-meta uppercase tracking-wide text-gray-400">
+                      <span className="text-meta uppercase tracking-wide text-foreground-muted">
                         {rankLabel(parent.rank)}
                       </span>
                     </span>
                   </button>
                 </Tooltip>
               ) : (
-                <p className="text-meta text-gray-400">This is a root of the tree.</p>
+                <p className="text-meta text-foreground-muted">This is a root of the tree.</p>
               )}
 
               {/* Centered node card */}
               <div className="w-full max-w-md rounded-xl border-2 border-sky-200 bg-sky-50/40 px-5 py-4 text-center shadow-sm">
-                <h3 className="text-heading font-semibold text-gray-900">{node.name}</h3>
+                <h3 className="text-heading font-semibold text-foreground">{node.name}</h3>
                 <div className="mt-1 flex items-center justify-center gap-2">
                   <span className="rounded-full bg-sky-100 px-2.5 py-0.5 text-meta font-medium uppercase tracking-wide text-sky-700">
                     {rankLabel(node.rank)}
                   </span>
-                  <span className="text-meta text-gray-400">taxon {node.taxId}</span>
+                  <span className="text-meta text-foreground-muted">taxon {node.taxId}</span>
                 </div>
 
                 {/* Count badge, toggleable between species and assemblies. */}
@@ -548,7 +548,7 @@ export default function TaxonomyExplorerPanel({
                   <button
                     type="button"
                     onClick={toggleCount}
-                    className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-meta font-medium text-gray-600 transition-colors hover:border-sky-300 hover:text-sky-700"
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-raised px-3 py-1 text-meta font-medium text-foreground-muted transition-colors hover:border-sky-300 hover:text-sky-700"
                   >
                     {assembliesLoading && countMode === "assemblies" ? (
                       <SpinnerIcon className="h-3.5 w-3.5 text-sky-500" />
@@ -575,7 +575,7 @@ export default function TaxonomyExplorerPanel({
               {/* Sibling chips bracketing the centered node. */}
               {siblings.length > 0 ? (
                 <div className="w-full">
-                  <p className="mb-1.5 text-center text-meta uppercase tracking-wide text-gray-400">
+                  <p className="mb-1.5 text-center text-meta uppercase tracking-wide text-foreground-muted">
                     Siblings
                   </p>
                   <div className="flex flex-wrap justify-center gap-1.5">
@@ -584,7 +584,7 @@ export default function TaxonomyExplorerPanel({
                         key={s.taxId}
                         type="button"
                         onClick={() => recenter(s.taxId)}
-                        className="rounded-full border border-gray-200 bg-white px-3 py-1 text-meta text-gray-600 transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
+                        className="rounded-full border border-border bg-surface-raised px-3 py-1 text-meta text-foreground-muted transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
                       >
                         {s.name}
                       </button>
@@ -595,7 +595,7 @@ export default function TaxonomyExplorerPanel({
 
               {/* Children grid below. */}
               <div className="w-full">
-                <p className="mb-1.5 flex items-center justify-center gap-1 text-meta uppercase tracking-wide text-gray-400">
+                <p className="mb-1.5 flex items-center justify-center gap-1 text-meta uppercase tracking-wide text-foreground-muted">
                   <ChevronDownIcon className="h-3.5 w-3.5" />
                   Children
                 </p>
@@ -607,7 +607,7 @@ export default function TaxonomyExplorerPanel({
                           key={c.taxId}
                           type="button"
                           onClick={() => recenter(c.taxId)}
-                          className="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-meta font-medium text-gray-700 transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
+                          className="rounded-md border border-border bg-surface-raised px-3 py-1.5 text-meta font-medium text-foreground transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
                         >
                           {c.name}
                         </button>
@@ -628,7 +628,7 @@ export default function TaxonomyExplorerPanel({
                     ) : null}
                   </>
                 ) : (
-                  <p className="text-center text-meta text-gray-400">No child taxa.</p>
+                  <p className="text-center text-meta text-foreground-muted">No child taxa.</p>
                 )}
               </div>
             </div>

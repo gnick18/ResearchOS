@@ -309,18 +309,18 @@ export default function TaxonomyNodeDetail({
 
   return (
     <div
-      className="flex w-72 shrink-0 flex-col gap-3 border-l border-gray-100 bg-white px-4 py-4"
+      className="flex w-72 shrink-0 flex-col gap-3 border-l border-border bg-surface-raised px-4 py-4"
       data-testid="taxonomy-node-detail"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="truncate text-title font-semibold text-gray-900">{node.name}</h3>
+          <h3 className="truncate text-title font-semibold text-foreground">{node.name}</h3>
           <div className="mt-1 flex items-center gap-2">
             <span className="rounded-full bg-sky-100 px-2 py-0.5 text-meta font-medium uppercase tracking-wide text-sky-700">
               {isSyntheticRoot ? "Root" : rankLabel(node.rank)}
             </span>
             {isSyntheticRoot ? null : (
-              <span className="text-meta text-gray-400">taxon {node.taxId}</span>
+              <span className="text-meta text-foreground-muted">taxon {node.taxId}</span>
             )}
           </div>
         </div>
@@ -329,7 +329,7 @@ export default function TaxonomyNodeDetail({
             type="button"
             onClick={onClose}
             aria-label="Close details"
-            className="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            className="shrink-0 rounded-md p-1 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground-muted"
           >
             <CloseIcon className="h-4 w-4" />
           </button>
@@ -343,7 +343,7 @@ export default function TaxonomyNodeDetail({
       {isSyntheticRoot ? null : embedded ? (
         <span
           data-testid="taxonomy-detail-species"
-          className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-3 py-1.5 text-meta font-medium text-gray-600"
+          className="inline-flex items-center justify-center rounded-full border border-border bg-surface-raised px-3 py-1.5 text-meta font-medium text-foreground-muted"
         >
           {node.speciesCount === undefined
             ? "species count unavailable"
@@ -360,7 +360,7 @@ export default function TaxonomyNodeDetail({
         <button
           type="button"
           onClick={toggleCount}
-          className="inline-flex items-center justify-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-meta font-medium text-gray-600 transition-colors hover:border-sky-300 hover:text-sky-700"
+          className="inline-flex items-center justify-center gap-1.5 rounded-full border border-border bg-surface-raised px-3 py-1.5 text-meta font-medium text-foreground-muted transition-colors hover:border-sky-300 hover:text-sky-700"
         >
           {assembliesLoading && countMode === "assemblies" ? (
             <SpinnerIcon className="h-3.5 w-3.5 text-sky-500" />
@@ -375,7 +375,7 @@ export default function TaxonomyNodeDetail({
         <button
           type="button"
           onClick={() => onFocus(node.taxId)}
-          className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-meta font-medium text-gray-700 transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-raised px-3 py-1.5 text-meta font-medium text-foreground transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
         >
           <FocusIcon className="h-3.5 w-3.5" />
           Center the view here
@@ -402,20 +402,20 @@ export default function TaxonomyNodeDetail({
       {showAssemblies ? (
         <div
           data-testid="taxonomy-tip-assemblies"
-          className="flex min-h-0 flex-col gap-2 border-t border-gray-100 pt-3"
+          className="flex min-h-0 flex-col gap-2 border-t border-border pt-3"
         >
-          <div className="flex items-center gap-1.5 text-gray-700">
+          <div className="flex items-center gap-1.5 text-foreground">
             <DnaIcon className="h-4 w-4 text-sky-500" />
             <span className="text-meta font-semibold">Genome assemblies</span>
           </div>
 
           {assemblyListLoading ? (
-            <div className="flex items-center gap-1.5 text-meta text-gray-500">
+            <div className="flex items-center gap-1.5 text-meta text-foreground-muted">
               <SpinnerIcon className="h-3.5 w-3.5 text-sky-500" />
               <span>Loading assemblies from NCBI...</span>
             </div>
           ) : assemblyListError ? (
-            <p className="text-meta leading-relaxed text-gray-400">
+            <p className="text-meta leading-relaxed text-foreground-muted">
               Could not load assemblies from NCBI. Reconnect and reopen this tip.
             </p>
           ) : assemblyList && assemblyList.length > 0 ? (
@@ -427,11 +427,11 @@ export default function TaxonomyNodeDetail({
                     className={`rounded-md border px-2.5 py-2 ${
                       a.isReference
                         ? "border-sky-200 bg-sky-50"
-                        : "border-gray-100 bg-white"
+                        : "border-border bg-surface-raised"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate font-mono text-meta text-gray-800">
+                      <span className="truncate font-mono text-meta text-foreground">
                         {a.accession}
                       </span>
                       {a.isReference ? (
@@ -440,7 +440,7 @@ export default function TaxonomyNodeDetail({
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-0.5 truncate text-meta text-gray-500">
+                    <p className="mt-0.5 truncate text-meta text-foreground-muted">
                       {a.assemblyLevel ? `${a.assemblyLevel}, ` : ""}
                       {a.organismName}
                     </p>
@@ -453,7 +453,7 @@ export default function TaxonomyNodeDetail({
                             accession: a.accession,
                           })
                         }
-                        className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-meta font-medium text-gray-600 transition-colors hover:border-sky-300 hover:text-sky-700"
+                        className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-border bg-surface-raised px-2 py-1 text-meta font-medium text-foreground-muted transition-colors hover:border-sky-300 hover:text-sky-700"
                       >
                         <ImportRowIcon className="h-3.5 w-3.5" />
                         Import this assembly
@@ -463,21 +463,21 @@ export default function TaxonomyNodeDetail({
                 ))}
               </ul>
               {assemblyTotal > assemblyList.length ? (
-                <p className="text-meta text-gray-400">
+                <p className="text-meta text-foreground-muted">
                   Showing first {assemblyList.length.toLocaleString()} of{" "}
                   {assemblyTotal.toLocaleString()}.
                 </p>
               ) : null}
             </>
           ) : (
-            <p className="text-meta leading-relaxed text-gray-400">
+            <p className="text-meta leading-relaxed text-foreground-muted">
               No genome assemblies on NCBI for this tip yet.
             </p>
           )}
         </div>
       ) : null}
 
-      <p className="mt-auto text-meta leading-relaxed text-gray-400">
+      <p className="mt-auto text-meta leading-relaxed text-foreground-muted">
         {isSyntheticRoot
           ? "The center of the tree, where every domain of life branches out."
           : node.origin === "backbone"

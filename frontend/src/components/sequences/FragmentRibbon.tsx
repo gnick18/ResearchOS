@@ -66,8 +66,8 @@ export default function FragmentRibbon({ spans, length, junctions, onHoverSpan }
   const x = (pos: number) => (Math.max(0, Math.min(pos, length)) / length) * VW;
 
   return (
-    <div className="rounded-md border border-gray-200 bg-white p-3">
-      <div className="mb-2 text-meta font-medium text-gray-500">Fragment origins</div>
+    <div className="rounded-md border border-border bg-surface-raised p-3">
+      <div className="mb-2 text-meta font-medium text-foreground-muted">Fragment origins</div>
       {/* The band SVG stretches to fill width (preserveAspectRatio none); the
           junction CAPTIONS live in an HTML overlay on top so the text is not
           distorted by that non-uniform scaling. */}
@@ -135,7 +135,7 @@ export default function FragmentRibbon({ spans, length, junctions, onHoverSpan }
               return (
                 <span
                   key={`jl-${i}`}
-                  className="pointer-events-none absolute -translate-x-1/2 whitespace-nowrap font-mono text-[10px] leading-none text-gray-600"
+                  className="pointer-events-none absolute -translate-x-1/2 whitespace-nowrap font-mono text-[10px] leading-none text-foreground-muted"
                   style={{ left: `${pct}%`, bottom: 0, color: jn.color ?? undefined }}
                 >
                   {jn.label}
@@ -151,7 +151,7 @@ export default function FragmentRibbon({ spans, length, junctions, onHoverSpan }
         {spans.map((sp, i) => (
           <li
             key={i}
-            className="flex items-center gap-2 text-meta text-gray-600"
+            className="flex items-center gap-2 text-meta text-foreground-muted"
             onMouseEnter={onHoverSpan ? () => onHoverSpan(i) : undefined}
             onMouseLeave={onHoverSpan ? () => onHoverSpan(null) : undefined}
           >
@@ -161,10 +161,10 @@ export default function FragmentRibbon({ spans, length, junctions, onHoverSpan }
               aria-hidden="true"
             />
             <span className="min-w-0 truncate">
-              <span className="font-medium text-gray-700">{sp.name}</span>
-              {sp.strand === -1 ? <span className="text-gray-400"> (rev)</span> : null}
+              <span className="font-medium text-foreground">{sp.name}</span>
+              {sp.strand === -1 ? <span className="text-foreground-muted"> (rev)</span> : null}
             </span>
-            <span className="ml-auto shrink-0 font-mono text-gray-500">
+            <span className="ml-auto shrink-0 font-mono text-foreground-muted">
               {bp(sp.start + 1)}
               {"-"}
               {bp(sp.end)}

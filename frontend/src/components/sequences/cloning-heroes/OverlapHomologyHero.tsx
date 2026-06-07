@@ -43,10 +43,10 @@ export default function OverlapHomologyHero({ junctions, primers, annealTargetTm
 
   return (
     <section
-      className="rounded-md border border-gray-200 bg-gray-50/60 p-3"
+      className="rounded-md border border-border bg-surface-sunken/60 p-3"
       aria-label="Homology junctions"
     >
-      <h4 className="mb-2 text-meta font-semibold uppercase tracking-wide text-gray-500">
+      <h4 className="mb-2 text-meta font-semibold uppercase tracking-wide text-foreground-muted">
         Homology junctions ({junctions.length})
       </h4>
       <div className="space-y-2.5">
@@ -56,12 +56,12 @@ export default function OverlapHomologyHero({ junctions, primers, annealTargetTm
           const bName = nameOf(jn.nextFragmentIndex);
           const hasOverlap = jn.overlapBp > 0 && jn.overlapSeq.length > 0;
           return (
-            <div key={i} className="rounded-md border border-gray-200 bg-white p-2.5">
+            <div key={i} className="rounded-md border border-border bg-surface-raised p-2.5">
               <div className="mb-1.5 flex items-center justify-between gap-2">
-                <span className="min-w-0 truncate text-meta font-medium text-gray-700">
-                  {aName} <span className="text-gray-400">3'</span>
-                  <span className="mx-1 text-gray-300">|</span>
-                  <span className="text-gray-400">5'</span> {bName}
+                <span className="min-w-0 truncate text-meta font-medium text-foreground">
+                  {aName} <span className="text-foreground-muted">3'</span>
+                  <span className="mx-1 text-foreground-muted">|</span>
+                  <span className="text-foreground-muted">5'</span> {bName}
                 </span>
                 <span
                   className={`shrink-0 rounded px-1.5 py-0.5 text-meta font-medium ring-1 ${GRADE_CHIP[grade]}`}
@@ -74,16 +74,16 @@ export default function OverlapHomologyHero({ junctions, primers, annealTargetTm
                   on top, fragment B's 5' head below, the overlap identical on both
                   (it is the same homology, present once at the seam). */}
               {hasOverlap ? (
-                <div className="overflow-x-auto rounded bg-gray-50 px-2 py-1.5 font-mono text-[11px] leading-relaxed">
-                  <div className="flex items-center gap-1 whitespace-nowrap text-gray-400">
-                    <span className="text-gray-400">{aName} 3'</span>
-                    <span className="text-gray-300">…</span>
+                <div className="overflow-x-auto rounded bg-surface-sunken px-2 py-1.5 font-mono text-[11px] leading-relaxed">
+                  <div className="flex items-center gap-1 whitespace-nowrap text-foreground-muted">
+                    <span className="text-foreground-muted">{aName} 3'</span>
+                    <span className="text-foreground-muted">…</span>
                     <span className="rounded-sm bg-sky-100 px-0.5 text-sky-800">{jn.overlapSeq}</span>
                   </div>
-                  <div className="flex items-center gap-1 whitespace-nowrap text-gray-400">
-                    <span className="text-gray-400">{bName} 5'</span>
+                  <div className="flex items-center gap-1 whitespace-nowrap text-foreground-muted">
+                    <span className="text-foreground-muted">{bName} 5'</span>
                     <span className="rounded-sm bg-sky-100 px-0.5 text-sky-800">{jn.overlapSeq}</span>
-                    <span className="text-gray-300">…</span>
+                    <span className="text-foreground-muted">…</span>
                   </div>
                 </div>
               ) : (

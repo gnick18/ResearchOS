@@ -38,7 +38,7 @@ function AttChip({ name, tone }: { name: string; tone: "substrate" | "clone" | "
     tone === "clone"
       ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
       : tone === "byproduct"
-        ? "bg-gray-100 text-gray-500 ring-gray-200"
+        ? "bg-surface-sunken text-foreground-muted ring-border"
         : "bg-sky-50 text-sky-700 ring-sky-200";
   return (
     <span className={`rounded px-1.5 py-0.5 font-mono text-meta font-medium ring-1 ${cls}`}>
@@ -62,33 +62,33 @@ export default function GatewayCrossoverHero({ reaction, clone, byproduct, subst
 
   return (
     <section
-      className="rounded-md border border-gray-200 bg-gray-50/60 p-3"
+      className="rounded-md border border-border bg-surface-sunken/60 p-3"
       aria-label="Recombination crossover"
     >
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h4 className="text-meta font-semibold uppercase tracking-wide text-gray-500">
+        <h4 className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
           {reaction} recombination
         </h4>
-        <span className="text-meta text-gray-500">
+        <span className="text-meta text-foreground-muted">
           {info.substrateA} x {info.substrateB} {"->"} {info.cloneFamily} + {info.byproductFamily}
         </span>
       </div>
 
       {/* The crossover X: two substrate att sites cross into the two product att
           sites. Drawn as an SVG so the crossing strokes read as a recombination. */}
-      <div className="rounded-md border border-gray-200 bg-white p-3">
+      <div className="rounded-md border border-border bg-surface-raised p-3">
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           {/* Substrate column (what reacted, in). */}
           <div className="flex flex-col items-start gap-1.5">
-            <span className="text-meta text-gray-400">in</span>
+            <span className="text-meta text-foreground-muted">in</span>
             <div className="flex items-center gap-1.5">
-              <span className="min-w-0 max-w-[8rem] truncate text-meta text-gray-600">{substrateNames[0]}</span>
+              <span className="min-w-0 max-w-[8rem] truncate text-meta text-foreground-muted">{substrateNames[0]}</span>
               {substrateA.map((n, i) => (
                 <AttChip key={i} name={n} tone="substrate" />
               ))}
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="min-w-0 max-w-[8rem] truncate text-meta text-gray-600">{substrateNames[1]}</span>
+              <span className="min-w-0 max-w-[8rem] truncate text-meta text-foreground-muted">{substrateNames[1]}</span>
               {substrateB.map((n, i) => (
                 <AttChip key={i} name={n} tone="substrate" />
               ))}
@@ -104,7 +104,7 @@ export default function GatewayCrossoverHero({ reaction, clone, byproduct, subst
 
           {/* Product column (what comes out). */}
           <div className="flex flex-col items-end gap-1.5">
-            <span className="text-meta text-gray-400">out</span>
+            <span className="text-meta text-foreground-muted">out</span>
             <div className="flex items-center gap-1.5">
               {cloneAtts.map((n, i) => (
                 <AttChip key={i} name={n} tone="clone" />
@@ -116,7 +116,7 @@ export default function GatewayCrossoverHero({ reaction, clone, byproduct, subst
                 {byproductAtts.map((n, i) => (
                   <AttChip key={i} name={n} tone="byproduct" />
                 ))}
-                <span className="text-meta text-gray-500">byproduct</span>
+                <span className="text-meta text-foreground-muted">byproduct</span>
               </div>
             ) : null}
           </div>
@@ -125,18 +125,18 @@ export default function GatewayCrossoverHero({ reaction, clone, byproduct, subst
 
       {/* What in -> what out, in words, with the transferred gene highlighted via
           the clone's first fragment span (the transferred insert). */}
-      <div className="mt-2 text-meta text-gray-600">
-        <span className="font-medium text-gray-700">{substrateNames[0]}</span> + {" "}
-        <span className="font-medium text-gray-700">{substrateNames[1]}</span>{" "}
-        <span className="text-gray-300">{"->"}</span>{" "}
+      <div className="mt-2 text-meta text-foreground-muted">
+        <span className="font-medium text-foreground">{substrateNames[0]}</span> + {" "}
+        <span className="font-medium text-foreground">{substrateNames[1]}</span>{" "}
+        <span className="text-foreground-muted">{"->"}</span>{" "}
         <span className="font-medium text-emerald-700">clone</span>
         {byproduct ? (
           <>
-            {" "}+ <span className="text-gray-500">byproduct</span>
+            {" "}+ <span className="text-foreground-muted">byproduct</span>
           </>
         ) : null}
         {clone.fragmentSpans && clone.fragmentSpans.length > 0 ? (
-          <span className="text-gray-400">
+          <span className="text-foreground-muted">
             {" "}· transferred: {clone.fragmentSpans[0].name}
           </span>
         ) : null}

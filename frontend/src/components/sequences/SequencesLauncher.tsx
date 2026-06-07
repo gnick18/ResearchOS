@@ -323,7 +323,7 @@ export default function SequencesLauncher({
       <div className="mx-auto max-w-3xl px-6 py-10">
         {/* Group 1: actions the user can take right now. */}
         <div>
-          <h3 className="text-meta font-semibold uppercase tracking-wide text-gray-400">
+          <h3 className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
             Actions you can take now
           </h3>
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -332,16 +332,16 @@ export default function SequencesLauncher({
                 key={key}
                 type="button"
                 onClick={onClick}
-                className="group flex items-start gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3.5 text-left transition-colors hover:border-sky-300 hover:bg-sky-50/60 focus:outline-none focus-visible:border-sky-400 focus-visible:ring-2 focus-visible:ring-sky-200"
+                className="group flex items-start gap-3 rounded-lg border border-border bg-surface-raised px-4 py-3.5 text-left transition-colors hover:border-sky-300 hover:bg-sky-50/60 focus:outline-none focus-visible:border-sky-400 focus-visible:ring-2 focus-visible:ring-sky-200"
               >
                 <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-sky-50 text-sky-600 transition-colors group-hover:bg-sky-100">
                   <Icon className="h-5 w-5" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-body font-medium text-gray-800">
+                  <span className="block text-body font-medium text-foreground">
                     {title}
                   </span>
-                  <span className="mt-0.5 block text-meta leading-relaxed text-gray-500">
+                  <span className="mt-0.5 block text-meta leading-relaxed text-foreground-muted">
                     {description}
                   </span>
                 </span>
@@ -354,27 +354,27 @@ export default function SequencesLauncher({
             a calm hint list so users learn these exist before opening a
             sequence. */}
         <div className="mt-8">
-          <h3 className="text-meta font-semibold uppercase tracking-wide text-gray-400">
+          <h3 className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
             Available when you open a sequence
           </h3>
           <div className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
             {hints.map(({ key, title, description, Icon }) => (
               <div key={key} className="flex items-start gap-2.5">
-                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-50 text-gray-400">
+                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-surface-sunken text-foreground-muted">
                   <Icon className="h-4 w-4" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-meta font-medium text-gray-700">
+                  <span className="block text-meta font-medium text-foreground">
                     {title}
                   </span>
-                  <span className="mt-0.5 block text-meta leading-relaxed text-gray-400">
+                  <span className="mt-0.5 block text-meta leading-relaxed text-foreground-muted">
                     {description}
                   </span>
                 </span>
               </div>
             ))}
           </div>
-          <p className="mt-5 text-meta leading-relaxed text-gray-400">
+          <p className="mt-5 text-meta leading-relaxed text-foreground-muted">
             Select a sequence from the library to open the editor and these tools.
           </p>
         </div>

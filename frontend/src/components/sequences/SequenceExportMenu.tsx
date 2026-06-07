@@ -73,7 +73,7 @@ export function ExportMenuDropdown({ items }: { items: ExportMenuItem[] }) {
         aria-expanded={open}
         data-testid="sequence-export-button"
         className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-body font-medium transition-colors ${
-          open ? "bg-gray-100 text-gray-800" : "text-gray-600 hover:bg-gray-100"
+          open ? "bg-surface-sunken text-foreground" : "text-foreground-muted hover:bg-surface-sunken"
         }`}
       >
         <IconExport className="h-4 w-4" />
@@ -84,11 +84,11 @@ export function ExportMenuDropdown({ items }: { items: ExportMenuItem[] }) {
         <div
           role="menu"
           data-testid="sequence-export-menu"
-          className="absolute left-0 top-full z-50 mt-1 w-64 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+          className="absolute left-0 top-full z-50 mt-1 w-64 rounded-lg border border-border bg-surface-raised py-1 shadow-lg"
         >
           {items.map((it) => (
             <div key={it.id}>
-              {it.group ? <div className="my-1 h-px bg-gray-100" /> : null}
+              {it.group ? <div className="my-1 h-px bg-surface-sunken" /> : null}
               <button
                 role="menuitem"
                 type="button"
@@ -100,13 +100,13 @@ export function ExportMenuDropdown({ items }: { items: ExportMenuItem[] }) {
                 }}
                 className={`flex w-full items-center justify-between gap-6 px-3 py-1.5 text-left text-body transition-colors ${
                   !it.enabled
-                    ? "cursor-not-allowed text-gray-300"
-                    : "text-gray-700 hover:bg-gray-50"
+                    ? "cursor-not-allowed text-foreground-muted"
+                    : "text-foreground hover:bg-surface-sunken"
                 }`}
               >
                 <span className="truncate">{it.label}</span>
                 {it.hint ? (
-                  <span className={`shrink-0 text-meta ${it.enabled ? "text-gray-400" : "text-gray-300"}`}>
+                  <span className={`shrink-0 text-meta ${it.enabled ? "text-foreground-muted" : "text-foreground-muted"}`}>
                     {it.hint}
                   </span>
                 ) : null}

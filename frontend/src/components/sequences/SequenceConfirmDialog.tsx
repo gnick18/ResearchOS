@@ -80,26 +80,26 @@ export default function SequenceConfirmDialog({ request }: { request: SequenceCo
       data-tour-popup-occluding="sequence-confirm"
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={request.onCancel} />
-      <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
+      <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+        <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${accent.bg}`}>
             {isDelete ? <IconTrash className={`h-5 w-5 ${accent.fg}`} /> : <IconPaste className={`h-5 w-5 ${accent.fg}`} />}
           </div>
-          <h2 className="text-title font-semibold text-gray-900">{request.title}</h2>
+          <h2 className="text-title font-semibold text-foreground">{request.title}</h2>
         </div>
 
         <div className="space-y-3 px-5 py-4">
-          <p className="text-body text-gray-700">{request.summary}</p>
+          <p className="text-body text-foreground">{request.summary}</p>
 
           {request.affected && request.affected.length > 0 ? (
-            <div className="rounded-lg bg-gray-50 px-3 py-2">
-              <p className="mb-1 text-meta font-medium uppercase tracking-wide text-gray-400">
+            <div className="rounded-lg bg-surface-sunken px-3 py-2">
+              <p className="mb-1 text-meta font-medium uppercase tracking-wide text-foreground-muted">
                 Affected features
               </p>
               <ul className="space-y-0.5">
                 {request.affected.map((f, i) => (
                   <li key={`${f.name}-${i}`} className="flex items-center justify-between text-body">
-                    <span className="truncate text-gray-700">{f.name}</span>
+                    <span className="truncate text-foreground">{f.name}</span>
                     <span
                       className={`ml-3 shrink-0 rounded px-1.5 py-0.5 text-meta font-medium ${
                         f.effect === "removed" ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"
@@ -113,14 +113,14 @@ export default function SequenceConfirmDialog({ request }: { request: SequenceCo
             </div>
           ) : null}
 
-          {request.note ? <p className="text-meta text-gray-500">{request.note}</p> : null}
+          {request.note ? <p className="text-meta text-foreground-muted">{request.note}</p> : null}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-4 py-3">
+        <div className="flex justify-end gap-2 border-t border-border bg-surface-sunken px-4 py-3">
           <button
             type="button"
             onClick={request.onCancel}
-            className="rounded-lg px-4 py-2 text-body text-gray-600 transition-colors hover:bg-gray-200"
+            className="rounded-lg px-4 py-2 text-body text-foreground-muted transition-colors hover:bg-surface-sunken"
           >
             Cancel
           </button>

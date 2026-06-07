@@ -82,7 +82,7 @@ function MenuItems({ items, onAfterRun }: { items: EditMenuItem[]; onAfterRun: (
     <>
       {items.map((it) => (
         <div key={it.id}>
-          {it.group ? <div className="my-1 h-px bg-gray-100" /> : null}
+          {it.group ? <div className="my-1 h-px bg-surface-sunken" /> : null}
           {it.swatches ? (
             <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5" role="group" aria-label={it.label}>
               {it.swatches.colors.map((c) => {
@@ -126,10 +126,10 @@ function MenuItems({ items, onAfterRun }: { items: EditMenuItem[]; onAfterRun: (
             }}
             className={`flex w-full items-center justify-between gap-6 px-3 py-1.5 text-left text-body transition-colors ${
               !it.enabled
-                ? "cursor-not-allowed text-gray-300"
+                ? "cursor-not-allowed text-foreground-muted"
                 : it.destructive
                   ? "text-rose-600 hover:bg-rose-50"
-                  : "text-gray-700 hover:bg-gray-50"
+                  : "text-foreground hover:bg-surface-sunken"
             }`}
           >
             <span className="flex min-w-0 items-center gap-2">
@@ -146,10 +146,10 @@ function MenuItems({ items, onAfterRun }: { items: EditMenuItem[]; onAfterRun: (
               it.checked ? (
                 <IconEye className="h-3.5 w-3.5 shrink-0 text-sky-600" />
               ) : (
-                <IconEyeOff className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                <IconEyeOff className="h-3.5 w-3.5 shrink-0 text-foreground-muted" />
               )
             ) : it.shortcut ? (
-              <span className={`shrink-0 text-meta ${it.enabled ? "text-gray-400" : "text-gray-300"}`}>
+              <span className={`shrink-0 text-meta ${it.enabled ? "text-foreground-muted" : "text-foreground-muted"}`}>
                 {it.shortcut}
               </span>
             ) : null}
@@ -219,7 +219,7 @@ export function EditMenuDropdown({
   const menu = open ? (
     <div
       role="menu"
-      className={`absolute left-0 top-full z-50 mt-1 ${width} rounded-lg border border-gray-200 bg-white py-1 shadow-lg`}
+      className={`absolute left-0 top-full z-50 mt-1 ${width} rounded-lg border border-border bg-surface-raised py-1 shadow-lg`}
     >
       <MenuItems items={items} onAfterRun={() => setOpen(false)} />
     </div>
@@ -236,7 +236,7 @@ export function EditMenuDropdown({
             onClick={primaryAction.onRun}
             disabled={primaryAction.disabled}
             data-testid={testId}
-            className="inline-flex items-center gap-1.5 rounded-l-md px-2.5 py-1.5 text-body font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+            className="inline-flex items-center gap-1.5 rounded-l-md px-2.5 py-1.5 text-body font-medium text-foreground-muted transition-colors hover:bg-surface-sunken disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
           >
             {icon ?? null}
             <span className="hidden sm:inline">{primaryAction.label}</span>
@@ -250,8 +250,8 @@ export function EditMenuDropdown({
             aria-expanded={open}
             aria-label={`More ${label.toLowerCase()} options`}
             data-testid={testId ? `${testId}-caret` : undefined}
-            className={`inline-flex items-center rounded-r-md border-l border-gray-200 px-1.5 py-1.5 transition-colors ${
-              open ? "bg-gray-100 text-gray-800" : "text-gray-600 hover:bg-gray-100"
+            className={`inline-flex items-center rounded-r-md border-l border-border px-1.5 py-1.5 transition-colors ${
+              open ? "bg-surface-sunken text-foreground" : "text-foreground-muted hover:bg-surface-sunken"
             }`}
           >
             <Chevron className="h-3.5 w-3.5" />
@@ -271,7 +271,7 @@ export function EditMenuDropdown({
         aria-expanded={open}
         data-testid={testId}
         className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-body font-medium transition-colors ${
-          open ? "bg-gray-100 text-gray-800" : "text-gray-600 hover:bg-gray-100"
+          open ? "bg-surface-sunken text-foreground" : "text-foreground-muted hover:bg-surface-sunken"
         }`}
       >
         {icon ?? null}
@@ -338,7 +338,7 @@ export function SequenceContextMenu({
       ref={ref}
       role="menu"
       data-testid="sequence-context-menu"
-      className="fixed z-[60] w-60 rounded-lg border border-gray-200 bg-white py-1 shadow-xl"
+      className="fixed z-[60] w-60 rounded-lg border border-border bg-surface-raised py-1 shadow-xl"
       style={{ left: pos.x, top: pos.y }}
     >
       <MenuItems items={items} onAfterRun={onClose} />
@@ -398,12 +398,12 @@ export function SequencePromptDialog<T>({
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="border-b border-gray-100 px-5 py-4">
-          <h2 className="text-title font-semibold text-gray-900">{title}</h2>
+      <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+        <div className="border-b border-border px-5 py-4">
+          <h2 className="text-title font-semibold text-foreground">{title}</h2>
         </div>
         <div className="space-y-2 px-5 py-4">
-          <label htmlFor={inputId} className="block text-body text-gray-700">
+          <label htmlFor={inputId} className="block text-body text-foreground">
             {label}
           </label>
           <input
@@ -422,15 +422,15 @@ export function SequencePromptDialog<T>({
                 onClose();
               }
             }}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-body outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+            className="w-full rounded-lg border border-border px-3 py-2 text-body outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
           />
-          {helper ? <p className="text-meta text-gray-500">{helper}</p> : null}
+          {helper ? <p className="text-meta text-foreground-muted">{helper}</p> : null}
         </div>
-        <div className="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-4 py-3">
+        <div className="flex justify-end gap-2 border-t border-border bg-surface-sunken px-4 py-3">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-4 py-2 text-body text-gray-600 transition-colors hover:bg-gray-200"
+            className="rounded-lg px-4 py-2 text-body text-foreground-muted transition-colors hover:bg-surface-sunken"
           >
             Cancel
           </button>

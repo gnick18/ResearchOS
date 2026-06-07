@@ -183,7 +183,7 @@ export default function SequenceCoordinateBar({
   // Sequence view. (No emoji; inline SVG glyph; the tab bar is unchanged.)
   if (mapMode) {
     return (
-      <div className="flex items-center gap-2 border-t border-gray-100 bg-white px-3 py-2 text-meta text-gray-500">
+      <div className="flex items-center gap-2 border-t border-border bg-surface-raised px-3 py-2 text-meta text-foreground-muted">
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -191,7 +191,7 @@ export default function SequenceCoordinateBar({
           strokeWidth="1.8"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="h-3.5 w-3.5 text-gray-400"
+          className="h-3.5 w-3.5 text-foreground-muted"
           aria-hidden="true"
         >
           <circle cx="12" cy="12" r="8" />
@@ -199,7 +199,7 @@ export default function SequenceCoordinateBar({
         </svg>
         <span>
           Whole molecule
-          <span className="ml-1 font-mono text-gray-600">
+          <span className="ml-1 font-mono text-foreground-muted">
             ({seqLength.toLocaleString()} bp)
           </span>
         </span>
@@ -208,7 +208,7 @@ export default function SequenceCoordinateBar({
   }
 
   return (
-    <div className="flex items-center gap-3 border-t border-gray-100 bg-white px-3 py-1.5">
+    <div className="flex items-center gap-3 border-t border-border bg-surface-raised px-3 py-1.5">
       {/* overview slider bot — base/text-view zoom: FIT only. The zoom slider was
           relocated to the top overview bar (it now drives the bar's extent), so
           the base view keeps just the Fit button (it also keeps trackpad pinch
@@ -221,10 +221,10 @@ export default function SequenceCoordinateBar({
         fitOnly
       />
 
-      <div className="h-5 w-px bg-gray-200" />
+      <div className="h-5 w-px bg-surface-sunken" />
 
       {/* editable bp-in-view field */}
-      <label className="flex items-center gap-1.5 text-meta text-gray-500">
+      <label className="flex items-center gap-1.5 text-meta text-foreground-muted">
         <span className="hidden sm:inline">bp in view</span>
         <input
           type="text"
@@ -246,13 +246,13 @@ export default function SequenceCoordinateBar({
             }
           }}
           aria-label="Bases in view (type a span to set the zoom)"
-          className="w-20 rounded border border-gray-200 px-1.5 py-0.5 text-right font-mono text-meta text-gray-700 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-200"
+          className="w-20 rounded border border-border px-1.5 py-0.5 text-right font-mono text-meta text-foreground focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-200"
         />
       </label>
 
       {/* exact visible-window readout (1-based, comma-grouped). Held until the
           host has measured the true window so it never flashes the seeded span. */}
-      <div className="hidden whitespace-nowrap font-mono text-meta text-gray-500 md:block">
+      <div className="hidden whitespace-nowrap font-mono text-meta text-foreground-muted md:block">
         {measured
           ? `bp = ${(win.start + 1).toLocaleString()} .. ${win.end.toLocaleString()}`
           : "bp = …"}

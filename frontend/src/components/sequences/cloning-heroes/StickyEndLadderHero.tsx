@@ -46,15 +46,15 @@ export default function StickyEndLadderHero({ product, pieces, enzymeNames }: Pr
 
   return (
     <section
-      className="rounded-md border border-gray-200 bg-gray-50/60 p-3"
+      className="rounded-md border border-border bg-surface-sunken/60 p-3"
       aria-label="Sticky ends and cut sites"
     >
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h4 className="text-meta font-semibold uppercase tracking-wide text-gray-500">
+        <h4 className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
           Sticky-end seams ({junctions.length})
         </h4>
         {enzymeNames.length > 0 ? (
-          <span className="text-meta text-gray-500">
+          <span className="text-meta text-foreground-muted">
             {enzymeNames.join(", ")}
           </span>
         ) : null}
@@ -65,20 +65,20 @@ export default function StickyEndLadderHero({ product, pieces, enzymeNames }: Pr
           {junctions.map((jn, i) => {
             const seam = stickyEndSeam(jn.kind, jn.overhang, 2);
             return (
-              <div key={i} className="rounded-md border border-gray-200 bg-white p-2">
-                <div className="mb-1 text-meta text-gray-500">
+              <div key={i} className="rounded-md border border-border bg-surface-raised p-2">
+                <div className="mb-1 text-meta text-foreground-muted">
                   Junction {i + 1} · {KIND_LABEL[jn.kind]}
                 </div>
-                <div className="rounded bg-gray-50 px-2 py-1 font-mono text-meta leading-tight text-gray-700">
+                <div className="rounded bg-surface-sunken px-2 py-1 font-mono text-meta leading-tight text-foreground">
                   <div className="whitespace-pre">
-                    <span className="text-gray-400">5' </span>
+                    <span className="text-foreground-muted">5' </span>
                     {seam.top}
-                    <span className="text-gray-400"> 3'</span>
+                    <span className="text-foreground-muted"> 3'</span>
                   </div>
                   <div className="whitespace-pre">
-                    <span className="text-gray-400">3' </span>
+                    <span className="text-foreground-muted">3' </span>
                     {seam.bottom}
-                    <span className="text-gray-400"> 5'</span>
+                    <span className="text-foreground-muted"> 5'</span>
                   </div>
                 </div>
                 {jn.kind !== "blunt" ? (
@@ -91,7 +91,7 @@ export default function StickyEndLadderHero({ product, pieces, enzymeNames }: Pr
           })}
         </div>
       ) : (
-        <p className="text-meta text-gray-500">No sealed junctions to show.</p>
+        <p className="text-meta text-foreground-muted">No sealed junctions to show.</p>
       )}
 
       {/* Internal-site warning (the restriction footgun), via the proxy. */}

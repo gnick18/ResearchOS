@@ -208,7 +208,7 @@ export function SequenceFindBox({
   return (
     <div
       data-testid="sequence-find-box"
-      className="absolute right-3 top-3 z-40 flex flex-col gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1.5 shadow-lg"
+      className="absolute right-3 top-3 z-40 flex flex-col gap-1 rounded-lg border border-border bg-surface-raised px-2 py-1.5 shadow-lg"
       onMouseDown={(e) => e.stopPropagation()}
     >
       <div className="flex items-center gap-1">
@@ -216,7 +216,7 @@ export function SequenceFindBox({
         <div
           role="radiogroup"
           aria-label="Find mode"
-          className="mr-1 flex items-center rounded-md bg-gray-100 p-0.5"
+          className="mr-1 flex items-center rounded-md bg-surface-sunken p-0.5"
         >
           {MODES.map((m) => (
             <Tooltip key={m.mode} label={m.hint} placement="bottom">
@@ -227,8 +227,8 @@ export function SequenceFindBox({
                 onClick={() => setMode(m.mode)}
                 className={`rounded px-2 py-0.5 text-meta font-medium transition-colors ${
                   mode === m.mode
-                    ? "bg-white text-gray-800 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
+                    ? "bg-surface-raised text-foreground shadow-sm"
+                    : "text-foreground-muted hover:text-foreground"
                 }`}
               >
                 {m.label}
@@ -237,7 +237,7 @@ export function SequenceFindBox({
           ))}
         </div>
 
-        <IconSearch className="h-4 w-4 text-gray-400" />
+        <IconSearch className="h-4 w-4 text-foreground-muted" />
         <input
           ref={inputRef}
           type="text"
@@ -254,9 +254,9 @@ export function SequenceFindBox({
               onClose();
             }
           }}
-          className="w-40 bg-transparent text-body outline-none placeholder:text-gray-400"
+          className="w-40 bg-transparent text-body outline-none placeholder:text-foreground-muted"
         />
-        <span className="min-w-[3.5rem] text-right text-meta tabular-nums text-gray-400">
+        <span className="min-w-[3.5rem] text-right text-meta tabular-nums text-foreground-muted">
           {!showCount ? "" : matchCount === 0 ? "0 / 0" : `${activeIndex + 1} / ${matchCount}`}
         </span>
         <Tooltip label="Previous match (Shift+Enter)" placement="bottom">
@@ -265,7 +265,7 @@ export function SequenceFindBox({
             onClick={onPrev}
             disabled={matchCount === 0}
             aria-label="Previous match"
-            className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 disabled:opacity-30"
+            className="rounded p-1 text-foreground-muted transition-colors hover:bg-surface-sunken disabled:opacity-30"
           >
             <IconUp className="h-3.5 w-3.5" />
           </button>
@@ -276,7 +276,7 @@ export function SequenceFindBox({
             onClick={onNext}
             disabled={matchCount === 0}
             aria-label="Next match"
-            className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 disabled:opacity-30"
+            className="rounded p-1 text-foreground-muted transition-colors hover:bg-surface-sunken disabled:opacity-30"
           >
             <IconDown className="h-3.5 w-3.5" />
           </button>
@@ -286,7 +286,7 @@ export function SequenceFindBox({
             type="button"
             onClick={onClose}
             aria-label="Close find"
-            className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100"
+            className="rounded p-1 text-foreground-muted transition-colors hover:bg-surface-sunken"
           >
             <IconClose className="h-3.5 w-3.5" />
           </button>
@@ -300,7 +300,7 @@ export function SequenceFindBox({
         <div
           data-testid="sequence-find-note"
           className={`px-1 text-meta ${
-            isCloseMatch ? "text-amber-600" : invalid ? "text-gray-400" : "text-gray-500"
+            isCloseMatch ? "text-amber-600" : invalid ? "text-foreground-muted" : "text-foreground-muted"
           }`}
         >
           {note}
@@ -309,13 +309,13 @@ export function SequenceFindBox({
 
       {/* When DNA has no exact hit AND no close match either, say so plainly. */}
       {mode === "dna" && !invalid && query.trim().length >= 2 && matchCount === 0 && !note ? (
-        <div className="px-1 text-meta text-gray-400">No match (exact or close)</div>
+        <div className="px-1 text-meta text-foreground-muted">No match (exact or close)</div>
       ) : null}
 
       {/* When protein has no exact frame hit AND no close peptide match either,
           say so plainly (mirrors the DNA no-match line). */}
       {mode === "protein" && !invalid && query.trim().length >= 1 && matchCount === 0 && !note ? (
-        <div className="px-1 text-meta text-gray-400">No frame match (exact or close)</div>
+        <div className="px-1 text-meta text-foreground-muted">No frame match (exact or close)</div>
       ) : null}
     </div>
   );

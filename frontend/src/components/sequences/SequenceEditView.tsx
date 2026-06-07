@@ -238,7 +238,7 @@ import { getMolecularClip } from "@/lib/sequences/molecular-clipboard";
 const SeqViz = dynamic(() => import("@/vendor/seqviz"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-full w-full items-center justify-center text-body text-gray-400">
+    <div className="flex h-full w-full items-center justify-center text-body text-foreground-muted">
       Loading editor…
     </div>
   ),
@@ -453,7 +453,7 @@ const ActionGlyphs = {
 function InspectorReadoutChip({ k, v }: { k: string; v: string }) {
   return (
     <div className="min-w-[68px] rounded-lg border border-border bg-surface-sunken px-2.5 py-1.5">
-      <div className="text-[10px] font-extrabold uppercase tracking-wide text-gray-400 dark:text-foreground-muted">
+      <div className="text-[10px] font-extrabold uppercase tracking-wide text-foreground-muted dark:text-foreground-muted">
         {k}
       </div>
       <div className="text-base font-bold text-foreground">{v}</div>
@@ -478,7 +478,7 @@ function ToolbarButton({
     "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-body font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40";
   const tone = primary
     ? "bg-sky-600 text-white hover:bg-sky-700 disabled:hover:bg-sky-600"
-    : "text-gray-600 hover:bg-gray-100";
+    : "text-foreground-muted hover:bg-surface-sunken";
   return (
     <Tooltip label={label}>
       <button type="button" onClick={onClick} disabled={disabled} className={`${base} ${tone}`}>
@@ -536,7 +536,7 @@ function FloatingSelectionBadge({
   return (
     <div
       ref={cardRef}
-      className="pointer-events-none absolute z-30 flex items-center gap-3 rounded-lg border border-gray-200 bg-white/95 px-3 py-1.5 text-meta text-gray-600 shadow-md backdrop-blur-sm"
+      className="pointer-events-none absolute z-30 flex items-center gap-3 rounded-lg border border-border bg-white/95 px-3 py-1.5 text-meta text-foreground-muted shadow-md backdrop-blur-sm"
       style={{ left: pos.left, top: pos.top }}
     >
       <SelectionReadoutContent readout={readout} />
@@ -3680,7 +3680,7 @@ export default function SequenceEditView({
         label: "Check specificity",
         sub: p.tm != null ? `Tm ${p.tm.toFixed(1)} C` : "scan the template for off-target binding",
         glyph: "Tm",
-        tileClass: "bg-gray-100 text-gray-600 dark:bg-surface-sunken dark:text-foreground-muted",
+        tileClass: "bg-surface-sunken text-foreground-muted dark:bg-surface-sunken dark:text-foreground-muted",
         onRun: openSpecificityCheck,
       });
       primerPanel = (
@@ -4061,7 +4061,7 @@ export default function SequenceEditView({
           <>
             <InspectorSection>This sequence&rsquo;s organism</InspectorSection>
             {hasOrganism ? (
-              <div className="mb-3 text-body text-gray-700 dark:text-foreground">
+              <div className="mb-3 text-body text-foreground dark:text-foreground">
                 {sequence.organism?.trim() || `Tax id ${sequence.tax_id}`}
               </div>
             ) : (
@@ -4159,7 +4159,7 @@ export default function SequenceEditView({
           (display-only) and Copy remain available. The whole row is hidden in an
           `embedded` preview (chrome slim): the view tabs + view rail + map stay. */}
       {!embedded ? (
-      <div className="flex items-center gap-1 border-b border-gray-100 px-2 py-1.5">
+      <div className="flex items-center gap-1 border-b border-border px-2 py-1.5">
         {!readOnly ? (
           <>
             <ToolbarButton label="Undo (Cmd+Z)" onClick={undo} disabled={!canUndo}>
@@ -4170,7 +4170,7 @@ export default function SequenceEditView({
               <IconRedo className="h-4 w-4" />
               <span className="hidden sm:inline">Redo</span>
             </ToolbarButton>
-            <div className="mx-1 h-5 w-px bg-gray-200" />
+            <div className="mx-1 h-5 w-px bg-surface-sunken" />
           </>
         ) : null}
         {/* sequence editor master — the Copy SPLIT button. The primary region
@@ -4219,7 +4219,7 @@ export default function SequenceEditView({
             panel; Export is the Export rail op. */}
         {!readOnly ? (
           <>
-            <div className="mx-1 h-5 w-px bg-gray-200" />
+            <div className="mx-1 h-5 w-px bg-surface-sunken" />
             <ToolbarButton label="Save (Cmd+S)" onClick={handleSave} disabled={!dirty || saving} primary>
               <IconSave className="h-4 w-4" />
               <span>{saving ? "Saving…" : dirty ? "Save" : "Saved"}</span>
@@ -4227,10 +4227,10 @@ export default function SequenceEditView({
           </>
         ) : null}
         <div className="ml-auto flex items-center gap-3 pr-1">
-          <div className="text-meta text-gray-400">
+          <div className="text-meta text-foreground-muted">
             {doc.seq.length.toLocaleString()} bp
             {!readOnly && dirty ? <span className="ml-2 text-amber-500">• unsaved</span> : null}
-            {readOnly ? <span className="ml-2 text-gray-400">Read-only</span> : null}
+            {readOnly ? <span className="ml-2 text-foreground-muted">Read-only</span> : null}
           </div>
         </div>
       </div>
@@ -4263,7 +4263,7 @@ export default function SequenceEditView({
                 // OWN zoom slider on the right. The slider drives the bar's bp
                 // EXTENT (its zoom), two-way synced with the bar's scroll / pinch
                 // zoom. The base/text view keeps pinch + Fit (no slider here).
-                <div className="flex items-stretch border-b border-gray-100 bg-gray-50">
+                <div className="flex items-stretch border-b border-border bg-surface-sunken">
                   <div className="min-w-0 flex-1">
                     <SequenceOverviewBar
                       seqLength={doc.seq.length}
@@ -4286,7 +4286,7 @@ export default function SequenceEditView({
                       selection={mapSelection}
                     />
                   </div>
-                  <div className="flex shrink-0 items-center border-l border-gray-100 px-2.5">
+                  <div className="flex shrink-0 items-center border-l border-border px-2.5">
                     <SequenceOverviewZoomSlider
                       seqLength={doc.seq.length}
                       extent={overviewExtent}
@@ -4525,15 +4525,15 @@ export default function SequenceEditView({
                 {circularHover && circularHoverCard ? (
                   <div
                     role="tooltip"
-                    className="pointer-events-none absolute z-30 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-lg"
+                    className="pointer-events-none absolute z-30 rounded-md border border-border bg-surface-raised px-3 py-2 shadow-lg"
                     style={{ left: circularHover.left, top: circularHover.top, width: CIRCULAR_CARD_W }}
                   >
-                    <div className="text-body font-semibold text-slate-800">{circularHoverCard.title}</div>
+                    <div className="text-body font-semibold text-foreground">{circularHoverCard.title}</div>
                     <div className="mt-1 space-y-0.5">
                       {circularHoverCard.lines.map((line, li) => (
-                        <div key={li} className="text-meta text-slate-600">
+                        <div key={li} className="text-meta text-foreground-muted">
                           {line.label ? (
-                            <span className="font-medium text-slate-500">{line.label} </span>
+                            <span className="font-medium text-foreground-muted">{line.label} </span>
                           ) : null}
                           {line.value}
                         </div>
@@ -4550,15 +4550,15 @@ export default function SequenceEditView({
                 {circularPrimerHover && circularPrimerCard ? (
                   <div
                     role="tooltip"
-                    className="pointer-events-none absolute z-30 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-lg"
+                    className="pointer-events-none absolute z-30 rounded-md border border-border bg-surface-raised px-3 py-2 shadow-lg"
                     style={{ left: circularPrimerHover.left, top: circularPrimerHover.top, width: CIRCULAR_CARD_W }}
                   >
-                    <div className="text-body font-semibold text-slate-800">{circularPrimerCard.title}</div>
+                    <div className="text-body font-semibold text-foreground">{circularPrimerCard.title}</div>
                     <div className="mt-1 space-y-0.5">
                       {circularPrimerCard.lines.map((line, li) => (
-                        <div key={li} className="text-meta text-slate-600">
+                        <div key={li} className="text-meta text-foreground-muted">
                           {line.label ? (
-                            <span className="font-medium text-slate-500">{line.label} </span>
+                            <span className="font-medium text-foreground-muted">{line.label} </span>
                           ) : null}
                           {line.value}
                         </div>
@@ -4979,14 +4979,14 @@ export default function SequenceEditView({
             role="dialog"
             aria-modal="true"
             aria-label="Paste taxonomy"
-            className="relative w-full max-w-md rounded-lg border border-gray-200 bg-white p-5 shadow-xl"
+            className="relative w-full max-w-md rounded-lg border border-border bg-surface-raised p-5 shadow-xl"
           >
-            <h2 className="text-title font-semibold text-gray-800">
+            <h2 className="text-title font-semibold text-foreground">
               Paste taxonomy
             </h2>
-            <p className="mt-2 text-body text-gray-600">
+            <p className="mt-2 text-body text-foreground-muted">
               Paste the taxonomy of{" "}
-              <span className="font-medium text-gray-900">
+              <span className="font-medium text-foreground">
                 {pasteTaxConfirm.fromName}
               </span>{" "}
               onto this sequence?
@@ -4995,7 +4995,7 @@ export default function SequenceEditView({
               <button
                 type="button"
                 onClick={() => setPasteTaxConfirm(null)}
-                className="rounded-md border border-gray-200 px-3 py-1.5 text-body font-medium text-gray-600 hover:bg-gray-50"
+                className="rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground-muted hover:bg-surface-sunken"
               >
                 Cancel
               </button>
@@ -5017,18 +5017,18 @@ export default function SequenceEditView({
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-4 left-1/2 z-[120] -translate-x-1/2 flex items-center gap-3 rounded-lg border border-emerald-200 bg-white px-4 py-2.5 text-body shadow-lg"
+          className="fixed bottom-4 left-1/2 z-[120] -translate-x-1/2 flex items-center gap-3 rounded-lg border border-emerald-200 bg-surface-raised px-4 py-2.5 text-body shadow-lg"
         >
           <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3" aria-hidden="true">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </span>
-          <span className="text-gray-700">{taxStatus}</span>
+          <span className="text-foreground">{taxStatus}</span>
           <button
             type="button"
             onClick={() => setTaxStatus(null)}
-            className="text-gray-400 hover:text-gray-700"
+            className="text-foreground-muted hover:text-foreground"
             aria-label="Dismiss"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
@@ -5046,7 +5046,7 @@ export default function SequenceEditView({
         <div
           role="status"
           aria-live="polite"
-          className={`fixed bottom-4 left-1/2 z-[120] -translate-x-1/2 flex items-center gap-3 rounded-lg border bg-white px-4 py-2.5 text-body shadow-lg ${
+          className={`fixed bottom-4 left-1/2 z-[120] -translate-x-1/2 flex items-center gap-3 rounded-lg border bg-surface-raised px-4 py-2.5 text-body shadow-lg ${
             copyStatus.tone === "ok" ? "border-emerald-200" : "border-amber-200"
           }`}
         >
@@ -5068,11 +5068,11 @@ export default function SequenceEditView({
               </svg>
             )}
           </span>
-          <span className="text-gray-700">{copyStatus.text}</span>
+          <span className="text-foreground">{copyStatus.text}</span>
           <button
             type="button"
             onClick={() => setCopyStatus(null)}
-            className="text-gray-400 hover:text-gray-700"
+            className="text-foreground-muted hover:text-foreground"
             aria-label="Dismiss"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
@@ -5090,16 +5090,16 @@ export default function SequenceEditView({
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-4 left-1/2 z-[120] -translate-x-1/2 flex items-center gap-3 rounded-lg border border-emerald-200 bg-white px-4 py-2.5 text-body shadow-lg"
+          className="fixed bottom-4 left-1/2 z-[120] -translate-x-1/2 flex items-center gap-3 rounded-lg border border-emerald-200 bg-surface-raised px-4 py-2.5 text-body shadow-lg"
         >
           <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3" aria-hidden="true">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </span>
-          <span className="text-gray-700">
+          <span className="text-foreground">
             Map added to{" "}
-            <span className="font-medium text-gray-900">{mapToNoteStatus.noteTitle}</span>
+            <span className="font-medium text-foreground">{mapToNoteStatus.noteTitle}</span>
           </span>
           <a
             href="/workbench?tab=notes"
@@ -5110,7 +5110,7 @@ export default function SequenceEditView({
           <button
             type="button"
             onClick={() => setMapToNoteStatus(null)}
-            className="text-gray-400 hover:text-gray-700"
+            className="text-foreground-muted hover:text-foreground"
             aria-label="Dismiss"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
