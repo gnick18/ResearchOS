@@ -341,7 +341,7 @@ export default function SequencesLauncher({
                 onClick={onClick}
                 className="group flex items-start gap-3 rounded-lg border border-border bg-surface-raised px-4 py-3.5 text-left transition-colors hover:border-sky-300 hover:bg-sky-50/60 focus:outline-none focus-visible:border-sky-400 focus-visible:ring-2 focus-visible:ring-sky-200"
               >
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-sky-50 text-sky-600 transition-colors group-hover:bg-sky-100">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300 transition-colors group-hover:bg-sky-100 dark:group-hover:bg-sky-500/20">
                   <Icon className="h-5 w-5" />
                 </span>
                 <span className="min-w-0">

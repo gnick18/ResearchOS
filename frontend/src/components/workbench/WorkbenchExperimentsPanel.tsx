@@ -480,7 +480,7 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
           compact={compact}
         />
         {entry.section === "blocked" && entry.blockingParents.length > 0 && (
-          <div className="text-meta text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-1.5 py-0.5 leading-snug flex items-center gap-1 min-w-0">
+          <div className="text-meta text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 rounded-md px-1.5 py-0.5 leading-snug flex items-center gap-1 min-w-0">
             <svg
               aria-hidden
               className="w-3 h-3 flex-shrink-0"
@@ -505,7 +505,7 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
                       e.stopPropagation();
                       handleOpenTaskById(p.id);
                     }}
-                    className="underline cursor-pointer hover:text-amber-900 hover:bg-amber-100 rounded"
+                    className="underline cursor-pointer hover:text-amber-900 hover:bg-amber-100 dark:hover:bg-amber-500/20 rounded"
                   >
                     {p.name}
                   </button>
@@ -632,7 +632,7 @@ export default function WorkbenchExperimentsPanel({ projects }: Props) {
                       </div>
                       {items.length === 0 ? (
                         key === "awaiting" ? (
-                          <div className="text-meta text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
+                          <div className="text-meta text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 rounded-md px-3 py-2">
                             All recent experiments have results logged.
                           </div>
                         ) : (

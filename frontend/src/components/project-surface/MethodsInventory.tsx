@@ -172,7 +172,7 @@ export default function MethodsInventory({ project }: MethodsInventoryProps) {
                   {meta.label}
                 </span>
                 {hostedTag && (
-                  <span className="text-meta px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full flex-shrink-0">
+                  <span className="text-meta px-2 py-0.5 bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 rounded-full flex-shrink-0">
                     via {hostedTag}
                   </span>
                 )}

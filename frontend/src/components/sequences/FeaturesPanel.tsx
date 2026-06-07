@@ -303,7 +303,7 @@ export default function FeaturesPanel({
                 type="button"
                 onClick={() => setSortKey(k)}
                 className={`rounded px-1.5 py-0.5 ${
-                  sortKey === k ? "bg-sky-100 text-sky-700" : "hover:bg-surface-sunken"
+                  sortKey === k ? "bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300" : "hover:bg-surface-sunken"
                 }`}
               >
                 {k}
@@ -325,7 +325,7 @@ export default function FeaturesPanel({
                 const len = featureLength(f);
                 const isSel = selectedIndex === index;
                 return (
-                  <li key={`${index}-${f.name}`} className={`border-b border-border ${isSel ? "bg-sky-50" : ""}`}>
+                  <li key={`${index}-${f.name}`} className={`border-b border-border ${isSel ? "bg-sky-50 dark:bg-sky-500/15" : ""}`}>
                     <div className="group flex items-center gap-2 px-3 py-1.5">
                       {/* color swatch (click to recolor; static in read-only) */}
                       <div className="relative">
@@ -412,7 +412,7 @@ export default function FeaturesPanel({
                                 type="button"
                                 onClick={() => onDeleteFeature(index)}
                                 aria-label={`Delete ${f.name}`}
-                                className="rounded p-1 text-foreground-muted hover:bg-rose-50 hover:text-rose-600"
+                                className="rounded p-1 text-foreground-muted hover:bg-rose-50 dark:hover:bg-rose-500/20 hover:text-rose-600"
                               >
                                 <IconTrash className="h-3.5 w-3.5" />
                               </button>

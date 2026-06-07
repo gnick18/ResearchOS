@@ -160,7 +160,7 @@ export default function MentionPicker({
                 onPick(m.username);
               }}
               className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer ${
-                isActive ? "bg-emerald-50" : "hover:bg-surface-sunken"
+                isActive ? "bg-emerald-50 dark:bg-emerald-500/15" : "hover:bg-surface-sunken"
               }`}
             >
               <UserAvatar username={m.username} size="sm" />
@@ -173,7 +173,7 @@ export default function MentionPicker({
                 )}
               </div>
               {m.account_type === "lab_head" && (
-                <span className="px-1.5 py-0.5 text-meta font-semibold rounded bg-amber-100 text-amber-800">
+                <span className="px-1.5 py-0.5 text-meta font-semibold rounded bg-amber-100 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300">
                   PI
                 </span>
               )}

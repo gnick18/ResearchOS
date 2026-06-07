@@ -86,7 +86,7 @@ function OracleCitation({ oracle }: { oracle: OracleRef }) {
         {oracle.url ? (
           <>
             {" "}
-            <a href={oracle.url} target="_blank" rel="noreferrer" className="text-sky-700 underline-offset-2 hover:underline">
+            <a href={oracle.url} target="_blank" rel="noreferrer" className="text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline">
               docs
               <ExternalIcon />
             </a>
@@ -235,7 +235,7 @@ function DomainSummary({ domain }: { domain: DomainReport }) {
   );
   return (
     <div className="flex flex-wrap items-center gap-2 text-meta">
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-500/15 px-2.5 py-0.5 font-semibold text-emerald-700 dark:text-emerald-300 ring-1 ring-inset ring-emerald-200">
         {c.exact} exact
       </span>
       {c.within > 0 ? (
@@ -249,7 +249,7 @@ function DomainSummary({ domain }: { domain: DomainReport }) {
         </span>
       ) : null}
       {c.larger > 0 ? (
-        <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
+        <span className="inline-flex items-center rounded-full bg-amber-50 dark:bg-amber-500/15 px-2.5 py-0.5 font-semibold text-amber-700 dark:text-amber-300 ring-1 ring-inset ring-amber-200">
           {c.larger} larger difference{c.larger === 1 ? "" : "s"}
         </span>
       ) : null}
@@ -347,14 +347,14 @@ export default function TransparencyTabs({ domains }: { domains: DomainReport[] 
               onClick={() => setActiveId(d.id)}
               className={`-mb-px flex items-center gap-2 rounded-t-lg border border-b-2 px-4 py-2.5 text-body font-medium transition ${
                 selected
-                  ? "border-sky-200 border-b-sky-600 bg-sky-50/70 text-sky-700"
+                  ? "border-sky-200 dark:border-sky-500/30 border-b-sky-600 bg-sky-50/70 text-sky-700 dark:text-sky-300"
                   : "border-transparent border-b-transparent text-gray-500 hover:border-b-gray-300 hover:text-gray-800"
               }`}
             >
               {d.title}
               <span
                 className={`rounded-full px-1.5 py-0.5 text-meta font-semibold tabular-nums ${
-                  selected ? "bg-sky-100 text-sky-700" : "bg-gray-100 text-gray-500"
+                  selected ? "bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300" : "bg-gray-100 text-gray-500"
                 }`}
               >
                 {d.totals.pass}/{total(d)}

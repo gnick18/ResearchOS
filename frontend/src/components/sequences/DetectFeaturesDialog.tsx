@@ -242,7 +242,7 @@ export default function DetectFeaturesDialog({
           {loading ? (
             <p className="text-body text-foreground-muted">Scanning the sequence…</p>
           ) : error ? (
-            <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-body text-rose-600">
+            <p className="rounded-md border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/15 px-3 py-2 text-body text-rose-600 dark:text-rose-300">
               {error}
             </p>
           ) : (
@@ -268,7 +268,7 @@ export default function DetectFeaturesDialog({
                     <button
                       type="button"
                       onClick={toggleAll}
-                      className="ml-auto text-meta font-medium text-sky-600 hover:underline"
+                      className="ml-auto text-meta font-medium text-sky-600 dark:text-sky-300 hover:underline"
                     >
                       {allSelected ? "Deselect all" : "Select all"}
                     </button>
@@ -382,14 +382,14 @@ function DetectedRow({ row, onToggle }: { row: Row; onToggle: () => void }) {
         </span>
         {f.kind === "tag" && (
           <Tooltip label="Short epitope tag, matched near-exactly within a reading frame.">
-            <span className="shrink-0 rounded-full bg-violet-50 px-2 py-0.5 text-meta font-medium text-violet-700">
+            <span className="shrink-0 rounded-full bg-violet-50 dark:bg-violet-500/15 px-2 py-0.5 text-meta font-medium text-violet-700 dark:text-violet-300">
               tag
             </span>
           </Tooltip>
         )}
         {f.sequenceType === "dna" && (
           <Tooltip label="DNA element, matched by raw-nucleotide alignment on both strands (not by translation).">
-            <span className="shrink-0 rounded-full bg-sky-50 px-2 py-0.5 text-meta font-medium text-sky-700">
+            <span className="shrink-0 rounded-full bg-sky-50 dark:bg-sky-500/15 px-2 py-0.5 text-meta font-medium text-sky-700 dark:text-sky-300">
               DNA
             </span>
           </Tooltip>

@@ -102,12 +102,12 @@ export default function GoldenGateFingerprintHero({ product, enzymeNames }: Prop
       {/* Uniqueness verdict. */}
       <div className="mt-2.5">
         {uniqueness.unique ? (
-          <div className="flex items-center gap-1.5 rounded bg-emerald-50 px-2 py-1.5 text-meta text-emerald-700">
+          <div className="flex items-center gap-1.5 rounded bg-emerald-50 dark:bg-emerald-500/15 px-2 py-1.5 text-meta text-emerald-700 dark:text-emerald-300">
             <CheckIcon className="h-3.5 w-3.5 shrink-0" />
             <span>Unambiguous one-pot order (all fusion sites distinct).</span>
           </div>
         ) : (
-          <div className="space-y-1 rounded bg-rose-50 px-2 py-1.5 text-meta text-rose-700">
+          <div className="space-y-1 rounded bg-rose-50 dark:bg-rose-500/15 px-2 py-1.5 text-meta text-rose-700 dark:text-rose-300">
             <div className="flex items-center gap-1.5 font-medium">
               <WarnIcon className="h-3.5 w-3.5 shrink-0" />
               <span>Ambiguous order from shared fusion overhangs.</span>
@@ -123,7 +123,7 @@ export default function GoldenGateFingerprintHero({ product, enzymeNames }: Prop
 
       {/* Scarless confirmation. */}
       {scarless ? (
-        <div className="mt-1.5 flex items-center gap-1.5 text-meta text-emerald-700">
+        <div className="mt-1.5 flex items-center gap-1.5 text-meta text-emerald-700 dark:text-emerald-300">
           <CheckIcon className="h-3 w-3 shrink-0" />
           <span>Recognition sites removed (scarless).</span>
         </div>

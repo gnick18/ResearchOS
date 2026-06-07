@@ -316,7 +316,7 @@ export default function TaxonomyNodeDetail({
         <div className="min-w-0">
           <h3 className="truncate text-title font-semibold text-foreground">{node.name}</h3>
           <div className="mt-1 flex items-center gap-2">
-            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-meta font-medium uppercase tracking-wide text-sky-700">
+            <span className="rounded-full bg-sky-100 dark:bg-sky-500/15 px-2 py-0.5 text-meta font-medium uppercase tracking-wide text-sky-700 dark:text-sky-300">
               {isSyntheticRoot ? "Root" : rankLabel(node.rank)}
             </span>
             {isSyntheticRoot ? null : (
@@ -375,7 +375,7 @@ export default function TaxonomyNodeDetail({
         <button
           type="button"
           onClick={() => onFocus(node.taxId)}
-          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-raised px-3 py-1.5 text-meta font-medium text-foreground transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-raised px-3 py-1.5 text-meta font-medium text-foreground transition-colors hover:border-sky-300 hover:bg-sky-50 dark:hover:bg-sky-500/20 hover:text-sky-700"
         >
           <FocusIcon className="h-3.5 w-3.5" />
           Center the view here
@@ -426,7 +426,7 @@ export default function TaxonomyNodeDetail({
                     key={a.accession}
                     className={`rounded-md border px-2.5 py-2 ${
                       a.isReference
-                        ? "border-sky-200 bg-sky-50"
+                        ? "border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/15"
                         : "border-border bg-surface-raised"
                     }`}
                   >
@@ -435,7 +435,7 @@ export default function TaxonomyNodeDetail({
                         {a.accession}
                       </span>
                       {a.isReference ? (
-                        <span className="shrink-0 rounded-full bg-sky-100 px-1.5 py-0.5 text-meta font-medium uppercase tracking-wide text-sky-700">
+                        <span className="shrink-0 rounded-full bg-sky-100 dark:bg-sky-500/15 px-1.5 py-0.5 text-meta font-medium uppercase tracking-wide text-sky-700 dark:text-sky-300">
                           Reference
                         </span>
                       ) : null}

@@ -128,7 +128,7 @@ function MenuItems({ items, onAfterRun }: { items: EditMenuItem[]; onAfterRun: (
               !it.enabled
                 ? "cursor-not-allowed text-foreground-muted"
                 : it.destructive
-                  ? "text-rose-600 hover:bg-rose-50"
+                  ? "text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-500/20"
                   : "text-foreground hover:bg-surface-sunken"
             }`}
           >
@@ -144,7 +144,7 @@ function MenuItems({ items, onAfterRun }: { items: EditMenuItem[]; onAfterRun: (
             </span>
             {it.checked !== undefined ? (
               it.checked ? (
-                <IconEye className="h-3.5 w-3.5 shrink-0 text-sky-600" />
+                <IconEye className="h-3.5 w-3.5 shrink-0 text-sky-600 dark:text-sky-300" />
               ) : (
                 <IconEyeOff className="h-3.5 w-3.5 shrink-0 text-foreground-muted" />
               )

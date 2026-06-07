@@ -92,8 +92,8 @@ export default function SequenceNewDialog({
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onCancel} />
       <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100">
-            <IconPlus className="h-5 w-5 text-sky-600" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-500/15">
+            <IconPlus className="h-5 w-5 text-sky-600 dark:text-sky-300" />
           </div>
           <h2 className="text-title font-semibold text-foreground">New sequence</h2>
         </div>

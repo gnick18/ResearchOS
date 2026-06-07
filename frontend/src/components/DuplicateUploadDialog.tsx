@@ -144,8 +144,8 @@ export default function DuplicateUploadDialog({
         {/* Body */}
         <div className="px-5 py-4 space-y-3">
           {/* Existing file at the destination */}
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <p className="text-meta uppercase tracking-wide text-amber-700 font-medium mb-1">
+          <div className="bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 rounded-lg p-3">
+            <p className="text-meta uppercase tracking-wide text-amber-700 dark:text-amber-300 font-medium mb-1">
               Already in this folder
             </p>
             <div className="flex items-center gap-2">
@@ -162,8 +162,8 @@ export default function DuplicateUploadDialog({
           </div>
 
           {/* The dropped file */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-meta uppercase tracking-wide text-blue-700 font-medium mb-1">
+          <div className="bg-blue-50 dark:bg-blue-500/15 border border-blue-200 dark:border-blue-500/30 rounded-lg p-3">
+            <p className="text-meta uppercase tracking-wide text-blue-700 dark:text-blue-300 font-medium mb-1">
               File you just added
             </p>
             <div className="flex items-center gap-2">
@@ -221,7 +221,7 @@ export default function DuplicateUploadDialog({
                 type="checkbox"
                 checked={applyToAll}
                 onChange={(e) => setApplyToAll(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-border text-blue-600 focus:ring-blue-500"
+                className="mt-0.5 h-4 w-4 rounded border-border text-blue-600 dark:text-blue-300 focus:ring-blue-500"
               />
               <span className="text-meta text-foreground-muted">
                 Apply this choice to the other {remainingCount} file

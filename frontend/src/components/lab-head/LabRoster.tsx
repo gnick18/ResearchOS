@@ -274,7 +274,7 @@ export default function LabRoster() {
                     </span>
                     {row.account_type === "lab_head" && (
                       <span
-                        className="px-1.5 py-0.5 text-meta font-semibold rounded bg-amber-100 text-amber-800"
+                        className="px-1.5 py-0.5 text-meta font-semibold rounded bg-amber-100 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300"
                         title="PI"
                       >
                         PI
@@ -292,12 +292,12 @@ export default function LabRoster() {
                         Archived
                       </span>
                     ) : (
-                      <span className="px-1.5 py-0.5 text-meta font-semibold rounded bg-emerald-100 text-emerald-800">
+                      <span className="px-1.5 py-0.5 text-meta font-semibold rounded bg-emerald-100 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-300">
                         Active
                       </span>
                     )}
                     {isSelf && (
-                      <span className="px-1.5 py-0.5 text-meta font-semibold rounded bg-blue-100 text-blue-800">
+                      <span className="px-1.5 py-0.5 text-meta font-semibold rounded bg-blue-100 dark:bg-blue-500/15 text-blue-800 dark:text-blue-300">
                         You
                       </span>
                     )}
@@ -318,7 +318,7 @@ export default function LabRoster() {
                           className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-meta font-semibold rounded ${
                             row.archived
                               ? "bg-surface-sunken text-foreground-muted"
-                              : "bg-sky-100 text-sky-800"
+                              : "bg-sky-100 dark:bg-sky-500/15 text-sky-800 dark:text-sky-300"
                           }`}
                           data-testid={`lab-roster-sharing-${row.username}`}
                         >
@@ -357,7 +357,7 @@ export default function LabRoster() {
                     onClick={() =>
                       setPendingAction({ kind: "restore", row })
                     }
-                    className="flex-shrink-0 px-2.5 py-1 rounded-md text-meta font-medium border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                    className="flex-shrink-0 px-2.5 py-1 rounded-md text-meta font-medium border border-emerald-300 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-500/20"
                     data-testid={`lab-roster-restore-${row.username}`}
                   >
                     Restore

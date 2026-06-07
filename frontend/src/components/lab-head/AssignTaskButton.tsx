@@ -152,7 +152,7 @@ export default function AssignTaskButton({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-meta font-medium border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-meta font-medium border border-emerald-300 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-500/20"
           data-testid="lab-head-assign-task-button"
         >
           <svg

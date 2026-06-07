@@ -451,7 +451,7 @@ export default function LabSearchPanel({
     return (
       <>
         {text.slice(0, idx)}
-        <mark className="bg-yellow-200 text-yellow-900 px-0.5 rounded">
+        <mark className="bg-yellow-200 text-yellow-900 dark:text-yellow-300 px-0.5 rounded">
           {text.slice(idx, idx + query.length)}
         </mark>
         {text.slice(idx + query.length)}
@@ -805,10 +805,10 @@ export default function LabSearchPanel({
                       </span>
                       <span className={`text-meta px-2 py-0.5 rounded-full ${
                         result.type === "task"
-                          ? "bg-blue-50 text-blue-600"
+                          ? "bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300"
                           : result.type === "project"
-                          ? "bg-purple-50 text-purple-600"
-                          : "bg-green-50 text-green-600"
+                          ? "bg-purple-50 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300"
+                          : "bg-green-50 dark:bg-green-500/15 text-green-600 dark:text-green-300"
                       }`}>
                         {result.type}
                       </span>

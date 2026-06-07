@@ -155,7 +155,7 @@ export default function SequenceTabBar({
               {typeof t.count === "number" ? (
                 <span
                   className={`ml-0.5 rounded-full px-1.5 text-meta font-semibold leading-4 ${
-                    selected ? "bg-sky-100 text-sky-700" : "bg-gray-200 text-gray-500"
+                    selected ? "bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300" : "bg-gray-200 text-gray-500"
                   }`}
                 >
                   {t.count}

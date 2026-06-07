@@ -107,7 +107,7 @@ export default function UploadStep({
         onDragLeave={onDragLeave}
         className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed cursor-pointer transition-colors px-6 py-10 text-center ${
           dragOver
-            ? "border-blue-400 bg-blue-50"
+            ? "border-blue-400 bg-blue-50 dark:bg-blue-500/15"
             : "border-border hover:border-gray-400 bg-surface-sunken"
         }`}
       >
@@ -147,7 +147,7 @@ export default function UploadStep({
       {oversized && (
         <div
           role="alert"
-          className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-meta text-amber-900"
+          className="rounded-lg border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-3 py-2 text-meta text-amber-900 dark:text-amber-300"
         >
           <p className="font-medium">
             Large notebook — import may run out of memory.
@@ -162,7 +162,7 @@ export default function UploadStep({
       )}
 
       {visibleError && (
-        <p className="text-meta text-red-600 break-words">{visibleError}</p>
+        <p className="text-meta text-red-600 dark:text-red-300 break-words">{visibleError}</p>
       )}
     </div>
   );

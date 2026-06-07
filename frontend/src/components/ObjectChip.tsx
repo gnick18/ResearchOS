@@ -101,7 +101,7 @@ export default function ObjectChip({
         e.stopPropagation();
         router.push(href);
       }}
-      className="mx-0.5 inline-flex max-w-full items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 align-baseline text-[0.92em] font-medium text-sky-700 transition-colors hover:border-sky-300 hover:bg-sky-100"
+      className="mx-0.5 inline-flex max-w-full items-center gap-1 rounded-full border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/15 px-2 py-0.5 align-baseline text-[0.92em] font-medium text-sky-700 dark:text-sky-300 transition-colors hover:border-sky-300 hover:bg-sky-100 dark:hover:bg-sky-500/20"
     >
       <ChipIcon type={type} className="h-3.5 w-3.5 shrink-0 text-sky-500" />
       <span className="truncate">{label}</span>

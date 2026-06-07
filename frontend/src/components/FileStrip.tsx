@@ -287,7 +287,7 @@ export default function FileStrip({
         <span className="text-meta text-foreground-muted font-medium flex-shrink-0 mr-1">
           {entries.length} file{entries.length === 1 ? "" : "s"}
           {linkedOnlyCount > 0 && (
-            <span className="ml-1 text-blue-600">({linkedOnlyCount} unlinked)</span>
+            <span className="ml-1 text-blue-600 dark:text-blue-300">({linkedOnlyCount} unlinked)</span>
           )}
         </span>
         {entries.map((entry) => {
@@ -350,7 +350,7 @@ export default function FileStrip({
                   }}
                   aria-label={`Delete ${entry.filename}`}
                   data-force-hover-controls-target
-                  className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 p-1 text-foreground-muted hover:text-red-600 hover:bg-red-50 rounded transition-all bg-white/80"
+                  className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 p-1 text-foreground-muted hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/20 rounded transition-all bg-white/80"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                     <line x1="18" y1="6" x2="6" y2="18" />

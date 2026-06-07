@@ -8,20 +8,20 @@ import type { Status } from "@/lib/transparency/types";
 
 const STYLES: Record<Status, { bg: string; text: string; ring: string; label: string }> = {
   pass: {
-    bg: "bg-emerald-50",
-    text: "text-emerald-700",
+    bg: "bg-emerald-50 dark:bg-emerald-500/15",
+    text: "text-emerald-700 dark:text-emerald-300",
     ring: "ring-emerald-200",
     label: "Within tolerance",
   },
   warn: {
-    bg: "bg-amber-50",
-    text: "text-amber-700",
+    bg: "bg-amber-50 dark:bg-amber-500/15",
+    text: "text-amber-700 dark:text-amber-300",
     ring: "ring-amber-200",
     label: "Marginal",
   },
   fail: {
-    bg: "bg-red-50",
-    text: "text-red-700",
+    bg: "bg-red-50 dark:bg-red-500/15",
+    text: "text-red-700 dark:text-red-300",
     ring: "ring-red-200",
     label: "Out of tolerance",
   },

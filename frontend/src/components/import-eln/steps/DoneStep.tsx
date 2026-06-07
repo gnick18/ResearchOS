@@ -27,9 +27,9 @@ export default function DoneStep({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3">
-        <p className="text-body font-semibold text-emerald-900">Import complete.</p>
-        <p className="text-meta text-emerald-800 mt-1">
+      <div className="rounded-lg border border-emerald-300 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/15 px-4 py-3">
+        <p className="text-body font-semibold text-emerald-900 dark:text-emerald-300">Import complete.</p>
+        <p className="text-meta text-emerald-800 dark:text-emerald-300 mt-1">
           New tasks and projects are in your workspace. The next step is to
           re-classify or move any tasks that landed in the wrong place.
         </p>
@@ -116,9 +116,9 @@ function SummaryLine({
 }) {
   const icon = warn ? "⚠" : ok ? "✓" : "·";
   const color = warn
-    ? "text-amber-600"
+    ? "text-amber-600 dark:text-amber-300"
     : ok
-      ? "text-emerald-600"
+      ? "text-emerald-600 dark:text-emerald-300"
       : "text-gray-400";
   return (
     <li className="flex items-start gap-2">
@@ -138,25 +138,25 @@ function MissingImagesPanel({
   const [open, setOpen] = useState(false);
   const images = parsed.missingInlineImages;
   return (
-    <div className="rounded-lg border border-amber-300 bg-amber-50">
+    <div className="rounded-lg border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="w-full text-left px-4 py-2 flex items-center justify-between"
         aria-expanded={open}
       >
-        <span className="text-body font-medium text-amber-900">
+        <span className="text-body font-medium text-amber-900 dark:text-amber-300">
           {count} inline image{count === 1 ? "" : "s"} didn&apos;t bundle —{" "}
           <span className="underline">{open ? "hide" : "view"} list</span>
         </span>
-        <span className="text-amber-700 text-meta" aria-hidden>
+        <span className="text-amber-700 dark:text-amber-300 text-meta" aria-hidden>
           {open ? "▾" : "▸"}
         </span>
       </button>
       {open && (
-        <div className="border-t border-amber-200">
+        <div className="border-t border-amber-200 dark:border-amber-500/30">
           {images.length === 0 ? (
-            <p className="text-meta text-amber-800 px-4 py-2">
+            <p className="text-meta text-amber-800 dark:text-amber-300 px-4 py-2">
               URLs not surfaced — re-open the parsed notebook to view.
             </p>
           ) : (
@@ -167,7 +167,7 @@ function MissingImagesPanel({
                   className="px-4 py-1.5 text-meta flex items-center gap-2"
                 >
                   <span
-                    className="font-mono font-medium text-amber-900 truncate flex-shrink-0 max-w-[40%]"
+                    className="font-mono font-medium text-amber-900 dark:text-amber-300 truncate flex-shrink-0 max-w-[40%]"
                     title={img.filename}
                   >
                     {img.filename}
@@ -193,9 +193,9 @@ function WarningsPanel({
   warnings: ELNImportResult["warnings"];
 }) {
   return (
-    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2">
-      <p className="text-meta font-medium text-red-800 mb-1">Per-page warnings</p>
-      <ul className="space-y-0.5 text-meta text-red-700">
+    <div className="rounded-lg border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/15 px-4 py-2">
+      <p className="text-meta font-medium text-red-800 dark:text-red-300 mb-1">Per-page warnings</p>
+      <ul className="space-y-0.5 text-meta text-red-700 dark:text-red-300">
         {warnings.map((w, idx) => (
           <li key={`${w.pageId}:${idx}`}>
             <span className="font-mono mr-2">page {w.pageId}:</span>

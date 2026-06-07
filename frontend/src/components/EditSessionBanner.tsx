@@ -53,7 +53,7 @@ export default function EditSessionBanner({
     <div
       role="status"
       aria-live="polite"
-      className="flex items-center justify-between gap-3 px-4 py-2 bg-amber-50 border-b border-amber-200 text-amber-900 text-meta"
+      className="flex items-center justify-between gap-3 px-4 py-2 bg-amber-50 dark:bg-amber-500/15 border-b border-amber-200 dark:border-amber-500/30 text-amber-900 dark:text-amber-300 text-meta"
       data-testid="edit-session-banner"
     >
       <div className="flex items-center gap-2 min-w-0">
@@ -76,11 +76,11 @@ export default function EditSessionBanner({
         <span className="font-medium">Editing as PI</span>
         {contextLabel && (
           <>
-            <span className="text-amber-700">—</span>
+            <span className="text-amber-700 dark:text-amber-300">—</span>
             <span className="truncate">{contextLabel}</span>
           </>
         )}
-        <span className="text-amber-700">—</span>
+        <span className="text-amber-700 dark:text-amber-300">—</span>
         <span
           className="font-mono tabular-nums"
           data-testid="edit-session-banner-remaining"
@@ -94,7 +94,7 @@ export default function EditSessionBanner({
           endEditSession();
           onEnd?.();
         }}
-        className="flex-shrink-0 px-2 py-0.5 rounded text-meta font-medium text-amber-900 hover:bg-amber-100 border border-amber-300"
+        className="flex-shrink-0 px-2 py-0.5 rounded text-meta font-medium text-amber-900 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-500/20 border border-amber-300 dark:border-amber-500/30"
       >
         End session
       </button>

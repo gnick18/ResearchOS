@@ -138,7 +138,7 @@ function CheckBadge({ check }: { check: PrimerCheck }) {
     <Tooltip label={check.detail}>
       <span
         className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-meta font-medium ${
-          ok ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+          ok ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" : "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300"
         }`}
       >
         <span className={`h-1.5 w-1.5 rounded-full ${ok ? "bg-emerald-500" : "bg-amber-500"}`} />
@@ -397,7 +397,7 @@ export default function SequencePrimersPanel({
 
       {/* Trust banner: our Tm matches Primer3 / Primer-BLAST. */}
       {mode !== "list" ? (
-        <div className="border-b border-border bg-sky-50/60 px-4 py-1.5 text-meta text-sky-700">
+        <div className="border-b border-border bg-sky-50/60 px-4 py-1.5 text-meta text-sky-700 dark:text-sky-300">
           Tm uses the SantaLucia 1998 nearest-neighbor model, the same one Primer3 and
           Primer-BLAST use, so these numbers match those tools. The dimer, hairpin, and
           poly-X checks are a quick screen that flags likely problems, not exact
@@ -454,7 +454,7 @@ export default function SequencePrimersPanel({
                     <li key={`${f.name}-${f.start}-${index}`}>
                       <div
                         className={`group flex items-center gap-2 px-3 py-1.5 ${
-                          selected ? "bg-sky-50" : "hover:bg-surface-sunken"
+                          selected ? "bg-sky-50 dark:bg-sky-500/15" : "hover:bg-surface-sunken"
                         }`}
                       >
                         <button
@@ -551,7 +551,7 @@ export default function SequencePrimersPanel({
                 </div>
 
                 {design && design.forward.length === 0 && design.reverse.length === 0 ? (
-                  <div className="rounded-md border border-dashed border-amber-200 bg-amber-50 px-3 py-3 text-body text-amber-700">
+                  <div className="rounded-md border border-dashed border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-3 py-3 text-body text-amber-700 dark:text-amber-300">
                     No candidate met the windows in this region. Widen the length/Tm/%GC
                     windows under Advanced, or pick a longer region.
                   </div>
@@ -636,7 +636,7 @@ export default function SequencePrimersPanel({
                         <div
                           key={`${s.start}-${s.end}-${s.direction}`}
                           className={`rounded-md px-2.5 py-1.5 text-meta ${
-                            i === 0 ? "bg-surface-sunken text-foreground" : "bg-amber-50 text-amber-700"
+                            i === 0 ? "bg-surface-sunken text-foreground" : "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300"
                           }`}
                         >
                           <span className="font-medium">
@@ -655,7 +655,7 @@ export default function SequencePrimersPanel({
                         </div>
                       ))}
                       {checkBindingReport.hasExtraSites ? (
-                        <p className="text-meta text-amber-600">
+                        <p className="text-meta text-amber-600 dark:text-amber-300">
                           More than one binding site on this sequence. Extra sites are flagged
                           amber.
                         </p>
@@ -714,7 +714,7 @@ export default function SequencePrimersPanel({
 
                 {/* Local-library specificity result (instant, no network) */}
                 {specError ? (
-                  <p className="rounded-md border border-dashed border-amber-200 bg-amber-50 px-2.5 py-2 text-meta text-amber-700">
+                  <p className="rounded-md border border-dashed border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-2.5 py-2 text-meta text-amber-700 dark:text-amber-300">
                     {specError}
                   </p>
                 ) : null}
@@ -727,13 +727,13 @@ export default function SequencePrimersPanel({
 
                 {/* NCBI Primer-BLAST privacy notice + handoff */}
                 {ncbiNoticeOpen ? (
-                  <div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2.5 text-meta text-sky-800">
+                  <div className="rounded-md border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/15 px-3 py-2.5 text-meta text-sky-800 dark:text-sky-300">
                     <p className="flex items-start gap-1.5 font-medium">
                       <IconGlobe className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                       This opens NCBI Primer-BLAST in a new tab and sends your primer and
                       this template sequence to NCBI&apos;s servers.
                     </p>
-                    <p className="mt-1 text-sky-700">
+                    <p className="mt-1 text-sky-700 dark:text-sky-300">
                       ResearchOS is local-first, so this is the one step that leaves your
                       machine. Nothing else about your sequence is shared.
                     </p>
@@ -749,7 +749,7 @@ export default function SequencePrimersPanel({
                       <button
                         type="button"
                         onClick={() => setNcbiNoticeOpen(false)}
-                        className="rounded-md px-2.5 py-1 text-meta font-medium text-sky-700 transition-colors hover:bg-sky-100"
+                        className="rounded-md px-2.5 py-1 text-meta font-medium text-sky-700 dark:text-sky-300 transition-colors hover:bg-sky-100 dark:hover:bg-sky-500/20"
                       >
                         Cancel
                       </button>
@@ -816,10 +816,10 @@ function SpecificityResult({
                 : "near";
             const tone =
               tier === "intended"
-                ? "bg-emerald-50 text-emerald-700"
+                ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                 : tier === "perfect"
-                  ? "bg-rose-50 text-rose-700"
-                  : "bg-amber-50 text-amber-700";
+                  ? "bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300"
+                  : "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300";
             const identityPct = Math.round(h.identity * 100);
             return (
               <div
@@ -914,7 +914,7 @@ function CandidateList({
                       type="button"
                       onClick={() => onAdd(c, i)}
                       aria-label="Add primer"
-                      className="rounded p-1 text-sky-500 transition-colors hover:bg-sky-50 hover:text-sky-700"
+                      className="rounded p-1 text-sky-500 transition-colors hover:bg-sky-50 dark:hover:bg-sky-500/20 hover:text-sky-700"
                     >
                       <IconPlus className="h-3.5 w-3.5" />
                     </button>
@@ -929,7 +929,7 @@ function CandidateList({
               <span>{c.length} nt</span>
               <span>Tm {c.tm.toFixed(1)} °C</span>
               <span>{c.gc.toFixed(0)}% GC</span>
-              {copied === c.primer ? <span className="text-emerald-600">copied</span> : null}
+              {copied === c.primer ? <span className="text-emerald-600 dark:text-emerald-300">copied</span> : null}
             </div>
             <div className="mt-1 flex flex-wrap gap-1">
               {c.analysis.checks.map((ck) => (
@@ -1048,7 +1048,7 @@ function AdvancedPanel({
               type="checkbox"
               checked={params.requireGcClamp}
               onChange={(e) => set({ requireGcClamp: e.target.checked })}
-              className="h-3.5 w-3.5 rounded border-border text-sky-600 focus:ring-sky-400"
+              className="h-3.5 w-3.5 rounded border-border text-sky-600 dark:text-sky-300 focus:ring-sky-400"
             />
             Require a 3&apos; GC clamp
           </label>

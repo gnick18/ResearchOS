@@ -121,11 +121,11 @@ export default function GoalsSection({ project }: GoalsSectionProps) {
                     </span>
                   )}
                   {goal.is_complete ? (
-                    <span className="text-meta px-2 py-0.5 bg-green-50 text-green-700 rounded-full flex-shrink-0">
+                    <span className="text-meta px-2 py-0.5 bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-300 rounded-full flex-shrink-0">
                       Complete
                     </span>
                   ) : (
-                    <span className="text-meta px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full flex-shrink-0">
+                    <span className="text-meta px-2 py-0.5 bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 rounded-full flex-shrink-0">
                       Active
                     </span>
                   )}

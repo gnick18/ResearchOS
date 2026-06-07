@@ -63,7 +63,7 @@ export default function PrivacyPolicy() {
           </Link>
           <Link
             href="/"
-            className="text-body font-medium text-sky-700 underline-offset-2 hover:text-sky-900 hover:underline"
+            className="text-body font-medium text-sky-700 dark:text-sky-300 underline-offset-2 hover:text-sky-900 hover:underline"
           >
             Back to the app
           </Link>
@@ -73,7 +73,7 @@ export default function PrivacyPolicy() {
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
         {/* Intro */}
         <section className="mb-12">
-          <p className="mb-3 text-body font-semibold uppercase tracking-wide text-sky-600">
+          <p className="mb-3 text-body font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-300">
             Privacy policy
           </p>
           <h1 className="mb-6 text-display font-bold tracking-tight text-foreground sm:text-4xl">
@@ -88,7 +88,7 @@ export default function PrivacyPolicy() {
               place it changes, the optional feature that lets you share with
               researchers outside your folder.
             </p>
-            <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-body text-amber-800">
+            <p className="rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-4 py-3 text-body text-amber-800 dark:text-amber-300">
               Effective {EFFECTIVE_DATE}. ResearchOS is free and open-source
               software written by a researcher at the University of
               Wisconsin-Madison. If anything here is unclear, write to{" "}
@@ -142,7 +142,7 @@ export default function PrivacyPolicy() {
             For the full technical account, see the{" "}
             <Link
               href="/wiki/security"
-              className="font-semibold text-sky-700 underline-offset-2 hover:underline"
+              className="font-semibold text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
             >
               security page
             </Link>
@@ -272,7 +272,7 @@ export default function PrivacyPolicy() {
             writing to{" "}
             <a
               href={`mailto:${CONTACT_EMAIL}`}
-              className="font-semibold text-sky-700 underline-offset-2 hover:underline"
+              className="font-semibold text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
             >
               {CONTACT_EMAIL}
             </a>
@@ -315,7 +315,7 @@ export default function PrivacyPolicy() {
             here can go to{" "}
             <a
               href={`mailto:${CONTACT_EMAIL}`}
-              className="font-semibold text-sky-700 underline-offset-2 hover:underline"
+              className="font-semibold text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
             >
               {CONTACT_EMAIL}
             </a>

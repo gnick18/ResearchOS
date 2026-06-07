@@ -132,7 +132,7 @@ export default function InboxToast() {
           return (
             <div
               key={item.id}
-              className="pointer-events-auto flex items-center gap-3 p-2 pr-3 bg-surface-raised border border-amber-200 rounded-xl shadow-lg shadow-amber-100/60"
+              className="pointer-events-auto flex items-center gap-3 p-2 pr-3 bg-surface-raised border border-amber-200 dark:border-amber-500/30 rounded-xl shadow-lg shadow-amber-100/60"
             >
               {item.thumbUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -170,7 +170,7 @@ export default function InboxToast() {
                   <button
                     type="button"
                     onClick={() => setPanelOpen(true)}
-                    className="px-2 py-1 text-meta text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
+                    className="px-2 py-1 text-meta text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/15 hover:bg-blue-100 dark:hover:bg-blue-500/20 rounded-md transition-colors"
                   >
                     Open inbox
                   </button>

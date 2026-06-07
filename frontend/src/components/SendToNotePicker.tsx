@@ -238,10 +238,10 @@ export default function SendToNotePicker({
                   disabled={creating}
                   data-testid="send-to-note-picker-new"
                   onClick={handleCreateNew}
-                  className="w-full text-left px-3 py-2 rounded-md hover:bg-emerald-50 focus:bg-emerald-50 focus:outline-none flex items-center gap-3 disabled:opacity-50 disabled:cursor-wait"
+                  className="w-full text-left px-3 py-2 rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-500/20 focus:bg-emerald-50 dark:focus:bg-emerald-500/20 focus:outline-none flex items-center gap-3 disabled:opacity-50 disabled:cursor-wait"
                 >
                   <span
-                    className="inline-flex w-5 h-5 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 flex-shrink-0"
+                    className="inline-flex w-5 h-5 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 flex-shrink-0"
                     aria-hidden
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
@@ -287,7 +287,7 @@ export default function SendToNotePicker({
                       onClick={() =>
                         onPick({ id: n.id, owner: n.username, title: n.title })
                       }
-                      className="w-full text-left px-3 py-2 rounded-md hover:bg-blue-50 focus:bg-blue-50 focus:outline-none flex items-center gap-3"
+                      className="w-full text-left px-3 py-2 rounded-md hover:bg-blue-50 dark:hover:bg-blue-500/20 focus:bg-blue-50 dark:focus:bg-blue-500/20 focus:outline-none flex items-center gap-3"
                     >
                       <span
                         className="inline-block w-2 h-2 rounded-full flex-shrink-0 bg-sky-400"
@@ -303,7 +303,7 @@ export default function SendToNotePicker({
                           )}
                         </span>
                       </span>
-                      <span className="text-meta text-blue-600 font-medium flex-shrink-0">
+                      <span className="text-meta text-blue-600 dark:text-blue-300 font-medium flex-shrink-0">
                         {ctaLabel}
                       </span>
                     </button>

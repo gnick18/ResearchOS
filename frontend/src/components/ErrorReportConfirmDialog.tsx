@@ -49,9 +49,9 @@ export default function ErrorReportConfirmDialog({
         <div className="p-6 border-b border-border">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-red-100 dark:bg-red-500/15 rounded-lg flex items-center justify-center">
                 <svg
-                  className="w-5 h-5 text-red-600"
+                  className="w-5 h-5 text-red-600 dark:text-red-300"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -85,12 +85,12 @@ export default function ErrorReportConfirmDialog({
             <label className="block text-meta font-medium text-foreground-muted mb-1.5">
               Error
             </label>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 max-h-32 overflow-y-auto">
-              <p className="text-body text-red-800 font-mono break-all">
+            <div className="bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg p-3 max-h-32 overflow-y-auto">
+              <p className="text-body text-red-800 dark:text-red-300 font-mono break-all">
                 {error?.message}
               </p>
               {error?.stack && (
-                <pre className="text-meta text-red-600 mt-2 whitespace-pre-wrap">
+                <pre className="text-meta text-red-600 dark:text-red-300 mt-2 whitespace-pre-wrap">
                   {error.stack.split("\n").slice(0, 4).join("\n")}
                 </pre>
               )}

@@ -310,8 +310,8 @@ function BulkActionBar({
   onDeleteRequested: () => void;
 }) {
   return (
-    <div className="border-b border-border bg-blue-50 px-6 py-2 flex items-center gap-4 flex-wrap text-meta">
-      <span className="font-medium text-blue-900">
+    <div className="border-b border-border bg-blue-50 dark:bg-blue-500/15 px-6 py-2 flex items-center gap-4 flex-wrap text-meta">
+      <span className="font-medium text-blue-900 dark:text-blue-300">
         {selectedCount} selected
       </span>
       <div className="flex items-center gap-2">
@@ -458,7 +458,7 @@ function TaskRow({
           <p className="text-meta text-foreground-muted truncate">from {subtitle}</p>
         )}
         {row.error && (
-          <p className="text-meta text-red-600 mt-0.5">{row.error}</p>
+          <p className="text-meta text-red-600 dark:text-red-300 mt-0.5">{row.error}</p>
         )}
       </div>
       <select
@@ -494,7 +494,7 @@ function TaskRow({
       <button
         type="button"
         onClick={() => setConfirmOpen(true)}
-        className="text-meta text-red-600 hover:text-red-700 px-2 py-1 rounded shrink-0"
+        className="text-meta text-red-600 dark:text-red-300 hover:text-red-700 px-2 py-1 rounded shrink-0"
         disabled={row.saving}
       >
         Delete

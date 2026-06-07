@@ -257,7 +257,7 @@ export default function ImageMetadataPopup({
                         </button>
                       </div>
                       {renameError && (
-                        <p className="mt-1 text-meta text-red-600">{renameError}</p>
+                        <p className="mt-1 text-meta text-red-600 dark:text-red-300">{renameError}</p>
                       )}
                     </div>
                   )}
@@ -308,7 +308,7 @@ export default function ImageMetadataPopup({
                         ? "Scroll the rendered note to this image"
                         : "This image isn't in the note yet — drag it in first"
                     }
-                    className="w-full px-4 py-2 text-body text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-2 text-body text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/15 hover:bg-blue-100 dark:hover:bg-blue-500/20 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     ↪ Jump to occurrence in note
                   </button>
@@ -317,7 +317,7 @@ export default function ImageMetadataPopup({
                       type="button"
                       onClick={handleDelete}
                       disabled={deleting}
-                      className="w-full px-4 py-2 text-body text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
+                      className="w-full px-4 py-2 text-body text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-lg transition-colors disabled:opacity-40"
                     >
                       {deleting ? "Deleting…" : "Delete file"}
                     </button>

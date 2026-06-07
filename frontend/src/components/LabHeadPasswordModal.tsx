@@ -179,7 +179,7 @@ export default function LabHeadPasswordModal({
         </div>
 
         {mode === "unlock" && firstUse === true && (
-          <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-meta text-amber-900">
+          <div className="rounded-md bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 p-3 text-meta text-amber-900 dark:text-amber-300">
             <p className="font-medium">First time unlocking edit mode.</p>
             <p className="mt-1">
               For convenience, your edit-mode password starts out the same as
@@ -191,7 +191,7 @@ export default function LabHeadPasswordModal({
         )}
 
         {mode === "reset" && (
-          <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-meta text-amber-900">
+          <div className="rounded-md bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 p-3 text-meta text-amber-900 dark:text-amber-300">
             <p className="font-medium">Set a new edit password.</p>
             <p className="mt-1">
               This unlock is an intentionality check, not a security lock:
@@ -231,7 +231,7 @@ export default function LabHeadPasswordModal({
         </div>
 
         {error && (
-          <p className="text-meta text-red-600" role="alert">
+          <p className="text-meta text-red-600 dark:text-red-300" role="alert">
             {error}
           </p>
         )}

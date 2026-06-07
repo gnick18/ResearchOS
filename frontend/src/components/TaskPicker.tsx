@@ -290,7 +290,7 @@ export default function TaskPicker({
                   onMouseEnter={() => setHighlightedIndex(index)}
                   onClick={() => void onSelect(t.id)}
                   className={`w-full text-left px-4 py-2.5 border-b border-border transition-colors ${
-                    isHighlighted ? "bg-blue-50" : "bg-surface-raised hover:bg-surface-sunken"
+                    isHighlighted ? "bg-blue-50 dark:bg-blue-500/15" : "bg-surface-raised hover:bg-surface-sunken"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -303,7 +303,7 @@ export default function TaskPicker({
                         {t.name}
                       </span>
                       {t.is_complete && (
-                        <span className="text-meta text-green-600 shrink-0">✓</span>
+                        <span className="text-meta text-green-600 dark:text-green-300 shrink-0">✓</span>
                       )}
                     </div>
                     <span className="text-meta text-foreground-muted shrink-0 whitespace-nowrap">

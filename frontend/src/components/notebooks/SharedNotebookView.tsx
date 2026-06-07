@@ -280,14 +280,14 @@ export default function SharedNotebookView({ notebook }: SharedNotebookViewProps
     <div className="flex h-full flex-col gap-4">
       {/* Always-shared banner */}
       <div
-        className="flex items-center gap-2 rounded-lg border border-sky-100 bg-sky-50 px-4 py-2.5"
+        className="flex items-center gap-2 rounded-lg border border-sky-100 bg-sky-50 dark:bg-sky-500/15 px-4 py-2.5"
         data-testid="notebook-shared-banner"
       >
         <span aria-hidden="true" className="text-sky-500">
           {SHARED_SVG}
         </span>
         <UserAvatar username={otherMember} size="sm" />
-        <p className="text-body text-sky-900">
+        <p className="text-body text-sky-900 dark:text-sky-300">
           Always shared with{" "}
           <span className="font-semibold">{otherMember}</span>. Everything here,
           notes and weekly tasks, is visible to both of you.
@@ -397,7 +397,7 @@ export default function SharedNotebookView({ notebook }: SharedNotebookViewProps
                               type="button"
                               onClick={() => void handleDeleteTask(task)}
                               data-testid={`notebook-task-delete-${task.id}`}
-                              className="inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-gray-300 opacity-0 transition-colors hover:bg-red-50 hover:text-red-500 focus:opacity-100 group-hover:opacity-100"
+                              className="inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-gray-300 opacity-0 transition-colors hover:bg-red-50 dark:hover:bg-red-500/20 hover:text-red-500 focus:opacity-100 group-hover:opacity-100"
                             >
                               {TRASH_SVG}
                             </button>

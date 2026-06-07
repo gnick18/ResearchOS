@@ -113,13 +113,13 @@ function Shell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-4">
             <Link
               href="/admin/business"
-              className="text-body font-medium text-sky-700 underline-offset-2 hover:underline"
+              className="text-body font-medium text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
             >
               Business
             </Link>
             <Link
               href="/"
-              className="text-body font-medium text-sky-700 underline-offset-2 hover:underline"
+              className="text-body font-medium text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
             >
               Back to the app
             </Link>
@@ -158,9 +158,9 @@ const STATUS_BAR: Record<CapacityStatus, string> = {
 };
 
 const STATUS_TEXT: Record<CapacityStatus, string> = {
-  ok: "text-emerald-700",
-  watch: "text-amber-700",
-  critical: "text-rose-600",
+  ok: "text-emerald-700 dark:text-emerald-300",
+  watch: "text-amber-700 dark:text-amber-300",
+  critical: "text-rose-600 dark:text-rose-300",
 };
 
 /** A labelled used/limit progress bar, coloured by how close to the ceiling. */
@@ -285,9 +285,9 @@ function SurvivalRisk({ c }: { c: CapacityMetrics }) {
   const anyUnavailable = signals.some((s) => !s.available);
 
   const BOX: Record<CapacityStatus, string> = {
-    ok: "border-emerald-200 bg-emerald-50",
-    watch: "border-amber-200 bg-amber-50",
-    critical: "border-rose-200 bg-rose-50",
+    ok: "border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/15",
+    watch: "border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15",
+    critical: "border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/15",
   };
   const headline =
     worst === "critical"

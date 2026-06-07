@@ -982,8 +982,8 @@ export default function TaxonomyTreeView({
     >
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-border px-5 py-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100">
-            <TreeIcon className="h-5 w-5 text-sky-600" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-500/15">
+            <TreeIcon className="h-5 w-5 text-sky-600 dark:text-sky-300" />
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="text-title font-semibold text-foreground">
@@ -1036,7 +1036,7 @@ export default function TaxonomyTreeView({
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => pickSuggestion(s)}
-                      className="flex w-full items-baseline justify-between gap-3 px-3 py-2 text-left hover:bg-sky-50"
+                      className="flex w-full items-baseline justify-between gap-3 px-3 py-2 text-left hover:bg-sky-50 dark:hover:bg-sky-500/20"
                     >
                       <span className="truncate text-body text-foreground">{s.name}</span>
                       <span className="shrink-0 text-meta uppercase tracking-wide text-foreground-muted">
@@ -1069,7 +1069,7 @@ export default function TaxonomyTreeView({
                     <ChevronRightIcon className="h-3.5 w-3.5 text-foreground-muted" />
                   ) : null}
                   {isLast ? (
-                    <span className="rounded-full bg-sky-50 px-2.5 py-1 text-meta font-medium text-sky-700">
+                    <span className="rounded-full bg-sky-50 dark:bg-sky-500/15 px-2.5 py-1 text-meta font-medium text-sky-700 dark:text-sky-300">
                       {c.name}
                     </span>
                   ) : (
@@ -1091,9 +1091,9 @@ export default function TaxonomyTreeView({
         <div className="relative flex min-h-0 flex-1">
           <div ref={canvasRef} className="relative min-h-0 flex-1 bg-surface-sunken">
             {error ? (
-              <div className="absolute inset-x-0 top-4 z-10 mx-auto flex max-w-md items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5">
+              <div className="absolute inset-x-0 top-4 z-10 mx-auto flex max-w-md items-start gap-2 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/15 px-3 py-2.5">
                 <WarnIcon className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
-                <p className="text-meta leading-relaxed text-rose-700">{error}</p>
+                <p className="text-meta leading-relaxed text-rose-700 dark:text-rose-300">{error}</p>
               </div>
             ) : null}
 
@@ -1121,7 +1121,7 @@ export default function TaxonomyTreeView({
                     type="button"
                     data-testid="taxonomy-jump-back-chip"
                     onClick={jumpToPinnedOrganism}
-                    className="flex max-w-full items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50/95 px-3 py-1.5 text-amber-800 shadow-sm backdrop-blur-sm transition-colors hover:border-amber-400 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+                    className="flex max-w-full items-center gap-1.5 rounded-full border border-amber-300 dark:border-amber-500/30 bg-amber-50/95 px-3 py-1.5 text-amber-800 dark:text-amber-300 shadow-sm backdrop-blur-sm transition-colors hover:border-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
                   >
                     <span
                       className="h-2.5 w-2.5 shrink-0 rounded-full border-2 border-amber-600"

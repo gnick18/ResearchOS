@@ -24,9 +24,9 @@ function WarnIcon({ className }: { className?: string }) {
 }
 
 const GRADE_CHIP: Record<TmGrade, string> = {
-  strong: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  marginal: "bg-amber-50 text-amber-700 ring-amber-200",
-  weak: "bg-rose-50 text-rose-700 ring-rose-200",
+  strong: "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-emerald-200",
+  marginal: "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 ring-amber-200",
+  weak: "bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300 ring-rose-200",
 };
 
 interface Props {
@@ -78,22 +78,22 @@ export default function OverlapHomologyHero({ junctions, primers, annealTargetTm
                   <div className="flex items-center gap-1 whitespace-nowrap text-foreground-muted">
                     <span className="text-foreground-muted">{aName} 3'</span>
                     <span className="text-foreground-muted">…</span>
-                    <span className="rounded-sm bg-sky-100 px-0.5 text-sky-800">{jn.overlapSeq}</span>
+                    <span className="rounded-sm bg-sky-100 dark:bg-sky-500/15 px-0.5 text-sky-800 dark:text-sky-300">{jn.overlapSeq}</span>
                   </div>
                   <div className="flex items-center gap-1 whitespace-nowrap text-foreground-muted">
                     <span className="text-foreground-muted">{bName} 5'</span>
-                    <span className="rounded-sm bg-sky-100 px-0.5 text-sky-800">{jn.overlapSeq}</span>
+                    <span className="rounded-sm bg-sky-100 dark:bg-sky-500/15 px-0.5 text-sky-800 dark:text-sky-300">{jn.overlapSeq}</span>
                     <span className="text-foreground-muted">…</span>
                   </div>
                 </div>
               ) : (
-                <div className="rounded bg-rose-50 px-2 py-1 text-meta text-rose-700">
+                <div className="rounded bg-rose-50 dark:bg-rose-500/15 px-2 py-1 text-meta text-rose-700 dark:text-rose-300">
                   No overlap formed at this junction.
                 </div>
               )}
 
               {jn.warning ? (
-                <div className="mt-1.5 flex items-start gap-1.5 text-meta text-amber-700">
+                <div className="mt-1.5 flex items-start gap-1.5 text-meta text-amber-700 dark:text-amber-300">
                   <WarnIcon className="mt-0.5 h-3 w-3 shrink-0" />
                   <span>{jn.warning}</span>
                 </div>

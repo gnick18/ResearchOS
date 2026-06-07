@@ -330,7 +330,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={request.onCancel} />
       <div className="relative flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-sky-50 text-sky-600">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300">
             <IconPrimer className="h-4 w-4" />
           </span>
           <h2 className="text-title font-semibold text-foreground">Add primer</h2>
@@ -423,7 +423,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
                   onClick={() => setRevComp((r) => !r)}
                   aria-pressed={revComp}
                   className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-meta font-medium transition-colors ${
-                    revComp ? "bg-sky-50 text-sky-700" : "text-foreground-muted hover:bg-surface-sunken"
+                    revComp ? "bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300" : "text-foreground-muted hover:bg-surface-sunken"
                   }`}
                 >
                   <IconSwap className="h-3.5 w-3.5" />
@@ -441,7 +441,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
               className="w-full resize-y rounded-md border border-border px-2.5 py-2 font-mono text-body tracking-wide text-foreground focus:border-sky-400 focus:outline-none"
             />
             {revComp ? (
-              <p className="mt-1 text-meta text-sky-600">
+              <p className="mt-1 text-meta text-sky-600 dark:text-sky-300">
                 Showing readouts for the reverse complement of what you typed.
               </p>
             ) : null}
@@ -466,7 +466,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
                 Enter a primer to find where it anneals.
               </p>
             ) : sites.length === 0 ? (
-              <p className="rounded-md border border-dashed border-amber-200 bg-amber-50 px-2.5 py-2 text-meta text-amber-700">
+              <p className="rounded-md border border-dashed border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-2.5 py-2 text-meta text-amber-700 dark:text-amber-300">
                 No binding site found on either strand. The primer can still be
                 added at its best guess only if it anneals somewhere.
               </p>
@@ -541,7 +541,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
                     <span
                       key={i}
                       className={
-                        c.match ? "font-semibold text-sky-700" : "font-semibold text-rose-600"
+                        c.match ? "font-semibold text-sky-700 dark:text-sky-300" : "font-semibold text-rose-600 dark:text-rose-300"
                       }
                     >
                       {c.primer}
@@ -750,7 +750,7 @@ function MutagenesisFields({
 
       {/* Designed primer + readouts */}
       {result.error ? (
-        <p className="rounded-md border border-dashed border-amber-200 bg-amber-50 px-2.5 py-2 text-meta text-amber-700">
+        <p className="rounded-md border border-dashed border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-2.5 py-2 text-meta text-amber-700 dark:text-amber-300">
           {result.error}
         </p>
       ) : mp ? (
@@ -771,7 +771,7 @@ function MutagenesisFields({
               {mp.primer.split("").map((b, i) => {
                 const edited = i >= mp.mutationPrimerStart && i < mp.mutationPrimerEnd;
                 return (
-                  <span key={i} className={edited ? "font-semibold text-rose-600" : "text-foreground"}>
+                  <span key={i} className={edited ? "font-semibold text-rose-600 dark:text-rose-300" : "text-foreground"}>
                     {b}
                   </span>
                 );
@@ -800,10 +800,10 @@ function MutagenesisFields({
                     key={i}
                     className={
                       c.edited
-                        ? "font-semibold text-rose-600"
+                        ? "font-semibold text-rose-600 dark:text-rose-300"
                         : c.match
-                          ? "font-semibold text-sky-700"
-                          : "font-semibold text-rose-600"
+                          ? "font-semibold text-sky-700 dark:text-sky-300"
+                          : "font-semibold text-rose-600 dark:text-rose-300"
                     }
                   >
                     {c.primer}

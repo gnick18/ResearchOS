@@ -70,8 +70,8 @@ export default function SequenceConfirmDialog({ request }: { request: SequenceCo
 
   const isDelete = request.tone === "delete";
   const accent = isDelete
-    ? { bg: "bg-rose-100", fg: "text-rose-600", btn: "bg-rose-600 hover:bg-rose-700" }
-    : { bg: "bg-sky-100", fg: "text-sky-600", btn: "bg-sky-600 hover:bg-sky-700" };
+    ? { bg: "bg-rose-100 dark:bg-rose-500/15", fg: "text-rose-600 dark:text-rose-300", btn: "bg-rose-600 hover:bg-rose-700" }
+    : { bg: "bg-sky-100 dark:bg-sky-500/15", fg: "text-sky-600 dark:text-sky-300", btn: "bg-sky-600 hover:bg-sky-700" };
 
   return (
     <div
@@ -102,7 +102,7 @@ export default function SequenceConfirmDialog({ request }: { request: SequenceCo
                     <span className="truncate text-foreground">{f.name}</span>
                     <span
                       className={`ml-3 shrink-0 rounded px-1.5 py-0.5 text-meta font-medium ${
-                        f.effect === "removed" ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"
+                        f.effect === "removed" ? "bg-rose-100 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300" : "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300"
                       }`}
                     >
                       {f.effect === "removed" ? "removed" : "trimmed"}

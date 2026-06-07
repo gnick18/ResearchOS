@@ -78,7 +78,7 @@ export default function ReceivedFromBadge({
   if (small) {
     return (
       <Tooltip label={tooltipLabel} body={tooltipBody}>
-        <span className="inline-flex flex-shrink-0 items-center gap-1 px-2 py-0.5 text-meta font-medium rounded-full bg-sky-100 text-sky-700">
+        <span className="inline-flex flex-shrink-0 items-center gap-1 px-2 py-0.5 text-meta font-medium rounded-full bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300">
           <InboxDownIcon className="w-3 h-3" />
           Received
         </span>
@@ -88,11 +88,11 @@ export default function ReceivedFromBadge({
 
   return (
     <Tooltip label={tooltipLabel} body={tooltipBody}>
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-meta font-medium rounded-md border border-sky-200 bg-sky-50 text-sky-800">
-        <InboxDownIcon className="w-3.5 h-3.5 flex-shrink-0 text-sky-600" />
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-meta font-medium rounded-md border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/15 text-sky-800 dark:text-sky-300">
+        <InboxDownIcon className="w-3.5 h-3.5 flex-shrink-0 text-sky-600 dark:text-sky-300" />
         <span className="truncate">Received from {display}</span>
         {isEmail && (
-          <span className="inline-flex items-center gap-0.5 text-sky-600">
+          <span className="inline-flex items-center gap-0.5 text-sky-600 dark:text-sky-300">
             <ShieldCheckIcon className="w-3.5 h-3.5 flex-shrink-0" />
             verified
           </span>

@@ -136,7 +136,7 @@ function StepRail({ step }: { step: Step }) {
           <div key={s} className="flex items-center gap-2">
             <div
               className={`flex items-center gap-1.5 text-meta font-medium ${
-                active ? "text-blue-700" : done ? "text-foreground-muted" : "text-foreground-muted"
+                active ? "text-blue-700 dark:text-blue-300" : done ? "text-foreground-muted" : "text-foreground-muted"
               }`}
             >
               <span
@@ -419,7 +419,7 @@ export default function ProjectDepositDialog({
               Reading the project...
             </div>
           ) : loadError ? (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-body text-red-800">
+            <div className="rounded-lg border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/15 px-4 py-3 text-body text-red-800 dark:text-red-300">
               {loadError}
             </div>
           ) : step === "select" && prefill ? (
@@ -460,7 +460,7 @@ export default function ProjectDepositDialog({
             />
           ) : null}
           {buildError ? (
-            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-body text-red-800">
+            <div className="mt-3 rounded-lg border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/15 px-4 py-3 text-body text-red-800 dark:text-red-300">
               {buildError}
             </div>
           ) : null}
@@ -565,7 +565,7 @@ function SelectStep({
 }) {
   return (
     <div className="space-y-4">
-      <div className="rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-meta text-blue-800 leading-relaxed">
+      <div className="rounded-lg bg-blue-50 dark:bg-blue-500/15 border border-blue-100 px-3 py-2 text-meta text-blue-800 dark:text-blue-300 leading-relaxed">
         A project deposit is one dataset with one DOI. Pick the experiments and
         notes that belong in the public record. Each item is exported
         individually, plus one combined PDF that ties them together.
@@ -599,7 +599,7 @@ function SelectStep({
                     {exp.name || `Experiment ${exp.id}`}
                   </span>
                   {exp.is_complete ? (
-                    <span className="text-meta text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">
+                    <span className="text-meta text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-500/15 border border-green-200 dark:border-green-500/30 rounded px-1.5 py-0.5">
                       complete
                     </span>
                   ) : (
@@ -672,7 +672,7 @@ function SelectStep({
               onClick={() => setBundleFormat(fmt)}
               className={`px-3 py-1.5 text-meta rounded-lg border ${
                 bundleFormat === fmt
-                  ? "border-blue-500 bg-blue-50 text-blue-700 font-medium"
+                  ? "border-blue-500 bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 font-medium"
                   : "border-border text-foreground-muted hover:border-border"
               }`}
             >
@@ -710,7 +710,7 @@ function FieldLabel({
 
 function PrefilledBadge() {
   return (
-    <span className="inline-flex items-center gap-1 text-meta font-medium text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">
+    <span className="inline-flex items-center gap-1 text-meta font-medium text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-500/15 border border-green-200 dark:border-green-500/30 rounded px-1.5 py-0.5">
       <CheckIcon />
       prefilled
     </span>
@@ -797,7 +797,7 @@ function MetadataStep({
             {orcidDraft.trim().length > 0 ? (
               <span
                 className={`absolute right-2.5 top-1/2 -translate-y-1/2 ${
-                  orcidValid ? "text-green-600" : "text-amber-500"
+                  orcidValid ? "text-green-600 dark:text-green-300" : "text-amber-500"
                 }`}
               >
                 {orcidValid ? <CheckIcon /> : <WarnIcon />}
@@ -805,7 +805,7 @@ function MetadataStep({
             ) : null}
           </div>
           {issues.orcidInvalid ? (
-            <p className="text-meta text-amber-600 mt-1">
+            <p className="text-meta text-amber-600 dark:text-amber-300 mt-1">
               This does not match the ORCID checksum. It will still be saved, but
               double-check the digits.
             </p>
@@ -814,7 +814,7 @@ function MetadataStep({
               href={orcidUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-meta text-blue-600 hover:underline mt-1"
+              className="inline-flex items-center gap-1 text-meta text-blue-600 dark:text-blue-300 hover:underline mt-1"
             >
               View ORCID record <ExternalLinkIcon />
             </a>
@@ -890,11 +890,11 @@ function MetadataStep({
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{funding.funderName}</span>
                   {i === 0 && prefill.primaryFundingAccount ? (
-                    <span className="text-meta text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5">
+                    <span className="text-meta text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/15 border border-blue-200 dark:border-blue-500/30 rounded px-1.5 py-0.5">
                       primary
                     </span>
                   ) : (
-                    <span className="text-meta text-purple-700 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5">
+                    <span className="text-meta text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-500/15 border border-purple-200 dark:border-purple-500/30 rounded px-1.5 py-0.5">
                       charged
                     </span>
                   )}
@@ -935,11 +935,11 @@ function MetadataStep({
           <span className="inline-flex items-center gap-1.5">
             License
             {issues.licenseMissing ? (
-              <span className="text-amber-600">
+              <span className="text-amber-600 dark:text-amber-300">
                 <WarnIcon />
               </span>
             ) : (
-              <span className="text-green-600">
+              <span className="text-green-600 dark:text-green-300">
                 <CheckIcon />
               </span>
             )}
@@ -980,7 +980,7 @@ function MetadataStep({
           </p>
         ) : null}
         {issues.licenseMissing ? (
-          <p className="text-meta text-amber-600">
+          <p className="text-meta text-amber-600 dark:text-amber-300">
             A license is required before you can hand off. NIH expects shared
             data to carry one. CC BY 4.0 or CC0 are safe defaults.
           </p>
@@ -1014,7 +1014,7 @@ function HandoffPickStep({
             key={r.id}
             className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 cursor-pointer ${
               repoId === r.id
-                ? "border-blue-500 bg-blue-50"
+                ? "border-blue-500 bg-blue-50 dark:bg-blue-500/15"
                 : "border-border hover:border-border"
             }`}
           >
@@ -1031,7 +1031,7 @@ function HandoffPickStep({
                   {r.name}
                 </span>
                 {r.oneClickComingSoon ? (
-                  <span className="text-meta font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5">
+                  <span className="text-meta font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-500/15 border border-purple-200 dark:border-purple-500/30 rounded px-1.5 py-0.5">
                     one-click publishing coming soon
                   </span>
                 ) : null}
@@ -1068,8 +1068,8 @@ function HandoffDownloadStep({
   const repo = findRepository(repoId);
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-body text-green-800 flex items-start gap-2">
-        <span className="text-green-600 mt-0.5">
+      <div className="rounded-lg border border-green-200 dark:border-green-500/30 bg-green-50 dark:bg-green-500/15 px-3 py-2.5 text-body text-green-800 dark:text-green-300 flex items-start gap-2">
+        <span className="text-green-600 dark:text-green-300 mt-0.5">
           <CheckIcon />
         </span>
         <div>
@@ -1120,7 +1120,7 @@ function HandoffDownloadStep({
           >
             {copied ? (
               <>
-                <span className="text-green-600">
+                <span className="text-green-600 dark:text-green-300">
                   <CheckIcon />
                 </span>
                 Copied

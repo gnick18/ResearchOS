@@ -360,7 +360,7 @@ export default function CalendarFeedsModal({ open, onClose }: Props) {
                   placeholder="https://calendar.google.com/calendar/ical/.../basic.ics"
                   className="w-full px-3 py-2 border border-border rounded-lg text-body font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <p className="mt-1 text-meta text-amber-600">
+                <p className="mt-1 text-meta text-amber-600 dark:text-amber-300">
                   This URL grants read access to your calendar events to anyone who has
                   it. ResearchOS stores it in your private data folder.
                 </p>
@@ -390,7 +390,7 @@ export default function CalendarFeedsModal({ open, onClose }: Props) {
                 </div>
               </div>
               {draftError && (
-                <p className="text-meta text-red-600 bg-red-50 border border-red-100 rounded p-2">
+                <p className="text-meta text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-500/15 border border-red-100 rounded p-2">
                   {draftError}
                 </p>
               )}
@@ -399,7 +399,7 @@ export default function CalendarFeedsModal({ open, onClose }: Props) {
                   onClick={() =>
                     setShowHelp(showHelp === draftProvider ? null : draftProvider)
                   }
-                  className="text-meta text-blue-600 hover:underline"
+                  className="text-meta text-blue-600 dark:text-blue-300 hover:underline"
                   type="button"
                 >
                   {showHelp === draftProvider ? "Hide" : "Where do I find this URL?"}

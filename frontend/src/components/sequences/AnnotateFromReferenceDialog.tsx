@@ -300,7 +300,7 @@ function PickStage({
         the open sequence to it (both strands) and proposes the features that map.
       </p>
       {libError ? (
-        <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-body text-rose-600">
+        <p className="rounded-md border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/15 px-3 py-2 text-body text-rose-600 dark:text-rose-300">
           {libError}
         </p>
       ) : library == null ? (
@@ -319,7 +319,7 @@ function PickStage({
                   type="button"
                   onClick={() => onPick(rec)}
                   className={`flex w-full items-center gap-3 px-3 py-2 text-left transition-colors ${
-                    active ? "bg-sky-50" : "hover:bg-surface-sunken"
+                    active ? "bg-sky-50 dark:bg-sky-500/15" : "hover:bg-surface-sunken"
                   }`}
                 >
                   <span
@@ -378,7 +378,7 @@ function ReviewStage({
           <button
             type="button"
             onClick={onToggleAll}
-            className="ml-auto text-meta font-medium text-sky-600 hover:underline"
+            className="ml-auto text-meta font-medium text-sky-600 dark:text-sky-300 hover:underline"
           >
             {allSelected ? "Deselect all" : "Select all"}
           </button>
@@ -457,7 +457,7 @@ function ProposalRow({
         </span>
         {!p.unmapped && p.partial && (
           <Tooltip label="Only part of this feature aligned; the mapped span is clipped to what matched.">
-            <span className="flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-meta font-medium text-amber-700">
+            <span className="flex shrink-0 items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-500/15 px-2 py-0.5 text-meta font-medium text-amber-700 dark:text-amber-300">
               <WarnIcon className="h-3 w-3" />
               partial
             </span>

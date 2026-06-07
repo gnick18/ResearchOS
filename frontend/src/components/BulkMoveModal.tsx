@@ -64,12 +64,12 @@ export default function BulkMoveModal() {
         </p>
 
         {data && data.warnings.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
-            <p className="text-meta font-semibold text-amber-700 mb-1">
+          <div className="bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 rounded-lg p-3 mb-4">
+            <p className="text-meta font-semibold text-amber-700 dark:text-amber-300 mb-1">
               ⚠ Warnings
             </p>
             {data.warnings.map((w, i) => (
-              <p key={i} className="text-meta text-amber-600">
+              <p key={i} className="text-meta text-amber-600 dark:text-amber-300">
                 {w}
               </p>
             ))}

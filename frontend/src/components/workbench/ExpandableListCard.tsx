@@ -45,8 +45,8 @@ interface CelebrationState {
 }
 
 const DATE_CHIP_CLASSES: Record<DateSignalKind, string> = {
-  overdue: "text-red-700 bg-red-50 border border-red-200",
-  doing: "text-blue-700 bg-blue-50 border border-blue-200",
+  overdue: "text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30",
+  doing: "text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/15 border border-blue-200 dark:border-blue-500/30",
   upcoming: "text-foreground-muted bg-surface-sunken border border-border",
   done: "text-foreground-muted bg-surface-sunken border border-border",
 };
@@ -341,7 +341,7 @@ export default function ExpandableListCard({
     <div
       className={`bg-surface-raised border rounded-lg transition-all ${
         isExpanded
-          ? "border-violet-300 shadow-sm"
+          ? "border-violet-300 dark:border-violet-500/30 shadow-sm"
           : "border-border hover:border-border hover:shadow-sm"
       }`}
       data-testid="expandable-list-card"
@@ -382,7 +382,7 @@ export default function ExpandableListCard({
             className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors ${
               task.is_complete
                 ? "bg-emerald-500 border border-emerald-500 text-white hover:bg-emerald-600"
-                : "border border-border hover:border-emerald-500 hover:bg-emerald-50"
+                : "border border-border hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/20"
             } ${canToggleComplete ? "" : "opacity-50 cursor-not-allowed"}`}
           >
             {task.is_complete && (
@@ -520,7 +520,7 @@ export default function ExpandableListCard({
                     setEditingName(false);
                   }
                 }}
-                className="flex-1 px-2 py-1 text-body border border-violet-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-300"
+                className="flex-1 px-2 py-1 text-body border border-violet-300 dark:border-violet-500/30 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-300"
                 aria-label="List name"
               />
             ) : (
@@ -625,7 +625,7 @@ export default function ExpandableListCard({
                           setEditingItemId(null);
                         }
                       }}
-                      className="flex-1 px-2 py-0.5 text-body border border-violet-300 rounded focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      className="flex-1 px-2 py-0.5 text-body border border-violet-300 dark:border-violet-500/30 rounded focus:outline-none focus:ring-2 focus:ring-violet-300"
                       aria-label="Edit item text"
                     />
                   ) : (

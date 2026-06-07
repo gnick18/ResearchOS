@@ -14,19 +14,19 @@ interface FreshnessTagProps {
 
 const STYLES: Record<FreshnessKind, { className: string; defaultLabel: string }> = {
   fresh: {
-    className: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    className: "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30",
     defaultLabel: "Fresh",
   },
   "just-completed": {
-    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    className: "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30",
     defaultLabel: "Just completed",
   },
   running: {
-    className: "bg-blue-100 text-blue-700 border-blue-200",
+    className: "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/30",
     defaultLabel: "Running",
   },
   awaiting: {
-    className: "bg-amber-100 text-amber-700 border-amber-200",
+    className: "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30",
     defaultLabel: "No write-up yet",
   },
   earlier: {

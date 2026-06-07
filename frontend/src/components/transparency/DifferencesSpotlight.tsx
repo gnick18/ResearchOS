@@ -24,11 +24,11 @@ function DiffRow({ d }: { d: Difference }) {
       : "within";
   const row =
     tone === "larger"
-      ? "border-amber-200 bg-amber-50/70"
+      ? "border-amber-200 dark:border-amber-500/30 bg-amber-50/70"
       : "border-border bg-surface-raised";
   const badge =
     tone === "larger"
-      ? "bg-amber-100 text-amber-800"
+      ? "bg-amber-100 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300"
       : tone === "expected"
         ? "bg-surface-sunken text-foreground-muted"
         : "bg-surface-sunken text-foreground-muted";

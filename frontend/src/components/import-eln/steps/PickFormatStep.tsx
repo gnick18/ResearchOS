@@ -84,7 +84,7 @@ function FormatCard({
   const base =
     "text-left p-4 rounded-xl border transition-colors flex flex-col gap-2 h-full";
   const enabled = isSelected
-    ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200"
+    ? "border-blue-500 bg-blue-50 dark:bg-blue-500/15 ring-2 ring-blue-200"
     : "border-border hover:border-gray-400 bg-surface-raised";
   const disabled =
     "border-dashed border-border bg-surface-sunken cursor-not-allowed opacity-60 grayscale";

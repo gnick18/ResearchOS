@@ -233,7 +233,7 @@ export default function CommentsThread({
             }}
           />
         ) : (
-          <div className="text-meta text-gray-500 bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <div className="text-meta text-gray-500 bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 rounded-lg p-3">
             Set a main user to comment as yourself (Settings → Main User).
           </div>
         )
@@ -397,7 +397,7 @@ function CommentRow({
               <button
                 type="button"
                 onClick={() => setReplyingTo(comment.id)}
-                className="text-meta text-emerald-700 hover:text-emerald-800 font-medium"
+                className="text-meta text-emerald-700 dark:text-emerald-300 hover:text-emerald-800 font-medium"
               >
                 Reply
               </button>
@@ -444,7 +444,7 @@ function CommentBody({
           <span className={nameClass}>{displayName}</span>
           {isPI && !departed && (
             <span
-              className="px-1.5 py-0.5 text-meta font-semibold rounded bg-amber-100 text-amber-800"
+              className="px-1.5 py-0.5 text-meta font-semibold rounded bg-amber-100 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300"
               title="PI"
             >
               PI
@@ -497,7 +497,7 @@ function CommentText({
         return (
           <span
             key={i}
-            className="inline-flex items-center px-1 py-0 mx-0.5 rounded bg-emerald-50 text-emerald-700 font-medium"
+            className="inline-flex items-center px-1 py-0 mx-0.5 rounded bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-medium"
             // Phase 2 doesn't ship profile pages yet — the chip is a
             // styled non-interactive span. When a user-profile route lands
             // (Phase 5+) this becomes an <a href={`/users/${s.value}`}>.

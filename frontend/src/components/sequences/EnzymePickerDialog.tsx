@@ -361,7 +361,7 @@ export default function EnzymePickerDialog({
       <div className="relative flex h-[80vh] max-h-[640px] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-border px-5 py-3.5">
-          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-sky-50 text-sky-600">
+          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300">
             <IconScissors className="h-4 w-4" />
           </span>
           <div className="min-w-0">
@@ -390,7 +390,7 @@ export default function EnzymePickerDialog({
               <button
                 type="button"
                 onClick={() => applyPreset(p.id)}
-                className="rounded-full border border-border px-2.5 py-1 text-meta font-medium text-foreground-muted transition-colors hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
+                className="rounded-full border border-border px-2.5 py-1 text-meta font-medium text-foreground-muted transition-colors hover:border-sky-200 hover:bg-sky-50 dark:hover:bg-sky-500/20 hover:text-sky-700"
               >
                 {p.label}
               </button>
@@ -430,7 +430,7 @@ export default function EnzymePickerDialog({
                 return (
                   <span
                     key={set.id}
-                    className="flex items-center gap-1 rounded-full border border-sky-300 bg-surface-raised px-1.5 py-0.5"
+                    className="flex items-center gap-1 rounded-full border border-sky-300 dark:border-sky-500/30 bg-surface-raised px-1.5 py-0.5"
                   >
                     <input
                       autoFocus
@@ -448,7 +448,7 @@ export default function EnzymePickerDialog({
                         type="button"
                         onClick={() => void commitRename()}
                         disabled={setsBusy || !renameValue.trim()}
-                        className="flex h-5 w-5 items-center justify-center rounded text-emerald-600 hover:bg-emerald-50 disabled:opacity-40"
+                        className="flex h-5 w-5 items-center justify-center rounded text-emerald-600 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/20 disabled:opacity-40"
                         aria-label="Save name"
                       >
                         <IconCheck className="h-3.5 w-3.5" />
@@ -462,8 +462,8 @@ export default function EnzymePickerDialog({
                   key={set.id}
                   className={`group flex items-center gap-1 rounded-full border py-0.5 pl-2.5 pr-1 text-meta transition-colors ${
                     isLoaded
-                      ? "border-sky-300 bg-sky-100 text-sky-800"
-                      : "border-border bg-surface-raised text-foreground-muted hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
+                      ? "border-sky-300 dark:border-sky-500/30 bg-sky-100 dark:bg-sky-500/15 text-sky-800 dark:text-sky-300"
+                      : "border-border bg-surface-raised text-foreground-muted hover:border-sky-200 hover:bg-sky-50 dark:hover:bg-sky-500/20 hover:text-sky-700"
                   }`}
                   data-testid="enzyme-saved-set-chip"
                 >
@@ -515,7 +515,7 @@ export default function EnzymePickerDialog({
                   type="button"
                   onClick={() => void updateLoadedSet()}
                   disabled={setsBusy}
-                  className="rounded-full border border-sky-300 bg-surface-raised px-2.5 py-1 text-meta font-medium text-sky-700 hover:bg-sky-50 disabled:opacity-40"
+                  className="rounded-full border border-sky-300 dark:border-sky-500/30 bg-surface-raised px-2.5 py-1 text-meta font-medium text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-500/20 disabled:opacity-40"
                 >
                   Update
                 </button>
@@ -524,7 +524,7 @@ export default function EnzymePickerDialog({
 
             {/* Save as… inline name prompt, or the button that opens it. */}
             {savePromptOpen ? (
-              <span className="ml-auto flex items-center gap-1 rounded-full border border-sky-300 bg-surface-raised px-1.5 py-0.5">
+              <span className="ml-auto flex items-center gap-1 rounded-full border border-sky-300 dark:border-sky-500/30 bg-surface-raised px-1.5 py-0.5">
                 <input
                   autoFocus
                   value={saveName}
@@ -542,7 +542,7 @@ export default function EnzymePickerDialog({
                     type="button"
                     onClick={() => void commitSaveAs()}
                     disabled={setsBusy || !saveName.trim()}
-                    className="flex h-5 w-5 items-center justify-center rounded text-emerald-600 hover:bg-emerald-50 disabled:opacity-40"
+                    className="flex h-5 w-5 items-center justify-center rounded text-emerald-600 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/20 disabled:opacity-40"
                     aria-label="Save set"
                   >
                     <IconCheck className="h-3.5 w-3.5" />
@@ -565,7 +565,7 @@ export default function EnzymePickerDialog({
                   type="button"
                   onClick={beginSaveAs}
                   disabled={selected.size === 0}
-                  className="ml-auto flex items-center gap-1 rounded-full border border-border bg-surface-raised px-2.5 py-1 text-meta font-medium text-foreground-muted transition-colors hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="ml-auto flex items-center gap-1 rounded-full border border-border bg-surface-raised px-2.5 py-1 text-meta font-medium text-foreground-muted transition-colors hover:border-sky-200 hover:bg-sky-50 dark:hover:bg-sky-500/20 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
                   data-testid="enzyme-save-set-button"
                 >
                   <IconBookmark className="h-3.5 w-3.5" />
@@ -653,7 +653,7 @@ export default function EnzymePickerDialog({
                 type="checkbox"
                 checked={filter.hideNoncutters}
                 onChange={(e) => patch({ hideNoncutters: e.target.checked })}
-                className="h-3.5 w-3.5 rounded border-border text-sky-600 focus:ring-sky-400"
+                className="h-3.5 w-3.5 rounded border-border text-sky-600 dark:text-sky-300 focus:ring-sky-400"
               />
               Hide noncutters
             </label>
@@ -662,7 +662,7 @@ export default function EnzymePickerDialog({
                 type="checkbox"
                 checked={filter.palindromicOnly}
                 onChange={(e) => patch({ palindromicOnly: e.target.checked })}
-                className="h-3.5 w-3.5 rounded border-border text-sky-600 focus:ring-sky-400"
+                className="h-3.5 w-3.5 rounded border-border text-sky-600 dark:text-sky-300 focus:ring-sky-400"
               />
               Palindromic only
             </label>
@@ -671,7 +671,7 @@ export default function EnzymePickerDialog({
                 type="checkbox"
                 checked={filter.nondegenerateOnly}
                 onChange={(e) => patch({ nondegenerateOnly: e.target.checked })}
-                className="h-3.5 w-3.5 rounded border-border text-sky-600 focus:ring-sky-400"
+                className="h-3.5 w-3.5 rounded border-border text-sky-600 dark:text-sky-300 focus:ring-sky-400"
               />
               Nondegenerate only
             </label>
@@ -693,7 +693,7 @@ export default function EnzymePickerDialog({
                   checked={inSelection && hasSelection}
                   disabled={!hasSelection}
                   onChange={(e) => setInSelection(e.target.checked)}
-                  className="h-3.5 w-3.5 rounded border-border text-sky-600 focus:ring-sky-400 disabled:opacity-40"
+                  className="h-3.5 w-3.5 rounded border-border text-sky-600 dark:text-sky-300 focus:ring-sky-400 disabled:opacity-40"
                 />
                 Inside selection only
               </label>
@@ -710,7 +710,7 @@ export default function EnzymePickerDialog({
               <button
                 type="button"
                 onClick={selectVisible}
-                className="rounded px-2 py-0.5 font-medium text-sky-600 hover:bg-sky-50"
+                className="rounded px-2 py-0.5 font-medium text-sky-600 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-500/20"
               >
                 Select all shown
               </button>
@@ -731,7 +731,7 @@ export default function EnzymePickerDialog({
                             type="checkbox"
                             checked={checked}
                             onChange={() => toggle(d.info.key)}
-                            className="h-3.5 w-3.5 rounded border-border text-sky-600 focus:ring-sky-400"
+                            className="h-3.5 w-3.5 rounded border-border text-sky-600 dark:text-sky-300 focus:ring-sky-400"
                           />
                           <span className="w-24 shrink-0 font-medium text-foreground">{d.info.name}</span>
                           <span className="min-w-0 flex-1 break-all font-mono text-meta text-foreground-muted">{d.info.rseq}</span>
@@ -739,7 +739,7 @@ export default function EnzymePickerDialog({
                             {d.cutCount === 0 ? (
                               <span className="text-foreground-muted">no cut</span>
                             ) : (
-                              <span className={d.cutCount === 1 ? "text-emerald-600" : ""}>
+                              <span className={d.cutCount === 1 ? "text-emerald-600 dark:text-emerald-300" : ""}>
                                 {d.cutCount} cut{d.cutCount === 1 ? "" : "s"}
                               </span>
                             )}

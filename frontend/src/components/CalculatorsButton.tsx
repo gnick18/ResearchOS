@@ -136,7 +136,7 @@ function CalculatorsModal({ onClose }: { onClose: () => void }) {
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-border">
             <h2 className="text-heading font-bold text-foreground flex items-center gap-2">
-              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-sky-100 text-sky-600">
+              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-sky-100 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300">
                 <CalculatorIcon className="w-4 h-4" />
               </span>
               Lab calculators
@@ -161,7 +161,7 @@ function CalculatorsModal({ onClose }: { onClose: () => void }) {
                 className={
                   "px-3 py-1.5 text-body font-medium rounded-t-lg transition-colors border-b-2 -mb-px " +
                   (active
-                    ? "border-sky-500 text-sky-700 bg-sky-50"
+                    ? "border-sky-500 text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-500/15"
                     : "border-transparent text-foreground-muted hover:text-foreground hover:bg-surface-sunken")
                 }
               >
@@ -337,7 +337,7 @@ function CalcKey({
   const variants: Record<KeyVariant, string> = {
     digit: "bg-surface-sunken text-foreground hover:bg-surface-sunken",
     fn: "bg-surface-raised text-foreground-muted border border-border hover:bg-surface-sunken",
-    op: "bg-sky-50 text-sky-700 hover:bg-sky-100",
+    op: "bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-500/20",
     accent: "bg-sky-600 text-white hover:bg-sky-700",
     muted: "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken",
   };
@@ -667,7 +667,7 @@ function DilutionTab() {
 
       <ResultCard empty={v1L === null}>
         {v1L !== null && overflow && (
-          <p className="text-body text-amber-700">
+          <p className="text-body text-amber-700 dark:text-amber-300">
             The final concentration is higher than the stock; check your inputs.
           </p>
         )}
@@ -726,7 +726,7 @@ function SerialTab() {
       ) : (
         <div className="overflow-x-auto rounded-xl border border-sky-100">
           <table className="w-full text-body">
-            <thead className="bg-sky-50 text-foreground-muted">
+            <thead className="bg-sky-50 dark:bg-sky-500/15 text-foreground-muted">
               <tr>
                 <th className="px-3 py-2 text-left font-semibold">Tube</th>
                 <th className="px-3 py-2 text-right font-semibold">Concentration</th>
@@ -1109,7 +1109,7 @@ function BufferTab() {
       <button
         type="button"
         onClick={() => setRows((prev) => [...prev, newRow()])}
-        className="text-body font-medium text-sky-700 hover:text-sky-900 inline-flex items-center gap-1.5"
+        className="text-body font-medium text-sky-700 dark:text-sky-300 hover:text-sky-900 inline-flex items-center gap-1.5"
       >
         <svg aria-hidden className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v14M5 12h14" />
@@ -1122,7 +1122,7 @@ function BufferTab() {
       ) : (
         <ResultCard>
           {result.overflows && (
-            <p className="mb-2 text-body text-amber-700">
+            <p className="mb-2 text-body text-amber-700 dark:text-amber-300">
               The stock volumes add up to more than the total volume; check your
               inputs.
             </p>

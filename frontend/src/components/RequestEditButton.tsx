@@ -48,7 +48,7 @@ export default function RequestEditButton({
   const classes =
     variant === "primary"
       ? `${baseClasses} px-3 py-1.5 bg-amber-600 text-white hover:bg-amber-700`
-      : `${baseClasses} px-2 py-1 border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100`;
+      : `${baseClasses} px-2 py-1 border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-500/20`;
 
   return (
     <>

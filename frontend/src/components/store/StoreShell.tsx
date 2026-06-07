@@ -379,14 +379,14 @@ function CategoryButton({
       aria-current={active ? "true" : undefined}
       className={`w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-body transition-colors ${
         active
-          ? "bg-blue-50 text-blue-700 font-medium"
+          ? "bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 font-medium"
           : "text-foreground-muted hover:bg-surface-sunken"
       }`}
     >
       <span className="truncate">{label}</span>
       <span
         className={`shrink-0 rounded-full px-2 py-0.5 text-meta font-medium ${
-          active ? "bg-blue-100 text-blue-700" : "bg-surface-sunken text-foreground-muted"
+          active ? "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300" : "bg-surface-sunken text-foreground-muted"
         }`}
       >
         {count}

@@ -376,7 +376,7 @@ export default function TrashPage() {
         {actionState.error && (
           <div
             role="alert"
-            className="rounded-md border border-red-300 bg-red-50 text-red-800 text-body px-3 py-2"
+            className="rounded-md border border-red-300 dark:border-red-500/30 bg-red-50 dark:bg-red-500/15 text-red-800 dark:text-red-300 text-body px-3 py-2"
           >
             {actionState.error}
           </div>
@@ -406,7 +406,7 @@ export default function TrashPage() {
                 type="button"
                 onClick={() => setConfirmBulkDelete(true)}
                 disabled={bulkBusy}
-                className="px-3 py-1.5 text-body rounded-md text-red-700 border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-body rounded-md text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/15 hover:bg-red-100 dark:hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Permanent delete {selectedCount}
               </button>
@@ -690,7 +690,7 @@ function TrashRow({
             type="button"
             onClick={onPermanentDelete}
             disabled={busy}
-            className="px-3 py-1.5 text-body rounded-md text-red-700 border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 text-body rounded-md text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/15 hover:bg-red-100 dark:hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Permanent delete
           </button>

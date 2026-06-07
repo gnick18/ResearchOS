@@ -121,7 +121,7 @@ function PanelSwitcher({
       onClick={() => onChange(id)}
       className={`flex-1 text-left px-3 py-2 rounded-lg border transition-colors ${
         active === id
-          ? "border-blue-400 bg-blue-50"
+          ? "border-blue-400 bg-blue-50 dark:bg-blue-500/15"
           : "border-border bg-surface-raised hover:border-border"
       }`}
     >

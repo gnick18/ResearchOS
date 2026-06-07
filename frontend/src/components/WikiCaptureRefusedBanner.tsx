@@ -35,10 +35,10 @@ export default function WikiCaptureRefusedBanner() {
       aria-live="assertive"
       className="fixed inset-x-0 top-0 z-[100] flex justify-center px-4 pt-4"
     >
-      <div className="flex w-full max-w-2xl items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 px-5 py-4 shadow-xl">
+      <div className="flex w-full max-w-2xl items-start gap-3 rounded-xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-5 py-4 shadow-xl">
         <svg
           aria-hidden
-          className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600"
+          className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-300"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -51,10 +51,10 @@ export default function WikiCaptureRefusedBanner() {
           />
         </svg>
         <div className="flex-1">
-          <p className="text-body font-semibold text-amber-900">
+          <p className="text-body font-semibold text-amber-900 dark:text-amber-300">
             Capture mode is unavailable while your real folder is connected
           </p>
-          <p className="mt-1 text-body text-amber-800">
+          <p className="mt-1 text-body text-amber-800 dark:text-amber-300">
             Your real research data is showing, not the demo fixtures. To record
             with fixture data, open an incognito window or disconnect your folder
             first, then add the capture flag again.
