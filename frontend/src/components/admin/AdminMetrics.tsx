@@ -107,7 +107,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col bg-surface-sunken text-foreground">
       <header className="border-b border-border bg-surface-raised">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-[1600px] items-center justify-between px-6 py-4">
           <span className="text-body font-semibold text-foreground">
             ResearchOS operator metrics
           </span>
@@ -127,7 +127,7 @@ function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-10">
+      <main className="mx-auto w-full max-w-[1600px] flex-1 px-6 py-10">
         {children}
       </main>
       <AppFooter />
