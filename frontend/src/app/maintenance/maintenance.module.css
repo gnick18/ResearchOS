@@ -1,0 +1,24 @@
+/* Gentle shared float for the BeakerBot + hard hat + hammer group, so the hat
+   stays glued to his head (it is a sibling overlay, and BeakerBot's own idle
+   animation would otherwise move his body out from under it). The whole group
+   bobs as one unit. */
+.float {
+  animation: maintenanceFloat 3.2s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes maintenanceFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .float {
+    animation: none;
+  }
+}
