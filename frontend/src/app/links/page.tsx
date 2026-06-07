@@ -15,6 +15,7 @@ import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import AttributionChip from "@/components/AttributionChip";
+import { useLinksBeakerSource } from "./useLinksBeakerSource";
 
 // Predefined colors for link cards
 const CARD_COLORS = [
@@ -229,6 +230,33 @@ export default function LabLinksPage() {
     acc[cat].push(link);
     return acc;
   }, {} as Record<string, LabLink[]>);
+
+  // Register the Links BeakerSearch source (step 3) while the page is mounted.
+  // The pure builder + the thin wiring live in the co-located
+  // links-beaker-source.ts / useLinksBeakerSource.ts; this hands it the page's
+  // live state + real handlers so the palette drives the same flows the cards do.
+  useLinksBeakerSource({
+    links,
+    groupedLinks,
+    editingLink,
+    isCreating,
+    isLoadingPreview,
+    title,
+    url,
+    wholeLab,
+    color,
+    startCreate,
+    startEdit,
+    cancelEdit,
+    handleCreate,
+    handleUpdate,
+    handleFetchPreview,
+    setDeleteConfirmId,
+    setColor,
+    setWholeLab,
+    currentUser: currentUser ?? "",
+    profileMap,
+  });
 
   return (
     <AppShell>
@@ -482,7 +510,7 @@ export default function LabLinksPage() {
         ) : (
           <div className="space-y-6">
             {Object.entries(groupedLinks).map(([cat, catLinks]) => (
-              <div key={cat}>
+              <div key={cat} data-link-category={cat}>
                 <h3 className="text-meta font-semibold text-foreground-muted uppercase tracking-wider mb-3">
                   {cat}
                 </h3>
@@ -490,6 +518,7 @@ export default function LabLinksPage() {
                   {catLinks.map((link) => (
                     <a
                       key={link.id}
+                      data-link-key={link.id}
                       href={link.url}
                       target="_blank"
                       rel="noopener noreferrer"
