@@ -7,6 +7,9 @@ import { MIGRATIONS } from "./registry";
 import { readMarker, writeMarker } from "./marker";
 import type { MigrationRunSummary } from "./types";
 
+/** Total number of registered migrations, for the Settings status line. */
+export const MIGRATION_COUNT = MIGRATIONS.length;
+
 export async function runPendingMigrations(
   username: string,
 ): Promise<MigrationRunSummary> {
@@ -45,6 +48,44 @@ export async function runPendingMigrations(
     } catch (error) {
       // The marker write failing is non-fatal: the migrations still ran (and are
       // idempotent), they will just re-run next connect.
+      console.warn("[migrations] marker write failed", error);
+    }
+  }
+
+  return summary;
+}
+
+/**
+ * Run EVERY migration regardless of the marker, then rewrite the marker to the
+ * successful set. Powers the Settings "Re-run all checks" button (support /
+ * power users); the migrations are idempotent so a forced re-run is safe.
+ */
+export async function runAllMigrations(
+  username: string,
+): Promise<MigrationRunSummary> {
+  const summary: MigrationRunSummary = {
+    ran: [],
+    totalChanged: 0,
+    failures: [],
+  };
+  const applied: string[] = [];
+
+  for (const migration of MIGRATIONS) {
+    try {
+      const report = await migration.run({ username });
+      summary.ran.push(migration.id);
+      summary.totalChanged += report.changed;
+      applied.push(migration.id);
+    } catch (error) {
+      console.warn(`[migrations] ${migration.id} failed`, error);
+      summary.failures.push({ id: migration.id, error });
+    }
+  }
+
+  if (applied.length > 0) {
+    try {
+      await writeMarker(username, applied);
+    } catch (error) {
       console.warn("[migrations] marker write failed", error);
     }
   }

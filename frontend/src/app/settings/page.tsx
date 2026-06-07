@@ -11,6 +11,7 @@ import AccountPasswordPopup from "@/components/AccountPasswordPopup";
 import DataSetupScreen from "@/components/DataSetupScreen";
 import UserLoginScreen from "@/components/UserLoginScreen";
 import ImportExperimentDialog from "@/components/ImportExperimentDialog";
+import MigrationStatusRow from "@/components/settings/MigrationStatusRow";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import Tooltip from "@/components/Tooltip";
 import { Icon } from "@/components/icons";
@@ -2332,26 +2333,6 @@ function TrashAndHistorySection({ settings, update }: SectionProps) {
 
 function MaintenanceSection() {
   const [importOpen, setImportOpen] = useState(false);
-  const [orphanNotice, setOrphanNotice] = useState<number | null>(null);
-
-  // Passive boot-time probe: if the orphan LabArchives sidecars (see
-  // SECURITY_AUDIT.md §3.4) are still on disk, surface an amber notice
-  // above the section pointing at the cleanup row. Read-only — the user
-  // still has to click the button to delete anything.
-  useEffect(() => {
-    let cancelled = false;
-    void scanOrphanLabArchivesFiles()
-      .then((found) => {
-        if (cancelled) return;
-        setOrphanNotice(found.length > 0 ? found.length : null);
-      })
-      .catch((err) => {
-        console.warn("[Settings/Maintenance] orphan scan failed:", err);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   return (
     <SectionShell
@@ -2359,12 +2340,6 @@ function MaintenanceSection() {
       description="Tools for normalising on-disk task and method data. Safe to run any time; reports what it changed."
       searchKeywords="repair method links source paths split lab notes results attachments stamp formats reconcile cross-owner project sharing import experiment zip LabArchives orphan credentials"
     >
-      {orphanNotice !== null && (
-        <div className="rounded-md border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-3 py-2 text-meta text-amber-900 dark:text-amber-300">
-          Orphaned LabArchives credential file(s) detected ({orphanNotice}). See the
-          &ldquo;Clean up orphaned LabArchives credentials&rdquo; button below.
-        </div>
-      )}
       <ImportRow onOpen={() => setImportOpen(true)} />
       {importOpen && (
         <ImportExperimentDialog
@@ -2372,88 +2347,7 @@ function MaintenanceSection() {
           onClose={() => setImportOpen(false)}
         />
       )}
-      <RepairRow
-        title="Repair method links"
-        searchDesc="Walks every task in your folder and rewrites the few that still store their linked method in the old method_id field. The app already understands the legacy shape on read; this is for confidence and tidier files on disk."
-        description={
-          <>
-            Walks every task in your folder and rewrites the few that still
-            store their linked method in the old <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">method_id</code> field.
-            The app already understands the legacy shape on read; this is
-            for confidence and tidier files on disk.
-          </>
-        }
-        run={tasksApi.repairMethodLinks}
-        invalidateKey={["tasks"]}
-      />
-      <RepairRow
-        title="Repair method source paths"
-        searchDesc="Walks every method (private and public) and renames the legacy github_path field to source_path. Same value, just under the new name."
-        description={
-          <>
-            Walks every method (private and public) and renames the legacy <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">github_path</code> field to <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">source_path</code>.
-            Same value, just under the new name. The app reads either field
-            transparently; this is to retire the old key.
-          </>
-        }
-        run={methodsApi.repairSourcePaths}
-        invalidateKey={["methods"]}
-      />
-      <RepairRow
-        title="Split Lab Notes / Results attachments"
-        searchDesc="Walks every task you own and splits the shared results/task-N/Files/ and Images/ into per-tab folders notes and results, copying each file into whichever tab body references it and rewriting markdown links to match."
-        description={
-          <>
-            Walks every task you own and splits the shared <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">results/task-N/Files/</code> and <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">results/task-N/Images/</code> into per-tab folders <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">notes/{`{Files,Images}`}</code> and <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">results/{`{Files,Images}`}</code>, copying each file into whichever tab body references it (or both if both reference it) and rewriting markdown links to match.
-            Files referenced by neither body are left alone in the legacy folder.
-            If you have any leftover <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">Attachments/</code> folders from the previous repair button, this step runs that fold-into-<code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">Files/</code> migration first.
-            The app falls back to the legacy shared folder on read so old data renders without clicking this — the button finishes the long tail.
-          </>
-        }
-        run={splitAllTaskAttachments}
-        invalidateKey={["tasks"]}
-      />
-      <RepairRow
-        title="Repair stamp formats"
-        searchDesc="Walks every notes, results, and method markdown file and rewrites the legacy stamp header into the new HTML-comment format."
-        description={
-          <>
-            Walks every notes, results, and method markdown file and rewrites the legacy stamp header (the <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">[stamp-start]: # (hidden)</code> block at the top) into the new HTML-comment format.
-            Older files render with a stray <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">[stamp-end]: # (hidden)</code> line bleeding into the preview; the app folds these in on first open, but the button finishes any tail you have not visited yet.
-          </>
-        }
-        run={repairStampFormats}
-        invalidateKey={["tasks"]}
-      />
-      <RepairRow
-        title="Repair PCR protocols"
-        searchDesc="Walks every PCR protocol (private and public) and normalises malformed gradient steps, cycles, ingredients, and missing fields back to a valid shape so they open and run cleanly."
-        description={
-          <>
-            Walks every PCR protocol (private and public) and normalises
-            malformed gradient steps, cycles, and ingredient rows, plus any
-            missing <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">name</code>, <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">notes</code>, or <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">is_public</code> fields, back to a valid shape.
-            Records missing a numeric <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">id</code> can&rsquo;t be recovered and are reported under failed.
-          </>
-        }
-        run={async () => {
-          // The repair lib returns its own RepairReport shape; map it onto
-          // the RepairRow RepairSummary tally without touching the lib.
-          const report = await repairAllPCRProtocols();
-          return {
-            scanned: report.total,
-            repaired: report.repaired,
-            alreadyCorrect: Math.max(
-              0,
-              report.total - report.repaired - report.unrecoverable,
-            ),
-            failed: report.unrecoverable,
-          };
-        }}
-        invalidateKey={["pcr_protocols"]}
-      />
-      <ReconcileRow />
-      <LabArchivesOrphanCleanupRow />
+      <MigrationStatusRow />
     </SectionShell>
   );
 }
