@@ -1016,7 +1016,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       {/* Beta surfacing, mirrors the folder-setup screen: version badge
           top-left + beta notice bottom-left so both pre-app gates carry the
           same framing. */}
-      <VersionBadge tone="onDark" className="fixed top-3 left-4 z-[110]" />
+      <VersionBadge tone="surface" className="fixed top-3 left-4 z-[110]" />
       <BetaNotice className="hidden sm:block fixed bottom-4 left-4 z-[110] max-w-xs shadow-lg" />
       {/* Background pattern */}
       <div className="absolute inset-0 opacity-5">
