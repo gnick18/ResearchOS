@@ -15,9 +15,11 @@ slightly off, search the provider's settings for the named feature in quotes.
 
 ## 1. Vercel Spend Management (the strongest single guard, do this first)
 
-This can HARD PAUSE the project when spend hits a limit. Requires a Pro plan
-(Hobby has fixed free caps already and no overage, so if you are on Hobby you can
-skip this and rely on the Hobby limits).
+This can HARD PAUSE the project when spend hits a limit. The project is on the
+Pro plan as of 2026-06-07, so this is now both available and important. Pro bills
+overages beyond the $20 of included monthly usage, unlike Hobby which had fixed
+free caps and no overage, so setting a hard spend cap is the main thing standing
+between you and a runaway bill. Do this now.
 
 1. Go to https://vercel.com/dashboard
 2. Open the ResearchOS team/project, then Settings.

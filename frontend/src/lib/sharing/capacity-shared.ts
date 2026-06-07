@@ -75,9 +75,11 @@ export const STORAGE_FREE_TIER_BYTES = {
 } as const;
 
 /**
- * Fixed monthly platform base, independent of usage or user count: Cloudflare
- * Workers Paid ($5) plus Vercel Pro ($20, required once the app is commercial).
- * This is the floor you pay at any scale; storage overages stack on top.
+ * Fixed monthly platform base, independent of usage or user count. Cloudflare
+ * Workers Paid ($5) plus Vercel Pro ($20, active as of 2026-06-07). Vercel Pro
+ * includes $20 of metered usage each month, which offsets the first $20 of
+ * Vercel-side overages. This is the floor you pay at any scale; storage
+ * overages stack on top.
  */
 export const FIXED_MONTHLY_BASE_CENTS = 2500;
 
