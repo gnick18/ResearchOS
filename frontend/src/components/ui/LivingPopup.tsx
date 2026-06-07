@@ -237,10 +237,15 @@ export default function LivingPopup({
       {/* Scrim over the live page behind. Click closes. It always dims; it only
           blurs for a big attention-demanding popup (blur prop) that is the
           bottom-most blurring popup, so little popups never blur and blur never
-          compounds (see popup-stack). */}
+          compounds (see popup-stack). preventDefault on mousedown so the scrim
+          never STEALS FOCUS from the content: otherwise clicking out would blur
+          a focused field, fire its onBlur (e.g. an editor's save) mid-close, and
+          that async save could land after unmount and reopen the popup. The
+          click still fires, so it still closes. */}
       <button
         type="button"
         aria-label={closeLabel}
+        onMouseDown={(e) => e.preventDefault()}
         onClick={closeOnScrimClick ? onClose : undefined}
         className={`absolute inset-0 h-full w-full cursor-default bg-slate-900/25 ${
           shouldBlur ? "backdrop-blur-md" : ""
@@ -261,6 +266,7 @@ export default function LivingPopup({
         <Tooltip label="Close" placement="bottom">
           <button
             type="button"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={onClose}
             aria-label={closeLabel}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-raised/80 text-foreground-muted shadow ring-1 ring-black/5 backdrop-blur transition-colors hover:bg-surface-raised hover:text-foreground"
