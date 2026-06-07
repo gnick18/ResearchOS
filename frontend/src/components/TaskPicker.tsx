@@ -47,8 +47,10 @@ export default function TaskPicker({
   onSelect,
   onClose,
 }: TaskPickerProps) {
-  // Opens over the task/experiment detail popups, so blur only when bottom-most.
-  const { shouldBlur } = usePopupLayer(open, true);
+  // Opens over the task/experiment detail popups, so blur AND dim only when
+  // bottom-most; stacked on top of a popup that already dims, paint neither, or
+  // the scrim double-darkens (Grant's popup-stack rule).
+  const { shouldBlur, shouldDim } = usePopupLayer(open, true);
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["projects"],
     queryFn: fetchAllProjectsIncludingShared,
@@ -207,9 +209,9 @@ export default function TaskPicker({
 
   return (
     <div
-      className={`fixed inset-0 z-[60] flex items-start justify-center bg-black/30 pt-[10vh] px-4 ${
-        shouldBlur ? "backdrop-blur-sm" : ""
-      }`}
+      className={`fixed inset-0 z-[60] flex items-start justify-center pt-[10vh] px-4 ${
+        shouldDim ? "bg-black/30" : ""
+      } ${shouldBlur ? "backdrop-blur-sm" : ""}`}
       // Marker for TourSpotlight (popup-occluding sweep manager,
       // 2026-05-27). Hides the v4 walkthrough ring while this popup
       // is mounted; see SnapshotTilePopup for the canonical example.
