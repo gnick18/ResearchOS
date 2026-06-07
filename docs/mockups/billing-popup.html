@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cloud storage &amp; billing popup, design mockup</title>
+<style>
+  /* Approximation of the app's design tokens (light + dark), so this mockup
+     reads like the real LivingPopup without pulling in the build. */
+  :root {
+    --surface: #f5f6f8;
+    --surface-raised: #ffffff;
+    --surface-sunken: #eef0f3;
+    --border: #e2e5ea;
+    --foreground: #15181d;
+    --foreground-muted: #6b7280;
+    --sky: #0ea5e9;
+    --sky-600: #0284c7;
+    --sky-700: #0369a1;
+    --sky-tint: #e0f2fe;
+    --emerald-text: #047857;
+    --emerald-ring: #a7f3d0;
+    --amber-text: #b45309;
+    --shadow: 0 24px 60px rgba(15, 23, 42, .22);
+  }
+  .dark {
+    --surface: #15181d;
+    --surface-raised: #1c2026;
+    --surface-sunken: #23282f;
+    --border: #2c323b;
+    --foreground: #f2f4f7;
+    --foreground-muted: #9aa3af;
+    --sky: #38bdf8;
+    --sky-600: #0284c7;
+    --sky-700: #0369a1;
+    --sky-tint: rgba(56, 189, 248, .15);
+    --emerald-text: #6ee7b7;
+    --emerald-ring: rgba(16, 185, 129, .3);
+    --amber-text: #fbbf24;
+    --shadow: 0 24px 60px rgba(0, 0, 0, .55);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, rgba(14,165,233,.10), transparent),
+      var(--surface);
+    color: var(--foreground);
+    min-height: 100vh;
+    padding: 28px 16px 80px;
+  }
+  .toolbar {
+    max-width: 720px; margin: 0 auto 22px; display: flex; flex-wrap: wrap;
+    gap: 8px; align-items: center; justify-content: center;
+  }
+  .toolbar .label { color: var(--foreground-muted); font-size: 12px; margin-right: 4px; }
+  .seg {
+    border: 1px solid var(--border); background: var(--surface-raised);
+    color: var(--foreground); border-radius: 9px; padding: 7px 12px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .seg.active { border-color: var(--sky); background: var(--sky-tint); color: var(--sky-700); }
+  .dark .seg.active { color: var(--sky); }
+
+  /* scrim + popup card */
+  .scrim {
+    max-width: 720px; margin: 0 auto; border-radius: 28px;
+    background:
+      repeating-linear-gradient(45deg, rgba(125,135,150,.06) 0 12px, transparent 12px 24px);
+    padding: 26px; backdrop-filter: blur(2px);
+  }
+  .popup {
+    border-radius: 18px; background: var(--surface); box-shadow: var(--shadow);
+    border: 1px solid rgba(0,0,0,.05); overflow: hidden; max-height: 80vh;
+    display: flex; flex-direction: column;
+  }
+  .pop-head { padding: 18px 24px; border-bottom: 1px solid var(--border); }
+  .pop-head h2 { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -.01em; }
+  .pop-head p { margin: 3px 0 0; font-size: 12px; color: var(--foreground-muted); }
+  .pop-body { padding: 18px 24px 22px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+
+  .card {
+    border: 1px solid var(--border); background: var(--surface-raised);
+    border-radius: 16px; padding: 18px 20px;
+  }
+  .card h3 { margin: 0; font-size: 15px; font-weight: 640; }
+  .card .desc { margin: 4px 0 0; font-size: 12px; line-height: 1.5; color: var(--foreground-muted); }
+  .card .body { margin-top: 14px; }
+
+  .summary { border-radius: 16px; padding: 16px 20px; border: 1px solid var(--border);
+    background: var(--surface-raised); box-shadow: inset 0 0 0 1px var(--border); }
+  .summary.free { box-shadow: inset 0 0 0 1px var(--border); }
+  .summary.individual { box-shadow: inset 0 0 0 1px var(--sky-tint); }
+  .summary.lab { box-shadow: inset 0 0 0 1px var(--emerald-ring); }
+  .summary .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+  .summary.free .eyebrow { color: var(--foreground-muted); }
+  .summary.individual .eyebrow { color: var(--sky-700); }
+  .dark .summary.individual .eyebrow { color: var(--sky); }
+  .summary.lab .eyebrow { color: var(--emerald-text); }
+  .summary p.detail { margin: 4px 0 0; font-size: 14px; line-height: 1.5; }
+
+  .usage-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 6px 16px; }
+  .usage-head .big { font-size: 22px; font-weight: 750; letter-spacing: -.02em; }
+  .usage-head .big span { font-size: 15px; font-weight: 600; color: var(--foreground-muted); }
+  .pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 2px 10px;
+    font-size: 12px; font-weight: 650; box-shadow: inset 0 0 0 1px var(--border); color: var(--sky-700); }
+  .dark .pill { color: var(--sky); }
+  .bar { position: relative; margin-top: 8px; height: 12px; width: 100%; border-radius: 999px;
+    background: var(--surface-sunken); box-shadow: inset 0 0 0 1px var(--border); overflow: hidden; }
+  .bar > i { display: block; height: 100%; border-radius: 999px; background: var(--sky); }
+  .bar .boundary { position: absolute; top: 0; height: 100%; border-left: 1px dashed var(--foreground-muted); opacity: .6; }
+  .hint { margin-top: 6px; font-size: 12px; color: var(--foreground-muted); }
+
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .tile { border: 1px solid var(--border); background: var(--surface-sunken); border-radius: 12px; padding: 11px 14px; }
+  .tile .l { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--foreground-muted); }
+  .tile .v { margin-top: 4px; font-size: 16px; font-weight: 700; }
+  .tile .v.strong { font-size: 18px; }
+  .tile .h { margin-top: 2px; font-size: 11px; color: var(--foreground-muted); }
+
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cap { border: 1px solid var(--border); background: var(--surface-raised); border-radius: 10px;
+    padding: 9px 12px; text-align: left; cursor: pointer; }
+  .cap.sel { border-color: var(--sky); background: var(--sky-tint); }
+  .cap b { display: block; font-size: 14px; font-weight: 650; }
+  .cap small { display: block; font-size: 12px; color: var(--foreground-muted); }
+
+  .row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
+    border: 1px solid var(--border); background: var(--surface-sunken); border-radius: 10px; padding: 10px 14px; }
+  .row .who { min-width: 0; }
+  .row .who b { font-size: 14px; font-weight: 550; }
+  .row .who small { display: block; font-size: 12px; color: var(--foreground-muted); }
+  .btn { border-radius: 9px; padding: 7px 14px; font-size: 12px; font-weight: 650; cursor: pointer; border: 1px solid var(--border);
+    background: var(--surface-raised); color: var(--foreground); }
+  .btn.primary { background: var(--sky-600); border-color: var(--sky-600); color: #fff; }
+  .input { flex: 1; min-width: 0; border: 1px solid var(--border); background: var(--surface-sunken);
+    border-radius: 10px; padding: 9px 12px; font-size: 14px; color: var(--foreground); }
+  .check { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 550; }
+  .check input { width: 18px; height: 18px; }
+  .micro { font-size: 12px; color: var(--foreground-muted); margin-top: 6px; }
+  .uppermini { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--foreground-muted); }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .mt12 { margin-top: 12px; } .mt16 { margin-top: 16px; }
+  .launcher-note { max-width: 720px; margin: 18px auto 0; font-size: 12px; color: var(--foreground-muted); text-align: center; }
+
+  /* per-member breakdown */
+  .stacked { display: flex; height: 14px; margin-top: 8px; width: 100%; border-radius: 999px;
+    overflow: hidden; box-shadow: inset 0 0 0 1px var(--border); background: var(--surface-sunken); }
+  .stacked > i { display: block; height: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 8px; font-size: 12px; color: var(--foreground-muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .member { border: 1px solid var(--border); background: var(--surface-sunken); border-radius: 12px; padding: 11px 14px; }
+  .member-head { display: flex; align-items: center; gap: 8px; }
+  .member-head b { font-size: 13px; font-weight: 600; }
+  .member-head .dot { width: 9px; height: 9px; border-radius: 999px; }
+  .member-head .member-num { margin-left: auto; font-size: 13px; font-weight: 700; }
+  .tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; padding: 1px 6px; border-radius: 999px;
+    background: var(--surface-raised); color: var(--foreground-muted); box-shadow: inset 0 0 0 1px var(--border); }
+  .tag.warn { color: #ef4444; box-shadow: inset 0 0 0 1px rgba(239,68,68,.4); }
+  .mini { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .mini-l { width: 56px; font-size: 11px; color: var(--foreground-muted); text-transform: uppercase; letter-spacing: .03em; }
+  .mini-bar { flex: 1; height: 8px; border-radius: 999px; background: var(--surface-raised); box-shadow: inset 0 0 0 1px var(--border); overflow: hidden; }
+  .mini-bar > i { display: block; height: 100%; border-radius: 999px; }
+  .mini-v { width: 52px; text-align: right; font-size: 12px; font-weight: 650; }
+
+  /* activity throttle CTA + bundled invoice preview */
+  .cta { margin-top: 12px; border-radius: 10px; padding: 10px 14px; font-size: 13px; font-weight: 550;
+    color: #b91c1c; background: rgba(239,68,68,.08); box-shadow: inset 0 0 0 1px rgba(239,68,68,.35); }
+  .dark .cta { color: #fca5a5; }
+  .invoice { border: 1px dashed var(--border); border-radius: 12px; padding: 12px 14px; }
+  .inv-row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 4px 0; color: var(--foreground-muted); }
+  .inv-row b { color: var(--foreground); font-weight: 650; }
+  .inv-row.total { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px; font-size: 14px; }
+  .inv-row.total span { color: var(--foreground); font-weight: 600; }
+
+  /* bundled plan picker */
+  .plans { display: flex; flex-wrap: wrap; gap: 10px; }
+  .plan { flex: 1; min-width: 140px; border: 1px solid var(--border); background: var(--surface-raised);
+    border-radius: 12px; padding: 12px 14px; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+  .plan.sel { border-color: var(--sky); background: var(--sky-tint); }
+  .plan b { font-size: 15px; font-weight: 700; }
+  .plan .plan-line { font-size: 12px; color: var(--foreground); }
+  .plan small { margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--foreground-muted); }
+  /* a la carte comparison anchor (not separately purchasable) */
+  .anchor { display: flex; flex-direction: column; gap: 3px; border-radius: 10px; padding: 10px 14px;
+    background: rgba(16,185,129,.07); box-shadow: inset 0 0 0 1px var(--emerald-ring); }
+  .anchor-strike { font-size: 12px; color: var(--foreground-muted); text-decoration: line-through; }
+  .anchor-win { font-size: 13px; font-weight: 650; color: var(--emerald-text); }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <span class="label">View</span>
+    <button class="seg active" data-persona="individual">Individual payer</button>
+    <button class="seg" data-persona="pi">PI sponsoring a lab</button>
+    <button class="seg" data-persona="member">Member covered by lab</button>
+    <button class="seg" data-persona="operator">Operator /admin</button>
+    <span class="label" style="margin-left:14px">Theme</span>
+    <button class="seg" id="themeBtn">Dark</button>
+  </div>
+  <div class="toolbar" id="activityToolbar">
+    <span class="label">Activity state</span>
+    <button class="seg active" data-activity="normal">Normal</button>
+    <button class="seg" data-activity="near">Near allowance</button>
+    <button class="seg" data-activity="throttled">Throttled</button>
+  </div>
+
+  <div class="scrim">
+    <div class="popup">
+      <div class="pop-head">
+        <h2>Cloud storage and billing</h2>
+        <p>Your shared-document storage. Your local app and local files are always free and unlimited.</p>
+      </div>
+      <div class="pop-body" id="body"><!-- rendered by JS --></div>
+    </div>
+  </div>
+  <p class="launcher-note">Static design mockup of the in-app popup (no live data). Use the persona buttons to see each state.</p>
+
+<script>
+const usd = c => "$" + (c/100).toFixed(2);
+
+function summary(kind){
+  const map = {
+    free: ["free","Free plan","You have 1 GB of shared-document storage included, always free."],
+    individual: ["individual","Individual plan","You pay only for your monthly average use above the 1 GB free tier."],
+    lab: ["lab","Covered by your lab","Your lab sponsors your storage on one shared invoice. You will not be billed individually."],
+  };
+  const [cls,head,detail] = map[kind];
+  return `<div class="summary ${cls}"><p class="eyebrow">${head}</p><p class="detail">${detail}</p></div>`;
+}
+
+function usage(usedLabel, ofLabel, pct, boundaryPct, freeLabel){
+  return `
+   <div class="usage-head">
+     <p class="big">${usedLabel} <span>of ${ofLabel}</span></p>
+     <span class="pill">${pct}%</span>
+   </div>
+   <div class="bar"><i style="width:${Math.max(pct,2)}%"></i>${boundaryPct!=null?`<div class="boundary" style="left:${boundaryPct}%"></div>`:""}</div>
+   ${boundaryPct!=null?`<p class="hint">The dashed line marks the end of your ${freeLabel} free tier.</p>`:""}`;
+}
+
+const usageCard = inner => `<div class="card"><h3>Your usage</h3><p class="desc">What counts: the live, server-synced copies of documents you share and co-edit. Notes are tiny, so this fills slowly. Your local data folder and files only on your computer never count.</p><div class="body">${inner}</div></div>`;
+
+const capCard = `
+ <div class="card"><h3>Storage limit</h3>
+ <p class="desc">Pick a limit. You are billed only for your monthly average use above the 1 GB free tier, at $0.30 per GB, one invoice a month, with a $2.00 minimum (smaller months are free). The limit is your spend ceiling; the number on each option is the most it could ever cost.</p>
+ <div class="body">
+   <div class="pills">
+     <button class="cap sel"><b>1 GB</b><small>Free</small></button>
+     <button class="cap"><b>5 GB</b><small>up to $1.20/mo</small></button>
+     <button class="cap"><b>25 GB</b><small>up to $7.20/mo</small></button>
+     <button class="cap"><b>100 GB</b><small>up to $29.70/mo</small></button>
+     <button class="cap"><b>250 GB</b><small>up to $74.70/mo</small></button>
+   </div>
+   <p class="micro">Choosing a paid limit adds a payment method first. Nothing is charged today. Any tax is added at checkout where it applies.</p>
+ </div></div>`;
+
+// The lab roster, with each member's storage (GB) and activity (edit syncs) this
+// month. A color per member drives the stacked breakdown chart.
+const LAB = {
+  totalGb: 9.4, poolGb: 4,
+  members: [
+    { name: "You (Chen Lab)",  gb: 3.1, writes: 1.2, color: "#0ea5e9", status: "you" },
+    { name: "amelia@wisc.edu", gb: 3.1, writes: 0.9, color: "#8b5cf6", status: "active" },
+    { name: "raj@wisc.edu",    gb: 2.0, writes: 3.6, color: "#10b981", status: "active" },
+    { name: "lin@wisc.edu",    gb: 1.2, writes: 0.4, color: "#f59e0b", status: "active" },
+    { name: "sam@wisc.edu",    gb: 0,   writes: 0,   color: "#94a3b8", status: "invited" },
+  ],
+};
+
+function labBreakdown(){
+  const active = LAB.members.filter(m => m.status !== "invited");
+  const maxWrites = Math.max(...active.map(m => m.writes), 0.1);
+  // Stacked storage bar, one segment per member.
+  const segs = active.map(m =>
+    `<i style="width:${(m.gb/LAB.totalGb)*100}%;background:${m.color}" title="${m.name}: ${m.gb} GB"></i>`
+  ).join("");
+  // Per-member rows: storage bar + activity bar so the PI sees who uses what.
+  const rows = LAB.members.map(m => {
+    if (m.status === "invited") {
+      return `<div class="row"><div class="who"><b>${m.name}</b><small>Invited, awaiting accept</small></div><button class="btn">Remove</button></div>`;
+    }
+    const stoPct = (m.gb/LAB.totalGb)*100;
+    const actPct = (m.writes/maxWrites)*100;
+    const heavy = m.writes >= 3;
+    return `
+     <div class="member">
+       <div class="member-head">
+         <span class="dot" style="background:${m.color}"></span>
+         <b>${m.name}</b>
+         ${m.status==="you"?'<span class="tag">payer</span>':''}
+         ${heavy?'<span class="tag warn">heavy activity</span>':''}
+         <span class="member-num">${m.gb} GB</span>
+       </div>
+       <div class="mini"><span class="mini-l">Storage</span><div class="mini-bar"><i style="width:${stoPct}%;background:${m.color}"></i></div><span class="mini-v">${m.gb} GB</span></div>
+       <div class="mini"><span class="mini-l">Activity</span><div class="mini-bar"><i style="width:${actPct}%;background:${heavy?'#ef4444':m.color}"></i></div><span class="mini-v">${m.writes}M</span></div>
+     </div>`;
+  }).join("");
+
+  return `
+   <div class="mt16">
+     <p class="uppermini">Lab storage breakdown</p>
+     <div class="stacked">${segs}</div>
+     <div class="legend">${active.map(m=>`<span><i style="background:${m.color}"></i>${m.name.replace(/@.*/,'')} ${m.gb} GB</span>`).join("")}</div>
+   </div>
+   <p class="uppermini" style="margin-top:18px">Per member, storage and activity this month</p>
+   <div class="stack mt12">${rows}</div>`;
+}
+
+const sponsorCard = () => `
+ <div class="card"><h3>Sponsor your lab</h3>
+ <p class="desc">Pay for your whole lab's storage on one invoice. Each member keeps their own free gigabyte (pooled), and you are billed only for the lab's combined use above that pool. As the payer you can see each member's storage and activity below.</p>
+ <div class="body">
+   <label class="check"><input type="checkbox" checked><span>Lab billing is on, you sponsor the members below</span></label>
+   <div class="tiles mt16">
+     <div class="tile"><div class="l">Members</div><div class="v">4</div><div class="h">you + active members</div></div>
+     <div class="tile"><div class="l">Pooled free</div><div class="v">4 GB</div><div class="h">1 GB each</div></div>
+     <div class="tile"><div class="l">Est. this month</div><div class="v strong">$1.62</div><div class="h">If usage holds</div></div>
+   </div>
+   <div class="mt16">${usage("9.4 GB","9.4 GB",100,43,"4 GB")}</div>
+   ${labBreakdown()}
+   ${pricingModel === "bundled" ? `
+   <div class="mt16">
+     <p class="uppermini">Lab plan</p>
+     <p class="micro" style="margin-top:4px">One plan for the whole lab covers storage and activity, pooled across members. Members never pay separately; it is your single monthly invoice line.</p>
+     <div class="plans mt12">
+       <button class="plan"><b>Lab Free</b><span class="plan-line">1 GB / member</span><span class="plan-line">Normal editing</span><small>$0</small></button>
+       <button class="plan sel"><b>Lab Plus</b><span class="plan-line">10 GB pooled</span><span class="plan-line">Heavy, pooled</span><small>up to $15/mo</small></button>
+       <button class="plan"><b>Lab Pro</b><span class="plan-line">50 GB pooled</span><span class="plan-line">Very heavy</span><small>up to $45/mo</small></button>
+     </div>
+   </div>
+   <div class="anchor mt16">
+     <span class="anchor-strike">Separately: 10 GB pooled storage + heavy lab activity = ~$25/mo</span>
+     <span class="anchor-win">Lab Plus: 10% more of both for $15/mo. Bundling saves the lab money.</span>
+   </div>
+   <div class="invoice mt16">
+     <p class="uppermini">Your monthly invoice, one bill, one line</p>
+     <div class="inv-row total"><span>Lab Plus plan, storage + activity pooled</span><b>$15.00 / mo</b></div>
+   </div>` : `
+   <div class="mt16">
+     <p class="uppermini">Lab activity tier</p>
+     <p class="micro" style="margin-top:4px">One tier for the whole lab, pooled like storage. Members never pay separately; this rides on your single monthly invoice.</p>
+     <div class="pills mt12">
+       <button class="cap"><b>Included</b><small>20M / mo</small></button>
+       <button class="cap sel"><b>50M / mo</b><small>up to $10/mo</small></button>
+       <button class="cap"><b>150M / mo</b><small>up to $25/mo</small></button>
+       <button class="cap"><b>400M / mo</b><small>up to $60/mo</small></button>
+     </div>
+   </div>
+   <div class="invoice mt16">
+     <p class="uppermini">Your monthly invoice, one bill</p>
+     <div class="inv-row"><span>Storage, 9.4 GB pooled above free</span><b>$1.62</b></div>
+     <div class="inv-row"><span>Lab activity tier, 50M syncs</span><b>$10.00</b></div>
+     <div class="inv-row total"><span>Estimated total</span><b>$11.62 / mo</b></div>
+   </div>`}
+   <div class="mt16">
+     <p class="uppermini">Invite a member</p>
+     <div class="pills mt12" style="flex-wrap:nowrap">
+       <input class="input" placeholder="member@university.edu" />
+       <button class="btn primary">Invite</button>
+     </div>
+     <p class="micro">They must accept before the lab starts paying for them.</p>
+   </div>
+ </div></div>`;
+
+// A COVERED member's view: their storage + activity, both feeding the lab pool,
+// with the clear "you are not billed" framing.
+const coveredCard = `
+ <div class="card"><h3>Your contribution to Chen Lab</h3>
+ <p class="desc">Chen Lab sponsors your storage, so your usage rolls into the lab's shared pool and invoice. You are never billed individually.</p>
+ <div class="body">
+   <div class="mini"><span class="mini-l">Storage</span><div class="mini-bar"><i style="width:13%;background:#0ea5e9"></i></div><span class="mini-v">0.8 GB</span></div>
+   <div class="mini"><span class="mini-l">Activity</span><div class="mini-bar"><i style="width:24%;background:#0ea5e9"></i></div><span class="mini-v">1.2M</span></div>
+   <p class="hint mt12">Part of Chen Lab's 9.4 GB pooled storage across 4 members. Your lab head can see your storage and activity, since the lab pays for it.</p>
+ </div></div>`;
+
+const memberInviteCard = `
+ <div class="card"><h3>Lab billing invitation</h3>
+ <p class="desc">A lab head invited you to have your storage paid for on their lab's invoice. If you accept, your own subscription (if any) ends and the lab covers your usage.</p>
+ <div class="body">
+   <label class="check" style="margin-bottom:12px"><input type="checkbox"><span style="font-weight:500;color:var(--foreground-muted);font-size:13px">Also show my individual usage to the lab head (optional)</span></label>
+   <div class="row"><div class="who"><small>Invite from lab <code style="font-family:ui-monospace,monospace;color:var(--foreground)">7f3a9c21b4…</code></small></div>
+     <span style="display:flex;gap:8px"><button class="btn primary">Accept</button><button class="btn">Decline</button></span></div>
+ </div></div>`;
+
+// --- Activity (point 1): the fair-use allowance bar + throttle state ---------
+// The allowance is monthly "edit syncs" (write operations), separate from storage.
+// Editing is always free; past the allowance we slow cloud sync, never charge.
+let activityState = "normal";
+let pricingModel = "bundled"; // "bundled" (one plan) or "alacarte" (two meters)
+// Activity tiers (flat steps, parallel to the storage cap). Picking a paid tier
+// lifts the throttle; it lands on the SAME monthly invoice as storage.
+const ACT_TIERS = [
+  { label: "Included", sub: "5M / mo", free: true },
+  { label: "15M / mo", sub: "up to $3/mo" },
+  { label: "40M / mo", sub: "up to $7/mo" },
+  { label: "100M / mo", sub: "up to $15/mo" },
+];
+function activityTierPicker(selIndex){
+  const pills = ACT_TIERS.map((t,i)=>`
+    <button class="cap ${i===selIndex?'sel':''}">
+      <b>${t.label}</b><small>${t.free?'Free':t.sub}</small></button>`).join("");
+  return `<div class="mt16">
+    <p class="uppermini">Activity tier</p>
+    <p class="micro" style="margin-top:4px">Lifts the throttle so sync stays instant. Flat monthly steps, the most each can cost is shown, added to your one monthly invoice next to storage.</p>
+    <div class="pills mt12">${pills}</div>
+  </div>`;
+}
+
+// --- Bundled-plan model: ONE control raises storage AND activity together ----
+// Each plan pairs a storage allowance with an activity allowance, one price, one
+// invoice line. This is the friendlier alternative to two separate meters.
+const PLANS = [
+  { name: "Free",  storage: "1 GB",   activity: "Normal editing", price: "$0",        sel: false },
+  { name: "Plus",  storage: "25 GB",  activity: "Heavy editing",  price: "up to $7/mo",  sel: true },
+  { name: "Pro",   storage: "100 GB", activity: "Very heavy",     price: "up to $15/mo", sel: false },
+];
+const LAB_PLANS = [
+  { name: "Lab Free",  storage: "1 GB / member", activity: "Normal editing", price: "$0",         sel: false },
+  { name: "Lab Plus",  storage: "10 GB pooled",  activity: "Heavy, pooled",  price: "up to $15/mo", sel: true },
+  { name: "Lab Pro",   storage: "50 GB pooled",  activity: "Very heavy",     price: "up to $45/mo", sel: false },
+];
+function planCard(plans, title, desc){
+  const pills = plans.map(p=>`
+    <button class="plan ${p.sel?'sel':''}">
+      <b>${p.name}</b>
+      <span class="plan-line">${p.storage}</span>
+      <span class="plan-line">${p.activity}</span>
+      <small>${p.price}</small>
+    </button>`).join("");
+  return `<div class="card"><h3>${title}</h3>
+    <p class="desc">${desc}</p>
+    <div class="body"><div class="plans">${pills}</div>
+    <div class="anchor mt16">
+      <span class="anchor-strike">Separately: 25 GB storage $7 + heavy activity $7 = $14/mo</span>
+      <span class="anchor-win">Plus plan: 10% more of both for $7/mo. You save by bundling.</span>
+    </div>
+    <p class="micro mt12">One choice, one monthly invoice line. You only pay for the storage you actually use up to the plan's cap; activity headroom is included.</p>
+    </div></div>`;
+}
+const planCardIndividual = () => planCard(PLANS, "Your plan",
+  "One plan covers your storage and your editing activity. Pick the plan that fits; upgrading raises both at once. Most people stay on Free.");
+
+function activityCard(ctx){
+  // ctx: "individual" (own activity + tier picker) or "member" (covered by lab).
+  const states = {
+    normal:   { pct: 24, used: "1.2M", tone: "var(--sky)", badge: "Plenty of headroom",
+                msg: "You are well within your monthly activity allowance. Real-time sync is on." },
+    near:     { pct: 86, used: "4.3M", tone: "var(--amber-text)", badge: "Heavy use",
+                msg: "You are a heavy user this month. Still real-time, but if you pass the allowance we will slow sync unless you raise your activity tier." },
+    throttled:{ pct: 100, used: "5.4M", tone: "#ef4444", badge: "Syncing less often",
+                msg: "You have passed your free activity allowance, so cloud sync is every few seconds instead of instant. Editing still works. Raise your activity tier below to restore instant sync." },
+  };
+  const s = states[activityState];
+  const selIndex = activityState === "throttled" ? 1 : 0; // suggest first paid tier when throttled
+  let footer = "";
+  if (ctx === "member") {
+    footer = `<p class="hint mt12">Your activity is covered by Chen Lab. If the lab passes its allowance, ask your lab head to raise the lab's plan.</p>`;
+  } else if (pricingModel === "bundled") {
+    // One control lives in the plan card below; here we only reassure / point.
+    footer = activityState === "throttled"
+      ? `<div class="cta">You have passed your plan's activity headroom. Upgrade your plan below to restore instant sync, it also raises your storage.</div>`
+      : `<p class="hint mt12">Included in your plan. Upgrading your plan (below) raises this along with storage.</p>`;
+  } else {
+    footer = activityState === "throttled"
+      ? `<div class="cta">Hit your allowance. Raise your activity tier to restore instant sync, billed on your usual invoice.</div>${activityTierPicker(selIndex)}`
+      : activityTierPicker(selIndex);
+  }
+  return `
+   <div class="card"><h3>Activity this month</h3>
+   <p class="desc">How much you edit through the cloud, separate from storage. The free allowance covers normal heavy use. Past it we slow sync to keep costs fair, or you can raise a flat activity tier to stay instant. No per-edit charges, ever.</p>
+   <div class="body">
+     <div class="usage-head">
+       <p class="big">${s.used} <span>of 5M edit syncs</span></p>
+       <span class="pill" style="color:${s.tone}">${s.badge}</span>
+     </div>
+     <div class="bar"><i style="width:${Math.max(s.pct,2)}%;background:${s.tone}"></i></div>
+     <p class="hint" style="color:${s.tone}">${s.msg}</p>
+     ${footer}
+   </div></div>`;
+}
+
+// --- Operator panel (point 2b): /admin cost-per-owner ------------------------
+function operatorPanel(){
+  const rows = [
+    ["7f3a9c21b4…", "5,412,000", "23 MB", "$6.22", true],
+    ["a18bc0e2f9…", "1,204,500", "9 MB", "$1.39", false],
+    ["c93d1a77b0…", "318,900", "4 MB", "$0.37", false],
+    ["e02f5c8a14…", "44,100", "1 MB", "$0.05", false],
+  ];
+  const body = rows.map(r=>`
+    <div class="row" ${r[4]?'style="box-shadow: inset 0 0 0 1px #ef4444"':''}>
+      <div class="who"><b style="font-family:ui-monospace,monospace">${r[0]}</b>
+        <small>${r[1]} writes · ${r[2]} written${r[4]?' · low storage, high activity':''}</small></div>
+      <b style="font-size:14px;color:${r[4]?'#ef4444':'var(--foreground)'}">${r[3]}</b>
+    </div>`).join("");
+  return `
+   <div class="card"><h3>Cost per owner, last 31 days</h3>
+   <p class="desc">Operator-only. Estimated from rows written + requests at Cloudflare rates (Durable Object duration not attributed yet). This is OUR cost, never charged to users. The highlighted owner stores almost nothing but edits constantly, the case storage metering misses.</p>
+   <div class="body">
+     <div class="tiles" style="grid-template-columns:repeat(2,1fr)">
+       <div class="tile"><div class="l">Owners tracked</div><div class="v">4</div></div>
+       <div class="tile"><div class="l">Est. total this month</div><div class="v strong">$8.03</div><div class="h">rows + requests</div></div>
+     </div>
+     <div class="stack mt16">${body}</div>
+   </div></div>`;
+}
+
+const personas = {
+  individual: () => summary("free") + usageCard(usage("0.4 GB","1 GB",40,null,"1 GB")) + activityCard("individual")
+                    + (pricingModel === "bundled" ? planCardIndividual() : capCard),
+  pi: () => summary("individual") + usageCard(usage("3.1 GB","25 GB",12,4,"1 GB")) + activityCard("individual")
+            + (pricingModel === "bundled" ? planCardIndividual() : capCard) + sponsorCard(),
+  member: () => summary("lab") + coveredCard + activityCard("member"),
+  operator: () => operatorPanel(),
+};
+
+let currentPersona = "individual";
+const body = document.getElementById("body");
+const head = document.querySelector(".pop-head");
+const activityToolbar = document.getElementById("activityToolbar");
+function render(){
+  body.innerHTML = personas[currentPersona]();
+  const op = currentPersona === "operator";
+  head.querySelector("h2").textContent = op ? "Operator: storage & activity cost" : "Cloud storage and billing";
+  head.querySelector("p").textContent = op
+    ? "Operator-only view on /admin/business. Not shown to users."
+    : "Your shared-document storage. Your local app and local files are always free and unlimited.";
+  activityToolbar.style.display = op ? "none" : "flex";
+}
+render();
+
+document.querySelectorAll("[data-persona]").forEach(b=>{
+  b.onclick = () => {
+    document.querySelectorAll("[data-persona]").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active"); currentPersona = b.dataset.persona; render();
+  };
+});
+document.querySelectorAll("[data-activity]").forEach(b=>{
+  b.onclick = () => {
+    document.querySelectorAll("[data-activity]").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active"); activityState = b.dataset.activity; render();
+  };
+});
+document.querySelectorAll("[data-pricing]").forEach(b=>{
+  b.onclick = () => {
+    document.querySelectorAll("[data-pricing]").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active"); pricingModel = b.dataset.pricing; render();
+  };
+});
+const themeBtn = document.getElementById("themeBtn");
+themeBtn.onclick = () => {
+  document.documentElement.classList.toggle("dark");
+  themeBtn.textContent = document.documentElement.classList.contains("dark") ? "Light" : "Dark";
+};
+</script>
+</body>
+</html>

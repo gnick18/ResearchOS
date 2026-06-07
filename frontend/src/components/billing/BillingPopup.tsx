@@ -251,28 +251,14 @@ function MemberInvites({
 }: {
   lab: LabStatus;
   busy: boolean;
-  onRespond: (
-    labKey: string,
-    action: "accept" | "decline",
-    usageVisible: boolean,
-  ) => void;
+  onRespond: (labKey: string, action: "accept" | "decline") => void;
 }) {
-  const [showUsage, setShowUsage] = useState(false);
   if (lab.pendingInvites.length === 0) return null;
   return (
     <Section
       title="Lab billing invitation"
-      description="A lab head invited you to have your storage paid for on their lab's invoice. If you accept, your own subscription (if any) ends and the lab covers your usage."
+      description="A lab head invited you to have your storage paid for on their lab's invoice. If you accept, your own subscription (if any) ends, the lab covers your usage, and the lab head can see your storage and activity since they pay for it."
     >
-      <label className="mb-3 flex items-center gap-2 text-meta text-foreground-muted">
-        <input
-          type="checkbox"
-          checked={showUsage}
-          onChange={(e) => setShowUsage(e.target.checked)}
-          className="h-4 w-4 rounded border-border"
-        />
-        Also show my individual usage to the lab head (optional)
-      </label>
       <div className="space-y-2">
         {lab.pendingInvites.map((inv) => (
           <div
@@ -289,7 +275,7 @@ function MemberInvites({
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => onRespond(inv.labKey, "accept", showUsage)}
+                onClick={() => onRespond(inv.labKey, "accept")}
                 className="rounded-lg bg-sky-600 px-3 py-1.5 text-meta font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
               >
                 Accept
@@ -297,7 +283,7 @@ function MemberInvites({
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => onRespond(inv.labKey, "decline", false)}
+                onClick={() => onRespond(inv.labKey, "decline")}
                 className="rounded-lg border border-border px-3 py-1.5 text-meta font-semibold text-foreground hover:bg-surface-sunken disabled:opacity-50"
               >
                 Decline
@@ -586,9 +572,9 @@ export default function BillingPopup() {
   );
 
   const doRespond = useCallback(
-    async (labKey: string, action: "accept" | "decline", usageVisible: boolean) => {
+    async (labKey: string, action: "accept" | "decline") => {
       setBusy(true);
-      await respondToInvite(labKey, action, usageVisible);
+      await respondToInvite(labKey, action);
       await load();
       setBusy(false);
     },
