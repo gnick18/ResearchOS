@@ -39,6 +39,7 @@ import type {
   InventoryStockUpdate,
 } from "@/lib/types";
 import ItemFormDialog from "@/components/inventory/ItemFormDialog";
+import ScanFlow from "@/components/inventory/ScanFlow";
 import StockFormDialog from "@/components/inventory/StockFormDialog";
 import StockRow from "@/components/inventory/StockRow";
 import InventoryHealth from "@/components/inventory/InventoryHealth";
@@ -80,7 +81,7 @@ function canEditItem(item: InventoryItem, currentUser: string | null): boolean {
 
 type ItemDialogState =
   | { mode: "closed" }
-  | { mode: "add" }
+  | { mode: "add"; prefillBarcode?: string }
   | { mode: "edit"; item: InventoryItem };
 
 type StockDialogState =
@@ -107,6 +108,8 @@ export default function InventoryPage() {
     mode: "closed",
   });
   const [deletingItem, setDeletingItem] = useState<InventoryItem | null>(null);
+  // The barcode scanner popup (chunk 6). Open holds the scanner + result flow.
+  const [scanOpen, setScanOpen] = useState(false);
   // The id of the stock currently mid-write (disables its row controls so a
   // double tap can't race two updates).
   const [busyStockId, setBusyStockId] = useState<number | null>(null);
@@ -340,6 +343,14 @@ export default function InventoryPage() {
                 <Icon name="refresh" className="h-4 w-4" />
               </button>
             </Tooltip>
+            <button
+              type="button"
+              onClick={() => setScanOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-2 text-body text-foreground hover:bg-surface-sunken"
+            >
+              <Icon name="scan" className="h-4 w-4" />
+              Scan
+            </button>
             <button
               type="button"
               onClick={() => setItemDialog({ mode: "add" })}
@@ -578,6 +589,9 @@ export default function InventoryPage() {
             <ItemFormDialog
               item={itemDialog.mode === "edit" ? itemDialog.item : null}
               vendorOptions={vendorOptions}
+              initialBarcode={
+                itemDialog.mode === "add" ? itemDialog.prefillBarcode : null
+              }
               onCancel={() => setItemDialog({ mode: "closed" })}
               onSubmit={submitItem}
             />
@@ -656,6 +670,30 @@ export default function InventoryPage() {
               </button>
             </div>
           </div>
+        )}
+      </LivingPopup>
+
+      {/* Barcode scanner + scan flow (chunk 6) */}
+      <LivingPopup
+        open={scanOpen}
+        onClose={() => setScanOpen(false)}
+        label="Scan a barcode"
+        widthClassName="max-w-lg"
+        card
+        closeOnScrimClick={false}
+      >
+        {scanOpen && (
+          <ScanFlow
+            items={items}
+            stocks={stocks}
+            currentUser={currentUser}
+            onRefresh={refresh}
+            onClose={() => setScanOpen(false)}
+            onCreateItemWithCode={(code) => {
+              setScanOpen(false);
+              setItemDialog({ mode: "add", prefillBarcode: code });
+            }}
+          />
         )}
       </LivingPopup>
     </AppShell>

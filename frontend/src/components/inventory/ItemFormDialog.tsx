@@ -35,6 +35,9 @@ interface ItemFormDialogProps {
   /** The lab-wide vendor list (extracted from purchase history) for the vendor
    *  datalist. */
   vendorOptions: string[];
+  /** Pre-fill `product_barcode` on a NEW item (the scan-to-register flow, chunk
+   *  6). Ignored when editing an existing item. */
+  initialBarcode?: string | null;
   onCancel: () => void;
   /** Resolve with the created/updated record so the page can refresh. */
   onSubmit: (data: InventoryItemCreate | InventoryItemUpdate) => Promise<void>;
@@ -77,11 +80,20 @@ function toNullable(value: string): string | null {
 export default function ItemFormDialog({
   item,
   vendorOptions,
+  initialBarcode,
   onCancel,
   onSubmit,
 }: ItemFormDialogProps) {
   const isEdit = item !== null;
-  const [form, setForm] = useState<FormState>(() => itemToForm(item));
+  const [form, setForm] = useState<FormState>(() => {
+    const base = itemToForm(item);
+    // Scan-to-register prefill: only on a new item, only when the form has no
+    // barcode yet (never clobber an edited item's existing code).
+    if (!item && initialBarcode && !base.product_barcode) {
+      return { ...base, product_barcode: initialBarcode };
+    }
+    return base;
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

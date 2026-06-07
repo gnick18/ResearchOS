@@ -611,6 +611,17 @@ const ICONS_RAW = {
     concept: "Chevron right / forward",
     body: <polyline points="9 18 15 12 9 6" />,
   },
+  // Barcode scanner entry point (chunk 6). Grant-voted from an interactive
+  // scan-icon chooser (2026-06-07).
+  scan: {
+    concept: "Scan / barcode",
+    body: (
+      <>
+        <path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2" />
+        <path d="M7.5 8v8M10 8v8M12.5 8v8M16.5 8v8" />
+      </>
+    ),
+  },
 } satisfies Record<string, IconEntry>;
 
 export type IconName = keyof typeof ICONS_RAW;
