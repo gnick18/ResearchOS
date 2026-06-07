@@ -3,10 +3,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { useCurrentUser } from "./useCurrentUser";
 import { useAccountType } from "./useAccountType";
-import {
-  type ShareableRecord,
-  canWriteIgnoringPiRole,
-} from "@/lib/sharing/unified";
+import { canWriteIgnoringPiRole } from "@/lib/sharing/unified";
+import type { SharedUser } from "@/lib/types";
 import {
   isPiEditConfirmed,
   markPiEditConfirmed,
@@ -32,30 +30,34 @@ import {
  *   // while editing, show <PiEditAuditNote owner={gate.targetOwner} /> if gate.isPiEdit
  */
 export function usePiEditGate(args: {
-  record: ShareableRecord | null | undefined;
+  /** Owner of the record. Record types name this differently (Note.username,
+   *  Task.username, ...), so the caller passes it directly. */
+  owner: string | null | undefined;
+  /** The record's shared_with list, for the explicit-edit-share check. */
+  sharedWith: SharedUser[] | null | undefined;
   recordType: "note" | "task" | "purchase";
   recordId: number | string;
   /** The read-only flag the popup would otherwise use (share-permission based). */
   propReadOnly: boolean;
 }) {
-  const { record, recordType, recordId, propReadOnly } = args;
+  const { owner, sharedWith, recordType, recordId, propReadOnly } = args;
   const { currentUser } = useCurrentUser();
   const accountType = useAccountType(currentUser);
 
-  const targetOwner = record?.owner ?? null;
+  const targetOwner = owner ?? null;
 
   // "PI editing a member's record on the role alone": active user is a lab head,
   // the record belongs to someone else, and they could NOT write it without the
   // role (not owner, no explicit edit-share). Only then do we gate + audit.
   const isPiEdit = useMemo(() => {
     if (accountType !== "lab_head") return false;
-    if (!record || !currentUser) return false;
+    if (!currentUser) return false;
     if (!targetOwner || targetOwner === currentUser) return false;
-    return !canWriteIgnoringPiRole(record, {
-      username: currentUser,
-      account_type: "lab_head",
-    });
-  }, [accountType, record, currentUser, targetOwner]);
+    return !canWriteIgnoringPiRole(
+      { owner: targetOwner, shared_with: sharedWith ?? [] },
+      { username: currentUser, account_type: "lab_head" },
+    );
+  }, [accountType, sharedWith, currentUser, targetOwner]);
 
   const key = useMemo(
     () => (targetOwner ? piEditKey(targetOwner, recordType, recordId) : null),
