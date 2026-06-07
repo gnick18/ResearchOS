@@ -52,8 +52,12 @@ vi.mock("../purchase-store", () => ({
 }));
 
 const getOrMintCollabDocId = vi.fn(() => "doc-room-123");
+// getCollabDocId is read by the dedicated connect effect (which fires after the
+// handle lands in state) to derive the room id, so the mock must expose it too.
+const getCollabDocId = vi.fn(() => "doc-room-123");
 vi.mock("@/lib/collab/client/doc-id", () => ({
   getOrMintCollabDocId: () => getOrMintCollabDocId(),
+  getCollabDocId: () => getCollabDocId(),
 }));
 
 const connectFromDocId = vi.fn();
@@ -86,6 +90,7 @@ describe("usePurchaseRowLoro", () => {
     flagState.enabled = true;
     openPurchaseDoc.mockClear();
     getOrMintCollabDocId.mockClear();
+    getCollabDocId.mockClear();
     connectFromDocId.mockClear();
     stop.mockClear();
   });

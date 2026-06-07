@@ -38,7 +38,7 @@ import type { EphemeralStore } from "loro-crdt";
 import type { EphemeralState } from "loro-codemirror";
 import { PURCHASE_LORO_ENABLED } from "./config";
 import { openPurchaseDoc, type PurchaseDocHandle } from "./purchase-store";
-import { getOrMintCollabDocId } from "@/lib/collab/client/doc-id";
+import { getOrMintCollabDocId, getCollabDocId } from "@/lib/collab/client/doc-id";
 import { useCollabSession } from "./collab/use-collab-session";
 
 export interface PurchaseRowLoroState {
@@ -128,7 +128,15 @@ export function usePurchaseRowLoro(args: {
         // the relay is open-access, so no server grant is needed. The id lives
         // in the .loro meta map (getOrMintCollabDocId writes it there), NOT in
         // the .json record. Persist after minting so the sidecar carries it.
-        const docId = getOrMintCollabDocId(h.doc);
+        // Mint the collab doc id into the .loro meta (side effect) so the
+        // connect effect below reads a real id. The actual connectFromDocId is
+        // deliberately NOT called here: at this synchronous point
+        // useCollabSession has not yet re-rendered with the new handle.doc, so
+        // its connectFromDocId closure still sees doc === null and would
+        // early-return without ever opening the relay socket. The dedicated
+        // connect effect (keyed on the handle landing in state) fires after the
+        // doc prop propagates, exactly like NoteDetailPopup.
+        getOrMintCollabDocId(h.doc);
         await h.flush();
 
         if (!active) {
@@ -138,11 +146,6 @@ export function usePurchaseRowLoro(args: {
 
         setHandle(h);
         setOpening(false);
-
-        // Auto-connect the live session for this open row (mirrors the
-        // NoteDetailPopup connectFromDocId auto-connect). Idempotent on the
-        // session-idle guard inside connectFromDocId.
-        collabRef.current.connectFromDocId(docId);
       } catch (err) {
         console.error("[usePurchaseRowLoro] openPurchaseDoc failed:", err);
         if (active) setOpening(false);
@@ -164,6 +167,24 @@ export function usePurchaseRowLoro(args: {
     // torn down on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemId, owner, currentUser]);
+
+  // Auto-connect the live relay session once the handle has LANDED IN STATE.
+  // This must run from its own effect, not synchronously inside the open path,
+  // because connectFromDocId early-returns while useCollabSession's doc prop is
+  // still null (it only becomes handle.doc on the render after setHandle). By
+  // the time this effect runs the doc has propagated, so connectFromDocId opens
+  // the socket. Gated on status "idle" so it connects once per open row and does
+  // not reconnect on every status transition. Mirrors NoteDetailPopup exactly.
+  // Flag-off / no-handle, it returns early and connects nothing.
+  useEffect(() => {
+    if (!PURCHASE_LORO_ENABLED) return;
+    if (!handle) return;
+    if (collab.state.status !== "idle") return;
+    const docId = getCollabDocId(handle.doc);
+    if (!docId) return;
+    collab.connectFromDocId(docId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handle, collab.state.status]);
 
   // Live read. When a REMOTE change arrives on the open row's doc, refresh the
   // cached underlying item so the row reflects the remote value. We invalidate
