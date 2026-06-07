@@ -31,6 +31,14 @@ import {
   NoLocalIdentityError,
 } from "./persistence";
 import { getCollabSignerEmail } from "./current-email";
+import { collabSessionFromDocId } from "@/lib/loro/collab/doc-id-session";
+import { COLLAB_RELAY_URL } from "@/lib/loro/config";
+
+/** The relay's HTTP origin. COLLAB_RELAY_URL is ws(s)://host; the /snapshot
+ *  read endpoint is http(s)://host (scheme swapped). */
+function relayHttpBase(): string {
+  return COLLAB_RELAY_URL.replace(/^ws/, "http");
+}
 
 // ---------------------------------------------------------------------------
 // Adopt the server-canonical base (the fork fix)
@@ -64,43 +72,37 @@ import { getCollabSignerEmail } from "./current-email";
 export async function buildCollabBaseDoc(
   localDoc: LoroDoc,
   docId: string,
-  email: string,
 ): Promise<{ doc: LoroDoc; adopted: boolean }> {
-  let result: Awaited<ReturnType<typeof openCollabDoc>>;
+  let snapshotBytes: Uint8Array;
   try {
-    result = await openCollabDoc(docId, email);
+    const { sessionId } = collabSessionFromDocId(docId);
+    const url = `${relayHttpBase()}/snapshot?session=${encodeURIComponent(sessionId)}`;
+    const res = await fetch(url);
+    if (res.status === 204) {
+      // Empty room: this client establishes the canonical history.
+      return { doc: localDoc, adopted: false };
+    }
+    if (!res.ok) {
+      console.warn("[collab] buildCollabBaseDoc: snapshot fetch failed", res.status);
+      return { doc: localDoc, adopted: false };
+    }
+    snapshotBytes = new Uint8Array(await res.arrayBuffer());
   } catch (err) {
-    if (err instanceof NoLocalIdentityError) {
-      console.warn("[collab] buildCollabBaseDoc: no local identity, using local doc");
-      return { doc: localDoc, adopted: false };
-    }
-    if (err instanceof CollabError) {
-      console.warn("[collab] buildCollabBaseDoc: server error", err.status, err.message);
-      return { doc: localDoc, adopted: false };
-    }
-    // Unexpected (network down, etc.): fall back to local so the open succeeds.
-    console.warn("[collab] buildCollabBaseDoc: unexpected error, using local doc", err);
+    // Network down / relay unreachable: fall back to local so the open succeeds.
+    console.warn("[collab] buildCollabBaseDoc: snapshot fetch error, using local doc", err);
     return { doc: localDoc, adopted: false };
   }
 
-  const hasCanonical =
-    Boolean(result.snapshotB64) || result.updatesB64.length > 0;
-  if (!hasCanonical) {
-    // Server has no content yet: this client establishes the canonical history.
+  if (snapshotBytes.byteLength === 0) {
     return { doc: localDoc, adopted: false };
   }
 
-  // Adopt: rebuild a fresh doc from the server's canonical snapshot + updates.
+  // Adopt: rebuild a fresh doc from the DO's canonical snapshot.
   const canonical = new LoroDoc();
   try {
-    if (result.snapshotB64) {
-      canonical.import(base64ToUint8Array(result.snapshotB64));
-    }
-    for (const updateB64 of result.updatesB64) {
-      canonical.import(base64ToUint8Array(updateB64));
-    }
+    canonical.import(snapshotBytes);
   } catch (err) {
-    // A corrupt server payload should not strand the user; fall back to local.
+    // A corrupt payload should not strand the user; fall back to local.
     console.warn("[collab] buildCollabBaseDoc: failed to import canonical, using local doc", err);
     return { doc: localDoc, adopted: false };
   }

@@ -466,22 +466,26 @@ describe("sync-hooks: reconcileOnOpen", () => {
 
 describe("sync-hooks: buildCollabBaseDoc (fork fix)", () => {
   const DOC_ID = "adopt-test-doc";
-  const EMAIL = "alice@lab.org";
+
+  // The DO /snapshot endpoint returns RAW snapshot bytes (200) or 204 (empty).
+  function bytesResponse(status: number, bytes?: Uint8Array) {
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      arrayBuffer: async () => new Uint8Array(bytes ?? new Uint8Array(0)).buffer,
+    } as unknown as Response;
+  }
 
   beforeEach(() => {
     mockFetch.mockReset();
-    mockLoadIdentity.mockReset();
   });
 
-  it("adopts the server canonical snapshot instead of merging the local copy", async () => {
+  it("adopts the DO canonical snapshot instead of merging the local copy", async () => {
     const server = new LoroDoc();
     server.getText("body").insert(0, "hello");
     server.commit();
-    const snapB64 = btoa(String.fromCharCode(...server.export({ mode: "snapshot" })));
-
-    mockLoadIdentity.mockResolvedValue(makeStoredIdentity(9));
     mockFetch.mockResolvedValue(
-      jsonResponse(200, { snapshot: snapB64, updates: [], version: 1 }),
+      bytesResponse(200, server.export({ mode: "snapshot" })),
     );
 
     // Local doc has DIFFERENT content; a merge would mangle it.
@@ -489,7 +493,7 @@ describe("sync-hooks: buildCollabBaseDoc (fork fix)", () => {
     local.getText("body").insert(0, "world");
     local.commit();
 
-    const { doc, adopted } = await buildCollabBaseDoc(local, DOC_ID, EMAIL);
+    const { doc, adopted } = await buildCollabBaseDoc(local, DOC_ID);
 
     expect(adopted).toBe(true);
     expect(doc).not.toBe(local); // a fresh canonical doc, not the local one
@@ -497,15 +501,12 @@ describe("sync-hooks: buildCollabBaseDoc (fork fix)", () => {
   });
 
   it("does NOT interleave identical text from a forked local copy", async () => {
-    // Server has "Connect" as one set of ops.
+    // DO has "Connect" as one set of ops.
     const server = new LoroDoc();
     server.getText("body").insert(0, "Connect");
     server.commit();
-    const snapB64 = btoa(String.fromCharCode(...server.export({ mode: "snapshot" })));
-
-    mockLoadIdentity.mockResolvedValue(makeStoredIdentity(9));
     mockFetch.mockResolvedValue(
-      jsonResponse(200, { snapshot: snapB64, updates: [], version: 1 }),
+      bytesResponse(200, server.export({ mode: "snapshot" })),
     );
 
     // Local copy: SAME text, built independently (different ops) = a fork.
@@ -514,49 +515,28 @@ describe("sync-hooks: buildCollabBaseDoc (fork fix)", () => {
     local.getText("body").insert(0, "Connect");
     local.commit();
 
-    const { doc } = await buildCollabBaseDoc(local, DOC_ID, EMAIL);
+    const { doc } = await buildCollabBaseDoc(local, DOC_ID);
     expect(doc.getText("body").toString()).toBe("Connect"); // exact, never interleaved
   });
 
-  it("rebuilds from updates when the snapshot is null", async () => {
-    const server = new LoroDoc();
-    server.getText("body").insert(0, "from-updates");
-    server.commit();
-    const updB64 = btoa(String.fromCharCode(...server.export({ mode: "update" })));
-
-    mockLoadIdentity.mockResolvedValue(makeStoredIdentity(9));
-    mockFetch.mockResolvedValue(
-      jsonResponse(200, { snapshot: null, updates: [updB64], version: 1 }),
-    );
-
-    const local = new LoroDoc();
-    const { doc, adopted } = await buildCollabBaseDoc(local, DOC_ID, EMAIL);
-    expect(adopted).toBe(true);
-    expect(doc.getText("body").toString()).toBe("from-updates");
-  });
-
-  it("returns the local doc (adopted=false) when the server has nothing yet", async () => {
-    mockLoadIdentity.mockResolvedValue(makeStoredIdentity(9));
-    mockFetch.mockResolvedValue(
-      jsonResponse(200, { snapshot: null, updates: [], version: 0 }),
-    );
+  it("returns the local doc (adopted=false) when the DO room is empty (204)", async () => {
+    mockFetch.mockResolvedValue(bytesResponse(204));
 
     const local = new LoroDoc();
     local.getText("body").insert(0, "mine");
     local.commit();
 
-    const { doc, adopted } = await buildCollabBaseDoc(local, DOC_ID, EMAIL);
+    const { doc, adopted } = await buildCollabBaseDoc(local, DOC_ID);
     expect(adopted).toBe(false);
     expect(doc).toBe(local); // this client establishes the canonical history
   });
 
-  it("falls back to the local doc on 403 (not yet a member)", async () => {
-    mockLoadIdentity.mockResolvedValue(makeStoredIdentity(9));
-    mockFetch.mockResolvedValue(jsonResponse(403, { error: "not a member" }));
+  it("falls back to the local doc when the relay is unreachable", async () => {
+    mockFetch.mockRejectedValue(new Error("network down"));
 
     const local = new LoroDoc();
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { doc, adopted } = await buildCollabBaseDoc(local, DOC_ID, EMAIL);
+    const { doc, adopted } = await buildCollabBaseDoc(local, DOC_ID);
     expect(adopted).toBe(false);
     expect(doc).toBe(local);
     warnSpy.mockRestore();

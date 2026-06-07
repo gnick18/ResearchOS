@@ -44,8 +44,15 @@ const COMMIT_SHA = resolveCommitSha();
  * deployed wss:// relay is auto-allowed once that var is set, with no second
  * place to update.
  */
-const COLLAB_RELAY_ORIGIN =
+const COLLAB_RELAY_WS =
   process.env.NEXT_PUBLIC_COLLAB_RELAY_URL ?? "ws://localhost:8787";
+// The relay also serves an HTTP GET /snapshot (canonical-read for the fork-fix
+// adopt, storage migration chunk 5), fetched cross-origin from the app. CSP
+// connect-src must allow the http(s) origin too, not just the ws(s) one. Derive
+// it by swapping the scheme (wss->https, ws->http) so a single env var drives
+// both.
+const COLLAB_RELAY_HTTP = COLLAB_RELAY_WS.replace(/^ws/, "http");
+const COLLAB_RELAY_ORIGIN = `${COLLAB_RELAY_WS} ${COLLAB_RELAY_HTTP}`;
 
 /**
  * Content-Security-Policy locked to the surface ResearchOS actually uses.
