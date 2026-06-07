@@ -1177,6 +1177,8 @@
     // paste target, handled by the single document listener below.
     card._auditKey = key;
     card._auditThumbs = thumbsEl;
+    card._auditNote = noteEl;
+    card._auditCtr = ctr;
     card.addEventListener("mouseenter", function () { hoverCard = card; });
     card.addEventListener("mouseleave", function () { if (hoverCard === card) hoverCard = null; });
     card.addEventListener("dragover", function (e) { e.preventDefault(); card.classList.add("dragover"); });
@@ -1220,6 +1222,16 @@
     var blob = imgItem.getAsFile();
     if (blob) { ingestFile(target._auditKey, blob, target._auditThumbs); toast("Image attached"); }
   });
+
+  // Repaint every card from the current `state` (used after loading a bundle).
+  function restoreAll() {
+    cards.forEach(function (card) {
+      var rec = state[card._auditKey] || {};
+      if (card._auditNote) card._auditNote.value = rec.note || "";
+      applyStatus(card, card._auditCtr, rec.status);
+      renderThumbs(card._auditThumbs, card._auditKey);
+    });
+  }
 
   function records() {
     return Object.keys(state).map(function (k) { return state[k]; }).filter(Boolean);
@@ -1273,7 +1285,8 @@
   bar.innerHTML =
     '<span class="count" id="auditCount"></span>' +
     '<button type="button" class="primary" id="auditCopy">Copy feedback</button>' +
-    '<button type="button" id="auditBundle">Download bundle</button>' +
+    '<button type="button" id="auditBundle">Save bundle</button>' +
+    '<button type="button" id="auditLoad">Load bundle</button>' +
     '<button type="button" id="auditDownload">.md</button>' +
     '<button type="button" class="danger" id="auditClear">Clear</button>';
   document.body.appendChild(bar);
@@ -1301,7 +1314,24 @@
     var a = document.createElement("a");
     a.href = URL.createObjectURL(blob); a.download = "sequences-icon-feedback.json";
     document.body.appendChild(a); a.click(); a.remove();
-    toast("Bundle saved (text + images). Share the .json with me.");
+    toast("Saved (text + images). Keep the .json; Load it to restore.");
+  });
+  document.getElementById("auditLoad").addEventListener("click", function () {
+    var inp = document.createElement("input");
+    inp.type = "file"; inp.accept = "application/json,.json";
+    inp.addEventListener("change", function () {
+      var f = inp.files && inp.files[0]; if (!f) return;
+      var r = new FileReader();
+      r.onload = function () {
+        var loaded;
+        try { loaded = JSON.parse(r.result); } catch (e) { toast("That file is not a saved bundle"); return; }
+        if (!loaded || typeof loaded !== "object") { toast("That file is not a saved bundle"); return; }
+        state = loaded; save(); restoreAll(); updateBar();
+        toast("Restored your saved bundle");
+      };
+      r.readAsText(f);
+    });
+    inp.click();
   });
   document.getElementById("auditClear").addEventListener("click", function () {
     if (!window.confirm("Clear all your marks and notes on this page?")) return;
