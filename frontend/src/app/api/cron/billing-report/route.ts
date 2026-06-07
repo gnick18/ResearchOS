@@ -15,13 +15,23 @@
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
-import { isBillingEnabled, reportableGb } from "@/lib/billing/config";
 import {
+  isBillingEnabled,
+  labReportableGb,
+  reportableGb,
+} from "@/lib/billing/config";
+import {
+  aggregateAverageUsedBytes,
   averageUsedBytes,
   ensureBillingSchema,
   listActiveOwners,
   pruneUsageSamples,
 } from "@/lib/billing/db";
+import {
+  countSponsoredOwners,
+  ensureLabSchema,
+  listActiveMemberKeys,
+} from "@/lib/billing/lab";
 import { getMeterEventName, reportStorageUsage } from "@/lib/billing/stripe";
 
 export const runtime = "nodejs";
@@ -49,6 +59,7 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   await ensureBillingSchema();
+  await ensureLabSchema();
   const since = isoDaysAgo(31);
   const owners = await listActiveOwners();
 
@@ -57,8 +68,20 @@ export async function GET(request: Request): Promise<Response> {
   for (const owner of owners) {
     if (!owner.stripeCustomerId) continue;
     try {
-      const avg = await averageUsedBytes(owner.ownerKey, since);
-      const gb = reportableGb(avg);
+      let gb: number;
+      if (owner.labBilling) {
+        // A sponsoring PI is billed on the lab AGGREGATE above the pooled free
+        // tier (1 GB per sponsored owner). Sponsored members are not in this
+        // loop, their own subscriptions were ended when the lab took over.
+        const memberKeys = await listActiveMemberKeys(owner.ownerKey);
+        const labKeys = [owner.ownerKey, ...memberKeys];
+        const sponsoredOwners = await countSponsoredOwners(owner.ownerKey);
+        const aggAvg = await aggregateAverageUsedBytes(labKeys, since);
+        gb = labReportableGb(aggAvg, sponsoredOwners);
+      } else {
+        const avg = await averageUsedBytes(owner.ownerKey, since);
+        gb = reportableGb(avg);
+      }
       // Skip the Stripe call when waived (0). No event this period = $0 line.
       if (gb > 0) {
         await reportStorageUsage(owner.stripeCustomerId, gb);
