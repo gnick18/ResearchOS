@@ -35,6 +35,7 @@ import {
   getCatchup,
   isMember,
 } from "@/lib/collab/server/db";
+import { CollabBudgetError } from "@/lib/collab/server/limits";
 
 export const runtime = "nodejs";
 
@@ -82,7 +83,20 @@ export async function POST(request: Request): Promise<Response> {
     return json(403, { error: "not a member" });
   }
 
-  const newId = await appendUpdate(docId, updateBytes, emailHash);
+  // Storage budget gate. appendUpdate throws CollabBudgetError when this write
+  // would push the doc or the owner past the collab persistence budget (see
+  // lib/collab/server/limits.ts). Surface that as a 413 with the scope that was
+  // hit so the client can tell an oversized edit apart from a full account,
+  // rather than letting Neon fill silently.
+  let newId: number;
+  try {
+    newId = await appendUpdate(docId, updateBytes, emailHash);
+  } catch (err) {
+    if (err instanceof CollabBudgetError) {
+      return json(413, { error: "storage budget reached", scope: err.scope });
+    }
+    throw err;
+  }
 
   // Best-effort compaction when the outstanding update log grows large. We count
   // by fetching the catchup (cheap meta query) and trigger compaction only when

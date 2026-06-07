@@ -16,6 +16,8 @@
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
 import { FREE_TIER } from "@/lib/sharing/capacity-shared";
+import { getCollabStorageBytes } from "@/lib/collab/server/db";
+import { COLLAB_NEON_BUDGET_BYTES } from "@/lib/collab/server/limits";
 import {
   getDatabaseSizeBytes,
   getEmailMetrics,
@@ -27,7 +29,15 @@ import { getBucketUsage } from "@/lib/sharing/relay/storage";
 export { FREE_TIER };
 
 export interface CapacityMetrics {
-  neon: { usedBytes: number | null; limitBytes: number };
+  neon: {
+    usedBytes: number | null;
+    limitBytes: number;
+    // Collab's slice of Neon (collab_docs + collab_doc_updates on disk) and the
+    // soft budget the survival banner watches it against. collabBytes is null
+    // when the collab tables do not exist yet or the measurement failed.
+    collabBytes: number | null;
+    collabBudgetBytes: number;
+  };
   r2: { usedBytes: number | null; objectCount: number | null; limitBytes: number };
   upstash: {
     keyCount: number | null;
@@ -49,8 +59,9 @@ export interface CapacityMetrics {
  * "unavailable" for that one service instead of failing the whole request.
  */
 export async function getCapacityMetrics(): Promise<CapacityMetrics> {
-  const [neonBytes, r2, redisKeys, email] = await Promise.all([
+  const [neonBytes, collabBytes, r2, redisKeys, email] = await Promise.all([
     getDatabaseSizeBytes().catch(() => null),
+    getCollabStorageBytes().catch(() => null),
     getBucketUsage().catch(() => null),
     getRedisKeyCount().catch(() => null),
     getEmailMetrics().catch(() => null),
@@ -60,6 +71,8 @@ export async function getCapacityMetrics(): Promise<CapacityMetrics> {
     neon: {
       usedBytes: neonBytes,
       limitBytes: FREE_TIER.neonStorageBytes,
+      collabBytes,
+      collabBudgetBytes: COLLAB_NEON_BUDGET_BYTES,
     },
     r2: {
       usedBytes: r2 ? r2.totalBytes : null,

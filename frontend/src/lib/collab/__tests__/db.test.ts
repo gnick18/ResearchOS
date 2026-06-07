@@ -33,11 +33,42 @@ import {
   listMembers,
   getOwner,
   getCatchup,
+  getDocUsage,
+  getOwnerUsage,
+  getOwnerQuotaBytes,
+  getCollabStorageBytes,
   appendUpdate,
   deleteCollabDoc,
   compactDoc,
   COMPACT_THRESHOLD,
 } from "@/lib/collab/server/db";
+import { isBillingEnabled, FREE_ALLOWANCE_BYTES } from "@/lib/billing/config";
+import { quotaBytesForOwner } from "@/lib/billing/db";
+
+// Billing is mocked so the collab quota branch can be driven both ways without a
+// real Neon connection. The default (billing off) preserves the flat-wall
+// behavior every pre-existing appendUpdate test relies on. config keeps its real
+// constants (FREE_ALLOWANCE_BYTES etc.), only isBillingEnabled is a spy.
+vi.mock("@/lib/billing/config", async (importActual) => {
+  const actual = await importActual<typeof import("@/lib/billing/config")>();
+  return { ...actual, isBillingEnabled: vi.fn(() => false) };
+});
+vi.mock("@/lib/billing/db", () => ({
+  quotaBytesForOwner: vi.fn(async () => 0),
+}));
+
+const mockedIsBillingEnabled = isBillingEnabled as unknown as MockedFunction<
+  typeof isBillingEnabled
+>;
+const mockedQuotaBytesForOwner = quotaBytesForOwner as MockedFunction<
+  typeof quotaBytesForOwner
+>;
+import {
+  CollabBudgetError,
+  MAX_DOC_BYTES,
+  MAX_OWNER_BYTES,
+  MAX_UPDATE_BYTES,
+} from "@/lib/collab/server/limits";
 
 // ---------------------------------------------------------------------------
 // Mock sql factory
@@ -92,6 +123,10 @@ function makeMockSql(
 beforeEach(() => {
   // Reset the singleton before each test so each test gets a fresh mock.
   _testSetSql(null);
+  // Default every test to billing-off (the flat-wall behavior). Tests that
+  // exercise the paid-quota path opt in by overriding these.
+  mockedIsBillingEnabled.mockReturnValue(false);
+  mockedQuotaBytesForOwner.mockResolvedValue(0);
 });
 
 // ---------------------------------------------------------------------------
@@ -294,18 +329,192 @@ describe("getCatchup", () => {
 
 describe("appendUpdate", () => {
   it("inserts an update row and touches updated_at on the doc, returning the new id", async () => {
+    // Call order now: getDocUsage SELECT, getOwnerUsage SELECT, INSERT, UPDATE.
     const { sql, calls } = makeMockSql([
-      [{ id: "7" }], // INSERT RETURNING id
-      [],            // UPDATE collab_docs SET updated_at
+      [{ owner_hash: "hash-owner", doc_bytes: 0 }], // getDocUsage
+      [{ owner_bytes: 0 }],                         // getOwnerUsage
+      [{ id: "7" }],                                // INSERT RETURNING id
+      [],                                           // UPDATE updated_at
     ]);
     _testSetSql(sql);
 
     const id = await appendUpdate("doc1", new Uint8Array([1, 2, 3]), "hash-alice");
 
     expect(id).toBe(7);
-    expect(calls[0]).toContain("INSERT INTO collab_doc_updates");
-    expect(calls[1]).toContain("UPDATE collab_docs");
-    expect(calls[1]).toContain("updated_at");
+    const insertCall = calls.find((c) =>
+      c.startsWith("INSERT INTO collab_doc_updates"),
+    );
+    expect(insertCall).toBeDefined();
+    const updateCall = calls.find((c) => c.startsWith("UPDATE collab_docs"));
+    expect(updateCall).toBeDefined();
+    expect(updateCall).toContain("updated_at");
+  });
+
+  it("skips the per-doc and per-owner gate (but still inserts) when the doc row is missing", async () => {
+    // getDocUsage returns no row, so the gate is skipped and the insert runs
+    // straight away. No getOwnerUsage query is issued.
+    const { sql, calls } = makeMockSql([
+      [],            // getDocUsage: no row
+      [{ id: "9" }], // INSERT RETURNING id
+      [],            // UPDATE updated_at
+    ]);
+    _testSetSql(sql);
+
+    const id = await appendUpdate("ghost", new Uint8Array([1, 2, 3]), "hash-x");
+    expect(id).toBe(9);
+    // Only three calls: getDocUsage, INSERT, UPDATE. No owner-usage SELECT.
+    expect(calls).toHaveLength(3);
+  });
+
+  it("rejects an update larger than MAX_UPDATE_BYTES before touching the db", async () => {
+    const { sql, calls } = makeMockSql([]);
+    _testSetSql(sql);
+
+    const tooBig = new Uint8Array(MAX_UPDATE_BYTES + 1);
+    await expect(
+      appendUpdate("doc1", tooBig, "hash-alice"),
+    ).rejects.toMatchObject({ name: "CollabBudgetError", scope: "update" });
+    // Nothing was written, the size check is the very first thing.
+    expect(calls).toHaveLength(0);
+  });
+
+  it("rejects when the doc would exceed MAX_DOC_BYTES", async () => {
+    const { sql, calls } = makeMockSql([
+      // getDocUsage: doc already at the per-doc cap.
+      [{ owner_hash: "hash-owner", doc_bytes: MAX_DOC_BYTES }],
+    ]);
+    _testSetSql(sql);
+
+    await expect(
+      appendUpdate("doc1", new Uint8Array([1]), "hash-alice"),
+    ).rejects.toBeInstanceOf(CollabBudgetError);
+    // getDocUsage ran, but no owner-usage, INSERT, or UPDATE.
+    expect(calls).toHaveLength(1);
+  });
+
+  it("rejects when the owner would exceed MAX_OWNER_BYTES", async () => {
+    const { sql, calls } = makeMockSql([
+      // getDocUsage: this doc is small, so the per-doc cap is fine.
+      [{ owner_hash: "hash-owner", doc_bytes: 10 }],
+      // getOwnerUsage: the owner is already at the per-owner cap.
+      [{ owner_bytes: MAX_OWNER_BYTES }],
+    ]);
+    _testSetSql(sql);
+
+    await expect(
+      appendUpdate("doc1", new Uint8Array([1]), "hash-alice"),
+    ).rejects.toMatchObject({ name: "CollabBudgetError", scope: "owner" });
+    // getDocUsage + getOwnerUsage ran, but no INSERT or UPDATE.
+    expect(calls).toHaveLength(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4b. Usage measurement (powers the budget gate + the /admin gauge)
+// ---------------------------------------------------------------------------
+
+describe("getDocUsage", () => {
+  it("returns the owner hash and summed bytes when the doc exists", async () => {
+    const { sql } = makeMockSql([
+      [{ owner_hash: "hash-owner", doc_bytes: "4096" }],
+    ]);
+    _testSetSql(sql);
+
+    const usage = await getDocUsage("doc1");
+    expect(usage).toEqual({ ownerHash: "hash-owner", docBytes: 4096 });
+  });
+
+  it("returns null when the doc does not exist", async () => {
+    const { sql } = makeMockSql([[]]);
+    _testSetSql(sql);
+
+    expect(await getDocUsage("missing")).toBeNull();
+  });
+});
+
+describe("getOwnerUsage", () => {
+  it("returns the owner's total bytes as a number", async () => {
+    const { sql, calls } = makeMockSql([[{ owner_bytes: "123456" }]]);
+    _testSetSql(sql);
+
+    const bytes = await getOwnerUsage("hash-owner");
+    expect(bytes).toBe(123456);
+    expect(calls[0]).toContain("octet_length");
+  });
+
+  it("returns 0 when the owner has no docs", async () => {
+    const { sql } = makeMockSql([[{ owner_bytes: 0 }]]);
+    _testSetSql(sql);
+
+    expect(await getOwnerUsage("nobody")).toBe(0);
+  });
+});
+
+describe("getOwnerQuotaBytes", () => {
+  it("falls back to the flat MAX_OWNER_BYTES wall when billing is off", async () => {
+    mockedIsBillingEnabled.mockReturnValue(false);
+    const quota = await getOwnerQuotaBytes("hash-owner");
+    expect(quota).toBe(MAX_OWNER_BYTES);
+    // No billing lookup is made when billing is off.
+    expect(mockedQuotaBytesForOwner).not.toHaveBeenCalled();
+  });
+
+  it("reads the billing quota for the owner key when billing is on", async () => {
+    mockedIsBillingEnabled.mockReturnValue(true);
+    mockedQuotaBytesForOwner.mockResolvedValue(FREE_ALLOWANCE_BYTES);
+    const quota = await getOwnerQuotaBytes("hash-owner");
+    expect(quota).toBe(FREE_ALLOWANCE_BYTES);
+    // The collab owner hash is passed straight through as the billing owner key.
+    expect(mockedQuotaBytesForOwner).toHaveBeenCalledWith("hash-owner");
+  });
+});
+
+describe("appendUpdate per-owner quota (billing on)", () => {
+  it("allows a write that the flat wall would reject once a block lifts the quota", async () => {
+    // The owner is already past the flat MAX_OWNER_BYTES wall, but billing
+    // reports a higher quota (a purchased block), so the write is allowed.
+    mockedIsBillingEnabled.mockReturnValue(true);
+    mockedQuotaBytesForOwner.mockResolvedValue(MAX_OWNER_BYTES * 100);
+
+    const { sql } = makeMockSql([
+      [{ owner_hash: "hash-owner", doc_bytes: 10 }], // getDocUsage
+      [{ owner_bytes: MAX_OWNER_BYTES }],            // getOwnerUsage: past flat wall
+      [{ id: "11" }],                                // INSERT RETURNING id
+      [],                                            // UPDATE updated_at
+    ]);
+    _testSetSql(sql);
+
+    const id = await appendUpdate("doc1", new Uint8Array([1]), "hash-alice");
+    expect(id).toBe(11);
+    expect(mockedQuotaBytesForOwner).toHaveBeenCalledWith("hash-owner");
+  });
+
+  it("still rejects once usage passes the billing quota", async () => {
+    mockedIsBillingEnabled.mockReturnValue(true);
+    mockedQuotaBytesForOwner.mockResolvedValue(MAX_OWNER_BYTES);
+
+    const { sql } = makeMockSql([
+      [{ owner_hash: "hash-owner", doc_bytes: 10 }], // getDocUsage
+      [{ owner_bytes: MAX_OWNER_BYTES }],            // getOwnerUsage: at quota
+    ]);
+    _testSetSql(sql);
+
+    await expect(
+      appendUpdate("doc1", new Uint8Array([1]), "hash-alice"),
+    ).rejects.toMatchObject({ name: "CollabBudgetError", scope: "owner" });
+  });
+});
+
+describe("getCollabStorageBytes", () => {
+  it("sums pg_total_relation_size over the two collab content tables", async () => {
+    const { sql, calls } = makeMockSql([[{ bytes: "789" }]]);
+    _testSetSql(sql);
+
+    const bytes = await getCollabStorageBytes();
+    expect(bytes).toBe(789);
+    expect(calls[0]).toContain("pg_total_relation_size");
+    expect(calls[0]).toContain("collab_docs");
+    expect(calls[0]).toContain("collab_doc_updates");
   });
 });
 

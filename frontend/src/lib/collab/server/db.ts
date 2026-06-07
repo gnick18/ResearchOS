@@ -18,6 +18,15 @@
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import { LoroDoc } from "loro-crdt";
 
+import {
+  CollabBudgetError,
+  MAX_DOC_BYTES,
+  MAX_OWNER_BYTES,
+  MAX_UPDATE_BYTES,
+} from "@/lib/collab/server/limits";
+import { isBillingEnabled } from "@/lib/billing/config";
+import { quotaBytesForOwner } from "@/lib/billing/db";
+
 // ---------------------------------------------------------------------------
 // Lazy singleton
 // ---------------------------------------------------------------------------
@@ -241,12 +250,125 @@ export async function getCatchup(docId: string): Promise<CollabCatchup | null> {
 }
 
 // ---------------------------------------------------------------------------
+// Helper: usage measurement (for the budget gate + the /admin gauge)
+// ---------------------------------------------------------------------------
+
+/**
+ * Logical byte usage for one doc, plus its owner hash, in a single query. The
+ * doc bytes are the compacted snapshot (octet_length, the uncompressed payload
+ * the client sees) plus the sum of the outstanding update-log rows for that
+ * doc. Returns null when the doc row does not exist.
+ *
+ * octet_length, not pg_total_relation_size, is the enforcement measure on
+ * purpose: it is the deterministic, client-visible size and ignores Postgres
+ * disk compression and per-row overhead, so a client cannot probe the gate by
+ * watching disk-level numbers shift.
+ */
+export async function getDocUsage(
+  docId: string,
+): Promise<{ ownerHash: string; docBytes: number } | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      d.owner_email_hash AS owner_hash,
+      COALESCE(octet_length(d.latest_snapshot), 0)
+        + COALESCE(
+            (SELECT SUM(octet_length(u.update_bytes))
+               FROM collab_doc_updates u
+              WHERE u.doc_id = d.doc_id),
+            0
+          ) AS doc_bytes
+    FROM collab_docs d
+    WHERE d.doc_id = ${docId}
+    LIMIT 1
+  `) as Array<{ owner_hash: string; doc_bytes: string | number }>;
+  if (rows.length === 0) return null;
+  return {
+    ownerHash: rows[0].owner_hash,
+    docBytes: Number(rows[0].doc_bytes),
+  };
+}
+
+/**
+ * The per-owner storage ceiling, in bytes, for the owner identified by the
+ * peppered email hash stored in collab_docs.owner_email_hash.
+ *
+ * When billing is on, the quota is owned by the billing layer: the free
+ * allowance plus whatever blocks the owner has purchased, so buying a block
+ * actually lifts the wall. ownerHash is already the billing owner key (the same
+ * peppered hash lib/billing/owner.ts derives, the value the directory and relay
+ * key by too), so it is passed straight through with no re-derivation.
+ *
+ * When billing is off (the default, and all of pre-launch) there is nothing to
+ * buy, so the ceiling falls back to the flat MAX_OWNER_BYTES fairness wall that
+ * protects the shared Neon tier.
+ */
+export async function getOwnerQuotaBytes(ownerHash: string): Promise<number> {
+  if (isBillingEnabled()) {
+    return quotaBytesForOwner(ownerHash);
+  }
+  return MAX_OWNER_BYTES;
+}
+
+/**
+ * Total logical byte usage across every doc a given owner owns, snapshots plus
+ * outstanding update logs. Same octet_length basis as getDocUsage so the
+ * per-owner gate and the per-doc gate measure the same way.
+ */
+export async function getOwnerUsage(ownerHash: string): Promise<number> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      (SELECT COALESCE(SUM(octet_length(latest_snapshot)), 0)
+         FROM collab_docs
+        WHERE owner_email_hash = ${ownerHash})
+      +
+      (SELECT COALESCE(SUM(octet_length(u.update_bytes)), 0)
+         FROM collab_doc_updates u
+         JOIN collab_docs d ON d.doc_id = u.doc_id
+        WHERE d.owner_email_hash = ${ownerHash}) AS owner_bytes
+  `) as Array<{ owner_bytes: string | number }>;
+  return Number(rows[0]?.owner_bytes ?? 0);
+}
+
+/**
+ * On-disk footprint of the two collab content tables in bytes, for the operator
+ * dashboard. Uses pg_total_relation_size (table + indexes + TOAST) because that
+ * is what actually counts against the Neon 0.5 GB tier, unlike the octet_length
+ * basis the budget gate uses. The two numbers differ (disk is compressed and
+ * carries overhead), which is expected, the gauge reports true cost and the gate
+ * enforces a deterministic logical size.
+ */
+export async function getCollabStorageBytes(): Promise<number> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      pg_total_relation_size('collab_docs')
+      + pg_total_relation_size('collab_doc_updates') AS bytes
+  `) as Array<{ bytes: string | number }>;
+  return Number(rows[0]?.bytes ?? 0);
+}
+
+// ---------------------------------------------------------------------------
 // Helper: appendUpdate
 // ---------------------------------------------------------------------------
 
 /**
  * Appends one Loro update to the log. Returns the new row's id so callers
  * (the push route) can report the latest version to the client.
+ *
+ * This is the one growth point for collab persistence, so the storage budget is
+ * enforced here, before the insert (compactDoc only ever shrinks, a snapshot
+ * replaces the update rows it folds, so it needs no gate of its own). Three
+ * ceilings are checked cheapest first.
+ *   1. the incoming update on its own (MAX_UPDATE_BYTES from limits.ts),
+ *   2. the doc's existing bytes plus the incoming update (MAX_DOC_BYTES),
+ *   3. the owner's total bytes plus the incoming update, against the per-owner
+ *      quota from getOwnerQuotaBytes (the billing quota when billing is on, the
+ *      flat MAX_OWNER_BYTES wall when it is off).
+ * Any breach throws CollabBudgetError and nothing is written, so an owner at
+ * their quota refuses to grow rather than silently filling Neon. Buying a block
+ * raises ceiling 3 the next time a write is gated.
  */
 export async function appendUpdate(
   docId: string,
@@ -254,6 +376,36 @@ export async function appendUpdate(
   authorEmailHash: string,
 ): Promise<number> {
   const sql = getSql();
+
+  // 1. Reject a single oversized update outright.
+  if (updateBytes.length > MAX_UPDATE_BYTES) {
+    throw new CollabBudgetError(
+      "update",
+      `update is ${updateBytes.length} bytes, over the ${MAX_UPDATE_BYTES}-byte per-update cap`,
+    );
+  }
+
+  // 2 + 3. Per-doc and per-owner caps. getDocUsage also hands back the owner
+  // hash so the owner total can be measured without a second lookup. If the doc
+  // row is missing (it should exist by the time a member pushes) the gate is
+  // skipped, the insert below still runs, matching the pre-budget behavior.
+  const usage = await getDocUsage(docId);
+  if (usage) {
+    if (usage.docBytes + updateBytes.length > MAX_DOC_BYTES) {
+      throw new CollabBudgetError(
+        "doc",
+        `doc ${docId} would reach ${usage.docBytes + updateBytes.length} bytes, over the ${MAX_DOC_BYTES}-byte per-doc cap`,
+      );
+    }
+    const ownerBytes = await getOwnerUsage(usage.ownerHash);
+    const ownerQuota = await getOwnerQuotaBytes(usage.ownerHash);
+    if (ownerBytes + updateBytes.length > ownerQuota) {
+      throw new CollabBudgetError(
+        "owner",
+        `owner would reach ${ownerBytes + updateBytes.length} bytes, over the ${ownerQuota}-byte per-owner quota`,
+      );
+    }
+  }
 
   // Convert Uint8Array to a Buffer so the Neon driver passes it as bytea.
   const buf = Buffer.from(updateBytes);
