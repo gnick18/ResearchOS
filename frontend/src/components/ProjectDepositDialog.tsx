@@ -25,6 +25,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import LivingPopup from "@/components/ui/LivingPopup";
 import type { Project, Task, Note } from "@/lib/types";
 import {
   isValidOrcid,
@@ -247,15 +248,11 @@ export default function ProjectDepositDialog({
     };
   }, [isOpen, project, currentUser, ownerHint]);
 
-  // Escape closes (unless mid-build).
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !building) onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, building, onClose]);
+  // Scrim click / Escape / the corner X all route through LivingPopup, but never
+  // mid-build (matches the old guarded backdrop + Escape behavior).
+  const handleClose = () => {
+    if (!building) onClose();
+  };
 
   const isOtherLicense = licenseChoice === OTHER_LICENSE_CHOICE;
   const licenseSpdxId = isOtherLicense ? null : licenseChoice || null;
@@ -371,16 +368,17 @@ export default function ProjectDepositDialog({
   const repo = findRepository(repoId);
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      data-tour-popup-occluding="project-deposit-dialog"
-      data-testid="project-deposit-dialog"
-      onClick={() => {
-        if (!building) onClose();
-      }}
+    <LivingPopup
+      open
+      onClose={handleClose}
+      label="Deposit to a repository"
+      selfSize
+      showClose={false}
+      closeOnScrimClick={!building}
     >
       <div
-        className="bg-surface-raised rounded-xl shadow-xl w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden"
+        data-testid="project-deposit-dialog"
+        className="pointer-events-auto bg-surface-raised rounded-xl shadow-xl w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -538,7 +536,7 @@ export default function ProjectDepositDialog({
           </div>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }
 
