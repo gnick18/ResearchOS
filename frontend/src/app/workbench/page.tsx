@@ -5,19 +5,25 @@ import { useQuery } from "@tanstack/react-query";
 import {
   fetchAllProjectsIncludingShared,
   fetchAllTasksIncludingShared,
+  labApi,
 } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAccountType } from "@/hooks/useAccountType";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
 import NotesPanel from "@/components/NotesPanel";
 import WorkbenchExperimentsPanel from "@/components/workbench/WorkbenchExperimentsPanel";
 import WorkbenchListsPanel from "@/components/workbench/WorkbenchListsPanel";
 import WorkbenchProjectsPanel from "@/components/workbench/WorkbenchProjectsPanel";
+import WorkbenchOneOnOnePanel from "@/components/workbench/WorkbenchOneOnOnePanel";
 import WorkbenchProjectFilterPills from "@/components/workbench/WorkbenchProjectFilterPills";
+import { shouldShowOneOnOneTab } from "@/components/workbench/oneOnOneGate";
+import { oneOnOneTabLabel } from "@/lib/one-on-one/label";
+import { Icon } from "@/components/icons";
 import { matchesAnyProjectFilter } from "@/lib/search/filterKey";
 import type { Project } from "@/lib/types";
 
-type TabType = "projects" | "experiments" | "notes" | "lists";
+type TabType = "projects" | "experiments" | "notes" | "lists" | "oneonone";
 
 const DEFAULT_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -58,7 +64,13 @@ export default function WorkbenchPage() {
     // widget relies on; the others are accepted symmetrically so any link can
     // land on its tab. Unknown / absent values leave the new Projects default.
     const tab = params.get("tab");
-    if (tab === "notes" || tab === "experiments" || tab === "lists" || tab === "projects") {
+    if (
+      tab === "notes" ||
+      tab === "experiments" ||
+      tab === "lists" ||
+      tab === "projects" ||
+      tab === "oneonone"
+    ) {
       setActiveTab(tab);
     }
     const nb = params.get("notebook");
@@ -69,6 +81,27 @@ export default function WorkbenchPage() {
 
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
+
+  // 1:1 ("Mentoring" / "Check-ins") tab (oneonone surface bot, 2026-06-07).
+  // The label is role-relative and the tab is gated: a lab head always sees it
+  // (they can set one up), a member sees it only when they are in >= 1 1:1, and
+  // a solo user with no lab head + no 1:1s never sees an empty tab.
+  const accountType = useAccountType(currentUser);
+  const isLabHead = accountType === "lab_head";
+  const { data: oneOnOnes = [] } = useQuery({
+    queryKey: ["one-on-ones"],
+    queryFn: () => labApi.getOneOnOnes(),
+  });
+  const showOneOnOneTab = shouldShowOneOnOneTab(accountType, oneOnOnes.length);
+  const oneOnOneLabelText = oneOnOneTabLabel(isLabHead ? "lab_head" : "lab");
+
+  // If the gate hides the tab while it is active (e.g. the viewer's last 1:1
+  // was removed), fall back to the default Projects view.
+  useEffect(() => {
+    if (activeTab === "oneonone" && !showOneOnOneTab) {
+      setActiveTab("projects");
+    }
+  }, [activeTab, showOneOnOneTab]);
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", currentUser],
@@ -116,7 +149,9 @@ export default function WorkbenchPage() {
         ? `${upcomingCount} experiment${upcomingCount !== 1 ? "s" : ""} in flight`
         : activeTab === "lists"
           ? `${openListCount} open list task${openListCount !== 1 ? "s" : ""}`
-          : "Meeting notes and running logs";
+          : activeTab === "oneonone"
+            ? `${oneOnOnes.length} active 1:1${oneOnOnes.length !== 1 ? "s" : ""}`
+            : "Meeting notes and running logs";
 
   return (
     <AppShell>
@@ -187,11 +222,27 @@ export default function WorkbenchPage() {
             </svg>
             Lists
           </button>
+          {showOneOnOneTab && (
+            <button
+              onClick={() => setActiveTab("oneonone")}
+              data-tour-target="workbench-oneonone-tab"
+              className={`px-4 py-2 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
+                activeTab === "oneonone"
+                  ? "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300"
+                  : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
+              }`}
+            >
+              <Icon name="users" className="w-4 h-4" />
+              {oneOnOneLabelText}
+            </button>
+          )}
         </div>
 
         {/* Project filter — hidden on Notes (project-agnostic) and on the
             Projects browse tab (the cards ARE the projects; no filter). */}
-        {activeTab !== "notes" && activeTab !== "projects" && (
+        {activeTab !== "notes" &&
+          activeTab !== "projects" &&
+          activeTab !== "oneonone" && (
           <WorkbenchProjectFilterPills
             projects={projects}
             projectColors={projectColors}
@@ -209,6 +260,12 @@ export default function WorkbenchPage() {
         )}
         {activeTab === "lists" && (
           <WorkbenchListsPanel projects={projects} />
+        )}
+        {activeTab === "oneonone" && showOneOnOneTab && (
+          <WorkbenchOneOnOnePanel
+            currentUser={currentUser}
+            isLabHead={isLabHead}
+          />
         )}
       </div>
     </AppShell>
