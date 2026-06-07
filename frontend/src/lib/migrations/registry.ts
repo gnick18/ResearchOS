@@ -13,6 +13,14 @@ import { repairAllPlateProtocols } from "@/lib/repair/plate-layouts";
 import { repairAllCellCultureSchedules } from "@/lib/repair/cell-culture-schedules";
 import { repairAllCodingWorkflows } from "@/lib/repair/coding-workflows";
 import { repairAllMassSpecProtocols } from "@/lib/repair/mass-spec";
+import {
+  cleanupOrphanLabArchives,
+  LABARCHIVES_CLEANUP_ID,
+} from "./cleanup-labarchives";
+import {
+  cleanupOrphanAuthJson,
+  AUTH_JSON_CLEANUP_ID,
+} from "./cleanup-auth-json";
 import type { Migration, MigrationReport } from "./types";
 
 /** The lib/repair/* functions share a `{ total, repaired, unrecoverable }`
@@ -94,5 +102,19 @@ export const MIGRATIONS: Migration[] = [
     id: "mass-spec-v1",
     title: "Mass spec methods",
     run: async () => fromRepairReport(await repairAllMassSpecProtocols()),
+  },
+  // Destructive-but-recoverable (trash-not-delete). These remove dead/legacy
+  // files, so they run last, after the in-place format fixes.
+  {
+    id: LABARCHIVES_CLEANUP_ID,
+    title: "Remove orphaned LabArchives credentials",
+    destructive: true,
+    run: cleanupOrphanLabArchives,
+  },
+  {
+    id: AUTH_JSON_CLEANUP_ID,
+    title: "Remove orphaned _auth.json files",
+    destructive: true,
+    run: cleanupOrphanAuthJson,
   },
 ];

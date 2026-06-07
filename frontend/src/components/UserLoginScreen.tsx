@@ -5,7 +5,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { signIn, signOut } from "next-auth/react";
 import { usersApi } from "@/lib/local-api";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
-import { removePassword } from "@/lib/auth/password";
 import { folderRequiresLogin } from "@/lib/auth/login-policy";
 import {
   hasLocalAccount,
