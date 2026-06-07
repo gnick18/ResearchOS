@@ -164,6 +164,16 @@
   .mini-bar { flex: 1; height: 8px; border-radius: 999px; background: var(--surface-raised); box-shadow: inset 0 0 0 1px var(--border); overflow: hidden; }
   .mini-bar > i { display: block; height: 100%; border-radius: 999px; }
   .mini-v { width: 52px; text-align: right; font-size: 12px; font-weight: 650; }
+
+  /* activity throttle CTA + bundled invoice preview */
+  .cta { margin-top: 12px; border-radius: 10px; padding: 10px 14px; font-size: 13px; font-weight: 550;
+    color: #b91c1c; background: rgba(239,68,68,.08); box-shadow: inset 0 0 0 1px rgba(239,68,68,.35); }
+  .dark .cta { color: #fca5a5; }
+  .invoice { border: 1px dashed var(--border); border-radius: 12px; padding: 12px 14px; }
+  .inv-row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 4px 0; color: var(--foreground-muted); }
+  .inv-row b { color: var(--foreground); font-weight: 650; }
+  .inv-row.total { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px; font-size: 14px; }
+  .inv-row.total span { color: var(--foreground); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -298,6 +308,22 @@ const sponsorCard = () => `
    <div class="mt16">${usage("9.4 GB","9.4 GB",100,43,"4 GB")}</div>
    ${labBreakdown()}
    <div class="mt16">
+     <p class="uppermini">Lab activity tier</p>
+     <p class="micro" style="margin-top:4px">One tier for the whole lab, pooled like storage. Members never pay separately; this rides on your single monthly invoice.</p>
+     <div class="pills mt12">
+       <button class="cap"><b>Included</b><small>20M / mo</small></button>
+       <button class="cap sel"><b>50M / mo</b><small>up to $10/mo</small></button>
+       <button class="cap"><b>150M / mo</b><small>up to $25/mo</small></button>
+       <button class="cap"><b>400M / mo</b><small>up to $60/mo</small></button>
+     </div>
+   </div>
+   <div class="invoice mt16">
+     <p class="uppermini">Your monthly invoice, one bill</p>
+     <div class="inv-row"><span>Storage, 9.4 GB pooled above free</span><b>$1.62</b></div>
+     <div class="inv-row"><span>Lab activity tier, 50M syncs</span><b>$10.00</b></div>
+     <div class="inv-row total"><span>Estimated total</span><b>$11.62 / mo</b></div>
+   </div>
+   <div class="mt16">
      <p class="uppermini">Invite a member</p>
      <div class="pills mt12" style="flex-wrap:nowrap">
        <input class="input" placeholder="member@university.edu" />
@@ -331,19 +357,48 @@ const memberInviteCard = `
 // The allowance is monthly "edit syncs" (write operations), separate from storage.
 // Editing is always free; past the allowance we slow cloud sync, never charge.
 let activityState = "normal";
-function activityCard(){
+// Activity tiers (flat steps, parallel to the storage cap). Picking a paid tier
+// lifts the throttle; it lands on the SAME monthly invoice as storage.
+const ACT_TIERS = [
+  { label: "Included", sub: "5M / mo", free: true },
+  { label: "15M / mo", sub: "up to $3/mo" },
+  { label: "40M / mo", sub: "up to $7/mo" },
+  { label: "100M / mo", sub: "up to $15/mo" },
+];
+function activityTierPicker(selIndex){
+  const pills = ACT_TIERS.map((t,i)=>`
+    <button class="cap ${i===selIndex?'sel':''}">
+      <b>${t.label}</b><small>${t.free?'Free':t.sub}</small></button>`).join("");
+  return `<div class="mt16">
+    <p class="uppermini">Activity tier</p>
+    <p class="micro" style="margin-top:4px">Lifts the throttle so sync stays instant. Flat monthly steps, the most each can cost is shown, added to your one monthly invoice next to storage.</p>
+    <div class="pills mt12">${pills}</div>
+  </div>`;
+}
+
+function activityCard(ctx){
+  // ctx: "individual" (own activity + tier picker) or "member" (covered by lab).
   const states = {
     normal:   { pct: 24, used: "1.2M", tone: "var(--sky)", badge: "Plenty of headroom",
                 msg: "You are well within your monthly activity allowance. Real-time sync is on." },
     near:     { pct: 86, used: "4.3M", tone: "var(--amber-text)", badge: "Heavy use",
-                msg: "You are a heavy user this month. Still real-time, but if you pass the allowance we will sync a little less often to keep costs fair." },
+                msg: "You are a heavy user this month. Still real-time, but if you pass the allowance we will slow sync unless you raise your activity tier." },
     throttled:{ pct: 100, used: "5.4M", tone: "#ef4444", badge: "Syncing less often",
-                msg: "Heavy use this month, so cloud sync is now every few seconds instead of instant. Your editing still works normally and you are never charged for this." },
+                msg: "You have passed your free activity allowance, so cloud sync is every few seconds instead of instant. Editing still works. Raise your activity tier below to restore instant sync." },
   };
   const s = states[activityState];
+  const selIndex = activityState === "throttled" ? 1 : 0; // suggest first paid tier when throttled
+  let footer = "";
+  if (ctx === "member") {
+    footer = `<p class="hint mt12">Your activity is covered by Chen Lab. If the lab passes its allowance, ask your lab head to raise the lab's activity tier.</p>`;
+  } else {
+    footer = activityState === "throttled"
+      ? `<div class="cta">Hit your allowance. Raise your activity tier to restore instant sync, billed on your usual invoice.</div>${activityTierPicker(selIndex)}`
+      : activityTierPicker(selIndex);
+  }
   return `
    <div class="card"><h3>Activity this month</h3>
-   <p class="desc">How much you edit through the cloud, separate from storage. Editing is always free. Very heavy months are slowed down (synced less often) rather than billed, so no surprise charges.</p>
+   <p class="desc">How much you edit through the cloud, separate from storage. The free allowance covers normal heavy use. Past it we slow sync to keep costs fair, or you can raise a flat activity tier to stay instant. No per-edit charges, ever.</p>
    <div class="body">
      <div class="usage-head">
        <p class="big">${s.used} <span>of 5M edit syncs</span></p>
@@ -351,6 +406,7 @@ function activityCard(){
      </div>
      <div class="bar"><i style="width:${Math.max(s.pct,2)}%;background:${s.tone}"></i></div>
      <p class="hint" style="color:${s.tone}">${s.msg}</p>
+     ${footer}
    </div></div>`;
 }
 
@@ -381,9 +437,9 @@ function operatorPanel(){
 }
 
 const personas = {
-  individual: () => summary("free") + usageCard(usage("0.4 GB","1 GB",40,null,"1 GB")) + activityCard() + capCard,
-  pi: () => summary("individual") + usageCard(usage("3.1 GB","25 GB",12,4,"1 GB")) + activityCard() + capCard + sponsorCard(),
-  member: () => summary("lab") + coveredCard + activityCard(),
+  individual: () => summary("free") + usageCard(usage("0.4 GB","1 GB",40,null,"1 GB")) + activityCard("individual") + capCard,
+  pi: () => summary("individual") + usageCard(usage("3.1 GB","25 GB",12,4,"1 GB")) + activityCard("individual") + capCard + sponsorCard(),
+  member: () => summary("lab") + coveredCard + activityCard("member"),
   operator: () => operatorPanel(),
 };
 
