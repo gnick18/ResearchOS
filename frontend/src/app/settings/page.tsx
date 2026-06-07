@@ -13,6 +13,7 @@ import UserLoginScreen from "@/components/UserLoginScreen";
 import ImportExperimentDialog from "@/components/ImportExperimentDialog";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import Tooltip from "@/components/Tooltip";
+import { Icon } from "@/components/icons";
 import UserAvatar from "@/components/UserAvatar";
 import VersionBadge from "@/components/VersionBadge";
 import WhatsNewModal from "@/components/WhatsNewModal";
@@ -53,6 +54,7 @@ import { ANIMATION_METADATA, renderAnimationIcon, type AnimationType, type RealA
 import DynamicAnimation from "@/components/DynamicAnimation";
 import { hasLocalAccount } from "@/lib/auth/account-store";
 import LabRoster from "@/components/lab-head/LabRoster";
+import AuditTrailViewer from "@/components/lab-head/AuditTrailViewer";
 import { loadIdentity } from "@/lib/sharing/identity/storage";
 import {
   deleteEncryptedBackup,
@@ -1124,6 +1126,61 @@ function LabRosterSection() {
 }
 
 /**
+ * PI capability revamp Phase 4 (sharing + collaboration manager, 2026-06-07):
+ * the Settings home of the lab-head audit trail. A short explainer plus a button
+ * that opens the AuditTrailViewer with NO targetUser, so it lands on the member
+ * picker. There is no password control here, the old PI edit-session unlock is
+ * gone, opening the read-only viewer is sufficient.
+ *
+ * Gated to lab heads only by the caller (LabModeTabContent renders it only when
+ * `settings.account_type === "lab_head"`). A member in a lab workspace still
+ * sees the Lab Mode tab but never this section.
+ */
+/**
+ * Gate predicate for the lab-head-only Settings sections (the audit trail).
+ * Exported so the gate can be unit-tested without mounting the heavy Settings
+ * page. The Lab Mode tab is visible to a member in a lab workspace too, so this
+ * checks the actual account_type rather than the looser isLabMode tab flag.
+ */
+export function shouldShowLabHeadAuditTrail(
+  settings: Pick<UserSettings, "account_type"> | null | undefined,
+): boolean {
+  return settings?.account_type === "lab_head";
+}
+
+function LabAuditTrailSection() {
+  const [viewerOpen, setViewerOpen] = useState(false);
+  return (
+    <SectionShell
+      id="lab-audit-trail"
+      title="Lab audit trail"
+      description="Review every change you saved to a member's record as the lab head, field by field. Read-only."
+      searchKeywords="audit log history pi lab head edits trail changes"
+    >
+      <div className="space-y-3">
+        <p className="text-meta text-foreground-muted leading-relaxed">
+          When you edit a member&apos;s task, note, or purchase as the lab head,
+          each field change is logged to their folder. Open the audit trail to
+          see those changes per member. This view never edits anything.
+        </p>
+        <button
+          type="button"
+          onClick={() => setViewerOpen(true)}
+          className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-raised px-3.5 py-2 text-body font-medium text-foreground shadow-sm hover:bg-surface-sunken"
+          data-testid="open-audit-trail-settings"
+        >
+          <span aria-hidden="true" className="text-foreground-muted">
+            <Icon name="history" className="h-4 w-4" />
+          </span>
+          Open audit trail
+        </button>
+      </div>
+      <AuditTrailViewer open={viewerOpen} onClose={() => setViewerOpen(false)} />
+    </SectionShell>
+  );
+}
+
+/**
  * Settings tabs manager 2026-05-23: Personal / Lab Mode segmented
  * control. Modeled after the Workbench tab strip
  * (`frontend/src/app/workbench/page.tsx`) so the two surfaces feel
@@ -1197,9 +1254,14 @@ function LabModeTabContent({
   update: (patch: Partial<UserSettings>) => Promise<void>;
   currentUser: string;
 }) {
+  // The audit trail is a lab-head-only power (you only audit your own edits to
+  // members' records). The Lab Mode tab is also visible to a member in a lab
+  // workspace, so gate this section on the actual account_type rather than the
+  // looser isLabMode tab condition.
   return (
     <>
       <AccountTypeSection settings={settings} update={update} />
+      {shouldShowLabHeadAuditTrail(settings) && <LabAuditTrailSection />}
       <LabRosterSection />
     </>
   );
