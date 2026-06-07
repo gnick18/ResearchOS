@@ -67,6 +67,7 @@ import {
   matchesMethodSearch,
   partitionMethodsByOwnership,
 } from "@/lib/methods/library-sections";
+import { useMethodsBeakerSource } from "./useMethodsBeakerSource";
 
 /**
  * When the current viewer is a receiver of a shared method with edit
@@ -850,6 +851,34 @@ export default function MethodsPage() {
   // a healthy Shared with Lab section.
   const sharedSectionIsEmpty = filteredSharedMethods.length === 0;
   const ownSectionIsEmpty = filteredOwnMethods.length === 0 && allFolders.length === 0;
+
+  // BeakerSearch step 3, register the Method Library palette source while the
+  // page is mounted. Reads the already-fetched state above (no second fetch) and
+  // closes over the page's real create / open / delete / retire / template
+  // handlers; all the testable logic lives in methods-beaker-source.ts.
+  useMethodsBeakerSource({
+    methods,
+    filteredOwnMethods,
+    filteredSharedMethods,
+    allFolders,
+    existingFolders,
+    searchQuery,
+    setSearchQuery,
+    browsingTemplates,
+    viewingMethod,
+    editingCompound,
+    setViewingMethod,
+    setEditingCompound,
+    setCreating,
+    setCreatingCategory,
+    setBrowsingTemplates,
+    setForceWholeLabOnCreate,
+    setPrefilledFolder,
+    handleDelete,
+    handleRetirePublicMethod,
+    handleTemplateUsed,
+    currentUser,
+  });
 
   return (
     <AppShell>
