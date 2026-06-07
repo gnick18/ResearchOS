@@ -10,6 +10,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { CommandPalette } from "./CommandPalette";
 import type { EditorCommand } from "./editor-commands";
+import type { GlobalIndexEntry } from "@/components/beaker-search/global-index";
 
 afterEach(() => cleanup());
 
@@ -526,5 +527,73 @@ describe("CommandPalette contextual sections", () => {
     );
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "mito" } });
     expect(screen.queryByText(/Search everything for/)).toBeNull();
+  });
+
+  // BeakerSearch global object search, chunk 4, the empty-query Recent-records MRU.
+  it("shows the Recent records group on the empty query and jumps on select", () => {
+    const onNavigateObject = vi.fn();
+    const recent: GlobalIndexEntry[] = [
+      {
+        type: "project",
+        key: "morgan:7",
+        label: "Mitochondria QC",
+        meta: "Project",
+        haystack: "mitochondria qc",
+        recencyAt: 0,
+        iconName: "folder",
+        href: "/workbench/projects/7",
+        enabled: true,
+      },
+    ];
+    render(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={makeCommands()}
+        selectionKind="none"
+        hasOrganism={false}
+        recentEntries={recent}
+        onNavigateObject={onNavigateObject}
+      />,
+    );
+    // Empty query, the recents group and its row are present.
+    expect(screen.getByText("Recent records")).toBeTruthy();
+    const row = screen.getByText("Mitochondria QC");
+    expect(row).toBeTruthy();
+    fireEvent.mouseDown(row);
+    expect(onNavigateObject).toHaveBeenCalledTimes(1);
+    expect(onNavigateObject).toHaveBeenCalledWith(recent[0]);
+
+    // Once the user types, the recents group gives way to the scored results.
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "zzzz" } });
+    expect(screen.queryByText("Recent records")).toBeNull();
+  });
+
+  it("renders no Recent records group without a navigate handler", () => {
+    const recent: GlobalIndexEntry[] = [
+      {
+        type: "task",
+        key: "self:1",
+        label: "Orphan recent",
+        meta: "List",
+        haystack: "orphan recent",
+        recencyAt: 0,
+        iconName: "list",
+        href: "/?openTask=self%3A1",
+        enabled: true,
+      },
+    ];
+    render(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={makeCommands()}
+        selectionKind="none"
+        hasOrganism={false}
+        recentEntries={recent}
+      />,
+    );
+    expect(screen.queryByText("Recent records")).toBeNull();
+    expect(screen.queryByText("Orphan recent")).toBeNull();
   });
 });

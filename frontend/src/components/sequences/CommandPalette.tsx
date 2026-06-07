@@ -48,6 +48,7 @@ const EMPTY_SEQUENCES: SequenceNavItem[] = [];
 const EMPTY_ARTIFACTS: ArtifactNavItem[] = [];
 const EMPTY_OBJECT_INDEX: GlobalIndexEntry[] = [];
 const EMPTY_PALETTE_GROUPS: PaletteGroup[] = [];
+const EMPTY_RECENT_RECORDS: PaletteItem[] = [];
 
 /** The icon, label, optional sub, and right-side hint for ONE palette item,
  *  branched by kind. Keeps the row markup uniform across commands, sequences,
@@ -201,14 +202,18 @@ export interface CommandPaletteProps {
   /** The object type the current page hosts as its own entity, whose global group
    *  is suppressed (on-page de-dup). Null suppresses nothing. */
   activePageType?: GlobalObjectType | null;
-  /** Jump to a cross-app object by its deep-link href (the provider supplies
-   *  router.push + close). Absent disables object navigation, so no object groups
-   *  render. */
-  onNavigateObject?: (href: string) => void;
+  /** Jump to a cross-app object record (the provider pushes its deep-link href,
+   *  closes the palette, and records it in the Recent-records MRU). Absent
+   *  disables object navigation, so no object groups or recents render. */
+  onNavigateObject?: (entry: GlobalIndexEntry) => void;
   /** BeakerSearch global object search, chunk 3. Hand the live query off to the
    *  full faceted /search (the provider pushes /search?keywords= + closes).
    *  Absent hides the trailing "Search everything" row (a non-shell caller). */
   onSearchEverything?: (query: string) => void;
+  /** BeakerSearch global object search, chunk 4. The cross-app Recent-records MRU,
+   *  already resolved to live entries in MRU order by the provider. Rendered only
+   *  in the empty-query view. Default empty. */
+  recentEntries?: GlobalIndexEntry[];
 }
 
 /** The full-screen palette. Renders nothing when closed. */
@@ -226,6 +231,7 @@ export function CommandPalette({
   activePageType = null,
   onNavigateObject,
   onSearchEverything,
+  recentEntries = EMPTY_OBJECT_INDEX,
 }: CommandPaletteProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -262,10 +268,25 @@ export function CommandPalette({
       items: group.entries.map((entry) => ({
         kind: "object" as const,
         entry,
-        onRun: () => onNavigateObject(entry.href),
+        onRun: () => onNavigateObject(entry),
       })),
     }));
   }, [objectIndex, debouncedQuery, activePageType, onNavigateObject]);
+
+  // BeakerSearch global object search, chunk 4. The cross-app Recent-records MRU,
+  // built into object PaletteItems through the SAME jump path as the ranked
+  // object rows, so re-opening a recent both navigates and re-promotes it in the
+  // MRU. The entries are already resolved + ordered by the provider; the palette
+  // only wires the run closure. Shown in the empty-query view (buildPalette uses
+  // recentRecords only when the query is empty). Absent navigate handler => none.
+  const recentRecords = useMemo<PaletteItem[]>(() => {
+    if (!onNavigateObject || recentEntries.length === 0) return EMPTY_RECENT_RECORDS;
+    return recentEntries.map((entry) => ({
+      kind: "object" as const,
+      entry,
+      onRun: () => onNavigateObject(entry),
+    }));
+  }, [recentEntries, onNavigateObject]);
 
   // Grouped + flat heterogeneous results (commands + sequences + results + the
   // global object groups) for the current query and selection context. The
@@ -284,6 +305,7 @@ export function CommandPalette({
         selectionKind,
         hasOrganism,
         objectGroups,
+        recentRecords,
       },
       query,
     );
@@ -308,6 +330,7 @@ export function CommandPalette({
     selectionKind,
     hasOrganism,
     objectGroups,
+    recentRecords,
     query,
     onSearchEverything,
   ]);

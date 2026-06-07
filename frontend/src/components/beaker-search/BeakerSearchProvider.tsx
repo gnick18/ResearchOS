@@ -70,6 +70,19 @@ import { useGlobalCommands } from "./useGlobalCommands";
 // the palette as the cross-app NAVIGATE source; for chunk 1 the value is unused
 // and only the prefetch + warm-cache subscription are wired.
 import { useGlobalObjectIndex } from "./useGlobalObjectIndex";
+// BeakerSearch global object search, chunk 4. The per-user Recent-records MRU.
+// The pure list math (push + resolve + parse) lives in recent-records.ts; the
+// provider owns the localStorage read/write and resolves the stored refs against
+// the live index for the empty-query "Recent records" group.
+import {
+  RECENT_RECORDS_CAP,
+  parseRecentRefs,
+  pushRecentRef,
+  resolveRecentRefs,
+  type RecentRef,
+} from "./recent-records";
+import type { GlobalIndexEntry } from "./global-index";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 /** The trigger-facing API, for the rail doorway and the front-door pill. */
 export interface BeakerSearchApi {
@@ -139,14 +152,54 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
     () => activePageTypeForPath(pathname),
     [pathname],
   );
-  // Jump to a cross-app object by its complete deep-link href, then close the
-  // palette. The target page reads the param on mount and opens the record.
+  // The per-user Recent-records MRU (chunk 4). A client-only localStorage list,
+  // keyed by the current user so a profile switch never leaks another user's
+  // recents, holding the last few globally-opened core records. Loaded on mount /
+  // user switch; null user (logged out) keeps it empty.
+  const { currentUser } = useCurrentUser();
+  const recentStorageKey = currentUser ? `beakerSearchRecent:${currentUser}` : null;
+  const [recentRefs, setRecentRefs] = useState<RecentRef[]>([]);
+  useEffect(() => {
+    if (!recentStorageKey || typeof window === "undefined") {
+      setRecentRefs([]);
+      return;
+    }
+    setRecentRefs(parseRecentRefs(window.localStorage.getItem(recentStorageKey)));
+  }, [recentStorageKey]);
+
+  // Jump to a cross-app object record, then close the palette and record it in
+  // the MRU. The href is a complete deep-link the target page reads on mount; the
+  // MRU stores only the {type, key} reference, re-resolved against the live index
+  // for the empty-query recents (so the row stays fresh and a deleted record
+  // drops out). Persist best-effort, a full or disabled localStorage never breaks
+  // the jump.
   const navigateToObject = useCallback(
-    (href: string) => {
-      router.push(href);
+    (entry: GlobalIndexEntry) => {
+      router.push(entry.href);
       setOpen(false);
+      if (!recentStorageKey || typeof window === "undefined") return;
+      setRecentRefs((prev) => {
+        const next = pushRecentRef(
+          prev,
+          { type: entry.type, key: entry.key },
+          RECENT_RECORDS_CAP,
+        );
+        try {
+          window.localStorage.setItem(recentStorageKey, JSON.stringify(next));
+        } catch {
+          // localStorage full or disabled; the in-memory MRU still updates.
+        }
+        return next;
+      });
     },
-    [router],
+    [router, recentStorageKey],
+  );
+
+  // Resolve the stored refs to live index entries (MRU order, missing dropped)
+  // for the empty-query "Recent records" group.
+  const recentEntries = useMemo(
+    () => resolveRecentRefs(recentRefs, objectIndex),
+    [recentRefs, objectIndex],
   );
   // BeakerSearch global object search, chunk 3. Hand the live query off to the
   // full faceted /search via ?keywords=, which /search reads on mount to seed its
@@ -243,6 +296,7 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
           activePageType={activePageType}
           onNavigateObject={navigateToObject}
           onSearchEverything={searchEverything}
+          recentEntries={recentEntries}
         />
       </BeakerSearchRegistryContext.Provider>
     </BeakerSearchApiContext.Provider>

@@ -129,7 +129,9 @@ export type PaletteGroupTitle =
   | "Sequences"
   // BeakerSearch global object search, chunk 3, the trailing "Search everything"
   // handoff row to the full faceted /search.
-  | "More";
+  | "More"
+  // BeakerSearch global object search, chunk 4, the empty-query cross-app MRU.
+  | "Recent records";
 
 /** A grouped block of heterogeneous palette items the component renders. `hint`
  *  is an optional muted clause after the heading (e.g. "for your selection" or
@@ -446,6 +448,13 @@ export interface PaletteInput {
    *  omitted value is the no-object-source case (e.g. the sequence editor's own
    *  unit tests). */
   objectGroups?: PaletteGroup[];
+  /** BeakerSearch global object search, chunk 4. The cross-app Recent-records MRU
+   *  (the last few globally-opened core records, already resolved to live object
+   *  items by the app-shell provider). Shown ONLY in the empty-query view, as the
+   *  one thing the global source adds before the user types (it never dumps the
+   *  index). Empty / omitted on a non-shell caller and once the user starts
+   *  typing. */
+  recentRecords?: PaletteItem[];
 }
 
 /** The two trailing command groups the always-present global layer contributes
@@ -458,6 +467,9 @@ const GLOBAL_COMMAND_GROUPS: ReadonlySet<CommandGroup> = new Set<CommandGroup>([
 
 /** Stable empty default so an omitted objectGroups prop does not churn the memo. */
 const EMPTY_OBJECT_GROUPS: PaletteGroup[] = [];
+
+/** Stable empty default so an omitted recentRecords prop does not churn the memo. */
+const EMPTY_RECENT_RECORDS: PaletteItem[] = [];
 
 /** Build the palette's heterogeneous, grouped view.
  *
@@ -489,6 +501,7 @@ export function buildPaletteResultsForQuery(
     selectionKind,
     hasOrganism,
     objectGroups = EMPTY_OBJECT_GROUPS,
+    recentRecords = EMPTY_RECENT_RECORDS,
   } = input;
   const trimmed = query.trim();
 
@@ -533,6 +546,14 @@ export function buildPaletteResultsForQuery(
           .slice(0, RECENT_RESULTS_CAP)
           .map((a) => ({ kind: "artifact" as const, artifact: a })),
       });
+    }
+
+    // 3b. Recent records (the cross-app MRU, global object search chunk 4). The
+    // page's own context (Suggested + the sequence nav groups) leads; this global
+    // recents list sits just above the command intent groups. It is the only
+    // thing the global source contributes to the empty view (decision 4).
+    if (recentRecords.length > 0) {
+      groups.push({ title: "Recent records", items: recentRecords });
     }
 
     // 4. Then every command intent group in source order.
