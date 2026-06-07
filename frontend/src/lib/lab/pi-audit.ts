@@ -67,8 +67,8 @@ function enqueueAuditWrite<T>(
 export interface PiAuditEntry {
   /** Unique entry id. UUID-style. */
   id: string;
-  /** Session id from `edit-session.startEditSession`. Ties all entries
-   *  written in one 5-min unlock window together. */
+  /** A synthetic id grouping related entries (e.g. "lab-head-action",
+   *  "owner-clear", "auto-grant"). The old PI 5-min edit-session id is gone. */
   session_id: string;
   /** Lab head who made the edit (the "actor"). Always === the session's
    *  username at write time. Stored alongside session_id so a reader

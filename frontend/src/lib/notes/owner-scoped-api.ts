@@ -1,292 +1,84 @@
-// Lab Head Phase 5 R1 (lab head Phase 5 R1 manager, 2026-05-23): owner-scoped
-// wrapper around `notesApi` mutations.
+// Owner-scoped wrapper around `notesApi` mutations.
 //
-// Mirrors the pattern Phase 5 established for tasks at
-// `lib/tasks/owner-scoped-api.ts`. When a PI is in an unlocked edit session
-// editing a note owned by another member, every mutation needs to:
-//   1. Route to the OWNER's `users/<owner>/notes/<id>.json` (so the change
-//      is visible to the owner, not silently captured in the PI's folder).
-//   2. Append per-field audit entries to `users/<owner>/_pi_audit.json` so
-//      the audit log records who made each change and when.
-//
-// Plain own-note edits (or any non-PI-session view) pass `undefined` for
-// the wrapper's session args and fall through to the unwrapped notesApi
-// (no owner routing, no audit emission).
+// Peer editing inside a shared notebook (notebook-note-edit sub-bot of HR,
+// 2026-06-02): when the viewer holds an explicit edit-level share on another
+// member's notebook note, mutations route to THAT owner's folder so the change
+// lands where the owner reads it. Plain own-note edits pass no peer owner and
+// fall through to the unwrapped notesApi (current user's folder).
 //
 // Lives here (not inside NoteDetailPopup) so the shape matches the tasks
 // wrapper and any future popup-internal component can import it without
 // pulling in the popup itself.
+//
+// The old PI edit-session / audited soft-write branch was removed with the
+// PI edit-mode feature; a lab head now edits only records they own or that
+// are shared with them at edit permission, same as any other user.
 
 import { notesApi as rawNotesApi } from "@/lib/local-api";
 import type { NoteUpdate } from "@/lib/local-api";
 import type { HistoryEditKind } from "@/lib/history";
-import {
-  appendAuditEntries,
-  buildFieldDiffEntries,
-  type PiAuditEntry,
-} from "@/lib/lab/pi-audit";
 
 /**
- * Args for the wrapper. When `targetOwner` / `actor` / `sessionId` are all
- * present, mutations are owner-routed AND emit audit entries. Any missing
- * field falls back to the unwrapped notesApi (current user's folder, no
- * audit). The all-or-nothing shape keeps the caller from accidentally
- * routing the write to the target user without an audit trail.
+ * Args for the wrapper. `notebookPeerOwner` is the note-owner folder for a
+ * PEER edit inside a shared notebook (both members hold an explicit edit-level
+ * share via `pairingSharedWith`, so either may edit the other's notebook note).
+ * When set, mutations route to that owner's folder so the change lands where
+ * the owner reads it. Absent / unset = the unchanged current-user-folder
+ * behavior.
  */
 export interface OwnerScopedNotesArgs {
-  /** Username of the note owner — the user whose folder is the write target. */
-  targetOwner: string | null | undefined;
-  /** Username of the lab head doing the edit (the "actor" on each entry). */
-  actor: string | null | undefined;
-  /** Session id from `edit-session.startEditSession`. Ties all entries from
-   *  one 5-min unlock window together. */
-  sessionId: string | null | undefined;
-  /**
-   * Shared 1:1 notebooks (notebook-note-edit sub-bot of HR, 2026-06-02): the
-   * note-owner folder for a PEER edit inside a shared notebook. Both notebook
-   * members hold an explicit edit-level share (via `pairingSharedWith`), so
-   * either member may edit the other's notebook note. When set (and the PI
-   * edit-session args are NOT active), mutations route to THIS owner's folder
-   * so the change lands where the owner reads it, WITHOUT emitting PI audit
-   * entries (peer editing is not a lab-head override). Absent / unset = the
-   * unchanged current-user-folder behavior. Ignored when the PI edit-session
-   * branch is active (the PI override takes precedence + owns the audit trail).
-   */
   notebookPeerOwner?: string | null | undefined;
 }
 
 /**
  * Build an owner-scoped `notesApi`. Returns the same shape as the underlying
  * `notesApi` (so consumers don't change call sites) but with each mutation
- * routed to the target owner's folder and per-field audit entries appended.
- *
- * The wrapper reads the pre-edit record before each write so the audit
- * entry can carry the OLD value verbatim. For nested updates (entry-level
- * writes inside the parent note), the diff is computed against the
- * matching entry pre/post — one audit entry per changed field of the
- * touched entry.
+ * routed to the notebook peer owner's folder when one is supplied.
  */
 export function ownerScopedNotesApi(args: OwnerScopedNotesArgs) {
-  const { targetOwner, actor, sessionId, notebookPeerOwner } = args;
-  // If any of the session args is missing, route everything through the
-  // unwrapped API. This matches the Phase 5 TaskDetailPopup pattern.
-  const active = !!targetOwner && !!actor && !!sessionId;
-
-  if (!active) {
-    // Shared 1:1 notebooks (notebook-note-edit sub-bot of HR, 2026-06-02):
-    // a notebook PEER edit (no PI session, but the viewer holds an explicit
-    // edit-level share on the other member's notebook note) routes to the
-    // owner's folder via the raw API's `owner` param so the write lands where
-    // the owner reads it. No PI audit: peer editing is not a lab-head override.
-    // Empty string is treated as "no peer owner" so an own-note (peerOwner ===
-    // currentUser falls out at the caller) or a missing owner never misroutes.
-    const peerOwner =
-      typeof notebookPeerOwner === "string" && notebookPeerOwner.length > 0
-        ? notebookPeerOwner
-        : undefined;
-    return {
-      ...rawNotesApi,
-      // VC Phase 2 (FLAG-5): give the inactive wrapper the SAME 3-arg
-      // (id, data, historyMeta) update shape as the active branch below, so
-      // NoteDetailPopup can call `notesApi.update(id, payload, historyMeta)`
-      // unconditionally. The raw API takes (id, data, owner, historyMeta); here
-      // `owner` is the notebook peer owner (or undefined = current-user folder),
-      // and historyMeta forwards through. Without this shim a 3-arg call would
-      // bind historyMeta to the raw `owner` param and silently misroute.
-      update: (
-        id: number,
-        data: NoteUpdate,
-        historyMeta: {
-          kind: HistoryEditKind;
-          revert_target_version?: number;
-        } = { kind: "update" },
-      ) => rawNotesApi.update(id, data, peerOwner, historyMeta),
-      get: peerOwner
-        ? (id: number, owner?: string) => rawNotesApi.get(id, owner ?? peerOwner)
-        : rawNotesApi.get,
-      addEntry: peerOwner
-        ? (
-            noteId: number,
-            data: { title: string; date: string; content?: string },
-          ) => rawNotesApi.addEntry(noteId, data, peerOwner)
-        : rawNotesApi.addEntry,
-      updateEntry: peerOwner
-        ? (
-            noteId: number,
-            entryId: string,
-            data: { title?: string; date?: string; content?: string },
-          ) => rawNotesApi.updateEntry(noteId, entryId, data, peerOwner)
-        : rawNotesApi.updateEntry,
-      deleteEntry: peerOwner
-        ? (noteId: number, entryId: string) =>
-            rawNotesApi.deleteEntry(noteId, entryId, peerOwner)
-        : rawNotesApi.deleteEntry,
-    };
-  }
-
-  // Narrowed types — TS doesn't follow the `active` boolean across closure
-  // boundaries, so re-bind the asserted-non-null values here.
-  const owner = targetOwner as string;
-  const writer = actor as string;
-  const session = sessionId as string;
-
-  const writeAuditFromDiff = async (
-    recordId: number,
-    fieldPath: string,
-    oldValue: unknown,
-    newValue: unknown,
-  ) => {
-    if (JSON.stringify(oldValue) === JSON.stringify(newValue)) return;
-    try {
-      await appendAuditEntries(owner, [
-        {
-          session_id: session,
-          actor: writer,
-          target_user: owner,
-          record_type: "note",
-          record_id: recordId,
-          field_path: fieldPath,
-          old_value: oldValue ?? null,
-          new_value: newValue ?? null,
-        },
-      ]);
-    } catch (err) {
-      console.warn("[ownerScopedNotesApi] appendAuditEntries failed", err);
-    }
-  };
-
-  const writeAuditEntries = async (
-    entries: Array<Omit<PiAuditEntry, "id" | "timestamp">>,
-  ) => {
-    if (entries.length === 0) return;
-    try {
-      await appendAuditEntries(owner, entries);
-    } catch (err) {
-      console.warn("[ownerScopedNotesApi] appendAuditEntries failed", err);
-    }
-  };
-
+  const { notebookPeerOwner } = args;
+  // Empty string is treated as "no peer owner" so an own-note (peerOwner ===
+  // currentUser falls out at the caller) or a missing owner never misroutes.
+  const peerOwner =
+    typeof notebookPeerOwner === "string" && notebookPeerOwner.length > 0
+      ? notebookPeerOwner
+      : undefined;
   return {
     ...rawNotesApi,
-    // get is the only read we override — so consumers that read-via-the-
-    // wrapper see the target owner's record, not the PI's.
-    get: (id: number) => rawNotesApi.get(id, owner),
-    // VC Phase 2 (FLAG-5): `historyMeta` threads through to the raw
-    // notesApi.update so a PI-initiated restore / undo-restore stamps the
-    // history row with the right kind ("revert" / "undo-revert") AND the PI
-    // cross-owner audit + owner routing ride the existing path. Defaults to
-    // { kind: "update" } so non-restore PI edits are unchanged.
-    update: async (
+    // VC Phase 2 (FLAG-5): the wrapper exposes the SAME 3-arg
+    // (id, data, historyMeta) update shape so NoteDetailPopup can call
+    // `notesApi.update(id, payload, historyMeta)` unconditionally. The raw API
+    // takes (id, data, owner, historyMeta); here `owner` is the notebook peer
+    // owner (or undefined = current-user folder), and historyMeta forwards
+    // through. Without this shim a 3-arg call would bind historyMeta to the raw
+    // `owner` param and silently misroute.
+    update: (
       id: number,
       data: NoteUpdate,
-      historyMeta: { kind: HistoryEditKind; revert_target_version?: number } = {
-        kind: "update",
-      },
-    ) => {
-      // Top-level note fields: title / description / is_shared / etc.
-      // One audit entry per touched field that actually moved.
-      const before = await rawNotesApi.get(id, owner);
-      const updated = await rawNotesApi.update(id, data, owner, historyMeta);
-      if (before && updated) {
-        const entries = buildFieldDiffEntries({
-          actor: writer,
-          session_id: session,
-          target_user: owner,
-          record_type: "note",
-          record_id: id,
-          oldRecord: before as unknown as Record<string, unknown>,
-          newRecord: updated as unknown as Record<string, unknown>,
-          // `revert_undo_window` is a transient UI affordance (denylisted from
-          // history), so it must not generate per-field audit churn either.
-          fieldPaths: Object.keys(data).filter(
-            (k) => k !== "updated_at" && k !== "revert_undo_window",
-          ),
-        });
-        await writeAuditEntries(entries);
-      }
-      return updated;
-    },
-    addEntry: async (
-      noteId: number,
-      data: { title: string; date: string; content?: string },
-    ) => {
-      const updated = await rawNotesApi.addEntry(noteId, data, owner);
-      if (updated) {
-        // New entry — emit ONE audit entry capturing the addition. The
-        // field_path encodes the new entry's id so the audit log reads as
-        // "entries.<entry-id> added" rather than "entries changed".
-        const newEntry = (updated.entries ?? []).at(-1);
-        if (newEntry) {
-          await writeAuditEntries([
-            {
-              session_id: session,
-              actor: writer,
-              target_user: owner,
-              record_type: "note",
-              record_id: noteId,
-              field_path: `entries.${newEntry.id}`,
-              old_value: null,
-              new_value: {
-                title: newEntry.title,
-                date: newEntry.date,
-                content: newEntry.content,
-              },
-            },
-          ]);
-        }
-      }
-      return updated;
-    },
-    updateEntry: async (
-      noteId: number,
-      entryId: string,
-      data: { title?: string; date?: string; content?: string },
-    ) => {
-      // Diff at the entry level: one audit entry per touched entry field.
-      const before = await rawNotesApi.get(noteId, owner);
-      const beforeEntry = before?.entries?.find((e) => e.id === entryId);
-      const updated = await rawNotesApi.updateEntry(noteId, entryId, data, owner);
-      const afterEntry = updated?.entries?.find((e) => e.id === entryId);
-      if (beforeEntry && afterEntry) {
-        const beforeRec = beforeEntry as unknown as Record<string, unknown>;
-        const afterRec = afterEntry as unknown as Record<string, unknown>;
-        for (const fieldKey of Object.keys(data) as Array<keyof typeof data>) {
-          const fieldPath = `entries.${entryId}.${fieldKey}`;
-          await writeAuditFromDiff(
-            noteId,
-            fieldPath,
-            beforeRec[fieldKey],
-            afterRec[fieldKey],
-          );
-        }
-      }
-      return updated;
-    },
-    deleteEntry: async (noteId: number, entryId: string) => {
-      const before = await rawNotesApi.get(noteId, owner);
-      const removedEntry = before?.entries?.find((e) => e.id === entryId);
-      const updated = await rawNotesApi.deleteEntry(noteId, entryId, owner);
-      if (removedEntry) {
-        await writeAuditEntries([
-          {
-            session_id: session,
-            actor: writer,
-            target_user: owner,
-            record_type: "note",
-            record_id: noteId,
-            field_path: `entries.${entryId}`,
-            old_value: {
-              title: removedEntry.title,
-              date: removedEntry.date,
-              content: removedEntry.content,
-            },
-            new_value: null,
-          },
-        ]);
-      }
-      return updated;
-    },
-    // delete intentionally NOT owner-routed — destroying a note belongs to
-    // the original owner. The PI's edit session covers IN-PLACE edits only.
+      historyMeta: {
+        kind: HistoryEditKind;
+        revert_target_version?: number;
+      } = { kind: "update" },
+    ) => rawNotesApi.update(id, data, peerOwner, historyMeta),
+    get: peerOwner
+      ? (id: number, owner?: string) => rawNotesApi.get(id, owner ?? peerOwner)
+      : rawNotesApi.get,
+    addEntry: peerOwner
+      ? (
+          noteId: number,
+          data: { title: string; date: string; content?: string },
+        ) => rawNotesApi.addEntry(noteId, data, peerOwner)
+      : rawNotesApi.addEntry,
+    updateEntry: peerOwner
+      ? (
+          noteId: number,
+          entryId: string,
+          data: { title?: string; date?: string; content?: string },
+        ) => rawNotesApi.updateEntry(noteId, entryId, data, peerOwner)
+      : rawNotesApi.updateEntry,
+    deleteEntry: peerOwner
+      ? (noteId: number, entryId: string) =>
+          rawNotesApi.deleteEntry(noteId, entryId, peerOwner)
+      : rawNotesApi.deleteEntry,
   };
 }

@@ -13,9 +13,8 @@ interface FlagForReviewButtonProps {
   recordName: string;
   /** Username of the record owner. */
   targetOwner: string;
-  /** PI's username (audit actor). */
+  /** Lab head's username (audit actor). */
   actor: string;
-  sessionId: string;
   /** Current flag state (passed in by the popup that owns the record). */
   currentFlag: PiFlag | null;
   /** Fires after the flag write lands so the popup can refresh. */
@@ -37,7 +36,6 @@ export default function FlagForReviewButton({
   recordName,
   targetOwner,
   actor,
-  sessionId,
   currentFlag,
   onFlagged,
 }: FlagForReviewButtonProps) {
@@ -68,7 +66,6 @@ export default function FlagForReviewButton({
       };
       const result = await setFlagForReview({
         actor,
-        sessionId,
         targetOwner,
         recordType,
         recordId,
@@ -104,7 +101,6 @@ export default function FlagForReviewButton({
     try {
       const result = await setFlagForReview({
         actor,
-        sessionId,
         targetOwner,
         recordType,
         recordId,

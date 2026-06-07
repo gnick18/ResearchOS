@@ -113,8 +113,6 @@ vi.mock("@/components/DevForceWalkthroughButton", () => ({
 }));
 vi.mock("@/components/BeakerBot", () => ({ default: () => null }));
 vi.mock("@/components/StreakBadge", () => ({ default: () => null }));
-vi.mock("@/components/EditSessionBanner", () => ({ default: () => null }));
-vi.mock("@/components/EditSessionTopNavChip", () => ({ default: () => null }));
 vi.mock("@/components/DataSetupScreen", () => ({ default: () => null }));
 vi.mock("@/components/UserLoginScreen", () => ({ default: () => null }));
 vi.mock("@/components/FeedbackModal", () => ({ default: () => null }));

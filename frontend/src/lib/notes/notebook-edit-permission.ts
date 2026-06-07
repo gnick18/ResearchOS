@@ -14,19 +14,18 @@
 //
 // Rule:
 //   editable IFF the note carries a `notebook_id` AND the viewer `canWrite`
-//   it under the unified sharing primitive WITHOUT the PI bypass.
+//   it under the unified sharing primitive.
 //
-// We pass `NEVER_UNLOCKED` into `canWrite` on purpose: the carve-out must be
-// the EXPLICIT edit-level share entry (the pair grant), never a transient PI
-// passcode session. The owner of the note trivially satisfies `canWrite`
-// (owner always writes), so this also keeps a member's OWN notebook note
-// editable through the same predicate.
+// The pair-sharing grant (both members at level "edit") IS the authorization.
+// The owner of the note trivially satisfies `canWrite` (owner always writes),
+// so this also keeps a member's OWN notebook note editable through the same
+// predicate.
 //
 // SCOPE: this returns `false` for any note that lacks a `notebook_id`, so an
-// ordinary (non-notebook) shared note is untouched and keeps the existing
-// lab-head edit-session / PI-unlock posture. The carve-out cannot leak.
+// ordinary (non-notebook) shared note is untouched and keeps the standard
+// share-permission posture. The carve-out cannot leak.
 
-import { canWrite, NEVER_UNLOCKED } from "@/lib/sharing/unified";
+import { canWrite } from "@/lib/sharing/unified";
 import type { SharedUser } from "@/lib/types";
 
 export function canEditNotebookNote(params: {
@@ -44,12 +43,10 @@ export function canEditNotebookNote(params: {
   if (typeof notebookId !== "string" || notebookId.length === 0) return false;
   // A signed-in viewer is required (no editable view for a signed-out reader).
   if (!currentUser) return false;
-  // The pair-sharing grant is the authorization. `NEVER_UNLOCKED` keeps the
-  // PI passcode bypass out of this path: only the explicit edit-level share
-  // entry (or being the owner) grants edit.
+  // The pair-sharing grant is the authorization: only the explicit edit-level
+  // share entry (or being the owner) grants edit.
   return canWrite(
     { owner: noteOwner ?? "", shared_with: sharedWith ?? [] },
     { username: currentUser, account_type: "lab" },
-    NEVER_UNLOCKED,
   );
 }

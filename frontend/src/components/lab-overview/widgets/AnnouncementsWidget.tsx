@@ -31,15 +31,10 @@ import UserAvatar from "@/components/UserAvatar";
  *     Pin / Edit / Delete on own entries.
  *   - Member view: read-only list, pinned announcements floated to top.
  *
- * pi-password bot (2026-06-02): the announcement composer no longer
- * sits behind the lab-head EDIT SESSION (useEditSession +
- * LabHeadPasswordModal "unlock edit mode"). PI accounts now require a
- * password at LOGIN, so a signed-in lab head is already authenticated;
- * gating announcements behind a second time-windowed unlock was
- * redundant. The composer stays strictly lab_head-only (the
- * `account_type === "lab_head"` gate below is unchanged) and posts
- * directly. The edit session still gates every OTHER PI surface
- * (purchases / tasks / notes / roster) — only this composer was freed.
+ * The composer is strictly lab_head-only (the `account_type === "lab_head"`
+ * gate below) and posts directly. (The old PI edit-session / password gate
+ * was removed with the PI edit-mode feature; a signed-in lab head is already
+ * authenticated.)
  */
 export const LAB_ANNOUNCEMENTS_QUERY_KEY = ["lab-announcements"] as const;
 

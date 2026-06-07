@@ -30,7 +30,6 @@
 
 import { patchOnboarding, readOnboarding } from "@/lib/onboarding/sidecar";
 import { appendAuditEntries } from "./pi-audit";
-import { getEditSession } from "./edit-session";
 
 /**
  * Read the archived flag for one user. Defaults to `false` for any
@@ -80,18 +79,14 @@ export async function readArchivedSet(
  *
  * Side effects:
  *   - Emits one `_pi_audit.json` entry on the TARGET user's folder
- *     with the session_id from the active edit session (if any). If
- *     no session is active, falls back to a synthetic id; callers
- *     gate on session state at the UI layer.
+ *     stamped with a synthetic archive session id.
  */
 export async function archiveUser(
   targetUsername: string,
   actorUsername: string,
 ): Promise<void> {
   const nowIso = new Date().toISOString();
-  const session = getEditSession();
-  const session_id =
-    session.active?.id ?? `no-session-${Date.now()}`;
+  const session_id = `archive-${Date.now()}`;
 
   const prevArchived = (await readOnboarding(targetUsername)).archived === true;
 
@@ -132,9 +127,7 @@ export async function restoreUser(
   targetUsername: string,
   actorUsername: string,
 ): Promise<void> {
-  const session = getEditSession();
-  const session_id =
-    session.active?.id ?? `no-session-${Date.now()}`;
+  const session_id = `archive-${Date.now()}`;
 
   const prevArchived = (await readOnboarding(targetUsername)).archived === true;
 

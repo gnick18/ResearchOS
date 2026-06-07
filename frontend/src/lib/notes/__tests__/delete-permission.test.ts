@@ -17,32 +17,20 @@ describe("canDeleteNoteFromPopup", () => {
         readOnly: false,
         currentUser: "alex",
         noteOwner: "alex",
-        labHeadUnlocked: false,
       }),
     ).toBe(true);
   });
 
-  it("hides Delete from a non-owner who has no PI unlock", () => {
-    // A shared-edit receiver: not the owner, no PI session. Can edit, not delete.
+  it("hides Delete from a non-owner (shared-edit receiver or lab head)", () => {
+    // A shared-edit receiver or a lab head: not the owner. Can edit, not delete.
+    // The old PI edit-session cross-owner delete path was removed.
     expect(
       canDeleteNoteFromPopup({
         readOnly: false,
         currentUser: "morgan",
         noteOwner: "alex",
-        labHeadUnlocked: false,
       }),
     ).toBe(false);
-  });
-
-  it("shows Delete to a PI with an unlocked Phase 5 edit session (cross-owner)", () => {
-    expect(
-      canDeleteNoteFromPopup({
-        readOnly: false,
-        currentUser: "pi-jordan",
-        noteOwner: "alex",
-        labHeadUnlocked: true,
-      }),
-    ).toBe(true);
   });
 
   it("hides Delete whenever the popup is read-only, even for the owner", () => {
@@ -51,16 +39,6 @@ describe("canDeleteNoteFromPopup", () => {
         readOnly: true,
         currentUser: "alex",
         noteOwner: "alex",
-        labHeadUnlocked: false,
-      }),
-    ).toBe(false);
-    // read-only also suppresses the PI-unlock path.
-    expect(
-      canDeleteNoteFromPopup({
-        readOnly: true,
-        currentUser: "pi-jordan",
-        noteOwner: "alex",
-        labHeadUnlocked: true,
       }),
     ).toBe(false);
   });
@@ -71,7 +49,6 @@ describe("canDeleteNoteFromPopup", () => {
         readOnly: false,
         currentUser: null,
         noteOwner: "alex",
-        labHeadUnlocked: false,
       }),
     ).toBe(false);
   });
@@ -83,22 +60,19 @@ describe("canDeleteNoteFromPopup", () => {
         readOnly: false,
         currentUser: null,
         noteOwner: null,
-        labHeadUnlocked: false,
       }),
     ).toBe(false);
   });
 
   // VC Phase 2 (vc-entry-history sub-bot of HR, 2026-05-30): the delete gate
   // shares isNoteOwnedByCurrentUser with restore, so a legacy own-note carrying
-  // an empty username now shows Delete to its owner (and still hides it from a
-  // PI viewing a member note, which carries the member's non-empty username).
+  // an empty username now shows Delete to its owner.
   it("shows Delete on an OWN note whose owner is an empty string (legacy create)", () => {
     expect(
       canDeleteNoteFromPopup({
         readOnly: false,
         currentUser: "alex",
         noteOwner: "",
-        labHeadUnlocked: false,
       }),
     ).toBe(true);
   });

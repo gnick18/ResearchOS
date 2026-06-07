@@ -28,12 +28,10 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAccountType } from "@/hooks/useAccountType";
-import { useEditSession } from "@/hooks/useEditSession";
 import {
   canRead as canReadRecord,
   canWrite as canWriteRecord,
   canReadMethodViaTask,
-  type EditSessionView,
   type Viewer,
 } from "@/lib/sharing/unified";
 import { emitMethodTransientReadAudit } from "@/lib/lab/pi-audit";
@@ -73,19 +71,16 @@ function buildViewerSharedTaskMethodIds(tasks: Task[]): Set<number> {
  * Methods-side permission helpers. Returns:
  *
  *   - `viewer`: the unified `Viewer` shape (or null while loading).
- *   - `editSession`: the `EditSessionView` adapter (always defined).
  *   - `canReadMethod(m)`: true if owner / lab_head / shared / "*" / via task.
  *      Fires the transient-read audit when the via-task path is the sole
  *      reason the read is granted.
- *   - `canModifyMethod(m)`: true if owner / lab_head + unlocked session /
- *      shared edit. Replaces the legacy
- *      `!is_public || created_by === currentUser` check.
+ *   - `canModifyMethod(m)`: true if owner or shared at edit permission.
+ *      Replaces the legacy `!is_public || created_by === currentUser` check.
  *   - `isReady`: false while the underlying queries / settings reads are in
  *      flight. Callers that gate critical UI should wait for true.
  */
 export interface UseMethodPermissions {
   viewer: Viewer | null;
-  editSession: EditSessionView;
   canReadMethod: (method: Method) => boolean;
   canModifyMethod: (method: Method) => boolean;
   isReady: boolean;
@@ -94,7 +89,6 @@ export interface UseMethodPermissions {
 export function useMethodPermissions(): UseMethodPermissions {
   const { currentUser } = useCurrentUser();
   const accountType = useAccountType(currentUser);
-  const session = useEditSession();
 
   // We share the same query key the rest of the app uses so the cache
   // hits even when another page already fetched it (e.g. the Gantt).
@@ -125,27 +119,6 @@ export function useMethodPermissions(): UseMethodPermissions {
     return { username: currentUser, account_type: role };
   }, [currentUser, accountType]);
 
-  // Adapter around the module-scoped Phase 5 session. The unified
-  // `canWrite` calls `isUnlockedFor(record.owner)` AFTER the owner-self
-  // short-circuit, so this only fires for cross-owner writes. Phase 5
-  // semantics: one unlocked session is "edit anywhere" for the unlocking
-  // user, so we don't restrict by target owner; we just verify the
-  // session belongs to the current viewer. `targetOwner` is accepted to
-  // match the `EditSessionView` interface but intentionally unused.
-  const editSession: EditSessionView = useMemo(
-    () => ({
-      isUnlockedFor: (_targetOwner: string) => {
-        void _targetOwner;
-        return (
-          session.state === "unlocked" &&
-          !!session.active &&
-          session.active.username === currentUser
-        );
-      },
-    }),
-    [session, currentUser],
-  );
-
   const canReadMethod = useMemo(() => {
     return (method: Method) => {
       if (!viewer) return false;
@@ -173,16 +146,15 @@ export function useMethodPermissions(): UseMethodPermissions {
   const canModifyMethod = useMemo(() => {
     return (method: Method) => {
       if (!viewer) return false;
-      return canWriteRecord(method, viewer, editSession);
+      return canWriteRecord(method, viewer);
     };
-  }, [viewer, editSession]);
+  }, [viewer]);
 
   const isReady =
     !!currentUser && accountType !== undefined && !tasksLoading;
 
   return {
     viewer,
-    editSession,
     canReadMethod,
     canModifyMethod,
     isReady,

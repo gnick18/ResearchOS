@@ -30,7 +30,7 @@ import ActivityFeed from "@/components/project-surface/ActivityFeed";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
-import { useLabHeadEditGate } from "@/hooks/useLabHeadEditGate";
+import { useAccountType } from "@/hooks/useAccountType";
 import type { Project, ProjectRestorePayload } from "@/lib/types";
 // VC Phase 3 (VC-Phase3-Project sub-bot of HR, 2026-05-31): version-history +
 // restore wiring for the Project surface. Mirrors TaskDetailPopup.
@@ -308,51 +308,29 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
     historyTriggerRef.current?.focus();
   }, []);
 
-  // Lab-head PI-passcode cross-owner gate, mirroring TaskDetailPopup. `readOnly`
-  // for the gate = "this is a lab-mode view of another member's project" (the PI
-  // is not the owner and is not a shared-edit receiver). The owner + shared-edit
-  // receiver paths reach restore through the normal canWrite branch below.
-  const ownsOrCanEditProject =
-    !!project &&
-    (project.owner === currentUser ||
-      (project.is_shared_with_me === true &&
-        project.shared_permission === "edit"));
-  const labHeadGate = useLabHeadEditGate({
-    readOnly: !!project && !ownsOrCanEditProject,
-    recordOwner: project?.owner ?? null,
-  });
-
   // canRestore: can the current viewer write this project (and thus restore a
-  // version)? Honors the brief's "use canRead/canWrite from lib/sharing/unified".
-  // Owner writes; a shared-edit receiver writes; a lab head writes only when an
-  // edit session is unlocked for this project's owner (the PI-passcode unlock).
+  // version)? Owner writes; a shared-edit receiver writes. The old PI-passcode
+  // edit-session cross-owner override was removed, so a lab head editing
+  // another member's project follows standard share permissions.
+  const accountType = useAccountType(currentUser);
   const restoreViewer = useMemo(
     () => ({
       username: currentUser ?? "",
-      account_type: (labHeadGate.isLabHead ? "lab_head" : "lab") as
+      account_type: (accountType === "lab_head" ? "lab_head" : "lab") as
         | "solo"
         | "lab"
         | "lab_head",
     }),
-    [currentUser, labHeadGate.isLabHead],
-  );
-  const restoreEditSession = useMemo(
-    () => ({
-      isUnlockedFor: (targetOwner: string) =>
-        labHeadGate.unlocked && targetOwner === (project?.owner ?? ""),
-    }),
-    [labHeadGate.unlocked, project?.owner],
+    [currentUser, accountType],
   );
   const canRestore =
     !!project &&
     canRead(project, restoreViewer) &&
-    canWrite(project, restoreViewer, restoreEditSession);
+    canWrite(project, restoreViewer);
 
-  // A PI VIEWING another member's project but who has NOT unlocked an edit
-  // session: the affordance renders DISABLED with an unlock tooltip (vs hidden
-  // for a plain read-only shared viewer). Mirrors TaskDetailPopup.
-  const restoreNeedsUnlock =
-    !canRestore && labHeadGate.canRequestEdit && !labHeadGate.unlocked;
+  // The PI-passcode unlock path was removed; the affordance is simply hidden
+  // for a read-only viewer who cannot write.
+  const restoreNeedsUnlock = false;
 
   // The owner folder the history file lives under + the cross-owner write route.
   const historyOwner = project?.owner || currentUser || "";

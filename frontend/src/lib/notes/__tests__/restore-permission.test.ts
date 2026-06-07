@@ -11,36 +11,24 @@ import {
   isNoteOwnedByCurrentUser,
 } from "../restore-permission";
 
-describe("canRestoreNoteVersion (three-way PI gate)", () => {
+describe("canRestoreNoteVersion (owner gate)", () => {
   it("grants restore to the note owner", () => {
     expect(
       canRestoreNoteVersion({
         readOnly: false,
         currentUser: "alex",
         noteOwner: "alex",
-        labHeadUnlocked: false,
       }),
     ).toBe(true);
   });
 
-  it("grants restore to a PI with an unlocked Phase 5 edit session (cross-owner)", () => {
-    expect(
-      canRestoreNoteVersion({
-        readOnly: false,
-        currentUser: "pi-jordan",
-        noteOwner: "alex",
-        labHeadUnlocked: true,
-      }),
-    ).toBe(true);
-  });
-
-  it("denies restore to a non-owner with no PI unlock (read-only shared viewer)", () => {
+  it("denies restore to a non-owner (shared viewer or lab head)", () => {
+    // The old PI edit-session cross-owner restore path was removed.
     expect(
       canRestoreNoteVersion({
         readOnly: false,
         currentUser: "morgan",
         noteOwner: "alex",
-        labHeadUnlocked: false,
       }),
     ).toBe(false);
   });
@@ -51,16 +39,6 @@ describe("canRestoreNoteVersion (three-way PI gate)", () => {
         readOnly: true,
         currentUser: "alex",
         noteOwner: "alex",
-        labHeadUnlocked: false,
-      }),
-    ).toBe(false);
-    // read-only also suppresses the PI-unlock path.
-    expect(
-      canRestoreNoteVersion({
-        readOnly: true,
-        currentUser: "pi-jordan",
-        noteOwner: "alex",
-        labHeadUnlocked: true,
       }),
     ).toBe(false);
   });
@@ -71,7 +49,6 @@ describe("canRestoreNoteVersion (three-way PI gate)", () => {
         readOnly: false,
         currentUser: null,
         noteOwner: "alex",
-        labHeadUnlocked: false,
       }),
     ).toBe(false);
     expect(
@@ -79,7 +56,6 @@ describe("canRestoreNoteVersion (three-way PI gate)", () => {
         readOnly: false,
         currentUser: null,
         noteOwner: null,
-        labHeadUnlocked: false,
       }),
     ).toBe(false);
   });
@@ -94,7 +70,6 @@ describe("canRestoreNoteVersion (three-way PI gate)", () => {
         readOnly: false,
         currentUser: "alex",
         noteOwner: "",
-        labHeadUnlocked: false,
       }),
     ).toBe(true);
   });
@@ -105,7 +80,6 @@ describe("canRestoreNoteVersion (three-way PI gate)", () => {
         readOnly: false,
         currentUser: "alex",
         noteOwner: null,
-        labHeadUnlocked: false,
       }),
     ).toBe(true);
     expect(
@@ -113,20 +87,16 @@ describe("canRestoreNoteVersion (three-way PI gate)", () => {
         readOnly: false,
         currentUser: "alex",
         noteOwner: undefined,
-        labHeadUnlocked: false,
       }),
     ).toBe(true);
   });
 
-  it("still DENIES a PI viewing a member note with no unlock (empty-owner fix does not weaken the PI gate)", () => {
-    // The PI cross-owner view always carries the member's NON-EMPTY username as
-    // noteOwner, so the empty-owner fallback never applies here.
+  it("denies a lab head viewing a member note (no owner match)", () => {
     expect(
       canRestoreNoteVersion({
         readOnly: false,
         currentUser: "pi-jordan",
         noteOwner: "alex",
-        labHeadUnlocked: false,
       }),
     ).toBe(false);
   });

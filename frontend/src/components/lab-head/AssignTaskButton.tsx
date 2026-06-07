@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { assignTask } from "@/lib/lab/pi-actions";
-import { getEditSession } from "@/lib/lab/edit-session";
 import { useLabData } from "@/hooks/useLabData";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import { useArchivedUsers } from "@/hooks/useArchivedUsers";
@@ -14,11 +13,9 @@ import type { Task } from "@/lib/types";
 
 interface AssignTaskButtonProps {
   task: Task;
-  /** PI's username (audit actor). Caller verifies the active user is a
-   *  lab head + the session is unlocked. */
+  /** Lab head's username (audit actor). Caller verifies the active user is a
+   *  lab head viewing a member's task. */
   actor: string;
-  /** Active Phase 5 session id. */
-  sessionId: string;
   /** Fires after the assignment lands so the parent popup can refresh
    *  any cached task state. */
   onAssigned?: () => void;
@@ -27,8 +24,9 @@ interface AssignTaskButtonProps {
 /**
  * Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): "Assign to…"
  * button inside TaskDetailPopup. Visible only when the popup wrapper has
- * already confirmed the PI is in an unlocked edit session AND the task
- * is owned by someone other than the PI (the typical lab-mode shape).
+ * confirmed the active user is a lab head viewing a task owned by someone
+ * else (the typical lab-mode shape). Assigning is a lab-head role privilege;
+ * the old PI edit-session unlock requirement was removed.
  *
  * The picker is a small dropdown of lab members (from useLabData) with
  * an optional note field. Clicking Assign writes via
@@ -40,7 +38,6 @@ interface AssignTaskButtonProps {
 export default function AssignTaskButton({
   task,
   actor,
-  sessionId,
   onAssigned,
 }: AssignTaskButtonProps) {
   const queryClient = useQueryClient();
@@ -61,38 +58,15 @@ export default function AssignTaskButton({
   // backdrop click. Suspended while a write is in flight.
   useEscapeToClose(() => setOpen(false), open && !busy);
 
-  // Mira-Skeptic P0 POC migration (Mira-Skeptic P0 fix manager,
-  // 2026-05-23): demonstrates the new `PiActionResult` shape.
-  //
-  // Template for the remaining callsites (PurchaseApprovalControls,
-  // FlagForReviewButton, FlagBanner):
-  //   1. Read live sessionId via `getEditSession()` right before the
-  //      call so a stale prop captured at mount doesn't slip through.
-  //      (Defensive — pi-actions also gates internally, but a live read
-  //      gives the prettier error path.)
-  //   2. Switch from try/catch → `if (!result.ok)` discriminant check.
-  //   3. Data-write failures show the existing user-blocking alert.
-  //   4. Audit failures show a SEPARATE non-blocking alert — the data
-  //      DID land, the user just needs to know the log didn't.
-  //   5. Cache invalidation runs even on audit failure (the record
-  //      really did change; the UI should reflect that).
+  // PiActionResult handling: data-write failures show a blocking alert;
+  // audit-only failures show a separate non-blocking alert (the data DID
+  // land); cache invalidation runs even on audit failure.
   const handleAssign = async () => {
     if (!selected) return;
     setBusy(true);
     try {
-      // Live-read sessionId so a stale prop captured at mount cannot
-      // be passed to pi-actions. assertLiveSession also catches this,
-      // but pulling here lets us surface the "session expired" message
-      // before the action attempts a pre-read.
-      const live = getEditSession();
-      const liveSessionId =
-        live.state === "unlocked" && live.active?.username === actor
-          ? live.active.id
-          : sessionId;
-
       const result = await assignTask({
         actor,
-        sessionId: liveSessionId,
         targetOwner: task.owner,
         taskId: task.id,
         assignee: selected,

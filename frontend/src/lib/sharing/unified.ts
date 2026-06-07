@@ -41,16 +41,6 @@ export interface Viewer {
 }
 
 /**
- * Lab Head edit-session view. Mirrors the shape of `EditSessionState`
- * in `lib/lab/edit-session.ts` without dragging the full module in.
- */
-export interface EditSessionView {
-  /** Returns true if the Phase 5 passcode window is currently
-   *  unlocked for edits against the given target owner's records. */
-  isUnlockedFor(targetOwner: string): boolean;
-}
-
-/**
  * Normalize a single SharedUser-ish on-disk entry to the unified shape.
  * Pre-R1 records have `permission: "view" | "edit"`; the unified shape
  * uses `level: "read" | "edit"`. This is the read-side adapter so
@@ -117,24 +107,16 @@ export function canRead(record: ShareableRecord, viewer: Viewer): boolean {
  * Can this viewer modify this record?
  *
  *   - Owner always writes.
- *   - Lab Head writes IFF the edit session is unlocked for the
- *     record's owner (Phase 5 passcode-gated edit-anywhere).
  *   - Otherwise the viewer must be in shared_with with level: "edit".
  *     The "*" sentinel with level: "edit" grants the whole lab edit.
+ *
+ * A lab head has no implicit write-anywhere privilege; they edit only
+ * records they own or that are shared with them at edit permission, same
+ * as any other user. (The old PI edit-session soft-write was removed.)
  */
-export function canWrite(
-  record: ShareableRecord,
-  viewer: Viewer,
-  session: EditSessionView,
-): boolean {
+export function canWrite(record: ShareableRecord, viewer: Viewer): boolean {
   if (!record) return false;
   if (record.owner === viewer.username) return true;
-  if (
-    viewer.account_type === "lab_head" &&
-    session.isUnlockedFor(record.owner)
-  ) {
-    return true;
-  }
   const list = normalizeSharedWith(record.shared_with);
   return list.some(
     (s) =>
@@ -249,16 +231,6 @@ export function isWholeLabShared(shared_with: SharedUser[]): boolean {
     (s) => s.username === WHOLE_LAB_SENTINEL,
   );
 }
-
-/**
- * The "no-op" edit session — fail every isUnlockedFor check. Used when
- * a caller wants a `canWrite` check that ignores the Phase 5 PI bypass
- * (e.g. for asserting "does the OWNER personally have write rights to
- * this record" without the PI override).
- */
-export const NEVER_UNLOCKED: EditSessionView = {
-  isUnlockedFor: () => false,
-};
 
 /**
  * Convert a `ShareRequest`'s mixed-shape level/permission fields into

@@ -18,8 +18,6 @@ import {
   removeSharedEntry,
   isWholeLabShared,
   WHOLE_LAB_SENTINEL,
-  NEVER_UNLOCKED,
-  type EditSessionView,
   type Viewer,
   type ShareableRecord,
 } from "./unified";
@@ -27,13 +25,6 @@ import {
 const alex: Viewer = { username: "alex", account_type: "lab" };
 const morgan: Viewer = { username: "morgan", account_type: "lab" };
 const mira: Viewer = { username: "mira", account_type: "lab_head" };
-
-const piUnlockedForAlex: EditSessionView = {
-  isUnlockedFor: (target) => target === "alex",
-};
-const piUnlockedForMorgan: EditSessionView = {
-  isUnlockedFor: (target) => target === "morgan",
-};
 
 function rec(
   owner: string,
@@ -79,47 +70,29 @@ describe("canRead", () => {
 
 describe("canWrite", () => {
   it("owner always writes", () => {
-    expect(canWrite(rec("alex", []), alex, NEVER_UNLOCKED)).toBe(true);
+    expect(canWrite(rec("alex", []), alex)).toBe(true);
   });
-  it("lab_head writes only when edit-session unlocked for owner", () => {
-    expect(canWrite(rec("alex", []), mira, NEVER_UNLOCKED)).toBe(false);
-    expect(canWrite(rec("alex", []), mira, piUnlockedForAlex)).toBe(true);
-    expect(canWrite(rec("alex", []), mira, piUnlockedForMorgan)).toBe(false);
+  it("lab_head has no implicit write on a member's record (PI edit-mode removed)", () => {
+    expect(canWrite(rec("alex", []), mira)).toBe(false);
   });
   it("non-owner with level:read cannot write", () => {
     expect(
-      canWrite(
-        rec("alex", [{ username: "morgan", level: "read" }]),
-        morgan,
-        NEVER_UNLOCKED,
-      ),
+      canWrite(rec("alex", [{ username: "morgan", level: "read" }]), morgan),
     ).toBe(false);
   });
   it("non-owner with level:edit can write", () => {
     expect(
-      canWrite(
-        rec("alex", [{ username: "morgan", level: "edit" }]),
-        morgan,
-        NEVER_UNLOCKED,
-      ),
+      canWrite(rec("alex", [{ username: "morgan", level: "edit" }]), morgan),
     ).toBe(true);
   });
   it('"*" with level:read does NOT grant write', () => {
     expect(
-      canWrite(
-        rec("alex", [{ username: "*", level: "read" }]),
-        morgan,
-        NEVER_UNLOCKED,
-      ),
+      canWrite(rec("alex", [{ username: "*", level: "read" }]), morgan),
     ).toBe(false);
   });
   it('"*" with level:edit grants write to everyone', () => {
     expect(
-      canWrite(
-        rec("alex", [{ username: "*", level: "edit" }]),
-        morgan,
-        NEVER_UNLOCKED,
-      ),
+      canWrite(rec("alex", [{ username: "*", level: "edit" }]), morgan),
     ).toBe(true);
   });
 });

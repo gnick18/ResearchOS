@@ -9,9 +9,8 @@ import type { PurchaseItem } from "@/lib/types";
 
 interface PurchaseApprovalToggleProps {
   item: PurchaseItem;
-  /** PI's username (audit actor). */
+  /** Lab head's username (audit actor). */
   actor: string;
-  sessionId: string;
   targetOwner: string;
   /** Fires after the write lands so the editor can refresh local state. */
   onChanged?: () => void;
@@ -19,9 +18,8 @@ interface PurchaseApprovalToggleProps {
 
 /**
  * Lab Head Phase 3 (lab head Phase 3 manager, 2026-05-23): the "Approve"
- * toggle visible only when the PI's edit-mode session is active for a
- * purchase item owned by someone else. Toggling writes through
- * `pi-actions.setPurchaseApproval`, which:
+ * toggle a lab head sees on a purchase item owned by another member.
+ * Toggling writes through `pi-actions.setPurchaseApproval`, which:
  *   - flips `approved` + stamps `approved_by` + `approved_at`
  *   - appends a `_pi_audit.json` entry on the owner
  *   - posts a `lab_purchase_approval` bell notif to the owner
@@ -29,7 +27,6 @@ interface PurchaseApprovalToggleProps {
 export function PurchaseApprovalToggle({
   item,
   actor,
-  sessionId,
   targetOwner,
   onChanged,
 }: PurchaseApprovalToggleProps) {
@@ -45,7 +42,6 @@ export function PurchaseApprovalToggle({
     try {
       const result = await setPurchaseApproval({
         actor,
-        sessionId,
         targetOwner,
         purchaseItemId: item.id,
         approved: !isApproved,
