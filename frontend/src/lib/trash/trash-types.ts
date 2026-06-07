@@ -37,7 +37,13 @@ export type TrashEntityType =
   // `.json` record so the index / storage / cleanup machinery is unchanged;
   // the write + restore paths carry sequence-aware branches that read both
   // files and split them back out. See trash-writer.ts / trash-reader.ts.
-  | "sequence";
+  | "sequence"
+  // chunk-5 bot (2026-06-07): inventory entities are standard single-JSON
+  // records at `users/<owner>/inventory_items/<id>.json` and
+  // `users/<owner>/inventory_stocks/<id>.json`. They follow the same
+  // soft-delete path as tasks, methods, etc. (no two-file special case).
+  | "inventory_item"
+  | "inventory_stock";
 
 /** Restore-metadata block on a trashed record. Captures the parent
  *  reference at the time of delete so cascading restore prompts can
@@ -161,6 +167,8 @@ export function displayNameFieldFor(
     case "project":
     case "high_level_goal":
     case "mass_spec_protocol":
+    case "inventory_item":
+    case "inventory_stock":
       return "name";
   }
 }

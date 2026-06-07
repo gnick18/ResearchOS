@@ -29,13 +29,15 @@ import type { GlobalIndexEntry } from "./global-index";
 export type GlobalObjectType = GlobalIndexEntry["type"];
 
 /** The per-type additive nudge on top of the raw fuzzy score (decision 7). Task
- *  +3 > Project +2 > Sequence +1 > Method +0, so for an otherwise equal name
- *  match the more-opened type wins. Tunable constants in one place. */
+ *  +3 > Project +2 > Sequence +1 > Method +0 > Inventory +0, so for an
+ *  otherwise equal name match the more-opened type wins. Tunable constants in
+ *  one place. */
 const TYPE_WEIGHT: Record<GlobalObjectType, number> = {
   task: 3,
   project: 2,
   sequence: 1,
   method: 0,
+  inventory: 0,
 };
 
 /** Per-type cap, at most 5 results of any one type, so one prolific type cannot
@@ -49,7 +51,7 @@ export const GLOBAL_OVERALL_CAP = 12;
 /** Milliseconds in one week, for the recency boost. */
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** The group order the four object types print in when none holds the top hit,
+/** The group order the five object types print in when none holds the top hit,
  *  matching the per-type weight (most-opened first). The provider can still lead
  *  with the group that holds the single best hit (the existing palette rule). */
 export const GLOBAL_TYPE_ORDER: GlobalObjectType[] = [
@@ -57,6 +59,7 @@ export const GLOBAL_TYPE_ORDER: GlobalObjectType[] = [
   "project",
   "sequence",
   "method",
+  "inventory",
 ];
 
 /** The display heading for each object type's group. */
@@ -65,6 +68,7 @@ export const GLOBAL_TYPE_TITLE: Record<GlobalObjectType, string> = {
   project: "Projects",
   sequence: "Sequences",
   method: "Methods",
+  inventory: "Inventory",
 };
 
 /** Map a route pathname to the object type the page hosts as its primary entity,
@@ -85,6 +89,7 @@ export function activePageTypeForPath(
   const path = pathname.split(/[?#]/)[0].replace(/\/+$/, "") || "/";
   if (path === "/methods" || path.startsWith("/methods/")) return "method";
   if (path === "/sequences" || path.startsWith("/sequences/")) return "sequence";
+  if (path === "/inventory" || path.startsWith("/inventory/")) return "inventory";
   // A single project's page is project context; check it BEFORE the bare
   // /workbench task mapping so the deeper route wins.
   if (path.startsWith("/workbench/projects/")) return "project";

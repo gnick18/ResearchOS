@@ -85,3 +85,23 @@ export {
   type SequenceProjection,
   type SequenceDocLike,
 } from "./sequences-history";
+
+// chunk-5 bot (2026-06-07): inventory item + stock recorders and viewer
+// adapters. Additive entity types ("inventory_items" / "inventory_stocks")
+// keyed by (owner, id); same shared flags re-exported.
+export {
+  recordInventoryItemVersion,
+  recordInventoryStockVersion,
+  inventoryItemAdapter,
+  inventoryStockAdapter,
+  projectInventoryItemState,
+  projectInventoryStockState,
+  summarizeInventoryItemChange,
+  summarizeInventoryStockChange,
+  INVENTORY_ITEM_ENTITY_TYPE,
+  INVENTORY_STOCK_ENTITY_TYPE,
+  type InventoryItemTrackedState,
+  type InventoryStockTrackedState,
+  type InventoryItemProjection,
+  type InventoryStockProjection,
+} from "./inventory-history";

@@ -39,6 +39,10 @@ export function trashTypeDirName(entityType: TrashEntityType): string {
       return "mass_spec_protocols";
     case "sequence":
       return "sequences";
+    case "inventory_item":
+      return "inventory_items";
+    case "inventory_stock":
+      return "inventory_stocks";
   }
 }
 
@@ -125,6 +129,10 @@ export function liveRecordPath(
       // never read this path as a single JSON record for sequences — they
       // take the sequence-aware branch instead.
       return `users/${username}/sequences/${id}.meta.json`;
+    case "inventory_item":
+      return `users/${username}/inventory_items/${id}.json`;
+    case "inventory_stock":
+      return `users/${username}/inventory_stocks/${id}.json`;
   }
 }
 
