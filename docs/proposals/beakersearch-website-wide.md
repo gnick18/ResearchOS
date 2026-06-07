@@ -180,11 +180,12 @@ BeakerSearch here:
 Scheduling. Holds Events (title / start_date / start_time / location), external
 Feeds, and pulled External Events. Its context is the current date + view mode
 (month / week / day), so "on screen" is literally the visible date range, with one
-selected event and an optionally expanded day. (Grounding correction, the real
-`Event` type has no `task_id` link and no `duration_minutes` / `is_all_day`
-fields; an all-day event is simply one with `start_time === null`, so the
-"Link to a task" and duration ideas below are present-but-disabled follow-ups,
-not existing handlers.)
+selected event and an optionally expanded day. (Grounding correction, an all-day
+event is simply one with `start_time === null`, there is no `duration_minutes` /
+`is_all_day` field, so the duration idea below is a present-but-disabled
+follow-up. Event-to-task linking is now LIVE, `Event` gained optional
+`task_id` + `task_owner` on 2026-06-07 at Grant's direction; the only remaining
+piece is the EventModal task picker that sets the pair.)
 
 BeakerSearch here:
 - CONTEXT card: "Calendar, week of Jun 7" (or the month / day), and the selected

@@ -48,14 +48,18 @@ shape, verbatim from the type, is
 - `color: string | null` (falls back to `EVENT_TYPE_COLORS[event_type]`)
 - `is_pto?: boolean | null` (the streak-system PTO marker, Phase S5; when true
   the event's date(s) mirror into the user's `pto_dates` in `_streak.json`)
+- `task_id?: number | null` + `task_owner?: string | null` (an optional link to
+  a task; the pair forms the composite `"<owner>:<id>"` key matching `taskKey`,
+  so it resolves correctly for shared tasks; both absent means unlinked). Added
+  to the data model 2026-06-07 at Grant's direction, so "link to a task" and
+  "jump to the linked task" below are LIVE field-wise; the remaining UI is the
+  EventModal task picker that sets the pair (see open questions).
 
-There is NO `task_id` on `Event` and NO `duration_minutes` field. The
-website-wide proposal's Calendar bullet that says "optional `task_id` link" and
-the brief's mention of `duration_minutes` / `is_all_day` describe a shape the
-code does not have today. This spec treats "link to a task" and "duration" as
-NOT-YET-BUILT and routes them to the open questions in section 8 rather than
-inventing handlers that cannot fire. Everything else below is wired to a real
-handler.
+There is NO `duration_minutes` field. The brief's mention of `duration_minutes`
+/ `is_all_day` describes a shape the code does not have today (an all-day event
+is simply `start_time === null`). This spec treats "duration" as NOT-YET-BUILT
+and routes it to the open questions in section 8. Everything else below is wired
+to a real handler.
 
 Loaded by
 
@@ -238,7 +242,7 @@ its date in `detail`.
 | Mark "ACS National Meeting" as PTO | "treats Jun 9 to Jun 12 like a weekend" | `eventsApi.update(ev.id, { is_pto: true })` + `syncEventPtoChange(currentUser, {isPto:false,...}, {isPto:true, dates: expandDateRange(ev.start_date, ev.end_date)})` then invalidate. `enabled` only when `ev.is_pto !== true` |
 | Remove PTO from "ACS National Meeting" | "back to a normal day" | symmetric, `update(... { is_pto:false })` + `syncEventPtoChange(..., {isPto:true,dates}, {isPto:false,dates:[]})`. Shown instead of the above when `ev.is_pto === true` |
 | Open "ACS National Meeting" | "see details" | `setSelectedEvent(ev)` (reopens the detail modal) |
-| Link "ACS National Meeting" to a task | "not yet available" | DISABLED, `enabled: false` until the `task_id` field exists (section 8). Present but greyed so the power is discoverable |
+| Link "ACS National Meeting" to a task | "pick a task" | The `task_id` / `task_owner` field now exists; this Suggested opens the EventModal task picker (the one remaining UI), then `eventsApi.update(ev.id, { task_id, task_owner })` + invalidate `["events"]`. `enabled: true`. Once linked, this row flips to "Jump to linked task" (NAVIGATE) |
 
 PTO mirroring must reuse `expandDateRange` and `syncEventPtoChange` from
 `frontend/src/lib/streak/calendar-pto-sync.ts` and gate on `currentUser`, exactly
@@ -354,11 +358,13 @@ scroll-to). detail, "{provider} · {enabled ? "on" : "off"} · last synced
 
 ### Jump to an event's linked task
 
-Present but DISABLED today (no `task_id` on `Event`). Keep it in the NAVIGATE
-list as a greyed item with detail "linking events to tasks is coming" so the
-intent is discoverable. When the field lands, the handler navigates to
-`/workbench?...` or `/gantt?...` carrying the composite `"{owner}:{id}"` task key
-the master proposal requires. Tracked in section 8.
+LIVE field-wise now that `Event` carries `task_id` / `task_owner` (added
+2026-06-07). Shown only when the selected event is linked. The handler navigates
+to `/workbench?...` or `/gantt?...` carrying the composite `"{task_owner}:{task_id}"`
+task key the master proposal requires (so a shared task lands in the right
+owner's namespace). The only remaining UI to make a link exist is the EventModal
+task picker that writes the pair; until that ships, links can be set
+programmatically and this NAVIGATE item is correct as soon as one is present.
 
 ### Switch view mode (navigation, not a command, when typed)
 
@@ -666,12 +672,13 @@ deep-link path. This is the single most Calendar-specific delight in the source.
    at that modal's event? Recommendation, allow it and keep a `lastSelectedEvent`
    ref so SELECTED survives the modal closing, but confirm the focus-trap
    interaction (two trapped layers) before shipping.
-2. The missing `task_id`. The website-wide proposal and the brief both describe
-   linking an event to a task, but `Event` has no `task_id` today. Decision
-   needed, add the field (and a NAVIGATE "jump to linked task" carrying the
-   composite `"{owner}:{id}"` key) as a prerequisite, or ship Calendar's source
-   with the link command present-but-disabled. This doc assumes the latter and
-   tracks the field as a follow-up.
+2. Event-to-task linking. RESOLVED 2026-06-07, Grant approved adding the field,
+   so `Event` now carries `task_id?: number | null` + `task_owner?: string | null`
+   (the composite-key pair matching `taskKey`). The "Link to a task" Suggested
+   and the "Jump to linked task" NAVIGATE are now live field-wise. The one
+   remaining UI is the EventModal task picker that writes the pair (a task
+   typeahead scoped to `fetchAllTasksIncludingShared`); spec it as a small
+   follow-up and a chip in the event detail showing the linked task.
 3. The missing duration. The brief mentions `duration_minutes`; the real shape
    uses `start_time` + `end_time`. Confirm no duration field is expected; the
    source computes any "how long" display from the two times.
