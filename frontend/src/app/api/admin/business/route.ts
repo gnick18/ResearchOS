@@ -76,7 +76,10 @@ export async function GET(): Promise<Response> {
       deadlines,
       infraEstimate,
     });
-  } catch {
+  } catch (err) {
+    // Log the real cause so a failing query is diagnosable from the server
+    // console; the response stays generic so the endpoint leaks nothing.
+    console.error("[/api/admin/business] read failed:", err);
     return json(500, { error: "business read failed" });
   }
 }
