@@ -1031,6 +1031,236 @@ export interface MethodUpdate {
   last_edited_at?: string;
 }
 
+// ── Inventory (v1 data layer) ────────────────────────────────────────────────
+//
+// Inventory chunk 1 (inventory-chunk1 sub-bot of HR, 2026-06-07). The catalog
+// item / stock-instance split from `plans/INVENTORY_DESIGN.md` (v2, decisions
+// resolved 2026-06-07). Two records ship in v1: `InventoryItem` (what a thing
+// IS) and `InventoryStock` (the physical containers of it). `StorageNode` (v2),
+// the registry blobs (v3), and `InventoryConsumption` (v4) are deferred and NOT
+// declared here.
+//
+// The design's heart (design §2) is maintenance realism: the spine is a COUNT
+// of containers (`container_count`), not a volume ledger. `amount_per_container`
+// / `unit` are optional and inert unless `track_consumption` is on. The
+// low-stock signal is count-based (`low_at_count`). `status` is derived-and-
+// persisted (design §5.2), recomputed on every write by `deriveInventoryStatus`.
+//
+// FLAGs landing here: FLAG-1 / FLAG-2 / FLAG-3 (entities, paths, types),
+// FLAG-5 (the count-first / status-first / opt-in fields), and the barcode
+// FLAG-B1 (`product_barcode`) / FLAG-B2 (`container_code`). All signed off in
+// design §11 + §15.7. Every field is additive; legacy / absent fields lazy-
+// normalize on read via `normalizeInventoryItemRecord` /
+// `normalizeInventoryStockRecord` in `local-api.ts`.
+
+export type InventoryCategory =
+  | "reagent" // generic chemical / consumable (default)
+  | "antibody" // registry-extended (v3)
+  | "plasmid" // registry-extended (v3)
+  | "enzyme"
+  | "primer"
+  | "cell_line"
+  | "strain"
+  | "kit"
+  | "equipment" // v3+; instances are single, no count semantics
+  | "other";
+
+/** Coarse one-tap-or-derived stock status (design §5.2). */
+export type InventoryStockStatus = "in_stock" | "low" | "empty" | "expired";
+
+/**
+ * `InventoryItem` — the catalog item: what a thing IS (design §5.1).
+ *
+ * Shares the shareable shape (`owner` / `shared_with`) and the VCP attribution
+ * stamps with Method / Task / Note. New records default `shared_with` to
+ * whole-lab edit (`[{ username: "*", level: "edit" }]`) per design §6.1.
+ */
+export interface InventoryItem {
+  id: number;
+  name: string; // "Q5 High-Fidelity DNA Polymerase"
+  category: InventoryCategory; // drives which extra fields render (v3)
+  catalog_number: string | null;
+  vendor: string | null;
+  cas: string | null; // chemicals; reuse the Purchases field name
+  url: string | null; // product page (mirrors PurchaseItem.link)
+  container_label: string | null; // display word for the count: "vial" | "tube" | "bottle" | "plate" | "box". Default "container".
+  notes: string | null;
+
+  // Low-stock policy is COUNT-BASED by default (design §2.3). Flags low when the
+  // summed container_count across this item's stocks drops below low_at_count.
+  low_at_count: number | null; // null = no auto low-stock flag; unit is "containers"
+
+  // OPT-IN precise consumption (design §2.6). Default false. When true, this
+  // item's stocks expose the volume/amount field and the deduct workflow (v4).
+  track_consumption?: boolean; // default false
+
+  // Manufacturer UPC / EAN / GTIN, shared by every container of this product
+  // (design §15.1, FLAG-B1). Drives scan-to-identify. Optional.
+  product_barcode: string | null;
+
+  // Optional category-specific structured blob (design §7). v3. Kept as an
+  // opaque placeholder so the field parses on read without pulling the
+  // PlasmidRegistry / AntibodyRegistry shapes forward into v1.
+  registry?: unknown | null;
+
+  // Sharing + attribution (identical to Method).
+  owner: string;
+  shared_with: SharedUser[];
+  created_by: string | null;
+  last_edited_by?: string;
+  last_edited_at?: string;
+  is_shared_with_me?: boolean; // read-time overlay, never persisted
+  shared_permission?: "view" | "edit";
+
+  tags?: string[] | null;
+}
+
+export interface InventoryItemCreate {
+  name: string;
+  category?: InventoryCategory; // default "reagent"
+  catalog_number?: string | null;
+  vendor?: string | null;
+  cas?: string | null;
+  url?: string | null;
+  container_label?: string | null;
+  notes?: string | null;
+  low_at_count?: number | null;
+  track_consumption?: boolean;
+  product_barcode?: string | null;
+  registry?: unknown | null;
+  tags?: string[] | null;
+  /** New records default to whole-lab edit when omitted (design §6.1). Pass
+   *  `[]` for a private item, or an explicit list. */
+  shared_with?: SharedUser[];
+  created_by?: string | null;
+}
+
+export interface InventoryItemUpdate {
+  name?: string;
+  category?: InventoryCategory;
+  catalog_number?: string | null;
+  vendor?: string | null;
+  cas?: string | null;
+  url?: string | null;
+  container_label?: string | null;
+  notes?: string | null;
+  low_at_count?: number | null;
+  track_consumption?: boolean;
+  product_barcode?: string | null;
+  registry?: unknown | null;
+  tags?: string[] | null;
+  shared_with?: SharedUser[];
+  // Auto-stamped by `inventoryItemsApi.update`.
+  last_edited_by?: string;
+  last_edited_at?: string;
+}
+
+/**
+ * `InventoryStock` — the stock: the physical containers of one item
+ * (design §5.2). One `InventoryItem` has many `InventoryStock`. This is where
+ * the maintenance-realism reframe is concentrated: `container_count` is the
+ * spine; `amount_per_container` / `unit` are optional and inert; `status` is
+ * derived-and-persisted by `deriveInventoryStatus`.
+ */
+export interface InventoryStock {
+  id: number;
+  item_id: number; // FK -> InventoryItem.id (same owner)
+  lot_number: string | null;
+
+  // --- PRIMARY quantity: a COUNT of physical containers (design §2.2) ---
+  container_count: number; // e.g. 3 (vials). Changed only when a container is finished or arrives.
+
+  // --- COARSE status, one-tap or auto-flipped (design §2.3, derived-and-persisted) ---
+  status: InventoryStockStatus;
+
+  // --- ZERO-UPKEEP date signals (design §2.4) ---
+  received_date: string | null; // ISO; auto-stamped at Purchases-receive
+  expiration_date: string | null; // ISO; drives "expiring soon" forever, entered once
+  opened_date: string | null; // some reagents expire N days after opening
+  last_touched_at: string | null; // ISO; auto-stamped on any edit; drives "stale" signal
+
+  // --- OPTIONAL precise amount, NEVER required, NEVER the default low-stock basis ---
+  // A label on each container ("1 mL", "100 ug"), not a ledger. Only surfaced /
+  // decremented when item.track_consumption === true (design §2.6, v4).
+  amount_per_container: number | null;
+  unit: string | null; // "uL", "mg", "vial", "rxn"; null when count-only
+  concentration: string | null; // free text "10 uM", "5 mg/mL"
+
+  // --- Location: one stock sits in at most one box position (or unplaced) ---
+  location_text: string | null; // v1 stopgap free-text "-80 door, left"
+  location_node_id: number | null; // v2+: FK -> StorageNode.id (the box), null = unplaced
+  position: string | null; // v2+: "A1" cell id inside that box
+
+  // --- Provenance back to the order ledger (design §8.1) ---
+  purchase_item_id: number | null; // FK -> PurchaseItem.id when received from an order
+
+  // Per-container code: a lab-applied label or generated QR id identifying THIS
+  // specific container set / lot (design §15.1, FLAG-B2). Optional.
+  container_code: string | null;
+
+  notes: string | null;
+
+  owner: string; // always equals the parent item's owner
+  shared_with: SharedUser[]; // inherits the item's sharing (kept in sync)
+  created_by: string | null;
+  last_edited_by?: string;
+  last_edited_at?: string;
+  is_shared_with_me?: boolean; // read-time overlay, never persisted
+  shared_permission?: "view" | "edit";
+}
+
+export interface InventoryStockCreate {
+  item_id: number;
+  lot_number?: string | null;
+  container_count?: number; // default 1 (design §13 Q2: status-only stocks allowed)
+  /** Optional override; normally derived by `deriveInventoryStatus` on write.
+   *  Pass `"low"` / `"empty"` to record a manual tap (design §5.2). */
+  status?: InventoryStockStatus;
+  received_date?: string | null;
+  expiration_date?: string | null;
+  opened_date?: string | null;
+  last_touched_at?: string | null;
+  amount_per_container?: number | null;
+  unit?: string | null;
+  concentration?: string | null;
+  location_text?: string | null;
+  location_node_id?: number | null;
+  position?: string | null;
+  purchase_item_id?: number | null;
+  container_code?: string | null;
+  notes?: string | null;
+  /** Defaults to the parent item's `shared_with` when omitted (design §5.2:
+   *  a stock inherits the item's sharing). Falls back to whole-lab edit. */
+  shared_with?: SharedUser[];
+  created_by?: string | null;
+}
+
+export interface InventoryStockUpdate {
+  item_id?: number;
+  lot_number?: string | null;
+  container_count?: number;
+  /** A directly-tapped status (design §5.2). `"low"` / `"empty"` are honored
+   *  as a manual tap and NOT clobbered by an `in_stock` recompute. */
+  status?: InventoryStockStatus;
+  received_date?: string | null;
+  expiration_date?: string | null;
+  opened_date?: string | null;
+  last_touched_at?: string | null;
+  amount_per_container?: number | null;
+  unit?: string | null;
+  concentration?: string | null;
+  location_text?: string | null;
+  location_node_id?: number | null;
+  position?: string | null;
+  purchase_item_id?: number | null;
+  container_code?: string | null;
+  notes?: string | null;
+  shared_with?: SharedUser[];
+  // Auto-stamped by `inventoryStocksApi.update`.
+  last_edited_by?: string;
+  last_edited_at?: string;
+}
+
 // ── PCR Methods ──────────────────────────────────────────────────────────────
 
 export interface PCRStep {

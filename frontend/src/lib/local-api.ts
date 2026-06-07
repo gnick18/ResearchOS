@@ -113,6 +113,13 @@ import type {
   SequenceCreate,
   SequenceUpdate,
   SeqType,
+  InventoryItem,
+  InventoryItemCreate,
+  InventoryItemUpdate,
+  InventoryStock,
+  InventoryStockCreate,
+  InventoryStockUpdate,
+  InventoryStockStatus,
 } from "./types";
 import { sequenceStore } from "./sequences/sequence-store";
 import { genbankToDetail, genbankToRecord, deriveSeqType } from "./sequences/parse";
@@ -184,6 +191,14 @@ const sharedNotebooksStore = new SharedNotebookStore();
 const oneOnOnesStore = new OneOnOneStore();
 const oneOnOneActionItemsStore = new OneOnOneActionItemStore();
 const fundingAccountsStore = getLabStore<FundingAccount>("funding_accounts");
+
+// Inventory v1 data layer (inventory-chunk1 sub-bot of HR, 2026-06-07).
+// Per-user stores at `users/<owner>/inventory_items/<id>.json` and
+// `users/<owner>/inventory_stocks/<id>.json` (FLAG-2). Whole-lab-edit by
+// default (design §6.1); the "lab inventory" is the computed union of every
+// member's shared records, read via `fetchAllInventory*IncludingShared`.
+const inventoryItemsStore = new JsonStore<InventoryItem>("inventory_items");
+const inventoryStocksStore = new JsonStore<InventoryStock>("inventory_stocks");
 
 async function loadLabUsers(): Promise<{
   usernames: string[];
@@ -2272,6 +2287,522 @@ export const methodsApi = {
     }
     return { scanned: records.length, repaired, alreadyCorrect, failed };
   },
+};
+
+// ── Inventory (v1 data layer) ────────────────────────────────────────────────
+// inventory-chunk1 sub-bot of HR (2026-06-07). The catalog-item / stock-instance
+// split from `plans/INVENTORY_DESIGN.md`. Mirrors `methodsApi` closely (CRUD +
+// owner-routed getForUser/saveForUser + a fetchAll...IncludingShared read path +
+// per-user counters via JsonStore). No UI here. See `lib/inventory/config.ts`
+// for the `INVENTORY_ENABLED` flag (chunk 2 gates the surface on it).
+
+/** The whole-lab-edit default for a new inventory record (design §6.1). Uses
+ *  the canonical `WHOLE_LAB_SENTINEL` from `lib/sharing/unified.ts`, NOT a
+ *  hand-built string, so it stays in lockstep with `canRead` / `canWrite`. */
+function wholeLabEditShare(): SharedUser[] {
+  return [{ username: WHOLE_LAB_SENTINEL, level: "edit" }];
+}
+
+/**
+ * Derive the persisted `status` of a stock from its own fields + its parent
+ * item (design §5.2, "derived-and-persisted"). Recomputed on every write.
+ *
+ * Precedence, highest first:
+ *   1. `expired`  — `expiration_date` is in the past.
+ *   2. `empty`    — `container_count <= 0`.
+ *   3. manual tap — a directly-set `low` / `empty` is HONORED and never
+ *                   clobbered back to `in_stock` by a recompute. (A manual
+ *                   `empty` on a still-positive count is preserved.)
+ *   4. `low`      — summed container_count across the item's stocks is below
+ *                   `item.low_at_count`.
+ *   5. `in_stock` — otherwise.
+ *
+ * `summedCount` is the total container_count across ALL stocks of the item
+ * (the low signal is item-level, not per-stock; design §2.3, §10). Callers
+ * pass it so this stays a pure function; when omitted it falls back to this
+ * stock's own count (single-stock case).
+ *
+ * `now` is injectable for deterministic tests.
+ */
+export function deriveInventoryStatus(
+  stock: {
+    container_count: number;
+    expiration_date: string | null;
+    status?: InventoryStockStatus;
+  },
+  item: { low_at_count: number | null } | null | undefined,
+  options?: { summedCount?: number; now?: Date; manualStatus?: InventoryStockStatus | null },
+): InventoryStockStatus {
+  const now = options?.now ?? new Date();
+  const count = Number.isFinite(stock.container_count) ? stock.container_count : 0;
+
+  // 1. Expiry wins outright — it is a fact about the reagent, not a tap.
+  if (stock.expiration_date) {
+    const exp = new Date(stock.expiration_date);
+    if (!Number.isNaN(exp.getTime()) && exp.getTime() < now.getTime()) {
+      return "expired";
+    }
+  }
+
+  // 2. A zero (or negative) count is empty regardless of taps.
+  if (count <= 0) return "empty";
+
+  // 3. Honor a manual low/empty tap (the caller's intent), so a human flag is
+  //    not silently recomputed away while the count is still positive.
+  const manual = options?.manualStatus ?? stock.status;
+  if (manual === "low" || manual === "empty") return manual;
+
+  // 4. Count-based low signal (item-level threshold vs summed counts).
+  const summed = options?.summedCount ?? count;
+  const threshold = item?.low_at_count ?? null;
+  if (threshold != null && summed < threshold) return "low";
+
+  // 5. Default.
+  return "in_stock";
+}
+
+/**
+ * Read-boundary normalizer for an `InventoryItem` (template:
+ * normalizeMethodRecord / normalizeSequenceMeta). Tolerates legacy / absent
+ * fields so records written before a field existed keep loading. Additive +
+ * lazy — no on-disk migration. `owner` is back-filled from the directory the
+ * record was read from when absent.
+ */
+export function normalizeInventoryItemRecord(
+  raw: InventoryItem,
+  fallbackOwner?: string,
+): InventoryItem {
+  return {
+    ...raw,
+    name: raw.name ?? "",
+    category: raw.category ?? "reagent",
+    catalog_number: raw.catalog_number ?? null,
+    vendor: raw.vendor ?? null,
+    cas: raw.cas ?? null,
+    url: raw.url ?? null,
+    container_label: raw.container_label ?? null,
+    notes: raw.notes ?? null,
+    low_at_count: raw.low_at_count ?? null,
+    track_consumption: raw.track_consumption ?? false,
+    product_barcode: raw.product_barcode ?? null,
+    registry: raw.registry ?? null,
+    owner: raw.owner ?? fallbackOwner ?? "",
+    shared_with: normalizeSharedWith(raw.shared_with),
+    created_by: raw.created_by ?? null,
+    tags: raw.tags ?? null,
+  };
+}
+
+/**
+ * Read-boundary normalizer for an `InventoryStock`. Defaults a missing
+ * `container_count` to 1 (design §13 Q2: a status-only stock with count 1 is
+ * valid), derives a missing `status`, and back-fills the optional fields to
+ * `null`. Note that `deriveInventoryStatus` runs WITHOUT the parent item here
+ * (read-time, single-record), so a legacy record missing `status` gets the
+ * count/expiry-derived value; the item-level low signal is recomputed on the
+ * next write or by the widget computations (chunk 3).
+ */
+export function normalizeInventoryStockRecord(
+  raw: InventoryStock,
+  fallbackOwner?: string,
+): InventoryStock {
+  const container_count =
+    typeof raw.container_count === "number" && Number.isFinite(raw.container_count)
+      ? raw.container_count
+      : 1;
+  const expiration_date = raw.expiration_date ?? null;
+  const status: InventoryStockStatus =
+    raw.status ??
+    deriveInventoryStatus(
+      { container_count, expiration_date, status: undefined },
+      null,
+    );
+  return {
+    ...raw,
+    item_id: raw.item_id,
+    lot_number: raw.lot_number ?? null,
+    container_count,
+    status,
+    received_date: raw.received_date ?? null,
+    expiration_date,
+    opened_date: raw.opened_date ?? null,
+    last_touched_at: raw.last_touched_at ?? null,
+    amount_per_container: raw.amount_per_container ?? null,
+    unit: raw.unit ?? null,
+    concentration: raw.concentration ?? null,
+    location_text: raw.location_text ?? null,
+    location_node_id: raw.location_node_id ?? null,
+    position: raw.position ?? null,
+    purchase_item_id: raw.purchase_item_id ?? null,
+    container_code: raw.container_code ?? null,
+    notes: raw.notes ?? null,
+    owner: raw.owner ?? fallbackOwner ?? "",
+    shared_with: normalizeSharedWith(raw.shared_with),
+    created_by: raw.created_by ?? null,
+  };
+}
+
+export const inventoryItemsApi = {
+  list: async (): Promise<InventoryItem[]> => {
+    const items = await inventoryItemsStore.listAll();
+    return items.map((m) => normalizeInventoryItemRecord(m));
+  },
+
+  // `owner` routes the read into another member's dir (a receiver viewing a
+  // whole-lab-shared item). Mirrors methodsApi.get's owner-routing.
+  get: async (id: number, owner?: string): Promise<InventoryItem | null> => {
+    if (owner) {
+      const rec = await inventoryItemsStore.getForUser(id, owner);
+      return rec ? normalizeInventoryItemRecord(rec, owner) : null;
+    }
+    const rec = await inventoryItemsStore.get(id);
+    return rec ? normalizeInventoryItemRecord(rec) : null;
+  },
+
+  getForUser: async (id: number, owner: string): Promise<InventoryItem | null> => {
+    const rec = await inventoryItemsStore.getForUser(id, owner);
+    return rec ? normalizeInventoryItemRecord(rec, owner) : null;
+  },
+
+  create: async (data: InventoryItemCreate): Promise<InventoryItem> => {
+    const currentUser = await getCurrentUserCached();
+    const shared_with = data.shared_with ?? wholeLabEditShare();
+    const stamp = await buildAttributionStamp(data.created_by);
+    const created = await inventoryItemsStore.create({
+      name: data.name,
+      category: data.category ?? "reagent",
+      catalog_number: data.catalog_number ?? null,
+      vendor: data.vendor ?? null,
+      cas: data.cas ?? null,
+      url: data.url ?? null,
+      container_label: data.container_label ?? null,
+      notes: data.notes ?? null,
+      low_at_count: data.low_at_count ?? null,
+      track_consumption: data.track_consumption ?? false,
+      product_barcode: data.product_barcode ?? null,
+      registry: data.registry ?? null,
+      tags: data.tags ?? null,
+      owner: currentUser,
+      shared_with,
+      created_by: data.created_by ?? currentUser,
+      last_edited_by: stamp.last_edited_by,
+      last_edited_at: stamp.last_edited_at,
+    });
+    return normalizeInventoryItemRecord(created, currentUser);
+  },
+
+  // Owner-routed create — bumps the TARGET user's counter so a PI / collaborator
+  // adding an item into another member's namespace doesn't collide ids.
+  createForUser: async (
+    data: InventoryItemCreate,
+    owner: string,
+  ): Promise<InventoryItem> => {
+    const shared_with = data.shared_with ?? wholeLabEditShare();
+    const stamp = await buildAttributionStamp(data.created_by);
+    const created = await inventoryItemsStore.createForUser(
+      {
+        name: data.name,
+        category: data.category ?? "reagent",
+        catalog_number: data.catalog_number ?? null,
+        vendor: data.vendor ?? null,
+        cas: data.cas ?? null,
+        url: data.url ?? null,
+        container_label: data.container_label ?? null,
+        notes: data.notes ?? null,
+        low_at_count: data.low_at_count ?? null,
+        track_consumption: data.track_consumption ?? false,
+        product_barcode: data.product_barcode ?? null,
+        registry: data.registry ?? null,
+        tags: data.tags ?? null,
+        owner,
+        shared_with,
+        created_by: data.created_by ?? owner,
+        last_edited_by: stamp.last_edited_by,
+        last_edited_at: stamp.last_edited_at,
+      },
+      owner,
+    );
+    return normalizeInventoryItemRecord(created, owner);
+  },
+
+  update: async (
+    id: number,
+    data: InventoryItemUpdate,
+    owner?: string,
+  ): Promise<InventoryItem | null> => {
+    const patch = { ...data, ...(await buildAttributionStamp(data.last_edited_by)) };
+    const updated = owner
+      ? await inventoryItemsStore.updateForUser(id, patch, owner)
+      : await inventoryItemsStore.update(id, patch);
+    return updated ? normalizeInventoryItemRecord(updated, owner) : null;
+  },
+
+  saveForUser: async (
+    id: number,
+    data: InventoryItem,
+    owner: string,
+  ): Promise<InventoryItem> => {
+    const saved = await inventoryItemsStore.saveForUser(id, data, owner);
+    return normalizeInventoryItemRecord(saved, owner);
+  },
+
+  delete: async (id: number, owner?: string): Promise<void> => {
+    // v1: hard delete (trash mirror lands in chunk 5, FLAG-H). Owner-routed
+    // when a collaborator deletes from another member's namespace.
+    if (owner) {
+      await inventoryItemsStore.deleteForUser(id, owner);
+      return;
+    }
+    await inventoryItemsStore.delete(id);
+  },
+};
+
+export const inventoryStocksApi = {
+  list: async (): Promise<InventoryStock[]> => {
+    const stocks = await inventoryStocksStore.listAll();
+    return stocks.map((s) => normalizeInventoryStockRecord(s));
+  },
+
+  // All stocks for one item (current user's namespace). Cross-user reads use
+  // listForUser / the IncludingShared aggregate.
+  listForItem: async (itemId: number, owner?: string): Promise<InventoryStock[]> => {
+    const stocks = owner
+      ? await inventoryStocksStore.listAllForUser(owner)
+      : await inventoryStocksStore.listAll();
+    return stocks
+      .map((s) => normalizeInventoryStockRecord(s, owner))
+      .filter((s) => s.item_id === itemId);
+  },
+
+  get: async (id: number, owner?: string): Promise<InventoryStock | null> => {
+    if (owner) {
+      const rec = await inventoryStocksStore.getForUser(id, owner);
+      return rec ? normalizeInventoryStockRecord(rec, owner) : null;
+    }
+    const rec = await inventoryStocksStore.get(id);
+    return rec ? normalizeInventoryStockRecord(rec) : null;
+  },
+
+  getForUser: async (id: number, owner: string): Promise<InventoryStock | null> => {
+    const rec = await inventoryStocksStore.getForUser(id, owner);
+    return rec ? normalizeInventoryStockRecord(rec, owner) : null;
+  },
+
+  // Sum the container_count across an item's stocks (the item-level low signal
+  // basis). `existing` lets a write include the about-to-be-saved record in the
+  // sum before it lands on disk.
+  _summedCountForItem: async (
+    itemId: number,
+    owner: string,
+    overrideStockId?: number,
+    overrideCount?: number,
+  ): Promise<number> => {
+    const stocks = (await inventoryStocksStore.listAllForUser(owner)).filter(
+      (s) => s.item_id === itemId,
+    );
+    let sum = 0;
+    for (const s of stocks) {
+      if (overrideStockId != null && s.id === overrideStockId) {
+        sum += overrideCount ?? 0;
+      } else {
+        const c =
+          typeof s.container_count === "number" && Number.isFinite(s.container_count)
+            ? s.container_count
+            : 0;
+        sum += c;
+      }
+    }
+    if (overrideStockId == null && overrideCount != null) sum += overrideCount;
+    return sum;
+  },
+
+  create: async (data: InventoryStockCreate, owner?: string): Promise<InventoryStock> => {
+    const currentUser = await getCurrentUserCached();
+    const targetOwner = owner ?? currentUser;
+    // Stock inherits the parent item's sharing (design §5.2); fall back to the
+    // whole-lab-edit default when the item can't be read.
+    const parentItem = await inventoryItemsStore.getForUser(data.item_id, targetOwner);
+    const shared_with =
+      data.shared_with ??
+      (parentItem ? normalizeSharedWith(parentItem.shared_with) : wholeLabEditShare());
+
+    const container_count = data.container_count ?? 1;
+    const expiration_date = data.expiration_date ?? null;
+    const nowIso = new Date().toISOString();
+    const stamp = await buildAttributionStamp(data.created_by);
+
+    // Derive status with the item-level low threshold + the summed count
+    // (including this new stock's count, which isn't on disk yet).
+    const summed = await inventoryStocksApi._summedCountForItem(
+      data.item_id,
+      targetOwner,
+      undefined,
+      container_count,
+    );
+    const status = deriveInventoryStatus(
+      { container_count, expiration_date, status: data.status },
+      parentItem ? { low_at_count: parentItem.low_at_count ?? null } : null,
+      { summedCount: summed, manualStatus: data.status ?? null },
+    );
+
+    const payload: Omit<InventoryStock, "id"> = {
+      item_id: data.item_id,
+      lot_number: data.lot_number ?? null,
+      container_count,
+      status,
+      received_date: data.received_date ?? null,
+      expiration_date,
+      opened_date: data.opened_date ?? null,
+      last_touched_at: data.last_touched_at ?? nowIso,
+      amount_per_container: data.amount_per_container ?? null,
+      unit: data.unit ?? null,
+      concentration: data.concentration ?? null,
+      location_text: data.location_text ?? null,
+      location_node_id: data.location_node_id ?? null,
+      position: data.position ?? null,
+      purchase_item_id: data.purchase_item_id ?? null,
+      container_code: data.container_code ?? null,
+      notes: data.notes ?? null,
+      owner: targetOwner,
+      shared_with,
+      created_by: data.created_by ?? targetOwner,
+      last_edited_by: stamp.last_edited_by,
+      last_edited_at: stamp.last_edited_at,
+    };
+
+    const created = owner
+      ? await inventoryStocksStore.createForUser(payload, owner)
+      : await inventoryStocksStore.create(payload);
+    return normalizeInventoryStockRecord(created, targetOwner);
+  },
+
+  update: async (
+    id: number,
+    data: InventoryStockUpdate,
+    owner?: string,
+  ): Promise<InventoryStock | null> => {
+    const currentUser = await getCurrentUserCached();
+    const targetOwner = owner ?? currentUser;
+    const existing = owner
+      ? await inventoryStocksStore.getForUser(id, owner)
+      : await inventoryStocksStore.get(id);
+    if (!existing) return null;
+
+    // Merge the patch onto the existing record so status derivation sees the
+    // post-write field values.
+    const merged: InventoryStock = { ...existing };
+    const mergedRecord = merged as unknown as Record<string, unknown>;
+    for (const key of Object.keys(data) as (keyof InventoryStockUpdate)[]) {
+      const value = data[key];
+      if (value !== undefined) {
+        mergedRecord[key as string] = value;
+      }
+    }
+
+    const itemId = merged.item_id;
+    const parentItem = await inventoryItemsStore.getForUser(itemId, targetOwner);
+    const summed = await inventoryStocksApi._summedCountForItem(
+      itemId,
+      targetOwner,
+      id,
+      merged.container_count,
+    );
+    // A manual status tap arrives via `data.status`; honor it. When the patch
+    // doesn't set status, fall back to the stored value so an existing manual
+    // low/empty isn't clobbered.
+    const manualStatus = data.status ?? existing.status ?? null;
+    const status = deriveInventoryStatus(
+      {
+        container_count: merged.container_count,
+        expiration_date: merged.expiration_date,
+        status: data.status,
+      },
+      parentItem ? { low_at_count: parentItem.low_at_count ?? null } : null,
+      { summedCount: summed, manualStatus },
+    );
+
+    const stamp = await buildAttributionStamp(data.last_edited_by);
+    const patch: Partial<InventoryStock> = {
+      ...data,
+      status,
+      last_touched_at: data.last_touched_at ?? new Date().toISOString(),
+      last_edited_by: stamp.last_edited_by,
+      last_edited_at: stamp.last_edited_at,
+    };
+
+    const updated = owner
+      ? await inventoryStocksStore.updateForUser(id, patch, owner)
+      : await inventoryStocksStore.update(id, patch);
+    return updated ? normalizeInventoryStockRecord(updated, targetOwner) : null;
+  },
+
+  saveForUser: async (
+    id: number,
+    data: InventoryStock,
+    owner: string,
+  ): Promise<InventoryStock> => {
+    const saved = await inventoryStocksStore.saveForUser(id, data, owner);
+    return normalizeInventoryStockRecord(saved, owner);
+  },
+
+  delete: async (id: number, owner?: string): Promise<void> => {
+    if (owner) {
+      await inventoryStocksStore.deleteForUser(id, owner);
+      return;
+    }
+    await inventoryStocksStore.delete(id);
+  },
+};
+
+/**
+ * Whole-lab read aggregate for inventory items (template:
+ * `cabinetApi.getNotes` — walk every member's dir, stamp owner, then a
+ * `canRead` gate per record). Returns the union of every member's items the
+ * `viewer` may read, with `is_shared_with_me` overlaid for items owned by
+ * someone else. This is "the lab inventory" the design calls a computed union
+ * (§6.1).
+ */
+export const fetchAllInventoryItemsIncludingShared = async (): Promise<
+  InventoryItem[]
+> => {
+  const viewer = await buildCurrentViewer();
+  const currentUser = viewer.username;
+  const usernames = await discoverUsers();
+  const out: InventoryItem[] = [];
+  for (const username of usernames) {
+    const items = await inventoryItemsStore.listAllForUser(username);
+    for (const raw of items) {
+      const item = normalizeInventoryItemRecord(raw, username);
+      if (!canRead(item, viewer)) continue;
+      out.push({
+        ...item,
+        is_shared_with_me: item.owner !== currentUser,
+      });
+    }
+  }
+  return out;
+};
+
+/** Mirror of `fetchAllInventoryItemsIncludingShared` for stocks. */
+export const fetchAllInventoryStocksIncludingShared = async (): Promise<
+  InventoryStock[]
+> => {
+  const viewer = await buildCurrentViewer();
+  const currentUser = viewer.username;
+  const usernames = await discoverUsers();
+  const out: InventoryStock[] = [];
+  for (const username of usernames) {
+    const stocks = await inventoryStocksStore.listAllForUser(username);
+    for (const raw of stocks) {
+      const stock = normalizeInventoryStockRecord(raw, username);
+      if (!canRead(stock, viewer)) continue;
+      out.push({
+        ...stock,
+        is_shared_with_me: stock.owner !== currentUser,
+      });
+    }
+  }
+  return out;
 };
 
 // ── sequencesApi ────────────────────────────────────────────────────────────
