@@ -51,6 +51,13 @@ export default function ExperimentsFeaturePage() {
         paperwork is overdue,&quot; you reach for Lists. If you want to
         find the meeting note from three weeks ago, you reach for Notes.
       </p>
+      <p>
+        A fifth tab appears for some people. Lab heads, and any member who is in
+        a 1:1, also see a role-relative{" "}
+        <Link href="/wiki/features/one-on-ones">Mentoring or Check-ins</Link> tab
+        (rose), the shared advising surface for a lab-head and member pair. It is
+        gated, so a solo user with no 1:1s never sees it.
+      </p>
 
       <h2>The project filter pill strip</h2>
       <p>

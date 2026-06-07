@@ -293,6 +293,11 @@ export const WIKI_NAV: WikiNode[] = [
         ],
       },
       {
+        href: "/wiki/features/one-on-ones",
+        label: "Mentoring and check-ins",
+        blurb: "The 1:1 advising surface a lab head and a member share: weekly goals, meeting notes, notes, and a running agenda.",
+      },
+      {
         href: "/wiki/features/sharing-and-permissions",
         label: "Sharing and permissions",
         blurb: "shared_with, the WHOLE_LAB_SENTINEL, canRead vs canWrite, PI view-all.",
