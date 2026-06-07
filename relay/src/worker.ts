@@ -44,6 +44,8 @@ export interface Env {
   COLLAB_ROOM: DurableObjectNamespace;
   /** R2 bucket for periodic per-doc snapshot backups (disaster recovery). */
   COLLAB_BACKUPS: R2Bucket;
+  /** Per-recipient inbox (external-collab chunk 3), addressed by emailHash. */
+  RECIPIENT_INBOX: DurableObjectNamespace;
 }
 
 /** Permissive CORS for the cross-origin /snapshot fetch from the app. The
@@ -106,6 +108,54 @@ export default {
       }
       const stub = env.COLLAB_ROOM.get(env.COLLAB_ROOM.idFromName(sessionId));
       return stub.fetch(request);
+    }
+
+    // Per-recipient inbox (external-collab chunk 3). Discovery channel for a
+    // live-collab grant. Addressed by the recipient's emailHash, so it is
+    // independent of any one collab session. /inbox/push is the sender writing
+    // an invite (anyone may send, like email); /inbox/list and /inbox/dismiss
+    // are recipient-signed reads/deletes. POST only; the inbox DO does its own
+    // signature + TOFU checks. NOTHING here materializes a local copy; this only
+    // surfaces pending invites (accept + materialize is chunk 4).
+    if (
+      url.pathname === "/inbox/push" ||
+      url.pathname === "/inbox/list" ||
+      url.pathname === "/inbox/dismiss"
+    ) {
+      if (request.method !== "POST") {
+        return new Response("Method not allowed", {
+          status: 405,
+          headers: CORS_HEADERS,
+        });
+      }
+      // /inbox/push is addressed by ?to=<emailHash>, the recipient routes by
+      // ?owner=<emailHash>. Both name the same per-recipient DO.
+      const inboxKey =
+        url.pathname === "/inbox/push"
+          ? url.searchParams.get("to")
+          : url.searchParams.get("owner");
+      if (!inboxKey || inboxKey.trim() === "") {
+        return new Response("Missing required query parameter", {
+          status: 400,
+          headers: CORS_HEADERS,
+        });
+      }
+      const stub = env.RECIPIENT_INBOX.get(
+        env.RECIPIENT_INBOX.idFromName(inboxKey),
+      );
+      return stub.fetch(request);
+    }
+
+    // CORS preflight for the cross-origin inbox POSTs from the app.
+    if (request.method === "OPTIONS" && url.pathname.startsWith("/inbox/")) {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        },
+      });
     }
 
     return new Response("Not found", { status: 404 });
@@ -588,6 +638,309 @@ export class CollabRoom {
     } catch {
       // Ignore close errors on an errored socket.
     }
+  }
+}
+
+/**
+ * Per-recipient inbox (external-collab chunk 3). One DO instance per recipient
+ * emailHash (idFromName(emailHash)). It holds the pending live-collab invites
+ * addressed to that recipient and nothing else. The relay stays blind to the
+ * collab content; an invite row carries only routing metadata (the collab doc
+ * id + session id + a human title + who sent it).
+ *
+ * SECURITY MODEL.
+ *   - /inbox/push: anyone may send an invite (like email). The sender SIGNS the
+ *     push with their own directory Ed25519 key so the recorded from-identity is
+ *     authentic and cannot be forged. The first push to a fresh inbox also
+ *     records the recipient's pubkey (trust-on-first-use). A later push that
+ *     presents a DIFFERENT recipientPubkey is rejected, so a sender cannot
+ *     rebind someone else's inbox to a key they control.
+ *   - /inbox/list and /inbox/dismiss: recipient-signed, and the signing pubkey
+ *     MUST equal the established recipient_pubkey. Only the established recipient
+ *     can read or clear their own inbox.
+ *
+ * No invite ever materializes a local copy here. Surfacing pending invites is
+ * all this chunk does; accept + materialize-to-folder is chunk 4.
+ */
+export class RecipientInbox {
+  readonly state: DurableObjectState;
+  readonly env: Env;
+
+  constructor(state: DurableObjectState, env: Env) {
+    this.state = state;
+    this.env = env;
+    // One row per pending invite, keyed by the collab doc id (re-pushing the
+    // same doc upserts rather than duplicating).
+    this.sql().exec(
+      "CREATE TABLE IF NOT EXISTS invites (doc_id TEXT PRIMARY KEY, session_id TEXT, title TEXT, kind TEXT, from_email TEXT, from_name TEXT, created_at INTEGER)",
+    );
+    // meta holds 'recipient_pubkey' (hex, TOFU on the first push).
+    this.sql().exec(
+      "CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)",
+    );
+  }
+
+  private sql(): SqlStorage {
+    return this.state.storage.sql;
+  }
+
+  private metaGet(key: string): string | null {
+    const rows = this.sql()
+      .exec<{ v: string }>("SELECT v FROM meta WHERE k = ?", key)
+      .toArray();
+    return rows.length > 0 ? rows[0].v : null;
+  }
+
+  private metaSet(key: string, value: string): void {
+    this.sql().exec(
+      "INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v",
+      key,
+      value,
+    );
+  }
+
+  /** Verifies a hex Ed25519 signature over a UTF-8 message under a hex pubkey.
+   *  Any malformed input is a verification failure, never a throw. */
+  private verifySig(sigHex: string, message: string, pubkeyHex: string): boolean {
+    try {
+      const sig = hexToBytes(sigHex);
+      const pub = hexToBytes(pubkeyHex);
+      const msg = new TextEncoder().encode(message);
+      return ed25519.verify(sig, msg, pub);
+    } catch {
+      return false;
+    }
+  }
+
+  /** Within +/- 5 minutes of now (replay guard). Non-finite is stale. */
+  private isFresh(ts: number): boolean {
+    if (typeof ts !== "number" || !Number.isFinite(ts)) return false;
+    return Math.abs(Date.now() - ts) <= 5 * 60 * 1000;
+  }
+
+  private json(body: unknown, status: number): Response {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
+  }
+
+  /** POST /inbox/push?to=<emailHash>. Sender-signed; upserts one invite. */
+  private async handlePush(request: Request): Promise<Response> {
+    let body: {
+      from?: { email?: string; name?: string; pubkey?: string };
+      recipientEmailHash?: string;
+      recipientPubkey?: string;
+      invite?: {
+        collabDocId?: string;
+        sessionId?: string;
+        title?: string;
+        kind?: string;
+      };
+      issuedAt?: number;
+      signature?: string;
+    };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+
+    const from = body.from;
+    const recipientEmailHash = body.recipientEmailHash;
+    const recipientPubkey = body.recipientPubkey;
+    const invite = body.invite;
+    const issuedAt = body.issuedAt;
+    const signature = body.signature;
+    if (
+      !from ||
+      typeof from.email !== "string" ||
+      typeof from.pubkey !== "string" ||
+      typeof recipientEmailHash !== "string" ||
+      typeof recipientPubkey !== "string" ||
+      !invite ||
+      typeof invite.collabDocId !== "string" ||
+      typeof invite.sessionId !== "string" ||
+      typeof issuedAt !== "number" ||
+      typeof signature !== "string"
+    ) {
+      return this.json({ error: "malformed push" }, 400);
+    }
+
+    if (!this.isFresh(issuedAt)) {
+      return this.json({ error: "stale issuedAt" }, 401);
+    }
+
+    const message = `inbox-push\n${recipientEmailHash}\n${recipientPubkey}\n${invite.collabDocId}\n${invite.sessionId}\n${issuedAt}`;
+    if (!this.verifySig(signature, message, from.pubkey)) {
+      return this.json({ error: "bad signature" }, 401);
+    }
+
+    // TOFU on the recipient pubkey. The first push establishes it; a later push
+    // must present the same key, so a sender cannot rebind the inbox owner.
+    const stored = this.metaGet("recipient_pubkey");
+    if (stored === null) {
+      this.metaSet("recipient_pubkey", recipientPubkey);
+    } else if (stored !== recipientPubkey) {
+      return this.json({ error: "recipient pubkey mismatch" }, 403);
+    }
+
+    this.sql().exec(
+      "INSERT INTO invites (doc_id, session_id, title, kind, from_email, from_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(doc_id) DO UPDATE SET session_id = excluded.session_id, title = excluded.title, kind = excluded.kind, from_email = excluded.from_email, from_name = excluded.from_name, created_at = excluded.created_at",
+      invite.collabDocId,
+      invite.sessionId,
+      typeof invite.title === "string" ? invite.title : null,
+      typeof invite.kind === "string" ? invite.kind : null,
+      from.email,
+      typeof from.name === "string" ? from.name : null,
+      Date.now(),
+    );
+
+    return this.json({ ok: true }, 200);
+  }
+
+  /** Recipient-signed gate shared by /inbox/list and /inbox/dismiss. Returns
+   *  the canonical message that was verified on success, or a Response to
+   *  reject. The caller passes the already-parsed email + pubkey + issuedAt +
+   *  signature plus the canonical message the recipient should have signed. */
+  private recipientGate(
+    pubkey: string,
+    issuedAt: number,
+    signature: string,
+    message: string,
+  ): Response | null {
+    if (!this.isFresh(issuedAt)) {
+      return this.json({ error: "stale issuedAt" }, 401);
+    }
+    const stored = this.metaGet("recipient_pubkey");
+    if (stored === null) {
+      // No established recipient yet (empty inbox). Treated as empty, not an
+      // auth error, so a brand-new recipient sees an empty list cleanly.
+      return this.json({ error: "empty" }, 200);
+    }
+    if (stored !== pubkey) {
+      return this.json({ error: "not the recipient" }, 403);
+    }
+    if (!this.verifySig(signature, message, pubkey)) {
+      return this.json({ error: "bad signature" }, 401);
+    }
+    return null;
+  }
+
+  /** POST /inbox/list?owner=<emailHash>. Recipient-signed read. */
+  private async handleList(request: Request): Promise<Response> {
+    let body: {
+      email?: string;
+      pubkey?: string;
+      issuedAt?: number;
+      signature?: string;
+    };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+
+    const email = body.email;
+    const pubkey = body.pubkey;
+    const issuedAt = body.issuedAt;
+    const signature = body.signature;
+    if (
+      typeof email !== "string" ||
+      typeof pubkey !== "string" ||
+      typeof issuedAt !== "number" ||
+      typeof signature !== "string"
+    ) {
+      return this.json({ error: "malformed list" }, 400);
+    }
+
+    // An unestablished inbox returns an empty list (not an error).
+    if (this.metaGet("recipient_pubkey") === null) {
+      return this.json({ invites: [] }, 200);
+    }
+
+    const message = `inbox-list\n${this.ownerHashFrom(request)}\n${issuedAt}`;
+    const denied = this.recipientGate(pubkey, issuedAt, signature, message);
+    if (denied) return denied;
+
+    const rows = this.sql()
+      .exec<{
+        doc_id: string;
+        session_id: string;
+        title: string | null;
+        kind: string | null;
+        from_email: string | null;
+        from_name: string | null;
+        created_at: number;
+      }>(
+        "SELECT doc_id, session_id, title, kind, from_email, from_name, created_at FROM invites ORDER BY created_at DESC",
+      )
+      .toArray();
+
+    const invites = rows.map((r) => ({
+      collabDocId: r.doc_id,
+      sessionId: r.session_id,
+      title: r.title,
+      kind: r.kind,
+      fromEmail: r.from_email,
+      fromName: r.from_name,
+      createdAt: r.created_at,
+    }));
+
+    return this.json({ invites }, 200);
+  }
+
+  /** POST /inbox/dismiss?owner=<emailHash>. Recipient-signed delete of one. */
+  private async handleDismiss(request: Request): Promise<Response> {
+    let body: {
+      email?: string;
+      pubkey?: string;
+      collabDocId?: string;
+      issuedAt?: number;
+      signature?: string;
+    };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+
+    const email = body.email;
+    const pubkey = body.pubkey;
+    const collabDocId = body.collabDocId;
+    const issuedAt = body.issuedAt;
+    const signature = body.signature;
+    if (
+      typeof email !== "string" ||
+      typeof pubkey !== "string" ||
+      typeof collabDocId !== "string" ||
+      typeof issuedAt !== "number" ||
+      typeof signature !== "string"
+    ) {
+      return this.json({ error: "malformed dismiss" }, 400);
+    }
+
+    const message = `inbox-dismiss\n${this.ownerHashFrom(request)}\n${collabDocId}\n${issuedAt}`;
+    const denied = this.recipientGate(pubkey, issuedAt, signature, message);
+    if (denied) return denied;
+
+    this.sql().exec("DELETE FROM invites WHERE doc_id = ?", collabDocId);
+    return this.json({ ok: true }, 200);
+  }
+
+  /** The recipient emailHash this DO is addressed by, read from ?owner. The DO
+   *  is named idFromName(emailHash) but does not otherwise know its own name,
+   *  and the recipient signs the canonical message over that same hash. */
+  private ownerHashFrom(request: Request): string {
+    return new URL(request.url).searchParams.get("owner") ?? "";
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    if (url.pathname === "/inbox/push") return this.handlePush(request);
+    if (url.pathname === "/inbox/list") return this.handleList(request);
+    if (url.pathname === "/inbox/dismiss") return this.handleDismiss(request);
+    return this.json({ error: "not found" }, 404);
   }
 }
 

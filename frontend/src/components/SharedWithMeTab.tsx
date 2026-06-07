@@ -65,6 +65,82 @@ import { fileService } from "@/lib/file-system/file-service";
 import { projectsApi } from "@/lib/local-api";
 import type { Note, Project } from "@/lib/types";
 import type { ImportResult } from "@/lib/import/types";
+import { EXTERNAL_COLLAB_ENABLED } from "@/lib/loro/config";
+import { listInvites, type PendingInvite } from "@/lib/collab/client/inbox";
+
+// ── Pending live-collab invitations (external-collab chunk 3) ────────────────
+// Read-only discovery of a live-collab grant from an outside ResearchOS user.
+// Polls listInvites() once on open and surfaces each pending invite. NOTHING is
+// materialized here: the recipient only learns an invite exists. Accept +
+// materialize-to-folder is chunk 4, so the action shows as a disabled
+// "Accept (coming soon)" placeholder. The whole section is gated by
+// EXTERNAL_COLLAB_ENABLED and only renders for a device with a directory
+// identity (the caller passes enabled accordingly).
+function PendingCollabInvites({ enabled }: { enabled: boolean }) {
+  const [invites, setInvites] = useState<PendingInvite[]>([]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await listInvites();
+        if (!cancelled) setInvites(rows);
+      } catch (err) {
+        // Discovery is best-effort; a failed poll just shows nothing.
+        console.warn("[inbox] listInvites failed", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
+
+  if (!enabled || invites.length === 0) return null;
+
+  return (
+    <div className="mb-4">
+      <p className="text-meta uppercase tracking-wide text-foreground-muted font-semibold mb-2 px-1">
+        Pending invitations
+      </p>
+      <ul className="space-y-2">
+        {invites.map((inv) => {
+          const who = inv.fromName || inv.fromEmail || "Someone";
+          const title = inv.title || "Untitled note";
+          return (
+            <li
+              key={inv.collabDocId}
+              className="flex items-center gap-3 p-3 rounded-lg border border-border bg-surface-raised"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-meta font-semibold uppercase tracking-wide bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300">
+                    Live collab
+                  </span>
+                </div>
+                <p className="text-body text-foreground truncate">
+                  <span className="font-medium">{who}</span> invited you to
+                  collaborate on <span className="font-medium">{title}</span>
+                </p>
+                <p className="text-meta text-foreground-muted">
+                  {new Date(inv.createdAt).toLocaleString()}
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled
+                title="Accepting a live-collab invite is coming soon"
+                className="px-3 py-1.5 text-meta font-medium text-white bg-blue-600/50 rounded-md cursor-not-allowed flex-shrink-0"
+              >
+                Accept (coming soon)
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
 
 // ── Sender label ─────────────────────────────────────────────────────────────
 // The only sender identifier on the wire is the hash. Show a short, stable label
@@ -249,6 +325,9 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
   return (
     <>
       <div className="flex-1 overflow-y-auto p-4">
+        <PendingCollabInvites
+          enabled={EXTERNAL_COLLAB_ENABLED && status === "ready" && !!email}
+        />
         {loading ? (
           <p className="text-body text-foreground-muted text-center py-8">Loading…</p>
         ) : loadError ? (

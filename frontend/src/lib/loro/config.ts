@@ -20,3 +20,18 @@ export const EXTERNAL_COLLAB_ENABLED = false;
  */
 export const COLLAB_RELAY_URL =
   process.env.NEXT_PUBLIC_COLLAB_RELAY_URL ?? "ws://localhost:8787";
+
+/**
+ * Domain-separation salt for the per-recipient inbox address (external-collab
+ * chunk 3). The inbox Durable Object is addressed by hashEmail(email, this), so
+ * both the sender (who learns the recipient's email from the directory lookup)
+ * and the recipient (who knows their own email) derive the SAME inbox key.
+ *
+ * This is deliberately a PUBLIC constant, not the server's DIRECTORY_HMAC_PEPPER
+ * (which never reaches the browser). The inbox address does not need to be
+ * secret. Every security property rests on the Ed25519 signatures the inbox DO
+ * verifies plus the trust-on-first-use recipient pubkey, not on the address
+ * being unguessable. Keeping it distinct from the directory pepper means the
+ * inbox key cannot be cross-correlated with a directory row.
+ */
+export const COLLAB_INBOX_ADDRESS_SALT = "researchos-collab-inbox-v1";

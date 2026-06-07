@@ -28,6 +28,7 @@ import type { SharedUser } from "@/lib/types";
 import { getOrMintCollabDocId } from "./doc-id";
 import { collabSessionFromDocId } from "@/lib/loro/collab/doc-id-session";
 import { signGrant, type GrantMember } from "./do-access";
+import { pushInvite } from "./inbox";
 import { getCollabSignerEmail } from "./current-email";
 import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
 import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
@@ -113,6 +114,10 @@ export interface GrantExternalCollabParams {
   outside: ResolvedOutsideUser;
   /** The note's current in-lab shared_with list, for first-grant backfill. */
   sharedWith?: SharedUser[] | null;
+  /** The note's human title, carried into the recipient's inbox invite so the
+   *  "Shared with me" surface can read "X invited you to collaborate on <title>"
+   *  (external-collab chunk 3). Defaults to "Untitled note" when absent. */
+  title?: string | null;
 }
 
 export type GrantExternalCollabResult =
@@ -133,7 +138,7 @@ export type GrantExternalCollabResult =
 export async function grantExternalCollab(
   params: GrantExternalCollabParams,
 ): Promise<GrantExternalCollabResult> {
-  const { doc, outside, sharedWith } = params;
+  const { doc, outside, sharedWith, title } = params;
 
   const ownerEmailRaw = getCollabSignerEmail();
   const identity = getSessionIdentity();
@@ -184,6 +189,24 @@ export async function grantExternalCollab(
     }
   } catch {
     return { ok: false, reason: "request-failed" };
+  }
+
+  // Recipient discovery (external-collab chunk 3). The grant locked the DO; now
+  // tell the outside user it exists by writing a signed invite to their inbox.
+  // This is best-effort, a failed push does not undo the grant (the owner can
+  // re-grant, which re-pushes idempotently). NOTHING materializes locally here;
+  // the recipient only sees a pending invite until they accept (chunk 4).
+  try {
+    await pushInvite({
+      recipientEmail: canonicalizeEmail(outside.email),
+      recipientPubkey: outside.ed25519PublicKey,
+      collabDocId: docId,
+      sessionId,
+      title: title ?? "Untitled note",
+      kind: "note",
+    });
+  } catch {
+    // Push is non-fatal; the grant already succeeded.
   }
 
   return { ok: true, docId };
