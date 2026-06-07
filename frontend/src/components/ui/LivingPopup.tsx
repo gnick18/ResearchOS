@@ -181,7 +181,7 @@ export default function LivingPopup({
   // attention-demanding popups (the `blur` prop); little popups never blur. And
   // even among blurring popups only the bottom-most blurs, so blur never
   // compounds (Grant 2026-06-06).
-  const { shouldBlur } = usePopupLayer(mounted, blur);
+  const { shouldBlur, shouldDim } = usePopupLayer(mounted, blur);
 
   if (!mounted) return null;
 
@@ -247,9 +247,9 @@ export default function LivingPopup({
         aria-label={closeLabel}
         onMouseDown={(e) => e.preventDefault()}
         onClick={closeOnScrimClick ? onClose : undefined}
-        className={`absolute inset-0 h-full w-full cursor-default bg-slate-900/25 ${
-          shouldBlur ? "backdrop-blur-md" : ""
-        }`}
+        className={`absolute inset-0 h-full w-full cursor-default ${
+          shouldDim ? "bg-slate-900/25" : ""
+        } ${shouldBlur ? "backdrop-blur-md" : ""}`}
         style={{ opacity: shown ? 1 : 0, transition: `opacity ${ANIM_MS}ms ease` }}
       />
 

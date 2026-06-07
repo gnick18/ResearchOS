@@ -71,7 +71,7 @@ export default function CreateLocalIdentityStep({
   // wizard), so it registers with the shared popup stack and only blurs when it
   // is the bottom-most blur layer. That stops the muddy double-blur where its
   // own backdrop-blur compounded on the popup already blurring behind it.
-  const { shouldBlur } = usePopupLayer(true, true);
+  const { shouldBlur, shouldDim } = usePopupLayer(true, true);
 
   // The minted recovery code, shown once. Null while keygen runs.
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
@@ -171,8 +171,8 @@ export default function CreateLocalIdentityStep({
   return (
     <div
       className={`fixed inset-0 z-[200] flex items-center justify-center ${
-        shouldBlur ? "bg-black/50 backdrop-blur-sm" : ""
-      }`}
+        shouldDim ? "bg-black/50" : ""
+      } ${shouldBlur ? "backdrop-blur-sm" : ""}`}
       onClick={onClose}
     >
       <div

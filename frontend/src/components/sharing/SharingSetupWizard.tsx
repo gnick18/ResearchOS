@@ -55,6 +55,7 @@ import {
 import { canonicalizeEmail } from "@/lib/sharing/directory/email";
 import { trackIdentityCreated } from "@/lib/analytics/events";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import { usePopupLayer } from "@/lib/ui/popup-stack";
 import Tooltip from "@/components/Tooltip";
 import {
   CheckIcon,
@@ -116,6 +117,12 @@ export default function SharingSetupWizard({
 
   // Escape closes this wizard (app-wide convention).
   useEscapeToClose(onClose);
+
+  // Register in the popup stack so the dim is owned by the bottom-most popup
+  // only. This wizard often opens ON TOP of the Profile popup, so it must not
+  // paint its own scrim there (that double-dims the popup below). It is a little
+  // dim-only popup (no blur of its own).
+  const { shouldDim } = usePopupLayer(true, false);
 
   // Email subflow state.
   const [email, setEmail] = useState("");
@@ -626,7 +633,9 @@ export default function SharingSetupWizard({
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50"
+      className={`fixed inset-0 z-[200] flex items-center justify-center ${
+        shouldDim ? "bg-black/50" : ""
+      }`}
       data-tour-popup-occluding="sharing-setup"
       onClick={onClose}
     >

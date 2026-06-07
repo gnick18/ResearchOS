@@ -52,7 +52,7 @@ const usePopupStackStore = create<PopupStackState>((set) => ({
 export function usePopupLayer(
   active: boolean,
   wantsBlur: boolean,
-): { shouldBlur: boolean } {
+): { shouldBlur: boolean; shouldDim: boolean } {
   const id = useId();
   const push = usePopupStackStore((s) => s.push);
   const remove = usePopupStackStore((s) => s.remove);
@@ -65,11 +65,21 @@ export function usePopupLayer(
     return firstBlur ? firstBlur.id === id : true;
   });
 
+  // The page dim (scrim) is owned by the BOTTOM-most popup of ANY kind. A popup
+  // stacked on top must not paint its own scrim, or it dims the popup BELOW it
+  // (the double-dim Grant hit). So only the first-opened layer dims; everything
+  // above floats over it. Before our effect registers, a lone popup dims on
+  // first paint with no flash.
+  const shouldDim = usePopupStackStore((s) => {
+    const bottom = s.stack[0];
+    return bottom ? bottom.id === id : true;
+  });
+
   useEffect(() => {
     if (!active) return;
     push({ id, wantsBlur });
     return () => remove(id);
   }, [active, id, wantsBlur, push, remove]);
 
-  return { shouldBlur };
+  return { shouldBlur, shouldDim };
 }
