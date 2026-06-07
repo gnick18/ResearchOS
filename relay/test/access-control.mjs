@@ -183,5 +183,64 @@ function connectParams(email, priv, ts = Date.now()) {
   check("(h) revoked member can no longer connect", after.ok === false);
 }
 
+// ---- (i) /members (external-collab chunk 5) owner-signed read ----------------
+// The owner's revoke UI lists who currently has access. Re-grant the member
+// first (revoke removed them in (h)) so the list has a known member to assert.
+{
+  const issuedAt = Date.now();
+  const members = [{ email: memberEmail, pubkey: member.pub, role: "editor" }];
+  const gmsg = `grant\n${sid}\n${ownerEmail}\n${issuedAt}\n${JSON.stringify(members)}`;
+  await postJson(`/grant?session=${sid}`, {
+    owner: { email: ownerEmail, pubkey: owner.pub },
+    members,
+    issuedAt,
+    signature: sign(gmsg, owner.priv),
+  });
+
+  const li = Date.now();
+  const lmsg = `members\n${sid}\n${ownerEmail}\n${li}`;
+  const res = await postJson(`/members?session=${sid}`, {
+    owner: { email: ownerEmail, pubkey: owner.pub },
+    issuedAt: li,
+    signature: sign(lmsg, owner.priv),
+  });
+  const data = await res.json();
+  const hasOwner =
+    Array.isArray(data.members) &&
+    data.members.some((m) => m.email === ownerEmail && m.role === "owner");
+  const hasMember =
+    Array.isArray(data.members) &&
+    data.members.some((m) => m.email === memberEmail && m.pubkey === member.pub);
+  check(
+    "(i) owner-signed /members returns owner + member",
+    res.status === 200 && hasOwner && hasMember,
+  );
+}
+
+// ---- (j) /members signed by a non-owner is rejected -------------------------
+{
+  const li = Date.now();
+  const lmsg = `members\n${sid}\n${ownerEmail}\n${li}`;
+  // stranger claims the owner email but signs with their own key.
+  const res = await postJson(`/members?session=${sid}`, {
+    owner: { email: ownerEmail, pubkey: stranger.pub },
+    issuedAt: li,
+    signature: sign(lmsg, stranger.priv),
+  });
+  check("(j) /members from a non-owner rejected (403)", res.status === 403);
+}
+
+// Also a stale-issuedAt /members is rejected.
+{
+  const li = Date.now() - 10 * 60 * 1000;
+  const lmsg = `members\n${sid}\n${ownerEmail}\n${li}`;
+  const res = await postJson(`/members?session=${sid}`, {
+    owner: { email: ownerEmail, pubkey: owner.pub },
+    issuedAt: li,
+    signature: sign(lmsg, owner.priv),
+  });
+  check("(j) stale-issuedAt /members rejected (401)", res.status === 401);
+}
+
 console.log(pass ? "\nRESULT: ALL PASS" : "\nRESULT: FAIL");
 process.exit(pass ? 0 : 1);

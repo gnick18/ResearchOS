@@ -443,7 +443,11 @@ export async function openNote(base: Note, owner: string): Promise<NoteHandle> {
   // capability. Falls back to the local doc when the room is empty or the relay
   // is unreachable, so opening a note is never blocked.
   if (collabDocId) {
-    const adopt = await buildCollabBaseDoc(localDoc, collabDocId);
+    // Pass the base note so buildCollabBaseDoc can detect a revoke (a 401 on a
+    // materialized external note) and mark it read-only via the revocation
+    // registry. The local copy is kept intact either way (Grant's locked
+    // decision: revoke never deletes the recipient's note).
+    const adopt = await buildCollabBaseDoc(localDoc, collabDocId, base);
     doc = adopt.doc;
     collabAdopted = adopt.adopted;
   }

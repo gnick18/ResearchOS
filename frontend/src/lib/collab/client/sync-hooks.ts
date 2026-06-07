@@ -34,6 +34,8 @@ import { getCollabSignerEmail } from "./current-email";
 import { collabSessionFromDocId } from "@/lib/loro/collab/doc-id-session";
 import { COLLAB_RELAY_URL } from "@/lib/loro/config";
 import { buildConnectTokenSuffix } from "./connect-token";
+import { isRevokedStatus, markRevoked } from "./revocation";
+import type { Note } from "@/lib/types";
 
 /** The relay's HTTP origin. COLLAB_RELAY_URL is ws(s)://host; the /snapshot
  *  read endpoint is http(s)://host (scheme swapped). */
@@ -73,7 +75,8 @@ function relayHttpBase(): string {
 export async function buildCollabBaseDoc(
   localDoc: LoroDoc,
   docId: string,
-): Promise<{ doc: LoroDoc; adopted: boolean }> {
+  note?: Pick<Note, "collab_doc_id" | "received_from">,
+): Promise<{ doc: LoroDoc; adopted: boolean; revoked?: boolean }> {
   let snapshotBytes: Uint8Array;
   try {
     const { sessionId } = collabSessionFromDocId(docId);
@@ -86,6 +89,15 @@ export async function buildCollabBaseDoc(
     if (res.status === 204) {
       // Empty room: this client establishes the canonical history.
       return { doc: localDoc, adopted: false };
+    }
+    // External-collab chunk 5: a 401 on a MATERIALIZED external note means the
+    // owner revoked this recipient's live access. Mark it revoked (so the UI can
+    // show the read-only banner and the connect path stops reconnecting) and
+    // keep the local copy intact. Never delete the note; the recipient keeps
+    // their last snapshot as a read-only copy (Grant's locked decision).
+    if (note && isRevokedStatus(res.status, note)) {
+      markRevoked(docId);
+      return { doc: localDoc, adopted: false, revoked: true };
     }
     if (!res.ok) {
       console.warn("[collab] buildCollabBaseDoc: snapshot fetch failed", res.status);

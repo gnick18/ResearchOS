@@ -16,7 +16,13 @@ import {
   type VersionRestoreApi,
 } from "@/lib/history/useVersionRestore";
 import { useAppStore } from "@/lib/store";
-import { LORO_PILOT_ENABLED } from "@/lib/loro/config";
+import { LORO_PILOT_ENABLED, EXTERNAL_COLLAB_ENABLED } from "@/lib/loro/config";
+import {
+  isBlocked as isSenderBlocked,
+  blockSender,
+  unblockSender,
+  onBlockListChange,
+} from "@/lib/collab/client/block-list";
 import { openNote, type NoteHandle } from "@/lib/loro/store";
 import { restoreLoroVersion, undoLoroRestore } from "@/lib/loro/restore";
 import { makeLoroHistoryEngine } from "@/lib/loro/history-engine";
@@ -54,6 +60,7 @@ import { peerColorClass } from "@/lib/loro/collab/safe-ephemeral-plugin";
 import { grantCollabOnShare } from "@/lib/collab/client/grant-on-share";
 import { setCollabSignerEmail } from "@/lib/collab/client/current-email";
 import { getCollabDocId } from "@/lib/collab/client/doc-id";
+import { isRevoked, onRevoked } from "@/lib/collab/client/revocation";
 
 interface NoteDetailPopupProps {
   note: Note;
@@ -157,8 +164,39 @@ export default function NoteDetailPopup({
     note.username !== labHeadGate.activeUser
       ? note.username
       : undefined;
+  // External-collab chunk 5: true when the owner has revoked this recipient's
+  // live access (detected as a 401 on the enforced session for a materialized
+  // external note). The recipient keeps their last snapshot as a read-only local
+  // copy. We render a banner and force the editor read-only, and the auto-connect
+  // effect skips reconnecting. Seeded from the registry (the store open path may
+  // already have marked it during buildCollabBaseDoc) and kept live via onRevoked.
+  const [collabRevoked, setCollabRevoked] = useState(false);
+  useEffect(() => {
+    const docId = note.collab_doc_id;
+    if (!docId) return;
+    if (isRevoked(docId)) setCollabRevoked(true);
+    return onRevoked((revokedId) => {
+      if (revokedId === docId) setCollabRevoked(true);
+    });
+  }, [note.collab_doc_id]);
+
+  // External-collab chunk 5: block-the-sender state for a materialized external
+  // note. received_from carries the verified sender email. Reflects the local
+  // block list and updates live when it changes elsewhere (e.g. the Shared-with-me
+  // tab). Only meaningful when EXTERNAL_COLLAB_ENABLED and this is a received note.
+  const [senderBlocked, setSenderBlocked] = useState(false);
+  useEffect(() => {
+    const sender = note.received_from;
+    if (!EXTERNAL_COLLAB_ENABLED || !sender) return;
+    setSenderBlocked(isSenderBlocked(sender));
+    return onBlockListChange(() => setSenderBlocked(isSenderBlocked(sender)));
+  }, [note.received_from]);
+
   const readOnly =
-    (labHeadGate.effectiveReadOnly && !notebookEditAllowed) || historyOpen;
+    (labHeadGate.effectiveReadOnly && !notebookEditAllowed) ||
+    historyOpen ||
+    // External-collab chunk 5: a revoked recipient's copy is read-only.
+    collabRevoked;
   const notesApi = useMemo(
     () =>
       ownerScopedNotesApi({
@@ -376,6 +414,9 @@ export default function NoteDetailPopup({
     if (!LORO_PILOT_ENABLED) return;
     if (!loroHandle) return;
     if (collab.state.status !== "idle") return;
+    // External-collab chunk 5: never reconnect a revoked recipient's note. The
+    // read-only local copy stays; live access is gone.
+    if (collabRevoked) return;
 
     // First try the Loro meta (authoritative for notes that were already open).
     let docId = getCollabDocId(loroHandle.doc);
@@ -398,7 +439,7 @@ export default function NoteDetailPopup({
     // Shared note detected: auto-connect using the derived session credentials.
     collab.connectFromDocId(docId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loroHandle, collab.state.status, note.collab_doc_id]);
+  }, [loroHandle, collab.state.status, note.collab_doc_id, collabRevoked]);
   // Intentional: collab.connectFromDocId is stable (useCallback, no deps that
   // change after mount), and we only want this to fire when the handle opens
   // (loroHandle identity change) or the session returns to idle after a stop.
@@ -1412,6 +1453,17 @@ export default function NoteDetailPopup({
             scopedToUsername={labHeadGate.activeUser}
           />
         )}
+        {/* External-collab chunk 5: revoked-access banner. The owner ended this
+            recipient's live access; the local copy stays as a read-only
+            snapshot. */}
+        {collabRevoked && (
+          <div className="px-4 py-2.5 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-900/60">
+            <p className="text-meta text-amber-800 dark:text-amber-200 leading-relaxed">
+              Your live access to this shared note was revoked by the owner. You
+              have a read-only copy.
+            </p>
+          </div>
+        )}
         {/* Header */}
         <div className="p-4 border-b border-border flex-shrink-0">
           <div className="flex items-start justify-between">
@@ -1472,6 +1524,24 @@ export default function NoteDetailPopup({
                     fingerprint={note.received_from_fingerprint}
                     receivedAt={note.received_at}
                   />
+                  {/* External-collab chunk 5: block/unblock the sender (a local,
+                      recipient-only setting). Blocking hides all of this
+                      sender's future invites in Shared with me. */}
+                  {EXTERNAL_COLLAB_ENABLED && note.received_from && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        senderBlocked
+                          ? unblockSender(note.received_from)
+                          : blockSender(note.received_from)
+                      }
+                      className="mt-1.5 text-meta text-foreground-muted hover:text-foreground underline underline-offset-2"
+                    >
+                      {senderBlocked
+                        ? "Unblock this sender"
+                        : "Block this sender"}
+                    </button>
+                  )}
                 </div>
               )}
               {/* PI Phase 5 — record-level "Edited by PI" notice. */}

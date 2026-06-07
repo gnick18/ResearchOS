@@ -93,7 +93,15 @@ export default {
     // mutations. A doc stays OPEN until its first /grant, which flips it to
     // ENFORCED (see CollabRoom). POST only; the owner signature is the
     // capability. Forwarded to the per-session DO that owns the member table.
-    if (url.pathname === "/grant" || url.pathname === "/revoke") {
+    // /members (external-collab chunk 5) is an owner-signed READ of the current
+    // member list, so the owner's revoke UI can list who has access. It is a POST
+    // (it carries the owner signature in the body, like /grant and /revoke), but
+    // it never mutates. Routed to the same per-session DO.
+    if (
+      url.pathname === "/grant" ||
+      url.pathname === "/revoke" ||
+      url.pathname === "/members"
+    ) {
       if (request.method !== "POST") {
         return new Response("Method not allowed", {
           status: 405,
@@ -146,8 +154,16 @@ export default {
       return stub.fetch(request);
     }
 
-    // CORS preflight for the cross-origin inbox POSTs from the app.
-    if (request.method === "OPTIONS" && url.pathname.startsWith("/inbox/")) {
+    // CORS preflight for the cross-origin inbox + access-control POSTs from the
+    // app (the JSON Content-Type header makes these non-simple requests, so the
+    // browser sends an OPTIONS preflight first).
+    if (
+      request.method === "OPTIONS" &&
+      (url.pathname.startsWith("/inbox/") ||
+        url.pathname === "/grant" ||
+        url.pathname === "/revoke" ||
+        url.pathname === "/members")
+    ) {
       return new Response(null, {
         status: 204,
         headers: {
@@ -397,6 +413,75 @@ export class CollabRoom {
     return this.json({ ok: true }, 200);
   }
 
+  /** POST /members (external-collab chunk 5). Owner-signed READ of the current
+   *  member list, so the owner's revoke UI can list who has access. Never
+   *  mutates. The owner signs revoke\nmembers\n${sessionId}\n${ownerEmail}\n${issuedAt}
+   *  (a distinct verb so a /members signature can never be replayed against
+   *  /grant or /revoke). Only the established owner may read the list. */
+  private async handleMembers(sessionId: string, request: Request): Promise<Response> {
+    let body: {
+      owner?: { email?: string; pubkey?: string };
+      issuedAt?: number;
+      signature?: string;
+    };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+
+    const owner = body.owner;
+    const issuedAt = body.issuedAt;
+    const signature = body.signature;
+    if (
+      !owner ||
+      typeof owner.email !== "string" ||
+      typeof owner.pubkey !== "string" ||
+      typeof issuedAt !== "number" ||
+      typeof signature !== "string"
+    ) {
+      return this.json({ error: "malformed members request" }, 400);
+    }
+
+    if (!this.isFresh(issuedAt)) {
+      return this.json({ error: "stale issuedAt" }, 401);
+    }
+
+    // Listing members requires an established owner; an open (never-granted) doc
+    // has no member table to read and no owner to authorize the read.
+    const storedOwner = this.metaGet("owner_pubkey");
+    if (storedOwner === null || storedOwner !== owner.pubkey) {
+      return this.json({ error: "not the established owner" }, 403);
+    }
+
+    const message = `members\n${sessionId}\n${owner.email}\n${issuedAt}`;
+    if (!this.verifySig(signature, message, owner.pubkey)) {
+      return this.json({ error: "bad signature" }, 401);
+    }
+
+    const rows = this.sql()
+      .exec<{
+        email: string;
+        pubkey: string;
+        role: string | null;
+        added_at: number | null;
+        added_by: string | null;
+      }>(
+        "SELECT email, pubkey, role, added_at, added_by FROM members ORDER BY added_at ASC",
+      )
+      .toArray();
+
+    const members = rows.map((r) => ({
+      email: r.email,
+      pubkey: r.pubkey,
+      role: r.role,
+      addedAt: r.added_at,
+      addedBy: r.added_by,
+    }));
+
+    return this.json({ members }, 200);
+  }
+
   /** Connect-time gate for /ws and /snapshot. Returns null when the connection
    *  is allowed (open doc, or a valid member token on an enforced doc), or a
    *  401 Response to reject. */
@@ -538,6 +623,9 @@ export class CollabRoom {
     }
     if (url.pathname === "/revoke") {
       return this.handleRevoke(sessionId, request);
+    }
+    if (url.pathname === "/members") {
+      return this.handleMembers(sessionId, request);
     }
 
     // Canonical snapshot read (HTTP GET, no WebSocket). The client adopts this
@@ -874,14 +962,27 @@ export class RecipientInbox {
       return this.json({ error: "malformed list" }, 400);
     }
 
-    // An unestablished inbox returns an empty list (not an error).
-    if (this.metaGet("recipient_pubkey") === null) {
+    // Enumeration hardening (external-collab chunk 5). The inbox address derives
+    // from a PUBLIC salt, so an outsider could probe it. To remove the
+    // established-vs-empty oracle, ANY recipient-auth failure on /inbox/list
+    // (unestablished inbox, wrong pubkey, bad signature, stale timestamp) returns
+    // the SAME empty 200 an unestablished inbox returns. An outsider cannot
+    // distinguish "established with a key I do not hold" from "never established",
+    // so probing leaks nothing. /inbox/dismiss stays strict-rejecting (it is a
+    // mutation, and a 403 there does not leak existence the list already hides).
+    const stored = this.metaGet("recipient_pubkey");
+    if (
+      stored === null ||
+      stored !== pubkey ||
+      !this.isFresh(issuedAt) ||
+      !this.verifySig(
+        signature,
+        `inbox-list\n${this.ownerHashFrom(request)}\n${issuedAt}`,
+        pubkey,
+      )
+    ) {
       return this.json({ invites: [] }, 200);
     }
-
-    const message = `inbox-list\n${this.ownerHashFrom(request)}\n${issuedAt}`;
-    const denied = this.recipientGate(pubkey, issuedAt, signature, message);
-    if (denied) return denied;
 
     const rows = this.sql()
       .exec<{
