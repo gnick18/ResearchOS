@@ -409,7 +409,7 @@ export default function EnzymePickerDialog({
             across every sequence. Distinct from the computed presets above. */}
         {canSaveSets && (
           <div
-            className="flex flex-wrap items-center gap-2 border-b border-border bg-sky-50/40 px-5 py-2.5"
+            className="flex flex-wrap items-center gap-2 border-b border-border bg-sky-50/40 dark:bg-sky-500/15 px-5 py-2.5"
             data-testid="enzyme-saved-sets"
           >
             <span className="flex items-center gap-1.5 text-meta font-medium text-foreground-muted">

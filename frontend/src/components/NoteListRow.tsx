@@ -52,7 +52,7 @@ export default function NoteListRow({ note, onClick, isLabMode = false }: NoteLi
           onClick();
         }
       }}
-      className="flex items-center gap-3 px-3 py-2.5 min-h-[52px] cursor-pointer hover:bg-emerald-50/40 transition-colors group"
+      className="flex items-center gap-3 px-3 py-2.5 min-h-[52px] cursor-pointer hover:bg-emerald-50/40 dark:hover:bg-emerald-500/15 transition-colors group"
     >
       {/* Type icon: single note vs running log */}
       {note.is_running_log ? (

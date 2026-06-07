@@ -111,7 +111,7 @@ function GlanceStat({
   sub?: string;
 }) {
   return (
-    <div className="rounded-lg border border-sky-100 bg-sky-50/60 px-3 py-2">
+    <div className="rounded-lg border border-sky-100 bg-sky-50/60 dark:bg-sky-500/15 px-3 py-2">
       <div className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
         {label}
       </div>

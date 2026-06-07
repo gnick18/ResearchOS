@@ -4418,7 +4418,7 @@ export default function SequenceEditView({
                     pointer-events:none so it never intercepts a map click. */}
                 {isMapView ? (
                   <div
-                    className="pointer-events-none absolute left-2 top-2 z-20 inline-flex items-center gap-1.5 rounded-md border border-sky-200 bg-sky-50/90 px-2 py-1 text-meta font-medium text-sky-700 shadow-sm backdrop-blur-sm"
+                    className="pointer-events-none absolute left-2 top-2 z-20 inline-flex items-center gap-1.5 rounded-md border border-sky-200 bg-sky-50/90 dark:bg-sky-500/15 px-2 py-1 text-meta font-medium text-sky-700 shadow-sm backdrop-blur-sm"
                     aria-hidden="true"
                   >
                     <svg

@@ -210,7 +210,7 @@ export default function SequenceDropZone({
     >
       {children}
       {dragging ? (
-        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-lg bg-sky-50/90 p-3">
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-lg bg-sky-50/90 dark:bg-sky-500/15 p-3">
           <div className="flex flex-col items-center gap-2 rounded-lg border-2 border-dashed border-sky-400 px-6 py-8 text-center">
             <DropIcon className="h-8 w-8 text-sky-500" />
             <p className="text-body font-medium text-sky-700 dark:text-sky-300">

@@ -382,7 +382,7 @@ export default function SequenceHistoryPanel({
 
         {/* Folded-rows summary (compaction ran). */}
         {model?.summarized && (
-          <div className="border-t border-border bg-amber-50/40 px-4 py-3">
+          <div className="border-t border-border bg-amber-50/40 dark:bg-amber-500/15 px-4 py-3">
             <p className="text-meta font-medium text-foreground-muted">Earlier versions (summarized)</p>
             <p className="mt-1 text-meta leading-snug text-foreground-muted">
               {model.summarized.compactedRowCount} intermediate saves before{" "}
@@ -415,7 +415,7 @@ export default function SequenceHistoryPanel({
 function RestoreProvenanceRow({ line }: { line: string }) {
   return (
     <div
-      className="flex items-start gap-2 border-b border-amber-100 bg-amber-50/50 px-4 py-2.5"
+      className="flex items-start gap-2 border-b border-amber-100 bg-amber-50/50 dark:bg-amber-500/15 px-4 py-2.5"
       data-testid="sequence-restore-provenance"
     >
       <IconRestore className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-300" />
@@ -454,7 +454,7 @@ function SequenceVersionRow({
   return (
     <div
       className={`flex items-start gap-2 px-4 py-2.5 ${
-        entry.isHead ? "bg-emerald-50/40" : ""
+        entry.isHead ? "bg-emerald-50/40 dark:bg-emerald-500/15" : ""
       }`}
       data-testid="sequence-version-row"
       data-version-index={entry.versionIndex}

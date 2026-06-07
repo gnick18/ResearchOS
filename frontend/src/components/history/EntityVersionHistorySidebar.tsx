@@ -645,7 +645,7 @@ export default function EntityVersionHistorySidebar<P extends EntityProjection>(
         {/* Folded-rows summary (compaction ran). */}
         {model?.summarized && (
           <div
-            className="px-4 py-3 border-t border-border bg-amber-50/40"
+            className="px-4 py-3 border-t border-border bg-amber-50/40 dark:bg-amber-500/15"
             data-testid="version-summarized"
           >
             <p className="text-meta font-medium text-foreground-muted">

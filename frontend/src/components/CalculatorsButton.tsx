@@ -311,7 +311,7 @@ function ResultCard({
     );
   }
   return (
-    <div className="rounded-xl border border-sky-100 bg-sky-50/60 p-4">{children}</div>
+    <div className="rounded-xl border border-sky-100 bg-sky-50/60 dark:bg-sky-500/15 p-4">{children}</div>
   );
 }
 

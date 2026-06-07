@@ -65,7 +65,7 @@ export default function ProteinPropertiesView({
   const unstable = result.instabilityIndex > 40;
 
   return (
-    <div className="rounded-xl border border-sky-100 bg-sky-50/60 p-4">
+    <div className="rounded-xl border border-sky-100 bg-sky-50/60 dark:bg-sky-500/15 p-4">
       <ResultRow label="Length" value={`${result.length} aa`} />
       <ResultRow
         label="Molecular weight"

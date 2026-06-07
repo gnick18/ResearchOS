@@ -258,7 +258,7 @@ export function SearchableRow({
   const wrapperClass = [
     className ?? "",
     highlight
-      ? "rounded-md ring-1 ring-yellow-200 bg-yellow-50/60 px-2 -mx-2 py-1 -my-1"
+      ? "rounded-md ring-1 ring-yellow-200 bg-yellow-50/60 dark:bg-yellow-500/15 px-2 -mx-2 py-1 -my-1"
       : !shouldHide
         ? "contents"
         : "",

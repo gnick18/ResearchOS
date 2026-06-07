@@ -271,7 +271,7 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
             {items.map((item) => (
               <li
                 key={item.bundleId}
-                className="flex items-center gap-3 p-3 rounded-lg border border-border bg-surface-raised hover:border-blue-200 hover:bg-blue-50/30 transition-colors"
+                className="flex items-center gap-3 p-3 rounded-lg border border-border bg-surface-raised hover:border-blue-200 hover:bg-blue-50/30 dark:hover:bg-blue-500/15 transition-colors"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
