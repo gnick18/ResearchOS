@@ -1,7 +1,10 @@
 # Retiring the /settings page in favor of the Settings popup
 
-Status: DRAFT for sign-off. No code until Grant approves the open questions
-(especially the onboarding-tour rework). Planning only.
+Status: APPROVED 2026-06-07, FULL MIGRATION. Grant picked the recommended path,
+thin /settings route + tour rework + deep-links (route-option B, tour-rework A,
+deep-links yes). Build in phases S1..S5; the tour rework (S3) lands behind the
+NEXT_PUBLIC_DISABLE_V4_TOUR safety and is persona-verified before the route
+slim-down (S4).
 Author: master (orchestrator)
 Date: 2026-06-07
 
