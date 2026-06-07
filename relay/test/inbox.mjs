@@ -43,7 +43,7 @@ const sessionId = `sess-${Date.now()}`;
 // ---- (a) push creates an invite ---------------------------------------------
 {
   const issuedAt = Date.now();
-  const message = `inbox-push\n${inboxHash}\n${recipient.pub}\n${docId}\n${sessionId}\n${issuedAt}`;
+  const message = `inbox-push\n${inboxHash}\n${recipient.pub}\nsender@lab.edu\n${docId}\n${sessionId}\nPCR setup\nnote\n${issuedAt}`;
   const res = await postJson(`/inbox/push?to=${inboxHash}`, {
     from: { email: "sender@lab.edu", name: "Sender", pubkey: sender.pub },
     recipientEmailHash: inboxHash,
@@ -107,7 +107,7 @@ const sessionId = `sess-${Date.now()}`;
 // ---- (d) push that tries to rebind the recipient pubkey is rejected ----------
 {
   const issuedAt = Date.now();
-  const message = `inbox-push\n${inboxHash}\n${attacker.pub}\n${docId}-2\n${sessionId}-2\n${issuedAt}`;
+  const message = `inbox-push\n${inboxHash}\n${attacker.pub}\nsender@lab.edu\n${docId}-2\n${sessionId}-2\nx\nnote\n${issuedAt}`;
   const res = await postJson(`/inbox/push?to=${inboxHash}`, {
     from: { email: "sender@lab.edu", name: "Sender", pubkey: sender.pub },
     recipientEmailHash: inboxHash,

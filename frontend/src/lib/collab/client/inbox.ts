@@ -106,7 +106,9 @@ export async function pushInvite(
   const recipientEmailHash = inboxAddress(recipientCanonical);
 
   const issuedAt = Date.now();
-  const message = `inbox-push\n${recipientEmailHash}\n${params.recipientPubkey}\n${params.collabDocId}\n${params.sessionId}\n${issuedAt}`;
+  // from email + title + kind are signed so the sender identity and the
+  // displayed invite are authenticated, not just that some valid key signed.
+  const message = `inbox-push\n${recipientEmailHash}\n${params.recipientPubkey}\n${fromEmail}\n${params.collabDocId}\n${params.sessionId}\n${params.title ?? ""}\n${params.kind ?? ""}\n${issuedAt}`;
   const signature = signHex(message, signing.privateKey);
 
   const body = {

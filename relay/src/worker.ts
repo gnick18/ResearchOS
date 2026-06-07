@@ -771,7 +771,12 @@ export class RecipientInbox {
       return this.json({ error: "stale issuedAt" }, 401);
     }
 
-    const message = `inbox-push\n${recipientEmailHash}\n${recipientPubkey}\n${invite.collabDocId}\n${invite.sessionId}\n${issuedAt}`;
+    // from.email, title and kind are part of the signed message so the sender
+    // identity and the displayed invite cannot be spoofed by a holder of any
+    // valid keypair (the signature authenticates WHO sent it, not just that a
+    // valid signer did). The recipient client should still confirm the
+    // from.email <-> from.pubkey directory binding at accept time (chunk 4).
+    const message = `inbox-push\n${recipientEmailHash}\n${recipientPubkey}\n${from.email}\n${invite.collabDocId}\n${invite.sessionId}\n${invite.title ?? ""}\n${invite.kind ?? ""}\n${issuedAt}`;
     if (!this.verifySig(signature, message, from.pubkey)) {
       return this.json({ error: "bad signature" }, 401);
     }

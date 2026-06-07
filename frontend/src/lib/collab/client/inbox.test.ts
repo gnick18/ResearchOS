@@ -106,7 +106,7 @@ describe("collab inbox client", () => {
       from: { email: string; pubkey: string };
       recipientEmailHash: string;
       recipientPubkey: string;
-      invite: { collabDocId: string; sessionId: string };
+      invite: { collabDocId: string; sessionId: string; title?: string; kind?: string };
       issuedAt: number;
       signature: string;
     };
@@ -120,7 +120,7 @@ describe("collab inbox client", () => {
     expect(b.from.pubkey).toBe(myPubkey);
 
     // Canonical signed message, signed under the SENDER (from) key.
-    const message = `inbox-push\n${b.recipientEmailHash}\n${b.recipientPubkey}\n${b.invite.collabDocId}\n${b.invite.sessionId}\n${b.issuedAt}`;
+    const message = `inbox-push\n${b.recipientEmailHash}\n${b.recipientPubkey}\n${b.from.email}\n${b.invite.collabDocId}\n${b.invite.sessionId}\n${b.invite.title ?? ""}\n${b.invite.kind ?? ""}\n${b.issuedAt}`;
     expect(verify(b.signature, message, b.from.pubkey)).toBe(true);
   });
 
