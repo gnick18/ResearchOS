@@ -478,7 +478,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
   if (activeProjects.length === 0) {
     return (
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
         // Marker for TourSpotlight (popup-occluding sweep manager,
         // 2026-05-27). Hides the v4 walkthrough ring while this popup
         // is mounted; see SnapshotTilePopup for the canonical example.
@@ -509,7 +509,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
       // Marker for TourSpotlight (popup-occluding sweep manager,
       // 2026-05-27). Hides the v4 walkthrough ring while this popup
       // is mounted; see SnapshotTilePopup for the canonical example.
@@ -518,7 +518,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
       {/* Duplicate Warning Modal */}
       {duplicateWarning && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30"
           data-tour-popup-occluding="task-modal-duplicate-warning"
         >
           <div className="bg-surface-raised rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">

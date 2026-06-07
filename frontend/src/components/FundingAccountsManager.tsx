@@ -371,7 +371,7 @@ export default function FundingAccountsManager({
   };
 
   return (
-    <div className="mb-6 bg-surface-raised rounded-xl border border-border overflow-hidden">
+    <div className="bg-surface-raised rounded-xl border border-border overflow-hidden">
       <div className="p-4 border-b border-border bg-surface-sunken">
         <h3 className="text-body font-semibold text-foreground">Funding Accounts</h3>
         <p className="text-meta text-foreground-muted">Manage funding strings and budgets</p>

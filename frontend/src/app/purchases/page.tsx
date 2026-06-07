@@ -12,6 +12,7 @@ import PurchaseEditor from "@/components/PurchaseEditor";
 import SpendingDashboard from "@/components/SpendingDashboard";
 import DemoPurchasesViewer from "@/components/DemoPurchasesViewer";
 import FundingAccountsManager from "@/components/FundingAccountsManager";
+import LivingPopup from "@/components/ui/LivingPopup";
 import Tooltip from "@/components/Tooltip";
 import { useRouter } from "next/navigation";
 import {
@@ -341,10 +342,10 @@ export default function PurchasesPage() {
               + New Purchase
             </button>
             <button
-              onClick={() => setShowFundingManager(!showFundingManager)}
+              onClick={() => setShowFundingManager(true)}
               className="px-3 py-1.5 text-body bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 rounded-lg hover:bg-emerald-200 transition-colors"
             >
-              {showFundingManager ? "Hide Funding Manager" : "Manage Funding Accounts"}
+              Manage Funding Accounts
             </button>
           </div>
         </div>
@@ -558,12 +559,17 @@ export default function PurchasesPage() {
           })}
         </div>
 
-        {/* Funding Accounts Manager */}
-        {showFundingManager && (
-          <FundingAccountsManager
-            fundingAccounts={fundingAccounts}
-          />
-        )}
+        {/* Funding Accounts Manager, in a slick popup (no blur) instead of
+            expanding inline and shoving half the page down. */}
+        <LivingPopup
+          open={showFundingManager}
+          onClose={() => setShowFundingManager(false)}
+          label="Funding accounts"
+          widthClassName="max-w-2xl"
+          card={false}
+        >
+          <FundingAccountsManager fundingAccounts={fundingAccounts} />
+        </LivingPopup>
 
         {/* Purchase tasks list */}
         {(() => {
