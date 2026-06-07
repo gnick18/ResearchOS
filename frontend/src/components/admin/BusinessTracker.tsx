@@ -851,53 +851,61 @@ export default function BusinessTracker() {
         <SalesTaxBanner status={entity.salesTaxStatus} note={entity.salesTaxNote} />
       </div>
 
-      <div className="mt-6">
-        <CostBreakerPanel />
-      </div>
+      {/* Two columns on wide (xl) screens to cut scrolling; single column below.
+          Each section is wrapped so its SectionTitle (first child) drops its
+          mt-10 via first:mt-0 and the column's space-y controls the rhythm. */}
+      <div className="mt-6 grid grid-cols-1 gap-x-8 gap-y-6 xl:grid-cols-2 xl:items-start">
+        <div className="space-y-6">
+          <CostBreakerPanel />
 
-      <div className="mt-6">
-        <SpendByCategoryPanel />
-      </div>
+          <SpendByCategoryPanel />
 
-      <div className="mt-2">
-        <SectionTitle sub="The next obligations, soonest first. Verify the exact dates and fees with the WI DFI and your accountant.">
-          Deadlines
-        </SectionTitle>
-        <DeadlineStrip deadlines={deadlines} />
-      </div>
+          <div>
+            <SectionTitle sub="The next obligations, soonest first. Verify the exact dates and fees with the WI DFI and your accountant.">
+              Deadlines
+            </SectionTitle>
+            <DeadlineStrip deadlines={deadlines} />
+          </div>
 
-      <SectionTitle sub="The open setup and compliance steps, mirrored from the ResearchOS_LLC document folder. Check them off as you finish, the files go in the matching numbered subfolder.">
-        Setup checklist
-      </SectionTitle>
-      <Checklist
-        tasks={tasks}
-        onAdd={addTask}
-        onToggle={toggleTask}
-        onDelete={deleteTask}
-      />
+          <div>
+            <SectionTitle sub="The open setup and compliance steps, mirrored from the ResearchOS_LLC document folder. Check them off as you finish, the files go in the matching numbered subfolder.">
+              Setup checklist
+            </SectionTitle>
+            <Checklist
+              tasks={tasks}
+              onAdd={addTask}
+              onToggle={toggleTask}
+              onDelete={deleteTask}
+            />
+          </div>
 
-      <SectionTitle sub="Money in minus money out, then the tax reserve held back, then what is safe to draw.">
-        Where things stand
-      </SectionTitle>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard label="Money in" value={formatUSD(summary.moneyInCents)} />
-        <StatCard label="Money out" value={formatUSD(summary.moneyOutCents)} />
-        <StatCard label="Net" value={formatUSD(summary.netCents)} />
-        <StatCard
-          label={`Tax reserve (${entity.reservePct}%)`}
-          value={formatUSD(summary.reserveCents)}
-          tone="reserve"
-        />
-        <StatCard
-          label="Safe to draw"
-          value={formatUSD(summary.safeToDrawCents)}
-          tone="good"
-        />
-      </div>
+          <div>
+            <SectionTitle sub="Money in minus money out, then the tax reserve held back, then what is safe to draw.">
+              Where things stand
+            </SectionTitle>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <StatCard label="Money in" value={formatUSD(summary.moneyInCents)} />
+              <StatCard label="Money out" value={formatUSD(summary.moneyOutCents)} />
+              <StatCard label="Net" value={formatUSD(summary.netCents)} />
+              <StatCard
+                label={`Tax reserve (${entity.reservePct}%)`}
+                value={formatUSD(summary.reserveCents)}
+                tone="reserve"
+              />
+              <StatCard
+                label="Safe to draw"
+                value={formatUSD(summary.safeToDrawCents)}
+                tone="good"
+              />
+            </div>
+          </div>
+        </div>
 
-      <SectionTitle sub="Estimated monthly infra cost at the current usage. The fixed base (Workers Paid + Vercel Pro) is what you pay at any user count; Durable Objects and R2 storage are charged only above their free tiers, so they read $0 until a real user base fills them. Storage + base only, no compute or bandwidth.">
-        Infrastructure cost
-      </SectionTitle>
+        <div className="space-y-6">
+          <div>
+            <SectionTitle sub="Estimated monthly infra cost at the current usage. The fixed base (Workers Paid + Vercel Pro) is what you pay at any user count; Durable Objects and R2 storage are charged only above their free tiers, so they read $0 until a real user base fills them. Storage + base only, no compute or bandwidth.">
+              Infrastructure cost
+            </SectionTitle>
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-surface-raised p-5">
         <div>
           <p className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
@@ -921,12 +929,14 @@ export default function BusinessTracker() {
           Record to ledger
         </button>
       </div>
+          </div>
 
-      <SectionTitle
-        sub={`Free ceiling and the next paid step for each service, so scaling is planned not a surprise. Verify current pricing; checked ${INFRA_TIERS_CHECKED}.`}
-      >
-        Infrastructure tiers
-      </SectionTitle>
+          <div>
+            <SectionTitle
+              sub={`Free ceiling and the next paid step for each service, so scaling is planned not a surprise. Verify current pricing; checked ${INFRA_TIERS_CHECKED}.`}
+            >
+              Infrastructure tiers
+            </SectionTitle>
       <div className="overflow-hidden rounded-2xl border border-border bg-surface-raised">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-meta">
@@ -968,19 +978,28 @@ export default function BusinessTracker() {
       <p className="mt-2 rounded-xl border border-border bg-surface-sunken px-4 py-3 text-meta text-foreground-muted leading-relaxed">
         {INFRA_TIERS_NOTE}
       </p>
+          </div>
 
-      <SectionTitle>Entity facts</SectionTitle>
-      <EntityCard entity={entity} onSave={saveEntity} />
+          <div>
+            <SectionTitle>Entity facts</SectionTitle>
+            <EntityCard entity={entity} onSave={saveEntity} />
+          </div>
 
-      <SectionTitle sub="Every income and expense. Infrastructure bills can be auto-estimated later; for now, enter them by hand.">
-        Ledger
-      </SectionTitle>
-      <Ledger ledger={ledger} onAdd={addEntry} onDelete={deleteEntry} />
+          <div>
+            <SectionTitle sub="Every income and expense. Infrastructure bills can be auto-estimated later; for now, enter them by hand.">
+              Ledger
+            </SectionTitle>
+            <Ledger ledger={ledger} onAdd={addEntry} onDelete={deleteEntry} />
+          </div>
 
-      <SectionTitle sub="Business emails the site sent (deadline reminders now, payment receipts later), kept as LLC records. Download them and drop the file in the document folder. OTP codes and share invites are never archived here.">
-        Correspondence
-      </SectionTitle>
-      <Correspondence emails={emails} entityName={entity.legalName} />
+          <div>
+            <SectionTitle sub="Business emails the site sent (deadline reminders now, payment receipts later), kept as LLC records. Download them and drop the file in the document folder. OTP codes and share invites are never archived here.">
+              Correspondence
+            </SectionTitle>
+            <Correspondence emails={emails} entityName={entity.legalName} />
+          </div>
+        </div>
+      </div>
 
       <p className="mt-8 rounded-xl border border-border bg-surface-sunken px-4 py-3 text-meta text-foreground-muted leading-relaxed">
         This tracker is an organizer, not a legal or tax service. It is not the
