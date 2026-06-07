@@ -1064,13 +1064,6 @@ export default function SequenceEditView({
     [doc.features],
   );
 
-  // Opening the enzyme picker also turns the cut-site layer on, so the chosen
-  // enzymes are immediately visible on the map.
-  const openEnzymePicker = useCallback(() => {
-    setView((v) => (v.showEnzymes ? v : { ...v, showEnzymes: true }));
-    setEnzymePickerOpen(true);
-  }, []);
-
   // PRIMER DESIGN: open the dialog, seeding the primer field from the current
   // selection's bases (if any). On submit, persist the primer as a primer_bind
   // feature at its binding site (strand = which template strand it anneals to),
@@ -3208,17 +3201,11 @@ export default function SequenceEditView({
     ],
   );
 
-  // feature/primer menus bot — two discoverable toolbar dropdowns ("Feature"
-  // and "Primer") that mirror the Edit/Export shells. Add is always enabled;
-  // Edit / Duplicate / Remove are greyed out until a feature (or primer) is the
-  // current selection. Primers ARE features of type primer_bind, so both menus
-  // read the shared selectedFeatureIdx and split on the selected type.
+  // selFeat is the currently selected feature (if any); the protein-properties
+  // drawer gate below reads it. The feature / primer right-click menus are built
+  // per-HIT-index by buildFeatureMenu / buildPrimerContextMenu, so there is no
+  // selection-derived selIsPrimer / selIsCoding here anymore.
   const selFeat = selectedFeatureIdx != null ? doc.features[selectedFeatureIdx] : null;
-  const selIsPrimer = !!selFeat && (selFeat.type || "").toLowerCase() === "primer_bind";
-  // NOTE: feature / coding enablement is now recomputed per-index inside
-  // buildFeatureMenu (so the right-click can pass the HIT index), so there is no
-  // selection-derived selIsFeature / selIsCoding here anymore. The primer menus
-  // still split on the selected type via selIsPrimer.
 
   // sequence editor master — PROTEIN-PROPERTIES DRAWER GATE. The drawer opens
   // when the selected feature is CODING (cds / gene / mat_peptide / sig_peptide)
@@ -3280,13 +3267,6 @@ export default function SequenceEditView({
     ],
   );
 
-  // The toolbar Feature dropdown uses the CURRENT selection (a primer selection
-  // resolves to the greyed feature shell, since primers have their own menu).
-  const featureMenuItems = useMemo<EditMenuItem[]>(
-    () => buildFeatureMenu(selIsPrimer ? null : selectedFeatureIdx),
-    [buildFeatureMenu, selIsPrimer, selectedFeatureIdx],
-  );
-
   // sequence editor master. Copy the open sequence's taxonomy onto the app-scoped
   // taxonomy clipboard (the Analyze > Copy taxonomy action). Calm toast names the
   // organism. Guarded by the menu enablement (only when the sequence HAS one).
@@ -3330,75 +3310,6 @@ export default function SequenceEditView({
     }
   }, [pasteTaxConfirm, onApplyTaxonomy]);
 
-  const primerMenuItems = useMemo<EditMenuItem[]>(() => {
-    const idx = selectedFeatureIdx;
-    return [
-      { id: "primer-add", label: "Add Primer…", enabled: true, onRun: () => openPrimerDialog("standard") },
-      {
-        id: "primer-edit",
-        label: "Edit Primer…",
-        enabled: selIsPrimer,
-        group: true,
-        onRun: () => {
-          if (idx != null) openEditPrimer(idx);
-        },
-      },
-      {
-        id: "primer-dup",
-        label: "Duplicate Primer",
-        enabled: selIsPrimer,
-        onRun: () => {
-          if (idx != null) duplicateFeatureAt(idx);
-        },
-      },
-      {
-        id: "primer-remove",
-        label: "Remove Primer",
-        enabled: selIsPrimer,
-        destructive: true,
-        onRun: () => {
-          if (idx != null) deleteFeatureAt(idx);
-        },
-      },
-      // menu reorg bot — two NAMED primer actions that used to be buried (SDM was
-      // a tab inside Add Primer; specificity was a sub-tab three levels down).
-      // "Design mutagenesis primer..." opens Add-Primer straight into its SDM
-      // mode; "Check specificity..." jumps the Primers tab onto its Check view.
-      {
-        id: "primer-mutagenesis",
-        label: "Design mutagenesis primer…",
-        enabled: true,
-        group: true,
-        onRun: () => openPrimerDialog("mutagenesis"),
-      },
-      {
-        id: "primer-specificity",
-        label: "Check specificity…",
-        enabled: true,
-        onRun: openSpecificityCheck,
-      },
-      // top menus consolidation bot — the primer LAYER show/hide, relocated so
-      // the Primer menu holds actions AND visibility (mirrors Feature / Enzyme).
-      {
-        id: "primer-show",
-        label: "Primers",
-        enabled: true,
-        group: true,
-        checked: view.showPrimers,
-        onRun: () => setView((v) => ({ ...v, showPrimers: !v.showPrimers })),
-      },
-    ];
-  }, [
-    selectedFeatureIdx,
-    selIsPrimer,
-    openPrimerDialog,
-    openSpecificityCheck,
-    openEditPrimer,
-    duplicateFeatureAt,
-    deleteFeatureAt,
-    view.showPrimers,
-  ]);
-
   // sequence editor master — build the PRIMER right-click menu for a GIVEN feature
   // index. Like buildFeatureMenu, a builder so the router can pass the HIT index
   // (openMenu snapshots items at click time). Opened in place of the generic
@@ -3426,30 +3337,6 @@ export default function SequenceEditView({
     },
     [doc.features, primerOligoAt, readOnly, openEditPrimer, deleteFeatureAt, writeOsClipboard],
   );
-
-  // top menus consolidation bot — the new "Enzyme" toolbar dropdown. Display
-  // only (no mutation), so it renders in read-only too. Holds the cut-site LAYER
-  // toggle + the "Choose enzymes" picker, plus a subtle active-count appended to
-  // the picker label. Relocated from the rail's EnzymeLayerFlyout.
-  const enzymeMenuItems = useMemo<EditMenuItem[]>(() => {
-    const activeCount = (activeEnzymes ?? COMMON_ENZYMES).length;
-    return [
-      {
-        id: "enz-cut-sites",
-        label: "Cut sites",
-        enabled: true,
-        checked: view.showEnzymes,
-        onRun: () => setView((v) => ({ ...v, showEnzymes: !v.showEnzymes })),
-      },
-      {
-        id: "enz-choose",
-        label: `Choose enzymes… (${activeCount})`,
-        enabled: true,
-        group: true,
-        onRun: openEnzymePicker,
-      },
-    ];
-  }, [view.showEnzymes, activeEnzymes, openEnzymePicker]);
 
   // seq export bot — the Export dropdown. Read-only download of the whole
   // sequence (GenBank/FASTA), the current selection (DNA .gb/FASTA + frame-1
@@ -4323,9 +4210,10 @@ export default function SequenceEditView({
             Save). The Edit, Feature, Primer, Enzyme, and Export dropdowns were
             REMOVED from this bar because they shadowed the right operations rail
             and the right-click menus, two homes for the same actions. The
-            underlying item builders (editMenuItems / featureMenuItems /
-            primerMenuItems / enzymeMenuItems / exportMenuItems) are KEPT: they
-            still feed the right-click context menus and the Export rail op.
+            feature / primer / enzyme toolbar item builders were dead after that
+            removal and have been deleted; the right-click menus now call
+            buildFeatureMenu / buildPrimerContextMenu directly, and editMenuItems
+            (right-click selection menu) + exportMenuItems (Export rail op) stay.
             Feature / primer object edits live on right-click + the double-click
             popups; enzymes are the "Enzyme sites" show chip + the Cut rail
             panel; Export is the Export rail op. */}
