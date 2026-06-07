@@ -4,6 +4,10 @@
 # .next/trace from a Vercel build, or a root node_modules vitest cache).
 /.next/
 /node_modules/
+# No trailing slash so a node_modules SYMLINK (created in a worktree) is also
+# ignored, the dir-only pattern above misses the symlink form (the cause of a
+# bad merge that committed self-referential node_modules symlinks, 2026-06-07).
+/node_modules
 /out/
 
 # Next.js
@@ -12,6 +16,8 @@ frontend/out/
 
 # Dependencies
 frontend/node_modules/
+# No trailing slash, also ignore the symlink form (see note above).
+frontend/node_modules
 
 # Production
 frontend/build/
