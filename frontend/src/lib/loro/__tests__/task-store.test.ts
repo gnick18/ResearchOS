@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { LoroDoc } from "loro-crdt";
 
-const persistTaskDoc = vi.fn(async () => {});
+const persistTaskDoc = vi.fn(async (..._args: unknown[]) => {});
 
 vi.mock("../task-sidecar-store", () => ({
   loadOrRebuildTaskDoc: vi.fn(async () => {
