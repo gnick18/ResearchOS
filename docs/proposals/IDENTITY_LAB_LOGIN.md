@@ -1,7 +1,7 @@
 # Lab accounts log in, solo accounts stay local
 
-Status: DRAFT for sign-off. One open decision flagged below (the E2E custody
-tradeoff). No identity code until Grant approves that point.
+Status: DECISIONS LOCKED 2026-06-07. Ready to build (gated only on Grant
+creating the Google OAuth client, see below).
 Author: identity infra (HR)
 Date: 2026-06-07
 
@@ -34,78 +34,80 @@ sync or cross-boundary sharing they can opt into a provider from Profile, but
 nothing is required and nothing is shown by default.
 
 ### Lab folder (two or more users, or a lab head present)
-The account IS the provider login. The user does exactly one thing, both on
-first run and every day after.
+Two login methods, set up once at creation, either one accepted afterward
+(Grant's "both generated at creation, either accepted to login" model). The
+keypair itself is always invisible.
 
-- First sign-in (account creation): the user clicks "Sign in with Google" (or
-  another provider). On success we silently mint their identity keypair, encrypt
-  the private key, store the encrypted blob with our identity server keyed to
-  their provider identity, and drop them into their workspace. No passkey page,
-  no recovery code, no second step.
-- Returning sign-in (any device): the user clicks "Sign in with Google." On
-  success we fetch their encrypted key blob, unwrap it locally into the session,
-  and drop them in. "Their portal for the day."
-- Switch user / new device / lost device: same single action. There is nothing
-  to remember beyond their provider account.
+- Creation (one guided pass): the user signs in with a provider (Google etc).
+  That mints the invisible identity keypair, server-wraps a recovery copy keyed
+  to the provider identity, and publishes the verified pubkey to the directory.
+  Then we offer "Set up Touch ID for one-tap login next time", which enrolls a
+  passkey and wraps a second copy of the key under its WebAuthn PRF (blind, only
+  the fingerprint opens it). Skippable, but recommended.
+- Daily login on your own device: one Touch ID tap. The passkey login IS the
+  auth, no provider step that day, and that path is zero-knowledge (we never see
+  the key).
+- Login on a device with no passkey (new/borrowed device): sign in with the
+  provider, the server returns the recovery wrap, the key unwraps into the
+  session. Offer to enroll a passkey on that device too.
+- Recovery (lost ALL devices): sign in with the provider anywhere. The server
+  recovery wrap restores the key. Nothing to remember. (Grant's locked call,
+  see the custody section.)
 
-The keypair still exists (it is the foundation for attribution, in-lab record
-sharing, the collab relay, and cross-boundary sharing). It is just never
-surfaced. It is an implementation detail the user never has to think about.
+The keypair is the foundation for attribution, in-lab record sharing, the collab
+relay, and cross-boundary sharing. The user never sees or manages it.
 
-## How the key survives across devices (server-wrapped, Grant chose this)
+## How the key is wrapped (two copies, dual path)
 
-The hard requirement, if login is only a provider sign-in with no user-held
-secret, the encrypted key has to be retrievable using only that sign-in.
+The key is wrapped TWICE at creation so either login method can open it.
 
-Design:
 1. On first sign-in we generate the keypair locally.
-2. We request a per-user wrapping operation from the identity server. The server
-   holds a root wrapping key in a managed KMS (never in app code, never logged).
-   The server wraps the user's private key under a per-user data key derived in
-   KMS and returns the ciphertext. The server stores `{ providerSub, wrappedKey,
-   pubKey, createdAt }`.
-3. On any later sign-in we present the provider session, the server authorizes
-   against `providerSub`, unwraps via KMS, and returns the plaintext key over the
-   authenticated TLS channel. The client holds it only in memory (session-key.ts,
-   same in-memory holder we already have), never written unencrypted to disk.
+2. Passkey wrap (the zero-knowledge daily path). When the user enrolls the
+   passkey, we derive a wrap key from its WebAuthn PRF and wrap a copy of the
+   private key. Only that fingerprint opens it. The server never sees this. This
+   reuses the existing PASSKEY_IDENTITY_UNLOCK crypto (core + envelope +
+   enrollment already built).
+3. Server recovery wrap (the provider path). We also ask the identity server to
+   wrap a copy. The server holds a root key in a managed KMS (never in app code,
+   never logged), wraps under a per-user KMS data key, and stores
+   `{ providerSub, wrappedKey, pubKey, createdAt }`. On a provider login the
+   server authorizes against `providerSub`, unwraps via KMS, and returns the
+   plaintext over the authenticated TLS channel. The client holds it only in
+   memory (session-key.ts), never written unencrypted to disk.
 4. Public keys are published to the directory automatically on first sign-in, so
    lab members are findable without a separate "publish profile" step.
 
-This is the standard cloud-account-recovery posture (how a hosted password
-manager or a Google-account-bound key behaves). It buys the exact UX Grant wants.
+Daily on a passkey device, only path 2 runs and the server is never touched for
+the key. On a new device or full recovery, path 3 runs.
 
-## The one open decision: this weakens E2E for lab users. Confirm.
+## Locked custody decision: provider covers recovery (server-recoverable)
 
-Be honest about the tradeoff so the sign-off is informed.
+Grant's call 2026-06-07, after the tradeoff was spelled out, "Google OR whatever
+3rd party thing they used covers you." So the provider login is the full
+recovery path for total device loss, with nothing for the user to keep.
 
-With a user-held secret (a passkey or recovery code, what we have now) the
-server can be truly blind, it stores ciphertext it can never open. With NO
-user-held secret, the unwrap secret has to live server-side (in KMS). That means
-the identity server operator (us) is technically capable of unwrapping a lab
-user's private key, and therefore of reading anything sealed to that user
-(collab updates, cross-boundary sends). It is protected by access control, KMS
-policy, and audit logging, not by mathematics.
+The honest consequence, recorded so nobody is surprised later: because the
+provider alone must be able to restore the key on a fresh device with no user
+secret, the server recovery wrap (path 3) is a wrap the server CAN open. So the
+identity server operator (us) is technically capable of unwrapping a lab user's
+key, and therefore of reading what is sealed to that user (collab updates,
+cross-boundary sends). It is guarded by access control, KMS policy, and audit
+logging, not by mathematics. This is the standard cloud-account-recovery posture.
 
-Three honest options:
-
-- A. Pure convenience (what "server-wrapped" implies). Accept that lab identity
-  custody is server-assisted and not zero-knowledge. Simplest, matches the
-  vision exactly. Recommended IF lab data is considered "trusted to the
-  ResearchOS service" the same way the synced folder already is.
-- B. Convenience plus a silent backstop. Same as A, but also derive a second
-  wrap from a WebAuthn PRF passkey when the device has one, so on that device the
-  server alone cannot unwrap. Falls back to server-only on devices without a
-  passkey. More moving parts, partial zero-knowledge.
-- C. Keep a user secret for lab users too. True zero-knowledge, but it is exactly
-  the "two things" Grant rejected (sign in AND manage a key/code).
-
-Grant's selection in chat was "server-wrapped key (recommended)", which is
-option A. This doc records option A as the plan unless Grant, now seeing the E2E
-consequence spelled out, prefers B. (C is off the table per his UX call.) The
-collab RELAY itself stays blind regardless, only identity-key custody changes.
-
-CONFIRM BEFORE BUILD: option A (server can technically recover lab keys) is
-acceptable for the convenience.
+This is accepted deliberately for the UX. Notes on scope and honesty:
+- The exposure is narrow. It covers data that passes through us sealed to the
+  user (collab relay traffic, cross-boundary sends), NOT the bulk research, which
+  lives as local files in the user's folder that we never see, and NOT solo users.
+- The collab relay stays E2E-blind in transit regardless. Only identity-key
+  custody is server-assisted.
+- Marketing must not claim zero-knowledge / "we cannot read your data" for LAB
+  collab. Solo remains fully local and that claim holds for solo.
+- Hardening to still do at build, KMS-only unwrap (no raw key in app config),
+  unwrap calls audit-logged, plaintext key never logged and held client-side in
+  memory only. Optionally raise the bar later with split/HSM custody so an unwrap
+  requires deliberate multi-party action.
+- A future "high-security lab" mode (recovery-code-backed, server cannot recover)
+  can be offered as an opt-in for the paranoid without changing this default.
 
 ## What has to be stood up first (dev OAuth, Grant chose real Google creds)
 
@@ -129,19 +131,25 @@ I do:
 ## Implementation phases (after the two confirmations above)
 
 L0. Stand up Google OAuth in dev (env + auth.ts verified, a real sign-in
-    round-trips to a session). Pure plumbing, no identity logic yet.
-L1. Identity server endpoints, `POST /identity/wrap` (store) and
-    `POST /identity/unwrap` (retrieve), KMS-backed, authorized by provider
-    session. Plus directory auto-publish of the pubkey.
-L2. Lab create flow, sign-in mints keypair, calls wrap, publishes pubkey, enters.
-    Delete the forced CreateLocalIdentityStep page from the lab path.
-L3. Lab returning flow, sign-in calls unwrap into session-key, enters. Switch
-    user becomes a provider sign-in.
+    round-trips to a session). Pure plumbing, no identity logic yet. GATED on
+    Grant creating the Google OAuth client.
+L1. Identity server endpoints, `POST /identity/wrap` (store the server recovery
+    wrap) and `POST /identity/unwrap` (retrieve), KMS-backed, authorized by
+    provider session, unwrap calls audit-logged. Plus directory auto-publish of
+    the pubkey.
+L2. Lab create flow, provider sign-in mints keypair, calls server wrap,
+    publishes pubkey, then offers passkey enrollment (reusing the existing
+    PASSKEY_IDENTITY_UNLOCK PRF wrap), enters. Replace the forced
+    CreateLocalIdentityStep page on the lab path with this.
+L3. Lab returning flow, dual path. Passkey present, one-tap PRF unwrap into
+    session-key, no server call. No passkey, provider sign-in then server unwrap,
+    offer to enroll a passkey on this device. Switch user becomes this login.
 L4. Solo path audit, confirm solo is untouched and still ceremony-free.
-L5. Retire the now-unused lab passkey/recovery UI, reconcile with the existing
-    PASSKEY_IDENTITY_UNLOCK work (passkey may still serve solo opt-in device
-    unlock, but is no longer the lab everyday path).
-L6. Verify, then Grant live test (real Google sign-in, second device unwrap).
+L5. Reconcile the passkey UI, it now serves the lab daily one-tap path (and solo
+    opt-in device unlock), not a separate recovery-code ceremony. Remove the
+    lab-facing recovery-code surface (provider covers recovery).
+L6. Verify, then Grant live test (real Google sign-in on device A, passkey enroll,
+    one-tap relogin, then device B provider-recovery unwrap).
 
 ## What this does NOT change
 
