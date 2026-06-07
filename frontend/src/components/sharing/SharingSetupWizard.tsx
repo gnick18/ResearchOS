@@ -23,6 +23,8 @@ import {
   type IdentityMaterial,
 } from "@/lib/sharing/identity/setup";
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
+import { wrapDeviceKeyWithWords } from "@/lib/sharing/identity/device-key";
+import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 import { downloadRecoveryKit } from "@/lib/sharing/identity/recovery-kit";
 import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
 import { wrapKeysWithPrf, type PrfBackupBlob } from "@/lib/sharing/identity/passkey";
@@ -129,6 +131,10 @@ export default function SharingSetupWizard({
   // user who skips). The PRF-wrapped blob, when present, is folded into the
   // backup envelope at publish so it ships in the same directory write.
   const [passkeyBlob, setPasskeyBlob] = useState<PrfBackupBlob | null>(null);
+  // Which passkey to ask for at unlock (Option A sidecar). Captured at enroll.
+  const [passkeyCredentialId, setPasskeyCredentialId] = useState<string | null>(
+    null,
+  );
   const [passkeyEnrolling, setPasskeyEnrolling] = useState(false);
   const [passkeyError, setPasskeyError] = useState<string | null>(null);
 
@@ -305,7 +311,7 @@ export default function SharingSetupWizard({
     setPasskeyError(null);
     setPasskeyEnrolling(true);
     try {
-      const { prfOutput } = await enrollPasskey({
+      const { prfOutput, credentialId } = await enrollPasskey({
         userId: decodePublicKey(material.ed25519PublicKey),
         userName: email || username,
         userDisplayName: displayName.trim() || email || username,
@@ -315,6 +321,7 @@ export default function SharingSetupWizard({
         material.ed25519PrivateKey,
       );
       setPasskeyBlob(wrapKeysWithPrf(privateBundle, prfOutput));
+      setPasskeyCredentialId(credentialId);
     } catch (err) {
       if (err instanceof PasskeyCancelledError) {
         setPasskeyError("Passkey setup was cancelled. You can try again.");
@@ -432,6 +439,23 @@ export default function SharingSetupWizard({
     }
 
     try {
+      // Option A (IDENTITY_OAUTH_ONLY.md): seal the SAME keypair into the sidecar
+      // under the SAME recovery words the directory blob used, so the folder is a
+      // self-contained identity with one recovery secret. The passkey blob +
+      // credential id ride along when a passkey was enrolled.
+      const recoveryBlob = wrapDeviceKeyWithWords(
+        {
+          encryption: {
+            publicKey: decodePublicKey(material.x25519PublicKey),
+            privateKey: material.x25519PrivateKey,
+          },
+          signing: {
+            publicKey: decodePublicKey(material.ed25519PublicKey),
+            privateKey: material.ed25519PrivateKey,
+          },
+        },
+        material.recoveryWords,
+      ).recoveryBlob;
       const sidecar: SharingIdentitySidecar = {
         version: 1,
         email: canonical,
@@ -441,8 +465,21 @@ export default function SharingSetupWizard({
         claimedAt: new Date().toISOString(),
         recoveryConfirmedAt: recoverySaved ? new Date().toISOString() : null,
         passkeyEnrolledAt: passkeyBlob ? new Date().toISOString() : null,
+        recoveryBlob,
+        ...(passkeyBlob ? { passkeyBlob } : {}),
+        ...(passkeyCredentialId ? { passkeyCredentialId } : {}),
       };
       await writeSharingIdentity(username, sidecar);
+      // The sidecar now holds wrapped key material, keep it out of any git repo
+      // in the data folder.
+      try {
+        await ensureGitignoreEntries([
+          "_sharing_identity.json",
+          "users/*/_sharing_identity.json",
+        ]);
+      } catch {
+        // best-effort
+      }
     } catch {
       // No folder connected (or the write failed). The directory publish still
       // stands, so we complete, but we flag that the local link was not saved.
@@ -460,6 +497,7 @@ export default function SharingSetupWizard({
     displayName,
     recoverySaved,
     passkeyBlob,
+    passkeyCredentialId,
     username,
     onComplete,
   ]);

@@ -136,6 +136,25 @@ export function wrapDeviceKey(
 }
 
 /**
+ * Wraps a keypair at rest under EXISTING recovery words (rather than minting new
+ * ones). Used at profile setup so the sidecar blob and the directory backup blob
+ * share ONE recovery secret, the user only ever has a single recovery code.
+ */
+export function wrapDeviceKeyWithWords(
+  keys: IdentityKeys,
+  recoveryWords: string,
+  params: KdfParams = PROD_KDF_PARAMS,
+): WrappedDeviceKey {
+  return {
+    version: 2,
+    x25519PublicKey: encodePublicKey(keys.encryption.publicKey),
+    ed25519PublicKey: encodePublicKey(keys.signing.publicKey),
+    fingerprint: fingerprint(keys.signing.publicKey),
+    recoveryBlob: wrapUnderRecovery(bundleOf(keys), recoveryWords, params),
+  };
+}
+
+/**
  * Adds (or replaces) the passkey door on an already-wrapped device key. The PRF
  * output comes from the WebAuthn ceremony at the call site (webauthn.ts).
  */
