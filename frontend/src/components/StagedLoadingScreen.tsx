@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { fileService } from "@/lib/file-system/file-service";
 import BetaNotice from "@/components/BetaNotice";
+import { useTheme } from "@/lib/theme/use-theme";
 import type { LoadingStage } from "@/lib/file-system/file-system-context";
 
 interface StagedLoadingScreenProps {
@@ -56,6 +57,8 @@ export default function StagedLoadingScreen({
   const [readCount, setReadCount] = useState(0);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [reassuranceIdx, setReassuranceIdx] = useState(0);
+  const { resolved } = useTheme();
+  const isDark = resolved === "dark";
 
   // Run once on mount — don't reset on stage transitions so the elapsed
   // counter shows the real wall-clock time the user has been waiting.
@@ -86,18 +89,20 @@ export default function StagedLoadingScreen({
   return (
     <div
       data-testid="staged-loading-screen"
-      className="fixed inset-0 flex items-center justify-center overflow-hidden bg-gradient-to-b from-white to-[#eef4fb]"
+      className="fixed inset-0 flex items-center justify-center overflow-hidden bg-gradient-to-b from-white to-[#eef4fb] dark:from-[#0a0e1a] dark:to-[#0d1424]"
     >
       {/* Subtle rainbow wash + hairline, unifying the loader with the welcome
-          page's light brand signature. Kept faint so the screen every user
-          passes through stays calm, not loud. Decorative, so aria-hidden. */}
+          page's brand signature. In dark mode brand-rainbow-bg switches to the
+          vivid ramp (globals.css), so at low opacity on the near-black bg it
+          reads as a subtle DARK rainbow glow. Kept faint so the screen every
+          user passes through stays calm, not loud. Decorative, so aria-hidden. */}
       <div
         aria-hidden
         className="brand-rainbow-bg pointer-events-none absolute inset-x-0 top-0 h-1"
       />
       <div
         aria-hidden
-        className="brand-rainbow-bg pointer-events-none absolute -top-32 left-1/2 h-72 w-[140%] -translate-x-1/2 opacity-[0.10] blur-3xl"
+        className="brand-rainbow-bg pointer-events-none absolute -top-32 left-1/2 h-72 w-[140%] -translate-x-1/2 opacity-[0.10] blur-3xl dark:opacity-[0.20]"
       />
 
       <div className="relative max-w-xl w-full mx-4 text-center">
@@ -108,22 +113,22 @@ export default function StagedLoadingScreen({
         {/* Indeterminate progress bar that runs on the compositor thread so it
             keeps animating even when the main thread is blocked by the OS
             folder picker. */}
-        <div className="relative h-1.5 w-full max-w-sm mx-auto bg-black/5 rounded-full overflow-hidden mb-6">
+        <div className="relative h-1.5 w-full max-w-sm mx-auto bg-black/5 dark:bg-white/10 rounded-full overflow-hidden mb-6">
           <div className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-brand-action to-brand-purple rounded-full animate-staged-loading-sweep" />
         </div>
 
-        <h2 className="text-heading font-semibold text-brand-ink mb-3">{title}</h2>
+        <h2 className="text-heading font-semibold text-foreground mb-3">{title}</h2>
 
         {/* The opening-picker stage has its own dedicated callout below,
             so skip the generic subtitle there to avoid saying the same
             thing twice. */}
         {subtitle && stage !== "opening-picker" && (
-          <p className="text-title text-gray-600 mb-5 leading-relaxed">{subtitle}</p>
+          <p className="text-title text-foreground-muted mb-5 leading-relaxed">{subtitle}</p>
         )}
 
         {stage === "opening-picker" && (
-          <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-left">
-            <p className="flex items-center gap-1.5 text-title font-semibold text-amber-700 mb-1">
+          <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-400/40 dark:bg-amber-500/10 px-4 py-3 text-left">
+            <p className="flex items-center gap-1.5 text-title font-semibold text-amber-700 dark:text-amber-300 mb-1">
               <svg
                 aria-hidden
                 viewBox="0 0 24 24"
@@ -140,7 +145,7 @@ export default function StagedLoadingScreen({
               </svg>
               Don&apos;t refresh the page
             </p>
-            <p className="text-body text-amber-800 leading-relaxed">
+            <p className="text-body text-amber-800 dark:text-amber-200/90 leading-relaxed">
               The OS folder picker may look frozen — there is no spinner in the
               system dialog. This is normal for OneDrive / iCloud / Dropbox
               folders. Refreshing will throw away progress and you&apos;ll have
@@ -149,19 +154,19 @@ export default function StagedLoadingScreen({
           </div>
         )}
 
-        <div className="flex items-center justify-center gap-3 text-body text-gray-500 mb-3">
+        <div className="flex items-center justify-center gap-3 text-body text-foreground-muted mb-3">
           {showReadCount && (
-            <span className="px-3 py-1 bg-white border border-[#e3ecf6] rounded-full">
+            <span className="px-3 py-1 bg-white border border-[#e3ecf6] dark:bg-surface-raised dark:border-border rounded-full">
               {readCount} {readCount === 1 ? "file" : "files"} read
             </span>
           )}
-          <span className="px-3 py-1 bg-white border border-[#e3ecf6] rounded-full">
+          <span className="px-3 py-1 bg-white border border-[#e3ecf6] dark:bg-surface-raised dark:border-border rounded-full">
             {elapsedSec}s elapsed
           </span>
         </div>
 
         {showReassurance && (
-          <p className="text-body text-gray-500 italic mt-6 transition-opacity duration-300">
+          <p className="text-body text-foreground-muted italic mt-6 transition-opacity duration-300">
             {REASSURANCE_MESSAGES[reassuranceIdx]}
           </p>
         )}
@@ -171,7 +176,7 @@ export default function StagedLoadingScreen({
             every user passes through on the way in. Shared component so the
             copy stays in sync with the folder-setup notice. Remove (or
             soften) once we ship 1.0. */}
-        <BetaNotice tone="light" className="mt-8" />
+        <BetaNotice tone={isDark ? "dark" : "light"} className="mt-8" />
       </div>
 
       <style>{`

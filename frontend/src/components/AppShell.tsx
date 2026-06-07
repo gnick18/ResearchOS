@@ -27,7 +27,6 @@ import FeedbackModal from "./FeedbackModal";
 import Wordmark from "./Wordmark";
 import { useShowcaseUnlock } from "./showcase/useShowcaseUnlock";
 import StreakBadge from "./StreakBadge";
-import ThemeToggle from "./ThemeToggle";
 import { installStreakActivityTracking } from "@/lib/streak/streak-activity-bootstrap";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { HELP_HREF, appRouteToWikiRoute } from "@/lib/wiki/nav";
@@ -489,11 +488,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               old gear applies: disabled + non-interactive during the walkthrough
               so a mid-tour click cannot navigate away from the current step.
               (Onboarding v4 L23 — same reasoning as the gear it replaces.) */}
-          {/* Dark-mode toggle. Quick light/dark flip; the full light/dark/system
-              choice also lives in Settings > Appearance. Always shown; on a
-              tinted (colored-project) header it uses a white/translucent
-              treatment so it stays legible on the tint. */}
-          <ThemeToggle tinted={tinted} />
+          {/* Dark-mode toggle moved into the avatar dropdown (UserAvatarMenu) to
+              free top-bar space; Settings > Appearance still has the full
+              light/dark/system choice. */}
           {currentUser && (
             <UserAvatarMenu
               currentUser={currentUser}
