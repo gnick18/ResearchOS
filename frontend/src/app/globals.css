@@ -77,6 +77,7 @@
   --seq-tape-minor: #94a3b8; /* per-base ruler tick (faintest) */
   --seq-tape-five: #64748b; /* every-5 tick (medium) */
   --seq-tape-ten: #334155; /* every-10 tick + numbers (strongest) */
+  --seq-track: #9ca3af; /* structural/backbone feature grey (source, intron) */
   --seq-stop-fill: #b91c1c; /* stop-codon residue fill */
   --seq-stop-stroke: #7f1d1d; /* stop-codon residue border */
   --seq-orf-fill: #f1f5f9; /* computed-ORF translation handle fill */
@@ -174,6 +175,7 @@
   --seq-tape-minor: #475569; /* faintest on dark */
   --seq-tape-five: #94a3b8; /* medium */
   --seq-tape-ten: #d7deea; /* strongest + numbers, near-white */
+  --seq-track: #b4bfd0; /* lighter backbone grey so the track reads on dark */
   --seq-stop-fill: #f87171; /* brighter red so stops read on dark */
   --seq-stop-stroke: #b91c1c;
   --seq-orf-fill: #1e293b; /* dark slate handle (was near-white) */
@@ -239,6 +241,7 @@
   --seq-tape-minor: #94a3b8;
   --seq-tape-five: #64748b;
   --seq-tape-ten: #334155;
+  --seq-track: #9ca3af;
   --seq-stop-fill: #b91c1c;
   --seq-stop-stroke: #7f1d1d;
   --seq-orf-fill: #f1f5f9;

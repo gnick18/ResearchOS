@@ -34,14 +34,14 @@ export const FEATURE_TYPE_COLORS: Record<string, string> = {
   protein_bind: "#22d3ee", // cyan
   rbs: "#fb923c", // orange
   sig_peptide: "#fcd34d",
-  source: "#9ca3af", // gray
+  source: "var(--seq-track)", // structural backbone grey, theme-aware (lighter on dark)
   mat_peptide: "#4ade80",
   ncrna: "#c084fc",
   trna: "#c084fc",
   rrna: "#c084fc",
   regulatory: "#fbbf24",
   enhancer: "#fde047",
-  intron: "#94a3b8",
+  intron: "var(--seq-track)",
   exon: "#34d399",
   "5'utr": "#67e8f9",
   "3'utr": "#67e8f9",
