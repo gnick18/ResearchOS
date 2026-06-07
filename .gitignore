@@ -61,4 +61,9 @@ demo-recordings/
 ResearchOS_Beta_Testers.xlsx
 ResearchOS_Beta_Tracker.html
 scripts/activity-report/.venv/
-scripts/activity-report/commit-map.json
+# commit-map.json is committed (it is the product of an expensive agent pass).
+# Scratch files from the reclassification workflow are not:
+scripts/activity-report/_commit-data.json
+scripts/activity-report/_batches/
+scripts/activity-report/_agent-map.json
+scripts/activity-report/_milestones_block.txt

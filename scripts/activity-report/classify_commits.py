@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
-"""Classify every git commit into a feature bucket using conventional-commit scopes.
+"""Fill in feature buckets for any not-yet-classified git commits.
 
-No API key needed. Parses feat(scope): / fix(scope): prefixes, falls back to
-keyword matching for commits that don't follow the convention.
+The baseline commit-map.json was produced by a one-time background-agent pass
+(every commit read by a subagent that judged the feature it was building toward,
+using the commit subject plus its changed file paths). That map is committed to
+the repo. This script only classifies commits that are NOT already in the map --
+the newest commits since the last agent pass -- using a cheap, free heuristic
+(conventional-commit scope parsing, then keyword matching). It never re-labels a
+commit the agents already judged, so re-running is safe and incremental.
+
+Do NOT delete commit-map.json to "start fresh" -- that throws away the agent
+verdicts and falls back to scope-only labels (much noisier). To re-run the full
+agent classification, use the reclassify-commits workflow instead.
 
 Usage:
     python3 scripts/activity-report/classify_commits.py
 
 Writes: scripts/activity-report/commit-map.json
-Re-running is safe -- only unclassified commits are re-processed.
 """
 
 from __future__ import annotations

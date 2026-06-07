@@ -23,15 +23,18 @@ pastes into PowerPoint, Keynote, and Google Slides as crisp recolorable vectors.
 2. **Claude Code transcripts** for this project, at
    `~/.claude/projects/<repo-path-with-slashes-as-dashes>/*.jsonl` (your typed
    prompts and words, AI messages, tokens, tool calls, web searches).
-3. **A commit feature map** via `commit-map.json`, produced by `classify_commits.py`,
-   which assigns every commit to the initiative it was primarily building toward.
-   Classification parses conventional-commit scopes (`feat(scope):`) against
-   `SCOPE_MAP`, falls back to keyword matching on the subject, then to an early-era
-   heuristic for pre-Vercel commits. No API key, no network. Re-running only
-   processes commits not already in the map, so it is cheap and idempotent. Edit
-   `SCOPE_MAP` / `KEYWORD_MAP` in `classify_commits.py` to add or rename buckets.
-   `generate.py` reads the map if present (and silently uses regex `MILESTONES`
-   matching if it is missing).
+3. **A commit feature map** in `commit-map.json` (committed to the repo), which
+   assigns every commit to the initiative it was primarily building toward. The
+   baseline was built by a one-time **background-agent pass**, where a subagent read
+   each commit (subject plus changed file paths) and picked the best feature label.
+   That is far more accurate than regex, especially for "fix:" commits, whose real
+   home is in the files they touch (a fix under `sequence-editor/` is Sequence
+   editor work, not generic "Bug fix / polish"). New commits since that pass are
+   filled in cheaply by `classify_commits.py` (conventional-commit scope parsing,
+   then keyword fallback, no API, no network); it only touches commits not already
+   in the map, so it never overwrites an agent verdict. `generate.py` reads the map
+   if present and silently uses regex `MILESTONES` matching if it is missing. To
+   redo the full agent classification, run the `reclassify-commits` workflow.
 4. **Kilo Code history** via `kilo_snapshot.json`, produced by `snapshot_kilo.py`
    from the VS Code extension's local storage (`state.vscdb` task index +
    `tasks/<id>/ui_messages.json`). Tasks are filtered to this repo by exact
@@ -123,6 +126,31 @@ your other projects are never counted.
 - **Kilo checkpoints** are per-task git shadow repos. The line counts are the
   incremental edits Kilo made (the per-task baseline snapshot commit is skipped,
   and `node_modules`/lockfiles are excluded).
+
+## Re-running the full agent classification
+
+`commit-map.json` is committed and only grows at the edges (new commits get the
+cheap scope label from `classify_commits.py`). To rebuild the whole map with the
+more accurate background-agent pass, run the workflow with the Claude Code
+Workflow tool. It runs on the subscription, not the metered API.
+
+```
+Workflow({ scriptPath: "scripts/activity-report/reclassify_workflow.js" })
+```
+
+That fans out one agent per 100-commit batch (each reads the subject plus the
+changed file paths). After it returns, apply the result and regenerate:
+
+```bash
+python3 scripts/activity-report/apply_classification.py <workflow-output.json>
+python3 scripts/activity-report/classify_commits.py   # fill any stragglers
+python3 scripts/activity-report/generate.py
+```
+
+`build_batches.py` is the prep step the workflow calls; you do not run it by hand.
+The `_commit-data.json`, `_batches/`, and `_agent-map.json` scratch files are
+git-ignored. Keep the `LABELS` list in `reclassify_workflow.js` in sync with the
+buckets in `classify_commits.py` and `MILESTONES` in `generate.py`.
 
 ## Tuning
 

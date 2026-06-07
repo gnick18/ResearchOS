@@ -1,2 +1,3 @@
 out/
 kilo_snapshot.json
+__pycache__/
