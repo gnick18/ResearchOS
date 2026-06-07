@@ -1,6 +1,15 @@
 # ResearchOS
 
-**Local-first research management. Experiments, lab notes, methods, calendar, all on your disk.**
+**The local-first workspace for research labs. Experiments, lab notes, methods, and calendar, all on your own disk.**
+
+<p align="center">
+  <a href="https://research-os.app/demo"><img alt="Try the live demo" src="https://img.shields.io/badge/live%20demo-research--os.app-1AA0E6" /></a>
+  <a href="LICENSE"><img alt="License: AGPL v3" src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" /></a>
+  <img alt="Built with Next.js" src="https://img.shields.io/badge/built%20with-Next.js-000000" />
+  <img alt="Deploys on Vercel" src="https://img.shields.io/badge/deploys%20on-Vercel-000000" />
+  <a href="https://github.com/gnick18/ResearchOS/issues"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen" /></a>
+  <a href="CODE_OF_CONDUCT.md"><img alt="Code of Conduct" src="https://img.shields.io/badge/code%20of%20conduct-Contributor%20Covenant-5e60ce" /></a>
+</p>
 
 ResearchOS is a browser-based tool for planning experiments, writing lab notes, managing reusable methods, and tracking the day-to-day of a research project. Your data lives in a folder you pick on your own computer (JSON + markdown, no database). The app talks to that folder directly through the File System Access API. There is no server account to create, and your notes never leave your machine unless you ask them to (via export, or by pointing your own backup tool at the folder).
 
@@ -18,7 +27,7 @@ ResearchOS is for benchwork researchers, computational scientists, lab heads, la
 </p>
 <p align="center"><em>Home for a lab member: project snapshots on top, with a customizable widget canvas (announcements, daily tasks, lab activity) below.</em></p>
 
-> Try the hosted demo: **[research-os-xi.vercel.app/demo](https://research-os-xi.vercel.app/demo)**. The demo runs entirely in your browser against synthetic fixture data, so you can poke around without picking a folder.
+> **Try the live demo at [research-os.app/demo](https://research-os.app/demo).** It runs entirely in your browser against synthetic fixture data, so you can poke around without signing up or picking a folder.
 
 Built by Dr. Grant R. Nickles (PhD). Free and open source, funded in part by the [UW-Madison RISE Initiative](https://rise.wisc.edu/).
 
@@ -147,7 +156,7 @@ Everything lives in the folder you picked. To back up, sync, or share, point a t
 
 ### Option A: hosted
 
-Open **[research-os-xi.vercel.app](https://research-os-xi.vercel.app/)** in Chrome or Edge. Click "Connect folder," pick (or create) an empty folder on your machine, allow the read-write prompt, then pick or create a username. Your folder can live anywhere on disk; OneDrive, Dropbox, iCloud, or a plain local directory all work.
+Open **[research-os.app](https://research-os.app/)** in Chrome or Edge. Click "Connect folder," pick (or create) an empty folder on your machine, allow the read-write prompt, then pick or create a username. Your folder can live anywhere on disk; OneDrive, Dropbox, iCloud, or a plain local directory all work.
 
 ### Option B: run it yourself
 
@@ -360,6 +369,8 @@ netstat -ano | findstr :3000          # Windows, then taskkill /PID <pid> /F
 ---
 
 ## Contributing
+
+Contributions are welcome, whether that is a bug report, a feature idea, a documentation fix, or code. A good first step is to open an issue or browse the [good first issues](https://github.com/gnick18/ResearchOS/labels/good%20first%20issue). Everyone taking part agrees to the [Code of Conduct](CODE_OF_CONDUCT.md), and [CONTRIBUTING.md](CONTRIBUTING.md) covers the setup, the CI expectations, and how to send a change.
 
 Pull requests welcome. The repo is set up for clean CI runs:
 
