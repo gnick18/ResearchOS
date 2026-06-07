@@ -19,6 +19,7 @@ export const APP_ROUTE_TO_WIKI: Record<string, string> = {
   "/workbench/projects": "/wiki/features/projects",
   "/methods": "/wiki/features/methods",
   "/purchases": "/wiki/features/purchases",
+  "/inventory": "/wiki/features/inventory",
   "/calendar": "/wiki/features/calendar",
   "/lab-overview": "/wiki/features/lab-overview",
   "/search": "/wiki/features/search",
@@ -242,6 +243,11 @@ export const WIKI_NAV: WikiNode[] = [
         href: "/wiki/features/purchases",
         label: "Purchases & Funding",
         blurb: "Track buys against lab-wide funding accounts.",
+      },
+      {
+        href: "/wiki/features/inventory",
+        label: "Inventory",
+        blurb: "The inventory you will actually keep: count containers not volumes, one-tap status, and expiry, stale, and low signals computed for free.",
       },
       {
         href: "/wiki/features/calendar",
