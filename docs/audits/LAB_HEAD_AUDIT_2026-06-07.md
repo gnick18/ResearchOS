@@ -119,16 +119,33 @@ confirmation before fixing.
   "missing/dead" reading was my navigation error). Open question is only whether
   the soft-write edit-session workflow is still the right model post-identity
   migration. Not dead code; evaluate deliberately if at all.
-- **[P3] Empty-value "—" glyph** convention: pick keep-and-exempt vs swap to a
-  middot, apply once.
-- **[P3] Surface 3 live walk** (BLOCKED on demo data): TaskDetailPopup
-  edit-session password modal + soft-write flow, comments, archiving,
-  FlagBanner. As mira the Gantt is empty (no tasks of her own, no member tasks
-  shared into her view), so the PI soft-write workflow (which acts on a member's
-  shared record) cannot be exercised. Do the demo-data seeding first, then walk.
-- **[P3] Demo richness** (enabler for surface 3): the demo PI has no tasks, no
-  shared member records in her Gantt, and $0 across funding accounts, yet Lab
-  Overview claims "40 approvals". Seed a coherent PI dataset: a couple member
-  tasks shared into the PI view, a pending purchase or two to approve, a
-  comment/mention, and some funding usage. Reconcile the "40 approvals" count
-  with actual seeded approvals.
+- **[DONE] Empty-value "—" glyph**: Grant chose keep-and-exempt; AGENTS.md
+  house-style rule updated to exempt it (`b50e9f036`).
+- **[DONE] Demo PI dataset seeded** (`75eaf9d69`): mira now has her own project
+  + 2 tasks, plus two morgan tasks shared with her (qPCR id 3 at VIEW so the
+  Request-edit/edit-session flow is demonstrable; figures list id 5 at EDIT).
+  The "40 approvals" was NOT a discrepancy: it counts pending purchase items
+  across members (already seeded), separate from the PI's personal purchases.
+- **[NOTED, false alarm corrected]** The earlier "Gantt empty / 40 approvals
+  unbacked" reading was wrong; approvals are backed, and the PI just had no
+  shared records until this seed.
+
+## Surface 3 walk results (partial, as mira)
+
+- **Verified:** a task shared at EDIT (list id 5) opens a quick-view list popup
+  where the PI can check off / add / delete items directly (no edit-session
+  needed, correct for edit permission). The "Shared by morgan" badge shows.
+- **[P3, NEW] "Unknown project (#2)" on a shared task.** A task shared to the PI
+  references the owner's project id, which the PI can't resolve (the project
+  isn't shared), so the row reads "Unknown project (#2)". Show the owner's
+  project name (it travels with the share) or a friendlier "morgan's project".
+- **[P3, NEW] Shared EXPERIMENT tasks don't surface in the PI's Experiments
+  tab.** morgan's qPCR experiment (shared to mira) does not appear under
+  Experiments (filtered to the PI's own projects); it only shows under Lists.
+  Shared member experiments should be reachable from the Experiments view.
+- **[P3, COULD NOT COMPLETE HEADLESSLY]** Opening the full TaskDetailPopup for a
+  member task to audit Request-edit -> edit-session password modal (demo pw
+  "demo") -> comments -> archive -> FlagBanner. The full-popup open control
+  resisted the Preview MCP click (documented CDP click friction). Now testable
+  in a real browser since task 3 is view-shared: needs Grant or a real-Chrome
+  pass.
