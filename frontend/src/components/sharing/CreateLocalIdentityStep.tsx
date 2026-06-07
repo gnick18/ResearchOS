@@ -157,21 +157,21 @@ export default function CreateLocalIdentityStep({
       onClick={onClose}
     >
       <div
-        className="bg-slate-800 rounded-2xl shadow-2xl border border-white/20 max-w-md w-full mx-4 overflow-hidden"
+        className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-md w-full mx-4 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         data-testid="create-local-identity"
       >
-        <div className="px-6 py-4 border-b border-white/10 flex items-start justify-between">
+        <div className="px-6 py-4 border-b border-border flex items-start justify-between">
           <div>
-            <h3 className="text-title font-semibold text-white">
+            <h3 className="text-title font-semibold text-foreground">
               Create your account
             </h3>
-            <p className="text-meta text-slate-400 mt-0.5">for {username}</p>
+            <p className="text-meta text-foreground-muted mt-0.5">for {username}</p>
           </div>
           <Tooltip label="Close" placement="bottom">
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-white"
+              className="text-foreground-muted hover:text-foreground"
               aria-label="Close"
             >
               <CloseIcon className="w-5 h-5" />
@@ -182,11 +182,11 @@ export default function CreateLocalIdentityStep({
         <div className="px-6 py-5">
           {!recoveryCode ? (
             <div className="py-8 flex flex-col items-center text-center">
-              <div className="w-10 h-10 rounded-full border-2 border-white/20 border-t-blue-400 animate-spin" />
-              <p className="text-body text-slate-300 mt-4 font-medium">
+              <div className="w-10 h-10 rounded-full border-2 border-border border-t-blue-500 animate-spin" />
+              <p className="text-body text-foreground-muted mt-4 font-medium">
                 Creating your account
               </p>
-              <p className="text-meta text-slate-500 mt-1 leading-relaxed">
+              <p className="text-meta text-foreground-muted mt-1 leading-relaxed">
                 This runs once and can take a few seconds. The app may pause
                 briefly while it works.
               </p>
@@ -198,7 +198,7 @@ export default function CreateLocalIdentityStep({
             </div>
           ) : (
             <div className="space-y-4">
-              <p className="text-body text-slate-300 leading-relaxed">
+              <p className="text-body text-foreground-muted leading-relaxed">
                 Your account is a keypair on this device. It works offline, with
                 no password and no sign-in. Set up a one-tap unlock and save your
                 recovery code below.
@@ -206,10 +206,10 @@ export default function CreateLocalIdentityStep({
 
               {/* Passkey, the everyday unlock. Optional, the recovery code is the
                   backstop and the account works without one. */}
-              <div className="rounded-lg border border-white/10 bg-slate-900/40 p-3 space-y-2">
+              <div className="rounded-lg border border-border bg-surface-sunken p-3 space-y-2">
                 <div className="flex items-center gap-2 text-blue-300">
                   <KeyIcon className="w-5 h-5" />
-                  <p className="text-body font-medium text-white">One-tap unlock</p>
+                  <p className="text-body font-medium text-foreground">One-tap unlock</p>
                 </div>
                 {isPasskeySupported() ? (
                   passkeyEnrolled ? (
@@ -224,7 +224,7 @@ export default function CreateLocalIdentityStep({
                     </div>
                   ) : (
                     <>
-                      <p className="text-meta text-slate-400 leading-relaxed">
+                      <p className="text-meta text-foreground-muted leading-relaxed">
                         Add a passkey so you can unlock with your fingerprint,
                         face, or device PIN. It syncs through your Google or Apple
                         keychain, so a new device just works.
@@ -243,7 +243,7 @@ export default function CreateLocalIdentityStep({
                     </>
                   )
                 ) : (
-                  <p className="text-meta text-slate-400 leading-relaxed">
+                  <p className="text-meta text-foreground-muted leading-relaxed">
                     Passkeys are not available in this browser. Your recovery code
                     below is how you unlock on another device.
                   </p>
@@ -253,18 +253,18 @@ export default function CreateLocalIdentityStep({
 
               <div className="flex items-center gap-2 text-blue-300">
                 <KeyIcon className="w-5 h-5" />
-                <p className="text-body font-medium text-white">
+                <p className="text-body font-medium text-foreground">
                   Your recovery code
                 </p>
               </div>
-              <p className="text-body text-slate-300 leading-relaxed">
+              <p className="text-body text-foreground-muted leading-relaxed">
                 Save this code somewhere safe. It is your backstop if you lose
                 your passkey and this device, and the only way to restore your
                 account. If you lose it, it cannot be recovered.
               </p>
 
-              <div className="p-3 bg-slate-900/60 border border-white/10 rounded-lg">
-                <p className="font-mono text-body text-slate-100 tracking-wide break-all text-center">
+              <div className="p-3 bg-surface-sunken border border-border rounded-lg">
+                <p className="font-mono text-body text-foreground tracking-wide break-all text-center">
                   {recoveryCode}
                 </p>
               </div>
@@ -295,7 +295,7 @@ export default function CreateLocalIdentityStep({
                   className="mt-0.5 accent-blue-500"
                   data-testid="create-recovery-saved"
                 />
-                <span className="text-body text-slate-300 leading-relaxed">
+                <span className="text-body text-foreground-muted leading-relaxed">
                   I have saved my recovery code somewhere safe.
                 </span>
               </label>
