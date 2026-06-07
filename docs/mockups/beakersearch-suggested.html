@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BeakerSearch - richer Suggested</title>
+<style>
+  :root{
+    --line:#e5e7eb; --line2:#eef2f7; --ink:#0f172a; --slate:#334155; --muted:#64748b;
+    --faint:#94a3b8; --tint:#f8fafc; --tint2:#f1f5f9; --sky:#0284c7; --sky-50:#f0f9ff;
+    --sky-100:#e0f2fe; --sky-600:#0284c7; --sky-700:#0369a1; --violet:#7c3aed; --green:#16a34a; --amber:#d97706;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:#cdd5df;padding:26px}
+  .wrap{max-width:1180px;margin:0 auto}
+  h1{font-size:19px;margin:0 0 4px;color:#0f172a}
+  .lede{color:#475569;margin:0 0 18px;max-width:780px;font-size:13px}
+  .cols{display:flex;gap:22px;align-items:flex-start}
+  .col{flex:1}
+  .cap{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#64748b;margin:0 0 8px}
+
+  .palette{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 24px 70px rgba(15,40,80,.28);overflow:hidden}
+  .pin{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
+  .bot{width:24px;height:24px;border-radius:7px;background:radial-gradient(circle at 50% 38%,#bae6fd,#38bdf8);position:relative;flex:0 0 auto}
+  .bot:after{content:"";position:absolute;left:6px;top:9px;width:5px;height:5px;border-radius:50%;background:#0f172a;box-shadow:7px 0 0 #0f172a}
+  .brand{font-weight:800;color:#0f172a}
+  .pin input{flex:1;border:0;outline:0;font-size:15px;color:#0f172a;background:transparent}
+  .pin .kbd{font-size:11px;color:var(--faint);border:1px solid var(--line);border-radius:6px;padding:2px 6px;font-weight:700}
+
+  .body{max-height:540px;overflow:auto}
+  .grp{padding:10px 16px 3px;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);display:flex;align-items:center;gap:8px}
+  .grp .hint{font-weight:600;letter-spacing:0;text-transform:none;color:var(--faint);font-size:11px}
+
+  /* context card: what is open + selection */
+  .ctx{margin:6px 12px 4px;border:1px solid var(--sky-100);background:var(--sky-50);border-radius:10px;padding:10px 12px}
+  .ctx .top{display:flex;align-items:center;gap:9px}
+  .ctx .mol{width:18px;height:18px;border-radius:50%;border:2px solid var(--sky);flex:0 0 auto}
+  .ctx .mol.lin{border-radius:0;border:0;height:0;border-top:2px solid var(--sky);width:18px;margin:8px 0}
+  .ctx .nm{font-weight:700;font-size:13.5px}
+  .ctx .meta{color:var(--muted);font-size:11.5px;margin:3px 0 0 27px}
+  .ctx .sel{display:inline-flex;align-items:center;gap:6px;margin:8px 0 0 27px;background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:999px;padding:3px 9px;font-size:11.5px;font-weight:600}
+  .ctx .org{display:flex;align-items:center;gap:5px;margin:5px 0 0 27px;color:var(--slate);font-style:italic;font-size:11.5px}
+
+  .row{display:flex;align-items:center;gap:11px;padding:8px 16px;cursor:default}
+  .row.hl{background:var(--sky-50)}
+  .row .ic{width:24px;height:24px;border-radius:7px;background:var(--tint2);display:flex;align-items:center;justify-content:center;color:var(--sky-700);font-size:13px;flex:0 0 auto}
+  .row .nm{flex:1;font-weight:600;color:#1f2937;font-size:13.5px}
+  .row .nm small{display:block;color:var(--faint);font-weight:500;font-size:11.5px}
+  .row .sc{color:var(--faint);font-size:11.5px;font-weight:700}
+  .row .meta{color:var(--faint);font-size:11.5px}
+  .swatch{width:9px;height:9px;border-radius:3px}
+  .footer{display:flex;gap:16px;padding:9px 16px;border-top:1px solid var(--line);color:var(--muted);font-size:11.5px}
+  .footer .r{margin-left:auto}
+
+  .note{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:14px;font-size:12.5px;color:#475569}
+  .note b{color:#0369a1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>BeakerSearch, a richer Suggested</h1>
+  <p class="lede">Left is roughly today (Suggested = a few relevant commands). Right is the proposed glue: the palette orients you the moment it opens, what sequence you are on, what you have selected, what else is in the collection to jump to, and what you just ran, before the full command list. Empty query shown; once you type, it collapses to fuzzy results.</p>
+
+  <div class="cols">
+    <!-- TODAY -->
+    <div class="col">
+      <p class="cap">Today</p>
+      <div class="palette">
+        <div class="pin"><span class="bot"></span><span class="brand">BeakerSearch</span><input placeholder="Search BeakerSearch, or run any tool" /><span class="kbd">Cmd K</span></div>
+        <div class="body">
+          <div class="grp">Suggested</div>
+          <div class="row hl"><span class="ic">&#8594;</span><span class="nm">Design primers from selection</span></div>
+          <div class="row"><span class="ic">+</span><span class="nm">Add feature from selection</span></div>
+          <div class="row"><span class="ic">&#9082;</span><span class="nm">Protein properties</span></div>
+          <div class="grp">Design</div>
+          <div class="row"><span class="ic">&#8594;</span><span class="nm">Design a mutagenesis primer</span></div>
+          <div class="row"><span class="ic">&#9881;</span><span class="nm">Assemble a construct</span></div>
+          <div class="row"><span class="ic">&#9986;</span><span class="nm">Choose restriction enzymes</span></div>
+        </div>
+        <div class="footer"><span>Up Down to navigate</span><span>Enter to run</span><span class="r">Cmd K reaches everything</span></div>
+      </div>
+    </div>
+
+    <!-- PROPOSED -->
+    <div class="col">
+      <p class="cap" style="color:#0369a1">Proposed</p>
+      <div class="palette">
+        <div class="pin"><span class="bot"></span><span class="brand">BeakerSearch</span><input placeholder="Search, jump, or run any tool" /><span class="kbd">Cmd K</span></div>
+        <div class="body">
+
+          <!-- context: what is open -->
+          <div class="grp">On this sequence</div>
+          <div class="ctx">
+            <div class="top"><span class="mol"></span><span class="nm">pEGFP-N1 (U55762)</span></div>
+            <div class="meta">DNA &middot; Circular &middot; 4,733 bp &middot; 6 features</div>
+            <div class="org"><span class="swatch" style="background:var(--sky-600)"></span>Aequorea victoria</div>
+            <div class="sel">&#9678; Selection 612..632 (21 nt) &middot; Tm 58.4 C &middot; 52% GC</div>
+          </div>
+
+          <!-- suggested commands for the selection -->
+          <div class="grp">Suggested <span class="hint">for your selection</span></div>
+          <div class="row hl"><span class="ic">&#8594;</span><span class="nm">Design primers here<small>from 612..632</small></span><span class="sc">&#8629;</span></div>
+          <div class="row"><span class="ic">+</span><span class="nm">Add feature from selection</span></div>
+          <div class="row"><span class="ic">&#9112;</span><span class="nm">Copy selection<small>21 nt</small></span><span class="sc">Cmd C</span></div>
+          <div class="row"><span class="ic">&#9082;</span><span class="nm">Protein properties of this region</span></div>
+
+          <!-- jump to other sequences in the collection -->
+          <div class="grp">Jump to a sequence <span class="hint">in Gateway demo (4)</span></div>
+          <div class="row"><span class="ic" style="color:var(--green)">&#9711;</span><span class="nm">pGEX-3X (U13852)<small>DNA &middot; 4,952 bp &middot; Schistosoma japonicum</small></span></div>
+          <div class="row"><span class="ic">&#9472;</span><span class="nm">GG cassette 2 (BsaI demo)<small>DNA &middot; Linear &middot; 338 bp</small></span></div>
+          <div class="row"><span class="ic" style="color:var(--violet)">&#9711;</span><span class="nm">pEGFP-N1-TRAP1 (LT726828)<small>DNA &middot; 6,654 bp &middot; Homo sapiens</small></span></div>
+
+          <!-- recent results / artifacts -->
+          <div class="grp">Recent results</div>
+          <div class="row"><span class="ic">&#9776;</span><span class="nm">Align to pEGFP-N1-TRAP1<small>92% identity &middot; 2 minutes ago</small></span><span class="meta">open</span></div>
+          <div class="row"><span class="ic">&#9082;</span><span class="nm">Domains in EGFP<small>2 Pfam hits &middot; 5 minutes ago</small></span><span class="meta">open</span></div>
+
+          <!-- the full command list still below -->
+          <div class="grp">Design</div>
+          <div class="row"><span class="ic">&#8594;</span><span class="nm">Design a mutagenesis primer</span></div>
+          <div class="row"><span class="ic">&#9881;</span><span class="nm">Assemble a construct</span></div>
+          <div class="grp">Analyze</div>
+          <div class="row"><span class="ic">&#9776;</span><span class="nm">Align to another sequence</span></div>
+        </div>
+        <div class="footer"><span>Up Down to navigate</span><span>Enter to run or open</span><span class="r">Cmd K reaches everything</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <p style="margin:0 0 6px"><b>What the proposed adds (all driven by real state):</b></p>
+    <p style="margin:0">1. <b>On this sequence</b> a context card, name, type, topology, length, features, organism, and the live selection (with Tm/GC), so you always know what you are acting on.<br>
+    2. <b>Suggested</b> the selection-aware commands, with the selection echoed in the row (from 612..632, 21 nt) so it reads as "do this to my highlight."<br>
+    3. <b>Jump to a sequence</b> the other sequences in the current collection, so BeakerSearch also navigates, not just runs tools (this is the one genuinely new capability, it needs the palette to reach the sequence list).<br>
+    4. <b>Recent results</b> the latest saved artifacts (Phase 5), reopenable from here.<br>
+    Once you type, the context card stays as a slim header and everything below collapses to ranked fuzzy matches across all four kinds (commands, sequences, results).</p>
+  </div>
+</div>
+</body>
+</html>
