@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Icon consistency audit</title>
+<style>
+  :root {
+    --slate: #475569;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --dark-bg: #0f172a;
+    --dark-card: #1e293b;
+    --dark-ink: #e2e8f0;
+    --sky: #0284c7;
+    --amber: #b45309;
+    --amber-bg: #fffbeb;
+    --amber-line: #fcd34d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.5;
+  }
+  header.page {
+    padding: 28px 32px 18px;
+    border-bottom: 1px solid var(--line);
+    background: var(--card);
+  }
+  header.page h1 { margin: 0 0 6px; font-size: 22px; }
+  header.page p { margin: 4px 0; color: var(--muted); font-size: 14px; max-width: 760px; }
+  .note {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: var(--amber-bg);
+    border: 1px solid var(--amber-line);
+    border-radius: 8px;
+    color: var(--amber);
+    font-size: 14px;
+    font-weight: 600;
+    max-width: 760px;
+  }
+  main { padding: 8px 32px 96px; }
+  section { margin-top: 40px; }
+  section > h2 {
+    font-size: 17px;
+    margin: 0 0 4px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--sky);
+    display: inline-block;
+  }
+  section > .sub { color: var(--muted); font-size: 13px; margin: 0 0 8px; max-width: 760px; }
+  .band {
+    margin: 4px 0 18px; font-size: 13px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .concept { margin-top: 30px; }
+  .concept > h3 {
+    font-size: 15px; margin: 0 0 2px; color: var(--ink);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .concept > .desc { color: var(--muted); font-size: 13px; margin: 0 0 14px; max-width: 760px; }
+  .flag {
+    font-size: 11px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase;
+    border-radius: 999px; padding: 2px 9px;
+  }
+  .flag.drift { color: #be123c; background: #fff1f2; border: 1px solid #fda4af; }
+  .flag.newg  { color: #7c2d12; background: #fff7ed; border: 1px solid #fdba74; }
+  .flag.ok    { color: #047857; background: #ecfdf5; border: 1px solid #6ee7b7; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .tagrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .tag {
+    font-size: 11px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase;
+    border-radius: 6px; padding: 2px 8px;
+  }
+  .tag.canonical { color: #047857; background: #ecfdf5; border: 1px solid #6ee7b7; }
+  .tag.stale     { color: #be123c; background: #fff1f2; border: 1px solid #fda4af; }
+  .tag.new       { color: #7c2d12; background: #fff7ed; border: 1px solid #fdba74; }
+  .uses { font-size: 12px; font-weight: 700; color: var(--slate); }
+  .swatches { display: flex; gap: 10px; }
+  .swatch {
+    flex: 1;
+    height: 76px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line);
+  }
+  .swatch.light { background: #ffffff; color: var(--slate); }
+  .swatch.dark { background: var(--dark-bg); color: #cbd5e1; border-color: #334155; }
+  .swatch svg { width: 38px; height: 38px; }
+  .name { font-size: 14px; font-weight: 700; color: var(--ink); }
+  .label { font-size: 12.5px; color: #334155; }
+  .label b { color: var(--ink); }
+  .file-list { font-size: 12px; color: var(--muted); }
+  .file-list code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; }
+  .file-list .more { color: #94a3b8; }
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>Website-wide icon consistency audit</h1>
+  <p>Every icon on a button, tab, menu, list-row action, or nav is a custom inline SVG (house rule, no icon library). This page hunts the same action drawn DIFFERENT ways across the app, plus stale glyphs that should adopt the set we just standardized in the sequence editor.</p>
+  <p>Each card shows the exact SVG from the source, rendered on a light and a dark swatch, with the files it lives in and the label it sits next to. The first card in a group is the CANONICAL one to keep. STALE means replace it with the canonical. NEW means a glyph or concept no reviewed set has approved yet, so it needs a decision.</p>
+  <div class="note">Decisions live up top. Groups with drift and the NEW unreviewed glyphs come first. The already-consistent groups are at the bottom for confirmation.</div>
+</header>
+<main>
+
+<!-- =========================================================== -->
+<!-- BAND 1: sequence-canonical concepts with a STALE copy elsewhere -->
+<!-- =========================================================== -->
+<section>
+  <h2>Needs a decision</h2>
+  <p class="sub">Highest priority first. These are concepts where the glyph we standardized in the sequence editor redesign appears elsewhere drawn an OLD way, plus generic actions that drifted into several different glyphs, plus glyphs no reviewed set ever approved.</p>
+  <div class="band">A. Sequence-canonical concept, but an OLD glyph is still in use</div>
+
+  <!-- TREE OF LIFE -->
+  <div class="concept">
+    <h3>Tree of life / taxonomy <span class="flag drift">stale copy in use</span></h3>
+    <p class="desc">The redesign standardized a BRANCHING tree (a trunk rising from a baseline with leaf nodes fanning off it). Three taxonomy dialogs still draw the old 3-node share-style graph instead. Every taxonomy surface should adopt the branching tree so "tree of life" never reads as a share/network glyph.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="tagrow"><div class="name">Branching tree of life</div><span class="tag canonical">Canonical</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.5V7" /><path d="M10.5 20.5h3" /><circle cx="12" cy="4.8" r="1.7" /><path d="M12 11 7.6 8.4" /><circle cx="6.2" cy="7.6" r="1.7" /><path d="M12 11 16.4 8.4" /><circle cx="17.8" cy="7.6" r="1.7" /><path d="M12 15 8 12.9" /><circle cx="6.6" cy="12.1" r="1.7" /><path d="M12 15 16 12.9" /><circle cx="17.4" cy="12.1" r="1.7" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.5V7" /><path d="M10.5 20.5h3" /><circle cx="12" cy="4.8" r="1.7" /><path d="M12 11 7.6 8.4" /><circle cx="6.2" cy="7.6" r="1.7" /><path d="M12 11 16.4 8.4" /><circle cx="17.8" cy="7.6" r="1.7" /><path d="M12 15 8 12.9" /><circle cx="6.6" cy="12.1" r="1.7" /><path d="M12 15 16 12.9" /><circle cx="17.4" cy="12.1" r="1.7" /></svg></div>
+        </div>
+        <div class="uses">8 uses</div>
+        <div class="label">Next to <b>RailIcons.tree / ActionGlyphs.tree / the lineage footer / the page taxonomy launcher</b></div>
+        <div class="file-list"><code>components/sequences/SequenceEditView.tsx</code>, <code>components/sequences/SequenceLineageFooter.tsx</code>, <code>app/sequences/page.tsx</code></div>
+      </div>
+      <div class="card">
+        <div class="tagrow"><div class="name">Old 3-node share-style graph</div><span class="tag stale">Stale</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.5" /><circle cx="6" cy="18" r="2.5" /><circle cx="18" cy="12" r="2.5" /><path d="M8.5 6.8 15.5 11M8.5 17.2 15.5 13" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.5" /><circle cx="6" cy="18" r="2.5" /><circle cx="18" cy="12" r="2.5" /><path d="M8.5 6.8 15.5 11M8.5 17.2 15.5 13" /></svg></div>
+        </div>
+        <div class="uses">3 uses (one local TreeIcon copy per file)</div>
+        <div class="label">Next to <b>"Look up an organism", "Explore in tree", the taxonomy explorer header</b></div>
+        <div class="file-list"><code>components/sequences/TaxonomyLookupDialog.tsx</code>, <code>components/sequences/TaxonomyExplorerPanel.tsx</code>, <code>components/sequences/EnrichFromNcbiDialog.tsx</code></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="band">B. Generic action with drift (same action, several different glyphs)</div>
+
+  <!-- DELETE / TRASH -->
+  <div class="concept">
+    <h3>Delete / trash <span class="flag drift">4 distinct glyphs</span></h3>
+    <p class="desc">The trash can is drawn at least four visually different ways across the app. The feather can with a lid line, a vertical-bar can, and two top-bar (M3 6h18) cans. The sequences and notes surfaces use the feather can with the two inner bars. Pick one and adopt it everywhere a row or item can be deleted.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="tagrow"><div class="name">Feather can, lid + two bars</div><span class="tag canonical">Canonical</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg></div>
+        </div>
+        <div class="uses">several uses (the most complete feather can)</div>
+        <div class="label">Next to <b>per-row + bulk delete, the delete-undo toasts, the confirm dialog</b></div>
+        <div class="file-list"><code>app/sequences/page.tsx</code>, <code>components/sequences/SequenceConfirmDialog.tsx</code>, <code>components/SequenceDeleteUndoToast.tsx</code>, <code>components/NoteDeleteUndoToast.tsx</code></div>
+      </div>
+      <div class="card">
+        <div class="tagrow"><div class="name">Feather can, no inner bars</div><span class="tag stale">Stale</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg></div>
+        </div>
+        <div class="uses">3 uses</div>
+        <div class="label">Next to <b>delete feature / delete primer / trash drop zones</b></div>
+        <div class="file-list"><code>components/sequences/FeaturesPanel.tsx</code>, <code>components/sequences/SequencePrimersPanel.tsx</code>, <code>components/sequences/PrimerEditorDialog.tsx</code></div>
+      </div>
+      <div class="card">
+        <div class="tagrow"><div class="name">Top-bar can (M3 6h18, one path)</div><span class="tag stale">Stale</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></div>
+        </div>
+        <div class="uses">several uses</div>
+        <div class="label">Next to <b>delete note / delete task / delete method / delete enzyme</b></div>
+        <div class="file-list"><code>components/NoteDetailPopup.tsx</code>, <code>components/TaskDetailPopup.tsx</code>, <code>app/methods/page.tsx</code>, <code>components/sequences/CloningWorkspace.tsx</code>, <code>components/sequences/EnzymePickerDialog.tsx</code>, <code>components/notebooks/SharedNotebookView.tsx</code></div>
+      </div>
+      <div class="card">
+        <div class="tagrow"><div class="name">Hand-rolled curve can</div><span class="tag stale">Stale</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></div>
+        </div>
+        <div class="uses">1 use</div>
+        <div class="label">Next to <b>delete link</b></div>
+        <div class="file-list"><code>app/links/page.tsx</code></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEARCH / MAGNIFIER -->
+  <div class="concept">
+    <h3>Search / magnifier <span class="flag drift">4 distinct glyphs</span></h3>
+    <p class="desc">The magnifier is drawn with three different lens radii (6, 7, 8) and three different handle tails (a 21-21 line, a short m20 20-3-3, a 21 21-4.35 path). They are close but not interchangeable. The sequence editor uses the r8 lens; pick one lens size and one handle for every search field.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="tagrow"><div class="name">Lens r8, short handle (m20 20-3-3)</div><span class="tag canonical">Canonical</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8" /><path d="m20 20-3-3" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8" /><path d="m20 20-3-3" /></svg></div>
+        </div>
+        <div class="uses">2 uses (the sequence editor search)</div>
+        <div class="label">Next to <b>ActionGlyphs.search / the find-in-sequence field</b></div>
+        <div class="file-list"><code>components/sequences/SequenceEditView.tsx</code></div>
+      </div>
+      <div class="card">
+        <div class="tagrow"><div class="name">Lens r8, long line handle (21 21 to 16.65)</div><span class="tag stale">Stale</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg></div>
+        </div>
+        <div class="uses">several uses</div>
+        <div class="label">Next to <b>find-in-sequence box, cloning workspace search</b></div>
+        <div class="file-list"><code>components/sequences/SequenceFindBox.tsx</code>, <code>components/sequences/CloningWorkspace.tsx</code></div>
+      </div>
+      <div class="card">
+        <div class="tagrow"><div class="name">Lens r7, long line handle</div><span class="tag stale">Stale</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg></div>
+        </div>
+        <div class="uses">several uses</div>
+        <div class="label">Next to <b>wiki search, settings search</b></div>
+        <div class="file-list"><code>components/wiki/WikiSearch.tsx</code>, <code>app/settings/page.tsx</code></div>
+      </div>
+      <div class="card">
+        <div class="tagrow"><div class="name">Lens r6, mid line handle (20 20 to 15.5)</div><span class="tag stale">Stale</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6" /><line x1="20" y1="20" x2="15.5" y2="15.5" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6" /><line x1="20" y1="20" x2="15.5" y2="15.5" /></svg></div>
+        </div>
+        <div class="uses">1 use</div>
+        <div class="label">Next to <b>the sequences launcher Detect action</b></div>
+        <div class="file-list"><code>components/sequences/SequencesLauncher.tsx</code></div>
+      </div>
+      <div class="card">
+        <div class="tagrow"><div class="name">Lens r8, path handle (21 21-4.35)</div><span class="tag stale">Stale</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg></div>
+        </div>
+        <div class="uses">1 use</div>
+        <div class="label">Next to <b>researcher directory search</b></div>
+        <div class="file-list"><code>components/sharing/ResearcherSearch.tsx</code></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COPY -->
+  <div class="concept">
+    <h3>Copy <span class="flag drift">2 distinct glyphs</span></h3>
+    <p class="desc">The two-rectangle copy glyph is drawn with two different front-rect sizes (11x11 and 13x13) and two different back-sheet paths. Both read as copy, but the 13x13 sits flush to the viewbox edge and the 11x11 is the one the editor action tiles use. Both even appear inside the same sequence editor file. Pick one.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="tagrow"><div class="name">Front rect 11x11, folded back sheet</div><span class="tag canonical">Canonical</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></svg></div>
+        </div>
+        <div class="uses">several uses</div>
+        <div class="label">Next to <b>ActionGlyphs.copy / copy sequence / copy profile id</b></div>
+        <div class="file-list"><code>components/sequences/SequenceEditView.tsx</code>, <code>components/researchers/ProfileCard.tsx</code>, <code>components/sharing/ResearcherSearch.tsx</code>, <code>components/sharing/icons.tsx</code></div>
+      </div>
+      <div class="card">
+        <div class="tagrow"><div class="name">Front rect 13x13, L-shaped back</div><span class="tag stale">Stale</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg></div>
+        </div>
+        <div class="uses">several uses</div>
+        <div class="label">Next to <b>copy feature / copy primer / copy cloning product</b></div>
+        <div class="file-list"><code>components/sequences/FeaturesPanel.tsx</code>, <code>components/sequences/SequencePrimersPanel.tsx</code>, <code>components/sequences/CloningWorkspace.tsx</code>, <code>components/sequences/CloningProductPreview.tsx</code></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PENCIL / EDIT -->
+  <div class="concept">
+    <h3>Edit / pencil <span class="flag drift">3 distinct glyphs</span></h3>
+    <p class="desc">Edit is drawn as a sparkle-free diagonal pencil (the editor action tile), a feather edit-2 line pencil (M12 20h9), and a pencil-in-a-square. The feather edit-2 is the most common across image and method surfaces, and it even shows up inside the sequence panels next to the canonical pencil. Pick one edit glyph.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="tagrow"><div class="name">Diagonal pencil (editor action tile)</div><span class="tag canonical">Canonical</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4.5l5 5L8 21H3v-5z" /><path d="M12.5 6.5l5 5" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4.5l5 5L8 21H3v-5z" /><path d="M12.5 6.5l5 5" /></svg></div>
+        </div>
+        <div class="uses">1 use (ActionGlyphs.pencil)</div>
+        <div class="label">Next to <b>the inspector rename / edit action tile</b></div>
+        <div class="file-list"><code>components/sequences/SequenceEditView.tsx</code></div>
+      </div>
+      <div class="card">
+        <div class="tagrow"><div class="name">Feather edit-2 line pencil</div><span class="tag stale">Stale</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg></div>
+        </div>
+        <div class="uses">8 uses</div>
+        <div class="label">Next to <b>edit image / rename / edit primer / edit protein props / edit enzyme</b></div>
+        <div class="file-list"><code>components/ImageStrip.tsx</code>, <code>components/TaskDetailPopup.tsx</code>, <code>components/sequences/SequencePrimersPanel.tsx</code>, <code>components/sequences/ProteinPropertiesDrawer.tsx</code>, <code>components/sequences/EnzymePickerDialog.tsx</code> <span class="more">and 3 more</span></div>
+      </div>
+      <div class="card">
+        <div class="tagrow"><div class="name">Pencil in a square</div><span class="tag stale">Stale</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z" /></svg></div>
+        </div>
+        <div class="uses">2 uses</div>
+        <div class="label">Next to <b>edit feature / audit-trail edit notice</b></div>
+        <div class="file-list"><code>components/sequences/FeaturesPanel.tsx</code>, <code>components/AuditTrailNotice.tsx</code></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="band">C. Unreviewed or ambiguous, needs a call</div>
+
+  <!-- DOWNLOAD vs EXPORT -->
+  <div class="concept">
+    <h3>Download / export <span class="flag newg">canonical unclear</span></h3>
+    <p class="desc">Two different glyphs both mean "get this out". The editor's export action uses an arrow over a baseline (reads as export). Almost everything else, including the sequences export menu and drop zone, uses the feather tray-with-down-arrow (reads as save to disk). They overlap in meaning. Decide whether export and download stay as two glyphs or collapse into one.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="tagrow"><div class="name">Arrow over a baseline (export)</div><span class="tag canonical">Canonical for export</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10M8 10l4 4 4-4" /><path d="M5 19h14" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10M8 10l4 4 4-4" /><path d="M5 19h14" /></svg></div>
+        </div>
+        <div class="uses">several uses</div>
+        <div class="label">Next to <b>RailIcons.export / ActionGlyphs.download (the editor export rail)</b></div>
+        <div class="file-list"><code>components/sequences/SequenceEditView.tsx</code></div>
+      </div>
+      <div class="card">
+        <div class="tagrow"><div class="name">Tray with a down arrow (feather download)</div><span class="tag new">Needs a call</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg></div>
+        </div>
+        <div class="uses">several uses (the common download glyph)</div>
+        <div class="label">Next to <b>export menu, drop zone download, task attachment download, sharing download</b></div>
+        <div class="file-list"><code>components/sequences/SequenceExportMenu.tsx</code>, <code>components/sequences/SequenceDropZone.tsx</code>, <code>components/TaskDetailPopup.tsx</code>, <code>components/sharing/icons.tsx</code></div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<!-- =========================================================== -->
+<!-- BAND 2: already-consistent sequence-canonical concepts -->
+<!-- =========================================================== -->
+<section>
+  <h2>Consistent (for confirmation)</h2>
+  <p class="sub">These concepts already use one glyph everywhere they appear. Nothing to change. Listed so the set we standardized is visible in one place and so a future copy elsewhere has the approved markup to match.</p>
+
+  <div class="concept">
+    <h3>Protein <span class="flag ok">single glyph</span></h3>
+    <p class="desc">The five-bead chain (a zigzag with a node at each vertex), used for every protein / translate surface in the editor. No competing protein glyph found elsewhere.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="tagrow"><div class="name">Five-bead chain</div><span class="tag canonical">Canonical</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 13 8 8.5 12 12.5 16 8.5 19.5 13" stroke-width="1.6" /><circle cx="4.5" cy="13" r="1.8" /><circle cx="8" cy="8.5" r="1.8" /><circle cx="12" cy="12.5" r="1.8" /><circle cx="16" cy="8.5" r="1.8" /><circle cx="19.5" cy="13" r="1.8" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 13 8 8.5 12 12.5 16 8.5 19.5 13" stroke-width="1.6" /><circle cx="4.5" cy="13" r="1.8" /><circle cx="8" cy="8.5" r="1.8" /><circle cx="12" cy="12.5" r="1.8" /><circle cx="16" cy="8.5" r="1.8" /><circle cx="19.5" cy="13" r="1.8" /></svg></div>
+        </div>
+        <div class="uses">several uses</div>
+        <div class="label">Next to <b>RailIcons.protein / ActionGlyphs.protein (translate, protein view)</b></div>
+        <div class="file-list"><code>components/sequences/SequenceEditView.tsx</code></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Align / compare <span class="flag ok">single glyph</span></h3>
+    <p class="desc">Two solid tracks joined by three dashed base-pair columns, reading as a pairwise alignment. Used by the launcher, the compare dialog, the editor rail and the page Align action. No ragged-lines alignment glyph found competing with it.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="tagrow"><div class="name">Strand grid with dashed columns</div><span class="tag canonical">Canonical</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="17" x2="20" y2="17" /><line x1="8" y1="7" x2="8" y2="17" stroke-dasharray="1.5 2.5" /><line x1="12" y1="7" x2="12" y2="17" stroke-dasharray="1.5 2.5" /><line x1="16" y1="7" x2="16" y2="17" stroke-dasharray="1.5 2.5" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="17" x2="20" y2="17" /><line x1="8" y1="7" x2="8" y2="17" stroke-dasharray="1.5 2.5" /><line x1="12" y1="7" x2="12" y2="17" stroke-dasharray="1.5 2.5" /><line x1="16" y1="7" x2="16" y2="17" stroke-dasharray="1.5 2.5" /></svg></div>
+        </div>
+        <div class="uses">4 uses</div>
+        <div class="label">Next to <b>Align action / compare sequences</b></div>
+        <div class="file-list"><code>components/sequences/SequencesLauncher.tsx</code>, <code>components/sequences/CompareSequencesDialog.tsx</code>, <code>components/sequences/SequenceEditView.tsx</code>, <code>app/sequences/page.tsx</code></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Primer <span class="flag ok">single glyph</span></h3>
+    <p class="desc">A short annealing arrow over a baseline (M6 11h9 with an arrowhead), reading as a primer bound to a template. Used by the tab bar and the editor rail, consistent.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="tagrow"><div class="name">Annealing arrow over a baseline</div><span class="tag canonical">Canonical</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="17" x2="21" y2="17" /><path d="M6 11h9l-2.5-2.5M6 11l2.5 2.5" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="17" x2="21" y2="17" /><path d="M6 11h9l-2.5-2.5M6 11l2.5 2.5" /></svg></div>
+        </div>
+        <div class="uses">several uses</div>
+        <div class="label">Next to <b>Primers tab / RailIcons.primers</b></div>
+        <div class="file-list"><code>components/sequences/SequenceTabBar.tsx</code>, <code>components/sequences/SequenceEditView.tsx</code></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Molecule: circular vs linear <span class="flag ok">paired glyph</span></h3>
+    <p class="desc">A ring for circular, a single line for linear, toggled in one component. Distinct on purpose, the two states of one concept. Kept here so a future circular/linear chooser elsewhere reuses these.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="tagrow"><div class="name">Circular (ring) / linear (line)</div><span class="tag canonical">Canonical</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="12" x2="20" y2="12" /></svg></div>
+        </div>
+        <div class="uses">1 component (both states)</div>
+        <div class="label">Next to <b>the circular / linear topology toggle</b> (light swatch shows circular, dark shows linear)</div>
+        <div class="file-list"><code>app/sequences/page.tsx</code> (MoleculeIcon)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Cut / restriction <span class="flag ok">single glyph</span></h3>
+    <p class="desc">Scissors as two pivot circles with crossing blades, for the cut / restriction-digest rail. One glyph.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="tagrow"><div class="name">Scissors</div><span class="tag canonical">Canonical</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.5" /><circle cx="6" cy="18" r="2.5" /><path d="M8 7l12 9M8 17L20 8" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.5" /><circle cx="6" cy="18" r="2.5" /><path d="M8 7l12 9M8 17L20 8" /></svg></div>
+        </div>
+        <div class="uses">1 use (RailIcons.cut)</div>
+        <div class="label">Next to <b>the cut / digest rail action</b></div>
+        <div class="file-list"><code>components/sequences/SequenceEditView.tsx</code></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Plasmid / assemble <span class="flag ok">single glyph</span></h3>
+    <p class="desc">A dashed ring (a circular construct built from fragments) for the assemble action. Used by the page header action and the launcher, and they explicitly match.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="tagrow"><div class="name">Dashed fragment ring</div><span class="tag canonical">Canonical</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8" stroke-dasharray="12.5 4.25" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8" stroke-dasharray="12.5 4.25" /></svg></div>
+        </div>
+        <div class="uses">2 uses</div>
+        <div class="label">Next to <b>Assemble action</b></div>
+        <div class="file-list"><code>app/sequences/page.tsx</code>, <code>components/sequences/SequencesLauncher.tsx</code></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Refresh / sync <span class="flag ok">single glyph (editor)</span></h3>
+    <p class="desc">The two-arc circular-arrows refresh used by the editor action tiles. Flagged here as already-consistent within the editor; if a feather refresh shows up elsewhere later, match it to this.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="tagrow"><div class="name">Two-arc circular arrows</div><span class="tag canonical">Canonical</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.5-5.5L20 9" /><path d="M20 4v5h-5" /><path d="M20 12a8 8 0 0 1-13.5 5.5L4 15" /><path d="M4 20v-5h5" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.5-5.5L20 9" /><path d="M20 4v5h-5" /><path d="M20 12a8 8 0 0 1-13.5 5.5L4 15" /><path d="M4 20v-5h5" /></svg></div>
+        </div>
+        <div class="uses">1 use (ActionGlyphs.refresh)</div>
+        <div class="label">Next to <b>the re-run / refresh action tile</b></div>
+        <div class="file-list"><code>components/sequences/SequenceEditView.tsx</code></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Add / plus <span class="flag ok">visually one glyph</span></h3>
+    <p class="desc">The plus is encoded two ways in source (one path M12 5v14M5 12h14, or two crossed lines) but renders as the same centered cross everywhere. No visual drift, noted only so the source style can converge if desired.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="tagrow"><div class="name">Centered plus</div><span class="tag canonical">Canonical</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></div>
+        </div>
+        <div class="uses">many uses (both encodings render identically)</div>
+        <div class="label">Next to <b>New / Add actions across the app</b></div>
+        <div class="file-list"><code>components/sequences/SequenceEditView.tsx</code> (ActionGlyphs.plus), <code>app/sequences/page.tsx</code> (PlusIcon, line form)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h3>Close / X <span class="flag ok">visually one glyph</span></h3>
+    <p class="desc">The close X is encoded several ways in source (a combined two-stroke path, a reversed path, or two crossing lines) but renders as the same X. Not a visual drift, listed only so the encoding can converge.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="tagrow"><div class="name">Crossing X</div><span class="tag canonical">Canonical</span></div>
+        <div class="swatches">
+          <div class="swatch light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg></div>
+          <div class="swatch dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg></div>
+        </div>
+        <div class="uses">many uses (path and line encodings render the same)</div>
+        <div class="label">Next to <b>popup close buttons across the app</b></div>
+        <div class="file-list"><code>(many)</code> path form and <code>&lt;line&gt;</code> form, ~24 files use the line encoding</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+</main>
+
+<!-- ====== REVIEW LAYER (ported verbatim from sequences-icon-audit.html, new storage key) ====== -->
+<style>
+  .audit-controls { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 8px; }
+  .audit-status { display: flex; gap: 6px; }
+  .audit-status button {
+    flex: 1; border: 1px solid var(--line); background: #fff; color: var(--slate);
+    font-weight: 700; font-size: 12px; padding: 6px 0; border-radius: 7px; cursor: pointer;
+  }
+  .audit-status button[data-v="good"].on { background: #ecfdf5; border-color: #6ee7b7; color: #047857; }
+  .audit-status button[data-v="bad"].on  { background: #fff1f2; border-color: #fda4af; color: #be123c; }
+  .audit-note {
+    width: 100%; min-height: 38px; resize: vertical; border: 1px solid var(--line);
+    border-radius: 7px; padding: 6px 8px; font: inherit; font-size: 12.5px; color: var(--ink);
+  }
+  .audit-note:focus { outline: 2px solid var(--sky); outline-offset: 0; }
+  .card.is-good { border-color: #6ee7b7; box-shadow: inset 3px 0 0 #10b981; }
+  .card.is-bad  { border-color: #fda4af; box-shadow: inset 3px 0 0 #e11d48; }
+
+  .audit-bar {
+    position: fixed; right: 16px; bottom: 16px; z-index: 50;
+    background: #0f172a; color: #e2e8f0; border-radius: 12px; padding: 10px 12px;
+    box-shadow: 0 16px 40px rgba(15,40,80,.35); display: flex; align-items: center; gap: 10px;
+    font-size: 13px;
+  }
+  .audit-bar .count { font-weight: 700; white-space: nowrap; }
+  .audit-bar .count b.bad { color: #fca5a5; } .audit-bar .count b.good { color: #6ee7b7; }
+  .audit-bar button {
+    border: 0; border-radius: 8px; padding: 7px 11px; font-weight: 700; font-size: 12.5px; cursor: pointer;
+    background: #1e293b; color: #e2e8f0;
+  }
+  .audit-bar button.primary { background: var(--sky); color: #fff; }
+  .audit-bar button.danger { background: transparent; color: #94a3b8; }
+  .audit-toast {
+    position: fixed; right: 16px; bottom: 70px; z-index: 51; background: #047857; color: #fff;
+    padding: 9px 14px; border-radius: 9px; font-weight: 700; font-size: 13px; opacity: 0;
+    transform: translateY(6px); transition: opacity .15s, transform .15s; pointer-events: none;
+  }
+  .audit-toast.show { opacity: 1; transform: translateY(0); }
+
+  .audit-attach { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .audit-attach .pick {
+    border: 1px dashed var(--line); background: #fff; color: var(--muted); font-weight: 700;
+    font-size: 12px; padding: 5px 9px; border-radius: 7px; cursor: pointer;
+  }
+  .audit-attach .pick:hover { color: var(--sky); border-color: var(--sky); }
+  .audit-attach .hint { font-size: 11px; color: var(--muted); }
+  .audit-thumbs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .audit-thumb { position: relative; width: 54px; height: 54px; border-radius: 7px; overflow: hidden; border: 1px solid var(--line); }
+  .audit-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: zoom-in; }
+  .audit-thumb .rm {
+    position: absolute; top: 1px; right: 1px; width: 16px; height: 16px; border: 0; border-radius: 50%;
+    background: rgba(15,23,42,.82); color: #fff; font-size: 11px; line-height: 16px; cursor: pointer; padding: 0;
+  }
+  .card.dragover { outline: 2px dashed var(--sky); outline-offset: 2px; }
+  .audit-lightbox {
+    position: fixed; inset: 0; z-index: 60; background: rgba(15,23,42,.8); display: none;
+    align-items: center; justify-content: center; padding: 24px; cursor: zoom-out;
+  }
+  .audit-lightbox.show { display: flex; }
+  .audit-lightbox img { max-width: 96vw; max-height: 92vh; border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+</style>
+<div class="audit-toast" id="auditToast"></div>
+<div class="audit-lightbox" id="auditLightbox"><img alt="reference" /></div>
+<script>
+(function () {
+  var STORAGE_KEY = "icon-consistency-audit-v1";
+  function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch (e) { return {}; } }
+  function save() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); return true; }
+    catch (e) { toast("Storage is full. Download your bundle to keep the images, then Clear to free space."); return false; }
+  }
+  var state = load();
+  var hoverCard = null;
+
+  var cards = Array.prototype.slice.call(document.querySelectorAll(".card"));
+  function sectionOf(card) {
+    var sec = card.closest("section");
+    var h = sec ? sec.querySelector("h2") : null;
+    return h ? h.textContent.trim() : "";
+  }
+  function applyStatus(card, ctr, status) {
+    card.classList.toggle("is-good", status === "good");
+    card.classList.toggle("is-bad", status === "bad");
+    ctr.querySelectorAll("[data-v]").forEach(function (b) { b.classList.toggle("on", b.dataset.v === status); });
+  }
+
+  // Downscale an attached/pasted image to a sane size so several fit in storage.
+  function downscale(dataURL, cb) {
+    var img = new Image();
+    img.onload = function () {
+      var max = 1100, w = img.width, h = img.height;
+      if (w > max || h > max) { var s = max / Math.max(w, h); w = Math.round(w * s); h = Math.round(h * s); }
+      var c = document.createElement("canvas"); c.width = w; c.height = h;
+      c.getContext("2d").drawImage(img, 0, 0, w, h);
+      try { cb(c.toDataURL("image/jpeg", 0.82)); } catch (e) { cb(dataURL); }
+    };
+    img.onerror = function () { cb(dataURL); };
+    img.src = dataURL;
+  }
+  function ingestFile(key, file, thumbsEl) {
+    if (!file || file.type.indexOf("image") !== 0) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      downscale(reader.result, function (small) {
+        var rec = state[key] || {};
+        var imgs = (rec.images || []).slice();
+        imgs.push({ id: "img" + Date.now() + "_" + Math.round(Math.random() * 1e4), src: small });
+        state[key] = Object.assign({}, rec, { images: imgs });
+        if (!save()) { state[key].images = (rec.images || []); return; }
+        renderThumbs(thumbsEl, key); updateBar();
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+  function renderThumbs(thumbsEl, key) {
+    var imgs = (state[key] || {}).images || [];
+    thumbsEl.innerHTML = "";
+    imgs.forEach(function (im) {
+      var d = document.createElement("div"); d.className = "audit-thumb";
+      var image = document.createElement("img"); image.src = im.src;
+      image.addEventListener("click", function () { lightbox(im.src); });
+      var rm = document.createElement("button"); rm.className = "rm"; rm.type = "button"; rm.textContent = "x";
+      rm.title = "Remove";
+      rm.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var rec = state[key] || {};
+        rec.images = (rec.images || []).filter(function (q) { return q.id !== im.id; });
+        state[key] = rec; save(); renderThumbs(thumbsEl, key); updateBar();
+      });
+      d.appendChild(image); d.appendChild(rm); thumbsEl.appendChild(d);
+    });
+  }
+  function lightbox(src) {
+    var lb = document.getElementById("auditLightbox");
+    lb.querySelector("img").src = src; lb.classList.add("show");
+  }
+  document.getElementById("auditLightbox").addEventListener("click", function () { this.classList.remove("show"); });
+
+  cards.forEach(function (card, i) {
+    var nameEl = card.querySelector(".name");
+    var name = nameEl ? nameEl.textContent.replace(/\s+/g, " ").trim() : "Icon " + i;
+    var section = sectionOf(card);
+    var key = i + "::" + name;
+    var rec = state[key] || {};
+
+    var ctr = document.createElement("div");
+    ctr.className = "audit-controls";
+    ctr.innerHTML =
+      '<div class="audit-status"><button type="button" data-v="good">Good</button>' +
+      '<button type="button" data-v="bad">Bad</button></div>' +
+      '<textarea class="audit-note" placeholder="Notes (what reads wrong, or what it should be). You can paste an image here too."></textarea>' +
+      '<div class="audit-attach"><label class="pick">Attach image<input type="file" accept="image/*" multiple hidden></label>' +
+      '<span class="hint">or drop a file here, or hover this card and paste (Cmd+V)</span></div>' +
+      '<div class="audit-thumbs"></div>';
+    card.appendChild(ctr);
+
+    var noteEl = ctr.querySelector(".audit-note");
+    var thumbsEl = ctr.querySelector(".audit-thumbs");
+    var fileInput = ctr.querySelector('input[type="file"]');
+    noteEl.value = rec.note || "";
+    applyStatus(card, ctr, rec.status);
+    renderThumbs(thumbsEl, key);
+
+    fileInput.addEventListener("change", function () {
+      Array.prototype.slice.call(fileInput.files || []).forEach(function (f) { ingestFile(key, f, thumbsEl); });
+      fileInput.value = "";
+    });
+    // Card-wide paste: hovering this card (or focusing its note) makes it the
+    // paste target, handled by the single document listener below.
+    card._auditKey = key;
+    card._auditThumbs = thumbsEl;
+    card._auditNote = noteEl;
+    card._auditCtr = ctr;
+    card.addEventListener("mouseenter", function () { hoverCard = card; });
+    card.addEventListener("mouseleave", function () { if (hoverCard === card) hoverCard = null; });
+    card.addEventListener("dragover", function (e) { e.preventDefault(); card.classList.add("dragover"); });
+    card.addEventListener("dragleave", function () { card.classList.remove("dragover"); });
+    card.addEventListener("drop", function (e) {
+      e.preventDefault(); card.classList.remove("dragover");
+      Array.prototype.slice.call((e.dataTransfer && e.dataTransfer.files) || []).forEach(function (f) {
+        ingestFile(key, f, thumbsEl);
+      });
+    });
+
+    ctr.querySelectorAll("[data-v]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var cur = (state[key] || {}).status;
+        var next = cur === b.dataset.v ? "" : b.dataset.v;
+        state[key] = Object.assign({}, state[key], { status: next, name: name, section: section });
+        save(); applyStatus(card, ctr, next); updateBar();
+      });
+    });
+    noteEl.addEventListener("input", function () {
+      state[key] = Object.assign({}, state[key], { note: noteEl.value, name: name, section: section });
+      save(); updateBar();
+    });
+  });
+
+  // One paste listener for the whole page. A clipboard image attaches to the
+  // card you are hovering, or the card whose note is focused. Text pastes fall
+  // through untouched.
+  document.addEventListener("paste", function (e) {
+    var items = (e.clipboardData && e.clipboardData.items) || [];
+    var imgItem = null;
+    for (var n = 0; n < items.length; n++) {
+      if (items[n].type && items[n].type.indexOf("image") === 0) { imgItem = items[n]; break; }
+    }
+    if (!imgItem) return;
+    var active = document.activeElement;
+    var target = (active && active.closest) ? active.closest(".card") : null;
+    if (!target) target = hoverCard;
+    if (!target) { toast("Hover over an icon card, then paste"); return; }
+    e.preventDefault();
+    var blob = imgItem.getAsFile();
+    if (blob) { ingestFile(target._auditKey, blob, target._auditThumbs); toast("Image attached"); }
+  });
+
+  // Repaint every card from the current `state` (used after loading a bundle).
+  function restoreAll() {
+    cards.forEach(function (card) {
+      var rec = state[card._auditKey] || {};
+      if (card._auditNote) card._auditNote.value = rec.note || "";
+      applyStatus(card, card._auditCtr, rec.status);
+      renderThumbs(card._auditThumbs, card._auditKey);
+    });
+  }
+
+  function records() {
+    return Object.keys(state).map(function (k) { return state[k]; }).filter(Boolean);
+  }
+  function counts() {
+    var r = records(), bad = 0, good = 0, noted = 0;
+    r.forEach(function (x) {
+      if (x.status === "bad") bad++;
+      else if (x.status === "good") good++;
+      if (x.note && x.note.trim()) noted++;
+    });
+    return { bad: bad, good: good, noted: noted, total: cards.length };
+  }
+  function buildText() {
+    var bad = [], notedOnly = [], good = [], imgTotal = 0;
+    Object.keys(state).forEach(function (k) {
+      var x = state[k]; if (!x) return;
+      var label = (x.section ? x.section + " · " : "") + (x.name || k.split("::")[1] || k);
+      var note = (x.note || "").trim();
+      var nimg = (x.images || []).length; imgTotal += nimg;
+      var tag = nimg ? " [" + nimg + " ref image" + (nimg > 1 ? "s" : "") + "]" : "";
+      if (x.status === "bad") bad.push("[BAD]  " + label + (note ? " - " + note : "") + tag);
+      else if (x.status === "good") good.push(label + (note ? " (" + note + ")" : "") + tag);
+      else if (note || nimg) notedOnly.push("[NOTE] " + label + (note ? " - " + note : "") + tag);
+    });
+    var c = counts();
+    var NL = String.fromCharCode(10);
+    var nw = bad.concat(notedOnly);
+    var head = [
+      "ICON CONSISTENCY AUDIT - feedback",
+      "Bad " + c.bad + " | Good " + c.good + " | Noted " + c.noted + " of " + c.total + " icons"
+    ];
+    if (imgTotal) head.push(imgTotal + " reference image(s) attached. Click Save bundle and share the .json so the images come through.");
+    return head.concat([
+      "",
+      "== NEEDS WORK ==",
+      nw.length ? nw.join(NL) : "(none)",
+      "",
+      "== MARKED GOOD ==",
+      good.length ? good.join(NL) : "(none)"
+    ]).join(NL);
+  }
+  function toast(msg) {
+    var t = document.getElementById("auditToast");
+    t.textContent = msg; t.classList.add("show");
+    setTimeout(function () { t.classList.remove("show"); }, 1600);
+  }
+
+  var bar = document.createElement("div");
+  bar.className = "audit-bar";
+  bar.innerHTML =
+    '<span class="count" id="auditCount"></span>' +
+    '<button type="button" class="primary" id="auditCopy">Copy feedback</button>' +
+    '<button type="button" id="auditBundle">Save bundle</button>' +
+    '<button type="button" id="auditLoad">Load bundle</button>' +
+    '<button type="button" id="auditDownload">.md</button>' +
+    '<button type="button" class="danger" id="auditClear">Clear</button>';
+  document.body.appendChild(bar);
+
+  function updateBar() {
+    var c = counts();
+    document.getElementById("auditCount").innerHTML =
+      '<b class="bad">' + c.bad + ' bad</b> &middot; <b class="good">' + c.good + ' good</b> &middot; ' + c.noted + ' noted';
+  }
+  document.getElementById("auditCopy").addEventListener("click", function () {
+    var text = buildText();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { toast("Feedback copied, paste it into the chat"); },
+        function () { window.prompt("Copy this feedback:", text); });
+    } else { window.prompt("Copy this feedback:", text); }
+  });
+  document.getElementById("auditDownload").addEventListener("click", function () {
+    var blob = new Blob([buildText()], { type: "text/markdown" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "icon-consistency-feedback.md";
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+  document.getElementById("auditBundle").addEventListener("click", function () {
+    var blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "icon-consistency-feedback.json";
+    document.body.appendChild(a); a.click(); a.remove();
+    toast("Saved (text + images). Keep the .json; Load it to restore.");
+  });
+  document.getElementById("auditLoad").addEventListener("click", function () {
+    var inp = document.createElement("input");
+    inp.type = "file"; inp.accept = "application/json,.json";
+    inp.addEventListener("change", function () {
+      var f = inp.files && inp.files[0]; if (!f) return;
+      var r = new FileReader();
+      r.onload = function () {
+        var loaded;
+        try { loaded = JSON.parse(r.result); } catch (e) { toast("That file is not a saved bundle"); return; }
+        if (!loaded || typeof loaded !== "object") { toast("That file is not a saved bundle"); return; }
+        state = loaded; save(); restoreAll(); updateBar();
+        toast("Restored your saved bundle");
+      };
+      r.readAsText(f);
+    });
+    inp.click();
+  });
+  document.getElementById("auditClear").addEventListener("click", function () {
+    if (!window.confirm("Clear all your marks and notes on this page?")) return;
+    state = {}; save();
+    document.querySelectorAll(".card").forEach(function (card) {
+      card.classList.remove("is-good", "is-bad");
+      var ta = card.querySelector(".audit-note"); if (ta) ta.value = "";
+      card.querySelectorAll("[data-v]").forEach(function (b) { b.classList.remove("on"); });
+    });
+    updateBar(); toast("Cleared");
+  });
+
+  updateBar();
+})();
+</script>
+</body>
+</html>
