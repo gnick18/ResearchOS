@@ -8,7 +8,7 @@ import {
   PRICE_WIGGLE_CENTS,
   STRIPE_FEE_FLAT_CENTS,
   STRIPE_FEE_PCT,
-  NEON_STORAGE_USD_PER_GB_MONTH,
+  DO_STORAGE_USD_PER_GB_MONTH,
   paidStorageBytes,
   recommendedBlockPriceCents,
 } from "../config";
@@ -32,8 +32,8 @@ describe("paidStorageBytes", () => {
 
 describe("recommendedBlockPriceCents", () => {
   it("prices a 10 GB block at data + Stripe fee + $1 (tax added separately)", () => {
-    // 10 GB * $0.35 = $3.50 data; + $1 = $4.50 net target; grossed for the fee.
-    expect(recommendedBlockPriceCents(10)).toBe(495); // $4.95
+    // 10 GB * $0.20 = $2.00 data; + $1 = $3.00 net target; grossed for the fee.
+    expect(recommendedBlockPriceCents(10)).toBe(340); // $3.40
   });
 
   it("still nets at least the data cost plus the $1 buffer after the Stripe fee", () => {
@@ -41,7 +41,7 @@ describe("recommendedBlockPriceCents", () => {
       const price = recommendedBlockPriceCents(gb);
       const fee = Math.round(STRIPE_FEE_PCT * price + STRIPE_FEE_FLAT_CENTS);
       const net = price - fee;
-      const dataCost = Math.round(gb * NEON_STORAGE_USD_PER_GB_MONTH * 100);
+      const dataCost = Math.round(gb * DO_STORAGE_USD_PER_GB_MONTH * 100);
       expect(net).toBeGreaterThanOrEqual(dataCost + PRICE_WIGGLE_CENTS);
     }
   });

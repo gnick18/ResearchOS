@@ -3,9 +3,11 @@
 // Flat-block model (Grant, 2026-06-05): a lab buys a recurring subscription
 // block that adds a fixed chunk of storage to its quota. Buy more blocks for
 // more storage. The dollar amount lives in Stripe (the price the checkout
-// uses); the storage a block grants lives here. Both are placeholders until the
-// real pricing is set, ideally with the accountant, to clear Neon's
-// $0.35/GB-month plus Stripe fees.
+// uses); the storage a block grants lives here. Pricing clears the storage
+// provider's per-GB cost plus Stripe fees. The metered content (collab Loro
+// docs) is migrating off Neon onto Cloudflare Durable Objects SQLite, so the
+// binding cost basis is now DO SQLite storage at $0.20/GB-month (5 GB free) on
+// the $5/month Workers Paid base, not Neon's old $0.35/GB-month.
 //
 // The whole billing surface is dark unless BILLING_ENABLED is "true", the same
 // fail-closed pattern as SHARING_ENABLED, so a deploy without it configured can
@@ -40,17 +42,19 @@ export function paidStorageBytes(blocks: number): number {
   return Math.floor(blocks) * BYTES_PER_BLOCK;
 }
 
-// --- recommended pricing (cost-plus, Grant 2026-06-05) ---
+// --- recommended pricing (cost-plus, Grant 2026-06-05; basis corrected
+// 2026-06-07 from Neon to Cloudflare Durable Objects) ---
 //
-// A block's price covers its DATA cost (Neon storage) plus Stripe's processing
-// fee plus a $1 wiggle buffer, and nothing more. Tax is NOT baked in here,
-// Stripe adds it on top (Automatic / exclusive behavior), so the customer pays
-// any tax separately (usually $0). This keeps the rationale explicit and lets
-// the number be recomputed if Neon pricing, the block size, or the buffer move.
-// The actual charged price is the Stripe Price; this is the recommendation that
-// price should be set to.
+// A block's price covers its DATA cost (Durable Objects SQLite storage) plus
+// Stripe's processing fee plus a $1 wiggle buffer, and nothing more. Tax is NOT
+// baked in here, Stripe adds it on top (Automatic / exclusive behavior), so the
+// customer pays any tax separately (usually $0). This keeps the rationale
+// explicit and lets the number be recomputed if the storage rate, the block
+// size, or the buffer move. The actual charged price is the Stripe Price; this
+// is the recommendation that price should be set to. At $0.20/GB-month a 10 GB
+// block recommends $3.40/month (was $4.95 on Neon's $0.35).
 
-export const NEON_STORAGE_USD_PER_GB_MONTH = 0.35;
+export const DO_STORAGE_USD_PER_GB_MONTH = 0.2;
 export const STRIPE_FEE_PCT = 0.029;
 export const STRIPE_FEE_FLAT_CENTS = 30;
 export const PRICE_WIGGLE_CENTS = 100; // the $1 cushion
@@ -61,7 +65,7 @@ export const PRICE_WIGGLE_CENTS = 100; // the $1 cushion
  * data cost plus the $1 buffer. Tax is added by Stripe on top, not included here.
  */
 export function recommendedBlockPriceCents(gbPerBlock: number = GB_PER_BLOCK): number {
-  const dataCostCents = Math.round(gbPerBlock * NEON_STORAGE_USD_PER_GB_MONTH * 100);
+  const dataCostCents = Math.round(gbPerBlock * DO_STORAGE_USD_PER_GB_MONTH * 100);
   const netNeededCents = dataCostCents + PRICE_WIGGLE_CENTS;
   // P - (pct*P + flat) = netNeeded  =>  P = (netNeeded + flat) / (1 - pct)
   return Math.ceil((netNeededCents + STRIPE_FEE_FLAT_CENTS) / (1 - STRIPE_FEE_PCT));
