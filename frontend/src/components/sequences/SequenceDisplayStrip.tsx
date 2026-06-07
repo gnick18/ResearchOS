@@ -167,7 +167,7 @@ function DisplayChip({
       >
         {swatch ? (
           <span
-            className="h-2.5 w-2.5 shrink-0 rounded-sm ring-1 ring-black/10"
+            className="h-2.5 w-2.5 shrink-0 rounded-sm seq-swatch-border"
             style={{ backgroundColor: swatch }}
             aria-hidden="true"
           />
@@ -194,7 +194,7 @@ function DisplayChip({
       >
         {swatch ? (
           <span
-            className="h-2.5 w-2.5 shrink-0 rounded-sm ring-1 ring-black/10"
+            className="h-2.5 w-2.5 shrink-0 rounded-sm seq-swatch-border"
             style={{ backgroundColor: swatch }}
             aria-hidden="true"
           />
@@ -279,7 +279,7 @@ function FeatureTypesFlyout({
                   aria-pressed={!hidden}
                 >
                   <span
-                    className="h-3 w-3 shrink-0 rounded-sm ring-1 ring-black/10"
+                    className="h-3 w-3 shrink-0 rounded-sm seq-swatch-border"
                     style={{ backgroundColor: colorForType(k) }}
                   />
                   <span className={`flex-1 truncate text-body ${hidden ? "text-foreground-muted line-through" : "text-foreground"}`}>
@@ -368,7 +368,7 @@ export default function SequenceDisplayStrip({
             }`}
           >
             <span
-              className="h-2.5 w-2.5 shrink-0 rounded-sm ring-1 ring-black/10"
+              className="h-2.5 w-2.5 shrink-0 rounded-sm seq-swatch-border"
               style={{ backgroundColor: colorForType("misc_feature") }}
               aria-hidden="true"
             />

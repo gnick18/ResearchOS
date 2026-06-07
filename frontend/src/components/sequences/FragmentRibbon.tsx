@@ -156,7 +156,7 @@ export default function FragmentRibbon({ spans, length, junctions, onHoverSpan }
             onMouseLeave={onHoverSpan ? () => onHoverSpan(null) : undefined}
           >
             <span
-              className="inline-block h-3 w-3 shrink-0 rounded-sm"
+              className="inline-block h-3 w-3 shrink-0 rounded-sm seq-swatch-border"
               style={{ backgroundColor: spanColor(i) }}
               aria-hidden="true"
             />

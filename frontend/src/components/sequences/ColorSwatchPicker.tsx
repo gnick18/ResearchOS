@@ -40,7 +40,7 @@ export default function ColorSwatchPicker({
               type="button"
               disabled={disabled}
               onClick={() => onChange(sw)}
-              className={`h-6 w-6 rounded-md ring-1 ring-black/10 transition-transform hover:scale-110 disabled:cursor-not-allowed disabled:opacity-50 ${
+              className={`h-6 w-6 rounded-md seq-swatch-border transition-transform hover:scale-110 disabled:cursor-not-allowed disabled:opacity-50 ${
                 active ? "ring-2 ring-sky-500 ring-offset-1" : ""
               }`}
               style={{ backgroundColor: sw }}
@@ -50,7 +50,7 @@ export default function ColorSwatchPicker({
         })}
         {/* Custom color */}
         <label
-          className={`relative ml-1 flex h-6 w-6 items-center justify-center rounded-md ring-1 ring-black/10 ${
+          className={`relative ml-1 flex h-6 w-6 items-center justify-center rounded-md seq-swatch-border ${
             disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
           }`}
         >

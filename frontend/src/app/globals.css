@@ -177,6 +177,16 @@
   --brand-rainbow-vertical: var(--brand-rainbow-vivid);
 }
 
+/* Opposite-mode edge for feature/primer color swatches in the sequence popups
+ * (feature editor, primer dialog, feature list, color pickers, legends). Uses an
+ * outline (not a Tailwind ring, whose box-shadow composition the arbitrary
+ * var color did not reliably trigger) so a colored chip's edge reads against any
+ * background in both themes. outline-offset pulls it inside so it follows the
+ * chip's rounded corners. Matches --seq-feature-stroke on the SVG feature shapes. */
+.seq-swatch-border {
+  border: 1px solid var(--seq-feature-stroke) !important;
+}
+
 /* ── LightOnly scope ─────────────────────────────────────────────────────────
  * Force a subtree back to the light palette even under data-theme="dark".
  * Three jobs (see docs/proposals/dark-mode-toggle.md §7): permanently-light

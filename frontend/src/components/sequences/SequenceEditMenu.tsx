@@ -108,7 +108,7 @@ function MenuItems({ items, onAfterRun }: { items: EditMenuItem[]; onAfterRun: (
                     } ${
                       active
                         ? "ring-2 ring-sky-500 ring-offset-1"
-                        : "ring-1 ring-black/10"
+                        : "seq-swatch-border"
                     }`}
                   />
                 );
@@ -136,7 +136,7 @@ function MenuItems({ items, onAfterRun }: { items: EditMenuItem[]; onAfterRun: (
               {it.color ? (
                 <span
                   aria-hidden="true"
-                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  className="h-2.5 w-2.5 shrink-0 rounded-full seq-swatch-border"
                   style={{ backgroundColor: it.color }}
                 />
               ) : null}

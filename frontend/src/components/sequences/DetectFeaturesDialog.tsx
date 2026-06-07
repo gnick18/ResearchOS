@@ -362,7 +362,7 @@ function DetectedRow({ row, onToggle }: { row: Row; onToggle: () => void }) {
           className="h-4 w-4 shrink-0 accent-sky-500"
         />
         <span
-          className="h-3.5 w-3.5 shrink-0 rounded-sm ring-1 ring-black/10"
+          className="h-3.5 w-3.5 shrink-0 rounded-sm seq-swatch-border"
           style={{ backgroundColor: swatch }}
           aria-hidden
         />

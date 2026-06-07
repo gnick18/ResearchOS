@@ -213,7 +213,7 @@ export default function FeatureEditorDialog({
       <div className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
           <span
-            className="h-4 w-4 shrink-0 rounded-sm ring-1 ring-black/10"
+            className="h-4 w-4 shrink-0 rounded-sm seq-swatch-border"
             style={{ backgroundColor: effectiveColor }}
             aria-hidden="true"
           />
@@ -348,7 +348,7 @@ export default function FeatureEditorDialog({
                         />
                       </td>
                       <td className="px-2 py-1">
-                        <label className="flex h-6 w-6 cursor-pointer items-center justify-center rounded ring-1 ring-black/10"
+                        <label className="flex h-6 w-6 cursor-pointer items-center justify-center rounded seq-swatch-border"
                           style={{ backgroundColor: s.color || effectiveColor }}>
                           <input
                             type="color"
@@ -412,7 +412,7 @@ export default function FeatureEditorDialog({
                     key={sw}
                     type="button"
                     onClick={() => setColor(sw)}
-                    className={`h-6 w-6 rounded-md ring-1 ring-black/10 transition-transform hover:scale-110 ${
+                    className={`h-6 w-6 rounded-md seq-swatch-border transition-transform hover:scale-110 ${
                       active ? "ring-2 ring-sky-500 ring-offset-1" : ""
                     }`}
                     style={{ backgroundColor: sw }}
@@ -421,7 +421,7 @@ export default function FeatureEditorDialog({
                 );
               })}
               {/* Custom color */}
-              <label className="ml-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-md ring-1 ring-black/10">
+              <label className="ml-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-md seq-swatch-border">
                 <input
                   type="color"
                   value={effectiveColor}
@@ -630,7 +630,7 @@ function ReadOnlyBody({
       <Row label="Color">
         <span className="inline-flex items-center gap-2">
           <span
-            className="inline-block h-3.5 w-3.5 rounded-sm ring-1 ring-black/10"
+            className="inline-block h-3.5 w-3.5 rounded-sm seq-swatch-border"
             style={{ backgroundColor: effectiveColor }}
           />
           <span className="font-mono text-meta">

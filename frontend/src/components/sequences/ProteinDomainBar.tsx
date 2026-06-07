@@ -148,7 +148,7 @@ function Block({
         minWidth: 6,
         // Accepted: solid fill. Pending: lighter, translucent fill + dashed border.
         backgroundColor: pending ? `${hexish(block.color, 0.22)}` : block.color,
-        border: pending ? `1.5px dashed ${block.color}` : "1px solid rgba(0,0,0,0.12)",
+        border: pending ? `1.5px dashed ${block.color}` : "1px solid var(--seq-feature-stroke)",
         color: pending ? blockTextOnLight(block.color) : "rgba(255,255,255,0.98)",
         boxShadow: pending ? "none" : "0 1px 1px rgba(0,0,0,0.10)",
       }}

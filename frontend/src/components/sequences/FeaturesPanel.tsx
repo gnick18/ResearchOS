@@ -113,7 +113,7 @@ function ColorSwatches({
             key={sw}
             type="button"
             onClick={() => onPick(sw)}
-            className={`h-5 w-5 rounded ring-1 ring-black/10 transition-transform hover:scale-110 ${
+            className={`h-5 w-5 rounded seq-swatch-border transition-transform hover:scale-110 ${
               active ? "ring-2 ring-sky-500 ring-offset-1" : ""
             }`}
             style={{ backgroundColor: sw }}
@@ -121,7 +121,7 @@ function ColorSwatches({
           />
         );
       })}
-      <label className="relative ml-0.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded ring-1 ring-black/10">
+      <label className="relative ml-0.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded seq-swatch-border">
         <input
           type="color"
           value={value}
@@ -330,7 +330,7 @@ export default function FeaturesPanel({
                       <div className="relative">
                         {readOnly ? (
                           <span
-                            className="block h-4 w-4 shrink-0 rounded-sm ring-1 ring-black/10"
+                            className="block h-4 w-4 shrink-0 rounded-sm seq-swatch-border"
                             style={{ backgroundColor: color }}
                             aria-hidden="true"
                           />
@@ -338,7 +338,7 @@ export default function FeaturesPanel({
                           <button
                             type="button"
                             onClick={() => setOpenColorIdx(openColorIdx === index ? null : index)}
-                            className="h-4 w-4 shrink-0 rounded-sm ring-1 ring-black/10"
+                            className="h-4 w-4 shrink-0 rounded-sm seq-swatch-border"
                             style={{ backgroundColor: color }}
                             aria-label={`Recolor ${f.name}`}
                           />
@@ -445,7 +445,7 @@ export default function FeaturesPanel({
                         <div className="relative">
                           {readOnly ? (
                             <span
-                              className="block h-3.5 w-3.5 shrink-0 rounded-sm ring-1 ring-black/10"
+                              className="block h-3.5 w-3.5 shrink-0 rounded-sm seq-swatch-border"
                               style={{ backgroundColor: typeColor }}
                               aria-hidden="true"
                             />
@@ -453,7 +453,7 @@ export default function FeaturesPanel({
                             <button
                               type="button"
                               onClick={() => setOpenTypeColor(openTypeColor === k ? null : k)}
-                              className="h-3.5 w-3.5 shrink-0 rounded-sm ring-1 ring-black/10"
+                              className="h-3.5 w-3.5 shrink-0 rounded-sm seq-swatch-border"
                               style={{ backgroundColor: typeColor }}
                               aria-label={`Set default color for ${k}`}
                             />

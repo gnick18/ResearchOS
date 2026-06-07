@@ -744,7 +744,7 @@ export default function DomainAnnotationPanel({
                   className="mt-0.5 h-4 w-4 shrink-0 accent-indigo-500"
                 />
                 <span
-                  className="mt-0.5 h-3 w-3 shrink-0 rounded-sm ring-1 ring-black/10"
+                  className="mt-0.5 h-3 w-3 shrink-0 rounded-sm seq-swatch-border"
                   style={{ backgroundColor: swatch }}
                   aria-hidden
                 />
