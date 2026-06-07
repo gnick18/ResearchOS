@@ -7,7 +7,7 @@ import {
   fetchAllProjectsIncludingShared,
 } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { usePopupLayer } from "@/lib/ui/popup-stack";
+import LivingPopup from "@/components/ui/LivingPopup";
 import type { Project, Task } from "@/lib/types";
 import { taskKey } from "@/lib/types";
 
@@ -57,9 +57,6 @@ export default function SendToTaskPicker({
 }: SendToTaskPickerProps) {
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
-  // Opens over the photo/inbox popups, so blur only when bottom-most (no
-  // compounding double-blur on a popup already blurring behind it).
-  const { shouldBlur } = usePopupLayer(isOpen, true);
   const [query, setQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
   // Which image folder the batch lands in. Lab Notes is the default (it's
@@ -86,16 +83,6 @@ export default function SendToTaskPicker({
     setQuery("");
     setShowAll(false);
   }, [isOpen]);
-
-  // Esc-to-close.
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, onClose]);
 
   const projectsByCompositeKey = useMemo(() => {
     const map = new Map<string, Project>();
@@ -145,18 +132,15 @@ export default function SendToTaskPicker({
     selectedCount === 1 ? "Send to task" : `Send ${selectedCount} items to task`;
 
   return (
-    <div
-      className={`fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4 ${
-        shouldBlur ? "backdrop-blur-sm" : ""
-      }`}
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="send-to-task-picker"
-      onClick={onClose}
+    <LivingPopup
+      open
+      onClose={onClose}
+      label={headerLabel}
+      selfSize
+      showClose={false}
     >
       <div
-        className="bg-surface-raised rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden"
+        className="pointer-events-auto bg-surface-raised rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-5 py-3 border-b border-border flex items-center justify-between">
@@ -283,6 +267,6 @@ export default function SendToTaskPicker({
           )}
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }
