@@ -199,12 +199,12 @@ export default function AccountPasswordPopup({
       onClick={onClose}
     >
       <div
-        className="bg-slate-800 rounded-2xl shadow-2xl border border-white/20 max-w-md w-full mx-4 overflow-hidden"
+        className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-md w-full mx-4 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-6 py-4 border-b border-white/10 flex items-start justify-between">
+        <div className="px-6 py-4 border-b border-border flex items-start justify-between">
           <div>
-            <h3 className="text-heading font-semibold text-white">
+            <h3 className="text-heading font-semibold text-foreground">
               Account password
             </h3>
             <p className="text-meta text-foreground-muted mt-0.5">for {username}</p>
@@ -212,7 +212,7 @@ export default function AccountPasswordPopup({
           <Tooltip label="Close" placement="bottom">
             <button
               onClick={onClose}
-              className="text-foreground-muted hover:text-white text-lg leading-none"
+              className="text-foreground-muted hover:text-foreground text-lg leading-none"
               aria-label="Close"
             >
               ✕
@@ -222,7 +222,7 @@ export default function AccountPasswordPopup({
 
         {hasExisting === null ? (
           <div className="px-6 py-8 flex justify-center">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-foreground" />
           </div>
         ) : (
           <div className="px-6 py-5 space-y-4">
@@ -243,8 +243,8 @@ export default function AccountPasswordPopup({
                   }}
                   className={`flex-1 py-2 text-meta rounded-lg border transition-colors ${
                     mode === "change"
-                      ? "bg-blue-500/20 border-blue-400/40 text-blue-200"
-                      : "bg-white/5 border-white/10 text-foreground-muted hover:bg-white/10"
+                      ? "bg-blue-500/20 border-blue-400/40 text-blue-700 dark:text-blue-200"
+                      : "bg-surface-sunken border-border text-foreground-muted hover:bg-surface-raised"
                   }`}
                 >
                   Change
@@ -259,8 +259,8 @@ export default function AccountPasswordPopup({
                     }}
                     className={`flex-1 py-2 text-meta rounded-lg border transition-colors ${
                       mode === "remove"
-                        ? "bg-red-500/20 border-red-400/40 text-red-200"
-                        : "bg-white/5 border-white/10 text-foreground-muted hover:bg-white/10"
+                        ? "bg-red-500/20 border-red-400/40 text-red-700 dark:text-red-200"
+                        : "bg-surface-sunken border-border text-foreground-muted hover:bg-surface-raised"
                     }`}
                   >
                     Remove
@@ -278,7 +278,7 @@ export default function AccountPasswordPopup({
                   type="password"
                   value={currentInput}
                   onChange={(e) => setCurrentInput(e.target.value)}
-                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
+                  className="w-full px-3 py-2 bg-surface-sunken border border-border rounded-lg text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
                   autoComplete="current-password"
                   autoFocus
                 />
@@ -309,7 +309,7 @@ export default function AccountPasswordPopup({
                     type="password"
                     value={newInput}
                     onChange={(e) => setNewInput(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
+                    className="w-full px-3 py-2 bg-surface-sunken border border-border rounded-lg text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
                     autoComplete="new-password"
                     autoFocus={mode === "set"}
                   />
@@ -325,7 +325,7 @@ export default function AccountPasswordPopup({
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleSubmit();
                     }}
-                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
+                    className="w-full px-3 py-2 bg-surface-sunken border border-border rounded-lg text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
                     autoComplete="new-password"
                   />
                 </div>
@@ -334,10 +334,10 @@ export default function AccountPasswordPopup({
 
             {recoveryCode && (
               <div className="p-3 rounded-lg border border-blue-400/30 bg-blue-500/10 space-y-2">
-                <p className="text-meta font-medium text-blue-200">
+                <p className="text-meta font-medium text-blue-700 dark:text-blue-200">
                   Save your recovery code
                 </p>
-                <p className="font-mono text-body text-slate-100 tracking-wide break-all text-center">
+                <p className="font-mono text-body text-foreground tracking-wide break-all text-center">
                   {recoveryCode}
                 </p>
                 <p className="text-meta text-foreground-muted leading-relaxed">
@@ -349,12 +349,12 @@ export default function AccountPasswordPopup({
 
             {error && (
               <div className="p-2 bg-red-500/20 border border-red-500/30 rounded-lg">
-                <p className="text-meta text-red-300">{error}</p>
+                <p className="text-meta text-red-700 dark:text-red-300">{error}</p>
               </div>
             )}
             {done && !error && !recoveryCode && (
               <div className="p-2 bg-emerald-500/20 border border-emerald-500/30 rounded-lg">
-                <p className="text-meta text-emerald-300">{done}</p>
+                <p className="text-meta text-emerald-700 dark:text-emerald-300">{done}</p>
               </div>
             )}
 
@@ -362,7 +362,7 @@ export default function AccountPasswordPopup({
               <button
                 type="button"
                 onClick={() => setShowForgot(true)}
-                className="text-meta text-blue-400 hover:text-blue-300 underline"
+                className="text-meta text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline"
               >
                 Forgot your password?
               </button>
@@ -372,7 +372,7 @@ export default function AccountPasswordPopup({
               <button
                 onClick={onClose}
                 disabled={busy}
-                className="flex-1 py-2 text-body bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg disabled:opacity-50"
+                className="flex-1 py-2 text-body bg-surface-sunken hover:bg-surface-raised border border-border text-foreground rounded-lg disabled:opacity-50"
               >
                 Close
               </button>
@@ -407,17 +407,17 @@ export default function AccountPasswordPopup({
           onClick={() => setShowForgot(false)}
         >
           <div
-            className="bg-slate-800 rounded-2xl shadow-2xl border border-white/20 max-w-md w-full mx-4 p-6"
+            className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-md w-full mx-4 p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between mb-3">
-              <h3 className="text-heading font-semibold text-white">
+              <h3 className="text-heading font-semibold text-foreground">
                 Forgot your password?
               </h3>
               <Tooltip label="Close" placement="bottom">
                 <button
                   onClick={() => setShowForgot(false)}
-                  className="text-foreground-muted hover:text-white text-lg leading-none"
+                  className="text-foreground-muted hover:text-foreground text-lg leading-none"
                   aria-label="Close"
                 >
                   ✕
@@ -444,7 +444,7 @@ export default function AccountPasswordPopup({
             <div className="flex justify-end">
               <button
                 onClick={() => setShowForgot(false)}
-                className="px-4 py-2 text-body bg-white/10 hover:bg-white/20 text-white rounded-lg"
+                className="px-4 py-2 text-body bg-surface-sunken hover:bg-surface-raised border border-border text-foreground rounded-lg"
               >
                 Got it
               </button>

@@ -236,12 +236,12 @@ export default function UserColorPickerPopup({
       onClick={onCancel}
     >
       <div
-        className="bg-slate-800 rounded-2xl shadow-2xl border border-white/20 max-w-md w-full mx-4 overflow-hidden"
+        className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-md w-full mx-4 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-6 py-4 border-b border-white/10">
-          <h3 className="text-heading font-semibold text-white">Pick your color</h3>
-          <p className="text-meta text-slate-400 mt-0.5">
+        <div className="px-6 py-4 border-b border-border">
+          <h3 className="text-heading font-semibold text-foreground">Pick your color</h3>
+          <p className="text-meta text-foreground-muted mt-0.5">
             This is the color your initial bubble uses everywhere (lab views,
             comments, the login screen). You can change it later in Settings.
           </p>
@@ -257,13 +257,13 @@ export default function UserColorPickerPopup({
               colorOverride={selectedColor}
               secondaryOverride={selectedSecondary}
             />
-            <div className="text-body text-slate-200">
+            <div className="text-body text-foreground">
               <p className="font-medium">{username}</p>
-              <p className="text-meta text-slate-400 mt-0.5">Preview</p>
+              <p className="text-meta text-foreground-muted mt-0.5">Preview</p>
             </div>
           </div>
 
-          <label className="block text-meta font-medium text-slate-300 mb-2">
+          <label className="block text-meta font-medium text-foreground-muted mb-2">
             Primary color
           </label>
           <div className="flex flex-wrap gap-2">
@@ -359,14 +359,14 @@ export default function UserColorPickerPopup({
           {!RAINBOW_SENTINELS.has(selectedColor) && (
             <>
               <div className="flex items-center justify-between mt-5 mb-2">
-                <label className="block text-meta font-medium text-slate-300">
+                <label className="block text-meta font-medium text-foreground-muted">
                   Optional second color for gradient
                 </label>
                 {selectedSecondary && (
                   <button
                     type="button"
                     onClick={handleClearSecondary}
-                    className="text-meta text-slate-400 hover:text-white underline"
+                    className="text-meta text-foreground-muted hover:text-foreground underline"
                   >
                     Clear secondary
                   </button>
@@ -411,7 +411,7 @@ export default function UserColorPickerPopup({
                   );
                 })}
               </div>
-              <p className="text-meta text-slate-500 mt-2">
+              <p className="text-meta text-foreground-muted mt-2">
                 Pick a second color to make your avatar a 2-stop gradient.
                 Helpful when your lab has more than 10 people. Direction does
                 not matter (blue-to-green and green-to-blue count as the same
@@ -421,11 +421,11 @@ export default function UserColorPickerPopup({
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-white/10 flex gap-2">
+        <div className="px-6 py-4 border-t border-border flex gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 py-2.5 text-body bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg transition-colors"
+            className="flex-1 py-2.5 text-body bg-surface-sunken hover:bg-surface-raised border border-border text-foreground rounded-lg transition-colors"
           >
             Cancel
           </button>

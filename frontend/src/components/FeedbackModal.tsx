@@ -425,7 +425,7 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
             <div className="p-4 border-t border-border bg-surface-sunken flex justify-end">
               <button
                 onClick={onClose}
-                className="px-4 py-2 text-body text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
+                className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
               >
                 Done
               </button>
