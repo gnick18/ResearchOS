@@ -490,9 +490,11 @@ export function Providers({ children }: { children: ReactNode }) {
             always-present global layer (cross-page nav + app commands) means
             Cmd-K and the front-door pill open the palette on every page. */}
         <ContextMenuProvider>
+          <QueryClientProvider client={appQueryClient}>
           <BeakerSearchProvider>
             <AppContent>{children}</AppContent>
           </BeakerSearchProvider>
+          </QueryClientProvider>
         </ContextMenuProvider>
       </FileSystemProvider>
     </ErrorBoundary>

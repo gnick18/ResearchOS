@@ -862,26 +862,6 @@ export default function TaskDetailPopup({
 
   return (
     <>
-    {/* Sibling dialogs render OUTSIDE LivingPopup (mirrors NoteDetailPopup) so
-        they keep their own scrim + pointer-events and are not swallowed by the
-        selfSize wrapper's pointer-events-none. UnifiedShareDialog is a legacy
-        z-[60] modal (not yet on LivingPopup), so once this popup sits at the
-        LivingPopup layer (z-[400]) the share dialog would paint BEHIND it. The
-        relative z-[410] wrapper makes a stacking context above the popup so the
-        fixed share overlay lands on top. The duplicate resolver is already on
-        LivingPopup and self-stacks via the popup stack, so it needs no wrapper. */}
-    {showSharePopup && (
-      <div className="relative z-[410]">
-        <UnifiedShareDialog
-          isOpen
-          target={{ kind: "experiment", task, owner: task.owner }}
-          onClose={() => setShowSharePopup(false)}
-          onShared={() =>
-            queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] })
-          }
-        />
-      </div>
-    )}
     {/* Universal-drop duplicate-name resolver. Inner tabs (LabNotesTab,
         ResultsTab) own their OWN resolver instances since their upload
         handlers are gated on per-tab state. This one fires only for
@@ -1707,6 +1687,19 @@ export default function TaskDetailPopup({
         )}
       </div>
     </LivingPopup>
+    {/* Share dialog. Now on LivingPopup itself, so it joins the shared popup
+        stack (single dim, no double-scrim) and, rendered AFTER the host popup,
+        paints above it by DOM order. No z-index wrapper needed. */}
+    {showSharePopup && (
+      <UnifiedShareDialog
+        isOpen
+        target={{ kind: "experiment", task, owner: task.owner }}
+        onClose={() => setShowSharePopup(false)}
+        onShared={() =>
+          queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] })
+        }
+      />
+    )}
     </>
   );
 }
