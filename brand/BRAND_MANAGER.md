@@ -27,10 +27,34 @@ Read `brand/README.md` first for the raw color/type spec. This file is the
   (dark mode signature). Stops are in `brand/README.md`. Pastel goes muddy on
   dark; use vivid there, usually as a low-opacity glow.
 - **Tagline:** "The local-first workspace for research labs."
-- **Voice rules (everywhere, copy + commits + posts):** no em-dashes, no emojis,
-  no mid-sentence colons (a colon dropped mid-sentence to introduce a clause or
-  list reads as AI-speak; recast with a comma or a period). Label-terminators at
-  line start ("Goal:") are fine. Concept-first, plain, calm.
+- **Voice rules (everywhere, copy + commits + posts).** These are non-negotiable.
+  Grant's own voice, write like a person, not a model.
+  - NO em-dashes. Ever. Use a comma, parentheses, or split into two sentences.
+  - NO emojis. Anywhere. Not in posts, not in UI, not in headings.
+  - NO mid-sentence colons (a colon dropped mid-sentence to introduce a clause or
+    list reads as AI-speak). Recast with a comma or a period. Label-terminators at
+    line start ("Goal:") are fine.
+  - Concept-first, plain, calm, specific. Lead with the thing, not the framing.
+
+- **Grant HATES AI-speak. Avoid it at all costs, especially in anything social.**
+  If a sentence sounds like a language model wrote it, rewrite it. Read every
+  draft out loud first, if it sounds like marketing filler or a chatbot, it is
+  wrong. Banned words and tics (non-exhaustive, the smell matters more than the
+  list):
+  - hype verbs: unlock, unleash, elevate, empower, supercharge, leverage (as a
+    verb), harness, revolutionize, transform, streamline, turbocharge
+  - filler adjectives: seamless, robust, cutting-edge, world-class, powerful,
+    next-generation, innovative, game-changing, best-in-class
+  - cliches: "in today's fast-paced world", "the landscape of", "a testament to",
+    "at the forefront", "embark on a journey", "dive in", "navigate the", "tapestry",
+    "more than just a", "it's worth noting", "in conclusion", "the power of"
+  - announcement throat-clearing: "We're thrilled to announce", "We're excited to
+    share", "Introducing, finally"
+  - structural tells: "Not only X, but also Y", rhetorical "But here's the thing",
+    forced triads, one-word punchy "fragments." for drama, hashtag stacks,
+    emoji bullets.
+  - Write what the thing does, in concrete terms, for a working scientist. If you
+    cannot say it plainly, you do not understand it yet.
 
 ## Asset library + how to make assets
 
@@ -125,8 +149,12 @@ held), reading state via screenshots/zoom.
 
 ## Posting (LinkedIn + Bluesky)
 
-- Posts follow the voice rules above. Concept-first, useful to a research/lab
-  audience, light on hype. Lead with the thing, not "We are excited to..."
+- Posts follow the voice rules above, and this is where they matter MOST. A
+  social post is the easiest place to slip into AI-speak, and Grant hates it.
+  Before posting anything, re-read the banned-words list and read the draft out
+  loud. No em-dashes, no emojis, no hype words, no "We're excited to announce."
+  Lead with the concrete thing, written like a scientist talking to scientists.
+  When in doubt, make it shorter and plainer.
 - A post that makes a claim (compliance, funding, performance) needs the user's
   sign-off before it goes out (same classifier rule as descriptions).
 - Drafting is fine to do proactively; SENDING is a publish action: show the draft,
