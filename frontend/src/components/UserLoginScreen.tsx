@@ -1426,12 +1426,13 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 Create New User
               </button>
 
-              {/* Sharing OAuth section. Shown when the device is online and no
-                  NextAuth session is active yet. Signing in here enables the
-                  sharing, inbox, and collaboration features; the notebook works
-                  fully without any account. Hidden during the password gate or
-                  the create-user form to keep those flows uncluttered. */}
-              {isOnline && (
+              {/* Sharing OAuth section. Shown only when the device is online AND
+                  OAuth publish is actually configured (NEXT_PUBLIC_SHARING_ENABLED).
+                  In dev / sharing-off builds OAuth is not wired, so these buttons
+                  would dead-end at /api/auth/error and the extra height shoved the
+                  card into the fixed beta notice + footer. Hidden there. The
+                  notebook works fully without any account regardless. */}
+              {isOnline && isOAuthPublishAvailable() && (
                 <div className="mt-6">
                   <div className="relative mb-4">
                     <div className="absolute inset-0 flex items-center">
