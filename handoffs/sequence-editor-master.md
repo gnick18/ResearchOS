@@ -194,10 +194,16 @@ all five docs are committed. Likely next moves, in priority order:
        `/search?keywords=<q>`; `/search` reads `?keywords=` once on mount, seeds
        its box, runs the search, strips the param. Additive, the only `/search`
        touch the feature needs. 2 new render tests, tsc clean, 71 tests green.
-     - CHUNK 4 (NEXT): the per-user `localStorage` Recent-records MRU (the
-       empty-query global section, the last ~5 globally-opened core records,
-       pushed on each global jump). Scoped in the decisions doc, decision 4. It is
-       the only thing the global source contributes to the EMPTY view.
+     - CHUNK 4 DONE + on `main` (commit `8c499fe38`): the per-user Recent-records
+       MRU. `recent-records.ts` (pure push/resolve/parse, cap 5, stores only
+       {type,key} refs re-resolved against the live index so rows stay fresh and
+       deleted records fall off), a per-user `localStorage` MRU in the provider
+       (key `beakerSearchRecent:<user>`), a "Recent records" group shown ONLY in
+       the empty-query view (the one thing the global source adds before you type).
+       13 + 2 tests, tsc clean, 84 tests green.
+     - GLOBAL OBJECT SEARCH v1 IS COMPLETE (all four chunks shipped). What is left
+       is the rest of the website-wide rollout, Step 3 (per-page sources) and
+       Step 4 (mouse-awareness), below.
    - Step 3, add page sources one at a time per the specs (Gantt, Calendar,
      Workbench, Purchases, Methods, Lab Overview, Links).
    - Step 4, app-wide mouse-awareness (`[data-beaker-target]` hover capture) last.
