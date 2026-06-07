@@ -108,6 +108,11 @@ export interface LivingPopupProps {
   /** Show the top-right close X. Set false when the child has its own close
    *  control (most big editors do). Default true. */
   showClose?: boolean;
+  /** Vertical placement of the card. "center" floats it in the middle (default,
+   *  every normal popup). "top" drops it from near the top of the viewport for a
+   *  command-palette feel (the parent-task picker, BeakerSearch-style pickers).
+   *  Horizontal placement is always centered. */
+  align?: "center" | "top";
   children: React.ReactNode;
 }
 
@@ -125,6 +130,7 @@ export default function LivingPopup({
   closeOnEscape = true,
   closeOnScrimClick = true,
   showClose = true,
+  align = "center",
   children,
 }: LivingPopupProps) {
   // mounted: in the DOM (stays true through the exit animation).
@@ -281,12 +287,20 @@ export default function LivingPopup({
           to content and the whole popup scrolls. The scrim shows through except
           on the card, so clicking outside closes (unless closeOnScrimClick). */}
       {fillHeight || selfSize ? (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-4">
+        <div
+          className={`pointer-events-none absolute inset-0 flex justify-center ${
+            align === "top" ? "items-start px-4 pt-[10vh]" : "items-center p-4"
+          }`}
+        >
           {cardEl}
         </div>
       ) : (
         <div className="pointer-events-none absolute inset-0 overflow-y-auto">
-          <div className="flex min-h-full flex-col items-center justify-center px-4 py-10">
+          <div
+            className={`flex min-h-full flex-col items-center px-4 ${
+              align === "top" ? "justify-start pt-[10vh] pb-10" : "justify-center py-10"
+            }`}
+          >
             {cardEl}
           </div>
         </div>

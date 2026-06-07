@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchAllProjectsIncludingShared } from "@/lib/local-api";
-import { usePopupLayer } from "@/lib/ui/popup-stack";
+import LivingPopup from "@/components/ui/LivingPopup";
 import type { Task, Project } from "@/lib/types";
 
 interface TaskPickerProps {
@@ -47,10 +47,6 @@ export default function TaskPicker({
   onSelect,
   onClose,
 }: TaskPickerProps) {
-  // Opens over the task/experiment detail popups, so blur AND dim only when
-  // bottom-most; stacked on top of a popup that already dims, paint neither, or
-  // the scrim double-darkens (Grant's popup-stack rule).
-  const { shouldBlur, shouldDim } = usePopupLayer(open, true);
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["projects"],
     queryFn: fetchAllProjectsIncludingShared,
@@ -208,21 +204,24 @@ export default function TaskPicker({
   };
 
   return (
-    <div
-      className={`fixed inset-0 z-[60] flex items-start justify-center pt-[10vh] px-4 ${
-        shouldDim ? "bg-black/30" : ""
-      } ${shouldBlur ? "backdrop-blur-sm" : ""}`}
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="task-picker"
-      onClick={onClose}
-      onKeyDown={handleKeyDown}
+    // align="top" keeps the command-palette drop-from-top placement; selfSize so
+    // the card's own max-w-2xl + 75vh sizing renders unchanged. The card owns the
+    // full keyboard model (arrows / Enter / Escape) via handleKeyDown, so
+    // LivingPopup's Escape is opted out. No blur: a list picker is a little popup.
+    <LivingPopup
+      open
+      onClose={onClose}
+      label={title || "Select a task"}
+      selfSize
+      align="top"
+      showClose={false}
+      closeOnEscape={false}
     >
       <div
-        className="w-full max-w-2xl bg-surface-raised rounded-xl shadow-2xl flex flex-col overflow-hidden"
+        className="pointer-events-auto w-full max-w-2xl bg-surface-raised rounded-xl shadow-2xl flex flex-col overflow-hidden"
         style={{ maxHeight: "75vh" }}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleKeyDown}
       >
         {title && (
           <div className="px-4 pt-3 pb-1 text-meta uppercase tracking-wide font-semibold text-foreground-muted">
@@ -359,6 +358,6 @@ export default function TaskPicker({
           </span>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }
