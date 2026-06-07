@@ -176,16 +176,19 @@ const MIN_FEATURE_PX = 3; // minimum drawn width for a tiny feature
 // (whole molecule); toggling it never shifts the surrounding layout.
 const NAV_SLOT_H = 44;
 
-const PRIMER_PINK = "#ec4899";
-const ENZYME_COLOR = "#475569";
-const ENZYME_HOVER = "#dc2626";
-const RULER_COLOR = "#cbd5e1";
-const RULER_TEXT = "#94a3b8";
-const STRAND_COLOR = "#94a3b8";
+// Colors are driven through the --seq-* CSS vars (globals.css) so the map flips
+// with data-theme. Light values match the pre-dark-mode hex exactly. SVG fill/
+// stroke accept var() directly.
+const PRIMER_PINK = "var(--seq-primer)";
+const ENZYME_COLOR = "var(--seq-enzyme)";
+const ENZYME_HOVER = "var(--seq-enzyme-hover)";
+const RULER_COLOR = "var(--seq-ruler-line)";
+const RULER_TEXT = "var(--seq-ruler-text)";
+const STRAND_COLOR = "var(--seq-strand)";
 // map select bot — red HOVER BRACKETS (preview the range a click will select) +
 // the translucent blue SELECTION BAND (the persisted, shared editor selection).
-const HOVER_BRACKET_RED = "#dc2626";
-const SELECTION_BLUE = "#0ea5e9"; // sky-500
+const HOVER_BRACKET_RED = "var(--seq-enzyme-hover)";
+const SELECTION_BLUE = "var(--seq-selection)";
 
 /** Estimate a label's pixel width from its text + font size (monospace-ish). */
 function estTextWidth(text: string, fontPx: number): number {
@@ -747,16 +750,16 @@ export default function LinearMap({
   if (!seqLength) return null;
 
   return (
-    <div className="relative flex h-full min-h-0 w-full flex-1 flex-col bg-white" aria-label="Linear map">
+    <div className="relative flex h-full min-h-0 w-full flex-1 flex-col bg-[var(--seq-bg)]" aria-label="Linear map">
       {/* ── compact zoom control row: -/+ buttons, log slider, readouts ── */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-slate-100 px-3 py-1.5 text-meta text-slate-500">
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5 text-meta text-foreground-muted">
         <Tooltip label="Zoom out">
           <button
             type="button"
             onClick={zoomOut}
             disabled={!canZoomOut}
             aria-label="Zoom out"
-            className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-6 w-6 items-center justify-center rounded border border-border text-foreground-muted hover:bg-surface-sunken disabled:cursor-not-allowed disabled:opacity-40"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
               <line x1="2.5" y1="6" x2="9.5" y2="6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -779,7 +782,7 @@ export default function LinearMap({
             onClick={zoomIn}
             disabled={!canZoomIn}
             aria-label="Zoom in"
-            className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-6 w-6 items-center justify-center rounded border border-border text-foreground-muted hover:bg-surface-sunken disabled:cursor-not-allowed disabled:opacity-40"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
               <line x1="2.5" y1="6" x2="9.5" y2="6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -787,15 +790,15 @@ export default function LinearMap({
             </svg>
           </button>
         </Tooltip>
-        <span className="ml-1 tabular-nums font-medium text-slate-600">{comma(winSpan)} bp</span>
-        <span className="tabular-nums text-slate-400">
+        <span className="ml-1 tabular-nums font-medium text-foreground-muted">{comma(winSpan)} bp</span>
+        <span className="tabular-nums text-foreground-muted">
           {comma(winStart + 1)} .. {comma(winEnd)}
         </span>
 
         {/* ── jog / shuttle wheel: FINE panning when zoomed in (map jog wheel
             bot). Inert at full zoom-out (nothing to pan). ── */}
-        <div className="ml-auto flex items-center gap-1.5 rounded-md bg-slate-50 px-2 py-1 ring-1 ring-slate-200">
-          <span className="text-meta font-semibold tracking-wide text-slate-600 uppercase">Scroll</span>
+        <div className="ml-auto flex items-center gap-1.5 rounded-md bg-surface-sunken px-2 py-1 ring-1 ring-border">
+          <span className="text-meta font-semibold tracking-wide text-foreground-muted uppercase">Scroll</span>
           <MapJogWheel onScrub={onJogScrub} disabled={!isZoomedIn} width={96} />
         </div>
       </div>
@@ -1063,7 +1066,7 @@ export default function LinearMap({
             // Skip features fully outside the visible window (their labels were
             // already filtered out of featureItems by the same predicate).
             if (!spanOverlapsWindow(lo, hi, winStart, winEnd)) return null;
-            const color = f.color || "#94a3b8";
+            const color = f.color || "var(--seq-strand)";
             const segs =
               f.segments && f.segments.length > 1
                 ? f.segments
@@ -1156,6 +1159,8 @@ export default function LinearMap({
                         key={si}
                         points={featureArrowPoints(x0, x1, featureRowY, f.direction)}
                         fill={color}
+                        stroke="var(--seq-feature-stroke)"
+                        strokeWidth={0.75}
                         opacity={0.92}
                       />
                     );
@@ -1169,6 +1174,8 @@ export default function LinearMap({
                       width={x1 - x0}
                       height={FEATURE_ARROW_H}
                       fill={color}
+                      stroke="var(--seq-feature-stroke)"
+                      strokeWidth={0.75}
                       opacity={0.92}
                     />
                   );
@@ -1190,7 +1197,7 @@ export default function LinearMap({
                   x={labelX}
                   y={labelTierY}
                   fontSize={FEATURE_LABEL_FONT}
-                  fill="#374151"
+                  fill="var(--seq-letter)"
                   textAnchor="middle"
                 >
                   {f.name || "feature"}
@@ -1210,15 +1217,15 @@ export default function LinearMap({
       {hoverFeature && hoverCard ? (
         <div
           role="tooltip"
-          className="pointer-events-none absolute z-30 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-lg"
+          className="pointer-events-none absolute z-30 rounded-md border border-border bg-surface-raised px-3 py-2 shadow-lg"
           style={{ left: hoverFeature.left, top: hoverFeature.top, width: CARD_W }}
         >
-          <div className="text-body font-semibold text-slate-800">{hoverCard.title}</div>
+          <div className="text-body font-semibold text-foreground">{hoverCard.title}</div>
           <div className="mt-1 space-y-0.5">
             {hoverCard.lines.map((line, li) => (
-              <div key={li} className="text-meta text-slate-600">
+              <div key={li} className="text-meta text-foreground-muted">
                 {line.label ? (
-                  <span className="font-medium text-slate-500">{line.label} </span>
+                  <span className="font-medium text-foreground-muted">{line.label} </span>
                 ) : null}
                 {line.value}
               </div>
@@ -1234,15 +1241,15 @@ export default function LinearMap({
       {hoverPrimer && primerCard ? (
         <div
           role="tooltip"
-          className="pointer-events-none absolute z-30 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-lg"
+          className="pointer-events-none absolute z-30 rounded-md border border-border bg-surface-raised px-3 py-2 shadow-lg"
           style={{ left: hoverPrimer.left, top: hoverPrimer.top, width: CARD_W }}
         >
-          <div className="text-body font-semibold text-slate-800">{primerCard.title}</div>
+          <div className="text-body font-semibold text-foreground">{primerCard.title}</div>
           <div className="mt-1 space-y-0.5">
             {primerCard.lines.map((line, li) => (
-              <div key={li} className="text-meta text-slate-600">
+              <div key={li} className="text-meta text-foreground-muted">
                 {line.label ? (
-                  <span className="font-medium text-slate-500">{line.label} </span>
+                  <span className="font-medium text-foreground-muted">{line.label} </span>
                 ) : null}
                 {line.value}
               </div>

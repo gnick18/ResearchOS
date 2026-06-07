@@ -42,12 +42,13 @@ interface IndexProps {
   seqFontSize?: number;
 }
 
-// State A measuring-tape contrast. Real slate, not the old 0.45-opacity wash:
-// per-base minor ticks are a medium slate, fives a touch darker, tens darkest.
-const TAPE_BASELINE = "#94a3b8";
-const TAPE_MINOR = "#94a3b8"; // every base
-const TAPE_FIVE = "#64748b"; // every 5
-const TAPE_TEN = "#334155"; // every 10 (also carries the numbers)
+// Measuring-tape contrast via theme vars (globals.css --seq-tape-*). Light values
+// match the original slate ramp exactly; dark inverts (faint -> near-white) so the
+// per-base/five/ten hierarchy still reads on the dark canvas.
+const TAPE_BASELINE = "var(--seq-strand)";
+const TAPE_MINOR = "var(--seq-tape-minor)"; // every base
+const TAPE_FIVE = "var(--seq-tape-five)"; // every 5
+const TAPE_TEN = "var(--seq-tape-ten)"; // every 10 (also carries the numbers)
 
 /**
  * Index is the single OWNED linear ruler (ruler redesign bot).
@@ -215,7 +216,7 @@ export default class Index extends React.PureComponent<IndexProps> {
         numbers.push(
           <React.Fragment key={`num-${i}`}>
             <rect
-              fill="#ffffff"
+              fill="var(--seq-bg)"
               height={halfH * 2}
               width={halfW * 2}
               x={cx - halfW}

@@ -415,6 +415,6 @@ const onCutSiteHover = (className: string, on = false) => {
   elements = document.getElementsByClassName(className) as HTMLCollectionOf<HTMLElement>;
   for (let i = 0; i < elements.length; i += 1) {
     elements[i].style.fillOpacity = on ? "0.25" : "0";
-    elements[i].style.stroke = on ? "black" : "rgb(115, 119, 125)";
+    elements[i].style.stroke = on ? "var(--seq-enzyme-hover)" : "var(--seq-enzyme)";
   }
 };

@@ -12,7 +12,7 @@ export const svgText: CSS.Properties = {
   MozUserSelect: "none",
   WebkitUserSelect: "none",
   background: "none",
-  fill: "rgb(42, 42, 42)",
+  fill: "var(--seq-letter)",
   fontFamily: "Roboto Mono, Monaco, monospace",
   msUserSelect: "none",
   userSelect: "none",
@@ -30,20 +30,20 @@ export const highlight: CSS.Properties = {
 };
 
 export const selection: CSS.Properties = {
-  fill: "rgb(222, 246, 255)",
+  fill: "var(--seq-selection-fill)",
   shapeRendering: "auto",
 };
 
 export const selectionEdge: CSS.Properties = {
-  fill: "black",
+  fill: "var(--seq-letter)",
   shapeRendering: "geometricPrecision",
-  stroke: "black",
+  stroke: "var(--seq-letter)",
 };
 
 export const cutSite: CSS.Properties = {
   fill: "transparent",
   shapeRendering: "auto",
-  stroke: "rgb(115, 119, 125)",
+  stroke: "var(--seq-enzyme)",
   strokeWidth: "1",
 };
 
@@ -52,27 +52,27 @@ export const cutSiteHighlight: CSS.Properties = {
   fill: "rgb(255, 251, 7)",
   fillOpacity: 0,
   shapeRendering: "auto",
-  stroke: "rgb(115, 119, 125)",
+  stroke: "var(--seq-enzyme)",
   strokeWidth: "1",
 };
 
 export const indexLine: CSS.Properties = {
   fill: "transparent",
   shapeRendering: "geometricPrecision",
-  stroke: "rgb(115, 119, 125)",
+  stroke: "var(--seq-ruler-text)",
   strokeWidth: "1",
 };
 
 export const indexTick: CSS.Properties = {
   fill: "transparent",
   shapeRendering: "geometricPrecision",
-  stroke: "rgb(115, 119, 125)",
+  stroke: "var(--seq-ruler-text)",
   strokeWidth: "1",
 };
 
 export const indexTickLabel: CSS.Properties = {
   ...svgText,
-  fill: "rgb(115, 119, 125)",
+  fill: "var(--seq-ruler-text)",
   fontSize: "12",
   fontWeight: 300,
   textRendering: "optimizeLegibility",
@@ -101,7 +101,8 @@ export const translationHandle: CSS.Properties = {
 
 export const translationHandleLabel: CSS.Properties = {
   ...svgText,
-  color: "rgb(42, 42, 42)",
+  fill: "var(--seq-translation)",
+  color: "var(--seq-translation)",
   fontSize: "9",
   fontWeight: 400,
   shapeRendering: "geometricPrecision",
@@ -111,7 +112,8 @@ export const translationHandleLabel: CSS.Properties = {
 
 export const translationAminoAcidLabel: CSS.Properties = {
   ...svgText,
-  color: "rgb(42, 42, 42)",
+  fill: "var(--seq-translation)",
+  color: "var(--seq-translation)",
   fontSize: "12",
   fontWeight: 400,
 };
@@ -135,7 +137,7 @@ export const circularLabelHover: CSS.Properties = {
 
 export const circularLabelLine: CSS.Properties = {
   fill: "none",
-  stroke: "rgb(158, 170, 184)",
+  stroke: "var(--seq-strand)",
   strokeWidth: "1",
 };
 

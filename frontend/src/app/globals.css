@@ -52,6 +52,32 @@
   --cm-list: #374151;
   --cm-meta: #9ca3af;
 
+  /* ── Sequence editor palette (custom SVG viewer) ─────────────────────────────
+   * The /sequences map + sequence views are custom SVG (no canvas), so fills are
+   * driven through these vars to flip with data-theme. Light values here are
+   * exactly the pre-dark-mode colors, so light mode is unchanged; dark overrides
+   * live in the [data-theme="dark"] block. --seq-feature-stroke is a hairline
+   * edge on every data-colored shape (dark edge in light, light edge in dark) so
+   * a feature/primer arrow's edges read regardless of how close its fill is to
+   * the background. */
+  --seq-bg: #ffffff; /* canvas background */
+  --seq-letter: #1f2937; /* DNA base letters */
+  --seq-letter-muted: #64748b; /* complement / dimmed strand */
+  --seq-strand: #94a3b8; /* backbone line */
+  --seq-ruler-line: #cbd5e1; /* ruler ticks/gridlines */
+  --seq-ruler-text: #94a3b8; /* ruler numbers */
+  --seq-translation: #374151; /* amino-acid letters */
+  --seq-selection: #0ea5e9; /* selection highlight (sky-500) */
+  --seq-enzyme: #475569; /* cut-site marks */
+  --seq-enzyme-hover: #dc2626; /* hovered cut / bracket red */
+  --seq-start: #dc2626; /* start-codon M + special markers */
+  --seq-primer: #ec4899; /* primer pink */
+  --seq-feature-stroke: rgba(15, 23, 42, 0.28); /* hairline edge on colored shapes */
+  --seq-selection-fill: rgb(222, 246, 255); /* fill behind selected bases */
+  --seq-tape-minor: #94a3b8; /* per-base ruler tick (faintest) */
+  --seq-tape-five: #64748b; /* every-5 tick (medium) */
+  --seq-tape-ten: #334155; /* every-10 tick + numbers (strongest) */
+
   /* ── Brand rainbow liquid (the most ownable visual) ──────────────────────────
    * The five BeakerBot liquid stops (peach, yellow, mint, sky, lavender), the
    * same gradient as the banner + avatars. Held as ready-made gradient values so
@@ -126,6 +152,25 @@
   --cm-list: #cbd5e1;
   --cm-meta: #94a3b8;
 
+  /* Sequence editor palette in dark (SnapGene-inspired, on our app surface). */
+  --seq-bg: #0a0e1a;
+  --seq-letter: #e8edf4;
+  --seq-letter-muted: #94a3b8;
+  --seq-strand: #94a3b8;
+  --seq-ruler-line: #334155;
+  --seq-ruler-text: #b4bfd0;
+  --seq-translation: #cbd5e1;
+  --seq-selection: #38bdf8;
+  --seq-enzyme: #94a3b8;
+  --seq-enzyme-hover: #f87171;
+  --seq-start: #f87171;
+  --seq-primer: #f472b6;
+  --seq-feature-stroke: rgba(255, 255, 255, 0.30);
+  --seq-selection-fill: rgba(56, 189, 248, 0.20);
+  --seq-tape-minor: #475569; /* faintest on dark */
+  --seq-tape-five: #94a3b8; /* medium */
+  --seq-tape-ten: #d7deea; /* strongest + numbers, near-white */
+
   /* Dark mode's rainbow signature is the vivid ramp, used as a low-opacity glow
    * rather than a fill. .brand-rainbow-bg picks this up automatically. */
   --brand-rainbow: var(--brand-rainbow-vivid);
@@ -159,6 +204,23 @@
   --cm-quote: #6b7280;
   --cm-list: #374151;
   --cm-meta: #9ca3af;
+  --seq-bg: #ffffff;
+  --seq-letter: #1f2937;
+  --seq-letter-muted: #64748b;
+  --seq-strand: #94a3b8;
+  --seq-ruler-line: #cbd5e1;
+  --seq-ruler-text: #94a3b8;
+  --seq-translation: #374151;
+  --seq-selection: #0ea5e9;
+  --seq-enzyme: #475569;
+  --seq-enzyme-hover: #dc2626;
+  --seq-start: #dc2626;
+  --seq-primer: #ec4899;
+  --seq-feature-stroke: rgba(15, 23, 42, 0.28);
+  --seq-selection-fill: rgb(222, 246, 255);
+  --seq-tape-minor: #94a3b8;
+  --seq-tape-five: #64748b;
+  --seq-tape-ten: #334155;
   --brand-rainbow: linear-gradient(
     90deg,
     #ffd2b0 0%,

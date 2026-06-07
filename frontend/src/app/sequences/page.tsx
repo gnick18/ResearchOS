@@ -1379,13 +1379,11 @@ export default function SequencesPage() {
           to document.body; renders only when importProgress is set with
           total > 1. Single-file imports use the inline status line below. */}
       <ImportProgressOverlay progress={importProgress} />
-      {/* Dark-mode Tier D (docs/proposals/dark-mode-toggle.md): the LEFT library
-          panel (the aside below) themes normally via semantic tokens. Only the
-          RIGHT editor surface is a light island: it is a heavily graphical
-          specialized tool (SeqViz maps, plasmid viewers, third-party canvases)
-          that does not cleanly re-theme, so `light-scope` force-locks just that
-          <section> to the light palette under the dark app shell. Revisit a
-          native dark sequence editor later. */}
+      {/* Dark mode: both the LEFT library panel and the RIGHT editor surface now
+          theme. The editor is custom SVG/DOM (no third-party canvas), so its map
+          + sequence views recolor via the --seq-* CSS vars (globals.css) and its
+          chrome via semantic tokens. light-scope is no longer applied here; it
+          stays available as a per-subsurface safety valve if any piece misbehaves. */}
       <div
         ref={splitContainerRef}
         /* Fill the AppShell `main` area (which already subtracts the header)
@@ -1950,7 +1948,7 @@ export default function SequencesPage() {
             one place (SnapGene / Benchling spirit). The /sequences route renders
             it editable (the user's own sequences); a read-only embed passes
             readOnly to the same component. */}
-        <section className="light-scope flex min-w-0 flex-1 flex-col rounded-lg border border-gray-200 bg-white">
+        <section className="flex min-w-0 flex-1 flex-col rounded-lg border border-border bg-surface-raised">
           {selected ? (
             <>
               {/* No editor title row. The open sequence's name, meta, organism,
