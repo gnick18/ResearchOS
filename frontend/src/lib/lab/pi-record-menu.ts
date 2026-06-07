@@ -66,6 +66,12 @@ export interface BuildPiRecordMenuArgs {
   /** The active user's account type. */
   accountType: AccountType | null | undefined;
   callbacks: PiMenuCallbacks;
+  /** Whether to include the leading "Edit as lab head" row. Default true, so the
+   *  Pass 1 list-row callers are unchanged. The detail-popup header callers pass
+   *  false because the record is ALREADY open there, so "Edit as lab head" would
+   *  be redundant and the menu should show only the role actions (assign / flag /
+   *  approve / decline). */
+  includeEditAsPi?: boolean;
 }
 
 /**
@@ -98,6 +104,7 @@ export function isPiViewingMemberRecord(
  */
 export function buildPiRecordMenuItems(args: BuildPiRecordMenuArgs): EditMenuItem[] {
   const { recordType, record, viewerUsername, accountType, callbacks } = args;
+  const includeEditAsPi = args.includeEditAsPi ?? true;
 
   if (!isPiViewingMemberRecord(accountType, viewerUsername, record.owner)) {
     return [];
@@ -106,13 +113,17 @@ export function buildPiRecordMenuItems(args: BuildPiRecordMenuArgs): EditMenuIte
   const items: EditMenuItem[] = [];
 
   // Shared across every record type: open in the popup (the Phase 1 gate runs
-  // there) and the flag-for-review toggle.
-  items.push({
-    id: "pi-edit-as-lab-head",
-    label: "Edit as lab head",
-    enabled: true,
-    onRun: callbacks.onEditAsPi,
-  });
+  // there) and the flag-for-review toggle. The popup-header callers drop the
+  // "Edit as lab head" row (includeEditAsPi=false) because the record is already
+  // open there; the flag toggle then leads the menu.
+  if (includeEditAsPi) {
+    items.push({
+      id: "pi-edit-as-lab-head",
+      label: "Edit as lab head",
+      enabled: true,
+      onRun: callbacks.onEditAsPi,
+    });
+  }
 
   if (record.flagged) {
     items.push({

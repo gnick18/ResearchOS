@@ -48,6 +48,7 @@ import FlagBanner from "./lab-head/FlagBanner";
 import PiEditButton from "./lab-head/PiEditButton";
 import PiEditConfirmDialog from "./lab-head/PiEditConfirmDialog";
 import PiEditAuditNote from "./lab-head/PiEditAuditNote";
+import PiActionsHeaderButton from "./lab-head/PiActionsHeaderButton";
 import { usePiEditGate } from "@/hooks/usePiEditGate";
 import SharingChips from "@/components/sharing/SharingChips";
 import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
@@ -1561,6 +1562,23 @@ export default function NoteDetailPopup({
               )}
               {piActive && (
                 <PiEditAuditNote memberName={note.username} className="mr-1" />
+              )}
+              {/* PI Phase 2 pass 2 (2026-06-07): consolidated "Lab head actions"
+                  kebab. Self-gates on isPiViewingMemberRecord (a lab head viewing
+                  a member's note), opens the shared PI menu (flag toggle) with
+                  "Edit as lab head" omitted since the note is already open. */}
+              {note.username && (
+                <PiActionsHeaderButton
+                  recordType="note"
+                  record={{
+                    owner: note.username,
+                    id: note.id,
+                    flagged: !!note.flagged,
+                  }}
+                  viewerUsername={currentUser}
+                  accountType={accountType}
+                  onEditAsPi={() => {}}
+                />
               )}
               {/* PI Phase 3 (PI Phase 3 manager, 2026-05-23):
                   Flag-for-review button. A lab head viewing a member's note

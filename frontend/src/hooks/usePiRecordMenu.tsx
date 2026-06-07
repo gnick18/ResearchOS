@@ -104,6 +104,10 @@ export interface PiRecordMenuArgs {
   /** Optional override for the assign flow (tasks). When omitted, the hook's
    *  built-in Assign modal is used. */
   onAssign?: () => void;
+  /** Whether to include the "Edit as lab head" row. Default true (Pass 1 list
+   *  rows). The detail-popup header callers pass false, since the record is
+   *  already open there, so the menu shows only the role actions. */
+  includeEditAsPi?: boolean;
 }
 
 export interface PiRecordMenuApi {
@@ -199,12 +203,13 @@ export function usePiRecordMenu(): PiRecordMenuApi {
 
   const buildItems = useCallback(
     (args: PiRecordMenuArgs): EditMenuItem[] => {
-      const { recordType, record, onEditAsPi, onAssign } = args;
+      const { recordType, record, onEditAsPi, onAssign, includeEditAsPi } = args;
       return buildPiRecordMenuItems({
         recordType,
         record,
         viewerUsername: currentUser,
         accountType,
+        includeEditAsPi,
         callbacks: {
           onEditAsPi,
           onFlag: () => void runFlag(recordType, record),
