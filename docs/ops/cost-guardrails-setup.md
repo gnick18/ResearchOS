@@ -88,8 +88,9 @@ budget.
 
 1. Sign in with your operator (ADMIN_EMAILS) account.
 2. Go to /admin/business.
-3. In the "Cost circuit breaker" panel, enter a Monthly budget (USD), suggest the
-   same total you used above, e.g. 50. Click "Save budget".
+3. In the "Cost circuit breaker" panel, enter a Monthly budget (USD). This caps
+   VARIABLE cost (storage + activity), not the fixed base, so keep it low and
+   below your Vercel cap, e.g. 20. Click "Save budget".
 4. Optional: click "Trip now (test)" to confirm cloud writes pause, then "Reset
    breaker" to clear it. (Local editing keeps working while tripped.)
 
@@ -106,7 +107,13 @@ automatically if the estimated cost ever reaches the budget; reset is manual.
 | Cloudflare usage alerts (alert only) | Cloudflare > Notifications | alert $10 / $25 |
 | Neon max compute + spend | Neon > project Settings | low ceiling, $10-15 |
 | Upstash monthly cap | Upstash > database settings | low cap |
-| In-app breaker budget (pauses writes) | /admin/business | ~$50 total |
+| In-app breaker budget (pauses writes) | /admin/business | ~$20 variable, below the Vercel cap |
 
 Do not skip the Vercel hard pause and the in-app breaker budget, together they
 are the real stop. The alerts are early warning.
+
+Note on the breaker number: the budget now guards VARIABLE cost (storage above
+free tiers + activity) only, not the fixed monthly base (Workers + Vercel). So
+set it LOW (e.g. $20) and BELOW the Vercel hard cap, so the graceful writes-only
+pause fires before Vercel takes the whole site offline. Current settings: Vercel
+$25 hard pause, breaker $20 variable.
