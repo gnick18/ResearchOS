@@ -57,8 +57,11 @@ export const TranslationRows = ({
         currentElementY += elementHeight * multiplier;
       }
       return (
+        // The row index `i` must be in the key: overlapping translations pack
+        // into multiple rows that all share `firstBase`, so keying on firstBase
+        // alone collides (the "two children with the same key i-0" flood).
         <TranslationRow
-          key={`i-${firstBase}`}
+          key={`i-${i}-${firstBase}`}
           bpsPerBlock={bpsPerBlock}
           charWidth={charWidth}
           elementHeight={elementHeight}
