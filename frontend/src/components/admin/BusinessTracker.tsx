@@ -27,7 +27,7 @@ import {
   type LedgerDirection,
   type LedgerEntry,
 } from "@/lib/business/calc";
-import { INFRA_TIERS, INFRA_TIERS_CHECKED } from "@/lib/business/infra-tiers";
+import { INFRA_TIERS, INFRA_TIERS_CHECKED, INFRA_TIERS_NOTE } from "@/lib/business/infra-tiers";
 import type { InfraCostEstimate } from "@/lib/sharing/capacity-shared";
 
 interface BusinessData {
@@ -950,6 +950,9 @@ export default function BusinessTracker() {
           </table>
         </div>
       </div>
+      <p className="mt-2 rounded-xl border border-border bg-surface-sunken px-4 py-3 text-meta text-foreground-muted leading-relaxed">
+        {INFRA_TIERS_NOTE}
+      </p>
 
       <SectionTitle>Entity facts</SectionTitle>
       <EntityCard entity={entity} onSave={saveEntity} />

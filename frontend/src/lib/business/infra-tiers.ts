@@ -5,9 +5,19 @@
 // limits change, so the page labels this "verify current pricing" and carries
 // the date these were checked. Update here in one place.
 //
+// Reflects the storage migration OFF Neon and onto Cloudflare (D1 + Durable
+// Objects + R2). Neon's $0.35/GB-month storage is being retired.
+//
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
-export const INFRA_TIERS_CHECKED = "2026-06-05";
+export const INFRA_TIERS_CHECKED = "2026-06-06";
+
+/** Why the stack looks Cloudflare-heavy now, shown under the table. */
+export const INFRA_TIERS_NOTE =
+  "Durable data is migrating off Neon onto Cloudflare (collab docs to Durable " +
+  "Objects, directory/metadata to D1, files to R2), so Neon's $0.35/GB-month " +
+  "storage cost is being retired. Cloudflare storage is far cheaper, R2 file " +
+  "storage is about $0.015/GB-month with free egress.";
 
 export interface InfraTier {
   service: string;
@@ -33,18 +43,32 @@ export const INFRA_TIERS: InfraTier[] = [
     actionNow: true,
   },
   {
-    service: "Neon (Postgres)",
-    role: "Collab docs, directory, relay + billing metadata",
-    free: "0.5 GB storage, 100 compute-hours / month",
-    paid: "Launch, pay-as-you-go, $5/mo minimum. Storage $0.35/GB-month, compute $0.14/CU-hour",
-    upgradeWhen: "Past 0.5 GB stored or 100 compute-hours in a month",
+    service: "Cloudflare Workers (Paid)",
+    role: "Compute base for the data layer (Workers, D1, Durable Objects)",
+    free: "Generous free tier; production needs the paid plan",
+    paid: "$5 / month base, unlocks the large D1 / Durable Objects / Workers allowances",
+    upgradeWhen: "Once D1 or Durable Objects usage passes the free tier, or for production headroom",
+  },
+  {
+    service: "Cloudflare Durable Objects",
+    role: "Real-time collab docs + their SQLite storage",
+    free: "5 GB SQLite storage",
+    paid: "$0.20/GB-month storage, plus $0.15/M requests and $12.50/M GB-s duration",
+    upgradeWhen: "Past 5 GB of collab storage (notes are tiny, so this is far off)",
+  },
+  {
+    service: "Cloudflare D1",
+    role: "Directory + relational metadata (SQLite)",
+    free: "5 GB storage, ~150M row reads + ~3M row writes / month",
+    paid: "$0.75/GB-month storage, reads $0.001/M rows, writes $1.00/M rows",
+    upgradeWhen: "Past 5 GB or the free read/write limits",
   },
   {
     service: "Cloudflare R2",
-    role: "Encrypted file bundles (relay + future durable storage)",
-    free: "10 GB storage, ample operations, egress always free",
-    paid: "About $0.015 / GB-month storage, operations per million, egress stays free",
-    upgradeWhen: "Past 10 GB stored",
+    role: "Encrypted file bundles + durable file storage",
+    free: "10 GB storage, egress always free",
+    paid: "About $0.015/GB-month storage, operations per million, egress stays free",
+    upgradeWhen: "Past 10 GB stored (this is where paid storage blocks land)",
   },
   {
     service: "Upstash Redis",
