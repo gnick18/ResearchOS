@@ -75,6 +75,12 @@ export default function ColorPickerRows({
   );
 
   const handlePickPrimary = async (c: string) => {
+    // Rainbow is a full 5-stop, so a secondary is meaningless. Picking a rainbow
+    // clears any existing secondary and the secondary row hides below.
+    if (RAINBOW_SENTINELS.has(c)) {
+      await update({ color: c, colorSecondary: null });
+      return;
+    }
     let nextSecondary: string | null = secondary;
     if (
       nextSecondary &&
@@ -163,6 +169,9 @@ export default function ColorPickerRows({
         </div>
       </div>
 
+      {/* Rainbow is always the full 5-stop, so a secondary color is meaningless.
+          Hide the whole secondary row when a rainbow is the primary. */}
+      {!RAINBOW_SENTINELS.has(primary) && (
       <div>
         <div className="flex items-center justify-between mb-2">
           <label className="block text-meta font-medium text-gray-700">
@@ -221,6 +230,7 @@ export default function ColorPickerRows({
           blue-to-green and green-to-blue count as the same combo.
         </p>
       </div>
+      )}
     </>
   );
 }

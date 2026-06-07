@@ -102,9 +102,11 @@ export default function TelegramHeaderButton({
       ? `Telegram needs attention. Open to fix (@${pairing.botUsername}).`
       : `Telegram connected as @${pairing.botUsername}`;
 
+  // Match the Help / Trash header buttons: a persistent translucent-white circle
+  // on a tinted header, a neutral hover circle on a plain/dark header.
   const buttonClass = tinted
-    ? "text-white/90 hover:text-white hover:bg-white/15"
-    : "text-foreground-muted hover:text-foreground hover:bg-foreground-muted/10";
+    ? "bg-white/75 text-gray-700 hover:bg-white shadow-sm"
+    : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken";
 
   return (
     <Tooltip label={open ? "" : tooltip} placement="bottom">
@@ -118,7 +120,7 @@ export default function TelegramHeaderButton({
         <PaperPlaneIcon className="h-4 w-4" />
         <span
           className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ${
-            tinted ? "ring-[color:var(--header-tint,#2563eb)]" : "ring-surface"
+            tinted ? "ring-white" : "ring-surface"
           } ${dotClass}`}
           aria-hidden="true"
         />

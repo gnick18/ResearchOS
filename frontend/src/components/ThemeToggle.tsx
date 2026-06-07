@@ -24,7 +24,7 @@ export default function ThemeToggle({ tinted = false }: { tinted?: boolean }) {
         data-testid="theme-toggle"
         className={
           tinted
-            ? "p-1.5 rounded-full text-white/80 transition-colors hover:bg-white/15 hover:text-white"
+            ? "p-1.5 rounded-full bg-white/75 text-gray-700 shadow-sm transition-colors hover:bg-white"
             : "p-1.5 rounded-full text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
         }
       >
