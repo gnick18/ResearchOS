@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { subscribeMigrationsApplied } from "@/lib/migrations/migration-toast-bus";
+import { Icon } from "@/components/icons";
 
 /**
  * The quiet "Updated N files to the latest format" toast for the background data
@@ -29,20 +30,7 @@ export default function MigrationToast() {
     <div className="fixed bottom-6 left-6 z-[115] max-w-sm pointer-events-none">
       <div className="pointer-events-auto flex items-center gap-2.5 rounded-xl border border-border bg-surface-raised px-3.5 py-2.5 shadow-lg">
         <span aria-hidden className="text-emerald-600 dark:text-emerald-400">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-            <polyline points="22 4 12 14.01 9 11.01" />
-          </svg>
+          <Icon name="check" className="h-4 w-4" />
         </span>
         <p className="text-meta text-foreground">
           Updated {changed} {changed === 1 ? "file" : "files"} to the latest
