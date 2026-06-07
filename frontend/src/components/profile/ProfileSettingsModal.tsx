@@ -21,7 +21,7 @@ export default function ProfileSettingsModal() {
       origin={origin}
       onClose={close}
       label="Profile settings"
-      widthClassName="max-w-2xl"
+      widthClassName="max-w-5xl"
       padded
       blur
     >
