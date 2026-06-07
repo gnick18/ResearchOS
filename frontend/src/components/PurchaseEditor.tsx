@@ -25,6 +25,10 @@ import PurchaseOrderStatusControl from "@/components/PurchaseOrderStatusControl"
 import BuyAgainButton from "@/components/BuyAgainButton";
 import Tooltip from "@/components/Tooltip";
 import { Icon } from "@/components/icons";
+import PiEditConfirmDialog from "@/components/lab-head/PiEditConfirmDialog";
+import PiEditAuditNote from "@/components/lab-head/PiEditAuditNote";
+import { usePiEditGate } from "@/hooks/usePiEditGate";
+import { savePiRecordEdit } from "@/lib/lab/pi-record-edit";
 import { normalizeOrderStatus } from "@/lib/types";
 import type { CatalogItem, PurchaseItem, Task } from "@/lib/types";
 
@@ -271,6 +275,31 @@ export default function PurchaseEditor({
     username: currentUser,
   });
 
+  // PI capability revamp Phase 1 (2026-06-07): the role-based PI edit gate for
+  // the actively-edited purchase row. A lab head viewing a MEMBER's purchase
+  // order edits a row inline like their own data, behind one once-per-session
+  // confirm; the save then routes to the owner's folder + the lab audit trail
+  // (see handleSaveEdit). The gate is scoped to the open row (editingItemId);
+  // purchase items have no ACL of their own, so the share check uses the parent
+  // task's shared_with. propReadOnly carries the existing writesDisabled flag,
+  // so a non-PI / own-record / shared-into-me view behaves exactly as before.
+  // The item the PI is about to edit (clicked) or is editing. The gate is keyed
+  // to this id so the once-per-session confirm is remembered per purchase item.
+  // Rows edit one at a time, so a single gate scoped to this id is enough.
+  const [pendingPiItemId, setPendingPiItemId] = useState<number | null>(null);
+  const gateItemId = editingItemId ?? pendingPiItemId ?? 0;
+  const purchaseOwner = username ?? gateCurrentUser ?? null;
+  const piGate = usePiEditGate({
+    owner: purchaseOwner,
+    sharedWith: parentTask?.shared_with ?? [],
+    recordType: "purchase",
+    recordId: gateItemId,
+    propReadOnly: writesDisabled,
+  });
+  // A PI editing a member's purchase row stays read-only until they cross the
+  // confirm; everyone else keeps the standard writesDisabled flag.
+  const piActive = piGate.isPiEdit && piGate.confirmed;
+
   const { data: autocompleteItems = [] } = useQuery({
     queryKey: ["purchases-all", currentUser],
     queryFn: () => purchasesApi.listAllIncludingShared(currentUser),
@@ -381,10 +410,47 @@ export default function PurchaseEditor({
     setEditSelectedCatalogItem(null);
   }, []);
 
+  // Row click. The normal (non-PI) path opens the editor directly when writes
+  // are allowed. A lab head on a member's row instead crosses the once-per-
+  // session confirm: the first click on a not-yet-confirmed item points the
+  // gate at this item and opens the are-you-sure dialog (the actual editor
+  // opens from the dialog's onConfirm, below). Once confirmed, clicks open the
+  // editor directly. This is the only path that lets a PI edit a member's row
+  // while writesDisabled (lab read-only) is true.
+  const handleRowClick = useCallback(
+    (item: PurchaseItem) => {
+      if (piGate.isPiEdit) {
+        if (!piGate.confirmed) {
+          setPendingPiItemId(item.id);
+          piGate.beginEdit();
+          return;
+        }
+        handleStartEdit(item);
+        return;
+      }
+      if (!writesDisabled) handleStartEdit(item);
+    },
+    [piGate, writesDisabled, handleStartEdit],
+  );
+
+  // After the PI confirms the are-you-sure, mark the gate confirmed and open the
+  // editor for the pending item.
+  const handlePiConfirm = useCallback(() => {
+    piGate.confirmEdit();
+    const item = items.find((i) => i.id === pendingPiItemId);
+    if (item) handleStartEdit(item);
+  }, [piGate, items, pendingPiItemId, handleStartEdit]);
+
+  const handlePiCancel = useCallback(() => {
+    piGate.cancelEdit();
+    setPendingPiItemId(null);
+  }, [piGate]);
+
   const handleCancelEdit = useCallback(() => {
     setEditingItemId(null);
     setEditingRow({ ...EMPTY_ROW });
     setEditSelectedCatalogItem(null);
+    setPendingPiItemId(null);
   }, []);
 
   const handleEditFieldChange = useCallback(
@@ -438,30 +504,62 @@ export default function PurchaseEditor({
         vendor: editingRow.vendor.trim() || null,
         category: editingRow.category.trim() || null,
       };
-      // Purchase items on Loro (docs/proposals/PURCHASE_LORO.md) chunk 3 =
-      // WRITE routing. When PURCHASE_LORO_ENABLED, the save lands in the Loro
-      // doc (the same cached handle this row already has open from chunk 2),
-      // which persists the .loro sidecar AND the .json mirror and fans the
-      // change out over the relay. The mirror is byte-identical to what the
-      // legacy .update wrote, so every legacy reader stays correct. Flag off,
-      // it falls through to the existing owner-scoped purchasesApi.update
-      // EXACTLY as before. rowLoroOwner is the folder the items live under
+
+      // The persistence closure, shared by the normal and the PI-edit paths so
+      // the two write IDENTICAL bytes. Purchase items on Loro
+      // (docs/proposals/PURCHASE_LORO.md) chunk 3 = WRITE routing. When
+      // PURCHASE_LORO_ENABLED, the save lands in the Loro doc (the same cached
+      // handle this row already has open from chunk 2), which persists the
+      // .loro sidecar AND the .json mirror and fans the change out over the
+      // relay. The mirror is byte-identical to what the legacy .update wrote,
+      // so every legacy reader stays correct. Flag off, it falls through to
+      // purchasesApi.update. rowLoroOwner is the folder the items live under
       // (the lab-mode `username` when present, else the current user), the same
-      // owner chunk 2 opened the read handle against.
-      if (PURCHASE_LORO_ENABLED) {
-        await writePurchaseUpdateThroughLoro(
-          rowLoroOwner,
-          editingItemId,
-          newPayload,
-          currentUser,
-        );
+      // owner chunk 2 opened the read handle against, and the same owner the PI
+      // audit + write must target.
+      const writePurchase = () => {
+        if (PURCHASE_LORO_ENABLED) {
+          return writePurchaseUpdateThroughLoro(
+            rowLoroOwner,
+            editingItemId,
+            newPayload,
+            currentUser,
+          );
+        }
+        // PI edits route the legacy write to the OWNER's folder; the non-PI
+        // path keeps the current-user-scoped call (no owner arg) unchanged.
+        return piActive && purchaseOwner
+          ? purchasesApi.update(editingItemId, newPayload, purchaseOwner)
+          : purchasesApi.update(editingItemId, newPayload);
+      };
+
+      // PI capability revamp Phase 1: a lab head editing a member's row routes
+      // the save through savePiRecordEdit so every changed field lands in the
+      // owner's _pi_audit.json, attributed to the PI. The dataWrite is the SAME
+      // persistence the non-PI path uses, so behavior is identical except for
+      // the audit trail. The diff is computed against the row's pre-edit values
+      // (the live item) vs the payload being written. Own-record / non-PI saves
+      // (piActive false) keep the plain write below, completely unaudited.
+      if (piActive && purchaseOwner && currentUser) {
+        const beforeItem = items.find((i) => i.id === editingItemId);
+        await savePiRecordEdit({
+          targetOwner: purchaseOwner,
+          actor: currentUser,
+          recordType: "purchase",
+          recordId: editingItemId,
+          fieldPaths: Object.keys(newPayload),
+          oldRecord: (beforeItem ?? {}) as unknown as Record<string, unknown>,
+          newRecord: newPayload as unknown as Record<string, unknown>,
+          dataWrite: writePurchase,
+        });
       } else {
-        await purchasesApi.update(editingItemId, newPayload);
+        await writePurchase();
       }
 
       setEditingItemId(null);
       setEditingRow({ ...EMPTY_ROW });
       setEditSelectedCatalogItem(null);
+      setPendingPiItemId(null);
       refetch();
       await queryClient.refetchQueries({ queryKey: ["purchases-all"] });
       await queryClient.refetchQueries({ queryKey: ["funding-accounts"] });
@@ -478,6 +576,9 @@ export default function PurchaseEditor({
     purchasesApi,
     rowLoroOwner,
     currentUser,
+    piActive,
+    purchaseOwner,
+    items,
   ]);
 
   const handleFieldChange = useCallback(
@@ -900,12 +1001,18 @@ export default function PurchaseEditor({
                       className="w-full px-2 py-1 border border-amber-300 rounded text-body focus:outline-none focus:ring-1 focus:ring-amber-400"
                     />
                   </td>
-                  {/* Empty assignee + order-status + PI-status cells to keep
-                      columns aligned in edit mode — assign / advance status /
-                      approve actions aren't surfaced mid-edit. */}
+                  {/* Empty assignee + order-status cells to keep columns
+                      aligned in edit mode — assign / advance status actions
+                      aren't surfaced mid-edit. The PI-status cell carries the
+                      inline "editing as lab head" audit note when a lab head is
+                      editing this member's row. */}
                   <td className="py-2 px-2" />
                   <td className="py-2 px-2" />
-                  <td className="py-2 px-2" />
+                  <td className="py-2 px-2">
+                    {piActive && (
+                      <PiEditAuditNote memberName={purchaseOwner} />
+                    )}
+                  </td>
                   <td className="py-2 px-1 flex items-center gap-1">
                     {/* Purchase items on Loro chunk 4: quiet live-presence
                         indicator. Renders only when a REMOTE peer is editing
@@ -938,8 +1045,12 @@ export default function PurchaseEditor({
                 // View mode row
                 <tr
                   key={item.id}
-                  className={`border-b border-border ${!writesDisabled ? "hover:bg-surface-sunken cursor-pointer" : ""}`}
-                  onClick={!writesDisabled ? () => handleStartEdit(item) : undefined}
+                  className={`border-b border-border ${!writesDisabled || piGate.isPiEdit ? "hover:bg-surface-sunken cursor-pointer" : ""}`}
+                  onClick={
+                    !writesDisabled || piGate.isPiEdit
+                      ? () => handleRowClick(item)
+                      : undefined
+                  }
                 >
                   <td className="py-2 px-2 text-foreground">{item.item_name}</td>
                   <td className="py-2 px-2 text-foreground">{item.quantity}</td>
@@ -1386,6 +1497,20 @@ export default function PurchaseEditor({
           }}
         />
       )}
+
+      {/* PI capability revamp Phase 1 (2026-06-07): the once-per-session
+          are-you-sure a lab head crosses before editing a member's purchase
+          row. Opens from handleRowClick on the first edit of a not-yet-
+          confirmed item; onConfirm marks the gate confirmed AND opens the
+          editor for the pending item. Only ever rendered/open for a PI on a
+          member's record. */}
+      <PiEditConfirmDialog
+        open={piGate.confirmDialogOpen}
+        memberName={purchaseOwner}
+        recordLabel="purchase item"
+        onConfirm={handlePiConfirm}
+        onCancel={handlePiCancel}
+      />
     </div>
   );
 }
