@@ -136,6 +136,7 @@ export default function ImageAnnotatorModal({
   // fit-scale). The image is drawn at content (0,0) sized `stageSize`, and the
   // stage `view` transform (zoom + pan) places + scales that content inside the
   // viewport, so zooming/panning never resizes the shapes' own geometry.
+  const rootRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
@@ -273,7 +274,10 @@ export default function ImageAnnotatorModal({
   // BLOCKS the browser's native page zoom; a plain two-finger scroll pans. Konva's
   // onWheel can be passive, so we bind the raw listener on the container instead.
   useEffect(() => {
-    const el = containerRef.current;
+    // Bind to the ROOT overlay (not just the stage container) so a pinch over
+    // the floating tool panels is captured too; otherwise the browser does a
+    // native page zoom there and the panels shift off-screen.
+    const el = rootRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -290,7 +294,10 @@ export default function ImageAnnotatorModal({
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [zoomToPoint]);
+    // `mounted` is in the deps so this re-runs once the root div is actually in
+    // the DOM (the component returns null until mounted), otherwise rootRef is
+    // null on the first run and the listener never attaches.
+  }, [zoomToPoint, mounted]);
 
   // --- History helpers -----------------------------------------------------
   const commit = useCallback((next: AnnotationShape[]) => {
@@ -677,6 +684,7 @@ export default function ImageAnnotatorModal({
 
   return (
     <div
+      ref={rootRef}
       className={`fixed inset-0 z-[450] bg-slate-900/40 ${
         shouldBlur ? "backdrop-blur-md" : ""
       }`}
