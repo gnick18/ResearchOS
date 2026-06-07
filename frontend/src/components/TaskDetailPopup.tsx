@@ -1621,20 +1621,20 @@ export default function TaskDetailPopup({
                     piActor={piActive && currentUser ? currentUser : undefined}
                   />
                 )}
-                {/* PI capability revamp: these tabs (separate files, own tasksApi)
-                    are not yet PI-routed, so keep them read-only during a PI edit
-                    to avoid misrouting a write to the PI's folder. DetailsTab +
-                    sub-tasks are the editable surface for now; threading these is
-                    a follow-up. */}
-                {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly || piActive || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} />}
+                {/* PI capability revamp: a confirmed PI edit makes these tabs
+                    editable too. LabNotes/Results route to the member via their
+                    Loro doc owner (task.owner) + the legacyOwner fallback, and
+                    MethodTabs routes + audits via piActor. */}
+                {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} />}
                 {activeTab === "method" && (
                   <MethodTabs
                     task={task}
                     onTaskUpdate={(updatedTask) => setTask(updatedTask)}
-                    readOnly={readOnly || piActive}
+                    readOnly={readOnly}
+                    piActor={piActive && currentUser ? currentUser : undefined}
                   />
                 )}
-                {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly || piActive || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} />}
+                {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} />}
                 {activeTab === "purchases" && (
                   <PurchaseEditor
                     taskId={task.id}
