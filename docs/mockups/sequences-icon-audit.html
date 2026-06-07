@@ -132,7 +132,7 @@
       </div>
       <div class="name">Undo <code>IconUndo</code></div>
       <div class="row"><b>Label:</b> "Undo" / tooltip "Undo (Cmd+Z)"</div>
-      <div class="means">Step the document back one edit. Left-curving return arrow.</div>
+      <div class="means">Means: undo the last edit, stepping the document back one change. The glyph is an arrow that curves down and to the left and doubles back, the classic "go back" return arrow.</div>
     </div>
 
     <div class="card">
@@ -142,7 +142,7 @@
       </div>
       <div class="name">Redo <code>IconRedo</code></div>
       <div class="row"><b>Label:</b> "Redo" / tooltip "Redo (Cmd+Shift+Z)"</div>
-      <div class="means">Step the document forward one edit. Right-curving return arrow (mirror of Undo).</div>
+      <div class="means">Means: redo the edit that was just undone, stepping the document forward one change. The glyph is the mirror of Undo, an arrow that curves down and to the right and doubles back.</div>
     </div>
 
     <div class="card">
@@ -152,7 +152,7 @@
       </div>
       <div class="name">Copy <code>IconCopy</code></div>
       <div class="row"><b>Label:</b> "Copy" split button / tooltip "Copy (Cmd+C)"</div>
-      <div class="means">Copy the selected bases. Two overlapping sheets.</div>
+      <div class="means">Means: copy the selected bases (or the whole sequence) to the clipboard. The glyph is two overlapping rounded squares, the universal "duplicate to clipboard" pair of sheets.</div>
       <span class="collide">looks like: ActionGlyphs.copy (inspector), IconDuplicate (primer dialog) — same two-sheets shape</span>
     </div>
 
@@ -163,7 +163,7 @@
       </div>
       <div class="name">Cut <code>IconCut</code></div>
       <div class="row"><b>Label:</b> "Cut" / tooltip "Cut (Cmd+X)"</div>
-      <div class="means">Remove the selected bases to the clipboard. Open scissors.</div>
+      <div class="means">Means: cut the selected bases out of the sequence and onto the clipboard. The glyph is a pair of open scissors, two finger-loops with crossing blades, the editing "cut" metaphor.</div>
       <span class="collide">looks like: IconEnzymes (Show strip "Enzyme sites") — both are scissors; nearly identical paths</span>
     </div>
 
@@ -174,7 +174,7 @@
       </div>
       <div class="name">Paste <code>IconPasteTool</code></div>
       <div class="row"><b>Label:</b> "Paste" / tooltip "Paste annotated sequence (Cmd+V)"</div>
-      <div class="means">Insert clipboard bases at the caret. Clipboard tool.</div>
+      <div class="means">Means: paste the clipboard contents (an annotated sequence) in at the cursor. The glyph is a clipboard, a board with a small clip tab at the top, the "what you paste from" surface.</div>
       <span class="collide">looks like: ActionGlyphs.paste (inspector) — a different clipboard glyph for the same idea</span>
     </div>
 
@@ -185,7 +185,7 @@
       </div>
       <div class="name">Save <code>IconSave</code></div>
       <div class="row"><b>Label:</b> "Save" / "Saving…" / "Saved" / tooltip "Save (Cmd+S)"</div>
-      <div class="means">Write the edited document to disk. Floppy disk.</div>
+      <div class="means">Means: write the edited sequence back to the file on disk (cycling through Save, Saving, Saved). The glyph is a floppy disk, a square with a label flap and a write-protect notch, the legacy "save" symbol.</div>
     </div>
 
     <div class="card">
@@ -195,7 +195,7 @@
       </div>
       <div class="name">Split-copy caret <code>Chevron</code> (SequenceEditMenu)</div>
       <div class="row"><b>Label:</b> none. The caret on the right half of the Copy split button (and on the menu dropdowns).</div>
-      <div class="means">Open the full copy family menu (bottom strand, amino acids, FASTA, map image). Down chevron.</div>
+      <div class="means">Means: open the rest of the copy family (bottom strand, amino acids, FASTA, map image) as a dropdown. The glyph is a downward chevron, a "V" pointing down, the standard "more below / open menu" disclosure mark.</div>
       <span class="collide">looks like: ChevronDownIcon (Import), IconCaret (Show strip), Chevron (Export), CaretIcon (lineage) — five separate down-chevron defs</span>
     </div>
 
@@ -215,7 +215,7 @@
       </div>
       <div class="name">Primers <code>RailIcons.primers</code></div>
       <div class="row"><b>Label:</b> "Primers"</div>
-      <div class="means">Primer design / check tools. A line with a forward arrowhead (an oligo annealing 5' to 3').</div>
+      <div class="means">Means: open the primer design and check tools. The glyph is a short horizontal line ending in a forward arrowhead, meant to read as a single oligo annealed to a strand and pointing 5-prime to 3-prime.</div>
       <span class="collide">looks like: IconPrimers (View tabs), IconOrfs (Show strip) — all arrow-on-a-line glyphs</span>
     </div>
 
@@ -226,7 +226,7 @@
       </div>
       <div class="name">Cloning <code>RailIcons.cloning</code></div>
       <div class="row"><b>Label:</b> "Cloning"</div>
-      <div class="means">Assembly / cloning chemistries. Two circles joined by a link.</div>
+      <div class="means">Means: open the assembly and cloning chemistries (Gibson, Golden Gate, Gateway and friends). The glyph is two small circles joined by a short diagonal link, meant to read as two fragments being joined into one construct.</div>
       <span class="collide">looks like: RailIcons.tree / ActionGlyphs.tree / lineage TreeGlyph — all "circles joined by lines" three-or-two-node shapes</span>
     </div>
 
@@ -237,7 +237,7 @@
       </div>
       <div class="name">Cut (rail) <code>RailIcons.cut</code></div>
       <div class="row"><b>Label:</b> "Cut" (restriction-enzyme panel)</div>
-      <div class="means">Restriction digest tools. Scissors (closed X blades).</div>
+      <div class="means">Means: open the restriction-enzyme digest tools (where enzymes cut). The glyph is a pair of closed scissors, two finger-loops with the blades crossed into an X, the "cut here" metaphor applied to enzyme cut sites.</div>
       <span class="collide">looks like: IconCut (top bar), IconEnzymes (Show strip) — three scissors glyphs for two different meanings (edit-cut vs enzyme-cut)</span>
     </div>
 
@@ -248,7 +248,7 @@
       </div>
       <div class="name">Annotate <code>RailIcons.annotate</code></div>
       <div class="row"><b>Label:</b> "Annotate"</div>
-      <div class="means">Add / detect features. A bare checkmark.</div>
+      <div class="means">Means: add or auto-detect features (annotate the sequence with known parts). The glyph is a bare checkmark, which reads as "done" or "confirm" rather than "annotate", so the drawing fights the meaning.</div>
       <span class="collide">looks like: ActionGlyphs.check, the toast success check — a plain check that reads as "done", not "annotate"</span>
     </div>
 
@@ -259,7 +259,7 @@
       </div>
       <div class="name">Align <code>RailIcons.align</code></div>
       <div class="row"><b>Label:</b> "Align"</div>
-      <div class="means">Compare / align sequences. Three ragged-length lines (like left-aligned text rows).</div>
+      <div class="means">Means: compare and align two or more sequences. The glyph is three stacked horizontal lines of ragged length, meant to read as aligned rows of bases stacked one over another.</div>
       <span class="collide">looks like: ActionGlyphs.list, ActionGlyphs.align (identical path), IconWrapped (Show strip) — four near-identical "stacked lines" glyphs</span>
     </div>
 
@@ -270,7 +270,7 @@
       </div>
       <div class="name">Protein <code>RailIcons.protein</code></div>
       <div class="row"><b>Label:</b> "Protein"</div>
-      <div class="means">Protein properties of a coding feature. Two crossing curves (an X of helices).</div>
+      <div class="means">Means: open the protein properties of a coding feature (the translated product). The glyph is two crossing S-curves forming an X, meant to suggest a pair of protein helix ribbons.</div>
       <span class="collide">looks like: ActionGlyphs.protein (identical path)</span>
     </div>
 
@@ -281,7 +281,7 @@
       </div>
       <div class="name">Tree <code>RailIcons.tree</code></div>
       <div class="row"><b>Label:</b> "Tree" (taxonomy / lineage)</div>
-      <div class="means">Tree of life / taxonomy explorer. Three nodes joined (two on the left, one on the right).</div>
+      <div class="means">Means: open the taxonomy / tree-of-life explorer for the sequence's organism. The glyph is three small nodes joined by branches (two on the left feeding one on the right), meant to read as a phylogenetic tree.</div>
       <span class="collide">looks like: ActionGlyphs.tree (identical), lineage TreeGlyph, list-row organism glyph, RailIcons.cloning — the most-reused node-graph shape</span>
     </div>
 
@@ -292,7 +292,7 @@
       </div>
       <div class="name">Export <code>RailIcons.export</code></div>
       <div class="row"><b>Label:</b> "Export"</div>
-      <div class="means">Save the sequence out as a file. Down arrow onto a baseline.</div>
+      <div class="means">Means: export the sequence out to a file (GenBank, FASTA, image and so on). The glyph is a downward arrow landing on a short baseline, the standard "download / save out" symbol.</div>
       <span class="collide">looks like: ActionGlyphs.download (identical), NcbiCloudIcon down-arrow, IconExport (Export menu) — three download-style arrows</span>
     </div>
 
@@ -303,7 +303,7 @@
       </div>
       <div class="name">More <code>RailIcons.more</code></div>
       <div class="row"><b>Label:</b> "More"</div>
-      <div class="means">Overflow / additional operations. Three dots.</div>
+      <div class="means">Means: reveal additional, less-common operations that do not fit on the rail. The glyph is three dots in a row, the standard "overflow / more" menu symbol.</div>
     </div>
 
   </div>
@@ -322,7 +322,7 @@
       </div>
       <div class="name">Plus <code>ActionGlyphs.plus</code></div>
       <div class="row"><b>Label:</b> "Add..." actions inside a panel.</div>
-      <div class="means">Create / add. Plus sign.</div>
+      <div class="means">Means: add or create a new item inside the open inspector panel (a new primer, feature, fragment and so on). The glyph is a plus sign, the universal "add" mark.</div>
       <span class="collide">looks like: PlusIcon (sidebar "New") — same plus</span>
     </div>
 
@@ -333,7 +333,7 @@
       </div>
       <div class="name">List <code>ActionGlyphs.list</code></div>
       <div class="row"><b>Label:</b> "list / show all" panel actions.</div>
-      <div class="means">A list of rows. Three lines (last shorter).</div>
+      <div class="means">Means: show all items as a list (the "list / show all" panel action). The glyph is three stacked horizontal lines with the last one shorter, meant to read as rows in a list.</div>
       <span class="collide">looks like: ActionGlyphs.align + RailIcons.align (Align's exact shape, last line slightly longer) — list and align are indistinguishable</span>
     </div>
 
@@ -344,7 +344,7 @@
       </div>
       <div class="name">Layer <code>ActionGlyphs.layer</code></div>
       <div class="row"><b>Label:</b> a layer / target panel action.</div>
-      <div class="means">Concentric ring + dot (a target / layer).</div>
+      <div class="means">Means: a layer or target panel action (focus on or toggle a display layer). The glyph is a concentric outer ring around a center dot, drawn as a target / bullseye.</div>
       <span class="collide">looks like: IconCircular (Show strip topology), IconMap (View tabs ring) — all ring glyphs</span>
     </div>
 
@@ -355,7 +355,7 @@
       </div>
       <div class="name">Check <code>ActionGlyphs.check</code></div>
       <div class="row"><b>Label:</b> a confirm / apply panel action.</div>
-      <div class="means">Checkmark.</div>
+      <div class="means">Means: confirm or apply the current panel action. The glyph is a checkmark, the standard "confirm / done" tick.</div>
       <span class="collide">looks like: RailIcons.annotate (identical), the toast success check</span>
     </div>
 
@@ -366,7 +366,7 @@
       </div>
       <div class="name">Refresh <code>ActionGlyphs.refresh</code></div>
       <div class="row"><b>Label:</b> a recompute / refresh panel action.</div>
-      <div class="means">Two curved arrows in a loop. Refresh / recompute.</div>
+      <div class="means">Means: recompute or refresh the panel result. The glyph is two curved arrows chasing each other in a loop, the standard "refresh / reload" symbol.</div>
     </div>
 
     <div class="card">
@@ -376,7 +376,7 @@
       </div>
       <div class="name">Align <code>ActionGlyphs.align</code></div>
       <div class="row"><b>Label:</b> an align panel action.</div>
-      <div class="means">Three ragged lines. Alignment rows.</div>
+      <div class="means">Means: an align panel action (line sequences up for comparison). The glyph is three stacked horizontal lines of ragged length, meant to read as aligned rows of bases.</div>
       <span class="collide">looks like: RailIcons.align (byte-identical path), ActionGlyphs.list — three "stacked lines" all here</span>
     </div>
 
@@ -387,7 +387,7 @@
       </div>
       <div class="name">Protein <code>ActionGlyphs.protein</code></div>
       <div class="row"><b>Label:</b> a protein panel action.</div>
-      <div class="means">Two crossing curves. Protein / helices.</div>
+      <div class="means">Means: a protein panel action (work with the translated product). The glyph is two crossing S-curves forming an X, meant to suggest protein helix ribbons.</div>
       <span class="collide">looks like: RailIcons.protein (byte-identical path)</span>
     </div>
 
@@ -398,7 +398,7 @@
       </div>
       <div class="name">Tree <code>ActionGlyphs.tree</code></div>
       <div class="row"><b>Label:</b> a taxonomy panel action.</div>
-      <div class="means">Three-node graph. Tree of life.</div>
+      <div class="means">Means: a taxonomy panel action (explore the organism's lineage). The glyph is three small nodes joined by branches, meant to read as a phylogenetic tree.</div>
       <span class="collide">looks like: RailIcons.tree (byte-identical), lineage TreeGlyph, list-row organism glyph</span>
     </div>
 
@@ -409,7 +409,7 @@
       </div>
       <div class="name">Search <code>ActionGlyphs.search</code></div>
       <div class="row"><b>Label:</b> a find / search panel action.</div>
-      <div class="means">Magnifying glass.</div>
+      <div class="means">Means: a find / search panel action (look something up). The glyph is a magnifying glass, the universal "search" symbol.</div>
       <span class="collide">looks like: the "Find" button glyph (tabs spine) — same magnifier, two copies</span>
     </div>
 
@@ -420,7 +420,7 @@
       </div>
       <div class="name">Download <code>ActionGlyphs.download</code></div>
       <div class="row"><b>Label:</b> an export / download panel action.</div>
-      <div class="means">Down arrow onto a baseline.</div>
+      <div class="means">Means: an export / download panel action (save the result out to a file). The glyph is a downward arrow landing on a short baseline, the standard "download" symbol.</div>
       <span class="collide">looks like: RailIcons.export (byte-identical)</span>
     </div>
 
@@ -431,7 +431,7 @@
       </div>
       <div class="name">Copy <code>ActionGlyphs.copy</code></div>
       <div class="row"><b>Label:</b> a copy panel action.</div>
-      <div class="means">Two overlapping sheets. Copy.</div>
+      <div class="means">Means: a copy panel action (copy the item or value to the clipboard). The glyph is two overlapping rounded squares, the standard "duplicate to clipboard" pair of sheets.</div>
       <span class="collide">looks like: IconCopy (top bar), IconDuplicate (primer dialog) — all two-sheet glyphs</span>
     </div>
 
@@ -442,7 +442,7 @@
       </div>
       <div class="name">Paste <code>ActionGlyphs.paste</code></div>
       <div class="row"><b>Label:</b> a paste panel action.</div>
-      <div class="means">Clipboard with a down arrow inside. Paste.</div>
+      <div class="means">Means: a paste panel action (drop the clipboard contents into the panel). The glyph is a clipboard with a down arrow inside it, meant to read as "paste into here".</div>
       <span class="collide">looks like: IconPasteTool (top bar) — a different clipboard for the same idea</span>
     </div>
 
@@ -453,7 +453,7 @@
       </div>
       <div class="name">Pencil <code>ActionGlyphs.pencil</code></div>
       <div class="row"><b>Label:</b> an edit / rename panel action.</div>
-      <div class="means">Pencil. Edit.</div>
+      <div class="means">Means: edit or rename the item (an edit panel action). The glyph is a pencil drawn at an angle, the universal "edit" symbol.</div>
     </div>
 
     <div class="card">
@@ -463,7 +463,7 @@
       </div>
       <div class="name">Inspector close <code>SequenceOperationsRail</code> X</div>
       <div class="row"><b>Label:</b> aria "Collapse the inspector" / tooltip "Collapse the inspector"</div>
-      <div class="means">Close the inspector panel back to the rail. An X.</div>
+      <div class="means">Means: collapse the open inspector panel back down to the thin rail. The glyph is an X (two crossing lines), the standard "close / dismiss" mark.</div>
       <span class="collide">looks like: the toast dismiss X (two crossing lines) — same X, different markup</span>
     </div>
 
@@ -474,7 +474,7 @@
       </div>
       <div class="name">Context-bar filled marker <code>InspectorContextBar</code></div>
       <div class="row"><b>Label:</b> sits before "Acting on selection..." text (amber bar).</div>
-      <div class="means">The operation will act on the current selection. A solid disc.</div>
+      <div class="means">Means: the upcoming operation will act only on the current selection (the amber "Acting on selection" state). The glyph is a solid filled disc, a filled-in dot signalling an active, narrowed target.</div>
     </div>
 
     <div class="card">
@@ -484,7 +484,7 @@
       </div>
       <div class="name">Context-bar hollow marker <code>InspectorContextBar</code></div>
       <div class="row"><b>Label:</b> sits before "Whole sequence" text (calm bar).</div>
-      <div class="means">The operation acts on the whole sequence (nothing selected). A hollow square.</div>
+      <div class="means">Means: the upcoming operation acts on the whole sequence because nothing is selected (the calm "Whole sequence" state). The glyph is a hollow outlined square, an empty box signalling a wide, unfilled target.</div>
     </div>
 
   </div>
@@ -503,7 +503,7 @@
       </div>
       <div class="name">Map <code>IconMap</code></div>
       <div class="row"><b>Label:</b> "Map" / tooltip "Whole-molecule map view"</div>
-      <div class="means">Whole-molecule (plasmid ring) view. Circle with four ticks.</div>
+      <div class="means">Means: switch to the whole-molecule map view (the SnapGene-style plasmid overview). The glyph is a circle with four short ticks pointing inward at the compass points, meant to read as a circular plasmid map.</div>
       <span class="collide">looks like: the "Map view" badge glyph + the circular-zoom indicator (identical ring+ticks path)</span>
     </div>
 
@@ -514,7 +514,7 @@
       </div>
       <div class="name">Sequence <code>IconSequence</code></div>
       <div class="row"><b>Label:</b> "Sequence" / tooltip "Base-level sequence view"</div>
-      <div class="means">Base-level letters view. "PNF"-ish letters on a baseline.</div>
+      <div class="means">Means: switch to the base-level view that shows the actual letters of the sequence. The glyph is a few stylized letter shapes sitting on a baseline, standing in for the A C G T text.</div>
     </div>
 
     <div class="card">
@@ -524,7 +524,7 @@
       </div>
       <div class="name">Features <code>IconFeatures</code></div>
       <div class="row"><b>Label:</b> "Features" + count / tooltip "Feature list and editing"</div>
-      <div class="means">Feature list. A price tag.</div>
+      <div class="means">Means: switch to the feature list and editing view (with a count of features). The glyph is a price tag, a rectangle tapering to a point with a small hole, the common "label / tag" metaphor for an annotated feature.</div>
     </div>
 
     <div class="card">
@@ -534,7 +534,7 @@
       </div>
       <div class="name">Primers <code>IconPrimers</code></div>
       <div class="row"><b>Label:</b> "Primers" + count / tooltip "Primer list and design"</div>
-      <div class="means">Primer list. A short forward arrow over a baseline.</div>
+      <div class="means">Means: switch to the primer list and design view (with a count of primers). The glyph is a short forward arrow sitting above a baseline, meant to read as an oligo annealed to a strand.</div>
       <span class="collide">looks like: RailIcons.primers (the rail's Primers icon) — both arrow-on-line, two different drawings</span>
     </div>
 
@@ -545,7 +545,7 @@
       </div>
       <div class="name">History <code>IconHistory</code></div>
       <div class="row"><b>Label:</b> "History" / tooltip "Edit and version history"</div>
-      <div class="means">Edit / version history. Clock with a counter-clockwise arrow.</div>
+      <div class="means">Means: switch to the edit and version-history view (browse and restore past states). The glyph is a clock face with a counter-clockwise arrow sweeping around it, the standard "rewind through time / history" symbol.</div>
     </div>
 
   </div>
@@ -564,7 +564,7 @@
       </div>
       <div class="name">Enzyme sites <code>IconEnzymes</code></div>
       <div class="row"><b>Label:</b> "Enzyme sites" / tooltip "Show or hide restriction-enzyme cut sites"</div>
-      <div class="means">Restriction cut sites. Open scissors.</div>
+      <div class="means">Means: toggle the restriction-enzyme cut sites on or off in the viewer. The glyph is a pair of open scissors, the "where enzymes cut" metaphor.</div>
       <span class="collide">looks like: IconCut (top bar) — byte-identical scissors path for a different action</span>
     </div>
 
@@ -575,7 +575,7 @@
       </div>
       <div class="name">Translation <code>IconTranslation</code></div>
       <div class="row"><b>Label:</b> "Translation" / tooltip "Show or hide the amino-acid translation of CDS features"</div>
-      <div class="means">Amino-acid translation. "AA" letters in a box.</div>
+      <div class="means">Means: toggle the amino-acid translation of CDS features on or off under the bases. The glyph is a box holding two "A" letter shapes, standing in for the amino-acid (protein) text.</div>
     </div>
 
     <div class="card">
@@ -585,7 +585,7 @@
       </div>
       <div class="name">Open reading frames <code>IconOrfs</code></div>
       <div class="row"><b>Label:</b> "Open reading frames" / tooltip about ATG-to-stop runs</div>
-      <div class="means">Reading-frame direction. Two opposed double-headed arrows.</div>
+      <div class="means">Means: toggle the open reading frames on or off (the ATG-to-stop runs on each strand). The glyph is two opposed arrows, one pointing right and one pointing left, meant to show reading frames running in both directions.</div>
       <span class="collide">looks like: RailIcons.primers, IconPrimers — all directional-arrow glyphs</span>
     </div>
 
@@ -596,7 +596,7 @@
       </div>
       <div class="name">Ruler / index <code>IconRuler</code></div>
       <div class="row"><b>Label:</b> "Ruler / index" / tooltip "Show or hide the ruler / index row"</div>
-      <div class="means">Coordinate ruler. A ruler with tick marks.</div>
+      <div class="means">Means: toggle the coordinate ruler / index row on or off (the base-position numbers). The glyph is a horizontal ruler bar with evenly spaced tick marks, the literal measuring-ruler metaphor.</div>
     </div>
 
     <div class="card">
@@ -606,7 +606,7 @@
       </div>
       <div class="name">Circular <code>IconCircular</code></div>
       <div class="row"><b>Label:</b> "Circular" / tooltip "Show as circular" (topology chip)</div>
-      <div class="means">Plasmid topology, circular. A plain ring.</div>
+      <div class="means">Means: set the molecule topology to circular (treat the sequence as a closed plasmid). The glyph is a plain unbroken ring, standing for the circular DNA loop.</div>
       <span class="collide">looks like: ActionGlyphs.layer (ring), IconMap (ring+ticks) — bare ring reads as "map" too</span>
     </div>
 
@@ -617,7 +617,7 @@
       </div>
       <div class="name">Linear <code>IconLinear</code></div>
       <div class="row"><b>Label:</b> "Linear" / tooltip "Show as linear" (topology chip)</div>
-      <div class="means">Linear molecule topology. A line with end caps.</div>
+      <div class="means">Means: set the molecule topology to linear (treat the sequence as an open fragment with two ends). The glyph is a horizontal line with a short vertical cap at each end, standing for a linear strand with free ends.</div>
       <span class="collide">looks like: the list-row MoleculeIcon linear branch (line) — close in spirit</span>
     </div>
 
@@ -628,7 +628,7 @@
       </div>
       <div class="name">Wrapped <code>IconWrapped</code></div>
       <div class="row"><b>Label:</b> "Wrapped" / tooltip "Switch to a single continuous line"</div>
-      <div class="means">Sequence wrapped into stacked rows. Three lines (last shorter).</div>
+      <div class="means">Means: wrap the sequence into stacked rows so it reads top-to-bottom like paragraphs. The glyph is three stacked horizontal lines with the last one shorter, meant to read as wrapped rows of bases.</div>
       <span class="collide">looks like: RailIcons.align, ActionGlyphs.list / align — same three-lines family. Confusable with Align especially.</span>
     </div>
 
@@ -639,7 +639,7 @@
       </div>
       <div class="name">Single line <code>IconSingleLine</code></div>
       <div class="row"><b>Label:</b> "Single line" / tooltip "Switch to wrapped rows"</div>
-      <div class="means">Sequence on one horizontal row (scrolls left-right). A row with a double-ended horizontal arrow.</div>
+      <div class="means">Means: show the sequence on one continuous horizontal row that scrolls left and right (the opposite of Wrapped). The glyph is a single row with a double-headed horizontal arrow, meant to read as "one long line you scroll sideways".</div>
     </div>
 
     <div class="card">
@@ -649,7 +649,7 @@
       </div>
       <div class="name">Feature-types caret <code>IconCaret</code></div>
       <div class="row"><b>Label:</b> none. The disclosure caret on the right half of the Features chip.</div>
-      <div class="means">Open the per-feature-type show/hide flyout. Down chevron (heavier stroke).</div>
+      <div class="means">Means: open the flyout that shows or hides each individual feature type. The glyph is a downward chevron drawn with a heavier stroke, the standard "open this dropdown" disclosure mark.</div>
       <span class="collide">looks like: Chevron (Copy/Export), ChevronDownIcon (Import), CaretIcon (lineage) — yet another down chevron</span>
     </div>
 
@@ -660,7 +660,7 @@
       </div>
       <div class="name">Eye (shown) <code>IconEye</code></div>
       <div class="row"><b>Label:</b> per-type row in the Feature-types flyout (also reused in the Edit menu toggle rows).</div>
-      <div class="means">This feature type is visible. An open eye.</div>
+      <div class="means">Means: this feature type is currently shown (click to toggle it off). The glyph is an open eye with a pupil, the standard "visible" symbol.</div>
       <span class="collide">looks like: the SequenceEditMenu IconEye (byte-identical) — two defs</span>
     </div>
 
@@ -671,7 +671,7 @@
       </div>
       <div class="name">Eye off (hidden) <code>IconEyeOff</code></div>
       <div class="row"><b>Label:</b> per-type row in the Feature-types flyout (also reused in the Edit menu toggle rows).</div>
-      <div class="means">This feature type is hidden. A slashed eye.</div>
+      <div class="means">Means: this feature type is currently hidden (click to toggle it back on). The glyph is an eye with a diagonal slash through it, the standard "hidden / not visible" symbol.</div>
       <span class="collide">looks like: the SequenceEditMenu IconEyeOff (byte-identical) — two defs</span>
     </div>
 
@@ -691,7 +691,7 @@
       </div>
       <div class="name">Molecule, circular <code>MoleculeIcon</code> (circular branch)</div>
       <div class="row"><b>Label:</b> none. Leads each list row + the open header.</div>
-      <div class="means">A circular (plasmid) molecule. A bare ring.</div>
+      <div class="means">Means: this list row is a circular molecule (a plasmid). The glyph is a plain unbroken ring leading the row, standing for the circular DNA loop.</div>
       <span class="collide">looks like: IconCircular (Show strip), ActionGlyphs.layer, IconMap — bare ring reused widely</span>
     </div>
 
@@ -702,7 +702,7 @@
       </div>
       <div class="name">Molecule, linear <code>MoleculeIcon</code> (linear branch)</div>
       <div class="row"><b>Label:</b> none. Leads each list row + the open header.</div>
-      <div class="means">A linear molecule. A single straight line (no end caps).</div>
+      <div class="means">Means: this list row is a linear molecule (an open fragment, not a plasmid). The glyph is a single straight horizontal line with no end caps, meant to contrast with the circular ring but it barely reads as a molecule.</div>
       <span class="collide">looks like: a plain divider / nothing. A bare line barely reads as a molecule.</span>
     </div>
 
@@ -713,7 +713,7 @@
       </div>
       <div class="name">Share / send <code>ShareIcon</code></div>
       <div class="row"><b>Label:</b> aria/tooltip "Share" (open header); "Send N selected" (bulk bar)</div>
-      <div class="means">Send a sequence outside the lab. Three connected nodes (a share graph).</div>
+      <div class="means">Means: share or send the sequence to someone outside the lab (also used for "Send N selected"). The glyph is three nodes connected by two links, the standard share-graph of one source fanning out to recipients.</div>
       <span class="collide">looks like: RailIcons.tree / TreeGlyph / organism glyph — three-node graphs. Share vs tree-of-life is the same shape family.</span>
     </div>
 
@@ -724,7 +724,7 @@
       </div>
       <div class="name">Focus <code>FocusIcon</code></div>
       <div class="row"><b>Label:</b> tooltip (sidebar header focus toggle). Reused from the markdown editor.</div>
-      <div class="means">Collapse the list so the viewer fills the page. Four expand-corner arrows.</div>
+      <div class="means">Means: enter focus mode by collapsing the sidebar list so the editor fills the page. The glyph is four arrows pointing outward to the corners, the standard "expand to fill" symbol.</div>
     </div>
 
     <div class="card">
@@ -734,7 +734,7 @@
       </div>
       <div class="name">Re-open handle <code>(inline chevron, page.tsx)</code></div>
       <div class="row"><b>Label:</b> aria/tooltip "Show the sequence list"</div>
-      <div class="means">Re-open the collapsed list (the handle pinned to the left edge in focus mode). Right chevron.</div>
+      <div class="means">Means: re-open the collapsed sidebar list while in focus mode (a thin handle pinned to the left edge). The glyph is a right-pointing chevron, the standard "expand / slide this panel out" mark.</div>
     </div>
 
     <div class="card">
@@ -744,7 +744,7 @@
       </div>
       <div class="name">New <code>PlusIcon</code></div>
       <div class="row"><b>Label:</b> "New" (primary sky button)</div>
-      <div class="means">Create a new blank sequence. Plus sign.</div>
+      <div class="means">Means: create a new blank sequence (the primary sky button in the sidebar). The glyph is a plus sign, the universal "new / add" mark.</div>
       <span class="collide">looks like: ActionGlyphs.plus</span>
     </div>
 
@@ -755,7 +755,7 @@
       </div>
       <div class="name">Assemble <code>AssembleIcon</code></div>
       <div class="row"><b>Label:</b> "Assemble" / tooltip about Gibson / Golden Gate / Gateway</div>
-      <div class="means">Build a construct from fragments. A ring drawn as three dashed arc segments (plasmid junctions).</div>
+      <div class="means">Means: assemble a new construct from fragments (Gibson, Golden Gate, Gateway). The glyph is a ring broken into three dashed arc segments, meant to read as separate pieces being joined at their junctions into a plasmid.</div>
       <span class="collide">looks like: IconCircular / MoleculeIcon ring (a dashed ring still reads as "circular")</span>
     </div>
 
@@ -766,7 +766,7 @@
       </div>
       <div class="name">Align / Compare <code>AlignIcon</code></div>
       <div class="row"><b>Label:</b> "Align" / tooltip about percent identity, dotplot</div>
-      <div class="means">Pairwise alignment. Two strands joined by dotted base-pair lines.</div>
+      <div class="means">Means: align and compare sequences (percent identity, dotplot). The glyph is two parallel horizontal strands joined by dotted vertical rungs, meant to read as two sequences paired up base against base.</div>
       <span class="collide">looks like: RailIcons.align (a separate three-lines drawing) — two different glyphs both meaning "align"</span>
     </div>
 
@@ -777,7 +777,7 @@
       </div>
       <div class="name">Import <code>ImportIcon</code></div>
       <div class="row"><b>Label:</b> "Import" / tooltip "Import files or a whole folder"</div>
-      <div class="means">Bring files in. Tray with an up arrow.</div>
+      <div class="means">Means: import sequence files (or a whole folder) into the library. The glyph is a tray with an arrow pointing up out of it, the standard "upload / bring in" symbol.</div>
       <span class="collide">looks like: RailIcons.export / IconExport (down-arrow tray) — import-up vs export-down only differ by arrow direction</span>
     </div>
 
@@ -788,7 +788,7 @@
       </div>
       <div class="name">Download from NCBI <code>NcbiCloudIcon</code></div>
       <div class="row"><b>Label:</b> "Download from NCBI" / tooltip about gene / genome</div>
-      <div class="means">Pull a record from a remote database. Cloud with a down arrow.</div>
+      <div class="means">Means: download a gene or genome record from the NCBI remote database. The glyph is a cloud with a down arrow beneath it, the standard "fetch from the cloud" symbol.</div>
     </div>
 
     <div class="card">
@@ -798,7 +798,7 @@
       </div>
       <div class="name">Import / collection chevron <code>ChevronDownIcon</code></div>
       <div class="row"><b>Label:</b> none. The split-menu caret on the Import button (and collection dropdowns).</div>
-      <div class="means">Open the import / collection menu. Down chevron.</div>
+      <div class="means">Means: open the split menu on the Import button (choose files vs folder) and the collection dropdowns. The glyph is a downward chevron, the standard "open this dropdown" disclosure mark.</div>
       <span class="collide">looks like: Chevron, IconCaret, CaretIcon — four+ down chevrons across the page</span>
     </div>
 
@@ -809,7 +809,7 @@
       </div>
       <div class="name">Choose folder <code>FolderIcon</code></div>
       <div class="row"><b>Label:</b> "Choose folder…" (Import dropdown item)</div>
-      <div class="means">Import a whole folder. A folder.</div>
+      <div class="means">Means: pick a whole folder to import from (an item in the Import dropdown). The glyph is a folder with a raised tab, the standard file-folder symbol.</div>
     </div>
 
     <div class="card">
@@ -819,7 +819,7 @@
       </div>
       <div class="name">Choose files <code>FileIcon</code></div>
       <div class="row"><b>Label:</b> "Choose files…" (Import dropdown item)</div>
-      <div class="means">Import individual files. A document.</div>
+      <div class="means">Means: pick one or more individual files to import (an item in the Import dropdown). The glyph is a document page with a folded top corner, the standard single-file symbol.</div>
     </div>
 
     <div class="card">
@@ -829,7 +829,7 @@
       </div>
       <div class="name">Delete <code>TrashIcon</code> (page)</div>
       <div class="row"><b>Label:</b> per-row delete + "Delete N selected" (bulk bar)</div>
-      <div class="means">Move sequence(s) to trash. A trash can with two slats.</div>
+      <div class="means">Means: delete the sequence (or "Delete N selected"), moving it to the trash. The glyph is a trash can with a lid and two vertical slats on the body, the standard "delete" bin.</div>
       <span class="collide">looks like: IconTrash (primer dialog) — a near-identical trash can, one slat-line less</span>
     </div>
 
@@ -840,7 +840,7 @@
       </div>
       <div class="name">List-row organism glyph <code>(inline, page.tsx)</code></div>
       <div class="row"><b>Label:</b> none. Precedes the italic organism binomial on a list row + the open header.</div>
-      <div class="means">This sequence carries an NCBI organism. A three-node tree glyph (emerald-tinted).</div>
+      <div class="means">Means: this sequence has a known NCBI source organism (the glyph precedes its italic binomial name). The glyph is three nodes joined by branches, an emerald-tinted little phylogenetic tree standing for taxonomy.</div>
       <span class="collide">looks like: lineage TreeGlyph (near-identical), RailIcons.tree / ActionGlyphs.tree, ShareIcon — all three-node graphs</span>
     </div>
 
@@ -860,7 +860,7 @@
       </div>
       <div class="name">Primer <code>IconPrimer</code> (PrimerEditorDialog)</div>
       <div class="row"><b>Label:</b> the dialog header glyph.</div>
-      <div class="means">An oligo. A baseline with a forward arrow above and a reverse arrow below.</div>
+      <div class="means">Means: this dialog is editing a primer (the header glyph). The glyph is a central baseline with a short forward arrow above it and a reverse arrow below it, meant to read as a forward and reverse oligo annealed to the two strands.</div>
       <span class="collide">looks like: RailIcons.primers, IconPrimers — a third distinct primer drawing</span>
     </div>
 
@@ -871,7 +871,7 @@
       </div>
       <div class="name">Swap <code>IconSwap</code> (PrimerEditorDialog)</div>
       <div class="row"><b>Label:</b> a swap / reverse-complement action in the primer dialog.</div>
-      <div class="means">Reverse-complement / swap strand. Two looping arrows.</div>
+      <div class="means">Means: reverse-complement the primer or swap it to the other strand. The glyph is two horizontal arrows looping past each other in opposite directions, the standard "swap / flip" gesture.</div>
       <span class="collide">looks like: ActionGlyphs.refresh (two-loop arrows) — refresh vs swap are the same gesture</span>
     </div>
 
@@ -882,7 +882,7 @@
       </div>
       <div class="name">Delete <code>IconTrash</code> (PrimerEditorDialog)</div>
       <div class="row"><b>Label:</b> a delete-primer action in the dialog.</div>
-      <div class="means">Delete this primer. A trash can (no slats).</div>
+      <div class="means">Means: delete this primer from the sequence. The glyph is a trash can with a lid but a plain empty body (no slats), the standard "delete" bin.</div>
       <span class="collide">looks like: TrashIcon (page) — two trash cans that differ only in inner slats</span>
     </div>
 
@@ -893,7 +893,7 @@
       </div>
       <div class="name">Duplicate <code>IconDuplicate</code> (PrimerEditorDialog)</div>
       <div class="row"><b>Label:</b> the new Duplicate action in the primer dialog.</div>
-      <div class="means">Duplicate this primer. Two stacked sheets.</div>
+      <div class="means">Means: duplicate this primer, making a second copy of it. The glyph is two stacked rounded squares, the same overlapping-sheets shape used for Copy.</div>
       <span class="collide">looks like: IconCopy (top bar) + ActionGlyphs.copy — Copy vs Duplicate share the two-sheets shape</span>
     </div>
 
@@ -904,7 +904,7 @@
       </div>
       <div class="name">Lineage tree glyph <code>TreeGlyph</code> (SequenceLineageFooter)</div>
       <div class="row"><b>Label:</b> precedes the organism binomial in the bottom-bar taxonomy chip + the "Explore in tree" link. Tooltip "Taxonomy and lineage".</div>
-      <div class="means">Taxonomy / tree of life. A three-node tree glyph.</div>
+      <div class="means">Means: this footer chip shows the organism's taxonomy and links to "Explore in tree". The glyph is three nodes joined by branches, a little phylogenetic tree standing for the tree of life.</div>
       <span class="collide">looks like: list-row organism glyph (near-identical), RailIcons.tree / ActionGlyphs.tree, ShareIcon — all three-node graphs</span>
     </div>
 
@@ -915,7 +915,7 @@
       </div>
       <div class="name">Lineage caret <code>CaretIcon</code> (SequenceLineageFooter)</div>
       <div class="row"><b>Label:</b> none. Sits after the organism name; rotates 180 when the popover opens.</div>
-      <div class="means">Open / close the lineage popover. An up chevron (flips to down when closed).</div>
+      <div class="means">Means: open or close the lineage popover next to the organism name. The glyph is an upward chevron that rotates to point down when the popover is closed, the standard disclosure caret.</div>
       <span class="collide">looks like: Chevron / ChevronDownIcon / IconCaret — same chevron, drawn pointing up</span>
     </div>
 
@@ -935,7 +935,7 @@
       </div>
       <div class="name">Find <code>(inline magnifier, tabs spine)</code></div>
       <div class="row"><b>Label:</b> "Find" / tooltip "Find in this sequence (Cmd F)"</div>
-      <div class="means">Open the inline Find box. A magnifying glass.</div>
+      <div class="means">Means: open the inline Find box to search within this sequence (Cmd F). The glyph is a magnifying glass, the universal "search / find" symbol.</div>
       <span class="collide">looks like: ActionGlyphs.search (a near-identical magnifier)</span>
     </div>
 
@@ -946,7 +946,7 @@
       </div>
       <div class="name">Map-view badge + whole-molecule indicator <code>(inline, SequenceEditView)</code></div>
       <div class="row"><b>Label:</b> "Map view" badge (top-left of the canvas) and "Whole molecule (N bp)" indicator.</div>
-      <div class="means">The canvas is showing the whole-molecule map. Ring with four ticks.</div>
+      <div class="means">Means: a badge / indicator showing the canvas is in whole-molecule map mode (with the bp count). The glyph is a circle with four short inward ticks, the same circular-plasmid-map mark used by the Map tab.</div>
       <span class="collide">looks like: IconMap (View tabs) — byte-identical ring+ticks, used in three places</span>
     </div>
 
@@ -957,7 +957,7 @@
       </div>
       <div class="name">Right-click hint pointer <code>HoverCardActionHint</code></div>
       <div class="row"><b>Label:</b> sits before "Right-click for actions" on the feature / primer hover cards.</div>
-      <div class="means">There is a right-click menu here. A filled cursor / pointer arrow.</div>
+      <div class="means">Means: hint that a right-click context menu is available here (sits before "Right-click for actions"). The glyph is a small filled cursor / pointer arrow, standing for the mouse pointer.</div>
     </div>
 
     <div class="card">
@@ -967,7 +967,7 @@
       </div>
       <div class="name">Toast success check <code>(inline, SequenceEditView)</code></div>
       <div class="row"><b>Label:</b> in the taxonomy / copy-map / map-to-note success toasts.</div>
-      <div class="means">The action succeeded. A checkmark in an emerald circle.</div>
+      <div class="means">Means: confirm in a toast that the action succeeded (taxonomy saved, map copied, mapped to note). The glyph is a checkmark inside an emerald circle, the standard "success" mark.</div>
       <span class="collide">looks like: RailIcons.annotate, ActionGlyphs.check — three checkmarks, one of which means "annotate"</span>
     </div>
 
@@ -978,7 +978,7 @@
       </div>
       <div class="name">Toast warning mark <code>(inline, SequenceEditView)</code></div>
       <div class="row"><b>Label:</b> in the copy-map toast when the browser cannot copy an image (amber).</div>
-      <div class="means">A gentle warning. An exclamation stroke + dot.</div>
+      <div class="means">Means: warn in a toast that something could not be done (for example the browser cannot copy an image), shown in amber. The glyph is an exclamation mark, a short vertical stroke above a dot, the standard caution symbol.</div>
     </div>
 
     <div class="card">
@@ -988,7 +988,7 @@
       </div>
       <div class="name">Toast dismiss X <code>(inline, SequenceEditView)</code></div>
       <div class="row"><b>Label:</b> aria "Dismiss" on each toast.</div>
-      <div class="means">Close the toast. An X (two crossing lines).</div>
+      <div class="means">Means: dismiss / close the toast notification. The glyph is an X (two crossing lines), the standard "close" mark.</div>
       <span class="collide">looks like: the inspector close X (same X, different markup)</span>
     </div>
 
