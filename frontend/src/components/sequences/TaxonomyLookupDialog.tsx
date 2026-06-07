@@ -156,7 +156,7 @@ export default function TaxonomyLookupDialog({
       data-testid="taxonomy-lookup-dialog"
     >
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/40"
         onClick={busy ? undefined : handleClose}
       />
       <div className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">

@@ -299,7 +299,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
       data-testid="primer-editor-dialog"
       data-tour-popup-occluding="primer-editor"
     >
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={request.onCancel} />
+      <div className="absolute inset-0 bg-black/40" onClick={request.onCancel} />
       <div className="relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-pink-50 dark:bg-pink-500/15 text-pink-600 dark:text-pink-300">

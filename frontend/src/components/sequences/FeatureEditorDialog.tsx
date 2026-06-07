@@ -209,7 +209,7 @@ export default function FeatureEditorDialog({
       data-testid="feature-editor-dialog"
       data-tour-popup-occluding="feature-editor"
     >
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={request.onCancel} />
+      <div className="absolute inset-0 bg-black/40" onClick={request.onCancel} />
       <div className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <span

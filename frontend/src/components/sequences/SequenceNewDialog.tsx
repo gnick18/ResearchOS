@@ -89,7 +89,7 @@ export default function SequenceNewDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="sequence-new-dialog">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onCancel} />
+      <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
       <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-500/15">

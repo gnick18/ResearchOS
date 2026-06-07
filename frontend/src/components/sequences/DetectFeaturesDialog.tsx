@@ -220,7 +220,7 @@ export default function DetectFeaturesDialog({
       aria-label="Detect common features"
     >
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/40"
         onClick={request.onCancel}
       />
       <div className="relative flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
