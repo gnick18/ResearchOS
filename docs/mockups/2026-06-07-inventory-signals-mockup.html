@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Inventory signals mockup (chunk 3)</title>
+<style>
+  :root{
+    --surface:#ffffff; --surface-raised:#ffffff; --surface-sunken:#f8fafc;
+    --foreground:#171717; --foreground-muted:#6b7280; --border:#e5e7eb;
+    --brand-action:#1283C9; --brand-purple:#5B47D6;
+    --emerald-bg:#d1fae5; --emerald-fg:#047857; --emerald-soft:#ecfdf5;
+    --amber-bg:#fef3c7; --amber-fg:#b45309; --amber-soft:#fffbeb;
+    --slate-bg:#e2e8f0; --slate-fg:#475569; --slate-soft:#f8fafc;
+    --rose-bg:#ffe4e6; --rose-fg:#be123c; --rose-soft:#fff1f2;
+    --page:#eef2f7;
+  }
+  [data-theme="dark"]{
+    --surface:#0a0e1a; --surface-raised:#131c2e; --surface-sunken:#0d1424;
+    --foreground:#f1f5f9; --foreground-muted:#b4bfd0; --border:rgba(255,255,255,0.22);
+    --brand-action:#3aa0e0; --brand-purple:#8170e6;
+    --emerald-bg:rgba(16,185,129,0.20); --emerald-fg:#6ee7b7; --emerald-soft:rgba(16,185,129,0.10);
+    --amber-bg:rgba(245,158,11,0.20); --amber-fg:#fcd34d; --amber-soft:rgba(245,158,11,0.10);
+    --slate-bg:rgba(100,116,139,0.25); --slate-fg:#cbd5e1; --slate-soft:rgba(100,116,139,0.12);
+    --rose-bg:rgba(244,63,94,0.20); --rose-fg:#fda4af; --rose-soft:rgba(244,63,94,0.10);
+    --page:#05080f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--page);color:var(--foreground)}
+  .wrap{max-width:1040px;margin:0 auto;padding:22px 20px 96px}
+  .topbar{position:sticky;top:0;z-index:50;background:var(--page);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .topbar h1{font-size:16px;margin:0;font-weight:700}
+  .topbar .sub{font-size:12.5px;color:var(--foreground-muted)}
+  .spacer{flex:1}
+  .btn{font:inherit;font-size:13px;border:1px solid var(--border);background:var(--surface-raised);color:var(--foreground);border-radius:8px;padding:7px 12px;cursor:pointer}
+  .btn:hover{background:var(--surface-sunken)}
+  .btn-brand{background:linear-gradient(135deg,var(--brand-action),var(--brand-purple));color:#fff;border:none}
+  .legend{display:flex;gap:10px;font-size:12px;color:var(--foreground-muted);align-items:center;flex-wrap:wrap}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:middle}
+  .dot.ok{background:#16a34a}.dot.warn{background:#d97706}.dot.none{background:#cbd5e1}
+  .note{font-size:12.5px;color:var(--foreground-muted);max-width:800px;margin:14px 0 8px}
+  .section{margin:26px 0;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--page)}
+  .section-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface-sunken)}
+  .section-head .name{font-size:13px;font-weight:700}
+  .section-head .id{font-size:11px;color:var(--foreground-muted)}
+  .section-head .why{font-size:12px;color:var(--foreground-muted);margin-left:6px}
+  .review{margin-left:auto;display:flex;align-items:center;gap:6px}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .seg button{font:inherit;font-size:12px;padding:5px 10px;border:none;background:var(--surface-raised);color:var(--foreground-muted);cursor:pointer}
+  .seg button.active.ok{background:#16a34a;color:#fff}
+  .seg button.active.warn{background:#d97706;color:#fff}
+  .seg button.active.none{background:#64748b;color:#fff}
+  .cmt{width:100%;margin-top:8px;font:inherit;font-size:12.5px;border:1px dashed var(--border);border-radius:8px;background:var(--surface-raised);color:var(--foreground);padding:7px 9px;resize:vertical;min-height:34px}
+  .stage{padding:18px;background:var(--surface)}
+  .app{background:var(--surface);color:var(--foreground);border:1px solid var(--border);border-radius:12px;padding:20px;width:100%}
+  .muted{color:var(--foreground-muted)}
+  .h-head{font-size:21px;font-weight:600;margin:0}
+  .h-title{font-size:15px;font-weight:600;margin:0}
+  .t-body{font-size:13.5px}.t-meta{font-size:12px}
+
+  /* health tiles */
+  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .tile{border:1px solid var(--border);border-radius:12px;padding:14px 16px;background:var(--surface-raised);cursor:pointer;text-align:left;display:flex;gap:12px;align-items:flex-start}
+  .tile:hover{background:var(--surface-sunken)}
+  .tile.active{outline:2px solid var(--brand-action);outline-offset:-1px}
+  .tile .ic{height:34px;width:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .tile.exp .ic{background:var(--amber-bg);color:var(--amber-fg)}
+  .tile.stale .ic{background:var(--slate-bg);color:var(--slate-fg)}
+  .tile.low .ic{background:var(--rose-bg);color:var(--rose-fg)}
+  .tile .num{font-size:22px;font-weight:700;line-height:1}
+  .tile .lbl{font-size:13px;font-weight:600;margin-top:2px}
+  .tile .sub{font-size:11.5px;color:var(--foreground-muted);margin-top:2px}
+
+  /* combined banner variant */
+  .banner{border:1px solid var(--border);border-radius:12px;background:var(--surface-raised);padding:12px 16px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .banner .b-title{font-size:13px;font-weight:600;margin-right:4px}
+  .banner .b-stat{display:inline-flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;border:1px solid var(--border);border-radius:999px;padding:4px 11px;background:var(--surface)}
+  .banner .b-stat:hover{background:var(--surface-sunken)}
+  .b-num{font-weight:700}
+  .swatch{width:10px;height:10px;border-radius:50%}
+  .sw-exp{background:var(--amber-fg)}.sw-stale{background:var(--slate-fg)}.sw-low{background:var(--rose-fg)}
+
+  /* filter chip */
+  .filterbar{display:flex;align-items:center;gap:10px;margin-top:16px}
+  .fchip{display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:500}
+  .fchip.exp{background:var(--amber-soft);color:var(--amber-fg);border:1px solid var(--amber-bg)}
+  .fclear{font-size:12px;color:var(--brand-action);background:none;border:none;cursor:pointer}
+
+  /* record rows in a signal view */
+  .rec{display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid var(--border);border-left-width:3px;border-radius:9px;background:var(--surface-raised);padding:11px 14px;margin-top:8px}
+  .rec.exp{border-left-color:var(--amber-fg)}
+  .rec.stale{border-left-color:var(--slate-fg)}
+  .rec.low{border-left-color:var(--rose-fg)}
+  .rec .nm{font-size:13.5px;font-weight:600}
+  .rec .meta{font-size:12px;color:var(--foreground-muted);margin-top:2px}
+  .rec .signal{font-size:12px;font-weight:600;margin-top:3px}
+  .rec.exp .signal{color:var(--amber-fg)}
+  .rec.stale .signal{color:var(--slate-fg)}
+  .rec.low .signal{color:var(--rose-fg)}
+  .rec .right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .status{border-radius:6px;padding:3px 9px;font-size:12px;font-weight:500}
+  .st-in{background:var(--emerald-bg);color:var(--emerald-fg)}
+  .st-low{background:var(--amber-bg);color:var(--amber-fg)}
+  .st-empty{background:var(--slate-bg);color:var(--slate-fg)}
+  .st-exp{background:var(--rose-bg);color:var(--rose-fg)}
+  .miniact{height:28px;width:28px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--foreground-muted);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+
+  /* all clear */
+  .clear{border:1px solid var(--border);border-radius:12px;background:var(--emerald-soft);padding:18px;display:flex;align-items:center;gap:14px}
+  .clear .ic{height:38px;width:38px;border-radius:50%;background:var(--emerald-bg);color:var(--emerald-fg);display:flex;align-items:center;justify-content:center}
+  svg{display:block}
+  #exportModal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+  #exportModal .box{background:var(--surface-raised);color:var(--foreground);border-radius:14px;max-width:760px;width:100%;padding:18px;border:1px solid var(--border)}
+  #exportModal textarea{width:100%;min-height:300px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--foreground);padding:10px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div>
+    <h1>Inventory signals mockup</h1>
+    <div class="sub">Chunk 3 design (NOT built yet). The three zero-upkeep signals on /inventory. Approve the design, then I build it.</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="legend">
+    <span><span class="dot ok"></span>Approve</span>
+    <span><span class="dot warn"></span>Needs change</span>
+    <span><span class="dot none"></span>Undecided</span>
+  </div>
+  <button class="btn" id="themeBtn">Dark mode</button>
+  <button class="btn btn-brand" id="exportBtn">Export feedback</button>
+</div>
+
+<div class="wrap">
+  <p class="note">Chunk 3 adds the three signals the whole inventory exists for, expiring soon, stale, and low, computed for free from data typed once (no extra upkeep). They sit at the TOP of /inventory, above the search and item list you already approved. Two layout options for the health strip are below (pick one), then how a signal view annotates records, then the all-clear state. This is a design proposal, so the numbers and items are sample data.</p>
+
+  <!-- SECTION: tiles variant -->
+  <div class="section" data-sec="tiles" data-label="Health strip, Option A: three stat tiles (recommended)">
+    <div class="section-head"><span class="name">Health strip — Option A: three stat tiles</span><span class="why">recommended</span><span class="id">#tiles</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="app">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div><h2 class="h-head">Inventory</h2></div>
+        </div>
+        <div class="tiles">
+          <button class="tile exp active">
+            <span class="ic">__CLOCK__</span>
+            <span><span class="num">3</span><div class="lbl">Expiring soon</div><div class="sub">within 30 days, plus expired</div></span>
+          </button>
+          <button class="tile stale">
+            <span class="ic">__HOURGLASS__</span>
+            <span><span class="num">5</span><div class="lbl">Stale</div><div class="sub">untouched 6+ months</div></span>
+          </button>
+          <button class="tile low">
+            <span class="ic">__DOWN__</span>
+            <span><span class="num">2</span><div class="lbl">Low or empty</div><div class="sub">below your threshold</div></span>
+          </button>
+        </div>
+        <p class="t-meta muted" style="margin-top:10px">Click a tile to filter the list below to those records. The active tile is outlined.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION: banner variant -->
+  <div class="section" data-sec="banner" data-label="Health strip, Option B: one compact banner (alternative)">
+    <div class="section-head"><span class="name">Health strip — Option B: one compact banner</span><span class="why">alternative</span><span class="id">#banner</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="app">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div><h2 class="h-head">Inventory</h2></div>
+        </div>
+        <div class="banner">
+          <span class="b-title">Inventory health</span>
+          <span class="b-stat"><span class="swatch sw-exp"></span><span class="b-num">3</span> expiring soon</span>
+          <span class="b-stat"><span class="swatch sw-stale"></span><span class="b-num">5</span> stale</span>
+          <span class="b-stat"><span class="swatch sw-low"></span><span class="b-num">2</span> low or empty</span>
+        </div>
+        <p class="t-meta muted" style="margin-top:10px">More compact, one line. Same click-to-filter behavior. Pick this OR Option A above.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION: expiring view -->
+  <div class="section" data-sec="expview" data-label="Signal view: Expiring soon (record annotation)">
+    <div class="section-head"><span class="name">Signal view — Expiring soon</span><span class="id">#expview</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="app">
+        <div class="filterbar">
+          <span class="fchip exp">__CLOCK__ Showing expiring soon (3)</span>
+          <button class="fclear">Clear filter, show all</button>
+        </div>
+        <div class="rec exp">
+          <div>
+            <div class="nm">Q5 High-Fidelity DNA Polymerase</div>
+            <div class="meta">Reagent &middot; NEB &middot; Lot AB1207 &middot; -80 door, left</div>
+            <div class="signal">Expires in 9 days (Jun 16, 2026)</div>
+          </div>
+          <div class="right"><span class="status st-in">In stock</span><button class="miniact" title="Open">__ARROW__</button></div>
+        </div>
+        <div class="rec exp">
+          <div>
+            <div class="nm">Anti-FLAG M2 antibody</div>
+            <div class="meta">Antibody &middot; Sigma &middot; Lot 0000145 &middot; -20 shelf 1</div>
+            <div class="signal">Expires in 22 days (Jun 29, 2026)</div>
+          </div>
+          <div class="right"><span class="status st-low">Low</span><button class="miniact" title="Open">__ARROW__</button></div>
+        </div>
+        <div class="rec exp">
+          <div>
+            <div class="nm">dNTP mix (10 mM)</div>
+            <div class="meta">Reagent &middot; Thermo &middot; Lot 2291 &middot; -20 door</div>
+            <div class="signal">Expired 4 days ago (Jun 3, 2026)</div>
+          </div>
+          <div class="right"><span class="status st-exp">Expired</span><button class="miniact" title="Open">__ARROW__</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION: stale + low annotation -->
+  <div class="section" data-sec="stalelow" data-label="Signal view: Stale and Low annotations">
+    <div class="section-head"><span class="name">Signal view — Stale and Low annotations</span><span class="id">#stalelow</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="app">
+        <div class="filterbar"><span class="fchip exp" style="background:var(--slate-soft);color:var(--slate-fg);border-color:var(--slate-bg)">__HOURGLASS__ Showing stale (5)</span><button class="fclear">Clear filter</button></div>
+        <div class="rec stale">
+          <div>
+            <div class="nm">Lysozyme</div>
+            <div class="meta">Reagent &middot; Sigma &middot; Lot 9981 &middot; 4C fridge B</div>
+            <div class="signal">Received Oct 1, 2025, not touched in 8 months</div>
+          </div>
+          <div class="right"><span class="status st-in">In stock</span><button class="miniact" title="Open">__ARROW__</button></div>
+        </div>
+
+        <div class="filterbar" style="margin-top:20px"><span class="fchip exp" style="background:var(--rose-soft);color:var(--rose-fg);border-color:var(--rose-bg)">__DOWN__ Showing low or empty (2)</span><button class="fclear">Clear filter</button></div>
+        <div class="rec low">
+          <div>
+            <div class="nm">Q5 High-Fidelity DNA Polymerase</div>
+            <div class="meta">Reagent &middot; NEB &middot; total across stocks</div>
+            <div class="signal">1 vial, below your threshold of 2</div>
+          </div>
+          <div class="right"><span class="status st-low">Low</span><button class="miniact" title="Add to reorder">__CART__</button><button class="miniact" title="Open">__ARROW__</button></div>
+        </div>
+        <div class="rec low">
+          <div>
+            <div class="nm">Ampicillin (100 mg/mL)</div>
+            <div class="meta">Reagent &middot; Sigma &middot; total across stocks</div>
+            <div class="signal">0 vials, empty</div>
+          </div>
+          <div class="right"><span class="status st-empty">Empty</span><button class="miniact" title="Add to reorder">__CART__</button><button class="miniact" title="Open">__ARROW__</button></div>
+        </div>
+        <p class="t-meta muted" style="margin-top:12px">Note the small cart action on low/empty records: a shortcut to drop the item into the Purchases needs-ordering queue (this is the seam chunk 4 / the smart-reorder feature fills in). Flag if you want it here in chunk 3 or held for chunk 4.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION: all clear -->
+  <div class="section" data-sec="clear" data-label="All-clear state (no signals firing)">
+    <div class="section-head"><span class="name">All-clear state</span><span class="id">#clear</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="app">
+        <div class="clear">
+          <span class="ic">__CHECK__</span>
+          <div>
+            <div class="h-title">Nothing needs attention</div>
+            <div class="t-meta muted" style="margin-top:2px">Nothing expiring, stale, or low. The signals appear here when something does.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="exportModal">
+  <div class="box">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <strong style="font-size:14px">Feedback summary</strong>
+      <span class="t-meta muted">copy back into the chat</span>
+      <span class="spacer" style="flex:1"></span>
+      <button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('exportText').value)">Copy</button>
+      <button class="btn" onclick="document.getElementById('exportModal').style.display='none'">Close</button>
+    </div>
+    <textarea id="exportText" readonly></textarea>
+  </div>
+</div>
+
+<script>
+const I={
+  clock:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  hourglass:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/></svg>',
+  down:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>',
+  arrow:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  cart:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12.4a1.6 1.6 0 0 0 1.6 1.3h8.2a1.6 1.6 0 0 0 1.6-1.3L22 7H6"/></svg>',
+  check:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
+};
+document.body.innerHTML=document.body.innerHTML
+ .replaceAll('__CLOCK__',I.clock).replaceAll('__HOURGLASS__',I.hourglass).replaceAll('__DOWN__',I.down)
+ .replaceAll('__ARROW__',I.arrow).replaceAll('__CART__',I.cart).replaceAll('__CHECK__',I.check);
+
+const KEY='inv-signals-mockup-2026-06-07';
+const store=JSON.parse(localStorage.getItem(KEY)||'{}');
+function save(){localStorage.setItem(KEY,JSON.stringify(store));}
+document.querySelectorAll('.section').forEach(sec=>{
+  const id=sec.dataset.sec;const host=sec.querySelector('.review');
+  const cur=store[id]||{v:'',c:''};
+  const seg=document.createElement('div');seg.className='seg';
+  [['ok','Approve'],['warn','Needs change'],['none','Undecided']].forEach(([v,lbl])=>{
+    const b=document.createElement('button');b.textContent=lbl;b.className=(cur.v===v?'active '+v:'');
+    b.onclick=()=>{store[id]={...(store[id]||{}),v};save();render();};seg.appendChild(b);
+  });
+  host.appendChild(seg);
+  const stage=sec.querySelector('.stage');
+  const ta=document.createElement('textarea');ta.className='cmt';ta.placeholder='Comment on this section (optional)';ta.value=cur.c||'';
+  ta.oninput=()=>{store[id]={...(store[id]||{}),c:ta.value};save();};stage.appendChild(ta);
+});
+function render(){document.querySelectorAll('.section').forEach(sec=>{const id=sec.dataset.sec;const cur=store[id]||{};sec.querySelectorAll('.seg button').forEach(b=>{const v=b.textContent==='Approve'?'ok':b.textContent==='Needs change'?'warn':'none';b.className=(cur.v===v?'active '+v:'');});});}
+render();
+document.getElementById('themeBtn').onclick=function(){const r=document.documentElement;const d=r.getAttribute('data-theme')==='dark';r.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Dark mode':'Light mode';};
+document.getElementById('exportBtn').onclick=function(){
+  let out='INVENTORY SIGNALS MOCKUP (chunk 3) — '+new Date().toString().slice(0,21)+'\\n'+'='.repeat(52)+'\\n\\n';
+  let any=false;
+  document.querySelectorAll('.section').forEach(sec=>{const id=sec.dataset.sec;const cur=store[id]||{};const verdict=cur.v==='ok'?'APPROVE':cur.v==='warn'?'NEEDS CHANGE':cur.v==='none'?'undecided':'(not marked)';if(cur.v||cur.c)any=true;out+='['+verdict+'] '+sec.dataset.label+'  (#'+id+')\\n';if(cur.c&&cur.c.trim())out+='   note: '+cur.c.trim()+'\\n';out+='\\n';});
+  if(!any)out+='(nothing marked yet)\\n';
+  document.getElementById('exportText').value=out;document.getElementById('exportModal').style.display='flex';
+};
+</script>
+</body>
+</html>
