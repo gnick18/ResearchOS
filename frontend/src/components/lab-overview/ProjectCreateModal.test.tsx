@@ -125,13 +125,19 @@ describe("ProjectCreateModal: close", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  it("backdrop click closes; a click inside the panel does not", () => {
+  it("scrim click closes; a click inside the panel does not", () => {
     const { onClose } = renderModal();
     // Click inside the panel: must NOT close.
     fireEvent.click(screen.getByTestId("project-create-modal"));
     expect(onClose).not.toHaveBeenCalled();
-    // Click the backdrop (the dialog role wrapper): closes.
-    fireEvent.click(screen.getByRole("dialog"));
+    // Click the LivingPopup scrim (full-screen close button): closes. (The
+    // panel itself now carries role="dialog" via LivingPopup; the scrim is the
+    // backdrop close affordance.)
+    fireEvent.click(
+      document.querySelector(
+        'button[aria-label="Close new research project"]',
+      ) as HTMLElement,
+    );
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

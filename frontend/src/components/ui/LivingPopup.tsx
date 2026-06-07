@@ -113,6 +113,11 @@ export interface LivingPopupProps {
    *  command-palette feel (the parent-task picker, BeakerSearch-style pickers).
    *  Horizontal placement is always centered. */
   align?: "center" | "top";
+  /** Raise the popup above the normal z-[400] popup band to z-[440]. Reserve for
+   *  a popup that must clear another high-z overlay (e.g. the v4 tour input lock
+   *  at z-[420]). Default false. The shared popup stack (dim/blur) is mount-order
+   *  based, so elevating only changes paint order, not the dim logic. */
+  elevated?: boolean;
   children: React.ReactNode;
 }
 
@@ -131,6 +136,7 @@ export default function LivingPopup({
   closeOnScrimClick = true,
   showClose = true,
   align = "center",
+  elevated = false,
   children,
 }: LivingPopupProps) {
   // mounted: in the DOM (stays true through the exit animation).
@@ -232,7 +238,7 @@ export default function LivingPopup({
 
   return (
     <div
-      className="fixed inset-0 z-[400]"
+      className={`fixed inset-0 ${elevated ? "z-[440]" : "z-[400]"}`}
       // Tour-occlusion marker (TourSpotlight convention). While any living
       // popup is mounted the v4 walkthrough ring drops, unless the spotlight
       // target sits INSIDE this popup (TourSpotlight checks el.contains, and
