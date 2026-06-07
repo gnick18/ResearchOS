@@ -57,6 +57,8 @@ const SECTION_ORDER: Array<{ key: TrashEntityType; label: string }> = [
   { key: "lab_link", label: "Lab links" },
   { key: "mass_spec_protocol", label: "Mass spec protocols" },
   { key: "sequence", label: "Sequences" },
+  { key: "inventory_item", label: "Inventory items" },
+  { key: "inventory_stock", label: "Inventory stocks" },
 ];
 
 export default function TrashPage() {

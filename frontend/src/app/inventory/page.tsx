@@ -214,8 +214,8 @@ export default function InventoryPage() {
   const confirmDeleteItem = async () => {
     if (!deletingItem) return;
     const owner = effectiveOwnerOf(deletingItem, currentUser);
-    // Hard delete the item then its orphaned stocks (v1 has no trash; that is
-    // chunk 5). Delete stocks first so none are left pointing at a gone item.
+    // Soft-delete (chunk 5): moves records to _trash so they can be restored
+    // from /trash. Delete stocks first so none are left pointing at a gone item.
     const itemStocks = stocksByItem.get(deletingItem.id) ?? [];
     for (const s of itemStocks) {
       await inventoryStocksApi.delete(s.id, owner);
@@ -612,12 +612,12 @@ export default function InventoryPage() {
               Delete {deletingItem.name}?
             </h2>
             <p className="mt-2 text-body text-foreground-muted">
-              This removes the item and its{" "}
+              This moves the item and its{" "}
               {(stocksByItem.get(deletingItem.id) ?? []).length} stock
               {(stocksByItem.get(deletingItem.id) ?? []).length === 1
                 ? ""
-                : "s"}
-              . This cannot be undone.
+                : "s"}{" "}
+              to Trash. You can restore them from the Trash page.
             </p>
             <div className="mt-6 flex items-center justify-end gap-2">
               <button

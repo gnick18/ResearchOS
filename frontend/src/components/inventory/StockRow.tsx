@@ -114,7 +114,19 @@ export default function StockRow({
 
       {/* Status + actions */}
       <div className="flex items-center gap-2">
-        {canEdit ? (
+        {stock.status === "expired" ? (
+          // Expired is derived from the expiry date, not a tappable status.
+          // Show a single read-only chip regardless of edit permission so the
+          // user knows the stock is past its date and cannot accidentally clear
+          // it via a tap.
+          <span
+            className={`rounded-md px-2.5 py-1 text-meta font-medium ${statusChipClass(
+              "expired",
+            )}`}
+          >
+            {STATUS_LABEL.expired}
+          </span>
+        ) : canEdit ? (
           <div className="flex items-center gap-1 rounded-lg bg-surface-sunken p-0.5">
             {TAPPABLE_STATUSES.map((s) => {
               const active = stock.status === s;
@@ -123,7 +135,7 @@ export default function StockRow({
                   key={s}
                   type="button"
                   onClick={() => onSetStatus(s)}
-                  disabled={busy || stock.status === "expired"}
+                  disabled={busy}
                   aria-pressed={active}
                   className={`rounded-md px-2.5 py-1 text-meta font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                     active
@@ -143,16 +155,6 @@ export default function StockRow({
             )}`}
           >
             {STATUS_LABEL[stock.status]}
-          </span>
-        )}
-
-        {stock.status === "expired" && (
-          <span
-            className={`rounded-md px-2.5 py-1 text-meta font-medium ${statusChipClass(
-              "expired",
-            )}`}
-          >
-            {STATUS_LABEL.expired}
           </span>
         )}
 
