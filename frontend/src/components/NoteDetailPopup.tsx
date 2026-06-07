@@ -1366,7 +1366,7 @@ export default function NoteDetailPopup({
       onClick={handleClose}
     >
       <div
-        className={`bg-surface-raised rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden transition-all duration-300 ${
+        className={`relative bg-surface-raised rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden transition-all duration-300 ${
           isExpanded
             ? "inset-4 max-w-none max-h-none h-[calc(100vh-2rem)]"
             : "max-w-4xl max-h-[90vh]"
@@ -2011,56 +2011,37 @@ export default function NoteDetailPopup({
             </div>
           )}
 
-          {/* Save toolbar. Two modes, flag-gated:
-              - Loro pilot ON + handle ready: Google-Docs-style auto-save status
-                ("Saving..." / "Saved"). The Save button and "Unsaved changes"
-                are hidden; every edit auto-persists via the debounced commit.
-                (auto-save bot, 2026-06-05)
-              - Legacy (flag OFF or handle not yet ready): the manual
-                version-control "Save note" button, unchanged. */}
-          {!readOnly && currentEntry && (
+          {/* Legacy manual-save toolbar, ONLY when the Loro pilot is off or the
+              handle is not ready. Under the pilot this whole bar is removed so
+              the editor gets the full height; the auto-save status floats in the
+              editor corner instead (see the colored pill near the card end). */}
+          {!readOnly && currentEntry && !(LORO_PILOT_ENABLED && !!loroHandle) && (
             <div className="flex items-center gap-2 px-4 py-2 border-b border-border flex-shrink-0">
               <div className="flex-1" />
-              {LORO_PILOT_ENABLED && !!loroHandle ? (
-                /* Auto-save status indicator. Subtle muted text; no spinner. */
-                <span
-                  data-testid="note-autosave-status"
-                  className={`text-meta transition-colors ${
-                    loroCommitPending ? "text-foreground-muted" : "text-foreground-muted"
-                  }`}
-                  aria-live="polite"
-                  aria-atomic="true"
-                >
-                  {loroCommitPending ? "Saving..." : "Saved"}
+              {(hasUnsavedChanges || editorDirty) && (
+                <span className="inline-flex items-center gap-1 text-meta text-amber-700 dark:text-amber-300 font-medium">
+                  <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  Unsaved changes
                 </span>
-              ) : (
-                <>
-                  {(hasUnsavedChanges || editorDirty) && (
-                    <span className="inline-flex items-center gap-1 text-meta text-amber-700 dark:text-amber-300 font-medium">
-                      <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                      Unsaved changes
-                    </span>
-                  )}
-                  <button
-                    data-testid="note-save"
-                    data-tour-target="note-save"
-                    onClick={() => {
-                      // Flush the editor's in-flight block buffer first so the
-                      // last in-progress edit lands on disk, then persist.
-                      const latest = editorSaveRef.current?.() ?? (currentEntry?.content ?? "");
-                      if (activeTab) void saveEntryContent(activeTab, latest);
-                    }}
-                    disabled={saving || readOnly || (!hasUnsavedChanges && !editorDirty)}
-                    className={`px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
-                      (hasUnsavedChanges || editorDirty) && !saving
-                        ? "text-white bg-blue-600 hover:bg-blue-700"
-                        : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
-                    }`}
-                  >
-                    {saving ? "Saving..." : "Save note"}
-                  </button>
-                </>
               )}
+              <button
+                data-testid="note-save"
+                data-tour-target="note-save"
+                onClick={() => {
+                  // Flush the editor's in-flight block buffer first so the last
+                  // in-progress edit lands on disk, then persist.
+                  const latest = editorSaveRef.current?.() ?? (currentEntry?.content ?? "");
+                  if (activeTab) void saveEntryContent(activeTab, latest);
+                }}
+                disabled={saving || readOnly || (!hasUnsavedChanges && !editorDirty)}
+                className={`px-3 py-1.5 text-meta font-medium rounded-lg transition-colors ${
+                  (hasUnsavedChanges || editorDirty) && !saving
+                    ? "text-white bg-blue-600 hover:bg-blue-700"
+                    : "text-foreground-muted bg-surface-sunken cursor-not-allowed"
+                }`}
+              >
+                {saving ? "Saving..." : "Save note"}
+              </button>
             </div>
           )}
 
@@ -2216,6 +2197,26 @@ export default function NoteDetailPopup({
             in the header metadata and Delete lives in the header trash icon, so
             this fixed bottom bar was pure redundancy. Dropping it gives the
             markdown editor the full popup height. */}
+
+        {/* Auto-save status, floated in the editor's bottom-right corner instead
+            of its own full-width bar (which wasted vertical space). A colored
+            pill: emerald when saved, amber while saving. pointer-events-none so
+            it never blocks the editor. Only under the Loro pilot (the legacy
+            path keeps its Save button in the toolbar above). */}
+        {LORO_PILOT_ENABLED && !!loroHandle && !readOnly && currentEntry && (
+          <div
+            data-testid="note-autosave-status"
+            aria-live="polite"
+            aria-atomic="true"
+            className={`pointer-events-none absolute bottom-3 right-4 z-20 rounded-full px-2.5 py-1 text-meta font-medium shadow-sm ring-1 transition-colors ${
+              loroCommitPending
+                ? "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-500/30"
+                : "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-500/30"
+            }`}
+          >
+            {loroCommitPending ? "Saving..." : "Saved"}
+          </div>
+        )}
       </div>
     </div>
     </>
