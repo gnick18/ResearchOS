@@ -215,19 +215,6 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   } | null>(null);
   const [recoveryCopied, setRecoveryCopied] = useState(false);
 
-  // After a brand-new account is established (solo create, or the forced
-  // password gate on a shared folder), offer an OPTIONAL "set up your profile"
-  // step with the third-party sign-in buttons before entering the app. Skipping
-  // is always allowed (the same buttons live in Settings to set up later). This
-  // is the only place creation differs from a normal returning-user login,
-  // which never sees it.
-  const [profileStep, setProfileStep] = useState<{ username: string } | null>(
-    null,
-  );
-  // When the user clicks a provider in the profile step, mount the existing
-  // SharingSetupWizard, which owns the whole OAuth + identity-claim flow.
-  const [profileWizardOpen, setProfileWizardOpen] = useState(false);
-
   // Per-user password management popup (set/change/remove)
   const [managingPasswordFor, setManagingPasswordFor] = useState<string | null>(null);
 
