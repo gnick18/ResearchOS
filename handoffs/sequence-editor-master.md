@@ -146,16 +146,26 @@ all five docs are committed. Likely next moves, in priority order:
 1. **Reflect the two resolutions in the specs.** Update
    `beakersearch-purchases.md` to mark the live-session wiring resolved (point at
    `useLiveEditSession`). The Calendar spec is already updated for `task_id`.
-2. **Await Grant's go to build.** Do NOT start writing BeakerSearch
-   implementation code without his explicit go. When he greenlights, the locked
-   rollout is:
-   - Step 1, lift the existing Sequences palette into a shared
-     `BeakerSearchProvider` at the app shell with ZERO behavior change (safe,
-     satisfying first chunk).
-   - Step 2, add the global layer (cross-page nav + global object search that
-     complements `/search` + app commands).
+2. **Build is UNDERWAY (Grant said "lets build!!" 2026-06-07).** The locked
+   rollout and its status:
+   - Step 1, lift the Sequences palette into a shared `BeakerSearchProvider` at
+     the app shell with ZERO behavior change. DONE + verified + on `main`
+     (commit `d76f1e6e5`): new `frontend/src/components/beaker-search/`
+     (`BeakerSearchProvider.tsx` owns open-state + the global Cmd-K listener that
+     only acts when a source is registered, `useBeakerSearchSource.ts`,
+     `types.ts`), mounted in `lib/providers.tsx` beside `ContextMenuProvider`,
+     and `SequenceEditView` now registers its source instead of owning the
+     palette. tsc clean, 38 palette/editor-commands tests green. Grant to give a
+     10-second live Cmd-K confirm on his running server (orchestrator cannot
+     start a competing dev server against his :3000).
+   - Step 2 (NEXT), add the global layer (an always-registered global source,
+     cross-page nav + app commands + global object search that complements
+     `/search`). DESIGN FORK to settle first: how global object search indexes
+     across pages (a cross-app index vs per-page entity contribution). Surface it
+     to Grant before building that part; the nav + app-commands part is
+     low-risk and buildable immediately.
    - Step 3, add page sources one at a time per the specs (Gantt, Calendar,
-     Workbench, Purchases).
+     Workbench, Purchases, Methods, Lab Overview, Links).
    - Step 4, app-wide mouse-awareness (`[data-beaker-target]` hover capture) last.
 3. **Optional small follow-up:** the EventModal task-picker UI so a user can
    actually create an event-to-task link (the field exists, the UI does not).
