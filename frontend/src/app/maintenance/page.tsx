@@ -28,8 +28,8 @@ export default function MaintenancePage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-sky-50 to-white">
-      <header className="flex justify-center px-6 pt-10 pb-2">
-        <Wordmark size="lg" animated={false} markEasterEgg="none" textClassName="text-brand-ink" />
+      <header className="flex justify-start px-8 pt-8 pb-2">
+        <Wordmark size="lg" textOnly textClassName="text-brand-ink" />
       </header>
 
       <main className="flex flex-1 items-center justify-center px-6 py-10 text-center">
@@ -89,7 +89,7 @@ export default function MaintenancePage() {
         </div>
       </main>
 
-      <AppFooter />
+      <AppFooter hideMark />
     </div>
   );
 }

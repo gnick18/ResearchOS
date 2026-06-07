@@ -18,7 +18,16 @@ import Wordmark from "@/components/Wordmark";
  */
 const GITHUB_URL = "https://github.com/gnick18/ResearchOS";
 
-export default function AppFooter({ className = "" }: { className?: string }) {
+export default function AppFooter({
+  className = "",
+  hideMark = false,
+}: {
+  className?: string;
+  /** Render the footer wordmark as plain text, no BeakerBot mark. Used by the
+   *  maintenance holding page. Default false, so every other call site keeps
+   *  the mark. */
+  hideMark?: boolean;
+}) {
   return (
     <footer
       data-testid="app-footer"
@@ -39,6 +48,7 @@ export default function AppFooter({ className = "" }: { className?: string }) {
             and its host pages convert to tokens. */}
         <Wordmark
           size="md"
+          textOnly={hideMark}
           animated={false}
           markEasterEgg="none"
           textClassName="text-brand-ink"

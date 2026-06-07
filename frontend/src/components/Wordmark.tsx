@@ -33,6 +33,10 @@ export interface WordmarkProps {
   className?: string;
   /** Render only the BeakerBot mark, no "ResearchOS" text. */
   markOnly?: boolean;
+  /** Render only the "ResearchOS" text, no BeakerBot mark. Default false.
+   *  Used by surfaces that want the plain wordmark (e.g. the maintenance
+   *  holding page header + footer). */
+  textOnly?: boolean;
   /** Node rendered between the mark and the wordmark text (e.g. a streak
    *  badge in the app header). */
   aside?: ReactNode;
@@ -65,6 +69,7 @@ export default function Wordmark({
   size = "md",
   className,
   markOnly = false,
+  textOnly = false,
   aside,
   alive = false,
   animated = true,
@@ -81,20 +86,22 @@ export default function Wordmark({
     <div
       className={`flex items-center gap-1.5 leading-none ${className ?? ""}`.trim()}
     >
-      <span
-        onClick={onMarkClick}
-        data-testid={markTestId}
-        className="inline-flex shrink-0"
-      >
-        <BeakerBot
-          pose="idle"
-          alive={alive}
-          animated={animated}
-          ariaLabel={ariaLabel}
-          easterEgg={markEasterEgg}
-          className={`${s.mark} block shrink-0 text-brand-sky`}
-        />
-      </span>
+      {!textOnly && (
+        <span
+          onClick={onMarkClick}
+          data-testid={markTestId}
+          className="inline-flex shrink-0"
+        >
+          <BeakerBot
+            pose="idle"
+            alive={alive}
+            animated={animated}
+            ariaLabel={ariaLabel}
+            easterEgg={markEasterEgg}
+            className={`${s.mark} block shrink-0 text-brand-sky`}
+          />
+        </span>
+      )}
       {aside}
       {!markOnly && (
         <TextTag
