@@ -233,40 +233,56 @@ describe("AppShell — top-nav gate", () => {
     expect(window.location.pathname).toBe(before);
   });
 
-  // Break-bot B P1-2 (Wave 1 gear icon gating): the Settings gear icon
-  // sits outside <nav>, so it was missed by the original L23 gate.
-  // Mid-walkthrough click did a soft-nav to /settings, spotlight went
-  // dark, tour parked. Gear must match the top-nav disabled pattern;
-  // the Help/`?` icon next to it stays a Link because the wiki-pointer
-  // cluster step 3 needs the user to click it.
-  describe("Settings gear icon gate", () => {
-    it("renders gear as Link when no tour is active", () => {
+  // Break-bot B P1-2 (Wave 1 gear icon gating): the account/settings entry
+  // point sits outside <nav>, so it was missed by the original L23 gate. A
+  // mid-walkthrough click did a soft-nav, the spotlight went dark, and the
+  // tour parked. The profile-page-split (2026-06-06) replaced the standalone
+  // settings gear with UserAvatarMenu — the avatar button is now the account
+  // entry point and carries the same gate (it renders a disabled,
+  // non-interactive button when `navDisabledByTour` is true, opening
+  // Settings/profile via an in-app popup rather than a /settings nav). The
+  // Help/`?` icon next to it stays a Link because the wiki-pointer cluster
+  // step 3 needs the user to click it.
+  //
+  // The file-system mock above resolves currentUser to "alex", so the
+  // interactive avatar carries aria-label "alex — account menu" and the gated
+  // form carries "Account (disabled during walkthrough)".
+  describe("Account avatar (UserAvatarMenu) gate", () => {
+    it("renders the avatar as an interactive button when no tour is active", () => {
       const { container } = renderShell({ withProvider: false });
-      const gearLink = container.querySelector(
-        `a[href="/settings"]`,
-      ) as HTMLAnchorElement | null;
-      expect(gearLink).toBeTruthy();
-      // No disabled gear button.
+      const avatarBtn = container.querySelector(
+        `button[aria-label="alex — account menu"]`,
+      ) as HTMLButtonElement | null;
+      expect(avatarBtn).toBeTruthy();
+      expect(avatarBtn!.disabled).toBe(false);
+      // No disabled (tour-gated) avatar button.
       expect(
-        container.querySelector(`button[data-tour-nav-item="/settings"]`),
+        container.querySelector(
+          `button[aria-label="Account (disabled during walkthrough)"]`,
+        ),
       ).toBeNull();
+      // Settings now opens via an in-app popup, not a /settings nav, so the
+      // old gear Link no longer exists in either state.
+      expect(container.querySelector(`a[href="/settings"]`)).toBeNull();
     });
 
-    it("renders gear as disabled button during in-product walkthrough", () => {
+    it("renders the avatar as a disabled button during in-product walkthrough", () => {
       const { container } = renderShell({
         withProvider: true,
         initialStep: "home-create-project",
       });
-      const gearBtn = container.querySelector(
-        `button[data-tour-nav-item="/settings"]`,
+      const avatarBtn = container.querySelector(
+        `button[aria-label="Account (disabled during walkthrough)"]`,
       ) as HTMLButtonElement | null;
-      expect(gearBtn).toBeTruthy();
-      expect(gearBtn!.disabled).toBe(true);
-      expect(gearBtn!.getAttribute("aria-disabled")).toBe("true");
-      expect(gearBtn!.className).toMatch(/cursor-not-allowed/);
-      expect(gearBtn!.className).toMatch(/opacity-50/);
-      // The Link form must NOT also be in the DOM.
-      expect(container.querySelector(`a[href="/settings"]`)).toBeNull();
+      expect(avatarBtn).toBeTruthy();
+      expect(avatarBtn!.disabled).toBe(true);
+      expect(avatarBtn!.getAttribute("aria-disabled")).toBe("true");
+      expect(avatarBtn!.className).toMatch(/cursor-not-allowed/);
+      expect(avatarBtn!.className).toMatch(/opacity-50/);
+      // The interactive menu button must NOT also be in the DOM.
+      expect(
+        container.querySelector(`button[aria-label="alex — account menu"]`),
+      ).toBeNull();
     });
 
     it("Help / `?` icon stays a Link during walkthrough (intentionally not gated)", () => {
