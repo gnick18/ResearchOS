@@ -100,13 +100,38 @@ will give us the three numbers the table is sensitive to:
 Recommended: run tracking for ~2-4 weeks of real beta use, then plug the measured
 rates into the formula and lock the table.
 
-## Open decisions for Grant
+## Locked decisions (Grant 2026-06-07)
 
-- Storage in a plan: flat included up to the cap (simple, recommended) vs metered
-  on actual use within the cap (fairer to light users, but reintroduces a variable
-  line and clashes with the bundle's one-number promise). The metered backend
-  already exists; flat is a simpler Stripe subscription price.
-- Buffer size: 15% is a guess; a tighter buffer is closer to true cost recovery
-  but less safe. 
-- Whether the fixed base stays fully on fellowship/donations, or a few cents of it
-  is amortized into paid plans once there are enough paying users.
+- Storage in a plan: FLAT included up to the cap (a clean Stripe subscription
+  price per plan), not metered on actual use. The metered per-GB number survives
+  only as the a-la-carte comparison anchor.
+- Launch posture: FREE FOR EVERYONE DURING BETA. Billing stays dark
+  (BILLING_ENABLED off) so we gather real usage, but the whole plan/throttle
+  system is BUILT and ready to flip on at any time. Final prices + allowances are
+  configurable and get filled from tracking data before the flip.
+
+Still soft: buffer size (15% placeholder), and whether any of the fixed base is
+ever amortized into plans once there are enough payers (default: no, stays on
+fellowship/donations).
+
+## What "built and ready to turn on" requires (plan-model rework)
+
+The chunks 1-3 backend is METERED (per-GB-month). The chosen model is FLAT bundle
+plans, so readiness is a rework, not a flag flip. Carries over: lab billing
+structure, payer resolution, ops tracking, the popup shell, Stripe plumbing. New
+work:
+
+1. Plan catalog (config): Free/Plus/Pro + lab variants, each = {storage cap,
+   monthly activity allowance, flat price, Stripe price id}. Numbers provisional.
+2. Subscription becomes "which plan", not a metered item. Quota = plan storage
+   cap. Activity allowance = plan write ceiling. Replace the GB-month report cron
+   with a flat subscription (Stripe handles recurring billing).
+3. Activity throttle in the collab write path: track monthly writes vs the plan
+   allowance; past it, degrade real-time sync to periodic + rate-limit, never bill
+   per-unit.
+4. UI: plan picker + activity bar + the comparison anchor in BillingPopup,
+   replacing the cap picker.
+5. Storage file/doc split + DO-duration attribution in tracking, to finalize the
+   cost rates.
+
+All behind BILLING_ENABLED so beta stays free while the machinery is ready.
