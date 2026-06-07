@@ -3,7 +3,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 
 // ResearchOS companion, v0 shell (Chunk 0). The laptop stays the main
 // workspace; this is the bench-side companion. Identity pairing + bench
@@ -11,12 +10,12 @@ import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 export default function HomeScreen() {
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safe}>
         <ThemedView style={styles.hero}>
-          <ThemedText type="title" style={styles.centered}>
+          <ThemedText type="title" style={styles.center}>
             ResearchOS
           </ThemedText>
-          <ThemedText type="subtitle" style={styles.centered}>
+          <ThemedText type="subtitle" style={styles.center}>
             Companion
           </ThemedText>
           <ThemedText style={styles.tagline}>
@@ -25,9 +24,9 @@ export default function HomeScreen() {
           </ThemedText>
         </ThemedView>
 
-        <ThemedView type="backgroundElement" style={styles.card}>
-          <ThemedText type="smallBold">Not paired yet</ThemedText>
-          <ThemedText type="small" style={styles.cardHint}>
+        <ThemedView style={styles.card}>
+          <ThemedText type="defaultSemiBold">Not paired yet</ThemedText>
+          <ThemedText style={styles.cardHint}>
             Pairing with your desktop is the next step. For now this is the v0
             shell, running on your phone.
           </ThemedText>
@@ -38,41 +37,34 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1 },
+  safe: {
     flex: 1,
-    flexDirection: 'row',
+    paddingHorizontal: 24,
     justifyContent: 'center',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+    gap: 28,
   },
   hero: {
     alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.three,
+    gap: 10,
   },
-  centered: {
+  center: {
     textAlign: 'center',
   },
   tagline: {
     textAlign: 'center',
     opacity: 0.7,
+    lineHeight: 22,
   },
   card: {
-    alignSelf: 'stretch',
-    gap: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+    borderWidth: 1,
+    borderColor: 'rgba(128, 128, 128, 0.3)',
+    borderRadius: 14,
+    padding: 16,
+    gap: 6,
   },
   cardHint: {
     opacity: 0.7,
+    lineHeight: 20,
   },
 });
