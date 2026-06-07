@@ -46,12 +46,13 @@ async function syncSubscription(sub: Stripe.Subscription): Promise<void> {
     ownerKey = existing?.ownerKey ?? null;
   }
   if (!ownerKey) return; // cannot attribute, skip
-  const blocks = sub.items.data[0]?.quantity ?? 0;
+  // The metered subscription has one item; usage is reported against its id.
+  const stripeItemId = sub.items.data[0]?.id ?? null;
   await upsertSubscription({
     ownerKey,
     stripeCustomerId: typeof sub.customer === "string" ? sub.customer : sub.customer.id,
     stripeSubscriptionId: sub.id,
-    blocks,
+    stripeItemId,
     status: normalizeStatus(sub.status),
   });
 }

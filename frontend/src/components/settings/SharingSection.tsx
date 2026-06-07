@@ -199,18 +199,27 @@ function Card({
 // Cloud storage plan (metered billing). Self-hides unless BILLING_ENABLED is on.
 // ---------------------------------------------------------------------------
 
+interface CapOption {
+  gb: number;
+  maxCostCents: number;
+}
+
 interface BillingStatus {
   enabled: boolean;
   signedIn?: boolean;
   active: boolean;
-  blocks: number;
-  paidBytes: number;
-  freeBytes: number;
-  quotaBytes: number;
   usedBytes: number;
-  gbPerBlock?: number;
-  blockPriceCents?: number;
+  freeBytes: number;
+  capBytes: number;
+  quotaBytes: number;
+  rateCents?: number;
+  minChargeCents?: number;
+  estimatedChargeCents?: number;
+  capOptions?: CapOption[];
 }
+
+const GB_BYTES = 1024 ** 3;
+const usd = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
 /** Traffic-light tone for a usage percentage. */
 function usageTone(pct: number): {
@@ -279,45 +288,24 @@ function StoragePlanSection() {
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/billing/status");
-        if (!res.ok) return;
-        const data = (await res.json()) as BillingStatus;
-        // Show whenever the user is signed in with a sharing identity, even if
-        // billing (the buy button) is off. Hidden for local-only users.
-        if (!cancelled && data.signedIn) setStatus(data);
-      } catch {
-        // sharing off or unreachable, stay hidden
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/billing/status");
+      if (!res.ok) return;
+      const data = (await res.json()) as BillingStatus;
+      // Show whenever the user is signed in with a sharing identity, even if
+      // billing (the controls) is off. Hidden for local-only users.
+      if (data.signedIn) setStatus(data);
+    } catch {
+      // sharing off or unreachable, stay hidden
+    }
   }, []);
 
-  if (!status) return null; // hidden until signed in with sharing on
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  const used = Math.max(0, status.usedBytes);
-  const quota = Math.max(1, status.quotaBytes); // avoid divide-by-zero
-  const free = status.freeBytes;
-  const paid = status.paidBytes;
-  const remaining = Math.max(0, quota - used);
-  const pct = Math.min(100, (used / quota) * 100);
-  const tone = usageTone(pct);
-  // Where the free allowance ends, as a fraction of the whole track. Only shown
-  // when paid blocks extend the quota past the free portion.
-  const freeBoundaryPct =
-    paid > 0 ? Math.min(100, (free / quota) * 100) : null;
-
-  const price =
-    status.blockPriceCents != null
-      ? `$${(status.blockPriceCents / 100).toFixed(2)}`
-      : null;
-
-  const addStorage = async () => {
+  const startCheckout = useCallback(async () => {
     setBusy(true);
     try {
       const res = await fetch("/api/billing/checkout", { method: "POST" });
@@ -327,23 +315,74 @@ function StoragePlanSection() {
         return;
       }
     } catch {
-      // surfaced by the button re-enabling
+      // surfaced by the control re-enabling
     } finally {
       setBusy(false);
     }
-  };
+  }, []);
+
+  const freeGb = status ? Math.round(status.freeBytes / GB_BYTES) : 1;
+
+  const chooseCap = useCallback(
+    async (gb: number) => {
+      if (!status) return;
+      // Raising above the free tier without a subscription needs a card first.
+      if (gb > freeGb && !status.active) {
+        await startCheckout();
+        return;
+      }
+      setBusy(true);
+      try {
+        const res = await fetch("/api/billing/cap", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ capGb: gb }),
+        });
+        if (res.status === 409) {
+          const b = (await res.json()) as { needsCheckout?: boolean };
+          if (b.needsCheckout) {
+            await startCheckout();
+            return;
+          }
+        }
+        if (res.ok) await load();
+      } catch {
+        // surfaced by the control re-enabling
+      } finally {
+        setBusy(false);
+      }
+    },
+    [status, freeGb, startCheckout, load],
+  );
+
+  if (!status) return null; // hidden until signed in with sharing on
+
+  const used = Math.max(0, status.usedBytes);
+  const quota = Math.max(1, status.quotaBytes); // avoid divide-by-zero
+  const free = status.freeBytes;
+  const remaining = Math.max(0, quota - used);
+  const pct = Math.min(100, (used / quota) * 100);
+  const tone = usageTone(pct);
+  // Where the free allowance ends on the track, shown when the cap is raised
+  // past it (so the user sees the free vs paid portion of their limit).
+  const freeBoundaryPct =
+    quota > free ? Math.min(100, (free / quota) * 100) : null;
+
+  const capGbNow = Math.round(quota / GB_BYTES);
+  const estimate = status.estimatedChargeCents ?? 0;
+  const showMeter = status.enabled;
 
   return (
     <Card
       title="Cloud storage"
-      description="Storage for your shared, real-time documents on the server. Your local app and local files are always free and unlimited; this only counts the documents you collaborate on through the cloud."
+      description="Storage for your shared, real-time documents on the server. Your local app and local files are always free and unlimited; this only counts the documents you collaborate on through the cloud. You pay only for what you actually use above the free tier."
     >
       {/* Headline usage */}
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
         <p className="text-display font-bold tracking-tight text-foreground">
           {humanBytes(used)}{" "}
           <span className="text-title font-semibold text-foreground-muted">
-            of {humanBytes(quota)}
+            of {humanBytes(quota)} limit
           </span>
         </p>
         <span
@@ -369,14 +408,14 @@ function StoragePlanSection() {
           <div
             className="absolute top-0 h-full border-l border-dashed border-foreground-muted/60"
             style={{ left: `${freeBoundaryPct}%` }}
-            title="End of the free allowance"
+            title="End of the free tier"
           />
         ) : null}
       </div>
       {freeBoundaryPct != null ? (
         <p className="mt-1 text-meta text-foreground-muted">
-          The dashed line marks the end of your {humanBytes(free)} free allowance.
-          Everything past it is purchased storage.
+          The dashed line marks the end of your {humanBytes(free)} free tier.
+          You are only billed for average use past it.
         </p>
       ) : null}
 
@@ -387,21 +426,18 @@ function StoragePlanSection() {
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatTile label="Used" value={humanBytes(used)} strong />
         <StatTile label="Remaining" value={humanBytes(remaining)} strong />
+        <StatTile label="Included free" value={humanBytes(free)} hint="Always free" />
         <StatTile
-          label="Included free"
-          value={humanBytes(free)}
-          hint="Always free"
-        />
-        <StatTile
-          label="Purchased"
-          value={
-            status.active && status.blocks > 0 ? humanBytes(paid) : "None"
-          }
+          label={showMeter ? "Est. this month" : "Your limit"}
+          value={showMeter ? usd(estimate) : humanBytes(quota)}
           hint={
-            status.active && status.blocks > 0 && status.gbPerBlock != null
-              ? `${status.blocks} x ${status.gbPerBlock} GB block${status.blocks > 1 ? "s" : ""}`
-              : "No blocks yet"
+            showMeter
+              ? estimate === 0
+                ? "Under the minimum"
+                : "If usage holds"
+              : `${capGbNow} GB cap`
           }
+          strong
         />
       </div>
 
@@ -414,25 +450,64 @@ function StoragePlanSection() {
         this only meters the storage those shared documents use.
       </p>
 
-      {/* Buy (only when billing is enabled) */}
-      {status.enabled ? (
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={addStorage}
-            disabled={busy}
-            className="rounded-lg bg-sky-600 px-4 py-2 text-body font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
-          >
-            {busy
-              ? "Opening checkout..."
-              : status.active
-                ? "Add more storage"
-                : "Add storage"}
-          </button>
-          {price && status.gbPerBlock != null ? (
-            <p className="text-meta text-foreground-muted">
-              {status.gbPerBlock} GB block, {price}/month. Any tax is added at
-              checkout where it applies.
+      {/* Cap picker (only when billing is enabled) */}
+      {showMeter ? (
+        <div className="mt-5">
+          <p className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
+            Storage limit
+          </p>
+          <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
+            Pick a limit. You are billed only for your monthly average use above
+            the {humanBytes(free)} free tier, at {usd(status.rateCents ?? 30)} per
+            GB, one invoice a month, with a {usd(status.minChargeCents ?? 200)}{" "}
+            minimum (smaller months are free). The limit is your spend ceiling, the
+            number beside each option is the most it could ever cost.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {/* Free / cancel option */}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void chooseCap(freeGb)}
+              className={`rounded-lg border px-3 py-2 text-left disabled:opacity-50 ${
+                capGbNow <= freeGb
+                  ? "border-sky-500 bg-sky-50 dark:bg-sky-500/15"
+                  : "border-border bg-surface-raised hover:bg-surface-sunken"
+              }`}
+            >
+              <span className="block text-body font-semibold text-foreground">
+                {freeGb} GB
+              </span>
+              <span className="block text-meta text-foreground-muted">Free</span>
+            </button>
+            {(status.capOptions ?? []).map((opt) => {
+              const selected = capGbNow === opt.gb;
+              return (
+                <button
+                  key={opt.gb}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void chooseCap(opt.gb)}
+                  className={`rounded-lg border px-3 py-2 text-left disabled:opacity-50 ${
+                    selected
+                      ? "border-sky-500 bg-sky-50 dark:bg-sky-500/15"
+                      : "border-border bg-surface-raised hover:bg-surface-sunken"
+                  }`}
+                >
+                  <span className="block text-body font-semibold text-foreground">
+                    {opt.gb} GB
+                  </span>
+                  <span className="block text-meta text-foreground-muted">
+                    up to {usd(opt.maxCostCents)}/mo
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {!status.active ? (
+            <p className="mt-2 text-meta text-foreground-muted">
+              Choosing a paid limit adds a payment method first. Nothing is charged
+              today. Any tax is added at checkout where it applies.
             </p>
           ) : null}
         </div>

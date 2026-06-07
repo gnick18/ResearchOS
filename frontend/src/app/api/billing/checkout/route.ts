@@ -2,9 +2,11 @@
 //
 // POST /api/billing/checkout
 //
-// Authenticated. Starts a hosted Stripe Checkout for one recurring storage
-// block, tagged with the caller's owner key so the webhook can credit the right
-// lab. Dark unless BILLING_ENABLED is on. Test mode in dev, live only in prod.
+// Authenticated. Starts a hosted Stripe Checkout for the metered storage
+// subscription (a metered price, nothing charged today), tagged with the caller's
+// owner key so the webhook can attribute usage. The user picks their storage cap
+// separately via /api/billing/cap. Dark unless BILLING_ENABLED is on. Test mode
+// in dev, live only in prod.
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
@@ -57,7 +59,9 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const checkout = await getStripe().checkout.sessions.create({
       mode: "subscription",
-      line_items: [{ price: getStoragePriceId(), quantity: 1 }],
+      // Metered price, no quantity. Nothing is charged at checkout; usage is
+      // reported monthly and Stripe invoices the aggregated average GB-month.
+      line_items: [{ price: getStoragePriceId() }],
       customer_email: email,
       // Carry the owner key on BOTH the session and the subscription so every
       // downstream event can resolve the lab without storing a plaintext email.
