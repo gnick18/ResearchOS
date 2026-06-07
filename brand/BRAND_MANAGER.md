@@ -95,6 +95,12 @@ Always commit new assets + their generator + a line in `brand/README.md`.
 
 ## Social accounts inventory
 
+Active channels are YouTube, Bluesky, and LinkedIn. X (Twitter) was intentionally
+skipped. The science and lab-research audience now lives on Bluesky (#sciencesky),
+LinkedIn covers PIs and institutional credibility, and X is a poor brand fit for a
+trust-and-own-your-data tool with little audience left to gain. Do not re-raise
+adding X unless Grant asks. Mastodon is also skipped for now (smaller, fragmented).
+
 - **YouTube:** channel "ResearchOS", id `UCEy_yLPPkxN1RnHkV_P7v_Q`. Banner =
   lockup, avatar = sky BeakerBot. Edit via Studio > Customization > Profile.
 - **Bluesky:** `@researchos.bsky.social` (display name ResearchOS). Can later
