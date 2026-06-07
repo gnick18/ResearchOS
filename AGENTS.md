@@ -206,6 +206,16 @@ Grant's standing preference: for questions and feedback about areas of the websi
 - **Interactable + copyable back to chat**: filters/search across items, and per-item decision controls (Agree / Keep as-is / Discuss + a free note) that **persist to `localStorage`** and **export to a plain-text summary he can copy straight back into the chat**. The whole point is he marks it up, hits Export, and pastes the result for the fix pass.
 - **When to use which**: this HTML format for surface/design audits, "do you like X across these areas" reviews, and any multi-item design triage. A quick single fork still uses `AskUserQuestion` (clickable options). The HTML is for when there are many items or he needs to SEE it.
 
+**UI redesigns specifically (2026-06-07, locked on the BeakerSearch palette).** When I have a concrete redesign to propose, Grant reviews it as an interactive **before/after** HTML mockup BEFORE I build it. The bar is `docs/mockups/beakersearch-palette-redesign.html`. The mockup must:
+
+- Show **before vs after side by side**, faithful to the live tokens in `frontend/src/app/globals.css`, with a **light/dark toggle**.
+- Be **actually interactive** (clickable rows / selection, arrow-key nav, hover states), not a static picture, so he can feel the change.
+- Let him **add comments in the HTML**, a "comment mode" where clicking any element drops a numbered pin and opens a note editor; pins persist (`localStorage`) and list in a side panel.
+- Let him mark **each proposed change Approve or Disapprove** (colored, persisted), and tag individual comments with a verdict too.
+- **Export** everything (Copy to clipboard + Download .md) as a Decisions list plus comments, so he pastes one clean artifact back into chat.
+
+He reviews change-by-change (approve / suggest / deny each), not all-or-nothing. After he marks it up, build exactly what he approved in a worktree, verify, merge. Mockups live in `docs/mockups/`. Strict voice applies to mockup copy too (no em-dashes, no emojis, no mid-sentence colons).
+
 ### Bot-driven UI verification (2026-05-13)
 
 The master bot can spawn a sub-agent with Chrome MCP access to verify UI fixes against `?wikiCapture=1` fixture mode (`mcp__Claude_in_Chrome__*`). The constraint set that proved necessary on the first run:
