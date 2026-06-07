@@ -38,6 +38,16 @@ vi.mock("@/lib/file-system/indexeddb-store", () => ({
   getCurrentUser: vi.fn(async () => "alex"),
 }));
 
+// This suite verifies the LEGACY jsonl notes-history restore path, which
+// notesApi.update skips once LORO_PILOT_ENABLED is on (Loro owns history then).
+// The pilot is now on by default in prod, so force the flag off here to exercise
+// the legacy engine the test is written for. The Loro history path has its own
+// pilot test suite.
+vi.mock("@/lib/loro/config", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/loro/config")>()),
+  LORO_PILOT_ENABLED: false,
+}));
+
 import { notesApi } from "@/lib/local-api";
 import { historyEngine, canonicalize } from "@/lib/history";
 import type { DeltaRow } from "@/lib/history";

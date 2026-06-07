@@ -50,6 +50,14 @@ vi.mock("@/lib/settings/user-settings", () => ({
   DEFAULT_SETTINGS: {},
 }));
 
+// The round-trip asserts the legacy jsonl notes-history path, which notesApi
+// skips once LORO_PILOT_ENABLED is on (now the prod default). Force it off so
+// the legacy engine this test targets actually records.
+vi.mock("@/lib/loro/config", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/loro/config")>()),
+  LORO_PILOT_ENABLED: false,
+}));
+
 // Import after the mocks so the helper picks up the mocked modules.
 import { trashNote, restoreTrashedNote } from "../notes-trash";
 
@@ -146,6 +154,18 @@ describe("notes-trash shim", () => {
     await trashNote(OWNER, 11);
     const restored = await restoreTrashedNote(OWNER, 11);
 
-    expect(restored).toEqual(original);
+    // The restore path stamps an additive `_restore_audit` provenance blob
+    // (deleted/restored by+at, surfaced by RestoredBadge). The note CONTENT must
+    // round-trip unchanged; the audit blob is extra metadata, so compare the
+    // content with it stripped, then assert the audit was recorded.
+    const { _restore_audit, ...restoredContent } = (restored ?? {}) as Record<
+      string,
+      unknown
+    >;
+    expect(restoredContent).toEqual(original);
+    expect(_restore_audit).toMatchObject({
+      deleted_by: OWNER,
+      restored_by: OWNER,
+    });
   });
 });
