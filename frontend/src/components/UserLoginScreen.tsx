@@ -48,7 +48,6 @@ import UserColorPickerPopup from "@/components/UserColorPickerPopup";
 import Tooltip from "@/components/Tooltip";
 import BeakerBot from "@/components/BeakerBot";
 import VersionBadge from "@/components/VersionBadge";
-import BetaNotice from "@/components/BetaNotice";
 import DevForceWalkthroughButton from "@/components/DevForceWalkthroughButton";
 import DevForceLandingButton from "@/components/DevForceLandingButton";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
@@ -1013,11 +1012,13 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-surface via-surface-sunken to-surface">
-      {/* Beta surfacing, mirrors the folder-setup screen: version badge
-          top-left + beta notice bottom-left so both pre-app gates carry the
-          same framing. */}
+      {/* Beta surfacing: the "v0.5.0 beta" version badge top-left. The beta
+          framing is already carried by this badge plus the "Report Bug" footer
+          link below, so we no longer float the verbose BetaNotice paragraph
+          here. It was styled tone="dark" for the old slate-gradient splash and
+          rendered washed-out + overlapping once this gate moved to the light
+          surface gradient. */}
       <VersionBadge tone="surface" className="fixed top-3 left-4 z-[110]" />
-      <BetaNotice className="hidden sm:block fixed bottom-4 left-4 z-[110] max-w-xs shadow-lg" />
       {/* Background pattern */}
       <div className="absolute inset-0 opacity-5">
         <div className="absolute inset-0" style={{

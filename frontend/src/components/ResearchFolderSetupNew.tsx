@@ -17,7 +17,6 @@ import BeakerBot from "@/components/BeakerBot";
 import PickerWalkthroughModal from "@/components/picker-walkthrough/PickerWalkthroughModal";
 import RiseCredentialsStamp from "@/components/RiseCredentialsStamp";
 import VersionBadge from "@/components/VersionBadge";
-import BetaNotice from "@/components/BetaNotice";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 import {
   extractDirectoryHandleFromDrop,
@@ -296,7 +295,6 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
     return (
       <div className="fixed inset-0 z-[100] overflow-y-auto flex items-start sm:items-center justify-center bg-gradient-to-br from-surface via-surface-sunken to-surface py-8">
         <VersionBadge tone="onDark" className="fixed top-3 left-4 z-[110]" />
-        <BetaNotice className="hidden sm:block fixed bottom-4 left-4 z-[110] max-w-xs shadow-lg" />
         <div className="absolute inset-0 opacity-5">
           <div
             className="absolute inset-0"
@@ -721,7 +719,6 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-surface via-surface-sunken to-surface">
       <VersionBadge tone="onDark" className="fixed top-3 left-4 z-[110]" />
-      <BetaNotice className="hidden sm:block fixed bottom-4 left-4 z-[110] max-w-xs shadow-lg" />
       <div className="absolute inset-0 opacity-5">
         <div
           className="absolute inset-0"
