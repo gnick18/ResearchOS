@@ -188,10 +188,16 @@ all five docs are committed. Likely next moves, in priority order:
        clean, all green. This is the first chunk Grant can test live (Cmd-K on any
        page, type a task/project/method/sequence name, Enter jumps via its
        deep-link; shared-task jumps exercise the chunk-1 opener).
-     - CHUNKS 3 to 4 (NEXT): chunk 3 the `/search` "Search everything for <q>"
-       handoff row + `?keywords=` reader; chunk 4 the per-user `localStorage`
-       Recent-records MRU (the empty-query global section). Both scoped in the
-       decisions doc.
+     - CHUNK 3 DONE + on `main` (commit `c343e3748`): the `/search` handoff. A
+       trailing "Search everything for <q>" row (a new `searchAll` PaletteItem
+       kind under a "More" heading, always last, only while typing) pushes
+       `/search?keywords=<q>`; `/search` reads `?keywords=` once on mount, seeds
+       its box, runs the search, strips the param. Additive, the only `/search`
+       touch the feature needs. 2 new render tests, tsc clean, 71 tests green.
+     - CHUNK 4 (NEXT): the per-user `localStorage` Recent-records MRU (the
+       empty-query global section, the last ~5 globally-opened core records,
+       pushed on each global jump). Scoped in the decisions doc, decision 4. It is
+       the only thing the global source contributes to the EMPTY view.
    - Step 3, add page sources one at a time per the specs (Gantt, Calendar,
      Workbench, Purchases, Methods, Lab Overview, Links).
    - Step 4, app-wide mouse-awareness (`[data-beaker-target]` hover capture) last.
