@@ -24,7 +24,10 @@
  *   4. LAB ACTIVITY (centerpiece) + RIGHT RAIL (Today's events + Member
  *      workload). Two-column from lg; the rail stacks below the feed on
  *      narrow screens.
- *   5. TRAINEE NOTES & GOALS (expandable section): TraineeNotesWidget body.
+ *
+ * The structured trainee relationship (weekly goals, meeting notes, agenda)
+ * now lives on the Workbench Mentoring / Check-ins tab (the 1:1 surface), so
+ * the old "Trainee notes & goals" widget was retired from this dashboard.
  *
  * Account-type: PI-only. A non-PI hitting /lab-overview is redirected to
  * "/" (Phase 2 finalizes member routing).
@@ -45,7 +48,6 @@ import { ExpandedView as AnnouncementsBody } from "./widgets/AnnouncementsWidget
 import { ExpandedView as LabActivityBody } from "./widgets/LabActivityWidget";
 import { ExpandedView as CalendarEventsTodayBody } from "./widgets/CalendarEventsTodayWidget";
 import { ExpandedView as MemberWorkloadBody } from "./widgets/MemberWorkloadWidget";
-import { ExpandedView as TraineeNotesBody } from "./widgets/TraineeNotesWidget";
 
 import type { Note, PurchaseItem } from "@/lib/types";
 
@@ -495,13 +497,6 @@ export default function LabOverviewPage() {
           </SectionCard>
         </div>
       </div>
-
-      <SectionCard
-        title="Trainee notes & goals"
-        description="Pick a member to see their shared notes and weekly goals."
-      >
-        <TraineeNotesBody surface="canvas" />
-      </SectionCard>
     </div>
   );
 }
