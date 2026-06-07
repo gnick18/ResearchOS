@@ -1485,8 +1485,8 @@ export default function SequencesPage() {
                       <Tooltip
                         label={
                           listCollapsed
-                            ? "Exit focus mode (Esc) — show the sequence list"
-                            : "Focus mode — hide the list so the viewer fills the page"
+                            ? "Exit focus mode (Esc) and show the sequence list"
+                            : "Focus mode, hide the list so the viewer fills the page"
                         }
                         placement="bottom"
                       >
