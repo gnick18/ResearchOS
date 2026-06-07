@@ -58,10 +58,26 @@ function overlapFraction(a: TranslatableFeature, b: TranslatableFeature): number
   return overlap / shorter;
 }
 
+/** The reading frame a feature translates in, on its own strand. Forward reads
+ *  from `start`, reverse reads from `end` (the 3' boundary), so the frame is the
+ *  respective boundary mod 3. Good enough for the dedup heuristic. */
+function frameOf(f: TranslatableFeature): number {
+  return (((normStrand(f.strand) === -1 ? f.end : f.start) % 3) + 3) % 3;
+}
+
 /** Two features describe "the same product" worth deduping: same strand and a
- *  substantial overlap of the shorter span. gene ⊇ mRNA ⊇ CDS all qualify. */
+ *  substantial overlap of the shorter span. gene over mRNA over CDS (DIFFERENT
+ *  dogma ranks) collapse to the CDS. But two features of the SAME rank (e.g. two
+ *  CDS) are the same protein only when they also share a reading frame,
+ *  overlapping CDS in DIFFERENT frames are distinct proteins and each keeps its
+ *  own translation track. */
 function sameProduct(a: TranslatableFeature, b: TranslatableFeature): boolean {
-  return normStrand(a.strand) === normStrand(b.strand) && overlapFraction(a, b) >= 0.5;
+  if (normStrand(a.strand) !== normStrand(b.strand)) return false;
+  if (overlapFraction(a, b) < 0.5) return false;
+  if (translationRank(a.type) === translationRank(b.type)) {
+    return frameOf(a) === frameOf(b);
+  }
+  return true;
 }
 
 /**

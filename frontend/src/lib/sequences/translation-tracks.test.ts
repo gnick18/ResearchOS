@@ -127,4 +127,18 @@ describe("selectTranslationFeatures — central-dogma dedup", () => {
     const out = selectTranslationFeatures(feats, { globalOn: true });
     expect(out.map((o) => o.name)).toEqual(["B", "A"]);
   });
+
+  it("keeps overlapping same-strand CDS in DIFFERENT reading frames (distinct proteins)", () => {
+    const alpha = f("CDS", 10, 330, 1, "alpha"); // frame 10 % 3 = 1
+    const beta = f("CDS", 45, 300, 1, "beta"); // frame 45 % 3 = 0
+    const out = selectTranslationFeatures([alpha, beta], { globalOn: true });
+    expect(out.map((o) => o.name).sort()).toEqual(["alpha", "beta"]);
+  });
+
+  it("still collapses overlapping same-strand CDS in the SAME frame (true duplicate)", () => {
+    const a = f("CDS", 12, 300, 1, "a"); // frame 0
+    const b = f("CDS", 15, 309, 1, "b"); // frame 0, same frame + heavy overlap
+    const out = selectTranslationFeatures([a, b], { globalOn: true });
+    expect(out).toHaveLength(1);
+  });
 });
