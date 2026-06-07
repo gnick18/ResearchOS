@@ -3375,7 +3375,7 @@ function DetailsTab({
               </span>
             )}
             {editing && (
-              <span className="text-meta text-foreground-muted">Editing — Save when done</span>
+              <span className="text-meta text-foreground-muted">Editing, save when done</span>
             )}
           </div>
           <div className="flex items-center gap-2">

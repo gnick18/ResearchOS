@@ -333,8 +333,8 @@ export default function LabRoster() {
                     {row.archived && row.archived_at && (
                       <>
                         {" "}
-                        — archived{" "}
-                        {new Date(row.archived_at).toLocaleDateString()}
+                        (archived{" "}
+                        {new Date(row.archived_at).toLocaleDateString()})
                       </>
                     )}
                   </div>

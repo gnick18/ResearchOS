@@ -1616,7 +1616,7 @@ function SidebarSection({ settings, update }: SectionProps) {
   return (
     <SectionShell
       title="Sidebar"
-      description="The left sidebar shown on every page except Calendar (which has its own). Pick what to show — tasks for today, today's calendar events, or both stacked."
+      description="The left sidebar shown on every page except Calendar (which has its own). Pick what to show, tasks for today, today's calendar events, or both stacked."
       searchKeywords="tasks calendar events horizon next days today overdue upcoming"
     >
       <div className="space-y-2">

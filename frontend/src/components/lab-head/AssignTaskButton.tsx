@@ -209,7 +209,7 @@ export default function AssignTaskButton({
                 className="w-full text-body rounded-md border border-border px-2 py-1.5 bg-surface-raised focus:ring-2 focus:ring-emerald-500"
                 data-testid="lab-head-assign-task-select"
               >
-                <option value="">— Pick a lab member —</option>
+                <option value="">Pick a lab member…</option>
                 {users
                   .filter((u) => !archivedSet.has(u.username))
                   // Mira Batch 1 polish (2026-05-23): the PI shouldn't
@@ -238,7 +238,7 @@ export default function AssignTaskButton({
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 disabled={busy}
-                placeholder="e.g. Please pick this up this week — sequencing primers are in the freezer."
+                placeholder="e.g. Please pick this up this week. Sequencing primers are in the freezer."
                 className="w-full min-h-[60px] text-body rounded-md border border-border px-2 py-1.5 focus:ring-2 focus:ring-emerald-500"
               />
             </div>

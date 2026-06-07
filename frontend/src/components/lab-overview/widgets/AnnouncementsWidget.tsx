@@ -252,7 +252,7 @@ function Composer({ username, onPosted }: ComposerProps) {
       <textarea
         className="w-full min-h-[60px] text-body rounded-md border border-emerald-300 px-3 py-2 bg-surface-raised focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-surface-sunken disabled:text-foreground-muted"
         placeholder={
-          "Share an update with the lab — e.g. \"Lab meeting Friday 2pm, bring strain design notes.\""
+          "Share an update with the lab, e.g. \"Lab meeting Friday 2pm, bring strain design notes.\""
         }
         value={text}
         onChange={(e) => setText(e.target.value)}
