@@ -65,21 +65,41 @@ iPhone first, both built from day one. Grant's instinct is right, most US users 
 
 ## Feature scope by phase
 
+Grant confirmed the v1 anchor set 2026-06-07, bench photo capture, lab timers with push, the barcode-driven reorder/inventory loop, and the today glance with push. The phone leans into what it is good at (camera, push, quick capture while hands are busy), it does not shrink the desktop down.
+
 v0 (proof, on Grant's phone fast)
-- Camera capture into the existing Telegram-fed inbox (option 1 bridge).
+- Camera capture into the existing Telegram-fed inbox (option a bridge).
 - Passkey pairing with the desktop identity.
 - A bare "today" read view (tasks due, calendar) if cheap.
 
 v1 (the real companion, on the DO backend)
-- First-party capture inbox over the Cloudflare DO + R2 (option 2). Photo plus caption, queued offline, synced when online.
-- Push notifications for shift alerts, comments on shared tasks, and inbox-filed confirmations.
+- Bench photo capture into the first-party inbox over the Cloudflare DO + R2. Photo plus caption, queued offline, synced when online. This is the anchor.
+- Quick note capture (text or voice) into the inbox, for hands-busy moments.
+- Lab timers with push. Start an incubation or a PCR step and get a notification when it fires, even after walking away from the bench. Phone-native, the desktop owns calculators, the phone owns timers.
+- Barcode-driven reorder and inventory capture (see the dedicated section below). The phone is the scanner.
 - Read-only glance surfaces, today's tasks, this week's calendar, recent inbox.
-- Quick text note capture into the inbox (not the full editor).
+- Push notifications for shift alerts, comments on shared tasks, and inbox-filed confirmations.
 
 Explicitly deferred past v1
+- Light mutation (check off a task, leave a comment). Real value, but it means the phone writing canonical records, so it waits until the read path and DO write path are both proven.
 - Editing notes, methods, experiments, or Gantt on the phone.
-- The sequence editor, calculators, and other deep desktop surfaces.
+- The sequence editor, on-phone calculators, and other deep desktop surfaces.
 - Any offline-first local store of the whole folder on the phone.
+
+## Barcode inventory loop (Grant, 2026-06-07) and its dependency
+
+Grant wants the reorder feature built around barcode scanning, tied to an inventory feature ResearchOS will build but has not yet. The phone is the natural scanner, which makes the mobile app the front-end for inventory rather than just a capture utility. This matches the public roadmap, which already lists "lab inventory with barcode scanning, beta-requested, pairs with the mobile app."
+
+The two-mode scan loop Grant described:
+- Scan to register. Point the phone at a barcode (a manufacturer UPC or GTIN on the bottle, or a lab-printed label) to create or identify an inventory item and set its details. The barcode becomes the item's identity key.
+- Scan to consume. Scan a registered item to mark it used. That auto-decrements stock and drops the item into the existing Purchases needs-ordering queue when it runs low.
+
+The dependency that gates this. The inventory data model does not exist yet, and the roadmap explicitly says it needs a design doc before building. The full loop (register, consume, auto-reorder) needs that model. So there is a sequencing fork to decide before the build plan.
+
+- Option A, co-design inventory first. Write the inventory model design doc now (it is roadmap-pending anyway), then the mobile app ships the full barcode loop in v1. The app and inventory are co-designed, with the phone as the primary scanner. Larger up-front scope, but the app launches with its headline inventory feature intact.
+- Option B, stepping-stone reorder in v1. Ship a simpler manual quick-add to the needs-ordering queue in v1 (no barcode, no inventory model), and add the barcode loop once the inventory model lands. The app launches sooner, the barcode loop follows in a fast v1.x once inventory is designed.
+
+This fork is the main open feature decision. Everything else in the v1 set is independent of it.
 
 ## Open questions for Grant (decisions to lock before building)
 
