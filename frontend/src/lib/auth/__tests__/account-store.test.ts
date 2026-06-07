@@ -83,4 +83,12 @@ describe("account-store", () => {
       false,
     );
   });
+
+  it("clears an orphaned Telegram backup when a fresh account is created", async () => {
+    // A pre-cutover backup keyed off the old password cannot be decrypted by the
+    // new keypair, so creating an account must drop it (the user re-pairs).
+    memFs.set("users/alex/_telegram-encrypted.json", { ciphertext: "stale" });
+    await createAndPersistAccount("alex", "hunter2", FAST);
+    expect(memFs.has("users/alex/_telegram-encrypted.json")).toBe(false);
+  });
 });
