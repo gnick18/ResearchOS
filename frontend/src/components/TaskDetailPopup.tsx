@@ -23,6 +23,7 @@ import CommentsThread from "./CommentsThread";
 import CommentsSidebar from "./CommentsSidebar";
 import ReceivedFromBadge from "./ReceivedFromBadge";
 import Tooltip from "./Tooltip";
+import LivingPopup from "@/components/ui/LivingPopup";
 import { useAppStore } from "@/lib/store";
 import { taskKey } from "@/lib/types";
 import type { Task, Project, ShiftResult, SubTask, SharedUser } from "@/lib/types";
@@ -693,13 +694,18 @@ export default function TaskDetailPopup({
   // For simple tasks, render a minimal popup showing only the list and sublists
   if (isSimpleTask && !isExpanded) {
     return (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"
-        // Marker for TourSpotlight (popup-occluding sweep manager,
-        // 2026-05-27). Hides the v4 walkthrough ring while this popup
-        // is mounted; see SnapshotTilePopup for the canonical example.
-        data-tour-popup-occluding="task-detail-simple"
-        onClick={onClose}
+      // Minimal list-task popup. The card owns its own header close + expand,
+      // and Escape precedence lives in the manual handler above, so opt out of
+      // LivingPopup's Escape + corner X. No blur: this is the small variant
+      // (was bg-black/20), and little popups never blur.
+      <LivingPopup
+        open
+        onClose={onClose}
+        label="Task"
+        card={false}
+        selfSize
+        closeOnEscape={false}
+        showClose={false}
       >
         {animationPosition && (
           <DynamicAnimation
@@ -710,7 +716,7 @@ export default function TaskDetailPopup({
           />
         )}
         <div
-          className="bg-surface-raised rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex flex-col overflow-hidden max-h-[90vh]"
+          className="pointer-events-auto bg-surface-raised rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex flex-col overflow-hidden max-h-[90vh]"
           style={{
             boxShadow:
               "0 1px 3px rgba(0,0,0,0.06), 0 16px 40px -8px rgba(0,0,0,0.22)",
@@ -850,18 +856,49 @@ export default function TaskDetailPopup({
             readOnly={readOnly}
           />
         </div>
-      </div>
+      </LivingPopup>
     );
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="task-detail"
-      onClick={onClose}
+    <>
+    {/* Sibling dialogs render OUTSIDE LivingPopup (mirrors NoteDetailPopup) so
+        they keep their own scrim + pointer-events and are not swallowed by the
+        selfSize wrapper's pointer-events-none. UnifiedShareDialog is a legacy
+        z-[60] modal (not yet on LivingPopup), so once this popup sits at the
+        LivingPopup layer (z-[400]) the share dialog would paint BEHIND it. The
+        relative z-[410] wrapper makes a stacking context above the popup so the
+        fixed share overlay lands on top. The duplicate resolver is already on
+        LivingPopup and self-stacks via the popup stack, so it needs no wrapper. */}
+    {showSharePopup && (
+      <div className="relative z-[410]">
+        <UnifiedShareDialog
+          isOpen
+          target={{ kind: "experiment", task, owner: task.owner }}
+          onClose={() => setShowSharePopup(false)}
+          onShared={() =>
+            queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] })
+          }
+        />
+      </div>
+    )}
+    {/* Universal-drop duplicate-name resolver. Inner tabs (LabNotesTab,
+        ResultsTab) own their OWN resolver instances since their upload
+        handlers are gated on per-tab state. This one fires only for
+        drops that land outside an editor card. */}
+    <UniversalDuplicateDialog />
+    <LivingPopup
+      open
+      onClose={onClose}
+      label="Task"
+      blur
+      card={false}
+      selfSize
+      // The card owns Escape precedence (text field, then history/comments,
+      // then fullscreen, then close) in the manual handler above, and it has
+      // its own header close, so opt out of LivingPopup's Escape + corner X.
+      closeOnEscape={false}
+      showClose={false}
     >
       {animationPosition && (
         <DynamicAnimation
@@ -872,7 +909,7 @@ export default function TaskDetailPopup({
         />
       )}
       <div
-        className={`bg-surface-raised rounded-2xl shadow-2xl w-full mx-4 flex flex-col transition-all duration-300 overflow-hidden ${
+        className={`pointer-events-auto bg-surface-raised rounded-2xl shadow-2xl w-full mx-4 flex flex-col transition-all duration-300 overflow-hidden ${
           isExpanded
             ? "inset-4 max-w-none max-h-none h-[calc(100vh-2rem)]"
             : "max-w-5xl h-[90vh] max-h-[860px]"
@@ -1669,24 +1706,8 @@ export default function TaskDetailPopup({
           </div>
         )}
       </div>
-
-      {/* Share Popup */}
-      {showSharePopup && (
-        <UnifiedShareDialog
-          isOpen
-          target={{ kind: "experiment", task, owner: task.owner }}
-          onClose={() => setShowSharePopup(false)}
-          onShared={() =>
-            queryClient.refetchQueries({ queryKey: ["task", taskKey(task)] })
-          }
-        />
-      )}
-      {/* Universal-drop duplicate-name resolver. Inner tabs (LabNotesTab,
-          ResultsTab) own their OWN resolver instances since their upload
-          handlers are gated on per-tab state. This one fires only for
-          drops that land outside an editor card. */}
-      <UniversalDuplicateDialog />
-    </div>
+    </LivingPopup>
+    </>
   );
 }
 
