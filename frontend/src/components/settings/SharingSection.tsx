@@ -201,12 +201,78 @@ function Card({
 
 interface BillingStatus {
   enabled: boolean;
+  signedIn?: boolean;
   active: boolean;
   blocks: number;
   paidBytes: number;
   freeBytes: number;
-  gbPerBlock: number;
-  blockPriceCents: number;
+  quotaBytes: number;
+  usedBytes: number;
+  gbPerBlock?: number;
+  blockPriceCents?: number;
+}
+
+/** Traffic-light tone for a usage percentage. */
+function usageTone(pct: number): {
+  bar: string;
+  text: string;
+  ring: string;
+  label: string;
+  message: string;
+} {
+  if (pct >= 90)
+    return {
+      bar: "bg-red-500",
+      text: "text-red-700 dark:text-red-300",
+      ring: "ring-red-200 dark:ring-red-500/30",
+      label: "Almost full",
+      message:
+        "You are nearly out of shared-document storage. Free up space or add more before new edits to large shared docs are blocked.",
+    };
+  if (pct >= 70)
+    return {
+      bar: "bg-amber-500",
+      text: "text-amber-700 dark:text-amber-300",
+      ring: "ring-amber-200 dark:ring-amber-500/30",
+      label: "Filling up",
+      message:
+        "You are using most of your shared-document storage. No action needed yet, but adding storage now avoids interruptions later.",
+    };
+  return {
+    bar: "bg-sky-500",
+    text: "text-sky-700 dark:text-sky-300",
+    ring: "ring-sky-200 dark:ring-sky-500/30",
+    label: "Plenty of room",
+    message:
+      "You have lots of shared-document storage left. Your local app and local files are always free and unlimited.",
+  };
+}
+
+/** One labelled stat tile in the composition grid. */
+function StatTile({
+  label,
+  value,
+  hint,
+  strong,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  strong?: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-surface-sunken px-4 py-3">
+      <p className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
+        {label}
+      </p>
+      <p
+        className={`mt-1 ${strong ? "text-title font-bold" : "text-body font-semibold"} tracking-tight text-foreground`}
+      >
+        {value}
+      </p>
+      {hint ? <p className="mt-0.5 text-meta text-foreground-muted">{hint}</p> : null}
+    </div>
+  );
 }
 
 function StoragePlanSection() {
@@ -220,9 +286,11 @@ function StoragePlanSection() {
         const res = await fetch("/api/billing/status");
         if (!res.ok) return;
         const data = (await res.json()) as BillingStatus;
-        if (!cancelled && data.enabled) setStatus(data);
+        // Show whenever the user is signed in with a sharing identity, even if
+        // billing (the buy button) is off. Hidden for local-only users.
+        if (!cancelled && data.signedIn) setStatus(data);
       } catch {
-        // billing off or unreachable, stay hidden
+        // sharing off or unreachable, stay hidden
       }
     })();
     return () => {
@@ -230,9 +298,24 @@ function StoragePlanSection() {
     };
   }, []);
 
-  if (!status) return null; // hidden until billing is on and reachable
+  if (!status) return null; // hidden until signed in with sharing on
 
-  const price = `$${(status.blockPriceCents / 100).toFixed(2)}`;
+  const used = Math.max(0, status.usedBytes);
+  const quota = Math.max(1, status.quotaBytes); // avoid divide-by-zero
+  const free = status.freeBytes;
+  const paid = status.paidBytes;
+  const remaining = Math.max(0, quota - used);
+  const pct = Math.min(100, (used / quota) * 100);
+  const tone = usageTone(pct);
+  // Where the free allowance ends, as a fraction of the whole track. Only shown
+  // when paid blocks extend the quota past the free portion.
+  const freeBoundaryPct =
+    paid > 0 ? Math.min(100, (free / quota) * 100) : null;
+
+  const price =
+    status.blockPriceCents != null
+      ? `$${(status.blockPriceCents / 100).toFixed(2)}`
+      : null;
 
   const addStorage = async () => {
     setBusy(true);
@@ -253,33 +336,107 @@ function StoragePlanSection() {
   return (
     <Card
       title="Cloud storage"
-      description="Optional paid storage for heavy server-side use. The local app stays free."
+      description="Storage for your shared, real-time documents on the server. Your local app and local files are always free and unlimited; this only counts the documents you collaborate on through the cloud."
     >
-      <p className="text-body text-foreground">
-        {humanBytes(status.freeBytes)} included free
-        {status.active && status.blocks > 0
-          ? `, plus ${status.blocks} x ${status.gbPerBlock} GB purchased (${humanBytes(status.paidBytes)})`
-          : ""}
-        .
-      </p>
-      <p className="text-meta text-foreground-muted leading-relaxed">
-        Each {status.gbPerBlock} GB block is {price} per month. Any tax is added at
-        checkout where it applies.
-      </p>
-      <div>
-        <button
-          type="button"
-          onClick={addStorage}
-          disabled={busy}
-          className="rounded-lg bg-sky-600 px-4 py-2 text-body font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+      {/* Headline usage */}
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+        <p className="text-display font-bold tracking-tight text-foreground">
+          {humanBytes(used)}{" "}
+          <span className="text-title font-semibold text-foreground-muted">
+            of {humanBytes(quota)}
+          </span>
+        </p>
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-meta font-semibold ring-1 ring-inset ${tone.text} ${tone.ring}`}
         >
-          {busy
-            ? "Opening checkout..."
-            : status.active
-              ? "Add more storage"
-              : "Add storage"}
-        </button>
+          {tone.label} · {pct < 0.1 && used > 0 ? "<0.1" : pct.toFixed(pct < 10 ? 1 : 0)}%
+        </span>
       </div>
+
+      {/* Usage bar with an optional free/paid boundary marker */}
+      <div
+        className="relative mt-3 h-3 w-full overflow-hidden rounded-full bg-surface-sunken ring-1 ring-inset ring-border"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(pct)}
+      >
+        <div
+          className={`h-full rounded-full ${tone.bar} transition-all`}
+          style={{ width: `${Math.max(pct, used > 0 ? 1.5 : 0)}%` }}
+        />
+        {freeBoundaryPct != null ? (
+          <div
+            className="absolute top-0 h-full border-l border-dashed border-foreground-muted/60"
+            style={{ left: `${freeBoundaryPct}%` }}
+            title="End of the free allowance"
+          />
+        ) : null}
+      </div>
+      {freeBoundaryPct != null ? (
+        <p className="mt-1 text-meta text-foreground-muted">
+          The dashed line marks the end of your {humanBytes(free)} free allowance.
+          Everything past it is purchased storage.
+        </p>
+      ) : null}
+
+      {/* Status message */}
+      <p className={`mt-3 text-meta leading-relaxed ${tone.text}`}>{tone.message}</p>
+
+      {/* Composition grid */}
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatTile label="Used" value={humanBytes(used)} strong />
+        <StatTile label="Remaining" value={humanBytes(remaining)} strong />
+        <StatTile
+          label="Included free"
+          value={humanBytes(free)}
+          hint="Always free"
+        />
+        <StatTile
+          label="Purchased"
+          value={
+            status.active && status.blocks > 0 ? humanBytes(paid) : "None"
+          }
+          hint={
+            status.active && status.blocks > 0 && status.gbPerBlock != null
+              ? `${status.blocks} x ${status.gbPerBlock} GB block${status.blocks > 1 ? "s" : ""}`
+              : "No blocks yet"
+          }
+        />
+      </div>
+
+      {/* What counts toward storage */}
+      <p className="mt-4 rounded-lg border border-border bg-surface-sunken px-4 py-3 text-meta text-foreground-muted leading-relaxed">
+        What counts: the live, server-synced copies of documents you share and
+        co-edit. Notes are tiny, so this fills slowly. What does not count: your
+        local data folder, files you keep only on your computer, and documents
+        nobody else is collaborating on. Collaboration itself is free for everyone,
+        this only meters the storage those shared documents use.
+      </p>
+
+      {/* Buy (only when billing is enabled) */}
+      {status.enabled ? (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={addStorage}
+            disabled={busy}
+            className="rounded-lg bg-sky-600 px-4 py-2 text-body font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+          >
+            {busy
+              ? "Opening checkout..."
+              : status.active
+                ? "Add more storage"
+                : "Add storage"}
+          </button>
+          {price && status.gbPerBlock != null ? (
+            <p className="text-meta text-foreground-muted">
+              {status.gbPerBlock} GB block, {price}/month. Any tax is added at
+              checkout where it applies.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </Card>
   );
 }
