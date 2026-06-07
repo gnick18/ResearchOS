@@ -1,6 +1,6 @@
 # Mobile companion app
 
-Status: DESIGN DRAFT, needs Grant sign-off. No code yet.
+Status: DESIGN DRAFT with research-backed recommendations. Needs Grant sign-off on the five decisions. No code yet.
 Author: orchestrator (master bot).
 Date: 2026-06-07.
 Related: `COLLAB_STORAGE_D1_DO_MIGRATION.md` (the backend this rides), `EXTERNAL_COLLAB_SHARING.md` (the DO access-control pattern reused for auth), `project_passkey_identity_unlock` (mobile login), the existing Telegram bench-capture path in `frontend/src/lib/telegram/`.
@@ -88,6 +88,44 @@ Explicitly deferred past v1
 3. Read surfaces in v1. Is the phone read-only for tasks and calendar in v1, or do we want even light mutation (check off a task, leave a comment)? Light mutation needs more of the API to be reachable from the DO, which is more work.
 4. Apple enrollment entity. Enroll the developer account under the LLC ($99/yr) or chase the UW educational waiver ($0 but UW-bound)? This is a positioning call as much as a cost one.
 5. Build timing. The DO/D1/R2 migration is actively in flight. Do we want to start the companion now in parallel (v0 on the Telegram bridge while the backend settles), or wait until the migration's chunk 3 access-control lands so v1 has a stable backend to target?
+
+## Research findings and recommendations (2026-06-07)
+
+A deep-research pass gathered facts from primary sources (developer.apple.com, support.google.com, docs.expo.dev) plus targeted follow-up fetches. The automated verification phase hit a harness bug and abstained on every claim, so the facts below are taken from their primary sources directly rather than from the workflow's (broken) verdict. Each decision now has a recommendation.
+
+### Decision 1, sync path. RECOMMENDATION: ride the Cloudflare DO + R2 backend (option b) as the destination, Telegram bridge (option a) as the v0 first cut. Option c (direct provider SDKs) is rejected.
+
+The deciding fact is a pattern, not a single citation. Every local-first notes app with a mobile client (Obsidian, Joplin, Logseq, Standard Notes, Anytype) syncs its phone through a sync server or a provider sync API. None give the phone raw access to an arbitrary user-picked folder, because mobile operating systems do not expose the desktop's File System Access model. So routing the phone through a backend is the normal, expected architecture here, not a compromise of local-first values. We already have that backend (the collab DO is live on prod) and the identity it needs (the DO already verifies the Ed25519 directory signature on connect, per `EXTERNAL_COLLAB_SHARING.md`). Option a (Telegram inbox) is the fastest way to get a working app in hand because the desktop already drains that inbox. Option c means building and maintaining three separate provider integrations, the worst effort-to-value ratio.
+
+### Decision 2, Telegram future. RECOMMENDATION: COEXIST, do not replace, at least through v1.
+
+The Telegram bot already works and costs nothing to keep running. It is the zero-install capture channel for users who never download the app. The first-party app becomes the better capture surface (native camera, an offline queue that retries, push confirmations) for users who do install it. There is no reason to remove a working zero-friction path, and removing it would strand existing Telegram users. Revisit deprecation only once the app's capture is proven and adopted. This also means we keep the Telegram bridge investment small, it is the v0 scaffold, not a long-term product surface.
+
+### Decision 3, read vs mutate in v1. RECOMMENDATION: capture (append-only to the inbox) plus READ-ONLY glance views in v1. Defer general mutation to v2.
+
+Capture is already a write, but it is append-only into an inbox the desktop owns, which is safe and conflict-free. General mutation (checking off a task, editing a record) means the phone writing to canonical records that live in the user's folder, which reopens the no-FSA-on-mobile problem and adds conflict and merge concerns against the desktop as the authoritative writer. Read-only glance plus append-only capture is meaningfully cheaper and safer to ship, and it is the standard v1 shape for productivity companion apps (capture and view first, edit later). Light mutation (a checkbox, a comment) is a clean v2 once the v1 read path and the DO write path are both proven.
+
+### Decision 4, Apple enrollment entity and cost. RECOMMENDATION: enroll under the ResearchOS LLC at $99/yr. Do NOT chase the UW fee waiver.
+
+Verified facts from Apple and Google primary sources:
+- Apple Developer Program is $99 USD per membership year (developer.apple.com/support/compare-memberships, developer.apple.com/programs/whats-included).
+- Google Play is a one-time $25 registration, not recurring (support.google.com/googleplay/android-developer/answer/6112435).
+- Free apps with no in-app purchases owe no commission to Apple or Google. The 15 to 30 percent cut applies only to paid apps and in-app purchases.
+- Apple's fee waiver is real and current, but it is restricted to nonprofit organizations, accredited educational institutions, and government entities, AND only for accounts distributing exclusively free apps. Individuals, sole proprietors, and single-person businesses are explicitly excluded (developer.apple.com/help/account/membership/fee-waivers).
+
+The sharpening finding. A for-profit LLC does NOT qualify for the waiver, so enrolling under ResearchOS LLC costs the normal $99/yr. The $0 path runs through UW-Madison (a public university qualifies as an accredited educational and government entity), but enrolling under UW means UW's institutional Apple account owns the listing, the app is attributed to and governed by UW, and it entangles the listing with the same UW and WARF institutional-IP questions that already make the AGPL relicensing sensitive. The recommendation is to pay the $99/yr under the LLC (which now has an EIN and banking) and keep full ownership, brand, and control of the listing. The $99/yr is trivial against what UW enrollment would cost in control and entanglement.
+
+### Decision 5, toolchain and timing. RECOMMENDATION: Expo (React Native), build v0 now in parallel, target the v1 DO inbox after migration chunk 3 lands.
+
+Verified facts:
+- EAS Build free tier is 15 iOS and 15 Android cloud builds per month, 1 concurrency, 45-minute timeout, low-priority queue (expo.dev/pricing). The lowest paid tier is $19/mo and is not needed at beta scale.
+- Local builds via `eas build --local` run entirely on your machine and consume zero cloud build credits (docs.expo.dev/build-reference/local-builds). iOS local builds need a Mac with Xcode, fastlane, and CocoaPods, all of which you have or can install free. So build cost is effectively $0.
+- Android can be developed and tested without owning a device, the free Android emulator (Android Studio) plus EAS cloud builds cover dev and debug. Only physical-device Android testing needs hardware, and that can wait for a beta tester.
+- Expo's push service abstracts both APNs (Apple) and FCM (Google) under one API and is free to use, you only need a free Apple push key and a free FCM project (docs.expo.dev/push-notifications/overview, docs.expo.dev/push-notifications/sending-notifications-custom).
+- App Store guideline 4.2 (minimum functionality) is a top rejection reason for thin webview wrappers, and the standard remedy is to ship genuine native features, push, camera or photo capture, and offline handling. A purpose-built Expo companion has exactly those, so it clears 4.2, whereas a Capacitor wrap of the existing web app carries real rejection risk (multiple App Store review guides converge on this).
+- Desktop-to-mobile passkey pairing has an established pattern, a QR code encoding a time-sensitive session identifier that the phone scans and signs, with the private key never leaving the device (corbado.com/blog/webauthn-passkey-qr-code). This validates the pairing sketch above.
+
+Timing follows the migration naturally. Build v0 now on the Telegram bridge while the D1 + DO + R2 migration settles, then target v1's DO-backed inbox once migration chunk 3 (DO access control) lands, because chunk 3 is exactly the authenticated-member check the phone's uploads need.
 
 ## What this doc does NOT commit to
 
