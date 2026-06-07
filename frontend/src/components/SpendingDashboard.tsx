@@ -698,7 +698,7 @@ export default function SpendingDashboard({
 
       {/* Items on non-purchase tasks — surfaces the latent grandTotal bug */}
       <section className="mb-2">
-        <div className="p-3 bg-amber-50 dark:bg-amber-500/10/60 border border-amber-200 dark:border-amber-500/30 rounded-lg">
+        <div className="p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg">
           <button
             onClick={() =>
               nonPurchaseTaskItems.length > 0 &&
@@ -753,7 +753,7 @@ export default function SpendingDashboard({
                         }
                         className={`border-t border-amber-100 transition-colors ${
                           clickable
-                            ? "cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-500/20/50"
+                            ? "cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-500/20"
                             : ""
                         }`}
                       >

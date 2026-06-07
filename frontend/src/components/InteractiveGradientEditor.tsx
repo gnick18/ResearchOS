@@ -606,7 +606,7 @@ function CycleContainer({
     <div
       data-cycle-container
       className={`
-        relative border-2 border-dashed rounded-xl p-3 bg-purple-50 dark:bg-purple-500/10/50 min-w-[80px]
+        relative border-2 border-dashed rounded-xl p-3 bg-purple-50 dark:bg-purple-500/10 min-w-[80px]
         transition-all duration-150
         ${isEditing ? "cursor-default" : ""}
         border-purple-300

@@ -1761,7 +1761,7 @@ export default function GanttChart({
                               } ${isWeekend ? "bg-surface-sunken/50" : ""} ${
                                 isPto ? "pto-day-cell" : ""
                               } ${
-                                isToday2 ? "bg-red-50 dark:bg-red-500/10/30" : ""
+                                isToday2 ? "bg-red-50 dark:bg-red-500/10" : ""
                               }`}
                               // PTO uses -45deg sky-blue stripes; weekends use 45deg
                               // black/15 stripes elsewhere in the chart, so the two

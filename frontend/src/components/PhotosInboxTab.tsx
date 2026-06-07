@@ -620,7 +620,7 @@ export default function PhotosInboxTab() {
         className={`group flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-colors ${
           isSelected
             ? "border-blue-400 bg-blue-50 dark:bg-blue-500/10 ring-2 ring-blue-200"
-            : "border-border bg-surface-raised hover:border-blue-200 dark:border-blue-500/30 hover:bg-blue-50 dark:hover:bg-blue-500/10/30"
+            : "border-border bg-surface-raised hover:border-blue-200 dark:border-blue-500/30 hover:bg-blue-50 dark:hover:bg-blue-500/10"
         }`}
         onClick={(e) => handleRowClick(e, entry)}
         onContextMenu={(e) => handleRowContextMenu(e, entry)}
@@ -733,7 +733,7 @@ export default function PhotosInboxTab() {
                       Grouped visually so it reads as one unit, with a
                       one-tap "select all" so the whole album can be filed
                       together via the right-click menu. */}
-                  <div className="rounded-lg border border-blue-100 bg-blue-50 dark:bg-blue-500/10/30 p-2">
+                  <div className="rounded-lg border border-blue-100 bg-blue-50 dark:bg-blue-500/10 p-2">
                     <div className="flex items-center justify-between px-1 pb-1.5">
                       <span className="inline-flex items-center gap-1.5 text-meta font-medium uppercase tracking-wide text-blue-500">
                         <BatchIcon />

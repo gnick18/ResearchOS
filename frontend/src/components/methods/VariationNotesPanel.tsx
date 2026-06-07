@@ -398,7 +398,7 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
 
       {/* Expanded content */}
       {isExpanded && (
-        <div className="bg-amber-50 dark:bg-amber-500/10/50 p-4">
+        <div className="bg-amber-50 dark:bg-amber-500/10 p-4">
           {isEditing ? (
             <div className="space-y-3">
               <LiveMarkdownEditor

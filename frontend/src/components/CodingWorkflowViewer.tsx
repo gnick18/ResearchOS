@@ -282,7 +282,7 @@ export function CodingWorkflowRenderer({
         <p className="text-body text-foreground-muted">{description}</p>
       )}
       {externalPath && (
-        <div className="rounded-lg border border-cyan-100 bg-cyan-50 dark:bg-cyan-500/10/60 px-3 py-2 text-meta">
+        <div className="rounded-lg border border-cyan-100 bg-cyan-50 dark:bg-cyan-500/10 px-3 py-2 text-meta">
           <div className="font-medium text-cyan-700 dark:text-cyan-300">Open in your editor</div>
           <code className="block mt-0.5 font-mono text-cyan-800 dark:text-cyan-200 break-all">
             {externalPath}
@@ -429,7 +429,7 @@ function NotebookOutputView({ output }: { output: ParsedNbOutput }) {
   return (
     <pre
       className={`text-meta p-3 overflow-x-auto whitespace-pre-wrap ${
-        isStderr ? "text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-500/10/40" : "text-foreground"
+        isStderr ? "text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-500/10" : "text-foreground"
       }`}
     >
       {output.payload}

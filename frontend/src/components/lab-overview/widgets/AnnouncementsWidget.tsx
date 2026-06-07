@@ -247,7 +247,7 @@ function Composer({ username, onPosted }: ComposerProps) {
   return (
     <div
       ref={composerRef}
-      className="border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10/40 rounded-lg p-4 space-y-3 scroll-mt-2"
+      className="border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 rounded-lg p-4 space-y-3 scroll-mt-2"
     >
       <textarea
         className="w-full min-h-[60px] text-body rounded-md border border-emerald-300 px-3 py-2 bg-surface-raised focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-surface-sunken disabled:text-foreground-muted"
@@ -411,7 +411,7 @@ function AnnouncementCard({
     <div
       className={`rounded-lg p-3 border ${
         entry.pinned
-          ? "border-amber-300 bg-amber-50 dark:bg-amber-500/10/60"
+          ? "border-amber-300 bg-amber-50 dark:bg-amber-500/10"
           : "border-border bg-surface-sunken/40"
       }`}
       data-testid="lab-announcement-card"

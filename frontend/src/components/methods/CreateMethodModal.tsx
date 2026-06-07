@@ -959,7 +959,7 @@ export function CreateMethodModal({
                 </label>
                 <div
                   onClick={() => pdfInputRef.current?.click()}
-                  className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10/50 transition-colors"
+                  className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors"
                 >
                   {pdfFile ? (
                     <div>

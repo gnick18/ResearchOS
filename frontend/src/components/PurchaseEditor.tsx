@@ -739,7 +739,7 @@ export default function PurchaseEditor({
                 // Edit mode row
                 <tr
                   key={item.id}
-                  className="border-b border-border bg-amber-50 dark:bg-amber-500/10/50"
+                  className="border-b border-border bg-amber-50 dark:bg-amber-500/10"
                 >
                   <td className="py-2 px-2 relative" ref={editSuggestionsRef}>
                     <input
@@ -1133,7 +1133,7 @@ export default function PurchaseEditor({
                 would be visual noise without explaining why, and the
                 view-mode row gate above already prevents click-to-edit. */}
             {!writesDisabled && (
-              <tr className="bg-blue-50 dark:bg-blue-500/10/30">
+              <tr className="bg-blue-50 dark:bg-blue-500/10">
                 <td className="py-2 px-2 relative" ref={suggestionsRef}>
                   <input
                     type="text"
