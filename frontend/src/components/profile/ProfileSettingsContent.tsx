@@ -15,6 +15,7 @@ import CreateLocalIdentityStep from "@/components/sharing/CreateLocalIdentitySte
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
 import SharingSection, {
   ProfileEditorCard,
+  StoragePlanSection,
   RotateIdentityPopup,
   RestoreIdentityPopup,
   DisconnectIdentityPopup,
@@ -174,6 +175,10 @@ export default function ProfileSettingsContent() {
           is the friendly thing people edit most. The technical "Account and
           keys" identity, inbox, and storage sit below it. */}
       {sharing.status === "ready" && <ProfileEditorCard />}
+
+      {/* Cloud storage (usage + limit) sits right under your profile, above the
+          technical account/keys section. Self-hides for local-only users. */}
+      {sharing.status === "ready" && <StoragePlanSection />}
 
       {/* Account and keys + Inbox and storage + Cloud storage (moved here from
           Settings, 2026-06-06, this is your account, not an app setting). When

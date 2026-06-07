@@ -161,7 +161,8 @@ export default function SharingSection({
         onReset={onReset}
       />
       <InboxStorageSection sharing={sharing} onSetUp={onSetUp} />
-      <StoragePlanSection />
+      {/* StoragePlanSection (Cloud storage) renders as a top-level card on the
+          Profile page, right under the researcher profile, not nested here. */}
       {/* currentUser is threaded through to the modals by SettingsBody, not used
           directly here, named in the props so the wiring reads cleanly. */}
       {currentUser ? null : null}
@@ -290,7 +291,7 @@ function StatTile({
   );
 }
 
-function StoragePlanSection() {
+export function StoragePlanSection() {
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [busy, setBusy] = useState(false);
 
