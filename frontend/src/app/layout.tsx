@@ -14,9 +14,35 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Brand + social-share metadata. metadataBase makes the opengraph-image.png /
+// twitter-image.png (auto-detected from this app/ folder) resolve to absolute
+// URLs so shared links render a branded preview card. Title uses a template so
+// sub-pages read "Page | ResearchOS".
+const SITE_URL = "https://research-os.app";
+const TAGLINE = "The local-first workspace for research labs.";
+const DESCRIPTION =
+  "Plan experiments, design and annotate sequences, run your methods library, and keep every file on your own computer.";
+
 export const metadata: Metadata = {
-  title: "ResearchOS",
-  description: "Research project management with smart GANTT scheduling",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "ResearchOS",
+    template: "%s | ResearchOS",
+  },
+  description: DESCRIPTION,
+  applicationName: "ResearchOS",
+  openGraph: {
+    type: "website",
+    siteName: "ResearchOS",
+    title: `ResearchOS, ${TAGLINE}`,
+    description: DESCRIPTION,
+    url: SITE_URL,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `ResearchOS, ${TAGLINE}`,
+    description: DESCRIPTION,
+  },
 };
 
 export default function RootLayout({
