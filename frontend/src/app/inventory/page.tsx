@@ -93,6 +93,8 @@ export default function InventoryPage() {
   const queryClient = useQueryClient();
 
   const [query, setQuery] = useState("");
+  // Keyed on `${owner}:${item_id}` to avoid collision when two users each have
+  // an item with the same numeric id (possible once SHARING_ENABLED goes live).
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // The active health-tile filter, or null for the normal item list (chunk 3).
   const [activeSignal, setActiveSignal] = useState<InventorySignalKind | null>(
@@ -433,7 +435,9 @@ export default function InventoryPage() {
                         <p className="truncate text-meta text-foreground-muted">
                           {CATEGORY_LABEL[item.category]}
                           {item.vendor ? ` · ${item.vendor}` : ""}
-                          {item.catalog_number ? ` · ${item.catalog_number}` : ""}
+                          {item.catalog_number
+                            ? ` · ${item.catalog_number}`
+                            : ""}
                         </p>
                       </div>
                     </button>
@@ -595,9 +599,7 @@ export default function InventoryPage() {
           <div className="overflow-y-auto">
             <StockFormDialog
               item={stockDialog.item}
-              stock={
-                stockDialog.mode === "edit" ? stockDialog.stock : null
-              }
+              stock={stockDialog.mode === "edit" ? stockDialog.stock : null}
               onCancel={() => setStockDialog({ mode: "closed" })}
               onSubmit={submitStock}
             />
@@ -621,8 +623,17 @@ export default function InventoryPage() {
             </h2>
             <p className="mt-2 text-body text-foreground-muted">
               This moves the item and its{" "}
-              {(stocksByItem.get(`${deletingItem.owner}:${deletingItem.id}`) ?? []).length} stock
-              {(stocksByItem.get(`${deletingItem.owner}:${deletingItem.id}`) ?? []).length === 1
+              {(
+                stocksByItem.get(
+                  `${deletingItem.owner}:${deletingItem.id}`,
+                ) ?? []
+              ).length}{" "}
+              stock
+              {(
+                stocksByItem.get(
+                  `${deletingItem.owner}:${deletingItem.id}`,
+                ) ?? []
+              ).length === 1
                 ? ""
                 : "s"}{" "}
               to Trash. You can restore them from the Trash page.
