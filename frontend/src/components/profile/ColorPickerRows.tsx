@@ -113,7 +113,7 @@ export default function ColorPickerRows({
   return (
     <>
       <div>
-        <label className="block text-meta font-medium text-gray-700 mb-2">
+        <label className="block text-meta font-medium text-foreground-muted mb-2">
           Primary color
         </label>
         <div className="flex flex-wrap gap-2">
@@ -152,7 +152,7 @@ export default function ColorPickerRows({
                   isSelected
                     ? rainbow
                       ? "border-transparent ring-2 ring-sky-500 scale-110"
-                      : "border-gray-900 scale-110"
+                      : "border-foreground scale-110"
                     : disabled
                       ? "border-transparent opacity-30 cursor-not-allowed"
                       : "border-transparent hover:scale-105"
@@ -176,14 +176,14 @@ export default function ColorPickerRows({
       {!RAINBOW_SENTINELS.has(primary) && (
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="block text-meta font-medium text-gray-700">
+          <label className="block text-meta font-medium text-foreground-muted">
             Optional second color for gradient
           </label>
           {secondary && (
             <button
               type="button"
               onClick={() => void handleClearSecondary()}
-              className="text-meta text-gray-500 hover:text-gray-900 underline"
+              className="text-meta text-foreground-muted hover:text-foreground underline"
             >
               Clear secondary
             </button>
@@ -216,7 +216,7 @@ export default function ColorPickerRows({
                 data-color-swatch={c}
                 className={`w-8 h-8 rounded-full border-2 bg-origin-border transition-transform ${
                   isSelected
-                    ? "border-gray-900 scale-110"
+                    ? "border-foreground scale-110"
                     : disabled
                       ? "border-transparent opacity-30 cursor-not-allowed"
                       : "border-transparent hover:scale-105"

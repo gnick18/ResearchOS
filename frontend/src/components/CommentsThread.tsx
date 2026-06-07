@@ -180,13 +180,15 @@ export default function CommentsThread({
   const threadBody = (
     <>
       {!isShared && notSharedHint && (
-        <div className="text-meta text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3">
+        <div className="text-meta text-foreground-muted bg-surface-sunken border border-border rounded-lg p-3 mb-3">
           {notSharedHint}
         </div>
       )}
 
       {comments.length === 0 ? (
-        <p className="text-meta text-gray-400 mb-3">No comments yet.</p>
+        <div className="text-meta text-foreground-muted bg-surface-sunken border border-border rounded-lg px-3 py-4 text-center mb-3">
+          No comments yet.
+        </div>
       ) : (
         <ul className="space-y-3 mb-3">
           {sortedRoots.map((c) => {

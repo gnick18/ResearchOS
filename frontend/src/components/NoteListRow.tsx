@@ -73,7 +73,7 @@ export default function NoteListRow({ note, onClick, isLabMode = false }: NoteLi
           muted and hidden on very narrow widths so the title always wins. */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="font-medium text-body text-gray-900 truncate group-hover:text-emerald-700 transition-colors">
+          <span className="font-medium text-body text-foreground truncate group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">
             {note.title || "Untitled"}
           </span>
           {isShared && (
@@ -91,7 +91,7 @@ export default function NoteListRow({ note, onClick, isLabMode = false }: NoteLi
           )}
         </div>
         {note.description && (
-          <span className="block text-meta text-gray-400 truncate">{note.description}</span>
+          <span className="block text-meta text-foreground-muted truncate">{note.description}</span>
         )}
       </div>
 

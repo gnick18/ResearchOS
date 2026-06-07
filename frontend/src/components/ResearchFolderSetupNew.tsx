@@ -335,7 +335,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                     {availableUsers.map((user) => (
                       <div
                         key={user}
-                        className="group flex items-center gap-1 bg-surface-sunken hover:bg-surface-sunken/70 border border-border hover:border-blue-500/50 rounded-lg transition-all"
+                        className="group flex items-center gap-1 bg-surface border border-border shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:border-brand-sky/50 rounded-lg transition-all"
                       >
                         <button
                           onClick={() => handleSelectUser(user)}

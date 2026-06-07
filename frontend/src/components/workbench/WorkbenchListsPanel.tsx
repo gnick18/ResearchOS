@@ -294,8 +294,8 @@ export default function WorkbenchListsPanel({ projects }: Props) {
 
       {isEmpty ? (
         <div className="text-center py-16">
-          <p className="text-title text-gray-400 mb-2">No list tasks yet</p>
-          <p className="text-body text-gray-300 mb-6">
+          <p className="text-title text-foreground mb-2">No list tasks yet</p>
+          <p className="text-body text-foreground-muted mb-6">
             Create a list task to see it here
           </p>
           <button
