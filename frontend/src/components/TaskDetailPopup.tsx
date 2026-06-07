@@ -25,7 +25,7 @@ import ReceivedFromBadge from "./ReceivedFromBadge";
 import Tooltip from "./Tooltip";
 import { useAppStore } from "@/lib/store";
 import { taskKey } from "@/lib/types";
-import type { Task, Project, ShiftResult, SubTask } from "@/lib/types";
+import type { Task, Project, ShiftResult, SubTask, SharedUser } from "@/lib/types";
 import { createNewFileContent, normalizeStampFormat, hasLegacyStampFormat } from "@/lib/stamp-utils";
 // TODO(manager): unstub once Sub-bot A lands frontend/src/lib/export/orchestrate.ts.
 import { exportExperiments, downloadResult } from "@/lib/export/orchestrate";
@@ -3944,21 +3944,34 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
   // The Share dialog lives at the popup level and only refetches the task on
   // success, so it never has the Lab Notes LoroDoc to mint against. This effect
   // closes that gap the same way NoteDetailPopup handles shared-notebook notes:
-  // the first time the handle is open AND the task is shared with anyone AND no
-  // collab_doc_id exists yet in the Loro meta, mint the id into the task notes
-  // sidecar and grant every shared member on the server, then auto-connect.
+  // when the handle is open AND the task is shared with anyone, mint the id into
+  // the task notes sidecar (if absent) and grant the shared members on the
+  // server, then auto-connect.
   //
   // grantCollabOnShare is entity-agnostic (operates on a LoroDoc + the shared
   // lists) and the server grant route is keyed purely on docId + emails, so the
   // task notes doc reuses the exact same path notes use -- NO task-specific
   // server route is needed.
   //
+  // Re-share on member growth: the effect must NOT bail out just because a
+  // collab_doc_id already exists. An already-collaborative experiment that gains
+  // a NEW member needs grantCollabOnShare to run again so the durable Neon grant
+  // (grantCollabMember) fires for that member; the live relay session is a
+  // capability derived from the shared docId and would work regardless, but
+  // without the durable grant the member's membership is never persisted
+  // server-side. We track the membership we last granted in a ref and re-fire
+  // with previousSharedWith/nextSharedWith so grantCollabOnShare's diff grants
+  // ONLY the newly-added members (and skips the owner re-grant, since
+  // previousSharedWith is non-empty on growth). A plain reopen (doc id already
+  // present, membership unchanged) still short-circuits to the auto-connect
+  // effect above.
+  //
   // Idempotent: getOrMintCollabDocId only mints when absent, and the server
-  // accepts duplicate grants silently. Subsequent opens find the id in the
-  // sidecar and skip straight to the auto-connect effect above.
+  // accepts duplicate grants silently.
   //
   // FLAG (data-shape): writes collab_doc_id into the task notes Loro meta map
   // (the sidecar under the owner's folder). Same key + semantics notes use.
+  const grantedSharedWithRef = useRef<SharedUser[] | null>(null);
   useEffect(() => {
     if (!LORO_PILOT_ENABLED) return;
     if (!loroHandle) return;
@@ -3966,15 +3979,33 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
     if (collab.state.status !== "idle") return;
     const sharedWith = task.shared_with ?? [];
     if (sharedWith.length === 0) return; // not shared, nothing to mint
-    // Already minted (or seeded from import): the auto-connect effect handles it.
-    if (getCollabDocId(loroHandle.doc)) return;
+
+    const alreadyCollab = !!getCollabDocId(loroHandle.doc);
+    // First run for this handle: seed the "already granted" baseline. If the doc
+    // is already collaborative (prior share or imported with a collab_doc_id),
+    // treat its current members as already granted so a plain reopen does not
+    // re-grant them; only genuine growth re-fires. A brand-new share starts from
+    // an empty baseline so grantCollabOnShare runs its first-share path.
+    if (grantedSharedWithRef.current === null) {
+      grantedSharedWithRef.current = alreadyCollab ? sharedWith : [];
+    }
+
+    const previousSharedWith = grantedSharedWithRef.current;
+    const prevUsernames = new Set(previousSharedWith.map((s) => s.username));
+    const grew = sharedWith.some((s) => !prevUsernames.has(s.username));
+    // Already collaborative and no new members: the auto-connect effect handles
+    // the live connect; nothing to grant.
+    if (alreadyCollab && !grew) return;
+
+    grantedSharedWithRef.current = sharedWith;
 
     void grantCollabOnShare({
       doc: loroHandle.doc,
       ownerEmail: myDirectoryEmail ?? "",
-      // Treat the whole shared_with list as newly-added so every member and the
-      // granting user (as "owner") get registered on the server.
-      previousSharedWith: [],
+      // Diff against the membership we last granted so only the newly-added
+      // members are registered on the server (and the owner is granted only on
+      // the very first share, when previousSharedWith is empty).
+      previousSharedWith,
       nextSharedWith: sharedWith,
     }).then((docId) => {
       if (docId && collab.state.status === "idle") {
@@ -4839,8 +4870,16 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
   // grants the Results doc INDEPENDENTLY of the Lab Notes doc. Same docId-keyed
   // server grant route, no new server code.
   //
+  // Re-share on member growth (see LabNotesTab for the full rationale): the
+  // effect re-fires when shared_with grows so a NEW member added to an already-
+  // collaborative experiment gets the durable Neon grant for the Results doc,
+  // not only the live relay session. We diff against the last-granted membership
+  // via a ref so only the newly-added members are granted, and a plain reopen
+  // (doc id present, membership unchanged) still short-circuits.
+  //
   // FLAG (data-shape): writes the minted id into the Results Loro meta map (its
   // own sidecar). The JSON bridge field for this id is results_collab_doc_id.
+  const grantedSharedWithRef = useRef<SharedUser[] | null>(null);
   useEffect(() => {
     if (!LORO_PILOT_ENABLED) return;
     if (!loroHandle) return;
@@ -4848,15 +4887,28 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
     if (collab.state.status !== "idle") return;
     const sharedWith = task.shared_with ?? [];
     if (sharedWith.length === 0) return; // not shared, nothing to mint
-    // Already minted (or seeded from import): the auto-connect effect handles it.
-    if (getCollabDocId(loroHandle.doc)) return;
+
+    const alreadyCollab = !!getCollabDocId(loroHandle.doc);
+    // Seed the "already granted" baseline on first run for this handle (see
+    // LabNotesTab): existing members of an already-collaborative Results doc are
+    // treated as granted so a reopen does not re-grant; only growth re-fires.
+    if (grantedSharedWithRef.current === null) {
+      grantedSharedWithRef.current = alreadyCollab ? sharedWith : [];
+    }
+
+    const previousSharedWith = grantedSharedWithRef.current;
+    const prevUsernames = new Set(previousSharedWith.map((s) => s.username));
+    const grew = sharedWith.some((s) => !prevUsernames.has(s.username));
+    if (alreadyCollab && !grew) return;
+
+    grantedSharedWithRef.current = sharedWith;
 
     void grantCollabOnShare({
       doc: loroHandle.doc,
       ownerEmail: myDirectoryEmail ?? "",
-      // Treat the whole shared_with list as newly-added so every member and the
-      // granting user (as "owner") get registered on the server.
-      previousSharedWith: [],
+      // Diff against the last-granted membership so only newly-added members are
+      // registered on the server (owner granted only on the first share).
+      previousSharedWith,
       nextSharedWith: sharedWith,
     }).then((docId) => {
       if (docId && collab.state.status === "idle") {
