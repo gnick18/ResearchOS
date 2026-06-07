@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@/components/icons";
+import BeakerBot from "@/components/BeakerBot";
 import type { SelectionKind } from "@/lib/sequences/inspector-context";
 import {
   buildResults,
@@ -175,8 +176,20 @@ export function CommandPalette({
         className="mt-[11vh] w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-surface-raised shadow-2xl"
         onKeyDown={onKeyDown}
       >
-        {/* Search row. The input is a combobox over the result listbox. */}
+        {/* Search row. The BeakerBot mark + BeakerSearch wordmark brand the open
+            palette, then the input (a combobox over the result listbox). The
+            mark is the real BeakerBot mascot rendered via the component, so no
+            inline svg is added here. */}
         <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+          <BeakerBot
+            pose="idle"
+            animated={false}
+            className="h-6 w-6 flex-none"
+            ariaLabel="BeakerBot"
+          />
+          <span className="flex-none text-body font-semibold text-foreground">
+            BeakerSearch
+          </span>
           <Icon
             name="search"
             className="h-4 w-4 flex-none text-foreground-muted"
@@ -188,8 +201,8 @@ export function CommandPalette({
               setQuery(e.target.value);
               setHighlight(0);
             }}
-            placeholder="Search or run a tool"
-            aria-label="Search or run a tool"
+            placeholder="Search BeakerSearch, or run any tool"
+            aria-label="BeakerSearch"
             role="combobox"
             aria-expanded="true"
             aria-controls={`${baseId}-listbox`}

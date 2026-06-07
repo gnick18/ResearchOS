@@ -30,8 +30,18 @@ function PaletteHarness({ commands }: { commands: EditorCommand[] }) {
   }, []);
   return (
     <div>
+      {/* The chrome BeakerSearch pill front door (mirrors the SequenceEditView
+          top action bar), plus the rail "Open BeakerSearch" action. Both call
+          setOpen(true), the same wiring the real editor uses. */}
+      <button
+        type="button"
+        data-testid="beakersearch-pill"
+        onClick={() => setOpen(true)}
+      >
+        BeakerSearch
+      </button>
       <button type="button" onClick={() => setOpen(true)}>
-        Open the command palette
+        Open BeakerSearch
       </button>
       <CommandPalette
         open={open}
@@ -207,11 +217,36 @@ describe("CommandPalette", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("opens from the rail More action", () => {
+  it("opens from the rail BeakerSearch action", () => {
     render(<PaletteHarness commands={makeCommands()} />);
     expect(screen.queryByRole("dialog")).toBeNull();
-    fireEvent.click(screen.getByText("Open the command palette"));
+    fireEvent.click(screen.getByText("Open BeakerSearch"));
     expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("opens from the chrome BeakerSearch pill", () => {
+    render(<PaletteHarness commands={makeCommands()} />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(screen.getByTestId("beakersearch-pill"));
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("brands the open palette as BeakerSearch with the BeakerBot mark", () => {
+    render(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={makeCommands()}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+    // The wordmark in the header row.
+    expect(screen.getByText("BeakerSearch")).toBeTruthy();
+    // The real BeakerBot mark (rendered via the component, role=img).
+    expect(screen.getByLabelText("BeakerBot")).toBeTruthy();
+    // The input now identifies as BeakerSearch.
+    expect(screen.getByRole("combobox", { name: "BeakerSearch" })).toBeTruthy();
   });
 
   it("surfaces a region-relevant command in the Suggested group", () => {

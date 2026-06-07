@@ -28,6 +28,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Tooltip from "@/components/Tooltip";
+import BeakerBot from "@/components/BeakerBot";
 import type { SequenceDetail } from "@/lib/types";
 import { sequencesApi } from "@/lib/local-api";
 import type { LibrarySequence } from "@/lib/sequences/primer-specificity";
@@ -4382,9 +4383,9 @@ export default function SequenceEditView({
     // non-mutating commands there).
     ops.push({
       id: "more",
-      label: "More",
-      title: "More tools",
-      sub: "Search every operation",
+      label: "BeakerSearch",
+      title: "BeakerSearch",
+      sub: "Search every operation (Cmd K)",
       icon: RailIcons.more,
       panel: (
         <>
@@ -4392,8 +4393,8 @@ export default function SequenceEditView({
             actions={[
               {
                 id: "op-more-palette",
-                label: "Open the command palette",
-                sub: "search or run any tool",
+                label: "Open BeakerSearch",
+                sub: "search or run any tool (Cmd K)",
                 glyph: ActionGlyphs.search,
                 tileClass: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
                 onRun: () => setPaletteOpen(true),
@@ -4402,7 +4403,7 @@ export default function SequenceEditView({
           />
           <div className="mt-3">
             <InspectorCue>
-              Press Cmd K anywhere in the editor to open the palette and reach
+              Press Cmd K anywhere in the editor to open BeakerSearch and reach
               every operation from the keyboard.
             </InspectorCue>
           </div>
@@ -4892,6 +4893,31 @@ export default function SequenceEditView({
           </>
         ) : null}
         <div className="ml-auto flex items-center gap-3 pr-1">
+          {/* sequence editor master — the BeakerSearch front door. A visible,
+              search-bar-styled pill that opens the Cmd-K command palette, so the
+              palette is discoverable without knowing the shortcut. The mark is
+              the real BeakerBot mascot (component import, no inline svg). */}
+          <Tooltip label="Search every tool (Cmd K)">
+            <button
+              type="button"
+              onClick={() => setPaletteOpen(true)}
+              data-testid="beakersearch-pill"
+              className="flex items-center gap-2 rounded-lg border border-border bg-surface-sunken px-2.5 py-1 text-foreground-muted transition-colors hover:border-sky-300 hover:text-foreground dark:hover:border-sky-700"
+            >
+              <BeakerBot
+                pose="idle"
+                animated={false}
+                className="h-5 w-5"
+                ariaLabel="BeakerBot"
+              />
+              <span className="hidden text-meta font-medium sm:inline">
+                BeakerSearch
+              </span>
+              <kbd className="hidden rounded-md border border-border bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-foreground-muted sm:inline">
+                Cmd K
+              </kbd>
+            </button>
+          </Tooltip>
           <div className="text-meta text-foreground-muted">
             {doc.seq.length.toLocaleString()} bp
             {!readOnly && dirty ? <span className="ml-2 text-amber-500">• unsaved</span> : null}
