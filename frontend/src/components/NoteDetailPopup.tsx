@@ -2214,7 +2214,7 @@ export default function NoteDetailPopup({
             data-testid="note-autosave-status"
             aria-live="polite"
             aria-atomic="true"
-            className={`pointer-events-none absolute bottom-3 right-4 z-20 rounded-full px-2.5 py-1 text-meta font-medium shadow-sm ring-1 transition-colors ${
+            className={`pointer-events-none absolute bottom-20 right-4 z-20 rounded-full px-2.5 py-1 text-meta font-medium shadow-sm ring-1 transition-colors ${
               loroCommitPending
                 ? "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-500/30"
                 : "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-500/30"
