@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import LivingPopup from "@/components/ui/LivingPopup";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { discoverUsers } from "@/lib/file-system/user-discovery";
 import { readUserSettings, type AccountType } from "@/lib/settings/user-settings";
@@ -372,27 +373,23 @@ function ConfirmDialog({
 }) {
   const label = action.row.displayName?.trim() || action.row.username;
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !busy) onCancel();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [busy, onCancel]);
+  // Escape / scrim close route through LivingPopup, suspended while the
+  // archive/restore write is in flight (busy).
+  const closeIfIdle = () => {
+    if (!busy) onCancel();
+  };
 
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="lab-roster"
-      onClick={() => !busy && onCancel()}
-      role="dialog"
-      aria-modal="true"
+    <LivingPopup
+      open
+      onClose={closeIfIdle}
+      label={action.kind === "archive" ? "Archive member" : "Restore member"}
+      card={false}
+      widthClassName="max-w-md"
+      closeOnScrimClick={!busy}
     >
       <div
-        className="bg-surface-raised rounded-xl shadow-xl w-full max-w-md mx-4 p-6 space-y-4"
+        className="pointer-events-auto bg-surface-raised rounded-xl shadow-xl w-full p-6 space-y-4"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-title font-semibold text-foreground">
@@ -450,6 +447,6 @@ function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }
