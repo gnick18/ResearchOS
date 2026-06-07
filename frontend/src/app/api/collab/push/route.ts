@@ -39,6 +39,7 @@ import {
 import { CollabBudgetError } from "@/lib/collab/server/limits";
 import { isBillingEnabled } from "@/lib/billing/config";
 import { activityThrottleState, rateGate } from "@/lib/billing/throttle";
+import { isCloudPaused } from "@/lib/billing/breaker";
 
 export const runtime = "nodejs";
 
@@ -47,6 +48,14 @@ const GENERIC_FAILURE = { error: "push failed" } as const;
 export async function POST(request: Request): Promise<Response> {
   if (!isSharingEnabled()) {
     return json(404, { error: "not found" });
+  }
+
+  // Cost circuit breaker. When tripped (estimated cost over budget), cloud
+  // writes pause to stop a runaway provider bill. The push is RETRYABLE: the
+  // edit stays in the client's local Loro doc and syncs once the operator resets
+  // the breaker. Cached read, fails open (a DB hiccup never blocks a write).
+  if (await isCloudPaused()) {
+    return json(503, { error: "cloud sync paused", paused: true });
   }
 
   let body: unknown;

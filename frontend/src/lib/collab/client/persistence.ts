@@ -210,8 +210,11 @@ export async function pushCollabUpdate(
       );
       return { version: res.version };
     } catch (err) {
-      const throttled = err instanceof CollabError && err.status === 429;
-      if (throttled && attempt < maxThrottleRetries) {
+      // 429 = activity throttle, 503 = cost-breaker pause. Both are retryable
+      // (the edit stays in the local Loro doc); resend the same update shortly.
+      const retryable =
+        err instanceof CollabError && (err.status === 429 || err.status === 503);
+      if (retryable && attempt < maxThrottleRetries) {
         await new Promise((r) => setTimeout(r, 5000));
         continue;
       }

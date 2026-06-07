@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import Link from "next/link";
 import AppFooter from "@/components/AppFooter";
+import CostBreakerPanel from "@/components/admin/CostBreakerPanel";
 import {
   computeSummary,
   emailArchiveMarkdown,
@@ -843,6 +844,10 @@ export default function BusinessTracker() {
 
       <div className="mt-6">
         <SalesTaxBanner status={entity.salesTaxStatus} note={entity.salesTaxNote} />
+      </div>
+
+      <div className="mt-6">
+        <CostBreakerPanel />
       </div>
 
       <div className="mt-2">
