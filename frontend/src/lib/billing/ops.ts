@@ -124,6 +124,17 @@ export async function topOwnersByWrites(
   }));
 }
 
+/** Total write operations across ALL owners since a date, for the cost breaker. */
+export async function totalWritesSince(sinceISODate: string): Promise<number> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT COALESCE(SUM(writes), 0) AS writes
+    FROM billing_ops_samples
+    WHERE sampled_on >= ${sinceISODate}
+  `) as Array<{ writes: string | number }>;
+  return Number(rows[0]?.writes ?? 0);
+}
+
 /** Drops ops samples older than a date, after a period is rolled up. */
 export async function pruneOpsSamples(beforeISODate: string): Promise<void> {
   const sql = getSql();
