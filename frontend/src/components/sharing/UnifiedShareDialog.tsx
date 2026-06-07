@@ -37,6 +37,8 @@ import ExperimentSendOutsideDialog from "@/components/sharing/ExperimentSendOuts
 import MethodSendOutsideDialog from "@/components/sharing/MethodSendOutsideDialog";
 import ProjectSendOutsideDialog from "@/components/sharing/ProjectSendOutsideDialog";
 import SequenceSendOutsideDialog from "@/components/sharing/SequenceSendOutsideDialog";
+import ExternalCollabSection from "@/components/sharing/ExternalCollabSection";
+import { EXTERNAL_COLLAB_ENABLED } from "@/lib/loro/config";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import { useArchivedUsers } from "@/hooks/useArchivedUsers";
 import SharingServerCopyNotice from "@/components/sharing/SharingServerCopyNotice";
@@ -335,12 +337,22 @@ function OutsideTabBody({
   switch (target.kind) {
     case "note":
       return (
-        <SendOutsideDialog
-          embedded
-          note={target.note}
-          ownerUsername={target.owner}
-          onClose={onClose}
-        />
+        <>
+          <SendOutsideDialog
+            embedded
+            note={target.note}
+            ownerUsername={target.owner}
+            onClose={onClose}
+          />
+          {EXTERNAL_COLLAB_ENABLED ? (
+            <div className="mt-4">
+              <ExternalCollabSection
+                note={target.note}
+                ownerUsername={target.owner}
+              />
+            </div>
+          ) : null}
+        </>
       );
     case "experiment":
       return (

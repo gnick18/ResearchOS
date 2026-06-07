@@ -33,6 +33,7 @@ import {
 import { getCollabSignerEmail } from "./current-email";
 import { collabSessionFromDocId } from "@/lib/loro/collab/doc-id-session";
 import { COLLAB_RELAY_URL } from "@/lib/loro/config";
+import { buildConnectTokenSuffix } from "./connect-token";
 
 /** The relay's HTTP origin. COLLAB_RELAY_URL is ws(s)://host; the /snapshot
  *  read endpoint is http(s)://host (scheme swapped). */
@@ -76,7 +77,11 @@ export async function buildCollabBaseDoc(
   let snapshotBytes: Uint8Array;
   try {
     const { sessionId } = collabSessionFromDocId(docId);
-    const url = `${relayHttpBase()}/snapshot?session=${encodeURIComponent(sessionId)}`;
+    // Always attach a member connect token when this device has a sharing
+    // identity. An OPEN doc ignores it; an ENFORCED doc requires it. Never gated
+    // by a flag and never blocks the fetch (empty suffix on no identity / error).
+    const authSuffix = buildConnectTokenSuffix(sessionId);
+    const url = `${relayHttpBase()}/snapshot?session=${encodeURIComponent(sessionId)}${authSuffix}`;
     const res = await fetch(url);
     if (res.status === 204) {
       // Empty room: this client establishes the canonical history.
