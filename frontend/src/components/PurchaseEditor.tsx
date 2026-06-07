@@ -24,6 +24,7 @@ import PurchaseAssigneePicker from "@/components/PurchaseAssigneePicker";
 import PurchaseOrderStatusControl from "@/components/PurchaseOrderStatusControl";
 import BuyAgainButton from "@/components/BuyAgainButton";
 import Tooltip from "@/components/Tooltip";
+import { Icon } from "@/components/icons";
 import { normalizeOrderStatus } from "@/lib/types";
 import type { CatalogItem, PurchaseItem, Task } from "@/lib/types";
 
@@ -1097,20 +1098,7 @@ export default function PurchaseEditor({
                           }}
                           className="text-foreground-muted hover:text-foreground transition-colors"
                         >
-                          <svg
-                            className="w-3.5 h-3.5"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
-                          >
-                            <path d="M3 3v5h5" />
-                            <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
-                            <path d="M12 7v5l3 2" />
-                          </svg>
+                          <Icon name="history" className="w-3.5 h-3.5" />
                         </button>
                       </Tooltip>
                     )}
