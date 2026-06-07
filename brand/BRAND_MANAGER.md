@@ -1,0 +1,152 @@
+# Brand Manager role
+
+This is the operating guide for any bot (or person) taking over the ResearchOS
+brand-manager role. It covers the brand system, the social accounts, how to make
+and place assets, how to post, and the hard guardrails learned the hard way.
+
+Read `brand/README.md` first for the raw color/type spec. This file is the
+"how to run the role" layer on top of it.
+
+## What the role owns
+
+- The visual brand: BeakerBot mascot, the ResearchOS wordmark, the rainbow, color and type.
+- The SVG/PNG asset library under `brand/` and its generators under `brand/src/`.
+- The social presence: profiles + posts on YouTube, Bluesky, LinkedIn (and future platforms).
+- In-app brand surfaces: favicon, OpenGraph/social-share card, welcome/landing brand copy.
+- Outbound copy: social posts, taglines, descriptions, and (later) advertising.
+
+## Brand fundamentals (do not violate)
+
+- **BeakerBot is the mascot.** Sky-blue outline `#1AA0E6`, friendly face, rainbow
+  liquid. He must NEVER have a black outline. Only ever use BeakerBot/the logo
+  from approved assets in `brand/` or the in-app `components/BeakerBot.tsx`
+  (which has a guard forcing sky-blue). Never hand-draw or recolor him.
+- **Wordmark:** "ResearchOS", Geist weight 800, tracking about -0.03em, color
+  `#111827` on light. Falls back to Inter/system if Geist is absent.
+- **Rainbow has two forms:** PASTEL (light mode / light surfaces) and VIVID
+  (dark mode signature). Stops are in `brand/README.md`. Pastel goes muddy on
+  dark; use vivid there, usually as a low-opacity glow.
+- **Tagline:** "The local-first workspace for research labs."
+- **Voice rules (everywhere, copy + commits + posts):** no em-dashes, no emojis,
+  no mid-sentence colons (a colon dropped mid-sentence to introduce a clause or
+  list reads as AI-speak; recast with a comma or a period). Label-terminators at
+  line start ("Goal:") are fine. Concept-first, plain, calm.
+
+## Asset library + how to make assets
+
+Everything is generated from the real BeakerBot geometry so it stays on-brand.
+Generators are HTML in `brand/src/`, rendered to PNG with headless Chrome /
+Playwright. Pattern: write/edit the HTML, render at the platform's exact pixel
+size, drop the PNG in `brand/png/`.
+
+Render recipe (Playwright, already vendored in `frontend/node_modules`):
+```
+const { chromium } = (await import('file:///<repo>/frontend/node_modules/playwright/index.js')).default
+  ? ... : await import(...);
+// new page with viewport = target size, deviceScaleFactor 1 or 2, goto file://<the html>, screenshot to png
+```
+(See any of the `/tmp/*render*.mjs` patterns used historically, or just reuse a
+`brand/src/*.html` + a tiny render script.)
+
+Per-platform sizes (verified):
+- **OG / social-share card:** 1200x630. Generator `brand/src/og.html` ->
+  `brand/png/researchos-og.png`. Wired into the app as
+  `frontend/src/app/opengraph-image.png` + `twitter-image.png` (Next auto-detects
+  them; needs `metadataBase` set in `app/layout.tsx`). Render at 2x is fine.
+- **YouTube banner:** 2048x1152 (logo inside the centered ~1235x338 mobile-safe
+  area). `brand/png/researchos-banner-lockup.png`.
+- **YouTube / general avatar:** square, `brand/png/beakerbot-avatar-sky-1600.png`
+  (1600x1600; upload large, YouTube over-compresses small images).
+- **Bluesky banner:** 1500x500 (3:1). Generator `brand/src/bluesky-banner.html`.
+  RENDER AT 1x. Bluesky caps the banner blob at 1,000,000 bytes; a 2x render is
+  ~1.06MB and is rejected. 1x is ~400KB. Lockup nudged right of center to clear
+  the bottom-left avatar overlay.
+- **LinkedIn company cover:** 1128x191 (~6:1). Generator
+  `brand/src/linkedin-banner.html`. Lockup nudged right to clear the bottom-left
+  logo overlay.
+- **Favicon:** `frontend/src/app/icon.svg` + `favicon.ico`, BeakerBot on a sky
+  disc. ICO must be built from an RGBA PNG (Next's ICO decoder needs alpha).
+
+Always commit new assets + their generator + a line in `brand/README.md`.
+
+## Social accounts inventory
+
+- **YouTube:** channel "ResearchOS", id `UCEy_yLPPkxN1RnHkV_P7v_Q`. Banner =
+  lockup, avatar = sky BeakerBot. Edit via Studio > Customization > Profile.
+- **Bluesky:** `@researchos.bsky.social` (display name ResearchOS). Can later
+  switch the handle to `@research-os.app` (Settings > Account > Handle > "I have
+  my own domain" -> add a DNS TXT record in Vercel -> verify). Banner 3:1, avatar.
+- **LinkedIn company page:** `linkedin.com/company/research-os-app`
+  (numeric id 125604102). Branded: logo, cover, tagline, website, About.
+- **Email:** `support@research-os.app` already forwards to gnickles@wisc.edu via
+  ForwardEmail (MX is forwardemail.net). DNS for research-os.app is on Vercel.
+  Add aliases with a `forward-email=<alias>:gnickles@wisc.edu` TXT record. This
+  is receive/forward only; sending from the address needs ForwardEmail SMTP or a
+  real mailbox.
+
+## How to operate the browser (Chrome MCP)
+
+Use `mcp__Claude_in_Chrome__*` (list/select browser, tabs_context_mcp, navigate,
+computer, find, file_upload). Native desktop computer-use is usually unavailable
+and browsers are read-tier there anyway, so drive web work through this MCP.
+
+Things that WORK: navigating, reading pages, clicking, typing into text fields,
+selecting native-select options via keyboard typeahead (focus the select, type
+the option's first letters, e.g. "0" -> "0-1 employees", "Privately" -> Privately
+held), reading state via screenshots/zoom.
+
+## Hard guardrails (these have all bitten us)
+
+- **Never create an account or enter a password.** Account signup is the user's
+  to do, always. (Company PAGES created under an existing login are allowed, but
+  see the LinkedIn caution below.)
+- **Never publish public copy with substantive claims without the user's explicit
+  sign-off.** The auto-mode classifier WILL block publishing a company
+  description that asserts things like NIH-compliance or funding, and it is right
+  to. Draft it, show the exact words, let the user click Save.
+- **File uploads are sandboxed.** `file_upload` only accepts files the user has
+  shared with the session (chat attachments). The repo and the Desktop are
+  REJECTED, and the OS "choose file" dialog cannot be driven. So for any avatar/
+  banner/logo upload: stage the file, then either the user picks it, or the user
+  drags it into the chat (then `file_upload` works).
+- **One editor at a time.** Two open profile/page editors (your MCP tab + the
+  user's tab) trigger "another admin is editing" conflicts. Navigate your tab off
+  the editor (e.g. to example.com) so the user can save, or vice versa.
+- **LinkedIn page deletion + OAuth.** "Sign in with LinkedIn" / the API uses a
+  LinkedIn DEVELOPER APP that must be associated with a company page. Deleting
+  that page can break OAuth. NEVER delete a LinkedIn page without first confirming
+  at linkedin.com/developers which page the app is verified against. (We once had
+  two ResearchOS pages and the old, API-linked one got deleted by mistake; verify
+  the dev-app association points at the surviving `research-os-app` page.)
+- **Founder identity / stealth / pricing / legal claims are the user's calls.**
+  Recommend, then ask. Do not unilaterally publish a title, a price, or a legal
+  claim.
+- **Deletion / force-push / destructive ops:** the user does these.
+
+## Posting (LinkedIn + Bluesky)
+
+- Posts follow the voice rules above. Concept-first, useful to a research/lab
+  audience, light on hype. Lead with the thing, not "We are excited to..."
+- A post that makes a claim (compliance, funding, performance) needs the user's
+  sign-off before it goes out (same classifier rule as descriptions).
+- Drafting is fine to do proactively; SENDING is a publish action: show the draft,
+  get a yes, then post. The user can also paste it themselves.
+- Good recurring themes: a feature demo (sequence editor, methods library), the
+  own-your-data / local-first angle, the open-source + RISE story, NIH
+  data-management compliance, short BeakerBot-flavored product clips.
+
+## Advertising (future)
+
+Not set up yet. When it is: keep it on-brand (BeakerBot + the tagline + the
+own-your-data hook), and treat ad spend + targeting + claims as user-approved
+decisions. Vercel/analytics are offline-gated, so respect the privacy posture
+(no compiling personal data, decline non-essential cookies) in any ad tooling.
+
+## When taking over
+
+1. Read `brand/README.md` + this file.
+2. Check the social inventory above is still current (handles, ids, the LinkedIn
+   page id, the dev-app association).
+3. Regenerate any asset from `brand/src/` rather than editing a PNG by hand.
+4. Recommend boldly, but route every public-facing publish + every founder/
+   pricing/legal/account decision through the user.

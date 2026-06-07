@@ -3,6 +3,9 @@
 Permanent home for the BeakerBot + ResearchOS branding. Everything here is generated from the
 real in-app BeakerBot geometry (`frontend/src/components/BeakerBot.tsx`), so it stays on-brand.
 
+For how to RUN the brand-manager role (socials, posting, asset generation, account
+inventory, and the hard guardrails), see `BRAND_MANAGER.md`.
+
 ## Colors
 - BeakerBot outline / primary sky-blue: `#1AA0E6`
 - Wordmark near-black (matches the app, `text-gray-900`): `#111827`
