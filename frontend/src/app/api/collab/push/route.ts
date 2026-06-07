@@ -33,9 +33,12 @@ import {
   compactDoc,
   ensureCollabSchema,
   getCatchup,
+  getDocUsage,
   isMember,
 } from "@/lib/collab/server/db";
 import { CollabBudgetError } from "@/lib/collab/server/limits";
+import { isBillingEnabled } from "@/lib/billing/config";
+import { activityThrottleState, rateGate } from "@/lib/billing/throttle";
 
 export const runtime = "nodejs";
 
@@ -81,6 +84,34 @@ export async function POST(request: Request): Promise<Response> {
   const member = await isMember(docId, emailHash);
   if (!member) {
     return json(403, { error: "not a member" });
+  }
+
+  // Activity throttle (flat-plan model, chunk C). Dormant unless BILLING_ENABLED
+  // is on, so beta runs the push path unchanged. When the DOC OWNER (the bill
+  // payer, not the author) is over their monthly activity allowance, pushes are
+  // rate-limited to one every few seconds, degrading real-time sync to periodic.
+  // A blocked push is RETRYABLE: the edit stays in the client's local Loro doc
+  // and is included in a later push, so nothing is lost.
+  if (isBillingEnabled()) {
+    try {
+      const usage = await getDocUsage(docId);
+      const ownerHash = usage?.ownerHash;
+      if (ownerHash) {
+        const state = await activityThrottleState(ownerHash);
+        if (state.over) {
+          const gate = await rateGate(ownerHash);
+          if (!gate.allowed) {
+            return json(429, {
+              error: "activity throttled",
+              throttled: true,
+              retryAfterMs: gate.retryAfterMs,
+            });
+          }
+        }
+      }
+    } catch {
+      // A throttle-check failure must never block a legitimate write.
+    }
   }
 
   // Storage budget gate. appendUpdate throws CollabBudgetError when this write
