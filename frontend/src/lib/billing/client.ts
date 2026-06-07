@@ -45,18 +45,27 @@ export interface LabRosterEntry {
   status: "invited" | "active" | "declined";
   usageVisible: boolean;
   usedBytes: number | null;
+  /** This month's write activity for the member (PI sees it). */
+  writes: number | null;
 }
 
 export interface LabStatus {
   enabled: boolean;
   signedIn?: boolean;
-  /** Whether the caller has an active subscription and so can sponsor a lab. */
+  /** Whether the caller can pick a lab plan. */
   canSponsor: boolean;
-  /** Whether the caller currently sponsors their lab. */
+  /** Whether the caller currently sponsors their lab (on a paid lab plan). */
   labBilling: boolean;
+  // The lab's flat plan (the single control), like individual plans.
+  labPlanId: string;
+  labPlanName: string;
+  labPlans: PlanOption[];
+  labCapBytes: number;
+  labActivityAllowance: number;
   sponsoredOwners: number;
-  poolBytes: number;
   aggregateUsedBytes: number;
+  aggregateWrites: number;
+  /** The flat lab-plan price (cents), 0 on the free lab plan. */
   estimatedChargeCents: number;
   roster: LabRosterEntry[];
   /** The lab owner-key that sponsors the caller as a member, or null. */
