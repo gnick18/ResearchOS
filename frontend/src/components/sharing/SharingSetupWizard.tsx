@@ -28,7 +28,7 @@ import {
   type IdentityKeys,
 } from "@/lib/sharing/identity/keys";
 import { wrapDeviceKeyWithWords } from "@/lib/sharing/identity/device-key";
-import { isOAuthPublishAvailable } from "@/lib/sharing/oauth-availability";
+import { isOAuthPublishAvailable, isDevMockAuth } from "@/lib/sharing/oauth-availability";
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 import { downloadRecoveryKit } from "@/lib/sharing/identity/recovery-kit";
 import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
@@ -104,7 +104,7 @@ type VerifiedVia = "google" | "github" | "email" | null;
 // The OAuth providers wired into the choose step. These strings are the Auth.js
 // provider ids (see @/lib/sharing/auth), passed straight to signIn() and used to
 // build the /api/auth/callback/<id> redirect, so they must match exactly.
-type OAuthProvider = "google" | "github" | "microsoft-entra-id" | "linkedin" | "orcid";
+type OAuthProvider = "google" | "github" | "microsoft-entra-id" | "linkedin" | "orcid" | "devmock";
 
 export default function SharingSetupWizard({
   username,
@@ -768,10 +768,23 @@ function ChooseStep({
         a keypair so your shares stay private.
       </p>
       <div className="space-y-2">
+        {/* DEV MOCK: one working amber button that drives the same claim flow,
+            so the link path is testable on localhost with no real creds. The
+            real provider buttons below would dead-end, so they are hidden while
+            the mock is on. */}
+        {isDevMockAuth() && (
+          <button
+            type="button"
+            onClick={() => onOAuth("devmock")}
+            className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-amber-500 text-white hover:bg-amber-600 font-medium transition-colors"
+          >
+            Dev mock sign-in (test the link flow)
+          </button>
+        )}
         {/* OAuth providers are only offered where they actually work (sharing
             configured). Where they are not, only the email path shows, so the
             chooser never dead-ends at NextAuth's /api/auth/error. */}
-        {isOAuthPublishAvailable() && (
+        {!isDevMockAuth() && isOAuthPublishAvailable() && (
           <>
             {/* White button (not ORCID green) so the iD logo's green circle stays
                 visible, matching the welcome page + the Google button below. */}
