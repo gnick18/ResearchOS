@@ -13,7 +13,6 @@
 import { auth } from "@/lib/sharing/auth";
 import { isAdminEmail } from "@/lib/sharing/admin";
 import { getCapacityMetrics } from "@/lib/sharing/capacity";
-import { ensureCollabSchema } from "@/lib/collab/server/db";
 import {
   ensureEmailLogSchema,
   ensureEventLogSchema,
@@ -27,6 +26,7 @@ import { ensureRelaySchema, getRelayMetrics } from "@/lib/sharing/relay/db";
 import { isSharingEnabled, json } from "@/lib/sharing/directory/guard";
 
 export const runtime = "nodejs";
+
 
 export async function GET(): Promise<Response> {
   if (!isSharingEnabled()) {
@@ -45,9 +45,6 @@ export async function GET(): Promise<Response> {
   await ensureRelaySchema();
   await ensureEmailLogSchema();
   await ensureEventLogSchema();
-  // So the collab-storage gauge reads 0 cleanly before any docs exist, rather
-  // than the measurement failing because the tables are not created yet.
-  await ensureCollabSchema();
 
   let directory;
   let relay;

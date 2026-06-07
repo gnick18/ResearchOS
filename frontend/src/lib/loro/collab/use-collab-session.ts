@@ -50,7 +50,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LoroDoc, EphemeralStore } from "loro-crdt";
 import type { EphemeralState } from "loro-codemirror";
-import { generateSessionKey } from "./envelope";
+import { randomBytes } from "@noble/hashes/utils.js";
 import { collabSessionFromDocId } from "./doc-id-session";
 import { createCollabProvider, type CollabProvider } from "./relay-provider";
 import { createWebSocketTransport } from "./websocket-transport";
@@ -337,7 +337,7 @@ export function useCollabSession(args: {
     destroyProvider();
 
     const sessionId = crypto.randomUUID();
-    const sessionKey = generateSessionKey();
+    const sessionKey = randomBytes(32);
 
     void connectSession(sessionId, sessionKey);
   }, [enabled, doc, destroyProvider, connectSession]);
