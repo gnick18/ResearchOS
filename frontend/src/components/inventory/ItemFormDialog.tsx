@@ -14,18 +14,31 @@ import { useQuery } from "@tanstack/react-query";
 
 import { purchasesApi } from "@/lib/local-api";
 import type {
+  AntibodyRegistry,
   CatalogItem,
   InventoryCategory,
   InventoryItem,
   InventoryItemCreate,
   InventoryItemUpdate,
+  InventoryRegistry,
+  PlasmidRegistry,
 } from "@/lib/types";
 import { Icon } from "@/components/icons";
-import { CATEGORY_LABEL, CATEGORY_ORDER } from "./inventory-ui";
+import {
+  ANTIBODY_APPLICATIONS,
+  CATEGORY_LABEL,
+  CATEGORY_ORDER,
+} from "./inventory-ui";
 
 const INPUT_CLASS =
   "w-full px-3 py-2 border border-border rounded-lg text-body bg-surface-raised text-foreground placeholder:text-foreground-muted/70 focus:outline-none focus:ring-2 focus:ring-brand-action";
 const LABEL_CLASS = "block text-meta font-medium text-foreground-muted mb-1";
+// The typed-registry section block (design §7): a left-accented, sunken card
+// that appears only for the antibody / plasmid categories.
+const TYPED_SECTION_CLASS =
+  "rounded-xl border border-border border-l-[3px] border-l-brand-action bg-surface-sunken p-4";
+const TYPED_HEADER_CLASS =
+  "mb-3 text-meta font-semibold text-brand-action";
 
 const VENDOR_DATALIST_ID = "inventory-item-vendor-options";
 
@@ -54,9 +67,42 @@ interface FormState {
   low_at_count: string;
   product_barcode: string;
   notes: string;
+  // Antibody registry fields (design §7.2). Kept in state regardless of the
+  // current category so switching away and back does not lose typed entries;
+  // only the category-matching registry is SAVED.
+  ab_target: string;
+  ab_host_species: string;
+  ab_clonality: "" | "monoclonal" | "polyclonal";
+  ab_clone: string;
+  ab_conjugate: string;
+  ab_isotype: string;
+  ab_reactivity: string;
+  ab_applications: string[];
+  ab_rrid: string;
+  ab_recommended_dilution: string;
+  // Plasmid registry fields (design §7.1).
+  pl_backbone: string;
+  pl_insert: string;
+  pl_resistance: string;
+  pl_bacterial_host: string;
+  pl_size_bp: string;
+  pl_source: string;
+  pl_addgene_id: string;
+  pl_sequence_file_path: string;
+  pl_map_notes: string;
+}
+
+function asAntibody(reg: InventoryRegistry | null | undefined): AntibodyRegistry {
+  return (reg ?? {}) as AntibodyRegistry;
+}
+
+function asPlasmid(reg: InventoryRegistry | null | undefined): PlasmidRegistry {
+  return (reg ?? {}) as PlasmidRegistry;
 }
 
 function itemToForm(item: InventoryItem | null): FormState {
+  const ab = item?.category === "antibody" ? asAntibody(item.registry) : {};
+  const pl = item?.category === "plasmid" ? asPlasmid(item.registry) : {};
   return {
     name: item?.name ?? "",
     category: item?.category ?? "reagent",
@@ -69,12 +115,71 @@ function itemToForm(item: InventoryItem | null): FormState {
       item?.low_at_count != null ? String(item.low_at_count) : "",
     product_barcode: item?.product_barcode ?? "",
     notes: item?.notes ?? "",
+    ab_target: ab.target ?? "",
+    ab_host_species: ab.host_species ?? "",
+    ab_clonality: ab.clonality ?? "",
+    ab_clone: ab.clone ?? "",
+    ab_conjugate: ab.conjugate ?? "",
+    ab_isotype: ab.isotype ?? "",
+    ab_reactivity: ab.reactivity ?? "",
+    ab_applications: ab.applications ?? [],
+    ab_rrid: ab.rrid ?? "",
+    ab_recommended_dilution: ab.recommended_dilution ?? "",
+    pl_backbone: pl.backbone ?? "",
+    pl_insert: pl.insert ?? "",
+    pl_resistance: pl.resistance ?? "",
+    pl_bacterial_host: pl.bacterial_host ?? "",
+    pl_size_bp:
+      typeof pl.size_bp === "number" ? String(pl.size_bp) : "",
+    pl_source: pl.source ?? "",
+    pl_addgene_id: pl.addgene_id ?? "",
+    pl_sequence_file_path: pl.sequence_file_path ?? "",
+    pl_map_notes: pl.map_notes ?? "",
   };
 }
 
 function toNullable(value: string): string | null {
   const v = value.trim();
   return v.length > 0 ? v : null;
+}
+
+/** Build the category-matching registry for the current form, or null for a
+ *  non-typed category. Each field is trimmed to null; the size_bp / applications
+ *  fields are coerced to their typed shapes. */
+function buildRegistry(form: FormState): InventoryRegistry | null {
+  if (form.category === "antibody") {
+    const reg: AntibodyRegistry = {
+      target: toNullable(form.ab_target),
+      host_species: toNullable(form.ab_host_species),
+      clonality: form.ab_clonality === "" ? null : form.ab_clonality,
+      clone: toNullable(form.ab_clone),
+      conjugate: toNullable(form.ab_conjugate),
+      isotype: toNullable(form.ab_isotype),
+      reactivity: toNullable(form.ab_reactivity),
+      applications:
+        form.ab_applications.length > 0 ? [...form.ab_applications] : null,
+      rrid: toNullable(form.ab_rrid),
+      recommended_dilution: toNullable(form.ab_recommended_dilution),
+    };
+    return reg;
+  }
+  if (form.category === "plasmid") {
+    const sizeRaw = form.pl_size_bp.trim();
+    const sizeParsed = sizeRaw.length > 0 ? Number(sizeRaw) : NaN;
+    const reg: PlasmidRegistry = {
+      backbone: toNullable(form.pl_backbone),
+      insert: toNullable(form.pl_insert),
+      resistance: toNullable(form.pl_resistance),
+      bacterial_host: toNullable(form.pl_bacterial_host),
+      size_bp: Number.isFinite(sizeParsed) ? Math.floor(sizeParsed) : null,
+      source: toNullable(form.pl_source),
+      addgene_id: toNullable(form.pl_addgene_id),
+      sequence_file_path: toNullable(form.pl_sequence_file_path),
+      map_notes: toNullable(form.pl_map_notes),
+    };
+    return reg;
+  }
+  return null;
 }
 
 export default function ItemFormDialog({
@@ -150,6 +255,14 @@ export default function ItemFormDialog({
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
+  const toggleApplication = (app: string) =>
+    setForm((f) => ({
+      ...f,
+      ab_applications: f.ab_applications.includes(app)
+        ? f.ab_applications.filter((a) => a !== app)
+        : [...f.ab_applications, app],
+    }));
+
   const canSubmit = form.name.trim().length > 0 && !saving;
 
   const handleSubmit = async () => {
@@ -165,6 +278,12 @@ export default function ItemFormDialog({
       }
       low_at_count = Math.floor(parsed);
     }
+    // Save ONLY the registry matching the current category. An antibody item
+    // saves an AntibodyRegistry, a plasmid item a PlasmidRegistry, every other
+    // category saves registry: null (any typed entries stay in state but are not
+    // persisted while the category does not match).
+    const registry: InventoryRegistry | null = buildRegistry(form);
+
     const payload: InventoryItemCreate & InventoryItemUpdate = {
       name: form.name.trim(),
       category: form.category,
@@ -176,6 +295,7 @@ export default function ItemFormDialog({
       low_at_count,
       product_barcode: toNullable(form.product_barcode),
       notes: toNullable(form.notes),
+      registry,
     };
     setSaving(true);
     try {
@@ -270,6 +390,317 @@ export default function ItemFormDialog({
             ))}
           </select>
         </div>
+
+        {/* Antibody details (design §7.2) — only when category is Antibody. */}
+        {form.category === "antibody" && (
+          <div className={TYPED_SECTION_CLASS}>
+            <div className={TYPED_HEADER_CLASS}>Antibody details</div>
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="ab-target" className={LABEL_CLASS}>
+                    Target
+                  </label>
+                  <input
+                    id="ab-target"
+                    className={INPUT_CLASS}
+                    value={form.ab_target}
+                    onChange={(e) => set("ab_target", e.target.value)}
+                    placeholder="beta-actin"
+                    autoComplete="off"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="ab-host" className={LABEL_CLASS}>
+                    Host species
+                  </label>
+                  <input
+                    id="ab-host"
+                    className={INPUT_CLASS}
+                    value={form.ab_host_species}
+                    onChange={(e) => set("ab_host_species", e.target.value)}
+                    placeholder="Rabbit, Mouse"
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="ab-clonality" className={LABEL_CLASS}>
+                    Clonality
+                  </label>
+                  <select
+                    id="ab-clonality"
+                    className={INPUT_CLASS}
+                    value={form.ab_clonality}
+                    onChange={(e) =>
+                      set(
+                        "ab_clonality",
+                        e.target.value as FormState["ab_clonality"],
+                      )
+                    }
+                  >
+                    <option value="">Unspecified</option>
+                    <option value="monoclonal">Monoclonal</option>
+                    <option value="polyclonal">Polyclonal</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="ab-conjugate" className={LABEL_CLASS}>
+                    Conjugate
+                  </label>
+                  <input
+                    id="ab-conjugate"
+                    className={INPUT_CLASS}
+                    value={form.ab_conjugate}
+                    onChange={(e) => set("ab_conjugate", e.target.value)}
+                    placeholder="HRP, AlexaFluor-488, unconjugated"
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="ab-clone" className={LABEL_CLASS}>
+                    Clone
+                  </label>
+                  <input
+                    id="ab-clone"
+                    className={INPUT_CLASS}
+                    value={form.ab_clone}
+                    onChange={(e) => set("ab_clone", e.target.value)}
+                    placeholder="Clone id (monoclonals)"
+                    autoComplete="off"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="ab-isotype" className={LABEL_CLASS}>
+                    Isotype
+                  </label>
+                  <input
+                    id="ab-isotype"
+                    className={INPUT_CLASS}
+                    value={form.ab_isotype}
+                    onChange={(e) => set("ab_isotype", e.target.value)}
+                    placeholder="IgG1"
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="ab-reactivity" className={LABEL_CLASS}>
+                    Reactivity
+                  </label>
+                  <input
+                    id="ab-reactivity"
+                    className={INPUT_CLASS}
+                    value={form.ab_reactivity}
+                    onChange={(e) => set("ab_reactivity", e.target.value)}
+                    placeholder="Human, Mouse"
+                    autoComplete="off"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="ab-rrid" className={LABEL_CLASS}>
+                    RRID
+                  </label>
+                  <input
+                    id="ab-rrid"
+                    className={INPUT_CLASS}
+                    value={form.ab_rrid}
+                    onChange={(e) => set("ab_rrid", e.target.value)}
+                    placeholder="AB_xxxxxxx"
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+              <div>
+                <span className={LABEL_CLASS}>Applications</span>
+                <div className="flex flex-wrap gap-2">
+                  {ANTIBODY_APPLICATIONS.map((app) => {
+                    const on = form.ab_applications.includes(app);
+                    return (
+                      <button
+                        key={app}
+                        type="button"
+                        onClick={() => toggleApplication(app)}
+                        aria-pressed={on}
+                        className={`rounded-full border px-3 py-0.5 text-meta transition-colors ${
+                          on
+                            ? "border-brand-action bg-brand-action text-white"
+                            : "border-border bg-surface-raised text-foreground hover:bg-surface-sunken"
+                        }`}
+                      >
+                        {app}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <label htmlFor="ab-dilution" className={LABEL_CLASS}>
+                  Recommended dilution
+                </label>
+                <input
+                  id="ab-dilution"
+                  className={INPUT_CLASS}
+                  value={form.ab_recommended_dilution}
+                  onChange={(e) =>
+                    set("ab_recommended_dilution", e.target.value)
+                  }
+                  placeholder="1:1000 (WB)"
+                  autoComplete="off"
+                />
+              </div>
+              <p className="text-meta text-foreground-muted">
+                These appear only for the Antibody category. All optional. RRID,
+                applications, and dilution feed the planned Western blot / IHC
+                method types later.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Plasmid details (design §7.1) — only when category is Plasmid. */}
+        {form.category === "plasmid" && (
+          <div className={TYPED_SECTION_CLASS}>
+            <div className={TYPED_HEADER_CLASS}>Plasmid details</div>
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="pl-backbone" className={LABEL_CLASS}>
+                    Backbone
+                  </label>
+                  <input
+                    id="pl-backbone"
+                    className={INPUT_CLASS}
+                    value={form.pl_backbone}
+                    onChange={(e) => set("pl_backbone", e.target.value)}
+                    placeholder="pUC19, pET-28a"
+                    autoComplete="off"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="pl-insert" className={LABEL_CLASS}>
+                    Insert
+                  </label>
+                  <input
+                    id="pl-insert"
+                    className={INPUT_CLASS}
+                    value={form.pl_insert}
+                    onChange={(e) => set("pl_insert", e.target.value)}
+                    placeholder="GFP"
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="pl-resistance" className={LABEL_CLASS}>
+                    Resistance
+                  </label>
+                  <input
+                    id="pl-resistance"
+                    className={INPUT_CLASS}
+                    value={form.pl_resistance}
+                    onChange={(e) => set("pl_resistance", e.target.value)}
+                    placeholder="Ampicillin, Kanamycin"
+                    autoComplete="off"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="pl-host" className={LABEL_CLASS}>
+                    Bacterial host
+                  </label>
+                  <input
+                    id="pl-host"
+                    className={INPUT_CLASS}
+                    value={form.pl_bacterial_host}
+                    onChange={(e) => set("pl_bacterial_host", e.target.value)}
+                    placeholder="DH5-alpha"
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="pl-size" className={LABEL_CLASS}>
+                    Size (bp)
+                  </label>
+                  <input
+                    id="pl-size"
+                    type="number"
+                    min={0}
+                    step={1}
+                    className={INPUT_CLASS}
+                    value={form.pl_size_bp}
+                    onChange={(e) => set("pl_size_bp", e.target.value)}
+                    placeholder="2686"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="pl-addgene" className={LABEL_CLASS}>
+                    Addgene #
+                  </label>
+                  <input
+                    id="pl-addgene"
+                    className={INPUT_CLASS}
+                    value={form.pl_addgene_id}
+                    onChange={(e) => set("pl_addgene_id", e.target.value)}
+                    placeholder="e.g. 12345"
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="pl-source" className={LABEL_CLASS}>
+                  Source
+                </label>
+                <input
+                  id="pl-source"
+                  className={INPUT_CLASS}
+                  value={form.pl_source}
+                  onChange={(e) => set("pl_source", e.target.value)}
+                  placeholder="Addgene #, collaborator, in-house"
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <label htmlFor="pl-seqfile" className={LABEL_CLASS}>
+                  Sequence file
+                </label>
+                <input
+                  id="pl-seqfile"
+                  className={INPUT_CLASS}
+                  value={form.pl_sequence_file_path}
+                  onChange={(e) =>
+                    set("pl_sequence_file_path", e.target.value)
+                  }
+                  placeholder="Path to a .gb / .fasta / .dna in your data folder"
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <label htmlFor="pl-mapnotes" className={LABEL_CLASS}>
+                  Map notes
+                </label>
+                <textarea
+                  id="pl-mapnotes"
+                  className={`${INPUT_CLASS} min-h-[60px] resize-y`}
+                  value={form.pl_map_notes}
+                  onChange={(e) => set("pl_map_notes", e.target.value)}
+                  placeholder="Free-text feature list as a stopgap."
+                />
+              </div>
+              <p className="text-meta text-foreground-muted">
+                Appear only for the Plasmid category. The sequence file is a path
+                for now; an interactive feature map is the sequence editor's
+                territory.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Vendor + catalog number */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

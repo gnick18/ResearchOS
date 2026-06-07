@@ -4,10 +4,12 @@
 // colons.
 
 import type {
+  AntibodyRegistry,
   InventoryCategory,
   InventoryItem,
   InventoryStock,
   InventoryStockStatus,
+  PlasmidRegistry,
   StorageNode,
   StorageNodeKind,
 } from "@/lib/types";
@@ -39,6 +41,94 @@ export const CATEGORY_ORDER: InventoryCategory[] = [
   "equipment",
   "other",
 ];
+
+// ── Typed-field row summary (v3 registry phase, design section 7) ───────────
+//
+// A pure helper that turns a typed item (plasmid / antibody) into a short
+// descriptive line for the list row. Reagents and any item without a registry
+// return null, so the row falls back to the usual vendor / catalog line. Empty
+// fields are skipped, so a half-filled registry still reads cleanly.
+
+/** The full set of antibody application toggles, in display order. */
+export const ANTIBODY_APPLICATIONS = ["WB", "IF", "IHC", "FACS"] as const;
+
+/** Common resistance names abbreviated for the compact plasmid summary
+ *  ("Ampicillin" -> "AmpR"). Unknown resistances pass through verbatim. */
+const RESISTANCE_ABBREV: Record<string, string> = {
+  ampicillin: "AmpR",
+  kanamycin: "KanR",
+  chloramphenicol: "CmR",
+  carbenicillin: "CarbR",
+  tetracycline: "TetR",
+  spectinomycin: "SpecR",
+  gentamicin: "GentR",
+  streptomycin: "StrR",
+  hygromycin: "HygR",
+  zeocin: "ZeoR",
+  blasticidin: "BlastR",
+  puromycin: "PuroR",
+  neomycin: "NeoR",
+};
+
+function abbreviateResistance(resistance: string): string {
+  const key = resistance.trim().toLowerCase();
+  return RESISTANCE_ABBREV[key] ?? resistance.trim();
+}
+
+/** Trim a string field to null when blank. */
+function nonEmpty(value: string | null | undefined): string | null {
+  const v = (value ?? "").trim();
+  return v.length > 0 ? v : null;
+}
+
+function plasmidSummary(reg: PlasmidRegistry): string | null {
+  const parts: string[] = [];
+  const backbone = nonEmpty(reg.backbone);
+  if (backbone) parts.push(`${backbone} backbone`);
+  const insert = nonEmpty(reg.insert);
+  if (insert) parts.push(`${insert} insert`);
+  const resistance = nonEmpty(reg.resistance);
+  if (resistance) parts.push(abbreviateResistance(resistance));
+  if (typeof reg.size_bp === "number" && Number.isFinite(reg.size_bp)) {
+    parts.push(`${reg.size_bp} bp`);
+  }
+  return parts.length > 0 ? parts.join(", ") : null;
+}
+
+function antibodySummary(reg: AntibodyRegistry): string | null {
+  const parts: string[] = [];
+  // Host + clonality read as one phrase ("Rabbit monoclonal"); either alone is
+  // fine ("Rabbit", "monoclonal").
+  const host = nonEmpty(reg.host_species);
+  const clonality = nonEmpty(reg.clonality);
+  const hostClonality = [host, clonality].filter(Boolean).join(" ");
+  if (hostClonality) parts.push(hostClonality);
+  const conjugate = nonEmpty(reg.conjugate);
+  if (conjugate) parts.push(conjugate);
+  const apps = (reg.applications ?? []).map((a) => a.trim()).filter(Boolean);
+  if (apps.length > 0) parts.push(apps.join(" / "));
+  const dilution = nonEmpty(reg.recommended_dilution);
+  if (dilution) parts.push(dilution);
+  return parts.length > 0 ? parts.join(", ") : null;
+}
+
+/**
+ * A short descriptive summary for a typed item's row, or null for a plain
+ * reagent (or a typed item whose registry is empty). Plasmid ->
+ * "pUC19 backbone, GFP insert, AmpR, 2686 bp"; antibody ->
+ * "Rabbit monoclonal, HRP, WB / FACS, 1:1000". Empty fields are dropped.
+ */
+export function typedSummary(item: InventoryItem): string | null {
+  const reg = item.registry;
+  if (!reg) return null;
+  if (item.category === "plasmid") {
+    return plasmidSummary(reg as PlasmidRegistry);
+  }
+  if (item.category === "antibody") {
+    return antibodySummary(reg as AntibodyRegistry);
+  }
+  return null;
+}
 
 /** Human label for each coarse stock status (design section 5.2). */
 export const STATUS_LABEL: Record<InventoryStockStatus, string> = {

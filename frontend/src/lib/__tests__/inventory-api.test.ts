@@ -372,6 +372,33 @@ describe("normalization of a legacy / partial record", () => {
     const norm = normalizeInventoryItemRecord(partial);
     expect(norm.shared_with).toEqual([{ username: "*", level: "edit" }]);
   });
+
+  it("leaves a legacy item with no registry as null (v3 lazy default)", () => {
+    const partial = {
+      id: 9,
+      name: "Old reagent",
+    } as unknown as InventoryItem;
+    const norm = normalizeInventoryItemRecord(partial, "alex");
+    expect(norm.registry).toBeNull();
+  });
+
+  it("passes a plasmid registry through unchanged (round-trip)", () => {
+    const registry = {
+      backbone: "pUC19",
+      insert: "GFP",
+      resistance: "Ampicillin",
+      size_bp: 2686,
+    };
+    const partial = {
+      id: 10,
+      name: "pUC19-GFP",
+      category: "plasmid",
+      registry,
+    } as unknown as InventoryItem;
+    const norm = normalizeInventoryItemRecord(partial, "alex");
+    expect(norm.category).toBe("plasmid");
+    expect(norm.registry).toEqual(registry);
+  });
 });
 
 describe("whole-lab read aggregate", () => {

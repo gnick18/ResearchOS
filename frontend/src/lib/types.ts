@@ -1069,6 +1069,48 @@ export type InventoryCategory =
 export type InventoryStockStatus = "in_stock" | "low" | "empty" | "expired";
 
 /**
+ * `PlasmidRegistry` — the typed fields for a `category: "plasmid"` item
+ * (design §7.1). All fields optional/nullable so a freshly-typed plasmid (or a
+ * legacy plasmid with no registry) stays valid. The sequence file is a path
+ * string only in v3 (no attach / download / map UI; that is the sequence
+ * editor's territory).
+ */
+export interface PlasmidRegistry {
+  backbone?: string | null; // "pUC19", "pET-28a"
+  insert?: string | null; // gene / fragment cloned in
+  resistance?: string | null; // "Ampicillin", "Kanamycin"
+  bacterial_host?: string | null; // "DH5-alpha"
+  size_bp?: number | null;
+  source?: string | null; // Addgene #, collaborator, "in-house"
+  addgene_id?: string | null;
+  sequence_file_path?: string | null; // path to a .gb/.fasta/.dna in the data folder
+  map_notes?: string | null; // free-text feature list as a stopgap
+}
+
+/**
+ * `AntibodyRegistry` — the typed fields for a `category: "antibody"` item
+ * (design §7.2). All fields optional/nullable. `applications` is the multi-pick
+ * WB/IF/IHC/FACS set, `rrid` + dilution feed the planned Western blot / IHC
+ * method types later.
+ */
+export interface AntibodyRegistry {
+  target?: string | null; // antigen, "beta-actin"
+  host_species?: string | null; // "Rabbit", "Mouse"
+  clonality?: "monoclonal" | "polyclonal" | null;
+  clone?: string | null; // clone id for monoclonals
+  conjugate?: string | null; // "HRP", "AlexaFluor-488", "unconjugated"
+  isotype?: string | null; // "IgG1"
+  reactivity?: string | null; // species reactivity "Human, Mouse"
+  applications?: string[] | null; // ["WB", "IF", "IHC", "FACS"]
+  rrid?: string | null; // antibody RRID for reproducibility
+  recommended_dilution?: string | null; // "1:1000 (WB)"
+}
+
+/** The category-specific structured blob hung off an `InventoryItem.registry`
+ *  (design §7). v3 ships Plasmid + Antibody; later registries are new shapes. */
+export type InventoryRegistry = PlasmidRegistry | AntibodyRegistry;
+
+/**
  * `InventoryItem` — the catalog item: what a thing IS (design §5.1).
  *
  * Shares the shareable shape (`owner` / `shared_with`) and the VCP attribution
@@ -1098,10 +1140,11 @@ export interface InventoryItem {
   // (design §15.1, FLAG-B1). Drives scan-to-identify. Optional.
   product_barcode: string | null;
 
-  // Optional category-specific structured blob (design §7). v3. Kept as an
-  // opaque placeholder so the field parses on read without pulling the
-  // PlasmidRegistry / AntibodyRegistry shapes forward into v1.
-  registry?: unknown | null;
+  // Optional category-specific structured blob (design §7). v3. Holds a
+  // PlasmidRegistry (category "plasmid") or AntibodyRegistry (category
+  // "antibody"); null / absent for every other category. Optional so legacy
+  // items with no registry stay valid; lazy-normalized to null on read.
+  registry?: InventoryRegistry | null;
 
   // Sharing + attribution (identical to Method).
   owner: string;
@@ -1127,7 +1170,7 @@ export interface InventoryItemCreate {
   low_at_count?: number | null;
   track_consumption?: boolean;
   product_barcode?: string | null;
-  registry?: unknown | null;
+  registry?: InventoryRegistry | null;
   tags?: string[] | null;
   /** New records default to whole-lab edit when omitted (design §6.1). Pass
    *  `[]` for a private item, or an explicit list. */
@@ -1147,7 +1190,7 @@ export interface InventoryItemUpdate {
   low_at_count?: number | null;
   track_consumption?: boolean;
   product_barcode?: string | null;
-  registry?: unknown | null;
+  registry?: InventoryRegistry | null;
   tags?: string[] | null;
   shared_with?: SharedUser[];
   // Auto-stamped by `inventoryItemsApi.update`.

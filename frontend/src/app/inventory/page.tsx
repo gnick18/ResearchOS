@@ -57,6 +57,7 @@ import {
   formatDate,
   statusChipClass,
   summarizeStocks,
+  typedSummary,
 } from "@/components/inventory/inventory-ui";
 import type { InventorySignalKind } from "@/components/inventory/inventory-ui";
 
@@ -559,10 +560,18 @@ export default function InventoryPage() {
                         </div>
                         <p className="truncate text-meta text-foreground-muted">
                           {CATEGORY_LABEL[item.category]}
-                          {item.vendor ? ` · ${item.vendor}` : ""}
-                          {item.catalog_number
-                            ? ` · ${item.catalog_number}`
-                            : ""}
+                          {(() => {
+                            // Typed items (plasmid / antibody) show their typed
+                            // summary; everything else keeps the vendor / catalog
+                            // line.
+                            const typed = typedSummary(item);
+                            if (typed) return ` · ${typed}`;
+                            return `${item.vendor ? ` · ${item.vendor}` : ""}${
+                              item.catalog_number
+                                ? ` · ${item.catalog_number}`
+                                : ""
+                            }`;
+                          })()}
                         </p>
                       </div>
                     </button>
