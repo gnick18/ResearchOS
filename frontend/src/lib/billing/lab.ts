@@ -237,24 +237,3 @@ export async function getSponsoringLab(
   return rows.length ? rows[0].lab_owner_key : null;
 }
 
-/** The active member owner-keys for a lab (excludes the PI). */
-export async function listActiveMemberKeys(
-  labOwnerKey: string,
-): Promise<string[]> {
-  const sql = getSql();
-  const rows = (await sql`
-    SELECT member_owner_key FROM billing_lab_members
-    WHERE lab_owner_key = ${labOwnerKey} AND status = 'active'
-    ORDER BY member_owner_key
-  `) as { member_owner_key: string }[];
-  return rows.map((r) => r.member_owner_key);
-}
-
-/**
- * The number of owners a lab's pooled free tier covers: the PI plus every active
- * member. Always at least 1 (the PI). Drives labFreePoolBytes.
- */
-export async function countSponsoredOwners(labOwnerKey: string): Promise<number> {
-  const members = await listActiveMemberKeys(labOwnerKey);
-  return members.length + 1;
-}

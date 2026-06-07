@@ -172,20 +172,6 @@ export async function upsertSubscription(
   `;
 }
 
-/**
- * Sets an owner's storage cap (bytes). Clamped to at least the free allowance so
- * the cap can never drop below what everyone gets for free. Creates the row if it
- * does not exist yet (a user can pick a cap as part of enabling paid storage).
- */
-export async function setCapBytes(ownerKey: string, capBytes: number): Promise<void> {
-  const sql = getSql();
-  const clamped = Math.max(FREE_ALLOWANCE_BYTES, Math.floor(capBytes));
-  await sql`
-    INSERT INTO billing_subscriptions (owner_key, cap_bytes, updated_at)
-    VALUES (${ownerKey}, ${clamped}, now())
-    ON CONFLICT (owner_key) DO UPDATE SET cap_bytes = ${clamped}, updated_at = now()
-  `;
-}
 
 /** The storage cap (bytes) a subscription's plan grants, free if unknown. */
 function planStorageBytes(sub: SubscriptionRecord | null): number {
@@ -272,22 +258,6 @@ export async function setPlan(ownerKey: string, planId: string): Promise<void> {
 }
 
 /**
- * Turns lab billing on or off for a PI (the lab owner). When turning it on, the
- * caller has already ensured an active subscription exists to bill against.
- */
-export async function setLabBilling(
-  ownerKey: string,
-  on: boolean,
-): Promise<void> {
-  const sql = getSql();
-  await sql`
-    INSERT INTO billing_subscriptions (owner_key, lab_billing, updated_at)
-    VALUES (${ownerKey}, ${on}, now())
-    ON CONFLICT (owner_key) DO UPDATE SET lab_billing = ${on}, updated_at = now()
-  `;
-}
-
-/**
  * Ends a member's own metered subscription when their lab takes over paying, so
  * no one is double-billed. We mark the row inactive and drop the cap back to the
  * free tier; the member's effective ceiling then comes from the lab via
@@ -303,74 +273,3 @@ export async function endIndividualSubscription(ownerKey: string): Promise<void>
   `;
 }
 
-// --- usage sampling (for the average-GB-month bill) ---
-
-/** Records (or overwrites) today's used-bytes sample for an owner. */
-export async function recordUsageSample(
-  ownerKey: string,
-  usedBytes: number,
-): Promise<void> {
-  const sql = getSql();
-  await sql`
-    INSERT INTO billing_usage_samples (owner_key, sampled_on, used_bytes)
-    VALUES (${ownerKey}, current_date, ${Math.max(0, Math.floor(usedBytes))})
-    ON CONFLICT (owner_key, sampled_on) DO UPDATE SET used_bytes = EXCLUDED.used_bytes
-  `;
-}
-
-/**
- * Average used bytes for an owner over the samples on or after `sinceISODate`
- * (a YYYY-MM-DD string). Returns 0 when there are no samples. This is the basis
- * the monthly bill is computed from.
- */
-export async function averageUsedBytes(
-  ownerKey: string,
-  sinceISODate: string,
-): Promise<number> {
-  const sql = getSql();
-  const rows = (await sql`
-    SELECT COALESCE(AVG(used_bytes), 0) AS avg_bytes
-    FROM billing_usage_samples
-    WHERE owner_key = ${ownerKey} AND sampled_on >= ${sinceISODate}
-  `) as Array<{ avg_bytes: string | number }>;
-  return Math.round(Number(rows[0]?.avg_bytes ?? 0));
-}
-
-/**
- * Average of the lab's DAILY AGGREGATE used bytes over the window. For each day
- * we sum the sampled usage across the given owner keys, then average those daily
- * totals, so the result is the aggregate average GB-month the PI's invoice bills
- * on. Returns 0 when there are no samples or no keys.
- */
-export async function aggregateAverageUsedBytes(
-  ownerKeys: string[],
-  sinceISODate: string,
-): Promise<number> {
-  if (ownerKeys.length === 0) return 0;
-  const sql = getSql();
-  const rows = (await sql`
-    SELECT COALESCE(AVG(daily_total), 0) AS avg_bytes FROM (
-      SELECT sampled_on, SUM(used_bytes) AS daily_total
-      FROM billing_usage_samples
-      WHERE owner_key = ANY(${ownerKeys}) AND sampled_on >= ${sinceISODate}
-      GROUP BY sampled_on
-    ) AS daily
-  `) as Array<{ avg_bytes: string | number }>;
-  return Math.round(Number(rows[0]?.avg_bytes ?? 0));
-}
-
-/** Deletes usage samples older than `beforeISODate`, after a period is billed. */
-export async function pruneUsageSamples(beforeISODate: string): Promise<void> {
-  const sql = getSql();
-  await sql`DELETE FROM billing_usage_samples WHERE sampled_on < ${beforeISODate}`;
-}
-
-/** Every owner with an active subscription, for the daily sampler / monthly bill. */
-export async function listActiveOwners(): Promise<SubscriptionRecord[]> {
-  const sql = getSql();
-  const rows = (await sql`
-    SELECT owner_key, stripe_customer_id, stripe_subscription_id, stripe_item_id, cap_bytes, status, lab_billing, plan_id
-    FROM billing_subscriptions WHERE status = 'active'
-  `) as SubRow[];
-  return rows.map(rowToSub);
-}
