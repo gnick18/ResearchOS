@@ -3899,6 +3899,21 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
   const loroOpening =
     LORO_PILOT_ENABLED && loroHandle === null && !loroOpenFailed;
 
+  // Auto-save status parity with the Notes pilot (experiment-collab follow-up).
+  // Mirrors NoteDetailPopup's loroCommitPending: tracks whether a debounced
+  // commit is queued or in flight so the Saving/Saved pill stays accurate. Only
+  // meaningful when the pilot flag is on and the handle is open; false (settled)
+  // otherwise. subscribeCommitPending fires immediately with the current value
+  // so the pill initialises without a one-frame flash.
+  const [loroCommitPending, setLoroCommitPending] = useState(false);
+  useEffect(() => {
+    if (!LORO_PILOT_ENABLED || !loroHandle) {
+      setLoroCommitPending(false);
+      return;
+    }
+    return loroHandle.subscribeCommitPending(setLoroCommitPending);
+  }, [loroHandle]);
+
   // Auto-connect to the live session when a SHARED experiment opens. A shared
   // task has a collab_doc_id in its Loro meta (minted by grant-on-share on the
   // sharer's side, carried by the bundle on import). Mirrors NoteDetailPopup's
@@ -4429,6 +4444,23 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
   // single bottom attachments strip (file-unify bot).
   const editorToolbarTrailing = !readOnly ? (
     <>
+      {/* experiment-collab follow-up: auto-save Saving/Saved pill, parity with
+          the Notes pilot (see NoteDetailPopup note-autosave-status). Only shown
+          while the pilot flag is on and the Loro handle is open. */}
+      {LORO_PILOT_ENABLED && !!loroHandle && (
+        <span
+          data-testid="task-notes-autosave-status"
+          aria-live="polite"
+          aria-atomic="true"
+          className={`inline-flex items-center rounded-full px-2 py-0.5 text-meta font-medium ring-1 transition-colors ${
+            loroCommitPending
+              ? "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-500/30"
+              : "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-500/30"
+          }`}
+        >
+          {loroCommitPending ? "Saving..." : "Saved"}
+        </span>
+      )}
       {/* save-checkpoint bot: version-history entry button (icon-only clock +
           counter-arrow, Tooltip per house rule). Opens the docked sidebar +
           in-place diff for the Lab Notes document. */}
@@ -4756,6 +4788,21 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
   // in legacy mode and never switch (its mount effect runs once).
   const loroOpening =
     LORO_PILOT_ENABLED && loroHandle === null && !loroOpenFailed;
+
+  // Auto-save status parity with the Notes pilot (experiment-collab follow-up).
+  // Mirrors NoteDetailPopup's loroCommitPending: tracks whether a debounced
+  // commit is queued or in flight so the Saving/Saved pill stays accurate. Only
+  // meaningful when the pilot flag is on and the handle is open; false (settled)
+  // otherwise. subscribeCommitPending fires immediately with the current value
+  // so the pill initialises without a one-frame flash.
+  const [loroCommitPending, setLoroCommitPending] = useState(false);
+  useEffect(() => {
+    if (!LORO_PILOT_ENABLED || !loroHandle) {
+      setLoroCommitPending(false);
+      return;
+    }
+    return loroHandle.subscribeCommitPending(setLoroCommitPending);
+  }, [loroHandle]);
 
   // Auto-connect to the live session when a SHARED experiment opens. A shared
   // task's Results doc has its own collab_doc_id in its Loro meta (minted by
@@ -5191,6 +5238,23 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
   // (file-unify bot).
   const editorToolbarTrailing = !readOnly ? (
     <>
+      {/* experiment-collab follow-up: auto-save Saving/Saved pill, parity with
+          the Notes pilot (see LabNotesTab / NoteDetailPopup). Only shown while
+          the pilot flag is on and the Results Loro handle is open. */}
+      {LORO_PILOT_ENABLED && !!loroHandle && (
+        <span
+          data-testid="task-results-autosave-status"
+          aria-live="polite"
+          aria-atomic="true"
+          className={`inline-flex items-center rounded-full px-2 py-0.5 text-meta font-medium ring-1 transition-colors ${
+            loroCommitPending
+              ? "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-500/30"
+              : "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-500/30"
+          }`}
+        >
+          {loroCommitPending ? "Saving..." : "Saved"}
+        </span>
+      )}
       {/* save-checkpoint bot: version-history entry button for the Results
           document (see LabNotesTab). */}
       <TaskDocHistoryButton controller={docHistory} />
