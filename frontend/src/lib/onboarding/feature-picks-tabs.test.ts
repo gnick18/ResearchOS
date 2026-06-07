@@ -49,9 +49,7 @@ describe("tabsForFeaturePicks() — solo paths", () => {
       "/workbench",
       "/gantt",
       "/methods",
-      "/sequences",
-      "/search",
-    ]);
+      "/sequences",    ]);
   });
 
   it("solo with all 'maybe' returns the same minimal set as all 'no'", () => {
@@ -61,9 +59,7 @@ describe("tabsForFeaturePicks() — solo paths", () => {
       "/workbench",
       "/gantt",
       "/methods",
-      "/sequences",
-      "/search",
-    ]);
+      "/sequences",    ]);
   });
 
   it("solo with all 'yes' on Q2-Q5 adds /purchases and /calendar, no /links", () => {
@@ -83,9 +79,7 @@ describe("tabsForFeaturePicks() — solo paths", () => {
       "/methods",
       "/sequences",
       "/purchases",
-      "/calendar",
-      "/search",
-    ]);
+      "/calendar",    ]);
     expect(result).not.toContain("/links");
   });
 
@@ -127,9 +121,7 @@ describe("tabsForFeaturePicks() — lab paths", () => {
       "/workbench",
       "/gantt",
       "/methods",
-      "/sequences",
-      "/search",
-    ]);
+      "/sequences",    ]);
     expect(result).not.toContain("/links");
   });
 
@@ -149,9 +141,7 @@ describe("tabsForFeaturePicks() — lab paths", () => {
       "/workbench",
       "/gantt",
       "/methods",
-      "/sequences",
-      "/search",
-      "/links",
+      "/sequences",      "/links",
     ]);
   });
 
@@ -166,7 +156,11 @@ describe("tabsForFeaturePicks() — lab paths", () => {
         links: "yes",
       }),
     );
-    expect(result).toEqual([...NAV_ORDER]);
+    // /inventory is in NAV_ITEMS but is FLAG-gated (INVENTORY_ENABLED, resolved
+    // in AppShell), not feature-pick-governed, so tabsForFeaturePicks never emits
+    // it. /search moved to the Cmd-K palette (nav audit 2026-06-07). Both are
+    // excluded from the feature-picks tab set.
+    expect(result).toEqual(NAV_ORDER.filter((href) => href !== "/inventory"));
   });
 });
 
@@ -231,7 +225,8 @@ describe("tabsForFeaturePicks() — every Q2/Q3 binary combination", () => {
         expect(result).toContain("/workbench");
         expect(result).toContain("/gantt");
         expect(result).toContain("/methods");
-        expect(result).toContain("/search");
+        // Search moved off the top nav into the Cmd-K palette (nav audit 2026-06-07).
+        expect(result).not.toContain("/search");
       });
     }
   }
@@ -302,7 +297,6 @@ const DEFAULT_SETTINGS_VISIBLE_TABS: string[] = [
   "/methods",
   "/purchases",
   "/calendar",
-  "/search",
   "/links",
 ];
 
@@ -343,7 +337,8 @@ describe("deriveVisibleTabs() — picks present, no manual override", () => {
     expect(result).toContain("/workbench");
     expect(result).toContain("/gantt");
     expect(result).toContain("/methods");
-    expect(result).toContain("/search");
+    // Search moved off the top nav into the Cmd-K palette (nav audit 2026-06-07).
+    expect(result).not.toContain("/search");
   });
 
   it("lab user with all-yes picks (including links=yes) keeps every default tab visible", () => {
@@ -364,21 +359,21 @@ describe("deriveVisibleTabs() — picks present, no manual override", () => {
     // If a future Settings reorder feature reshuffles visibleTabs, the
     // composed output should match that reshuffle, not snap back to
     // NAV_ITEMS order. The membership filter is order-preserving.
-    const reordered = ["/search", "/methods", "/gantt", "/workbench", "/"];
+    const reordered = ["/sequences", "/methods", "/gantt", "/workbench", "/"];
     const p = picks({ account_type: "solo" });
     expect(deriveVisibleTabs(p, reordered)).toEqual(reordered);
   });
 });
 
 describe("deriveVisibleTabs() — manual override semantics", () => {
-  it("settings.visibleTabs hiding /search wins over picks that include /search", () => {
-    // /search is in tabsForFeaturePicks's always-visible set. If the
+  it("settings.visibleTabs hiding /sequences wins over picks that include /sequences", () => {
+    // /sequences is in tabsForFeaturePicks's always-visible set. If the
     // user has manually hidden it via Settings, the manual layer
     // should hide it.
     const p = picks({ account_type: "solo" });
     const settings = ["/", "/workbench", "/gantt", "/methods"];
     const result = deriveVisibleTabs(p, settings);
-    expect(result).not.toContain("/search");
+    expect(result).not.toContain("/sequences");
   });
 
   it("settings.visibleTabs trying to show /links is rejected when picks say solo", () => {

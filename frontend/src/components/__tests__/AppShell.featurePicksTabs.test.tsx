@@ -155,7 +155,8 @@ describe("AppShell — top-nav visibility under feature_picks", () => {
     expect(hrefs).toContain("/workbench");
     expect(hrefs).toContain("/gantt");
     expect(hrefs).toContain("/methods");
-    expect(hrefs).toContain("/search");
+    // Search moved off the top nav into the Cmd-K palette (nav audit 2026-06-07).
+    expect(hrefs).not.toContain("/search");
   });
 
   it("solo + purchases=maybe HIDES /purchases (the 'maybe later' path)", () => {

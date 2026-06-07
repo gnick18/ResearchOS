@@ -18,8 +18,9 @@ import type { FeaturePicks } from "@/lib/onboarding/sidecar";
  *     nav order, including only the tabs visible under the picks.
  *
  * Tab inclusion rules (per proposal §4):
- *   - "/" (Home), "/workbench", "/gantt", "/methods", "/sequences",
- *     "/search": always visible.
+ *   - "/" (Home), "/workbench", "/gantt", "/methods", "/sequences":
+ *     always visible. Search is NOT a top-nav tab; it lives in the Cmd-K
+ *     palette (nav audit 2026-06-07).
  *   - "/purchases":  iff picks.purchases === "yes".
  *   - "/calendar":   iff picks.calendar  === "yes".
  *   - "/links" (Links / Lab Links): iff picks.links === "yes" (Lab
@@ -53,7 +54,6 @@ export function tabsForFeaturePicks(
     // feature-pick to gate it. Always visible (like /methods); a future
     // wizard question can add a gate here if de-bloat calls for one.
     "/sequences",
-    "/search",
   ]);
   if (picks.purchases === "yes") visible.add("/purchases");
   if (picks.calendar === "yes") visible.add("/calendar");

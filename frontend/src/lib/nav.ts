@@ -17,7 +17,10 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/inventory", label: "Inventory" },
   { href: "/purchases", label: "Purchases" },
   { href: "/calendar", label: "Calendar" },
-  { href: "/search", label: "Search" },
+  // Search is intentionally NOT a top-nav tab (nav audit, 2026-06-07). It lives
+  // in the Cmd-K BeakerSearch palette (a pill on every page), which hands off to
+  // /search?keywords= for advanced filtering + export. The /search route still
+  // works; it is just not duplicated as a nav button.
   // Copy-alignment manager 2026-05-26: tab labeled "Links" for all
   // account types. The earlier "Lab Links" carve-out for lab accounts
   // (AppShell.tsx, /links/page.tsx, SetupWrapupStep.tsx) drifted across
