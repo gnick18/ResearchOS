@@ -1393,8 +1393,35 @@ export default function SequencesPage() {
          * dead ~60px bar at the bottom of the editor. `h-full min-h-0` lets the
          * library + viewer run all the way down; `pb-4` keeps the same 1rem
          * frame as the side padding so the rounded panels aren't flush. */
-        className="flex h-full min-h-0 px-4 pb-4"
+        className="relative flex h-full min-h-0 px-4 pb-4"
       >
+        {/* Focus re-open handle. Focus mode now lives in the (collapsing)
+            sidebar header, so this thin pill on the left edge is the visible way
+            back when the sidebar is hidden (Esc still works too). Absolutely
+            positioned so re-opening does not shift the canvas. */}
+        {listCollapsed ? (
+          <Tooltip label="Show the sequence list" placement="right">
+            <button
+              type="button"
+              onClick={() => setListCollapsed(false)}
+              aria-label="Show the sequence list"
+              className="absolute left-0 top-1/2 z-20 -translate-y-1/2 rounded-r-lg border border-l-0 border-border bg-surface-raised px-1 py-3 text-foreground-muted shadow-md transition-colors hover:bg-surface-sunken hover:text-foreground"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                className="h-4 w-4"
+              >
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+            </button>
+          </Tooltip>
+        ) : null}
         {/* LEFT: working tree / library. Wrapped in a drag-and-drop target so a
             user can drop files or a whole folder anywhere on the library to
             bulk-import (folders recursed; non-sequence files skipped). The
@@ -1418,13 +1445,109 @@ export default function SequencesPage() {
                 full sidebar width (no truncated title / thin wrapped text); the
                 action buttons sit on their own row below. Calm, Apple-ish. */}
             <div className="flex flex-col gap-3">
-              <div>
-                <h1 className="text-lg font-semibold text-foreground">Sequences</h1>
-                <p className="mt-0.5 text-meta text-foreground-muted">
-                  Your molecular-biology workbench. Edit, annotate, design
-                  primers, plan cloning, and find domains.
-                </p>
-              </div>
+              {/* Contextual header. With a sequence open the sidebar reflects what
+                  you are working on (name, type, topology, length, features, and
+                  organism) and carries Share + Focus, the two actions that used to
+                  live in the editor's title row. With nothing open it falls back
+                  to the generic workbench intro. */}
+              {selected ? (
+                <div className="border-b border-border pb-3">
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <h1 className="truncate text-base font-semibold text-foreground">
+                          {selected.display_name}
+                        </h1>
+                        {/* Provenance, self-hides unless this sequence arrived
+                            through a cross-boundary share. */}
+                        <ReceivedFromBadge
+                          receivedFrom={selected.received_from}
+                          fingerprint={selected.received_from_fingerprint}
+                          receivedAt={selected.received_at}
+                          small
+                        />
+                        {/* Deleted/restored provenance, self-hides unless this
+                            sequence was restored from Trash. */}
+                        <RestoredBadge audit={selected._restore_audit} small />
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <Tooltip label="Share" placement="bottom">
+                        <button
+                          type="button"
+                          onClick={() => setShareOpen(true)}
+                          aria-label="Share"
+                          className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+                        >
+                          <ShareIcon className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
+                      <Tooltip
+                        label={
+                          listCollapsed
+                            ? "Exit focus mode (Esc) — show the sequence list"
+                            : "Focus mode — hide the list so the viewer fills the page"
+                        }
+                        placement="bottom"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setListCollapsed((v) => !v)}
+                          aria-pressed={listCollapsed}
+                          aria-label={
+                            listCollapsed
+                              ? "Exit viewer focus mode"
+                              : "Enter viewer focus mode"
+                          }
+                          className={`shrink-0 rounded p-1.5 transition-colors ${
+                            listCollapsed
+                              ? "bg-sky-100 text-sky-600 hover:bg-sky-200"
+                              : "text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+                          }`}
+                        >
+                          <FocusIcon className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
+                    </div>
+                  </div>
+                  <p className="mt-1.5 text-meta text-foreground-muted">
+                    {seqTypeLabel(selected.seq_type)} ·{" "}
+                    {selected.circular ? "Circular" : "Linear"} ·{" "}
+                    {selected.length.toLocaleString()} bp · {selected.feature_count}{" "}
+                    {selected.feature_count === 1 ? "feature" : "features"}
+                  </p>
+                  {/* Organism line, mirrors the list-row binomial styling
+                      (tree glyph + italic name). Self-hides on a bare sequence. */}
+                  {selected.organism ? (
+                    <span className="mt-1 flex min-w-0 items-center gap-1 text-meta italic text-emerald-600 dark:text-emerald-400">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                        className="h-3 w-3 shrink-0"
+                      >
+                        <circle cx="6" cy="6" r="2.2" />
+                        <circle cx="6" cy="18" r="2.2" />
+                        <circle cx="18" cy="12" r="2.2" />
+                        <path d="M8.2 6.8 15.6 11M8.2 17.2 15.6 13" />
+                      </svg>
+                      <span className="truncate">{selected.organism}</span>
+                    </span>
+                  ) : null}
+                </div>
+              ) : (
+                <div>
+                  <h1 className="text-lg font-semibold text-foreground">Sequences</h1>
+                  <p className="mt-0.5 text-meta text-foreground-muted">
+                    Your molecular-biology workbench. Edit, annotate, design
+                    primers, plan cloning, and find domains.
+                  </p>
+                </div>
+              )}
               <div className="flex flex-wrap items-center gap-1.5">
                 <button
                   type="button"
@@ -1830,68 +1953,10 @@ export default function SequencesPage() {
         <section className="light-scope flex min-w-0 flex-1 flex-col rounded-lg border border-gray-200 bg-white">
           {selected ? (
             <>
-              <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-2.5">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <h2 className="truncate text-title font-semibold text-gray-800">
-                      {selected.display_name}
-                    </h2>
-                    {/* Provenance, self-hides unless this sequence arrived through
-                        a cross-boundary share (received_from set on import). */}
-                    <ReceivedFromBadge
-                      receivedFrom={selected.received_from}
-                      fingerprint={selected.received_from_fingerprint}
-                      receivedAt={selected.received_at}
-                      small
-                    />
-                    {/* restore audit bot: deleted/restored provenance, self-hides
-                        unless this sequence was restored from Trash. */}
-                    <RestoredBadge audit={selected._restore_audit} small />
-                  </div>
-                  <p className="text-meta text-gray-500">
-                    {seqTypeLabel(selected.seq_type)} ·{" "}
-                    {selected.circular ? "Circular" : "Linear"} ·{" "}
-                    {selected.length.toLocaleString()} bp · {selected.feature_count}{" "}
-                    {selected.feature_count === 1 ? "feature" : "features"}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <Tooltip label="Share" placement="bottom">
-                    <button
-                      type="button"
-                      onClick={() => setShareOpen(true)}
-                      aria-label="Share"
-                      className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
-                    >
-                      <ShareIcon className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                <Tooltip
-                  label={
-                    listCollapsed
-                      ? "Exit focus mode (Esc) — show the sequence list"
-                      : "Focus mode — hide the list so the viewer fills the page"
-                  }
-                  placement="bottom"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setListCollapsed((v) => !v)}
-                    aria-pressed={listCollapsed}
-                    aria-label={
-                      listCollapsed ? "Exit viewer focus mode" : "Enter viewer focus mode"
-                    }
-                    className={`shrink-0 rounded p-1.5 transition-colors ${
-                      listCollapsed
-                        ? "bg-sky-100 text-sky-600 hover:bg-sky-200"
-                        : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-                    }`}
-                  >
-                    <FocusIcon className="h-4 w-4" />
-                  </button>
-                </Tooltip>
-                </div>
-              </div>
+              {/* No editor title row. The open sequence's name, meta, organism,
+                  and the Share + Focus actions now live in the contextual left
+                  sidebar header, so the editor starts directly at its action bar
+                  and reclaims a full row of vertical space for the canvas. */}
               <div className="min-h-0 flex-1 overflow-hidden">
                 <SequenceEditView
                   key={selected.id}
