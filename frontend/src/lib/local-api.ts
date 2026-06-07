@@ -4790,10 +4790,14 @@ export const notebooksApi = {
     if (!notebook) {
       throw new Error(`Notebook ${notebookId} not found`);
     }
+    // A single-member (personal) notebook shares with nobody, so the note must
+    // stay fully private: is_shared false AND an empty share list (membersSharedWith
+    // would otherwise list the owner, which trips the "Shared with lab" filter).
+    const isMultiMember = notebook.members.length >= 2;
     const patch: Partial<Note> = {
       notebook_id: notebookId,
-      is_shared: notebook.members.length >= 2,
-      shared_with: membersSharedWith(notebook.members),
+      is_shared: isMultiMember,
+      shared_with: isMultiMember ? membersSharedWith(notebook.members) : [],
     };
     const updated = await notesStore.updateForUser(
       noteId,
@@ -4841,18 +4845,21 @@ export const notebooksApi = {
       title: params.title,
       description: params.description ?? "",
       is_running_log: params.is_running_log ?? false,
-      // Coarse "shared at all" flag, kept in lockstep with the explicit
-      // share list (notebook items are genuinely shared). The real gate is
-      // still `canRead` over `shared_with`; this only keeps the item visible
-      // to existing `shared_only` aggregations.
-      is_shared: true,
+      // Coarse "shared at all" flag, kept in lockstep with the explicit share
+      // list. A single-member (personal) notebook shares with nobody, so the
+      // note stays private; a multi-member notebook shares with every member.
+      // The real read gate is still `canRead` over `shared_with`.
+      is_shared: notebook.members.length >= 2,
       entries,
       comments: [],
       created_at: now,
       updated_at: now,
       username: author,
       notebook_id: params.notebookId,
-      shared_with: membersSharedWith(notebook.members),
+      shared_with:
+        notebook.members.length >= 2
+          ? membersSharedWith(notebook.members)
+          : [],
     });
   },
 
