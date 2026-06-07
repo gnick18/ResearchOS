@@ -5,7 +5,25 @@
 
 import { tasksApi, methodsApi } from "@/lib/local-api";
 import { repairStampFormats } from "@/lib/tasks/migrate-stamps";
-import type { Migration } from "./types";
+import { splitAllTaskAttachments } from "@/lib/tasks/migrate-attachments";
+import { repairAllPCRProtocols } from "@/lib/repair/pcr-protocols";
+import { repairAllLCGradientProtocols } from "@/lib/repair/lc-gradients";
+import { repairAllQPCRAnalysisProtocols } from "@/lib/repair/qpcr-analyses";
+import { repairAllPlateProtocols } from "@/lib/repair/plate-layouts";
+import { repairAllCellCultureSchedules } from "@/lib/repair/cell-culture-schedules";
+import { repairAllCodingWorkflows } from "@/lib/repair/coding-workflows";
+import { repairAllMassSpecProtocols } from "@/lib/repair/mass-spec";
+import type { Migration, MigrationReport } from "./types";
+
+/** The lib/repair/* functions share a `{ total, repaired, unrecoverable }`
+ *  report; map it onto the uniform MigrationReport. */
+function fromRepairReport(r: {
+  total: number;
+  repaired: number;
+  unrecoverable: number;
+}): MigrationReport {
+  return { changed: r.repaired, scanned: r.total, failed: r.unrecoverable };
+}
 
 export const MIGRATIONS: Migration[] = [
   {
@@ -31,5 +49,50 @@ export const MIGRATIONS: Migration[] = [
       const r = await repairStampFormats();
       return { changed: r.repaired, scanned: r.scanned, failed: 0 };
     },
+  },
+  {
+    // Splits the shared results/task-N/{Files,Images} into per-tab folders and
+    // folds any older Attachments/ migration first (handled inside the fn).
+    id: "attachment-split-v1",
+    title: "Split Lab Notes / Results attachments",
+    run: async () => {
+      const r = await splitAllTaskAttachments();
+      return { changed: r.repaired, scanned: r.scanned, failed: r.failed };
+    },
+  },
+  {
+    id: "pcr-protocols-v1",
+    title: "PCR protocols",
+    run: async () => fromRepairReport(await repairAllPCRProtocols()),
+  },
+  {
+    id: "lc-gradients-v1",
+    title: "LC gradients",
+    run: async () => fromRepairReport(await repairAllLCGradientProtocols()),
+  },
+  {
+    id: "qpcr-analyses-v1",
+    title: "qPCR analyses",
+    run: async () => fromRepairReport(await repairAllQPCRAnalysisProtocols()),
+  },
+  {
+    id: "plate-layouts-v1",
+    title: "Plate layouts",
+    run: async () => fromRepairReport(await repairAllPlateProtocols()),
+  },
+  {
+    id: "cell-culture-schedules-v1",
+    title: "Cell culture schedules",
+    run: async () => fromRepairReport(await repairAllCellCultureSchedules()),
+  },
+  {
+    id: "coding-workflows-v1",
+    title: "Coding workflows",
+    run: async () => fromRepairReport(await repairAllCodingWorkflows()),
+  },
+  {
+    id: "mass-spec-v1",
+    title: "Mass spec methods",
+    run: async () => fromRepairReport(await repairAllMassSpecProtocols()),
   },
 ];
