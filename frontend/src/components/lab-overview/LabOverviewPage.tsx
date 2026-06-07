@@ -33,7 +33,7 @@
  * "/" (Phase 2 finalizes member routing).
  */
 
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
@@ -47,6 +47,8 @@ import LabRoster from "@/components/lab-head/LabRoster";
 import AuditTrailViewer from "@/components/lab-head/AuditTrailViewer";
 
 import NewProjectButton from "./NewProjectButton";
+import ProjectCreateModal from "./ProjectCreateModal";
+import { useLabOverviewBeakerSource } from "@/app/lab-overview/useLabOverviewBeakerSource";
 import { ExpandedView as AnnouncementsBody } from "./widgets/AnnouncementsWidget";
 import { ExpandedView as LabActivityBody } from "./widgets/LabActivityWidget";
 import { ExpandedView as CalendarEventsTodayBody } from "./widgets/CalendarEventsTodayWidget";
@@ -532,12 +534,27 @@ function PiToolsCard({ onJumpToRoster }: { onJumpToRoster: () => void }) {
 
 export default function LabOverviewPage() {
   const { currentUser } = useCurrentUser();
+  const router = useRouter();
   // The "Lab roster" PI tool scrolls to the embedded roster section below
   // rather than navigating away, keeping the PI on the overview.
   const rosterRef = useRef<HTMLDivElement | null>(null);
-  const jumpToRoster = () => {
+  const jumpToRoster = useCallback(() => {
     rosterRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+  }, []);
+
+  // Project-create modal the BeakerSearch "New project" command opens (the
+  // header NewProjectButton owns its own; this is the palette's entry point).
+  const [showProjectCreate, setShowProjectCreate] = useState(false);
+  const openProjectCreate = useCallback(() => setShowProjectCreate(true), []);
+
+  // Register the Lab Overview BeakerSearch source (lab head only; the hook
+  // returns null for a member so nothing is merged).
+  useLabOverviewBeakerSource({
+    openProjectCreate,
+    scrollToRoster: jumpToRoster,
+    router,
+  });
+
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 p-6">
       <div className="space-y-3">
@@ -604,6 +621,21 @@ export default function LabOverviewPage() {
           </SectionCard>
         </div>
       </div>
+
+      {showProjectCreate && currentUser && (
+        <ProjectCreateModal
+          username={currentUser}
+          onClose={() => setShowProjectCreate(false)}
+          onCreated={(project) => {
+            setShowProjectCreate(false);
+            const ownerSuffix =
+              project.owner && project.owner !== currentUser
+                ? `?owner=${encodeURIComponent(project.owner)}`
+                : "";
+            router.push(`/workbench/projects/${project.id}${ownerSuffix}`);
+          }}
+        />
+      )}
     </div>
   );
 }
