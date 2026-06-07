@@ -132,6 +132,17 @@ const TEXT_FG = ["--foreground", "--foreground-muted"];
 const SURFACES = ["--surface", "--surface-raised", "--surface-sunken"];
 const UI_FG = ["--accent"];
 
+// Sequence-editor canvas legibility. The base letters and the translation
+// amino-acid letters are read like body text on the editor background, so they
+// must clear AA text. This locks the --seq-* palette against a future darkening
+// that would make the sequence itself unreadable. The ruler tick numbers are
+// intentionally faint decorative elements (SnapGene-style), not gated.
+const SEQ_BG = "--seq-bg";
+const SEQ_PAIRS: Array<[string, "text" | "ui"]> = [
+  ["--seq-letter", "text"],
+  ["--seq-translation", "text"],
+];
+
 export function buildContrastReport(
   tokensByTheme: Record<ThemeName, Tokens>,
 ): ContrastCheck[] {
@@ -154,6 +165,26 @@ export function buildContrastReport(
           fg,
           bg,
           label: `${fg} on ${bg}`,
+          level,
+          ratio: Math.round(ratio * 100) / 100,
+          min,
+          pass: ratio >= min,
+        });
+      }
+    }
+    // Sequence-editor canvas pairs (single background: --seq-bg).
+    const seqBgRgb = parseColor(t[SEQ_BG]);
+    if (seqBgRgb) {
+      for (const [fg, level] of SEQ_PAIRS) {
+        const fgRgb = parseColor(t[fg], seqBgRgb);
+        if (!fgRgb) continue;
+        const ratio = contrastRatio(fgRgb, seqBgRgb);
+        const min = MIN[level];
+        checks.push({
+          theme,
+          fg,
+          bg: SEQ_BG,
+          label: `${fg} on ${SEQ_BG}`,
           level,
           ratio: Math.round(ratio * 100) / 100,
           min,
