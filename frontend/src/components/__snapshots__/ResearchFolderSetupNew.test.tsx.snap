@@ -29,7 +29,7 @@ exports[`ResearchFolderSetupNew drop zone > renders the drop-zone with default h
         </svg>
       </div>
       <h2
-        class="text-lg font-bold text-white"
+        class="text-heading font-bold text-white"
       >
         Link a folder
       </h2>
