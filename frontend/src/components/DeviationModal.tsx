@@ -4,9 +4,10 @@ import { useCallback, useState } from "react";
 import { methodsApi, filesApi } from "@/lib/local-api";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Method, Task } from "@/lib/types";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 interface DeviationModalProps {
+  open: boolean;
   task: Task;
   method: Method | null;
   onClose: () => void;
@@ -18,6 +19,7 @@ interface DeviationModalProps {
  * 2. Choose: save deviations to task result only, OR fork as new method
  */
 export default function DeviationModal({
+  open,
   task,
   method,
   onClose,
@@ -28,8 +30,15 @@ export default function DeviationModal({
   const [saving, setSaving] = useState(false);
   const queryClient = useQueryClient();
 
-  // Escape closes this modal (app-wide convention).
-  useEscapeToClose(onClose);
+  // Retain the last task/method so the body stays rendered through
+  // LivingPopup's close animation after the parent clears them. Synced
+  // during render (no ref read in render), the ExportFormatDialog idiom.
+  const [shownTask, setShownTask] = useState<Task>(task);
+  const [shownMethod, setShownMethod] = useState<Method | null>(method);
+  if (open && (task !== shownTask || method !== shownMethod)) {
+    setShownTask(task);
+    setShownMethod(method);
+  }
 
   const handleSaveToTask = useCallback(async () => {
     if (!deviations.trim()) return;
@@ -91,20 +100,20 @@ export default function DeviationModal({
   }, [deviations, forkName, method, queryClient, onClose]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="deviation-modal"
+    <LivingPopup
+      open={open}
+      onClose={onClose}
+      label="Note Deviations"
+      widthClassName="max-w-lg"
+      card={false}
     >
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 p-6">
+      <div className="bg-white rounded-xl shadow-2xl w-full p-6">
         <h3 className="text-heading font-semibold text-gray-900 mb-1">
           Note Deviations
         </h3>
         <p className="text-meta text-gray-400 mb-4">
-          Task: {task.name}
-          {method && ` · Method: ${method.name}`}
+          Task: {shownTask.name}
+          {shownMethod && ` · Method: ${shownMethod.name}`}
         </p>
 
         {/* Deviation text */}
@@ -136,7 +145,7 @@ export default function DeviationModal({
                 stays unchanged.
               </p>
             </button>
-            {method && (
+            {shownMethod && (
               <button
                 onClick={() => setMode("fork")}
                 className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
@@ -146,7 +155,7 @@ export default function DeviationModal({
                 </p>
                 <p className="text-meta text-gray-400 mt-0.5">
                   Create a new method file with these deviations baked in.
-                  Becomes a child of &ldquo;{method.name}&rdquo;.
+                  Becomes a child of &ldquo;{shownMethod.name}&rdquo;.
                 </p>
               </button>
             )}
@@ -163,7 +172,7 @@ export default function DeviationModal({
               type="text"
               value={forkName}
               onChange={(e) => setForkName(e.target.value)}
-              placeholder={`${method?.name} v2`}
+              placeholder={`${shownMethod?.name} v2`}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -205,6 +214,6 @@ export default function DeviationModal({
           )}
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }

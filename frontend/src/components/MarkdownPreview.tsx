@@ -12,7 +12,7 @@ import { filesApi } from "@/lib/local-api";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import AnnotatedImage from "./AnnotatedImage";
 import { filenameFromMarkdownSrc } from "@/lib/attachments/annotations";
-import Tooltip from "./Tooltip";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 interface MarkdownPreviewProps {
   sourcePath: string | null;
@@ -30,6 +30,12 @@ export default function MarkdownPreview({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resolvedBlobUrls, setResolvedBlobUrls] = useState<Map<string, string>>(new Map());
+
+  // Retain the last source path so the header/body stay rendered through
+  // LivingPopup's close animation after `sourcePath` clears. Synced during
+  // render (no ref read in render), the ExportFormatDialog idiom.
+  const [shownPath, setShownPath] = useState<string | null>(sourcePath);
+  if (sourcePath && sourcePath !== shownPath) setShownPath(sourcePath);
 
   const basePath = sourcePath
     ? sourcePath.split("/").slice(0, -1).join("/")
@@ -83,32 +89,23 @@ export default function MarkdownPreview({
     };
   }, [content, basePath]);
 
-  if (!sourcePath) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="markdown-preview"
+    <LivingPopup
+      open={sourcePath !== null}
+      onClose={onClose}
+      label="File preview"
+      widthClassName="max-w-3xl"
+      card={false}
+      fillHeight
     >
-      <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full mx-4 max-h-[80vh] flex flex-col">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-h-[88vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
             <h3 className="text-body font-semibold text-gray-900">
-              {sourcePath.split("/").pop()}
+              {shownPath?.split("/").pop()}
             </h3>
-            <p className="text-meta text-gray-400 mt-0.5">{sourcePath}</p>
+            <p className="text-meta text-gray-400 mt-0.5">{shownPath}</p>
           </div>
-          <Tooltip label="Close" placement="bottom">
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-lg"
-            >
-              ✕
-            </button>
-          </Tooltip>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-4">
@@ -145,6 +142,6 @@ export default function MarkdownPreview({
           )}
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }

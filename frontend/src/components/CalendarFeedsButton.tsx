@@ -54,7 +54,7 @@ export default function CalendarFeedsButton() {
           </span>
         )}
       </button>
-      {open && <CalendarFeedsModal onClose={() => setOpen(false)} />}
+      <CalendarFeedsModal open={open} onClose={() => setOpen(false)} />
     </>
   );
 }

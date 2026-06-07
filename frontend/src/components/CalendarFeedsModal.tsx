@@ -17,6 +17,7 @@ import {
   pickFirstUnusedColor,
 } from "@/lib/calendar/calendar-colors";
 import type { CalendarFeed, CalendarFeedProvider } from "@/lib/types";
+import LivingPopup from "@/components/ui/LivingPopup";
 import Tooltip from "./Tooltip";
 
 const PROVIDER_LABELS: Record<CalendarFeedProvider, string> = {
@@ -31,10 +32,11 @@ const PROVIDER_LABELS: Record<CalendarFeedProvider, string> = {
 const DEFAULT_COLORS = DEFAULT_CALENDAR_COLORS;
 
 interface Props {
+  open: boolean;
   onClose: () => void;
 }
 
-export default function CalendarFeedsModal({ onClose }: Props) {
+export default function CalendarFeedsModal({ open, onClose }: Props) {
   const { currentUser } = useCurrentUser();
   const queryClient = useQueryClient();
   const [feeds, setFeeds] = useState<CalendarFeed[]>([]);
@@ -86,14 +88,6 @@ export default function CalendarFeedsModal({ onClose }: Props) {
     if (draftColorTouched) return;
     setDraftColor(suggestedColor);
   }, [suggestedColor, draftColorTouched]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["calendar-feeds", currentUser] });
@@ -196,18 +190,15 @@ export default function CalendarFeedsModal({ onClose }: Props) {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="calendar-feeds"
-      onClick={onClose}
+    <LivingPopup
+      open={open}
+      onClose={onClose}
+      label="Linked Calendars"
+      widthClassName="max-w-2xl"
+      card={false}
+      fillHeight
     >
-      <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[90vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="bg-white rounded-xl shadow-2xl w-full overflow-hidden max-h-[88vh] flex flex-col">
         <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
           <div>
             <h3 className="text-title font-semibold text-gray-900">Linked Calendars</h3>
@@ -216,14 +207,6 @@ export default function CalendarFeedsModal({ onClose }: Props) {
               iCal URL. Read-only overlay alongside ResearchOS events.
             </p>
           </div>
-          <Tooltip label="Close" placement="bottom">
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-lg"
-            >
-              ✕
-            </button>
-          </Tooltip>
         </div>
 
         <div className="overflow-y-auto px-5 py-4 space-y-6">
@@ -443,7 +426,7 @@ export default function CalendarFeedsModal({ onClose }: Props) {
           source calendar — your change shows up here within 15 minutes.
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }
 

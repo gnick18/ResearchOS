@@ -23,7 +23,7 @@
  */
 
 import { useCallback, useState } from "react";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import LivingPopup from "@/components/ui/LivingPopup";
 import RehydrateMissingImagesPanel from "./RehydrateMissingImagesPanel";
 import type { FetchedImage, MissingInlineImage } from "@/lib/import/eln/types";
 import {
@@ -32,6 +32,9 @@ import {
 } from "@/lib/import/eln/rehydrate";
 
 interface Props {
+  /** Controlled open state. The parent always renders the modal and toggles
+   *  this so LivingPopup can play its exit animation on close. */
+  open: boolean;
   /** Task notes base (`taskNotesBase({ id, owner })`). Used as the disk
    *  root for the Images/ folder + the `_import_source.json` sidecar. */
   notesBase: string;
@@ -60,6 +63,7 @@ type ApplyState =
   | { kind: "error"; message: string };
 
 export default function RehydrateMissingImagesModal({
+  open,
   notesBase,
   notesMarkdownPath,
   missingImages,
@@ -70,8 +74,12 @@ export default function RehydrateMissingImagesModal({
   const [staged, setStaged] = useState<Map<string, FetchedImage>>(new Map());
   const [applyState, setApplyState] = useState<ApplyState>({ kind: "idle" });
 
-  // Escape closes this modal (app-wide convention).
-  useEscapeToClose(onClose);
+  // Retain the last set of missing images so the body stays rendered through
+  // LivingPopup's close animation after the parent clears them. Synced during
+  // render (no ref read in render), the ExportFormatDialog idiom.
+  const [shownImages, setShownImages] =
+    useState<MissingInlineImage[]>(missingImages);
+  if (open && missingImages !== shownImages) setShownImages(missingImages);
 
   const stagedOkCount = useStagedOkCount(staged);
 
@@ -101,18 +109,15 @@ export default function RehydrateMissingImagesModal({
   }, [applyState.kind, onClose]);
 
   return (
-    <div
-      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="rehydrate-missing-images"
-      onClick={handleClose}
+    <LivingPopup
+      open={open}
+      onClose={handleClose}
+      label="Pull in your missing inline images"
+      widthClassName="max-w-3xl"
+      card={false}
+      fillHeight
     >
-      <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="bg-white rounded-xl shadow-xl w-full max-h-[88vh] flex flex-col overflow-hidden">
         <div className="px-6 pt-5 pb-3 border-b border-gray-100 flex items-center justify-between gap-4">
           <div>
             <p className="text-meta uppercase tracking-wide text-gray-500 font-medium">
@@ -122,16 +127,6 @@ export default function RehydrateMissingImagesModal({
               Pull in your missing inline images
             </h2>
           </div>
-          {applyState.kind !== "applying" && (
-            <button
-              type="button"
-              onClick={handleClose}
-              className="text-gray-400 hover:text-gray-600 text-lg leading-none p-1"
-              aria-label="Close"
-            >
-              ×
-            </button>
-          )}
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
@@ -139,7 +134,7 @@ export default function RehydrateMissingImagesModal({
             <ApplySummary result={applyState.result} />
           ) : (
             <RehydrateMissingImagesPanel
-              missingImages={missingImages}
+              missingImages={shownImages}
               notebookLabel={notebookLabel}
               onMatchesChange={setStaged}
             />
@@ -176,7 +171,7 @@ export default function RehydrateMissingImagesModal({
           )}
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }
 

@@ -22,7 +22,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listTrash, type TrashIndexEntry } from "@/lib/trash";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import LivingPopup from "@/components/ui/LivingPopup";
 import Tooltip from "@/components/Tooltip";
 
 /** Three-button outcome of the prompt. */
@@ -128,11 +128,14 @@ export function RestoreParentPromptHost() {
   const state = useSubscribePromptState();
   const dialogRef = useRef<HTMLDivElement | null>(null);
 
-  // Escape dismisses the prompt (app-wide convention), resolving to "cancel"
-  // like the backdrop click. Only bound while the prompt is open.
-  useEscapeToClose(() => {
-    if (state.open) state.resolve("cancel");
-  }, state.open);
+  // Retain the last open payload (child + parent + resolver) so the dialog
+  // body stays rendered through LivingPopup's close animation after the
+  // module state flips back to `{ open: false }`. Synced during render (no
+  // ref read in render), the ExportFormatDialog idiom.
+  const [shown, setShown] = useState<Extract<PromptState, { open: true }> | null>(
+    state.open ? state : null,
+  );
+  if (state.open && state !== shown) setShown(state);
 
   // Focus the default action ("Restore both", OQ4) when the prompt
   // opens so the keyboard-only path defaults to the proposal answer.
@@ -146,30 +149,33 @@ export function RestoreParentPromptHost() {
     defaultBtn?.focus();
   }, [state.open]);
 
-  if (!state.open) return null;
+  // Close = cancel (matches the old backdrop click + Escape behavior). Use
+  // the live state's resolver when open; fall back to the snapshot's so a
+  // close during the exit animation still resolves the pending promise.
+  const resolve = state.open ? state.resolve : shown?.resolve;
 
-  const { childEntry, parentEntry, resolve } = state;
-  const childName = displayNameFor(childEntry);
-  const parentName = displayNameFor(parentEntry);
-  const parentTypeLabel = parentEntry.entity_type.replace(/_/g, " ");
+  const childEntry = shown?.childEntry;
+  const parentEntry = shown?.parentEntry;
+  const childName = childEntry ? displayNameFor(childEntry) : "";
+  const parentName = parentEntry ? displayNameFor(parentEntry) : "";
+  const parentTypeLabel = parentEntry
+    ? parentEntry.entity_type.replace(/_/g, " ")
+    : "";
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      role="presentation"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="restore-parent-prompt"
-      onClick={() => resolve("cancel")}
+    <LivingPopup
+      open={state.open}
+      onClose={() => resolve?.("cancel")}
+      label="Restore parent too?"
+      widthClassName="max-w-md"
+      card={false}
     >
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="restore-parent-title"
-        className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6 space-y-4"
-        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-lg shadow-xl w-full p-6 space-y-4"
       >
         <div className="space-y-1">
           <h2
@@ -192,7 +198,7 @@ export function RestoreParentPromptHost() {
             <button
               type="button"
               data-restore-default
-              onClick={() => resolve("restore-both")}
+              onClick={() => resolve?.("restore-both")}
               className="w-full px-4 py-2 text-body font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
               Restore both
@@ -201,7 +207,7 @@ export function RestoreParentPromptHost() {
           <Tooltip label="Restores only this record, leaves the parent in trash" placement="top">
             <button
               type="button"
-              onClick={() => resolve("just-this")}
+              onClick={() => resolve?.("just-this")}
               className="w-full px-4 py-2 text-body rounded-md border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400"
             >
               Just this record
@@ -209,14 +215,14 @@ export function RestoreParentPromptHost() {
           </Tooltip>
           <button
             type="button"
-            onClick={() => resolve("cancel")}
+            onClick={() => resolve?.("cancel")}
             className="w-full px-4 py-2 text-body rounded-md text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400"
           >
             Cancel
           </button>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }
 

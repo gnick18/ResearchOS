@@ -4447,20 +4447,24 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
         )}
       </div>
 
-      {rehydrateModalOpen && missingInline && missingInline.length > 0 && currentUser && (
-        <RehydrateMissingImagesModal
-          notesBase={attachBase}
-          notesMarkdownPath={notesPath}
-          missingImages={missingInline}
-          onApplied={() => {
-            // Bump the reload key so the markdown re-reads from disk
-            // (rehydrate.ts rewrote the body in place) and the sidecar
-            // probe re-runs to shrink the banner count.
-            setRehydrateReloadKey((k) => k + 1);
-          }}
-          onClose={() => setRehydrateModalOpen(false)}
-        />
-      )}
+      <RehydrateMissingImagesModal
+        open={
+          rehydrateModalOpen &&
+          !!missingInline &&
+          missingInline.length > 0 &&
+          !!currentUser
+        }
+        notesBase={attachBase}
+        notesMarkdownPath={notesPath}
+        missingImages={missingInline ?? []}
+        onApplied={() => {
+          // Bump the reload key so the markdown re-reads from disk
+          // (rehydrate.ts rewrote the body in place) and the sidecar
+          // probe re-runs to shrink the banner count.
+          setRehydrateReloadKey((k) => k + 1);
+        }}
+        onClose={() => setRehydrateModalOpen(false)}
+      />
     </>
   );
 }

@@ -238,12 +238,14 @@ export default function CalendarSidebar() {
           )}
         </div>
       </aside>
-      {feedsModalOpen && (
-        <CalendarFeedsModal onClose={() => setFeedsModalOpen(false)} />
-      )}
-      {remindersModalOpen && (
-        <CalendarRemindersModal onClose={() => setRemindersModalOpen(false)} />
-      )}
+      <CalendarFeedsModal
+        open={feedsModalOpen}
+        onClose={() => setFeedsModalOpen(false)}
+      />
+      <CalendarRemindersModal
+        open={remindersModalOpen}
+        onClose={() => setRemindersModalOpen(false)}
+      />
     </>
   );
 }

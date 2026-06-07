@@ -10,10 +10,10 @@ import {
   writePrefs,
   type NotificationPrefs,
 } from "@/lib/calendar/notification-prefs-store";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
-import Tooltip from "./Tooltip";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 interface Props {
+  open: boolean;
   onClose: () => void;
 }
 
@@ -25,16 +25,13 @@ function readBrowserPermission(): PermissionState {
   return Notification.permission as PermissionState;
 }
 
-export default function CalendarRemindersModal({ onClose }: Props) {
+export default function CalendarRemindersModal({ open, onClose }: Props) {
   const { currentUser } = useCurrentUser();
   const queryClient = useQueryClient();
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [permission, setPermission] = useState<PermissionState>(readBrowserPermission());
-
-  // Escape closes this modal (app-wide convention).
-  useEscapeToClose(onClose);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -84,18 +81,14 @@ export default function CalendarRemindersModal({ onClose }: Props) {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="calendar-reminders"
-      onClick={onClose}
+    <LivingPopup
+      open={open}
+      onClose={onClose}
+      label="Event Reminders"
+      widthClassName="max-w-md"
+      card={false}
     >
-      <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="bg-white rounded-xl shadow-2xl w-full overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-start justify-between">
           <div>
             <h3 className="text-title font-semibold text-gray-900">Event Reminders</h3>
@@ -103,14 +96,6 @@ export default function CalendarRemindersModal({ onClose }: Props) {
               Get a heads-up before timed events start.
             </p>
           </div>
-          <Tooltip label="Close" placement="bottom">
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-lg"
-            >
-              ✕
-            </button>
-          </Tooltip>
         </div>
 
         <div className="px-5 py-4 space-y-5">
@@ -226,6 +211,6 @@ export default function CalendarRemindersModal({ onClose }: Props) {
           <div className="absolute inset-0 pointer-events-none bg-white/30" />
         )}
       </div>
-    </div>
+    </LivingPopup>
   );
 }
