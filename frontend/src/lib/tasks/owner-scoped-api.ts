@@ -14,6 +14,10 @@ import { tasksApi as rawTasksApi } from "@/lib/local-api";
 import type { TaskUpdate, TaskMoveRequest } from "@/lib/local-api";
 import type { Task } from "@/lib/types";
 import type { HistoryEditKind } from "@/lib/history";
+import { appendAuditEntries, buildFieldDiffEntries } from "@/lib/lab/pi-audit";
+
+/** Synthetic audit grouping label for role-based PI content edits. */
+const LAB_HEAD_EDIT_SESSION = "lab-head-edit";
 
 function effectiveOwnerOf(task: Task): string | undefined {
   return task.is_shared_with_me && task.shared_permission === "edit"
@@ -21,8 +25,17 @@ function effectiveOwnerOf(task: Task): string | undefined {
     : undefined;
 }
 
-export function ownerScopedTasksApi(task: Task) {
-  const owner = effectiveOwnerOf(task);
+/**
+ * Owner-scoped tasks API. `piEdit` (PI capability revamp, 2026-06-07) is set when
+ * a lab head is editing a member's task on the role (after the once-per-session
+ * confirm). It routes every mutation to the member-owner's folder AND emits a
+ * per-field audit entry on the primary `update`. No password, no session.
+ */
+export function ownerScopedTasksApi(task: Task, piEdit?: { actor: string }) {
+  // PI role-based edit routes to the task owner's folder; otherwise the existing
+  // shared-edit receiver routing (own tasks fall through to undefined).
+  const owner = piEdit ? task.owner || undefined : effectiveOwnerOf(task);
+  const auditActor = piEdit?.actor;
   return {
     ...rawTasksApi,
     get: (id: number) => rawTasksApi.get(id, owner),
@@ -30,11 +43,36 @@ export function ownerScopedTasksApi(task: Task) {
     // restore / undo-restore flows can mark the resulting history row a
     // "revert" / "undo-revert" kind. Defaults to {kind:"update"} inside
     // rawTasksApi.update, so existing 2-arg callers are byte-for-byte unchanged.
-    update: (
+    update: async (
       id: number,
       data: TaskUpdate,
       historyMeta?: { kind: HistoryEditKind; revert_target_version?: number },
-    ) => rawTasksApi.update(id, data, owner, historyMeta),
+    ) => {
+      // PI edit: diff the touched fields and append audit entries to the owner.
+      if (auditActor && owner) {
+        const before = await rawTasksApi.get(id, owner);
+        const updated = await rawTasksApi.update(id, data, owner, historyMeta);
+        if (before && updated) {
+          const entries = buildFieldDiffEntries({
+            actor: auditActor,
+            session_id: LAB_HEAD_EDIT_SESSION,
+            target_user: owner,
+            record_type: "task",
+            record_id: id,
+            oldRecord: before as unknown as Record<string, unknown>,
+            newRecord: updated as unknown as Record<string, unknown>,
+            fieldPaths: Object.keys(data).filter((k) => k !== "updated_at"),
+          });
+          try {
+            await appendAuditEntries(owner, entries);
+          } catch (err) {
+            console.warn("[ownerScopedTasksApi] appendAuditEntries failed", err);
+          }
+        }
+        return updated;
+      }
+      return rawTasksApi.update(id, data, owner, historyMeta);
+    },
     move: (id: number, data: TaskMoveRequest) => rawTasksApi.move(id, data, owner),
     convertType: (id: number, type: "experiment" | "purchase" | "list") =>
       rawTasksApi.convertType(id, type, owner),

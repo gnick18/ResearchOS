@@ -60,6 +60,10 @@ import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { useAccountType } from "@/hooks/useAccountType";
 import AssignTaskButton from "./lab-head/AssignTaskButton";
 import FlagForReviewButton from "./lab-head/FlagForReviewButton";
+import PiEditButton from "./lab-head/PiEditButton";
+import PiEditConfirmDialog from "./lab-head/PiEditConfirmDialog";
+import PiEditAuditNote from "./lab-head/PiEditAuditNote";
+import { usePiEditGate } from "@/hooks/usePiEditGate";
 import FlagBanner from "./lab-head/FlagBanner";
 // VC Phase 3 (VC-Phase3-Task sub-bot of HR, 2026-05-31): version history +
 // restore for the Task / Experiment entity. Mirrors NoteDetailPopup's wiring.
@@ -128,12 +132,10 @@ export default function TaskDetailPopup({
   initialCommentsOpen = false,
 }: TaskDetailPopupProps) {
   const queryClient = useQueryClient();
-  // PI edit-mode removal (remove-edit-mode bot, 2026-06-07): the prop-passed
-  // readOnly is now the effective readOnly. The PI edit-session soft-write was
-  // removed; a lab head edits only records they own or that are shared with
-  // them at edit permission. A lab head viewing a MEMBER's task can still
-  // assign / flag it (role privileges, not record writes) via canActAsLabHead.
-  const readOnly = propReadOnly;
+  // The effective `readOnly` is computed below, after the PI edit gate (it needs
+  // currentUser / accountType / task, which are set further down). A lab head
+  // viewing a MEMBER's task can still assign / flag it (role privileges) via
+  // canActAsLabHead, and now also edit it via the once-per-session PI gate.
   const isExperiment = initialTask.task_type === "experiment";
   const isPurchase = initialTask.task_type === "purchase";
   const isSimpleTask = initialTask.task_type === "list";
@@ -201,6 +203,22 @@ export default function TaskDetailPopup({
     !!currentUser &&
     recordOwnerForGate !== currentUser;
 
+  // PI capability revamp (2026-06-07): role-based PI edit of a member's task.
+  // A lab head on a member's task sees it read-only with an "Edit as lab head"
+  // button until they cross the once-per-session confirm; afterward writes route
+  // to the owner's folder + audit (tasksApi memo below). No password, no session.
+  const piGate = usePiEditGate({
+    owner: recordOwnerForGate,
+    sharedWith: initialTask.shared_with,
+    recordType: "task",
+    recordId: initialTask.id,
+    propReadOnly,
+  });
+  const piActive = piGate.isPiEdit && piGate.confirmed;
+  // The effective readOnly: a PI on a member's task stays read-only until they
+  // confirm; everyone else keeps the prop-passed (share-permission) flag.
+  const readOnly = piGate.isPiEdit ? !piGate.confirmed : propReadOnly;
+
   // VC Phase 3 (VC-Phase3-Task sub-bot of HR, 2026-05-31): version-history
   // viewer state, mirroring NoteDetailPopup. Opening the right-sidebar version
   // list flips the body into a READ-ONLY diff preview; `versionPreview` carries
@@ -222,10 +240,18 @@ export default function TaskDetailPopup({
   }, []);
 
   // Owner-aware view of tasksApi: when this popup is showing a task that was
-  // shared to the current user with edit permission, every mutating call
-  // routes through the owner's directory instead of the current user's. The
-  // old PI edit-session audited soft-write wrapper was removed.
-  const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
+  // shared to the current user with edit permission, every mutating call routes
+  // through the owner's directory instead of the current user's. When a lab head
+  // is editing a member's task on the role (piActive), pass the PI edit args so
+  // writes route to the owner + emit audit.
+  const tasksApi = useMemo(
+    () =>
+      ownerScopedTasksApi(
+        task,
+        piActive && currentUser ? { actor: currentUser } : undefined,
+      ),
+    [task, piActive, currentUser],
+  );
 
   // ── VC Phase 3 (Task): restore-a-version + 24h undo-restore ───────────────
   // The history file lives under the TASK OWNER's folder
@@ -850,10 +876,11 @@ export default function TaskDetailPopup({
           </div>
 
           {/* Sub-tasks checklist */}
-          <SimpleTaskChecklist 
-            task={task} 
+          <SimpleTaskChecklist
+            task={task}
             onAnimationTrigger={(pos) => setAnimationPosition(pos)}
             readOnly={readOnly}
+            piActor={piActive && currentUser ? currentUser : undefined}
           />
         </div>
       </LivingPopup>
@@ -1069,6 +1096,19 @@ export default function TaskDetailPopup({
               wraps onto a second line at narrow viewports (≤~600px)
               instead of jamming against the title block. */}
           <div className="flex items-center gap-1 flex-wrap justify-end">
+            {/* PI capability revamp (2026-06-07): role-based edit affordance.
+                A lab head on a member's task sees "Edit as lab head" until they
+                cross the once-per-session confirm; afterward the inline audit
+                note replaces it. No password. */}
+            {piGate.isPiEdit && !piGate.confirmed && (
+              <PiEditButton
+                memberName={recordOwnerForGate}
+                onClick={piGate.beginEdit}
+              />
+            )}
+            {piActive && (
+              <PiEditAuditNote memberName={recordOwnerForGate} className="mr-1" />
+            )}
             {/* PI Phase 3 (PI Phase 3 manager, 2026-05-23):
                 Assign + Flag-for-review buttons. A lab head viewing a
                 member's task can still assign + flag it (role privileges,
@@ -1578,21 +1618,27 @@ export default function TaskDetailPopup({
                     readOnly={readOnly}
                     pendingEnterEdit={pendingEnterEdit}
                     onConsumePendingEnterEdit={() => setPendingEnterEdit(false)}
+                    piActor={piActive && currentUser ? currentUser : undefined}
                   />
                 )}
-                {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} />}
+                {/* PI capability revamp: these tabs (separate files, own tasksApi)
+                    are not yet PI-routed, so keep them read-only during a PI edit
+                    to avoid misrouting a write to the PI's folder. DetailsTab +
+                    sub-tasks are the editable surface for now; threading these is
+                    a follow-up. */}
+                {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly || piActive || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} />}
                 {activeTab === "method" && (
                   <MethodTabs
                     task={task}
                     onTaskUpdate={(updatedTask) => setTask(updatedTask)}
-                    readOnly={readOnly}
+                    readOnly={readOnly || piActive}
                   />
                 )}
-                {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} />}
+                {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly || piActive || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} />}
                 {activeTab === "purchases" && (
                   <PurchaseEditor
                     taskId={task.id}
-                    readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")}
+                    readOnly={readOnly || piActive || (task.is_shared_with_me === true && task.shared_permission === "view")}
                     username={username ?? (task.is_shared_with_me ? task.owner : undefined)}
                     taskType={task.task_type}
                     // Existing readOnly gate only covers shared+VIEW. For
@@ -1687,6 +1733,15 @@ export default function TaskDetailPopup({
         )}
       </div>
     </LivingPopup>
+    {/* PI capability revamp: the once-per-session confirm a lab head crosses
+        before editing this member's task. LivingPopup portals itself. */}
+    <PiEditConfirmDialog
+      open={piGate.confirmDialogOpen}
+      memberName={recordOwnerForGate}
+      recordLabel={task.name ? `task ${task.name}` : "task"}
+      onConfirm={piGate.confirmEdit}
+      onCancel={piGate.cancelEdit}
+    />
     {/* Share dialog. Now on LivingPopup itself, so it joins the shared popup
         stack (single dim, no double-scrim) and, rendered AFTER the host popup,
         paints above it by DOM order. No z-index wrapper needed. */}
@@ -1710,13 +1765,20 @@ function SimpleTaskChecklist({
   task,
   onAnimationTrigger,
   readOnly = false,
+  piActor,
 }: {
   task: Task;
   onAnimationTrigger: (pos: { x: number; y: number }) => void;
   readOnly?: boolean;
+  /** PI capability revamp: the lab head's username when editing this member's
+      task on the role, so writes route to the owner + audit. */
+  piActor?: string;
 }) {
   const queryClient = useQueryClient();
-  const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
+  const tasksApi = useMemo(
+    () => ownerScopedTasksApi(task, piActor ? { actor: piActor } : undefined),
+    [task, piActor],
+  );
   // Initialize with task's sub_tasks immediately
   const [subTasks, setSubTasks] = useState<SubTask[]>(() => task.sub_tasks || []);
   const [newSubTaskText, setNewSubTaskText] = useState("");
@@ -1986,6 +2048,7 @@ function DetailsTab({
   readOnly = false,
   pendingEnterEdit = false,
   onConsumePendingEnterEdit,
+  piActor,
 }: {
   task: Task;
   project?: Project;
@@ -2000,9 +2063,16 @@ function DetailsTab({
       transition both happen via this handshake). */
   pendingEnterEdit?: boolean;
   onConsumePendingEnterEdit?: () => void;
+  /** PI capability revamp: set to the lab head's username when they are
+      editing this member's task on the role (after the confirm), so writes
+      route to the owner's folder + audit. */
+  piActor?: string;
 }) {
   const queryClient = useQueryClient();
-  const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
+  const tasksApi = useMemo(
+    () => ownerScopedTasksApi(task, piActor ? { actor: piActor } : undefined),
+    [task, piActor],
+  );
   const { currentUser } = useCurrentUser();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(task.name);
