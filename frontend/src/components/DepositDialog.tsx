@@ -19,6 +19,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import LivingPopup from "@/components/ui/LivingPopup";
 import type { Task } from "@/lib/types";
 import {
   isValidOrcid,
@@ -251,15 +252,11 @@ export default function DepositDialog({
     };
   }, [isOpen, task, currentUser]);
 
-  // Escape closes (unless mid-build).
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !building) onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, building, onClose]);
+  // Scrim click / Escape / the corner X all route through LivingPopup, but never
+  // mid-build (matches the old guarded backdrop + Escape behavior).
+  const handleClose = () => {
+    if (!building) onClose();
+  };
 
   // Translate the picker sentinel into the builder's two license inputs:
   // a catalog SPDX id, or a free-text custom name for the Other choice.
@@ -335,16 +332,17 @@ export default function DepositDialog({
   const hasContent = !!menu && !!selection && selectionHasContent(menu, selection);
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      data-tour-popup-occluding="deposit-dialog"
-      data-testid="deposit-dialog"
-      onClick={() => {
-        if (!building) onClose();
-      }}
+    <LivingPopup
+      open
+      onClose={handleClose}
+      label="Deposit to a repository"
+      selfSize
+      showClose={false}
+      closeOnScrimClick={!building}
     >
       <div
-        className="bg-surface-raised rounded-xl shadow-xl w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden"
+        data-testid="deposit-dialog"
+        className="pointer-events-auto bg-surface-raised rounded-xl shadow-xl w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -500,7 +498,7 @@ export default function DepositDialog({
           </div>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }
 
