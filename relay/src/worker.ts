@@ -253,6 +253,15 @@ export class CollabRoom {
       return this.json({ error: "bad signature" }, 401);
     }
 
+    // Validate every member entry BEFORE any write, so a malformed payload can
+    // never leave the doc half-enforced (owner recorded + flag flipped but
+    // members rejected). A bad request mutates nothing.
+    for (const m of members) {
+      if (typeof m.email !== "string" || typeof m.pubkey !== "string") {
+        return this.json({ error: "malformed member entry" }, 400);
+      }
+    }
+
     // TOFU owner check. First grant establishes the owner; later grants must
     // come from the established owner key.
     const storedOwner = this.metaGet("owner_pubkey");
