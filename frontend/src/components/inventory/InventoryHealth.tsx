@@ -63,8 +63,7 @@ export default function InventoryHealth({
       count: signals.expiring.length,
       label: "Expiring soon",
       sub: "within 30 days, plus expired",
-      // No clock glyph in the registry; `history` is the clock-with-arrow icon.
-      icon: "history",
+      icon: "alarmClock",
       iconWrap:
         "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
     },
@@ -73,8 +72,7 @@ export default function InventoryHealth({
       count: signals.stale.length,
       label: "Stale",
       sub: "untouched 6+ months",
-      // No hourglass glyph; `history` doubles for the time-passing signal.
-      icon: "history",
+      icon: "hourglass",
       iconWrap:
         "bg-slate-200 text-slate-600 dark:bg-slate-500/25 dark:text-slate-300",
     },
@@ -83,8 +81,7 @@ export default function InventoryHealth({
       count: signals.low.length,
       label: "Low or empty",
       sub: "below your threshold",
-      // No down-arrow glyph; the `caret` (down chevron) reads as "dropping".
-      icon: "caret",
+      icon: "gaugeLow",
       iconWrap:
         "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
     },

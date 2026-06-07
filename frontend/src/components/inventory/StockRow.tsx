@@ -6,10 +6,10 @@
 // low / empty, design Move 2), plus the lot / dates / location detail. The
 // status and the count both call the chunk 1 update API and let the API's
 // deriveInventoryStatus do the derivation; a manual low/empty tap is passed as
-// `status` so the API honors it. House style: <Icon> only (no minus glyph
-// exists, so the step-down is a labeled button, not an icon-only one), brand +
-// semantic tokens, Tooltip for icon-only buttons, no emojis / em-dashes /
-// mid-sentence colons.
+// `status` so the API honors it. House style: <Icon> only (the step-down uses
+// the `minus` glyph to mirror the `plus` increment button), brand + semantic
+// tokens, Tooltip for icon-only buttons, no emojis / em-dashes / mid-sentence
+// colons.
 
 import type { InventoryItem, InventoryStock, InventoryStockStatus } from "@/lib/types";
 import { Icon } from "@/components/icons";
@@ -68,9 +68,9 @@ export default function StockRow({
                 onClick={() => onStepCount(Math.max(0, count - 1))}
                 disabled={busy || count <= 0}
                 aria-label={`Use one ${word}`}
-                className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-body font-semibold text-foreground hover:bg-surface-sunken disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-foreground hover:bg-surface-sunken disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {"−"}
+                <Icon name="minus" className="h-3.5 w-3.5" />
               </button>
             </Tooltip>
           )}
