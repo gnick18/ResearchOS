@@ -29,7 +29,6 @@
  * SVG is the decorative ConfettiLayer (in components/animations/).
  */
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import BeakerBot from "@/components/BeakerBot";
@@ -93,35 +92,18 @@ const TIERS: Tier[] = [
   },
 ];
 
-/**
- * Replays a one-shot BeakerBot pose on an interval so the expressive tiers stay
- * lively instead of freezing after their single play. The official BeakerBot
- * loops only the calm poses (idle/pointing); giggle and cheering run once with
- * `forwards`, so without this they settle and look static next to Bench's alive
- * idle. Remounting via a changing key replays the animation. Honors
- * prefers-reduced-motion (no replay, just the resting pose).
- */
-function ReplayingBeaker({ pose, intervalMs }: { pose: "giggle" | "cheering"; intervalMs: number }) {
-  const [tick, setTick] = useState(0);
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (mq.matches) return;
-    const handle = window.setInterval(() => setTick((t) => t + 1), intervalMs);
-    return () => window.clearInterval(handle);
-  }, [intervalMs]);
-  return <BeakerBot key={tick} pose={pose} animated className="h-24 w-auto" ariaLabel="" />;
-}
-
 function TierBeaker({ id }: { id: string }) {
-  // The beaker fill stays constant; BeakerBot's excitement escalates with the
-  // tier, and every tier stays continuously lively (Bench via the alive idle,
-  // Lab/Institute via periodic replay of their expressive pose).
+  // Each tier is continuously lively (no jumpy one-shot replays). Excitement
+  // escalates through the motion itself: Bench is the calm alive idle (sway,
+  // blink, gaze drift), Lab waves both arms in the air, Institute twirls. The
+  // double-wave and twirl poses are infinite loops added to the official
+  // BeakerBot, and all three honor prefers-reduced-motion via the component's
+  // own animation gate.
   if (id === "lab") {
-    return <ReplayingBeaker pose="giggle" intervalMs={3600} />;
+    return <BeakerBot pose="double-wave" animated className="h-24 w-auto" ariaLabel="" />;
   }
   if (id === "institute") {
-    return <ReplayingBeaker pose="cheering" intervalMs={4200} />;
+    return <BeakerBot pose="twirl" animated className="h-24 w-auto" ariaLabel="" />;
   }
   return <BeakerBot pose="idle" alive animated className="h-24 w-auto" ariaLabel="" />;
 }

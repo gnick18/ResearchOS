@@ -150,6 +150,21 @@
   }
 }
 
+/* Twirl: a continuous, playful 360deg spin. A single smooth full
+ * rotation per cycle (not a back-and-forth wobble) so it reads as a
+ * happy pirouette. Linear timing keeps the spin even rather than
+ * lurching, and the whole silhouette (face, beaker, features) rides
+ * along since it is a root-level rotation. Origin is overridden to the
+ * figure centre on the .twirling class below. */
+@keyframes beakerBotTwirl {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Bow: forward tilt at the wizard's closing moment. Combo'd with the
  * wink on the right eye via a sibling keyframe so the two read as a
  * sequential wink-then-bow. */
@@ -652,6 +667,15 @@
   animation: beakerBotCelebrate 900ms ease-out 1 forwards;
 }
 
+/* Twirl root spin. Overrides the default .root transform-origin
+ * (50% 80%) to the figure centre so the spin pivots about the middle of
+ * BeakerBot rather than his feet. 3.6s per full turn reads as a gentle,
+ * charming pirouette rather than a dizzying strobe. */
+.twirling.animated {
+  transform-origin: 50% 50%;
+  animation: beakerBotTwirl 3.6s linear infinite;
+}
+
 .bowing.animated {
   animation: beakerBotBow 1400ms ease-in-out 1 forwards;
 }
@@ -800,6 +824,31 @@
   transform-origin: 28px 18px;
   transform-box: view-box;
   animation: beakerBotWaveArm 700ms ease-in-out infinite;
+}
+
+/* Double-wave: BOTH arms raised, waving continuously. Each arm reuses
+ * the single-arm `waving` keyframe (beakerBotWaveArm, a small
+ * back-and-forth rotation) but pivots about its OWN raised shoulder
+ * joint so the arm stays up and only the forearm/hand swings. The arms
+ * never lower; the wave is the same gentle rotation the greeting wave
+ * uses. The right arm carries a negative animation-delay equal to half
+ * the 700ms period (-350ms) so the two arms wave out of phase rather
+ * than in perfect lockstep (same phase-shift trick as the
+ * typing-on-laptop hands). Shoulder joints match the cheering V arm
+ * roots: left arm meets the body near (12, 18), right near (28, 18). */
+.waveArmLeftUp.animated {
+  transform-origin: 12px 18px;
+  transform-box: view-box;
+  animation: beakerBotWaveArm 700ms ease-in-out infinite;
+}
+
+.waveArmRightUp.animated {
+  transform-origin: 28px 18px;
+  transform-box: view-box;
+  animation: beakerBotWaveArm 700ms ease-in-out infinite;
+  /* Half-period phase offset so the two raised arms don't move in
+   * lockstep. */
+  animation-delay: -350ms;
 }
 
 .typeHand.animated {
@@ -1200,6 +1249,9 @@
   .bouncing.animated,
   .thinking.animated,
   .celebrating.animated,
+  .twirling.animated,
+  .waveArmLeftUp.animated,
+  .waveArmRightUp.animated,
   .bowing.animated,
   .giggling.animated,
   .rollLaughing.animated,

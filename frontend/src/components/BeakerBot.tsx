@@ -47,6 +47,23 @@ import styles from "./BeakerBot.module.css";
  *                       hand dot, no triangle (mirror with
  *                       `direction="left"`). Animated wave loop on
  *                       the arm.
+ *  - `double-wave`    - both arms raised up in the air (reuses the
+ *                       `cheering` two-arm V geometry, hand dots, no
+ *                       triangle), waving continuously. Each arm runs
+ *                       the same infinite 700ms wave keyframe as
+ *                       `waving`, with the right arm phase-shifted by
+ *                       half a cycle so the two arms wave out of
+ *                       lockstep (like the typing-on-laptop hands). The
+ *                       arms stay UP the whole time, they do not lower.
+ *                       Continuous infinite loop, direction-agnostic.
+ *                       Used by the /thanks Lab sponsor tier.
+ *  - `twirl`          - BeakerBot spins gently and continuously, a
+ *                       playful happy twirl. A full 360deg rotation
+ *                       around the figure centre (20, 20) over ~3.6s,
+ *                       looping infinite. The whole silhouette (face,
+ *                       beaker, features) rides along with the rotation.
+ *                       Continuous infinite loop, direction-agnostic.
+ *                       Used by the /thanks Institute sponsor tier.
  *  - `bouncing`       - momentary ~600ms vertical bounce. Wizard
  *                       sets this on step transitions then flips
  *                       back to the step's resting pose.
@@ -118,7 +135,8 @@ import styles from "./BeakerBot.module.css";
  *                       Static silhouette.
  *
  * The `pointing*` poses emit a triangle tip used by pointer-line
- * overlays; the non-pointing poses (`cheering`, `waving`, `bouncing`,
+ * overlays; the non-pointing poses (`cheering`, `waving`,
+ * `double-wave`, `twirl`, `bouncing`,
  * `thinking`, `typing`, `typing-on-laptop`, `bow-wink`,
  * `volcano-eruption`, `sleeping`, `hiccup`, `yawn`, `reading`,
  * `panicked`, `amazed`, `embarrassed`) are used in the modal mascot
@@ -132,6 +150,8 @@ export type BeakerBotPose =
   | "pointing-down"
   | "cheering"
   | "waving"
+  | "double-wave"
+  | "twirl"
   | "bouncing"
   | "thinking"
   | "typing"
@@ -264,6 +284,12 @@ function rootAnimationClass(
       return undefined;
     case "cheering":
       return `${styles.celebrating} ${styles.animated}`;
+    case "twirl":
+      // Continuous 360deg spin around the figure centre. This pose owns
+      // the root animation slot (its own infinite loop), so like
+      // `thinking` it is NOT in ALIVE_POSES and the alive idle never
+      // composes with it.
+      return `${styles.twirling} ${styles.animated}`;
     case "bow-wink":
       return `${styles.bowing} ${styles.animated}`;
     case "giggle":
@@ -914,6 +940,42 @@ export default function BeakerBot({
           {/* Two sparkles for extra energy */}
           <path d="M6 6 L7 7 M7 6 L6 7" />
           <path d="M33 6 L34 7 M34 6 L33 7" />
+        </>
+      )}
+
+      {effectivePose === "double-wave" && (
+        <>
+          {/* BOTH arms raised in the air, waving continuously. Geometry
+              is reused verbatim from the `cheering` two-arm V (hand
+              dots, no triangle fingers). Each arm is wrapped in its own
+              <g> running the same infinite 700ms wave keyframe as the
+              single-arm `waving` pose, rotating about that arm's
+              shoulder joint. The right arm uses .waveArmRight, whose
+              keyframe is phase-shifted by half a cycle (same trick as
+              the typing-on-laptop hands) so the two arms wave out of
+              lockstep rather than mirroring perfectly. The arms stay UP
+              the whole time; the wave is a small rotation about the
+              shoulder, never a lowering. Symmetric, so no flip. */}
+          <g
+            className={
+              animated
+                ? `${styles.waveArmLeftUp} ${styles.animated}`
+                : undefined
+            }
+          >
+            <path d="M12 18 L8 10" />
+            <circle cx="8" cy="10" r="1" fill="currentColor" stroke="none" />
+          </g>
+          <g
+            className={
+              animated
+                ? `${styles.waveArmRightUp} ${styles.animated}`
+                : undefined
+            }
+          >
+            <path d="M28 18 L32 10" />
+            <circle cx="32" cy="10" r="1" fill="currentColor" stroke="none" />
+          </g>
         </>
       )}
 
