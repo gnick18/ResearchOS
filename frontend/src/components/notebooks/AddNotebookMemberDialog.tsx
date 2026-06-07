@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { notebooksApi, usersApi } from "@/lib/local-api";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import LivingPopup from "@/components/ui/LivingPopup";
 import type { Notebook } from "@/lib/types";
 import { Icon } from "@/components/icons";
 
@@ -36,8 +36,6 @@ export default function AddNotebookMemberDialog({
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEscapeToClose(onClose);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,16 +96,15 @@ export default function AddNotebookMemberDialog({
   }, [selected, hasNotes, confirming, handleAdd]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Add a member"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+    <LivingPopup
+      open
+      onClose={onClose}
+      label="Add a member"
+      widthClassName="max-w-md"
+      card={false}
+      showClose={false}
     >
-      <div className="w-full max-w-md rounded-xl bg-surface-raised shadow-xl">
+      <div className="w-full rounded-xl bg-surface-raised shadow-xl">
         <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">
             <span aria-hidden="true" className="text-brand-action">
@@ -212,6 +209,6 @@ export default function AddNotebookMemberDialog({
           </button>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }

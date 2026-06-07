@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { notebooksApi } from "@/lib/local-api";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import LivingPopup from "@/components/ui/LivingPopup";
 import type { Notebook } from "@/lib/types";
 import { Icon } from "@/components/icons";
 
@@ -35,8 +35,6 @@ export default function NotebookFormDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEscapeToClose(onClose);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -78,16 +76,15 @@ export default function NotebookFormDialog({
   const cta = mode === "create" ? "Create notebook" : "Save title";
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label={heading}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+    <LivingPopup
+      open
+      onClose={onClose}
+      label={heading}
+      widthClassName="max-w-md"
+      card={false}
+      showClose={false}
     >
-      <div className="w-full max-w-md rounded-xl bg-surface-raised shadow-xl">
+      <div className="w-full rounded-xl bg-surface-raised shadow-xl">
         <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">
             <span aria-hidden="true" className="text-brand-action">
@@ -160,6 +157,6 @@ export default function NotebookFormDialog({
           </button>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }

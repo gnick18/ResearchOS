@@ -15,6 +15,7 @@ import NotebookRail, { type RailSelection } from "./notebooks/NotebookRail";
 import NotebookFormDialog from "./notebooks/NotebookFormDialog";
 import AddNotebookMemberDialog from "./notebooks/AddNotebookMemberDialog";
 import MoveToNotebookMenu from "./notebooks/MoveToNotebookMenu";
+import LivingPopup from "@/components/ui/LivingPopup";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import Tooltip from "./Tooltip";
 
@@ -585,16 +586,14 @@ export default function NotesPanel({
           />
         )}
         {deleteConfirmFor && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Delete notebook"
-            onMouseDown={(e) => {
-              if (e.target === e.currentTarget) setDeleteConfirmFor(null);
-            }}
+          <LivingPopup
+            open
+            onClose={() => setDeleteConfirmFor(null)}
+            label="Delete notebook"
+            widthClassName="max-w-md"
+            card={false}
           >
-            <div className="w-full max-w-md rounded-xl bg-surface-raised shadow-xl">
+            <div className="w-full rounded-xl bg-surface-raised shadow-xl">
               <div className="border-b border-border px-5 py-4">
                 <h2 className="text-title font-semibold text-foreground">
                   Delete notebook
@@ -634,7 +633,7 @@ export default function NotesPanel({
                 </button>
               </div>
             </div>
-          </div>
+          </LivingPopup>
         )}
       </>
     ) : null;

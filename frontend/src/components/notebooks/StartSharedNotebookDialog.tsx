@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { sharedNotebooksApi, usersApi } from "@/lib/local-api";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import LivingPopup from "@/components/ui/LivingPopup";
 import type { SharedNotebook } from "@/lib/types";
 
 // Shared Notebooks Phase 2 (notebooks-phase2 sub-bot, 2026-06-02). See
@@ -76,9 +76,6 @@ export default function StartSharedNotebookDialog({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Escape closes this dialog (app-wide convention).
-  useEscapeToClose(onClose);
-
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -123,16 +120,15 @@ export default function StartSharedNotebookDialog({
   }, [selected, title, creating, onCreated]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Start a shared notebook"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+    <LivingPopup
+      open
+      onClose={onClose}
+      label="Start a shared notebook"
+      widthClassName="max-w-md"
+      card={false}
+      showClose={false}
     >
-      <div className="w-full max-w-md rounded-xl bg-surface-raised shadow-xl">
+      <div className="w-full rounded-xl bg-surface-raised shadow-xl">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">
@@ -241,6 +237,6 @@ export default function StartSharedNotebookDialog({
           </button>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }
