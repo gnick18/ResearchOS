@@ -104,12 +104,15 @@ export interface ArtifactNavItem {
  *  union so the keyboard cursor, the renderer, and Enter all branch on `kind`.
  *  "command" runs the editor handler, "sequence" switches the open sequence,
  *  "artifact" reopens a saved result, "object" jumps to a cross-app record (the
- *  global object source, chunk 2) via its deep-link href. */
+ *  global object source, chunk 2) via its deep-link href, "searchAll" is the
+ *  trailing handoff row that escapes to the full faceted /search for the current
+ *  query (the global object search, chunk 3). */
 export type PaletteItem =
   | { kind: "command"; command: EditorCommand }
   | { kind: "sequence"; sequence: SequenceNavItem }
   | { kind: "artifact"; artifact: ArtifactNavItem }
-  | { kind: "object"; entry: GlobalIndexEntry; onRun: () => void };
+  | { kind: "object"; entry: GlobalIndexEntry; onRun: () => void }
+  | { kind: "searchAll"; query: string; onRun: () => void };
 
 /** The visible heading a palette group prints under. The command intent groups,
  *  the synthetic "Suggested", the sequence-editor navigation groups, plus the
@@ -123,7 +126,10 @@ export type PaletteGroupTitle =
   | "Tasks"
   | "Projects"
   | "Methods"
-  | "Sequences";
+  | "Sequences"
+  // BeakerSearch global object search, chunk 3, the trailing "Search everything"
+  // handoff row to the full faceted /search.
+  | "More";
 
 /** A grouped block of heterogeneous palette items the component renders. `hint`
  *  is an optional muted clause after the heading (e.g. "for your selection" or
@@ -149,6 +155,7 @@ export function paletteItemKey(item: PaletteItem): string {
   if (item.kind === "command") return `command-${item.command.id}`;
   if (item.kind === "sequence") return `sequence-${item.sequence.id}`;
   if (item.kind === "object") return `object-${item.entry.type}-${item.entry.key}`;
+  if (item.kind === "searchAll") return "search-all";
   return `artifact-${item.artifact.id}`;
 }
 
@@ -164,6 +171,10 @@ export function runPaletteItem(item: PaletteItem): void {
   }
   if (item.kind === "object") {
     if (item.entry.enabled) item.onRun();
+    return;
+  }
+  if (item.kind === "searchAll") {
+    item.onRun();
     return;
   }
   item.artifact.onRun();
@@ -641,6 +652,7 @@ function paletteGroupTitleOf(item: PaletteItem): PaletteGroupTitle {
   if (item.kind === "sequence") return "Jump to a sequence";
   if (item.kind === "artifact") return "Recent results";
   if (item.kind === "object") return objectGroupTitle(item.entry.type);
+  if (item.kind === "searchAll") return "More";
   return item.command.group;
 }
 

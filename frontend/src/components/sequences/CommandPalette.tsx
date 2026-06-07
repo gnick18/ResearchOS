@@ -85,6 +85,17 @@ function paletteRowParts(item: PaletteItem): {
       hint: "Open",
     };
   }
+  if (item.kind === "searchAll") {
+    // The trailing handoff to the full faceted /search (global object search,
+    // chunk 3). One row, the label echoes the live query and Enter hands that
+    // query off to /search with all its filters.
+    return {
+      iconName: "search",
+      label: `Search everything for "${item.query}"`,
+      sub: "Open the full search with filters",
+      hint: "Search",
+    };
+  }
   return {
     iconName: item.artifact.iconName,
     label: item.artifact.label,
@@ -194,6 +205,10 @@ export interface CommandPaletteProps {
    *  router.push + close). Absent disables object navigation, so no object groups
    *  render. */
   onNavigateObject?: (href: string) => void;
+  /** BeakerSearch global object search, chunk 3. Hand the live query off to the
+   *  full faceted /search (the provider pushes /search?keywords= + closes).
+   *  Absent hides the trailing "Search everything" row (a non-shell caller). */
+  onSearchEverything?: (query: string) => void;
 }
 
 /** The full-screen palette. Renders nothing when closed. */
@@ -210,6 +225,7 @@ export function CommandPalette({
   objectIndex = EMPTY_OBJECT_INDEX,
   activePageType = null,
   onNavigateObject,
+  onSearchEverything,
 }: CommandPaletteProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -252,23 +268,49 @@ export function CommandPalette({
   }, [objectIndex, debouncedQuery, activePageType, onNavigateObject]);
 
   // Grouped + flat heterogeneous results (commands + sequences + results + the
-  // global object groups) for the current query and selection context.
-  const groups = useMemo(
-    () =>
-      buildPaletteResultsForQuery(
+  // global object groups) for the current query and selection context. The
+  // trailing "Search everything" handoff row (chunk 3) is appended LAST, after
+  // the top-hit lead sort inside buildPaletteResultsForQuery, so it always sits
+  // at the very bottom as the escape hatch to the full faceted /search. It shows
+  // only while typing and only when a handler is wired (a non-shell caller omits
+  // it). The trimmed query rides into both the label and the /search handoff.
+  const groups = useMemo(() => {
+    const base = buildPaletteResultsForQuery(
+      {
+        commands,
+        sequences,
+        artifacts,
+        collectionLabel,
+        selectionKind,
+        hasOrganism,
+        objectGroups,
+      },
+      query,
+    );
+    const trimmed = query.trim();
+    if (trimmed === "" || !onSearchEverything) return base;
+    const searchAllGroup: PaletteGroup = {
+      title: "More",
+      items: [
         {
-          commands,
-          sequences,
-          artifacts,
-          collectionLabel,
-          selectionKind,
-          hasOrganism,
-          objectGroups,
+          kind: "searchAll" as const,
+          query: trimmed,
+          onRun: () => onSearchEverything(trimmed),
         },
-        query,
-      ),
-    [commands, sequences, artifacts, collectionLabel, selectionKind, hasOrganism, objectGroups, query],
-  );
+      ],
+    };
+    return [...base, searchAllGroup];
+  }, [
+    commands,
+    sequences,
+    artifacts,
+    collectionLabel,
+    selectionKind,
+    hasOrganism,
+    objectGroups,
+    query,
+    onSearchEverything,
+  ]);
   const flat = useMemo(() => flattenPaletteItems(groups), [groups]);
 
   // Reset the query and remember focus each time the palette opens; default the

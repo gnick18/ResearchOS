@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { fetchAllMethodsIncludingShared, fetchAllProjectsIncludingShared, fetchAllTasksIncludingShared } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -80,6 +81,27 @@ export default function SearchPage() {
 
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
+
+  // BeakerSearch global object search, chunk 3. Deep-link `/search?keywords=<q>`
+  // seeds the keyword box and runs the search once on mount, then strips just
+  // that param so a reload does not re-trigger. This is how the palette's "Search
+  // everything for <q>" row hands a query off to the full faceted search. Other
+  // params pass through untouched.
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (!searchParams) return;
+    const seed = searchParams.get("keywords");
+    if (seed == null || seed.trim() === "") return;
+    setFilters((prev) => ({ ...prev, keywords: seed }));
+    setHasSearched(true);
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("keywords");
+    const queryString = next.toString();
+    router.replace(queryString ? `/search?${queryString}` : "/search");
+    // Run once for the param present at mount; the strip prevents a re-fire.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", currentUser],

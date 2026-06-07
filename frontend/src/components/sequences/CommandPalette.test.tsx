@@ -486,4 +486,45 @@ describe("CommandPalette contextual sections", () => {
     });
     expect(screen.getByText("pGEX-3X")).toBeTruthy();
   });
+
+  // BeakerSearch global object search, chunk 3, the trailing "Search everything"
+  // handoff to the full faceted /search.
+  it("offers a Search everything row that hands the live query to /search", () => {
+    const onSearchEverything = vi.fn();
+    render(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={makeCommands()}
+        selectionKind="none"
+        hasOrganism={false}
+        onSearchEverything={onSearchEverything}
+      />,
+    );
+    const input = screen.getByRole("combobox");
+    // Empty query, no handoff row yet.
+    expect(screen.queryByText(/Search everything for/)).toBeNull();
+    // Typing surfaces the row echoing the trimmed query.
+    fireEvent.change(input, { target: { value: "  mito  " } });
+    const row = screen.getByText('Search everything for "mito"');
+    expect(row).toBeTruthy();
+    // Rows commit on mouseDown (so focus never leaves the input before the run).
+    fireEvent.mouseDown(row);
+    expect(onSearchEverything).toHaveBeenCalledTimes(1);
+    expect(onSearchEverything).toHaveBeenCalledWith("mito");
+  });
+
+  it("hides the Search everything row when no handoff handler is wired", () => {
+    render(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={makeCommands()}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "mito" } });
+    expect(screen.queryByText(/Search everything for/)).toBeNull();
+  });
 });

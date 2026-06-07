@@ -148,6 +148,17 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
     },
     [router],
   );
+  // BeakerSearch global object search, chunk 3. Hand the live query off to the
+  // full faceted /search via ?keywords=, which /search reads on mount to seed its
+  // box and run the search, then close the palette. The escape hatch for a query
+  // the inline results do not fully cover.
+  const searchEverything = useCallback(
+    (q: string) => {
+      router.push(`/search?keywords=${encodeURIComponent(q)}`);
+      setOpen(false);
+    },
+    [router],
+  );
 
   const activePage = sources.length > 0 ? sources[sources.length - 1] : null;
   // A page source is still reported via hasSource for any trigger that wants to
@@ -231,6 +242,7 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
           objectIndex={objectIndex}
           activePageType={activePageType}
           onNavigateObject={navigateToObject}
+          onSearchEverything={searchEverything}
         />
       </BeakerSearchRegistryContext.Provider>
     </BeakerSearchApiContext.Provider>
