@@ -8,6 +8,8 @@ import type {
   InventoryItem,
   InventoryStock,
   InventoryStockStatus,
+  StorageNode,
+  StorageNodeKind,
 } from "@/lib/types";
 
 /** Human label for each catalog category (design section 5.1). */
@@ -414,4 +416,236 @@ export function computeInventorySignals(
     low,
     allClear: expiring.length === 0 && stale.length === 0 && low.length === 0,
   };
+}
+
+// ── Box-finder map helpers (v2 storage map, design section 5.3) ──────────────
+//
+// All pure so the BoxGrid occupancy + the location breadcrumb agree without a
+// component dependency, and so both are deterministically testable without a
+// React renderer (mirrors the chunk-3 signal helpers above).
+
+/** Human label for each storage-node kind, shown as the little tag in the tree
+ *  and in the kind <select> on the add-location form. */
+export const STORAGE_KIND_LABEL: Record<StorageNodeKind, string> = {
+  room: "Room",
+  freezer: "Freezer",
+  fridge: "Fridge",
+  ln2: "LN2 tank",
+  cabinet: "Cabinet",
+  shelf: "Shelf",
+  rack: "Rack",
+  drawer: "Drawer",
+  tower: "Tower",
+  box: "Box",
+  other: "Other",
+};
+
+/** Ordered kinds for the add-location <select> (coarse to fine). */
+export const STORAGE_KIND_ORDER: StorageNodeKind[] = [
+  "room",
+  "freezer",
+  "fridge",
+  "ln2",
+  "cabinet",
+  "shelf",
+  "rack",
+  "tower",
+  "drawer",
+  "box",
+  "other",
+];
+
+/** Default box grid offered when adding a `box` node (the two common SBS-ish
+ *  cryobox layouts). The form pre-fills 9x9. */
+export const DEFAULT_BOX_DIMS: { label: string; rows: number; cols: number }[] =
+  [
+    { label: "9 x 9 (81)", rows: 9, cols: 9 },
+    { label: "10 x 10 (100)", rows: 10, cols: 10 },
+  ];
+
+/** The four cell fills the box grid paints, matching the mockup (in_stock =
+ *  emerald, low = amber, expired/expiring = rose, empty = neutral). `expiring`
+ *  is the soon-to-expire overlay; `expired` is the past-date status. */
+export type BoxCellTone = "in" | "low" | "exp" | "empty";
+
+/** Map a stock to its cell tone. `expired` status OR a within-window expiry
+ *  both read as `exp` (rose) so a tube about to lapse stands out on the map;
+ *  `low`/`empty` read as `low` (amber); everything else is `in` (emerald). An
+ *  empty CELL (no stock) is handled by the grid, not here. */
+export function boxCellToneForStock(
+  stock: InventoryStock,
+  now: Date,
+): BoxCellTone {
+  if (stock.status === "expired") return "exp";
+  if (stock.expiration_date) {
+    const exp = new Date(stock.expiration_date);
+    if (!Number.isNaN(exp.getTime())) {
+      const days = Math.round((exp.getTime() - now.getTime()) / MS_PER_DAY);
+      if (days <= EXPIRING_SOON_DAYS) return "exp";
+    }
+  }
+  if (stock.status === "low" || stock.status === "empty") return "low";
+  return "in";
+}
+
+/** Tailwind fill class for a box-grid cell tone. Themed for dark mode the same
+ *  way the status chips are (the mockup's emerald/amber/rose backgrounds). A
+ *  filled cell drops its border so the fill reads as a solid swatch. */
+export function boxCellToneClass(tone: BoxCellTone): string {
+  switch (tone) {
+    case "in":
+      return "bg-emerald-200 border-transparent text-emerald-800 dark:bg-emerald-500/25 dark:text-emerald-200";
+    case "low":
+      return "bg-amber-200 border-transparent text-amber-800 dark:bg-amber-500/25 dark:text-amber-200";
+    case "exp":
+      return "bg-rose-200 border-transparent text-rose-800 dark:bg-rose-500/25 dark:text-rose-200";
+    case "empty":
+      return "bg-surface-raised text-foreground-muted";
+  }
+}
+
+/** One occupied cell of a box: the position (A1 cell id), the stock sitting
+ *  there, its parent item, and its tone. */
+export interface BoxCellOccupant {
+  position: string;
+  stock: InventoryStock;
+  item: InventoryItem | null;
+  tone: BoxCellTone;
+}
+
+/**
+ * Build the occupancy map for one box node: position (A1 cell id) -> the stock
+ * sitting there. A stock occupies a cell iff `location_node_id === boxId` AND
+ * it has a `position`. Unplaced stocks (no node, or node but no position) are
+ * excluded. When two stocks claim the same cell (should not happen, but the
+ * data layer does not enforce it), the FIRST wins and the rest are ignored so
+ * the grid stays deterministic.
+ */
+export function buildBoxOccupancy(
+  boxId: number,
+  stocks: InventoryStock[],
+  itemsById: Map<number, InventoryItem>,
+  now: Date,
+): Map<string, BoxCellOccupant> {
+  const map = new Map<string, BoxCellOccupant>();
+  for (const stock of stocks) {
+    if (stock.location_node_id !== boxId) continue;
+    if (!stock.position) continue;
+    if (map.has(stock.position)) continue;
+    map.set(stock.position, {
+      position: stock.position,
+      stock,
+      item: itemsById.get(stock.item_id) ?? null,
+      tone: boxCellToneForStock(stock, now),
+    });
+  }
+  return map;
+}
+
+/**
+ * Walk a node's ancestor chain to the root via `parent_id`, returning the path
+ * root-first ("-80 #2", "Rack 3", "Box: Enzymes"). Tolerates a missing parent
+ * (a node whose ancestor was deleted) by stopping the walk, and guards against
+ * a cycle with a visited set so a malformed tree cannot loop forever.
+ */
+export function buildNodePath(
+  nodeId: number,
+  nodesById: Map<number, StorageNode>,
+): StorageNode[] {
+  const path: StorageNode[] = [];
+  const seen = new Set<number>();
+  let cur: number | null = nodeId;
+  while (cur != null && !seen.has(cur)) {
+    seen.add(cur);
+    const node = nodesById.get(cur);
+    if (!node) break;
+    path.unshift(node);
+    cur = node.parent_id ?? null;
+  }
+  return path;
+}
+
+/**
+ * Build the location breadcrumb string for a placed stock, e.g.
+ * "-80 #2 / Rack 3 / Enzymes / B4". `position` is appended when present. When
+ * the node id is unknown (deleted location), returns null so the caller can
+ * fall back to `location_text`. Node names are used verbatim; a "Box: " prefix
+ * is stripped from the box name for a tighter trail (the box kind is already
+ * implied by the position cell).
+ */
+export function buildLocationBreadcrumb(
+  nodeId: number | null,
+  position: string | null,
+  nodesById: Map<number, StorageNode>,
+): string | null {
+  if (nodeId == null) return null;
+  const path = buildNodePath(nodeId, nodesById);
+  if (path.length === 0) return null;
+  const names = path.map((n) => n.name.replace(/^Box:\s*/i, ""));
+  if (position) names.push(position);
+  return names.join(" / ");
+}
+
+/** The location to display for a stock: prefer the node-based breadcrumb when a
+ *  box + position are set, otherwise fall back to the v1 free-text note. Returns
+ *  null when neither is set. `kind` tells the caller whether it can be clicked
+ *  to jump to the map (only "node" locations resolve to a cell). */
+export interface StockLocationDisplay {
+  text: string;
+  kind: "node" | "text";
+  nodeId: number | null;
+  position: string | null;
+}
+
+export function stockLocationDisplay(
+  stock: InventoryStock,
+  nodesById: Map<number, StorageNode>,
+): StockLocationDisplay | null {
+  const crumb = buildLocationBreadcrumb(
+    stock.location_node_id,
+    stock.position,
+    nodesById,
+  );
+  if (crumb) {
+    return {
+      text: crumb,
+      kind: "node",
+      nodeId: stock.location_node_id,
+      position: stock.position,
+    };
+  }
+  const text = (stock.location_text ?? "").trim();
+  if (text.length > 0) {
+    return { text, kind: "text", nodeId: null, position: null };
+  }
+  return null;
+}
+
+/** The descendant `box` nodes reachable under a given ancestor (used to scope
+ *  "which boxes live in this freezer"). Pure BFS over parent_id links. */
+export function descendantBoxes(
+  ancestorId: number,
+  nodes: StorageNode[],
+): StorageNode[] {
+  const childrenOf = new Map<number, StorageNode[]>();
+  for (const n of nodes) {
+    const p = n.parent_id ?? null;
+    if (p == null) continue;
+    const arr = childrenOf.get(p) ?? [];
+    arr.push(n);
+    childrenOf.set(p, arr);
+  }
+  const out: StorageNode[] = [];
+  const queue: number[] = [ancestorId];
+  const seen = new Set<number>();
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    for (const child of childrenOf.get(id) ?? []) {
+      if (child.kind === "box") out.push(child);
+      queue.push(child.id);
+    }
+  }
+  return out;
 }

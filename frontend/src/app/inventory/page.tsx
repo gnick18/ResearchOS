@@ -25,6 +25,7 @@ import { INVENTORY_ENABLED } from "@/lib/inventory/config";
 import {
   fetchAllInventoryItemsIncludingShared,
   fetchAllInventoryStocksIncludingShared,
+  fetchAllStorageNodesIncludingShared,
   inventoryItemsApi,
   inventoryStocksApi,
 } from "@/lib/local-api";
@@ -37,6 +38,7 @@ import type {
   InventoryStockCreate,
   InventoryStockStatus,
   InventoryStockUpdate,
+  StorageNode,
 } from "@/lib/types";
 import ItemFormDialog from "@/components/inventory/ItemFormDialog";
 import ImportInventoryDialog from "@/components/inventory/ImportInventoryDialog";
@@ -44,6 +46,7 @@ import ScanFlow from "@/components/inventory/ScanFlow";
 import SuppliesTabs from "@/components/inventory/SuppliesTabs";
 import StockFormDialog from "@/components/inventory/StockFormDialog";
 import StockRow from "@/components/inventory/StockRow";
+import StorageMap from "@/components/inventory/StorageMap";
 import InventoryHealth from "@/components/inventory/InventoryHealth";
 import SignalRecordRow from "@/components/inventory/SignalRecordRow";
 import {
@@ -96,6 +99,14 @@ export default function InventoryPage() {
   const queryClient = useQueryClient();
 
   const [query, setQuery] = useState("");
+  // List (the chunk-2 item list) vs Storage (the box-finder map). Defaults to
+  // List per the design; the segmented control flips it.
+  const [view, setView] = useState<"list" | "storage">("list");
+  // A breadcrumb-jump request handed to the storage map: select this box cell.
+  const [jumpTarget, setJumpTarget] = useState<{
+    nodeId: number;
+    position: string | null;
+  } | null>(null);
   // Keyed on `${owner}:${item_id}` to avoid collision when two users each have
   // an item with the same numeric id (possible once SHARING_ENABLED goes live).
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -129,8 +140,24 @@ export default function InventoryPage() {
     enabled: INVENTORY_ENABLED && !!currentUser,
   });
 
+  // Storage nodes power both the Storage view (StorageMap shares this same
+  // query key, so React Query dedupes the fetch) and the location breadcrumb on
+  // each list stock row.
+  const nodesQuery = useQuery({
+    queryKey: ["storage-nodes", currentUser],
+    queryFn: fetchAllStorageNodesIncludingShared,
+    enabled: INVENTORY_ENABLED && !!currentUser,
+  });
+
   const items = useMemo(() => itemsQuery.data ?? [], [itemsQuery.data]);
   const stocks = useMemo(() => stocksQuery.data ?? [], [stocksQuery.data]);
+  const nodes = useMemo(() => nodesQuery.data ?? [], [nodesQuery.data]);
+
+  const nodesById = useMemo(() => {
+    const m = new Map<number, StorageNode>();
+    for (const n of nodes) m.set(n.id, n);
+    return m;
+  }, [nodes]);
 
   // Group stocks under their item for the row list + the summary.
   // Key is `${owner}:${item_id}` to prevent collision when two users each have
@@ -189,7 +216,18 @@ export default function InventoryPage() {
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
     queryClient.invalidateQueries({ queryKey: ["inventory-stocks"] });
+    queryClient.invalidateQueries({ queryKey: ["storage-nodes"] });
   };
+
+  // Breadcrumb jump: switch to the Storage view and ask the map to select that
+  // box cell. The map consumes the target once and calls back to clear it.
+  const jumpToCell = useCallback(
+    (nodeId: number, position: string | null) => {
+      setView("storage");
+      setJumpTarget({ nodeId, position });
+    },
+    [],
+  );
 
   const toggleExpanded = (key: string) =>
     setExpanded((prev) => {
@@ -205,6 +243,7 @@ export default function InventoryPage() {
   const openItemInList = useCallback((key: string) => {
     setActiveSignal(null);
     setQuery("");
+    setView("list");
     setExpanded((prev) => new Set(prev).add(key));
     // Defer to the next frame so the normal list has re-rendered before scroll.
     requestAnimationFrame(() => {
@@ -350,6 +389,41 @@ export default function InventoryPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {/* List vs Storage map toggle (box-finder map UI). */}
+            <div
+              role="tablist"
+              aria-label="Inventory view"
+              className="inline-flex items-center gap-0.5 rounded-lg bg-surface-sunken p-0.5"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === "list"}
+                onClick={() => setView("list")}
+                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-meta font-medium transition-colors ${
+                  view === "list"
+                    ? "bg-surface-raised text-foreground shadow-sm"
+                    : "text-foreground-muted hover:text-foreground"
+                }`}
+              >
+                <Icon name="list" className="h-3.5 w-3.5" />
+                List
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === "storage"}
+                onClick={() => setView("storage")}
+                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-meta font-medium transition-colors ${
+                  view === "storage"
+                    ? "bg-surface-raised text-foreground shadow-sm"
+                    : "text-foreground-muted hover:text-foreground"
+                }`}
+              >
+                <Icon name="box" className="h-3.5 w-3.5" />
+                Storage map
+              </button>
+            </div>
             <Tooltip label="Refresh">
               <button
                 type="button"
@@ -387,6 +461,20 @@ export default function InventoryPage() {
           </div>
         </div>
 
+        {view === "storage" ? (
+          <StorageMap
+            items={items}
+            stocks={stocks}
+            currentUser={currentUser}
+            onRefresh={refresh}
+            onOpenItem={(item) =>
+              openItemInList(`${item.owner}:${item.id}`)
+            }
+            jumpTarget={jumpTarget}
+            onJumpConsumed={() => setJumpTarget(null)}
+          />
+        ) : (
+          <>
         {/* Health strip (chunk 3): the three zero-upkeep signals, above search. */}
         {!isLoading && items.length > 0 && (
           <InventoryHealth
@@ -557,6 +645,8 @@ export default function InventoryPage() {
                               stock={stock}
                               canEdit={editable}
                               busy={busyStockId === stock.id}
+                              nodesById={nodesById}
+                              onJumpToLocation={jumpToCell}
                               onSetStatus={(status) =>
                                 setStockStatus(item, stock, status)
                               }
@@ -597,6 +687,8 @@ export default function InventoryPage() {
               );
             })}
           </div>
+        )}
+          </>
         )}
       </div>
 
@@ -640,6 +732,7 @@ export default function InventoryPage() {
             <StockFormDialog
               item={stockDialog.item}
               stock={stockDialog.mode === "edit" ? stockDialog.stock : null}
+              nodes={nodes}
               onCancel={() => setStockDialog({ mode: "closed" })}
               onSubmit={submitStock}
             />

@@ -11,7 +11,12 @@
 // tokens, Tooltip for icon-only buttons, no emojis / em-dashes / mid-sentence
 // colons.
 
-import type { InventoryItem, InventoryStock, InventoryStockStatus } from "@/lib/types";
+import type {
+  InventoryItem,
+  InventoryStock,
+  InventoryStockStatus,
+  StorageNode,
+} from "@/lib/types";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import {
@@ -20,6 +25,7 @@ import {
   containerWord,
   formatDate,
   statusChipClass,
+  stockLocationDisplay,
 } from "./inventory-ui";
 
 interface StockRowProps {
@@ -28,10 +34,15 @@ interface StockRowProps {
   /** When false the record is shared in read-only; all mutations are hidden. */
   canEdit: boolean;
   busy: boolean;
+  /** The full storage-node index, for the location breadcrumb. */
+  nodesById: Map<number, StorageNode>;
   onSetStatus: (status: InventoryStockStatus) => void;
   onStepCount: (next: number) => void;
   onEdit: () => void;
   onDelete: () => void;
+  /** Jump to the storage map and select this stock's cell (only fired for a
+   *  node-based location). */
+  onJumpToLocation: (nodeId: number, position: string | null) => void;
 }
 
 export default function StockRow({
@@ -39,20 +50,25 @@ export default function StockRow({
   stock,
   canEdit,
   busy,
+  nodesById,
   onSetStatus,
   onStepCount,
   onEdit,
   onDelete,
+  onJumpToLocation,
 }: StockRowProps) {
   const word = containerWord(item.container_label);
   const count = Number.isFinite(stock.container_count)
     ? stock.container_count
     : 0;
 
+  // Location: prefer the node-based breadcrumb (clickable, jumps to the map),
+  // fall back to the v1 free-text note (plain text).
+  const location = stockLocationDisplay(stock, nodesById);
+
   const details: string[] = [];
   if (stock.lot_number) details.push(`Lot ${stock.lot_number}`);
   if (stock.concentration) details.push(stock.concentration);
-  if (stock.location_text) details.push(stock.location_text);
   const received = formatDate(stock.received_date);
   const expires = formatDate(stock.expiration_date);
 
@@ -104,6 +120,25 @@ export default function StockRow({
             {details.join(" · ")}
           </p>
         )}
+        {location &&
+          (location.kind === "node" && location.nodeId != null ? (
+            <Tooltip label="Show on the storage map">
+              <button
+                type="button"
+                onClick={() =>
+                  onJumpToLocation(location.nodeId!, location.position)
+                }
+                className="inline-flex max-w-full items-center gap-1 truncate text-meta font-medium text-brand-action hover:underline"
+              >
+                <Icon name="box" className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">{location.text}</span>
+              </button>
+            </Tooltip>
+          ) : (
+            <p className="truncate text-meta text-foreground-muted">
+              {location.text}
+            </p>
+          ))}
         <p className="text-meta text-foreground-muted">
           {received && <span>Received {received}</span>}
           {received && expires && <span> {"·"} </span>}

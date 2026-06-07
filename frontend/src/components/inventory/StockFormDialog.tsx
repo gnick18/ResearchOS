@@ -15,8 +15,10 @@ import type {
   InventoryStock,
   InventoryStockCreate,
   InventoryStockUpdate,
+  StorageNode,
 } from "@/lib/types";
 import { Icon } from "@/components/icons";
+import LocationPicker from "./LocationPicker";
 import { containerWord, dateInputToIso, isoToDateInput } from "./inventory-ui";
 
 const INPUT_CLASS =
@@ -28,6 +30,8 @@ interface StockFormDialogProps {
   item: InventoryItem;
   /** The stock to edit, or null when adding a new one. */
   stock: InventoryStock | null;
+  /** The storage-node tree, for the cascading location picker. */
+  nodes: StorageNode[];
   onCancel: () => void;
   onSubmit: (data: InventoryStockCreate | InventoryStockUpdate) => Promise<void>;
 }
@@ -72,11 +76,21 @@ function toNullable(value: string): string | null {
 export default function StockFormDialog({
   item,
   stock,
+  nodes,
   onCancel,
   onSubmit,
 }: StockFormDialogProps) {
   const isEdit = stock !== null;
   const [form, setForm] = useState<FormState>(() => stockToForm(stock));
+  // Node-based location (the box-finder pin). Coexists with location_text: when
+  // a box + cell are set they take precedence on display, but the free-text
+  // note is always preserved and still valid on its own (design v2).
+  const [locationNodeId, setLocationNodeId] = useState<number | null>(
+    () => stock?.location_node_id ?? null,
+  );
+  const [position, setPosition] = useState<string | null>(
+    () => stock?.position ?? null,
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Amount-per-container is opt-in detail. Show it pre-filled when the stock
@@ -128,6 +142,11 @@ export default function StockFormDialog({
       unit: showAmount ? toNullable(form.unit) : null,
       concentration: toNullable(form.concentration),
       location_text: toNullable(form.location_text),
+      // The node-based pin coexists with the free-text note. We only persist a
+      // position when a box is actually selected (a non-box node records the
+      // general spot without a cell).
+      location_node_id: locationNodeId,
+      position: locationNodeId != null ? position : null,
       container_code: toNullable(form.container_code),
       notes: toNullable(form.notes),
     };
@@ -219,7 +238,7 @@ export default function StockFormDialog({
           </div>
         </div>
 
-        {/* Concentration + location */}
+        {/* Concentration */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label htmlFor="stock-conc" className={LABEL_CLASS}>
@@ -234,9 +253,25 @@ export default function StockFormDialog({
               autoComplete="off"
             />
           </div>
-          <div>
+        </div>
+
+        {/* Location: the cascading box picker plus the v1 free-text note. Both
+            paths are valid; a box + cell take precedence on display, the note
+            is the fallback. */}
+        <div className="rounded-lg border border-border bg-surface-sunken px-4 py-3">
+          <p className={LABEL_CLASS}>Location</p>
+          <LocationPicker
+            nodes={nodes}
+            nodeId={locationNodeId}
+            position={position}
+            onChange={({ nodeId, position: pos }) => {
+              setLocationNodeId(nodeId);
+              setPosition(pos);
+            }}
+          />
+          <div className="mt-3">
             <label htmlFor="stock-location" className={LABEL_CLASS}>
-              Location
+              Or a free-text note
             </label>
             <input
               id="stock-location"
@@ -246,6 +281,10 @@ export default function StockFormDialog({
               placeholder="-80 door, left"
               autoComplete="off"
             />
+            <p className="text-meta text-foreground-muted mt-1">
+              Use the picker for an exact box cell, or leave a quick note. Both
+              still work.
+            </p>
           </div>
         </div>
 
