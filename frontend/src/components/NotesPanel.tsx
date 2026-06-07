@@ -14,6 +14,7 @@ import StartSharedNotebookDialog from "./notebooks/StartSharedNotebookDialog";
 import NotebookRail, { type RailSelection } from "./notebooks/NotebookRail";
 import NotebookFormDialog from "./notebooks/NotebookFormDialog";
 import AddNotebookMemberDialog from "./notebooks/AddNotebookMemberDialog";
+import NotebookAppearanceDialog from "./notebooks/NotebookAppearanceDialog";
 import MoveToNotebookMenu from "./notebooks/MoveToNotebookMenu";
 import LivingPopup from "@/components/ui/LivingPopup";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -143,6 +144,7 @@ export default function NotesPanel({
   >(null);
   const [addMemberFor, setAddMemberFor] = useState<Notebook | null>(null);
   const [deleteConfirmFor, setDeleteConfirmFor] = useState<Notebook | null>(null);
+  const [appearanceFor, setAppearanceFor] = useState<Notebook | null>(null);
   // The "Move to notebook" cursor-anchored menu for a single note.
   const [moveMenu, setMoveMenu] = useState<{
     x: number;
@@ -524,6 +526,7 @@ export default function NotesPanel({
       onRenameNotebook={(nb) => setNotebookForm({ mode: "rename", notebook: nb })}
       onDeleteNotebook={(nb) => setDeleteConfirmFor(nb)}
       onAddMember={(nb) => setAddMemberFor(nb)}
+      onCustomizeAppearance={(nb) => setAppearanceFor(nb)}
     />
   ) : null;
 
@@ -565,6 +568,18 @@ export default function NotesPanel({
                 queryKey: ["shared-notebooks", "mine"],
               });
               if (wasCreate) setSelection({ kind: "notebook", id: nb.id });
+            }}
+          />
+        )}
+        {appearanceFor && (
+          <NotebookAppearanceDialog
+            notebook={appearanceFor}
+            onClose={() => setAppearanceFor(null)}
+            onSaved={() => {
+              setAppearanceFor(null);
+              queryClient.invalidateQueries({
+                queryKey: ["shared-notebooks", "mine"],
+              });
             }}
           />
         )}

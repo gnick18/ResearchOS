@@ -5,6 +5,7 @@ import type { Notebook } from "@/lib/types";
 import Tooltip from "@/components/Tooltip";
 import ContextMenu from "@/components/ContextMenu";
 import { Icon } from "@/components/icons";
+import { getSubjectIcon } from "./subject-icons";
 
 // Notebooks Generalization Phase 2 (notebooks-gen Phase 2 bot, 2026-06-06).
 // The Notes-tab LEFT RAIL of notebook containers. Replaces the old flat
@@ -45,11 +46,12 @@ interface NotebookRailProps {
   onRenameNotebook: (notebook: Notebook) => void;
   onDeleteNotebook: (notebook: Notebook) => void;
   onAddMember: (notebook: Notebook) => void;
+  onCustomizeAppearance: (notebook: Notebook) => void;
 }
 
 const ICON_CLASS = "h-4 w-4 flex-shrink-0";
-const BOOK_SVG = <Icon name="book" className={ICON_CLASS} />;
 const SHARED_BOOK_SVG = <Icon name="users" className={ICON_CLASS} />;
+const PAINT_ICON = <Icon name="pencil" className="h-4 w-4 text-foreground-muted" />;
 const ALL_SVG = <Icon name="list" className={ICON_CLASS} />;
 const UNFILED_SVG = <Icon name="file" className={ICON_CLASS} />;
 const PLUS_SVG = <Icon name="plus" className="h-3.5 w-3.5" />;
@@ -105,6 +107,40 @@ function RailButton({
   );
 }
 
+/** Renders the color dot + subject icon (or fallback book icon) for a notebook. */
+function NotebookIconSlot({
+  notebook,
+  active,
+}: {
+  notebook: Notebook;
+  active: boolean;
+}) {
+  const SubIcon = getSubjectIcon(notebook.subject_icon);
+  const color = notebook.color;
+  if (SubIcon && color) {
+    return (
+      <span className="relative flex-shrink-0">
+        <SubIcon
+          className="h-4 w-4"
+          style={{ color: active ? undefined : color }}
+        />
+      </span>
+    );
+  }
+  if (SubIcon) {
+    return <SubIcon className={ICON_CLASS} />;
+  }
+  if (color) {
+    return (
+      <span
+        className="h-3.5 w-3.5 flex-shrink-0 rounded-full"
+        style={{ backgroundColor: color }}
+      />
+    );
+  }
+  return <Icon name="book" className={ICON_CLASS} />;
+}
+
 export default function NotebookRail({
   selection,
   onSelect,
@@ -118,6 +154,7 @@ export default function NotebookRail({
   onRenameNotebook,
   onDeleteNotebook,
   onAddMember,
+  onCustomizeAppearance,
 }: NotebookRailProps) {
   // The open overflow menu (one at a time), positioned at the cursor.
   const [menu, setMenu] = useState<{
@@ -202,17 +239,23 @@ export default function NotebookRail({
             No notebooks yet
           </p>
         ) : (
-          myNotebooks.map((nb) => (
-            <RailButton
-              key={nb.id}
-              active={selection.kind === "notebook" && selection.id === nb.id}
-              onClick={() => onSelect({ kind: "notebook", id: nb.id })}
-              icon={BOOK_SVG}
-              label={nb.title?.trim() || "Untitled notebook"}
-              testId={`rail-notebook-${nb.id}`}
-              trailing={overflowButton(nb, false)}
-            />
-          ))
+          myNotebooks.map((nb) => {
+            const isActive =
+              selection.kind === "notebook" && selection.id === nb.id;
+            return (
+              <RailButton
+                key={nb.id}
+                active={isActive}
+                onClick={() => onSelect({ kind: "notebook", id: nb.id })}
+                icon={
+                  <NotebookIconSlot notebook={nb} active={isActive} />
+                }
+                label={nb.title?.trim() || "Untitled notebook"}
+                testId={`rail-notebook-${nb.id}`}
+                trailing={overflowButton(nb, false)}
+              />
+            );
+          })
         )}
       </div>
 
@@ -239,17 +282,28 @@ export default function NotebookRail({
             No shared notebooks yet
           </p>
         ) : (
-          sharedNotebooks.map((nb) => (
-            <RailButton
-              key={nb.id}
-              active={selection.kind === "notebook" && selection.id === nb.id}
-              onClick={() => onSelect({ kind: "notebook", id: nb.id })}
-              icon={SHARED_BOOK_SVG}
-              label={sharedLabel(nb)}
-              testId={`rail-notebook-${nb.id}`}
-              trailing={overflowButton(nb, true)}
-            />
-          ))
+          sharedNotebooks.map((nb) => {
+            const isActive =
+              selection.kind === "notebook" && selection.id === nb.id;
+            const SubIcon = getSubjectIcon(nb.subject_icon);
+            return (
+              <RailButton
+                key={nb.id}
+                active={isActive}
+                onClick={() => onSelect({ kind: "notebook", id: nb.id })}
+                icon={
+                  SubIcon || nb.color ? (
+                    <NotebookIconSlot notebook={nb} active={isActive} />
+                  ) : (
+                    SHARED_BOOK_SVG
+                  )
+                }
+                label={sharedLabel(nb)}
+                testId={`rail-notebook-${nb.id}`}
+                trailing={overflowButton(nb, true)}
+              />
+            );
+          })
         )}
       </div>
 
@@ -263,6 +317,11 @@ export default function NotebookRail({
               label: "Rename",
               icon: RENAME_ICON,
               onClick: () => onRenameNotebook(menu.notebook),
+            },
+            {
+              label: "Customize appearance",
+              icon: PAINT_ICON,
+              onClick: () => onCustomizeAppearance(menu.notebook),
             },
             {
               label: menu.isShared ? "Add another member" : "Add a member",

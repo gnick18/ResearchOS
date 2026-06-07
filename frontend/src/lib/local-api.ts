@@ -4738,6 +4738,21 @@ export const notebooksApi = {
     });
   },
 
+  /** Set or clear the color / subject_icon appearance fields, mirrored to all
+   *  members' folders exactly like updateTitle. */
+  updateAppearance: async (
+    id: string,
+    patch: { color?: string | null; subject_icon?: string | null },
+  ): Promise<SharedNotebook | null> => {
+    const fields: Partial<Pick<SharedNotebook, "color" | "subject_icon">> = {};
+    if ("color" in patch) fields.color = patch.color ?? undefined;
+    if ("subject_icon" in patch)
+      fields.subject_icon = patch.subject_icon ?? undefined;
+    const notebook = await findSharedNotebook(id);
+    if (!notebook) return sharedNotebooksStore.update(id, fields);
+    return sharedNotebooksStore.updateForMembers(id, notebook.members, fields);
+  },
+
   /** Delete a shared notebook from BOTH members' folders (it is a shared
    *  entity owned equally by both). Falls back to a single-folder delete if
    *  the notebook can no longer be discovered. */

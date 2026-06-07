@@ -2557,6 +2557,10 @@ export interface Notebook {
   /** Optional human title. Absent = the UI falls back to "<other member>".
    *  Editable by the creator via `notebooksApi.updateTitle`. */
   title?: string;
+  /** Optional hex color for the notebook cover dot (e.g. "#3b82f6"). */
+  color?: string;
+  /** Optional subject icon key (see SubjectIconKey in subject-icons.tsx). */
+  subject_icon?: string;
   /** Sharing owner — drives `canRead`/`canWrite`'s owner branch and the
    *  per-user folder the record lives in. Equals `created_by`. Kept as its
    *  own field so the record satisfies the unified `ShareableRecord` shape
