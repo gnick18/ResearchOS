@@ -22,6 +22,8 @@ export const APP_ROUTE_TO_WIKI: Record<string, string> = {
   "/inventory": "/wiki/features/inventory",
   "/calendar": "/wiki/features/calendar",
   "/lab-overview": "/wiki/features/lab-overview",
+  "/lab-experiments": "/wiki/features/lab-experiments",
+  "/lab-notes": "/wiki/features/lab-notes",
   "/search": "/wiki/features/search",
   "/links": "/wiki/features/links",
   "/settings": "/wiki/features/settings",
@@ -258,6 +260,16 @@ export const WIKI_NAV: WikiNode[] = [
         href: "/wiki/features/lab-overview",
         label: "Lab Overview",
         blurb: "The PI's fixed, curated landing page at /lab-overview: pending approvals, announcements, lab activity, today's events, member workload, trainee notes.",
+      },
+      {
+        href: "/wiki/features/lab-experiments",
+        label: "Browse lab experiments",
+        blurb: "The PI's read-first view of every member's experiments at /lab-experiments. Open one to review it, or edit it as the lab head with the change recorded against the owner.",
+      },
+      {
+        href: "/wiki/features/lab-notes",
+        label: "Browse lab notes",
+        blurb: "The PI's read-first view of every member's notes at /lab-notes. The notes counterpart to Browse lab experiments.",
       },
       {
         href: "/wiki/features/lab-inbox",
