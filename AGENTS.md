@@ -197,6 +197,15 @@ These five are the standard preamble; paste them into every worktree brief.
   - **The BeakerBot mark / ResearchOS logo** → render ONLY via `<BeakerBot>` (or `<Wordmark>` / the SVG masters in `brand/`), never a hand-rolled beaker SVG. BeakerBot is ALWAYS the signature sky-blue, never black: the component self-applies `text-brand-sky` whenever you don't pass an explicit text color, so a sizing-only `className="h-28 w-28"` can't make him inherit a dark stroke (the old welcome-card bug). Guarded by `BeakerBot.brand.test.tsx`, do not remove that guarantee. Only override the color with a deliberate `text-*` class when you genuinely need it (rare); the liquid is a fixed rainbow gradient regardless.
   - **Primary CTA buttons** → use the `.btn-brand` class (the brand action→purple gradient, AA white text). When your arc touches a feature with `bg-sky-600` primary buttons, convert them to `.btn-brand` as part of that work (the app-wide sweep is deliberately per-arc, not a blind global pass). Leave toggles / segmented controls / calculator keys on their existing fills — `.btn-brand` is for prominent primary actions only.
 
+### Surfacing design questions + feedback to Grant as interactive HTML (2026-06-07)
+
+Grant's standing preference: for questions and feedback about areas of the website, **especially design things, and especially when there are multiple items to weigh**, deliver a self-contained INTERACTIVE HTML file he opens in the browser, not a markdown wall. The bar is `docs/audits/2026-06-07-surface-audit.html` (the surface-audit report).
+
+- **Self-contained single `.html`** (no server, no build step, all CSS/JS inline), saved under `docs/` and opened with `open <file>` so it pops in his browser.
+- **One card per item** with the concrete detail (file, element, why) plus a **visual whenever it helps the judgment**. For color/contrast items render live **before/after swatches** built from the real light + dark token hexes in `frontend/src/app/globals.css`, with the **computed WCAG ratio** shown, so the problem is visible, not just described. Structural items (depth, spacing, loading states) get a short note.
+- **Interactable + copyable back to chat**: filters/search across items, and per-item decision controls (Agree / Keep as-is / Discuss + a free note) that **persist to `localStorage`** and **export to a plain-text summary he can copy straight back into the chat**. The whole point is he marks it up, hits Export, and pastes the result for the fix pass.
+- **When to use which**: this HTML format for surface/design audits, "do you like X across these areas" reviews, and any multi-item design triage. A quick single fork still uses `AskUserQuestion` (clickable options). The HTML is for when there are many items or he needs to SEE it.
+
 ### Bot-driven UI verification (2026-05-13)
 
 The master bot can spawn a sub-agent with Chrome MCP access to verify UI fixes against `?wikiCapture=1` fixture mode (`mcp__Claude_in_Chrome__*`). The constraint set that proved necessary on the first run:
