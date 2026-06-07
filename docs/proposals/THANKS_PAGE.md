@@ -44,11 +44,21 @@ two anchor links, "Sponsors" and "Built on open source".
   overflow). Each card: tier name, monthly price, the recognition it earns, and a
   "Sponsor on GitHub" button linking to
   `https://github.com/sponsors/ResearchOS-LLC`.
-- **Recognition per tier (what we actually deliver):**
-  - All tiers: the GitHub Sponsor badge (automatic) plus your name on the sponsor
-    wall below.
-  - Lab ($25+): name or handle in `SPONSORS.md` in the repo.
-  - Institute ($100+): logo and link, featured placement on this page.
+- **Recognition per tier (what we actually deliver), revised 2026-06-07:**
+  - Bench ($5): the GitHub Sponsor badge (automatic) plus your name on the /thanks
+    sponsor wall. Thanks-page only.
+  - Lab ($25): everything in Bench, plus name/handle in `SPONSORS.md`, plus your
+    lab's logo and link SITE-WIDE (welcome page + wiki footer), secondary placement.
+  - Institute ($100): everything in Lab, with the logo featured first and larger
+    site-wide.
+  - Rationale: "name on the wall" vs "logo at the top of /thanks" was too weak a
+    distinction. Real site-wide visibility (welcome + wiki) is what makes the
+    higher tiers worth it to a lab. Bench stays thanks-page only.
+  - Implementation: a `SponsorStrip` component reads `sponsors.json`, filters to
+    Lab + Institute, sorts Institute first / larger, and renders on the welcome
+    page (a "Supported by" section) and in the wiki footer (a small logo row).
+    Empty state renders nothing (no empty "Supported by" header) until the first
+    qualifying sponsor exists.
 - **Sponsor wall:** a grid of current backers (name or logo, linked). Shows a warm
   empty state until the first sponsor lands ("Be the first to back ResearchOS").
 

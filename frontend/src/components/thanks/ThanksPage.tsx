@@ -79,6 +79,7 @@ const TIERS: Tier[] = [
     perks: [
       "Everything in Bench",
       "Your name or handle in the repo's SPONSORS.md, where contributors see it",
+      "Your lab's logo and link on the ResearchOS welcome page and in the wiki",
     ],
   },
   {
@@ -87,7 +88,7 @@ const TIERS: Tier[] = [
     price: "100",
     perks: [
       "Everything in Lab",
-      "Your logo and link, featured at the top of this page",
+      "Your lab's logo featured first and larger, across the welcome page and wiki",
     ],
   },
 ];
