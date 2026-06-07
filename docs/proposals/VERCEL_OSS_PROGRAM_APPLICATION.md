@@ -132,8 +132,10 @@ gap before Summer is the time to fix that. Worth doing, roughly in order:
    GitHub stars. Even 20 to 50 real stars changes the optics a lot.
 2. Turn on Vercel Web Analytics on the demo (if not already) so there are real
    visit numbers to cite by submit time.
-3. Polish the repo front door, README badges, a clear screenshot or GIF up top, a
-   couple of "good first issue" tickets to signal it welcomes contributors.
+3. DONE 2026-06-07. Polished the repo front door (README badge row, sharper hero,
+   stronger demo callout, canonical research-os.app URLs) and added CONTRIBUTING.md.
+   Still to do, apply the "good first issue" label to a couple of real issues so that
+   filter link is not empty.
 4. Line up any lab or classmate willing to be named as an early adopter or pilot.
 5. Ship the first YouTube companion tutorial (see the tutorials design doc), a real
    demo video strengthens the application.
