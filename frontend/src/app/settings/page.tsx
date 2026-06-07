@@ -427,7 +427,7 @@ export function SettingsBody() {
   return (
     <div
       ref={scrollContainerRef}
-      className="min-h-0 flex-1 overflow-y-auto flex flex-col"
+      className="min-h-0 flex-1 overflow-y-auto flex flex-col bg-surface-sunken"
     >
       <div className="max-w-3xl mx-auto w-full px-6 py-8 space-y-8">
         {/* Onboarding v4 §6.10 Settings phase redesign 2026-05-22
@@ -748,7 +748,7 @@ function SectionShell({
       data-tour-target={tourTarget}
       data-settings-section-marker="1"
       hidden={state.shouldHide}
-      className="bg-surface-raised rounded-xl border border-border p-6 scroll-mt-4"
+      className="bg-surface-raised rounded-xl border border-border shadow-sm p-6 scroll-mt-4"
     >
       <div className="mb-4">
         <h2 className="text-title font-semibold text-foreground">

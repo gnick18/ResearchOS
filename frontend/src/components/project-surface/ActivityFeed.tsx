@@ -165,9 +165,15 @@ export default function ActivityFeed({ project }: ActivityFeedProps) {
       </div>
 
       {isLoading ? (
-        <p className="text-body text-foreground-muted italic">Loading activity…</p>
+        <div className="space-y-2" aria-label="Loading activity">
+          <div className="h-10 animate-pulse rounded-lg bg-surface-sunken" />
+          <div className="h-10 animate-pulse rounded-lg bg-surface-sunken" />
+          <div className="h-10 animate-pulse rounded-lg bg-surface-sunken" />
+        </div>
       ) : events.length === 0 ? (
-        <p className="text-body text-foreground-muted italic">No activity yet.</p>
+        <div className="rounded-lg border border-border bg-surface-sunken px-4 py-6 text-center">
+          <p className="text-body text-foreground-muted">No activity yet.</p>
+        </div>
       ) : (
         <ol className="flex flex-col divide-y divide-border border border-border rounded-lg overflow-hidden bg-surface-raised">
           {events.map((event) => {

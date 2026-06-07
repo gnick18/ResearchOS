@@ -264,12 +264,12 @@ export default function CommentsThread({
           <span className="text-body font-semibold text-gray-700">
             Lab comments
             {comments.length > 0 && (
-              <span className="ml-1 text-gray-400 font-normal">({comments.length})</span>
+              <span className="ml-1 text-foreground-muted font-normal">({comments.length})</span>
             )}
           </span>
         </span>
         <svg
-          className={`w-4 h-4 text-gray-400 transition-transform ${collapsed ? "" : "rotate-180"}`}
+          className={`w-4 h-4 text-foreground-muted transition-transform ${collapsed ? "" : "rotate-180"}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -435,7 +435,7 @@ function CommentBody({
     (profile?.displayName && profile.displayName.trim()) || comment.author;
   const isPI = profile?.account_type === "lab_head";
   const nameClass = departed
-    ? "font-medium text-gray-400 italic"
+    ? "font-medium text-foreground-muted italic"
     : "font-medium text-gray-700";
 
   return (
@@ -459,7 +459,7 @@ function CommentBody({
               type="button"
               onClick={() => onDelete(comment.id)}
               disabled={deleting === comment.id}
-              className="ml-auto text-gray-400 hover:text-red-600 disabled:opacity-50"
+              className="ml-auto text-foreground-muted hover:text-red-600 disabled:opacity-50"
               title="Delete this comment"
             >
               delete

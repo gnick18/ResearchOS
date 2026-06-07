@@ -320,17 +320,17 @@ export default function WorkbenchListsPanel({ projects }: Props) {
                     }`}
                   >
                     {SECTION_LABEL[key]}
-                    <span className="ml-2 text-gray-400 normal-case font-normal">
+                    <span className="ml-2 text-foreground-muted normal-case font-normal">
                       ({items.length})
                     </span>
                   </h3>
-                  <span className="text-meta text-gray-400">
+                  <span className="text-meta text-foreground-muted">
                     {SECTION_HELP[key]}
                   </span>
                 </div>
                 <div className="space-y-2">{items.map(renderFirstAwareRow)}</div>
                 {key === "upcoming" && upcomingLater.length > 0 && (
-                  <p className="mt-2 text-meta text-gray-400 pl-1">
+                  <p className="mt-2 text-meta text-foreground-muted pl-1">
                     + {upcomingLater.length} scheduled later than{" "}
                     {UPCOMING_HORIZON_DAYS}d out
                   </p>

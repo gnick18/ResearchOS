@@ -485,7 +485,7 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
                   })}
                 </div>
               ) : (
-                <div className="text-center py-6 text-amber-600 dark:text-amber-300">
+                <div className="text-center py-6 rounded-lg border border-border bg-surface-sunken text-amber-600 dark:text-amber-300">
                   <p className="text-body">No variation notes yet.</p>
                   <p className="text-meta mt-1">Document any changes you make to the method during this experiment.</p>
                 </div>

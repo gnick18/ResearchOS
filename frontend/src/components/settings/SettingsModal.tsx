@@ -21,8 +21,19 @@ const SettingsBody = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex flex-1 items-center justify-center p-16">
-        <div className="h-7 w-7 animate-spin rounded-full border-2 border-border border-t-sky-500" />
+      <div className="flex flex-1 flex-col gap-6 p-8">
+        <div className="flex items-center gap-3">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-sky-500" />
+          <span className="text-meta text-foreground-muted">Loading settings…</span>
+        </div>
+        <div className="space-y-3">
+          <div className="h-4 w-32 animate-pulse rounded bg-surface-sunken" />
+          <div className="h-24 animate-pulse rounded-xl bg-surface-sunken" />
+        </div>
+        <div className="space-y-3">
+          <div className="h-4 w-40 animate-pulse rounded bg-surface-sunken" />
+          <div className="h-24 animate-pulse rounded-xl bg-surface-sunken" />
+        </div>
       </div>
     ),
   },

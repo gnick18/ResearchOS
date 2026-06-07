@@ -294,7 +294,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
   if (showUserSelection) {
     return (
       <div className="fixed inset-0 z-[100] overflow-y-auto flex items-start sm:items-center justify-center bg-gradient-to-br from-surface-sunken via-surface to-surface-sunken py-8">
-        <VersionBadge tone="onDark" className="fixed top-3 left-4 z-[110]" />
+        <VersionBadge tone="surface" className="fixed top-3 left-4 z-[110]" />
         <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute left-1/2 top-[-12%] h-[60vh] w-[85vw] -translate-x-1/2 rounded-full bg-gradient-to-br from-brand-sky/30 via-brand-purple/15 to-transparent opacity-70 blur-3xl dark:opacity-40" />
           <div
@@ -404,7 +404,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
                   <button
                     onClick={handleCreateUser}
                     disabled={isCreating}
-                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors disabled:opacity-50"
+                    className="btn-brand px-4 py-2 rounded-lg shadow-sm disabled:opacity-50"
                   >
                     {isCreating ? "Creating..." : "Create"}
                   </button>
@@ -721,7 +721,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-surface-sunken via-surface to-surface-sunken">
-      <VersionBadge tone="onDark" className="fixed top-3 left-4 z-[110]" />
+      <VersionBadge tone="surface" className="fixed top-3 left-4 z-[110]" />
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute left-1/2 top-[-12%] h-[60vh] w-[85vw] -translate-x-1/2 rounded-full bg-gradient-to-br from-brand-sky/30 via-brand-purple/15 to-transparent opacity-70 blur-3xl dark:opacity-40" />
         <div
@@ -763,14 +763,14 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           <div className="relative w-full max-w-xs">
             <div
               aria-hidden
-              className="absolute -top-2 left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 bg-white"
+              className="absolute -top-2 left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 bg-surface-raised border-l border-t border-border"
             />
             <div
-              className="relative rounded-2xl bg-white px-3 py-3 text-center shadow-lg"
+              className="relative rounded-2xl bg-surface-raised border border-border px-3 py-3 text-center shadow-lg dark:shadow-black/40"
               data-testid="picker-welcome-bubble"
             >
               <p
-                className="text-title font-medium leading-snug text-slate-800"
+                className="text-title font-medium leading-snug text-foreground"
                 data-testid="picker-welcome-copy"
               >
                 New here? It is strongly recommended to take a short
@@ -887,7 +887,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
               <button
                 onClick={handleConnect}
                 disabled={isLoading}
-                className="w-full py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                className="btn-brand w-full py-2.5 font-medium rounded-lg shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {isLoading ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
@@ -941,7 +941,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
           >
             <div
               data-testid="picker-system-folder-recovery"
-              className="w-full max-w-md rounded-2xl bg-surface-raised border border-amber-300/30 shadow-2xl p-6"
+              className="w-full max-w-md rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-300/50 dark:border-amber-300/30 shadow-2xl p-6"
             >
               <div className="flex items-start gap-3">
                 <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-amber-500/20">
@@ -1110,7 +1110,7 @@ function ImportFromELNButton({ onOpen }: { onOpen: () => void }) {
       type="button"
       onClick={onOpen}
       data-testid="import-eln-cta"
-      className="w-full px-4 py-2 bg-surface-sunken hover:bg-surface-sunken/70 border border-border hover:border-blue-500/50 rounded-lg text-foreground text-body font-medium transition-all"
+      className="w-full px-4 py-2 bg-brand-action/[0.06] hover:bg-brand-action/[0.12] border border-brand-action/45 hover:border-brand-action/70 rounded-lg text-brand-action dark:text-brand-sky text-body font-medium shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all"
     >
       Import from LabArchives
     </button>

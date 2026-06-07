@@ -346,8 +346,8 @@ export default function LabGanttChart({
 
   if (filteredTasks.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-foreground-muted text-body bg-surface-raised rounded-xl p-8 border border-border">
-        <p className="mb-2">No tasks to display.</p>
+      <div className="flex-1 flex flex-col items-center justify-center text-foreground-muted text-body bg-surface-sunken rounded-xl p-8 border border-border">
+        <p className="mb-2 text-foreground">No tasks to display.</p>
         <p className="text-meta text-foreground-muted">
           {tasks.length === 0 
             ? "No tasks found in the database." 

@@ -553,7 +553,7 @@ export default function MethodPicker({
           />
           <button
             onClick={onClose}
-            className="text-meta text-foreground-muted hover:text-foreground-muted px-2 py-1 border border-border rounded"
+            className="text-meta text-foreground-muted hover:text-foreground bg-surface-sunken hover:bg-border px-2 py-1 border border-border rounded"
             aria-label="Close picker"
           >
             Esc

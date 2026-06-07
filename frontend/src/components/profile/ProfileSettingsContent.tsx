@@ -177,7 +177,7 @@ export default function ProfileSettingsContent() {
           <button
             type="button"
             onClick={() => setCreateOpen(true)}
-            className="px-4 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+            className="btn-brand px-4 py-2 text-body rounded-lg font-medium shadow-sm"
           >
             Create your account
           </button>

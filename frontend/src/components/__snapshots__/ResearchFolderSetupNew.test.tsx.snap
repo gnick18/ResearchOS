@@ -82,7 +82,7 @@ exports[`ResearchFolderSetupNew drop zone > renders the drop-zone with default h
       Drop your folder here, or click below to pick
     </p>
     <button
-      class="w-full py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+      class="btn-brand w-full py-2.5 font-medium rounded-lg shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
     >
       <svg
         class="w-4 h-4"

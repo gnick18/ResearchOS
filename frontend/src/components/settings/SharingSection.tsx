@@ -182,7 +182,7 @@ function Card({
     <section
       id={id}
       data-settings-section-marker="1"
-      className="bg-surface-raised rounded-xl border border-border p-6 scroll-mt-4"
+      className="bg-surface-raised rounded-xl border border-border shadow-sm p-6 scroll-mt-4"
     >
       <div className="mb-4">
         <h2 className="text-title font-semibold text-foreground">{title}</h2>
@@ -503,7 +503,7 @@ function ReadyIdentity({
           <button
             type="button"
             onClick={onRotate}
-            className="px-3 py-1.5 text-body bg-surface-sunken hover:bg-surface-sunken text-foreground rounded-lg"
+            className="px-3 py-1.5 text-body border border-border bg-surface-sunken hover:bg-border text-foreground rounded-lg"
           >
             Rotate key
           </button>
@@ -511,7 +511,7 @@ function ReadyIdentity({
         <button
           type="button"
           onClick={onDisconnect}
-          className="px-3 py-1.5 text-body bg-surface-sunken hover:bg-surface-sunken text-red-600 rounded-lg"
+          className="px-3 py-1.5 text-body border border-border bg-surface-sunken hover:bg-border text-red-600 rounded-lg"
         >
           Disconnect from this device
         </button>
@@ -522,7 +522,7 @@ function ReadyIdentity({
           <button
             type="button"
             onClick={onReset}
-            className="px-3 py-1.5 text-body bg-surface-sunken hover:bg-surface-sunken text-red-600 dark:text-red-400 rounded-lg"
+            className="px-3 py-1.5 text-body border border-border bg-surface-sunken hover:bg-border text-red-600 dark:text-red-400 rounded-lg"
           >
             Reset identity
           </button>
@@ -592,7 +592,7 @@ function NeedsRestoreIdentity({
           <button
             type="button"
             onClick={onReset}
-            className="px-3 py-2 text-body bg-surface-sunken hover:bg-surface-sunken text-red-600 dark:text-red-400 rounded-lg"
+            className="px-3 py-2 text-body border border-border bg-surface-sunken hover:bg-border text-red-600 dark:text-red-400 rounded-lg"
           >
             Reset identity
           </button>
@@ -1206,7 +1206,7 @@ export function ProfileEditorCard() {
             <button
               type="button"
               onClick={openEdit}
-              className="px-3 py-1.5 text-body bg-surface-sunken hover:bg-surface-sunken text-foreground rounded-lg"
+              className="px-3 py-1.5 text-body border border-border bg-surface-sunken hover:bg-border text-foreground rounded-lg"
             >
               Edit profile
             </button>
@@ -1214,7 +1214,7 @@ export function ProfileEditorCard() {
               type="button"
               onClick={remove}
               disabled={busy}
-              className="px-3 py-1.5 text-body bg-surface-sunken hover:bg-surface-sunken text-red-600 dark:text-red-400 rounded-lg disabled:opacity-50"
+              className="px-3 py-1.5 text-body border border-border bg-surface-sunken hover:bg-border text-red-600 dark:text-red-400 rounded-lg disabled:opacity-50"
             >
               {busy ? "Removing…" : "Remove from directory"}
             </button>
@@ -1316,7 +1316,7 @@ export function ProfileEditorCard() {
                 setError(null);
               }}
               disabled={busy}
-              className="flex-1 px-3 py-2 text-body bg-surface-sunken hover:bg-surface-sunken text-foreground rounded-lg disabled:opacity-50"
+              className="flex-1 px-3 py-2 text-body border border-border bg-surface-sunken hover:bg-border text-foreground rounded-lg disabled:opacity-50"
             >
               Cancel
             </button>
