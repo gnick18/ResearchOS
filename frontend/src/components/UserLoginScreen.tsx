@@ -33,6 +33,7 @@ import { startSharingClaimOAuth } from "@/lib/sharing/claim-oauth";
 import { isOAuthPublishAvailable, isRealSharingEnabled } from "@/lib/sharing/oauth-availability";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
 import CreateLocalIdentityStep from "@/components/sharing/CreateLocalIdentityStep";
+import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import {
   createUserMetadataEntry,
   readAllUserMetadata,
@@ -489,6 +490,14 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   const handleLogin = async (username: string) => {
     setLoggingIn(username);
     setError(null);
+    // Demo / wiki-capture mode: no login, no passcode, no account-creation gate.
+    // The fixture user (e.g. mira) enters the app directly. Demo folders are
+    // ephemeral fixtures, so the keypair/passkey/recovery ceremony is pure
+    // friction there and must never appear.
+    if (isDemoOrWikiCapture()) {
+      await performLogin(username);
+      return;
+    }
     try {
       // A profile identity exists when this user's sidecar carries a wrapped
       // device key (recoveryBlob). That is the OAuth-only "account", so open the
@@ -706,6 +715,11 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         // sidecar by path.
         await setCurrentUser(username);
         setLoggingIn(null);
+        // Demo / wiki-capture: no account-creation gate, enter directly.
+        if (isDemoOrWikiCapture()) {
+          onLogin();
+          return;
+        }
         if (folderRequiresLogin(users.length + 1, labHeadUsers.size > 0)) {
           // Shared folder: a profile (OAuth) is mandatory before entering, so
           // force the setup wizard rather than offering it as optional.
@@ -759,6 +773,12 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       // sidecar by path.
       await setCurrentUser(username);
       setLoggingIn(null);
+
+      // Demo / wiki-capture: no account-creation gate, enter directly.
+      if (isDemoOrWikiCapture()) {
+        onLogin();
+        return;
+      }
 
       // In a shared folder (this new user makes it 2+, or a lab head is present)
       // the user must MAKE A PROFILE (OAuth) before entering, so force the setup
