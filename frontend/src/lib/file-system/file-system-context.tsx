@@ -13,6 +13,7 @@ import {
   clearMainUser,
   clearCurrentUser,
   restorePreDemoStateOrClear,
+  peekSharedRealIdentity,
 } from "./indexeddb-store";
 import { readMainUser, writeMainUser, pruneOrphanUserMetadataEntries } from "./user-metadata";
 import { clearCurrentUserCache } from "../storage/json-store";
@@ -539,14 +540,14 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         // which is the one with the URL-shadowing problem.
         if (captureVariant && !demoMode) {
           try {
-            const [existingHandle, existingUser] = await Promise.all([
-              getStoredDirectoryHandle(),
-              getCurrentUser(),
-            ]);
-            const realFolderConnected =
-              !!existingHandle &&
-              existingHandle.name !== "wiki-capture-fixture" &&
-              !!existingUser;
+            // Peek the SHARED IDB identity directly. The normal getters are
+            // now per-tab demo-aware and would report this fixture tab's own
+            // (empty / fixture) identity, hiding any real signed-in user in
+            // the shared store. peekSharedRealIdentity bypasses that masking
+            // so the shadowing guard still fires.
+            const { handleName, currentUser: existingUser } =
+              await peekSharedRealIdentity();
+            const realFolderConnected = !!handleName && !!existingUser;
             if (realFolderConnected) {
               console.warn(
                 "[FileSystemProvider] Refusing ?wikiCapture install: real user already signed in.",

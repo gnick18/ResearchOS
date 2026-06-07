@@ -138,8 +138,7 @@ import {
   clearDirectoryHandle,
   clearCurrentUser,
   clearMainUser,
-  getStoredDirectoryHandle,
-  getCurrentUser,
+  peekSharedRealIdentity,
 } from "../indexeddb-store";
 
 async function resetAllStores() {
@@ -161,17 +160,15 @@ beforeEach(async () => {
  * Kept in sync with the production code; if you change the predicate
  * there, change it here too. Pulled into a helper so we can unit-test
  * the decision without mounting the full provider tree.
+ *
+ * The production guard now reads through `peekSharedRealIdentity` (which
+ * bypasses per-tab demo masking and already drops the fixture sentinel
+ * handle), so the predicate is simply "a real handle name AND a real
+ * shared current user are present".
  */
 async function shouldRefuseWikiCaptureInstall(): Promise<boolean> {
-  const [existingHandle, existingUser] = await Promise.all([
-    getStoredDirectoryHandle(),
-    getCurrentUser(),
-  ]);
-  return (
-    !!existingHandle &&
-    existingHandle.name !== "wiki-capture-fixture" &&
-    !!existingUser
-  );
+  const { handleName, currentUser } = await peekSharedRealIdentity();
+  return !!handleName && !!currentUser;
 }
 
 describe("wiki-capture real-user shadowing guard predicate", () => {

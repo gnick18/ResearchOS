@@ -23,6 +23,104 @@ const PRE_DEMO_MAIN_USER_KEY = "research-os-pre-demo-main-user";
 // the sentinel checked by FileSystemProvider's stale-state cleanup.
 const FIXTURE_HANDLE_SENTINEL = "wiki-capture-fixture";
 
+// ── Per-tab demo identity ───────────────────────────────────────────────────
+//
+// THE CROSS-TAB POISONING FIX. The demo fixture identity (the "alex" user
+// and the inert fixture directory handle) used to be written straight into
+// the IndexedDB main keys above. Those keys are SHARED across every
+// same-origin tab, so a demo tab could leak its fixture identity into a
+// real-folder tab and, in the worst case, seed a stray `users/alex` folder
+// into the user's real research folder.
+//
+// The demo / wiki-capture *flags* are already per-tab (sessionStorage:
+// `researchos:demo-mode` from markDemoMode, `researchos:wiki-capture-mode`
+// from getWikiCaptureVariant). So we scope the fixture identity to the same
+// per-tab sessionStorage. When THIS tab is a fixture tab, the identity
+// getters/setters below resolve against sessionStorage and never touch the
+// shared IDB main keys. A normal tab never reads them.
+//
+// We re-derive "is this a fixture tab?" locally instead of importing
+// getDemoMode / isWikiCaptureMode from wiki-capture-mock, because
+// wiki-capture-mock imports this module (storeDirectoryHandle etc.) and the
+// reverse import would be a cycle. The logic mirrors those helpers (the
+// sessionStorage sticky flags first, then the URL triggers).
+const DEMO_MODE_KEY = "researchos:demo-mode";
+const WIKI_CAPTURE_STICKY_KEY = "researchos:wiki-capture-mode";
+const DEMO_CURRENT_USER_KEY = "researchos:demo-current-user";
+const DEMO_MAIN_USER_KEY = "researchos:demo-main-user";
+// Marks that a (fake) directory handle is "connected" in this fixture tab.
+// We cannot serialize the inert fixture handle into sessionStorage, so we
+// store a flag and reconstruct the sentinel-named stand-in on read.
+const DEMO_HANDLE_FLAG_KEY = "researchos:demo-handle";
+
+/** True when THIS tab is running the public demo or the screenshot fixture
+ *  (`?wikiCapture=…`). Mirrors wiki-capture-mock's getDemoMode +
+ *  isWikiCaptureMode (sessionStorage sticky flags first, then the URL
+ *  triggers). Kept local to avoid an import cycle. SSR-safe. */
+function isDemoTab(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    if (window.sessionStorage.getItem(DEMO_MODE_KEY) === "1") return true;
+    if (window.sessionStorage.getItem(WIKI_CAPTURE_STICKY_KEY) !== null) return true;
+  } catch {
+    // sessionStorage can throw in privacy modes; fall through to URL.
+  }
+  try {
+    const path = window.location.pathname;
+    if (path === "/demo" || path.startsWith("/demo/")) return true;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("demo") === "1") return true;
+    if (params.get("wikiCapture") !== null) return true;
+  } catch {
+    // Ignore.
+  }
+  return false;
+}
+
+function readDemoIdentity(key: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeDemoIdentity(key: string, value: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(key, value);
+  } catch {
+    // best-effort
+  }
+}
+
+function deleteDemoIdentity(key: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch {
+    // best-effort
+  }
+}
+
+/** The inert demo directory handle. Sentinel-named so any code path that
+ *  inspects handle.name treats it as the fixture, not a real folder. */
+function makeDemoHandle(): FileSystemDirectoryHandle {
+  return {
+    name: FIXTURE_HANDLE_SENTINEL,
+    kind: "directory",
+  } as unknown as FileSystemDirectoryHandle;
+}
+
+/** Clear the per-tab demo identity. Called by the demo-leave finalizer so a
+ *  tab that exits demo mode stops resolving the fixture identity. */
+function clearDemoIdentity(): void {
+  deleteDemoIdentity(DEMO_CURRENT_USER_KEY);
+  deleteDemoIdentity(DEMO_MAIN_USER_KEY);
+  deleteDemoIdentity(DEMO_HANDLE_FLAG_KEY);
+}
+
 let cachedHandle: FileSystemDirectoryHandle | null = null;
 let dbInitialized = false;
 
@@ -67,8 +165,18 @@ async function initDB(): Promise<IDBDatabase | null> {
 export async function storeDirectoryHandle(
   handle: FileSystemDirectoryHandle
 ): Promise<void> {
+  // Per-tab demo isolation. In a demo tab, keep the (fake) handle live for
+  // THIS tab only via the in-process cache + a per-tab sessionStorage flag,
+  // and never write the shared IndexedDB main key. This is what stops the
+  // fixture handle from leaking into a real-folder tab on the same origin.
+  if (isDemoTab()) {
+    cachedHandle = handle;
+    writeDemoIdentity(DEMO_HANDLE_FLAG_KEY, "1");
+    return;
+  }
+
   cachedHandle = handle;
-  
+
   const db = await initDB();
   if (db) {
     try {
@@ -97,8 +205,33 @@ export async function storeDirectoryHandle(
 }
 
 export async function getStoredDirectoryHandle(): Promise<FileSystemDirectoryHandle | null> {
+  // Per-tab demo isolation. A demo tab resolves the inert fixture handle
+  // from its own per-tab flag (or the live in-process cache) and never reads
+  // the shared IDB main key. A non-demo tab continues past this block.
+  if (isDemoTab()) {
+    // Only ever resolve the inert fixture handle in a demo tab. A non-sentinel
+    // cached handle here would be a real handle that leaked in (it cannot come
+    // from a demo write, which only ever caches the sentinel); ignore it.
+    if (cachedHandle && cachedHandle.name === FIXTURE_HANDLE_SENTINEL) {
+      return cachedHandle;
+    }
+    if (readDemoIdentity(DEMO_HANDLE_FLAG_KEY) === "1") {
+      cachedHandle = makeDemoHandle();
+      return cachedHandle;
+    }
+    return null;
+  }
+
   if (cachedHandle) {
-    return cachedHandle;
+    // Defense in depth: a non-demo tab must never adopt the fixture sentinel
+    // handle, even if it leaked into the in-process cache (e.g. a demo tab
+    // set it earlier in this same JS context). Scrub it and fall through to
+    // the shared IDB read so the real folder handle still resolves.
+    if (cachedHandle.name === FIXTURE_HANDLE_SENTINEL) {
+      cachedHandle = null;
+    } else {
+      return cachedHandle;
+    }
   }
 
   const db = await initDB();
@@ -114,7 +247,14 @@ export async function getStoredDirectoryHandle(): Promise<FileSystemDirectoryHan
       request.onsuccess = () => resolve(request.result || null);
       request.onerror = () => reject(request.error);
     });
-    
+
+    // Defense in depth: never hand a non-demo tab the fixture sentinel
+    // handle out of shared IDB (a poisoned key from an older build / a
+    // racing demo tab). Report not-connected instead.
+    if (handle && handle.name === FIXTURE_HANDLE_SENTINEL) {
+      return null;
+    }
+
     if (handle) {
       cachedHandle = handle;
     }
@@ -134,8 +274,63 @@ export async function getStoredDirectoryMeta(): Promise<{ name: string; grantedA
   }
 }
 
+/**
+ * Peek at the SHARED IndexedDB main identity, bypassing the per-tab demo
+ * masking that getStoredDirectoryHandle / getCurrentUser apply. Returns the
+ * real folder handle name (null if absent or if the only thing stored is a
+ * fixture sentinel) and the shared current user.
+ *
+ * The ONLY intended caller is FileSystemProvider's `?wikiCapture` shadowing
+ * guard, which must answer "is a real signed-in user already present in the
+ * shared store?" even from inside a fixture tab (where the normal getters
+ * report the per-tab fixture identity). Do not use this for app data flow;
+ * it intentionally ignores the demo isolation boundary.
+ */
+export async function peekSharedRealIdentity(): Promise<{
+  handleName: string | null;
+  currentUser: string | null;
+}> {
+  let currentUser: string | null = null;
+  try {
+    currentUser = (await get<string>(CURRENT_USER_KEY)) || null;
+  } catch {
+    currentUser = null;
+  }
+
+  let handleName: string | null = null;
+  const db = await initDB();
+  if (db) {
+    try {
+      const handle = await new Promise<FileSystemDirectoryHandle | null>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readonly");
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.get(DIRECTORY_HANDLE_KEY);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+      });
+      if (handle && handle.name !== FIXTURE_HANDLE_SENTINEL) {
+        handleName = handle.name;
+      }
+    } catch {
+      handleName = null;
+    } finally {
+      db.close();
+    }
+  }
+
+  return { handleName, currentUser };
+}
+
 export async function clearDirectoryHandle(): Promise<void> {
   cachedHandle = null;
+
+  // Per-tab demo isolation. A demo tab only ever held a per-tab fake handle
+  // flag, never the shared IDB key, so clearing it must NOT touch the shared
+  // main key (that key belongs to a real-folder tab on the same origin).
+  if (isDemoTab()) {
+    deleteDemoIdentity(DEMO_HANDLE_FLAG_KEY);
+    return;
+  }
 
   // SENSITIVE: bot-token cache lives at SECURITY_AUDIT.md §1.3. Cache scope
   // follows disk scope, so leaving the folder (disconnect / folder switch)
@@ -179,6 +374,12 @@ export async function clearDirectoryHandle(): Promise<void> {
 }
 
 export async function storeCurrentUser(username: string): Promise<void> {
+  // Per-tab demo isolation. The fixture user lives in this tab's
+  // sessionStorage, never the shared IDB current-user key.
+  if (isDemoTab()) {
+    writeDemoIdentity(DEMO_CURRENT_USER_KEY, username);
+    return;
+  }
   try {
     await set(CURRENT_USER_KEY, username);
   } catch {
@@ -187,6 +388,11 @@ export async function storeCurrentUser(username: string): Promise<void> {
 }
 
 export async function getCurrentUser(): Promise<string | null> {
+  // Per-tab demo isolation. A demo tab resolves its fixture user from its
+  // own per-tab store and never reads the shared IDB current-user key.
+  if (isDemoTab()) {
+    return readDemoIdentity(DEMO_CURRENT_USER_KEY);
+  }
   try {
     const user = (await get<string>(CURRENT_USER_KEY)) || null;
     // seq polish batch bot — removed the per-hit "Retrieved user from IndexedDB"
@@ -203,6 +409,12 @@ export async function getCurrentUser(): Promise<string | null> {
 }
 
 export async function storeMainUser(username: string): Promise<void> {
+  // Per-tab demo isolation. The fixture main user lives in this tab's
+  // sessionStorage, never the shared IDB main-user key.
+  if (isDemoTab()) {
+    writeDemoIdentity(DEMO_MAIN_USER_KEY, username);
+    return;
+  }
   try {
     await set(MAIN_USER_KEY, username);
   } catch {
@@ -211,6 +423,11 @@ export async function storeMainUser(username: string): Promise<void> {
 }
 
 export async function getMainUser(): Promise<string | null> {
+  // Per-tab demo isolation. A demo tab resolves its fixture main user from
+  // its own per-tab store and never reads the shared IDB main-user key.
+  if (isDemoTab()) {
+    return readDemoIdentity(DEMO_MAIN_USER_KEY);
+  }
   try {
     return (await get<string>(MAIN_USER_KEY)) || null;
   } catch {
@@ -219,6 +436,12 @@ export async function getMainUser(): Promise<string | null> {
 }
 
 export async function clearCurrentUser(): Promise<void> {
+  // Per-tab demo isolation. A demo tab clears its per-tab fixture user only,
+  // never the shared IDB current-user key (owned by a real-folder tab).
+  if (isDemoTab()) {
+    deleteDemoIdentity(DEMO_CURRENT_USER_KEY);
+    return;
+  }
   try {
     await del(CURRENT_USER_KEY);
   } catch (err) {
@@ -227,6 +450,12 @@ export async function clearCurrentUser(): Promise<void> {
 }
 
 export async function clearMainUser(): Promise<void> {
+  // Per-tab demo isolation. A demo tab clears its per-tab fixture main user
+  // only, never the shared IDB main-user key (owned by a real-folder tab).
+  if (isDemoTab()) {
+    deleteDemoIdentity(DEMO_MAIN_USER_KEY);
+    return;
+  }
   try {
     await del(MAIN_USER_KEY);
   } catch (err) {
@@ -380,8 +609,16 @@ export async function backupRealHandleForDemo(): Promise<void> {
  *
  * The `cachedHandle` in this module is reset by both branches: restore via
  * `storeDirectoryHandle`, clear via `clearDirectoryHandle`.
+ *
+ * Always drops this tab's per-tab demo identity (the fixture user + fake
+ * handle flag) on the way out, so a Leave Demo can never leave the fixture
+ * identity resolvable in the tab.
  */
 export async function restorePreDemoStateOrClear(): Promise<boolean> {
+  // Drop the per-tab fixture identity unconditionally. Done first so even if
+  // a branch below early-returns, the fixture user / handle flag are gone.
+  clearDemoIdentity();
+
   const preHandle = await getPreDemoDirectoryHandle();
 
   if (preHandle) {
