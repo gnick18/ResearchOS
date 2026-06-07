@@ -58,6 +58,13 @@ import type { BeakerSearchSource } from "./types";
 // active page source so every palette shows the page's own items first and the
 // global "Go to" + "App" reach below.
 import { useGlobalCommands } from "./useGlobalCommands";
+// BeakerSearch global object search, chunk 1. Mounting the index hook here runs
+// its one-time, fire-and-forget prefetch of the four canonical loaders on shell
+// mount (decision 2, eager-once), so Cmd-K finds a record by name even on a page
+// the user has not visited this session. Chunk 2 feeds the returned index into
+// the palette as the cross-app NAVIGATE source; for chunk 1 the value is unused
+// and only the prefetch + warm-cache subscription are wired.
+import { useGlobalObjectIndex } from "./useGlobalObjectIndex";
 
 /** The trigger-facing API, for the rail doorway and the front-door pill. */
 export interface BeakerSearchApi {
@@ -110,6 +117,11 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
   // The always-present GLOBAL layer (cross-page nav + safe app commands). Built
   // under the router + theme so its handlers can push routes and flip the theme.
   const globalCommands = useGlobalCommands();
+
+  // The cross-app object index. Chunk 1 mounts it only for its eager-once
+  // shell-mount prefetch (decision 2); the returned entries feed the palette in
+  // chunk 2, so the value is intentionally not consumed yet.
+  void useGlobalObjectIndex();
 
   const activePage = sources.length > 0 ? sources[sources.length - 1] : null;
   // A page source is still reported via hasSource for any trigger that wants to

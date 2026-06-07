@@ -17,6 +17,7 @@ import { useOptionalTourController } from "@/components/onboarding/v4/TourContro
 import { V4_PREVIEW_STICKY_KEY } from "@/lib/file-system/wiki-capture-mock";
 import { decideLandingRedirect } from "./page-landing-redirect";
 import type { Task } from "@/lib/types";
+import { taskKey } from "@/lib/types";
 
 // Widget-framework teardown v2 (2026-06-02): the customizable widget
 // dashboard that "/" used to render is GONE. "/" is now a pure router: it
@@ -138,16 +139,23 @@ export default function HomePage() {
     }
     let didOpen = false;
     if (wantsTask) {
-      const tid = Number(wantsTask);
-      if (Number.isFinite(tid)) {
-        const match = allTasks.find(
-          (t) => t.id === tid && (t.owner ?? currentUser) === currentUser,
-        );
-        if (match) {
-          // eslint-disable-next-line react-hooks/set-state-in-effect -- deep-link handler: opens popup imperatively once the async-loaded allTasks include the URL-referenced id. Cannot be useMemo (setSelectedTask is a side-effect, not derived state); cannot be useState lazy init (data arrives async after mount).
-          setSelectedTask(match);
-          didOpen = true;
-        }
+      // Resolve the task two ways, newest first. BeakerSearch global search emits
+      // the composite taskKey ("self:<id>" for an own task, "<owner>:<id>" for one
+      // shared into me), which is computed over the same merged allTasks here, so
+      // a shared task resolves to the right owner namespace and opens read-only the
+      // way the list already surfaces it. Older links carry a bare numeric id, which
+      // still opens the current user's own task. The popup itself is owner-agnostic.
+      const match =
+        allTasks.find((t) => taskKey(t) === wantsTask) ??
+        (Number.isFinite(Number(wantsTask))
+          ? allTasks.find(
+              (t) => t.id === Number(wantsTask) && (t.owner ?? currentUser) === currentUser,
+            )
+          : undefined);
+      if (match) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- deep-link handler: opens popup imperatively once the async-loaded allTasks include the URL-referenced id. Cannot be useMemo (setSelectedTask is a side-effect, not derived state); cannot be useState lazy init (data arrives async after mount).
+        setSelectedTask(match);
+        didOpen = true;
       }
     }
     if (didOpen) {

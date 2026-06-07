@@ -186,17 +186,27 @@ export default function MethodsPage() {
     router.replace(query ? `/methods?${query}` : "/methods");
   }, [searchParams, router]);
 
-  const { data: methods = [] } = useQuery({
-    queryKey: ["methods"],
-    queryFn: fetchAllMethodsIncludingShared,
-  });
-
-  // Get current user for permission checks
+  // Get current user for permission checks. Read BEFORE the methods query so the
+  // methods cache can key on the user (see the methods queryKey below).
   const { data: userData } = useQuery({
     queryKey: ["users"],
     queryFn: usersApi.list,
   });
   const currentUser = userData?.current_user || "";
+
+  // BeakerSearch global object search, decision 5, the methods query-key
+  // alignment. The page previously read bare `["methods"]` while `/search` (the
+  // relationship anchor) and the global object index read `["methods",
+  // currentUser]`. Those are DIFFERENT cache entries, which double-fetched and
+  // split staleness after an edit. Standardize on `["methods", currentUser]` so
+  // there is ONE method cache. The page's many `refetchQueries({ queryKey:
+  // ["methods"] })` calls below still hit it (React Query matches by key prefix),
+  // so no invalidation site changes. This is a cache-key alignment only, the page
+  // internals and the deep-link are untouched.
+  const { data: methods = [] } = useQuery({
+    queryKey: ["methods", currentUser],
+    queryFn: fetchAllMethodsIncludingShared,
+  });
 
   // Load empty categories from localStorage AFTER currentUser is known so
   // the value is scoped per-user. The legacy unscoped key
