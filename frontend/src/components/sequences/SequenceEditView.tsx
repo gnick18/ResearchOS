@@ -981,7 +981,10 @@ export default function SequenceEditView({
       end: f.end,
       direction: f.strand === -1 ? -1 : 1,
       name: f.name,
-      color: colorForType(f.type),
+      // The translation handle now reads the FEATURE's color (the one the user
+      // set), falling back to the per-type default. So a translated protein
+      // matches its feature color, and overlapping proteins stay distinguishable.
+      color: f.color || colorForType(f.type),
       // seq introns bot — for a multi-exon (join) CDS, pass the exon spans so
       // SeqViz splices the protein (translates concatenated exon bases, not the
       // raw span through the introns) and shows a dashed gap over the introns.
