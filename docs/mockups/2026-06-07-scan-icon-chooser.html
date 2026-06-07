@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Scan icon chooser</title>
+<style>
+  :root{--surface:#ffffff;--raised:#ffffff;--sunken:#f8fafc;--fg:#171717;--muted:#6b7280;--border:#e5e7eb;--action:#1283C9;--purple:#5B47D6;--page:#eef2f7}
+  [data-theme="dark"]{--surface:#0a0e1a;--raised:#131c2e;--sunken:#0d1424;--fg:#f1f5f9;--muted:#b4bfd0;--border:rgba(255,255,255,.22);--action:#3aa0e0;--purple:#8170e6;--page:#05080f}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--page);color:var(--fg)}
+  .topbar{position:sticky;top:0;z-index:50;background:var(--page);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .topbar h1{font-size:16px;margin:0;font-weight:700}.topbar .sub{font-size:12.5px;color:var(--muted)}
+  .spacer{flex:1}
+  .btn{font:inherit;font-size:13px;border:1px solid var(--border);background:var(--raised);color:var(--fg);border-radius:8px;padding:7px 12px;cursor:pointer}
+  .btn-brand{background:linear-gradient(135deg,var(--action),var(--purple));color:#fff;border:none}
+  .wrap{max-width:980px;margin:0 auto;padding:22px 20px 110px}
+  .note{font-size:12.5px;color:var(--muted);max-width:800px;margin:12px 0 18px}
+  .variants{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .opt{border:1px solid var(--border);border-radius:13px;background:var(--surface);padding:18px 14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:14px}
+  .opt:hover{background:var(--sunken)}
+  .opt.sel{outline:2px solid var(--action);outline-offset:-1px;background:color-mix(in srgb,var(--action) 7%,var(--surface))}
+  .opt .glyph{height:44px;display:flex;align-items:center;justify-content:center;color:var(--fg)}
+  .opt .glyph svg{width:30px;height:30px}
+  .scanbtn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border);background:var(--raised);color:var(--fg);border-radius:8px;padding:8px 13px;font-size:13.5px}
+  .scanbtn svg{width:17px;height:17px}
+  .vlabel{font-size:12px;color:var(--muted)}
+  .opt.keep .glyph{color:var(--muted);font-size:12px;text-align:center}
+  svg{display:block;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #exportModal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+  #exportModal .box{background:var(--raised);color:var(--fg);border-radius:14px;max-width:560px;width:100%;padding:18px;border:1px solid var(--border)}
+  #exportModal textarea{width:100%;min-height:140px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--fg);padding:10px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div><h1>Scan icon chooser</h1><div class="sub">One glyph for the inventory Scan button. Pick one, then Export.</div></div>
+  <div class="spacer"></div>
+  <button class="btn" id="themeBtn">Dark mode</button>
+  <button class="btn btn-brand" id="exportBtn">Export pick</button>
+</div>
+<div class="wrap">
+  <p class="note">Five barcode / scan variants in the app's line style (24px, 2px stroke), each shown at icon size and inside the real "Scan" button so you can see it in place. The last tile reuses the existing focus glyph if you would rather not add a new icon. Toggle dark mode top-right. Your pick persists and exports.</p>
+  <div class="variants" id="variants"></div>
+</div>
+
+<div id="exportModal"><div class="box">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><strong style="font-size:14px">Scan icon pick</strong><span class="spacer" style="flex:1"></span><button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('exportText').value)">Copy</button><button class="btn" onclick="document.getElementById('exportModal').style.display='none'">Close</button></div>
+  <textarea id="exportText" readonly></textarea>
+</div></div>
+
+<script>
+const variants=[
+ ["framed barcode",'<path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2"/><path d="M7.5 8v8M10 8v8M12.5 8v8M16.5 8v8"/>'],
+ ["plain barcode",'<path d="M4 6v12M7 6v12M9 6v12M12 6v12M14 6v12M17 6v12M20 6v12"/>'],
+ ["barcode + scan line",'<path d="M6 8v8M9 8v8M12 8v8M15 8v8M18 8v8"/><path d="M3 12h18" />'],
+ ["QR code",'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3M17 14v3M14 17.5h.01M14 20.5h3M17.5 20v.01M20.5 14v7"/>'],
+ ["viewfinder reticle",'<path d="M3 8V6a3 3 0 0 1 3-3h2M16 3h2a3 3 0 0 1 3 3v2M21 16v2a3 3 0 0 1-3 3h-2M8 21H6a3 3 0 0 1-3-3v-2"/><circle cx="12" cy="12" r="2.5"/>'],
+];
+
+const KEY='scan-icon-pick-2026-06-07';
+let pick=localStorage.getItem(KEY)||"";
+function save(){localStorage.setItem(KEY,pick);}
+
+const host=document.getElementById('variants');
+variants.forEach((v,i)=>{
+  const svg='<svg viewBox="0 0 24 24">'+v[1]+'</svg>';
+  const el=document.createElement('div');el.className='opt';el.dataset.v=String(i);
+  el.innerHTML='<div class="glyph">'+svg+'</div><button class="scanbtn">'+svg+' Scan</button><div class="vlabel">'+v[0]+'</div>';
+  el.onclick=()=>{pick=String(i);save();paint();};
+  host.appendChild(el);
+});
+const keep=document.createElement('div');keep.className='opt keep';keep.dataset.v='keep';
+keep.innerHTML='<div class="glyph">reuse the existing<br>focus glyph</div><button class="scanbtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="3"/><path d="M11 2v3M11 17v3M2 11h3M17 11h3"/></svg> Scan</button><div class="vlabel">no new icon</div>';
+keep.onclick=()=>{pick='keep';save();paint();};
+host.appendChild(keep);
+
+function paint(){document.querySelectorAll('.opt').forEach(o=>o.classList.toggle('sel',o.dataset.v===pick));}
+paint();
+
+document.getElementById('themeBtn').onclick=function(){const r=document.documentElement;const d=r.getAttribute('data-theme')==='dark';r.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Dark mode':'Light mode';};
+document.getElementById('exportBtn').onclick=function(){
+  let chosen='(not picked)';
+  if(pick==='keep')chosen='REUSE EXISTING focus glyph (no new icon)';
+  else if(pick!=='')chosen='variant '+(Number(pick)+1)+' ('+variants[Number(pick)][0]+')';
+  const out='SCAN ICON PICK — '+new Date().toString().slice(0,21)+'\\n'+'='.repeat(32)+'\\n\\nScan button glyph: '+chosen+'\\n';
+  document.getElementById('exportText').value=out;document.getElementById('exportModal').style.display='flex';
+};
+</script>
+</body>
+</html>
