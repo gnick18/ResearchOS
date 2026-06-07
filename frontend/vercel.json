@@ -6,14 +6,6 @@
       "schedule": "0 13 * * *"
     },
     {
-      "path": "/api/cron/billing-usage-sample",
-      "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/cron/billing-report",
-      "schedule": "0 7 1 * *"
-    },
-    {
       "path": "/api/cron/cost-breaker",
       "schedule": "0 * * * *"
     }

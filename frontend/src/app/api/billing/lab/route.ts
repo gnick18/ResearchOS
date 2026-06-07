@@ -16,11 +16,7 @@ import { auth } from "@/lib/sharing/auth";
 import { json } from "@/lib/sharing/directory/guard";
 import { FREE_ALLOWANCE_BYTES, isBillingEnabled } from "@/lib/billing/config";
 import { ownerKeyForEmail } from "@/lib/billing/owner";
-import {
-  ensureBillingSchema,
-  getSubscription,
-  setLabBilling,
-} from "@/lib/billing/db";
+import { ensureBillingSchema, getSubscription } from "@/lib/billing/db";
 import { LAB_PLANS, freePlan, getPlan } from "@/lib/billing/plans";
 import { ensureOpsSchema, opsSince } from "@/lib/billing/ops";
 import {
@@ -157,45 +153,5 @@ export async function GET(): Promise<Response> {
     });
   } catch {
     return json(500, { error: "lab status failed" });
-  }
-}
-
-export async function POST(request: Request): Promise<Response> {
-  if (!isBillingEnabled()) return json(404, { error: "not found" });
-
-  const session = await auth();
-  const email = session?.user?.email;
-  if (!email) return json(401, { error: "sign in required" });
-
-  let body: { on?: unknown };
-  try {
-    body = (await request.json()) as { on?: unknown };
-  } catch {
-    return json(400, { error: "invalid json" });
-  }
-  if (typeof body.on !== "boolean") {
-    return json(400, { error: "on must be a boolean" });
-  }
-
-  const ownerKey = ownerKeyForEmail(email);
-  try {
-    await ensureBillingSchema();
-    await ensureLabSchema();
-
-    if (body.on) {
-      // Turning lab billing on needs an active subscription to bill against.
-      const sub = await getSubscription(ownerKey);
-      if (sub?.status !== "active") {
-        return json(409, {
-          error: "Add a payment method first to sponsor your lab.",
-          needsCheckout: true,
-        });
-      }
-    }
-
-    await setLabBilling(ownerKey, body.on);
-    return json(200, { ok: true, labBilling: body.on });
-  } catch {
-    return json(500, { error: "lab billing toggle failed" });
   }
 }

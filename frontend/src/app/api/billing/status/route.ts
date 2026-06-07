@@ -13,15 +13,7 @@
 
 import { auth } from "@/lib/sharing/auth";
 import { json } from "@/lib/sharing/directory/guard";
-import {
-  CAP_OPTIONS_GB,
-  FREE_ALLOWANCE_BYTES,
-  MIN_MONTHLY_CHARGE_CENTS,
-  STORAGE_RATE_USD_PER_GB_MONTH,
-  isBillingEnabled,
-  maxMonthlyCostCents,
-  monthlyChargeCents,
-} from "@/lib/billing/config";
+import { FREE_ALLOWANCE_BYTES, isBillingEnabled } from "@/lib/billing/config";
 import { ownerKeyForEmail } from "@/lib/billing/owner";
 import { ensureBillingSchema, getSubscription } from "@/lib/billing/db";
 import { INDIVIDUAL_PLANS, planOrFree } from "@/lib/billing/plans";
@@ -55,11 +47,6 @@ async function ownerUsedBytes(ownerKey: string): Promise<number> {
     return 0;
   }
 }
-
-const capOptions = CAP_OPTIONS_GB.map((gb) => ({
-  gb,
-  maxCostCents: maxMonthlyCostCents(gb),
-}));
 
 export async function GET(): Promise<Response> {
   const billingOn = isBillingEnabled();
@@ -117,11 +104,6 @@ export async function GET(): Promise<Response> {
       plans: planCatalog,
       activityWrites: monthOps.writes,
       activityAllowance: plan.activityWritesPerMonth,
-      // Metered fields kept for the a-la-carte comparison anchor in the UI.
-      rateCents: Math.round(STORAGE_RATE_USD_PER_GB_MONTH * 100),
-      minChargeCents: MIN_MONTHLY_CHARGE_CENTS,
-      estimatedChargeCents: monthlyChargeCents(usedBytes),
-      capOptions,
     });
   } catch {
     return json(500, { error: "status failed" });

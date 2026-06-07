@@ -3,11 +3,6 @@
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
-export interface CapOption {
-  gb: number;
-  maxCostCents: number;
-}
-
 /** A plan the user can pick (flat bundle plan). */
 export interface PlanOption {
   id: string;
@@ -31,11 +26,6 @@ export interface BillingStatus {
   plans?: PlanOption[];
   activityWrites?: number;
   activityAllowance?: number;
-  // Metered fields, kept only for the a-la-carte comparison anchor.
-  rateCents?: number;
-  minChargeCents?: number;
-  estimatedChargeCents?: number;
-  capOptions?: CapOption[];
 }
 
 export interface LabRosterEntry {
@@ -92,17 +82,6 @@ export function fetchLabStatus(): Promise<LabStatus | null> {
   return getJson<LabStatus>("/api/billing/lab");
 }
 
-/** Starts Stripe checkout, returning the redirect URL or null. */
-export async function startCheckout(): Promise<string | null> {
-  try {
-    const res = await fetch("/api/billing/checkout", { method: "POST" });
-    const body = (await res.json()) as { url?: string };
-    return body.url ?? null;
-  } catch {
-    return null;
-  }
-}
-
 export interface PlanResult {
   ok: boolean;
   /** Stripe Checkout url to finish a paid plan, when present. */
@@ -127,29 +106,6 @@ export async function choosePlan(planId: string): Promise<PlanResult> {
     };
     if (res.ok) return { ok: true, url: b.url };
     return { ok: false, error: b.error };
-  } catch {
-    return { ok: false };
-  }
-}
-
-export interface CapResult {
-  ok: boolean;
-  needsCheckout?: boolean;
-}
-
-export async function setCap(capGb: number): Promise<CapResult> {
-  try {
-    const res = await fetch("/api/billing/cap", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ capGb }),
-    });
-    if (res.ok) return { ok: true };
-    if (res.status === 409) {
-      const b = (await res.json()) as { needsCheckout?: boolean };
-      return { ok: false, needsCheckout: b.needsCheckout };
-    }
-    return { ok: false };
   } catch {
     return { ok: false };
   }
@@ -181,11 +137,6 @@ async function postLab(
   } catch {
     return { ok: false };
   }
-}
-
-/** PI turns lab billing on or off. */
-export function setLabBilling(on: boolean): Promise<LabActionResult> {
-  return postLab("/api/billing/lab", { on });
 }
 
 /** PI invites a member by email. */
