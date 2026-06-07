@@ -19,6 +19,34 @@ function scrimOf(label: string): HTMLElement {
   ) as HTMLElement;
 }
 
+describe("LivingPopup editor knobs", () => {
+  it("selfSize imposes no width on the card, so the child controls its own size", async () => {
+    render(
+      <LivingPopup open onClose={() => {}} label="Editor" card={false} selfSize>
+        <div className="max-w-4xl">editor body</div>
+      </LivingPopup>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Editor" });
+    // selfSize wrapper centers but adds no width cap of its own; the default
+    // max-w-lg must NOT be applied (the child's max-w-4xl wins).
+    expect(dialog.className).toContain("justify-center");
+    expect(dialog.className).not.toContain("max-w-lg");
+  });
+
+  it("showClose=false hides the corner X (editors bring their own close)", async () => {
+    const { container } = render(
+      <LivingPopup open onClose={() => {}} label="Editor" showClose={false}>
+        <div>editor body</div>
+      </LivingPopup>,
+    );
+    await screen.findByText("editor body");
+    const xWrapper = container.querySelector(
+      ".absolute.right-4.top-4",
+    ) as HTMLElement | null;
+    expect(xWrapper?.style.display).toBe("none");
+  });
+});
+
 describe("LivingPopup blur policy", () => {
   it("a little popup (default) never blurs, it only dims", async () => {
     render(
