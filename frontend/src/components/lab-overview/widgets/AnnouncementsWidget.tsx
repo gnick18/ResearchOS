@@ -17,7 +17,7 @@ import {
   refreshAnnouncementNotifications,
 } from "@/lib/lab/pi-actions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useAccountType } from "@/hooks/useAccountType";
+import { useIsLabHead } from "@/hooks/useIsLabHead";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import Tooltip from "@/components/Tooltip";
 import UserAvatar from "@/components/UserAvatar";
@@ -47,11 +47,13 @@ export default function AnnouncementsWidget(_props?: {
   surface?: "canvas" | "sidebar";
 }) {
   const { currentUser } = useCurrentUser();
-  const accountType = useAccountType(currentUser);
   const queryClient = useQueryClient();
   const profileMap = useLabUserProfileMap();
 
-  const isLabHead = accountType === "lab_head";
+  // `=== true` collapses the hook's loading `undefined` to `false`, exactly as
+  // the prior `accountType === "lab_head"` did, keeping `isLabHead` a plain
+  // boolean for the `canEdit` prop below.
+  const isLabHead = useIsLabHead(currentUser) === true;
 
   const { data: announcements = [], isLoading } = useQuery({
     queryKey: LAB_ANNOUNCEMENTS_QUERY_KEY,
@@ -618,8 +620,7 @@ function mostRecentN(
 export function SnapshotTile(_props: SnapshotTileProps) {
   const profileMap = useLabUserProfileMap();
   const { currentUser } = useCurrentUser();
-  const accountType = useAccountType(currentUser);
-  const isLabHead = accountType === "lab_head";
+  const isLabHead = useIsLabHead(currentUser) === true;
 
   const { data: announcements = [], isLoading } = useQuery({
     queryKey: LAB_ANNOUNCEMENTS_QUERY_KEY,

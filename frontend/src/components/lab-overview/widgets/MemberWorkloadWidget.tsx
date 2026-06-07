@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useLabData } from "@/hooks/useLabData";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import { useAccountType } from "@/hooks/useAccountType";
+import { useIsLabHead } from "@/hooks/useIsLabHead";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import UserAvatar from "@/components/UserAvatar";
 
@@ -49,7 +50,7 @@ export default function MemberWorkloadWidget(_props?: {
   surface?: "canvas" | "sidebar";
 }) {
   const { currentUser } = useCurrentUser();
-  const accountType = useAccountType(currentUser);
+  const isLabHead = useIsLabHead(currentUser);
   const { users, tasks } = useLabData();
   const profileMap = useLabUserProfileMap();
 
@@ -82,7 +83,7 @@ export default function MemberWorkloadWidget(_props?: {
       });
   }, [users, tasks, profileMap]);
 
-  if (accountType !== "lab_head") {
+  if (!isLabHead) {
     return null;
   }
 
