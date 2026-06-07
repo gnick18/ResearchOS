@@ -33,6 +33,7 @@ import MilestoneTwirlMount from "@/components/onboarding/MilestoneTwirlMount";
 import IdleAnimationManager from "@/components/onboarding/IdleAnimationManager";
 import WhatsNewManager from "@/components/WhatsNewManager";
 import WikiCaptureBodyClass from "@/components/WikiCaptureBodyClass";
+import SharedFolderAutoRefresh from "@/components/SharedFolderAutoRefresh";
 import { ContextMenuProvider } from "@/components/context-menu/ContextMenuProvider";
 import { initializeErrorHandlers } from "@/lib/error-reporting";
 import { projectsApi } from "@/lib/local-api";
@@ -387,6 +388,12 @@ function AppContent({ children }: { children: ReactNode }) {
           V4MountForUser so it runs whether the user lands on /home,
           /workbench, or any other route on their first paint. */}
       <OrphanProjectSweep currentUser={currentUser} />
+      {/* Auto-refresh the app when the shared data folder changes on disk
+          (a collaborator's new note / task / project), so other lab members
+          see it without a manual refresh. Local-first equivalent of a server
+          push: watches the folder via FileSystemObserver, focus-refetch
+          fallback. Mounted here so it covers every signed-in route. */}
+      <SharedFolderAutoRefresh />
       {/* LabArchives import sticky-intent consumer. If the user clicked
           "Import from LabArchives" on the picker screen and signed in
           (which unmounts that screen), this auto-mounts ImportELNDialog
