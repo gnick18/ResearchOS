@@ -274,6 +274,28 @@ export function nextFederalEstimate(now: Date = new Date()): Deadline {
   };
 }
 
+/** Target date for the Vercel Open Source Program application (Summer 2026
+ *  cohort). The Spring cohort closed 2026-06-03 and the program runs quarterly,
+ *  so this is an estimate with buffer. Confirm the real open and close dates at
+ *  vercel.link/oss-apply. */
+export const VERCEL_OSS_APPLICATION_TARGET = "2026-08-15";
+
+/** One-time reminder to apply to the Vercel Open Source Program. Returns null
+ *  once it is more than two weeks past the target, so it drops off the strip
+ *  instead of lingering as permanently overdue. */
+export function vercelOssApplicationDeadline(now: Date = new Date()): Deadline | null {
+  const due = new Date(`${VERCEL_OSS_APPLICATION_TARGET}T00:00:00Z`);
+  const d = daysUntil(due, now);
+  if (d < -14) return null;
+  return {
+    key: "vercel-oss-application",
+    label: "Apply to the Vercel Open Source Program (Summer cohort)",
+    dueDate: VERCEL_OSS_APPLICATION_TARGET,
+    daysUntil: d,
+    note: "Spring cohort closed 2026-06-03; the program runs quarterly, so this date is an estimate. Confirm the Summer open and close dates at vercel.link/oss-apply and apply before the deadline. Draft answers are in docs/proposals/VERCEL_OSS_PROGRAM_APPLICATION.md.",
+  };
+}
+
 /** The upcoming deadlines, soonest first. WI report only if a formation date is set. */
 export function upcomingDeadlines(
   config: EntityConfig,

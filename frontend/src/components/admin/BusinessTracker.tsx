@@ -22,6 +22,7 @@ import {
   emailArchiveMarkdown,
   formatUSD,
   upcomingDeadlines,
+  vercelOssApplicationDeadline,
   type BusinessEmail,
   type BusinessSummary,
   type BusinessTask,
@@ -864,7 +865,11 @@ export default function BusinessTracker() {
             <SectionTitle sub="The next obligations, soonest first. Verify the exact dates and fees with the WI DFI and your accountant.">
               Deadlines
             </SectionTitle>
-            <DeadlineStrip deadlines={deadlines} />
+            <DeadlineStrip
+              deadlines={[...deadlines, vercelOssApplicationDeadline()]
+                .filter((d): d is Deadline => d !== null)
+                .sort((a, b) => a.dueDate.localeCompare(b.dueDate))}
+            />
           </div>
 
           <div>
