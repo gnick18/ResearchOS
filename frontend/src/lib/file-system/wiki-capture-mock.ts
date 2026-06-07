@@ -567,8 +567,11 @@ export async function installWikiCaptureFixture(
     console.warn("[wiki-capture-mock] VC history seed failed:", err);
   }
 
-  // A truthy stand-in so methods that bail when `directoryHandle` is null
-  // continue past their early-return. Never actually read by our overrides.
+  // An inert stand-in handle. It is (a) truthy so methods that early-return on
+  // a null `directoryHandle` keep going, and (b) the value we PIN onto the
+  // private `directoryHandle` field below. It has no getDirectoryHandle /
+  // removeEntry / values, so any method we forgot to override (or a future one)
+  // throws harmlessly against it instead of walking the REAL folder handle.
   const fakeHandle = {
     name: "wiki-capture-fixture",
     kind: "directory",
@@ -577,6 +580,15 @@ export async function installWikiCaptureFixture(
   // Patch methods on the singleton in-place. We can't replace the singleton
   // itself because every consumer imports it by reference.
   const svc = fileService as unknown as Record<string, unknown>;
+
+  // CRITICAL demo-sandbox guard: repoint the underlying private handle field to
+  // the inert fake, not just the getter. When /demo is entered from a tab that
+  // already had a real folder connected, `this.directoryHandle` still holds the
+  // REAL handle; the getter override hides it, but any un-overridden method
+  // (e.g. deleteDirectory) reads the field directly and would mutate the real
+  // folder. Pinning the field makes a real-folder write structurally impossible
+  // in demo, even for a method we miss. (2026-06-07, stray real `users/alex`.)
+  svc.directoryHandle = fakeHandle;
 
   svc.isConnected = () => true;
   svc.verifyPermission = async () => true;
@@ -705,6 +717,31 @@ export async function installWikiCaptureFixture(
     const deletedBlob = blobs.delete(key);
     const deletedText = textFiles.delete(key);
     return deletedJson || deletedBlob || deletedText;
+  };
+
+  // deleteDirectory was the one mutation method left un-overridden, so in demo
+  // it fell through to the real handle. Mirror the real semantics in-memory:
+  // drop every file/blob/text/dir entry under the path prefix. (2026-06-07)
+  svc.deleteDirectory = async (path: string): Promise<boolean> => {
+    const prefix = normalizePath(path);
+    if (!prefix) return false;
+    const under = prefix + "/";
+    let removed = false;
+    for (const store of [files, blobs, textFiles] as Array<Map<string, unknown>>) {
+      for (const key of Array.from(store.keys())) {
+        if (key === prefix || key.startsWith(under)) {
+          store.delete(key);
+          removed = true;
+        }
+      }
+    }
+    for (const d of Array.from(dirs)) {
+      if (d === prefix || d.startsWith(under)) {
+        dirs.delete(d);
+        removed = true;
+      }
+    }
+    return removed;
   };
 
   svc.readFileAsBlob = async (path: string): Promise<Blob | null> => {
