@@ -120,6 +120,7 @@ import { extractAccession } from "@/lib/sequences/ncbi-datasets";
 // the editor's new Analyze menu (a second door; the library-header Compare
 // stays). Rendered here with its own open state; not modified.
 import CompareSequencesDialog from "./CompareSequencesDialog";
+import SequenceDomainsResultDialog from "./SequenceDomainsResultDialog";
 // protein analyze bot — the second door into the protein-properties engine.
 import ProteinPropertiesDialog from "./ProteinPropertiesDialog";
 // sequence editor master — the third door: a right-docked drawer that opens when
@@ -189,6 +190,21 @@ import { useContextMenu } from "@/components/context-menu/ContextMenuProvider";
 import { SequenceFindBox, type FindResult } from "./SequenceFindBox";
 import type { FindMatch } from "@/lib/sequences/find";
 import { seqIdentity } from "@/lib/sequences/find";
+// sequence editor master (redesign phase 5). results as artifacts. A completed
+// Align / Find-domains run persists a per-sequence result artifact, surfaced in
+// the History tab's Results section and re-openable from there.
+import {
+  listArtifacts,
+  saveArtifact,
+  deleteArtifact,
+  newArtifactId,
+  isArtifactStale,
+  type Artifact,
+  type AlignmentArtifactResult,
+  type DomainsArtifactResult,
+} from "@/lib/sequences/artifacts";
+import { formatSummaryLine } from "@/lib/sequences/compare-format";
+import { Icon } from "@/components/icons";
 import { type ExportMenuItem } from "./SequenceExportMenu";
 import {
   SequenceOperationsRail,
@@ -1846,6 +1862,171 @@ export default function SequenceEditView({
   // sequence first versioned on top of a pre-existing .gb) when reconstructing
   // each version. Recomputed when the doc changes.
   const headCanonical = useMemo(() => canonicalize(sequencePayload(doc)), [doc]);
+
+  // ── Phase 5 (results as artifacts) ──────────────────────────────────────────
+  // A content fingerprint of the LIVE molecule. seqIdentity over the canonical
+  // (bases + features + topology) is the cheap length+hash key the History tab's
+  // Results section uses to flag a saved result STALE once the sequence moves on.
+  const sequenceVersion = useMemo(() => seqIdentity(headCanonical), [headCanonical]);
+  // The loaded result artifacts for THIS sequence, newest first. Loaded once per
+  // sequence/owner; the save/delete handlers update it in place so the History
+  // tab reflects a new result without a reload.
+  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  // A saved alignment artifact re-opened into the Compare dialog in a read view
+  // (null = a normal, non-seeded open).
+  const [seededAlignment, setSeededAlignment] = useState<AlignmentArtifactResult | null>(null);
+  // A saved domains artifact re-opened into the read-only hit-list dialog, with
+  // a stale flag captured at open time (true when the sequence moved on since).
+  const [domainsResult, setDomainsResult] = useState<
+    { payload: DomainsArtifactResult; stale: boolean } | null
+  >(null);
+  // A calm, auto-dismissed toast for a failed best-effort artifact save / delete.
+  const [artifactToast, setArtifactToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!artifactToast) return;
+    const t = setTimeout(() => setArtifactToast(null), 6000);
+    return () => clearTimeout(t);
+  }, [artifactToast]);
+
+  // Load the saved results for the open sequence.
+  useEffect(() => {
+    if (!historyOwner) {
+      setArtifacts([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await listArtifacts(historyOwner, sequence.id);
+        if (!cancelled) setArtifacts(list);
+      } catch {
+        // a missing / unreadable sidecar just yields no results; never block.
+        if (!cancelled) setArtifacts([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [historyOwner, sequence.id]);
+
+  // Persist a completed ALIGN run as an alignment artifact (best-effort). Titled
+  // from the compared names, summarized from the stats; a failed write is a calm
+  // toast, never an exception into the operation.
+  const persistAlignmentArtifact = useCallback(
+    (res: AlignmentArtifactResult) => {
+      if (!historyOwner) return;
+      const aName = res.aName ?? "sequence A";
+      const bName = res.bName ?? "sequence B";
+      const summary = res.large
+        ? `${res.large.hsps.length} shared ${res.large.hsps.length === 1 ? "region" : "regions"}`
+        : formatSummaryLine(res.summary);
+      const artifact: Artifact = {
+        id: newArtifactId(),
+        type: "alignment",
+        title: `Align ${aName} to ${bName}`,
+        summary,
+        createdAt: new Date().toISOString(),
+        lineage: {
+          sequenceId: sequence.id,
+          sequenceVersion,
+          inputs: {
+            referenceId: res.bId,
+            referenceName: res.bName,
+            mode: res.mode,
+            scheme: res.scheme,
+            iupac: res.iupac,
+          },
+        },
+        result: res,
+      };
+      void (async () => {
+        try {
+          await saveArtifact(historyOwner, sequence.id, artifact);
+          setArtifacts((prev) => [artifact, ...prev.filter((a) => a.id !== artifact.id)]);
+        } catch {
+          setArtifactToast("Could not save this result to the History tab.");
+        }
+      })();
+    },
+    [historyOwner, sequence.id, sequenceVersion],
+  );
+
+  // Persist a completed FIND-DOMAINS scan as a domains artifact (best-effort).
+  const persistDomainsArtifact = useCallback(
+    (payload: DomainsArtifactResult) => {
+      if (!historyOwner) return;
+      const n = payload.hits.length;
+      const names = payload.hits
+        .map((h) => h.name)
+        .filter(Boolean)
+        .slice(0, 2)
+        .join(", ");
+      const summary =
+        n === 0
+          ? "No domain hits"
+          : `${n} ${n === 1 ? "hit" : "hits"}${names ? ` (${names}${n > 2 ? ", ..." : ""})` : ""}`;
+      const artifact: Artifact = {
+        id: newArtifactId(),
+        type: "domains",
+        title: `Domains in ${payload.featureName || "feature"}`,
+        summary,
+        createdAt: new Date().toISOString(),
+        lineage: {
+          sequenceId: sequence.id,
+          sequenceVersion,
+          inputs: {
+            featureName: payload.featureName,
+            featureIndex: payload.featureIndex,
+            source: payload.source,
+          },
+        },
+        result: payload,
+      };
+      void (async () => {
+        try {
+          await saveArtifact(historyOwner, sequence.id, artifact);
+          setArtifacts((prev) => [artifact, ...prev.filter((a) => a.id !== artifact.id)]);
+        } catch {
+          setArtifactToast("Could not save this result to the History tab.");
+        }
+      })();
+    },
+    [historyOwner, sequence.id, sequenceVersion],
+  );
+
+  // Open a saved result from the Results section. Alignment re-seeds the Compare
+  // dialog in a read view; domains opens a read-only hit-list. A snapshot, so we
+  // never recompute on open (a STALE one still opens, with a re-run affordance).
+  const handleOpenArtifact = useCallback(
+    (artifact: Artifact) => {
+      if (artifact.type === "alignment") {
+        setSeededAlignment(artifact.result as AlignmentArtifactResult);
+        setCompareOpen(true);
+      } else {
+        setDomainsResult({
+          payload: artifact.result as DomainsArtifactResult,
+          stale: isArtifactStale(artifact, sequenceVersion),
+        });
+      }
+    },
+    [sequenceVersion],
+  );
+
+  // Delete a saved result (best-effort; optimistic removal from the list).
+  const handleDeleteArtifact = useCallback(
+    (artifactId: string) => {
+      setArtifacts((prev) => prev.filter((a) => a.id !== artifactId));
+      if (!historyOwner) return;
+      void (async () => {
+        try {
+          await deleteArtifact(historyOwner, sequence.id, artifactId);
+        } catch {
+          setArtifactToast("Could not delete this result.");
+        }
+      })();
+    },
+    [historyOwner, sequence.id],
+  );
 
   // seq history bot — RESTORE a version from the History tab. Reverse-walk from
   // the LIVE HEAD canonical to the target version, rebuild the editor doc from
@@ -5113,6 +5294,10 @@ export default function SequenceEditView({
               canRestore={!readOnly && RESTORE_ENABLED}
               onRestore={handleRestoreVersion}
               restoreAudit={sequence._restore_audit}
+              artifacts={artifacts}
+              sequenceVersion={sequenceVersion}
+              onOpenArtifact={handleOpenArtifact}
+              onDeleteArtifact={handleDeleteArtifact}
             />
           ) : null}
         </div>
@@ -5135,6 +5320,19 @@ export default function SequenceEditView({
             // Click a domain block in the bar -> select + scroll its DNA feature
             // on the map (the protein-view -> DNA-view cross-link).
             onSelectDomain={selectFeature}
+            // Phase 5: a completed domain scan is saved as a result artifact,
+            // tagged with the feature scanned (only on the editable surface).
+            onScanResults={
+              readOnly
+                ? undefined
+                : (hits, source) =>
+                    persistDomainsArtifact({
+                      featureName: selFeat.name || selFeat.type || "feature",
+                      featureIndex: selectedFeatureIdx,
+                      source,
+                      hits,
+                    })
+            }
           />
         ) : null}
 
@@ -5340,11 +5538,27 @@ export default function SequenceEditView({
 
       {/* menu reorg bot. Compare / align two sequences, opened from the Align
           rail operation. Seeds sequence A with the open molecule (the dialog's
-          own defaultAId); the user picks B. Unmodified shared dialog. */}
+          own defaultAId); the user picks B. Phase 5: a completed run is saved as
+          a result artifact, and re-opening a saved alignment seeds the dialog in
+          a read view (seededAlignment). */}
       <CompareSequencesDialog
         open={compareOpen}
-        onClose={() => setCompareOpen(false)}
+        onClose={() => {
+          setCompareOpen(false);
+          setSeededAlignment(null);
+        }}
         defaultAId={sequence.id}
+        seeded={seededAlignment}
+        onResult={persistAlignmentArtifact}
+      />
+
+      {/* Phase 5 (results as artifacts). The READ view for a saved DOMAINS
+          result, re-opened from the History tab's Results section. A snapshot;
+          a live re-run is the editable protein drawer's job. */}
+      <SequenceDomainsResultDialog
+        result={domainsResult?.payload ?? null}
+        stale={domainsResult?.stale}
+        onClose={() => setDomainsResult(null)}
       />
 
       {/* protein analyze bot. Protein properties, opened from the Protein rail
@@ -5563,6 +5777,30 @@ export default function SequenceEditView({
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
+          </button>
+        </div>
+      ) : null}
+
+      {/* Phase 5 (results as artifacts). The calm, best-effort save/delete
+          toast. A failed sidecar write never breaks the operation; it just lands
+          here. Icon via <Icon> (no inline svg). */}
+      {artifactToast ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-4 left-1/2 z-[120] -translate-x-1/2 flex items-center gap-3 rounded-lg border border-amber-200 bg-surface-raised px-4 py-2.5 text-body shadow-lg dark:border-amber-500/30"
+        >
+          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-300">
+            <Icon name="history" className="h-3 w-3" />
+          </span>
+          <span className="text-foreground">{artifactToast}</span>
+          <button
+            type="button"
+            onClick={() => setArtifactToast(null)}
+            className="text-foreground-muted hover:text-foreground"
+            aria-label="Dismiss"
+          >
+            <Icon name="close" className="h-4 w-4" />
           </button>
         </div>
       ) : null}

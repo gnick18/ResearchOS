@@ -129,6 +129,7 @@ export default function DomainAnnotationPanel({
   disabledReason,
   onAddDomains,
   onCandidatesChange,
+  onResults,
 }: {
   /** The selected CDS feature (for strand + exon joins). */
   feature: EditFeature;
@@ -146,6 +147,13 @@ export default function DomainAnnotationPanel({
    *  hits the user has checked) up to the drawer, so the protein domain bar can
    *  draw them pending before they are accepted. Empty when not in review. */
   onCandidatesChange?: (hits: DomainHit[]) => void;
+  /**
+   * Phase 5 (results as artifacts). Fired ONCE each time a domain scan COMPLETES
+   * (a results phase is reached), carrying the full hit list + which database
+   * backed it, so the editor can persist a domains artifact. Best-effort: the
+   * panel never awaits it and a thrown handler is swallowed.
+   */
+  onResults?: (hits: DomainHit[], source: Source) => void;
 }) {
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   // The curated-subset manifest (family count etc.), fetched lazily when the user
@@ -179,6 +187,28 @@ export default function DomainAnnotationPanel({
     // Run only on unmount; onCandidatesChange identity is stable from the drawer.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Phase 5 (results as artifacts). Fire onResults ONCE when a scan completes (a
+  // results phase is reached), so the editor can save a domains artifact. A ref
+  // dedupes re-renders of the same results phase (row toggles re-render but must
+  // not re-fire). Best-effort: a thrown handler never breaks the scan.
+  const lastResultsTokenRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (phase.kind !== "results") {
+      lastResultsTokenRef.current = null;
+      return;
+    }
+    const token = `${phase.source}:${phase.hits.length}:${phase.hits
+      .map((h) => `${h.accession}@${h.start}-${h.end}`)
+      .join(",")}`;
+    if (lastResultsTokenRef.current === token) return;
+    lastResultsTokenRef.current = token;
+    try {
+      onResults?.(phase.hits, phase.source);
+    } catch {
+      // best-effort: never let a save side effect break the scan UI.
+    }
+  }, [phase, onResults]);
 
   // Abort any in-flight job when the panel unmounts (drawer closed). The PANEL
   // IS KEYED BY THE SELECTED FEATURE in the drawer, so a feature change remounts

@@ -133,6 +133,7 @@ export default function ProteinPropertiesDrawer({
   onEditFeature,
   onAddDomains,
   onSelectDomain,
+  onScanResults,
 }: {
   /** The selected coding feature to analyze. */
   feature: EditFeature;
@@ -156,6 +157,15 @@ export default function ProteinPropertiesDrawer({
   /** Select + scroll a domain's DNA feature on the map (cross-link from the bar's
    *  click). Receives the feature's index in `features`. */
   onSelectDomain?: (featureIndex: number) => void;
+  /**
+   * Phase 5 (results as artifacts). Fired when a domain scan COMPLETES, so the
+   * editor can persist a domains artifact (the hit list + the feature scanned).
+   * Best-effort, omitted on a read-only surface (no scan there).
+   */
+  onScanResults?: (
+    hits: DomainHit[],
+    source: "ebi" | "local" | "curated",
+  ) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   // LIVE PREVIEW: the annotate review reports its current candidate hits up here,
@@ -368,6 +378,8 @@ export default function ProteinPropertiesDrawer({
               // LIVE PREVIEW: the panel reports its current review candidates up
               // here so the bar can draw them pending; clears on accept / close.
               onCandidatesChange={setCandidateHits}
+              // Phase 5: a completed scan persists a domains artifact upstream.
+              onResults={onScanResults}
             />
           ) : null}
           <button

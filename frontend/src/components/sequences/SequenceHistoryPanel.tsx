@@ -39,7 +39,9 @@ import {
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import UserAvatar from "@/components/UserAvatar";
 import Tooltip from "@/components/Tooltip";
+import { Icon } from "@/components/icons";
 import type { SequenceRestoreAudit } from "@/lib/types";
+import { isArtifactStale, type Artifact } from "@/lib/sequences/artifacts";
 
 function IconHistory({ className }: { className?: string }) {
   return (
@@ -103,6 +105,20 @@ export interface SequenceHistoryPanelProps {
   onRestore?: (versionIndex: number) => Promise<void>;
   /** Injected clock for deterministic relative labels (tests). Defaults to now. */
   now?: Date;
+  /**
+   * Phase 5 (results as artifacts). The saved RESULT artifacts for this sequence
+   * (newest first), surfaced in a "Results" section above the version timeline.
+   * Empty / omitted -> a calm teaching empty state.
+   */
+  artifacts?: Artifact[];
+  /** The live sequence's content fingerprint, for flagging a result STALE when
+   *  the sequence has changed since the result was computed. */
+  sequenceVersion?: string;
+  /** Re-open a saved result (the parent re-seeds the Compare dialog or the
+   *  domains read view). */
+  onOpenArtifact?: (artifact: Artifact) => void;
+  /** Delete a saved result (the parent persists the removal). */
+  onDeleteArtifact?: (artifactId: string) => void;
 }
 
 export default function SequenceHistoryPanel({
@@ -113,6 +129,10 @@ export default function SequenceHistoryPanel({
   onRestore,
   now,
   restoreAudit,
+  artifacts = [],
+  sequenceVersion = "",
+  onOpenArtifact,
+  onDeleteArtifact,
 }: SequenceHistoryPanelProps) {
   const profileMap = useLabUserProfileMap();
   const [rows, setRows] = useState<HistoryRow[] | null>(null);
@@ -275,9 +295,15 @@ export default function SequenceHistoryPanel({
 
   if (isEmpty) {
     return (
-      <div className="flex h-full w-full flex-col bg-surface-raised">
+      <div className="flex h-full w-full flex-col overflow-y-auto bg-surface-raised">
         {restoreProvenanceLine && <RestoreProvenanceRow line={restoreProvenanceLine} />}
-        <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
+        <ResultsSection
+          artifacts={artifacts}
+          sequenceVersion={sequenceVersion}
+          onOpenArtifact={onOpenArtifact}
+          onDeleteArtifact={onDeleteArtifact}
+        />
+        <div className="flex flex-1 flex-col items-center justify-center px-8 py-10 text-center">
           <IconHistory className="h-10 w-10 text-foreground-muted" />
           <p className="mt-3 text-body font-medium text-foreground-muted">No earlier versions yet</p>
           <p className="mt-1 max-w-xs text-meta text-foreground-muted">
@@ -302,6 +328,12 @@ export default function SequenceHistoryPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {restoreProvenanceLine && <RestoreProvenanceRow line={restoreProvenanceLine} />}
+        <ResultsSection
+          artifacts={artifacts}
+          sequenceVersion={sequenceVersion}
+          onOpenArtifact={onOpenArtifact}
+          onDeleteArtifact={onDeleteArtifact}
+        />
         {model?.days.map((day) => (
           <div key={day.dayKey}>
             <div className="sticky top-0 z-10 border-b border-border bg-surface-sunken/95 px-4 py-1.5 text-meta font-semibold uppercase tracking-wide text-foreground-muted backdrop-blur">
@@ -424,6 +456,161 @@ function RestoreProvenanceRow({ line }: { line: string }) {
           Restored from Trash
         </span>
         <span className="block text-meta text-amber-700 dark:text-amber-300">{line}</span>
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Phase 5 (results as artifacts). The "Results" section pinned above the
+ * version timeline. Lists the saved Align / Find-domains results newest first,
+ * each row with a type icon, the title + summary, a relative time, a STALE chip
+ * when the sequence has changed since, and Open / Delete actions. A calm empty
+ * state teaches the section when there are no results yet.
+ */
+function ResultsSection({
+  artifacts,
+  sequenceVersion,
+  onOpenArtifact,
+  onDeleteArtifact,
+}: {
+  artifacts: Artifact[];
+  sequenceVersion: string;
+  onOpenArtifact?: (artifact: Artifact) => void;
+  onDeleteArtifact?: (artifactId: string) => void;
+}) {
+  return (
+    <div className="border-b border-border" data-testid="sequence-results-section">
+      <div className="flex items-center gap-2 bg-surface-sunken/60 px-4 py-1.5">
+        <Icon name="tree" className="h-3.5 w-3.5 text-foreground-muted" />
+        <span className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
+          Results
+        </span>
+        {artifacts.length > 0 ? (
+          <span className="ml-auto text-meta text-foreground-muted">
+            {artifacts.length} saved
+          </span>
+        ) : null}
+      </div>
+      {artifacts.length === 0 ? (
+        <p
+          className="px-4 py-3 text-meta text-foreground-muted"
+          data-testid="sequence-results-empty"
+        >
+          Run an analysis and its result is saved here.
+        </p>
+      ) : (
+        artifacts.map((artifact) => (
+          <ResultRow
+            key={artifact.id}
+            artifact={artifact}
+            stale={isArtifactStale(artifact, sequenceVersion)}
+            onOpen={onOpenArtifact ? () => onOpenArtifact(artifact) : undefined}
+            onDelete={onDeleteArtifact ? () => onDeleteArtifact(artifact.id) : undefined}
+          />
+        ))
+      )}
+    </div>
+  );
+}
+
+/** One saved-result row. The delete is inline-confirmed (no native confirm()),
+ *  matching the version-row house rule. */
+function ResultRow({
+  artifact,
+  stale,
+  onOpen,
+  onDelete,
+}: {
+  artifact: Artifact;
+  stale: boolean;
+  onOpen?: () => void;
+  onDelete?: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <div
+      className="flex items-start gap-2 px-4 py-2.5"
+      data-testid="sequence-result-row"
+      data-result-type={artifact.type}
+    >
+      <span className="pt-0.5 flex-shrink-0 text-foreground-muted">
+        <Icon
+          name={artifact.type === "alignment" ? "align" : "protein"}
+          className="h-4 w-4"
+        />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-1.5">
+          <span className="truncate text-meta font-medium text-foreground">
+            {artifact.title}
+          </span>
+          {stale ? (
+            <span
+              className="flex-shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-meta font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-500/20 dark:text-amber-300"
+              data-testid="sequence-result-stale"
+            >
+              Stale
+            </span>
+          ) : null}
+        </span>
+        <span className="block truncate text-meta text-foreground-muted">
+          {artifact.summary}
+        </span>
+        <Tooltip
+          label={`${formatFullDate(artifact.createdAt)} · ${artifact.createdAt}`}
+          placement="bottom"
+        >
+          <span className="block w-fit text-meta text-foreground-muted">
+            {formatRelative(artifact.createdAt)}
+          </span>
+        </Tooltip>
+
+        <span className="mt-1 flex items-center gap-1.5">
+          {onOpen ? (
+            <button
+              type="button"
+              onClick={onOpen}
+              data-testid="sequence-result-open"
+              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+            >
+              <Icon name="eye" className="h-3 w-3" />
+              Open
+            </button>
+          ) : null}
+          {onDelete && !confirming ? (
+            <button
+              type="button"
+              onClick={() => setConfirming(true)}
+              data-testid="sequence-result-delete"
+              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+            >
+              <Icon name="trash" className="h-3 w-3" />
+              Delete
+            </button>
+          ) : null}
+          {onDelete && confirming ? (
+            <span className="flex items-center gap-1.5" data-testid="sequence-result-delete-confirm">
+              <button
+                type="button"
+                onClick={() => {
+                  onDelete();
+                  setConfirming(false);
+                }}
+                className="rounded-md bg-rose-600 px-2 py-0.5 text-meta font-medium text-white transition-colors hover:bg-rose-700"
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirming(false)}
+                className="rounded-md bg-surface-sunken px-2 py-0.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
+              >
+                Cancel
+              </button>
+            </span>
+          ) : null}
+        </span>
       </span>
     </div>
   );

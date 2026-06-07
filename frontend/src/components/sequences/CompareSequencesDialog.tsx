@@ -24,11 +24,13 @@ import type { AlignmentResult, AlignOp, Hsp, SharedRegionResult } from "@/lib/al
 import {
   buildCompareModel,
   formatSummaryLine,
+  summarizeAlignment,
   type CompareModel,
   type AlignmentSummary,
 } from "@/lib/sequences/compare-format";
 import { computeDotplot, dotplotWordSize } from "@/lib/sequences/compare-dotplot";
 import type { SequenceRecord } from "@/lib/types";
+import type { AlignmentArtifactResult } from "@/lib/sequences/artifacts";
 
 // Above this many bases on EITHER side we refuse the full DP (O(m*n) memory and
 // time would hang the tab). Plasmid-scale (a few tens of kb) is comfortable.
@@ -437,11 +439,26 @@ export default function CompareSequencesDialog({
   open,
   onClose,
   defaultAId,
+  onResult,
+  seeded,
 }: {
   open: boolean;
   onClose: () => void;
   /** Pre-select sequence A (e.g. the currently selected library item). */
   defaultAId?: number | null;
+  /**
+   * Phase 5 (results as artifacts). Fired when a comparison COMPLETES, carrying
+   * the self-contained payload so the editor can persist it as an artifact. A
+   * SEEDED open (re-rendering a saved result) does NOT fire this. Best-effort:
+   * the dialog never awaits it.
+   */
+  onResult?: (result: AlignmentArtifactResult) => void;
+  /**
+   * Phase 5. When set, the dialog opens in a READ view rendering this stored
+   * result without recomputing (re-opening a saved alignment artifact). The
+   * controls still work, so the user can re-run the live alignment from here.
+   */
+  seeded?: AlignmentArtifactResult | null;
 }) {
   const [aId, setAId] = useState<number | null>(null);
   const [bId, setBId] = useState<number | null>(null);
@@ -467,16 +484,32 @@ export default function CompareSequencesDialog({
     enabled: open,
   });
 
-  // Seed A from the caller's selection when the dialog opens.
+  // Seed A from the caller's selection when the dialog opens. When a SEEDED
+  // result is supplied (re-opening a saved alignment artifact), replay its
+  // ids/params/result into a read view instead of clearing, so the stored
+  // alignment renders without recomputing.
   useEffect(() => {
-    if (open) {
-      setAId(defaultAId ?? null);
-      setBId(null);
-      setResult(null);
-      setLargeResult(null);
+    if (!open) return;
+    if (seeded) {
+      setAId(seeded.aId);
+      setBId(seeded.bId);
+      setMode(seeded.mode);
+      setScheme(seeded.scheme);
+      setIupac(seeded.iupac);
+      setUsedScheme(seeded.scheme);
+      setResult(seeded.alignment);
+      setLargeResult(seeded.large);
+      lastBasesRef.current = seeded.bases;
       setError(null);
+      return;
     }
-  }, [open, defaultAId]);
+    setAId(defaultAId ?? null);
+    setBId(null);
+    setResult(null);
+    setLargeResult(null);
+    lastBasesRef.current = null;
+    setError(null);
+  }, [open, defaultAId, seeded]);
 
   // Esc closes.
   useEffect(() => {
@@ -518,6 +551,8 @@ export default function CompareSequencesDialog({
       await new Promise((r) => requestAnimationFrame(() => r(null)));
       lastBasesRef.current = { a: aSeq, b: bSeq };
       setUsedScheme(resolved);
+      const aName = a.display_name ?? null;
+      const bName = b.display_name ?? null;
       if (aSeq.length > MAX_ALIGN_BASES || bSeq.length > MAX_ALIGN_BASES) {
         // Too large for full O(m*n) DP. Instead of refusing, find the shared
         // regions (local homology) via seed-and-extend and still show the
@@ -525,18 +560,64 @@ export default function CompareSequencesDialog({
         // alignment, so the UI labels it accordingly.
         const shared = findSharedRegions(aSeq, bSeq, { scoring });
         setLargeResult(shared);
+        // Phase 5: persist the large-sequence result as an artifact. The summary
+        // is a zeroed alignment summary (no single base-level alignment exists);
+        // the row label leans on the shared-region count instead.
+        onResult?.({
+          aId,
+          bId,
+          aName,
+          bName,
+          mode,
+          scheme: resolved,
+          iupac,
+          summary: summarizeAlignment({
+            score: 0,
+            aStart: 0,
+            aEnd: 0,
+            bStart: 0,
+            bEnd: 0,
+            identity: 0,
+            alignedA: "",
+            alignedB: "",
+            ops: [],
+            cigar: "",
+          }),
+          alignment: null,
+          large: shared,
+          bases: { a: aSeq, b: bSeq },
+        });
         return;
       }
       const res = mode === "global"
         ? alignGlobal(aSeq, bSeq, { scoring })
         : alignLocal(aSeq, bSeq, { scoring });
       setResult(res);
+      // Phase 5: persist the base-level alignment as an artifact. In protein mode
+      // swap in the true-residue-identity summary (same correction the header
+      // readout uses) so the saved summary matches what the dialog shows.
+      const baseSummary = summarizeAlignment(res);
+      const summary =
+        resolved === "protein" ? trueIdentitySummary(res, baseSummary) : baseSummary;
+      onResult?.({
+        aId,
+        bId,
+        aName,
+        bName,
+        mode,
+        scheme: resolved,
+        iupac,
+        summary,
+        alignment: res,
+        large: null,
+        bases: { a: aSeq, b: bSeq },
+      });
     } catch {
       setError("Alignment failed. Try a different pair or a smaller region.");
     } finally {
       setRunning(false);
     }
-  }, [aId, bId, mode, iupac, scheme]);
+  }, [aId, bId, mode, iupac, scheme, onResult]);
 
   // The render model (wrapped blocks + summary), capped for huge alignments. In
   // protein mode the engine summary's "identity" counts conservative BLOSUM
@@ -572,8 +653,13 @@ export default function CompareSequencesDialog({
 
   if (!open) return null;
 
-  const aName = sequences.find((s) => s.id === aId)?.display_name;
-  const bName = sequences.find((s) => s.id === bId)?.display_name;
+  // Prefer the live library name, falling back to a seeded artifact's stored
+  // name so a re-opened result still labels its pair even if a sequence was
+  // since renamed or removed from the list.
+  const aName =
+    sequences.find((s) => s.id === aId)?.display_name ?? seeded?.aName ?? undefined;
+  const bName =
+    sequences.find((s) => s.id === bId)?.display_name ?? seeded?.bName ?? undefined;
 
   return (
     <div
