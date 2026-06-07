@@ -1,14 +1,26 @@
 # YouTube companion tutorials (design doc)
 
-Status: draft for Grant's sign-off. No code or recording yet.
+Status: signed off by Grant 2026-06-07. Open questions resolved (see Decisions).
 Author: brand manager (Claude), 2026-06-07.
+
+## Decisions (signed off 2026-06-07)
+
+1. Tier 1 launch set, kept as written (the 8 below).
+2. BeakerBot face is always on screen, composited live during the record.
+3. Tutorials index lives at `/wiki/tutorials`, plus a YouTube playlist on the channel.
+4. Voice only, no background music.
+5. Length and format. Standard landscape 16:9, kept short and punchy at roughly 60
+   seconds (Shorts-like brevity, but NOT the vertical Shorts format). The wide
+   desktop UI needs the landscape frame. For genuinely multi-step features (cloning,
+   import) it is fine to run a little over rather than cram, but the default target
+   is about a minute. Single-topic and fast throughout.
 
 ## Goal
 
 Short, friendly YouTube tutorials, one per meaningful feature, with the BeakerBot
 vtuber face in the corner narrating, embedded right next to the matching wiki page
 and (where it fits) reachable from the in-app tour. A researcher reading the
-"Sequences" wiki page should be able to press play and watch a 2-to-4 minute
+"Sequences" wiki page should be able to press play and watch a roughly one-minute
 walkthrough of that exact feature, in our voice, with the mascot doing the talking.
 
 Division of labor that Grant asked for: Grant records (screen plus voice plus the
@@ -217,11 +229,8 @@ top-level `/tutorials`. Marked `?`.
   Cloning, the most visual), prove the full record to edit to embed loop.
 - Phase 3, batch the rest of Tier 1, then Tiers 2 to 4 as time allows.
 
-## Open questions for Grant (resolve before Phase 1)
+## Open questions
 
-1. Is the Tier 1 launch set right, any swaps.
-2. Face always-on, or intros and key moments only.
-3. Tutorials index at `/wiki/tutorials` or top-level `/tutorials`, and a YouTube
-   playlist yes.
-4. Any background music, or voice only.
-5. Target length per video, the doc assumes 2 to 4 minutes.
+All resolved, see the Decisions block at the top (signed off 2026-06-07). Tier 1 as
+written, face always-on, index at `/wiki/tutorials` plus a YouTube playlist, voice
+only, roughly one-minute landscape videos.
