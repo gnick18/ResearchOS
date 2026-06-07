@@ -8,6 +8,15 @@ export interface CapOption {
   maxCostCents: number;
 }
 
+/** A plan the user can pick (flat bundle plan). */
+export interface PlanOption {
+  id: string;
+  name: string;
+  storageBytes: number;
+  activityWritesPerMonth: number;
+  priceCents: number;
+}
+
 export interface BillingStatus {
   enabled: boolean;
   signedIn?: boolean;
@@ -16,6 +25,13 @@ export interface BillingStatus {
   freeBytes: number;
   capBytes: number;
   quotaBytes: number;
+  // Flat-plan fields (the live model).
+  planId?: string;
+  planName?: string;
+  plans?: PlanOption[];
+  activityWrites?: number;
+  activityAllowance?: number;
+  // Metered fields, kept only for the a-la-carte comparison anchor.
   rateCents?: number;
   minChargeCents?: number;
   estimatedChargeCents?: number;
@@ -75,6 +91,35 @@ export async function startCheckout(): Promise<string | null> {
     return body.url ?? null;
   } catch {
     return null;
+  }
+}
+
+export interface PlanResult {
+  ok: boolean;
+  /** Stripe Checkout url to finish a paid plan, when present. */
+  url?: string;
+  error?: string;
+}
+
+/**
+ * Choose a plan. The free plan applies immediately; a paid plan returns a Stripe
+ * Checkout url the caller redirects to. Mirrors the bundle "one control" model.
+ */
+export async function choosePlan(planId: string): Promise<PlanResult> {
+  try {
+    const res = await fetch("/api/billing/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ planId }),
+    });
+    const b = (await res.json().catch(() => ({}))) as {
+      url?: string;
+      error?: string;
+    };
+    if (res.ok) return { ok: true, url: b.url };
+    return { ok: false, error: b.error };
+  } catch {
+    return { ok: false };
   }
 }
 
