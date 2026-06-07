@@ -9,8 +9,11 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAccountType } from "@/hooks/useAccountType";
 import { PURCHASE_LORO_ENABLED } from "@/lib/loro/config";
 import { usePurchaseRowLoro } from "@/lib/loro/use-purchase-row-loro";
+import { usePurchasePresence } from "@/lib/loro/use-purchase-presence";
 import { getPurchaseFields } from "@/lib/loro/purchase-doc";
 import { writePurchaseUpdateThroughLoro } from "@/lib/loro/purchase-write-through";
+import PurchaseHistoryPopup from "@/components/PurchaseHistoryPopup";
+import PurchaseRowPresence from "@/components/PurchaseRowPresence";
 import {
   PurchaseApprovalToggle,
   PurchaseApprovalBadge,
@@ -147,6 +150,15 @@ export default function PurchaseEditor({
   const [, setEditSelectedCatalogItem] = useState<CatalogItem | null>(null);
   const editSuggestionsRef = useRef<HTMLTableCellElement>(null);
 
+  // Purchase items on Loro chunk 4: version-history popup state. Holds the
+  // item id whose history is open + the click origin for the LivingPopup zoom.
+  // Only ever set when PURCHASE_LORO_ENABLED (the History button is flag-gated),
+  // so this stays null and renders no popup when the flag is off.
+  const [historyItemId, setHistoryItemId] = useState<number | null>(null);
+  const [historyOrigin, setHistoryOrigin] = useState<{ x: number; y: number } | null>(
+    null,
+  );
+
   const { data: items = [], refetch } = useQuery({
     queryKey: ["purchases", taskId, username],
     queryFn: () => {
@@ -246,6 +258,16 @@ export default function PurchaseEditor({
     taskId,
     queryUsername: username,
     currentUser,
+  });
+
+  // Purchase items on Loro chunk 4: live presence over the open row's shared
+  // EphemeralStore. Broadcasts this device's presence while a row is open and
+  // reads OTHER peers on the same item. Flag-off / no session, rowLoro.ephemeral
+  // is null and this returns an empty list (a pure no-op).
+  const remotePresencePeers = usePurchasePresence({
+    store: rowLoro.ephemeral,
+    itemId: editingItemId,
+    username: currentUser,
   });
 
   const { data: autocompleteItems = [] } = useQuery({
@@ -884,6 +906,12 @@ export default function PurchaseEditor({
                   <td className="py-2 px-2" />
                   <td className="py-2 px-2" />
                   <td className="py-2 px-1 flex items-center gap-1">
+                    {/* Purchase items on Loro chunk 4: quiet live-presence
+                        indicator. Renders only when a REMOTE peer is editing
+                        this same item over the relay; otherwise it is invisible.
+                        Flag-off / solo, remotePresencePeers is empty so this is a
+                        no-op. */}
+                    <PurchaseRowPresence peers={remotePresencePeers} />
                     <Tooltip label="Save changes" placement="bottom">
                       <button
                         aria-label="Save changes"
@@ -1051,6 +1079,41 @@ export default function PurchaseEditor({
                   </td>
                   <td className="py-2 px-1">
                     <div className="flex items-center gap-1.5">
+                    {/* Purchase items on Loro chunk 4: version history. Only
+                        rendered when PURCHASE_LORO_ENABLED (the history engine
+                        reads the .loro sidecar, which only exists once the flag
+                        is on), so flag-off this adds zero surface. Icon-only
+                        custom inline SVG (clock + counter-arrow) wrapped in the
+                        Tooltip component (never title=). */}
+                    {PURCHASE_LORO_ENABLED && (
+                      <Tooltip label="Version history" placement="left">
+                        <button
+                          type="button"
+                          aria-label="Version history"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setHistoryOrigin({ x: e.clientX, y: e.clientY });
+                            setHistoryItemId(item.id);
+                          }}
+                          className="text-foreground-muted hover:text-foreground transition-colors"
+                        >
+                          <svg
+                            className="w-3.5 h-3.5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M3 3v5h5" />
+                            <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+                            <path d="M12 7v5l3 2" />
+                          </svg>
+                        </button>
+                      </Tooltip>
+                    )}
                     {/* Buy again (reorder-loop sub-bot, 2026-05-31):
                         one-click reorder of a RECEIVED item. Creates a fresh
                         needs-ordering line item copying name / vendor / cas /
@@ -1313,6 +1376,28 @@ export default function PurchaseEditor({
           </tfoot>
         </table>
       </div>
+
+      {/* Purchase items on Loro chunk 4: per-item version history popup. Only
+          mounted when PURCHASE_LORO_ENABLED + a row's History button has been
+          clicked (historyItemId non-null). canRestore mirrors the row-edit gate
+          (writes must be allowed), so a read-only / shared-into-me viewer can
+          browse history but never restore. Flag-off, historyItemId stays null
+          and nothing renders. */}
+      {PURCHASE_LORO_ENABLED && historyItemId !== null && (
+        <PurchaseHistoryPopup
+          open={historyItemId !== null}
+          onClose={() => setHistoryItemId(null)}
+          origin={historyOrigin}
+          owner={rowLoroOwner}
+          itemId={historyItemId}
+          canRestore={!writesDisabled}
+          currentUser={currentUser}
+          onRestored={() => {
+            refetch();
+            void queryClient.refetchQueries({ queryKey: ["purchases-all"] });
+          }}
+        />
+      )}
     </div>
   );
 }

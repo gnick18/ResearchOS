@@ -34,6 +34,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import type { EphemeralStore } from "loro-crdt";
+import type { EphemeralState } from "loro-codemirror";
 import { PURCHASE_LORO_ENABLED } from "./config";
 import { openPurchaseDoc, type PurchaseDocHandle } from "./purchase-store";
 import { getOrMintCollabDocId } from "@/lib/collab/client/doc-id";
@@ -50,6 +52,13 @@ export interface PurchaseRowLoroState {
    * item otherwise.
    */
   opening: boolean;
+  /**
+   * The live session's shared EphemeralStore, exposed so the presence hook
+   * (use-purchase-presence.ts) can broadcast + read this row's live presence
+   * over the relay. Null when the flag is off (the collab session stays idle).
+   * Chunk 4 presence indicator.
+   */
+  ephemeral: EphemeralStore<EphemeralState> | null;
 }
 
 /**
@@ -178,5 +187,10 @@ export function usePurchaseRowLoro(args: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handle, taskId, queryUsername, queryClient]);
 
-  return { handle, opening };
+  // Expose the session's shared EphemeralStore for the presence hook ONLY when
+  // the flag is on (flag-off the session stays permanently idle, so there is no
+  // live store to broadcast over and presence must be a pure no-op).
+  const ephemeral = PURCHASE_LORO_ENABLED ? collab.ephemeral : null;
+
+  return { handle, opening, ephemeral };
 }
