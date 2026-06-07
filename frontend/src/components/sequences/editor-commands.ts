@@ -132,15 +132,17 @@ export interface PaletteContextCard {
 
 /** The icon-chip tones the palette can paint, the four global object types plus
  *  page-entity tones ("goal" for Gantt milestones, "event"/"feed" for calendar
- *  events, "note" for Workbench notes + notebooks, "person" for 1:1s). Typed off
- *  GlobalIndexEntry to avoid a circular import on global-source. */
+ *  events, "note" for Workbench notes + notebooks, "person" for 1:1s, "funding"
+ *  for Purchases funding accounts). Typed off GlobalIndexEntry to avoid a
+ *  circular import on global-source. */
 export type PaletteTone =
   | GlobalIndexEntry["type"]
   | "goal"
   | "event"
   | "feed"
   | "note"
-  | "person";
+  | "person"
+  | "funding";
 
 /** One navigable / reopenable page object (an entity or a recent result). The
  *  page-agnostic equivalent of SequenceNavItem, fuzzy-matched on label + keywords

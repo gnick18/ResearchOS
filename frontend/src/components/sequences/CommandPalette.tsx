@@ -69,6 +69,7 @@ const CHIP_TONE: Record<PaletteTone, string> = {
   inventory: "bg-teal-50 text-teal-600 dark:bg-teal-900/30 dark:text-teal-300",
   note: "bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300",
   person: "bg-pink-50 text-pink-600 dark:bg-pink-900/30 dark:text-pink-300",
+  funding: "bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-300",
 };
 /** The default chip for commands / sequence-nav / artifacts / the search-all row
  *  (everything that is not a typed cross-app record). */
