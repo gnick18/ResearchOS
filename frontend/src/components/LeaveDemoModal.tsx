@@ -110,15 +110,15 @@ export default function LeaveDemoModal({ isOpen, onClose }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="leave-demo-title"
-        className="relative w-full max-w-md rounded-2xl bg-slate-900 border border-white/10 shadow-2xl p-6"
+        className="relative w-full max-w-md rounded-2xl bg-surface-raised border border-border shadow-2xl p-6"
       >
         <h2
           id="leave-demo-title"
-          className="text-heading font-bold text-white mb-2"
+          className="text-heading font-bold text-foreground mb-2"
         >
           {title}
         </h2>
-        <p className="text-body text-slate-300 mb-5">{body}</p>
+        <p className="text-body text-foreground-muted mb-5">{body}</p>
 
         <div className="flex flex-col gap-3">
           <button
@@ -132,7 +132,7 @@ export default function LeaveDemoModal({ isOpen, onClose }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-2 text-meta text-slate-400 hover:text-white transition-colors"
+            className="w-full py-2 text-meta text-foreground-muted hover:text-foreground transition-colors"
           >
             {cancelLabel}
           </button>
