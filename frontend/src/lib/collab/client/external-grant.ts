@@ -27,7 +27,7 @@ import { LoroDoc } from "loro-crdt";
 import type { SharedUser } from "@/lib/types";
 import { getOrMintCollabDocId } from "./doc-id";
 import { collabSessionFromDocId } from "@/lib/loro/collab/doc-id-session";
-import { signGrant, type GrantMember } from "./do-access";
+import { signGrant, signMembersList, signRevoke, type GrantMember } from "./do-access";
 import { pushInvite } from "./inbox";
 import { getCollabSignerEmail } from "./current-email";
 import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
@@ -210,4 +210,117 @@ export async function grantExternalCollab(
   }
 
   return { ok: true, docId };
+}
+
+// ---------------------------------------------------------------------------
+// External-collab chunk 5: list current collaborators + revoke one.
+// ---------------------------------------------------------------------------
+
+/** One member row returned by the owner-signed /members read. */
+export interface CollabMember {
+  email: string;
+  pubkey: string;
+  role: string | null;
+  addedAt: number | null;
+  addedBy: string | null;
+}
+
+export type ListMembersResult =
+  | { ok: true; members: CollabMember[] }
+  | { ok: false; reason: "no-identity" | "request-failed" };
+
+/**
+ * OWNER side. Reads the current member list for a doc's collab session, so the
+ * revoke UI can show who has live access. Owner-signed; the DO verifies the
+ * signature against the stored owner pubkey and returns the members rows.
+ *
+ * Returns ok:false (without sending) when this device has no usable sharing
+ * identity. Never throws on a network failure; it returns request-failed. An
+ * OPEN (never-granted) doc has no owner established, so the DO answers 403 and
+ * this returns request-failed, which the UI renders as "no external
+ * collaborators yet".
+ */
+export async function listMembers(sessionId: string): Promise<ListMembersResult> {
+  const ownerEmailRaw = getCollabSignerEmail();
+  const identity = getSessionIdentity();
+  const signing = identity?.keys?.signing;
+  if (!ownerEmailRaw || !signing?.privateKey || !signing?.publicKey) {
+    return { ok: false, reason: "no-identity" };
+  }
+  const ownerEmail = canonicalizeEmail(ownerEmailRaw);
+
+  const body = signMembersList({
+    sessionId,
+    ownerEmail,
+    ownerSigningKey: { publicKey: signing.publicKey, privateKey: signing.privateKey },
+  });
+
+  try {
+    const res = await fetch(
+      `${relayHttpBase()}/members?session=${encodeURIComponent(sessionId)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
+    if (!res.ok) return { ok: false, reason: "request-failed" };
+    const data = (await res.json()) as { members?: CollabMember[] };
+    return { ok: true, members: Array.isArray(data.members) ? data.members : [] };
+  } catch {
+    return { ok: false, reason: "request-failed" };
+  }
+}
+
+export type RevokeResult =
+  | { ok: true }
+  | { ok: false; reason: "no-identity" | "request-failed" };
+
+/**
+ * OWNER side. Revokes one external collaborator's LIVE access by email. The DO
+ * verifies the owner signature and deletes the member row. The doc stays
+ * enforced; the rest of the members keep their access.
+ *
+ * IMPORTANT (Grant's locked decision): revoke only stops the recipient's live
+ * access. It NEVER reaches into the recipient's folder to delete their note. The
+ * recipient keeps their last snapshot as a read-only local copy; their client
+ * detects the revoke at connect time (a 401 on the enforced session) and renders
+ * a read-only banner. See lib/collab/client/revocation.ts.
+ *
+ * Returns ok:false (without sending) when this device has no usable sharing
+ * identity. Never throws on a network failure; it returns request-failed.
+ */
+export async function revokeExternalCollab(params: {
+  sessionId: string;
+  email: string;
+}): Promise<RevokeResult> {
+  const ownerEmailRaw = getCollabSignerEmail();
+  const identity = getSessionIdentity();
+  const signing = identity?.keys?.signing;
+  if (!ownerEmailRaw || !signing?.privateKey || !signing?.publicKey) {
+    return { ok: false, reason: "no-identity" };
+  }
+  const ownerEmail = canonicalizeEmail(ownerEmailRaw);
+
+  const body = signRevoke({
+    sessionId: params.sessionId,
+    ownerEmail,
+    ownerSigningKey: { publicKey: signing.publicKey, privateKey: signing.privateKey },
+    email: canonicalizeEmail(params.email),
+  });
+
+  try {
+    const res = await fetch(
+      `${relayHttpBase()}/revoke?session=${encodeURIComponent(params.sessionId)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
+    if (!res.ok) return { ok: false, reason: "request-failed" };
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: "request-failed" };
+  }
 }

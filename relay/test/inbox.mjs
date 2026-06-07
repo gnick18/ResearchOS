@@ -80,7 +80,10 @@ const sessionId = `sess-${Date.now()}`;
   check("(b) recipient list returns the invite with metadata", found);
 }
 
-// ---- (c) list signed by the WRONG key is rejected ---------------------------
+// ---- (c) list signed by the WRONG key returns an EMPTY 200 (no oracle) -------
+// Enumeration hardening (external-collab chunk 5): a wrong-key list on an
+// ESTABLISHED inbox must look identical to a list on an UNESTABLISHED inbox, so
+// an outsider cannot probe established-vs-empty. Both return an empty 200.
 {
   const issuedAt = Date.now();
   const message = `inbox-list\n${inboxHash}\n${issuedAt}`;
@@ -91,20 +94,27 @@ const sessionId = `sess-${Date.now()}`;
     issuedAt,
     signature: sign(message, attacker.priv),
   });
-  check("(c) wrong-key list rejected (403)", res.status === 403);
+  const data = await res.json();
+  check(
+    "(c) wrong-key list returns empty 200 (no enumeration oracle)",
+    res.status === 200 && Array.isArray(data.invites) && data.invites.length === 0,
+  );
 }
 
-// Also reject the right pubkey claim with a bad signature.
+// Also the right pubkey claim with a bad signature returns the same empty 200.
 {
   const issuedAt = Date.now();
-  const message = `inbox-list\n${inboxHash}\n${issuedAt}`;
   const res = await postJson(`/inbox/list?owner=${inboxHash}`, {
     email: "recipient@out.org",
     pubkey: recipient.pub,
     issuedAt,
-    signature: sign(message, attacker.priv), // signed by the wrong key
+    signature: sign(`inbox-list\n${inboxHash}\n${issuedAt}`, attacker.priv), // wrong key
   });
-  check("(c) recipient-pubkey claim with bad signature rejected (401)", res.status === 401);
+  const data = await res.json();
+  check(
+    "(c) recipient-pubkey claim with bad signature returns empty 200",
+    res.status === 200 && Array.isArray(data.invites) && data.invites.length === 0,
+  );
 }
 
 // ---- (d) push that tries to rebind the recipient pubkey is rejected ----------

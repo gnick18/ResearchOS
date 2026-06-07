@@ -72,6 +72,7 @@ import {
   type PendingInvite,
 } from "@/lib/collab/client/inbox";
 import { acceptInvite } from "@/lib/collab/client/accept";
+import { blockSender } from "@/lib/collab/client/block-list";
 
 // ── Pending live-collab invitations (external-collab chunk 4) ────────────────
 // Discovery AND accept of a live-collab grant from an outside ResearchOS user.
@@ -170,6 +171,25 @@ function PendingCollabInvites({
     [setRow, dropInvite],
   );
 
+  // External-collab chunk 5: block the sender (a local, recipient-only setting).
+  // Future invites from this email are filtered out client-side on list; the
+  // current row is dismissed on the relay and dropped from the view. There is no
+  // server moderation backend, so blocking is purely the recipient's preference.
+  const handleBlock = useCallback(
+    async (inv: PendingInvite) => {
+      blockSender(inv.fromEmail);
+      setRow(inv.collabDocId, { phase: "working", label: "Blocking…" });
+      try {
+        await dismissInvite(inv.collabDocId);
+      } catch (err) {
+        // Non-fatal: the block-list filter hides any re-delivered invite anyway.
+        console.warn("[inbox] block (dismiss) failed", err);
+      }
+      dropInvite(inv.collabDocId);
+    },
+    [setRow, dropInvite],
+  );
+
   if (!enabled || invites.length === 0) return null;
 
   return (
@@ -222,6 +242,17 @@ function PendingCollabInvites({
                   >
                     Decline
                   </button>
+                  {inv.fromEmail && (
+                    <button
+                      type="button"
+                      onClick={() => void handleBlock(inv)}
+                      disabled={working}
+                      title="Hide all future invites from this sender"
+                      className="px-3 py-1.5 text-meta text-foreground-muted hover:bg-surface rounded-md transition-colors disabled:opacity-40"
+                    >
+                      Block
+                    </button>
+                  )}
                 </div>
               </div>
               {state.phase === "error" && (

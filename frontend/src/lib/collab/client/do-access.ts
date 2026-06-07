@@ -41,6 +41,14 @@ export interface RevokeBody {
   signature: string;
 }
 
+/** The exact JSON body POSTed to /members?session=<sid> (external-collab
+ *  chunk 5). Owner-signed READ of the current member list. */
+export interface MembersListBody {
+  owner: { email: string; pubkey: string };
+  issuedAt: number;
+  signature: string;
+}
+
 /** The query params appended to a /ws or /snapshot connect URL. */
 export interface ConnectToken {
   authEmail: string;
@@ -98,6 +106,31 @@ export function signRevoke(params: {
   return {
     owner: { email: params.ownerEmail, pubkey: ownerPubkey },
     email: params.email,
+    issuedAt,
+    signature,
+  };
+}
+
+/**
+ * Builds a signed MEMBERS-list body (external-collab chunk 5). Owner-signed read
+ * of the current member list for an enforced doc, so the owner's revoke UI can
+ * list who has access. Canonical message:
+ *   members\n${sessionId}\n${ownerEmail}\n${issuedAt}
+ * The "members" verb keeps this signature from being replayable against /grant
+ * or /revoke (which sign "grant\n..." / "revoke\n...").
+ */
+export function signMembersList(params: {
+  sessionId: string;
+  ownerEmail: string;
+  ownerSigningKey: { publicKey: Uint8Array; privateKey: Uint8Array };
+  issuedAt?: number;
+}): MembersListBody {
+  const issuedAt = params.issuedAt ?? Date.now();
+  const ownerPubkey = encodePublicKey(params.ownerSigningKey.publicKey);
+  const message = `members\n${params.sessionId}\n${params.ownerEmail}\n${issuedAt}`;
+  const signature = signHex(message, params.ownerSigningKey.privateKey);
+  return {
+    owner: { email: params.ownerEmail, pubkey: ownerPubkey },
     issuedAt,
     signature,
   };

@@ -30,6 +30,7 @@ import { encodePublicKey } from "@/lib/sharing/identity/keys";
 import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
 import { canonicalizeEmail, hashEmail } from "@/lib/sharing/directory/email";
 import { getCollabSignerEmail } from "./current-email";
+import { isBlocked } from "./block-list";
 import { COLLAB_INBOX_ADDRESS_SALT, COLLAB_RELAY_URL } from "@/lib/loro/config";
 
 /** A pending invite as the inbox DO returns it on /inbox/list. */
@@ -181,7 +182,23 @@ export async function listInvites(): Promise<PendingInvite[]> {
   );
   if (!res.ok) return [];
   const data = (await res.json()) as { invites?: PendingInvite[] };
-  return Array.isArray(data.invites) ? data.invites : [];
+  const all = Array.isArray(data.invites) ? data.invites : [];
+
+  // External-collab chunk 5: filter out invites from blocked senders (a local,
+  // recipient-only setting). A blocked sender's pending row is also best-effort
+  // dismissed on the relay so it stops being delivered, but the filter is the
+  // authority, so a failed dismiss never lets a blocked invite slip through.
+  const visible: PendingInvite[] = [];
+  for (const invite of all) {
+    if (isBlocked(invite.fromEmail)) {
+      void dismissInvite(invite.collabDocId).catch(() => {
+        // Non-fatal: the client-side filter already hides it this session.
+      });
+      continue;
+    }
+    visible.push(invite);
+  }
+  return visible;
 }
 
 /**
