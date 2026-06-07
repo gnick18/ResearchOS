@@ -19,11 +19,126 @@ import { Icon } from "@/components/icons";
 import BeakerBot from "@/components/BeakerBot";
 import type { SelectionKind } from "@/lib/sequences/inspector-context";
 import {
-  buildResults,
-  flattenResults,
-  isCommandEnabled,
+  buildPaletteResultsForQuery,
+  flattenPaletteItems,
+  isPaletteItemEnabled,
+  paletteItemKey,
+  runPaletteItem,
+  type ArtifactNavItem,
   type EditorCommand,
+  type PaletteContext,
+  type PaletteItem,
+  type SequenceNavItem,
 } from "./editor-commands";
+
+// Stable empty defaults so an omitted prop does not churn the result memo.
+const EMPTY_SEQUENCES: SequenceNavItem[] = [];
+const EMPTY_ARTIFACTS: ArtifactNavItem[] = [];
+
+/** The icon, label, optional sub, and right-side hint for ONE palette item,
+ *  branched by kind. Keeps the row markup uniform across commands, sequences,
+ *  and results. */
+function paletteRowParts(item: PaletteItem): {
+  iconName: Parameters<typeof Icon>[0]["name"];
+  label: string;
+  sub?: string;
+  /** Right-aligned shortcut or "Open" affordance. */
+  hint?: string;
+} {
+  if (item.kind === "command") {
+    return {
+      iconName: item.command.iconName,
+      label: item.command.label,
+      sub: item.command.detail,
+      hint: item.command.shortcut,
+    };
+  }
+  if (item.kind === "sequence") {
+    return {
+      iconName: item.sequence.iconName,
+      label: item.sequence.label,
+      sub: item.sequence.detail,
+    };
+  }
+  return {
+    iconName: item.artifact.iconName,
+    label: item.artifact.label,
+    sub: item.artifact.detail,
+    hint: "Open",
+  };
+}
+
+/** The "On this sequence" context card (empty query) or its slim one-line header
+ *  (while typing). Display only, never a selectable row. Self-hides with no
+ *  context. */
+function ContextCard({
+  context,
+  slim,
+}: {
+  context: PaletteContext | undefined;
+  slim: boolean;
+}) {
+  if (!context) return null;
+
+  if (slim) {
+    // One quiet line so the user keeps their bearings while the list below is
+    // ranked matches.
+    return (
+      <div className="flex items-center gap-2 border-b border-border px-4 py-2 text-meta text-foreground-muted">
+        <Icon
+          name={context.circular ? "moleculeCircular" : "moleculeLinear"}
+          className="h-3.5 w-3.5 flex-none text-sky-600 dark:text-sky-300"
+        />
+        <span className="truncate font-medium text-foreground">{context.name}</span>
+        <span className="truncate">{context.meta}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-3 pb-1 pt-2">
+      <div className="px-1 pb-1 text-[10px] font-extrabold uppercase tracking-wide text-foreground-muted">
+        On this sequence
+      </div>
+      <div className="rounded-xl border border-sky-100 bg-sky-50 px-3 py-2.5 dark:border-sky-900/40 dark:bg-sky-900/20">
+        <div className="flex items-center gap-2">
+          <Icon
+            name={context.circular ? "moleculeCircular" : "moleculeLinear"}
+            className="h-4 w-4 flex-none text-sky-600 dark:text-sky-300"
+          />
+          <span className="truncate text-body font-semibold text-foreground">
+            {context.name}
+          </span>
+        </div>
+        <div className="mt-1 pl-6 text-meta text-foreground-muted">{context.meta}</div>
+        {context.organism ? (
+          <div className="mt-1 flex items-center gap-1.5 pl-6 text-meta italic text-foreground-muted">
+            <span
+              className="h-2 w-2 flex-none rounded-sm"
+              style={{ background: context.organismSwatch ?? "#0284c7" }}
+            />
+            {context.organism}
+          </div>
+        ) : null}
+        {context.selection ? (
+          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-meta font-medium text-amber-700 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300">
+            <Icon name="ruler" className="h-3 w-3 flex-none" />
+            <span>
+              Selection {context.selection.lo}..{context.selection.hi} (
+              {context.selection.len} nt)
+              {context.selection.tm != null
+                ? `, Tm ${context.selection.tm.toFixed(1)} C`
+                : ""}
+              {context.selection.gc != null
+                ? `, ${context.selection.gc.toFixed(0)}% GC`
+                : ""}
+            </span>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 export interface CommandPaletteProps {
   open: boolean;
@@ -33,6 +148,15 @@ export interface CommandPaletteProps {
   selectionKind: SelectionKind;
   /** Whether the open sequence carries an organism (biases Suggested too). */
   hasOrganism: boolean;
+  /** The "On this sequence" context card data (open sequence + live selection).
+   *  Absent in older callers / tests; the card just self-hides then. */
+  context?: PaletteContext;
+  /** The OTHER sequences in the open collection, to jump to. Default empty. */
+  sequences?: SequenceNavItem[];
+  /** The latest saved results for the open sequence, newest first. Default empty. */
+  artifacts?: ArtifactNavItem[];
+  /** The collection name, for the "Jump to a sequence" group hint. */
+  collectionLabel?: string;
 }
 
 /** The full-screen palette. Renders nothing when closed. */
@@ -42,6 +166,10 @@ export function CommandPalette({
   commands,
   selectionKind,
   hasOrganism,
+  context,
+  sequences = EMPTY_SEQUENCES,
+  artifacts = EMPTY_ARTIFACTS,
+  collectionLabel,
 }: CommandPaletteProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -54,12 +182,19 @@ export function CommandPalette({
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const baseId = useId();
 
-  // Grouped + flat results for the current query and selection context.
+  const typing = query.trim() !== "";
+
+  // Grouped + flat heterogeneous results (commands + sequences + results) for the
+  // current query and selection context.
   const groups = useMemo(
-    () => buildResults(commands, query, { selectionKind, hasOrganism }),
-    [commands, query, selectionKind, hasOrganism],
+    () =>
+      buildPaletteResultsForQuery(
+        { commands, sequences, artifacts, collectionLabel, selectionKind, hasOrganism },
+        query,
+      ),
+    [commands, sequences, artifacts, collectionLabel, selectionKind, hasOrganism, query],
   );
-  const flat = useMemo(() => flattenResults(groups), [groups]);
+  const flat = useMemo(() => flattenPaletteItems(groups), [groups]);
 
   // Reset the query and remember focus each time the palette opens; default the
   // highlight to the first (top-ranked) result and put the cursor in the input.
@@ -87,13 +222,13 @@ export function CommandPalette({
     if (el && typeof el.focus === "function") el.focus();
   }, [open]);
 
-  const runCommand = useCallback(
-    (cmd: EditorCommand | undefined) => {
-      if (!cmd || !isCommandEnabled(cmd)) return;
+  const runItem = useCallback(
+    (item: PaletteItem | undefined) => {
+      if (!item || !isPaletteItemEnabled(item)) return;
       onClose();
-      // Run AFTER closing so a command that opens its own dialog does not fight
-      // the palette for focus.
-      cmd.run();
+      // Run AFTER closing so an action that opens its own dialog (or switches the
+      // open sequence) does not fight the palette for focus.
+      runPaletteItem(item);
     },
     [onClose],
   );
@@ -106,7 +241,7 @@ export function CommandPalette({
       let next = highlight;
       for (let step = 0; step < flat.length; step += 1) {
         next = (next + dir + flat.length) % flat.length;
-        if (isCommandEnabled(flat[next])) {
+        if (isPaletteItemEnabled(flat[next])) {
           setHighlight(next);
           return;
         }
@@ -134,11 +269,11 @@ export function CommandPalette({
       }
       if (e.key === "Enter") {
         e.preventDefault();
-        runCommand(flat[highlight]);
+        runItem(flat[highlight]);
         return;
       }
     },
-    [onClose, moveHighlight, runCommand, flat, highlight],
+    [onClose, moveHighlight, runItem, flat, highlight],
   );
 
   // Keep the highlighted row scrolled into view as Up / Down walk past the fold.
@@ -158,7 +293,9 @@ export function CommandPalette({
   if (!mounted || !open) return null;
 
   const activeId =
-    flat[highlight] != null ? `${baseId}-opt-${flat[highlight].id}` : undefined;
+    flat[highlight] != null
+      ? `${baseId}-opt-${paletteItemKey(flat[highlight])}`
+      : undefined;
 
   return createPortal(
     <div
@@ -201,7 +338,7 @@ export function CommandPalette({
               setQuery(e.target.value);
               setHighlight(0);
             }}
-            placeholder="Search BeakerSearch, or run any tool"
+            placeholder="Search, jump, or run any tool"
             aria-label="BeakerSearch"
             role="combobox"
             aria-expanded="true"
@@ -216,38 +353,51 @@ export function CommandPalette({
           </kbd>
         </div>
 
-        {/* Result list. Grouped, scrollable, with a flat highlight cursor. */}
+        {/* The "On this sequence" context card. A full card at rest, a slim
+            one-line header while typing. Display only, outside the listbox so it
+            is never a selectable / highlighted row. */}
+        <ContextCard context={context} slim={typing} />
+
+        {/* Result list. Grouped, scrollable, with a flat highlight cursor across
+            commands, sequences, and saved results. */}
         <div
           ref={listRef}
           id={`${baseId}-listbox`}
           role="listbox"
-          aria-label="Commands"
+          aria-label="Commands, sequences, and results"
           className="max-h-[52vh] overflow-y-auto py-1"
         >
           {flat.length === 0 ? (
             <div className="px-4 py-8 text-center text-meta text-foreground-muted">
-              No tools match that search.
+              Nothing matches that search.
             </div>
           ) : (
             (() => {
               // A running flat index so the highlight maps across groups.
               let flatIndex = -1;
               return groups.map((g) => (
-                <div key={g.group}>
-                  <div className="px-4 pb-1 pt-2 text-[10px] font-extrabold uppercase tracking-wide text-foreground-muted">
-                    {g.group}
+                <div key={g.title}>
+                  <div className="flex items-center gap-2 px-4 pb-1 pt-2 text-[10px] font-extrabold uppercase tracking-wide text-foreground-muted">
+                    <span>{g.title}</span>
+                    {g.hint ? (
+                      <span className="font-medium normal-case tracking-normal text-foreground-muted">
+                        {g.hint}
+                      </span>
+                    ) : null}
                   </div>
-                  {g.commands.map((cmd) => {
+                  {g.items.map((item) => {
                     flatIndex += 1;
                     const idx = flatIndex;
                     const isHighlighted = idx === highlight;
-                    const enabled = isCommandEnabled(cmd);
+                    const enabled = isPaletteItemEnabled(item);
+                    const key = paletteItemKey(item);
+                    const parts = paletteRowParts(item);
                     return (
                       <div
-                        key={cmd.id}
-                        id={`${baseId}-opt-${cmd.id}`}
+                        key={key}
+                        id={`${baseId}-opt-${key}`}
                         data-cmd-index={idx}
-                        data-cmd-id={cmd.id}
+                        data-cmd-id={key}
                         role="option"
                         aria-selected={isHighlighted}
                         aria-disabled={!enabled}
@@ -257,21 +407,28 @@ export function CommandPalette({
                         onMouseDown={(e) => {
                           // Keep focus in the input; run on click.
                           e.preventDefault();
-                          runCommand(cmd);
+                          runItem(item);
                         }}
                         className={`flex cursor-pointer items-center gap-3 px-4 py-2 ${
                           isHighlighted ? "bg-sky-50 dark:bg-sky-900/30" : ""
                         } ${enabled ? "" : "cursor-default opacity-40"}`}
                       >
                         <span className="flex h-6 w-6 flex-none items-center justify-center rounded-md bg-surface-sunken text-sky-600 dark:text-sky-300">
-                          <Icon name={cmd.iconName} className="h-3.5 w-3.5" />
+                          <Icon name={parts.iconName} className="h-3.5 w-3.5" />
                         </span>
-                        <span className="flex-1 truncate text-body font-medium text-foreground">
-                          {cmd.label}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-body font-medium text-foreground">
+                            {parts.label}
+                          </span>
+                          {parts.sub ? (
+                            <span className="block truncate text-[11px] text-foreground-muted">
+                              {parts.sub}
+                            </span>
+                          ) : null}
                         </span>
-                        {cmd.shortcut ? (
+                        {parts.hint ? (
                           <span className="flex-none text-[11px] text-foreground-muted">
-                            {cmd.shortcut}
+                            {parts.hint}
                           </span>
                         ) : null}
                       </div>
@@ -286,7 +443,7 @@ export function CommandPalette({
         {/* Footer hints. Calm, the standard palette legend. */}
         <div className="flex items-center gap-4 border-t border-border px-4 py-2 text-[11px] text-foreground-muted">
           <span>Up and Down to navigate</span>
-          <span>Enter to run</span>
+          <span>Enter to run or open</span>
           <span className="ml-auto">
             Cmd K reaches everything, including tools off the rail
           </span>

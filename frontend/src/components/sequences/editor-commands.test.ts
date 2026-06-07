@@ -10,8 +10,16 @@ import {
   buildResults,
   flattenResults,
   suggestionIdsForSelection,
+  buildPaletteResults,
+  buildPaletteResultsForQuery,
+  flattenPaletteItems,
+  scoreSequenceNav,
+  scoreArtifactNav,
+  RECENT_RESULTS_CAP,
   COMMAND_GROUP_ORDER,
   type EditorCommand,
+  type SequenceNavItem,
+  type ArtifactNavItem,
 } from "./editor-commands";
 
 const noop = () => {};
@@ -121,5 +129,147 @@ describe("suggestionIdsForSelection", () => {
     const ids = suggestionIdsForSelection({ selectionKind: "region", hasOrganism: false });
     expect(ids).toContain("primer-design");
     expect(ids).toContain("copy");
+  });
+});
+
+function makeSequenceNav(): SequenceNavItem[] {
+  return [
+    {
+      id: "12",
+      label: "pGEX-3X",
+      detail: "DNA, Circular, 4,952 bp, Schistosoma japonicum",
+      organism: "Schistosoma japonicum",
+      iconName: "moleculeCircular",
+      onRun: noop,
+    },
+    {
+      id: "34",
+      label: "GG cassette 2",
+      detail: "DNA, Linear, 338 bp",
+      iconName: "moleculeLinear",
+      onRun: noop,
+    },
+  ];
+}
+
+function makeArtifactNav(): ArtifactNavItem[] {
+  return [
+    {
+      id: "a1",
+      label: "Align to pEGFP-N1-TRAP1",
+      detail: "92% identity, 2 minutes ago",
+      iconName: "align",
+      onRun: noop,
+    },
+    {
+      id: "a2",
+      label: "Domains in EGFP",
+      detail: "2 Pfam hits, 5 minutes ago",
+      iconName: "protein",
+      onRun: noop,
+    },
+  ];
+}
+
+describe("scoreSequenceNav / scoreArtifactNav", () => {
+  it("matches a sequence by name and by organism", () => {
+    const [seq] = makeSequenceNav();
+    expect(scoreSequenceNav("pgex", seq)).not.toBeNull();
+    expect(scoreSequenceNav("schistosoma", seq)).not.toBeNull();
+    expect(scoreSequenceNav("zzz", seq)).toBeNull();
+  });
+
+  it("matches an artifact by title and by detail", () => {
+    const [art] = makeArtifactNav();
+    expect(scoreArtifactNav("align", art)).not.toBeNull();
+    expect(scoreArtifactNav("identity", art)).not.toBeNull();
+    expect(scoreArtifactNav("zzz", art)).toBeNull();
+  });
+});
+
+describe("buildPaletteResults (empty query)", () => {
+  const input = {
+    commands: makeCommands(),
+    sequences: makeSequenceNav(),
+    artifacts: makeArtifactNav(),
+    collectionLabel: "Gateway demo",
+    selectionKind: "region" as const,
+    hasOrganism: true,
+  };
+
+  it("orders the orienting glue, Suggested then Jump then Recent then the command groups", () => {
+    const groups = buildPaletteResults(input);
+    const titles = groups.map((g) => g.title);
+    expect(titles[0]).toBe("Suggested");
+    expect(titles[1]).toBe("Jump to a sequence");
+    expect(titles[2]).toBe("Recent results");
+    // The remaining titles are the command intent groups, in order.
+    const rest = titles.slice(3);
+    expect(rest).toEqual(COMMAND_GROUP_ORDER.filter((g) => rest.includes(g)));
+  });
+
+  it("carries the collection size in the Jump group hint", () => {
+    const groups = buildPaletteResults(input);
+    const jump = groups.find((g) => g.title === "Jump to a sequence");
+    expect(jump?.hint).toBe("in Gateway demo (2)");
+  });
+
+  it("caps the Recent results group", () => {
+    const many: ArtifactNavItem[] = Array.from({ length: 9 }, (_, i) => ({
+      id: `a${i}`,
+      label: `Result ${i}`,
+      iconName: "align",
+      onRun: noop,
+    }));
+    const groups = buildPaletteResults({ ...input, artifacts: many });
+    const recent = groups.find((g) => g.title === "Recent results");
+    expect(recent?.items.length).toBe(RECENT_RESULTS_CAP);
+  });
+
+  it("self-hides the jump and recent groups when empty", () => {
+    const groups = buildPaletteResults({ ...input, sequences: [], artifacts: [] });
+    const titles = groups.map((g) => g.title);
+    expect(titles).not.toContain("Jump to a sequence");
+    expect(titles).not.toContain("Recent results");
+  });
+});
+
+describe("buildPaletteResultsForQuery (typed, across kinds)", () => {
+  const input = {
+    commands: makeCommands(),
+    sequences: makeSequenceNav(),
+    artifacts: makeArtifactNav(),
+    collectionLabel: "Gateway demo",
+    selectionKind: "none" as const,
+    hasOrganism: false,
+  };
+
+  it("surfaces matches from commands, sequences, and artifacts together", () => {
+    const groups = buildPaletteResultsForQuery(input, "p");
+    const flat = flattenPaletteItems(groups);
+    const kinds = new Set(flat.map((i) => i.kind));
+    expect(kinds.has("command")).toBe(true);
+    expect(kinds.has("sequence")).toBe(true);
+    expect(kinds.has("artifact")).toBe(true);
+    // No Suggested group once typing.
+    expect(groups.some((g) => g.title === "Suggested")).toBe(false);
+  });
+
+  it("finds a sequence by name even when no command matches", () => {
+    const groups = buildPaletteResultsForQuery(input, "pgex");
+    const flat = flattenPaletteItems(groups);
+    const seqHit = flat.find(
+      (i) => i.kind === "sequence" && i.sequence.label === "pGEX-3X",
+    );
+    expect(seqHit).toBeTruthy();
+  });
+
+  it("finds an artifact by its title", () => {
+    const groups = buildPaletteResultsForQuery(input, "domains in egfp");
+    const flat = flattenPaletteItems(groups);
+    const artHit = flat.find(
+      (i) => i.kind === "artifact" && i.artifact.label === "Domains in EGFP",
+    );
+    expect(artHit).toBeTruthy();
   });
 });

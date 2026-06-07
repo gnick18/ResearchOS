@@ -29,7 +29,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import dynamic from "next/dynamic";
 import Tooltip from "@/components/Tooltip";
 import BeakerBot from "@/components/BeakerBot";
-import type { SequenceDetail } from "@/lib/types";
+import type { SequenceDetail, SequenceRecord } from "@/lib/types";
 import { sequencesApi } from "@/lib/local-api";
 import type { LibrarySequence } from "@/lib/sequences/primer-specificity";
 import type { SeqEdit } from "@/vendor/seqviz/EventHandler";
@@ -221,7 +221,13 @@ import {
   type SelectionKind,
 } from "@/lib/sequences/inspector-context";
 import { CommandPalette } from "./CommandPalette";
-import type { EditorCommand } from "./editor-commands";
+import type {
+  ArtifactNavItem,
+  EditorCommand,
+  PaletteContext,
+  SequenceNavItem,
+} from "./editor-commands";
+import { formatRelative } from "@/components/AttributionChip";
 import { useAutoOpenInspector } from "./useAutoOpenInspector";
 import HoverCardActionHint from "./HoverCardActionHint";
 import {
@@ -616,6 +622,29 @@ function FloatingSelectionBadge({
   );
 }
 
+// Stable empty default for the collection sibling list, so an omitted prop does
+// not churn the palette's jump-to memo.
+const EMPTY_COLLECTION_SEQUENCES: SequenceRecord[] = [];
+
+// A calm, stable swatch color for the organism dot on the palette context card.
+// A small fixed palette indexed by a hash of the name, so the same organism
+// always reads the same hue without pulling in a color engine.
+const ORGANISM_SWATCHES = [
+  "#0284c7",
+  "#16a34a",
+  "#7c3aed",
+  "#d97706",
+  "#dc2626",
+  "#0d9488",
+];
+function swatchForOrganism(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i += 1) {
+    hash = (hash * 31 + name.charCodeAt(i)) | 0;
+  }
+  return ORGANISM_SWATCHES[Math.abs(hash) % ORGANISM_SWATCHES.length];
+}
+
 export default function SequenceEditView({
   sequence,
   onSave,
@@ -629,6 +658,9 @@ export default function SequenceEditView({
   onExploreInTree,
   onLookupTaxonomy,
   onOpenAssemble,
+  collectionSequences = EMPTY_COLLECTION_SEQUENCES,
+  collectionLabel,
+  onOpenSequence,
 }: {
   sequence: SequenceDetail;
   /** persist the current GenBank; resolves true on success. Unused when readOnly. */
@@ -672,6 +704,15 @@ export default function SequenceEditView({
    *  Export / read-only badge). The view tabs, the left view rail, and the map
    *  itself stay. The "chrome slim" for a preview embed. Default false. */
   embedded?: boolean;
+  /** The OTHER sequences in the open collection (the page passes inCollection
+   *  minus the open one), surfaced as "Jump to a sequence" rows in the command
+   *  palette. Default empty (the group self-hides). */
+  collectionSequences?: SequenceRecord[];
+  /** The collection name, for the palette's "Jump to a sequence" group hint. */
+  collectionLabel?: string;
+  /** Switch the editor to another sequence by id (the page's setSelectedId).
+   *  Wires the "Jump to a sequence" rows. Absent => those rows self-hide. */
+  onOpenSequence?: (id: number) => void;
 }) {
   const editor = useSequenceEditor(sequence);
   const { doc, annotations: docAnnotations, applyEdit, undo, redo, canUndo, canRedo, dirty } = editor;
@@ -4460,6 +4501,18 @@ export default function SequenceEditView({
   const commands = useMemo<EditorCommand[]>(() => {
     const list: EditorCommand[] = [];
 
+    // sequence editor master (contextual BeakerSearch). The live selection,
+    // echoed as a short command SUBTITLE so the Suggested rows read as "do this
+    // to my highlight". rangeDetail is the coordinates ("from 612..632"),
+    // lenDetail is the length ("21 nt"). Both null when nothing is selected, so
+    // a row simply shows no sub then.
+    const rangeDetail =
+      readout?.kind === "range"
+        ? `from ${readout.lo.toLocaleString()}..${readout.hi.toLocaleString()}`
+        : undefined;
+    const lenDetail =
+      readout?.kind === "range" ? `${readout.len.toLocaleString()} nt` : undefined;
+
     // DESIGN ------------------------------------------------------------------
     if (!readOnly) {
       list.push({
@@ -4468,6 +4521,7 @@ export default function SequenceEditView({
         group: "Design",
         iconName: "primers",
         keywords: "oligo forward reverse pcr amplify",
+        detail: rangeDetail,
         run: () => openPrimerDialog("standard"),
       });
       list.push({
@@ -4541,6 +4595,7 @@ export default function SequenceEditView({
         group: "Design",
         iconName: "plus",
         keywords: "annotate feature region",
+        detail: selectionKind === "region" ? rangeDetail : undefined,
         run: openAddFeature,
       });
       list.push({
@@ -4647,12 +4702,16 @@ export default function SequenceEditView({
                 : item.id === "find" || item.id === "goto"
                   ? "search"
                   : "pencil";
+      // Echo the selection length on the Copy row ("21 nt") so the Suggested
+      // "Copy" reads as "copy my highlight", matching the mockup.
+      const detail = item.id === "copy" ? lenDetail : undefined;
       list.push({
         id: `edit-${item.id}`,
         label: item.label.replace(/…$/, ""),
         group: "Edit",
         iconName,
         shortcut: item.shortcut,
+        detail,
         run: item.onRun,
         enabled: item.enabled,
       });
@@ -4816,7 +4875,98 @@ export default function SequenceEditView({
     sequence.tax_id,
     editMenuItems,
     exportMenuItems,
+    readout,
   ]);
+
+  // sequence editor master (contextual BeakerSearch). The "On this sequence"
+  // context card data. Display only; the live selection chips in only when a
+  // RANGE is active (the readout's range branch carries lo..hi, length, Tm, GC).
+  const paletteContext = useMemo<PaletteContext>(() => {
+    const typeLabel =
+      sequence.seq_type === "protein"
+        ? "Protein"
+        : sequence.seq_type === "rna"
+          ? "RNA"
+          : "DNA";
+    const unit = sequence.seq_type === "protein" ? "aa" : "bp";
+    const featureCount = doc.features.length;
+    const meta =
+      `${typeLabel}, ${sequence.circular ? "Circular" : "Linear"}, ` +
+      `${doc.seq.length.toLocaleString()} ${unit}, ` +
+      `${featureCount.toLocaleString()} ${featureCount === 1 ? "feature" : "features"}`;
+    const organism = hasOrganism
+      ? sequence.organism?.trim() || `Tax id ${sequence.tax_id}`
+      : undefined;
+    return {
+      name: sequence.display_name,
+      meta,
+      circular: sequence.circular,
+      organism,
+      organismSwatch: organism ? swatchForOrganism(organism) : undefined,
+      selection:
+        readout?.kind === "range"
+          ? {
+              lo: readout.lo,
+              hi: readout.hi,
+              len: readout.len,
+              tm: readout.tm,
+              gc: readout.gc,
+            }
+          : undefined,
+    };
+  }, [
+    sequence.seq_type,
+    sequence.circular,
+    sequence.display_name,
+    sequence.organism,
+    sequence.tax_id,
+    doc.features.length,
+    doc.seq.length,
+    hasOrganism,
+    readout,
+  ]);
+
+  // sequence editor master (contextual BeakerSearch). The "Jump to a sequence"
+  // rows, built from the OTHER sequences in the open collection (the page passes
+  // the collection minus the open one). Each row switches the editor to that
+  // sequence; the organism widens its fuzzy match. Empty when the prop is empty
+  // or no switch handler was wired (the group self-hides then).
+  const jumpSequences = useMemo<SequenceNavItem[]>(() => {
+    if (!onOpenSequence) return [];
+    return collectionSequences.map((s) => {
+      const typeLabel =
+        s.seq_type === "protein" ? "Protein" : s.seq_type === "rna" ? "RNA" : "DNA";
+      const unit = s.seq_type === "protein" ? "aa" : "bp";
+      const org = s.organism?.trim();
+      const detail =
+        `${typeLabel}, ${s.circular ? "Circular" : "Linear"}, ` +
+        `${s.length.toLocaleString()} ${unit}` +
+        (org ? `, ${org}` : "");
+      return {
+        id: String(s.id),
+        label: s.display_name,
+        detail,
+        organism: org,
+        iconName: s.circular ? "moleculeCircular" : "moleculeLinear",
+        onRun: () => onOpenSequence(s.id),
+      };
+    });
+  }, [collectionSequences, onOpenSequence]);
+
+  // sequence editor master (contextual BeakerSearch). The "Recent results" rows,
+  // built from the loaded Phase 5 artifacts (newest first; the palette caps the
+  // count). Each row reopens the saved result through the existing handler.
+  const recentArtifacts = useMemo<ArtifactNavItem[]>(
+    () =>
+      artifacts.map((a) => ({
+        id: a.id,
+        label: a.title,
+        detail: `${a.summary}, ${formatRelative(a.createdAt)}`,
+        iconName: a.type === "alignment" ? "align" : "protein",
+        onRun: () => handleOpenArtifact(a),
+      })),
+    [artifacts, handleOpenArtifact],
+  );
 
   return (
     <div ref={containerRef} className="flex h-full w-full flex-col" tabIndex={-1}>
@@ -5881,6 +6031,10 @@ export default function SequenceEditView({
           commands={commands}
           selectionKind={selectionKind}
           hasOrganism={hasOrganism}
+          context={paletteContext}
+          sequences={jumpSequences}
+          artifacts={recentArtifacts}
+          collectionLabel={collectionLabel}
         />
       ) : null}
     </div>

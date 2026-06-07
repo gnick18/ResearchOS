@@ -1001,6 +1001,20 @@ export default function SequencesPage() {
     return proj ? { id: Number(proj.id), name: proj.name } : null;
   }, [collection, projects]);
 
+  // sequence editor master (contextual BeakerSearch). The open collection's
+  // human label and the OTHER sequences in it (the open one excluded), threaded
+  // into the editor so the command palette can offer "Jump to a sequence" rows.
+  const collectionLabel = useMemo(() => {
+    if (collection === "all") return "All Sequences";
+    if (collection === "unfiled") return "Unfiled";
+    return activeProject?.name ?? "this collection";
+  }, [collection, activeProject]);
+
+  const collectionSiblings = useMemo(
+    () => inCollection.filter((s) => s.id !== selectedId),
+    [inCollection, selectedId],
+  );
+
   // NEW flow: build a sequence from pasted bases (or a blank one).
   const handleNewSubmit = useCallback(
     async (data: NewSequenceSubmit) => {
@@ -1995,6 +2009,9 @@ export default function SequencesPage() {
                   }}
                   onLookupTaxonomy={() => setTaxonomyOpen(true)}
                   onOpenAssemble={() => setAssembleOpen(true)}
+                  collectionSequences={collectionSiblings}
+                  collectionLabel={collectionLabel}
+                  onOpenSequence={setSelectedId}
                 />
               </div>
             </>
