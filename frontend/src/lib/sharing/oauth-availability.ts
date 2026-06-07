@@ -16,5 +16,24 @@
 // is actually configured. Unset (dev) => false => no OAuth UI, no dead ends.
 
 export function isOAuthPublishAvailable(): boolean {
+  // Real sharing build, OR the dev mock provider (lets the link flow be tested
+  // on localhost with no real OAuth creds; see auth.ts devMockProvider).
+  return (
+    process.env.NEXT_PUBLIC_SHARING_ENABLED === "true" ||
+    process.env.NEXT_PUBLIC_AUTH_DEV_MOCK === "1"
+  );
+}
+
+// Whether the dev-only mock sign-in is active. When true the shared provider
+// buttons render a single working "Dev mock" button instead of the real
+// providers (which still dead-end without creds).
+export function isDevMockAuth(): boolean {
+  return process.env.NEXT_PUBLIC_AUTH_DEV_MOCK === "1";
+}
+
+// STRICT gate for surfaces that must stay hidden until REAL OAuth exists (e.g.
+// the login-screen footer's inline provider buttons, which call the real
+// providers directly and would dead-end). The dev mock does NOT turn these on.
+export function isRealSharingEnabled(): boolean {
   return process.env.NEXT_PUBLIC_SHARING_ENABLED === "true";
 }

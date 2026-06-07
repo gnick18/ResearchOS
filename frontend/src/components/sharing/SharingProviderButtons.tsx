@@ -12,9 +12,9 @@ import {
   LinkedInIcon,
   OrcidIcon,
 } from "./icons";
-import { isOAuthPublishAvailable } from "@/lib/sharing/oauth-availability";
+import { isOAuthPublishAvailable, isDevMockAuth } from "@/lib/sharing/oauth-availability";
 
-export type SharingProvider = "orcid" | "google" | "github" | "linkedin";
+export type SharingProvider = "orcid" | "google" | "github" | "linkedin" | "devmock";
 
 export default function SharingProviderButtons({
   onProvider,
@@ -26,6 +26,27 @@ export default function SharingProviderButtons({
   // dead-end at NextAuth's /api/auth/error. The account itself is a local keypair
   // created elsewhere, so hiding these costs nothing.
   if (!isOAuthPublishAvailable()) return null;
+
+  // DEV MOCK: when the mock provider is on, the real provider buttons still
+  // dead-end (no creds), so show ONE working mock button that exercises the
+  // exact same claim flow. Dev-only; never reachable in prod.
+  if (isDevMockAuth()) {
+    return (
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => onProvider("devmock")}
+          className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-amber-500 text-white hover:bg-amber-600 font-medium transition-colors"
+        >
+          Dev mock sign-in (test the link flow)
+        </button>
+        <p className="text-meta text-foreground-muted text-center">
+          Dev only. Simulates a verified provider login so you can test linking a
+          third party after the passkey.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">
