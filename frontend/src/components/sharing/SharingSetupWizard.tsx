@@ -631,20 +631,20 @@ export default function SharingSetupWizard({
       onClick={onClose}
     >
       <div
-        className="bg-slate-800 rounded-2xl shadow-2xl border border-white/20 max-w-md w-full mx-4 overflow-hidden"
+        className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-md w-full mx-4 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-6 py-4 border-b border-white/10 flex items-start justify-between">
+        <div className="px-6 py-4 border-b border-border flex items-start justify-between">
           <div>
-            <h3 className="text-title font-semibold text-white">
+            <h3 className="text-title font-semibold text-foreground">
               Set up sharing
             </h3>
-            <p className="text-meta text-slate-400 mt-0.5">for {username}</p>
+            <p className="text-meta text-foreground-muted mt-0.5">for {username}</p>
           </div>
           <Tooltip label="Close" placement="bottom">
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-white"
+              className="text-foreground-muted hover:text-foreground"
               aria-label="Close"
             >
               <CloseIcon className="w-5 h-5" />
@@ -753,7 +753,7 @@ function ChooseStep({
 }) {
   return (
     <div className="space-y-4">
-      <p className="text-body text-slate-300 leading-relaxed">
+      <p className="text-body text-foreground-muted leading-relaxed">
         Sharing lets you send notes, methods, and files to people outside your
         folder. First, prove the email others will reach you at, then we generate
         a keypair so your shares stay private.
@@ -769,7 +769,7 @@ function ChooseStep({
             <button
               type="button"
               onClick={() => onOAuth("orcid")}
-              className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-surface-raised text-slate-800 hover:bg-slate-100 font-medium transition-colors border border-border"
+              className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-white text-slate-800 hover:bg-slate-100 font-medium transition-colors border border-border"
             >
               <OrcidIcon className="w-4 h-4" />
               Sign in with ORCID
@@ -777,7 +777,7 @@ function ChooseStep({
             <button
               type="button"
               onClick={() => onOAuth("google")}
-              className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-surface-raised text-slate-800 hover:bg-slate-100 font-medium transition-colors"
+              className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-white text-slate-800 hover:bg-slate-100 font-medium transition-colors"
             >
               <GoogleIcon className="w-4 h-4" />
               Continue with Google
@@ -807,13 +807,13 @@ function ChooseStep({
         <button
           type="button"
           onClick={onEmail}
-          className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-surface-raised/5 border border-white/10 text-slate-200 hover:bg-surface-raised/10 font-medium transition-colors"
+          className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-surface-raised/5 border border-border text-foreground hover:bg-surface-raised/10 font-medium transition-colors"
         >
           <MailIcon className="w-4 h-4" />
           Use email instead
         </button>
       </div>
-      <p className="text-meta text-slate-500 leading-relaxed">
+      <p className="text-meta text-foreground-muted leading-relaxed">
         We only learn the address you verify. Your private keys are generated on
         this device and never leave it unencrypted.
       </p>
@@ -845,17 +845,17 @@ function EmailEnterStep({
   return (
     <div className="space-y-4">
       {orcidLinked && (
-        <div className="px-3 py-2 rounded-lg bg-[#A6CE39]/15 border border-[#A6CE39]/30 text-meta text-slate-200 leading-relaxed">
+        <div className="px-3 py-2 rounded-lg bg-[#A6CE39]/15 border border-[#A6CE39]/30 text-meta text-foreground leading-relaxed">
           Signed in with ORCID. Confirm your email so collaborators can reach
           you.
         </div>
       )}
-      <p className="text-body text-slate-300 leading-relaxed">
+      <p className="text-body text-foreground-muted leading-relaxed">
         Enter the email you want others to find you by. We send a 6-digit code to
         confirm you own it.
       </p>
       <div>
-        <label className="block text-meta font-medium text-slate-300 mb-1">
+        <label className="block text-meta font-medium text-foreground-muted mb-1">
           Email address
         </label>
         <input
@@ -866,7 +866,7 @@ function EmailEnterStep({
             if (e.key === "Enter" && !busy) onSubmit();
           }}
           placeholder="you@university.edu"
-          className="w-full px-3 py-2 bg-surface-raised/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
+          className="w-full px-3 py-2 bg-surface-raised/10 border border-border rounded-lg text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 focus:ring-blue-500 text-body"
           autoFocus
           autoComplete="email"
         />
@@ -877,7 +877,7 @@ function EmailEnterStep({
           type="button"
           onClick={onBack}
           disabled={busy}
-          className="flex-1 py-2 text-body bg-surface-raised/5 hover:bg-surface-raised/10 border border-white/10 text-slate-200 rounded-lg disabled:opacity-50"
+          className="flex-1 py-2 text-body bg-surface-raised/5 hover:bg-surface-raised/10 border border-border text-foreground rounded-lg disabled:opacity-50"
         >
           Back
         </button>
@@ -918,13 +918,13 @@ function EmailCodeStep({
   const ready = otp.trim().length === 6;
   return (
     <div className="space-y-4">
-      <p className="text-body text-slate-300 leading-relaxed">
+      <p className="text-body text-foreground-muted leading-relaxed">
         Enter the 6-digit code we sent to{" "}
-        <span className="text-white font-medium">{email}</span>. It expires in a
+        <span className="text-foreground font-medium">{email}</span>. It expires in a
         few minutes.
       </p>
       <div>
-        <label className="block text-meta font-medium text-slate-300 mb-1">
+        <label className="block text-meta font-medium text-foreground-muted mb-1">
           Verification code
         </label>
         <input
@@ -938,7 +938,7 @@ function EmailCodeStep({
             if (e.key === "Enter" && ready) onSubmit();
           }}
           placeholder="000000"
-          className="w-full px-3 py-2 bg-surface-raised/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-title tracking-[0.4em] text-center"
+          className="w-full px-3 py-2 bg-surface-raised/10 border border-border rounded-lg text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 focus:ring-blue-500 text-title tracking-[0.4em] text-center"
           autoFocus
         />
       </div>
@@ -947,7 +947,7 @@ function EmailCodeStep({
         <button
           type="button"
           onClick={onResend}
-          className="text-meta text-blue-400 hover:text-blue-300 underline"
+          className="text-meta text-blue-600 dark:text-blue-400 hover:text-blue-600 dark:text-blue-300 underline"
         >
           Resend code
         </button>
@@ -956,7 +956,7 @@ function EmailCodeStep({
         <button
           type="button"
           onClick={onBack}
-          className="flex-1 py-2 text-body bg-surface-raised/5 hover:bg-surface-raised/10 border border-white/10 text-slate-200 rounded-lg"
+          className="flex-1 py-2 text-body bg-surface-raised/5 hover:bg-surface-raised/10 border border-border text-foreground rounded-lg"
         >
           Back
         </button>
@@ -1018,11 +1018,11 @@ function GenerateStep({
   if (!material) {
     return (
       <div className="py-8 flex flex-col items-center text-center">
-        <div className="w-10 h-10 rounded-full border-2 border-white/20 border-t-blue-400 animate-spin" />
-        <p className="text-body text-slate-300 mt-4 font-medium">
+        <div className="w-10 h-10 rounded-full border-2 border-border border-t-blue-400 animate-spin" />
+        <p className="text-body text-foreground-muted mt-4 font-medium">
           Generating your keys
         </p>
-        <p className="text-meta text-slate-500 mt-1 leading-relaxed">
+        <p className="text-meta text-foreground-muted mt-1 leading-relaxed">
           This runs once and can take a few seconds. The app may pause briefly
           while it works.
         </p>
@@ -1044,7 +1044,7 @@ function GenerateStep({
       <div>
         <label
           htmlFor="profile-name"
-          className="block text-meta font-medium text-slate-300 mb-1"
+          className="block text-meta font-medium text-foreground-muted mb-1"
         >
           Name on your researcher profile
         </label>
@@ -1055,9 +1055,9 @@ function GenerateStep({
           onChange={(e) => setDisplayName(e.target.value)}
           placeholder="Your full name"
           maxLength={100}
-          className="w-full px-3 py-2 text-body rounded-lg bg-slate-900/60 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-400"
+          className="w-full px-3 py-2 text-body rounded-lg bg-surface-sunken border border-border text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-blue-500"
         />
-        <p className="text-meta text-slate-500 mt-1 leading-relaxed">
+        <p className="text-meta text-foreground-muted mt-1 leading-relaxed">
           Other ResearchOS users can find you by this name. You can change it
           anytime in Settings.
         </p>
@@ -1065,15 +1065,15 @@ function GenerateStep({
 
       {/* Passkey, the everyday unlock. Optional, the recovery code below is the
           backstop and publishing works without a passkey. */}
-      <div className="rounded-lg border border-white/10 bg-slate-900/40 p-3 space-y-2">
-        <div className="flex items-center gap-2 text-blue-300">
+      <div className="rounded-lg border border-border bg-surface-sunken p-3 space-y-2">
+        <div className="flex items-center gap-2 text-blue-600 dark:text-blue-300">
           <KeyIcon className="w-5 h-5" />
-          <p className="text-body font-medium text-white">One-tap unlock</p>
+          <p className="text-body font-medium text-foreground">One-tap unlock</p>
         </div>
         {passkeySupported ? (
           passkeyEnrolled ? (
-            <div className="flex items-start gap-2 text-emerald-200">
-              <span className="text-emerald-300 mt-0.5">
+            <div className="flex items-start gap-2 text-emerald-700 dark:text-emerald-200">
+              <span className="text-emerald-700 dark:text-emerald-300 mt-0.5">
                 <CheckIcon className="w-4 h-4" />
               </span>
               <p className="text-meta leading-relaxed">
@@ -1083,7 +1083,7 @@ function GenerateStep({
             </div>
           ) : (
             <>
-              <p className="text-meta text-slate-400 leading-relaxed">
+              <p className="text-meta text-foreground-muted leading-relaxed">
                 Add a passkey so you can unlock sharing with your fingerprint,
                 face, or device PIN. It syncs through your Google or Apple
                 keychain, so a new device just works.
@@ -1100,7 +1100,7 @@ function GenerateStep({
             </>
           )
         ) : (
-          <p className="text-meta text-slate-400 leading-relaxed">
+          <p className="text-meta text-foreground-muted leading-relaxed">
             Passkeys are not available in this browser. Your recovery code below
             is how you unlock on another device.
           </p>
@@ -1108,18 +1108,18 @@ function GenerateStep({
         {passkeyError && <ErrorNotice message={passkeyError} />}
       </div>
 
-      <div className="flex items-center gap-2 text-blue-300">
+      <div className="flex items-center gap-2 text-blue-600 dark:text-blue-300">
         <KeyIcon className="w-5 h-5" />
-        <p className="text-body font-medium text-white">Your recovery code</p>
+        <p className="text-body font-medium text-foreground">Your recovery code</p>
       </div>
-      <p className="text-body text-slate-300 leading-relaxed">
+      <p className="text-body text-foreground-muted leading-relaxed">
         Save this code somewhere safe. It is your backstop if you lose your
         passkey and this device, and the only way to restore your identity. If
         you lose it, it cannot be recovered.
       </p>
 
-      <div className="p-3 bg-slate-900/60 border border-white/10 rounded-lg">
-        <p className="font-mono text-body text-slate-100 tracking-wide break-all text-center">
+      <div className="p-3 bg-surface-sunken border border-border rounded-lg">
+        <p className="font-mono text-body text-foreground tracking-wide break-all text-center">
           {recoveryCode}
         </p>
       </div>
@@ -1128,7 +1128,7 @@ function GenerateStep({
         <button
           type="button"
           onClick={onCopy}
-          className="flex items-center gap-1.5 text-meta text-blue-400 hover:text-blue-300"
+          className="flex items-center gap-1.5 text-meta text-blue-600 dark:text-blue-400 hover:text-blue-600 dark:text-blue-300"
         >
           {copied ? (
             <>
@@ -1152,13 +1152,13 @@ function GenerateStep({
               createdAt: new Date().toISOString(),
             })
           }
-          className="flex items-center gap-1.5 text-meta font-medium text-blue-400 hover:text-blue-300"
+          className="flex items-center gap-1.5 text-meta font-medium text-blue-600 dark:text-blue-400 hover:text-blue-600 dark:text-blue-300"
         >
           <DownloadIcon className="w-3.5 h-3.5" />
           Download Recovery Kit
         </button>
       </div>
-      <p className="text-meta text-slate-500 leading-relaxed">
+      <p className="text-meta text-foreground-muted leading-relaxed">
         The Recovery Kit is your encrypted key backup in a single file, safe to
         keep because it is useless without your recovery code.
       </p>
@@ -1170,7 +1170,7 @@ function GenerateStep({
           onChange={(e) => setRecoverySaved(e.target.checked)}
           className="mt-0.5 accent-blue-500"
         />
-        <span className="text-body text-slate-300 leading-relaxed">
+        <span className="text-body text-foreground-muted leading-relaxed">
           I have saved my recovery code somewhere safe.
         </span>
       </label>
@@ -1210,7 +1210,7 @@ function PublishExistingStep({
 }) {
   return (
     <div className="space-y-4">
-      <p className="text-body text-slate-300 leading-relaxed">
+      <p className="text-body text-foreground-muted leading-relaxed">
         You already have an account on this device. Publishing links your existing
         keys to this verified email so other researchers can find you. Your keys
         and recovery code do not change.
@@ -1219,7 +1219,7 @@ function PublishExistingStep({
       <div>
         <label
           htmlFor="profile-name"
-          className="block text-meta font-medium text-slate-300 mb-1"
+          className="block text-meta font-medium text-foreground-muted mb-1"
         >
           Name on your researcher profile
         </label>
@@ -1230,9 +1230,9 @@ function PublishExistingStep({
           onChange={(e) => setDisplayName(e.target.value)}
           placeholder="Your full name"
           maxLength={100}
-          className="w-full px-3 py-2 text-body rounded-lg bg-slate-900/60 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-400"
+          className="w-full px-3 py-2 text-body rounded-lg bg-surface-sunken border border-border text-foreground placeholder:text-foreground-muted focus:outline-none focus:border-blue-500"
         />
-        <p className="text-meta text-slate-500 mt-1 leading-relaxed">
+        <p className="text-meta text-foreground-muted mt-1 leading-relaxed">
           Other ResearchOS users can find you by this name. You can change it
           anytime in Settings.
         </p>
@@ -1258,11 +1258,11 @@ function PublishExistingStep({
 function PublishStep() {
   return (
     <div className="py-8 flex flex-col items-center text-center">
-      <div className="w-10 h-10 rounded-full border-2 border-white/20 border-t-blue-400 animate-spin" />
-      <p className="text-body text-slate-300 mt-4 font-medium">
+      <div className="w-10 h-10 rounded-full border-2 border-border border-t-blue-400 animate-spin" />
+      <p className="text-body text-foreground-muted mt-4 font-medium">
         Publishing your keys
       </p>
-      <p className="text-meta text-slate-500 mt-1">
+      <p className="text-meta text-foreground-muted mt-1">
         Linking your verified email to your new identity.
       </p>
     </div>
@@ -1285,35 +1285,35 @@ function DoneStep({
   return (
     <div className="space-y-4">
       <div className="flex flex-col items-center text-center py-2">
-        <div className="w-12 h-12 rounded-full bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
+        <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-400/30 flex items-center justify-center text-emerald-700 dark:text-emerald-300">
           <CheckIcon className="w-6 h-6" />
         </div>
-        <p className="text-title font-semibold text-white mt-3">
+        <p className="text-title font-semibold text-foreground mt-3">
           Sharing is set up
         </p>
-        <p className="text-body text-slate-300 mt-1 leading-relaxed">
+        <p className="text-body text-foreground-muted mt-1 leading-relaxed">
           Your keys are published. People can now send you research across
           folders.
         </p>
       </div>
 
       {fingerprint && (
-        <div className="p-3 bg-slate-900/60 border border-white/10 rounded-lg">
-          <p className="text-meta text-slate-400 mb-1">
+        <div className="p-3 bg-surface-sunken border border-border rounded-lg">
+          <p className="text-meta text-foreground-muted mb-1">
             Your safety-check fingerprint
           </p>
-          <p className="text-body font-mono text-slate-100 tracking-wide">
+          <p className="text-body font-mono text-foreground tracking-wide">
             {fingerprint}
           </p>
         </div>
       )}
 
       {localLinkFailed && (
-        <div className="flex items-start gap-2 p-3 bg-amber-500/15 border border-amber-400/30 rounded-lg">
-          <span className="text-amber-300 mt-0.5">
+        <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-400/30 rounded-lg">
+          <span className="text-amber-700 dark:text-amber-300 mt-0.5">
             <WarningIcon className="w-4 h-4" />
           </span>
-          <p className="text-meta text-amber-200 leading-relaxed">
+          <p className="text-meta text-amber-700 dark:text-amber-200 leading-relaxed">
             Your keys were published, but we could not save the local link in
             your folder. Connect your data folder and run setup again to record
             it, your published identity is unaffected.
@@ -1338,11 +1338,11 @@ function DoneStep({
 
 function ErrorNotice({ message }: { message: string }) {
   return (
-    <div className="flex items-start gap-2 p-2 bg-red-500/15 border border-red-500/30 rounded-lg">
-      <span className="text-red-300 mt-0.5">
+    <div className="flex items-start gap-2 p-2 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+      <span className="text-red-700 dark:text-red-300 mt-0.5">
         <WarningIcon className="w-4 h-4" />
       </span>
-      <p className="text-meta text-red-300 leading-relaxed">{message}</p>
+      <p className="text-meta text-red-700 dark:text-red-300 leading-relaxed">{message}</p>
     </div>
   );
 }
