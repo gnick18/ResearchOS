@@ -463,6 +463,9 @@ function buildEntries() {
       // running logs, and lab-recipe-style single-shot notes.
       notes: 7,
       dependencies: 8,
+      // 1:1 revamp (notes-revamp bot, 2026-06-07): 1 weekly goal seeded below
+      // for the mira<->alex 1:1 (alex adds his own goal to the shared list).
+      weekly_goals: 1,
     },
   ]);
   out.push([
@@ -1469,6 +1472,28 @@ function buildEntries() {
       "Prep card for the 1:1 calendar event.\n\nTopics to cover:\n1. Dissertation timeline check, especially chapter 2 figure plan\n2. 96-well screen prep status (project 1 shared task)\n3. Conference travel: Demo Synthetic Biology Conference 2026 in June\n4. Anything blocking the qPCR run?\n\nNotes I want to give:\n- Patch-plate photos looked clean, good documentation.\n- Plate-map note (morgan #1) is exactly the format I want going forward; can we make that the template for future screens?\n- Encourage morgan to flip more of her notes to shared so the lab-mode feed reflects her actual output.\n\nFollow-up tasks (to convert into actual tasks afterward):\n- Draft chapter 2 outline by 2026-05-30\n- Book the plate reader for the full screen replicate, 2026-05-22",
     is_running_log: false, is_shared: true, shared_with: [{ username: "*", level: "read", permission: "view" }], entries: [], comments: [], created_at: "2026-05-13T17:00:00Z", updated_at: "2026-05-13T17:30:00Z", username: "alex" }]);
 
+  // 1:1 revamp (notes-revamp bot, 2026-06-07): alex adds his own weekly goal
+  // to the shared mira<->alex 1:1. UUID matches the OneOnOne record seeded
+  // in the mira section below.
+  out.push([
+    "users/alex/weekly_goals/1.json",
+    {
+      id: 1,
+      owner: "alex",
+      text: "Draft chapter 2 outline (due May 30)",
+      week_of: "2026-05-25",
+      is_complete: false,
+      created_at: "2026-05-25T11:00:00Z",
+      created_by: "alex",
+      is_shared: true,
+      shared_with: [
+        { username: "mira", level: "edit" },
+        { username: "alex", level: "edit" },
+      ],
+      one_on_one_id: "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    },
+  ]);
+
   // alex dependencies (chain: 1→2→3→4→5→6, plus 7→2, 8→9, and 10→11)
   out.push(["users/alex/dependencies/1.json", { id: 1, parent_id: 1, child_id: 2, dep_type: "FS" }]);
   out.push(["users/alex/dependencies/2.json", { id: 2, parent_id: 2, child_id: 3, dep_type: "FS" }]);
@@ -2395,7 +2420,11 @@ function buildEntries() {
       // without this seed the tile reads empty on every Mira walk.
       events: 1,
       goals: 0,
-      notes: 0,
+      // 1:1 revamp (notes-revamp bot, 2026-06-07): 1 meeting note seeded
+      // below for the mira<->alex 1:1 fixture.
+      notes: 1,
+      // 2 weekly goals seeded below (one checked, one open) for the same 1:1.
+      weekly_goals: 2,
       purchase_items: 0,
       lab_links: 0,
       dependencies: 0,
@@ -2486,6 +2515,96 @@ function buildEntries() {
       hash: miraHash.toString("base64"),
       created_at: "2026-04-01T09:00:00Z",
       updated_at: "2026-04-01T09:00:00Z",
+    },
+  ]);
+
+  // ── 1:1 revamp (notes-revamp bot, 2026-06-07): mira<->alex Mentoring ──────
+  //
+  // Deterministic fixture for the wiki-capture screenshot + Demo Mode. Seeds:
+  //   - OneOnOne record (owned by mira, the lab head)
+  //   - 2 weekly goals created by mira (1 checked, 1 open; current week)
+  //   - 1 meeting note created by mira (one_on_one_id scoped; note_kind "meeting")
+  //   - 1 action item owned by mira's folder
+  // Alex gets 1 weekly goal too (to show the bidirectional add). His counter
+  // is bumped further down at his _counters entry.
+  const OO_ID = "f47ac10b-58cc-4372-a567-0e02b2c3d479";
+  const OO_AI_ID = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
+  const OO_SHARED_WITH = [
+    { username: "mira", level: "edit" },
+    { username: "alex", level: "edit" },
+  ];
+  out.push([
+    `users/mira/one_on_ones/${OO_ID}.json`,
+    {
+      id: OO_ID,
+      labHead: "mira",
+      member: "alex",
+      created_by: "mira",
+      owner: "mira",
+      created_at: "2026-04-01T09:00:00Z",
+      shared_with: OO_SHARED_WITH,
+    },
+  ]);
+  out.push([
+    "users/mira/weekly_goals/1.json",
+    {
+      id: 1,
+      owner: "mira",
+      text: "Review chapter 2 outline",
+      week_of: "2026-05-25",
+      is_complete: true,
+      created_at: "2026-05-25T09:00:00Z",
+      created_by: "mira",
+      is_shared: true,
+      shared_with: OO_SHARED_WITH,
+      one_on_one_id: OO_ID,
+    },
+  ]);
+  out.push([
+    "users/mira/weekly_goals/2.json",
+    {
+      id: 2,
+      owner: "mira",
+      text: "Send feedback on fakeGFP expression data",
+      week_of: "2026-05-25",
+      is_complete: false,
+      created_at: "2026-05-25T10:00:00Z",
+      created_by: "mira",
+      is_shared: true,
+      shared_with: OO_SHARED_WITH,
+      one_on_one_id: OO_ID,
+    },
+  ]);
+  out.push([
+    "users/mira/notes/1.json",
+    {
+      id: 1,
+      title: "Check-in 2026-05-21: dissertation timeline",
+      description:
+        "Attendees: Dr. Castellanos, alex.\n\nAgenda:\n1. Chapter 2 figure plan + submission timeline\n2. fakeGFP expression data review\n3. Conference travel: Demo Synthetic Biology Conference June 2026\n\nNotes:\nAlex is on track for a chapter 2 draft by May 30. Mira to review within 72 h. fakeGFP Cq looks tight (ACT1 SD 0.10) — discuss 150 nM primer trial next meeting to cut reagent burn.\n\nAction items logged below.",
+      is_running_log: false,
+      is_shared: true,
+      shared_with: OO_SHARED_WITH,
+      entries: [],
+      comments: [],
+      created_at: "2026-05-21T14:00:00Z",
+      updated_at: "2026-05-21T14:30:00Z",
+      username: "mira",
+      one_on_one_id: OO_ID,
+      note_kind: "meeting",
+    },
+  ]);
+  out.push([
+    `users/mira/one_on_one_action_items/${OO_AI_ID}.json`,
+    {
+      id: OO_AI_ID,
+      one_on_one_id: OO_ID,
+      text: "Send chapter 2 outline draft to Mira by May 30",
+      is_done: false,
+      created_by: "alex",
+      created_at: "2026-05-21T14:00:00Z",
+      owner: "mira",
+      shared_with: OO_SHARED_WITH,
     },
   ]);
 

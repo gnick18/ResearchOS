@@ -343,14 +343,19 @@ export default function NotesPanel({
   // narrow with an `in` check for the union with `LabNote`.
   const notebookIdOf = (note: Note | LabNote): string | undefined =>
     "notebook_id" in note ? (note as Note).notebook_id : undefined;
-  const allCount = notes.length;
-  const unfiledCount = notes.filter((n) => !notebookIdOf(n)).length;
+  // Exclude 1:1-scoped notes — those live exclusively in WorkbenchOneOnOnePanel
+  // (the Mentoring / Check-ins tab) and must not appear in the Notes grid.
+  const notesForPanel = notes.filter(
+    (n) => !("one_on_one_id" in n && (n as Note).one_on_one_id)
+  );
+  const allCount = notesForPanel.length;
+  const unfiledCount = notesForPanel.filter((n) => !notebookIdOf(n)).length;
 
   // Filter notes based on the active rail selection, search, and type. A shared
   // (2+ member) notebook is rendered by SharedNotebookView instead (it reads
   // cross-member notes), so the grid filter only ever narrows the LOCAL list to
   // All / Unfiled / a PERSONAL notebook.
-  const filteredNotes = notes.filter((note) => {
+  const filteredNotes = notesForPanel.filter((note) => {
     // Rail selection filter
     if (selection.kind === "unfiled" && notebookIdOf(note)) return false;
     if (selection.kind === "notebook" && notebookIdOf(note) !== selection.id)
