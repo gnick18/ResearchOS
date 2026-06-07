@@ -184,7 +184,15 @@ export default function LivingPopup({
   );
 
   return (
-    <div className="fixed inset-0 z-[400]">
+    <div
+      className="fixed inset-0 z-[400]"
+      // Tour-occlusion marker (TourSpotlight convention). While any living
+      // popup is mounted the v4 walkthrough ring drops, unless the spotlight
+      // target sits INSIDE this popup (TourSpotlight checks el.contains, and
+      // this root wraps the children). Owning it here means migrated popups
+      // do not each re-stamp data-tour-popup-occluding on their own overlay.
+      data-tour-popup-occluding="living-popup"
+    >
       {/* Hazy, blurred scrim over the live page behind. Click closes. */}
       <button
         type="button"
