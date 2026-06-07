@@ -10,9 +10,6 @@ import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAccountType } from "@/hooks/useAccountType";
-import { useEditSession } from "@/hooks/useEditSession";
-import RequestEditButton from "@/components/RequestEditButton";
-import EditSessionBanner from "@/components/EditSessionBanner";
 import UserAvatar from "@/components/UserAvatar";
 import Tooltip from "@/components/Tooltip";
 import { ARCHIVED_USERS_QUERY_KEY } from "@/hooks/useArchivedUsers";
@@ -22,26 +19,22 @@ import { LAB_USER_PROFILES_QUERY_KEY } from "@/hooks/useLabUserProfiles";
  * Lab Head Phase 6 (lab head Phase 6 manager, 2026-05-23): Lab Roster
  * surface.
  *
- * Mounted under Settings → Lab Head section (visible only when
- * `account_type === "lab_head"`; the parent component already gates
- * on that). Lists every user in the lab with:
+ * Mounted under Settings → Lab Mode tab. Lists every user in the lab with:
  *   - display name + @username + account_type pill + status (Active /
  *     Archived)
- *   - Archive / Restore button (lab_head only, gated by Phase 5
- *     session unlock — see RequestEditButton)
+ *   - Archive / Restore button (lab_head only)
  *
  * Members see this surface read-only — they can view the roster but
- * no archive/restore buttons render. The component is mounted from
- * `LabHeadSection`, which already gates on lab_head; members reach
- * this code path only via direct route navigation, where the
- * `canArchive` flag below stays false.
+ * no archive/restore buttons render (the `canArchive` flag below stays
+ * false for non-lab-heads).
  *
  * Decisions locked (LAB_HEAD_PROPOSAL §6, Grant 2026-05-23):
  *   1. Lab head only can archive (no self-archive, no member-on-member).
- *   2. Archive/restore goes through Phase 5's session edit mode — the
- *      lab head must be unlocked. Mirrors the popup edit pattern.
- *   3. Confirmation dialog before archiving (data is non-destructive
+ *   2. Confirmation dialog before archiving (data is non-destructive
  *      but the user-visible consequence is significant).
+ *
+ * The old PI edit-session unlock gate on archive/restore was removed with
+ * the PI edit-mode feature; being a lab head is now sufficient.
  */
 
 interface RosterRow {
@@ -87,12 +80,9 @@ export default function LabRoster() {
   const { isConnected } = useFileSystem();
   const { currentUser } = useCurrentUser();
   const accountType = useAccountType(currentUser);
-  const session = useEditSession();
   const queryClient = useQueryClient();
 
   const isLabHead = accountType === "lab_head";
-  const sessionUnlocked =
-    session.state === "unlocked" && session.active?.username === currentUser;
 
   // The Lab Roster is the only surface that needs per-user archive
   // state alongside display name + account_type. `useLabUserProfileMap`
@@ -221,15 +211,7 @@ export default function LabRoster() {
             offline fallback.
           </p>
         </div>
-        {isLabHead && !sessionUnlocked && (
-          <RequestEditButton
-            username={currentUser ?? ""}
-            targetLabel="Lab Roster"
-          />
-        )}
       </div>
-
-      {isLabHead && sessionUnlocked && <EditSessionBanner />}
 
       {isLoading ? (
         <p className="text-meta text-foreground-muted">Loading roster…</p>
@@ -243,17 +225,11 @@ export default function LabRoster() {
           {rows.map((row) => {
             const label = row.displayName?.trim() || row.username;
             const isSelf = row.username === currentUser;
-            // Archive button: lab_head, session unlocked, NOT self, NOT
-            // already archived. Self-archive is intentionally blocked
-            // per the locked design — a PI who wants to leave hands off
-            // to a co-PI.
-            const canArchive =
-              isLabHead &&
-              sessionUnlocked &&
-              !isSelf &&
-              !row.archived;
-            const canRestore =
-              isLabHead && sessionUnlocked && row.archived;
+            // Archive button: lab_head, NOT self, NOT already archived.
+            // Self-archive is intentionally blocked per the locked design —
+            // a PI who wants to leave hands off to a co-PI.
+            const canArchive = isLabHead && !isSelf && !row.archived;
+            const canRestore = isLabHead && row.archived;
             return (
               <li
                 key={row.username}

@@ -52,12 +52,6 @@ import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { ANIMATION_METADATA, renderAnimationIcon, type AnimationType, type RealAnimationType } from "@/components/animations";
 import DynamicAnimation from "@/components/DynamicAnimation";
 import { hasPassword, verifyPassword } from "@/lib/auth/password";
-import {
-  setLabHeadPassword,
-  verifyLabHeadPassword,
-} from "@/lib/lab/lab-head-auth";
-import { endEditSession, formatRemaining } from "@/lib/lab/edit-session";
-import { useEditSession } from "@/hooks/useEditSession";
 import LabRoster from "@/components/lab-head/LabRoster";
 import { readPairing, type TelegramPairing } from "@/lib/telegram/telegram-store";
 import { useTelegramPopup } from "@/lib/telegram/telegram-popup-store";
@@ -1101,114 +1095,6 @@ function AccountTypeSection({ settings, update }: SectionProps) {
 }
 
 /**
- * Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23): "Lab Head"
- * Settings section. Visible only when `account_type === "lab_head"`.
- *
- * Two controls:
- *   1. "Change lab-head password" — opens `ChangeLabHeadPasswordPopup`,
- *      verifies the current password, then sets a new one.
- *   2. "Active session" — live status pill subscribed to the
- *      module-scoped session via `useEditSession`. Shows
- *      "Active (M:SS remaining)" / "Locked" / "Not active." A
- *      companion "Lock session now" button manually ends the session.
- *
- * Per Grant 2026-05-23 (decision #3): the lab-head password starts as
- * the user's account password. First-time unlock bootstraps a hash via
- * `verifyLabHeadPassword`'s fallback path. After the first change here
- * the two passwords diverge.
- *
- * settings tabs manager 2026-05-23: the Lab Roster surface lived inside
- * this section originally. It now stands alone as
- * `LabRosterSection` so members (who never see this Lab Head section)
- * still get the read-only roster under the Lab Mode tab.
- */
-function LabHeadSection({
-  username,
-  settings,
-  update,
-}: {
-  username: string;
-  settings: UserSettings;
-  update: (patch: Partial<UserSettings>) => Promise<void>;
-}) {
-  const session = useEditSession();
-  const [changePwOpen, setChangePwOpen] = useState(false);
-
-  const isActive = session.state === "unlocked" && session.active;
-  const statusLabel = isActive
-    ? `Active, ${formatRemaining(session.remainingMs)} remaining`
-    : session.state === "locked"
-      ? "Session ended"
-      : "Not active";
-  const statusClass = isActive
-    ? "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/15 border-emerald-200 dark:border-emerald-500/30"
-    : "text-foreground-muted bg-surface-sunken border-border";
-
-  return (
-    <SectionShell
-      id="lab-head"
-      title="PI"
-      description="Manage your edit-mode password and session for the Phase 5 PI workflow. Use Request edit on another member's record to start a session."
-      searchKeywords="edit mode session password PI roster"
-    >
-      {/* Dashboard unification (dashboard-unification build, 2026-05-29):
-          the "Show Home page" toggle is removed. Home and Lab Overview are
-          one dashboard at "/" now (the nav label reads "Lab Overview" for
-          a PI), so there is no separate Home tab to hide or restore. */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-surface-raised">
-          <div className="min-w-0">
-            <p className="text-body font-medium text-foreground">Lab-head password</p>
-            <p className="text-meta text-foreground-muted mt-0.5">
-              Starts as your account password. You can change it here once
-              you&apos;ve unlocked edit mode at least once.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setChangePwOpen(true)}
-            className="flex-shrink-0 px-3 py-1.5 rounded-md text-meta font-medium text-white bg-amber-600 hover:bg-amber-700"
-          >
-            Change password
-          </button>
-        </div>
-
-        <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-surface-raised">
-          <div className="min-w-0">
-            <p className="text-body font-medium text-foreground">Active session</p>
-            <p className="text-meta text-foreground-muted mt-0.5">
-              Sessions last 5 minutes and survive navigation. Close the tab or
-              click Lock to end early.
-            </p>
-            <span
-              className={`inline-block mt-1.5 px-2 py-0.5 rounded text-meta font-medium border ${statusClass}`}
-              data-testid="lab-head-session-status"
-            >
-              {statusLabel}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => endEditSession()}
-            disabled={!isActive}
-            className="flex-shrink-0 px-3 py-1.5 rounded-md text-meta font-medium border border-border text-foreground hover:bg-surface-sunken disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Lock session now
-          </button>
-        </div>
-      </div>
-
-      {changePwOpen && (
-        <ChangeLabHeadPasswordPopup
-          username={username}
-          onClose={() => setChangePwOpen(false)}
-        />
-      )}
-    </SectionShell>
-  );
-}
-
-/**
  * Settings tabs manager 2026-05-23: Lab Roster wrapped in its own
  * SectionShell so it can stand alone in the Lab Mode tab. Lab heads see
  * an interactive archive / restore UI; members see the same roster
@@ -1289,25 +1175,16 @@ function SettingsTabStrip({
  *   1. AccountTypeSection — member vs lab_head toggle. Always visible
  *      to lab accounts. Toggling here is the entry point for becoming
  *      a lab head (no separate elevation flow).
- *   2. LabHeadSection — change password + active session controls.
- *      Lab heads only. The settings.account_type read drives this gate
- *      directly so the section appears live (no reload) the instant the
- *      toggle above flips to "lab_head".
- *   3. LabRosterSection — archive / restore lab members. Visible to
+ *   2. LabRosterSection — archive / restore lab members. Visible to
  *      everyone; LabRoster's internal `canArchive` gate hides the
- *      actions for non-lab-heads (or lab heads without an active edit
- *      session).
+ *      actions for non-lab-heads.
  *
- * AccountTypeSection + LabRosterSection always render under Lab Mode,
- * so the brief's defensive empty-state branch is unreachable today.
- * If both are ever gated away, swap in the friendly message described
- * in the role brief ("Lab Mode settings appear here when you're a
- * member or lab head of a lab folder.").
+ * The old PI edit-mode "Lab Head" section (password + active session
+ * controls) was removed with the PI edit-session feature.
  */
 function LabModeTabContent({
   settings,
   update,
-  currentUser,
 }: {
   settings: UserSettings;
   update: (patch: Partial<UserSettings>) => Promise<void>;
@@ -1316,225 +1193,8 @@ function LabModeTabContent({
   return (
     <>
       <AccountTypeSection settings={settings} update={update} />
-      {settings.account_type === "lab_head" && (
-        <LabHeadSection
-          username={currentUser}
-          settings={settings}
-          update={update}
-        />
-      )}
       <LabRosterSection />
     </>
-  );
-}
-
-/**
- * Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23): in-place modal
- * for changing the lab-head password from the Settings → Lab Head card.
- *
- * Verifies the current password against `verifyLabHeadPassword` (which
- * itself falls back to the account password on first use), then writes
- * a fresh PBKDF2 hash via `setLabHeadPassword`.
- */
-function ChangeLabHeadPasswordPopup({
-  username,
-  onClose,
-}: {
-  username: string;
-  onClose: () => void;
-}) {
-  const [current, setCurrent] = useState("");
-  const [next, setNext] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
-  // Reset mode: skip the current-password reverify and just set a new one.
-  // The lab-head gate is an intentionality check, not a security control
-  // (the raw files are on disk regardless, as the wiki states), so a
-  // reset-anytime path is by design (Grant 2026-05-29). It also unblocks a
-  // PI whose password silently defaulted to a blank account password.
-  const [forgot, setForgot] = useState(false);
-
-  async function handleSubmit() {
-    setError(null);
-    if ((!forgot && !current) || !next) {
-      setError("Fill out all fields.");
-      return;
-    }
-    if (next.length < 4) {
-      setError("New password must be at least 4 characters.");
-      return;
-    }
-    if (next !== confirm) {
-      setError("New passwords do not match.");
-      return;
-    }
-    setBusy(true);
-    try {
-      if (!forgot) {
-        const ok = await verifyLabHeadPassword(username, current);
-        if (!ok) {
-          setError("Current password is incorrect.");
-          setBusy(false);
-          return;
-        }
-      }
-      await setLabHeadPassword(username, next);
-      setDone(true);
-    } catch {
-      setError("Failed to update password.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
-
-  return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-    >
-      <div
-        className="bg-surface-raised rounded-xl shadow-xl w-full max-w-md mx-4 p-6 space-y-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-title font-semibold text-foreground">
-          Change lab-head password
-        </h2>
-        {done ? (
-          <div className="space-y-3">
-            <p className="text-body text-emerald-700 dark:text-emerald-300">
-              Password updated. New unlocks will require the new password.
-            </p>
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-3 py-1.5 rounded-md text-meta font-medium text-white bg-amber-600 hover:bg-amber-700"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
-            {!forgot ? (
-              <div>
-                <label className="block text-meta font-medium text-foreground mb-1">
-                  Current password
-                </label>
-                <input
-                  type="password"
-                  value={current}
-                  onChange={(e) => setCurrent(e.target.value)}
-                  disabled={busy}
-                  autoComplete="current-password"
-                  className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setForgot(true);
-                    setCurrent("");
-                    setError(null);
-                  }}
-                  disabled={busy}
-                  className="mt-1 text-meta text-foreground-muted hover:text-foreground underline-offset-2 hover:underline disabled:opacity-50"
-                >
-                  Forgot current password? Reset instead
-                </button>
-              </div>
-            ) : (
-              <div className="rounded-md bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 p-3 text-meta text-amber-900 dark:text-amber-300">
-                <p className="font-medium">
-                  Resetting without the current password.
-                </p>
-                <p className="mt-1">
-                  The edit password is an intentionality check, not a security
-                  lock (your records are on disk regardless), so resetting it
-                  anytime is fine.{" "}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setForgot(false);
-                      setError(null);
-                    }}
-                    className="underline underline-offset-2 hover:text-amber-950"
-                  >
-                    Enter current password instead
-                  </button>
-                </p>
-              </div>
-            )}
-            <div>
-              <label className="block text-meta font-medium text-foreground mb-1">
-                New password
-              </label>
-              <input
-                type="password"
-                value={next}
-                onChange={(e) => setNext(e.target.value)}
-                disabled={busy}
-                autoComplete="new-password"
-                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
-            </div>
-            <div>
-              <label className="block text-meta font-medium text-foreground mb-1">
-                Confirm new password
-              </label>
-              <input
-                type="password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                disabled={busy}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !busy) {
-                    e.preventDefault();
-                    void handleSubmit();
-                  }
-                }}
-                autoComplete="new-password"
-                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
-            </div>
-            {error && (
-              <p className="text-meta text-red-600 dark:text-red-300" role="alert">
-                {error}
-              </p>
-            )}
-            <div className="flex items-center justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={busy}
-                className="px-3 py-1.5 rounded-md text-meta text-foreground-muted hover:bg-surface-sunken disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleSubmit()}
-                disabled={busy || (!forgot && !current) || !next || !confirm}
-                className="px-3 py-1.5 rounded-md text-meta font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {busy ? "Updating…" : forgot ? "Reset password" : "Update password"}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
   );
 }
 

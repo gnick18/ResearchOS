@@ -10,7 +10,6 @@ import {
   pairingSharedWith,
   canRead,
   canWrite,
-  NEVER_UNLOCKED,
   type Viewer,
 } from "./unified";
 import { normalizeNotebookRecord } from "../shared-notebooks/store";
@@ -66,9 +65,9 @@ describe("membersSharedWith feeds the unified read/write gates", () => {
       shared_with: membersSharedWith(["owner"]),
     };
     expect(canRead(record, member("owner"))).toBe(true);
-    expect(canWrite(record, member("owner"), NEVER_UNLOCKED)).toBe(true);
+    expect(canWrite(record, member("owner"))).toBe(true);
     expect(canRead(record, member("other"))).toBe(false);
-    expect(canWrite(record, member("other"), NEVER_UNLOCKED)).toBe(false);
+    expect(canWrite(record, member("other"))).toBe(false);
   });
 
   it("every member of an N-member notebook can read and write", () => {
@@ -78,7 +77,7 @@ describe("membersSharedWith feeds the unified read/write gates", () => {
     };
     for (const u of ["a", "b", "c"]) {
       expect(canRead(record, member(u))).toBe(true);
-      expect(canWrite(record, member(u), NEVER_UNLOCKED)).toBe(true);
+      expect(canWrite(record, member(u))).toBe(true);
     }
     expect(canRead(record, member("d"))).toBe(false);
   });

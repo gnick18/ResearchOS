@@ -43,8 +43,13 @@
 import { tasksApi as rawTasksApi, notesApi as rawNotesApi, purchasesApi as rawPurchasesApi } from "@/lib/local-api";
 import { fileService } from "../file-system/file-service";
 import { appendAuditEntries } from "./pi-audit";
-import { getEditSession } from "./edit-session";
 import { readArchivedSet } from "./user-archive";
+
+// PI edit-mode / edit-session removal (remove-edit-mode bot, 2026-06-07):
+// lab-head actions (assign / approve / decline / flag) no longer require a
+// timed edit session. The on-disk audit entries these actions still emit are
+// stamped with this synthetic id where a session id used to live.
+const LAB_HEAD_ACTION_SESSION = "lab-head-action";
 import type {
   Notification,
   LabAnnouncementNotification,
@@ -92,36 +97,6 @@ function newId(): string {
     return crypto.randomUUID();
   }
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-/**
- * Cross-check the live edit session against the actor + sessionId the
- * caller passed in. Throws a descriptive error if the session is not
- * unlocked, the actor doesn't match, or the sessionId is stale.
- *
- * This catches the "popup captured sessionId at mount, but the session
- * expired before submit" failure mode where a stale id would otherwise
- * land in the audit row.
- *
- * Mira-Skeptic P0 #4.
- */
-function assertLiveSession(actor: string, sessionId: string): void {
-  const live = getEditSession();
-  if (live.state !== "unlocked" || !live.active) {
-    throw new Error(
-      "Edit session expired or sessionId mismatch — relock and retry.",
-    );
-  }
-  if (live.active.username !== actor) {
-    throw new Error(
-      "Edit session expired or sessionId mismatch — relock and retry.",
-    );
-  }
-  if (live.active.id !== sessionId) {
-    throw new Error(
-      "Edit session expired or sessionId mismatch — relock and retry.",
-    );
-  }
 }
 
 // Mira Batch 1 polish (2026-05-23): per-user serial queue for the
@@ -348,10 +323,11 @@ export async function dispatchAnnouncementNotifications(args: {
 // folder + their _pi_audit.json.
 
 export interface AssignTaskArgs {
-  /** The PI's username (audit actor). */
+  /** The lab head's username (audit actor). */
   actor: string;
-  /** Phase 5 session id. */
-  sessionId: string;
+  /** Deprecated: retained for back-compat; no longer used (the PI
+   *  edit-session was removed). */
+  sessionId?: string;
   /** Target task owner — the user whose folder hosts the task file. */
   targetOwner: string;
   /** Numeric task id in the target owner's namespace. */
@@ -373,13 +349,6 @@ export interface AssignTaskValue {
 }
 
 export async function assignTask(args: AssignTaskArgs): Promise<PiActionResult<AssignTaskValue>> {
-  // 0. Session gate — throws via assertLiveSession on mismatch.
-  try {
-    assertLiveSession(args.actor, args.sessionId);
-  } catch (err) {
-    return dataWriteFailure(err);
-  }
-
   // 1. Pre-read for the audit diff.
   let before;
   try {
@@ -440,7 +409,7 @@ export async function assignTask(args: AssignTaskArgs): Promise<PiActionResult<A
   try {
     await appendAuditEntries(args.targetOwner, [
       {
-        session_id: args.sessionId,
+        session_id: args.sessionId ?? LAB_HEAD_ACTION_SESSION,
         actor: args.actor,
         target_user: args.targetOwner,
         record_type: "task",
@@ -461,7 +430,7 @@ export async function assignTask(args: AssignTaskArgs): Promise<PiActionResult<A
 
 export interface ApprovePurchaseArgs {
   actor: string;
-  sessionId: string;
+  sessionId?: string;
   /** Username of the purchase item's owner — its parent task's owner. */
   targetOwner: string;
   /** Numeric purchase_item id in the owner's namespace. */
@@ -482,13 +451,6 @@ export interface SetPurchaseApprovalValue {
 export async function setPurchaseApproval(
   args: ApprovePurchaseArgs,
 ): Promise<PiActionResult<SetPurchaseApprovalValue>> {
-  // 0. Session gate.
-  try {
-    assertLiveSession(args.actor, args.sessionId);
-  } catch (err) {
-    return dataWriteFailure(err);
-  }
-
   const approved = args.approved ?? true;
   const now = new Date().toISOString();
 
@@ -564,7 +526,7 @@ export async function setPurchaseApproval(
   try {
     await appendAuditEntries(args.targetOwner, [
       {
-        session_id: args.sessionId,
+        session_id: args.sessionId ?? LAB_HEAD_ACTION_SESSION,
         actor: args.actor,
         target_user: args.targetOwner,
         record_type: "purchase_item",
@@ -593,7 +555,7 @@ export async function setPurchaseApproval(
 
 export interface DeclinePurchaseArgs {
   actor: string;
-  sessionId: string;
+  sessionId?: string;
   targetOwner: string;
   purchaseItemId: number;
   /** Denormalized item name for the audit row context. */
@@ -611,13 +573,6 @@ export interface DeclinePurchaseValue {
 export async function declinePurchase(
   args: DeclinePurchaseArgs,
 ): Promise<PiActionResult<DeclinePurchaseValue>> {
-  // 0. Session gate.
-  try {
-    assertLiveSession(args.actor, args.sessionId);
-  } catch (err) {
-    return dataWriteFailure(err);
-  }
-
   const now = new Date().toISOString();
 
   let before;
@@ -674,7 +629,7 @@ export async function declinePurchase(
   try {
     await appendAuditEntries(args.targetOwner, [
       {
-        session_id: args.sessionId,
+        session_id: args.sessionId ?? LAB_HEAD_ACTION_SESSION,
         actor: args.actor,
         target_user: args.targetOwner,
         record_type: "purchase_item",
@@ -699,7 +654,7 @@ export async function declinePurchase(
 
 export interface FlagRecordArgs {
   actor: string;
-  sessionId: string;
+  sessionId?: string;
   targetOwner: string;
   recordType: "task" | "note" | "purchase_item";
   recordId: number;
@@ -719,13 +674,6 @@ export interface SetFlagForReviewValue {
 export async function setFlagForReview(
   args: FlagRecordArgs,
 ): Promise<PiActionResult<SetFlagForReviewValue>> {
-  // 0. Session gate.
-  try {
-    assertLiveSession(args.actor, args.sessionId);
-  } catch (err) {
-    return dataWriteFailure(err);
-  }
-
   let beforeFlag: PiFlag | null = null;
   let displayName: string | undefined;
 
@@ -794,7 +742,7 @@ export async function setFlagForReview(
   try {
     await appendAuditEntries(args.targetOwner, [
       {
-        session_id: args.sessionId,
+        session_id: args.sessionId ?? LAB_HEAD_ACTION_SESSION,
         actor: args.actor,
         target_user: args.targetOwner,
         record_type: args.recordType,

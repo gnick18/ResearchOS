@@ -5,29 +5,23 @@
 // NoteVersionHistorySidebar / NoteDetailPopup. Mirrors the shape of
 // `delete-permission.ts` so the two write-gates read identically.
 //
-// Three-way PI gate (design doc "PI gate"):
+// Gate:
 //   - Owner (currentUser === noteOwner), not read-only -> CAN restore.
-//   - PI with an unlocked Phase 5 edit session -> CAN restore (routes to the
-//     owner folder + emits audit via ownerScopedNotesApi automatically).
-//   - PI viewing WITHOUT an unlock, or a read-only shared viewer -> CANNOT.
+//   - A read-only viewer (shared-view, or history panel open) -> CANNOT.
 //
-// The caller renders the affordance DISABLED (with an unlock Tooltip) for a PI
-// who could unlock, and HIDDEN for a read-only shared viewer. Both map to a
-// `false` return here; the disabled-vs-hidden distinction is a UI concern the
-// caller derives from `labHeadCanRequestEdit`.
+// The PI edit-session unlock path was removed with the PI edit-mode feature;
+// a lab head restores only their own notes (or notes shared with them at edit,
+// which surface as a non-read-only popup with the viewer as effective owner).
 
 export function canRestoreNoteVersion(params: {
-  /** The popup's EFFECTIVE read-only flag (lab-head gate OR history-open). */
+  /** The popup's EFFECTIVE read-only flag (share-permission OR history-open). */
   readOnly: boolean;
   currentUser: string | null | undefined;
   noteOwner: string | null | undefined;
-  /** True when a PI Phase 5 edit session is unlocked for this note. */
-  labHeadUnlocked: boolean;
 }): boolean {
-  const { readOnly, currentUser, noteOwner, labHeadUnlocked } = params;
+  const { readOnly, currentUser, noteOwner } = params;
   if (readOnly) return false;
-  const isOwner = isNoteOwnedByCurrentUser(currentUser, noteOwner);
-  return isOwner || labHeadUnlocked;
+  return isNoteOwnedByCurrentUser(currentUser, noteOwner);
 }
 
 /**

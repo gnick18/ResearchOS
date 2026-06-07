@@ -40,8 +40,6 @@ import { useAccountType } from "@/hooks/useAccountType";
 import { deriveVisibleTabs } from "@/lib/onboarding/feature-picks-tabs";
 import { headerGradient, rainbowTheme } from "@/lib/colors";
 import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
-import EditSessionBanner from "@/components/EditSessionBanner";
-import EditSessionTopNavChip from "@/components/EditSessionTopNavChip";
 import UserAvatarMenu from "@/components/UserAvatarMenu";
 import ResearcherProfileModal from "@/components/researchers/ResearcherProfileModal";
 import ProfileSettingsModal from "@/components/profile/ProfileSettingsModal";
@@ -402,12 +400,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="flex-1" />
 
         <div className="flex items-center gap-2">
-          {/* Lab head UX polish manager Bug 2 (2026-05-24): persistent
-              countdown chip for an active lab-head edit session. Renders
-              nothing when no session is active. Placed first in the badge
-              cluster so the amber chip is the most prominent thing once
-              the PI unlocks — they can't miss it from any page. */}
-          <EditSessionTopNavChip />
           <NotificationBadge pill={tinted} />
           <InboxBadge />
           <TelegramHeaderButton tinted={tinted} />
@@ -501,15 +493,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           )}
         </div>
       </header>
-
-      {/* PI Phase 5 (PI Phase 5 manager, 2026-05-23): global
-          edit-session banner. Visible across every route while a session
-          is unlocked so the PI sees the countdown after navigating away
-          from the record popup they unlocked on (decision #4 — session
-          survives navigation). Renders nothing when no session is
-          active; no scoping (the popup-level banners further refine to
-          the active record). */}
-      <EditSessionBanner />
 
       {/* Main content with route-specific sidebar.
        *

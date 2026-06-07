@@ -42,10 +42,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
-import { useLabHeadEditGate } from "@/hooks/useLabHeadEditGate";
-import RequestEditButton from "./RequestEditButton";
-import EditSessionBanner from "./EditSessionBanner";
-import AuditTrailNotice from "./AuditTrailNotice";
+import { useAccountType } from "@/hooks/useAccountType";
 import FlagForReviewButton from "./lab-head/FlagForReviewButton";
 import FlagBanner from "./lab-head/FlagBanner";
 import SharingChips from "@/components/sharing/SharingChips";
@@ -100,22 +97,19 @@ export default function NoteDetailPopup({
     x: number;
     y: number;
   } | null>(null);
-  // Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23): wrap the
-  // prop-passed readOnly flag with the PI edit-mode gate. When the active
-  // user is a lab head and has unlocked a session for this note, the
-  // effective readOnly flips false so inputs become editable + saves
-  // emit audit entries.
-  //
-  // Lab Head Phase 5 R1 (lab head Phase 5 R1 manager, 2026-05-23): writes
-  // now route to the NOTE-OWNER's folder via `ownerScopedNotesApi`, not
-  // the PI's. Closes the silent-data-corruption gap Phase 5 deferred.
-  // When the session is NOT unlocked (or any session arg is missing) the
-  // wrapper falls through to the raw notesApi — current-user behavior is
-  // unchanged for members and PIs editing their own data.
-  const labHeadGate = useLabHeadEditGate({
-    readOnly: propReadOnly,
-    recordOwner: note.username ?? null,
-  });
+  // PI edit-mode removal (remove-edit-mode bot, 2026-06-07): the PI
+  // edit-session soft-write was removed. The prop-passed readOnly is now the
+  // effective readOnly (writes follow standard share permissions). A lab head
+  // viewing a member's note can still flag it (a role privilege, not a record
+  // write) via canActAsLabHead below.
+  const { currentUser } = useCurrentUser();
+  const accountType = useAccountType(currentUser);
+  const canActAsLabHead =
+    propReadOnly &&
+    accountType === "lab_head" &&
+    !!note.username &&
+    !!currentUser &&
+    note.username !== currentUser;
   // Version-history viewer (VCP Phase 1, version-history viewer bot for HR,
   // 2026-05-29). Opening the right-sidebar version list puts the document
   // column into a READ-ONLY preview: `historyOpen` forces the editor read-only
@@ -139,29 +133,21 @@ export default function NoteDetailPopup({
     historyTriggerRef.current?.focus();
   }, []);
   // Shared 1:1 notebooks (notebook-note-edit sub-bot of HR, 2026-06-02):
-  // carve a NOTEBOOK note out of the lab-head edit-session read-only gate.
-  // A note carrying a `notebook_id` is always shared with BOTH members at
-  // level "edit" (via `pairingSharedWith`), so either member edits any note
+  // a NOTEBOOK note carrying a `notebook_id` is always shared with BOTH members
+  // at level "edit" (via `pairingSharedWith`), so either member edits any note
   // in the notebook freely. The explicit pair-shared-at-edit grant IS the
-  // authorization; it does NOT ride the PI passcode unlock. The predicate
-  // returns false for any non-notebook note, so ordinary shared notes keep
-  // the existing PI-unlock posture (the carve-out cannot leak). We use
-  // `labHeadGate.activeUser` as the viewer here (it equals `currentUser`)
-  // because `useCurrentUser` is destructured further down; reading it via the
-  // gate avoids reordering hooks.
+  // authorization. The predicate returns false for any non-notebook note.
   const notebookEditAllowed = canEditNotebookNote({
     notebookId: note.notebook_id,
     noteOwner: note.username,
-    currentUser: labHeadGate.activeUser,
+    currentUser,
     sharedWith: note.shared_with,
   });
   // The other member's notebook note is owned by them; route the peer write
   // to the owner's folder so it lands where they read it. An OWN notebook note
   // (owner === viewer) needs no routing: leave it on the current-user path.
   const notebookPeerOwner =
-    notebookEditAllowed &&
-    !!note.username &&
-    note.username !== labHeadGate.activeUser
+    notebookEditAllowed && !!note.username && note.username !== currentUser
       ? note.username
       : undefined;
   // External-collab chunk 5: true when the owner has revoked this recipient's
@@ -193,23 +179,16 @@ export default function NoteDetailPopup({
   }, [note.received_from]);
 
   const readOnly =
-    (labHeadGate.effectiveReadOnly && !notebookEditAllowed) ||
+    (propReadOnly && !notebookEditAllowed) ||
     historyOpen ||
     // External-collab chunk 5: a revoked recipient's copy is read-only.
     collabRevoked;
   const notesApi = useMemo(
     () =>
       ownerScopedNotesApi({
-        targetOwner: labHeadGate.unlocked ? note.username : undefined,
-        actor: labHeadGate.unlocked ? labHeadGate.activeUser : undefined,
-        sessionId: labHeadGate.unlocked ? labHeadGate.sessionId : undefined,
         notebookPeerOwner,
       }),
     [
-      labHeadGate.unlocked,
-      labHeadGate.activeUser,
-      labHeadGate.sessionId,
-      note.username,
       notebookPeerOwner,
     ],
   );
@@ -244,7 +223,6 @@ export default function NoteDetailPopup({
   const { requestRename, PopupComponent: FileRenamePopup } = useFileRenamePopup();
   const { resolve: resolveDuplicates, DialogComponent: DuplicateDialog } =
     useDuplicateResolver();
-  const { currentUser } = useCurrentUser();
   // The device's own directory email (canonical), used to SIGN collab Neon
   // requests. This is the registered identity email, NOT a username or the note
   // owner; the server rejects anything that is not a bound directory email.
@@ -1166,16 +1144,13 @@ export default function NoteDetailPopup({
   // recover from a misclick within 10 seconds.
   //
   // Owner-only delete (VCP R1 OQ9, 2026-05-26): edit-access shared users
-  // never see this button (see the footer below); a PI in an active
-  // Phase 5 unlock can delete cross-owner via `labHeadGate.sessionId`.
+  // never see this button (see the footer below). The old PI Phase 5
+  // cross-owner delete path was removed with the PI edit-mode feature.
   const handleDeleteNote = async () => {
     if (!confirm("Are you sure you want to delete this entire note?")) return;
 
     try {
-      await notesApi.delete(note.id, note.username || undefined, {
-        actor: labHeadGate.activeUser ?? undefined,
-        sessionId: labHeadGate.sessionId ?? null,
-      });
+      await notesApi.delete(note.id, note.username || undefined);
       emitNoteDeleted({
         noteId: note.id,
         noteTitle: note.title ?? "",
@@ -1195,7 +1170,6 @@ export default function NoteDetailPopup({
     readOnly,
     currentUser,
     noteOwner: note.username,
-    labHeadUnlocked: labHeadGate.unlocked,
   });
 
   // ── VC Phase 2: restore-a-version + 24h undo-restore ─────────────────────
@@ -1203,24 +1177,20 @@ export default function NoteDetailPopup({
   // owner resolution exactly so reads/writes hit the same path.
   const historyOwner = note.username || currentUser || "";
 
-  // Three-way PI gate (canRestoreNoteVersion). Computed once here, passed to
-  // BOTH the sidebar footer (Restore) and the header (Undo). `effectiveReadOnly`
-  // is the lab-head gate's own read-only (NOT `readOnly`, which also flips true
-  // while the history sidebar is open). Restoring is the whole point of having
-  // the sidebar open, so we must not let `historyOpen` suppress the affordance.
+  // canRestoreNoteVersion. Computed once here, passed to BOTH the sidebar
+  // footer (Restore) and the header (Undo). We pass `propReadOnly` (NOT
+  // `readOnly`, which also flips true while the history sidebar is open):
+  // restoring is the whole point of having the sidebar open, so we must not
+  // let `historyOpen` suppress the affordance.
   const canRestore = canRestoreNoteVersion({
-    readOnly: labHeadGate.effectiveReadOnly,
+    readOnly: propReadOnly,
     currentUser,
     noteOwner: note.username,
-    labHeadUnlocked: labHeadGate.unlocked,
   });
 
-  // A PI who is VIEWING another member's note but has NOT unlocked an edit
-  // session: the affordance renders DISABLED with an unlock tooltip (vs hidden
-  // for a plain read-only shared viewer). `canRequestEdit` is true exactly for
-  // that PI-could-unlock case.
-  const restoreNeedsUnlock =
-    !canRestore && labHeadGate.canRequestEdit && !labHeadGate.unlocked;
+  // The PI-passcode unlock path was removed; the affordance is simply hidden
+  // for a read-only viewer who cannot write.
+  const restoreNeedsUnlock = false;
 
   // VC Phase 3 (shared-generalization): the restore controller now lives in the
   // entity-agnostic useVersionRestore hook. Notes binds it with the notes api +
@@ -1444,15 +1414,6 @@ export default function NoteDetailPopup({
         data-drag-ring-target=""
         onClick={(e) => e.stopPropagation()}
       >
-        {/* PI Phase 5 (PI Phase 5 manager, 2026-05-23):
-            unlocked-session timer banner. Renders only while the PI's
-            session is unlocked AND it's THIS user's session. */}
-        {labHeadGate.unlocked && labHeadGate.activeUser && (
-          <EditSessionBanner
-            contextLabel={`${note.username ?? "lab member"}'s note: ${title}`}
-            scopedToUsername={labHeadGate.activeUser}
-          />
-        )}
         {/* External-collab chunk 5: revoked-access banner. The owner ended this
             recipient's live access; the local copy stays as a read-only
             snapshot. */}
@@ -1544,14 +1505,6 @@ export default function NoteDetailPopup({
                   )}
                 </div>
               )}
-              {/* PI Phase 5 — record-level "Edited by PI" notice. */}
-              {propReadOnly && note.username && (
-                <AuditTrailNotice
-                  targetUser={note.username}
-                  recordType="note"
-                  recordId={note.id}
-                />
-              )}
               {/* VC Phase 2: restore / undo-restore error + Case-C fallback
                   message. Inline, non-blocking; clears on the next attempt. */}
               {restoreError && (
@@ -1605,26 +1558,17 @@ export default function NoteDetailPopup({
 
             {/* Fullscreen and Close buttons */}
             <div className="flex items-center gap-1">
-              {/* PI Phase 5 — Request edit button. Visible only when
-                  PI is viewing another member's note + no session active. */}
-              {labHeadGate.canRequestEdit && !labHeadGate.unlocked && labHeadGate.activeUser && (
-                <RequestEditButton
-                  username={labHeadGate.activeUser}
-                  targetLabel={`${note.username ?? "member"}'s note: ${title}`}
-                />
-              )}
               {/* PI Phase 3 (PI Phase 3 manager, 2026-05-23):
-                  Flag-for-review button. Shows while the PI session is
-                  unlocked for this note. Notes have no "assign" surface
-                  in v1 — that's a Task-only concept. */}
-              {labHeadGate.canRequestEdit && labHeadGate.unlocked && labHeadGate.activeUser && labHeadGate.sessionId && note.username && (
+                  Flag-for-review button. A lab head viewing a member's note
+                  can flag it (a role privilege, not a record write). Notes
+                  have no "assign" surface in v1 — that's a Task-only concept. */}
+              {canActAsLabHead && currentUser && note.username && (
                 <FlagForReviewButton
                   recordType="note"
                   recordId={note.id}
                   recordName={title}
                   targetOwner={note.username}
-                  actor={labHeadGate.activeUser}
-                  sessionId={labHeadGate.sessionId}
+                  actor={currentUser}
                   currentFlag={note.flagged ?? null}
                 />
               )}

@@ -2,15 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { labApi, projectsApi as rawProjectsApi, tasksApi } from "@/lib/local-api";
+import { labApi, projectsApi as rawProjectsApi, tasksApi, purchasesApi } from "@/lib/local-api";
 import { defaultFundingStringForProject } from "@/lib/funding/prefill";
 import SharingChips from "@/components/sharing/SharingChips";
-import { ownerScopedPurchasesApi } from "@/lib/purchases/owner-scoped-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useLabHeadEditGate } from "@/hooks/useLabHeadEditGate";
-import RequestEditButton from "@/components/RequestEditButton";
-import EditSessionBanner from "@/components/EditSessionBanner";
-import AuditTrailNotice from "@/components/AuditTrailNotice";
+import { useAccountType } from "@/hooks/useAccountType";
 import {
   PurchaseApprovalToggle,
   PurchaseApprovalBadge,
@@ -99,36 +95,18 @@ export default function PurchaseEditor({
   ownerLabel,
 }: PurchaseEditorProps) {
   const queryClient = useQueryClient();
-  // Lab Head Phase 5 (lab head Phase 5 manager, 2026-05-23): gate the
-  // prop-passed readOnly behind the PI edit-mode session. When unlocked,
-  // writes become available + a banner shows in the editor header.
-  //
-  // Lab Head Phase 5 R1 (lab head Phase 5 R1 manager, 2026-05-23): writes
-  // now route to the OWNER's purchase_items folder via
-  // `ownerScopedPurchasesApi`, not the PI's. Closes the silent-data-
-  // corruption gap Phase 5 deferred. When the session is NOT unlocked
-  // (or any session arg is missing) the wrapper falls through to the raw
-  // purchasesApi — current-user behavior is unchanged for members and
-  // PIs editing their own data.
-  const labHeadGate = useLabHeadEditGate({
-    readOnly: propReadOnly,
-    recordOwner: username ?? null,
-  });
-  const readOnly = labHeadGate.effectiveReadOnly;
-  const purchasesApi = useMemo(
-    () =>
-      ownerScopedPurchasesApi({
-        targetOwner: labHeadGate.unlocked ? username : undefined,
-        actor: labHeadGate.unlocked ? labHeadGate.activeUser : undefined,
-        sessionId: labHeadGate.unlocked ? labHeadGate.sessionId : undefined,
-      }),
-    [
-      labHeadGate.unlocked,
-      labHeadGate.activeUser,
-      labHeadGate.sessionId,
-      username,
-    ],
-  );
+  // PI edit-mode removal (remove-edit-mode bot, 2026-06-07): the PI
+  // edit-session soft-write was removed. The prop-passed readOnly is now the
+  // effective readOnly (writes follow standard share permissions). A lab head
+  // viewing a MEMBER's purchase order can still approve / flag line items via
+  // the actions below — those are role privileges, not record writes.
+  const { currentUser: gateCurrentUser } = useCurrentUser();
+  const accountType = useAccountType(gateCurrentUser);
+  const isLabHead = accountType === "lab_head";
+  const isOtherUserRecord =
+    !!username && !!gateCurrentUser && username !== gateCurrentUser;
+  const canActAsLabHead = propReadOnly && isLabHead && isOtherUserRecord;
+  const readOnly = propReadOnly;
   // Catalog/funding mutations + autocomplete queries call the raw API
   // unconditionally — they target the PI's own catalog/funding, never the
   // owner's. Lab-head purchase edits only touch line items.
@@ -248,8 +226,7 @@ export default function PurchaseEditor({
   // dataset the /purchases page already fetches. Reusing the queryKey lets
   // React Query share the cache instead of double-fetching. Skipped in lab
   // (read-only) mode — autocomplete is only relevant when the user can type.
-  const { currentUser: providerCurrentUser } = useCurrentUser();
-  const currentUser = providerCurrentUser ?? "";
+  const currentUser = gateCurrentUser ?? "";
   const { data: autocompleteItems = [] } = useQuery({
     queryKey: ["purchases-all", currentUser],
     queryFn: () => purchasesApi.listAllIncludingShared(currentUser),
@@ -568,46 +545,6 @@ export default function PurchaseEditor({
             sharedWith={parentTask.shared_with || []}
             ownerUsername={parentTask.owner}
             viewerUsername={currentUser ?? undefined}
-          />
-        </div>
-      )}
-
-      {/* PI Phase 5 (PI Phase 5 manager, 2026-05-23):
-          unlocked-session timer banner for the purchase editor. */}
-      {labHeadGate.unlocked && labHeadGate.activeUser && (
-        <div className="-mx-4 -mt-4 mb-3">
-          <EditSessionBanner
-            contextLabel={`${username ?? "lab member"}'s purchases`}
-            scopedToUsername={labHeadGate.activeUser}
-          />
-        </div>
-      )}
-
-      {/* PI Phase 5 — Request edit prompt for the purchase editor.
-          Renders as a row above the table when PI is viewing another
-          member's purchase items but hasn't unlocked yet. */}
-      {labHeadGate.canRequestEdit && !labHeadGate.unlocked && labHeadGate.activeUser && (
-        <div className="mb-3 flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-border bg-surface-sunken text-meta text-foreground">
-          <span>
-            Read-only view of {username ?? "lab member"}&apos;s purchase items.
-            Unlock edit mode to make changes (attributed to you in the audit log).
-          </span>
-          <RequestEditButton
-            username={labHeadGate.activeUser}
-            targetLabel={`${username ?? "member"}'s purchases`}
-          />
-        </div>
-      )}
-
-      {/* PI Phase 5 — record-level audit trail for the parent task
-          (purchase items are scoped to a task; the task's audit entries
-          cover the editor surface). */}
-      {propReadOnly && username && (
-        <div className="mb-3">
-          <AuditTrailNotice
-            targetUser={username}
-            recordType="task"
-            recordId={taskId}
           />
         </div>
       )}
@@ -997,11 +934,10 @@ export default function PurchaseEditor({
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="flex flex-col items-start gap-1">
-                      {labHeadGate.canRequestEdit && labHeadGate.unlocked && labHeadGate.activeUser && labHeadGate.sessionId && username && (
+                      {canActAsLabHead && gateCurrentUser && username && (
                         <PurchaseApprovalToggle
                           item={item}
-                          actor={labHeadGate.activeUser}
-                          sessionId={labHeadGate.sessionId}
+                          actor={gateCurrentUser}
                           targetOwner={username}
                           onChanged={() => refetch()}
                         />
@@ -1012,19 +948,18 @@ export default function PurchaseEditor({
                       {!item.approved && item.declined_at && (
                         <PurchaseDeclinedBadge item={item} />
                       )}
-                      {labHeadGate.canRequestEdit && labHeadGate.unlocked && labHeadGate.activeUser && labHeadGate.sessionId && username && (
+                      {canActAsLabHead && gateCurrentUser && username && (
                         <FlagForReviewButton
                           recordType="purchase_item"
                           recordId={item.id}
                           recordName={item.item_name}
                           targetOwner={username}
-                          actor={labHeadGate.activeUser}
-                          sessionId={labHeadGate.sessionId}
+                          actor={gateCurrentUser}
                           currentFlag={item.flagged ?? null}
                           onFlagged={() => refetch()}
                         />
                       )}
-                      {item.flagged && !(labHeadGate.canRequestEdit && labHeadGate.unlocked) && (
+                      {item.flagged && !canActAsLabHead && (
                         <span
                           className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-meta font-semibold uppercase tracking-wide bg-red-100 dark:bg-red-500/20 text-red-800 dark:text-red-200 border border-red-300"
                           title={item.flagged.reason ?? `Flagged by ${item.flagged.by}`}

@@ -22,7 +22,6 @@ import { readUserSettings, patchUserSettings, userSettingsFileExists, DEFAULT_SE
 import { useAppStore, readLegacyLocalStorageSettings } from "../store";
 import { getWikiCaptureVariant, getDemoMode, markDemoMode, installWikiCaptureFixture, resolveFixtureUser, clearAllStickyDemoFlags } from "./wiki-capture-mock";
 import { rebaseDemoDates, isDemoLab } from "../demo/rebase";
-import { resetEditSession } from "../lab/edit-session";
 import { appQueryClient } from "../query-client";
 import { FEED_EVENTS_PREFIX } from "../calendar/feed-cache-keys";
 import {
@@ -1028,12 +1027,6 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const disconnect = useCallback(async () => {
-    // edit-session bleed fix 2026-05-24: disconnect ends the active
-    // user session entirely. Any unlocked lab-head window must be
-    // dropped so a fresh connect (to the same OR a different folder)
-    // starts from idle. resetEditSession is idempotent so calling
-    // unconditionally here is safe.
-    resetEditSession();
     fileService.clearDirectoryHandle();
     await clearDirectoryHandle();
     await clearCurrentUser();
@@ -1068,19 +1061,8 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const setCurrentUser = useCallback(async (username: string) => {
-    // edit-session bleed fix 2026-05-24: a still-unlocked lab-head
-    // session belongs to whichever username was just active. Switching
-    // to a different user must drop that unlock back to idle so the
-    // new user cannot inherit write-gating permissions from the old
-    // one. The `resetEditSession` helper was added for exactly this
-    // case but had no callsite; skipping the reset on a same-user
-    // no-op switch keeps the session timer ticking on routes that
-    // re-call setCurrentUser to refresh other state.
     const prevUser = currentUserRef.current;
     const isUserChange = prevUser !== null && prevUser !== username;
-    if (isUserChange) {
-      resetEditSession();
-    }
     clearCurrentUserCache();
     await storeCurrentUser(username);
     setState((prev) => ({ ...prev, currentUser: username }));

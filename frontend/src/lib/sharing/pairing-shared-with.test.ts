@@ -8,7 +8,6 @@ import {
   pairingSharedWith,
   canRead,
   canWrite,
-  NEVER_UNLOCKED,
   type Viewer,
 } from "./unified";
 
@@ -63,13 +62,13 @@ describe("pairingSharedWith feeds the unified read/write gates", () => {
   it("both members can WRITE without any lab_head bypass", () => {
     // NEVER_UNLOCKED proves write comes from the explicit edit entry, not the
     // PI edit-session override.
-    expect(canWrite(record, member("pi"), NEVER_UNLOCKED)).toBe(true);
-    expect(canWrite(record, member("student"), NEVER_UNLOCKED)).toBe(true);
+    expect(canWrite(record, member("pi"))).toBe(true);
+    expect(canWrite(record, member("student"))).toBe(true);
   });
 
   it("a non-member plain user can neither read nor write", () => {
     expect(canRead(record, member("other"))).toBe(false);
-    expect(canWrite(record, member("other"), NEVER_UNLOCKED)).toBe(false);
+    expect(canWrite(record, member("other"))).toBe(false);
   });
 
   it("a lab_head non-member reads via implicit view-all (expected), but has no implicit write", () => {
@@ -77,6 +76,6 @@ describe("pairingSharedWith feeds the unified read/write gates", () => {
     expect(canRead(record, piNonMember)).toBe(true);
     // canWrite for a lab_head is gated on the edit session; NEVER_UNLOCKED
     // denies it, so no silent write without the explicit pairing entry.
-    expect(canWrite(record, piNonMember, NEVER_UNLOCKED)).toBe(false);
+    expect(canWrite(record, piNonMember)).toBe(false);
   });
 });

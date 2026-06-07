@@ -34,7 +34,6 @@ import type { Note, WeeklyGoal } from "./types";
 import {
   canRead,
   canWrite,
-  NEVER_UNLOCKED,
   type Viewer,
 } from "./sharing/unified";
 
@@ -169,12 +168,12 @@ describe("notebook record is readable + writable by both members", () => {
 
     expect(canRead(nb, viewer("student"))).toBe(true);
     expect(canRead(nb, viewer("pi", true))).toBe(true);
-    expect(canWrite(nb, viewer("student"), NEVER_UNLOCKED)).toBe(true);
-    expect(canWrite(nb, viewer("pi"), NEVER_UNLOCKED)).toBe(true);
+    expect(canWrite(nb, viewer("student"))).toBe(true);
+    expect(canWrite(nb, viewer("pi"))).toBe(true);
 
     // A third plain member is locked out.
     expect(canRead(nb, viewer("other"))).toBe(false);
-    expect(canWrite(nb, viewer("other"), NEVER_UNLOCKED)).toBe(false);
+    expect(canWrite(nb, viewer("other"))).toBe(false);
   });
 });
 
@@ -199,8 +198,8 @@ describe("in-notebook notes: both add, both see, both can write", () => {
       owner: note.username,
       shared_with: note.shared_with ?? [],
     };
-    expect(canWrite(shareable, viewer("pi"), NEVER_UNLOCKED)).toBe(true);
-    expect(canWrite(shareable, viewer("student"), NEVER_UNLOCKED)).toBe(true);
+    expect(canWrite(shareable, viewer("pi"))).toBe(true);
+    expect(canWrite(shareable, viewer("student"))).toBe(true);
   });
 
   it("each member sees the OTHER member's notebook notes via getNotebookNotes", async () => {
