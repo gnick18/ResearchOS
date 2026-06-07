@@ -150,4 +150,61 @@ describe("ownerScopedNotesApi", () => {
       expect(fakeFiles["users/mira/_pi_audit.json"]).toBeUndefined();
     });
   });
+
+  // PI capability revamp (2026-06-07): targetOwner + actor (no session/password)
+  // routes the write to the member's folder AND appends a per-field audit entry.
+  describe("PI role-based edit (owner-routed + audited)", () => {
+    it("update routes to the owner's folder and logs a field diff", async () => {
+      seedNote("alex");
+      const api = ownerScopedNotesApi({ targetOwner: "alex", actor: "mira" });
+      await api.update(11, { title: "PI-edited Title" });
+
+      // Write landed in the owner's (alex's) folder, not the PI's (mira's).
+      expect(fakeFiles["users/alex/notes/11.json"]).toMatchObject({
+        title: "PI-edited Title",
+      });
+      expect(fakeFiles["users/mira/notes/11.json"]).toBeUndefined();
+
+      // Audit entry in the OWNER's _pi_audit.json, actor = the PI.
+      const audit = fakeFiles["users/alex/_pi_audit.json"] as {
+        entries: Array<Record<string, unknown>>;
+      };
+      expect(audit.entries).toHaveLength(1);
+      expect(audit.entries[0]).toMatchObject({
+        actor: "mira",
+        target_user: "alex",
+        record_type: "note",
+        record_id: 11,
+        field_path: "title",
+        old_value: "Old Title",
+        new_value: "PI-edited Title",
+        session_id: "lab-head-edit",
+      });
+    });
+
+    it("does not log when no field actually changed", async () => {
+      seedNote("alex");
+      const api = ownerScopedNotesApi({ targetOwner: "alex", actor: "mira" });
+      await api.update(11, { title: "Old Title" });
+      expect(fakeFiles["users/alex/_pi_audit.json"]).toBeUndefined();
+    });
+
+    it("updateEntry logs one entry-field diff in the owner's folder", async () => {
+      seedNote("alex");
+      const api = ownerScopedNotesApi({ targetOwner: "alex", actor: "mira" });
+      await api.updateEntry(11, "entry-a", { content: "PI body edit" });
+
+      const alexNote = fakeFiles["users/alex/notes/11.json"] as Note;
+      expect(alexNote.entries[0].content).toBe("PI body edit");
+      const audit = fakeFiles["users/alex/_pi_audit.json"] as {
+        entries: Array<Record<string, unknown>>;
+      };
+      expect(audit.entries).toHaveLength(1);
+      expect(audit.entries[0]).toMatchObject({
+        actor: "mira",
+        field_path: "entries.entry-a.content",
+        new_value: "PI body edit",
+      });
+    });
+  });
 });

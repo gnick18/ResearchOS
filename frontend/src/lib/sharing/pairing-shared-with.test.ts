@@ -71,11 +71,12 @@ describe("pairingSharedWith feeds the unified read/write gates", () => {
     expect(canWrite(record, member("other"))).toBe(false);
   });
 
-  it("a lab_head non-member reads via implicit view-all (expected), but has no implicit write", () => {
+  it("a lab_head reads AND writes via implicit role-based PI edit (no session)", () => {
     const piNonMember: Viewer = { username: "boss", account_type: "lab_head" };
     expect(canRead(record, piNonMember)).toBe(true);
-    // canWrite for a lab_head is gated on the edit session; NEVER_UNLOCKED
-    // denies it, so no silent write without the explicit pairing entry.
-    expect(canWrite(record, piNonMember)).toBe(false);
+    // Role-based PI edit (PI capability revamp): a lab head writes any lab
+    // record without a pairing entry. The accidental-edit confirm lives in the
+    // popups, not in this pure predicate.
+    expect(canWrite(record, piNonMember)).toBe(true);
   });
 });

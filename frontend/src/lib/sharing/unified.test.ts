@@ -2,7 +2,7 @@
 // truth-table tests for the unified sharing primitive. Covers:
 //
 //   - canRead under owner / lab_head / "*" sentinel / explicit entry
-//   - canWrite under owner / lab_head + edit session / shared edit
+//   - canWrite under owner / lab_head role-based / shared edit
 //   - expandSharedWith resolves "*" to current lab members
 //   - normalizeSharedWith handles legacy `permission` → `level` mapping
 //   - "*" + explicit entry: highest level wins on collision
@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import {
   canRead,
   canWrite,
+  canWriteIgnoringPiRole,
   expandSharedWith,
   normalizeSharedEntry,
   normalizeSharedWith,
@@ -72,8 +73,16 @@ describe("canWrite", () => {
   it("owner always writes", () => {
     expect(canWrite(rec("alex", []), alex)).toBe(true);
   });
-  it("lab_head has no implicit write on a member's record (PI edit-mode removed)", () => {
-    expect(canWrite(rec("alex", []), mira)).toBe(false);
+  it("lab_head writes any member's record (role-based PI edit, no session)", () => {
+    expect(canWrite(rec("alex", []), mira)).toBe(true);
+  });
+  it("canWriteIgnoringPiRole denies a lab_head with no owner/edit-share basis", () => {
+    // The popups use this to decide whether to gate the PI edit behind the
+    // once-per-session confirm: true here means "no confirm needed".
+    expect(canWriteIgnoringPiRole(rec("alex", []), mira)).toBe(false);
+    expect(
+      canWriteIgnoringPiRole(rec("alex", [{ username: "mira", level: "edit" }]), mira),
+    ).toBe(true);
   });
   it("non-owner with level:read cannot write", () => {
     expect(

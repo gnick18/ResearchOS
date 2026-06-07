@@ -17,6 +17,7 @@ import {
 } from "./indexeddb-store";
 import { readMainUser, writeMainUser, pruneOrphanUserMetadataEntries } from "./user-metadata";
 import { clearCurrentUserCache } from "../storage/json-store";
+import { clearPiEditConfirmations } from "../lab/pi-edit-guard";
 import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./user-discovery";
 import { readUserSettings, patchUserSettings, userSettingsFileExists, DEFAULT_SETTINGS } from "../settings/user-settings";
 import { useAppStore, readLegacyLocalStorageSettings } from "../store";
@@ -1064,6 +1065,10 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     const prevUser = currentUserRef.current;
     const isUserChange = prevUser !== null && prevUser !== username;
     clearCurrentUserCache();
+    // PI capability revamp: a lab head's once-per-session edit confirmations
+    // must not carry across a user switch (the keys are owner-scoped, not
+    // confirming-user-scoped), so wipe them when the active user changes.
+    clearPiEditConfirmations();
     await storeCurrentUser(username);
     setState((prev) => ({ ...prev, currentUser: username }));
     await hydrateSettingsForUser(username);

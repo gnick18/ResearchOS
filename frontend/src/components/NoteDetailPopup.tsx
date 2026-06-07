@@ -45,6 +45,10 @@ import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { useAccountType } from "@/hooks/useAccountType";
 import FlagForReviewButton from "./lab-head/FlagForReviewButton";
 import FlagBanner from "./lab-head/FlagBanner";
+import PiEditButton from "./lab-head/PiEditButton";
+import PiEditConfirmDialog from "./lab-head/PiEditConfirmDialog";
+import PiEditAuditNote from "./lab-head/PiEditAuditNote";
+import { usePiEditGate } from "@/hooks/usePiEditGate";
 import SharingChips from "@/components/sharing/SharingChips";
 import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
 import { StampsRow } from "@/components/AttributionChip";
@@ -110,6 +114,19 @@ export default function NoteDetailPopup({
     !!note.username &&
     !!currentUser &&
     note.username !== currentUser;
+  // PI capability revamp (2026-06-07): role-based PI edit of a member's note.
+  // The gate decides whether this is a lab head editing someone else's note on
+  // the role alone, and holds the once-per-session confirm. When active +
+  // confirmed, writes route to the owner's folder + emit audit (notesApi memo
+  // below); until confirmed the note stays read-only behind the "Edit as lab
+  // head" affordance.
+  const piGate = usePiEditGate({
+    owner: note.username,
+    sharedWith: note.shared_with,
+    recordType: "note",
+    recordId: note.id,
+    propReadOnly,
+  });
   // Version-history viewer (VCP Phase 1, version-history viewer bot for HR,
   // 2026-05-29). Opening the right-sidebar version list puts the document
   // column into a READ-ONLY preview: `historyOpen` forces the editor read-only
@@ -178,8 +195,13 @@ export default function NoteDetailPopup({
     return onBlockListChange(() => setSenderBlocked(isSenderBlocked(sender)));
   }, [note.received_from]);
 
+  // A PI editing a member's note on the role stays read-only until they cross
+  // the once-per-session confirm; everyone else keeps the share-permission flag.
+  const piActive = piGate.isPiEdit && piGate.confirmed;
   const readOnly =
-    (propReadOnly && !notebookEditAllowed) ||
+    (piGate.isPiEdit
+      ? !piGate.confirmed
+      : propReadOnly && !notebookEditAllowed) ||
     historyOpen ||
     // External-collab chunk 5: a revoked recipient's copy is read-only.
     collabRevoked;
@@ -187,10 +209,11 @@ export default function NoteDetailPopup({
     () =>
       ownerScopedNotesApi({
         notebookPeerOwner,
+        // When the PI has confirmed, route writes to the member's folder + audit.
+        targetOwner: piActive ? (note.username ?? undefined) : undefined,
+        actor: piActive ? (currentUser ?? undefined) : undefined,
       }),
-    [
-      notebookPeerOwner,
-    ],
+    [notebookPeerOwner, piActive, note.username, currentUser],
   );
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState(false);
@@ -1526,6 +1549,19 @@ export default function NoteDetailPopup({
 
             {/* Fullscreen and Close buttons */}
             <div className="flex items-center gap-1">
+              {/* PI capability revamp (2026-06-07): role-based edit affordance.
+                  A lab head on a member's note sees "Edit as lab head" until
+                  they cross the once-per-session confirm; afterward the inline
+                  audit note replaces it. No password. */}
+              {piGate.isPiEdit && !piGate.confirmed && (
+                <PiEditButton
+                  memberName={note.username}
+                  onClick={piGate.beginEdit}
+                />
+              )}
+              {piActive && (
+                <PiEditAuditNote memberName={note.username} className="mr-1" />
+              )}
               {/* PI Phase 3 (PI Phase 3 manager, 2026-05-23):
                   Flag-for-review button. A lab head viewing a member's note
                   can flag it (a role privilege, not a record write). Notes
@@ -1754,6 +1790,17 @@ export default function NoteDetailPopup({
               />
             </div>
           )}
+
+          {/* PI capability revamp: the once-per-session confirm a lab head
+              crosses before editing this member's note. LivingPopup portals
+              itself, so the tree position here is immaterial. */}
+          <PiEditConfirmDialog
+            open={piGate.confirmDialogOpen}
+            memberName={note.username ?? null}
+            recordLabel={title ? `note ${title}` : "note"}
+            onConfirm={piGate.confirmEdit}
+            onCancel={piGate.cancelEdit}
+          />
 
           {/* R1b: sharing chips — read-only visibility hint row showing who
               currently has access. The Loro auto-save status sits inline at the
