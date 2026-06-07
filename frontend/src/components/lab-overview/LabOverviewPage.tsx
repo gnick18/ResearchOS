@@ -33,7 +33,7 @@
  * "/" (Phase 2 finalizes member routing).
  */
 
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
@@ -42,6 +42,9 @@ import { isPurchasePending } from "@/lib/types";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAccountType } from "@/hooks/useAccountType";
 import { useLabData } from "@/hooks/useLabData";
+import { Icon, type IconName } from "@/components/icons";
+import LabRoster from "@/components/lab-head/LabRoster";
+import AuditTrailViewer from "@/components/lab-head/AuditTrailViewer";
 
 import NewProjectButton from "./NewProjectButton";
 import { ExpandedView as AnnouncementsBody } from "./widgets/AnnouncementsWidget";
@@ -441,11 +444,100 @@ function SectionCard({ title, description, children, className }: SectionCardPro
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PI tools (Phase 3): one quick-access card gathering the lab head's unique
+// powers as entry points, so they are discoverable in one place. Each tool
+// reuses an EXISTING destination, the same routes the action bar already uses
+// for approvals (/purchases) and the flag queue (/lab-inbox), plus the new
+// audit-trail viewer and a scroll to the embedded roster below.
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface PiToolProps {
+  icon: IconName;
+  label: string;
+  description: string;
+  onClick: () => void;
+}
+
+function PiTool({ icon, label, description, onClick }: PiToolProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex items-start gap-3 rounded-xl border border-border bg-surface-raised px-3.5 py-3 text-left shadow-sm transition-colors hover:border-border hover:bg-surface-sunken"
+    >
+      <span
+        aria-hidden="true"
+        className="mt-0.5 text-foreground-muted group-hover:text-foreground"
+      >
+        <Icon name={icon} className="h-5 w-5" />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-body font-medium text-foreground">
+          {label}
+        </span>
+        <span className="block text-meta text-foreground-muted">
+          {description}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function PiToolsCard({ onJumpToRoster }: { onJumpToRoster: () => void }) {
+  const router = useRouter();
+  const [auditOpen, setAuditOpen] = useState(false);
+  return (
+    <SectionCard
+      title="PI tools"
+      description="The lab-head powers, all in one place."
+    >
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <PiTool
+          icon="users"
+          label="Lab roster"
+          description="Manage members, archive or restore."
+          onClick={onJumpToRoster}
+        />
+        <PiTool
+          icon="history"
+          label="Audit trail"
+          description="Review your edits to members' records."
+          onClick={() => setAuditOpen(true)}
+        />
+        <PiTool
+          icon="check"
+          label="Pending approvals"
+          description="Approve or decline purchase requests."
+          // Pending purchase approvals live on the purchases surface, the same
+          // route the action bar's "approvals" segment uses.
+          onClick={() => router.push("/purchases")}
+        />
+        <PiTool
+          icon="alert"
+          label="Flag queue"
+          description="Records you flagged for follow-up."
+          // Flagged records surface in the Lab Inbox, the same route the action
+          // bar's "flagged" segment uses.
+          onClick={() => router.push("/lab-inbox")}
+        />
+      </div>
+      <AuditTrailViewer open={auditOpen} onClose={() => setAuditOpen(false)} />
+    </SectionCard>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Page
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function LabOverviewPage() {
   const { currentUser } = useCurrentUser();
+  // The "Lab roster" PI tool scrolls to the embedded roster section below
+  // rather than navigating away, keeping the PI on the overview.
+  const rosterRef = useRef<HTMLDivElement | null>(null);
+  const jumpToRoster = () => {
+    rosterRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 p-6">
       <div className="space-y-3">
@@ -469,12 +561,27 @@ export default function LabOverviewPage() {
         <LinkOuts />
       </div>
 
+      {/* PI tools (Phase 3): quick access to the lab head's unique powers,
+          discoverable in one place, before the deeper feeds. */}
+      <PiToolsCard onJumpToRoster={jumpToRoster} />
+
       <SectionCard
         title="Announcements"
         description="Post to the whole lab and see recent announcements."
       >
         <AnnouncementsBody surface="canvas" />
       </SectionCard>
+
+      {/* Lab roster embedded inline (Phase 3): the self-contained roster as its
+          own section. The "Lab roster" PI tool scrolls here. */}
+      <div ref={rosterRef} className="scroll-mt-4">
+        <SectionCard
+          title="Lab roster"
+          description="Active and archived lab members. Archive a departed member to hide them from day-to-day surfaces while keeping their data searchable."
+        >
+          <LabRoster />
+        </SectionCard>
+      </div>
 
       {/* Activity feed + right rail. Single column below lg; two columns
           (feed wider than the rail) from lg up. The rail stacks BELOW the
