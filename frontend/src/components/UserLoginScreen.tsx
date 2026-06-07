@@ -1012,7 +1012,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     !contextCurrentUser && !expandPicker && soleUser !== null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-surface via-surface-sunken to-surface">
       {/* Beta surfacing, mirrors the folder-setup screen: version badge
           top-left + beta notice bottom-left so both pre-app gates carry the
           same framing. */}
@@ -1048,30 +1048,30 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               className="w-8 h-8 text-white"
             />
           </div>
-          <h1 className="text-display font-extrabold tracking-tight text-white mb-2">ResearchOS</h1>
-          <p className="text-slate-400">Select your account to continue</p>
+          <h1 className="text-display font-extrabold tracking-tight text-foreground mb-2">ResearchOS</h1>
+          <p className="text-foreground-muted">Select your account to continue</p>
         </div>
 
         {/* Main card */}
-        <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+        <div className="bg-surface-raised backdrop-blur-xl rounded-2xl shadow-2xl border border-border overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground-muted"></div>
             </div>
           ) : showQuickConfirm && soleUser ? (
             <div className="p-6 text-center space-y-5">
               <div className="flex flex-col items-center gap-3">
                 <UserAvatar username={soleUser} size="xl" />
                 <div>
-                  <p className="text-body text-slate-400">Continue as</p>
-                  <p className="text-heading font-semibold text-white">
+                  <p className="text-body text-foreground-muted">Continue as</p>
+                  <p className="text-heading font-semibold text-foreground">
                     {soleUser}?
                   </p>
                 </div>
               </div>
               {error && (
-                <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
-                  <p className="text-body text-red-300">{error}</p>
+                <div className="p-3 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+                  <p className="text-body text-red-700 dark:text-red-300">{error}</p>
                 </div>
               )}
               <div className="space-y-2">
@@ -1087,7 +1087,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                     setError(null);
                     setExpandPicker(true);
                   }}
-                  className="w-full py-2.5 text-body bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg transition-colors"
+                  className="w-full py-2.5 text-body bg-surface-sunken hover:bg-surface-sunken/70 border border-border text-foreground rounded-lg transition-colors"
                 >
                   No, I&apos;m someone else
                 </button>
@@ -1097,7 +1097,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
             <div className="p-6">
               <button
                 onClick={() => setShowCreateForm(false)}
-                className="flex items-center gap-2 text-slate-400 hover:text-white mb-4 transition-colors"
+                className="flex items-center gap-2 text-foreground-muted hover:text-foreground mb-4 transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -1105,11 +1105,11 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 Back to users
               </button>
 
-              <h2 className="text-heading font-semibold text-white mb-4">Create New User</h2>
+              <h2 className="text-heading font-semibold text-foreground mb-4">Create New User</h2>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-body font-medium text-slate-300 mb-1.5">
+                  <label className="block text-body font-medium text-foreground-muted mb-1.5">
                     Username
                   </label>
                   <input
@@ -1118,17 +1118,17 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                     onChange={(e) => setNewUsername(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleCreateUser()}
                     placeholder="Enter your username"
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-surface-sunken border border-border rounded-lg text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     autoFocus
                   />
-                  <p className="text-meta text-slate-400 mt-1.5">
+                  <p className="text-meta text-foreground-muted mt-1.5">
                     Letters, numbers, and underscores only
                   </p>
                 </div>
 
                 {error && (
-                  <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
-                    <p className="text-body text-red-300">{error}</p>
+                  <div className="p-3 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+                    <p className="text-body text-red-700 dark:text-red-300">{error}</p>
                   </div>
                 )}
 
@@ -1154,15 +1154,15 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
             <div className="p-6">
               {/* Error message */}
               {error && (
-                <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
-                  <p className="text-body text-red-300">{error}</p>
+                <div className="mb-4 p-3 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+                  <p className="text-body text-red-700 dark:text-red-300">{error}</p>
                 </div>
               )}
 
               {/* User list */}
               <div className="space-y-2 mb-4">
                 {sortedUsers.length === 0 ? (
-                  <p className="text-center text-slate-400 py-4">
+                  <p className="text-center text-foreground-muted py-4">
                     No users yet. Create one to continue.
                   </p>
                 ) : (
@@ -1170,7 +1170,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                     <div key={user} className="relative">
                       {editingUser === user ? (
                         // Edit mode
-                        <div className="flex items-center gap-2 p-3 bg-white/10 border border-blue-500/50 rounded-xl">
+                        <div className="flex items-center gap-2 p-3 bg-surface-sunken border border-blue-500/50 rounded-xl">
                           <UserAvatar
                             username={user}
                             size="md"
@@ -1183,7 +1183,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                             onChange={(e) => setEditValue(e.target.value)}
                             onKeyDown={(e) => handleEditKeyDown(e, user)}
                             disabled={renaming}
-                            className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="flex-1 px-3 py-2 bg-surface-sunken border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             maxLength={50}
                           />
                           <Tooltip label="Save" placement="bottom">
@@ -1233,7 +1233,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                               handleLogin(user);
                             }
                           }}
-                          className={`w-full flex items-center gap-3 p-4 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-xl transition-all group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 ${
+                          className={`w-full flex items-center gap-3 p-4 bg-surface-sunken hover:bg-surface-sunken/70 border border-border hover:border-border rounded-xl transition-all group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-raised ${
                             loggingIn !== null ? 'opacity-50 cursor-not-allowed' : ''
                           }`}
                         >
@@ -1252,7 +1252,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                               the (Main) tag stay full-width via shrink-0.
                               (picker card alignment fix, 2026-05-26) */}
                           <div className="flex-1 min-w-0 text-left flex items-center gap-2">
-                            <span className="text-white font-medium truncate">{user}</span>
+                            <span className="text-foreground font-medium truncate">{user}</span>
                             {labHeadUsers.has(user) && (
                               // Lab Head badge — matches the CommentsThread
                               // author attribution badge (amber-100/amber-800).
@@ -1279,7 +1279,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                                 label="Archived account, hidden by default"
                                 placement="bottom"
                               >
-                                <span className="shrink-0 px-1.5 py-0.5 text-meta font-semibold rounded bg-slate-200 text-slate-600">
+                                <span className="shrink-0 px-1.5 py-0.5 text-meta font-semibold rounded bg-surface-sunken text-foreground-muted">
                                   Archived
                                 </span>
                               </Tooltip>
@@ -1316,7 +1316,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                               <button
                                 onClick={(e) => handleSetMainUser(user, e)}
                                 disabled={loggingIn !== null}
-                                className="p-2 opacity-0 group-hover:opacity-100 hover:bg-amber-500/20 rounded-lg text-slate-400 hover:text-amber-400 transition-all"
+                                className="p-2 opacity-0 group-hover:opacity-100 hover:bg-amber-500/20 rounded-lg text-foreground-muted hover:text-amber-400 transition-all"
                                 aria-label="Set as main user"
                                 data-force-hover-controls-target
                               >
@@ -1335,7 +1335,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                             <button
                               onClick={(e) => startEdit(user, e)}
                               disabled={loggingIn !== null}
-                              className="p-2 opacity-0 group-hover:opacity-100 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-all"
+                              className="p-2 opacity-0 group-hover:opacity-100 hover:bg-surface-sunken rounded-lg text-foreground-muted hover:text-foreground transition-all"
                               aria-label="Rename user"
                               data-force-hover-controls-target
                             >
@@ -1353,7 +1353,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                             <button
                               onClick={(e) => startDelete(user, e)}
                               disabled={loggingIn !== null}
-                              className="p-2 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded-lg text-slate-400 hover:text-red-400 transition-all"
+                              className="p-2 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded-lg text-foreground-muted hover:text-red-400 transition-all"
                               aria-label="Delete user"
                               data-force-hover-controls-target
                             >
@@ -1367,9 +1367,9 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                           </div>
                           
                           {loggingIn === user ? (
-                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-foreground-muted"></div>
                           ) : (
-                            <svg className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 text-foreground-muted group-hover:text-foreground transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
                           )}
@@ -1391,7 +1391,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                     type="button"
                     onClick={() => setShowArchived((v) => !v)}
                     disabled={loggingIn !== null}
-                    className="text-meta text-slate-400 hover:text-slate-200 underline-offset-2 hover:underline transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="text-meta text-foreground-muted hover:text-foreground underline-offset-2 hover:underline transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     aria-pressed={showArchived}
                     data-testid="login-show-archived-toggle"
                   >
@@ -1406,10 +1406,10 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               {users.length > 0 && (
                 <div className="relative my-4">
                   <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-white/10"></div>
+                    <div className="w-full border-t border-border"></div>
                   </div>
                   <div className="relative flex justify-center text-body">
-                    <span className="px-2 bg-transparent text-slate-400">or</span>
+                    <span className="px-2 bg-transparent text-foreground-muted">or</span>
                   </div>
                 </div>
               )}
@@ -1418,7 +1418,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               <button
                 onClick={() => setShowCreateForm(true)}
                 disabled={loggingIn !== null}
-                className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-white/20 hover:border-white/40 rounded-xl text-slate-300 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-border hover:border-foreground-muted rounded-xl text-foreground-muted hover:text-foreground transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -1435,10 +1435,10 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 <div className="mt-6">
                   <div className="relative mb-4">
                     <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-white/10" />
+                      <div className="w-full border-t border-border" />
                     </div>
                     <div className="relative flex justify-center">
-                      <span className="bg-transparent px-2 text-meta text-slate-400">
+                      <span className="bg-transparent px-2 text-meta text-foreground-muted">
                         for sharing and collaboration
                       </span>
                     </div>
@@ -1446,23 +1446,23 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
 
                   {sessionStatus === "authenticated" && session?.user ? (
                     <div className="flex flex-col items-center gap-1.5 text-center">
-                      <p className="text-meta text-slate-300">
+                      <p className="text-meta text-foreground-muted">
                         Signed in as{" "}
-                        <span className="font-medium text-white">
+                        <span className="font-medium text-foreground">
                           {session.user.email ?? session.user.name ?? "unknown"}
                         </span>
                       </p>
                       <button
                         type="button"
                         onClick={() => void signOut({ callbackUrl: "/" })}
-                        className="text-meta text-slate-400 underline underline-offset-2 hover:text-slate-200 transition-colors"
+                        className="text-meta text-foreground-muted underline underline-offset-2 hover:text-foreground transition-colors"
                       >
                         Sign out
                       </button>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-2.5">
-                      <p className="text-meta text-slate-400 text-center mb-1">
+                      <p className="text-meta text-foreground-muted text-center mb-1">
                         Enable sharing, inbox, and collaboration
                       </p>
                       <div className="flex flex-col gap-2 w-full sm:flex-row">
@@ -1470,7 +1470,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                           type="button"
                           onClick={() => void signIn("google", { callbackUrl: "/" })}
                           disabled={loggingIn !== null}
-                          className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white px-4 py-2.5 text-meta font-semibold text-gray-800 shadow-sm transition-all hover:border-white/40 hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-white px-4 py-2.5 text-meta font-semibold text-gray-800 shadow-sm transition-all hover:border-foreground-muted hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <GoogleIcon className="w-4 h-4" />
                           Sign in with Google
@@ -1479,7 +1479,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                           type="button"
                           onClick={() => void signIn("github", { callbackUrl: "/" })}
                           disabled={loggingIn !== null}
-                          className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-slate-800 px-4 py-2.5 text-meta font-semibold text-white shadow-sm transition-all hover:border-white/40 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-slate-800 px-4 py-2.5 text-meta font-semibold text-white shadow-sm transition-all hover:border-foreground-muted hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <GitHubIcon className="w-4 h-4" />
                           Sign in with GitHub
@@ -1497,7 +1497,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                     </div>
                   )}
 
-                  <p className="mt-3 text-center text-meta text-slate-500">
+                  <p className="mt-3 text-center text-meta text-foreground-muted">
                     Your notebook works offline without signing in.
                   </p>
                 </div>
@@ -1507,7 +1507,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-slate-500 text-body mt-6">
+        <p className="text-center text-foreground-muted text-body mt-6">
           Your data is stored locally in the folder you picked
         </p>
       </div>
@@ -1515,7 +1515,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       {/* Delete User Confirmation Modal */}
       {deleteUserSelected && showDeleteConfirm && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-slate-800 rounded-2xl shadow-2xl border border-white/20 max-w-md w-full mx-4 overflow-hidden">
+          <div className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-md w-full mx-4 overflow-hidden">
             <div className="p-6">
               <div className="flex items-start gap-4">
                 <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
@@ -1524,31 +1524,31 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-title font-semibold text-white mb-2">
+                  <h3 className="text-title font-semibold text-foreground mb-2">
                     Delete User Profile
                   </h3>
                   {deleteConfirmStep === 1 ? (
-                    <p className="text-slate-300 text-body">
-                      Are you sure you want to delete <span className="font-semibold text-white">{deleteUserSelected}</span>? This action cannot be undone.
+                    <p className="text-foreground-muted text-body">
+                      Are you sure you want to delete <span className="font-semibold text-foreground">{deleteUserSelected}</span>? This action cannot be undone.
                     </p>
                   ) : (
-                    <p className="text-slate-300 text-body">
-                      Final confirmation: Permanently delete <span className="font-semibold text-white">{deleteUserSelected}</span>?
+                    <p className="text-foreground-muted text-body">
+                      Final confirmation: Permanently delete <span className="font-semibold text-foreground">{deleteUserSelected}</span>?
                     </p>
                   )}
                 </div>
               </div>
 
               {deleteConfirmStep === 1 && (
-                <div className="mt-4 p-3 bg-slate-700/50 rounded-lg">
+                <div className="mt-4 p-3 bg-surface-sunken rounded-lg">
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={deleteUserArchive}
                       onChange={(e) => setDeleteUserArchive(e.target.checked)}
-                      className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
+                      className="w-4 h-4 rounded border-border bg-surface-sunken text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
                     />
-                    <span className="text-body text-slate-300">
+                    <span className="text-body text-foreground-muted">
                       Archive data before deletion (recommended)
                     </span>
                   </label>
@@ -1556,22 +1556,22 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               )}
 
               {error && (
-                <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
-                  <p className="text-body text-red-300">{error}</p>
+                <div className="mt-4 p-3 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+                  <p className="text-body text-red-700 dark:text-red-300">{error}</p>
                 </div>
               )}
 
               {isArchivingUser && (
-                <div className="mt-4 p-3 bg-blue-500/20 rounded-lg flex items-center gap-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
-                  <span className="text-body text-blue-300">Creating archive...</span>
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-500/20 rounded-lg flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 dark:border-blue-400"></div>
+                  <span className="text-body text-blue-700 dark:text-blue-300">Creating archive...</span>
                 </div>
               )}
 
               {isDeletingUser && (
-                <div className="mt-4 p-3 bg-red-500/20 rounded-lg flex items-center gap-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-400"></div>
-                  <span className="text-body text-red-300">Deleting user...</span>
+                <div className="mt-4 p-3 bg-red-50 dark:bg-red-500/15 rounded-lg flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-500 dark:border-red-400"></div>
+                  <span className="text-body text-red-700 dark:text-red-300">Deleting user...</span>
                 </div>
               )}
 
@@ -1579,7 +1579,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 <button
                   onClick={cancelDelete}
                   disabled={isArchivingUser || isDeletingUser}
-                  className="flex-1 py-2.5 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 py-2.5 bg-surface-sunken hover:bg-surface-sunken/70 text-foreground font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
@@ -1610,24 +1610,24 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           onClick={cancelUnlockGate}
         >
           <div
-            className="bg-slate-800 rounded-2xl shadow-2xl border border-white/20 max-w-sm w-full mx-4 overflow-hidden"
+            className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-sm w-full mx-4 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
             data-testid="unlock-gate"
           >
-            <div className="px-6 py-4 border-b border-white/10">
-              <h3 className="text-title font-semibold text-white">Unlock your account</h3>
-              <p className="text-meta text-slate-400 mt-0.5">
+            <div className="px-6 py-4 border-b border-border">
+              <h3 className="text-title font-semibold text-foreground">Unlock your account</h3>
+              <p className="text-meta text-foreground-muted mt-0.5">
                 Sign in as {unlockGate.username}
               </p>
             </div>
             <div className="px-6 py-5 space-y-3">
               {unlockingViaProvider ? (
-                <p className="text-meta text-slate-400 text-center py-1">
+                <p className="text-meta text-foreground-muted text-center py-1">
                   Confirming your sign-in...
                 </p>
               ) : recoveryMode ? (
                 <>
-                  <p className="text-meta text-slate-400">
+                  <p className="text-meta text-foreground-muted">
                     Enter your recovery code (or the 12 words) to unlock.
                   </p>
                   <input
@@ -1640,7 +1640,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                       if (e.key === "Escape") cancelUnlockGate();
                     }}
                     disabled={unlocking}
-                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body font-mono"
+                    className="w-full px-3 py-2 bg-surface-sunken border border-border rounded-lg text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 focus:ring-blue-500 text-body font-mono"
                     placeholder="Recovery code or 12 words"
                     data-testid="unlock-recovery-input"
                     autoFocus
@@ -1673,12 +1673,12 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                     <>
                       {gateHasPasskey && (
                         <div className="flex items-center gap-3 pt-1">
-                          <div className="h-px flex-1 bg-white/10" />
-                          <span className="text-meta text-slate-500">or</span>
-                          <div className="h-px flex-1 bg-white/10" />
+                          <div className="h-px flex-1 bg-border" />
+                          <span className="text-meta text-foreground-muted">or</span>
+                          <div className="h-px flex-1 bg-border" />
                         </div>
                       )}
-                      <p className="text-meta text-slate-400">
+                      <p className="text-meta text-foreground-muted">
                         Sign in online to unlock
                       </p>
                       <button
@@ -1714,8 +1714,8 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               )}
 
               {error && (
-                <div className="p-2 bg-red-500/20 border border-red-500/30 rounded-lg">
-                  <p className="text-meta text-red-300">{error}</p>
+                <div className="p-2 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+                  <p className="text-meta text-red-700 dark:text-red-300">{error}</p>
                 </div>
               )}
 
@@ -1723,7 +1723,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 <button
                   onClick={cancelUnlockGate}
                   disabled={unlocking}
-                  className="flex-1 py-2 text-body bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg disabled:opacity-50"
+                  className="flex-1 py-2 text-body bg-surface-sunken hover:bg-surface-sunken/70 border border-border text-foreground rounded-lg disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -1757,7 +1757,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                       setRecoveryMode((m) => !m);
                     }}
                     disabled={unlocking}
-                    className="text-meta text-blue-400 hover:text-blue-300 disabled:opacity-50"
+                    className="text-meta text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 disabled:opacity-50"
                     data-testid="unlock-toggle-recovery"
                   >
                     {recoveryMode
@@ -1808,14 +1808,14 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       {profileStep && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div
-            className="bg-slate-800 rounded-2xl shadow-2xl border border-white/20 max-w-sm w-full mx-4 overflow-hidden"
+            className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-sm w-full mx-4 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-white/10">
-              <h3 className="text-title font-semibold text-white">
+            <div className="px-6 py-4 border-b border-border">
+              <h3 className="text-title font-semibold text-foreground">
                 Set up your profile
               </h3>
-              <p className="text-meta text-slate-400 mt-0.5 leading-relaxed">
+              <p className="text-meta text-foreground-muted mt-0.5 leading-relaxed">
                 Link an account so colleagues can find you and confirm it is
                 really you before they share work. This is optional, you can
                 always do it later from Settings.
@@ -1826,7 +1826,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               <button
                 type="button"
                 onClick={skipProfileStep}
-                className="w-full py-2 text-body text-slate-300 hover:text-white font-medium"
+                className="w-full py-2 text-body text-foreground-muted hover:text-foreground font-medium"
                 data-testid="profile-step-skip"
               >
                 Skip for now
@@ -1871,7 +1871,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 flex-wrap justify-center max-w-[90vw]">
         <a
           href="/wiki/getting-started/creating-a-user"
-          className="text-slate-400 hover:text-white text-meta transition-colors flex items-center gap-1"
+          className="text-foreground-muted hover:text-foreground text-meta transition-colors flex items-center gap-1"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
             <circle cx="12" cy="12" r="10" />
@@ -1882,7 +1882,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         </a>
         <a
           href="/wiki/shared-lab-accounts"
-          className="text-slate-400 hover:text-white text-meta transition-colors flex items-center gap-1"
+          className="text-foreground-muted hover:text-foreground text-meta transition-colors flex items-center gap-1"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-5.13a4 4 0 11-8 0 4 4 0 018 0zm6 0a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -1892,7 +1892,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         <button
           type="button"
           onClick={() => setRoadmapOpen(true)}
-          className="text-slate-400 hover:text-white text-meta transition-colors flex items-center gap-1"
+          className="text-foreground-muted hover:text-foreground text-meta transition-colors flex items-center gap-1"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 14 14" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
             <path d="M2 11.5c1.5-3 3-5 5-6.5 2.5-1.8 5-1.5 5-1.5s.3 2.5-1.5 5c-1.5 2-3.5 3.5-6.5 5z" />
@@ -1902,7 +1902,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         </button>
         <button
           onClick={openBugReport}
-          className="text-slate-500 hover:text-white text-meta transition-colors flex items-center gap-1"
+          className="text-foreground-muted hover:text-foreground text-meta transition-colors flex items-center gap-1"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
