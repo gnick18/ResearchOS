@@ -79,9 +79,9 @@ export default function Q1cLabHeadStep({
   const current = picks?.lab_head;
   const { currentUser } = useCurrentUser();
 
-  // PI password gate state. `passwordSaved` flips true once a password
-  // exists on disk for this user (either set here or detected via
-  // hasPassword on mount / re-render). It is the single source of truth
+  // PI password gate state. `passwordSaved` flips true once a keypair account
+  // exists on disk for this user (either created here or detected via
+  // hasLocalAccount on mount / re-render). It is the single source of truth
   // for whether the mandatory-password requirement is satisfied.
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
