@@ -31,6 +31,7 @@ import { useMemo, useState } from "react";
 
 import Tooltip from "@/components/Tooltip";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import { usePopupLayer } from "@/lib/ui/popup-stack";
 import ShareDialogAdapter from "@/components/sharing/ShareDialogAdapter";
 import SendOutsideDialog from "@/components/sharing/SendOutsideDialog";
 import ExperimentSendOutsideDialog from "@/components/sharing/ExperimentSendOutsideDialog";
@@ -119,13 +120,21 @@ export default function UnifiedShareDialog({
   // Escape closes this dialog (app-wide convention).
   useEscapeToClose(onClose, isOpen);
 
+  // Share is a little popup, so it never blurs. It dims ONLY when it is the
+  // bottom-most popup; opened on top of another popup (e.g. the task / note
+  // detail popup, which already dims the page) it paints no scrim of its own, so
+  // the dim never stacks into a muddy double-darken (Grant's popup-stack rule).
+  const { shouldDim } = usePopupLayer(isOpen, false);
+
   if (!isOpen) return null;
 
   const activeTab: TabKey = hasLabTab ? tab : "outside";
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
+      className={`fixed inset-0 flex items-center justify-center z-[60] ${
+        shouldDim ? "bg-black bg-opacity-50" : ""
+      }`}
       data-tour-target="share-dialog"
       // Marker for TourSpotlight (popup-occluding sweep manager). Hides the v4
       // walkthrough ring while this popup is mounted.
