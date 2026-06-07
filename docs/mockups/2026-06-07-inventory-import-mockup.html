@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Inventory import mockup</title>
+<style>
+  :root{--surface:#ffffff;--raised:#ffffff;--sunken:#f8fafc;--fg:#171717;--muted:#6b7280;--border:#e5e7eb;--action:#1283C9;--purple:#5B47D6;--emerald-bg:#d1fae5;--emerald-fg:#047857;--amber-bg:#fef3c7;--amber-fg:#b45309;--rose-bg:#ffe4e6;--rose-fg:#be123c;--page:#eef2f7}
+  [data-theme="dark"]{--surface:#0a0e1a;--raised:#131c2e;--sunken:#0d1424;--fg:#f1f5f9;--muted:#b4bfd0;--border:rgba(255,255,255,.22);--action:#3aa0e0;--purple:#8170e6;--emerald-bg:rgba(16,185,129,.20);--emerald-fg:#6ee7b7;--amber-bg:rgba(245,158,11,.20);--amber-fg:#fcd34d;--rose-bg:rgba(244,63,94,.20);--rose-fg:#fda4af;--page:#05080f}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--page);color:var(--fg)}
+  .topbar{position:sticky;top:0;z-index:50;background:var(--page);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .topbar h1{font-size:16px;margin:0;font-weight:700}.topbar .sub{font-size:12.5px;color:var(--muted)}
+  .spacer{flex:1}
+  .btn{font:inherit;font-size:13px;border:1px solid var(--border);background:var(--raised);color:var(--fg);border-radius:8px;padding:7px 12px;cursor:pointer}
+  .btn-brand{background:linear-gradient(135deg,var(--action),var(--purple));color:#fff;border:none}
+  .legend{display:flex;gap:10px;font-size:12px;color:var(--muted);align-items:center;flex-wrap:wrap}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px}.dot.ok{background:#16a34a}.dot.warn{background:#d97706}.dot.none{background:#cbd5e1}
+  .wrap{max-width:980px;margin:0 auto;padding:20px 20px 110px}
+  .note{font-size:12.5px;color:var(--muted);max-width:820px;margin:12px 0 8px}
+  .section{margin:24px 0;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--page)}
+  .section-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--sunken)}
+  .section-head .name{font-size:13px;font-weight:700}.section-head .id{font-size:11px;color:var(--muted)}
+  .review{margin-left:auto;display:flex;gap:6px}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .seg button{font:inherit;font-size:12px;padding:5px 10px;border:none;background:var(--raised);color:var(--muted);cursor:pointer}
+  .seg button.active.ok{background:#16a34a;color:#fff}.seg button.active.warn{background:#d97706;color:#fff}.seg button.active.none{background:#64748b;color:#fff}
+  .cmt{width:100%;margin-top:8px;font:inherit;font-size:12.5px;border:1px dashed var(--border);border-radius:8px;background:var(--raised);color:var(--fg);padding:7px 9px;resize:vertical;min-height:34px}
+  .stage{padding:18px;background:var(--surface);display:flex;justify-content:center}
+  .muted{color:var(--muted)}.t-meta{font-size:12px}.t-body{font-size:13.5px}
+  .dialog{width:620px;max-width:100%;background:var(--raised);border:1px solid var(--border);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.28);overflow:hidden}
+  .pad{padding:22px}
+  .h-title{font-size:15px;font-weight:600;margin:0}
+  .steps{display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--muted);margin:6px 0 16px}
+  .steps .s{display:inline-flex;align-items:center;gap:5px}
+  .steps .s.on{color:var(--action);font-weight:600}
+  .steps .num{width:18px;height:18px;border-radius:50%;border:1px solid var(--border);display:inline-flex;align-items:center;justify-content:center;font-size:10px}
+  .steps .s.on .num{background:var(--action);color:#fff;border-color:var(--action)}
+  .steps .sep{width:14px;height:1px;background:var(--border)}
+  textarea.paste{width:100%;min-height:120px;border:1px dashed var(--border);border-radius:10px;background:var(--sunken);color:var(--fg);padding:11px;font-family:ui-monospace,Menlo,monospace;font-size:12px}
+  .or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;margin:12px 0}
+  .or::before,.or::after{content:"";height:1px;background:var(--border);flex:1}
+  .upload{border:1px dashed var(--border);border-radius:10px;padding:14px;text-align:center;color:var(--muted);font-size:12.5px}
+  .privacy{font-size:12px;color:var(--emerald-fg);margin-top:12px;display:flex;align-items:center;gap:6px}
+
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--border)}
+  th{color:var(--muted);font-weight:600;background:var(--sunken)}
+  .maprow td{vertical-align:middle}
+  select{border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--fg);padding:4px 7px;font:inherit;font-size:12px}
+  .sample{font-family:ui-monospace,Menlo,monospace;color:var(--muted);font-size:11px}
+  .req{color:var(--rose-fg);font-size:11px}
+  .badge-ok{color:var(--emerald-fg)}.badge-skip{color:var(--muted)}
+  .issue{background:var(--amber-bg);color:var(--amber-fg);border-radius:6px;padding:1px 7px;font-size:11px}
+  .dlg-actions{display:flex;justify-content:space-between;gap:8px;margin-top:18px}
+  .ghostbtn{border:1px solid var(--border);background:transparent;color:var(--fg);border-radius:8px;padding:8px 14px;font:inherit;font-size:13px;cursor:pointer}
+  .cta{display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:8px 14px;font-size:13px;background:linear-gradient(135deg,var(--action),var(--purple));color:#fff;border:none;cursor:pointer}
+  .summary{display:flex;gap:14px;margin-top:6px}
+  .scard{border:1px solid var(--border);border-radius:10px;padding:12px 16px;flex:1;text-align:center}
+  .scard .n{font-size:22px;font-weight:700}.scard .l{font-size:11.5px;color:var(--muted)}
+  svg{display:block;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #exportModal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+  #exportModal .box{background:var(--raised);color:var(--fg);border-radius:14px;max-width:680px;width:100%;padding:18px;border:1px solid var(--border)}
+  #exportModal textarea{width:100%;min-height:200px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--fg);padding:10px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div><h1>Inventory import mockup</h1><div class="sub">Bulk-import an existing inventory from a spreadsheet. Design proposal, NOT built.</div></div>
+  <div class="spacer"></div>
+  <div class="legend"><span><span class="dot ok"></span>Approve</span><span><span class="dot warn"></span>Needs change</span><span><span class="dot none"></span>Undecided</span></div>
+  <button class="btn" id="themeBtn">Dark mode</button>
+  <button class="btn btn-brand" id="exportBtn">Export feedback</button>
+</div>
+<div class="wrap">
+  <p class="note">The cold-start path: a lab pastes its existing inventory spreadsheet and it becomes real items + stocks. Three steps, paste, map columns, preview + import. Paste-first (works from Excel and Google Sheets via copy, no file or dependency needed); CSV upload is the secondary path. Sample data below.</p>
+
+  <!-- 1: paste -->
+  <div class="section" data-sec="paste" data-label="Step 1: paste from your spreadsheet">
+    <div class="section-head"><span class="name">Step 1, paste</span><span class="id">#paste</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="dialog"><div class="pad">
+        <h2 class="h-title">Import inventory</h2>
+        <div class="steps"><span class="s on"><span class="num">1</span> Paste</span><span class="sep"></span><span class="s"><span class="num">2</span> Map columns</span><span class="sep"></span><span class="s"><span class="num">3</span> Preview</span></div>
+        <textarea class="paste" readonly>Name	Vendor	Catalog #	Vials	Expires	Location
+Q5 Polymerase	NEB	M0491S	3	2026-08-01	-80 door, left
+Taq Polymerase	NEB	M0273S	2	2026-09-12	-20 shelf 2
+Ampicillin	Sigma	A9518	0	2027-01-01	4C fridge B</textarea>
+        <div class="or">or</div>
+        <div class="upload">__UPLOAD__ Drop a CSV file here, or click to choose</div>
+        <div class="privacy">__LOCK__ Your spreadsheet never leaves your computer. Parsed locally.</div>
+        <div class="dlg-actions"><button class="ghostbtn">Cancel</button><button class="cta">Next, map columns __ARROW__</button></div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- 2: map columns -->
+  <div class="section" data-sec="map" data-label="Step 2: map columns (the key step)">
+    <div class="section-head"><span class="name">Step 2, map columns</span><span class="id">#map</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="dialog"><div class="pad">
+        <h2 class="h-title">Map your columns</h2>
+        <div class="steps"><span class="s"><span class="num">__CHECK__</span> Paste</span><span class="sep"></span><span class="s on"><span class="num">2</span> Map columns</span><span class="sep"></span><span class="s"><span class="num">3</span> Preview</span></div>
+        <p class="t-meta muted" style="margin:0 0 10px">We auto-matched by header. Adjust any that look wrong. Only Name is required.</p>
+        <table>
+          <thead><tr><th>Your column</th><th>Sample</th><th>Maps to</th></tr></thead>
+          <tbody>
+            <tr class="maprow"><td>Name</td><td class="sample">Q5 Polymerase</td><td><select><option>Name</option><option>Skip</option></select> <span class="req">required</span></td></tr>
+            <tr class="maprow"><td>Vendor</td><td class="sample">NEB</td><td><select><option>Vendor</option><option>Name</option><option>Skip</option></select> <span class="badge-ok">auto</span></td></tr>
+            <tr class="maprow"><td>Catalog #</td><td class="sample">M0491S</td><td><select><option>Catalog number</option><option>Skip</option></select> <span class="badge-ok">auto</span></td></tr>
+            <tr class="maprow"><td>Vials</td><td class="sample">3</td><td><select><option>Container count</option><option>Skip</option></select> <span class="badge-ok">auto</span></td></tr>
+            <tr class="maprow"><td>Expires</td><td class="sample">2026-08-01</td><td><select><option>Expiration date</option><option>Received date</option><option>Skip</option></select> <span class="badge-ok">auto</span></td></tr>
+            <tr class="maprow"><td>Location</td><td class="sample">-80 door, left</td><td><select><option>Location</option><option>Skip</option></select> <span class="badge-ok">auto</span></td></tr>
+          </tbody>
+        </table>
+        <p class="t-meta muted" style="margin-top:10px">Unmapped fields (category, lot, CAS, container word) just stay empty, the count-first model is fine with that. Default category is Reagent.</p>
+        <div class="dlg-actions"><button class="ghostbtn">__ARROWL__ Back</button><button class="cta">Next, preview __ARROW__</button></div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- 3: preview + import -->
+  <div class="section" data-sec="preview" data-label="Step 3: preview + import">
+    <div class="section-head"><span class="name">Step 3, preview + import</span><span class="id">#preview</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="dialog"><div class="pad">
+        <h2 class="h-title">Preview, 3 items ready</h2>
+        <div class="steps"><span class="s"><span class="num">__CHECK__</span> Paste</span><span class="sep"></span><span class="s"><span class="num">__CHECK__</span> Map columns</span><span class="sep"></span><span class="s on"><span class="num">3</span> Preview</span></div>
+        <table>
+          <thead><tr><th>Name</th><th>Vendor</th><th>Count</th><th>Expires</th><th>Location</th></tr></thead>
+          <tbody>
+            <tr><td>Q5 Polymerase</td><td>NEB</td><td>3 vials</td><td>Aug 1, 2026</td><td>-80 door, left</td></tr>
+            <tr><td>Taq Polymerase</td><td>NEB</td><td>2 vials</td><td>Sep 12, 2026</td><td>-20 shelf 2</td></tr>
+            <tr><td>Ampicillin</td><td>Sigma</td><td>0 <span class="issue">will be Empty</span></td><td>Jan 1, 2027</td><td>4C fridge B</td></tr>
+          </tbody>
+        </table>
+        <p class="t-meta muted" style="margin-top:10px">Each row becomes an item plus one stock. Rows with no Name are skipped and listed. Existing items with the same name + catalog can merge as a new stock instead of duplicating (toggle).</p>
+        <div class="dlg-actions"><button class="ghostbtn">__ARROWL__ Back</button><button class="cta">__CHECK__ Import 3 items</button></div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- 4: result -->
+  <div class="section" data-sec="result" data-label="After import (summary)">
+    <div class="section-head"><span class="name">After import</span><span class="id">#result</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="dialog" style="width:460px"><div class="pad" style="text-align:center">
+        <div style="height:46px;width:46px;border-radius:50%;background:var(--emerald-bg);color:var(--emerald-fg);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">__CHECK__</div>
+        <h2 class="h-title">Imported</h2>
+        <div class="summary">
+          <div class="scard"><div class="n" style="color:var(--emerald-fg)">3</div><div class="l">items added</div></div>
+          <div class="scard"><div class="n">3</div><div class="l">stocks created</div></div>
+          <div class="scard"><div class="n" style="color:var(--muted)">0</div><div class="l">skipped</div></div>
+        </div>
+        <div class="dlg-actions" style="justify-content:center"><button class="cta">Done</button></div>
+      </div></div>
+    </div>
+  </div>
+
+</div>
+
+<div id="exportModal"><div class="box">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><strong style="font-size:14px">Feedback summary</strong><span class="spacer" style="flex:1"></span><button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('exportText').value)">Copy</button><button class="btn" onclick="document.getElementById('exportModal').style.display='none'">Close</button></div>
+  <textarea id="exportText" readonly></textarea>
+</div></div>
+
+<script>
+const I={
+ upload:'<svg viewBox="0 0 24 24" style="width:16px;height:16px;display:inline-block;vertical-align:-3px"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 20h16"/></svg>',
+ lock:'<svg viewBox="0 0 24 24" style="width:14px;height:14px;display:inline-block;vertical-align:-2px"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+ arrow:'<svg viewBox="0 0 24 24" style="width:14px;height:14px;display:inline-block;vertical-align:-2px"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+ arrowl:'<svg viewBox="0 0 24 24" style="width:14px;height:14px;display:inline-block;vertical-align:-2px"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>',
+ check:'<svg viewBox="0 0 24 24" style="width:14px;height:14px;display:inline-block;vertical-align:-2px"><path d="M20 6 9 17l-5-5"/></svg>'
+};
+document.body.innerHTML=document.body.innerHTML.replaceAll('__UPLOAD__',I.upload).replaceAll('__LOCK__',I.lock).replaceAll('__ARROWL__',I.arrowl).replaceAll('__ARROW__',I.arrow).replaceAll('__CHECK__',I.check);
+const KEY='inv-import-mockup-2026-06-07';const store=JSON.parse(localStorage.getItem(KEY)||'{}');function save(){localStorage.setItem(KEY,JSON.stringify(store));}
+document.querySelectorAll('.section').forEach(sec=>{const id=sec.dataset.sec;const host=sec.querySelector('.review');const cur=store[id]||{v:'',c:''};const seg=document.createElement('div');seg.className='seg';[['ok','Approve'],['warn','Needs change'],['none','Undecided']].forEach(([v,lbl])=>{const b=document.createElement('button');b.textContent=lbl;b.className=(cur.v===v?'active '+v:'');b.onclick=()=>{store[id]={...(store[id]||{}),v};save();render();};seg.appendChild(b);});host.appendChild(seg);const stage=sec.querySelector('.stage');const ta=document.createElement('textarea');ta.className='cmt';ta.placeholder='Comment (optional)';ta.value=cur.c||'';ta.oninput=()=>{store[id]={...(store[id]||{}),c:ta.value};save();};sec.appendChild(ta);});
+function render(){document.querySelectorAll('.section').forEach(sec=>{const id=sec.dataset.sec;const cur=store[id]||{};sec.querySelectorAll('.seg button').forEach(b=>{const v=b.textContent==='Approve'?'ok':b.textContent==='Needs change'?'warn':'none';b.className=(cur.v===v?'active '+v:'');});});}
+render();
+document.getElementById('themeBtn').onclick=function(){const r=document.documentElement;const d=r.getAttribute('data-theme')==='dark';r.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Dark mode':'Light mode';};
+document.getElementById('exportBtn').onclick=function(){let out='INVENTORY IMPORT MOCKUP — '+new Date().toString().slice(0,21)+'\\n'+'='.repeat(40)+'\\n\\n';document.querySelectorAll('.section').forEach(sec=>{const id=sec.dataset.sec;const cur=store[id]||{};const verdict=cur.v==='ok'?'APPROVE':cur.v==='warn'?'NEEDS CHANGE':cur.v==='none'?'undecided':'(not marked)';out+='['+verdict+'] '+sec.dataset.label+'\\n';if(cur.c&&cur.c.trim())out+='   note: '+cur.c.trim()+'\\n';});document.getElementById('exportText').value=out;document.getElementById('exportModal').style.display='flex';};
+</script>
+</body>
+</html>
