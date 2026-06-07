@@ -34,6 +34,8 @@ import IdleAnimationManager from "@/components/onboarding/IdleAnimationManager";
 import WhatsNewManager from "@/components/WhatsNewManager";
 import WikiCaptureBodyClass from "@/components/WikiCaptureBodyClass";
 import SharedFolderAutoRefresh from "@/components/SharedFolderAutoRefresh";
+import DataMigrationRunner from "@/components/DataMigrationRunner";
+import MigrationToast from "@/components/MigrationToast";
 import { ContextMenuProvider } from "@/components/context-menu/ContextMenuProvider";
 import { BeakerSearchProvider } from "@/components/beaker-search/BeakerSearchProvider";
 import { initializeErrorHandlers } from "@/lib/error-reporting";
@@ -395,6 +397,12 @@ function AppContent({ children }: { children: ReactNode }) {
           push: watches the folder via FileSystemObserver, focus-refetch
           fallback. Mounted here so it covers every signed-in route. */}
       <SharedFolderAutoRefresh />
+      {/* Auto on-disk data migrations (docs/proposals/AUTO_DATA_MIGRATIONS.md):
+          runs pending idempotent format upgrades once per connected user folder,
+          in the background, and shows a quiet "Updated N files" toast on change.
+          Replaces the manual "Run repair" buttons. */}
+      <DataMigrationRunner />
+      <MigrationToast />
       {/* LabArchives import sticky-intent consumer. If the user clicked
           "Import from LabArchives" on the picker screen and signed in
           (which unmounts that screen), this auto-mounts ImportELNDialog
