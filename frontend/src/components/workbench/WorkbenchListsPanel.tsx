@@ -20,6 +20,7 @@ import { type DateSignalKind } from "@/components/workbench/ListTaskRow";
 import ExpandableListCard from "@/components/workbench/ExpandableListCard";
 import SharedFromPill from "@/components/workbench/SharedFromPill";
 import type { WorkbenchInitialOpen } from "@/app/workbench/workbench-beaker-source";
+import { usePiRecordMenu } from "@/hooks/usePiRecordMenu";
 
 const DEFAULT_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -120,6 +121,11 @@ export default function WorkbenchListsPanel({
 
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
+
+  // PI capability revamp Phase 2: right-click PI actions on member-owned task
+  // rows. The hook itself gates (returns no menu) for a non-PI viewer or a PI
+  // looking at their own task, so wiring it unconditionally is safe.
+  const piMenu = usePiRecordMenu();
 
   const { data: allTasks = [] } = useQuery({
     queryKey: ["tasks", currentUser],
@@ -247,6 +253,17 @@ export default function WorkbenchListsPanel({
           onToggleComplete={() => handleToggleComplete(task)}
           canToggleComplete={canToggle}
           onOpenFullView={() => setSelectedTask(task)}
+          onHeaderContextMenu={(e) =>
+            piMenu.handleContextMenu(e, {
+              recordType: "task",
+              record: {
+                owner: task.owner,
+                id: task.id,
+                flagged: !!task.flagged,
+              },
+              onEditAsPi: () => setSelectedTask(task),
+            })
+          }
         />
       );
       if (!isFirstCardOverall) return row;
@@ -269,7 +286,7 @@ export default function WorkbenchListsPanel({
         </div>
       );
     },
-    [projectColors, projectNameFor, today, handleToggleComplete, expandedTaskKey],
+    [projectColors, projectNameFor, today, handleToggleComplete, expandedTaskKey, piMenu],
   );
 
   const totalActive =
@@ -422,6 +439,10 @@ export default function WorkbenchListsPanel({
       )}
 
       <TaskModal projects={projects} />
+
+      {/* PI capability revamp Phase 2: the Assign-to-member modal home for the
+          right-click PI menu on task rows. Inert until a PI opens it. */}
+      {piMenu.modals}
     </div>
   );
 }

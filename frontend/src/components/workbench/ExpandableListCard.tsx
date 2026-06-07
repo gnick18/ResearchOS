@@ -66,6 +66,10 @@ export interface ExpandableListCardProps {
    *  expanded panel (parent supplies this so the popup mount stays
    *  centralized in the panel). */
   onOpenFullView?: () => void;
+  /** PI capability revamp Phase 2: right-click handler for the PI action menu
+   *  on the card header. Wired by the parent only when the active user is a
+   *  lab head viewing a member's task; otherwise the normal right-click runs. */
+  onHeaderContextMenu?: (e: React.MouseEvent) => void;
 }
 
 export default function ExpandableListCard({
@@ -80,6 +84,7 @@ export default function ExpandableListCard({
   onToggleComplete,
   canToggleComplete = true,
   onOpenFullView,
+  onHeaderContextMenu,
 }: ExpandableListCardProps) {
   const queryClient = useQueryClient();
   const tasksApi = useMemo(() => ownerScopedTasksApi(task), [task]);
@@ -353,6 +358,7 @@ export default function ExpandableListCard({
         tabIndex={0}
         aria-expanded={isExpanded}
         onClick={onToggleExpand}
+        onContextMenu={onHeaderContextMenu}
         onKeyDown={handleCardKey}
         className="group flex items-start gap-3 px-3 py-2.5 cursor-pointer text-left"
       >

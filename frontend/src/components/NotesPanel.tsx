@@ -18,6 +18,7 @@ import NotebookAppearanceDialog from "./notebooks/NotebookAppearanceDialog";
 import MoveToNotebookMenu from "./notebooks/MoveToNotebookMenu";
 import LivingPopup from "@/components/ui/LivingPopup";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { usePiRecordMenu } from "@/hooks/usePiRecordMenu";
 import Tooltip from "./Tooltip";
 import type { WorkbenchInitialOpen } from "@/app/workbench/workbench-beaker-source";
 
@@ -99,6 +100,10 @@ export default function NotesPanel({
 }: NotesPanelProps) {
   const queryClient = useQueryClient();
   const { currentUser } = useCurrentUser();
+  // PI capability revamp Phase 2: right-click PI actions on member-owned note
+  // rows. The builder gates internally (no items for a non-PI viewer or a PI
+  // on their own note), so we append its items to the existing tile menu.
+  const piMenu = usePiRecordMenu();
   const [selectedNote, setSelectedNote] = useState<Note | LabNote | null>(null);
   // Right-click "Add a comment": opens the note popup with the comments rail open.
   const [noteCommentIntent, setNoteCommentIntent] = useState(false);
@@ -1137,6 +1142,21 @@ export default function NotesPanel({
                   },
                 ]
               : []),
+            // PI capability revamp Phase 2: append the lab-head actions for a
+            // member's note. buildItems returns [] for a non-PI viewer or a PI
+            // on their own note, so this stays empty for everyone else. The
+            // EditMenuItem.onRun maps to the local menu's onClick.
+            ...piMenu
+              .buildItems({
+                recordType: "note",
+                record: {
+                  owner: noteMenu.note.username,
+                  id: noteMenu.note.id,
+                  flagged: !!(noteMenu.note as Note).flagged,
+                },
+                onEditAsPi: () => setSelectedNote(noteMenu.note),
+              })
+              .map((it) => ({ label: it.label, onClick: it.onRun })),
           ]}
         />
       )}
@@ -1190,6 +1210,11 @@ export default function NotesPanel({
       </div>
 
       {notebookDialogs}
+
+      {/* PI capability revamp Phase 2: assign-modal home for the PI record menu
+          (notes have no assign action, so this stays inert here; rendered for
+          hook symmetry). */}
+      {piMenu.modals}
     </div>
   );
 }

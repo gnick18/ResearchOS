@@ -28,6 +28,7 @@ import { Icon } from "@/components/icons";
 import PiEditConfirmDialog from "@/components/lab-head/PiEditConfirmDialog";
 import PiEditAuditNote from "@/components/lab-head/PiEditAuditNote";
 import { usePiEditGate } from "@/hooks/usePiEditGate";
+import { usePiRecordMenu } from "@/hooks/usePiRecordMenu";
 import { savePiRecordEdit } from "@/lib/lab/pi-record-edit";
 import { normalizeOrderStatus } from "@/lib/types";
 import type { CatalogItem, PurchaseItem, Task } from "@/lib/types";
@@ -299,6 +300,11 @@ export default function PurchaseEditor({
   // A PI editing a member's purchase row stays read-only until they cross the
   // confirm; everyone else keeps the standard writesDisabled flag.
   const piActive = piGate.isPiEdit && piGate.confirmed;
+
+  // PI capability revamp Phase 2: right-click PI actions on a member's purchase
+  // line item. The builder gates internally (no menu for a non-PI viewer or a
+  // PI on their own item), so wiring it on every view row is safe.
+  const piMenu = usePiRecordMenu();
 
   const { data: autocompleteItems = [] } = useQuery({
     queryKey: ["purchases-all", currentUser],
@@ -1051,6 +1057,18 @@ export default function PurchaseEditor({
                       ? () => handleRowClick(item)
                       : undefined
                   }
+                  onContextMenu={(e) =>
+                    piMenu.handleContextMenu(e, {
+                      recordType: "purchase",
+                      record: {
+                        owner: purchaseOwner ?? "",
+                        id: item.id,
+                        flagged: !!item.flagged,
+                        approved: !!item.approved,
+                      },
+                      onEditAsPi: () => handleRowClick(item),
+                    })
+                  }
                 >
                   <td className="py-2 px-2 text-foreground">{item.item_name}</td>
                   <td className="py-2 px-2 text-foreground">{item.quantity}</td>
@@ -1511,6 +1529,11 @@ export default function PurchaseEditor({
         onConfirm={handlePiConfirm}
         onCancel={handlePiCancel}
       />
+
+      {/* PI capability revamp Phase 2: assign-modal home for the PI record menu
+          (purchases use approve/decline, not assign, so this stays inert here;
+          rendered for hook symmetry). */}
+      {piMenu.modals}
     </div>
   );
 }

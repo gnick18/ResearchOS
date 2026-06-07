@@ -74,6 +74,14 @@ export function useContextMenu(): ContextMenuApi {
   return ctx;
 }
 
+/** Non-throwing variant. Returns the API when mounted under the provider (the
+ *  app-wide case) or null otherwise. Lets a feature hook (usePiRecordMenu)
+ *  degrade gracefully in isolated unit renders that do not mount the provider,
+ *  without forcing every panel test to wrap in <ContextMenuProvider>. */
+export function useOptionalContextMenu(): ContextMenuApi | null {
+  return useContext(ContextMenuContext);
+}
+
 /** True when a right-click on `target` should keep the browser's native menu.
  *  Covers form fields, any contenteditable surface (so `isContentEditable` plus
  *  a defensive closest check), and the CodeMirror note editor root (whose content
