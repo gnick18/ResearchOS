@@ -10,7 +10,7 @@ import { archiveUser, restoreUser } from "@/lib/lab/user-archive";
 import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useAccountType } from "@/hooks/useAccountType";
+import { useIsLabHead } from "@/hooks/useIsLabHead";
 import UserAvatar from "@/components/UserAvatar";
 import Tooltip from "@/components/Tooltip";
 import { ARCHIVED_USERS_QUERY_KEY } from "@/hooks/useArchivedUsers";
@@ -131,11 +131,13 @@ export function buildRosterRowMenuItems(args: {
 export default function LabRoster() {
   const { isConnected } = useFileSystem();
   const { currentUser } = useCurrentUser();
-  const accountType = useAccountType(currentUser);
   const queryClient = useQueryClient();
   const { openMenu } = useContextMenu();
 
-  const isLabHead = accountType === "lab_head";
+  // `=== true` collapses the hook's loading `undefined` to `false`, exactly as
+  // the prior `accountType === "lab_head"` did, keeping the value a plain
+  // boolean for the menu-builder prop below.
+  const isLabHead = useIsLabHead(currentUser) === true;
 
   // The Lab Roster is the only surface that needs per-user archive
   // state alongside display name + account_type. `useLabUserProfileMap`

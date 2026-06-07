@@ -37,7 +37,7 @@ import { useUserColors } from "@/hooks/useUserColor";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 import { useLateNightCoffeeTrigger } from "@/hooks/useLateNightCoffeeTrigger";
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
-import { useAccountType } from "@/hooks/useAccountType";
+import { useIsLabHead } from "@/hooks/useIsLabHead";
 import { deriveVisibleTabs } from "@/lib/onboarding/feature-picks-tabs";
 import { headerGradient, rainbowTheme } from "@/lib/colors";
 import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
@@ -163,11 +163,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // deep-link handlers. This mirrors the "Links" vs "Lab Links"
   // account-aware label pattern.
   //
-  // `accountType === undefined` (settings read in flight) is treated the
+  // `isLabHead === undefined` (settings read in flight) is treated the
   // same as "not lab_head" → the label resolves to "Home" until the read
   // settles. The tab itself never disappears (the dashboard at "/" is the
   // guaranteed-reachable landing tab), so there's no flicker-out risk.
-  const accountType = useAccountType(currentUser ?? null);
+  const isLabHead = useIsLabHead(currentUser ?? null);
   const _isLabWorkspace = featurePicks?.account_type === "lab";
   void _isLabWorkspace;
 
@@ -201,7 +201,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // /purchases entry is NO LONGER hidden for PIs: the LabPurchasesWidget
     // that justified hiding it was deleted with the canvas, so a PI needs
     // the /purchases nav entry back.
-    if (accountType === "lab_head") {
+    if (isLabHead) {
       return filtered.map((item) =>
         item.href === HOME_HREF
           ? { ...item, href: "/lab-overview", label: "Lab Overview" }
@@ -209,7 +209,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       );
     }
     return filtered.filter((item) => item.href !== HOME_HREF);
-  }, [filtered, accountType]);
+  }, [filtered, isLabHead]);
 
   // Supplies hub (Supplies hub, 2026-06-07). When INVENTORY_ENABLED is on,
   // Inventory and Purchases become two tabs under ONE "Supplies" nav item

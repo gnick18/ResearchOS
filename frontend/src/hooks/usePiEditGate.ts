@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useCurrentUser } from "./useCurrentUser";
-import { useAccountType } from "./useAccountType";
+import { useIsLabHead } from "./useIsLabHead";
 import { canWriteIgnoringPiRole } from "@/lib/sharing/unified";
 import type { SharedUser } from "@/lib/types";
 import {
@@ -42,7 +42,7 @@ export function usePiEditGate(args: {
 }) {
   const { owner, sharedWith, recordType, recordId, propReadOnly } = args;
   const { currentUser } = useCurrentUser();
-  const accountType = useAccountType(currentUser);
+  const labHead = useIsLabHead(currentUser);
 
   const targetOwner = owner ?? null;
 
@@ -50,14 +50,14 @@ export function usePiEditGate(args: {
   // the record belongs to someone else, and they could NOT write it without the
   // role (not owner, no explicit edit-share). Only then do we gate + audit.
   const isPiEdit = useMemo(() => {
-    if (accountType !== "lab_head") return false;
+    if (!labHead) return false;
     if (!currentUser) return false;
     if (!targetOwner || targetOwner === currentUser) return false;
     return !canWriteIgnoringPiRole(
       { owner: targetOwner, shared_with: sharedWith ?? [] },
       { username: currentUser, account_type: "lab_head" },
     );
-  }, [accountType, sharedWith, currentUser, targetOwner]);
+  }, [labHead, sharedWith, currentUser, targetOwner]);
 
   const key = useMemo(
     () => (targetOwner ? piEditKey(targetOwner, recordType, recordId) : null),
