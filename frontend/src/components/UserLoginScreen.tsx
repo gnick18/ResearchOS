@@ -29,6 +29,7 @@ import {
 import { evaluateUnlockMatch } from "@/lib/sharing/identity/unlock-match";
 import { GoogleIcon, GitHubIcon, LinkedInIcon } from "@/components/sharing/icons";
 import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
+import { startSharingClaimOAuth } from "@/lib/sharing/claim-oauth";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
 import {
   createUserMetadataEntry,
@@ -1806,9 +1807,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
               </p>
             </div>
             <div className="px-6 py-5 space-y-4">
-              <SharingProviderButtons
-                onProvider={() => setProfileWizardOpen(true)}
-              />
+              <SharingProviderButtons onProvider={startSharingClaimOAuth} />
               <button
                 type="button"
                 onClick={skipProfileStep}

@@ -13,6 +13,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AppearanceCard from "@/components/profile/AppearanceCard";
 import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
+import { startSharingClaimOAuth } from "@/lib/sharing/claim-oauth";
 import SharingSection, {
   ProfileEditorCard,
   RotateIdentityPopup,
@@ -43,6 +44,12 @@ export default function ProfileSettingsContent() {
   // plus the rotate / restore / disconnect / reset modals that act on the
   // "Account and keys" identity card.
   const [wizardOpen, setWizardOpen] = useState(false);
+  // Which step the wizard opens on: "email-enter" for the "Use email instead"
+  // link (provider buttons go straight to OAuth and never open it), "choose" for
+  // the reset re-establish path.
+  const [wizardStep, setWizardStep] = useState<"choose" | "email-enter">(
+    "choose",
+  );
   const [rotateOpen, setRotateOpen] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [disconnectOpen, setDisconnectOpen] = useState(false);
@@ -158,7 +165,17 @@ export default function ProfileSettingsContent() {
               you stay in control of your keys.
             </p>
           </div>
-          <SharingProviderButtons onProvider={() => setWizardOpen(true)} />
+          <SharingProviderButtons onProvider={startSharingClaimOAuth} />
+          <button
+            type="button"
+            onClick={() => {
+              setWizardStep("email-enter");
+              setWizardOpen(true);
+            }}
+            className="mt-3 text-meta text-foreground-muted hover:text-foreground underline"
+          >
+            Use email instead
+          </button>
         </section>
       ) : (
         <SharingSection
@@ -186,6 +203,7 @@ export default function ProfileSettingsContent() {
       {wizardOpen && currentUser && (
         <SharingSetupWizard
           username={currentUser}
+          initialStep={wizardStep}
           onComplete={() => {
             void sharing.refresh();
           }}
@@ -235,6 +253,7 @@ export default function ProfileSettingsContent() {
             // straight to the setup wizard to mint a fresh keypair.
             setResetOpen(false);
             void sharing.refresh();
+            setWizardStep("choose");
             setWizardOpen(true);
           }}
           onClose={() => {
