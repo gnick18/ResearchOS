@@ -31,7 +31,7 @@ export default function AppFooter({
   return (
     <footer
       data-testid="app-footer"
-      className={`relative border-t border-gray-200 bg-white py-10 ${className}`}
+      className={`relative border-t border-border bg-surface-raised py-10 ${className}`}
     >
       {/* Brand rainbow hairline along the top edge: the BeakerBot liquid ramp,
           the same gradient as the banner + avatars, used as a quiet brand
@@ -42,17 +42,17 @@ export default function AppFooter({
       />
       <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 px-6 text-center">
         {/* Product brand sign-off, then the RISE funder credit below it. */}
-        {/* The footer sits on not-yet-converted (light) pages, so pin the
-            wordmark text to dark ink, it must stay readable on the light footer
-            even when the app theme is dark. Drop this override once the footer
-            and its host pages convert to tokens. */}
+        {/* The footer now themes via tokens, so the wordmark uses the foreground
+            token (dark ink in light, light in dark) instead of a pinned ink. */}
         <Wordmark
           size="md"
           textOnly={hideMark}
           animated={false}
           markEasterEgg="none"
-          textClassName="text-brand-ink"
+          textClassName="text-foreground"
         />
+        {/* White backing chip stays white in both themes so the dark RISE logo
+            PNG reads on the dark footer too. */}
         <div className="rounded bg-white p-0.5">
           <Image
             src="/credentials/uw-rise-logo.png"
@@ -63,7 +63,7 @@ export default function AppFooter({
             className="h-12 w-auto"
           />
         </div>
-        <p className="text-body text-gray-500">
+        <p className="text-body text-foreground-muted">
           Funded by the UW-Madison RISE Initiative. Free and open source on{" "}
           <a
             href={GITHUB_URL}
@@ -76,17 +76,17 @@ export default function AppFooter({
           </a>
           .
         </p>
-        <p className="text-meta text-gray-400" data-testid="app-footer-author">
+        <p className="text-meta text-foreground-muted" data-testid="app-footer-author">
           Built by Dr. Grant R. Nickles, PhD.
         </p>
         {/* Subtle credit + trust links: the /open-source page thanks the
             community and carries the full attribution; the /transparency page
             shows our bioinformatic tools checked against Biopython and primer3
             on every code change. */}
-        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-meta text-gray-400">
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-meta text-foreground-muted">
           <Link
             href="/open-source"
-            className="underline-offset-2 hover:text-gray-600 hover:underline"
+            className="underline-offset-2 hover:text-foreground hover:underline"
             data-testid="app-footer-open-source"
           >
             Built on open source
@@ -94,7 +94,7 @@ export default function AppFooter({
           <span aria-hidden="true">·</span>
           <Link
             href="/transparency"
-            className="underline-offset-2 hover:text-gray-600 hover:underline"
+            className="underline-offset-2 hover:text-foreground hover:underline"
             data-testid="app-footer-transparency"
           >
             Transparency of tests
@@ -102,7 +102,7 @@ export default function AppFooter({
           <span aria-hidden="true">·</span>
           <Link
             href="/privacy"
-            className="underline-offset-2 hover:text-gray-600 hover:underline"
+            className="underline-offset-2 hover:text-foreground hover:underline"
             data-testid="app-footer-privacy"
           >
             Privacy

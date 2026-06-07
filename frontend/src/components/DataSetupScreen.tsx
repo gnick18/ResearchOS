@@ -46,13 +46,13 @@ export default function DataSetupScreen({ isOpen, onClose }: DataSetupScreenProp
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
-          <h2 className="text-heading font-semibold text-gray-900">Settings</h2>
+      <div className="bg-surface-raised rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <h2 className="text-heading font-semibold text-foreground">Settings</h2>
           <Tooltip label="Close" placement="bottom">
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-foreground-muted hover:text-foreground-muted transition-colors"
               aria-label="Close"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -64,44 +64,44 @@ export default function DataSetupScreen({ isOpen, onClose }: DataSetupScreenProp
 
         <div className="p-5 space-y-5">
           <div>
-            <p className="text-meta font-medium text-gray-400 uppercase tracking-wide mb-1.5">
+            <p className="text-meta font-medium text-foreground-muted uppercase tracking-wide mb-1.5">
               Current User
             </p>
             <div className="flex items-center justify-between">
-              <span className="text-body text-gray-900">{currentUser || "—"}</span>
-              <p className="text-meta text-gray-400">
+              <span className="text-body text-foreground">{currentUser || "—"}</span>
+              <p className="text-meta text-foreground-muted">
                 Use the user button (bottom-right) to switch
               </p>
             </div>
           </div>
 
           <div>
-            <p className="text-meta font-medium text-gray-400 uppercase tracking-wide mb-1.5">
+            <p className="text-meta font-medium text-foreground-muted uppercase tracking-wide mb-1.5">
               Connected Folder
             </p>
-            <code className="block text-body text-gray-700 bg-gray-50 rounded-lg px-3 py-2 break-all">
+            <code className="block text-body text-foreground bg-surface-sunken rounded-lg px-3 py-2 break-all">
               {folderLabel}
             </code>
           </div>
 
-          <div className="pt-3 border-t border-gray-100">
+          <div className="pt-3 border-t border-border">
             {!confirmingDisconnect ? (
               <button
                 onClick={() => setConfirmingDisconnect(true)}
-                className="w-full py-2.5 text-body text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                className="w-full py-2.5 text-body text-foreground bg-surface-sunken hover:bg-surface-sunken rounded-lg transition-colors"
               >
                 Disconnect / Pick Different Folder
               </button>
             ) : (
               <div className="space-y-2">
-                <p className="text-body text-gray-600">
+                <p className="text-body text-foreground-muted">
                   Disconnect from <span className="font-medium">{folderLabel}</span>? You&apos;ll need to re-select a folder to continue.
                 </p>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setConfirmingDisconnect(false)}
                     disabled={disconnecting}
-                    className="flex-1 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+                    className="flex-1 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg disabled:opacity-50"
                   >
                     Cancel
                   </button>
@@ -118,10 +118,10 @@ export default function DataSetupScreen({ isOpen, onClose }: DataSetupScreenProp
           </div>
 
           {/* Beta: Support & Bug Report */}
-          <div className="pt-3 border-t border-gray-100 flex gap-2">
+          <div className="pt-3 border-t border-border flex gap-2">
             <button
               onClick={openBugReport}
-              className="flex-1 py-2 text-body text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="flex-1 py-2 text-body text-foreground-muted bg-surface-sunken hover:bg-surface-sunken rounded-lg transition-colors flex items-center justify-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
