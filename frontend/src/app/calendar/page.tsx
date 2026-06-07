@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { eventsApi } from "@/lib/local-api";
 import { useAppStore } from "@/lib/store";
@@ -29,6 +29,7 @@ import {
   syncEventPtoChange,
 } from "@/lib/streak/calendar-pto-sync";
 import type { CalendarFeed, Event, ExternalEvent } from "@/lib/types";
+import { useCalendarBeakerSource } from "./useCalendarBeakerSource";
 
 const DEFAULT_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -37,6 +38,7 @@ const DEFAULT_COLORS = [
 
 export default function CalendarPage() {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const searchParams = useSearchParams();
   // Active user, needed for the Phase S5 PTO sync from a checked event
   // to the user's pto_dates list (see syncEventPtoChange below).
@@ -178,6 +180,40 @@ export default function CalendarPage() {
     setCurrentDate(new Date(y, m - 1, d));
     setView("day");
   }, [setView]);
+
+  // Open the linked-calendars modal via the same `?addFeed=1` deep-link the
+  // CalendarFeedsButton honors, so the BeakerSearch "Add a calendar feed" /
+  // "Manage linked calendars" commands reuse the existing open path.
+  const openFeeds = useCallback(() => {
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.set("addFeed", "1");
+    router.replace(`/calendar?${params.toString()}`);
+  }, [router, searchParams]);
+
+  // Register the Calendar BeakerSearch source (step 3) while the page is
+  // mounted. The pure builder + the thin wiring live in the co-located
+  // calendar-beaker-source.ts / useCalendarBeakerSource.ts; this hands it the
+  // page's live state + real handlers.
+  useCalendarBeakerSource({
+    view,
+    currentDate,
+    selectedEvent,
+    selectedExternal,
+    setView,
+    setCurrentDate,
+    goToToday,
+    stepDate,
+    openCreate: () => setCreating(true),
+    openCreateAt,
+    openDayView,
+    setExpandedDate,
+    setSelectedEvent,
+    setSelectedExternal,
+    setEditingEvent,
+    setDeleteConfirmEvent,
+    openFeeds,
+    addFeed: openFeeds,
+  });
 
   // Heading label depends on view
   const monthNames = [

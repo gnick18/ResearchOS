@@ -1,0 +1,415 @@
+// sequence editor master (Calendar source sub-bot). Tests for the PURE Calendar
+// BeakerSearch source builder. These cover the context-card copy (month / week /
+// day + a native vs external selection line), the command set (ids + groups +
+// PTO-toggle flip + retry / view-switch / external-open gating), the Suggested
+// ordering for a selected native event vs a selected external event vs nothing
+// selected, and the nav groups (Jump to an event tones / hint, Next up ordering
+// + cap), all without a DOM or a store, mirroring gantt-beaker-source.test.ts.
+
+import { describe, it, expect } from "vitest";
+import type { CalendarFeed, Event, ExternalEvent } from "@/lib/types";
+import {
+  buildCalendarSource,
+  type CalendarFrame,
+  type CalendarSourceData,
+  type CalendarSourceHandlers,
+  type CalendarUpcomingItem,
+} from "./calendar-beaker-source";
+
+// ── Fixtures ───────────────────────────────────────────────────────────────
+
+function makeEvent(over: Partial<Event> = {}): Event {
+  return {
+    id: 1,
+    title: "ACS National Meeting",
+    event_type: "conference",
+    start_date: "2026-06-09",
+    end_date: "2026-06-12",
+    start_time: null,
+    end_time: null,
+    location: "San Francisco, CA",
+    url: null,
+    notes: null,
+    color: null,
+    is_pto: false,
+    ...over,
+  } as Event;
+}
+
+function makeExternal(over: Partial<ExternalEvent> = {}): ExternalEvent {
+  return {
+    id: "feed1-uid-7",
+    feedId: 1,
+    feedKind: "ics",
+    providerEventId: "uid-7",
+    title: "Group Meeting",
+    start_date: "2026-06-10",
+    end_date: null,
+    start_time: "10:00",
+    end_time: "11:00",
+    location: null,
+    url: "https://cal.example/event/7",
+    notes: null,
+    color: "#3b82f6",
+    source: "external",
+    ...over,
+  } as ExternalEvent;
+}
+
+function makeFeed(over: Partial<CalendarFeed> = {}): CalendarFeed {
+  return {
+    id: 1,
+    provider: "google",
+    kind: "ics",
+    label: "Lab Google Calendar",
+    icsUrl: "https://cal.example/lab.ics",
+    color: "#3b82f6",
+    enabled: true,
+    lastSyncAt: "2026-06-07",
+    ...over,
+  } as CalendarFeed;
+}
+
+const noopHandlers: CalendarSourceHandlers = {
+  setEditingEvent: () => {},
+  setSelectedEvent: () => {},
+  setSelectedExternal: () => {},
+  setDeleteConfirmEvent: () => {},
+  duplicateEvent: () => {},
+  markEventPto: () => {},
+  openCreate: () => {},
+  openCreateAt: () => {},
+  goToToday: () => {},
+  stepDate: () => {},
+  goToDate: () => {},
+  openDayView: () => {},
+  setExpandedDate: () => {},
+  setView: () => {},
+  openFeeds: () => {},
+  addFeed: () => {},
+  retryExternal: () => {},
+};
+
+function monthFrame(over: Partial<CalendarFrame> = {}): CalendarFrame {
+  return {
+    view: "month",
+    title: "June 2026",
+    meta: "30 days in view, 2 events",
+    unitNoun: "month",
+    focusedDateStr: "2026-06-15",
+    todayStr: "2026-06-15",
+    isOnToday: true,
+    frameLabel: "June 2026",
+    ...over,
+  };
+}
+
+function makeData(over: Partial<CalendarSourceData> = {}): CalendarSourceData {
+  const feeds = over.feeds ?? [makeFeed()];
+  return {
+    events: [makeEvent()],
+    externalEvents: [makeExternal()],
+    feeds,
+    enabledFeedCount: feeds.filter((f) => f.enabled).length,
+    externalErrorsCount: 0,
+    offlineMode: false,
+    frame: monthFrame(),
+    onScreenEvents: [makeEvent()],
+    onScreenExternalEvents: [makeExternal()],
+    selectedEvent: null,
+    selectedExternal: null,
+    upcomingEvents: [],
+    eventDateLine: (e) =>
+      e.end_date && e.end_date !== e.start_date
+        ? `${e.start_date} to ${e.end_date}`
+        : e.start_date,
+    upcomingDetail: (item) => `soon, ${item.event.start_date}`,
+    feedOfExternal: (e) => feeds.find((f) => f.id === e.feedId) ?? null,
+    ...over,
+  };
+}
+
+// ── Context card ─────────────────────────────────────────────────────────────
+
+describe("buildCalendarSource context card", () => {
+  it("is two lines, Calendar + frame title + meta, no selection when nothing selected", () => {
+    const card = buildCalendarSource(makeData(), noopHandlers).contextCard!;
+    expect(card.title).toBe("Calendar, June 2026");
+    expect(card.meta).toBe("30 days in view, 2 events");
+    expect(card.selection).toBeUndefined();
+  });
+
+  it("phrases the week frame title + meta from the frame", () => {
+    const card = buildCalendarSource(
+      makeData({
+        frame: monthFrame({
+          view: "week",
+          title: "week of Jun 7",
+          meta: "Jun 7 to Jun 13, 4 events",
+          unitNoun: "week",
+        }),
+      }),
+      noopHandlers,
+    ).contextCard!;
+    expect(card.title).toBe("Calendar, week of Jun 7");
+    expect(card.meta).toBe("Jun 7 to Jun 13, 4 events");
+  });
+
+  it("adds the native selection line with the date echo", () => {
+    const data = makeData({ selectedEvent: makeEvent() });
+    const card = buildCalendarSource(data, noopHandlers).contextCard!;
+    expect(card.selection?.text).toBe(
+      "Selected, ACS National Meeting, 2026-06-09 to 2026-06-12",
+    );
+  });
+
+  it("marks PTO in the native selection line", () => {
+    const data = makeData({ selectedEvent: makeEvent({ is_pto: true }) });
+    const card = buildCalendarSource(data, noopHandlers).contextCard!;
+    expect(card.selection?.text).toContain("PTO");
+  });
+
+  it("adds the external selection line with read-only + the feed label", () => {
+    const data = makeData({ selectedExternal: makeExternal() });
+    const card = buildCalendarSource(data, noopHandlers).contextCard!;
+    expect(card.selection?.text).toBe(
+      "Selected, Group Meeting, 2026-06-10, read-only, from Lab Google Calendar",
+    );
+  });
+});
+
+// ── Commands ─────────────────────────────────────────────────────────────────
+
+describe("buildCalendarSource commands", () => {
+  it("always emits Create / Navigate / View / Feeds commands with stable ids and groups", () => {
+    const cmds = buildCalendarSource(makeData(), noopHandlers).commands;
+    const byId = new Map(cmds.map((c) => [c.id, c]));
+    expect(byId.get("calendar-new-event")?.group).toBe("Create");
+    expect(byId.get("calendar-new-event-today")?.group).toBe("Create");
+    expect(byId.get("calendar-go-today")?.group).toBe("Navigate");
+    expect(byId.get("calendar-prev")?.group).toBe("Navigate");
+    expect(byId.get("calendar-view-week")?.group).toBe("View");
+    expect(byId.get("calendar-add-feed")?.group).toBe("Feeds");
+    expect(byId.get("calendar-manage-feeds")?.group).toBe("Feeds");
+    // Three view-switch rows, one per view.
+    expect(cmds.filter((c) => c.id.startsWith("calendar-view-")).length).toBe(3);
+  });
+
+  it("labels Previous / Next with the frame unit noun", () => {
+    const cmds = buildCalendarSource(
+      makeData({ frame: monthFrame({ unitNoun: "week" }) }),
+      noopHandlers,
+    ).commands;
+    const byId = new Map(cmds.map((c) => [c.id, c]));
+    expect(byId.get("calendar-prev")?.label).toBe("Previous week");
+    expect(byId.get("calendar-next")?.label).toBe("Next week");
+  });
+
+  it("disables the view switch for the view you are on, enables the others", () => {
+    const byId = new Map(
+      buildCalendarSource(
+        makeData({ frame: monthFrame({ view: "month" }) }),
+        noopHandlers,
+      ).commands.map((c) => [c.id, c]),
+    );
+    expect(byId.get("calendar-view-month")?.enabled).toBe(false);
+    expect(byId.get("calendar-view-week")?.enabled).toBe(true);
+    expect(byId.get("calendar-view-day")?.enabled).toBe(true);
+  });
+
+  it("disables Go to today only when already on today", () => {
+    const onToday = new Map(
+      buildCalendarSource(
+        makeData({ frame: monthFrame({ isOnToday: true }) }),
+        noopHandlers,
+      ).commands.map((c) => [c.id, c]),
+    );
+    expect(onToday.get("calendar-go-today")?.enabled).toBe(false);
+    const notToday = new Map(
+      buildCalendarSource(
+        makeData({ frame: monthFrame({ isOnToday: false }) }),
+        noopHandlers,
+      ).commands.map((c) => [c.id, c]),
+    );
+    expect(notToday.get("calendar-go-today")?.enabled).toBe(true);
+  });
+
+  it("enables Retry failed syncs only when there are errors and not offline", () => {
+    const clean = new Map(
+      buildCalendarSource(makeData({ externalErrorsCount: 0 }), noopHandlers).commands.map(
+        (c) => [c.id, c],
+      ),
+    );
+    expect(clean.get("calendar-retry-syncs")?.enabled).toBe(false);
+    const withErrors = new Map(
+      buildCalendarSource(makeData({ externalErrorsCount: 2 }), noopHandlers).commands.map(
+        (c) => [c.id, c],
+      ),
+    );
+    expect(withErrors.get("calendar-retry-syncs")?.enabled).toBe(true);
+    const offline = new Map(
+      buildCalendarSource(
+        makeData({ externalErrorsCount: 2, offlineMode: true }),
+        noopHandlers,
+      ).commands.map((c) => [c.id, c]),
+    );
+    expect(offline.get("calendar-retry-syncs")?.enabled).toBe(false);
+  });
+
+  it("emits the selected-native-event rows under Selected event and flips the PTO row", () => {
+    const notPto = buildCalendarSource(
+      makeData({ selectedEvent: makeEvent({ is_pto: false }) }),
+      noopHandlers,
+    ).commands;
+    const notPtoSel = notPto.filter((c) => c.group === "Selected event");
+    expect(notPtoSel.map((c) => c.id)).toEqual([
+      "calendar-event-edit",
+      "calendar-event-delete",
+      "calendar-event-duplicate",
+      "calendar-event-mark-pto",
+      "calendar-event-open",
+    ]);
+
+    const isPto = buildCalendarSource(
+      makeData({ selectedEvent: makeEvent({ is_pto: true }) }),
+      noopHandlers,
+    ).commands;
+    const ids = isPto.map((c) => c.id);
+    expect(ids).toContain("calendar-event-clear-pto");
+    expect(ids).not.toContain("calendar-event-mark-pto");
+  });
+
+  it("emits the reduced read-only rows for a selected external event and gates open-in-source on a url", () => {
+    const withUrl = buildCalendarSource(
+      makeData({ selectedExternal: makeExternal({ url: "https://x.test" }) }),
+      noopHandlers,
+    ).commands;
+    const sel = withUrl.filter((c) => c.group === "Selected event");
+    expect(sel.map((c) => c.id)).toEqual([
+      "calendar-external-open-source",
+      "calendar-external-show-feed",
+      "calendar-external-copy",
+    ]);
+    expect(
+      withUrl.find((c) => c.id === "calendar-external-open-source")?.enabled,
+    ).toBe(true);
+
+    const noUrl = buildCalendarSource(
+      makeData({ selectedExternal: makeExternal({ url: null }) }),
+      noopHandlers,
+    ).commands;
+    expect(
+      noUrl.find((c) => c.id === "calendar-external-open-source")?.enabled,
+    ).toBe(false);
+  });
+});
+
+// ── Suggested ────────────────────────────────────────────────────────────────
+
+describe("buildCalendarSource suggested ordering", () => {
+  it("leads with the native event actions when a native event is selected", () => {
+    const src = buildCalendarSource(
+      makeData({ selectedEvent: makeEvent({ is_pto: false }) }),
+      noopHandlers,
+    );
+    expect(src.suggestedIds).toEqual([
+      "calendar-event-edit",
+      "calendar-event-delete",
+      "calendar-event-duplicate",
+      "calendar-event-mark-pto",
+      "calendar-event-open",
+    ]);
+    expect(src.suggestedHint).toBe("for the selected event");
+    // Every suggested id must exist in commands.
+    const ids = new Set(src.commands.map((c) => c.id));
+    for (const id of src.suggestedIds ?? []) expect(ids.has(id)).toBe(true);
+  });
+
+  it("flips the PTO suggestion when the selected event is already PTO", () => {
+    const src = buildCalendarSource(
+      makeData({ selectedEvent: makeEvent({ is_pto: true }) }),
+      noopHandlers,
+    );
+    expect(src.suggestedIds).toContain("calendar-event-clear-pto");
+    expect(src.suggestedIds).not.toContain("calendar-event-mark-pto");
+  });
+
+  it("uses the reduced read-only set when an external event is selected", () => {
+    const src = buildCalendarSource(
+      makeData({ selectedExternal: makeExternal() }),
+      noopHandlers,
+    );
+    expect(src.suggestedIds).toEqual([
+      "calendar-external-open-source",
+      "calendar-external-show-feed",
+      "calendar-external-copy",
+    ]);
+    expect(src.suggestedHint).toBe("for the selected linked event");
+  });
+
+  it("suggests the orientation set when nothing is selected, with the off-views and no retry", () => {
+    const src = buildCalendarSource(
+      makeData({ frame: monthFrame({ view: "month", isOnToday: true }) }),
+      noopHandlers,
+    );
+    expect(src.suggestedIds).toEqual([
+      "calendar-new-event",
+      "calendar-new-event-today",
+      "calendar-view-week",
+      "calendar-view-day",
+      "calendar-prev",
+      "calendar-next",
+    ]);
+    expect(src.suggestedHint).toBeUndefined();
+  });
+
+  it("adds Go to today and Retry when off-today and feeds have errors", () => {
+    const src = buildCalendarSource(
+      makeData({
+        frame: monthFrame({ isOnToday: false }),
+        externalErrorsCount: 1,
+      }),
+      noopHandlers,
+    );
+    expect(src.suggestedIds).toContain("calendar-go-today");
+    expect(src.suggestedIds).toContain("calendar-retry-syncs");
+  });
+});
+
+// ── Nav groups ───────────────────────────────────────────────────────────────
+
+describe("buildCalendarSource nav groups", () => {
+  it("has Jump to an event (native rose, external slate) with an in-view hint", () => {
+    const src = buildCalendarSource(makeData(), noopHandlers);
+    const groups = src.navGroups ?? [];
+    const jump = groups.find((g) => g.title === "Jump to an event")!;
+    expect(jump.hint).toBe("in view (2)");
+    // Native first, then external.
+    expect(jump.items[0].tone).toBe("event");
+    expect(jump.items[0].id).toBe("event-1");
+    expect(jump.items[1].tone).toBe("feed");
+    expect(jump.items[1].id).toBe("external-feed1-uid-7");
+    expect(jump.items[1].keywords).toContain("Lab Google Calendar");
+  });
+
+  it("omits Next up when there is nothing upcoming", () => {
+    const src = buildCalendarSource(makeData({ upcomingEvents: [] }), noopHandlers);
+    expect((src.navGroups ?? []).some((g) => g.title === "Next up")).toBe(false);
+  });
+
+  it("includes Next up in the caller's order with the relative detail", () => {
+    const upcoming: CalendarUpcomingItem[] = [
+      { kind: "native", event: makeEvent({ id: 5, title: "Lab Meeting", start_date: "2026-06-16" }) },
+      { kind: "external", event: makeExternal({ id: "x-9", title: "Seminar", start_date: "2026-06-18" }) },
+    ];
+    const src = buildCalendarSource(
+      makeData({ upcomingEvents: upcoming }),
+      noopHandlers,
+    );
+    const next = (src.navGroups ?? []).find((g) => g.title === "Next up")!;
+    expect(next.items.map((i) => i.label)).toEqual(["Lab Meeting", "Seminar"]);
+    expect(next.items[0].detail).toBe("soon, 2026-06-16");
+    expect(next.items[0].tone).toBe("event");
+    expect(next.items[1].tone).toBe("feed");
+  });
+});
