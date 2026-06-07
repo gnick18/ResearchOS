@@ -37,6 +37,7 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import BeakerBot from "@/components/BeakerBot";
+import SponsorStrip from "@/components/SponsorStrip";
 import BeakerBotSpeechBubble from "@/components/beakerbot/SpeechBubble";
 import BeakerBotPeek from "@/components/welcome/BeakerBotPeek";
 import Wordmark from "@/components/Wordmark";
@@ -1242,6 +1243,10 @@ export default function WelcomePage() {
             </p>
           </div>
         </section>
+
+        {/* ── Site-wide sponsors (renders nothing until a real Lab or
+            Institute sponsor exists) ──────────────────────────────────── */}
+        <SponsorStrip variant="welcome" />
 
         {/* ── Footer ──────────────────────────────────────────────────── */}
         <footer className="border-t border-[#e3eaf3] bg-[#f3f7fc] px-6 py-10 text-center text-meta text-[#8593a8]">
