@@ -539,6 +539,39 @@ const ICONS_RAW = {
       </>
     ),
   },
+
+  // ── Inventory signals (chunk 3 health strip + step-down) ─────────────────
+  // Grant-voted from a 5-candidate interactive HTML chooser (2026-06-07).
+  alarmClock: {
+    concept: "Alarm clock / expiring",
+    body: (
+      <>
+        <circle cx="12" cy="13" r="7" />
+        <path d="M12 10v3l2 2" />
+        <path d="M5 4 2.5 6.5M19 4l2.5 2.5M7 20l-1.5 2M17 20l1.5 2" />
+      </>
+    ),
+  },
+  hourglass: {
+    concept: "Hourglass / stale",
+    body: (
+      <path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9" />
+    ),
+  },
+  gaugeLow: {
+    concept: "Gauge low / low or empty",
+    body: (
+      <>
+        <path d="M4 18a8 8 0 1 1 16 0" />
+        <path d="M12 18l-3-4" />
+        <circle cx="12" cy="18" r="1.2" fill="currentColor" stroke="none" />
+      </>
+    ),
+  },
+  minus: {
+    concept: "Minus / step down",
+    body: <path d="M5 12h14" />,
+  },
 } satisfies Record<string, IconEntry>;
 
 export type IconName = keyof typeof ICONS_RAW;

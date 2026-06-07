@@ -122,7 +122,7 @@ function ChoiceStep({
     <div className="p-6 sm:p-7">
       <div className="flex items-start gap-3 mb-5">
         <div className="mt-0.5 flex-shrink-0 rounded-lg bg-brand-action/10 p-2">
-          <BoxIcon className="h-5 w-5 text-brand-action" />
+          <Icon name="vial" className="h-5 w-5 text-brand-action" />
         </div>
         <div>
           <h2 className="text-title font-semibold text-foreground mb-0.5">
@@ -140,19 +140,19 @@ function ChoiceStep({
       <div className="space-y-2">
         <ChoiceButton
           onClick={onCreateNew}
-          icon={<PlusIcon className="h-5 w-5 text-brand-action" />}
+          icon={<Icon name="plus" className="h-5 w-5 text-brand-action" />}
           title="Create a new inventory item"
           description="Start tracking this reagent for the first time."
         />
         <ChoiceButton
           onClick={onAddToExisting}
-          icon={<MergeIcon className="h-5 w-5 text-brand-action" />}
+          icon={<Icon name="layer" className="h-5 w-5 text-brand-action" />}
           title="Add stock to an existing item"
           description="You already have this reagent. Add the new batch."
         />
         <ChoiceButton
           onClick={onSkip}
-          icon={<SkipIcon className="h-5 w-5 text-foreground-muted" />}
+          icon={<Icon name="close" className="h-5 w-5 text-foreground-muted" />}
           title="Skip"
           description="Services, one-offs, or items you do not track."
           muted
@@ -198,7 +198,7 @@ function ChoiceButton({
       </span>
       {!muted && (
         <span className="ml-auto mt-1 flex-shrink-0 text-foreground-muted">
-          <ChevronRightIcon className="h-4 w-4" />
+          <Icon name="caret" className="h-4 w-4 -rotate-90" />
         </span>
       )}
     </button>
@@ -285,7 +285,7 @@ function CreateNewStep({
         onClick={onBack}
         className="inline-flex items-center gap-1.5 text-meta font-medium text-foreground-muted hover:text-foreground mb-4 transition-colors"
       >
-        <ChevronLeftIcon className="h-3.5 w-3.5" />
+        <Icon name="caret" className="h-3.5 w-3.5 rotate-90" />
         Back
       </button>
 
@@ -491,7 +491,7 @@ function AddToExistingStep({
         onClick={onBack}
         className="inline-flex items-center gap-1.5 text-meta font-medium text-foreground-muted hover:text-foreground mb-4 transition-colors"
       >
-        <ChevronLeftIcon className="h-3.5 w-3.5" />
+        <Icon name="caret" className="h-3.5 w-3.5 rotate-90" />
         Back
       </button>
 
@@ -633,120 +633,5 @@ function ErrorBanner({ message }: { message: string }) {
     <div className="mb-4 px-3 py-2 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded-lg text-meta text-rose-700 dark:text-rose-300">
       {message}
     </div>
-  );
-}
-
-// ── inline SVGs ───────────────────────────────────────────────────────────────
-
-function BoxIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-      <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-      <line x1="12" y1="22.08" x2="12" y2="12" />
-    </svg>
-  );
-}
-
-function PlusIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  );
-}
-
-function MergeIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <circle cx="18" cy="18" r="3" />
-      <circle cx="6" cy="6" r="3" />
-      <path d="M6 21V9a9 9 0 0 0 9 9" />
-    </svg>
-  );
-}
-
-function SkipIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <path d="M4.93 4.93 19.07 19.07" />
-    </svg>
-  );
-}
-
-function ChevronLeftIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <polyline points="15 18 9 12 15 6" />
-    </svg>
-  );
-}
-
-function ChevronRightIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <polyline points="9 18 15 12 9 6" />
-    </svg>
   );
 }
