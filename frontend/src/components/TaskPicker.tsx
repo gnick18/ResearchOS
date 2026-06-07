@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchAllProjectsIncludingShared } from "@/lib/local-api";
+import { usePopupLayer } from "@/lib/ui/popup-stack";
 import type { Task, Project } from "@/lib/types";
 
 interface TaskPickerProps {
@@ -46,6 +47,8 @@ export default function TaskPicker({
   onSelect,
   onClose,
 }: TaskPickerProps) {
+  // Opens over the task/experiment detail popups, so blur only when bottom-most.
+  const { shouldBlur } = usePopupLayer(open, true);
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["projects"],
     queryFn: fetchAllProjectsIncludingShared,
@@ -204,7 +207,9 @@ export default function TaskPicker({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-start justify-center bg-black/30 backdrop-blur-sm pt-[10vh] px-4"
+      className={`fixed inset-0 z-[60] flex items-start justify-center bg-black/30 pt-[10vh] px-4 ${
+        shouldBlur ? "backdrop-blur-sm" : ""
+      }`}
       // Marker for TourSpotlight (popup-occluding sweep manager,
       // 2026-05-27). Hides the v4 walkthrough ring while this popup
       // is mounted; see SnapshotTilePopup for the canonical example.

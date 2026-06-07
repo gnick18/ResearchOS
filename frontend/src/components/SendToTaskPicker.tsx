@@ -7,6 +7,7 @@ import {
   fetchAllProjectsIncludingShared,
 } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { usePopupLayer } from "@/lib/ui/popup-stack";
 import type { Project, Task } from "@/lib/types";
 import { taskKey } from "@/lib/types";
 
@@ -56,6 +57,9 @@ export default function SendToTaskPicker({
 }: SendToTaskPickerProps) {
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
+  // Opens over the photo/inbox popups, so blur only when bottom-most (no
+  // compounding double-blur on a popup already blurring behind it).
+  const { shouldBlur } = usePopupLayer(isOpen, true);
   const [query, setQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
   // Which image folder the batch lands in. Lab Notes is the default (it's
@@ -142,7 +146,9 @@ export default function SendToTaskPicker({
 
   return (
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      className={`fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4 ${
+        shouldBlur ? "backdrop-blur-sm" : ""
+      }`}
       // Marker for TourSpotlight (popup-occluding sweep manager,
       // 2026-05-27). Hides the v4 walkthrough ring while this popup
       // is mounted; see SnapshotTilePopup for the canonical example.

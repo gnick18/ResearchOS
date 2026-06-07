@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { usePopupLayer } from "@/lib/ui/popup-stack";
 import {
   methodsApi,
   fetchAllMethodsIncludingShared,
@@ -560,6 +561,9 @@ function ComponentPicker({
   onPick,
   onCreatedInline,
 }: ComponentPickerProps) {
+  // Stacks on the builder's LivingPopup (z-[400]), so blur only when bottom-most
+  // to avoid compounding on the blur already behind it.
+  const { shouldBlur } = usePopupLayer(true, true);
   const [tab, setTab] = useState<PickerTab>("pick");
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<MethodTypeId | "all">("all");
@@ -610,7 +614,9 @@ function ComponentPicker({
       // builder popup (see CompoundMethodBuilder's render note) rather than
       // migrated to LivingPopup, to avoid the nested-Escape + transform-clip
       // pitfalls of two stacked LivingPopups.
-      className="fixed inset-0 z-[450] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      className={`fixed inset-0 z-[450] flex items-center justify-center bg-black/40 ${
+        shouldBlur ? "backdrop-blur-sm" : ""
+      }`}
       // Marker for TourSpotlight (popup-occluding sweep manager,
       // 2026-05-27).
       data-tour-popup-occluding="compound-method-add-component"

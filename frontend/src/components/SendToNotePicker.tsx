@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { notesApi } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { usePopupLayer } from "@/lib/ui/popup-stack";
 import type { Note } from "@/lib/types";
 
 /**
@@ -87,6 +88,8 @@ export default function SendToNotePicker({
   allowCreateNew = false,
   newNoteTitle = "New note",
 }: SendToNotePickerProps) {
+  // Opens over the photo/inbox popups, so blur only when bottom-most.
+  const { shouldBlur } = usePopupLayer(isOpen, true);
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
   const [query, setQuery] = useState("");
@@ -188,7 +191,9 @@ export default function SendToNotePicker({
 
   return (
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      className={`fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4 ${
+        shouldBlur ? "backdrop-blur-sm" : ""
+      }`}
       // Marker for TourSpotlight (popup-occluding sweep manager,
       // 2026-05-27). Hides the v4 walkthrough ring while this popup
       // is mounted; see SnapshotTilePopup for the canonical example.

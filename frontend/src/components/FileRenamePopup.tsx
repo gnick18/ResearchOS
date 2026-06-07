@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { ImageIcon, PaperclipIcon } from "@/lib/utils/icons";
+import { usePopupLayer } from "@/lib/ui/popup-stack";
 
 interface FileRenamePopupProps {
   file: File;
@@ -18,6 +19,8 @@ export default function FileRenamePopup({
 }: FileRenamePopupProps) {
   const [newName, setNewName] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  // Opens during upload over the editor popups, so blur only when bottom-most.
+  const { shouldBlur } = usePopupLayer(true, true);
 
   // Extract file extension and base name
   const lastDotIndex = file.name.lastIndexOf(".");
@@ -63,7 +66,9 @@ export default function FileRenamePopup({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      className={`fixed inset-0 z-[100] flex items-center justify-center bg-black/30 ${
+        shouldBlur ? "backdrop-blur-sm" : ""
+      }`}
       // Marker for TourSpotlight (popup-occluding sweep manager,
       // 2026-05-27). Hides the v4 walkthrough ring while this popup
       // is mounted; see SnapshotTilePopup for the canonical example.
