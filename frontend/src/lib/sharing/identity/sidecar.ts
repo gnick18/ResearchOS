@@ -7,12 +7,22 @@
 // convention already used by _auth.json (see lib/auth/password.ts), a thin
 // File System Access wrapper over fileService.readJson / writeJson.
 //
-// SECURITY, this sidecar holds PUBLIC fields only. Private keys never land here,
-// they live wrapped in the directory backup blob and raw in IndexedDB on the
-// device (the caller's job, see setup.ts and storage.ts). Anyone with the
-// shared folder can read this file, so treat every field as public.
+// SECURITY (updated 2026-06-06, Grant-approved Option A in IDENTITY_OAUTH_ONLY.md):
+// the public fields are still public, but this file now ALSO carries the device
+// keypair WRAPPED at rest (recoveryBlob + optional passkeyBlob). Those are
+// ciphertext, sealed under the 128-bit recovery code (Argon2id) and a
+// device-bound passkey PRF, the same posture the directory already uses for the
+// backup blob. This makes the folder a self-contained identity, a new device
+// opening the same folder unlocks offline with the recovery code, no directory
+// needed. Anyone who can read the folder can copy the ciphertext, but offline
+// brute force is infeasible at 128 bits. The raw private key NEVER lands here, it
+// only ever exists unwrapped in process memory (session-key.ts) after an unlock.
+// Because the file now holds key material, callers MUST gitignore it
+// (_sharing_identity.json) when they write the wrapped blobs.
 
 import { fileService } from "../../file-system/file-service";
+import type { BackupBlob } from "./backup";
+import type { PrfBackupBlob } from "./passkey";
 
 /**
  * The per-user identity link. Public fields only, never a private key.
@@ -27,11 +37,18 @@ import { fileService } from "../../file-system/file-service";
  * - recoveryConfirmedAt, ISO-8601 timestamp the user confirmed they saved their
  *   Recovery Words, or null if they have not confirmed yet.
  * - passkeyEnrolledAt, ISO-8601 timestamp a passkey was enrolled to unlock this
- *   identity, or null/absent when none is enrolled. PUBLIC, it is only a "yes a
- *   passkey exists" flag, it carries no credential and no key material. Optional
- *   so sidecars written before passkeys existed stay valid.
+ *   identity, or null/absent when none is enrolled. PUBLIC "yes a passkey exists"
+ *   flag, no credential or key material. Optional so older sidecars stay valid.
  *
- * This exact shape was approved by Grant. Do not add private-key fields.
+ * The wrapped device key (Option A, 2026-06-06). These are CIPHERTEXT, the device
+ * keypair sealed at rest so the folder is a self-contained identity:
+ * - recoveryBlob, the keypair sealed under the recovery code (Argon2id, 128-bit).
+ *   Present once the account is set up under the OAuth-only model. Optional so
+ *   pre-cutover sidecars (public-only) still parse.
+ * - passkeyBlob, the keypair sealed under this device's passkey PRF, present once
+ *   a passkey is enrolled on this device. Device-specific.
+ * - passkeyCredentialId, which passkey to ask for at unlock.
+ * Never store the raw (unwrapped) private key here, see the SECURITY note above.
  */
 export interface SharingIdentitySidecar {
   version: 1;
@@ -42,6 +59,9 @@ export interface SharingIdentitySidecar {
   claimedAt: string;
   recoveryConfirmedAt: string | null;
   passkeyEnrolledAt?: string | null;
+  recoveryBlob?: BackupBlob;
+  passkeyBlob?: PrfBackupBlob;
+  passkeyCredentialId?: string;
 }
 
 function sidecarPath(username: string): string {
