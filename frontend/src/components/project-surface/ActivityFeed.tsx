@@ -40,7 +40,7 @@ function summarize(event: ProjectActivityEvent): ReactNode {
     case "task_completed":
       return (
         <>
-          Completed <em className="text-gray-900">{event.task_name}</em>
+          Completed <em className="text-foreground">{event.task_name}</em>
         </>
       );
     case "image_added": {
@@ -51,7 +51,7 @@ function summarize(event: ProjectActivityEvent): ReactNode {
             ? event.task_name
               ? (
                 <>
-                  <em className="text-gray-900">{event.task_name}</em>
+                  <em className="text-foreground">{event.task_name}</em>
                   &apos;s results
                 </>
               )
@@ -59,14 +59,14 @@ function summarize(event: ProjectActivityEvent): ReactNode {
             : event.task_name
               ? (
                 <>
-                  <em className="text-gray-900">{event.task_name}</em>
+                  <em className="text-foreground">{event.task_name}</em>
                   &apos;s lab notes
                 </>
               )
               : "an experiment's lab notes";
       return (
         <>
-          Added image <code className="text-meta bg-gray-100 px-1 py-0.5 rounded">{event.image_name}</code> to{" "}
+          Added image <code className="text-meta bg-surface-sunken px-1 py-0.5 rounded">{event.image_name}</code> to{" "}
           {where}
         </>
       );
@@ -75,11 +75,11 @@ function summarize(event: ProjectActivityEvent): ReactNode {
       return (
         <>
           Attached{" "}
-          <em className="text-gray-900">
+          <em className="text-foreground">
             {event.method_name ?? `method #${event.method_id}`}
           </em>{" "}
           to{" "}
-          <em className="text-gray-900">
+          <em className="text-foreground">
             {event.task_name ?? `task #${event.task_id}`}
           </em>
         </>
@@ -88,11 +88,11 @@ function summarize(event: ProjectActivityEvent): ReactNode {
       return (
         <>
           Removed{" "}
-          <em className="text-gray-900">
+          <em className="text-foreground">
             {event.method_name ?? `method #${event.method_id}`}
           </em>{" "}
           from{" "}
-          <em className="text-gray-900">
+          <em className="text-foreground">
             {event.task_name ?? `task #${event.task_id}`}
           </em>
         </>
@@ -102,7 +102,7 @@ function summarize(event: ProjectActivityEvent): ReactNode {
     case "project_shared":
       return (
         <>
-          Shared with <em className="text-gray-900">{event.recipient}</em> ({event.permission})
+          Shared with <em className="text-foreground">{event.recipient}</em> ({event.permission})
         </>
       );
     case "project_archived":
@@ -156,20 +156,20 @@ export default function ActivityFeed({ project }: ActivityFeedProps) {
   return (
     <section id="activity" className="scroll-mt-32">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-title font-semibold text-gray-900">Activity</h2>
+        <h2 className="text-title font-semibold text-foreground">Activity</h2>
         {!isLoading && events.length > 0 && (
-          <span className="text-meta text-gray-400">
+          <span className="text-meta text-foreground-muted">
             {events.length} event{events.length === 1 ? "" : "s"}
           </span>
         )}
       </div>
 
       {isLoading ? (
-        <p className="text-body text-gray-400 italic">Loading activity…</p>
+        <p className="text-body text-foreground-muted italic">Loading activity…</p>
       ) : events.length === 0 ? (
-        <p className="text-body text-gray-400 italic">No activity yet.</p>
+        <p className="text-body text-foreground-muted italic">No activity yet.</p>
       ) : (
-        <ol className="flex flex-col divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden bg-white">
+        <ol className="flex flex-col divide-y divide-border border border-border rounded-lg overflow-hidden bg-surface-raised">
           {events.map((event) => {
             const showActor = event.actor !== project.owner;
             return (
@@ -178,15 +178,15 @@ export default function ActivityFeed({ project }: ActivityFeedProps) {
                 className="px-3 py-2 flex items-start gap-2 text-body"
               >
                 <span
-                  className="flex-shrink-0 w-5 h-5 inline-flex items-center justify-center text-gray-400 text-body"
+                  className="flex-shrink-0 w-5 h-5 inline-flex items-center justify-center text-foreground-muted text-body"
                   aria-hidden
                 >
                   {eventGlyph(event.type)}
                 </span>
-                <div className="flex-1 min-w-0 text-gray-700">
+                <div className="flex-1 min-w-0 text-foreground">
                   {showActor && (
                     <>
-                      <span className="font-medium text-gray-900">
+                      <span className="font-medium text-foreground">
                         {event.actor}
                       </span>
                       <span>{" "}</span>
@@ -195,7 +195,7 @@ export default function ActivityFeed({ project }: ActivityFeedProps) {
                   <span>{summarize(event)}</span>
                 </div>
                 <span
-                  className="flex-shrink-0 text-meta text-gray-400"
+                  className="flex-shrink-0 text-meta text-foreground-muted"
                   title={event.ts}
                 >
                   {relativeTime(event.ts, now)}

@@ -25,13 +25,13 @@ function DiffRow({ d }: { d: Difference }) {
   const row =
     tone === "larger"
       ? "border-amber-200 bg-amber-50/70"
-      : "border-gray-200 bg-white";
+      : "border-border bg-surface-raised";
   const badge =
     tone === "larger"
       ? "bg-amber-100 text-amber-800"
       : tone === "expected"
-        ? "bg-slate-100 text-slate-600"
-        : "bg-gray-100 text-gray-600";
+        ? "bg-surface-sunken text-foreground-muted"
+        : "bg-surface-sunken text-foreground-muted";
   const badgeText =
     tone === "larger"
       ? "Larger difference"
@@ -41,21 +41,21 @@ function DiffRow({ d }: { d: Difference }) {
   return (
     <li className={`rounded-lg border px-4 py-3 ${row}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <span className="text-body font-medium text-gray-900">
+        <span className="text-body font-medium text-foreground">
           {d.domainTitle}
-          <span className="text-gray-400"> · {d.caseLabel}</span>
+          <span className="text-foreground-muted"> · {d.caseLabel}</span>
         </span>
         <span className={`shrink-0 rounded-full px-2 py-0.5 text-meta font-semibold ${badge}`}>
           {badgeText}
         </span>
       </div>
-      <p className="mt-1 text-meta text-gray-600">
+      <p className="mt-1 text-meta text-foreground-muted">
         vs {d.oracleName}: ResearchOS{" "}
-        <span className="font-mono text-gray-800">{d.ours}</span>, reference{" "}
-        <span className="font-mono text-gray-800">{d.theirs}</span>{" "}
-        <span className="font-mono text-gray-500">(Δ {d.delta} {d.unit})</span>
+        <span className="font-mono text-foreground">{d.ours}</span>, reference{" "}
+        <span className="font-mono text-foreground">{d.theirs}</span>{" "}
+        <span className="font-mono text-foreground-muted">(Δ {d.delta} {d.unit})</span>
       </p>
-      <p className="mt-1 text-meta text-gray-500">{d.reason}</p>
+      <p className="mt-1 text-meta text-foreground-muted">{d.reason}</p>
     </li>
   );
 }
@@ -65,9 +65,9 @@ export default function DifferencesSpotlight({ report }: { report: TransparencyR
   const showMethod = hasMethodContext(report);
 
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
-      <h2 className="text-heading font-bold tracking-tight text-gray-900">Where ResearchOS differs</h2>
-      <p className="mt-2 max-w-2xl text-body text-gray-600">
+    <section className="rounded-2xl border border-border bg-surface-raised p-6 shadow-sm sm:p-8">
+      <h2 className="text-heading font-bold tracking-tight text-foreground">Where ResearchOS differs</h2>
+      <p className="mt-2 max-w-2xl text-body text-foreground-muted">
         Most comparisons are identical to the reference, because where a published algorithm exists
         ResearchOS implements that same algorithm and the test verifies it reproduces it to the digit.
         The cases below are the ones that are not identical. Each is a known, documented difference,
@@ -76,7 +76,7 @@ export default function DifferencesSpotlight({ report }: { report: TransparencyR
       </p>
 
       {diffs.length === 0 ? (
-        <p className="mt-4 text-body text-gray-500">No differences to report.</p>
+        <p className="mt-4 text-body text-foreground-muted">No differences to report.</p>
       ) : (
         <ul className="mt-5 space-y-2">
           {diffs.map((d, i) => (
@@ -86,7 +86,7 @@ export default function DifferencesSpotlight({ report }: { report: TransparencyR
       )}
 
       {showMethod ? (
-        <p className="mt-5 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-meta text-gray-600">
+        <p className="mt-5 rounded-lg border border-border bg-surface-sunken px-4 py-3 text-meta text-foreground-muted">
           Separately, the melting-temperature tab shows the simpler Wallace and GC-percent rules as
           context. Those are different methods, not a target to match, and they diverge from
           nearest-neighbor by several degrees (the Wallace rule is unbounded and reaches an unphysical
@@ -94,7 +94,7 @@ export default function DifferencesSpotlight({ report }: { report: TransparencyR
         </p>
       ) : null}
 
-      <p className="mt-4 text-meta text-gray-400">
+      <p className="mt-4 text-meta text-foreground-muted">
         Protein parameters and restriction digests reproduce Biopython exactly on standard inputs. The
         only behavioral difference is non-standard residues and codes, which ResearchOS excludes from
         the calculation while Biopython rejects the sequence outright.

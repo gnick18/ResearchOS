@@ -72,26 +72,26 @@ export default function GoalsSection({ project }: GoalsSectionProps) {
   return (
     <section id="goals" className="scroll-mt-32">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-title font-semibold text-gray-900">Goals</h2>
+        <h2 className="text-title font-semibold text-foreground">Goals</h2>
         {!isLoading && !isError && projectGoals.length > 0 && (
-          <span className="text-meta text-gray-400">
+          <span className="text-meta text-foreground-muted">
             {projectGoals.length} goal{projectGoals.length === 1 ? "" : "s"}
           </span>
         )}
       </div>
 
       {isLoading ? (
-        <p className="text-body text-gray-400 italic">Loading goals…</p>
+        <p className="text-body text-foreground-muted italic">Loading goals…</p>
       ) : isError ? (
         <p className="text-body text-red-500">
           Couldn&apos;t load this project&apos;s goals.
         </p>
       ) : projectGoals.length === 0 ? (
-        <p className="text-body text-gray-400 italic">
+        <p className="text-body text-foreground-muted italic">
           No goals set yet. Goals attached to this project will appear here.
         </p>
       ) : (
-        <ul className="flex flex-col divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden bg-white">
+        <ul className="flex flex-col divide-y divide-border border border-border rounded-lg overflow-hidden bg-surface-raised">
           {projectGoals.map((goal) => {
             const totalSmart = goal.smart_goals?.length ?? 0;
             const doneSmart = goal.smart_goals?.filter((sg) => sg.is_complete).length ?? 0;
@@ -100,7 +100,7 @@ export default function GoalsSection({ project }: GoalsSectionProps) {
                 <button
                   type="button"
                   onClick={() => setEditingGoal(goal)}
-                  className="w-full px-3 py-2 flex items-center gap-2 hover:bg-gray-50 transition-colors text-left"
+                  className="w-full px-3 py-2 flex items-center gap-2 hover:bg-surface-sunken transition-colors text-left"
                 >
                   {goal.color && (
                     <span
@@ -109,14 +109,14 @@ export default function GoalsSection({ project }: GoalsSectionProps) {
                       aria-hidden
                     />
                   )}
-                  <span className="text-body font-medium text-gray-800 truncate flex-1 min-w-0">
+                  <span className="text-body font-medium text-foreground truncate flex-1 min-w-0">
                     {goal.name}
                   </span>
-                  <span className="text-meta text-gray-500 flex-shrink-0">
+                  <span className="text-meta text-foreground-muted flex-shrink-0">
                     {formatDateRange(goal.start_date, goal.end_date)}
                   </span>
                   {totalSmart > 0 && (
-                    <span className="text-meta px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full flex-shrink-0">
+                    <span className="text-meta px-2 py-0.5 bg-surface-sunken text-foreground-muted rounded-full flex-shrink-0">
                       {doneSmart}/{totalSmart} SMART
                     </span>
                   )}

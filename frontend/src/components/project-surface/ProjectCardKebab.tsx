@@ -164,7 +164,7 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
         aria-label="Project actions"
         aria-expanded={open}
         aria-haspopup="menu"
-        className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+        className="p-1 rounded text-foreground-muted hover:text-foreground hover:bg-surface-sunken transition-colors"
       >
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
           <circle cx="4" cy="10" r="1.5" />
@@ -176,7 +176,7 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
       {open && (
         <div
           role="menu"
-          className="absolute top-full right-0 mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50"
+          className="absolute top-full right-0 mt-1 w-40 bg-surface-raised border border-border rounded-lg shadow-lg py-1 z-50"
         >
           <button
             role="menuitem"
@@ -188,8 +188,8 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
             }}
             className={`w-full text-left px-3 py-1.5 text-body transition-colors ${
               isViewOnlyReceiver
-                ? "text-gray-300 cursor-not-allowed"
-                : "text-gray-700 hover:bg-gray-50"
+                ? "text-foreground-muted cursor-not-allowed"
+                : "text-foreground hover:bg-surface-sunken"
             }`}
           >
             Edit
@@ -202,7 +202,7 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
                 setOpen(false);
                 setShowSharePopup(true);
               }}
-              className="w-full text-left px-3 py-1.5 text-body text-gray-700 hover:bg-gray-50 transition-colors"
+              className="w-full text-left px-3 py-1.5 text-body text-foreground hover:bg-surface-sunken transition-colors"
             >
               Share
             </button>
@@ -221,8 +221,8 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
             }}
             className={`w-full text-left px-3 py-1.5 text-body transition-colors ${
               isViewOnlyReceiver
-                ? "text-gray-300 cursor-not-allowed"
-                : "text-gray-700 hover:bg-gray-50"
+                ? "text-foreground-muted cursor-not-allowed"
+                : "text-foreground hover:bg-surface-sunken"
             }`}
           >
             {project.is_archived ? "Unarchive" : "Archive"}
@@ -237,7 +237,7 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
             }}
             className={`w-full text-left px-3 py-1.5 text-body transition-colors ${
               isAnyReceiver
-                ? "text-gray-300 cursor-not-allowed"
+                ? "text-foreground-muted cursor-not-allowed"
                 : "text-red-600 hover:bg-red-50"
             }`}
           >
@@ -279,11 +279,11 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
           }}
         >
           <div
-            className="bg-white rounded-xl shadow-xl max-w-sm w-full mx-4 p-6"
+            className="bg-surface-raised rounded-xl shadow-xl max-w-sm w-full mx-4 p-6"
             onClick={stop}
           >
-            <h3 className="text-heading font-bold text-gray-900 mb-2">Archive project?</h3>
-            <p className="text-body text-gray-600 mb-4">
+            <h3 className="text-heading font-bold text-foreground mb-2">Archive project?</h3>
+            <p className="text-body text-foreground-muted mb-4">
               Are you sure you want to archive &quot;{project.name}&quot;?
             </p>
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
@@ -305,7 +305,7 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
                   stop(e);
                   setShowArchiveConfirm(false);
                 }}
-                className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="px-4 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg"
               >
                 Cancel
               </button>
@@ -333,11 +333,11 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
           }}
         >
           <div
-            className="bg-white rounded-xl shadow-xl max-w-sm w-full mx-4 p-6"
+            className="bg-surface-raised rounded-xl shadow-xl max-w-sm w-full mx-4 p-6"
             onClick={stop}
           >
-            <h3 className="text-heading font-bold text-gray-900 mb-2">Delete project?</h3>
-            <p className="text-body text-gray-600 mb-6">
+            <h3 className="text-heading font-bold text-foreground mb-2">Delete project?</h3>
+            <p className="text-body text-foreground-muted mb-6">
               Are you sure you want to delete &quot;{project.name}&quot;? This will also
               delete all tasks associated with this project. This action cannot be
               undone.
@@ -348,7 +348,7 @@ export default function ProjectCardKebab({ project }: ProjectCardKebabProps) {
                   stop(e);
                   setShowDeleteConfirm(false);
                 }}
-                className="px-4 py-2 text-body text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="px-4 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg"
               >
                 Cancel
               </button>

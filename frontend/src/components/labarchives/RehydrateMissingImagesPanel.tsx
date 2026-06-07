@@ -60,18 +60,18 @@ export default function RehydrateMissingImagesPanel({
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-body font-semibold text-gray-900">
+        <h3 className="text-body font-semibold text-foreground">
           Pull online-only images into your notes
         </h3>
-        <p className="text-meta text-gray-500 mt-1">
+        <p className="text-meta text-foreground-muted mt-1">
           The export ZIP doesn&apos;t bundle every inline image — about half are
           stored online by LabArchives. Pick a path below to fetch them now,
           or skip and leave them as placeholders you can fix up later.
         </p>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
-        <p className="text-body text-gray-900">
+      <div className="rounded-lg border border-border bg-surface-raised p-4">
+        <p className="text-body text-foreground">
           <span className="font-semibold">{missingImages.length}</span> online-only
           image{missingImages.length === 1 ? "" : "s"} expected.
         </p>
@@ -80,7 +80,7 @@ export default function RehydrateMissingImagesPanel({
       <PanelSwitcher active={active} onChange={setActive} />
 
       {active === "devtools" && (
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
+        <div className="rounded-xl border border-border bg-surface-raised p-4">
           <DevToolsScriptPanel
             missing={missingImages}
             notebookLabel={notebookLabel}
@@ -90,8 +90,8 @@ export default function RehydrateMissingImagesPanel({
       )}
 
       {active === "drop" && (
-        <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
-          <p className="text-meta text-gray-600">
+        <div className="rounded-xl border border-border bg-surface-raised p-4 space-y-3">
+          <p className="text-meta text-foreground-muted">
             Already saved your inline images somewhere — from a previous
             download, a screenshot batch, or another tool? Drop the folder
             or a <code className="text-meta">.zip</code> here. ResearchOS
@@ -122,11 +122,11 @@ function PanelSwitcher({
       className={`flex-1 text-left px-3 py-2 rounded-lg border transition-colors ${
         active === id
           ? "border-blue-400 bg-blue-50"
-          : "border-gray-200 bg-white hover:border-gray-300"
+          : "border-border bg-surface-raised hover:border-border"
       }`}
     >
-      <p className="text-meta font-semibold text-gray-900">{label}</p>
-      <p className="text-meta text-gray-600 mt-0.5">{subtitle}</p>
+      <p className="text-meta font-semibold text-foreground">{label}</p>
+      <p className="text-meta text-foreground-muted mt-0.5">{subtitle}</p>
     </button>
   );
 

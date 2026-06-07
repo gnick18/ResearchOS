@@ -141,7 +141,7 @@ export default function ManualImageDropPanel({
         className={`block rounded-xl border-2 border-dashed cursor-pointer transition-colors px-5 py-6 text-center ${
           dragOver
             ? "border-blue-400 bg-blue-50"
-            : "border-gray-300 hover:border-gray-400 bg-gray-50"
+            : "border-border hover:border-gray-400 bg-surface-sunken"
         } ${processing ? "opacity-60 pointer-events-none" : ""}`}
       >
         {/* The "webkitdirectory" attribute is non-standard but supported by
@@ -157,14 +157,14 @@ export default function ManualImageDropPanel({
           onChange={onInputChange}
           {...({ webkitdirectory: undefined } as Record<string, unknown>)}
         />
-        <p className="text-body text-gray-700">
+        <p className="text-body text-foreground">
           {promptText ?? "Drop a folder, individual images, or a .zip here"}
         </p>
-        <p className="text-meta text-gray-500 mt-1">or click to pick files</p>
+        <p className="text-meta text-foreground-muted mt-1">or click to pick files</p>
       </label>
 
       {processing && (
-        <p className="mt-2 text-meta text-gray-600">Processing dropped files…</p>
+        <p className="mt-2 text-meta text-foreground-muted">Processing dropped files…</p>
       )}
       {error && (
         <p className="mt-2 text-meta text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
@@ -174,13 +174,13 @@ export default function ManualImageDropPanel({
 
       {match && !processing && (
         <div className="mt-3 space-y-2">
-          <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-meta space-y-1">
+          <div className="rounded-lg border border-border bg-surface-raised px-3 py-2 text-meta space-y-1">
             <p className="text-emerald-800">
               <span className="font-medium">{matchedCount}</span> image
               {matchedCount === 1 ? "" : "s"} matched and ready to import.
             </p>
             {unmatchedCount > 0 && (
-              <p className="text-gray-700">
+              <p className="text-foreground">
                 <span className="font-medium">{unmatchedCount}</span> still
                 missing — these will keep using the &quot;missing image&quot; placeholder.
               </p>
@@ -201,7 +201,7 @@ export default function ManualImageDropPanel({
           </div>
 
           {unusedCount > 0 && (
-            <details className="text-meta text-gray-600">
+            <details className="text-meta text-foreground-muted">
               <summary className="cursor-pointer select-none">
                 Show unused files ({unusedCount})
               </summary>
@@ -224,7 +224,7 @@ export default function ManualImageDropPanel({
             <button
               type="button"
               onClick={handleClear}
-              className="text-meta text-gray-600 hover:text-gray-900 underline"
+              className="text-meta text-foreground-muted hover:text-foreground underline"
             >
               Clear and try again
             </button>

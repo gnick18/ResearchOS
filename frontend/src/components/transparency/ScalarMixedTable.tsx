@@ -11,11 +11,11 @@ import StatusPill from "./StatusPill";
  */
 export default function ScalarMixedTable({ domain }: { domain: DomainReport }) {
   return (
-    <figure className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+    <figure className="overflow-hidden rounded-xl border border-border bg-surface-raised">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-meta">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50 text-gray-500">
+            <tr className="border-b border-border bg-surface-sunken text-foreground-muted">
               <th className="px-3 py-2 font-semibold">Calculation</th>
               <th className="px-3 py-2 text-right font-semibold">ResearchOS</th>
               <th className="px-3 py-2 text-right font-semibold">Expected</th>
@@ -28,18 +28,18 @@ export default function ScalarMixedTable({ domain }: { domain: DomainReport }) {
               const cmp = c.comparisons[0];
               if (!cmp) return null;
               return (
-                <tr key={c.id} className="border-b border-gray-100 last:border-0 align-top">
+                <tr key={c.id} className="border-b border-border last:border-0 align-top">
                   <td className="px-3 py-2">
-                    <div className="font-medium text-gray-800">{c.label}</div>
-                    <div className="mt-0.5 text-meta text-gray-400">{c.input}</div>
+                    <div className="font-medium text-foreground">{c.label}</div>
+                    <div className="mt-0.5 text-meta text-foreground-muted">{c.input}</div>
                   </td>
-                  <td className="px-3 py-2 text-right font-mono text-gray-800 whitespace-nowrap">
+                  <td className="px-3 py-2 text-right font-mono text-foreground whitespace-nowrap">
                     {cmp.ours} {cmp.tolerance.unit}
                   </td>
-                  <td className="px-3 py-2 text-right font-mono text-gray-600 whitespace-nowrap">
+                  <td className="px-3 py-2 text-right font-mono text-foreground-muted whitespace-nowrap">
                     {cmp.theirs} {cmp.tolerance.unit}
                   </td>
-                  <td className="px-3 py-2 text-right font-mono text-gray-500">{cmp.delta}</td>
+                  <td className="px-3 py-2 text-right font-mono text-foreground-muted">{cmp.delta}</td>
                   <td className="px-3 py-2">
                     <StatusPill status={cmp.status} exact={cmp.delta === 0} kind={cmp.tolerance.kind} />
                   </td>

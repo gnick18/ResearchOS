@@ -91,10 +91,10 @@ export default function UploadStep({
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-body font-semibold text-gray-900">
+        <h3 className="text-body font-semibold text-foreground">
           Upload the offline notebook ZIP.
         </h3>
-        <p className="text-meta text-gray-500 mt-1">
+        <p className="text-meta text-foreground-muted mt-1">
           Drop the file you downloaded from your LabArchives confirmation
           email, or pick it from your file system.
         </p>
@@ -108,7 +108,7 @@ export default function UploadStep({
         className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed cursor-pointer transition-colors px-6 py-10 text-center ${
           dragOver
             ? "border-blue-400 bg-blue-50"
-            : "border-gray-300 hover:border-gray-400 bg-gray-50"
+            : "border-border hover:border-gray-400 bg-surface-sunken"
         }`}
       >
         <input
@@ -119,17 +119,17 @@ export default function UploadStep({
           className="hidden"
           onChange={onInputChange}
         />
-        <p className="text-body text-gray-700">
-          Drag and drop a <code className="px-1 py-0.5 bg-white border border-gray-200 rounded text-meta">.zip</code> here
+        <p className="text-body text-foreground">
+          Drag and drop a <code className="px-1 py-0.5 bg-surface-raised border border-border rounded text-meta">.zip</code> here
         </p>
-        <p className="text-meta text-gray-500">or click to pick a file</p>
+        <p className="text-meta text-foreground-muted">or click to pick a file</p>
       </label>
 
       {file && (
-        <div className="rounded-lg border border-gray-200 bg-white p-3 flex items-center justify-between gap-3">
+        <div className="rounded-lg border border-border bg-surface-raised p-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-body font-medium text-gray-900 truncate">{file.name}</p>
-            <p className="text-meta text-gray-500">{formatBytes(file.size)}</p>
+            <p className="text-body font-medium text-foreground truncate">{file.name}</p>
+            <p className="text-meta text-foreground-muted">{formatBytes(file.size)}</p>
           </div>
           <button
             type="button"
@@ -137,7 +137,7 @@ export default function UploadStep({
               setLocalError(null);
               onClear();
             }}
-            className="text-meta text-gray-600 hover:text-gray-900 px-2 py-1 rounded"
+            className="text-meta text-foreground-muted hover:text-foreground px-2 py-1 rounded"
           >
             Remove
           </button>

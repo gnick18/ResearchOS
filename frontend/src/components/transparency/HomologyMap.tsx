@@ -42,7 +42,7 @@ export default function HomologyMap({
   const fill = "#4f46e5";
 
   return (
-    <figure className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+    <figure className="overflow-hidden rounded-xl border border-border bg-surface-raised">
       <svg
         viewBox={`0 0 ${W} 160`}
         className="h-auto w-full"

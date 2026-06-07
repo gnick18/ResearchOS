@@ -98,7 +98,7 @@ export default function ProfileCard({
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5">
+    <div className="overflow-hidden rounded-2xl bg-surface-raised shadow-2xl ring-1 ring-black/5">
       {/* Cover band */}
       <div className="relative h-24 bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-500 sm:h-28">
         <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle_at_20%_20%,white,transparent_45%),radial-gradient(circle_at_80%_60%,white,transparent_40%)]" />
@@ -113,7 +113,7 @@ export default function ProfileCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-display font-bold tracking-tight text-gray-900">
+          <h1 className="text-display font-bold tracking-tight text-foreground">
             {profile.displayName}
           </h1>
           {profile.affiliationDomain && (
@@ -130,18 +130,18 @@ export default function ProfileCard({
         </div>
 
         {profile.affiliation && (
-          <p className="mt-1 text-title text-gray-700">{profile.affiliation}</p>
+          <p className="mt-1 text-title text-foreground">{profile.affiliation}</p>
         )}
         {profile.affiliationDomain && (
-          <p className="mt-0.5 text-meta text-gray-400">
+          <p className="mt-0.5 text-meta text-foreground-muted">
             Verified via {profile.affiliationDomain}
           </p>
         )}
 
         <div className="mt-5 space-y-3">
           {/* Research / ORCID */}
-          <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-4">
-            <p className="mb-1 text-meta font-semibold uppercase tracking-wide text-gray-400">
+          <div className="rounded-xl border border-border bg-surface-sunken/70 p-4">
+            <p className="mb-1 text-meta font-semibold uppercase tracking-wide text-foreground-muted">
               Research
             </p>
             {profile.orcid ? (
@@ -152,11 +152,11 @@ export default function ProfileCard({
                 className="inline-flex items-center gap-2 text-body text-sky-700 hover:underline underline-offset-2"
               >
                 <span className="font-mono">{profile.orcid}</span>
-                <span className="text-gray-400">View publications on ORCID</span>
-                <ExternalIcon className="h-3.5 w-3.5 text-gray-400" />
+                <span className="text-foreground-muted">View publications on ORCID</span>
+                <ExternalIcon className="h-3.5 w-3.5 text-foreground-muted" />
               </a>
             ) : (
-              <p className="text-body text-gray-500">
+              <p className="text-body text-foreground-muted">
                 This researcher has not linked an ORCID iD yet.
               </p>
             )}
@@ -172,17 +172,17 @@ export default function ProfileCard({
           )}
 
           {/* Fingerprint */}
-          <div className="rounded-xl border border-gray-100 bg-gray-50/70 p-4">
-            <p className="mb-1 text-meta font-semibold uppercase tracking-wide text-gray-400">
+          <div className="rounded-xl border border-border bg-surface-sunken/70 p-4">
+            <p className="mb-1 text-meta font-semibold uppercase tracking-wide text-foreground-muted">
               Identity fingerprint
             </p>
-            <p className="mb-2 text-meta text-gray-500 leading-relaxed">
+            <p className="mb-2 text-meta text-foreground-muted leading-relaxed">
               Confirm these characters with the person out of band before you
               send them research, so you know you are reaching the right
               identity.
             </p>
             <div className="flex flex-wrap items-center gap-3">
-              <span className="font-mono text-body tracking-wide text-gray-800">
+              <span className="font-mono text-body tracking-wide text-foreground">
                 {displayFingerprint}
               </span>
               <Tooltip label="Copy fingerprint" placement="top">
@@ -205,7 +205,7 @@ export default function ProfileCard({
           </div>
         </div>
 
-        <p className="mt-5 text-meta text-gray-400 leading-relaxed">
+        <p className="mt-5 text-meta text-foreground-muted leading-relaxed">
           To send research to this person, open any note, method, experiment,
           project, or sequence and use its Share button. Sharing is end to end
           encrypted, and this profile never exposes an email address.

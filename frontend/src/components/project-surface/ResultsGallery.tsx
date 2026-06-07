@@ -176,9 +176,9 @@ export default function ResultsGallery({ project }: ResultsGalleryProps) {
   return (
     <section id="results" className="scroll-mt-32">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-title font-semibold text-gray-900">Results</h2>
+        <h2 className="text-title font-semibold text-foreground">Results</h2>
         {!stillLoading && totalImages > 0 && (
-          <span className="text-meta text-gray-400">
+          <span className="text-meta text-foreground-muted">
             {totalImages} image{totalImages === 1 ? "" : "s"} across{" "}
             {groups.length} experiment{groups.length === 1 ? "" : "s"}
           </span>
@@ -187,14 +187,14 @@ export default function ResultsGallery({ project }: ResultsGalleryProps) {
 
       {/* Read-only aggregation: Project Results rolls up images from child
           experiments. You add results on each experiment, not here. */}
-      <p className="text-meta text-gray-400 mb-3">
+      <p className="text-meta text-foreground-muted mb-3">
         A read-only roll-up of images from this project&apos;s experiments. Add results on each experiment.
       </p>
 
       {stillLoading ? (
-        <p className="text-body text-gray-400 italic">Loading results…</p>
+        <p className="text-body text-foreground-muted italic">Loading results…</p>
       ) : groups.length === 0 ? (
-        <p className="text-body text-gray-400 italic">
+        <p className="text-body text-foreground-muted italic">
           No results yet. Add images on an experiment.
         </p>
       ) : (
@@ -205,26 +205,26 @@ export default function ResultsGallery({ project }: ResultsGalleryProps) {
             return (
               <div
                 key={key}
-                className="border border-gray-100 rounded-lg overflow-hidden bg-white"
+                className="border border-border rounded-lg overflow-hidden bg-surface-raised"
               >
                 <button
                   type="button"
                   onClick={() => toggleCollapsed(key)}
-                  className="w-full px-3 py-2 bg-gray-50 hover:bg-gray-100 border-b border-gray-100 flex items-center gap-2 text-left transition-colors"
+                  className="w-full px-3 py-2 bg-surface-sunken hover:bg-surface-sunken border-b border-border flex items-center gap-2 text-left transition-colors"
                   aria-expanded={!isCollapsed}
                 >
                   <span
-                    className={`text-meta text-gray-400 transition-transform ${
+                    className={`text-meta text-foreground-muted transition-transform ${
                       isCollapsed ? "" : "rotate-90"
                     }`}
                     aria-hidden
                   >
                     ▶
                   </span>
-                  <h3 className="text-body font-medium text-gray-800 truncate flex-1">
+                  <h3 className="text-body font-medium text-foreground truncate flex-1">
                     {g.task.name}
                   </h3>
-                  <span className="text-meta px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full flex-shrink-0">
+                  <span className="text-meta px-2 py-0.5 bg-surface-sunken text-foreground-muted rounded-full flex-shrink-0">
                     {g.images.length} image{g.images.length === 1 ? "" : "s"}
                   </span>
                   {g.task.is_shared_with_me && (
@@ -248,7 +248,7 @@ export default function ResultsGallery({ project }: ResultsGalleryProps) {
                           onClick={() =>
                             setPopup({ basePath: g.basePath, filename: img.name })
                           }
-                          className="group relative flex-shrink-0 w-24 h-24 rounded-md border border-gray-200 bg-white overflow-hidden hover:border-blue-400 hover:ring-2 hover:ring-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                          className="group relative flex-shrink-0 w-24 h-24 rounded-md border border-border bg-surface-raised overflow-hidden hover:border-blue-400 hover:ring-2 hover:ring-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                           title={tooltip}
                         >
                           {url ? (
@@ -260,7 +260,7 @@ export default function ResultsGallery({ project }: ResultsGalleryProps) {
                               className="w-full h-full object-cover pointer-events-none"
                             />
                           ) : (
-                            <div className="w-full h-full bg-gray-100" />
+                            <div className="w-full h-full bg-surface-sunken" />
                           )}
                           <span className="absolute inset-x-0 bottom-0 px-1 py-0.5 text-meta text-white bg-black/60 truncate opacity-0 group-hover:opacity-100 transition-opacity" data-force-hover-controls-target>
                             {img.name}

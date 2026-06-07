@@ -73,28 +73,28 @@ export default function PreviewStep({
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-body font-semibold text-gray-900">
+        <h3 className="text-body font-semibold text-foreground">
           Here&apos;s what we found in the notebook.
         </h3>
-        <p className="text-meta text-gray-500 mt-1">
+        <p className="text-meta text-foreground-muted mt-1">
           Review the shape of the export before we generate a default import
           plan. Nothing has been written to your folder yet.
         </p>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-2">
-        <p className="text-body text-gray-900">
+      <div className="rounded-lg border border-border bg-surface-raised p-4 space-y-2">
+        <p className="text-body text-foreground">
           Notebook: <strong>{parsed.notebookName ?? "(unnamed)"}</strong>
         </p>
-        <p className="text-meta text-gray-600">
+        <p className="text-meta text-foreground-muted">
           Export by{" "}
           <span className="font-medium">{parsed.exportedBy ?? "unknown"}</span>{" "}
           on{" "}
           <span className="font-medium">{parsed.exportedAt ?? "unknown date"}</span>
         </p>
         {rootCrumb && (
-          <p className="text-meta text-gray-600">
-            Imported root: <code className="text-meta bg-gray-100 px-1 py-0.5 rounded">{rootCrumb}</code>
+          <p className="text-meta text-foreground-muted">
+            Imported root: <code className="text-meta bg-surface-sunken px-1 py-0.5 rounded">{rootCrumb}</code>
           </p>
         )}
       </div>
@@ -128,10 +128,10 @@ export default function PreviewStep({
       )}
 
       <div>
-        <p className="text-meta font-medium text-gray-700 mb-2">Tree preview</p>
-        <div className="rounded-lg border border-gray-200 bg-white max-h-64 overflow-y-auto p-2 text-xs font-mono">
+        <p className="text-meta font-medium text-foreground mb-2">Tree preview</p>
+        <div className="rounded-lg border border-border bg-surface-raised max-h-64 overflow-y-auto p-2 text-xs font-mono">
           {parsed.tree.length === 0 ? (
-            <p className="text-gray-500 px-2 py-1">No tree nodes parsed.</p>
+            <p className="text-foreground-muted px-2 py-1">No tree nodes parsed.</p>
           ) : (
             parsed.tree.map((node, idx) => (
               <TreeNodeView key={`${node.treeNodeId}:${idx}`} node={node} depth={0} />
@@ -145,9 +145,9 @@ export default function PreviewStep({
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2">
-      <p className="text-meta uppercase tracking-wide text-gray-500 font-medium">{label}</p>
-      <p className="text-heading text-gray-900 font-semibold leading-tight">{value}</p>
+    <div className="rounded-lg border border-border bg-surface-raised px-3 py-2">
+      <p className="text-meta uppercase tracking-wide text-foreground-muted font-medium">{label}</p>
+      <p className="text-heading text-foreground font-semibold leading-tight">{value}</p>
     </div>
   );
 }
@@ -291,8 +291,8 @@ function TreeNodeView({ node, depth }: { node: ParsedNode; depth: number }) {
 
   if (node.kind === "page") {
     return (
-      <div className="px-2 py-0.5 text-gray-700 flex items-center gap-1" style={indent}>
-        <span className="text-gray-400">·</span>
+      <div className="px-2 py-0.5 text-foreground flex items-center gap-1" style={indent}>
+        <span className="text-foreground-muted">·</span>
         <span className="truncate">{node.name}</span>
       </div>
     );
@@ -304,12 +304,12 @@ function TreeNodeView({ node, depth }: { node: ParsedNode; depth: number }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full text-left px-2 py-0.5 hover:bg-gray-50 flex items-center gap-1"
+        className="w-full text-left px-2 py-0.5 hover:bg-surface-sunken flex items-center gap-1"
         style={indent}
       >
-        <span className="text-gray-500 w-3 inline-block">{open ? "▾" : "▸"}</span>
-        <span className="font-medium text-gray-800 truncate">{node.name}</span>
-        <span className="text-meta text-gray-500 ml-1">
+        <span className="text-foreground-muted w-3 inline-block">{open ? "▾" : "▸"}</span>
+        <span className="font-medium text-foreground truncate">{node.name}</span>
+        <span className="text-meta text-foreground-muted ml-1">
           ({children.length} {children.length === 1 ? "item" : "items"})
         </span>
       </button>

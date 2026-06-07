@@ -178,22 +178,22 @@ export function StoreShell<T>({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="relative bg-white rounded-xl shadow-2xl w-[92vw] max-w-6xl h-[88vh] mx-4 flex flex-col overflow-hidden">
+      <div className="relative bg-surface-raised rounded-xl shadow-2xl w-[92vw] max-w-6xl h-[88vh] mx-4 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
           <div className="min-w-0">
-            <h3 className="text-title font-semibold text-gray-900 truncate">
+            <h3 className="text-title font-semibold text-foreground truncate">
               {title}
             </h3>
             {subtitle && (
-              <p className="text-meta text-gray-400 mt-0.5">{subtitle}</p>
+              <p className="text-meta text-foreground-muted mt-0.5">{subtitle}</p>
             )}
           </div>
           <Tooltip label="Close" placement="bottom">
             <button
               onClick={onClose}
               aria-label={closeAriaLabel}
-              className="shrink-0 ml-4 text-gray-400 hover:text-gray-600 text-lg leading-none"
+              className="shrink-0 ml-4 text-foreground-muted hover:text-foreground-muted text-lg leading-none"
             >
               &times;
             </button>
@@ -204,8 +204,8 @@ export function StoreShell<T>({
             results + detail). min-h-0 lets the inner columns scroll. */}
         <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
           {/* LEFT RAIL (lg and up) */}
-          <aside className="hidden lg:flex lg:flex-col lg:w-[260px] lg:shrink-0 border-r border-gray-100">
-            <div className="p-4 border-b border-gray-100 flex flex-col gap-3">
+          <aside className="hidden lg:flex lg:flex-col lg:w-[260px] lg:shrink-0 border-r border-border">
+            <div className="p-4 border-b border-border flex flex-col gap-3">
               {railHeaderSlot}
               {searchSlot}
             </div>
@@ -226,7 +226,7 @@ export function StoreShell<T>({
                 />
               ))}
             </nav>
-            <div className="p-3 border-t border-gray-100">
+            <div className="p-3 border-t border-border">
               <EnabledOnlyToggle
                 on={enabledOnly}
                 onToggle={() => onToggleEnabledOnly(!enabledOnly)}
@@ -235,7 +235,7 @@ export function StoreShell<T>({
           </aside>
 
           {/* MOBILE FILTER ROW (below lg) */}
-          <div className="lg:hidden border-b border-gray-100">
+          <div className="lg:hidden border-b border-border">
             {railHeaderSlot && <div className="px-4 pt-3">{railHeaderSlot}</div>}
             <div className="px-4 pt-3">{searchSlot}</div>
             <div className="flex items-center gap-2 overflow-x-auto px-4 py-3">
@@ -268,7 +268,7 @@ export function StoreShell<T>({
                 lg-only: that is where the collapsed detail pane frees the
                 width, and the mobile browse view has no pane to reclaim. */}
             {noSelection && items.length > 0 && (
-              <div className="hidden lg:flex items-center gap-2 mb-4 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-meta text-gray-500">
+              <div className="hidden lg:flex items-center gap-2 mb-4 rounded-lg border border-border bg-surface-sunken px-3 py-2 text-meta text-foreground-muted">
                 <svg
                   width="14"
                   height="14"
@@ -279,7 +279,7 @@ export function StoreShell<T>({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   aria-hidden="true"
-                  className="shrink-0 text-gray-400"
+                  className="shrink-0 text-foreground-muted"
                 >
                   <circle cx="12" cy="12" r="10" />
                   <path d="M12 16v-4M12 8h.01" />
@@ -288,7 +288,7 @@ export function StoreShell<T>({
               </div>
             )}
             {items.length === 0 ? (
-              <div className="py-10 text-center text-body text-gray-400">
+              <div className="py-10 text-center text-body text-foreground-muted">
                 {emptyState ?? "No results."}
               </div>
             ) : (
@@ -308,7 +308,7 @@ export function StoreShell<T>({
             )}
 
             {footerSlot && (
-              <section className="mt-8 border-t border-gray-100 pt-6">
+              <section className="mt-8 border-t border-border pt-6">
                 {footerSlot}
               </section>
             )}
@@ -318,7 +318,7 @@ export function StoreShell<T>({
               selected so the center grid reclaims the width (the orienting
               hint over the grid covers the empty state instead). */}
           {selectedItem !== null && (
-            <aside className="hidden lg:flex lg:flex-col lg:w-[40%] lg:shrink-0 border-l border-gray-100 overflow-auto">
+            <aside className="hidden lg:flex lg:flex-col lg:w-[40%] lg:shrink-0 border-l border-border overflow-auto">
               <div className="p-6">{renderDetail(selectedItem)}</div>
             </aside>
           )}
@@ -327,12 +327,12 @@ export function StoreShell<T>({
         {/* MOBILE DETAIL OVERLAY (below lg): full-screen over the modal body
             when an item is selected. */}
         {selectedItem !== null && (
-          <div className="lg:hidden absolute inset-0 z-10 bg-white flex flex-col">
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 shrink-0">
+          <div className="lg:hidden absolute inset-0 z-10 bg-surface-raised flex flex-col">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
               <button
                 type="button"
                 onClick={() => onSelectItem(null)}
-                className="inline-flex items-center gap-1 text-body text-gray-600 hover:text-gray-900"
+                className="inline-flex items-center gap-1 text-body text-foreground-muted hover:text-foreground"
               >
                 <svg
                   width="16"
@@ -380,13 +380,13 @@ function CategoryButton({
       className={`w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-body transition-colors ${
         active
           ? "bg-blue-50 text-blue-700 font-medium"
-          : "text-gray-600 hover:bg-gray-50"
+          : "text-foreground-muted hover:bg-surface-sunken"
       }`}
     >
       <span className="truncate">{label}</span>
       <span
         className={`shrink-0 rounded-full px-2 py-0.5 text-meta font-medium ${
-          active ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-500"
+          active ? "bg-blue-100 text-blue-700" : "bg-surface-sunken text-foreground-muted"
         }`}
       >
         {count}
@@ -413,7 +413,7 @@ function FilterChip({
       className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-meta font-medium transition-colors ${
         active
           ? "bg-blue-600 text-white"
-          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
       }`}
     >
       {label}
@@ -441,7 +441,7 @@ function EnabledOnlyToggle({
         onClick={onToggle}
         className={`inline-flex items-center gap-2 ${
           compact ? "" : "w-full"
-        } text-body text-gray-600`}
+        } text-body text-foreground-muted`}
       >
         <span
           className={`relative shrink-0 inline-flex h-5 w-9 items-center rounded-full transition-colors ${
@@ -449,7 +449,7 @@ function EnabledOnlyToggle({
           }`}
         >
           <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+            className={`inline-block h-4 w-4 transform rounded-full bg-surface-raised transition-transform ${
               on ? "translate-x-4" : "translate-x-0.5"
             }`}
           />

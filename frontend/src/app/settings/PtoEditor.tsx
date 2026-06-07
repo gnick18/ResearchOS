@@ -170,11 +170,11 @@ export default function PtoEditor({ username }: Props) {
   return (
     <section
       data-testid="pto-editor"
-      className="rounded-lg border border-gray-200 bg-white p-4"
+      className="rounded-lg border border-border bg-surface-raised p-4"
     >
       <header className="mb-1">
-        <h3 className="text-body font-semibold text-gray-800">Days off (PTO)</h3>
-        <p className="text-meta text-gray-500">
+        <h3 className="text-body font-semibold text-foreground">Days off (PTO)</h3>
+        <p className="text-meta text-foreground-muted">
           Dates here are treated like weekends for your streak and for
           projects that skip weekends.
         </p>
@@ -189,7 +189,7 @@ export default function PtoEditor({ username }: Props) {
           onChange={(e) => setPendingDate(e.target.value)}
           disabled={loading || !username}
           data-testid="pto-editor-date-input"
-          className="rounded border border-gray-300 px-2 py-1 text-body"
+          className="rounded border border-border px-2 py-1 text-body"
         />
         <button
           type="button"
@@ -223,7 +223,7 @@ export default function PtoEditor({ username }: Props) {
       <div className="mt-3">
         {ptoDates.length === 0 ? (
           <div
-            className="flex flex-col items-center gap-2 rounded border border-dashed border-gray-200 py-6 text-gray-400"
+            className="flex flex-col items-center gap-2 rounded border border-dashed border-border py-6 text-foreground-muted"
             data-testid="pto-editor-empty"
           >
             <CalendarIcon className="h-6 w-6" />
@@ -233,7 +233,7 @@ export default function PtoEditor({ username }: Props) {
           </div>
         ) : (
           <ul
-            className="divide-y divide-gray-100 rounded border border-gray-100"
+            className="divide-y divide-border rounded border border-border"
             data-testid="pto-editor-list"
           >
             {ptoDates.map((iso) => (
@@ -242,9 +242,9 @@ export default function PtoEditor({ username }: Props) {
                 data-testid={`pto-editor-entry-${iso}`}
                 className="flex items-center justify-between px-3 py-1.5"
               >
-                <span className="text-body text-gray-700">
-                  <span className="font-mono text-meta text-gray-400">{iso}</span>
-                  <span className="ml-2 text-gray-600">
+                <span className="text-body text-foreground">
+                  <span className="font-mono text-meta text-foreground-muted">{iso}</span>
+                  <span className="ml-2 text-foreground-muted">
                     {formatRowLabel(iso)}
                   </span>
                 </span>
@@ -255,7 +255,7 @@ export default function PtoEditor({ username }: Props) {
                     disabled={loading}
                     aria-label={`Remove ${iso}`}
                     data-testid={`pto-editor-remove-${iso}`}
-                    className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                    className="rounded p-1 text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
                   >
                     <XIcon className="h-4 w-4" />
                   </button>

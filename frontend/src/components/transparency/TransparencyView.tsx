@@ -27,18 +27,18 @@ export default function TransparencyView() {
   const nonExact = counts.within + counts.expected + counts.larger;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-surface-sunken">
       <div className="mx-auto max-w-5xl px-6 py-12">
-        <Link href="/" className="text-body font-medium text-gray-500 underline-offset-2 hover:text-gray-800 hover:underline">
+        <Link href="/" className="text-body font-medium text-foreground-muted underline-offset-2 hover:text-foreground hover:underline">
           ← ResearchOS
         </Link>
 
-        <header className="mt-6 rounded-2xl border border-gray-200 bg-white p-8 shadow-sm sm:p-10">
+        <header className="mt-6 rounded-2xl border border-border bg-surface-raised p-8 shadow-sm sm:p-10">
           <p className="mb-3 text-body font-semibold uppercase tracking-wide text-sky-600">Method validation</p>
-          <h1 className="mb-5 text-display font-bold tracking-tight text-gray-900 sm:text-4xl">
+          <h1 className="mb-5 text-display font-bold tracking-tight text-foreground sm:text-4xl">
             Validation of bioinformatic calculations against peer-reviewed alternatives
           </h1>
-          <p className="max-w-2xl text-body text-gray-600">
+          <p className="max-w-2xl text-body text-foreground-muted">
             ResearchOS performs sequence-analysis and lab calculations client-side. Each calculation
             listed below is evaluated over a fixed set of test inputs and compared against an
             independent reference, a peer-reviewed software package (Biopython, primer3, pydna), a
@@ -52,11 +52,11 @@ export default function TransparencyView() {
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
               {counts.exact} exact
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 font-semibold text-gray-600">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-sunken px-3 py-1 font-semibold text-foreground-muted">
               {nonExact} within a documented tolerance
             </span>
             {counts.expected > 0 ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-600">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-sunken px-3 py-1 font-semibold text-foreground-muted">
                 {counts.expected} expected difference{counts.expected === 1 ? "" : "s"}
               </span>
             ) : null}
@@ -65,7 +65,7 @@ export default function TransparencyView() {
                 {counts.larger} larger difference{counts.larger === 1 ? "" : "s"}
               </span>
             ) : null}
-            <span className="text-gray-400">across {counts.total} comparisons, recomputed on every commit</span>
+            <span className="text-foreground-muted">across {counts.total} comparisons, recomputed on every commit</span>
           </div>
         </header>
 
@@ -73,7 +73,7 @@ export default function TransparencyView() {
           <DifferencesSpotlight report={report} />
         </div>
 
-        <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="mt-6 rounded-2xl border border-border bg-surface-raised p-6 shadow-sm sm:p-8">
           <TransparencyTabs domains={report.domains} />
         </div>
       </div>

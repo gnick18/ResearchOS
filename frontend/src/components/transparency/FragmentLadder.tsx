@@ -43,8 +43,8 @@ export default function FragmentLadder({
   ];
 
   return (
-    <figure className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-      <div className="border-b border-gray-100 px-4 py-2 text-meta font-semibold uppercase tracking-wide text-gray-500">
+    <figure className="overflow-hidden rounded-xl border border-border bg-surface-raised">
+      <div className="border-b border-border px-4 py-2 text-meta font-semibold uppercase tracking-wide text-foreground-muted">
         {enzymes.join(" + ")} digest, fragment sizes (bp)
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={`Fragment ladder comparing ResearchOS and Biopython for the ${enzymes.join(", ")} digest.`}>

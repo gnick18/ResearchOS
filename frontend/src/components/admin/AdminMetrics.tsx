@@ -104,10 +104,10 @@ function humanBytes(bytes: number): string {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50 text-gray-900">
-      <header className="border-b border-gray-200 bg-white">
+    <div className="flex min-h-screen flex-col bg-surface-sunken text-foreground">
+      <header className="border-b border-border bg-surface-raised">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <span className="text-body font-semibold text-gray-700">
+          <span className="text-body font-semibold text-foreground">
             ResearchOS operator metrics
           </span>
           <div className="flex items-center gap-4">
@@ -136,11 +136,11 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5">
-      <p className="text-meta font-medium uppercase tracking-wide text-gray-400">
+    <div className="rounded-2xl border border-border bg-surface-raised p-5">
+      <p className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
         {label}
       </p>
-      <p className="mt-1 text-display font-bold tracking-tight text-gray-900">
+      <p className="mt-1 text-display font-bold tracking-tight text-foreground">
         {value}
       </p>
     </div>
@@ -182,18 +182,18 @@ function UsageBar({
   return (
     <div>
       <div className="flex items-baseline justify-between">
-        <span className="text-meta text-gray-500">{label}</span>
+        <span className="text-meta text-foreground-muted">{label}</span>
         <span className={`text-meta font-semibold ${STATUS_TEXT[status]}`}>
           {pct < 10 ? pct.toFixed(1) : Math.round(pct)}%
         </span>
       </div>
-      <span className="mt-1 block h-2 overflow-hidden rounded-full bg-gray-100">
+      <span className="mt-1 block h-2 overflow-hidden rounded-full bg-surface-sunken">
         <span
           className={`block h-full rounded-full ${STATUS_BAR[status]}`}
           style={{ width: `${Math.max(pct, 1.5)}%` }}
         />
       </span>
-      <p className="mt-1 text-meta text-gray-400">
+      <p className="mt-1 text-meta text-foreground-muted">
         {usedLabel} of {limitLabel}
       </p>
     </div>
@@ -211,10 +211,10 @@ function ServiceCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5">
+    <div className="rounded-2xl border border-border bg-surface-raised p-5">
       <div className="mb-3">
-        <p className="text-body font-semibold text-gray-900">{name}</p>
-        <p className="text-meta text-gray-400">{sub}</p>
+        <p className="text-body font-semibold text-foreground">{name}</p>
+        <p className="text-meta text-foreground-muted">{sub}</p>
       </div>
       {children}
     </div>
@@ -223,7 +223,7 @@ function ServiceCard({
 
 function Unavailable() {
   return (
-    <p className="text-meta text-gray-400 leading-relaxed">
+    <p className="text-meta text-foreground-muted leading-relaxed">
       Measurement unavailable, the service is not configured or did not respond.
     </p>
   );
@@ -301,7 +301,7 @@ function SurvivalRisk({ c }: { c: CapacityMetrics }) {
   return (
     <div className={`mb-4 rounded-2xl border p-4 ${BOX[worst]}`}>
       <p className={`text-body font-semibold ${STATUS_TEXT[worst]}`}>{headline}</p>
-      <p className="mt-1 text-meta text-gray-500 leading-relaxed">
+      <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
         These ceilings are the ones that can take cross-boundary sharing and
         collab down. The other services below either self-clean (Upstash keys
         all TTL out, relay rows expire) or are only visible in the provider
@@ -317,16 +317,16 @@ function SurvivalRisk({ c }: { c: CapacityMetrics }) {
                   s.available ? STATUS_BAR[st] : "bg-gray-300"
                 }`}
               />
-              <span className="text-meta font-semibold text-gray-700">{s.name}</span>
+              <span className="text-meta font-semibold text-foreground">{s.name}</span>
               {s.available ? (
                 <span className={`text-meta font-semibold ${STATUS_TEXT[st]}`}>
                   {s.pct < 10 ? s.pct.toFixed(1) : Math.round(s.pct)}%
                 </span>
               ) : (
-                <span className="text-meta text-gray-400">unavailable</span>
+                <span className="text-meta text-foreground-muted">unavailable</span>
               )}
-              <span className="text-meta text-gray-400">{s.detail}.</span>
-              <span className="w-full text-meta text-gray-400 leading-relaxed">{s.meaning}</span>
+              <span className="text-meta text-foreground-muted">{s.detail}.</span>
+              <span className="w-full text-meta text-foreground-muted leading-relaxed">{s.meaning}</span>
             </li>
           );
         })}
@@ -371,7 +371,7 @@ export default function AdminMetrics() {
     return (
       <Shell>
         <div className="flex items-center justify-center py-20">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-sky-500" />
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-sky-500" />
         </div>
       </Shell>
     );
@@ -380,11 +380,11 @@ export default function AdminMetrics() {
   if (state.phase === "denied") {
     return (
       <Shell>
-        <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-8 text-center">
-          <h1 className="text-heading font-semibold text-gray-900">
+        <div className="mt-6 rounded-2xl border border-border bg-surface-raised p-8 text-center">
+          <h1 className="text-heading font-semibold text-foreground">
             Not authorized
           </h1>
-          <p className="mt-2 text-body text-gray-600 leading-relaxed">
+          <p className="mt-2 text-body text-foreground-muted leading-relaxed">
             This page is for operators. Sign in with an admin account, or this
             account is not on the allow-list.
           </p>
@@ -396,11 +396,11 @@ export default function AdminMetrics() {
   if (state.phase === "error") {
     return (
       <Shell>
-        <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-8 text-center">
-          <h1 className="text-heading font-semibold text-gray-900">
+        <div className="mt-6 rounded-2xl border border-border bg-surface-raised p-8 text-center">
+          <h1 className="text-heading font-semibold text-foreground">
             Could not load metrics
           </h1>
-          <p className="mt-2 text-body text-gray-600">Try again in a moment.</p>
+          <p className="mt-2 text-body text-foreground-muted">Try again in a moment.</p>
         </div>
       </Shell>
     );
@@ -412,7 +412,7 @@ export default function AdminMetrics() {
   return (
     <Shell>
       <div className="mb-6 flex items-start justify-between gap-4">
-        <h1 className="text-display font-bold tracking-tight text-gray-900">
+        <h1 className="text-display font-bold tracking-tight text-foreground">
           Operator metrics
         </h1>
         <div className="shrink-0 pt-1">
@@ -432,26 +432,26 @@ export default function AdminMetrics() {
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
         {/* Signups over time */}
-        <section className="rounded-2xl border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 text-title font-semibold text-gray-900">
+        <section className="rounded-2xl border border-border bg-surface-raised p-6">
+          <h2 className="mb-4 text-title font-semibold text-foreground">
             Signups by month
           </h2>
           {d.signupsByMonth.length === 0 ? (
-            <p className="text-body text-gray-500">No signups yet.</p>
+            <p className="text-body text-foreground-muted">No signups yet.</p>
           ) : (
             <ul className="space-y-2">
               {d.signupsByMonth.map((m) => (
                 <li key={m.month} className="flex items-center gap-3">
-                  <span className="w-16 shrink-0 font-mono text-meta text-gray-500">
+                  <span className="w-16 shrink-0 font-mono text-meta text-foreground-muted">
                     {m.month}
                   </span>
-                  <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+                  <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-sunken">
                     <span
                       className="block h-full rounded-full bg-sky-500"
                       style={{ width: `${(m.count / maxMonth) * 100}%` }}
                     />
                   </span>
-                  <span className="w-8 shrink-0 text-right text-meta tabular-nums text-gray-700">
+                  <span className="w-8 shrink-0 text-right text-meta tabular-nums text-foreground">
                     {m.count}
                   </span>
                 </li>
@@ -461,12 +461,12 @@ export default function AdminMetrics() {
         </section>
 
         {/* Profiles by institution */}
-        <section className="rounded-2xl border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 text-title font-semibold text-gray-900">
+        <section className="rounded-2xl border border-border bg-surface-raised p-6">
+          <h2 className="mb-4 text-title font-semibold text-foreground">
             Profiles by institution
           </h2>
           {d.profilesByDomain.length === 0 ? (
-            <p className="text-body text-gray-500">
+            <p className="text-body text-foreground-muted">
               No verified-institution profiles yet.
             </p>
           ) : (
@@ -476,8 +476,8 @@ export default function AdminMetrics() {
                   key={row.domain}
                   className="flex items-center justify-between text-body"
                 >
-                  <span className="font-mono text-gray-700">{row.domain}</span>
-                  <span className="tabular-nums text-gray-500">{row.count}</span>
+                  <span className="font-mono text-foreground">{row.domain}</span>
+                  <span className="tabular-nums text-foreground-muted">{row.count}</span>
                 </li>
               ))}
             </ul>
@@ -488,10 +488,10 @@ export default function AdminMetrics() {
       {/* Infrastructure capacity / cost planning */}
       {state.data.capacity && (
         <section className="mt-10">
-          <h2 className="text-title font-semibold text-gray-900">
+          <h2 className="text-title font-semibold text-foreground">
             Infrastructure capacity
           </h2>
-          <p className="mb-4 mt-1 text-meta text-gray-400 leading-relaxed">
+          <p className="mb-4 mt-1 text-meta text-foreground-muted leading-relaxed">
             How much of each service&apos;s free-tier ceiling is in use, so you
             can see what (if anything) needs a paid upgrade and when. Ceilings are
             the published free-tier limits as of 2026-06-05, verify against your
@@ -528,7 +528,7 @@ export default function AdminMetrics() {
                           limitLabel={`${humanBytes(c.neon.collabBudgetBytes)} budget`}
                         />
                       )}
-                      <p className="text-meta text-gray-400 leading-relaxed">
+                      <p className="text-meta text-foreground-muted leading-relaxed">
                         Collab persists shared-doc content here, so it has its
                         own soft budget inside the tier. Per-doc and per-owner
                         caps keep any single user from filling it.
@@ -553,7 +553,7 @@ export default function AdminMetrics() {
                         usedLabel={humanBytes(c.r2.usedBytes)}
                         limitLabel={humanBytes(c.r2.limitBytes)}
                       />
-                      <p className="mt-2 text-meta text-gray-400">
+                      <p className="mt-2 text-meta text-foreground-muted">
                         {fmtInt(c.r2.objectCount ?? 0)}{" "}
                         {c.r2.objectCount === 1 ? "bundle" : "bundles"} parked.
                         Bundles auto-expire, so this stays low.
@@ -571,11 +571,11 @@ export default function AdminMetrics() {
                     <Unavailable />
                   ) : (
                     <>
-                      <p className="text-display font-bold tracking-tight text-gray-900">
+                      <p className="text-display font-bold tracking-tight text-foreground">
                         {fmtInt(c.upstash.keyCount)}
                       </p>
-                      <p className="text-meta text-gray-400">live keys</p>
-                      <p className="mt-2 text-meta text-gray-400 leading-relaxed">
+                      <p className="text-meta text-foreground-muted">live keys</p>
+                      <p className="mt-2 text-meta text-foreground-muted leading-relaxed">
                         All keys are short-lived and TTL&apos;d, so storage stays
                         tiny. The free-tier limit that actually bites is{" "}
                         {fmtInt(c.upstash.commandsPerMonthLimit)} commands/month,
@@ -620,10 +620,10 @@ export default function AdminMetrics() {
       {/* Feature usage (anonymous custom events) */}
       {state.data.events && (
         <section className="mt-10">
-          <h2 className="text-title font-semibold text-gray-900">
+          <h2 className="text-title font-semibold text-foreground">
             Feature usage
           </h2>
-          <p className="mb-4 mt-1 text-meta text-gray-400 leading-relaxed">
+          <p className="mb-4 mt-1 text-meta text-foreground-muted leading-relaxed">
             Anonymous counts of how often key features are used over the last{" "}
             {state.data.events.windowDays} days, totals only, never per-user.
             Captured from our own event log; the Vercel dashboard below has the
@@ -651,12 +651,12 @@ export default function AdminMetrics() {
                 {(hasShareDetail || e.profilePublished.total > 0) && (
                   <div className="mt-4 grid gap-4 sm:grid-cols-2">
                     {/* Shares, by item type and destination */}
-                    <div className="rounded-2xl border border-gray-200 bg-white p-5">
-                      <p className="text-body font-semibold text-gray-900">
+                    <div className="rounded-2xl border border-border bg-surface-raised p-5">
+                      <p className="text-body font-semibold text-foreground">
                         Shares by type
                       </p>
                       {e.shareSent.byKind.length === 0 ? (
-                        <p className="mt-2 text-meta text-gray-400">
+                        <p className="mt-2 text-meta text-foreground-muted">
                           No shares in this window.
                         </p>
                       ) : (
@@ -666,10 +666,10 @@ export default function AdminMetrics() {
                               key={row.kind}
                               className="flex items-center justify-between text-body"
                             >
-                              <span className="text-gray-700">
+                              <span className="text-foreground">
                                 {SHARE_KIND_LABELS[row.kind] ?? row.kind}
                               </span>
-                              <span className="tabular-nums text-gray-500">
+                              <span className="tabular-nums text-foreground-muted">
                                 {fmtInt(row.count)}
                               </span>
                             </li>
@@ -678,7 +678,7 @@ export default function AdminMetrics() {
                       )}
                       {e.shareSent.byDestination.length > 0 && (
                         <>
-                          <p className="mt-4 text-meta font-medium uppercase tracking-wide text-gray-400">
+                          <p className="mt-4 text-meta font-medium uppercase tracking-wide text-foreground-muted">
                             By destination
                           </p>
                           <ul className="mt-1.5 space-y-1.5">
@@ -687,11 +687,11 @@ export default function AdminMetrics() {
                                 key={row.destination}
                                 className="flex items-center justify-between text-body"
                               >
-                                <span className="text-gray-700">
+                                <span className="text-foreground">
                                   {SHARE_DESTINATION_LABELS[row.destination] ??
                                     row.destination}
                                 </span>
-                                <span className="tabular-nums text-gray-500">
+                                <span className="tabular-nums text-foreground-muted">
                                   {fmtInt(row.count)}
                                 </span>
                               </li>
@@ -702,30 +702,30 @@ export default function AdminMetrics() {
                     </div>
 
                     {/* Published-profile composition */}
-                    <div className="rounded-2xl border border-gray-200 bg-white p-5">
-                      <p className="text-body font-semibold text-gray-900">
+                    <div className="rounded-2xl border border-border bg-surface-raised p-5">
+                      <p className="text-body font-semibold text-foreground">
                         Published profiles
                       </p>
                       {e.profilePublished.total === 0 ? (
-                        <p className="mt-2 text-meta text-gray-400">
+                        <p className="mt-2 text-meta text-foreground-muted">
                           No profiles published in this window.
                         </p>
                       ) : (
                         <ul className="mt-2 space-y-1.5 text-body">
                           <li className="flex items-center justify-between">
-                            <span className="text-gray-700">
+                            <span className="text-foreground">
                               With an ORCID linked
                             </span>
-                            <span className="tabular-nums text-gray-500">
+                            <span className="tabular-nums text-foreground-muted">
                               {fmtInt(e.profilePublished.withOrcid)} of{" "}
                               {fmtInt(e.profilePublished.total)}
                             </span>
                           </li>
                           <li className="flex items-center justify-between">
-                            <span className="text-gray-700">
+                            <span className="text-foreground">
                               With an affiliation
                             </span>
-                            <span className="tabular-nums text-gray-500">
+                            <span className="tabular-nums text-foreground-muted">
                               {fmtInt(e.profilePublished.withAffiliation)} of{" "}
                               {fmtInt(e.profilePublished.total)}
                             </span>
@@ -742,7 +742,7 @@ export default function AdminMetrics() {
       )}
 
       {/* Page-usage pointer */}
-      <p className="mt-8 text-meta text-gray-400 leading-relaxed">
+      <p className="mt-8 text-meta text-foreground-muted leading-relaxed">
         For page popularity and traffic, see the Vercel Web Analytics dashboard
         in your Vercel project. ResearchOS deliberately does not track per-user
         page views, the app is local-first and sends nothing per-user, so the

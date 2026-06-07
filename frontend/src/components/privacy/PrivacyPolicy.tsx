@@ -41,8 +41,8 @@ function Section({
 }) {
   return (
     <section id={id} className="mb-12 scroll-mt-24">
-      <h2 className="mb-3 text-heading font-semibold text-gray-900">{title}</h2>
-      <div className="space-y-4 text-body leading-relaxed text-gray-700">
+      <h2 className="mb-3 text-heading font-semibold text-foreground">{title}</h2>
+      <div className="space-y-4 text-body leading-relaxed text-foreground">
         {children}
       </div>
     </section>
@@ -51,13 +51,13 @@ function Section({
 
 export default function PrivacyPolicy() {
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50 text-gray-900">
+    <div className="flex min-h-screen flex-col bg-surface-sunken text-foreground">
       {/* Header / back to app */}
-      <header className="border-b border-gray-200 bg-white">
+      <header className="border-b border-border bg-surface-raised">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
           <Link
             href="/"
-            className="text-body font-medium text-gray-500 underline-offset-2 hover:text-gray-800 hover:underline"
+            className="text-body font-medium text-foreground-muted underline-offset-2 hover:text-foreground hover:underline"
           >
             ResearchOS
           </Link>
@@ -76,10 +76,10 @@ export default function PrivacyPolicy() {
           <p className="mb-3 text-body font-semibold uppercase tracking-wide text-sky-600">
             Privacy policy
           </p>
-          <h1 className="mb-6 text-display font-bold tracking-tight text-gray-900 sm:text-4xl">
+          <h1 className="mb-6 text-display font-bold tracking-tight text-foreground sm:text-4xl">
             Your research stays yours
           </h1>
-          <div className="space-y-4 text-title leading-relaxed text-gray-700">
+          <div className="space-y-4 text-title leading-relaxed text-foreground">
             <p>
               ResearchOS is built so that your work lives on your own computer,
               not on ours. For the everyday app there is no account, no upload,
@@ -164,7 +164,7 @@ export default function PrivacyPolicy() {
             <li>
               <strong>A salted hash of your email.</strong> We never store your
               email address in readable form in the directory. We store
-              <code className="mx-1 rounded bg-gray-100 px-1.5 py-0.5 text-meta">
+              <code className="mx-1 rounded bg-surface-sunken px-1.5 py-0.5 text-meta">
                 HMAC(secret, your-email)
               </code>
               , a one-way fingerprint that lets someone who already knows your

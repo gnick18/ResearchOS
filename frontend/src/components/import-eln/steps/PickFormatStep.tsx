@@ -44,10 +44,10 @@ export default function PickFormatStep({ selected, onSelect }: PickFormatStepPro
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-body font-semibold text-gray-900">
+        <h3 className="text-body font-semibold text-foreground">
           Choose the export format you have.
         </h3>
-        <p className="text-meta text-gray-500 mt-1">
+        <p className="text-meta text-foreground-muted mt-1">
           Right now we only support the LabArchives Offline Notebook ZIP. The
           other two are sketched here so you know they&apos;re on the roadmap.
         </p>
@@ -85,9 +85,9 @@ function FormatCard({
     "text-left p-4 rounded-xl border transition-colors flex flex-col gap-2 h-full";
   const enabled = isSelected
     ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200"
-    : "border-gray-200 hover:border-gray-400 bg-white";
+    : "border-border hover:border-gray-400 bg-surface-raised";
   const disabled =
-    "border-dashed border-gray-300 bg-gray-50 cursor-not-allowed opacity-60 grayscale";
+    "border-dashed border-border bg-surface-sunken cursor-not-allowed opacity-60 grayscale";
 
   return (
     <button
@@ -98,16 +98,16 @@ function FormatCard({
       aria-pressed={isSelected}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-body font-medium text-gray-900">{spec.title}</p>
+        <p className="text-body font-medium text-foreground">{spec.title}</p>
         {spec.disabled && (
-          <span className="text-meta uppercase tracking-wide font-semibold text-gray-500 bg-gray-200 rounded px-1.5 py-0.5 whitespace-nowrap">
+          <span className="text-meta uppercase tracking-wide font-semibold text-foreground-muted bg-surface-sunken rounded px-1.5 py-0.5 whitespace-nowrap">
             Coming soon
           </span>
         )}
       </div>
-      <p className="text-meta text-gray-600">{spec.subtitle}</p>
+      <p className="text-meta text-foreground-muted">{spec.subtitle}</p>
       {spec.helper && (
-        <p className="text-meta text-gray-500 mt-auto leading-relaxed">{spec.helper}</p>
+        <p className="text-meta text-foreground-muted mt-auto leading-relaxed">{spec.helper}</p>
       )}
     </button>
   );

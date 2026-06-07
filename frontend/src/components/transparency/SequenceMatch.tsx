@@ -33,10 +33,10 @@ export default function SequenceMatch({
   preview: string;
 }) {
   return (
-    <figure className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2 text-meta">
-        <span className="font-semibold uppercase tracking-wide text-gray-500">{method}</span>
-        <span className="text-gray-400">{length} bp product</span>
+    <figure className="overflow-hidden rounded-xl border border-border bg-surface-raised">
+      <div className="flex items-center justify-between border-b border-border px-4 py-2 text-meta">
+        <span className="font-semibold uppercase tracking-wide text-foreground-muted">{method}</span>
+        <span className="text-foreground-muted">{length} bp product</span>
       </div>
       <div className="px-4 py-3">
         <div
@@ -47,10 +47,10 @@ export default function SequenceMatch({
           {matches ? <CheckIcon /> : <CrossIcon />}
           {matches ? "Identical to the reference molecule" : "Does not match the reference"}
         </div>
-        <div className="overflow-x-auto rounded-lg bg-gray-50 px-3 py-2">
-          <code className="whitespace-pre font-mono text-[12px] text-gray-700">{preview}</code>
+        <div className="overflow-x-auto rounded-lg bg-surface-sunken px-3 py-2">
+          <code className="whitespace-pre font-mono text-[12px] text-foreground">{preview}</code>
         </div>
-        <p className="mt-1.5 text-meta text-gray-400">
+        <p className="mt-1.5 text-meta text-foreground-muted">
           Compared as a canonical circular molecule (rotation and strand invariant).
         </p>
       </div>

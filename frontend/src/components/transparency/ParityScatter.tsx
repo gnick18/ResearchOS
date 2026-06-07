@@ -53,7 +53,7 @@ export default function ParityScatter({
   const ticks = Array.from({ length: 4 }, (_, i) => round(min + ((max - min) * (i + 0.5)) / 4, 0));
 
   return (
-    <figure className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+    <figure className="overflow-hidden rounded-xl border border-border bg-surface-raised">
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="h-auto w-full"
@@ -125,7 +125,7 @@ export default function ParityScatter({
         ))}
       </svg>
 
-      <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-gray-100 px-4 py-2 text-meta text-gray-500">
+      <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border px-4 py-2 text-meta text-foreground-muted">
         {oracles.map((o) => (
           <span key={o.id} className="inline-flex items-center gap-1.5">
             <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: o.color }} />

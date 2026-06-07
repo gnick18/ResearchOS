@@ -463,8 +463,8 @@ export default function AcceptInvitePage() {
       : undefined;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-lg bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+    <div className="min-h-screen bg-surface-sunken flex items-center justify-center p-4">
+      <div className="w-full max-w-lg bg-surface-raised rounded-2xl shadow-sm border border-border overflow-hidden">
         <Header headline={headlineFor(load)} />
         <div className="px-6 py-6">
           {load.phase === "loading" && <LoadingBody />}
@@ -594,13 +594,13 @@ function headlineFor(load: LoadState): string {
 
 function Header({ headline }: { headline: string }) {
   return (
-    <div className="px-6 pt-6 pb-4 border-b border-gray-100 flex items-center gap-3">
+    <div className="px-6 pt-6 pb-4 border-b border-border flex items-center gap-3">
       <BeakerBot pose="idle" alive className="w-10 h-10 text-sky-500" />
       <div>
         <p className="text-meta uppercase tracking-wide text-blue-600 font-semibold">
           ResearchOS
         </p>
-        <h1 className="text-title font-semibold text-gray-900">{headline}</h1>
+        <h1 className="text-title font-semibold text-foreground">{headline}</h1>
       </div>
     </div>
   );
@@ -609,8 +609,8 @@ function Header({ headline }: { headline: string }) {
 function LoadingBody() {
   return (
     <div className="py-10 flex flex-col items-center text-center">
-      <div className="w-9 h-9 rounded-full border-2 border-gray-200 border-t-blue-500 animate-spin" />
-      <p className="text-body text-gray-500 mt-4">Opening the shared item</p>
+      <div className="w-9 h-9 rounded-full border-2 border-border border-t-blue-500 animate-spin" />
+      <p className="text-body text-foreground-muted mt-4">Opening the shared item</p>
     </div>
   );
 }
@@ -618,8 +618,8 @@ function LoadingBody() {
 function NoticeBody({ title, body }: { title: string; body: string }) {
   return (
     <div className="py-6 text-center">
-      <h2 className="text-title font-semibold text-gray-900">{title}</h2>
-      <p className="text-body text-gray-600 mt-2 leading-relaxed">{body}</p>
+      <h2 className="text-title font-semibold text-foreground">{title}</h2>
+      <p className="text-body text-foreground-muted mt-2 leading-relaxed">{body}</p>
     </div>
   );
 }
@@ -657,10 +657,10 @@ function ReadyBody({
         <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
           <CheckGlyph className="w-6 h-6" />
         </div>
-        <h2 className="text-title font-semibold text-gray-900 mt-3">
+        <h2 className="text-title font-semibold text-foreground mt-3">
           Saved to your notes
         </h2>
-        <p className="text-body text-gray-600 mt-1 leading-relaxed">
+        <p className="text-body text-foreground-muted mt-1 leading-relaxed">
           &ldquo;{preview.title}&rdquo; is now in your folder. You can edit it
           like any other note, your copy is yours.
         </p>
@@ -675,9 +675,9 @@ function ReadyBody({
 
   return (
     <div className="space-y-5">
-      <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
-        <p className="text-meta text-gray-500">From</p>
-        <p className="text-body font-medium text-gray-800 break-all">
+      <div className="rounded-lg border border-border bg-surface-sunken px-4 py-3">
+        <p className="text-meta text-foreground-muted">From</p>
+        <p className="text-body font-medium text-foreground break-all">
           {senderLabel}
         </p>
         {valid && (
@@ -689,36 +689,36 @@ function ReadyBody({
       </div>
 
       <div>
-        <p className="text-meta uppercase tracking-wide text-gray-500 font-semibold mb-1">
+        <p className="text-meta uppercase tracking-wide text-foreground-muted font-semibold mb-1">
           Shared note
         </p>
-        <h2 className="text-heading font-semibold text-gray-900 break-words">
+        <h2 className="text-heading font-semibold text-foreground break-words">
           {preview.title}
         </h2>
         <div className="space-y-2 mt-2 max-h-56 overflow-y-auto">
           {preview.entries.length === 0 ? (
-            <p className="text-body text-gray-400 italic">This note has no entries.</p>
+            <p className="text-body text-foreground-muted italic">This note has no entries.</p>
           ) : (
             preview.entries.map((entry, idx) => (
               <div
                 key={idx}
-                className="rounded-md border border-gray-100 bg-white px-3 py-2"
+                className="rounded-md border border-border bg-surface-raised px-3 py-2"
               >
                 {entry.title && (
-                  <p className="text-body font-medium text-gray-800 mb-1">
+                  <p className="text-body font-medium text-foreground mb-1">
                     {entry.title}
                   </p>
                 )}
-                <p className="text-body text-gray-600 whitespace-pre-wrap break-words">
+                <p className="text-body text-foreground-muted whitespace-pre-wrap break-words">
                   {entry.content || (
-                    <span className="italic text-gray-400">No content</span>
+                    <span className="italic text-foreground-muted">No content</span>
                   )}
                 </p>
               </div>
             ))
           )}
           {attachmentCount > 0 && (
-            <p className="text-meta text-gray-500">
+            <p className="text-meta text-foreground-muted">
               {attachmentCount} attachment{attachmentCount === 1 ? "" : "s"}{" "}
               included.
             </p>
@@ -740,7 +740,7 @@ function ReadyBody({
         />
       ) : !identityReady ? (
         <div className="space-y-3">
-          <p className="text-body text-gray-600 leading-relaxed">
+          <p className="text-body text-foreground-muted leading-relaxed">
             Set up sharing once to claim this email and save the note. It proves
             your address and generates your keypair, so future shares with you
             stay private end to end.
@@ -799,10 +799,10 @@ function ImportItemBody({
         <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
           <CheckGlyph className="w-6 h-6" />
         </div>
-        <h2 className="text-title font-semibold text-gray-900 mt-3">
+        <h2 className="text-title font-semibold text-foreground mt-3">
           Saved to your workspace
         </h2>
-        <p className="text-body text-gray-600 mt-1 leading-relaxed">
+        <p className="text-body text-foreground-muted mt-1 leading-relaxed">
           This {noun} is now in your folder. You can edit it like anything else,
           your copy is yours.
         </p>
@@ -814,9 +814,9 @@ function ImportItemBody({
 
   return (
     <div className="space-y-5">
-      <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
-        <p className="text-meta text-gray-500">From</p>
-        <p className="text-body font-medium text-gray-800 break-all">
+      <div className="rounded-lg border border-border bg-surface-sunken px-4 py-3">
+        <p className="text-meta text-foreground-muted">From</p>
+        <p className="text-body font-medium text-foreground break-all">
           {senderLabel}
         </p>
         <p className="text-meta text-emerald-600 mt-1.5">
@@ -826,10 +826,10 @@ function ImportItemBody({
       </div>
 
       <div>
-        <p className="text-meta uppercase tracking-wide text-gray-500 font-semibold mb-1">
+        <p className="text-meta uppercase tracking-wide text-foreground-muted font-semibold mb-1">
           Shared {noun}
         </p>
-        <p className="text-body text-gray-600 leading-relaxed">
+        <p className="text-body text-foreground-muted leading-relaxed">
           Someone shared {article} {noun} with you. Saving it opens a review where
           you can see everything it brings (its content, files, and any methods)
           before it lands in your folder as your own copy.
@@ -850,7 +850,7 @@ function ImportItemBody({
         />
       ) : !identityReady ? (
         <div className="space-y-3">
-          <p className="text-body text-gray-600 leading-relaxed">
+          <p className="text-body text-foreground-muted leading-relaxed">
             Set up sharing once to claim this email and save the {noun}. It proves
             your address and generates your keypair, so future shares with you
             stay private end to end.
@@ -913,10 +913,10 @@ function SequenceBody({
         <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
           <CheckGlyph className="w-6 h-6" />
         </div>
-        <h2 className="text-title font-semibold text-gray-900 mt-3">
+        <h2 className="text-title font-semibold text-foreground mt-3">
           Saved to your library
         </h2>
-        <p className="text-body text-gray-600 mt-1 leading-relaxed">
+        <p className="text-body text-foreground-muted mt-1 leading-relaxed">
           This sequence is now in your library. You can open, edit, and file it
           like any other, your copy is yours.
         </p>
@@ -935,9 +935,9 @@ function SequenceBody({
 
   return (
     <div className="space-y-5">
-      <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
-        <p className="text-meta text-gray-500">From</p>
-        <p className="text-body font-medium text-gray-800 break-all">
+      <div className="rounded-lg border border-border bg-surface-sunken px-4 py-3">
+        <p className="text-meta text-foreground-muted">From</p>
+        <p className="text-body font-medium text-foreground break-all">
           {senderLabel}
         </p>
         <p className="text-meta text-emerald-600 mt-1.5">
@@ -947,16 +947,16 @@ function SequenceBody({
       </div>
 
       <div>
-        <p className="text-meta uppercase tracking-wide text-gray-500 font-semibold mb-1">
+        <p className="text-meta uppercase tracking-wide text-foreground-muted font-semibold mb-1">
           Shared sequence
         </p>
-        <h2 className="text-heading font-semibold text-gray-900 break-words">
+        <h2 className="text-heading font-semibold text-foreground break-words">
           {name}
         </h2>
-        <p className="text-body text-gray-600 mt-1">
+        <p className="text-body text-foreground-muted mt-1">
           {typeLabel} · {sequence?.circular ? "Circular" : "Linear"}
         </p>
-        <p className="text-meta text-gray-500 mt-2 leading-relaxed">
+        <p className="text-meta text-foreground-muted mt-2 leading-relaxed">
           Saving adds a copy to your sequence library. It is not linked to any of
           the sender&rsquo;s projects.
         </p>
@@ -976,7 +976,7 @@ function SequenceBody({
         />
       ) : !identityReady ? (
         <div className="space-y-3">
-          <p className="text-body text-gray-600 leading-relaxed">
+          <p className="text-body text-foreground-muted leading-relaxed">
             Set up sharing once to claim this email and save the sequence. It
             proves your address and generates your keypair, so future shares with
             you stay private end to end.
@@ -997,11 +997,11 @@ function SequenceBody({
               otherwise it stays at the Unfiled default. */}
           {projects.length > 0 && (
             <div>
-              <p className="text-meta uppercase tracking-wide text-gray-500 font-semibold mb-1.5">
+              <p className="text-meta uppercase tracking-wide text-foreground-muted font-semibold mb-1.5">
                 Where to save it
               </p>
               <div className="space-y-1">
-                <label className="flex items-center gap-2 text-body cursor-pointer rounded px-2 py-1 hover:bg-gray-50">
+                <label className="flex items-center gap-2 text-body cursor-pointer rounded px-2 py-1 hover:bg-surface-sunken">
                   <input
                     type="radio"
                     name="accept-seq-placement"
@@ -1009,9 +1009,9 @@ function SequenceBody({
                     onChange={() => onPlacementChange("unfiled")}
                     disabled={imp.phase === "importing"}
                   />
-                  <span className="text-gray-800">Leave unfiled</span>
+                  <span className="text-foreground">Leave unfiled</span>
                 </label>
-                <label className="flex items-center gap-2 text-body cursor-pointer rounded px-2 py-1 hover:bg-gray-50">
+                <label className="flex items-center gap-2 text-body cursor-pointer rounded px-2 py-1 hover:bg-surface-sunken">
                   <input
                     type="radio"
                     name="accept-seq-placement"
@@ -1024,7 +1024,7 @@ function SequenceBody({
                     }
                     disabled={imp.phase === "importing"}
                   />
-                  <span className="text-gray-800">File into a project</span>
+                  <span className="text-foreground">File into a project</span>
                   {placement === "project" && (
                     <select
                       value={projectId ?? ""}
@@ -1032,7 +1032,7 @@ function SequenceBody({
                         onPlacementChange("project", Number(e.target.value))
                       }
                       disabled={imp.phase === "importing"}
-                      className="ml-1 text-meta border border-gray-200 rounded px-2 py-1"
+                      className="ml-1 text-meta border border-border rounded px-2 py-1"
                     >
                       {projects.map((p) => (
                         <option key={p.id} value={p.id}>

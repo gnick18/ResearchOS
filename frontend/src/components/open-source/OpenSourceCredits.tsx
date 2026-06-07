@@ -91,14 +91,14 @@ function ExternalIcon() {
 /** A subtle license pill. */
 function LicensePill({ license }: { license: string }) {
   return (
-    <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-meta font-medium text-gray-600">
+    <span className="inline-flex items-center rounded-full bg-surface-sunken px-2 py-0.5 text-meta font-medium text-foreground-muted">
       {license}
     </span>
   );
 }
 
 function PackageLink({ name, repo }: { name: string; repo: string | null }) {
-  if (!repo) return <span className="font-mono text-body text-gray-800">{name}</span>;
+  if (!repo) return <span className="font-mono text-body text-foreground">{name}</span>;
   return (
     <a
       href={repo}
@@ -138,13 +138,13 @@ export default function OpenSourceCredits() {
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50 text-gray-900">
+    <div className="flex min-h-screen flex-col bg-surface-sunken text-foreground">
       {/* Header / back to app */}
-      <header className="border-b border-gray-200 bg-white">
+      <header className="border-b border-border bg-surface-raised">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
           <Link
             href="/"
-            className="text-body font-medium text-gray-500 underline-offset-2 hover:text-gray-800 hover:underline"
+            className="text-body font-medium text-foreground-muted underline-offset-2 hover:text-foreground hover:underline"
           >
             ResearchOS
           </Link>
@@ -163,10 +163,10 @@ export default function OpenSourceCredits() {
           <p className="mb-3 text-body font-semibold uppercase tracking-wide text-sky-600">
             Thank you
           </p>
-          <h1 className="mb-6 text-display font-bold tracking-tight text-gray-900 sm:text-4xl">
+          <h1 className="mb-6 text-display font-bold tracking-tight text-foreground sm:text-4xl">
             Built on open source
           </h1>
-          <div className="space-y-4 text-title leading-relaxed text-gray-700">
+          <div className="space-y-4 text-title leading-relaxed text-foreground">
             <p>
               ResearchOS exists because thousands of people gave their work
               away. Every screen here rests on open-source software written and
@@ -201,10 +201,10 @@ export default function OpenSourceCredits() {
           <>
             {/* ── Newest attribution, featured ── */}
             <section className="mb-14">
-              <h2 className="mb-2 text-heading font-semibold text-gray-900">
+              <h2 className="mb-2 text-heading font-semibold text-foreground">
                 Recently added
               </h2>
-              <p className="mb-5 text-body text-gray-500">
+              <p className="mb-5 text-body text-foreground-muted">
                 Two pieces of work we want to call out by name.
               </p>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -225,21 +225,21 @@ export default function OpenSourceCredits() {
 
             {/* ── Curated highlights by area ── */}
             <section className="mb-14">
-              <h2 className="mb-2 text-heading font-semibold text-gray-900">
+              <h2 className="mb-2 text-heading font-semibold text-foreground">
                 What powers each part of the app
               </h2>
-              <p className="mb-6 text-body text-gray-500">
+              <p className="mb-6 text-body text-foreground-muted">
                 A few of the projects we rely on most, grouped by where you
                 meet them.
               </p>
               <div className="space-y-8">
                 {credits.highlightGroups.map((group) => (
                   <div key={group.id}>
-                    <h3 className="text-title font-semibold text-gray-800">
+                    <h3 className="text-title font-semibold text-foreground">
                       {group.title}
                     </h3>
-                    <p className="mb-3 text-body text-gray-500">{group.blurb}</p>
-                    <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
+                    <p className="mb-3 text-body text-foreground-muted">{group.blurb}</p>
+                    <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface-raised">
                       {group.items.map((item) => (
                         <li
                           key={item.name}
@@ -247,12 +247,12 @@ export default function OpenSourceCredits() {
                         >
                           <div className="min-w-0">
                             <PackageLink name={item.name} repo={item.repo} />
-                            <p className="mt-0.5 text-body text-gray-600">
+                            <p className="mt-0.5 text-body text-foreground-muted">
                               {item.note}
                             </p>
                           </div>
                           <div className="flex flex-shrink-0 items-center gap-2 sm:ml-4">
-                            <span className="font-mono text-meta text-gray-400">
+                            <span className="font-mono text-meta text-foreground-muted">
                               {item.version}
                             </span>
                             <LicensePill license={item.license} />
@@ -267,10 +267,10 @@ export default function OpenSourceCredits() {
 
             {/* ── Code we recycle (vendored / ported) ── */}
             <section className="mb-14">
-              <h2 className="mb-2 text-heading font-semibold text-gray-900">
+              <h2 className="mb-2 text-heading font-semibold text-foreground">
                 Code we recycle
               </h2>
-              <p className="mb-6 text-body text-gray-500">
+              <p className="mb-6 text-body text-foreground-muted">
                 Some projects we do not just depend on, we carry their source
                 directly. We keep their licenses and copyright alongside the
                 code, exactly as their authors intended.
@@ -279,7 +279,7 @@ export default function OpenSourceCredits() {
                 {credits.vendored.map((v) => (
                   <div
                     key={v.name}
-                    className="rounded-xl border border-gray-200 bg-white p-5"
+                    className="rounded-xl border border-border bg-surface-raised p-5"
                   >
                     <div className="mb-1 flex flex-wrap items-center gap-2">
                       <a
@@ -293,8 +293,8 @@ export default function OpenSourceCredits() {
                       </a>
                       <LicensePill license={v.license} />
                     </div>
-                    <p className="text-body text-gray-600">{v.note}</p>
-                    <p className="mt-2 text-meta text-gray-400">
+                    <p className="text-body text-foreground-muted">{v.note}</p>
+                    <p className="mt-2 text-meta text-foreground-muted">
                       {v.by}. {v.copyright}
                     </p>
                   </div>
@@ -304,10 +304,10 @@ export default function OpenSourceCredits() {
 
             {/* ── Scientific references ── */}
             <section className="mb-14">
-              <h2 className="mb-2 text-heading font-semibold text-gray-900">
+              <h2 className="mb-2 text-heading font-semibold text-foreground">
                 Scientific references
               </h2>
-              <p className="mb-6 text-body text-gray-500">
+              <p className="mb-6 text-body text-foreground-muted">
                 The calculators reproduce published methods. The parameters and
                 equations come straight from these papers.
               </p>
@@ -315,10 +315,10 @@ export default function OpenSourceCredits() {
                 {credits.scientificReferences.map((r) => (
                   <li
                     key={r.citation}
-                    className="rounded-xl border border-gray-200 bg-white p-5"
+                    className="rounded-xl border border-border bg-surface-raised p-5"
                   >
-                    <p className="text-body text-gray-800">{r.citation}</p>
-                    <p className="mt-1 text-meta text-gray-500">{r.use}</p>
+                    <p className="text-body text-foreground">{r.citation}</p>
+                    <p className="mt-1 text-meta text-foreground-muted">{r.use}</p>
                   </li>
                 ))}
               </ul>
@@ -330,18 +330,18 @@ export default function OpenSourceCredits() {
                 type="button"
                 onClick={() => setShowAll((v) => !v)}
                 aria-expanded={showAll}
-                className="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-5 py-4 text-left transition-colors hover:bg-gray-50"
+                className="flex w-full items-center justify-between rounded-xl border border-border bg-surface-raised px-5 py-4 text-left transition-colors hover:bg-surface-sunken"
               >
                 <span>
-                  <span className="text-title font-semibold text-gray-900">
+                  <span className="text-title font-semibold text-foreground">
                     Every dependency we ship
                   </span>
-                  <span className="ml-2 text-body text-gray-500">
+                  <span className="ml-2 text-body text-foreground-muted">
                     {credits.dependencyCount} packages
                   </span>
                 </span>
                 <svg
-                  className={`h-5 w-5 flex-shrink-0 text-gray-400 transition-transform ${
+                  className={`h-5 w-5 flex-shrink-0 text-foreground-muted transition-transform ${
                     showAll ? "rotate-180" : ""
                   }`}
                   viewBox="0 0 24 24"
@@ -357,8 +357,8 @@ export default function OpenSourceCredits() {
               </button>
 
               {showAll && (
-                <div className="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-white">
-                  <ul className="divide-y divide-gray-100">
+                <div className="mt-3 overflow-hidden rounded-xl border border-border bg-surface-raised">
+                  <ul className="divide-y divide-border">
                     {credits.dependencies.map((d) => (
                       <li
                         key={d.name}
@@ -366,7 +366,7 @@ export default function OpenSourceCredits() {
                       >
                         <PackageLink name={d.name} repo={d.repo} />
                         <div className="flex flex-shrink-0 items-center gap-2">
-                          <span className="font-mono text-meta text-gray-400">
+                          <span className="font-mono text-meta text-foreground-muted">
                             {d.version}
                           </span>
                           <LicensePill license={d.license} />
@@ -377,7 +377,7 @@ export default function OpenSourceCredits() {
                 </div>
               )}
 
-              <p className="mt-3 text-meta text-gray-400">
+              <p className="mt-3 text-meta text-foreground-muted">
                 Generated from the installed packages on{" "}
                 {new Date(credits.generatedAt).toLocaleDateString(undefined, {
                   year: "numeric",
@@ -417,13 +417,13 @@ function FeaturedCard({
       className="group block rounded-xl border border-sky-100 bg-sky-50/60 p-5 transition-colors hover:border-sky-200 hover:bg-sky-50"
     >
       <div className="mb-2 flex items-center gap-2">
-        <span className="text-title font-semibold text-gray-900 group-hover:text-sky-800">
+        <span className="text-title font-semibold text-foreground group-hover:text-sky-800">
           {title}
           <ExternalIcon />
         </span>
         <LicensePill license={license} />
       </div>
-      <p className="text-body leading-relaxed text-gray-600">{body}</p>
+      <p className="text-body leading-relaxed text-foreground-muted">{body}</p>
     </a>
   );
 }

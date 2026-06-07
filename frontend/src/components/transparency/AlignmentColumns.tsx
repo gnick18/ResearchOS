@@ -27,7 +27,7 @@ function columns(alignedA: string, alignedB: string): Col[] {
 const CELL: Record<Col["kind"], string> = {
   match: "text-emerald-700",
   mismatch: "text-red-600",
-  gap: "text-gray-400",
+  gap: "text-foreground-muted",
 };
 
 export default function AlignmentColumns({
@@ -44,10 +44,10 @@ export default function AlignmentColumns({
   const identity = cols.length ? Math.round((matches / cols.length) * 1000) / 10 : 0;
 
   return (
-    <figure className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2 text-meta">
-        <span className="font-semibold uppercase tracking-wide text-gray-500">{mode} alignment</span>
-        <span className="text-gray-400">
+    <figure className="overflow-hidden rounded-xl border border-border bg-surface-raised">
+      <div className="flex items-center justify-between border-b border-border px-4 py-2 text-meta">
+        <span className="font-semibold uppercase tracking-wide text-foreground-muted">{mode} alignment</span>
+        <span className="text-foreground-muted">
           {matches}/{cols.length} columns identical ({identity}%)
         </span>
       </div>
@@ -60,7 +60,7 @@ export default function AlignmentColumns({
               </span>
             ))}
           </div>
-          <div className="flex text-gray-300">
+          <div className="flex text-foreground-muted">
             {cols.map((c, i) => (
               <span key={`m${i}`}>{c.kind === "match" ? "|" : c.kind === "mismatch" ? "·" : " "}</span>
             ))}

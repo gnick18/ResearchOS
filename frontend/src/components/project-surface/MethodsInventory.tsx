@@ -122,9 +122,9 @@ export default function MethodsInventory({ project }: MethodsInventoryProps) {
   return (
     <section id="methods" className="scroll-mt-32">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-title font-semibold text-gray-900">Methods</h2>
+        <h2 className="text-title font-semibold text-foreground">Methods</h2>
         {!stillLoading && rows.length > 0 && (
-          <span className="text-meta text-gray-400">
+          <span className="text-meta text-foreground-muted">
             {rows.length} method{rows.length === 1 ? "" : "s"} across{" "}
             {rows.reduce((acc, r) => acc + r.usage.count, 0)} experiment-attachment
             {rows.reduce((acc, r) => acc + r.usage.count, 0) === 1 ? "" : "s"}
@@ -133,14 +133,14 @@ export default function MethodsInventory({ project }: MethodsInventoryProps) {
       </div>
 
       {stillLoading ? (
-        <p className="text-body text-gray-400 italic">Loading methods…</p>
+        <p className="text-body text-foreground-muted italic">Loading methods…</p>
       ) : rows.length === 0 ? (
-        <p className="text-body text-gray-400 italic">
+        <p className="text-body text-foreground-muted italic">
           No methods linked yet. Methods attached to this project&apos;s experiments
           will appear here.
         </p>
       ) : (
-        <div className="flex flex-col divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden bg-white">
+        <div className="flex flex-col divide-y divide-border border border-border rounded-lg overflow-hidden bg-surface-raised">
           {rows.map((row) => {
             const { usage, method } = row;
             const key = `${usage.owner}:${usage.methodId}`;
@@ -161,9 +161,9 @@ export default function MethodsInventory({ project }: MethodsInventoryProps) {
               <Link
                 key={key}
                 href={href}
-                className="px-3 py-2 flex items-center gap-2 hover:bg-gray-50 transition-colors"
+                className="px-3 py-2 flex items-center gap-2 hover:bg-surface-sunken transition-colors"
               >
-                <span className="text-body font-medium text-gray-800 truncate flex-1 min-w-0">
+                <span className="text-body font-medium text-foreground truncate flex-1 min-w-0">
                   {method?.name ?? `Method #${usage.methodId} (unavailable)`}
                 </span>
                 <span
@@ -176,7 +176,7 @@ export default function MethodsInventory({ project }: MethodsInventoryProps) {
                     via {hostedTag}
                   </span>
                 )}
-                <span className="text-meta px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full flex-shrink-0">
+                <span className="text-meta px-2 py-0.5 bg-surface-sunken text-foreground-muted rounded-full flex-shrink-0">
                   used in {usage.count} experiment{usage.count === 1 ? "" : "s"}
                 </span>
               </Link>

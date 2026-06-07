@@ -210,8 +210,8 @@ export default function LabRoster() {
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-body font-medium text-gray-800">Lab Roster</h3>
-          <p className="text-meta text-gray-500 mt-0.5">
+          <h3 className="text-body font-medium text-foreground">Lab Roster</h3>
+          <p className="text-meta text-foreground-muted mt-0.5">
             Manage which lab members appear in pickers and on the login
             screen. Archive a departed member to hide them from
             day-to-day surfaces while keeping all their data searchable.
@@ -232,14 +232,14 @@ export default function LabRoster() {
       {isLabHead && sessionUnlocked && <EditSessionBanner />}
 
       {isLoading ? (
-        <p className="text-meta text-gray-500">Loading roster…</p>
+        <p className="text-meta text-foreground-muted">Loading roster…</p>
       ) : rows.length === 0 ? (
-        <p className="text-meta text-gray-500">
+        <p className="text-meta text-foreground-muted">
           No lab members found. The roster populates as users log in to
           this lab folder.
         </p>
       ) : (
-        <ul className="divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
+        <ul className="divide-y divide-border border border-border rounded-lg overflow-hidden">
           {rows.map((row) => {
             const label = row.displayName?.trim() || row.username;
             const isSelf = row.username === currentUser;
@@ -258,7 +258,7 @@ export default function LabRoster() {
               <li
                 key={row.username}
                 className={`flex items-center gap-3 px-3 py-2.5 ${
-                  row.archived ? "bg-gray-50" : "bg-white"
+                  row.archived ? "bg-surface-sunken" : "bg-surface-raised"
                 }`}
                 data-testid={`lab-roster-row-${row.username}`}
               >
@@ -267,7 +267,7 @@ export default function LabRoster() {
                   <div className="flex items-center gap-2">
                     <span
                       className={`text-body font-medium truncate ${
-                        row.archived ? "text-gray-500" : "text-gray-900"
+                        row.archived ? "text-foreground-muted" : "text-foreground"
                       }`}
                     >
                       {label}
@@ -282,7 +282,7 @@ export default function LabRoster() {
                     )}
                     {row.archived ? (
                       <span
-                        className="px-1.5 py-0.5 text-meta font-semibold rounded bg-slate-200 text-slate-600"
+                        className="px-1.5 py-0.5 text-meta font-semibold rounded bg-surface-sunken text-foreground-muted"
                         title={
                           row.archived_by
                             ? `Archived by ${row.archived_by}`
@@ -317,7 +317,7 @@ export default function LabRoster() {
                         <span
                           className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-meta font-semibold rounded ${
                             row.archived
-                              ? "bg-gray-100 text-gray-400"
+                              ? "bg-surface-sunken text-foreground-muted"
                               : "bg-sky-100 text-sky-800"
                           }`}
                           data-testid={`lab-roster-sharing-${row.username}`}
@@ -328,7 +328,7 @@ export default function LabRoster() {
                       </Tooltip>
                     )}
                   </div>
-                  <div className="text-meta text-gray-500 truncate">
+                  <div className="text-meta text-foreground-muted truncate">
                     @{row.username}
                     {row.archived && row.archived_at && (
                       <>
@@ -345,7 +345,7 @@ export default function LabRoster() {
                     onClick={() =>
                       setPendingAction({ kind: "archive", row })
                     }
-                    className="flex-shrink-0 px-2.5 py-1 rounded-md text-meta font-medium border border-gray-300 text-gray-700 hover:bg-gray-50"
+                    className="flex-shrink-0 px-2.5 py-1 rounded-md text-meta font-medium border border-border text-foreground hover:bg-surface-sunken"
                     data-testid={`lab-roster-archive-${row.username}`}
                   >
                     Archive
@@ -416,17 +416,17 @@ function ConfirmDialog({
       aria-modal="true"
     >
       <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6 space-y-4"
+        className="bg-surface-raised rounded-xl shadow-xl w-full max-w-md mx-4 p-6 space-y-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-title font-semibold text-gray-900">
+        <h2 className="text-title font-semibold text-foreground">
           {action.kind === "archive"
             ? `Archive ${label}?`
             : `Restore ${label}?`}
         </h2>
         {action.kind === "archive" ? (
           <>
-            <p className="text-body text-gray-600">
+            <p className="text-body text-foreground-muted">
               Their data stays searchable; they&apos;re just hidden from the
               login picker, the @mention picker, the share dialog, and the
               assignee dropdown. You can restore them any time.
@@ -434,14 +434,14 @@ function ConfirmDialog({
             {/* D5/D6: archiving is local-only. It never touches the
                 member's global sharing identity or anything sent to them. */}
             {action.row.hasSharingIdentity && (
-              <p className="text-meta text-gray-500">
+              <p className="text-meta text-foreground-muted">
                 Archiving hides them locally. It does not affect their
                 sharing identity or anything sent to them.
               </p>
             )}
           </>
         ) : (
-          <p className="text-body text-gray-600">
+          <p className="text-body text-foreground-muted">
             They&apos;ll reappear in the login picker and all member
             pickers immediately.
           </p>
@@ -451,7 +451,7 @@ function ConfirmDialog({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="px-3 py-1.5 rounded-md text-meta text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+            className="px-3 py-1.5 rounded-md text-meta text-foreground-muted hover:bg-surface-sunken disabled:opacity-50"
           >
             Cancel
           </button>

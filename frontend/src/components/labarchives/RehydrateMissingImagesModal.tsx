@@ -117,13 +117,13 @@ export default function RehydrateMissingImagesModal({
       card={false}
       fillHeight
     >
-      <div className="bg-white rounded-xl shadow-xl w-full max-h-[88vh] flex flex-col overflow-hidden">
-        <div className="px-6 pt-5 pb-3 border-b border-gray-100 flex items-center justify-between gap-4">
+      <div className="bg-surface-raised rounded-xl shadow-xl w-full max-h-[88vh] flex flex-col overflow-hidden">
+        <div className="px-6 pt-5 pb-3 border-b border-border flex items-center justify-between gap-4">
           <div>
-            <p className="text-meta uppercase tracking-wide text-gray-500 font-medium">
+            <p className="text-meta uppercase tracking-wide text-foreground-muted font-medium">
               LabArchives import
             </p>
-            <h2 className="text-title font-semibold text-gray-900 mt-0.5">
+            <h2 className="text-title font-semibold text-foreground mt-0.5">
               Pull in your missing inline images
             </h2>
           </div>
@@ -146,12 +146,12 @@ export default function RehydrateMissingImagesModal({
           )}
         </div>
 
-        <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-between gap-2">
+        <div className="px-6 py-3 border-t border-border flex items-center justify-between gap-2">
           <button
             type="button"
             onClick={handleClose}
             disabled={applyState.kind === "applying"}
-            className="px-3 py-2 text-body text-gray-700 hover:text-gray-900 disabled:opacity-50"
+            className="px-3 py-2 text-body text-foreground hover:text-foreground disabled:opacity-50"
           >
             {applyState.kind === "done" ? "Done" : "Cancel"}
           </button>

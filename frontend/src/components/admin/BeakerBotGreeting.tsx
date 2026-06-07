@@ -240,15 +240,15 @@ export default function BeakerBotGreeting({
       {/* Speech bubble, sits to the left of BeakerBot with a tail pointing
           right toward him. */}
       <div
-        className={`relative max-w-[230px] rounded-2xl border border-gray-200 bg-white px-3.5 py-2 shadow-sm transition-opacity duration-300 ${
+        className={`relative max-w-[230px] rounded-2xl border border-border bg-surface-raised px-3.5 py-2 shadow-sm transition-opacity duration-300 ${
           bubbleVisible && message ? "opacity-100" : "opacity-0"
         }`}
         aria-live="polite"
       >
-        <p className="text-meta leading-snug text-gray-700">{message}</p>
+        <p className="text-meta leading-snug text-foreground">{message}</p>
         {/* Tail: a small white square rotated 45deg, bordered on the two
             sides that face outward so it reads as the bubble's point. */}
-        <span className="absolute right-[-5px] top-1/2 h-2.5 w-2.5 -translate-y-1/2 rotate-45 border-r border-t border-gray-200 bg-white" />
+        <span className="absolute right-[-5px] top-1/2 h-2.5 w-2.5 -translate-y-1/2 rotate-45 border-r border-t border-border bg-surface-raised" />
       </div>
 
       {/* BeakerBot. The wrapper handles the "advance fact + re-wave" poke; the

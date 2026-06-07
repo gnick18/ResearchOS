@@ -136,18 +136,18 @@ export default function StreaksSection() {
   return (
     <section
       id="streaks"
-      className="bg-white rounded-xl border border-gray-200 p-6 scroll-mt-4"
+      className="bg-surface-raised rounded-xl border border-border p-6 scroll-mt-4"
       data-testid="streaks-section"
       data-tour-target="settings-streak-section"
       data-settings-section-marker="1"
       hidden={state.shouldHide}
     >
       <div className="mb-4">
-        <h2 className="text-title font-semibold text-gray-900 flex items-center gap-1.5">
+        <h2 className="text-title font-semibold text-foreground flex items-center gap-1.5">
           <LockIcon className="h-3.5 w-3.5 text-sky-500" />
           <HighlightedText text={sectionTitle} />
         </h2>
-        <p className="text-meta text-gray-500 mt-1">
+        <p className="text-meta text-foreground-muted mt-1">
           <HighlightedText text={sectionDesc} />
         </p>
       </div>
@@ -155,7 +155,7 @@ export default function StreaksSection() {
       <SectionMatchProvider register={state.register}>
       <div className="space-y-4">
         {loading || !sidecar ? (
-          <div className="text-meta text-gray-400">Loading.</div>
+          <div className="text-meta text-foreground-muted">Loading.</div>
         ) : (
           <>
             <StreakToggleRow
@@ -228,7 +228,7 @@ function StreakToggleRow({
 }) {
   return (
     <label className="flex items-center justify-between gap-4 cursor-pointer">
-      <span className="text-body text-gray-800">Enable streak tracking</span>
+      <span className="text-body text-foreground">Enable streak tracking</span>
       <button
         type="button"
         role="switch"
@@ -241,7 +241,7 @@ function StreakToggleRow({
         data-testid="streaks-enable-toggle"
       >
         <span
-          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+          className={`inline-block h-4 w-4 transform rounded-full bg-surface-raised shadow transition-transform ${
             checked ? "translate-x-4" : "translate-x-0.5"
           } translate-y-0.5`}
         />
@@ -252,9 +252,9 @@ function StreakToggleRow({
 
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-      <p className="text-meta uppercase tracking-wide text-gray-500">{label}</p>
-      <p className="text-body font-semibold text-gray-900 mt-1">{value}</p>
+    <div className="rounded-lg border border-border bg-surface-sunken p-3">
+      <p className="text-meta uppercase tracking-wide text-foreground-muted">{label}</p>
+      <p className="text-body font-semibold text-foreground mt-1">{value}</p>
     </div>
   );
 }
@@ -265,7 +265,7 @@ function StatTile({ label, value }: { label: string; value: string }) {
 function PtoSubsection() {
   const { currentUser } = useCurrentUser();
   return (
-    <div className="border-t border-gray-100 pt-4" data-testid="streaks-pto-stub">
+    <div className="border-t border-border pt-4" data-testid="streaks-pto-stub">
       {currentUser ? <PtoEditor username={currentUser} /> : null}
     </div>
   );
@@ -313,16 +313,16 @@ function ResetStreakModal({
       aria-labelledby="streaks-reset-title"
       data-testid="streaks-reset-modal"
     >
-      <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl">
+      <div className="w-full max-w-sm rounded-xl bg-surface-raised p-5 shadow-xl">
         <h3
           id="streaks-reset-title"
-          className="text-title font-semibold text-gray-900"
+          className="text-title font-semibold text-foreground"
         >
           Reset your {currentCount}-day streak?
         </h3>
-        <p className="mt-2 text-body text-gray-600">This can't be undone.</p>
+        <p className="mt-2 text-body text-foreground-muted">This can't be undone.</p>
 
-        <label className="mt-4 flex items-start gap-2 cursor-pointer text-body text-gray-700">
+        <label className="mt-4 flex items-start gap-2 cursor-pointer text-body text-foreground">
           <input
             type="checkbox"
             checked={alsoClear}
@@ -339,7 +339,7 @@ function ResetStreakModal({
           <button
             type="button"
             onClick={onCancel}
-            className="px-3 py-1.5 text-body font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
+            className="px-3 py-1.5 text-body font-medium text-foreground bg-surface-raised border border-border hover:bg-surface-sunken rounded-lg transition-colors"
             data-testid="streaks-reset-cancel"
           >
             Cancel

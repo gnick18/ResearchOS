@@ -48,10 +48,10 @@ type State =
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50 text-gray-900">
-      <header className="border-b border-gray-200 bg-white">
+    <div className="flex min-h-screen flex-col bg-surface-sunken text-foreground">
+      <header className="border-b border-border bg-surface-raised">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <span className="text-body font-semibold text-gray-700">
+          <span className="text-body font-semibold text-foreground">
             ResearchOS business
           </span>
           <div className="flex items-center gap-4">
@@ -90,10 +90,10 @@ function StatCard({
       ? "text-emerald-700"
       : tone === "reserve"
         ? "text-amber-700"
-        : "text-gray-900";
+        : "text-foreground";
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5">
-      <p className="text-meta font-medium uppercase tracking-wide text-gray-400">
+    <div className="rounded-2xl border border-border bg-surface-raised p-5">
+      <p className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
         {label}
       </p>
       <p className={`mt-1 text-display font-bold tracking-tight ${valueClass}`}>
@@ -119,8 +119,8 @@ function deadlineTone(daysUntil: number): { box: string; text: string; chip: str
     };
   }
   return {
-    box: "border-gray-200 bg-white",
-    text: "text-gray-500",
+    box: "border-border bg-surface-raised",
+    text: "text-foreground-muted",
     chip: `in ${daysUntil} days`,
   };
 }
@@ -128,7 +128,7 @@ function deadlineTone(daysUntil: number): { box: string; text: string; chip: str
 function DeadlineStrip({ deadlines }: { deadlines: Deadline[] }) {
   if (!deadlines.length) {
     return (
-      <p className="text-body text-gray-500">
+      <p className="text-body text-foreground-muted">
         Add a formation date below to compute the Wisconsin annual-report deadline.
       </p>
     );
@@ -140,13 +140,13 @@ function DeadlineStrip({ deadlines }: { deadlines: Deadline[] }) {
         return (
           <div key={d.key} className={`rounded-xl border p-4 ${tone.box}`}>
             <div className="flex items-baseline justify-between gap-3">
-              <span className="text-body font-medium text-gray-800">{d.label}</span>
+              <span className="text-body font-medium text-foreground">{d.label}</span>
               <span className={`shrink-0 text-meta font-semibold ${tone.text}`}>
                 {tone.chip}
               </span>
             </div>
-            <p className="mt-1 text-meta text-gray-500">Due {d.dueDate}</p>
-            {d.note ? <p className="mt-1 text-meta text-gray-400">{d.note}</p> : null}
+            <p className="mt-1 text-meta text-foreground-muted">Due {d.dueDate}</p>
+            {d.note ? <p className="mt-1 text-meta text-foreground-muted">{d.note}</p> : null}
           </div>
         );
       })}
@@ -177,14 +177,14 @@ function EntityCard({
 
   const field = (label: string, node: React.ReactNode) => (
     <label className="block">
-      <span className="text-meta font-medium text-gray-500">{label}</span>
+      <span className="text-meta font-medium text-foreground-muted">{label}</span>
       <div className="mt-1">{node}</div>
     </label>
   );
-  const input = "w-full rounded-lg border border-gray-300 px-3 py-2 text-body";
+  const input = "w-full rounded-lg border border-border px-3 py-2 text-body";
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5">
+    <div className="rounded-2xl border border-border bg-surface-raised p-5">
       <div className="grid gap-4 sm:grid-cols-2">
         {field(
           "LLC legal name",
@@ -291,7 +291,7 @@ function EntityCard({
         )}
       </div>
       <label className="mt-4 block">
-        <span className="text-meta font-medium text-gray-500">Sales-tax note</span>
+        <span className="text-meta font-medium text-foreground-muted">Sales-tax note</span>
         <input
           className={`${input} mt-1`}
           placeholder="DOR filing / reply details"
@@ -318,7 +318,7 @@ function EntityCard({
           {saving ? "Saving..." : "Save entity facts"}
         </button>
         {saved ? <span className="text-meta text-emerald-600">Saved.</span> : null}
-        <span className="text-meta text-gray-400">
+        <span className="text-meta text-foreground-muted">
           The reserve % is a placeholder until your accountant sets it.
         </span>
       </div>
@@ -354,7 +354,7 @@ function Ledger({
   const [form, setForm] = useState(EMPTY_ENTRY);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const input = "rounded-lg border border-gray-300 px-3 py-2 text-body";
+  const input = "rounded-lg border border-border px-3 py-2 text-body";
 
   const submit = async () => {
     const amountCents = Math.round(parseFloat(form.dollars) * 100);
@@ -383,10 +383,10 @@ function Ledger({
   };
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5">
+    <div className="rounded-2xl border border-border bg-surface-raised p-5">
       <div className="flex flex-wrap items-end gap-2">
         <label className="flex flex-col">
-          <span className="text-meta text-gray-500">Date</span>
+          <span className="text-meta text-foreground-muted">Date</span>
           <input
             type="date"
             className={`mt-1 ${input}`}
@@ -395,7 +395,7 @@ function Ledger({
           />
         </label>
         <label className="flex flex-col">
-          <span className="text-meta text-gray-500">Direction</span>
+          <span className="text-meta text-foreground-muted">Direction</span>
           <select
             className={`mt-1 ${input}`}
             value={form.direction}
@@ -408,7 +408,7 @@ function Ledger({
           </select>
         </label>
         <label className="flex flex-col">
-          <span className="text-meta text-gray-500">Category</span>
+          <span className="text-meta text-foreground-muted">Category</span>
           <input
             className={`mt-1 ${input}`}
             placeholder="Neon, Stripe, donation..."
@@ -417,7 +417,7 @@ function Ledger({
           />
         </label>
         <label className="flex flex-col">
-          <span className="text-meta text-gray-500">Amount (USD)</span>
+          <span className="text-meta text-foreground-muted">Amount (USD)</span>
           <input
             inputMode="decimal"
             className={`mt-1 w-28 ${input}`}
@@ -427,7 +427,7 @@ function Ledger({
           />
         </label>
         <label className="flex flex-1 flex-col">
-          <span className="text-meta text-gray-500">Note</span>
+          <span className="text-meta text-foreground-muted">Note</span>
           <input
             className={`mt-1 ${input}`}
             value={form.note}
@@ -447,13 +447,13 @@ function Ledger({
 
       <div className="mt-5 overflow-x-auto">
         {ledger.length === 0 ? (
-          <p className="text-body text-gray-500">
+          <p className="text-body text-foreground-muted">
             No entries yet. Add your first income or expense above.
           </p>
         ) : (
           <table className="w-full text-left text-meta">
             <thead>
-              <tr className="border-b border-gray-200 text-gray-500">
+              <tr className="border-b border-border text-foreground-muted">
                 <th className="px-2 py-2 font-semibold">Date</th>
                 <th className="px-2 py-2 font-semibold">Category</th>
                 <th className="px-2 py-2 font-semibold">Note</th>
@@ -463,13 +463,13 @@ function Ledger({
             </thead>
             <tbody>
               {ledger.map((e) => (
-                <tr key={e.id} className="border-b border-gray-100 last:border-0">
-                  <td className="px-2 py-2 text-gray-600">{e.date}</td>
-                  <td className="px-2 py-2 text-gray-800">{e.category || "-"}</td>
-                  <td className="px-2 py-2 text-gray-500">{e.note || "-"}</td>
+                <tr key={e.id} className="border-b border-border last:border-0">
+                  <td className="px-2 py-2 text-foreground-muted">{e.date}</td>
+                  <td className="px-2 py-2 text-foreground">{e.category || "-"}</td>
+                  <td className="px-2 py-2 text-foreground-muted">{e.note || "-"}</td>
                   <td
                     className={`px-2 py-2 text-right font-mono ${
-                      e.direction === "in" ? "text-emerald-700" : "text-gray-700"
+                      e.direction === "in" ? "text-emerald-700" : "text-foreground"
                     }`}
                   >
                     {e.direction === "in" ? "+" : "-"}
@@ -479,7 +479,7 @@ function Ledger({
                     <button
                       type="button"
                       onClick={() => onDelete(e.id)}
-                      className="text-meta text-gray-400 hover:text-rose-600"
+                      className="text-meta text-foreground-muted hover:text-rose-600"
                     >
                       Delete
                     </button>
@@ -522,9 +522,9 @@ function Checklist({
   };
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5">
+    <div className="rounded-2xl border border-border bg-surface-raised p-5">
       {tasks.length > 0 ? (
-        <p className="mb-3 text-meta text-gray-400">
+        <p className="mb-3 text-meta text-foreground-muted">
           {doneCount} of {tasks.length} done
         </p>
       ) : null}
@@ -535,11 +535,11 @@ function Checklist({
               type="checkbox"
               checked={t.done}
               onChange={() => onToggle(t.id, !t.done)}
-              className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300"
+              className="mt-1 h-4 w-4 shrink-0 rounded border-border"
             />
             <span
               className={`flex-1 text-body ${
-                t.done ? "text-gray-400 line-through" : "text-gray-800"
+                t.done ? "text-foreground-muted line-through" : "text-foreground"
               }`}
             >
               {t.label}
@@ -547,7 +547,7 @@ function Checklist({
             <button
               type="button"
               onClick={() => onDelete(t.id)}
-              className="text-meta text-gray-400 hover:text-rose-600"
+              className="text-meta text-foreground-muted hover:text-rose-600"
             >
               Delete
             </button>
@@ -556,7 +556,7 @@ function Checklist({
       </ul>
       <div className="mt-4 flex items-center gap-2">
         <input
-          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-body"
+          className="flex-1 rounded-lg border border-border px-3 py-2 text-body"
           placeholder="Add an action item..."
           value={label}
           onChange={(e) => setLabel(e.target.value)}
@@ -568,7 +568,7 @@ function Checklist({
           type="button"
           disabled={busy}
           onClick={submit}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-body font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="rounded-lg border border-border px-4 py-2 text-body font-semibold text-foreground hover:bg-surface-sunken disabled:opacity-50"
         >
           Add
         </button>
@@ -596,9 +596,9 @@ function Correspondence({
   };
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5">
+    <div className="rounded-2xl border border-border bg-surface-raised p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-meta text-gray-400">
+        <p className="text-meta text-foreground-muted">
           {emails.length} archived {emails.length === 1 ? "email" : "emails"}.
           Business correspondence only, never OTP codes or share invites.
         </p>
@@ -606,14 +606,14 @@ function Correspondence({
           type="button"
           disabled={emails.length === 0}
           onClick={download}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-body font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+          className="rounded-lg border border-border px-4 py-2 text-body font-semibold text-foreground hover:bg-surface-sunken disabled:opacity-40"
         >
           Download records
         </button>
       </div>
 
       {emails.length === 0 ? (
-        <p className="mt-3 text-body text-gray-500">
+        <p className="mt-3 text-body text-foreground-muted">
           Nothing yet. Deadline reminders (and later, payment receipts) are
           archived here as they are sent.
         </p>
@@ -621,7 +621,7 @@ function Correspondence({
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-left text-meta">
             <thead>
-              <tr className="border-b border-gray-200 text-gray-500">
+              <tr className="border-b border-border text-foreground-muted">
                 <th className="px-2 py-2 font-semibold">Sent</th>
                 <th className="px-2 py-2 font-semibold">Kind</th>
                 <th className="px-2 py-2 font-semibold">To</th>
@@ -630,13 +630,13 @@ function Correspondence({
             </thead>
             <tbody>
               {emails.map((e) => (
-                <tr key={e.id} className="border-b border-gray-100 last:border-0">
-                  <td className="px-2 py-2 text-gray-500">
+                <tr key={e.id} className="border-b border-border last:border-0">
+                  <td className="px-2 py-2 text-foreground-muted">
                     {e.sentAt.slice(0, 10)}
                   </td>
-                  <td className="px-2 py-2 text-gray-600">{e.kind}</td>
-                  <td className="px-2 py-2 text-gray-600">{e.toEmail}</td>
-                  <td className="px-2 py-2 text-gray-800">{e.subject}</td>
+                  <td className="px-2 py-2 text-foreground-muted">{e.kind}</td>
+                  <td className="px-2 py-2 text-foreground-muted">{e.toEmail}</td>
+                  <td className="px-2 py-2 text-foreground">{e.subject}</td>
                 </tr>
               ))}
             </tbody>
@@ -692,8 +692,8 @@ function SalesTaxBanner({
 function SectionTitle({ children, sub }: { children: React.ReactNode; sub?: string }) {
   return (
     <div className="mb-3 mt-10 first:mt-0">
-      <h2 className="text-title font-semibold text-gray-900">{children}</h2>
-      {sub ? <p className="mt-1 text-meta text-gray-400 leading-relaxed">{sub}</p> : null}
+      <h2 className="text-title font-semibold text-foreground">{children}</h2>
+      {sub ? <p className="mt-1 text-meta text-foreground-muted leading-relaxed">{sub}</p> : null}
     </div>
   );
 }
@@ -804,14 +804,14 @@ export default function BusinessTracker() {
   if (state.phase === "loading") {
     return (
       <Shell>
-        <p className="text-body text-gray-500">Loading...</p>
+        <p className="text-body text-foreground-muted">Loading...</p>
       </Shell>
     );
   }
   if (state.phase === "denied") {
     return (
       <Shell>
-        <p className="text-body text-gray-600 leading-relaxed">
+        <p className="text-body text-foreground-muted leading-relaxed">
           Not authorized. This page is for operator accounts on the ADMIN_EMAILS
           allow-list, and it is dark unless sharing is enabled on this deployment.
         </p>
@@ -821,7 +821,7 @@ export default function BusinessTracker() {
   if (state.phase === "error") {
     return (
       <Shell>
-        <p className="text-body text-gray-600 leading-relaxed">
+        <p className="text-body text-foreground-muted leading-relaxed">
           Could not load the business data right now. Try again in a moment.
         </p>
       </Shell>
@@ -833,10 +833,10 @@ export default function BusinessTracker() {
 
   return (
     <Shell>
-      <h1 className="text-heading font-bold tracking-tight text-gray-900">
+      <h1 className="text-heading font-bold tracking-tight text-foreground">
         LLC business
       </h1>
-      <p className="mt-1 text-meta text-gray-400 leading-relaxed">
+      <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
         Private operations and finances for the ResearchOS LLC. Aggregate,
         operator-only, never shown to any user.
       </p>
@@ -884,15 +884,15 @@ export default function BusinessTracker() {
       <SectionTitle sub="A rough monthly storage cost from current Neon and R2 usage. Storage only, no compute or bandwidth. Record it to the ledger when the real invoice lands, or as a running estimate.">
         Infrastructure cost
       </SectionTitle>
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white p-5">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-surface-raised p-5">
         <div>
-          <p className="text-meta font-medium uppercase tracking-wide text-gray-400">
+          <p className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
             Estimated this month
           </p>
-          <p className="mt-1 text-display font-bold tracking-tight text-gray-900">
+          <p className="mt-1 text-display font-bold tracking-tight text-foreground">
             {formatUSD(infraEstimate.totalCents)}
           </p>
-          <p className="mt-1 text-meta text-gray-400">
+          <p className="mt-1 text-meta text-foreground-muted">
             Neon {formatUSD(infraEstimate.neonCents)} + R2{" "}
             {formatUSD(infraEstimate.r2Cents)}
           </p>
@@ -901,7 +901,7 @@ export default function BusinessTracker() {
           type="button"
           disabled={infraEstimate.totalCents <= 0}
           onClick={() => recordInfra(infraEstimate.totalCents)}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-body font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+          className="rounded-lg border border-border px-4 py-2 text-body font-semibold text-foreground hover:bg-surface-sunken disabled:opacity-40"
         >
           Record to ledger
         </button>
@@ -912,11 +912,11 @@ export default function BusinessTracker() {
       >
         Infrastructure tiers
       </SectionTitle>
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+      <div className="overflow-hidden rounded-2xl border border-border bg-surface-raised">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-meta">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50 text-gray-500">
+              <tr className="border-b border-border bg-surface-sunken text-foreground-muted">
                 <th className="px-3 py-2 font-semibold">Service</th>
                 <th className="px-3 py-2 font-semibold">Free tier</th>
                 <th className="px-3 py-2 font-semibold">Paid upgrade</th>
@@ -927,19 +927,19 @@ export default function BusinessTracker() {
               {INFRA_TIERS.map((t) => (
                 <tr
                   key={t.service}
-                  className={`border-b border-gray-100 align-top last:border-0 ${
+                  className={`border-b border-border align-top last:border-0 ${
                     t.actionNow ? "bg-amber-50" : ""
                   }`}
                 >
                   <td className="px-3 py-2">
-                    <div className="font-medium text-gray-800">{t.service}</div>
-                    <div className="mt-0.5 text-gray-400">{t.role}</div>
+                    <div className="font-medium text-foreground">{t.service}</div>
+                    <div className="mt-0.5 text-foreground-muted">{t.role}</div>
                   </td>
-                  <td className="px-3 py-2 text-gray-600">{t.free}</td>
-                  <td className="px-3 py-2 text-gray-600">{t.paid}</td>
+                  <td className="px-3 py-2 text-foreground-muted">{t.free}</td>
+                  <td className="px-3 py-2 text-foreground-muted">{t.paid}</td>
                   <td
                     className={`px-3 py-2 ${
-                      t.actionNow ? "font-medium text-amber-700" : "text-gray-500"
+                      t.actionNow ? "font-medium text-amber-700" : "text-foreground-muted"
                     }`}
                   >
                     {t.upgradeWhen}
@@ -964,7 +964,7 @@ export default function BusinessTracker() {
       </SectionTitle>
       <Correspondence emails={emails} entityName={entity.legalName} />
 
-      <p className="mt-8 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-meta text-gray-500 leading-relaxed">
+      <p className="mt-8 rounded-xl border border-border bg-surface-sunken px-4 py-3 text-meta text-foreground-muted leading-relaxed">
         This tracker is an organizer, not a legal or tax service. It is not the
         LLC&apos;s registered agent (Wisconsin requires a person with a physical
         in-state address for that), and it does not prepare or file taxes. Use it

@@ -186,27 +186,27 @@ export default function AssignTaskButton({
           onClick={() => !busy && setOpen(false)}
         >
           <div
-            className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-5 space-y-4"
+            className="bg-surface-raised rounded-xl shadow-2xl max-w-md w-full mx-4 p-5 space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <header>
-              <h3 className="text-title font-semibold text-gray-900">
+              <h3 className="text-title font-semibold text-foreground">
                 Assign task
               </h3>
-              <p className="text-meta text-gray-500 mt-0.5 break-words">
+              <p className="text-meta text-foreground-muted mt-0.5 break-words">
                 {task.name} — owned by {task.owner}
               </p>
             </header>
 
             <div>
-              <label className="block text-meta font-medium text-gray-700 mb-1">
+              <label className="block text-meta font-medium text-foreground mb-1">
                 Assignee
               </label>
               <select
                 value={selected ?? ""}
                 onChange={(e) => setSelected(e.target.value || null)}
                 disabled={busy}
-                className="w-full text-body rounded-md border border-gray-300 px-2 py-1.5 bg-white focus:ring-2 focus:ring-emerald-500"
+                className="w-full text-body rounded-md border border-border px-2 py-1.5 bg-surface-raised focus:ring-2 focus:ring-emerald-500"
                 data-testid="lab-head-assign-task-select"
               >
                 <option value="">— Pick a lab member —</option>
@@ -231,7 +231,7 @@ export default function AssignTaskButton({
             </div>
 
             <div>
-              <label className="block text-meta font-medium text-gray-700 mb-1">
+              <label className="block text-meta font-medium text-foreground mb-1">
                 Note (optional)
               </label>
               <textarea
@@ -239,7 +239,7 @@ export default function AssignTaskButton({
                 onChange={(e) => setNote(e.target.value)}
                 disabled={busy}
                 placeholder="e.g. Please pick this up this week — sequencing primers are in the freezer."
-                className="w-full min-h-[60px] text-body rounded-md border border-gray-300 px-2 py-1.5 focus:ring-2 focus:ring-emerald-500"
+                className="w-full min-h-[60px] text-body rounded-md border border-border px-2 py-1.5 focus:ring-2 focus:ring-emerald-500"
               />
             </div>
 
@@ -248,7 +248,7 @@ export default function AssignTaskButton({
                 type="button"
                 onClick={() => setOpen(false)}
                 disabled={busy}
-                className="px-3 py-1.5 rounded-md text-meta text-gray-600 hover:bg-gray-100"
+                className="px-3 py-1.5 rounded-md text-meta text-foreground-muted hover:bg-surface-sunken"
               >
                 Cancel
               </button>

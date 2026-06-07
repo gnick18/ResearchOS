@@ -181,12 +181,12 @@ function Card({
     <section
       id={id}
       data-settings-section-marker="1"
-      className="bg-white rounded-xl border border-gray-200 p-6 scroll-mt-4"
+      className="bg-surface-raised rounded-xl border border-border p-6 scroll-mt-4"
     >
       <div className="mb-4">
-        <h2 className="text-title font-semibold text-gray-900">{title}</h2>
+        <h2 className="text-title font-semibold text-foreground">{title}</h2>
         {description && (
-          <p className="text-meta text-gray-500 mt-1">{description}</p>
+          <p className="text-meta text-foreground-muted mt-1">{description}</p>
         )}
       </div>
       <div className="space-y-4">{children}</div>
@@ -254,14 +254,14 @@ function StoragePlanSection() {
       title="Cloud storage"
       description="Optional paid storage for heavy server-side use. The local app stays free."
     >
-      <p className="text-body text-gray-800">
+      <p className="text-body text-foreground">
         {humanBytes(status.freeBytes)} included free
         {status.active && status.blocks > 0
           ? `, plus ${status.blocks} x ${status.gbPerBlock} GB purchased (${humanBytes(status.paidBytes)})`
           : ""}
         .
       </p>
-      <p className="text-meta text-gray-400 leading-relaxed">
+      <p className="text-meta text-foreground-muted leading-relaxed">
         Each {status.gbPerBlock} GB block is {price} per month. Any tax is added at
         checkout where it applies.
       </p>
@@ -310,12 +310,12 @@ function SharingIdentitySection({
       description="The verified email and the on-device keypair behind your profile. This is what proves it is you when you send a share or open one someone sent you."
     >
       {status === "loading" && (
-        <p className="text-body text-gray-500">Checking your sharing setup…</p>
+        <p className="text-body text-foreground-muted">Checking your sharing setup…</p>
       )}
 
       {status === "none" && (
         <div className="flex items-start justify-between gap-4">
-          <p className="text-body text-gray-700 leading-relaxed max-w-prose">
+          <p className="text-body text-foreground leading-relaxed max-w-prose">
             You have not set up sharing yet. Set it up to send and receive
             research across folders. It takes about a minute and you stay in
             control of your keys.
@@ -385,7 +385,7 @@ function InfoRow({
   children: React.ReactNode;
 }) {
   const labelNode = (
-    <span className="text-meta font-medium text-gray-500 w-32 shrink-0">
+    <span className="text-meta font-medium text-foreground-muted w-32 shrink-0">
       {label}
     </span>
   );
@@ -398,7 +398,7 @@ function InfoRow({
       ) : (
         labelNode
       )}
-      <div className="min-w-0 flex-1 text-body text-gray-800">{children}</div>
+      <div className="min-w-0 flex-1 text-body text-foreground">{children}</div>
     </div>
   );
 }
@@ -428,7 +428,7 @@ function ReadyIdentity({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-body font-semibold text-gray-900">Your identity</h3>
+        <h3 className="text-body font-semibold text-foreground">Your identity</h3>
         <Pill
           tone="emerald"
           label="On this device"
@@ -475,8 +475,8 @@ function ReadyIdentity({
           <span className="text-emerald-600 font-medium">Confirmed</span>
         ) : (
           <div className="space-y-1">
-            <span className="text-gray-500">Not confirmed</span>
-            <p className="text-meta text-gray-400 leading-relaxed">
+            <span className="text-foreground-muted">Not confirmed</span>
+            <p className="text-meta text-foreground-muted leading-relaxed">
               You skipped saving your recovery words. Save them now so you can
               restore your identity on another device.
             </p>
@@ -492,7 +492,7 @@ function ReadyIdentity({
           <button
             type="button"
             onClick={onRotate}
-            className="px-3 py-1.5 text-body bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg"
+            className="px-3 py-1.5 text-body bg-surface-sunken hover:bg-surface-sunken text-foreground rounded-lg"
           >
             Rotate key
           </button>
@@ -500,7 +500,7 @@ function ReadyIdentity({
         <button
           type="button"
           onClick={onDisconnect}
-          className="px-3 py-1.5 text-body bg-gray-100 hover:bg-gray-200 text-red-600 rounded-lg"
+          className="px-3 py-1.5 text-body bg-surface-sunken hover:bg-surface-sunken text-red-600 rounded-lg"
         >
           Disconnect from this device
         </button>
@@ -511,7 +511,7 @@ function ReadyIdentity({
           <button
             type="button"
             onClick={onReset}
-            className="px-3 py-1.5 text-body bg-gray-100 hover:bg-gray-200 text-red-600 rounded-lg"
+            className="px-3 py-1.5 text-body bg-surface-sunken hover:bg-surface-sunken text-red-600 rounded-lg"
           >
             Reset identity
           </button>
@@ -533,7 +533,7 @@ function NeedsRestoreIdentity({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-body font-semibold text-gray-900">Your account</h3>
+        <h3 className="text-body font-semibold text-foreground">Your account</h3>
         <Pill
           tone="amber"
           label="Key not in this browser"
@@ -554,7 +554,7 @@ function NeedsRestoreIdentity({
       </InfoRow>
       <InfoRow label="Set up">{formatDate(sidecar.claimedAt)}</InfoRow>
 
-      <p className="text-body text-gray-700 leading-relaxed max-w-prose pt-1">
+      <p className="text-body text-foreground leading-relaxed max-w-prose pt-1">
         Your account is set up. The private key that signs your shares just is
         not in this browser yet, restore it with your recovery words to send and
         open shares from here.
@@ -574,7 +574,7 @@ function NeedsRestoreIdentity({
           <button
             type="button"
             onClick={onReset}
-            className="px-3 py-2 text-body bg-gray-100 hover:bg-gray-200 text-red-600 rounded-lg"
+            className="px-3 py-2 text-body bg-surface-sunken hover:bg-surface-sunken text-red-600 rounded-lg"
           >
             Reset identity
           </button>
@@ -606,13 +606,13 @@ function InboxStorageSection({
         description="Shares people send you wait in an encrypted inbox until you import them."
       >
         {status === "needs-restore" ? (
-          <p className="text-body text-gray-600 leading-relaxed">
+          <p className="text-body text-foreground-muted leading-relaxed">
             Encrypted items may be waiting. Restore your key on this device to see
             and open them.
           </p>
         ) : (
           <div className="flex items-center justify-between gap-4">
-            <p className="text-body text-gray-600 leading-relaxed">
+            <p className="text-body text-foreground-muted leading-relaxed">
               Set up sharing to use the inbox.
             </p>
             {status === "none" && (
@@ -652,15 +652,15 @@ function BudgetBar({
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-meta font-medium text-gray-600">{label}</span>
-        <span className="text-meta text-gray-400">
+        <span className="text-meta font-medium text-foreground-muted">{label}</span>
+        <span className="text-meta text-foreground-muted">
           {valueLabel}
-          <span className={`ml-2 font-semibold ${over80 ? "text-amber-600" : "text-gray-500"}`}>
+          <span className={`ml-2 font-semibold ${over80 ? "text-amber-600" : "text-foreground-muted"}`}>
             {pctLabel}
           </span>
         </span>
       </div>
-      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken">
         <div
           className={`h-full rounded-full ${over80 ? "bg-amber-500" : "bg-blue-500"}`}
           style={{ width: `${pct > 0 ? Math.max(pct, 2) : 0}%` }}
@@ -701,25 +701,25 @@ function InboxStorageReady({ email }: { email: string }) {
       description="Shares people send you wait in an encrypted inbox until you import them."
     >
       {query.isLoading && (
-        <p className="text-body text-gray-500">Loading your inbox…</p>
+        <p className="text-body text-foreground-muted">Loading your inbox…</p>
       )}
 
       {unavailable && (
-        <p className="text-body text-gray-600 leading-relaxed">
+        <p className="text-body text-foreground-muted leading-relaxed">
           Your inbox is unavailable offline. Your identity and keys are still
           here on this device.
         </p>
       )}
 
       {!query.isLoading && !unavailable && query.isError && (
-        <p className="text-body text-gray-600 leading-relaxed">
+        <p className="text-body text-foreground-muted leading-relaxed">
           Could not load your inbox right now. Try again in a moment.
         </p>
       )}
 
       {!query.isLoading && !unavailable && !query.isError && (
         <>
-          <p className="text-body text-gray-800">
+          <p className="text-body text-foreground">
             {count === 0
               ? "Nothing pending yet. Shares people send you wait in your encrypted inbox until you import them."
               : `${count} pending ${count === 1 ? "share" : "shares"} in your encrypted inbox.`}
@@ -738,12 +738,12 @@ function InboxStorageReady({ email }: { email: string }) {
             />
           </div>
 
-          <p className="mt-3 text-meta text-gray-400 leading-relaxed">
+          <p className="mt-3 text-meta text-foreground-muted leading-relaxed">
             Pending shares are held for {TTL_DAYS} days, then removed.
           </p>
 
           <div className="flex items-center justify-between gap-4 pt-1">
-            <p className="text-meta text-gray-400 leading-relaxed">
+            <p className="text-meta text-foreground-muted leading-relaxed">
               Later, collaborate mode will draw on this same space. One budget,
               two uses.
             </p>
@@ -757,7 +757,7 @@ function InboxStorageReady({ email }: { email: string }) {
               <button
                 type="button"
                 disabled
-                className="px-3 py-2 text-body bg-gray-100 text-gray-400 rounded-lg whitespace-nowrap cursor-not-allowed"
+                className="px-3 py-2 text-body bg-surface-sunken text-foreground-muted rounded-lg whitespace-nowrap cursor-not-allowed"
               >
                 Open inbox
               </button>
@@ -884,13 +884,13 @@ function PublicationManager({
 
   if (works === undefined) {
     return (
-      <p className="text-meta text-gray-400">Loading publications from ORCID...</p>
+      <p className="text-meta text-foreground-muted">Loading publications from ORCID...</p>
     );
   }
 
   if (works.length === 0) {
     return (
-      <p className="text-meta text-gray-400">
+      <p className="text-meta text-foreground-muted">
         No public works found on ORCID for this iD.
       </p>
     );
@@ -916,22 +916,22 @@ function PublicationManager({
             key={w.putCode}
             className={`flex items-start gap-2 rounded-lg border px-3 py-2 ${
               isHidden
-                ? "border-gray-100 bg-gray-50 opacity-50"
+                ? "border-border bg-surface-sunken opacity-50"
                 : isPinned
                 ? "border-sky-200 bg-sky-50"
-                : "border-gray-100 bg-white"
+                : "border-border bg-surface-raised"
             }`}
           >
             <div className="min-w-0 flex-1">
               <p
                 className={`text-meta leading-snug font-medium ${
-                  isHidden ? "line-through text-gray-400" : "text-gray-800"
+                  isHidden ? "line-through text-foreground-muted" : "text-foreground"
                 }`}
               >
                 {w.title}
               </p>
               {(w.journal || w.year) && (
-                <p className="text-meta text-gray-400">
+                <p className="text-meta text-foreground-muted">
                   {[w.journal, w.year].filter(Boolean).join(" · ")}
                 </p>
               )}
@@ -948,7 +948,7 @@ function PublicationManager({
                   className={`rounded p-1 transition-colors disabled:cursor-not-allowed disabled:opacity-30 ${
                     isPinned
                       ? "text-sky-600 hover:text-sky-800"
-                      : "text-gray-300 hover:text-sky-500"
+                      : "text-foreground-muted hover:text-sky-500"
                   }`}
                   aria-pressed={isPinned}
                 >
@@ -964,8 +964,8 @@ function PublicationManager({
                   onClick={() => toggleHide(w.putCode)}
                   className={`rounded p-1 transition-colors ${
                     isHidden
-                      ? "text-gray-500 hover:text-gray-700"
-                      : "text-gray-300 hover:text-gray-500"
+                      ? "text-foreground-muted hover:text-foreground"
+                      : "text-foreground-muted hover:text-foreground-muted"
                   }`}
                   aria-pressed={isHidden}
                 >
@@ -1112,12 +1112,12 @@ export function ProfileEditorCard() {
       description="This is your profile on ResearchOS. Other researchers can find you by name or institution, and you control what it shows."
     >
       {loading && (
-        <p className="text-body text-gray-500">Loading your profile…</p>
+        <p className="text-body text-foreground-muted">Loading your profile…</p>
       )}
 
       {!loading && !editing && profile === null && (
         <div className="flex items-start justify-between gap-4">
-          <p className="text-body text-gray-700 leading-relaxed max-w-prose">
+          <p className="text-body text-foreground leading-relaxed max-w-prose">
             Your profile just needs a name. Add it so other researchers can find
             you, then fill in your institution and ORCID whenever you like.
           </p>
@@ -1172,7 +1172,7 @@ export function ProfileEditorCard() {
             <button
               type="button"
               onClick={openEdit}
-              className="px-3 py-1.5 text-body bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg"
+              className="px-3 py-1.5 text-body bg-surface-sunken hover:bg-surface-sunken text-foreground rounded-lg"
             >
               Edit profile
             </button>
@@ -1180,7 +1180,7 @@ export function ProfileEditorCard() {
               type="button"
               onClick={remove}
               disabled={busy}
-              className="px-3 py-1.5 text-body bg-gray-100 hover:bg-gray-200 text-red-600 rounded-lg disabled:opacity-50"
+              className="px-3 py-1.5 text-body bg-surface-sunken hover:bg-surface-sunken text-red-600 rounded-lg disabled:opacity-50"
             >
               {busy ? "Removing…" : "Remove from directory"}
             </button>
@@ -1196,7 +1196,7 @@ export function ProfileEditorCard() {
         <div className="space-y-4">
           <div className="space-y-3">
             <div>
-              <label className="block text-meta font-medium text-gray-700 mb-1">
+              <label className="block text-meta font-medium text-foreground mb-1">
                 Display name
                 <span className="text-red-500 ml-0.5" aria-label="required">
                   *
@@ -1209,12 +1209,12 @@ export function ProfileEditorCard() {
                 placeholder="Your name as other researchers will see it"
                 maxLength={100}
                 disabled={busy}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-body text-gray-900 placeholder-gray-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-50"
+                className="w-full rounded-lg border border-border px-3 py-2 text-body text-foreground placeholder-gray-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-50"
               />
             </div>
 
             <div>
-              <label className="block text-meta font-medium text-gray-700 mb-1">
+              <label className="block text-meta font-medium text-foreground mb-1">
                 Affiliation
               </label>
               <input
@@ -1224,16 +1224,16 @@ export function ProfileEditorCard() {
                 placeholder="University, institution, or lab"
                 maxLength={200}
                 disabled={busy}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-body text-gray-900 placeholder-gray-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-50"
+                className="w-full rounded-lg border border-border px-3 py-2 text-body text-foreground placeholder-gray-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-50"
               />
-              <p className="mt-1 text-meta text-gray-400 leading-relaxed">
+              <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
                 If you sign in with an institutional account, your email domain
                 will be shown as verified on your profile automatically.
               </p>
             </div>
 
             <div>
-              <label className="block text-meta font-medium text-gray-700 mb-1">
+              <label className="block text-meta font-medium text-foreground mb-1">
                 ORCID iD
               </label>
               <input
@@ -1243,9 +1243,9 @@ export function ProfileEditorCard() {
                 placeholder="0000-0002-1825-0097"
                 maxLength={19}
                 disabled={busy}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-body text-gray-900 placeholder-gray-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-50"
+                className="w-full rounded-lg border border-border px-3 py-2 font-mono text-body text-foreground placeholder-gray-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-50"
               />
-              <p className="mt-1 text-meta text-gray-400 leading-relaxed">
+              <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
                 Optional. Your ORCID iD is shown on your profile as a public
                 identifier, not verified here.
               </p>
@@ -1253,10 +1253,10 @@ export function ProfileEditorCard() {
 
             {isValidOrcid(draftOrcid.trim()) && (
               <div>
-                <p className="text-meta font-medium text-gray-700 mb-1.5">
+                <p className="text-meta font-medium text-foreground mb-1.5">
                   Manage publications
                 </p>
-                <p className="mb-2 text-meta text-gray-400 leading-relaxed">
+                <p className="mb-2 text-meta text-foreground-muted leading-relaxed">
                   Pin papers to show them first, or hide ones you prefer not to
                   display. Changes take effect when you save.
                 </p>
@@ -1282,7 +1282,7 @@ export function ProfileEditorCard() {
                 setError(null);
               }}
               disabled={busy}
-              className="flex-1 px-3 py-2 text-body bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg disabled:opacity-50"
+              className="flex-1 px-3 py-2 text-body bg-surface-sunken hover:bg-surface-sunken text-foreground rounded-lg disabled:opacity-50"
             >
               Cancel
             </button>
@@ -1333,13 +1333,13 @@ function ModalShell({
           <div>
             <h3 className="text-title font-semibold text-white">{title}</h3>
             {subtitle && (
-              <p className="text-meta text-slate-400 mt-0.5">{subtitle}</p>
+              <p className="text-meta text-foreground-muted mt-0.5">{subtitle}</p>
             )}
           </div>
           <Tooltip label="Close" placement="bottom">
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-white"
+              className="text-foreground-muted hover:text-white"
               aria-label="Close"
             >
               <CloseIcon className="w-5 h-5" />
@@ -1671,7 +1671,7 @@ export function RestoreIdentityPopup({
     <ModalShell title="Restore your sharing identity" subtitle={`for ${username}`} onClose={onClose}>
       {step === "intro" && mode === "email" && (
         <div className="space-y-4">
-          <p className="text-body text-slate-300 leading-relaxed">
+          <p className="text-body text-foreground-muted leading-relaxed">
             Restore your sharing identity on this device. Enter the recovery
             code (or the 12 recovery words) you saved when you set up sharing.
           </p>
@@ -1685,7 +1685,7 @@ export function RestoreIdentityPopup({
           >
             {busy ? "Sending code…" : "Continue"}
           </button>
-          <p className="text-meta text-slate-500 leading-relaxed">
+          <p className="text-meta text-foreground-muted leading-relaxed">
             We send a 6-digit code to {email || "your email"} to confirm it is you
             before handing back your encrypted key backup. Only your words can
             unlock it.
@@ -1702,7 +1702,7 @@ export function RestoreIdentityPopup({
 
       {step === "intro" && mode === "kit" && (
         <div className="space-y-4">
-          <p className="text-body text-slate-300 leading-relaxed">
+          <p className="text-body text-foreground-muted leading-relaxed">
             Restore offline with the Recovery Kit you downloaded. Upload or paste
             the kit, then enter your recovery code (or your 12 recovery words). No
             email and no network are needed.
@@ -1720,7 +1720,7 @@ export function RestoreIdentityPopup({
                   // Reset so re-choosing the same file fires onChange again.
                   e.target.value = "";
                 }}
-                className="block w-full text-meta text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-body file:font-medium file:text-white hover:file:bg-blue-700 disabled:opacity-50"
+                className="block w-full text-meta text-foreground-muted file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-body file:font-medium file:text-white hover:file:bg-blue-700 disabled:opacity-50"
               />
             </label>
             <textarea
@@ -1766,7 +1766,7 @@ export function RestoreIdentityPopup({
 
       {step === "code" && (
         <div className="space-y-4">
-          <p className="text-body text-slate-300 leading-relaxed">
+          <p className="text-body text-foreground-muted leading-relaxed">
             Enter the 6-digit code we sent to{" "}
             <span className="text-white font-medium">{email}</span>.
           </p>
@@ -1794,7 +1794,7 @@ export function RestoreIdentityPopup({
       {step === "verifying" && (
         <div className="py-8 flex flex-col items-center text-center">
           <div className="w-10 h-10 rounded-full border-2 border-white/20 border-t-blue-400 animate-spin" />
-          <p className="text-body text-slate-300 mt-4 font-medium">
+          <p className="text-body text-foreground-muted mt-4 font-medium">
             Checking your recovery code…
           </p>
         </div>
@@ -1809,7 +1809,7 @@ export function RestoreIdentityPopup({
             <p className="text-title font-semibold text-white mt-3">
               Your key is restored
             </p>
-            <p className="text-body text-slate-300 mt-1 leading-relaxed">
+            <p className="text-body text-foreground-muted mt-1 leading-relaxed">
               You can send and open shares on this device now.
             </p>
           </div>
@@ -1966,7 +1966,7 @@ export function RotateIdentityPopup({
     <ModalShell title="Rotate your key" subtitle={`for ${username}`} onClose={onClose}>
       {step === "confirm" && (
         <div className="space-y-4">
-          <p className="text-body text-slate-300 leading-relaxed">
+          <p className="text-body text-foreground-muted leading-relaxed">
             Rotate your key? This replaces your keypair and gives you fresh
             recovery words. Your email stays the same. People you have shared with
             will need your new fingerprint to verify you.
@@ -2008,10 +2008,10 @@ export function RotateIdentityPopup({
       {(step === "generating" || step === "publishing") && (
         <div className="py-8 flex flex-col items-center text-center">
           <div className="w-10 h-10 rounded-full border-2 border-white/20 border-t-blue-400 animate-spin" />
-          <p className="text-body text-slate-300 mt-4 font-medium">
+          <p className="text-body text-foreground-muted mt-4 font-medium">
             {step === "generating" ? "Generating your new keys" : "Rotating your key"}
           </p>
-          <p className="text-meta text-slate-500 mt-1 leading-relaxed">
+          <p className="text-meta text-foreground-muted mt-1 leading-relaxed">
             {step === "generating"
               ? "This runs once and can take a few seconds. The app may pause briefly while it works."
               : "Binding your new keys to the same email."}
@@ -2027,14 +2027,14 @@ export function RotateIdentityPopup({
               Your new Recovery Words
             </p>
           </div>
-          <p className="text-body text-slate-300 leading-relaxed">
+          <p className="text-body text-foreground-muted leading-relaxed">
             Write these 12 words down and store them somewhere safe. Your old
             words no longer work after this rotation.
           </p>
           <div className="grid grid-cols-3 gap-2 p-3 bg-slate-900/60 border border-white/10 rounded-lg">
             {words.map((word, i) => (
               <div key={`${word}-${i}`} className="flex items-center gap-1.5 text-body text-slate-200">
-                <span className="text-meta text-slate-500 w-4 text-right tabular-nums">
+                <span className="text-meta text-foreground-muted w-4 text-right tabular-nums">
                   {i + 1}
                 </span>
                 <span className="font-mono">{word}</span>
@@ -2065,7 +2065,7 @@ export function RotateIdentityPopup({
               onChange={(e) => setRecoverySaved(e.target.checked)}
               className="mt-0.5 accent-blue-500"
             />
-            <span className="text-body text-slate-300 leading-relaxed">
+            <span className="text-body text-foreground-muted leading-relaxed">
               I have saved my new recovery words somewhere safe.
             </span>
           </label>
@@ -2090,7 +2090,7 @@ export function RotateIdentityPopup({
             <p className="text-title font-semibold text-white mt-3">
               Your key is rotated
             </p>
-            <p className="text-body text-slate-300 mt-1 leading-relaxed">
+            <p className="text-body text-foreground-muted mt-1 leading-relaxed">
               Save your new recovery words, the old ones no longer work.
             </p>
           </div>
@@ -2145,7 +2145,7 @@ export function DisconnectIdentityPopup({
       onClose={onClose}
     >
       <div className="space-y-4">
-        <p className="text-body text-slate-300 leading-relaxed">
+        <p className="text-body text-foreground-muted leading-relaxed">
           This removes your private key from this browser on this device. Your
           identity stays published and your account keeps it, but until you
           restore your key here you cannot send shares or open the encrypted items
@@ -2232,7 +2232,7 @@ export function ResetIdentityPopup({
       onClose={onClose}
     >
       <div className="space-y-4">
-        <p className="text-body text-slate-300 leading-relaxed">
+        <p className="text-body text-foreground-muted leading-relaxed">
           This abandons your current sharing identity and sets up a fresh one. A
           new keypair and a new fingerprint will be generated, and your current 12
           recovery words will stop working. Anyone who verified your old

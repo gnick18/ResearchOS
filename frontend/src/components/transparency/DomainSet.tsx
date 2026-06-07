@@ -63,11 +63,11 @@ export default function DomainSet({
   }
 
   return (
-    <figure className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+    <figure className="overflow-hidden rounded-xl border border-border bg-surface-raised">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-meta">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50 text-gray-500">
+            <tr className="border-b border-border bg-surface-sunken text-foreground-muted">
               <th className="px-3 py-2 font-semibold">Pfam family</th>
               <th className="px-3 py-2 text-right font-semibold">Native HMMER</th>
               <th className="px-3 py-2 text-right font-semibold">On-device</th>
@@ -76,13 +76,13 @@ export default function DomainSet({
           </thead>
           <tbody>
             {domains.map((d, i) => (
-              <tr key={`${d.accession}-${i}`} className="border-b border-gray-100 last:border-0">
+              <tr key={`${d.accession}-${i}`} className="border-b border-border last:border-0">
                 <td className="px-3 py-2">
-                  <span className="font-medium text-gray-800">{d.name}</span>{" "}
-                  <span className="font-mono text-[11px] text-gray-400">{d.accession}</span>
+                  <span className="font-medium text-foreground">{d.name}</span>{" "}
+                  <span className="font-mono text-[11px] text-foreground-muted">{d.accession}</span>
                 </td>
-                <td className="px-3 py-2 text-right font-mono text-gray-700">{span(d.native)}</td>
-                <td className="px-3 py-2 text-right font-mono text-gray-700">{span(d.ours)}</td>
+                <td className="px-3 py-2 text-right font-mono text-foreground">{span(d.native)}</td>
+                <td className="px-3 py-2 text-right font-mono text-foreground">{span(d.ours)}</td>
                 <td className="px-3 py-2">
                   {d.exact ? (
                     <span className="inline-flex items-center gap-1 text-emerald-700">
@@ -101,7 +101,7 @@ export default function DomainSet({
           </tbody>
         </table>
       </div>
-      <p className="px-3 py-2 text-meta text-gray-400">
+      <p className="px-3 py-2 text-meta text-foreground-muted">
         Envelope coordinates (1-based) on the protein, family by family. The
         on-device WebAssembly engine reproduces native HMMER to the residue.
       </p>
