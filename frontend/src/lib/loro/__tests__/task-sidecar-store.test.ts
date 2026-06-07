@@ -19,9 +19,17 @@ vi.mock("@/lib/file-system/file-service", () => ({
   },
 }));
 
+// resolveTaskResultsBase is the resolver the legacy experiment tabs use. Here
+// it stands in for a legacy-only task: it returns the global pre-namespacing
+// path, which DIVERGES from the bare per-user taskResultsBase. The sidecar
+// store must follow it when a currentUser is supplied so the `.loro` sidecar +
+// `.md` mirror land beside the legacy `.md` the user actually sees.
 vi.mock("@/lib/tasks/results-paths", () => ({
   taskResultsBase: (task: { id: number; owner: string }) =>
     `users/${task.owner}/tasks/${task.id}`,
+  resolveTaskResultsBase: vi.fn(
+    async (task: { id: number; owner: string }) => `results/task-${task.id}`,
+  ),
 }));
 
 import { LoroDoc } from "loro-crdt";
@@ -77,5 +85,34 @@ describe("task-sidecar-store", () => {
     );
     const reloaded = await loadOrRebuildTaskDoc(TASK, "results");
     expect(getTaskContentText(reloaded)).toBe("from sidecar");
+  });
+
+  // Regression (experiment-collab follow-up, item 2): for a legacy-only task,
+  // passing currentUser routes both load and persist through
+  // resolveTaskResultsBase, so the sidecar seeds from the legacy `.md` the user
+  // sees and writes back beside it -- not into a blank per-user path.
+  it("follows resolveTaskResultsBase when currentUser is supplied", async () => {
+    // Data lives ONLY at the legacy global path.
+    files.set(
+      "results/task-7/notes.md",
+      new TextEncoder().encode("legacy body"),
+    );
+
+    // Without currentUser: bare per-user base -> blank (the divergence bug).
+    const blank = await loadOrRebuildTaskDoc(TASK, "notes");
+    expect(getTaskContentText(blank)).toBe("");
+
+    // With currentUser: seeds from the legacy mirror.
+    const doc = await loadOrRebuildTaskDoc(TASK, "notes", "manny");
+    expect(getTaskContentText(doc)).toBe("legacy body");
+
+    // Persist writes back to the legacy path, co-located with the .md.
+    setTaskContentText(doc, "edited body");
+    doc.commit();
+    await persistTaskDoc(TASK, "notes", doc, "manny");
+    expect(decode(files.get("results/task-7/notes.md"))).toBe("edited body");
+    expect(files.has("results/task-7/.researchos/notes.loro")).toBe(true);
+    // The per-user path is untouched.
+    expect(files.has("users/manny/tasks/7/notes.md")).toBe(false);
   });
 });

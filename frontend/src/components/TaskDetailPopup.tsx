@@ -1713,7 +1713,7 @@ export default function TaskDetailPopup({
                     onConsumePendingEnterEdit={() => setPendingEnterEdit(false)}
                   />
                 )}
-                {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly} ownerUsername={username} />}
+                {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} />}
                 {activeTab === "method" && (
                   <MethodTabs
                     task={task}
@@ -1721,7 +1721,7 @@ export default function TaskDetailPopup({
                     readOnly={readOnly}
                   />
                 )}
-                {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly} ownerUsername={username} />}
+                {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} />}
                 {activeTab === "purchases" && (
                   <PurchaseEditor
                     taskId={task.id}
@@ -3870,7 +3870,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
     let active = true;
     setLoroOpenFailed(false);
 
-    openTaskDoc(collabRef, "notes")
+    openTaskDoc(collabRef, "notes", currentUser ?? undefined)
       .then((handle) => {
         if (!active) return;
         setLoroHandle(handle);
@@ -4638,6 +4638,12 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
                 <LiveMarkdownEditor
                   value={content}
                   onChange={setContent}
+                  // experiment-collab follow-up: a view-only collaborator (or
+                  // lab-view readOnly) gets a LIVE read of the Loro-bound text
+                  // (remote edits still stream in via LoroSyncPlugin) but must
+                  // never write. `disabled` makes CM6 editable=false, so no
+                  // local ops are produced and nothing is committed/synced back.
+                  disabled={readOnly}
                   placeholder="Click to start writing lab notes..."
                   onImageDrop={handleImageUpload}
                   onFileDrop={handleFileUpload}
@@ -4791,7 +4797,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
     let active = true;
     setLoroOpenFailed(false);
 
-    openTaskDoc(collabRef, "results")
+    openTaskDoc(collabRef, "results", currentUser ?? undefined)
       .then((handle) => {
         if (!active) return;
         setLoroHandle(handle);
@@ -5391,6 +5397,11 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
               <LiveMarkdownEditor
                 value={content}
                 onChange={setContent}
+                // experiment-collab follow-up: view-only collaborators get a
+                // live read of the Results doc but cannot write. See the Lab
+                // Notes editor above for the full rationale (CM6 editable=false
+                // -> no local ops -> nothing committed or synced back).
+                disabled={readOnly}
                 placeholder="Click to start writing results..."
                 onImageDrop={handleImageUpload}
                 onFileDrop={handleFileUpload}
