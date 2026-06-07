@@ -4668,6 +4668,155 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
   const { resolve: resolveDuplicates, DialogComponent: DuplicateDialog } =
     useDuplicateResolver();
   const { currentUser } = useCurrentUser();
+  // The device's own directory email (canonical), used to SIGN collab requests
+  // when the experiment is shared. Null when this device has no sharing identity
+  // (collab then stays live-only). Mirrors LabNotesTab.
+  const { email: myDirectoryEmail } = useSharingIdentity();
+
+  // ── Experiment-collab chunk 2: Loro wiring for the Results doc ────────────
+  // A SEPARATE collab doc from Lab Notes: opened via openTaskDoc(..., "results")
+  // so it has its own owner:id:results module-cache entry, its own sidecar, its
+  // own minted id (results_collab_doc_id, NOT collab_doc_id), and its own relay
+  // room. One handle per (owner, task, "results") surface; opened once, closed
+  // on task identity change or unmount. Null when the flag is off or the async
+  // open is in flight / failed. Mirrors LabNotesTab's loroHandle / loroOpenFailed.
+  const [loroHandle, setLoroHandle] = useState<TaskDocHandle | null>(null);
+  const [loroOpenFailed, setLoroOpenFailed] = useState(false);
+  // The task owner is the doc owner for the collab path (where the sidecar
+  // lives). Falls back to currentUser for an unowned local task.
+  const loroOwner = task.owner || currentUser || "";
+  const collabRef = task.id != null ? { owner: loroOwner, id: task.id } : null;
+
+  // Publish the device's directory email to the lazy collab signer so the
+  // sync hooks can sign Neon requests. Reactive: becomes available as soon as
+  // the sharing identity sidecar loads.
+  useEffect(() => {
+    setCollabSignerEmail(myDirectoryEmail);
+  }, [myDirectoryEmail]);
+
+  // Live-collab session (flag-gated). useCollabSession is called
+  // unconditionally (Rules of Hooks) but stays idle when the flag is off or the
+  // handle is null. For the same-user MVP the collaborator is currentUser. This
+  // is a DISTINCT session from the Lab Notes tab's (keyed on the results doc).
+  const collab = useCollabSession({
+    doc: loroHandle?.doc ?? null,
+    enabled: LORO_PILOT_ENABLED,
+    owner: loroOwner || undefined,
+    collaboratorUsername: currentUser ?? undefined,
+  });
+  const collabActive = LORO_PILOT_ENABLED && collab.state.status === "live";
+  // Cursor identity for this peer: signed-in name + a deterministic color
+  // derived from the doc's peer id. Stable after the handle opens.
+  const collabUser = useMemo(() => {
+    if (!LORO_PILOT_ENABLED || !loroHandle) return undefined;
+    return {
+      name: currentUser ?? "collaborator",
+      colorClassName: peerColorClass(loroHandle.doc.peerIdStr),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loroHandle?.doc.peerIdStr, currentUser]);
+
+  // Open / close the Loro handle when the task identity changes. No-op when the
+  // flag is off. On open failure the editor falls back to the legacy disk-load
+  // surface (loroHandle stays null, so no Loro props are passed).
+  useEffect(() => {
+    if (!LORO_PILOT_ENABLED) return;
+    if (!collabRef) return;
+
+    let active = true;
+    setLoroOpenFailed(false);
+
+    openTaskDoc(collabRef, "results")
+      .then((handle) => {
+        if (!active) return;
+        setLoroHandle(handle);
+      })
+      .catch((err) => {
+        console.error("[ResultsTab] Loro openTaskDoc failed:", err);
+        if (active) setLoroOpenFailed(true);
+      });
+
+    return () => {
+      active = false;
+      setLoroHandle((prev) => {
+        if (prev) void prev.close();
+        return null;
+      });
+    };
+    // Keyed on task identity + owner only (one handle per task results surface).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task.id, task.owner, currentUser]);
+
+  // While the handle is still opening (flag on, not yet ready, not failed) we
+  // hold the editor on the existing `loading` placeholder below by ORing this
+  // into the loading gate, so CM6 only mounts once its final mode (Loro vs
+  // legacy) is known. Mounting before the handle arrives would build the editor
+  // in legacy mode and never switch (its mount effect runs once).
+  const loroOpening =
+    LORO_PILOT_ENABLED && loroHandle === null && !loroOpenFailed;
+
+  // Auto-connect to the live session when a SHARED experiment opens. A shared
+  // task's Results doc has its own collab_doc_id in its Loro meta (minted by
+  // grant-on-share on the sharer's side, carried by the bundle on import).
+  // Mirrors LabNotesTab's connectFromDocId effect, but the import-bootstrap
+  // reads task.results_collab_doc_id (the Results doc's id), NOT
+  // task.collab_doc_id (which belongs to Lab Notes).
+  useEffect(() => {
+    if (!LORO_PILOT_ENABLED) return;
+    if (!loroHandle) return;
+    if (collab.state.status !== "idle") return;
+
+    let docId = getCollabDocId(loroHandle.doc);
+
+    // Bootstrap: a freshly-imported task has results_collab_doc_id in its JSON
+    // but not yet in the Results Loro sidecar. Seed the meta map with that exact
+    // id so the sidecar derives the same relay room as the sharer's Results doc.
+    if (!docId && task.results_collab_doc_id) {
+      loroHandle.doc.getMap("meta").set("collab_doc_id", task.results_collab_doc_id);
+      loroHandle.doc.commit({ message: "seed-results-collab-doc-id-from-import" });
+      docId = task.results_collab_doc_id;
+    }
+
+    if (!docId) return; // unshared experiment, nothing to do
+
+    collab.connectFromDocId(docId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loroHandle, collab.state.status, task.results_collab_doc_id]);
+
+  // ── Mint + grant the Results collab id when the experiment is shared ──────
+  // Identical to LabNotesTab's mint-on-share effect, but operating on the
+  // Results LoroDoc. grantCollabOnShare is entity-agnostic and mints into
+  // whichever doc it is passed, so calling it with the Results handle mints +
+  // grants the Results doc INDEPENDENTLY of the Lab Notes doc. Same docId-keyed
+  // server grant route, no new server code.
+  //
+  // FLAG (data-shape): writes the minted id into the Results Loro meta map (its
+  // own sidecar). The JSON bridge field for this id is results_collab_doc_id.
+  useEffect(() => {
+    if (!LORO_PILOT_ENABLED) return;
+    if (!loroHandle) return;
+    if (!currentUser) return;
+    if (collab.state.status !== "idle") return;
+    const sharedWith = task.shared_with ?? [];
+    if (sharedWith.length === 0) return; // not shared, nothing to mint
+    // Already minted (or seeded from import): the auto-connect effect handles it.
+    if (getCollabDocId(loroHandle.doc)) return;
+
+    void grantCollabOnShare({
+      doc: loroHandle.doc,
+      ownerEmail: myDirectoryEmail ?? "",
+      // Treat the whole shared_with list as newly-added so every member and the
+      // granting user (as "owner") get registered on the server.
+      previousSharedWith: [],
+      nextSharedWith: sharedWith,
+    }).then((docId) => {
+      if (docId && collab.state.status === "idle") {
+        collab.connectFromDocId(docId);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loroHandle, task.shared_with, currentUser]);
+
   // See LabNotesTab: imperative flush handle from the embedded editor so the
   // popup "Save results" button persists the freshest in-progress block.
   const editorSaveRef = useRef<(() => string) | null>(null);
@@ -5111,7 +5260,7 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
               open. */}
           <div className="flex-1 min-h-0 flex">
             <div className="flex-1 min-h-0 flex flex-col">
-            {loading ? (
+            {loading || loroOpening ? (
               <div className="p-6 space-y-2 animate-pulse" aria-busy="true">
                 <div className="h-3 w-1/3 bg-foreground-muted/15 rounded" />
                 <div className="h-3 w-full bg-foreground-muted/15 rounded" />
@@ -5154,6 +5303,18 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
                 // so files attached there still appear (view / delete). New
                 // uploads write to Images/ + Files/ only.
                 legacyAttachmentsDir={pdfsDir}
+                // Experiment-collab chunk 2: when the pilot flag is on and the
+                // Results handle is open, the CRDT owns the live text (the
+                // editor seeds from + syncs to the Results doc's "content").
+                // This is the Results doc, independent of the Lab Notes doc.
+                // collab cursors render only while a session is live. Flag-off /
+                // open-failure leaves these undefined so the legacy disk path is
+                // unchanged.
+                loroTaskHandle={
+                  LORO_PILOT_ENABLED ? (loroHandle ?? undefined) : undefined
+                }
+                collabEphemeral={collabActive ? collab.ephemeral : undefined}
+                collabUser={collabActive ? collabUser : undefined}
               />
             )}
             </div>

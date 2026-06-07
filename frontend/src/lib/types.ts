@@ -624,6 +624,17 @@ export interface Task {
   // the authoritative store; this JSON field is the bootstrap bridge for a
   // freshly-imported experiment before its sidecar is written for the first time.
   collab_doc_id?: string;
+  // Experiment-collab chunk 2 (FLAG: new Task field): the collab doc id for the
+  // experiment's Results document. A SEPARATE doc + relay room from Lab Notes,
+  // so it gets its own flat field rather than overloading collab_doc_id. Written
+  // to the JSON record on import so the recipient's ResultsTab can seed the
+  // Results Loro meta map with the correct id and auto-join that doc's relay
+  // room. ADDITIVE and backward-compatible: absent on every locally created task
+  // and every unshared experiment. The Results Loro sidecar (its own meta map
+  // collab_doc_id key) is the authoritative store; this JSON field is the
+  // bootstrap bridge for a freshly-imported experiment before its Results
+  // sidecar is written for the first time.
+  results_collab_doc_id?: string;
 }
 
 /**
