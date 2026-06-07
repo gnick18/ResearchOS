@@ -27,6 +27,8 @@
 
 import wasm from "loro-crdt/web/loro_wasm_bg.wasm";
 import { initSync, LoroDoc } from "loro-crdt/web/index.js";
+import { ed25519 } from "@noble/curves/ed25519.js";
+import { hexToBytes } from "@noble/curves/utils.js";
 
 // Synchronous wasm init at module load, before any LoroDoc is constructed.
 initSync({ module: wasm });
@@ -85,6 +87,27 @@ export default {
       return stub.fetch(request);
     }
 
+    // Access control (storage-migration chunk 3). Owner-signed membership
+    // mutations. A doc stays OPEN until its first /grant, which flips it to
+    // ENFORCED (see CollabRoom). POST only; the owner signature is the
+    // capability. Forwarded to the per-session DO that owns the member table.
+    if (url.pathname === "/grant" || url.pathname === "/revoke") {
+      if (request.method !== "POST") {
+        return new Response("Method not allowed", {
+          status: 405,
+          headers: CORS_HEADERS,
+        });
+      }
+      if (!sessionId || sessionId.trim() === "") {
+        return new Response("Missing required query parameter: session", {
+          status: 400,
+          headers: CORS_HEADERS,
+        });
+      }
+      const stub = env.COLLAB_ROOM.get(env.COLLAB_ROOM.idFromName(sessionId));
+      return stub.fetch(request);
+    }
+
     return new Response("Not found", { status: 404 });
   },
 };
@@ -108,13 +131,238 @@ export class CollabRoom {
       "CREATE TABLE IF NOT EXISTS doc (k TEXT PRIMARY KEY, snapshot BLOB)",
     );
     // Tracks whether there are un-backed-up changes since the last R2 backup.
+    // The meta table also holds the access-control flags (chunk 3): 'enforced'
+    // ('0'/'1', absent = open) and 'owner_pubkey' (hex, set on the first grant
+    // = trust-on-first-use).
     this.sql().exec(
       "CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)",
+    );
+    // Access control (chunk 3): authorized members of an ENFORCED doc. email is
+    // the lowercased canonical directory email, pubkey is the hex Ed25519
+    // signing key the member's connect token is verified against.
+    this.sql().exec(
+      "CREATE TABLE IF NOT EXISTS members (email TEXT PRIMARY KEY, pubkey TEXT NOT NULL, role TEXT, added_at INTEGER, added_by TEXT)",
     );
   }
 
   private sql(): SqlStorage {
     return this.state.storage.sql;
+  }
+
+  // ---- Access control (chunk 3) ----------------------------------------
+
+  /** Reads a single meta value, or null when the key is absent. */
+  private metaGet(key: string): string | null {
+    const rows = this.sql()
+      .exec<{ v: string }>("SELECT v FROM meta WHERE k = ?", key)
+      .toArray();
+    return rows.length > 0 ? rows[0].v : null;
+  }
+
+  private metaSet(key: string, value: string): void {
+    this.sql().exec(
+      "INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v",
+      key,
+      value,
+    );
+  }
+
+  /** True once this doc has received its first grant (in-lab path stays OPEN
+   *  until then, the critical safety property). */
+  private isEnforced(): boolean {
+    return this.metaGet("enforced") === "1";
+  }
+
+  /** Looks up a member's stored hex Ed25519 pubkey, or null if not a member. */
+  private memberPubkey(email: string): string | null {
+    const rows = this.sql()
+      .exec<{ pubkey: string }>(
+        "SELECT pubkey FROM members WHERE email = ?",
+        email.toLowerCase(),
+      )
+      .toArray();
+    return rows.length > 0 ? rows[0].pubkey : null;
+  }
+
+  /** Verifies a hex Ed25519 signature over a UTF-8 message under a hex pubkey.
+   *  Pure JS (@noble/curves), so it runs in workerd. Any malformed input is a
+   *  verification failure, never a throw. */
+  private verifySig(sigHex: string, message: string, pubkeyHex: string): boolean {
+    try {
+      const sig = hexToBytes(sigHex);
+      const pub = hexToBytes(pubkeyHex);
+      const msg = new TextEncoder().encode(message);
+      return ed25519.verify(sig, msg, pub);
+    } catch {
+      return false;
+    }
+  }
+
+  /** A timestamp is fresh when it is within +/- 5 minutes of now (replay
+   *  guard). Non-finite input is stale. */
+  private isFresh(ts: number): boolean {
+    if (typeof ts !== "number" || !Number.isFinite(ts)) return false;
+    return Math.abs(Date.now() - ts) <= 5 * 60 * 1000;
+  }
+
+  private json(body: unknown, status: number): Response {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
+  }
+
+  /** POST /grant. Owner-signed; the first grant flips the doc to ENFORCED and
+   *  records the owner plus the backfilled members (trust-on-first-use). */
+  private async handleGrant(sessionId: string, request: Request): Promise<Response> {
+    let body: {
+      owner?: { email?: string; pubkey?: string };
+      members?: Array<{ email?: string; pubkey?: string; role?: string }>;
+      issuedAt?: number;
+      signature?: string;
+    };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+
+    const owner = body.owner;
+    const members = body.members;
+    const issuedAt = body.issuedAt;
+    const signature = body.signature;
+    if (
+      !owner ||
+      typeof owner.email !== "string" ||
+      typeof owner.pubkey !== "string" ||
+      !Array.isArray(members) ||
+      typeof issuedAt !== "number" ||
+      typeof signature !== "string"
+    ) {
+      return this.json({ error: "malformed grant" }, 400);
+    }
+
+    if (!this.isFresh(issuedAt)) {
+      return this.json({ error: "stale issuedAt" }, 401);
+    }
+
+    // Canonical message MUST be built from the request's members verbatim so it
+    // matches what the owner signed.
+    const message = `grant\n${sessionId}\n${owner.email}\n${issuedAt}\n${JSON.stringify(members)}`;
+    if (!this.verifySig(signature, message, owner.pubkey)) {
+      return this.json({ error: "bad signature" }, 401);
+    }
+
+    // TOFU owner check. First grant establishes the owner; later grants must
+    // come from the established owner key.
+    const storedOwner = this.metaGet("owner_pubkey");
+    if (storedOwner === null) {
+      this.metaSet("owner_pubkey", owner.pubkey);
+      this.metaSet("enforced", "1");
+      const now = Date.now();
+      this.sql().exec(
+        "INSERT INTO members (email, pubkey, role, added_at, added_by) VALUES (?, ?, 'owner', ?, ?) ON CONFLICT(email) DO UPDATE SET pubkey = excluded.pubkey, role = 'owner', added_at = excluded.added_at, added_by = excluded.added_by",
+        owner.email.toLowerCase(),
+        owner.pubkey,
+        now,
+        owner.email,
+      );
+    } else if (storedOwner !== owner.pubkey) {
+      return this.json({ error: "not the established owner" }, 403);
+    }
+
+    const now = Date.now();
+    for (const m of members) {
+      if (typeof m.email !== "string" || typeof m.pubkey !== "string") {
+        return this.json({ error: "malformed member entry" }, 400);
+      }
+      this.sql().exec(
+        "INSERT INTO members (email, pubkey, role, added_at, added_by) VALUES (?, ?, ?, ?, ?) ON CONFLICT(email) DO UPDATE SET pubkey = excluded.pubkey, role = excluded.role, added_at = excluded.added_at, added_by = excluded.added_by",
+        m.email.toLowerCase(),
+        m.pubkey,
+        m.role ?? null,
+        now,
+        owner.email,
+      );
+    }
+
+    return this.json({ ok: true }, 200);
+  }
+
+  /** POST /revoke. Owner-signed; deletes a member. The doc stays ENFORCED. */
+  private async handleRevoke(sessionId: string, request: Request): Promise<Response> {
+    let body: {
+      owner?: { email?: string; pubkey?: string };
+      email?: string;
+      issuedAt?: number;
+      signature?: string;
+    };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+
+    const owner = body.owner;
+    const email = body.email;
+    const issuedAt = body.issuedAt;
+    const signature = body.signature;
+    if (
+      !owner ||
+      typeof owner.email !== "string" ||
+      typeof owner.pubkey !== "string" ||
+      typeof email !== "string" ||
+      typeof issuedAt !== "number" ||
+      typeof signature !== "string"
+    ) {
+      return this.json({ error: "malformed revoke" }, 400);
+    }
+
+    if (!this.isFresh(issuedAt)) {
+      return this.json({ error: "stale issuedAt" }, 401);
+    }
+
+    // Revoke requires an established owner; an open (never-granted) doc has no
+    // owner to authorize a revoke.
+    const storedOwner = this.metaGet("owner_pubkey");
+    if (storedOwner === null || storedOwner !== owner.pubkey) {
+      return this.json({ error: "not the established owner" }, 403);
+    }
+
+    const message = `revoke\n${sessionId}\n${owner.email}\n${issuedAt}\n${email}`;
+    if (!this.verifySig(signature, message, owner.pubkey)) {
+      return this.json({ error: "bad signature" }, 401);
+    }
+
+    this.sql().exec("DELETE FROM members WHERE email = ?", email.toLowerCase());
+    return this.json({ ok: true }, 200);
+  }
+
+  /** Connect-time gate for /ws and /snapshot. Returns null when the connection
+   *  is allowed (open doc, or a valid member token on an enforced doc), or a
+   *  401 Response to reject. */
+  private connectGate(sessionId: string, url: URL): Response | null {
+    if (!this.isEnforced()) return null; // open doc: in-lab path unchanged.
+
+    const authEmail = url.searchParams.get("authEmail");
+    const authTs = url.searchParams.get("authTs");
+    const authSig = url.searchParams.get("authSig");
+    if (!authEmail || !authTs || !authSig) {
+      return this.json({ error: "auth required" }, 401);
+    }
+    const ts = Number(authTs);
+    if (!this.isFresh(ts)) {
+      return this.json({ error: "stale authTs" }, 401);
+    }
+    const pubkey = this.memberPubkey(authEmail);
+    if (pubkey === null) {
+      return this.json({ error: "not a member" }, 401);
+    }
+    const message = `connect\n${sessionId}\n${authEmail}\n${authTs}`;
+    if (!this.verifySig(authSig, message, pubkey)) {
+      return this.json({ error: "bad auth signature" }, 401);
+    }
+    return null;
   }
 
   /** Loads (once) the canonical doc from SQLite into memory. */
@@ -222,11 +470,24 @@ export class CollabRoom {
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    const sessionId = url.searchParams.get("session") ?? "";
+
+    // Access-control mutations (chunk 3). Owner-signed; route before the
+    // snapshot/ws handling.
+    if (url.pathname === "/grant") {
+      return this.handleGrant(sessionId, request);
+    }
+    if (url.pathname === "/revoke") {
+      return this.handleRevoke(sessionId, request);
+    }
 
     // Canonical snapshot read (HTTP GET, no WebSocket). The client adopts this
     // as its base for a collab doc. 200 with the snapshot bytes when stored,
     // 204 when the room is empty (the client keeps its local copy).
     if (url.pathname === "/snapshot") {
+      // Gate before serving any bytes. Open docs pass through unchanged.
+      const denied = this.connectGate(sessionId, url);
+      if (denied) return denied;
       const headers: Record<string, string> = {
         "Access-Control-Allow-Origin": "*",
         "Cache-Control": "no-store",
@@ -245,6 +506,12 @@ export class CollabRoom {
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("Expected WebSocket upgrade", { status: 426 });
     }
+
+    // Gate the upgrade. Open docs accept anyone (in-lab path unchanged); an
+    // enforced doc requires a valid member connect token, else 401 before the
+    // socket is ever accepted.
+    const denied = this.connectGate(sessionId, url);
+    if (denied) return denied;
 
     // Record the sessionId (from the connect URL) so the R2 backup key is
     // stable and meaningful. The DO is addressed by idFromName(sessionId) but
