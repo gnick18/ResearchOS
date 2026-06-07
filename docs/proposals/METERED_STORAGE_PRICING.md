@@ -123,24 +123,19 @@ the grace window, governed by the same never-delete-the-only-copy rule. Because
 billing is usage-based, stopping is graceful, usage simply falls back into the
 free tier and the bill goes to $0.
 
-## Decided
+## Decided (all mechanics locked 2026-06-07)
 
+- Rate: $0.30/GB-month above the free tier (cost $0.20 + $0.10 margin).
+- Free tier: 1 GB per user.
 - Billable measure: average GB-month, sampled daily.
+- Minimum charge: ~$2/month; sub-minimum overage is waived, not accrued.
 - Cap control: a GB picker showing the max monthly cost.
-- Lab-level billing: a PI can sponsor the whole lab on one invoice (above).
+- Lab-level billing: a PI can sponsor the whole lab on one invoice.
+- Lab free tier: per-member pooled (1 GB x member count).
+- Lab visibility: lab aggregate by default, per-member usage opt-in.
 
-## Open questions for Grant
-
-1. Lab free-tier pooling: confirm each member keeps their own 1 GB free (pool =
-   1 GB x members), versus a single flat lab allowance. Recommend per-member
-   pooling, it is friendlier and scales with lab size.
-2. Per-member visibility: can a PI see which members use the storage, or only the
-   lab aggregate? Per-member helps a PI manage a runaway user but is more
-   sensitive. Recommend aggregate by default, per-member usage opt-in.
-3. Minimum charge: ~$2/month proposed. Confirm the number and that sub-minimum
-   overage is waived (not accrued to a future month).
-4. Rate: $0.30/GB-month (cost $0.20 + $0.10 margin). Confirm, or set a different
-   margin.
+Design is fully signed off. Build behind `BILLING_ENABLED`, gated on the WI DOR
+sales-tax determination before any live charge.
 
 ## Out of scope
 
