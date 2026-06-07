@@ -50,6 +50,19 @@ const EMPTY_OBJECT_INDEX: GlobalIndexEntry[] = [];
 const EMPTY_PALETTE_GROUPS: PaletteGroup[] = [];
 const EMPTY_RECENT_RECORDS: PaletteItem[] = [];
 
+/** Per-type icon-chip classes for a cross-app record row (the redesign's per-type
+ *  color coding, so a mixed global-results list is scannable by hue). Tasks amber,
+ *  Projects violet, Methods emerald, Sequences sky. */
+const CHIP_TONE: Record<GlobalObjectType, string> = {
+  task: "bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300",
+  project: "bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-300",
+  method: "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300",
+  sequence: "bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-300",
+};
+/** The default chip for commands / sequence-nav / artifacts / the search-all row
+ *  (everything that is not a typed cross-app record). */
+const CHIP_DEFAULT = "bg-surface-sunken text-sky-600 dark:text-sky-300";
+
 /** The icon, label, optional sub, and right-side hint for ONE palette item,
  *  branched by kind. Keeps the row markup uniform across commands, sequences,
  *  and results. */
@@ -59,6 +72,11 @@ function paletteRowParts(item: PaletteItem): {
   sub?: string;
   /** Right-aligned shortcut or "Open" affordance. */
   hint?: string;
+  /** The object type, when this row is a cross-app record, so the icon chip can
+   *  carry a per-type hue (Tasks amber, Projects violet, Methods emerald,
+   *  Sequences sky). Absent for commands / sequence-nav / artifacts, which keep
+   *  the default sky chip. */
+  tone?: GlobalObjectType;
 } {
   if (item.kind === "command") {
     return {
@@ -84,6 +102,7 @@ function paletteRowParts(item: PaletteItem): {
       label: item.entry.label,
       sub: item.entry.meta,
       hint: "Open",
+      tone: item.entry.type,
     };
   }
   if (item.kind === "searchAll") {
@@ -461,16 +480,12 @@ export function CommandPalette({
           <BeakerBot
             pose="idle"
             animated={false}
-            className="h-6 w-6 flex-none"
+            className="h-5 w-5 flex-none"
             ariaLabel="BeakerBot"
           />
           <span className="flex-none text-body font-semibold text-foreground">
             BeakerSearch
           </span>
-          <Icon
-            name="search"
-            className="h-4 w-4 flex-none text-foreground-muted"
-          />
           <input
             ref={inputRef}
             value={query}
@@ -489,7 +504,7 @@ export function CommandPalette({
             className="flex-1 bg-transparent text-body text-foreground outline-none placeholder:text-foreground-muted"
           />
           <kbd className="rounded-md border border-border bg-surface px-1.5 py-0.5 text-[11px] font-semibold text-foreground-muted">
-            Cmd K
+            esc
           </kbd>
         </div>
 
@@ -517,13 +532,17 @@ export function CommandPalette({
               let flatIndex = -1;
               return groups.map((g) => (
                 <div key={g.title}>
-                  <div className="flex items-center gap-2 px-4 pb-1 pt-2 text-[10px] font-extrabold uppercase tracking-wide text-foreground-muted">
+                  <div className="flex items-center gap-2 px-4 pb-1 pt-2.5 text-[10.5px] font-semibold uppercase tracking-normal text-foreground-muted">
                     <span>{g.title}</span>
                     {g.hint ? (
                       <span className="font-medium normal-case tracking-normal text-foreground-muted">
                         {g.hint}
                       </span>
                     ) : null}
+                    <span
+                      className="ml-1 h-px flex-1 bg-border/60"
+                      aria-hidden="true"
+                    />
                   </div>
                   {g.items.map((item) => {
                     flatIndex += 1;
@@ -549,11 +568,17 @@ export function CommandPalette({
                           e.preventDefault();
                           runItem(item);
                         }}
-                        className={`flex cursor-pointer items-center gap-3 px-4 py-2 ${
-                          isHighlighted ? "bg-sky-50 dark:bg-sky-900/30" : ""
+                        className={`relative flex cursor-pointer items-center gap-3 px-4 py-2 ${
+                          isHighlighted
+                            ? "bg-sky-50 before:absolute before:inset-y-1 before:left-0 before:w-[3px] before:rounded-r before:bg-sky-500 dark:bg-sky-900/30"
+                            : ""
                         } ${enabled ? "" : "cursor-default opacity-40"}`}
                       >
-                        <span className="flex h-6 w-6 flex-none items-center justify-center rounded-md bg-surface-sunken text-sky-600 dark:text-sky-300">
+                        <span
+                          className={`flex h-6 w-6 flex-none items-center justify-center rounded-md ${
+                            parts.tone ? CHIP_TONE[parts.tone] : CHIP_DEFAULT
+                          }`}
+                        >
                           <Icon name={parts.iconName} className="h-3.5 w-3.5" />
                         </span>
                         <span className="min-w-0 flex-1">
@@ -567,7 +592,7 @@ export function CommandPalette({
                           ) : null}
                         </span>
                         {parts.hint ? (
-                          <span className="flex-none text-[11px] text-foreground-muted">
+                          <span className="flex-none rounded-md border border-border px-1.5 py-0.5 text-[11px] font-semibold text-foreground-muted">
                             {parts.hint}
                           </span>
                         ) : null}
@@ -580,13 +605,31 @@ export function CommandPalette({
           )}
         </div>
 
-        {/* Footer hints. Calm, the standard palette legend. */}
-        <div className="flex items-center gap-4 border-t border-border px-4 py-2 text-[11px] text-foreground-muted">
-          <span>Up and Down to navigate</span>
-          <span>Enter to run or open</span>
-          <span className="ml-auto">
-            Cmd K reaches everything, including tools off the rail
+        {/* Footer hints. Compact key chips for the keyboard model, then the calm
+            reach reminder. */}
+        <div className="flex items-center gap-3.5 border-t border-border px-4 py-2 text-[11px] text-foreground-muted">
+          <span className="inline-flex items-center gap-1.5">
+            <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-border bg-surface px-1 font-semibold text-foreground">
+              &uarr;
+            </kbd>
+            <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-border bg-surface px-1 font-semibold text-foreground">
+              &darr;
+            </kbd>
+            navigate
           </span>
+          <span className="inline-flex items-center gap-1.5">
+            <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-border bg-surface px-1 font-semibold text-foreground">
+              &crarr;
+            </kbd>
+            open
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-border bg-surface px-1 font-semibold text-foreground">
+              esc
+            </kbd>
+            close
+          </span>
+          <span className="ml-auto">Cmd K reaches everything</span>
         </div>
       </div>
     </div>,
