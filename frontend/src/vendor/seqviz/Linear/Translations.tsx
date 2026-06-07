@@ -147,7 +147,11 @@ class SingleNamedElementAminoacids extends React.PureComponent<SingleNamedElemen
     const { charWidth, height: h } = this.props; // width adjust
 
     const nW = count * charWidth;
-    const wA = multiplier * 3;
+    // Directional chevron tip, scaled to the box height (not a fixed 3px) so it
+    // stays a calm, consistent angle at any zoom instead of reading sharp and
+    // jagged when zoomed in. The sign carries the strand direction. The left
+    // notch matches so adjacent amino-acid boxes still interlock.
+    const wA = multiplier * h * 0.32;
 
     return `M 0 0
 			L ${nW} 0
