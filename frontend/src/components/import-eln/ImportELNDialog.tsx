@@ -2,7 +2,6 @@
 
 import {
   useCallback,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -24,6 +23,7 @@ import type {
 } from "@/lib/import/eln/types";
 import type { ChangedPage } from "@/lib/import/eln/apply";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
+import LivingPopup from "@/components/ui/LivingPopup";
 import BulkSortScreen from "./BulkSortScreen";
 import PickFormatStep, { type ELNFormat } from "./steps/PickFormatStep";
 import UploadStep from "./steps/UploadStep";
@@ -106,19 +106,9 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
     setOverwritePageIds(new Set());
   }, []);
 
-  // Escape key closes the dialog except during phases where we don't want
-  // the user to bail mid-write.
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      if (step === "applying" || step === "parsing") return;
-      onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, step, onClose]);
-
+  // Closing the dialog is blocked during phases where we don't want the user
+  // to bail mid-write. LivingPopup's scrim / X / Escape all route through
+  // requestClose below.
   const requestClose = useCallback(() => {
     if (step === "applying" || step === "parsing") return;
     onClose();
@@ -267,18 +257,15 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
   }
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="import-eln-dialog"
-      onClick={requestClose}
+    <LivingPopup
+      open={isOpen}
+      onClose={requestClose}
+      label="Import from LabArchives"
+      widthClassName="max-w-3xl"
+      card={false}
+      fillHeight
     >
-      <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="bg-white rounded-xl shadow-xl w-full flex flex-col overflow-hidden max-h-full">
         <div className="px-6 pt-5 pb-3 border-b border-gray-100 flex items-center justify-between gap-4">
           <div>
             <p className="text-meta uppercase tracking-wide text-gray-500 font-medium">
@@ -288,16 +275,6 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
               Import from LabArchives
             </h2>
           </div>
-          {step !== "applying" && step !== "parsing" && (
-            <button
-              type="button"
-              onClick={requestClose}
-              className="text-gray-400 hover:text-gray-600 text-lg leading-none p-1"
-              aria-label="Close"
-            >
-              ×
-            </button>
-          )}
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
@@ -376,7 +353,7 @@ export default function ImportELNDialog({ isOpen, onClose }: ImportELNDialogProp
           onCancel={requestClose}
         />
       </div>
-    </div>
+    </LivingPopup>
   );
 }
 

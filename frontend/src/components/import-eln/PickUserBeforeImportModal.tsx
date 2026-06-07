@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import UserAvatar from "@/components/UserAvatar";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 /**
  * Sticky-intent key. When set in sessionStorage before a sign-in that
@@ -56,11 +56,6 @@ export default function PickUserBeforeImportModal({
   const [isCreating, setIsCreating] = useState(false);
   const [isPicking, setIsPicking] = useState(false);
 
-  // Escape closes this modal (app-wide convention). Only bound while open.
-  useEscapeToClose(onClose, isOpen);
-
-  if (!isOpen) return null;
-
   const handlePick = async (username: string) => {
     if (isPicking || isCreating) return;
     setIsPicking(true);
@@ -102,48 +97,20 @@ export default function PickUserBeforeImportModal({
   const hasUsers = availableUsers.length > 0;
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="eln-pick-user-title"
-      data-testid="eln-pick-user-modal"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="eln-pick-user"
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-      onClick={(e) => {
-        // Click-outside closes. Inner card stops propagation below.
-        if (e.target === e.currentTarget) onClose();
-      }}
+    <LivingPopup
+      open={isOpen}
+      onClose={onClose}
+      label="User picker"
+      widthClassName="max-w-md"
+      card={false}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="eln-pick-user-title"
+        data-testid="eln-pick-user-modal"
         className="relative w-full max-w-md bg-gradient-to-br from-slate-800 to-slate-900 border border-white/15 rounded-2xl shadow-2xl overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
       >
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close user picker"
-          data-testid="eln-pick-user-close"
-          className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-
         <div className="p-6">
           <h2
             id="eln-pick-user-title"
@@ -209,6 +176,6 @@ export default function PickUserBeforeImportModal({
           </div>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }

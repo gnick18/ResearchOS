@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import LivingPopup from "@/components/ui/LivingPopup";
 import { restorePreDemoStateOrClear } from "@/lib/file-system/indexeddb-store";
 import {
   clearAllStickyDemoFlags,
@@ -90,17 +91,6 @@ export default function LeaveDemoModal({ isOpen, onClose }: Props) {
     window.location.replace("/");
   }, []);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
   const title = tutorial ? "End the tour?" : "Leave the demo?";
   const body = tutorial
     ? "Your real folder is still connected and safe in the original tab — leaving the tour just closes this practice tab. Nothing in your real research is touched."
@@ -109,20 +99,18 @@ export default function LeaveDemoModal({ isOpen, onClose }: Props) {
   const cancelLabel = tutorial ? "Keep walking through" : "Keep exploring the demo";
 
   return (
-    <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="leave-demo"
-      onClick={onClose}
+    <LivingPopup
+      open={isOpen}
+      onClose={onClose}
+      label="Leave the demo"
+      widthClassName="max-w-md"
+      card={false}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="leave-demo-title"
         className="relative w-full max-w-md rounded-2xl bg-slate-900 border border-white/10 shadow-2xl p-6"
-        onClick={(e) => e.stopPropagation()}
       >
         <h2
           id="leave-demo-title"
@@ -150,6 +138,6 @@ export default function LeaveDemoModal({ isOpen, onClose }: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }

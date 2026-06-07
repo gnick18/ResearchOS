@@ -7,11 +7,17 @@ import { useAppStore } from "@/lib/store";
 import type { SmartGoal, HighLevelGoal, Project } from "@/lib/types";
 import DynamicAnimation from "./DynamicAnimation";
 import Tooltip from "./Tooltip";
+import LivingPopup from "@/components/ui/LivingPopup";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 import { StampsRow } from "./AttributionChip";
 
 interface HighLevelGoalModalProps {
+  /** Controlled open state. The parent always renders the modal and toggles
+   *  this so LivingPopup can play its exit animation on close. Defaults to
+   *  true so any caller (or test) that always-mounts the modal keeps working
+   *  without threading the prop. */
+  open?: boolean;
   projects: Project[];
   onClose: () => void;
   editingGoal?: HighLevelGoal | null;
@@ -30,6 +36,7 @@ const GOAL_COLORS = [
 ];
 
 export default function HighLevelGoalModal({
+  open = true,
   projects,
   onClose,
   editingGoal,
@@ -204,16 +211,17 @@ export default function HighLevelGoalModal({
   }, [name, startDate, endDate, projectId, color, smartGoals, isEditing, editingGoal, queryClient, onClose, clearGoalDraft]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="high-level-goal-modal"
+    <LivingPopup
+      open={open}
+      onClose={onClose}
+      label={isEditing ? "Edit high-level goal" : "New high-level goal"}
+      widthClassName="max-w-lg"
+      card={false}
+      fillHeight
     >
       <form
         onSubmit={handleSubmit}
-        className="bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 p-6 max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-xl shadow-2xl w-full p-6 overflow-y-auto max-h-full"
       >
         <h3 className="text-heading font-semibold text-gray-900 mb-4">
           {isEditing ? "Edit High-Level Goal" : "New High-Level Goal"}
@@ -480,7 +488,9 @@ export default function HighLevelGoalModal({
         </div>
       </form>
 
-      {/* Celebration Animation */}
+      {/* Celebration Animation. Kept as a child of LivingPopup so it shares
+          the modal's mount lifecycle; the animation renders with its own
+          fixed-position full-screen layer regardless of nesting. */}
       {celebrationPosition && (
         <DynamicAnimation
           type={animationType}
@@ -489,6 +499,6 @@ export default function HighLevelGoalModal({
           onComplete={handleAnimationComplete}
         />
       )}
-    </div>
+    </LivingPopup>
   );
 }

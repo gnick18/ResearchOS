@@ -13,7 +13,7 @@
 //   5. Dropping multiple items shows "Drop just one folder."
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React from "react";
 
 // ── useFileSystem mock ───────────────────────────────────────────────────────
@@ -450,14 +450,22 @@ describe("ResearchFolderSetupNew Import-from-LabArchives picker flow", () => {
     expect(mocks.setCurrentUser).not.toHaveBeenCalled();
   });
 
-  it("the picker modal Close button closes without firing a sign-in", () => {
+  it("the picker modal Close button closes without firing a sign-in", async () => {
     enterUserSelectionScreen();
     render(<ResearchFolderSetup onComplete={vi.fn()} />);
     fireEvent.click(screen.getByTestId("import-eln-cta"));
     expect(screen.getByTestId("eln-pick-user-modal")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId("eln-pick-user-close"));
-    expect(screen.queryByTestId("eln-pick-user-modal")).toBeNull();
+    // LivingPopup owns the close chrome now (corner X + scrim, both labelled
+    // "Close user picker"); click the corner X. The popup plays a ~340ms exit
+    // animation before unmounting, so await the unmount.
+    const closeButtons = screen.getAllByRole("button", {
+      name: /close user picker/i,
+    });
+    fireEvent.click(closeButtons[closeButtons.length - 1]);
+    await waitFor(() => {
+      expect(screen.queryByTestId("eln-pick-user-modal")).toBeNull();
+    });
     expect(sessionStorage.getItem("researchos:eln-import-pending")).toBeNull();
     expect(mocks.setCurrentUser).not.toHaveBeenCalled();
   });

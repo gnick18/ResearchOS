@@ -8,8 +8,7 @@ import {
   previewImport,
 } from "@/lib/import/orchestrate";
 import { pickImportedMethodName, pickImportedProjectName } from "@/lib/import/resolve";
-import Tooltip from "@/components/Tooltip";
-import { CloseIcon } from "@/components/sharing/icons";
+import LivingPopup from "@/components/ui/LivingPopup";
 import type {
   ImportPlan,
   ImportResult,
@@ -80,14 +79,12 @@ export default function ImportExperimentDialog({
     setResult(null);
   }, []);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && stage !== "applying" && stage !== "loading") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, stage, onClose]);
+  // Closing is blocked mid-write so the user can't bail during a parse or an
+  // apply. LivingPopup's scrim / X / Escape all route through this guard.
+  const requestClose = useCallback(() => {
+    if (stage === "applying" || stage === "loading") return;
+    onClose();
+  }, [stage, onClose]);
 
   const handleFile = useCallback(async (file: File) => {
     setStage("loading");
@@ -221,23 +218,16 @@ export default function ImportExperimentDialog({
   // create an experiment / task / project.
   const isMethod = plan?.payload.manifest.kind === "method";
 
-  const handleBackdrop = () => {
-    if (stage !== "applying" && stage !== "loading") onClose();
-  };
-
   return (
-    <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/30 backdrop-blur-sm"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="import-experiment"
-      onClick={handleBackdrop}
+    <LivingPopup
+      open={isOpen}
+      onClose={requestClose}
+      label={isMethod ? "Import method" : "Import experiment"}
+      widthClassName="max-w-2xl"
+      card={false}
+      fillHeight
     >
-      <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="bg-white rounded-xl shadow-2xl w-full flex flex-col overflow-hidden max-h-full">
         <input
           ref={fileInputRef}
           type="file"
@@ -257,18 +247,6 @@ export default function ImportExperimentDialog({
                 : "Bring an experiment shared by another ResearchOS user into your workspace."}
             </p>
           </div>
-          {(stage === "review" || stage === "success" || stage === "error" || stage === "picker") && (
-            <Tooltip label="Close" placement="bottom">
-              <button
-                type="button"
-                onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 p-1"
-                aria-label="Close"
-              >
-                <CloseIcon className="w-5 h-5" />
-              </button>
-            </Tooltip>
-          )}
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
@@ -327,7 +305,7 @@ export default function ImportExperimentDialog({
           </div>
         )}
       </div>
-    </div>
+    </LivingPopup>
   );
 }
 

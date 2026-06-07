@@ -143,7 +143,7 @@ describe("PickUserBeforeImportModal", () => {
     );
   });
 
-  it("fires onClose when the corner close button is clicked", () => {
+  it("fires onClose when the LivingPopup close affordance is clicked", () => {
     const onClose = vi.fn();
     render(
       <PickUserBeforeImportModal
@@ -154,11 +154,16 @@ describe("PickUserBeforeImportModal", () => {
         onClose={onClose}
       />,
     );
-    fireEvent.click(screen.getByTestId("eln-pick-user-close"));
+    // LivingPopup owns the close chrome now (the corner X + the scrim, both
+    // labelled "Close user picker"). Clicking the corner X closes.
+    const closeButtons = screen.getAllByRole("button", {
+      name: /close user picker/i,
+    });
+    fireEvent.click(closeButtons[closeButtons.length - 1]);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("fires onClose when the dark backdrop is clicked", () => {
+  it("fires onClose when the blurred scrim (click outside) is clicked", () => {
     const onClose = vi.fn();
     render(
       <PickUserBeforeImportModal
@@ -169,7 +174,12 @@ describe("PickUserBeforeImportModal", () => {
         onClose={onClose}
       />,
     );
-    fireEvent.click(screen.getByTestId("eln-pick-user-modal"));
+    // The scrim is the first "Close user picker" button (the full-bleed
+    // backdrop); the corner X is the second.
+    const closeButtons = screen.getAllByRole("button", {
+      name: /close user picker/i,
+    });
+    fireEvent.click(closeButtons[0]);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

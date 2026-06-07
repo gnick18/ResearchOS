@@ -186,7 +186,8 @@ describe("FeedbackModal — Escape closes the modal", () => {
     const onClose = vi.fn();
     render(<FeedbackModal isOpen onClose={onClose} />);
 
-    fireEvent.keyDown(window, { key: "Escape" });
+    // LivingPopup binds the Escape listener on document.
+    fireEvent.keyDown(document, { key: "Escape" });
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -195,7 +196,7 @@ describe("FeedbackModal — Escape closes the modal", () => {
     const onClose = vi.fn();
     render(<FeedbackModal isOpen={false} onClose={onClose} />);
 
-    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.keyDown(document, { key: "Escape" });
 
     expect(onClose).not.toHaveBeenCalled();
   });

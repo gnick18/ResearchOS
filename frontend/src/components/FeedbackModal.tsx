@@ -10,7 +10,7 @@ import {
   type FeedbackType,
 } from "@/lib/error-reporting";
 import Tooltip from "@/components/Tooltip";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 interface FeedbackModalProps {
   isOpen: boolean;
@@ -68,8 +68,6 @@ function writeStoredType(value: FeedbackType): void {
 
 export default function FeedbackModal({ isOpen, onClose, prefilledError }: FeedbackModalProps) {
   const [type, setType] = useState<FeedbackType>("bug");
-  // Escape closes this modal (app-wide convention). Only bound while open.
-  useEscapeToClose(onClose, isOpen);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [copied, setCopied] = useState(false);
@@ -327,20 +325,16 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
       : "Submit Feedback";
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="feedback-modal"
+    <LivingPopup
+      open={isOpen}
+      onClose={onClose}
+      label="Feedback"
+      widthClassName="max-w-lg"
+      card={false}
+      fillHeight
     >
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-      <div
-        className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden max-h-[90vh] flex flex-col"
+        className="relative bg-white rounded-2xl shadow-2xl w-full overflow-hidden flex flex-col max-h-full"
         onPaste={confirmStep ? undefined : handlePaste}
         onDragOver={confirmStep ? undefined : handleDragOver}
         onDragLeave={confirmStep ? undefined : handleDragLeave}
@@ -507,15 +501,6 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
                 <p className="text-meta text-gray-500">Help us improve ResearchOS</p>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-              aria-label="Close feedback dialog"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
           </div>
         </div>
 
@@ -760,6 +745,6 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
         </>
         )}
       </div>
-    </div>
+    </LivingPopup>
   );
 }
