@@ -25,7 +25,8 @@
  * brand-action blue, matching the rest of the app.
  *
  * Voice rules: warm and concept-first. No em-dashes, no emojis, no mid-sentence
- * colons. Every icon is an inline SVG.
+ * colons. Interface glyphs come from the verified <Icon> registry; the only raw
+ * SVG is the decorative ConfettiLayer (in components/animations/).
  */
 
 import { useEffect, useState } from "react";
@@ -33,6 +34,8 @@ import Link from "next/link";
 
 import BeakerBot from "@/components/BeakerBot";
 import AppFooter from "@/components/AppFooter";
+import ConfettiLayer from "@/components/animations/ConfettiLayer";
+import { Icon } from "@/components/icons";
 import sponsorsData from "@/data/sponsors.json";
 
 const GITHUB_SPONSORS_URL = "https://github.com/sponsors/ResearchOS-LLC";
@@ -48,48 +51,6 @@ export interface Sponsor {
 }
 
 const sponsors = sponsorsData as Sponsor[];
-
-/* ───────────── small inline icons (no emoji) ───────────────────────────── */
-
-function CheckIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="mt-0.5 shrink-0 text-brand-sky"
-      aria-hidden="true"
-    >
-      <path d="M5 13l4 4L19 7" />
-    </svg>
-  );
-}
-
-/** Light confetti layer for the Institute card payoff. Custom SVG shapes in
- *  the rainbow palette, no emoji. Decorative only. */
-function ConfettiLayer() {
-  return (
-    <svg
-      viewBox="0 0 120 120"
-      className="pointer-events-none absolute inset-0 h-full w-full"
-      aria-hidden="true"
-    >
-      <g stroke="none">
-        <rect x="14" y="10" width="6" height="6" rx="1" fill="#1AA0E6" transform="rotate(20 17 13)" />
-        <circle cx="102" cy="16" r="3.2" fill="#7FC98A" />
-        <rect x="96" y="30" width="6" height="6" rx="1" fill="#C79BEC" transform="rotate(-18 99 33)" />
-        <circle cx="20" cy="34" r="3.2" fill="#F4B740" />
-        <rect x="58" y="8" width="5" height="5" rx="1" fill="#EE8FAE" transform="rotate(12 60 10)" />
-        <circle cx="80" cy="44" r="2.6" fill="#7FB8EE" />
-      </g>
-    </svg>
-  );
-}
 
 /* ───────────── tier cards ──────────────────────────────────────────────── */
 
@@ -191,7 +152,7 @@ function TierCard({ tier }: { tier: Tier }) {
       <ul className="relative my-5 flex-1 space-y-2.5 text-body">
         {tier.perks.map((perk) => (
           <li key={perk} className="flex items-start gap-2 text-foreground">
-            <CheckIcon />
+            <Icon name="check" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-sky" />
             <span>{perk}</span>
           </li>
         ))}
