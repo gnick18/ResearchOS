@@ -49,9 +49,14 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useRouter, usePathname } from "next/navigation";
 // Imported from the sequences tree for this step; relocation into beaker-search/
 // is a future step (see the file header).
 import { CommandPalette } from "@/components/sequences/CommandPalette";
+// BeakerSearch global object search, chunk 2. activePageTypeForPath maps the
+// current route to the object type the page hosts as its own entity, so the
+// palette drops that type's global group (on-page de-dup).
+import { activePageTypeForPath } from "./global-source";
 import type { BeakerSearchSource } from "./types";
 // BeakerSearch step 2a, the always-present global layer. The global commands are
 // built under the router + theme here in the provider, then MERGED beneath the
@@ -118,10 +123,31 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
   // under the router + theme so its handlers can push routes and flip the theme.
   const globalCommands = useGlobalCommands();
 
-  // The cross-app object index. Chunk 1 mounts it only for its eager-once
-  // shell-mount prefetch (decision 2); the returned entries feed the palette in
-  // chunk 2, so the value is intentionally not consumed yet.
-  void useGlobalObjectIndex();
+  // The cross-app object index (chunk 1, a thin reader over the four canonical
+  // caches plus the eager-once shell-mount prefetch). Chunk 2 feeds it into the
+  // palette as the global NAVIGATE source; the palette ranks + debounces it
+  // against its own query. Mounting here also keeps the prefetch running on shell
+  // mount.
+  const objectIndex = useGlobalObjectIndex();
+  const router = useRouter();
+  const pathname = usePathname();
+  // The object type the current route hosts as its own primary entity, so the
+  // palette suppresses that type's global group (on-page de-dup, the page source
+  // already surfaces those records with richer rows). Null on routes that host
+  // none of the four core types.
+  const activePageType = useMemo(
+    () => activePageTypeForPath(pathname),
+    [pathname],
+  );
+  // Jump to a cross-app object by its complete deep-link href, then close the
+  // palette. The target page reads the param on mount and opens the record.
+  const navigateToObject = useCallback(
+    (href: string) => {
+      router.push(href);
+      setOpen(false);
+    },
+    [router],
+  );
 
   const activePage = sources.length > 0 ? sources[sources.length - 1] : null;
   // A page source is still reported via hasSource for any trigger that wants to
@@ -202,6 +228,9 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
           sequences={effectiveSource.sequences}
           artifacts={effectiveSource.artifacts}
           collectionLabel={effectiveSource.collectionLabel}
+          objectIndex={objectIndex}
+          activePageType={activePageType}
+          onNavigateObject={navigateToObject}
         />
       </BeakerSearchRegistryContext.Provider>
     </BeakerSearchApiContext.Provider>

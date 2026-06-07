@@ -10,6 +10,11 @@
 
 import type { IconName } from "@/components/icons";
 import type { SelectionKind } from "@/lib/sequences/inspector-context";
+// BeakerSearch global object search, chunk 2. The cross-app NAVIGATE record the
+// palette can highlight and jump to, fed by the app-shell global source. It is a
+// new PaletteItem kind, not a new renderer path, so the existing row markup
+// (icon + label + meta) covers it via paletteRowParts.
+import type { GlobalIndexEntry } from "@/components/beaker-search/global-index";
 
 /** The intent buckets a command falls into. "Suggested" is not authored on a
  *  command; it is synthesized at the top of the empty-query list from the live
@@ -98,19 +103,27 @@ export interface ArtifactNavItem {
 /** The heterogeneous things the palette can highlight and run. A discriminated
  *  union so the keyboard cursor, the renderer, and Enter all branch on `kind`.
  *  "command" runs the editor handler, "sequence" switches the open sequence,
- *  "artifact" reopens a saved result. */
+ *  "artifact" reopens a saved result, "object" jumps to a cross-app record (the
+ *  global object source, chunk 2) via its deep-link href. */
 export type PaletteItem =
   | { kind: "command"; command: EditorCommand }
   | { kind: "sequence"; sequence: SequenceNavItem }
-  | { kind: "artifact"; artifact: ArtifactNavItem };
+  | { kind: "artifact"; artifact: ArtifactNavItem }
+  | { kind: "object"; entry: GlobalIndexEntry; onRun: () => void };
 
 /** The visible heading a palette group prints under. The command intent groups,
- *  the synthetic "Suggested", plus the two navigation groups. */
+ *  the synthetic "Suggested", the sequence-editor navigation groups, plus the
+ *  four per-type headings the global object source (chunk 2) prints under. */
 export type PaletteGroupTitle =
   | CommandGroup
   | "Suggested"
   | "Jump to a sequence"
-  | "Recent results";
+  | "Recent results"
+  // BeakerSearch global object search, chunk 2, one heading per object type.
+  | "Tasks"
+  | "Projects"
+  | "Methods"
+  | "Sequences";
 
 /** A grouped block of heterogeneous palette items the component renders. `hint`
  *  is an optional muted clause after the heading (e.g. "for your selection" or
@@ -125,14 +138,17 @@ export interface PaletteGroup {
  *  their `enabled` flag; navigation items are always runnable. */
 export function isPaletteItemEnabled(item: PaletteItem): boolean {
   if (item.kind === "command") return isCommandEnabled(item.command);
+  if (item.kind === "object") return item.entry.enabled;
   return true;
 }
 
 /** The stable id used for keys / aria-activedescendant, namespaced by kind so a
- *  command and a sequence can never collide. */
+ *  command, a sequence, and a cross-app object can never collide. The object key
+ *  folds in the type so a task and a sequence sharing a numeric id never clash. */
 export function paletteItemKey(item: PaletteItem): string {
   if (item.kind === "command") return `command-${item.command.id}`;
   if (item.kind === "sequence") return `sequence-${item.sequence.id}`;
+  if (item.kind === "object") return `object-${item.entry.type}-${item.entry.key}`;
   return `artifact-${item.artifact.id}`;
 }
 
@@ -144,6 +160,10 @@ export function runPaletteItem(item: PaletteItem): void {
   }
   if (item.kind === "sequence") {
     item.sequence.onRun();
+    return;
+  }
+  if (item.kind === "object") {
+    if (item.entry.enabled) item.onRun();
     return;
   }
   item.artifact.onRun();
@@ -405,7 +425,28 @@ export interface PaletteInput {
   collectionLabel?: string;
   selectionKind: SelectionKind;
   hasOrganism: boolean;
+  /** BeakerSearch global object search, chunk 2. Pre-ranked per-type object
+   *  groups (Tasks / Projects / Methods / Sequences), built by the app-shell
+   *  global source from the pure rankGlobalEntries (already scored, capped, and
+   *  de-duped against the active page). Empty on an empty query and on pages that
+   *  do not feed the index. They splice in AFTER the page's own command / sequence
+   *  / artifact groups and BEFORE the global "Go to" / "App" command groups, so
+   *  the page's own context leads and the global reach lives below. Optional, an
+   *  omitted value is the no-object-source case (e.g. the sequence editor's own
+   *  unit tests). */
+  objectGroups?: PaletteGroup[];
 }
+
+/** The two trailing command groups the always-present global layer contributes
+ *  (cross-page nav + safe app commands). The object groups splice in just above
+ *  these, so a page's own groups lead, then objects, then the global reach. */
+const GLOBAL_COMMAND_GROUPS: ReadonlySet<CommandGroup> = new Set<CommandGroup>([
+  "Go to",
+  "App",
+]);
+
+/** Stable empty default so an omitted objectGroups prop does not churn the memo. */
+const EMPTY_OBJECT_GROUPS: PaletteGroup[] = [];
 
 /** Build the palette's heterogeneous, grouped view.
  *
@@ -436,6 +477,7 @@ export function buildPaletteResultsForQuery(
     collectionLabel,
     selectionKind,
     hasOrganism,
+    objectGroups = EMPTY_OBJECT_GROUPS,
   } = input;
   const trimmed = query.trim();
 
@@ -516,32 +558,56 @@ export function buildPaletteResultsForQuery(
 
   // Bucket the survivors. Sequences and artifacts each get their own heading;
   // the commands re-bucket into their intent groups (so the typed view still
-  // reads in the rail's order under each label).
-  const groups: PaletteGroup[] = [];
+  // reads in the rail's order under each label). The page's own groups are
+  // assembled FIRST, then the global object groups splice in (between the page's
+  // own context and the global "Go to" / "App" reach), so the page leads and the
+  // global reach lives below (doc 5.4).
+  const pageGroups: PaletteGroup[] = [];
 
   const seqItems = scored
     .filter((s) => s.item.kind === "sequence")
     .map((s) => s.item);
   if (seqItems.length > 0) {
-    groups.push({ title: "Jump to a sequence", items: seqItems });
+    pageGroups.push({ title: "Jump to a sequence", items: seqItems });
   }
 
   const artItems = scored
     .filter((s) => s.item.kind === "artifact")
     .map((s) => s.item);
   if (artItems.length > 0) {
-    groups.push({ title: "Recent results", items: artItems });
+    pageGroups.push({ title: "Recent results", items: artItems });
   }
 
+  // The page's own command intent groups (everything that is NOT the global
+  // "Go to" / "App" layer), so the object groups can slot in just above those.
+  const globalCommandGroups: PaletteGroup[] = [];
   for (const group of COMMAND_GROUP_ORDER) {
     const inGroup = scored
       .filter((s) => s.item.kind === "command" && s.item.command.group === group)
       .map((s) => s.item);
-    if (inGroup.length > 0) groups.push({ title: group, items: inGroup });
+    if (inGroup.length === 0) continue;
+    const built = { title: group, items: inGroup };
+    if (GLOBAL_COMMAND_GROUPS.has(group)) globalCommandGroups.push(built);
+    else pageGroups.push(built);
   }
 
-  // Lead with the group that holds the single best hit, so the default highlight
-  // sits right under the input regardless of kind.
+  // The order before the top-hit lead, page's own groups, then the pre-ranked
+  // global object groups (already scored, capped, de-duped by rankGlobalEntries),
+  // then the global "Go to" / "App" command groups.
+  const groups: PaletteGroup[] = [
+    ...pageGroups,
+    ...objectGroups,
+    ...globalCommandGroups,
+  ];
+
+  // Lead with the group that holds the page source's single best hit, so the
+  // default highlight sits right under the input (the existing rule). The page's
+  // own scored list and the pre-ranked object groups are scored independently, so
+  // we only promote the page's own top-hit group to front when the page produced
+  // a match; otherwise the page's own context leads, then the object groups, then
+  // the global reach, which is the intended composition (doc 5.4). The object
+  // groups stay best-first among themselves (rankGlobalEntries already ordered
+  // them), so a global-only match still surfaces in a stable, sensible order.
   if (scored.length > 0) {
     const topTitle = paletteGroupTitleOf(scored[0].item);
     groups.sort((a, b) => {
@@ -553,10 +619,28 @@ export function buildPaletteResultsForQuery(
   return groups;
 }
 
+/** The per-type heading an object entry belongs under (Tasks / Projects /
+ *  Methods / Sequences). Exported so the app-shell global source builds its
+ *  PaletteGroup titles from the same map paletteGroupTitleOf uses, keeping one
+ *  source of truth over the union. */
+export function objectGroupTitle(type: GlobalIndexEntry["type"]): PaletteGroupTitle {
+  switch (type) {
+    case "task":
+      return "Tasks";
+    case "project":
+      return "Projects";
+    case "method":
+      return "Methods";
+    case "sequence":
+      return "Sequences";
+  }
+}
+
 /** The heading a single item belongs under in the typed view. */
 function paletteGroupTitleOf(item: PaletteItem): PaletteGroupTitle {
   if (item.kind === "sequence") return "Jump to a sequence";
   if (item.kind === "artifact") return "Recent results";
+  if (item.kind === "object") return objectGroupTitle(item.entry.type);
   return item.command.group;
 }
 

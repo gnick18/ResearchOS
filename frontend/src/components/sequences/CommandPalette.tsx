@@ -22,18 +22,32 @@ import {
   buildPaletteResultsForQuery,
   flattenPaletteItems,
   isPaletteItemEnabled,
+  objectGroupTitle,
   paletteItemKey,
   runPaletteItem,
   type ArtifactNavItem,
   type EditorCommand,
   type PaletteContext,
+  type PaletteGroup,
   type PaletteItem,
   type SequenceNavItem,
 } from "./editor-commands";
+// BeakerSearch global object search, chunk 2. The palette ranks the flat
+// cross-app index (debounced) into per-type object groups and jumps to a record
+// by its deep-link href. The ranking brain is pure (global-source.ts); the
+// palette only debounces, maps to PaletteGroups, and wires the run closures.
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import {
+  rankGlobalEntries,
+  type GlobalObjectType,
+} from "@/components/beaker-search/global-source";
+import type { GlobalIndexEntry } from "@/components/beaker-search/global-index";
 
 // Stable empty defaults so an omitted prop does not churn the result memo.
 const EMPTY_SEQUENCES: SequenceNavItem[] = [];
 const EMPTY_ARTIFACTS: ArtifactNavItem[] = [];
+const EMPTY_OBJECT_INDEX: GlobalIndexEntry[] = [];
+const EMPTY_PALETTE_GROUPS: PaletteGroup[] = [];
 
 /** The icon, label, optional sub, and right-side hint for ONE palette item,
  *  branched by kind. Keeps the row markup uniform across commands, sequences,
@@ -58,6 +72,17 @@ function paletteRowParts(item: PaletteItem): {
       iconName: item.sequence.iconName,
       label: item.sequence.label,
       sub: item.sequence.detail,
+    };
+  }
+  if (item.kind === "object") {
+    // A cross-app object (global object search, chunk 2). Reuses the uniform row,
+    // the entry carries its own icon + label + meta subline, and the right-side
+    // hint reads "Open" like the artifact jump (Enter jumps to its home page).
+    return {
+      iconName: item.entry.iconName,
+      label: item.entry.label,
+      sub: item.entry.meta,
+      hint: "Open",
     };
   }
   return {
@@ -157,6 +182,18 @@ export interface CommandPaletteProps {
   artifacts?: ArtifactNavItem[];
   /** The collection name, for the "Jump to a sequence" group hint. */
   collectionLabel?: string;
+  /** BeakerSearch global object search, chunk 2. The flat cross-app index the
+   *  palette ranks (debounced, 120 ms) into the per-type object groups. Default
+   *  empty, so the sequence editor's own tests and any non-shell caller show no
+   *  objects. */
+  objectIndex?: GlobalIndexEntry[];
+  /** The object type the current page hosts as its own entity, whose global group
+   *  is suppressed (on-page de-dup). Null suppresses nothing. */
+  activePageType?: GlobalObjectType | null;
+  /** Jump to a cross-app object by its deep-link href (the provider supplies
+   *  router.push + close). Absent disables object navigation, so no object groups
+   *  render. */
+  onNavigateObject?: (href: string) => void;
 }
 
 /** The full-screen palette. Renders nothing when closed. */
@@ -170,6 +207,9 @@ export function CommandPalette({
   sequences = EMPTY_SEQUENCES,
   artifacts = EMPTY_ARTIFACTS,
   collectionLabel,
+  objectIndex = EMPTY_OBJECT_INDEX,
+  activePageType = null,
+  onNavigateObject,
 }: CommandPaletteProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -184,15 +224,50 @@ export function CommandPalette({
 
   const typing = query.trim() !== "";
 
-  // Grouped + flat heterogeneous results (commands + sequences + results) for the
-  // current query and selection context.
+  // BeakerSearch global object search, chunk 2. The cross-app object ranking is
+  // DEBOUNCED (120 ms) so each keystroke does not re-rank the whole index; the
+  // page's own commands / sequences / artifacts stay instant on `query`. The
+  // ranking, the type weights, the caps, and the on-page de-dup all live in the
+  // pure rankGlobalEntries; here we only debounce, stamp `now` for the recency
+  // boost, map the ranked entries to PaletteGroups, and wire each row's jump to
+  // its deep-link href. Empty query yields no object groups (rankGlobalEntries
+  // returns [] then; the Recent-records MRU is chunk 4). Absent onNavigateObject
+  // (a non-shell caller, e.g. the editor's own tests) renders no object groups.
+  const debouncedQuery = useDebouncedValue(query, 120);
+  const objectGroups = useMemo<PaletteGroup[]>(() => {
+    if (!onNavigateObject) return EMPTY_PALETTE_GROUPS;
+    const ranked = rankGlobalEntries(objectIndex, debouncedQuery, {
+      now: Date.now(),
+      activePageType,
+    });
+    if (ranked.length === 0) return EMPTY_PALETTE_GROUPS;
+    return ranked.map((group) => ({
+      title: objectGroupTitle(group.type),
+      items: group.entries.map((entry) => ({
+        kind: "object" as const,
+        entry,
+        onRun: () => onNavigateObject(entry.href),
+      })),
+    }));
+  }, [objectIndex, debouncedQuery, activePageType, onNavigateObject]);
+
+  // Grouped + flat heterogeneous results (commands + sequences + results + the
+  // global object groups) for the current query and selection context.
   const groups = useMemo(
     () =>
       buildPaletteResultsForQuery(
-        { commands, sequences, artifacts, collectionLabel, selectionKind, hasOrganism },
+        {
+          commands,
+          sequences,
+          artifacts,
+          collectionLabel,
+          selectionKind,
+          hasOrganism,
+          objectGroups,
+        },
         query,
       ),
-    [commands, sequences, artifacts, collectionLabel, selectionKind, hasOrganism, query],
+    [commands, sequences, artifacts, collectionLabel, selectionKind, hasOrganism, objectGroups, query],
   );
   const flat = useMemo(() => flattenPaletteItems(groups), [groups]);
 
