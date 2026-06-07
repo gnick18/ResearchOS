@@ -62,7 +62,9 @@ export async function GET(): Promise<Response> {
     const summary = computeSummary(ledger, entity.reservePct);
     const deadlines = upcomingDeadlines(entity, new Date());
     const infraEstimate = estimateMonthlyInfraCostCents(
-      capacity?.neon.usedBytes ?? null,
+      // The metered durable content is the collab doc store (migrating to
+      // Cloudflare Durable Objects), not the whole legacy Neon database.
+      capacity?.neon.collabBytes ?? null,
       capacity?.r2.usedBytes ?? null,
     );
     return json(200, {

@@ -881,7 +881,7 @@ export default function BusinessTracker() {
         />
       </div>
 
-      <SectionTitle sub="A rough monthly storage cost from current Neon and R2 usage. Storage only, no compute or bandwidth. Record it to the ledger when the real invoice lands, or as a running estimate.">
+      <SectionTitle sub="Estimated monthly infra cost at the current usage. The fixed base (Workers Paid + Vercel Pro) is what you pay at any user count; Durable Objects and R2 storage are charged only above their free tiers, so they read $0 until a real user base fills them. Storage + base only, no compute or bandwidth.">
         Infrastructure cost
       </SectionTitle>
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-surface-raised p-5">
@@ -893,8 +893,9 @@ export default function BusinessTracker() {
             {formatUSD(infraEstimate.totalCents)}
           </p>
           <p className="mt-1 text-meta text-foreground-muted">
-            Neon {formatUSD(infraEstimate.neonCents)} + R2{" "}
-            {formatUSD(infraEstimate.r2Cents)}
+            Fixed base {formatUSD(infraEstimate.fixedBaseCents)} (Workers $5 +
+            Vercel Pro $20) + Durable Objects {formatUSD(infraEstimate.doCents)} +
+            R2 {formatUSD(infraEstimate.r2Cents)}
           </p>
         </div>
         <button

@@ -42,17 +42,28 @@ describe("reminder copy", () => {
 describe("estimateMonthlyInfraCostCents", () => {
   const GB = 1024 ** 3;
 
-  it("prices Neon at $0.35/GB-month and R2 at $0.015/GB-month", () => {
-    const est = estimateMonthlyInfraCostCents(1 * GB, 10 * GB);
-    expect(est.neonCents).toBe(35); // 1 GB * $0.35
-    expect(est.r2Cents).toBe(15); // 10 GB * $0.015 = $0.15
-    expect(est.totalCents).toBe(50);
+  it("charges Durable Objects and R2 only above their free tiers, plus the fixed base", () => {
+    // 7 GB collab = 2 GB over the 5 GB DO free tier; 12 GB R2 = 2 GB over its
+    // 10 GB free tier. Fixed base is Workers Paid + Vercel Pro = $25.
+    const est = estimateMonthlyInfraCostCents(7 * GB, 12 * GB);
+    expect(est.doCents).toBe(40); // 2 GB * $0.20
+    expect(est.r2Cents).toBe(3); // 2 GB * $0.015 = $0.03
+    expect(est.fixedBaseCents).toBe(2500);
+    expect(est.totalCents).toBe(2543);
   });
 
-  it("treats a null (unavailable) measurement as zero", () => {
-    const est = estimateMonthlyInfraCostCents(null, 2 * GB);
-    expect(est.neonCents).toBe(0);
-    expect(est.r2Cents).toBe(3); // 2 GB * $0.015 = $0.03
-    expect(est.totalCents).toBe(3);
+  it("reads only the fixed base while usage is inside the free tiers", () => {
+    // 1 GB collab and 5 GB R2 are both well within free, so storage is $0.
+    const est = estimateMonthlyInfraCostCents(1 * GB, 5 * GB);
+    expect(est.doCents).toBe(0);
+    expect(est.r2Cents).toBe(0);
+    expect(est.totalCents).toBe(2500);
+  });
+
+  it("treats a null (unavailable) measurement as zero storage", () => {
+    const est = estimateMonthlyInfraCostCents(null, 12 * GB);
+    expect(est.doCents).toBe(0);
+    expect(est.r2Cents).toBe(3); // 2 GB over free * $0.015 = $0.03
+    expect(est.totalCents).toBe(2503);
   });
 });

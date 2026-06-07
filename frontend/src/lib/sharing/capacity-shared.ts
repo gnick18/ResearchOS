@@ -49,39 +49,74 @@ export function capacityStatus(pct: number): CapacityStatus {
 }
 
 /**
- * Published storage unit prices (USD per GB-month), June 2026. Used to turn the
- * measured usage into a rough monthly cost estimate for the business tracker.
- * Storage only, these deliberately ignore compute and bandwidth, which the
- * dashboard does not measure. Verify against the provider's current pricing.
+ * Published storage unit prices (USD per GB-month), checked 2026-06-07. Used to
+ * turn measured usage into a rough monthly cost estimate for the business
+ * tracker. Storage only, these deliberately ignore compute and bandwidth, which
+ * the dashboard does not measure. Verify against the provider's current pricing.
+ *
+ * The collab doc store (the metered durable content) is migrating off Neon onto
+ * Cloudflare Durable Objects SQLite, so `do` is the binding rate now. `neon` is
+ * kept only for the transition.
  */
 export const STORAGE_PRICE_USD_PER_GB_MONTH = {
-  neon: 0.35,
-  r2: 0.015,
+  neon: 0.35, // legacy, being retired
+  do: 0.2, // Cloudflare Durable Objects SQLite (collab docs)
+  r2: 0.015, // Cloudflare R2 (relay bundles + future file attachments)
 } as const;
 
+/**
+ * Storage included free before per-GB billing starts (account-wide, on the paid
+ * plans). Usage below these costs nothing, so a realistic estimate subtracts
+ * them. This is why a modest free user base is effectively free to host.
+ */
+export const STORAGE_FREE_TIER_BYTES = {
+  do: 5 * GB, // Durable Objects SQLite: 5 GB included
+  r2: 10 * GB, // R2: 10 GB included
+} as const;
+
+/**
+ * Fixed monthly platform base, independent of usage or user count: Cloudflare
+ * Workers Paid ($5) plus Vercel Pro ($20, required once the app is commercial).
+ * This is the floor you pay at any scale; storage overages stack on top.
+ */
+export const FIXED_MONTHLY_BASE_CENTS = 2500;
+
 export interface InfraCostEstimate {
-  neonCents: number;
+  /** Durable Objects (collab doc) storage above its free tier. */
+  doCents: number;
+  /** R2 storage above its free tier. */
   r2Cents: number;
+  /** Fixed Workers Paid + Vercel Pro base, billed regardless of usage. */
+  fixedBaseCents: number;
   totalCents: number;
 }
 
 /**
- * A rough monthly storage cost from the measured byte totals. A null usage
+ * A rough monthly infra cost from the measured byte totals plus the fixed base.
+ * Each storage figure is charged only above its free tier, and a null usage
  * figure contributes zero (the service was unavailable), so the estimate never
- * throws. Storage only, see STORAGE_PRICE_USD_PER_GB_MONTH.
+ * throws. Storage + fixed base only, see the constants above.
  */
 export function estimateMonthlyInfraCostCents(
-  neonBytes: number | null,
+  collabBytes: number | null,
   r2Bytes: number | null,
 ): InfraCostEstimate {
-  const GB = 1024 ** 3;
-  const neonCents =
-    neonBytes == null
-      ? 0
-      : Math.round((neonBytes / GB) * STORAGE_PRICE_USD_PER_GB_MONTH.neon * 100);
-  const r2Cents =
-    r2Bytes == null
-      ? 0
-      : Math.round((r2Bytes / GB) * STORAGE_PRICE_USD_PER_GB_MONTH.r2 * 100);
-  return { neonCents, r2Cents, totalCents: neonCents + r2Cents };
+  const billableGb = (bytes: number | null, freeBytes: number): number =>
+    bytes == null ? 0 : Math.max(0, bytes - freeBytes) / GB;
+  const doCents = Math.round(
+    billableGb(collabBytes, STORAGE_FREE_TIER_BYTES.do) *
+      STORAGE_PRICE_USD_PER_GB_MONTH.do *
+      100,
+  );
+  const r2Cents = Math.round(
+    billableGb(r2Bytes, STORAGE_FREE_TIER_BYTES.r2) *
+      STORAGE_PRICE_USD_PER_GB_MONTH.r2 *
+      100,
+  );
+  return {
+    doCents,
+    r2Cents,
+    fixedBaseCents: FIXED_MONTHLY_BASE_CENTS,
+    totalCents: doCents + r2Cents + FIXED_MONTHLY_BASE_CENTS,
+  };
 }
