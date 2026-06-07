@@ -110,10 +110,6 @@ vi.mock("@/lib/storage/json-store", () => ({
   clearCurrentUserCache: vi.fn(),
 }));
 
-vi.mock("@/lib/auth/cached-password", () => ({
-  clearCachedPassword: vi.fn(),
-}));
-
 vi.mock("@/lib/settings/user-settings", () => ({
   // hydrateSettingsForUser pulls these three; all become inert no-ops
   // returning the default-shaped settings the Zustand hydrator expects.

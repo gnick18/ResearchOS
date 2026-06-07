@@ -80,10 +80,6 @@ vi.mock("@/lib/storage/json-store", () => ({
   clearCurrentUserCache: vi.fn(),
 }));
 
-vi.mock("@/lib/auth/cached-password", () => ({
-  clearCachedPassword: vi.fn(),
-}));
-
 vi.mock("@/lib/settings/user-settings", () => ({
   userSettingsFileExists: vi.fn(async () => false),
   readUserSettings: vi.fn(async () => ({
