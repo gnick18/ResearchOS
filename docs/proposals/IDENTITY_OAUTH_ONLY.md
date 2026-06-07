@@ -83,6 +83,26 @@ key, unlock with passkey, or sign in with OAuth."
 - **Solo, no profile.** None of the above. The app opens straight into the
   folder.
 
+## At-rest device key (discovery, 2026-06-06)
+
+`sharing/identity/storage.ts` currently persists the keypair as RAW plaintext
+bytes in IndexedDB ("Raw key bytes live on this device only"). Today the gate is
+the folder-level password (`_account.json`); the key itself is unprotected at
+rest, `loadIdentity()` just hands it back.
+
+For "passkey gates everyday unlock" to mean anything on a shared browser profile,
+the device key must be WRAPPED at rest, not plaintext. So storage.ts changes from
+storing raw keys to storing the same envelope shape the passkey arc already
+defines (`key-backup-envelope.ts`): a passkey-PRF-wrapped blob plus a
+recovery-code-wrapped blob. `loadIdentity()` becomes "unlock", run the passkey
+ceremony (or take the recovery code offline) to unwrap the in-memory session key;
+nothing usable sits on disk without one of those. This is the load-bearing change
+that makes switch-user a real gate, and it reuses the chunk 1-3 crypto.
+
+Consequence: there is no more silent plaintext load. Opening the app / switching
+to your user always runs the passkey ceremony (fast, Face ID / fingerprint), with
+the recovery code as the offline fallback.
+
 ## Shared folders
 
 The cutover's reason to exist (a shared folder needs a per-user gate so people
@@ -119,14 +139,23 @@ are dropped, the user re-establishes a profile. No production users to migrate
 
 ## Phasing
 
-1. Unify the keypair, profile setup reuses / becomes the one keypair, sharing
-   setup stops minting a second one. Login loads that key.
-2. Make the passkey the everyday unlock in the login screen (revised chunk 4),
-   OAuth re-login fallback, recovery-code lifeboat.
-3. Rip the password system (files + UI listed above), force-profile gate for
-   shared folders.
+These phases are MORE interdependent than a clean linear list, login must keep
+working, so the new passkey-unlock path is built before the password path is
+ripped. Practical order:
+
+1. Wrap the device key at rest (storage.ts -> envelope), and make the sharing
+   setup the single keypair source (stop minting a second key). Build the new
+   unlock (passkey, recovery-code offline) alongside the old login.
+2. Cut the login screen over to the new unlock, OAuth for setup/new-device,
+   recovery-code offline fallback. Shared-folder gate becomes force-make-a-profile.
+3. Rip the now-dead password system (files + UI listed above), retire
+   `_account.json`.
 4. Change-linked-email rebind (chunk 5).
 5. Verify, Grant tests the live passkey + OAuth flows (not headless-drivable).
+
+Because the unlock and at-rest changes are security-critical AND not
+headless-verifiable, each phase ships compiling + unit-tested, and Grant does the
+live ceremony verification.
 
 ## Locked decisions (Grant, 2026-06-06)
 
