@@ -243,16 +243,16 @@ all five docs are committed. Likely next moves, in priority order:
        (upcoming events), and Create / Navigate / View / Feeds commands. PTO toggles
        reuse syncEventPtoChange + expandDateRange (never raw pto_dates). Added the
        "event" + "feed" PaletteTones. tsc clean, 70 tests green.
-       - KNOWN GAP, the jump-to-DATE nicety (spec 4) is NOT wired: the generic
-         contract feeds STATIC navGroups with no query-time callback, so a "Go to
-         <typed date>" row that reacts to the live query can't come from a page
-         source yet. Needs a query-aware nav seam in the palette (a per-source
-         `entitiesForQuery(query)` callback or a parseCalendarDate hook in the
-         palette). Worth adding to the contract before pages that lean on typed
-         input. The goToDate handler is wired and ready.
+       - jump-to-DATE GAP NOW CLOSED (commit `27ca34908`): added a per-source
+         `interpretQuery(query)` seam to the contract. A page turns the live typed
+         query into LEAD rows that depend on the query text (not fuzzy-scored,
+         prepended in the typed branch, absent on empty query). Calendar wires it
+         via a pure `parseCalendarDate` (strict YYYY-MM-DD + today/tomorrow + "Jun
+         9" style) -> a "Go to <date>" row calling goToDate. General, any page can
+         interpret typed input ("Create a task named <query>", etc.). 9 new tests.
      - NEXT pages per the same pattern (mockup -> approve -> build): Workbench,
        Purchases, Methods, Lab Overview, Links. Reuse buildGantt/buildCalendar as
-       templates. Consider the query-aware nav seam first if a page needs it.
+       templates; the `interpretQuery` seam exists now for typed-input niceties.
    - Step 4, app-wide mouse-awareness (`[data-beaker-target]` hover capture) last.
 3. **Optional small follow-up:** the EventModal task-picker UI so a user can
    actually create an event-to-task link (the field exists, the UI does not).
