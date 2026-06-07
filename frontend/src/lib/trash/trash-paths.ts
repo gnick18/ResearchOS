@@ -43,6 +43,8 @@ export function trashTypeDirName(entityType: TrashEntityType): string {
       return "inventory_items";
     case "inventory_stock":
       return "inventory_stocks";
+    case "storage_node":
+      return "storage_nodes";
   }
 }
 
@@ -133,6 +135,8 @@ export function liveRecordPath(
       return `users/${username}/inventory_items/${id}.json`;
     case "inventory_stock":
       return `users/${username}/inventory_stocks/${id}.json`;
+    case "storage_node":
+      return `users/${username}/storage_nodes/${id}.json`;
   }
 }
 

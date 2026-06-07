@@ -1261,6 +1261,83 @@ export interface InventoryStockUpdate {
   last_edited_at?: string;
 }
 
+/**
+ * `StorageNodeKind` — the label on a generic container node (design §5.3).
+ * Mirrors eLabNext's "any unit type, any depth": we do NOT hard-code a fixed
+ * freezer/shelf/rack schema; a node carries a `kind` for display and only
+ * `box` nodes carry grid dims.
+ */
+export type StorageNodeKind =
+  | "room"
+  | "freezer"
+  | "fridge"
+  | "ln2"
+  | "cabinet"
+  | "shelf"
+  | "rack"
+  | "drawer"
+  | "tower"
+  | "box"
+  | "other";
+
+/**
+ * `StorageNode` — the location tree (design §5.3). A single recursive
+ * container model (room -> freezer -> ... -> box). The tree is just
+ * `parent_id` links; depth is unbounded. Only `box` nodes carry `box_rows` /
+ * `box_cols` for the box map; positions are NOT stored on the node (an
+ * `InventoryStock` owns its `location_node_id` + `position`). Sharing +
+ * attribution mirror `InventoryItem` exactly; the location tree is typically
+ * whole-lab shared.
+ */
+export interface StorageNode {
+  id: number;
+  name: string; // "-80 #2", "Shelf 3", "Box: Q5 enzymes"
+  kind: StorageNodeKind;
+  parent_id: number | null; // null = top-level (a room or standalone freezer)
+  temperature: string | null; // "-80 C", "4 C", "RT" — free text, display only
+
+  // ONLY meaningful when kind === "box": the grid dims for the box map.
+  box_rows: number | null; // e.g. 9
+  box_cols: number | null; // e.g. 9
+
+  notes: string | null;
+
+  owner: string;
+  shared_with: SharedUser[]; // the location tree is typically whole-lab shared
+  created_by: string | null;
+  last_edited_by?: string;
+  last_edited_at?: string;
+  is_shared_with_me?: boolean; // read-time overlay, never persisted
+  shared_permission?: "view" | "edit";
+}
+
+export interface StorageNodeCreate {
+  name: string;
+  kind?: StorageNodeKind; // default "other"
+  parent_id?: number | null;
+  temperature?: string | null;
+  box_rows?: number | null;
+  box_cols?: number | null;
+  notes?: string | null;
+  /** Defaults to whole-lab edit when omitted (design §6.1). */
+  shared_with?: SharedUser[];
+  created_by?: string | null;
+}
+
+export interface StorageNodeUpdate {
+  name?: string;
+  kind?: StorageNodeKind;
+  parent_id?: number | null;
+  temperature?: string | null;
+  box_rows?: number | null;
+  box_cols?: number | null;
+  notes?: string | null;
+  shared_with?: SharedUser[];
+  // Auto-stamped by `storageNodesApi.update`.
+  last_edited_by?: string;
+  last_edited_at?: string;
+}
+
 // ── PCR Methods ──────────────────────────────────────────────────────────────
 
 export interface PCRStep {

@@ -120,6 +120,9 @@ import type {
   InventoryStockCreate,
   InventoryStockUpdate,
   InventoryStockStatus,
+  StorageNode,
+  StorageNodeCreate,
+  StorageNodeUpdate,
 } from "./types";
 import { sequenceStore } from "./sequences/sequence-store";
 import { genbankToDetail, genbankToRecord, deriveSeqType } from "./sequences/parse";
@@ -199,6 +202,10 @@ const fundingAccountsStore = getLabStore<FundingAccount>("funding_accounts");
 // member's shared records, read via `fetchAllInventory*IncludingShared`.
 const inventoryItemsStore = new JsonStore<InventoryItem>("inventory_items");
 const inventoryStocksStore = new JsonStore<InventoryStock>("inventory_stocks");
+// StorageNode (the location tree: room -> freezer -> ... -> box). Path
+// `users/<owner>/storage_nodes/<id>.json` (FLAG-1/FLAG-2, v2). Same whole-lab-
+// edit default + computed-union read path as the inventory stores.
+const storageNodesStore = new JsonStore<StorageNode>("storage_nodes");
 
 async function loadLabUsers(): Promise<{
   usernames: string[];
@@ -2853,6 +2860,195 @@ export const fetchAllInventoryStocksIncludingShared = async (): Promise<
       out.push({
         ...stock,
         is_shared_with_me: stock.owner !== currentUser,
+      });
+    }
+  }
+  return out;
+};
+
+// ── Storage nodes (v2 location tree) ─────────────────────────────────────────
+// inventory box-finder foundation (2026-06-07). The recursive `StorageNode`
+// tree from `plans/INVENTORY_DESIGN.md` §5.3. Mirrors `inventoryItemsApi`
+// (CRUD + owner-routed getForUser/saveForUser + a fetchAll...IncludingShared
+// read path + per-user counters via JsonStore). No UI here, and no history
+// wiring yet (FLAG-H ships the recorder/adapter in a later chunk). The map UI,
+// BoxGrid, and tree view are the NEXT chunk.
+
+/**
+ * Read-boundary normalizer for a `StorageNode` (template:
+ * `normalizeInventoryItemRecord`). Tolerates legacy / absent fields so records
+ * written before a field existed keep loading. Additive + lazy — no on-disk
+ * migration. `owner` is back-filled from the directory the record was read from
+ * when absent.
+ */
+export function normalizeStorageNodeRecord(
+  raw: StorageNode,
+  fallbackOwner?: string,
+): StorageNode {
+  return {
+    ...raw,
+    name: raw.name ?? "",
+    kind: raw.kind ?? "other",
+    parent_id: raw.parent_id ?? null,
+    temperature: raw.temperature ?? null,
+    box_rows: raw.box_rows ?? null,
+    box_cols: raw.box_cols ?? null,
+    notes: raw.notes ?? null,
+    owner: raw.owner ?? fallbackOwner ?? "",
+    shared_with: normalizeSharedWith(raw.shared_with),
+    created_by: raw.created_by ?? null,
+  };
+}
+
+export const storageNodesApi = {
+  list: async (): Promise<StorageNode[]> => {
+    const nodes = await storageNodesStore.listAll();
+    return nodes.map((n) => normalizeStorageNodeRecord(n));
+  },
+
+  // `owner` routes the read into another member's dir (a viewer browsing a
+  // whole-lab-shared location tree). Mirrors inventoryItemsApi.get's routing.
+  get: async (id: number, owner?: string): Promise<StorageNode | null> => {
+    if (owner) {
+      const rec = await storageNodesStore.getForUser(id, owner);
+      return rec ? normalizeStorageNodeRecord(rec, owner) : null;
+    }
+    const rec = await storageNodesStore.get(id);
+    return rec ? normalizeStorageNodeRecord(rec) : null;
+  },
+
+  getForUser: async (id: number, owner: string): Promise<StorageNode | null> => {
+    const rec = await storageNodesStore.getForUser(id, owner);
+    return rec ? normalizeStorageNodeRecord(rec, owner) : null;
+  },
+
+  // Direct children of a node (the tree expansion primitive). `parent_id ===
+  // null` returns the top-level nodes. Reads the current user's namespace
+  // unless `owner` routes elsewhere.
+  listChildren: async (
+    parentId: number | null,
+    owner?: string,
+  ): Promise<StorageNode[]> => {
+    const nodes = owner
+      ? await storageNodesStore.listAllForUser(owner)
+      : await storageNodesStore.listAll();
+    return nodes
+      .map((n) => normalizeStorageNodeRecord(n, owner))
+      .filter((n) => (n.parent_id ?? null) === (parentId ?? null));
+  },
+
+  create: async (
+    data: StorageNodeCreate,
+    owner?: string,
+  ): Promise<StorageNode> => {
+    const currentUser = await getCurrentUserCached();
+    const targetOwner = owner ?? currentUser;
+    const shared_with = data.shared_with ?? wholeLabEditShare();
+    const stamp = await buildAttributionStamp(data.created_by);
+    const payload: Omit<StorageNode, "id"> = {
+      name: data.name,
+      kind: data.kind ?? "other",
+      parent_id: data.parent_id ?? null,
+      temperature: data.temperature ?? null,
+      box_rows: data.box_rows ?? null,
+      box_cols: data.box_cols ?? null,
+      notes: data.notes ?? null,
+      owner: targetOwner,
+      shared_with,
+      created_by: data.created_by ?? targetOwner,
+      last_edited_by: stamp.last_edited_by,
+      last_edited_at: stamp.last_edited_at,
+    };
+    const created = owner
+      ? await storageNodesStore.createForUser(payload, owner)
+      : await storageNodesStore.create(payload);
+    return normalizeStorageNodeRecord(created, targetOwner);
+  },
+
+  // Owner-routed create — bumps the TARGET user's counter so a PI / collaborator
+  // adding a node into another member's namespace doesn't collide ids.
+  createForUser: async (
+    data: StorageNodeCreate,
+    owner: string,
+  ): Promise<StorageNode> => storageNodesApi.create(data, owner),
+
+  update: async (
+    id: number,
+    data: StorageNodeUpdate,
+    owner?: string,
+  ): Promise<StorageNode | null> => {
+    const patch = { ...data, ...(await buildAttributionStamp(data.last_edited_by)) };
+    const updated = owner
+      ? await storageNodesStore.updateForUser(id, patch, owner)
+      : await storageNodesStore.update(id, patch);
+    if (!updated) return null;
+    return normalizeStorageNodeRecord(updated, owner);
+  },
+
+  saveForUser: async (
+    id: number,
+    data: StorageNode,
+    owner: string,
+  ): Promise<StorageNode> => {
+    const saved = await storageNodesStore.saveForUser(id, data, owner);
+    return normalizeStorageNodeRecord(saved, owner);
+  },
+
+  // Soft-delete via `_trash/storage_nodes/` (VCP R2 "trash everywhere"),
+  // mirroring inventoryItemsApi.delete. The caller is responsible for any
+  // child-node / placed-stock warnings (a UI concern in the next chunk).
+  delete: async (
+    id: number,
+    owner?: string,
+    options?: { actor?: string; sessionId?: string | null },
+  ): Promise<void> => {
+    const currentUser = (await getCurrentUserCached()) ?? "";
+    const actor = options?.actor ?? currentUser;
+    const sessionId = options?.sessionId ?? null;
+    const rec = owner
+      ? await storageNodesStore.getForUser(id, owner)
+      : await storageNodesStore.get(id);
+    if (!rec) return;
+    const targetOwner = rec.owner || owner || currentUser;
+    const attribution = resolveDeleteAttribution(
+      targetOwner,
+      actor,
+      sessionId,
+      "storageNodesApi.delete",
+    );
+    if (!attribution) return;
+    await softDeleteEntity({
+      owner: targetOwner,
+      entityType: "storage_node",
+      id,
+      actor: attribution.actor,
+      sessionId: attribution.sessionId,
+    });
+  },
+};
+
+/**
+ * Whole-lab read aggregate for storage nodes (template:
+ * `fetchAllInventoryItemsIncludingShared`). Returns the union of every
+ * member's location nodes the viewer may read, with `is_shared_with_me`
+ * overlaid for nodes owned by someone else. This is "the lab freezer map" as a
+ * computed union (design §6.1).
+ */
+export const fetchAllStorageNodesIncludingShared = async (): Promise<
+  StorageNode[]
+> => {
+  const viewer = await buildCurrentViewer();
+  const currentUser = viewer.username;
+  const usernames = await discoverUsers();
+  const out: StorageNode[] = [];
+  for (const username of usernames) {
+    const nodes = await storageNodesStore.listAllForUser(username);
+    for (const raw of nodes) {
+      const node = normalizeStorageNodeRecord(raw, username);
+      if (!canRead(node, viewer)) continue;
+      out.push({
+        ...node,
+        is_shared_with_me: node.owner !== currentUser,
       });
     }
   }

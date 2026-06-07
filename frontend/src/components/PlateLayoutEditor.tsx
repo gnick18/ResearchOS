@@ -1,7 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Tooltip from "@/components/Tooltip";
+import GridCanvas, {
+  rowLabel,
+  wellId,
+  parseWellId,
+} from "@/components/ui/GridCanvas";
 import {
   ADDED_ROW_CLASSES,
   MODIFIED_BADGE_CLASSES,
@@ -98,20 +103,12 @@ export function dimsForSize(size: PlateSize): { rows: number; cols: number } {
   }
 }
 
-export function rowLabel(row: number): string {
-  return String.fromCharCode(65 + row);
-}
-
-export function wellId(row: number, col: number): string {
-  return `${rowLabel(row)}${col + 1}`;
-}
-
-export function parseWellId(id: string): { row: number; col: number } | null {
-  // Rows run A-P (up to 16 rows for 384-well plates). Columns are 1-indexed.
-  const m = id.match(/^([A-P])(\d+)$/);
-  if (!m) return null;
-  return { row: m[1].charCodeAt(0) - 65, col: Number(m[2]) - 1 };
-}
+// The cell-id scheme (`rowLabel` / `wellId` / `parseWellId`) now lives in the
+// shared `GridCanvas` primitive (design FLAG-G). Re-exported here so existing
+// importers (`PlateViewer`, the method tab content, the dims test) keep their
+// `@/components/PlateLayoutEditor` import path and the `A1` cell-id contract is
+// unchanged.
+export { rowLabel, wellId, parseWellId };
 
 /** Expand `region_labels` into a `wells` map. Each region paints every well
  *  it covers; later regions overwrite earlier ones (matches the rendering
@@ -244,7 +241,6 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
   const [sampleInput, setSampleInput] = useState("");
   const [customInput, setCustomInput] = useState("");
   const [replicateInput, setReplicateInput] = useState("");
-  const paintingRef = useRef(false);
 
   // Per-row sample-label quick entry: one input per row that paints the whole
   // row as role "sample" with the typed sample_label (mirrors fillRow). Earns
@@ -291,34 +287,19 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
     [editable, onWellsChange, wells],
   );
 
-  const handleWellMouseDown = useCallback(
-    (id: string, e: React.MouseEvent) => {
-      if (!editable) return;
-      paintingRef.current = true;
-      if (e.shiftKey || e.altKey) {
+  // GridCanvas owns the mouse-down / drag / mouse-up paint machinery and surfaces
+  // each painted cell here; Shift/Alt arrive as `erase`. The paint/erase choice
+  // and the per-well annotation shape stay exactly as before.
+  const handleCellPaint = useCallback(
+    (id: string, opts: { erase: boolean }) => {
+      if (opts.erase) {
         eraseWell(id);
       } else {
         paintWell(id);
       }
     },
-    [eraseWell, editable, paintWell],
+    [eraseWell, paintWell],
   );
-
-  const handleWellMouseEnter = useCallback(
-    (id: string, e: React.MouseEvent) => {
-      if (!paintingRef.current || !editable) return;
-      if (e.shiftKey || e.altKey) {
-        eraseWell(id);
-      } else {
-        paintWell(id);
-      }
-    },
-    [eraseWell, editable, paintWell],
-  );
-
-  const stopPainting = useCallback(() => {
-    paintingRef.current = false;
-  }, []);
 
   const fillRow = useCallback(
     (row: number) => {
@@ -418,7 +399,7 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
   const showWellLabels = !compact;
 
   return (
-    <div className="space-y-4" onMouseUp={stopPainting} onMouseLeave={stopPainting}>
+    <div className="space-y-4">
       {isModified && (
         <div>
           <span className={MODIFIED_BADGE_CLASSES}>{MODIFIED_CHIP_TEXT}</span>
@@ -545,130 +526,94 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
         </div>
       )}
 
-      {/* Plate grid */}
-      <div className="border border-border rounded-lg p-3 bg-surface-raised overflow-x-auto">
-        <table className="border-collapse select-none" aria-label="Plate grid">
-          <thead>
-            <tr>
-              <th className="p-0.5 w-7"></th>
-              {editable && showRowLabels && (
-                <th className="p-0.5 text-left">
-                  <span className="text-meta font-medium text-foreground-muted pl-1">
-                    Row sample id
-                  </span>
-                </th>
-              )}
-              {Array.from({ length: cols }).map((_, c) => (
-                <th key={c} className="p-0.5 text-center">
-                  {editable ? (
-                    <Tooltip label={`Fill column ${c + 1}`} placement="top">
-                      <button
-                        onClick={() => fillColumn(c)}
-                        className={`${colHeaderClass} ${dense ? "text-[8px]" : "text-meta"} font-medium text-foreground-muted hover:text-emerald-600 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded px-0.5 py-0.5`}
+      {/* Plate grid — rendered through the shared GridCanvas primitive
+          (design FLAG-G). Every plate-specific concern (role colors, diff
+          highlighting, the per-row sample-id inputs, the 384-well dense/compact
+          sizing) is supplied as props; GridCanvas owns only the cell-id scheme,
+          the headers, and the paint/click engine. */}
+      <GridCanvas
+        rows={rows}
+        cols={cols}
+        editable={editable}
+        onCellPaint={handleCellPaint}
+        ariaLabel="Plate grid"
+        cellClassName={wellSizeClass}
+        colHeaderClassName={colHeaderClass}
+        rowHeaderClassName={rowHeaderClass}
+        largeColHeaderText={!dense}
+        onRowHeaderClick={editable ? fillRow : undefined}
+        rowHeaderTooltip={(r) => `Fill row ${rowLabel(r)} with the current brush`}
+        onColHeaderClick={editable ? fillColumn : undefined}
+        colHeaderTooltip={(c) => `Fill column ${c + 1}`}
+        extraHeader={
+          editable && showRowLabels ? (
+            <span className="text-meta font-medium text-foreground-muted pl-1">
+              Row sample id
+            </span>
+          ) : undefined
+        }
+        rowExtra={
+          editable && showRowLabels
+            ? (r) => (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="text"
+                    value={rowSampleInputs[r] ?? ""}
+                    onChange={(e) =>
+                      setRowSampleInputs((prev) => ({ ...prev, [r]: e.target.value }))
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        commitRowSample(r);
+                      }
+                    }}
+                    placeholder={`Row ${rowLabel(r)}`}
+                    aria-label={`Sample id for row ${rowLabel(r)}`}
+                    className="w-28 px-1.5 py-0.5 border border-border rounded text-meta focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                  <Tooltip label={`Label all of row ${rowLabel(r)} as this sample`} placement="right">
+                    <button
+                      type="button"
+                      onClick={() => commitRowSample(r)}
+                      className="p-1 text-foreground-muted hover:text-emerald-600 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded"
+                      aria-label={`Apply sample to row ${rowLabel(r)}`}
+                    >
+                      <svg
+                        viewBox="0 0 16 16"
+                        width="12"
+                        height="12"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
                       >
-                        {c + 1}
-                      </button>
-                    </Tooltip>
-                  ) : (
-                    <span className="text-meta font-medium text-foreground-muted">{c + 1}</span>
-                  )}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {Array.from({ length: rows }).map((_, r) => (
-              <tr key={r}>
-                <th className="p-0.5 align-middle">
-                  {editable ? (
-                    <Tooltip label={`Fill row ${rowLabel(r)} with the current brush`} placement="right">
-                      <button
-                        onClick={() => fillRow(r)}
-                        className={`${rowHeaderClass} text-meta font-medium text-foreground-muted hover:text-emerald-600 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded px-0.5 py-0.5`}
-                      >
-                        {rowLabel(r)}
-                      </button>
-                    </Tooltip>
-                  ) : (
-                    <span className="text-meta font-medium text-foreground-muted">{rowLabel(r)}</span>
-                  )}
-                </th>
-                {editable && showRowLabels && (
-                  <td className="p-0.5 align-middle">
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="text"
-                        value={rowSampleInputs[r] ?? ""}
-                        onChange={(e) =>
-                          setRowSampleInputs((prev) => ({ ...prev, [r]: e.target.value }))
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            commitRowSample(r);
-                          }
-                        }}
-                        placeholder={`Row ${rowLabel(r)}`}
-                        aria-label={`Sample id for row ${rowLabel(r)}`}
-                        className="w-28 px-1.5 py-0.5 border border-border rounded text-meta focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
-                      <Tooltip label={`Label all of row ${rowLabel(r)} as this sample`} placement="right">
-                        <button
-                          type="button"
-                          onClick={() => commitRowSample(r)}
-                          className="p-1 text-foreground-muted hover:text-emerald-600 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded"
-                          aria-label={`Apply sample to row ${rowLabel(r)}`}
-                        >
-                          <svg
-                            viewBox="0 0 16 16"
-                            width="12"
-                            height="12"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
-                          >
-                            <path d="M3 8.5l3.5 3.5L13 5" />
-                          </svg>
-                        </button>
-                      </Tooltip>
-                    </div>
-                  </td>
-                )}
-                {Array.from({ length: cols }).map((_, c) => {
-                  const id = wellId(r, c);
-                  const ann = wells[id];
-                  const diffClass = wellDiffClass(id);
-                  const extra = wellTooltipExtra(id);
-                  const baseClasses = ann
-                    ? `${ROLE_BG[ann.role]} font-medium`
-                    : "bg-surface-raised text-foreground-muted";
-                  const ttip = (extra ? `${extra} — ` : "") + tooltipFor(id, ann);
-                  return (
-                    <td key={c} className="p-0.5">
-                      <button
-                        type="button"
-                        disabled={!editable}
-                        onMouseDown={(e) => handleWellMouseDown(id, e)}
-                        onMouseEnter={(e) => handleWellMouseEnter(id, e)}
-                        title={ttip}
-                        className={`${wellSizeClass} rounded-full border border-border ${baseClasses} ${diffClass} flex items-center justify-center ${
-                          editable ? "cursor-pointer hover:ring-2 hover:ring-emerald-300" : "cursor-default"
-                        }`}
-                        aria-label={`Well ${id}`}
-                      >
-                        {showWellLabels && ann ? shortLabelFor(ann) : ""}
-                      </button>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                        <path d="M3 8.5l3.5 3.5L13 5" />
+                      </svg>
+                    </button>
+                  </Tooltip>
+                </div>
+              )
+            : undefined
+        }
+        cell={(id) => {
+          const ann = wells[id];
+          const diffClass = wellDiffClass(id);
+          const extra = wellTooltipExtra(id);
+          const baseClasses = ann
+            ? `${ROLE_BG[ann.role]} font-medium`
+            : "bg-surface-raised text-foreground-muted";
+          const ttip = (extra ? `${extra} — ` : "") + tooltipFor(id, ann);
+          return {
+            className: `${baseClasses} ${diffClass}`,
+            label: showWellLabels && ann ? shortLabelFor(ann) : "",
+            title: ttip,
+            ariaLabel: `Well ${id}`,
+          };
+        }}
+      />
 
       {/* Annotation list — flat summary for assistive tech + at-a-glance read */}
       <PlateAnnotationSummary wells={wells} originalWells={originalWells} />

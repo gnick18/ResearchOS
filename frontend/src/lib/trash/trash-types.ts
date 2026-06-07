@@ -43,7 +43,11 @@ export type TrashEntityType =
   // `users/<owner>/inventory_stocks/<id>.json`. They follow the same
   // soft-delete path as tasks, methods, etc. (no two-file special case).
   | "inventory_item"
-  | "inventory_stock";
+  | "inventory_stock"
+  // inventory box-finder foundation (2026-06-07): the `StorageNode` location
+  // tree is a standard single-JSON record at
+  // `users/<owner>/storage_nodes/<id>.json`, same soft-delete path.
+  | "storage_node";
 
 /** Restore-metadata block on a trashed record. Captures the parent
  *  reference at the time of delete so cascading restore prompts can
@@ -169,6 +173,7 @@ export function displayNameFieldFor(
     case "mass_spec_protocol":
     case "inventory_item":
     case "inventory_stock":
+    case "storage_node":
       return "name";
   }
 }
