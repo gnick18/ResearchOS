@@ -361,8 +361,8 @@ function Pill({
 }) {
   const cls =
     tone === "emerald"
-      ? "text-emerald-700 bg-emerald-50 border-emerald-200"
-      : "text-amber-800 bg-amber-50 border-amber-300";
+      ? "text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/15 border-emerald-200 dark:border-emerald-500/30"
+      : "text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/15 border-amber-300 dark:border-amber-500/30";
   return (
     <Tooltip label={tip} placement="bottom">
       <span
@@ -455,7 +455,7 @@ function ReadyIdentity({
           <button
             type="button"
             onClick={copyFingerprint}
-            className="inline-flex items-center gap-1 text-meta text-blue-600 hover:text-blue-700"
+            className="inline-flex items-center gap-1 text-meta text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
           >
             {copied ? (
               <>
@@ -482,7 +482,7 @@ function ReadyIdentity({
 
       <InfoRow label="Recovery words">
         {sidecar.recoveryConfirmedAt ? (
-          <span className="text-emerald-600 font-medium">Confirmed</span>
+          <span className="text-emerald-600 dark:text-emerald-400 font-medium">Confirmed</span>
         ) : (
           <div className="space-y-1">
             <span className="text-foreground-muted">Not confirmed</span>
@@ -521,7 +521,7 @@ function ReadyIdentity({
           <button
             type="button"
             onClick={onReset}
-            className="px-3 py-1.5 text-body bg-surface-sunken hover:bg-surface-sunken text-red-600 rounded-lg"
+            className="px-3 py-1.5 text-body bg-surface-sunken hover:bg-surface-sunken text-red-600 dark:text-red-400 rounded-lg"
           >
             Reset identity
           </button>
@@ -591,7 +591,7 @@ function NeedsRestoreIdentity({
           <button
             type="button"
             onClick={onReset}
-            className="px-3 py-2 text-body bg-surface-sunken hover:bg-surface-sunken text-red-600 rounded-lg"
+            className="px-3 py-2 text-body bg-surface-sunken hover:bg-surface-sunken text-red-600 dark:text-red-400 rounded-lg"
           >
             Reset identity
           </button>
@@ -632,7 +632,7 @@ function InboxStorageSection({
           // published email), so there is no directory inbox yet. Publishing a
           // profile is what opens the inbox.
           <div className="flex items-center justify-between gap-4">
-            <p className="text-body text-gray-600 leading-relaxed">
+            <p className="text-body text-foreground-muted leading-relaxed">
               Publish a profile to receive shares in your inbox.
             </p>
             <button
@@ -688,7 +688,7 @@ function BudgetBar({
         <span className="text-meta font-medium text-foreground-muted">{label}</span>
         <span className="text-meta text-foreground-muted">
           {valueLabel}
-          <span className={`ml-2 font-semibold ${over80 ? "text-amber-600" : "text-foreground-muted"}`}>
+          <span className={`ml-2 font-semibold ${over80 ? "text-amber-600 dark:text-amber-400" : "text-foreground-muted"}`}>
             {pctLabel}
           </span>
         </span>
@@ -951,7 +951,7 @@ function PublicationManager({
               isHidden
                 ? "border-border bg-surface-sunken opacity-50"
                 : isPinned
-                ? "border-sky-200 bg-sky-50"
+                ? "border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/15"
                 : "border-border bg-surface-raised"
             }`}
           >
@@ -1179,7 +1179,7 @@ export function ProfileEditorCard() {
                     label={`Verified from your ${profile.affiliationDomain} login`}
                     placement="top"
                   >
-                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-meta font-medium text-emerald-700">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/15 px-2 py-0.5 text-meta font-medium text-emerald-700 dark:text-emerald-300">
                       Verified
                     </span>
                   </Tooltip>
@@ -1194,7 +1194,7 @@ export function ProfileEditorCard() {
                 href={`https://orcid.org/${profile.orcid}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-mono text-sky-700 hover:underline underline-offset-2"
+                className="font-mono text-sky-700 dark:text-sky-400 hover:underline underline-offset-2"
               >
                 {profile.orcid}
               </a>
@@ -1213,14 +1213,14 @@ export function ProfileEditorCard() {
               type="button"
               onClick={remove}
               disabled={busy}
-              className="px-3 py-1.5 text-body bg-surface-sunken hover:bg-surface-sunken text-red-600 rounded-lg disabled:opacity-50"
+              className="px-3 py-1.5 text-body bg-surface-sunken hover:bg-surface-sunken text-red-600 dark:text-red-400 rounded-lg disabled:opacity-50"
             >
               {busy ? "Removing…" : "Remove from directory"}
             </button>
           </div>
 
           {error && (
-            <p className="text-meta text-red-600 leading-relaxed">{error}</p>
+            <p className="text-meta text-red-600 dark:text-red-400 leading-relaxed">{error}</p>
           )}
         </div>
       )}
@@ -1242,7 +1242,7 @@ export function ProfileEditorCard() {
                 placeholder="Your name as other researchers will see it"
                 maxLength={100}
                 disabled={busy}
-                className="w-full rounded-lg border border-border px-3 py-2 text-body text-foreground placeholder-gray-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-50"
+                className="w-full rounded-lg border border-border px-3 py-2 text-body text-foreground placeholder-foreground-muted focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-50"
               />
             </div>
 
@@ -1257,7 +1257,7 @@ export function ProfileEditorCard() {
                 placeholder="University, institution, or lab"
                 maxLength={200}
                 disabled={busy}
-                className="w-full rounded-lg border border-border px-3 py-2 text-body text-foreground placeholder-gray-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-50"
+                className="w-full rounded-lg border border-border px-3 py-2 text-body text-foreground placeholder-foreground-muted focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-50"
               />
               <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
                 If you sign in with an institutional account, your email domain
@@ -1276,7 +1276,7 @@ export function ProfileEditorCard() {
                 placeholder="0000-0002-1825-0097"
                 maxLength={19}
                 disabled={busy}
-                className="w-full rounded-lg border border-border px-3 py-2 font-mono text-body text-foreground placeholder-gray-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-50"
+                className="w-full rounded-lg border border-border px-3 py-2 font-mono text-body text-foreground placeholder-foreground-muted focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-50"
               />
               <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
                 Optional. Your ORCID iD is shown on your profile as a public
@@ -1304,7 +1304,7 @@ export function ProfileEditorCard() {
           </div>
 
           {error && (
-            <p className="text-meta text-red-600 leading-relaxed">{error}</p>
+            <p className="text-meta text-red-600 dark:text-red-400 leading-relaxed">{error}</p>
           )}
 
           <div className="flex gap-2">
@@ -1362,12 +1362,12 @@ function ModalShell({
       onClick={onClose}
     >
       <div
-        className="bg-slate-800 rounded-2xl shadow-2xl border border-white/20 max-w-md w-full mx-4 overflow-hidden"
+        className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-md w-full mx-4 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-6 py-4 border-b border-white/10 flex items-start justify-between">
+        <div className="px-6 py-4 border-b border-border flex items-start justify-between">
           <div>
-            <h3 className="text-title font-semibold text-white">{title}</h3>
+            <h3 className="text-title font-semibold text-foreground">{title}</h3>
             {subtitle && (
               <p className="text-meta text-foreground-muted mt-0.5">{subtitle}</p>
             )}
@@ -1375,7 +1375,7 @@ function ModalShell({
           <Tooltip label="Close" placement="bottom">
             <button
               onClick={onClose}
-              className="text-foreground-muted hover:text-white"
+              className="text-foreground-muted hover:text-foreground"
               aria-label="Close"
             >
               <CloseIcon className="w-5 h-5" />
@@ -1390,11 +1390,11 @@ function ModalShell({
 
 function ErrorNotice({ message }: { message: string }) {
   return (
-    <div className="flex items-start gap-2 p-2 bg-red-500/15 border border-red-500/30 rounded-lg">
-      <span className="text-red-300 mt-0.5">
+    <div className="flex items-start gap-2 p-2 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+      <span className="text-red-700 dark:text-red-300 mt-0.5">
         <WarningIcon className="w-4 h-4" />
       </span>
-      <p className="text-meta text-red-300 leading-relaxed">{message}</p>
+      <p className="text-meta text-red-700 dark:text-red-300 leading-relaxed">{message}</p>
     </div>
   );
 }
@@ -1416,7 +1416,7 @@ function WordsInput({
       disabled={disabled}
       rows={3}
       placeholder="Enter your recovery code, or your 12 recovery words"
-      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-body font-mono disabled:opacity-50"
+      className="w-full px-3 py-2 bg-surface-sunken border border-border rounded-lg text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 focus:ring-blue-500 text-body font-mono disabled:opacity-50"
       autoFocus
     />
   );
@@ -1729,7 +1729,7 @@ export function RestoreIdentityPopup({
           <button
             type="button"
             onClick={() => switchMode("kit")}
-            className="text-meta text-blue-400 hover:text-blue-300 underline underline-offset-2"
+            className="text-meta text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline underline-offset-2"
           >
             No access to your email? Use your Recovery Kit
           </button>
@@ -1764,16 +1764,16 @@ export function RestoreIdentityPopup({
               disabled={busy}
               rows={2}
               placeholder="Or paste the contents of your Recovery Kit file here"
-              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-meta font-mono disabled:opacity-50"
+              className="w-full px-3 py-2 bg-surface-sunken border border-border rounded-lg text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 focus:ring-blue-500 text-meta font-mono disabled:opacity-50"
             />
           </div>
 
           {kit && (
-            <div className="flex items-start gap-2 p-2 bg-emerald-500/10 border border-emerald-400/25 rounded-lg">
-              <span className="text-emerald-300 mt-0.5">
+            <div className="flex items-start gap-2 p-2 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-400/25 rounded-lg">
+              <span className="text-emerald-700 dark:text-emerald-300 mt-0.5">
                 <CheckIcon className="w-4 h-4" />
               </span>
-              <p className="text-meta text-emerald-200 leading-relaxed break-all">
+              <p className="text-meta text-emerald-700 dark:text-emerald-200 leading-relaxed break-all">
                 Kit loaded for {kit.email}.
               </p>
             </div>
@@ -1793,7 +1793,7 @@ export function RestoreIdentityPopup({
           <button
             type="button"
             onClick={() => switchMode("email")}
-            className="text-meta text-blue-400 hover:text-blue-300 underline underline-offset-2"
+            className="text-meta text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline underline-offset-2"
           >
             Use email instead
           </button>
@@ -1804,7 +1804,7 @@ export function RestoreIdentityPopup({
         <div className="space-y-4">
           <p className="text-body text-foreground-muted leading-relaxed">
             Enter the 6-digit code we sent to{" "}
-            <span className="text-white font-medium">{email}</span>.
+            <span className="text-foreground font-medium">{email}</span>.
           </p>
           <input
             inputMode="numeric"
@@ -1812,7 +1812,7 @@ export function RestoreIdentityPopup({
             value={otp}
             onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
             placeholder="000000"
-            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-title tracking-[0.4em] text-center"
+            className="w-full px-3 py-2 bg-surface-sunken border border-border rounded-lg text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 focus:ring-blue-500 text-title tracking-[0.4em] text-center"
             autoFocus
           />
           {error && <ErrorNotice message={error} />}
@@ -1829,7 +1829,7 @@ export function RestoreIdentityPopup({
 
       {step === "verifying" && (
         <div className="py-8 flex flex-col items-center text-center">
-          <div className="w-10 h-10 rounded-full border-2 border-white/20 border-t-blue-400 animate-spin" />
+          <div className="w-10 h-10 rounded-full border-2 border-border border-t-blue-400 animate-spin" />
           <p className="text-body text-foreground-muted mt-4 font-medium">
             Checking your recovery code…
           </p>
@@ -1839,10 +1839,10 @@ export function RestoreIdentityPopup({
       {step === "done" && (
         <div className="space-y-4">
           <div className="flex flex-col items-center text-center py-2">
-            <div className="w-12 h-12 rounded-full bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
+            <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-400/30 flex items-center justify-center text-emerald-700 dark:text-emerald-300">
               <CheckIcon className="w-6 h-6" />
             </div>
-            <p className="text-title font-semibold text-white mt-3">
+            <p className="text-title font-semibold text-foreground mt-3">
               Your key is restored
             </p>
             <p className="text-body text-foreground-muted mt-1 leading-relaxed">
@@ -2008,11 +2008,11 @@ export function RotateIdentityPopup({
             will need your new fingerprint to verify you.
           </p>
           {pendingCount !== null && pendingCount > 0 && (
-            <div className="flex items-start gap-2 p-3 bg-amber-500/15 border border-amber-400/30 rounded-lg">
-              <span className="text-amber-300 mt-0.5">
+            <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-400/30 rounded-lg">
+              <span className="text-amber-700 dark:text-amber-300 mt-0.5">
                 <WarningIcon className="w-4 h-4" />
               </span>
-              <p className="text-meta text-amber-200 leading-relaxed">
+              <p className="text-meta text-amber-700 dark:text-amber-200 leading-relaxed">
                 You have {pendingCount} pending{" "}
                 {pendingCount === 1 ? "share" : "shares"} sealed to your current
                 key. Rotating means you will not be able to open{" "}
@@ -2026,7 +2026,7 @@ export function RotateIdentityPopup({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2 text-body bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg"
+              className="flex-1 py-2 text-body bg-surface-raised/5 hover:bg-surface-raised/10 border border-border text-foreground rounded-lg"
             >
               Cancel
             </button>
@@ -2043,7 +2043,7 @@ export function RotateIdentityPopup({
 
       {(step === "generating" || step === "publishing") && (
         <div className="py-8 flex flex-col items-center text-center">
-          <div className="w-10 h-10 rounded-full border-2 border-white/20 border-t-blue-400 animate-spin" />
+          <div className="w-10 h-10 rounded-full border-2 border-border border-t-blue-400 animate-spin" />
           <p className="text-body text-foreground-muted mt-4 font-medium">
             {step === "generating" ? "Generating your new keys" : "Rotating your key"}
           </p>
@@ -2057,9 +2057,9 @@ export function RotateIdentityPopup({
 
       {step === "show-words" && material && (
         <div className="space-y-4">
-          <div className="flex items-center gap-2 text-blue-300">
+          <div className="flex items-center gap-2 text-blue-600 dark:text-blue-300">
             <KeyIcon className="w-5 h-5" />
-            <p className="text-body font-medium text-white">
+            <p className="text-body font-medium text-foreground">
               Your new Recovery Words
             </p>
           </div>
@@ -2067,9 +2067,9 @@ export function RotateIdentityPopup({
             Write these 12 words down and store them somewhere safe. Your old
             words no longer work after this rotation.
           </p>
-          <div className="grid grid-cols-3 gap-2 p-3 bg-slate-900/60 border border-white/10 rounded-lg">
+          <div className="grid grid-cols-3 gap-2 p-3 bg-surface-sunken border border-border rounded-lg">
             {words.map((word, i) => (
-              <div key={`${word}-${i}`} className="flex items-center gap-1.5 text-body text-slate-200">
+              <div key={`${word}-${i}`} className="flex items-center gap-1.5 text-body text-foreground">
                 <span className="text-meta text-foreground-muted w-4 text-right tabular-nums">
                   {i + 1}
                 </span>
@@ -2080,7 +2080,7 @@ export function RotateIdentityPopup({
           <button
             type="button"
             onClick={copyWords}
-            className="flex items-center gap-1.5 text-meta text-blue-400 hover:text-blue-300"
+            className="flex items-center gap-1.5 text-meta text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
           >
             {copied ? (
               <>
@@ -2120,10 +2120,10 @@ export function RotateIdentityPopup({
       {step === "done" && (
         <div className="space-y-4">
           <div className="flex flex-col items-center text-center py-2">
-            <div className="w-12 h-12 rounded-full bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
+            <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-400/30 flex items-center justify-center text-emerald-700 dark:text-emerald-300">
               <CheckIcon className="w-6 h-6" />
             </div>
-            <p className="text-title font-semibold text-white mt-3">
+            <p className="text-title font-semibold text-foreground mt-3">
               Your key is rotated
             </p>
             <p className="text-body text-foreground-muted mt-1 leading-relaxed">
@@ -2201,7 +2201,7 @@ export function DisconnectIdentityPopup({
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="flex-1 py-2 text-body bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg disabled:opacity-50"
+            className="flex-1 py-2 text-body bg-surface-raised/5 hover:bg-surface-raised/10 border border-border text-foreground rounded-lg disabled:opacity-50"
           >
             Cancel
           </button>
@@ -2274,11 +2274,11 @@ export function ResetIdentityPopup({
           recovery words will stop working. Anyone who verified your old
           fingerprint will need to verify the new one before they can send to you.
         </p>
-        <div className="flex items-start gap-2 p-3 bg-amber-500/15 border border-amber-400/30 rounded-lg">
-          <span className="text-amber-300 mt-0.5">
+        <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-400/30 rounded-lg">
+          <span className="text-amber-700 dark:text-amber-300 mt-0.5">
             <WarningIcon className="w-4 h-4" />
           </span>
-          <p className="text-meta text-amber-200 leading-relaxed">
+          <p className="text-meta text-amber-700 dark:text-amber-200 leading-relaxed">
             Anything sealed to your old key becomes permanently unopenable.
             {pendingCount !== null && pendingCount > 0 && (
               <>
@@ -2295,7 +2295,7 @@ export function ResetIdentityPopup({
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="flex-1 py-2 text-body bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg disabled:opacity-50"
+            className="flex-1 py-2 text-body bg-surface-raised/5 hover:bg-surface-raised/10 border border-border text-foreground rounded-lg disabled:opacity-50"
           >
             Cancel
           </button>
