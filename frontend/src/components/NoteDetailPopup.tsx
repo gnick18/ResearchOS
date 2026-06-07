@@ -1732,15 +1732,31 @@ export default function NoteDetailPopup({
             </div>
           )}
 
-          {/* R1b: sharing chips — read-only visibility hint row
-              showing who currently has access. */}
+          {/* R1b: sharing chips — read-only visibility hint row showing who
+              currently has access. The Loro auto-save status sits inline at the
+              end of this row (next to the sharing state) instead of a floating
+              pill, so status lives on one line with the access state. */}
           {note.username && (
-            <div className="mt-3">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <SharingChips
                 sharedWith={note.shared_with || []}
                 ownerUsername={note.username}
                 viewerUsername={currentUser ?? undefined}
               />
+              {LORO_PILOT_ENABLED && !!loroHandle && !readOnly && currentEntry && (
+                <span
+                  data-testid="note-autosave-status"
+                  aria-live="polite"
+                  aria-atomic="true"
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-meta font-medium ring-1 transition-colors ${
+                    loroCommitPending
+                      ? "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-500/30"
+                      : "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-500/30"
+                  }`}
+                >
+                  {loroCommitPending ? "Saving..." : "Saved"}
+                </span>
+              )}
             </div>
           )}
 
@@ -2207,25 +2223,8 @@ export default function NoteDetailPopup({
             this fixed bottom bar was pure redundancy. Dropping it gives the
             markdown editor the full popup height. */}
 
-        {/* Auto-save status, floated in the editor's bottom-right corner instead
-            of its own full-width bar (which wasted vertical space). A colored
-            pill: emerald when saved, amber while saving. pointer-events-none so
-            it never blocks the editor. Only under the Loro pilot (the legacy
-            path keeps its Save button in the toolbar above). */}
-        {LORO_PILOT_ENABLED && !!loroHandle && !readOnly && currentEntry && (
-          <div
-            data-testid="note-autosave-status"
-            aria-live="polite"
-            aria-atomic="true"
-            className={`pointer-events-none absolute bottom-20 right-4 z-20 rounded-full px-2.5 py-1 text-meta font-medium shadow-sm ring-1 transition-colors ${
-              loroCommitPending
-                ? "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-500/30"
-                : "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-500/30"
-            }`}
-          >
-            {loroCommitPending ? "Saving..." : "Saved"}
-          </div>
-        )}
+        {/* Auto-save status moved into the sharing-chips row in the header
+            (next to the access state) instead of a floating pill. */}
       </div>
     </LivingPopup>
     </>
