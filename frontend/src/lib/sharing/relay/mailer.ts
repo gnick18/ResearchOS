@@ -291,3 +291,135 @@ export async function sendInviteEmail(params: InviteEmailParams): Promise<void> 
     // ignore
   }
 }
+
+// ---------------------------------------------------------------------------
+// External-collab invite NUDGE email.
+//
+// Distinct from the keyless invite above. Here the recipient is ALREADY a
+// registered ResearchOS user with an in-app inbox invite, so this email is just
+// a nudge to go look. It carries NO secret key and NO accept link with embedded
+// material, only the sender label, the item title, and a plain link to the app.
+// The recipient accepts inside ResearchOS under "Shared with me", never from a
+// URL in this email. Content is minimized to the same precedent as the send-
+// outside invite (title + sender only).
+// ---------------------------------------------------------------------------
+
+/** Everything the collab-invite nudge email template needs. */
+export interface CollabInviteEmailParams {
+  /** The recipient's plaintext email. We send to it but never store it. */
+  toEmail: string;
+  /** The sender's display label (their name or email). NOT a hash. */
+  senderLabel: string;
+  /** The note TITLE the sender chose to expose. The ONLY content teaser. */
+  noteTitle: string;
+}
+
+/** A plain link to the app's "Shared with me" surface. No secret, no token. */
+function sharedWithMeUrl(): string {
+  return `${assetOrigin()}/?shared=1`;
+}
+
+/** Subject line for the collab-invite nudge. Named sender, one item, no marketing. */
+export function collabInviteSubject(senderLabel: string): string {
+  return `${senderLabel} invited you to collaborate on ResearchOS`;
+}
+
+/**
+ * HTML body of the collab-invite nudge. Pure (no I/O), so it is unit-testable.
+ * Interpolates only the escaped sender label and note title, plus a plain app
+ * link. No research content beyond the title, no secret link.
+ */
+export function buildCollabInviteHtml(params: CollabInviteEmailParams): string {
+  const sender = esc(params.senderLabel);
+  const title = esc(params.noteTitle);
+  const url = sharedWithMeUrl();
+  const mascotUrl = beakerbotImageUrl();
+  return `<!doctype html>
+<html lang="en">
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111827;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 20px;">
+    <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;padding:28px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 12px;">
+        <tr>
+          <td style="vertical-align:middle;padding-right:10px;">
+            <img src="${mascotUrl}" width="48" height="48" alt="ResearchOS" style="display:block;width:48px;height:48px;border:0;outline:none;text-decoration:none;" />
+          </td>
+          <td style="vertical-align:middle;">
+            <span style="font-size:22px;font-weight:700;color:#2563eb;letter-spacing:-0.01em;">ResearchOS</span>
+          </td>
+        </tr>
+      </table>
+      <h1 style="font-size:18px;font-weight:600;text-align:center;margin:8px 0 4px;">
+        ${sender} invited you to collaborate
+      </h1>
+      <p style="font-size:14px;line-height:1.6;color:#4b5563;text-align:center;margin:0 0 20px;">
+        ${sender} invited you to collaborate on
+        <strong style="color:#111827;">&ldquo;${title}&rdquo;</strong> in
+        ResearchOS. Open ResearchOS and go to Shared with me to accept.
+      </p>
+      <div style="text-align:center;margin:0 0 20px;">
+        <a href="${url}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 22px;border-radius:9px;">
+          Open ResearchOS
+        </a>
+      </div>
+      <p style="font-size:13px;line-height:1.6;color:#6b7280;text-align:center;margin:0;">
+        The invite is also waiting for you in ResearchOS under Shared with me.
+        Nothing is shared until you accept it there.
+      </p>
+    </div>
+    <div style="margin-top:18px;text-align:center;font-size:11px;line-height:1.6;color:#9ca3af;">
+      <p style="margin:0 0 4px;">
+        You received this because you opted in to collaboration-invite emails and
+        ${sender} invited you to collaborate. You can turn these off in
+        ResearchOS under Settings, Sharing.
+      </p>
+      <p style="margin:0 0 4px;">${esc(POSTAL_ADDRESS)}</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+/** Plaintext fallback body. Same content minimization, no secret link. */
+export function buildCollabInviteText(params: CollabInviteEmailParams): string {
+  return [
+    `${params.senderLabel} invited you to collaborate on "${params.noteTitle}" in ResearchOS.`,
+    ``,
+    `Open ResearchOS and go to Shared with me to accept.`,
+    ``,
+    sharedWithMeUrl(),
+    ``,
+    `You received this because you opted in to collaboration-invite emails. You`,
+    `can turn these off in ResearchOS under Settings, Sharing.`,
+    ``,
+    POSTAL_ADDRESS,
+  ].join("\n");
+}
+
+/**
+ * Sends the collab-invite nudge email via Resend. Throws if Resend reports an
+ * error so the calling route can decide how to respond. Records a coarse send
+ * kind for the operator dashboard, best-effort.
+ */
+export async function sendCollabInviteEmail(
+  params: CollabInviteEmailParams,
+): Promise<void> {
+  const resend = getResend();
+  const { error } = await resend.emails.send({
+    from: INVITE_FROM_ADDRESS,
+    to: params.toEmail,
+    subject: collabInviteSubject(params.senderLabel),
+    html: buildCollabInviteHtml(params),
+    text: buildCollabInviteText(params),
+  });
+  if (error) {
+    throw new Error(
+      `Resend failed to send the collab-invite email: ${error.message}`,
+    );
+  }
+  try {
+    await recordEmailSent("collab_invite");
+  } catch {
+    // ignore
+  }
+}

@@ -309,6 +309,7 @@ describe("upsertProfile / deleteProfile shape", () => {
           orcid: null,
           pinnedWorks: [],
           hiddenWorks: [],
+          notifyOnCollabInvite: true,
         }),
       ).resolves.toBeUndefined();
     } finally {

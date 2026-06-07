@@ -1201,6 +1201,9 @@ export function ProfileEditorCard() {
   const [draftOrcid, setDraftOrcid] = useState("");
   const [draftPinned, setDraftPinned] = useState<string[]>([]);
   const [draftHidden, setDraftHidden] = useState<string[]>([]);
+  // Email-nudge preference. Defaults to true (opted in) for a brand-new profile
+  // and reads the published value (already coerced to a boolean) when editing.
+  const [draftNotify, setDraftNotify] = useState(true);
 
   // Load on mount
   useEffect(() => {
@@ -1219,6 +1222,7 @@ export function ProfileEditorCard() {
     setDraftOrcid(profile?.orcid ?? "");
     setDraftPinned(profile?.pinnedWorks ?? []);
     setDraftHidden(profile?.hiddenWorks ?? []);
+    setDraftNotify(profile?.notifyOnCollabInvite ?? true);
     setError(null);
     setEditing(true);
   }, [profile]);
@@ -1262,6 +1266,7 @@ export function ProfileEditorCard() {
       orcid,
       pinnedWorks: draftPinned,
       hiddenWorks: draftHidden,
+      notifyOnCollabInvite: draftNotify,
     });
     setBusy(false);
 
@@ -1280,7 +1285,7 @@ export function ProfileEditorCard() {
     const updated = await fetchMyProfile();
     setProfile(updated);
     setEditing(false);
-  }, [draftName, draftAffiliation, draftOrcid, draftPinned, draftHidden]);
+  }, [draftName, draftAffiliation, draftOrcid, draftPinned, draftHidden, draftNotify]);
 
   const remove = useCallback(async () => {
     setBusy(true);
@@ -1459,6 +1464,28 @@ export function ProfileEditorCard() {
                 />
               </div>
             )}
+
+            <div className="border-t border-border pt-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={draftNotify}
+                  onChange={(e) => setDraftNotify(e.target.checked)}
+                  disabled={busy}
+                  className="mt-0.5 h-4 w-4 rounded border-border text-blue-600 focus:ring-2 focus:ring-sky-200 disabled:opacity-50"
+                />
+                <span className="text-meta text-foreground leading-relaxed">
+                  <span className="font-medium">
+                    Email me when someone invites me to collaborate
+                  </span>
+                  <span className="block text-foreground-muted">
+                    You always see invites in ResearchOS under Shared with me.
+                    Turn this on to also get an email nudge. The email names the
+                    sender and the item title, never any research content.
+                  </span>
+                </span>
+              </label>
+            </div>
           </div>
 
           {error && (

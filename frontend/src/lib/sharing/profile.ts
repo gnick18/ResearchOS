@@ -34,9 +34,23 @@ export interface ProfileData {
   orcid: string | null;
   pinnedWorks: string[];
   hiddenWorks: string[];
+  /**
+   * Whether the user wants an email nudge when someone invites them to
+   * collaborate (external-collab). Defaults to true; the user can opt out in
+   * Settings -> Sharing. This is published into the signed directory profile so
+   * the server can read it at invite-send time (the sender triggers the email,
+   * but the recipient's preference decides whether it goes out).
+   */
+  notifyOnCollabInvite: boolean;
 }
 
-export interface PublishedProfile extends ProfileData {
+export interface PublishedProfile extends Omit<ProfileData, "notifyOnCollabInvite"> {
+  /**
+   * The recipient's notify preference as published. Optional on the wire because
+   * a profile stored before this field existed has no value; readers coerce a
+   * missing value to the default (true) via withNotifyDefault.
+   */
+  notifyOnCollabInvite?: boolean;
   fingerprint: string;
   /** The verified institutional domain (e.g. "wisc.edu"), or null when the
    * OAuth login was on a consumer email (gmail, outlook, etc.). */
@@ -73,11 +87,16 @@ function buildProfilePayloadBytes(
     orcid?: string | null;
     pinnedWorks?: string[];
     hiddenWorks?: string[];
+    notifyOnCollabInvite?: boolean;
     issuedAt: string;
   },
 ): Uint8Array {
   // Null / undefined → literal "null" to match the server's encoding.
   const enc = (v: string | null | undefined) => v ?? "null";
+  // The notify preference defaults to true (mirrors the server) and only
+  // appears for the profile (upsert) action, so a delete payload's bytes are
+  // unchanged from before this field existed.
+  const notify = data.notifyOnCollabInvite ?? true;
   const lines = [
     PROFILE_VERSION,
     `action=${action}`,
@@ -86,8 +105,11 @@ function buildProfilePayloadBytes(
     `orcid=${enc(data.orcid)}`,
     `pinned=${(data.pinnedWorks ?? []).join(",")}`,
     `hidden=${(data.hiddenWorks ?? []).join(",")}`,
-    `issuedAt=${data.issuedAt}`,
   ];
+  if (action === "profile") {
+    lines.push(`notifyOnCollabInvite=${notify ? "true" : "false"}`);
+  }
+  lines.push(`issuedAt=${data.issuedAt}`);
   return new TextEncoder().encode(lines.join("\n"));
 }
 
@@ -135,10 +157,23 @@ export async function fetchProfileByFingerprint(
     );
     if (!res.ok) return null;
     const data = (await res.json()) as { profile: PublishedProfile | null };
-    return data.profile ?? null;
+    return data.profile ? withNotifyDefault(data.profile) : null;
   } catch {
     return null;
   }
+}
+
+/**
+ * Backward-safe read of the notify preference. A profile published before the
+ * field existed has no notifyOnCollabInvite, which must read as the default
+ * (true). Returns a copy with the field always populated so the rest of the UI
+ * can treat it as a plain boolean.
+ */
+function withNotifyDefault(p: PublishedProfile): PublishedProfile {
+  return {
+    ...p,
+    notifyOnCollabInvite: p.notifyOnCollabInvite ?? true,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -154,7 +189,7 @@ export async function fetchMyProfile(): Promise<PublishedProfile | null> {
     const res = await fetch("/api/directory/profile");
     if (res.status === 404 || res.status === 401) return null;
     if (!res.ok) return null;
-    return (await res.json()) as PublishedProfile;
+    return withNotifyDefault((await res.json()) as PublishedProfile);
   } catch {
     return null;
   }
@@ -203,6 +238,7 @@ export async function publishProfile(
         orcid: data.orcid ?? null,
         pinnedWorks: data.pinnedWorks,
         hiddenWorks: data.hiddenWorks,
+        notifyOnCollabInvite: data.notifyOnCollabInvite,
         signature,
         issuedAt,
       }),
