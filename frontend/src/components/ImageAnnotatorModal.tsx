@@ -1354,9 +1354,11 @@ function IconEllipse() {
   );
 }
 function IconPen() {
+  // Freehand tool: "scribble loop" (Grant picked 2026-06-07 from
+  // docs/mockups/freehand-icon-options.html).
   return (
     <svg {...ic}>
-      <path d="M3 21c3-1 5-2 7-5 1.5-2 3-5 5-7 1.2-1.2 3-1 3 .5 0 2-3 3.8-5 5-3 1.8-5 3-10 6.5z" />
+      <path d="M4 16c2-6 5 4 7-1s4-7 6-3-2 7 1 7" />
     </svg>
   );
 }
