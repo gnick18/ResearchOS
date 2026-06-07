@@ -44,6 +44,28 @@ import { tasksApi as rawTasksApi, notesApi as rawNotesApi, purchasesApi as rawPu
 import { fileService } from "../file-system/file-service";
 import { appendAuditEntries } from "./pi-audit";
 import { readArchivedSet } from "./user-archive";
+import { PURCHASE_LORO_ENABLED } from "@/lib/loro/config";
+import { writePurchaseUpdateThroughLoro } from "@/lib/loro/purchase-write-through";
+import type { PurchaseItem, PurchaseItemUpdate } from "@/lib/types";
+
+// Purchase items on Loro (docs/proposals/PURCHASE_LORO.md) chunk 3 = WRITE
+// routing for the lab-head approval / decline / flag writes. The pre-read +
+// permission flow above each call stays AUTHORITATIVE and runs BEFORE this
+// helper; only the persistence mechanism changes. When PURCHASE_LORO_ENABLED
+// the update lands in the item's Loro doc (persisting the .loro sidecar AND the
+// .json mirror + relay fan-out); the mirror keeps the approval-queue / audit
+// readers correct. Flag off, it falls through to rawPurchasesApi.update EXACTLY
+// as before.
+async function writePurchaseUpdate(
+  owner: string,
+  id: number,
+  patch: PurchaseItemUpdate,
+): Promise<PurchaseItem | null> {
+  if (PURCHASE_LORO_ENABLED) {
+    return writePurchaseUpdateThroughLoro(owner, id, patch);
+  }
+  return rawPurchasesApi.update(id, patch, owner);
+}
 
 // PI edit-mode / edit-session removal (remove-edit-mode bot, 2026-06-07):
 // lab-head actions (assign / approve / decline / flag) no longer require a
@@ -480,7 +502,8 @@ export async function setPurchaseApproval(
   // and "re-approve after decline" — they're the same write.
   let updated;
   try {
-    updated = await rawPurchasesApi.update(
+    updated = await writePurchaseUpdate(
+      args.targetOwner,
       args.purchaseItemId,
       {
         approved,
@@ -492,7 +515,6 @@ export async function setPurchaseApproval(
         declined_at: null,
         declined_by: null,
       },
-      args.targetOwner,
     );
     if (!updated) {
       throw new Error("setPurchaseApproval: purchasesApi.update returned null");
@@ -595,7 +617,8 @@ export async function declinePurchase(
 
   let updated;
   try {
-    updated = await rawPurchasesApi.update(
+    updated = await writePurchaseUpdate(
+      args.targetOwner,
       args.purchaseItemId,
       {
         approved: false,
@@ -604,7 +627,6 @@ export async function declinePurchase(
         declined_at: now,
         declined_by: args.actor,
       },
-      args.targetOwner,
     );
     if (!updated) {
       throw new Error("declinePurchase: purchasesApi.update returned null");
@@ -709,7 +731,7 @@ export async function setFlagForReview(
       }
       beforeFlag = before.flagged ?? null;
       displayName = before.item_name;
-      await rawPurchasesApi.update(args.recordId, { flagged: args.flag }, args.targetOwner);
+      await writePurchaseUpdate(args.targetOwner, args.recordId, { flagged: args.flag });
     }
   } catch (err) {
     return dataWriteFailure(err);
@@ -808,7 +830,7 @@ export async function clearFlagAsOwner(args: {
         );
       }
       beforeFlag = before.flagged ?? null;
-      await rawPurchasesApi.update(args.recordId, { flagged: null }, args.owner);
+      await writePurchaseUpdate(args.owner, args.recordId, { flagged: null });
     }
   } catch (err) {
     return dataWriteFailure(err);
