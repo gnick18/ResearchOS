@@ -22,7 +22,8 @@ Wordmark is **Geist** at weight 800 (bold), tight tracking (about -0.03em), in `
   - `beakerbot-avatar-*-1600.png` — 1600x1600. **Use these for uploads** (YouTube re-compresses small images, which is why an 800px upload looked soft).
   - `researchos-banner-*.png` — 2048x1152.
   - `researchos-og.png` — 1200x630 social-share / OpenGraph card (mark + wordmark + tagline). Wired into the app as `frontend/src/app/opengraph-image.png` + `twitter-image.png`.
-- `src/` — the editable generators (`profile.html`, `banner.html`, `og.html`). Open over `http://localhost` to re-render or tweak.
+  - `researchos-bluesky-banner.png` — 1500x500 (3:1) Bluesky profile header. Lockup nudged right of center to clear the bottom-left avatar overlay.
+- `src/` — the editable generators (`profile.html`, `banner.html`, `og.html`, `bluesky-banner.html`). Open over `http://localhost` to re-render or tweak.
 
 ## Notes
 - SVG is the master format (infinitely crisp), but YouTube/most upload forms only accept PNG/JPG. Upload the PNGs, keep the SVGs for everything else (web, print, slides).
