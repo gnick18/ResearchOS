@@ -11,9 +11,9 @@
  * the common case. The trigger lives in methods/page.tsx's handleDelete.
  */
 
-import { useEffect, useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { Method } from "@/lib/types";
-import Tooltip from "@/components/Tooltip";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 export interface AffectedCompound {
   id: number;
@@ -22,6 +22,9 @@ export interface AffectedCompound {
 }
 
 interface DeleteMethodConfirmProps {
+  /** Controlled open state. The parent toggles this so LivingPopup can play
+   *  the zoom-out exit before the body unmounts. */
+  open: boolean;
   /** The method the user is about to delete. */
   methodName: string;
   /** Compounds that reference the method-to-be-deleted. Pre-computed by
@@ -61,57 +64,52 @@ export function findAffectedCompounds(
 }
 
 export function DeleteMethodConfirm({
+  open,
   methodName,
   affectedCompounds,
   onCancel,
   onJustDelete,
   onCascadeDelete,
 }: DeleteMethodConfirmProps) {
-  const compoundCount = affectedCompounds.length;
+  // Snapshot the prop-driven body so it stays rendered through LivingPopup's
+  // zoom-out exit after the parent clears `pendingDelete` (props go stale on
+  // close). Synced during render, the RestoreParentPrompt idiom.
+  const [shown, setShown] = useState<{
+    methodName: string;
+    affectedCompounds: AffectedCompound[];
+  } | null>(open ? { methodName, affectedCompounds } : null);
+  if (open && (shown?.methodName !== methodName || shown?.affectedCompounds !== affectedCompounds)) {
+    setShown({ methodName, affectedCompounds });
+  }
+
+  const snapName = shown?.methodName ?? methodName;
+  const snapCompounds = shown?.affectedCompounds ?? affectedCompounds;
+  const compoundCount = snapCompounds.length;
   const compoundsLabel = useMemo(
     () => (compoundCount === 1 ? "1 kit" : `${compoundCount} kits`),
     [compoundCount],
   );
 
-  // Esc to cancel — mirrors the other modal patterns in the app (the
-  // CreateMethodModal etc don't all have this but the delete flow is
-  // higher-consequence so adding Esc-to-cancel is a free safety net).
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onCancel]);
-
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="delete-method-confirm"
+    <LivingPopup
+      open={open}
+      onClose={onCancel}
+      label={`Delete ${snapName}`}
+      widthClassName="max-w-lg"
+      card={false}
     >
       <div className="bg-surface-raised rounded-xl shadow-2xl max-w-lg w-full mx-4 max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h3 className="text-title font-semibold text-foreground">
-            Delete &ldquo;{methodName}&rdquo;?
+            Delete &ldquo;{snapName}&rdquo;?
           </h3>
-          <Tooltip label="Cancel" placement="bottom">
-            <button
-              onClick={onCancel}
-              className="text-foreground-muted hover:text-foreground text-heading"
-            >
-              ✕
-            </button>
-          </Tooltip>
         </div>
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           <p className="text-body text-foreground">
-            <span className="font-medium">{methodName}</span> is part of {compoundsLabel}:
+            <span className="font-medium">{snapName}</span> is part of {compoundsLabel}:
           </p>
           <ul className="border border-border rounded-lg overflow-hidden text-body divide-y divide-gray-100 bg-surface-sunken">
-            {affectedCompounds.map((c) => (
+            {snapCompounds.map((c) => (
               <li key={`${c.owner}:${c.id}`} className="px-3 py-2">
                 <span className="text-foreground font-medium">{c.name}</span>
                 <span className="text-foreground-muted ml-2 text-meta">
@@ -127,7 +125,7 @@ export function DeleteMethodConfirm({
               className="w-full text-left px-4 py-3 border border-border rounded-lg hover:bg-surface-sunken"
             >
               <div className="text-body font-medium text-foreground">
-                Just delete &ldquo;{methodName}&rdquo;
+                Just delete &ldquo;{snapName}&rdquo;
               </div>
               <div className="text-meta text-foreground-muted mt-1">
                 Keeps the {compoundsLabel}; they will show
@@ -140,7 +138,7 @@ export function DeleteMethodConfirm({
               className="w-full text-left px-4 py-3 border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 rounded-lg hover:bg-red-100 dark:hover:bg-red-500/20"
             >
               <div className="text-body font-medium text-red-900">
-                Delete &ldquo;{methodName}&rdquo; AND the {compoundsLabel}
+                Delete &ldquo;{snapName}&rdquo; AND the {compoundsLabel}
               </div>
               <div className="text-meta text-red-700 dark:text-red-300 mt-1">
                 Removes all {compoundCount + 1} method records. Experiments
@@ -158,6 +156,6 @@ export function DeleteMethodConfirm({
           </button>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }

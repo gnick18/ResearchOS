@@ -1104,15 +1104,14 @@ export default function MethodsPage() {
       {/* Compound-aware delete modal — only opens when the target method
           is referenced by one or more compounds (Q-A4 lock). Falls back to
           the simple confirm() in handleDelete for the common case. */}
-      {pendingDelete && (
-        <DeleteMethodConfirm
-          methodName={pendingDelete.method.name}
-          affectedCompounds={pendingDelete.affected}
-          onCancel={() => setPendingDelete(null)}
-          onJustDelete={handleJustDelete}
-          onCascadeDelete={handleCascadeDelete}
-        />
-      )}
+      <DeleteMethodConfirm
+        open={pendingDelete !== null}
+        methodName={pendingDelete?.method.name ?? ""}
+        affectedCompounds={pendingDelete?.affected ?? []}
+        onCancel={() => setPendingDelete(null)}
+        onJustDelete={handleJustDelete}
+        onCascadeDelete={handleCascadeDelete}
+      />
 
       {/* Edit-compound builder. Opened from the CompoundViewer's "Edit"
           button below. */}

@@ -18,6 +18,7 @@ import {
   validateCompoundComponents,
 } from "@/lib/methods/compound-graph";
 import Tooltip from "@/components/Tooltip";
+import LivingPopup from "@/components/ui/LivingPopup";
 import { CompoundChildCreator } from "./CompoundChildCreator";
 import { rollbackInlineCreatedChildren } from "./compound-builder-cleanup";
 
@@ -243,37 +244,27 @@ export function CompoundMethodBuilder({
     }
   }, [name, folder, tags, components, validation, editing, onSaved]);
 
-  // Esc closes the modal via the same cancel funnel as the X / Cancel
-  // buttons so inline-created children are rolled back.
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") handleCancel();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [handleCancel]);
-
+  // CompoundMethodBuilder keeps its PARENT mount-gate ({editingCompound && ...})
+  // because all of its form state (name / folder / tags / components) is seeded
+  // from the `editing` prop on mount; always-rendering would strand stale state
+  // from a previously-edited compound. So `open` is a constant true here and the
+  // parent unmount drives the close (LivingPopup unifies the entrance + blur +
+  // X; only the zoom-OUT exit is skipped). Escape / scrim / X all route through
+  // handleCancel so inline-created children are rolled back.
   return (
-    <div
-      className="fixed inset-0 z-[55] flex items-center justify-center bg-black/30 backdrop-blur-sm"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="compound-method-builder"
+    <>
+    <LivingPopup
+      open
+      onClose={handleCancel}
+      label="Edit kit"
+      widthClassName="max-w-3xl"
+      card={false}
     >
       <div className="bg-surface-raised rounded-xl shadow-2xl max-w-3xl w-full mx-4 max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h3 className="text-title font-semibold text-foreground">
             Edit kit
           </h3>
-          <Tooltip label="Close" placement="bottom">
-            <button
-              onClick={handleCancel}
-              className="text-foreground-muted hover:text-foreground text-heading"
-            >
-              ✕
-            </button>
-          </Tooltip>
         </div>
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
           <p className="text-meta text-foreground-muted">
@@ -404,19 +395,33 @@ export function CompoundMethodBuilder({
           </button>
         </div>
       </div>
-      {showPicker && (
-        <ComponentPicker
-          allMethods={allMethods}
-          currentUser={currentUser}
-          editingCompoundId={editing.id}
-          existingComponents={components}
-          existingFolders={existingFolders}
-          onCancel={() => setShowPicker(false)}
-          onPick={handleAddComponent}
-          onCreatedInline={handleInlineChildCreated}
-        />
-      )}
-    </div>
+    </LivingPopup>
+    {/* The "Add component" sub-modal stays on its OWN bespoke fixed-inset-0
+        overlay (NOT migrated to LivingPopup) and renders as a SIBLING of the
+        builder popup, outside its transformed card. Two reasons it is left
+        unmigrated (popup-migration batch 5 decision):
+          1. A nested LivingPopup would render inside the builder card's
+             transform, which clips a fixed-inset-0 overlay (recipe rule 8).
+          2. LivingPopup has no "innermost-only" Escape guard, so a single
+             Escape would close BOTH the picker AND the builder (the recipe's
+             "Escape closes the wrong one" failure mode). The picker's own
+             window-level Escape handler closes just the picker.
+        Rendering it as a fragment sibling keeps it above the builder's z-[400]
+        scrim (its own z-[65]) while the builder's blurred scrim shows through
+        behind it. Master to decide if a stacked-popup primitive is wanted. */}
+    {showPicker && (
+      <ComponentPicker
+        allMethods={allMethods}
+        currentUser={currentUser}
+        editingCompoundId={editing.id}
+        existingComponents={components}
+        existingFolders={existingFolders}
+        onCancel={() => setShowPicker(false)}
+        onPick={handleAddComponent}
+        onCreatedInline={handleInlineChildCreated}
+      />
+    )}
+    </>
   );
 }
 
@@ -600,7 +605,12 @@ function ComponentPicker({
   const standard = getMethodTypesByCategory("standard");
   return (
     <div
-      className="fixed inset-0 z-[65] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      // z-[450] sits ABOVE the builder's LivingPopup (z-[400]) so this
+      // sub-modal stacks on top. It is rendered as a fragment sibling of the
+      // builder popup (see CompoundMethodBuilder's render note) rather than
+      // migrated to LivingPopup, to avoid the nested-Escape + transform-clip
+      // pitfalls of two stacked LivingPopups.
+      className="fixed inset-0 z-[450] flex items-center justify-center bg-black/40 backdrop-blur-sm"
       // Marker for TourSpotlight (popup-occluding sweep manager,
       // 2026-05-27).
       data-tour-popup-occluding="compound-method-add-component"

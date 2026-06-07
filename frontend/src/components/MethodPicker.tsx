@@ -19,6 +19,7 @@ import {
 } from "@/lib/methods/library-sections";
 import RenderedMarkdown from "@/components/RenderedMarkdown";
 import MethodCard from "@/components/methods/MethodCard";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 interface MethodPickerProps {
   open: boolean;
@@ -446,8 +447,6 @@ export default function MethodPicker({
     cardRefs.current.get(highlightedKey)?.scrollIntoView({ block: "nearest" });
   }, [highlightedKey]);
 
-  if (!open) return null;
-
   // The card grid wraps at 2 columns on md+, so Left/Right step by 1 and
   // Up/Down step by a column count. We treat the list as a 2-col grid for
   // vertical movement and a 1-D sequence for horizontal, which keeps arrow
@@ -517,19 +516,18 @@ export default function MethodPicker({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-start justify-center bg-black/30 backdrop-blur-sm pt-[10vh] px-4"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="method-picker"
-      onClick={onClose}
-      onKeyDown={handleKeyDown}
+    <LivingPopup
+      open={open}
+      onClose={onClose}
+      label="Attach a method"
+      widthClassName="max-w-5xl"
+      card={false}
+      fillHeight
     >
       <div
         className="w-full max-w-5xl bg-surface-raised rounded-xl shadow-2xl flex flex-col overflow-hidden"
         style={{ maxHeight: "80vh", minHeight: "min(80vh, 480px)" }}
-        onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleKeyDown}
       >
         <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
           <svg
@@ -684,7 +682,7 @@ export default function MethodPicker({
           </span>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }
 

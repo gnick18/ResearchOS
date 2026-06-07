@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import LivingPopup from "@/components/ui/LivingPopup";
 import {
   methodsApi as rawMethodsApi,
   filesApi,
@@ -444,9 +444,8 @@ export function CreateMethodModal({
     onClose();
   }, [slug, onClose]);
 
-  // Escape closes this modal (app-wide convention). Routes through the same
-  // cancel path the Cancel button uses so uploaded-image cleanup still runs.
-  useEscapeToClose(handleCancel);
+  // Escape is owned by LivingPopup now (it routes to onClose -> handleCancel
+  // via the popup shell), so the uploaded-image cleanup still runs on Escape.
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -781,13 +780,20 @@ export function CreateMethodModal({
     }
   }, [performSave, onCreated, saving, name]);
 
+  // CreateMethodModal keeps its PARENT mount-gate ({creating && ...}) because
+  // all of its per-type form state is initialized on mount; always-rendering
+  // would strand stale state from a previous open. `open` is a constant true
+  // and the parent unmount drives the close (LivingPopup unifies the entrance +
+  // blur + X; only the zoom-OUT exit is skipped). Escape / scrim / X route
+  // through handleCancel so uploaded-image cleanup still runs.
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-      // Marker for TourSpotlight (popup-occluding sweep manager,
-      // 2026-05-27). Hides the v4 walkthrough ring while this popup
-      // is mounted; see SnapshotTilePopup for the canonical example.
-      data-tour-popup-occluding="create-method-modal"
+    <>
+    <LivingPopup
+      open
+      onClose={handleCancel}
+      label="New Method"
+      widthClassName="max-w-4xl"
+      card={false}
     >
       <div
         className="bg-surface-raised rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col"
@@ -798,17 +804,6 @@ export function CreateMethodModal({
           <h3 className="text-title font-semibold text-foreground">
             New Method
           </h3>
-          <Tooltip label="Close" placement="bottom">
-            <button
-              onClick={handleCancel}
-              aria-label="Close"
-              className="text-foreground-muted hover:text-foreground-muted"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </Tooltip>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
@@ -1358,15 +1353,26 @@ export function CreateMethodModal({
           </button>
         </div>
       </div>
+    </LivingPopup>
+    {/* FileRenamePopup + the template library are their OWN fixed-inset-0
+        overlays. They render as fragment siblings of the builder popup, each
+        lifted into a z-[450] wrapper above LivingPopup's z-[400] card so they
+        sit on top (and outside the card's transform, which would otherwise clip
+        a nested fixed overlay, recipe rule 8). They keep their own bespoke
+        overlays + Escape handlers rather than nesting a second LivingPopup (no
+        innermost-only Escape guard means a single Escape would close both). */}
+    <div className="fixed inset-0 z-[450] pointer-events-none [&>*]:pointer-events-auto">
       <FileRenamePopup />
-      {/* Method template library (the store), opened from the picker footer
-          link. Enabling / disabling types happens here. If the user uses a
-          template, a method is created. Phase D unify (store-detail bot): when
-          the caller supplies `onTemplateUsed`, hand the created method up so it
-          opens in the viewer (matching the standalone /methods library);
-          otherwise fall back to the legacy close-and-refetch via onCreated
-          (with no arg = plain create, not the extend-into-kit compound path). */}
-      {showLibrary && (
+    </div>
+    {/* Method template library (the store), opened from the picker footer
+        link. Enabling / disabling types happens here. If the user uses a
+        template, a method is created. Phase D unify (store-detail bot): when
+        the caller supplies `onTemplateUsed`, hand the created method up so it
+        opens in the viewer (matching the standalone /methods library);
+        otherwise fall back to the legacy close-and-refetch via onCreated
+        (with no arg = plain create, not the extend-into-kit compound path). */}
+    {showLibrary && (
+      <div className="fixed inset-0 z-[450]">
         <MethodTemplateLibraryModal
           existingFolders={existingFolders}
           onClose={() => setShowLibrary(false)}
@@ -1376,7 +1382,8 @@ export function CreateMethodModal({
             else onCreated();
           }}
         />
-      )}
-    </div>
+      </div>
+    )}
+    </>
   );
 }
