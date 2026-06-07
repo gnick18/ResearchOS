@@ -93,3 +93,58 @@ export function reportableGb(avgUsedBytes: number): number {
   if (monthlyChargeCents(avgUsedBytes) === 0) return 0;
   return billableBytes(avgUsedBytes) / BYTES_PER_GB;
 }
+
+// --- lab-level (consolidated) billing (chunk 3, Grant 2026-06-07) ---
+//
+// A PI sponsors the whole lab on one invoice. Each sponsored owner (the PI plus
+// every accepted member) keeps their own 1 GB free, so the lab's free pool is
+// 1 GB times the number of sponsored owners. The PI's invoice meters only the
+// aggregate usage above that pool, so a small or light lab still pays $0. The
+// same minimum-charge waiver and per-GB rate apply, just against the aggregate.
+
+/**
+ * The pooled free allowance for a lab, 1 GB per sponsored owner (the PI counts
+ * as one). Clamped to at least one tier so a lab with no members still pools the
+ * PI's own free gigabyte.
+ */
+export function labFreePoolBytes(sponsoredOwnerCount: number): number {
+  return Math.max(1, Math.floor(sponsoredOwnerCount)) * FREE_ALLOWANCE_BYTES;
+}
+
+/** Aggregate lab usage above the pooled free tier, never negative. */
+export function labBillableBytes(
+  aggregateUsedBytes: number,
+  sponsoredOwnerCount: number,
+): number {
+  return Math.max(0, aggregateUsedBytes - labFreePoolBytes(sponsoredOwnerCount));
+}
+
+/** Raw monthly charge (cents) for a lab's aggregate usage, before the minimum. */
+export function labRawChargeCents(
+  aggregateAvgBytes: number,
+  sponsoredOwnerCount: number,
+): number {
+  const gb =
+    labBillableBytes(aggregateAvgBytes, sponsoredOwnerCount) / BYTES_PER_GB;
+  return Math.round(gb * STORAGE_RATE_USD_PER_GB_MONTH * 100);
+}
+
+/** Lab monthly charge (cents) after the minimum-charge waiver. */
+export function labMonthlyChargeCents(
+  aggregateAvgBytes: number,
+  sponsoredOwnerCount: number,
+): number {
+  const raw = labRawChargeCents(aggregateAvgBytes, sponsoredOwnerCount);
+  return raw >= MIN_MONTHLY_CHARGE_CENTS ? raw : 0;
+}
+
+/** The billable GB to report to Stripe for a lab's aggregate monthly average. */
+export function labReportableGb(
+  aggregateAvgBytes: number,
+  sponsoredOwnerCount: number,
+): number {
+  if (labMonthlyChargeCents(aggregateAvgBytes, sponsoredOwnerCount) === 0) {
+    return 0;
+  }
+  return labBillableBytes(aggregateAvgBytes, sponsoredOwnerCount) / BYTES_PER_GB;
+}
