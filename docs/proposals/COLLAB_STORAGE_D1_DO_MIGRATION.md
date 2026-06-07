@@ -77,7 +77,18 @@ After phase 1: Neon no longer touches collab; the relay is the full collab backe
 
 ## Phase 2: directory -> D1
 
-Move `directory_identities` and the membership/registry tables to D1. 9 directory routes plus the relay-inbox and collab access-control reads repoint to D1. Dual-read (D1 with Neon fallback) first; this is auth-critical and holds Grant's live identities, so it is the most careful phase. Add the cross-doc registry + search index tables here (built with, not ahead of, the search/AI feature).
+Move the directory tables to D1. Dual-read (D1 with Neon fallback) first; this is auth-critical and holds Grant's live identities, so it is the most careful phase. Add the cross-doc registry + search index tables here (built with, not ahead of, the search/AI feature).
+
+### Phase 2 scoping findings (2026-06-06, before building)
+
+Mapped the directory before starting. It is a substantial migration, not a swap, and its cost urgency is LOW now that collab (the expensive high-write tenant) already left Neon. Findings:
+
+- D1 cannot be bound from a Vercel function. The directory routes (`frontend/src/app/api/directory/*`) are Vercel/Next routes. To use D1 they must run on a Cloudflare Worker (recommended end-state) or call the D1 REST API (throwaway half-measure). Chosen direction: relocate to a dedicated Worker with a native D1 binding, frontend unchanged via a Vercel rewrite of `/api/directory/*` to the Worker (no CORS/client churn).
+- NextAuth coupling: 4 of 9 routes (verify, search, profile, oauth-bind) import the Vercel auth session. The Worker must re-verify the NextAuth v5 JWT cookie itself (signed with AUTH_SECRET, verifiable anywhere). Self-contained routes (lookup, signup, recover, rotate, researcher) port first; the coupled ones need the JWT-verify shim.
+- Postgres-specific search: `directory_profiles` has `idx_profiles_search` (Postgres search). SQLite has no equivalent index type; the search route must be reworked to SQLite FTS5. Port the non-search tables first; do search last.
+- Surface: 6 tables (directory_identities, directory_key_history, directory_orcid_links, directory_profiles, directory_email_log, directory_event_log) + ~20 functions in `lib/sharing/directory/db.ts` (23 KB), plus Worker provisioning, secrets (DIRECTORY_HMAC_PEPPER, AUTH_SECRET), a one-time backfill of live identity rows, dual-read, then cutover.
+
+CONCLUSION: phase 2 is a multi-session project with real complications and low immediate payoff (directory is cheap on Neon). Recommended sequencing: bank the actual remaining cost win first (collab chunk 5 cutover, after Grant's verification test), then do phase 2 as its own focused initiative. Phase 2 chunk 1 when it runs = provision D1 + port the schema to SQLite-compatible DDL (FTS5 for search) + stand up the Worker skeleton (no traffic), then self-contained read routes dual-read, then the JWT-coupled routes, then writes + backfill + cutover.
 
 ## Phase 3: billing + remaining relational -> D1
 
