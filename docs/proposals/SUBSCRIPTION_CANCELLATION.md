@@ -13,19 +13,26 @@ user touches is continuously synced into their own data folder as a local Loro
 replica. The copy on the server is a mirror that exists to power real-time sync,
 not the system of record.
 
-So cancellation is not primarily a deletion event. It is a downgrade of
-capability. When a subscription ends, the user does not lose their research. They
-lose the live, cloud-backed features that the subscription paid for. Concretely:
+Crucially, the paid plan buys STORAGE HEADROOM, not collaboration.
+Collaboration is a free, universal feature, every user can collaborate in real
+time with anyone, inside their lab or outside it, bounded only by their storage
+budget (1 GB free). So a subscription is just more server storage for bigger or
+more numerous shared docs.
 
-- Their collaboration features are revoked (real-time co-editing, presence, the
-  relay connection, pushing and pulling shared updates).
-- Shared folders they participated in stop receiving live updates and become
-  static local copies, a frozen snapshot of the last synced state that they
-  still fully own and can read and edit locally.
-- Their storage quota reverts from the paid blocks back to the free allowance.
+That makes cancellation a quota reduction, not a capability revocation. When a
+subscription ends:
 
-The only thing the server gives up is redundant bytes. The hard rule below makes
-sure "redundant" is actually true before anything is removed.
+- Collaboration is NOT switched off. The user keeps collaborating on whatever
+  fits inside the free 1 GB allowance, exactly like any free user.
+- Their storage quota reverts from the paid blocks back to the 1 GB free
+  allowance.
+- Only the SERVER content above that 1 GB freezes. Those shared folders become
+  static local copies, a frozen snapshot of the last synced state that the user
+  still fully owns and can read and edit locally.
+
+The only thing the server gives up is redundant bytes above the free quota. The
+hard rule below makes sure "redundant" is actually true before anything is
+removed.
 
 ## What actually lives on the server
 
@@ -97,16 +104,17 @@ the local replicas, so the window is a convenience, not a deadline with teeth.
 ## Lifecycle
 
 ```
-active (paid blocks)
+active (paid blocks, large/many shared docs)
    |  Stripe customer.subscription.deleted / downgrade
    v
-canceled-grace (quota = free allowance; collab still live; sync-down in progress)
+canceled-grace (quota = 1 GB; ALL collab still live; sync-down in progress)
    |  T+7d purge job, after verified local copies
    v
-free / static (collab revoked; shared folders static; redundant server bytes gone)
+free (collab continues within 1 GB; only the over-quota folders go static;
+      their redundant server bytes are gone)
    |  re-subscribe (any time)
    v
-active (local replicas re-upload, collaboration resumes)
+active (local replicas re-upload, the static folders rejoin live collaboration)
 ```
 
 The subscription state already lives in `billing/db.ts`
@@ -116,12 +124,15 @@ a `grace_until` timestamp and a `purge_done` flag.
 
 ## Edge cases
 
-- Owner of a shared folder cancels: the folder's server sync stops for everyone.
-  Each collaborator keeps their own local snapshot as a static copy. Collaborators
-  are notified that the owner ended collaboration.
-- A collaborator (not the owner) cancels: only that person drops out. Their view
-  goes static; the folder keeps living for everyone else. The owner's quota is
-  unaffected.
+- Owner of a shared folder cancels: only folders that no longer fit the 1 GB
+  budget freeze. If the owner's surviving shared content fits in 1 GB, it keeps
+  collaborating normally. For a folder that does freeze, sync stops for everyone
+  in it and each collaborator keeps their own local snapshot; they are notified
+  the owner's storage for that folder lapsed.
+- A collaborator (not the owner) cancels: nothing happens to the shared folders
+  they are in, because the OWNER's storage budget hosts them, not the
+  collaborator's. The collaborator only loses headroom for docs THEY own. This is
+  worth calling out, joining someone's shared folder does not consume your budget.
 - Partial local sync: a collaborator who never fully synced a large folder is
   force-synced during the grace window before freeze, or warned that unsynced
   parts will not be retained locally.
@@ -153,11 +164,21 @@ a `grace_until` timestamp and a `purge_done` flag.
 6. Reactivation: on a new `invoice.paid`, clear `grace_until`/freeze flags and let
    the client re-upload local replicas to re-establish sync.
 
-## Open questions for Grant
+## Decisions and open questions
 
-1. Does the FREE tier (1 GB) include any cloud-backed collaboration, or is free =
-   local-only with all collaboration gated behind the paid plan? This decides
-   whether cancellation freezes the overage or freezes everything.
+DECIDED (Grant, 2026-06-07): the free tier includes full collaboration with
+anyone, in-lab or outside, bounded only by the 1 GB storage budget. The paid plan
+sells storage headroom, not collaboration. So cancellation freezes only the
+over-quota content, never collaboration as a whole.
+
+Open:
+
+1. When a canceled owner is over quota (say 5 GB of server collab dropping to a
+   1 GB budget), WHICH content stays live and which freezes? Options: keep the
+   most recently active and freeze the rest, keep smallest-first to maximize the
+   number of live folders, or let the user explicitly pick which folders to keep
+   live within the 1 GB. Recommend letting the user pick during grace, with
+   most-recently-active as the default if they do nothing.
 2. Is server-side file offloading (data that lives ONLY on R2, not the local
    folder) ever allowed? If we forbid it, the "only copy on the server" risk
    disappears entirely and the hard rule becomes a belt-and-suspenders check
@@ -166,6 +187,11 @@ a `grace_until` timestamp and a `purge_done` flag.
    storage; longer is friendlier. Recommend 7.
 4. On full account deletion (distinct from a subscription cancel), do we also drop
    the directory entry and identity key, or keep identity so they can return?
+5. Attribution: a shared doc's server bytes count against the doc OWNER's budget,
+   not each collaborator's. This follows from today's `quotaBytesForOwner(ownerKey)`
+   and means joining a folder never costs you, only owning shared content does.
+   Confirm this is the intended model (the alternative, splitting bytes across
+   participants, is far more complex and punishes collaboration).
 
 ## Out of scope
 
