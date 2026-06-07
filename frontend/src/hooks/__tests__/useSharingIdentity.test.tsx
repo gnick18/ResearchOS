@@ -31,6 +31,11 @@ vi.mock("@/lib/sharing/identity/storage", () => ({
 
 import { useSharingIdentity } from "../useSharingIdentity";
 
+// A PUBLISHED, set-up identity. Under the local-keypair model the canonical
+// "an account exists here" signal is the recoveryBlob (the wrapped keypair),
+// independent of email; the email additionally marks it as published. The blob
+// shape is opaque to the hook, only its presence matters, so a minimal
+// stand-in suffices.
 const SIDECAR = {
   version: 1 as const,
   email: "alex@example.com",
@@ -39,6 +44,7 @@ const SIDECAR = {
   fingerprint: "cd ef",
   claimedAt: "2026-01-01T00:00:00.000Z",
   recoveryConfirmedAt: null,
+  recoveryBlob: { v: 1 },
 };
 
 // Drives all timers (the 8s read timeout plus the backoff between retries) to
@@ -141,5 +147,50 @@ describe("useSharingIdentity (self-healing reads)", () => {
     expect(result.current.status).toBe("none");
     expect(result.current.stalled).toBe(false);
     expect(readSharingIdentity).toHaveBeenCalledTimes(1);
+  });
+
+  // Local-keypair model: an account that was created locally (recoveryBlob
+  // present) but never published has NO email. It is still "ready" once the key
+  // is on hand, but `published` is false and `email` is null.
+  it("treats a local-only identity (recoveryBlob, no email) as ready but not published", async () => {
+    readSharingIdentity.mockResolvedValue({
+      version: 1,
+      x25519PublicKey: "aa",
+      ed25519PublicKey: "bb",
+      fingerprint: "cd ef",
+      createdAt: "2026-06-06T00:00:00.000Z",
+      recoveryConfirmedAt: null,
+      recoveryBlob: { v: 1 },
+    });
+    hasIdentity.mockResolvedValue(true);
+
+    const { result } = renderHook(() => useSharingIdentity());
+    await runToSettled();
+
+    expect(result.current.status).toBe("ready");
+    expect(result.current.isReady).toBe(true);
+    expect(result.current.published).toBe(false);
+    expect(result.current.email).toBeNull();
+  });
+
+  // A sidecar that exists but has no recoveryBlob (no local keypair ever
+  // created, e.g. a pre-cutover public-only file) reads as "none", not ready.
+  it("reads a sidecar with no recoveryBlob as none", async () => {
+    readSharingIdentity.mockResolvedValue({
+      version: 1,
+      email: "alex@example.com",
+      x25519PublicKey: "aa",
+      ed25519PublicKey: "bb",
+      fingerprint: "cd ef",
+      claimedAt: "2026-01-01T00:00:00.000Z",
+      recoveryConfirmedAt: null,
+    });
+    hasIdentity.mockResolvedValue(true);
+
+    const { result } = renderHook(() => useSharingIdentity());
+    await runToSettled();
+
+    expect(result.current.status).toBe("none");
+    expect(result.current.published).toBe(true);
   });
 });

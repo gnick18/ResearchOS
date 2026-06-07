@@ -30,6 +30,7 @@ import { evaluateUnlockMatch } from "@/lib/sharing/identity/unlock-match";
 import { GoogleIcon, GitHubIcon, LinkedInIcon } from "@/components/sharing/icons";
 import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
+import CreateLocalIdentityStep from "@/components/sharing/CreateLocalIdentityStep";
 import {
   createUserMetadataEntry,
   readAllUserMetadata,
@@ -167,12 +168,13 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // "verifying" state instead of a bare password prompt.
   const [unlockingViaProvider, setUnlockingViaProvider] = useState(false);
 
-  // Force-make-a-profile gate (OAuth-only model). A shared folder (two or more
-  // users) or a folder with a lab head requires every account to have a profile
-  // identity before it can sign in, so people cannot act as each other. When such
-  // a user has no profile yet, we open the SharingSetupWizard here, which mints
-  // the keypair, shows its own recovery code, and (on complete) signs the user in.
-  // Solo accounts are never forced, they keep the no-login behavior.
+  // Force-create-an-account gate (local-keypair model, IDENTITY_OAUTH_ONLY.md
+  // 2026-06-06). A shared folder (two or more users) or a folder with a lab head
+  // requires every account to have an identity before it can sign in, so people
+  // cannot act as each other. When such a user has no account yet, we open
+  // CreateLocalIdentityStep here, which mints the LOCAL keypair offline (no
+  // OAuth), shows its recovery code, and (on complete) signs the user in. Solo
+  // accounts are never forced, they keep the no-login behavior.
   const [forceProfileFor, setForceProfileFor] = useState<{
     username: string;
   } | null>(null);
@@ -1760,25 +1762,31 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         </div>
       )}
 
-      {/* Force-make-a-profile gate — shown when a shared folder (or a folder
-          with a lab head) requires a login and this user has no profile yet.
-          The SharingSetupWizard owns the whole OAuth + key-mint + recovery-code
-          flow; completing it signs the user in. There is no opt-out here (unlike
-          the optional profile step), so closing it returns to the picker. */}
+      {/* Force-create-an-account gate — shown when a shared folder (or a folder
+          with a lab head) requires a login and this user has no account yet.
+          Under the revised model (IDENTITY_OAUTH_ONLY.md, 2026-06-06) the
+          account is a LOCAL keypair, created fully offline with NO OAuth, so this
+          opens CreateLocalIdentityStep instead of the OAuth wizard (OAuth is
+          unconfigured in dev and off in prod, so forcing it dead-ended account
+          creation). Completing it signs the user in. There is no opt-out here
+          (unlike the optional publish step), so closing it returns to the
+          picker. Publishing a findable profile stays an optional later step. */}
       {forceProfileFor && (
-        <SharingSetupWizard
+        <CreateLocalIdentityStep
           username={forceProfileFor.username}
           onComplete={() => {
             const u = forceProfileFor.username;
             setForceProfileFor(null);
-            // The wizard parked the unlocked key in the session via saveIdentity,
-            // so performLogin just switches the active user.
+            // createLocalIdentity parked the unlocked key in the session, so
+            // performLogin just switches the active user.
             void performLogin(u);
           }}
           onClose={() => {
-            // Backed out without finishing setup. A shared folder still requires
-            // a profile, so we drop back to the picker rather than letting them
-            // in unprotected.
+            // Backed out. A shared folder still requires an account, so we drop
+            // back to the picker rather than letting them in unprotected. NOTE:
+            // the account may already have been created (the keypair is minted
+            // before the recovery code shows); the next login lands on the
+            // unlock gate for the created identity.
             setForceProfileFor(null);
             setLoggingIn(null);
           }}

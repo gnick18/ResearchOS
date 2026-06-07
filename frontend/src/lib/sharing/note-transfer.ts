@@ -195,10 +195,14 @@ export async function buildNoteBundleInput(
   // Ed25519-signed. If the owner has not claimed a sharing identity, sender stays
   // undefined and the bundle is a valid pre-sender bundle (recipient falls back
   // to the hash).
+  // A LOCAL-ONLY identity (no published email) cannot attribute a verified
+  // sender, so the bundle ships sender-free and the recipient falls back to the
+  // relay key hash, the same path as an owner who never set up sharing.
   const identity = await readSharingIdentity(ownerUsername);
-  const sender: BundleSender | undefined = identity
-    ? { email: identity.email, fingerprint: identity.fingerprint }
-    : undefined;
+  const sender: BundleSender | undefined =
+    identity && identity.email
+      ? { email: identity.email, fingerprint: identity.fingerprint }
+      : undefined;
 
   return {
     // v1: a fresh share identity per send. See the VERSIONING note in the
