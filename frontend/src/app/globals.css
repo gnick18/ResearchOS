@@ -77,6 +77,10 @@
   --seq-tape-minor: #94a3b8; /* per-base ruler tick (faintest) */
   --seq-tape-five: #64748b; /* every-5 tick (medium) */
   --seq-tape-ten: #334155; /* every-10 tick + numbers (strongest) */
+  --seq-stop-fill: #b91c1c; /* stop-codon residue fill */
+  --seq-stop-stroke: #7f1d1d; /* stop-codon residue border */
+  --seq-orf-fill: #f1f5f9; /* computed-ORF translation handle fill */
+  --seq-orf-text: #475569; /* computed-ORF handle "ORF (computed)" label */
 
   /* ── Brand rainbow liquid (the most ownable visual) ──────────────────────────
    * The five BeakerBot liquid stops (peach, yellow, mint, sky, lavender), the
@@ -170,6 +174,10 @@
   --seq-tape-minor: #475569; /* faintest on dark */
   --seq-tape-five: #94a3b8; /* medium */
   --seq-tape-ten: #d7deea; /* strongest + numbers, near-white */
+  --seq-stop-fill: #f87171; /* brighter red so stops read on dark */
+  --seq-stop-stroke: #b91c1c;
+  --seq-orf-fill: #1e293b; /* dark slate handle (was near-white) */
+  --seq-orf-text: #cbd5e1; /* light label on the dark handle */
 
   /* Dark mode's rainbow signature is the vivid ramp, used as a low-opacity glow
    * rather than a fill. .brand-rainbow-bg picks this up automatically. */
@@ -231,6 +239,10 @@
   --seq-tape-minor: #94a3b8;
   --seq-tape-five: #64748b;
   --seq-tape-ten: #334155;
+  --seq-stop-fill: #b91c1c;
+  --seq-stop-stroke: #7f1d1d;
+  --seq-orf-fill: #f1f5f9;
+  --seq-orf-text: #475569;
   --brand-rainbow: linear-gradient(
     90deg,
     #ffd2b0 0%,

@@ -4,6 +4,7 @@ import * as React from "react";
 import { InputRefFunc } from "../SelectionHandler";
 import AnnotationDoubleClickContext from "../annotationDoubleClickContext";
 import { COLOR_BORDER_MAP, darkerColor } from "../colors";
+import { getReadableTextColor } from "@/lib/colors";
 import { NameRange } from "../elements";
 import { clipSegmentToBlock } from "../sequence";
 import { annotation, annotationLabel } from "../style";
@@ -274,7 +275,7 @@ const SplicedNamedElement = (props: {
           dominantBaseline="middle"
           fontSize={fontSize}
           id={element.id}
-          style={annotationLabel}
+          style={{ ...annotationLabel, fill: getReadableTextColor(color) }}
           textAnchor="middle"
           x={labelBox.x + labelBox.width / 2}
           y={height / 2 + 1}
@@ -448,7 +449,7 @@ const SingleNamedElement = (props: {
         dominantBaseline="middle"
         fontSize={fontSize}
         id={element.id}
-        style={annotationLabel}
+        style={{ ...annotationLabel, fill: getReadableTextColor(color) }}
         textAnchor="middle"
         x={width / 2}
         y={height / 2 + 1}

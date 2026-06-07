@@ -152,16 +152,16 @@ export default function TaxonomyLookupDialog({
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={busy ? undefined : handleClose}
       />
-      <div className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
+      <div className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+        <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100">
             <TreeIcon className="h-5 w-5 text-sky-600" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-title font-semibold text-gray-900">
+            <h2 className="text-title font-semibold text-foreground">
               Look up an organism
             </h2>
-            <p className="text-meta text-gray-500">
+            <p className="text-meta text-foreground-muted">
               See an organism&apos;s taxonomy lineage from NCBI.
             </p>
           </div>
@@ -171,7 +171,7 @@ export default function TaxonomyLookupDialog({
               onClick={handleClose}
               disabled={busy}
               aria-label="Close"
-              className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-40"
+              className="rounded-md p-1.5 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground-muted disabled:opacity-40"
             >
               <CloseIcon className="h-5 w-5" />
             </button>
@@ -180,7 +180,7 @@ export default function TaxonomyLookupDialog({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           <label className="block">
-            <span className="mb-1 block text-meta font-medium uppercase tracking-wide text-gray-400">
+            <span className="mb-1 block text-meta font-medium uppercase tracking-wide text-foreground-muted">
               Organism or tax id
             </span>
             <input
@@ -196,11 +196,11 @@ export default function TaxonomyLookupDialog({
                   void handleLookup();
                 }
               }}
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-body text-gray-900 placeholder:text-gray-300 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:bg-gray-50 disabled:text-gray-400"
+              className="w-full rounded-md border border-border px-3 py-2 text-body text-foreground placeholder:text-foreground-muted focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:bg-surface-sunken disabled:text-foreground-muted"
             />
           </label>
 
-          <p className="mt-3 text-meta leading-relaxed text-gray-400">
+          <p className="mt-3 text-meta leading-relaxed text-foreground-muted">
             Only the name or tax id you type is sent to NCBI, a public government
             database. Nothing of your own data leaves this app.
           </p>
@@ -213,35 +213,35 @@ export default function TaxonomyLookupDialog({
           ) : null}
 
           {busy ? (
-            <div className="mt-4 flex items-center gap-2 text-meta text-gray-500">
+            <div className="mt-4 flex items-center gap-2 text-meta text-foreground-muted">
               <SpinnerIcon className="h-4 w-4 text-sky-500" />
               <span>Looking up on NCBI...</span>
             </div>
           ) : null}
 
           {result && !busy ? (
-            <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+            <div className="mt-4 rounded-xl border border-border bg-surface-sunken/60 p-4">
               <div className="flex items-baseline justify-between gap-3">
-                <h3 className="truncate text-body font-semibold text-gray-900">
+                <h3 className="truncate text-body font-semibold text-foreground">
                   {result.name}
                 </h3>
                 <span className="shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-meta font-medium uppercase tracking-wide text-sky-700">
                   {rankLabel(result.rank) || "Taxon"}
                 </span>
               </div>
-              <p className="mt-0.5 text-meta text-gray-400">
+              <p className="mt-0.5 text-meta text-foreground-muted">
                 taxon {result.taxId}
               </p>
 
               {major.length > 0 ? (
-                <div className="mt-3 flex flex-wrap items-center gap-x-1 text-meta text-gray-600">
+                <div className="mt-3 flex flex-wrap items-center gap-x-1 text-meta text-foreground-muted">
                   {major.map((node, i) => (
                     <span
                       key={node.taxId}
                       className="inline-flex items-center gap-1"
                     >
                       {i > 0 ? (
-                        <span className="text-gray-300" aria-hidden="true">
+                        <span className="text-foreground-muted" aria-hidden="true">
                           ›
                         </span>
                       ) : null}
@@ -250,7 +250,7 @@ export default function TaxonomyLookupDialog({
                   ))}
                 </div>
               ) : (
-                <p className="mt-3 text-meta text-gray-400">
+                <p className="mt-3 text-meta text-foreground-muted">
                   No major-rank lineage is available for this organism.
                 </p>
               )}
@@ -266,16 +266,16 @@ export default function TaxonomyLookupDialog({
                     {expanded ? "Hide full lineage" : "Show full lineage"}
                   </button>
                   {expanded ? (
-                    <ol className="mt-2 space-y-0.5 border-l border-gray-200 pl-3">
+                    <ol className="mt-2 space-y-0.5 border-l border-border pl-3">
                       {result.lineage.map((node) => (
                         <li
                           key={node.taxId}
                           className="flex items-baseline gap-2 text-meta"
                         >
-                          <span className="w-24 shrink-0 text-gray-400">
+                          <span className="w-24 shrink-0 text-foreground-muted">
                             {rankLabel(node.rank) || "rank"}
                           </span>
-                          <span className="text-gray-700">{node.name}</span>
+                          <span className="text-foreground">{node.name}</span>
                         </li>
                       ))}
                     </ol>
@@ -284,7 +284,7 @@ export default function TaxonomyLookupDialog({
               ) : null}
 
               {onExploreInTree ? (
-                <div className="mt-3 border-t border-gray-200 pt-3">
+                <div className="mt-3 border-t border-border pt-3">
                   <button
                     type="button"
                     onClick={() => onExploreInTree(result.taxId)}
@@ -299,18 +299,18 @@ export default function TaxonomyLookupDialog({
           ) : null}
 
           {!result && !busy && !error ? (
-            <p className="mt-6 text-center text-meta leading-relaxed text-gray-400">
+            <p className="mt-6 text-center text-meta leading-relaxed text-foreground-muted">
               Type an organism name or a tax id, then look it up to see its
               taxonomy.
             </p>
           ) : null}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3.5">
+        <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3.5">
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-md border border-gray-200 px-3 py-1.5 text-meta font-medium text-gray-700 transition-colors hover:bg-gray-100"
+            className="rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
           >
             Close
           </button>

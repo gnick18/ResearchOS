@@ -434,7 +434,7 @@ export default function DomainAnnotationPanel({
         type="button"
         onClick={onClickAnnotate}
         disabled={disabled}
-        className="flex w-full items-center justify-center gap-1.5 rounded-md border border-sky-200 bg-sky-50 px-3 py-1.5 text-body font-medium text-sky-700 transition-colors hover:bg-sky-100 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-400"
+        className="flex w-full items-center justify-center gap-1.5 rounded-md border border-sky-200 bg-sky-50 px-3 py-1.5 text-body font-medium text-sky-700 transition-colors hover:bg-sky-100 disabled:cursor-not-allowed disabled:border-border disabled:bg-surface-sunken disabled:text-foreground-muted"
       >
         <DomainIcon className="h-4 w-4" />
         Annotate domains
@@ -452,10 +452,10 @@ export default function DomainAnnotationPanel({
   // --- SOURCE: pick where the domain database lives -----------------------
   if (phase.kind === "source") {
     return (
-      <div className="rounded-md border border-gray-200 bg-white">
-        <div className="flex items-center gap-2 border-b border-gray-100 px-3 py-2">
+      <div className="rounded-md border border-border bg-surface-raised">
+        <div className="flex items-center gap-2 border-b border-border px-3 py-2">
           <DomainIcon className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
-          <span className="text-meta font-semibold text-gray-700">
+          <span className="text-meta font-semibold text-foreground">
             Choose a domain database
           </span>
         </div>
@@ -509,11 +509,11 @@ export default function DomainAnnotationPanel({
             </span>
           </button>
         </div>
-        <div className="flex items-center border-t border-gray-100 px-3 py-2">
+        <div className="flex items-center border-t border-border px-3 py-2">
           <button
             type="button"
             onClick={onCancel}
-            className="ml-auto rounded-md px-2.5 py-1 text-meta font-medium text-gray-600 transition-colors hover:bg-gray-100"
+            className="ml-auto rounded-md px-2.5 py-1 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
           >
             Cancel
           </button>
@@ -668,19 +668,19 @@ export default function DomainAnnotationPanel({
   // --- SEARCHING: calm progress + cancel ----------------------------------
   if (phase.kind === "searching") {
     return (
-      <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5 text-meta text-gray-600">
-        <p className="flex items-center gap-2 font-medium text-gray-700">
+      <div className="rounded-md border border-border bg-surface-sunken px-3 py-2.5 text-meta text-foreground-muted">
+        <p className="flex items-center gap-2 font-medium text-foreground">
           <Spinner className="h-3.5 w-3.5 shrink-0" />
           {phase.note}
         </p>
-        <p className="mt-1 text-gray-500">
+        <p className="mt-1 text-foreground-muted">
           InterProScan jobs take about 30 seconds to a few minutes. You can keep
           working; this runs in the background.
         </p>
         <button
           type="button"
           onClick={onCancel}
-          className="mt-2 rounded-md px-2.5 py-1 text-meta font-medium text-gray-600 transition-colors hover:bg-gray-100"
+          className="mt-2 rounded-md px-2.5 py-1 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
         >
           Cancel
         </button>
@@ -718,25 +718,25 @@ export default function DomainAnnotationPanel({
   const rows = phase.rows;
   const selectedCount = rows.filter((r) => r.selected).length;
   return (
-    <div className="rounded-md border border-gray-200 bg-white">
-      <div className="flex items-center gap-2 border-b border-gray-100 px-3 py-2">
+    <div className="rounded-md border border-border bg-surface-raised">
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <DomainIcon className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
-        <span className="text-meta font-semibold text-gray-700">
+        <span className="text-meta font-semibold text-foreground">
           Domains found
         </span>
-        <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-meta font-medium text-gray-500">
+        <span className="ml-auto rounded-full bg-surface-sunken px-2 py-0.5 text-meta font-medium text-foreground-muted">
           {rows.length}
         </span>
       </div>
       {rows.length === 0 ? (
-        <p className="px-3 py-3 text-center text-meta text-gray-400">
+        <p className="px-3 py-3 text-center text-meta text-foreground-muted">
           No domains were found in this protein.
         </p>
       ) : (
-        <ul className="max-h-48 divide-y divide-gray-100 overflow-y-auto">
+        <ul className="max-h-48 divide-y divide-border overflow-y-auto">
           {rows.map((row, i) => (
             <li key={i}>
-              <label className="flex cursor-pointer items-start gap-2 px-3 py-2 hover:bg-gray-50">
+              <label className="flex cursor-pointer items-start gap-2 px-3 py-2 hover:bg-surface-sunken">
                 <input
                   type="checkbox"
                   checked={row.selected}
@@ -750,19 +750,19 @@ export default function DomainAnnotationPanel({
                 />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5">
-                    <span className="truncate text-body font-medium text-gray-800">
+                    <span className="truncate text-body font-medium text-foreground">
                       {row.hit.name}
                     </span>
-                    <span className="shrink-0 text-meta text-gray-400">
+                    <span className="shrink-0 text-meta text-foreground-muted">
                       {row.hit.db} {row.hit.accession}
                     </span>
                   </span>
                   {row.hit.description ? (
-                    <span className="block truncate text-meta text-gray-500">
+                    <span className="block truncate text-meta text-foreground-muted">
                       {row.hit.description}
                     </span>
                   ) : null}
-                  <span className="block text-meta text-gray-400 tabular-nums">
+                  <span className="block text-meta text-foreground-muted tabular-nums">
                     residues {row.hit.start}..{row.hit.end}
                     {row.hit.evalue !== undefined
                       ? ` · E ${row.hit.evalue.toExponential(1)}`
@@ -774,8 +774,8 @@ export default function DomainAnnotationPanel({
           ))}
         </ul>
       )}
-      <div className="flex items-center gap-2 border-t border-gray-100 px-3 py-2">
-        <span className="text-meta text-gray-400">
+      <div className="flex items-center gap-2 border-t border-border px-3 py-2">
+        <span className="text-meta text-foreground-muted">
           {phase.source === "local"
             ? "on your computer, your database"
             : phase.source === "curated"
@@ -786,7 +786,7 @@ export default function DomainAnnotationPanel({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md px-2.5 py-1 text-meta font-medium text-gray-600 transition-colors hover:bg-gray-100"
+            className="rounded-md px-2.5 py-1 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
           >
             Cancel
           </button>

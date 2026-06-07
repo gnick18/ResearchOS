@@ -221,7 +221,7 @@ class SingleNamedElementAminoacids extends React.PureComponent<SingleNamedElemen
                 <line
                   key={`tx-intron-${id}-${gi}-${firstBase}`}
                   className="la-vz-translation-intron"
-                  stroke="#94a3b8"
+                  stroke="var(--seq-strand)"
                   strokeDasharray="3 2"
                   strokeWidth={1}
                   x1={gx}
@@ -292,14 +292,14 @@ class SingleNamedElementAminoacids extends React.PureComponent<SingleNamedElemen
           // of the per-residue palette, so the run reads as one computed guess.
           // Stops still override to crimson so premature stops remain obvious.
           const fill = isStop
-            ? "#b91c1c"
+            ? "var(--seq-stop-fill)"
             : isOrf
-              ? "#cbd5e1"
+              ? "var(--seq-translation)"
               : colorByIndex(a.charCodeAt(0));
           const stroke = isStop
-            ? "#7f1d1d"
+            ? "var(--seq-stop-stroke)"
             : isOrf
-              ? "#94a3b8"
+              ? "var(--seq-strand)"
               : borderColorByIndex(a.charCodeAt(0));
 
           return (
@@ -378,8 +378,8 @@ const SingleNamedElementHandle = (props: {
   // (hollow fill, slate border) with a "computed" cue in the label, so it is
   // obviously not one of your annotated CDS translation handles (solid fill).
   const isOrf = !!(element as { orf?: boolean }).orf;
-  const handleFill = isOrf ? "#f1f5f9" : color;
-  const handleStroke = isOrf ? "#94a3b8" : color;
+  const handleFill = isOrf ? "var(--seq-orf-fill)" : color;
+  const handleStroke = isOrf ? "var(--seq-strand)" : color;
   const { width, x: origX } = findXAndWidthElement(index, element, elements);
 
   // 0.591 is our best approximation of Roboto Mono's aspect ratio (width / height).
@@ -457,7 +457,7 @@ const SingleNamedElementHandle = (props: {
           className="la-vz-handle-label"
           cursor="pointer"
           dominantBaseline="middle"
-          fill={isOrf ? "#475569" : undefined}
+          fill={isOrf ? "var(--seq-orf-text)" : undefined}
           fontSize={fontSize}
           fontStyle={isOrf ? "italic" : undefined}
           id={element.id}

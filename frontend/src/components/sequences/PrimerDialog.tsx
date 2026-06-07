@@ -109,10 +109,10 @@ function mutLabel(mp: MutagenicPrimer): string {
 /** A small stat chip (label over value). */
 function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
   return (
-    <div className="rounded-md bg-gray-50 px-2.5 py-1.5">
-      <div className="text-meta font-medium uppercase tracking-wide text-gray-400">{label}</div>
-      <div className="text-body font-semibold text-gray-800">{value}</div>
-      {hint ? <div className="text-meta text-gray-400">{hint}</div> : null}
+    <div className="rounded-md bg-surface-sunken px-2.5 py-1.5">
+      <div className="text-meta font-medium uppercase tracking-wide text-foreground-muted">{label}</div>
+      <div className="text-body font-semibold text-foreground">{value}</div>
+      {hint ? <div className="text-meta text-foreground-muted">{hint}</div> : null}
     </div>
   );
 }
@@ -328,13 +328,13 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
       data-tour-popup-occluding="primer"
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={request.onCancel} />
-      <div className="relative flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
+      <div className="relative flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+        <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-sky-50 text-sky-600">
             <IconPrimer className="h-4 w-4" />
           </span>
-          <h2 className="text-title font-semibold text-gray-900">Add primer</h2>
-          <span className="ml-auto text-meta text-gray-400">
+          <h2 className="text-title font-semibold text-foreground">Add primer</h2>
+          <span className="ml-auto text-meta text-foreground-muted">
             Template {template.length.toLocaleString()} bp
           </span>
         </div>
@@ -349,14 +349,14 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
           }}
         >
           {/* Mode toggle: manual primer vs. mutagenesis designer. */}
-          <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-0.5" role="tablist" aria-label="Primer mode">
+          <div className="flex items-center gap-1 rounded-lg bg-surface-sunken p-0.5" role="tablist" aria-label="Primer mode">
             <button
               type="button"
               role="tab"
               aria-selected={mode === "manual"}
               onClick={() => setMode("manual")}
               className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-meta font-medium transition-colors ${
-                mode === "manual" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                mode === "manual" ? "bg-surface-raised text-foreground shadow-sm" : "text-foreground-muted hover:text-foreground"
               }`}
             >
               <IconPrimer className="h-3.5 w-3.5" />
@@ -368,7 +368,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
               aria-selected={mode === "mutagenesis"}
               onClick={() => setMode("mutagenesis")}
               className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-meta font-medium transition-colors ${
-                mode === "mutagenesis" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                mode === "mutagenesis" ? "bg-surface-raised text-foreground shadow-sm" : "text-foreground-muted hover:text-foreground"
               }`}
             >
               <IconMutate className="h-3.5 w-3.5" />
@@ -378,12 +378,12 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
 
           {/* Name */}
           <label className="block">
-            <span className="mb-1 block text-meta font-medium text-gray-500">Primer name</span>
+            <span className="mb-1 block text-meta font-medium text-foreground-muted">Primer name</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={mode === "mutagenesis" ? "e.g. L52A_fwd" : "e.g. M13_fwd"}
-              className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-body text-gray-800 focus:border-sky-400 focus:outline-none"
+              className="w-full rounded-md border border-border px-2.5 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
             />
           </label>
 
@@ -416,14 +416,14 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
           {/* Sequence + revcomp toggle */}
           <div>
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-meta font-medium text-gray-500">Primer sequence (5&apos; to 3&apos;)</span>
+              <span className="text-meta font-medium text-foreground-muted">Primer sequence (5&apos; to 3&apos;)</span>
               <Tooltip label="Reverse-complement the primer (anneal to the other strand)">
                 <button
                   type="button"
                   onClick={() => setRevComp((r) => !r)}
                   aria-pressed={revComp}
                   className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-meta font-medium transition-colors ${
-                    revComp ? "bg-sky-50 text-sky-700" : "text-gray-500 hover:bg-gray-100"
+                    revComp ? "bg-sky-50 text-sky-700" : "text-foreground-muted hover:bg-surface-sunken"
                   }`}
                 >
                   <IconSwap className="h-3.5 w-3.5" />
@@ -438,7 +438,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
               rows={2}
               placeholder="Type or paste bases, or seed from the current selection"
               spellCheck={false}
-              className="w-full resize-y rounded-md border border-gray-200 px-2.5 py-2 font-mono text-body tracking-wide text-gray-800 focus:border-sky-400 focus:outline-none"
+              className="w-full resize-y rounded-md border border-border px-2.5 py-2 font-mono text-body tracking-wide text-foreground focus:border-sky-400 focus:outline-none"
             />
             {revComp ? (
               <p className="mt-1 text-meta text-sky-600">
@@ -460,9 +460,9 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
 
           {/* Binding site */}
           <div>
-            <span className="mb-1 block text-meta font-medium text-gray-500">Binding site</span>
+            <span className="mb-1 block text-meta font-medium text-foreground-muted">Binding site</span>
             {length === 0 ? (
-              <p className="rounded-md border border-dashed border-gray-200 px-2.5 py-2 text-meta text-gray-400">
+              <p className="rounded-md border border-dashed border-border px-2.5 py-2 text-meta text-foreground-muted">
                 Enter a primer to find where it anneals.
               </p>
             ) : sites.length === 0 ? (
@@ -482,7 +482,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
                         className={`rounded-md px-2 py-0.5 text-meta font-medium transition-colors ${
                           i === siteIdx
                             ? "bg-sky-600 text-white"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
                         }`}
                       >
                         {s.direction === 1 ? "→" : "←"} {(s.start + 1).toLocaleString()}..
@@ -497,8 +497,8 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
                   </div>
                 ) : null}
                 {site ? (
-                  <div className="rounded-md bg-gray-50 px-2.5 py-2 text-meta text-gray-700">
-                    <span className="font-medium text-gray-800">
+                  <div className="rounded-md bg-surface-sunken px-2.5 py-2 text-meta text-foreground">
+                    <span className="font-medium text-foreground">
                       {site.direction === 1 ? "Forward" : "Reverse"} strand
                     </span>
                     {", "}
@@ -521,21 +521,21 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
           {alignment ? (
             <div>
               <div className="mb-1 flex items-center justify-between">
-                <span className="text-meta font-medium text-gray-500">
+                <span className="text-meta font-medium text-foreground-muted">
                   Alignment (primer over template)
                 </span>
-                <span className="text-meta font-medium text-gray-500">
+                <span className="text-meta font-medium text-foreground-muted">
                   {alignment.matched}/{alignment.total} matched (
                   {Math.round(alignment.identity * 100)}%)
                 </span>
               </div>
-              <div className="overflow-x-auto rounded-md border border-gray-200 bg-white px-3 py-2.5 font-mono text-meta leading-relaxed">
+              <div className="overflow-x-auto rounded-md border border-border bg-surface-raised px-3 py-2.5 font-mono text-meta leading-relaxed">
                 {/* Primer row: dimmed 5' tail, annealed bases per-column (matches
                     blue, mismatches rose). */}
                 <div className="whitespace-pre">
-                  <span className="text-gray-400">5&apos; </span>
+                  <span className="text-foreground-muted">5&apos; </span>
                   {alignment.tail ? (
-                    <span className="text-gray-300">{alignment.primerTail}</span>
+                    <span className="text-foreground-muted">{alignment.primerTail}</span>
                   ) : null}
                   {alignment.cols.map((c, i) => (
                     <span
@@ -547,27 +547,27 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
                       {c.primer}
                     </span>
                   ))}
-                  <span className="text-gray-400"> 3&apos;</span>
+                  <span className="text-foreground-muted"> 3&apos;</span>
                 </div>
                 {/* Match bars: | for a match, blank for a mismatch/indel. */}
-                <div className="whitespace-pre text-gray-400">
+                <div className="whitespace-pre text-foreground-muted">
                   {"   "}
                   {" ".repeat(alignment.tail)}
                   {alignment.cols.map((c) => (c.match ? "|" : " ")).join("")}
                 </div>
                 {/* Template row, lined up column-for-column under the primer. */}
                 <div className="whitespace-pre">
-                  <span className="text-gray-400">3&apos; </span>
+                  <span className="text-foreground-muted">3&apos; </span>
                   {" ".repeat(alignment.tail)}
                   {alignment.cols.map((c, i) => (
-                    <span key={i} className={c.match ? "text-gray-600" : "text-rose-500"}>
+                    <span key={i} className={c.match ? "text-foreground-muted" : "text-rose-500"}>
                       {c.template}
                     </span>
                   ))}
-                  <span className="text-gray-400"> 5&apos;</span>
+                  <span className="text-foreground-muted"> 5&apos;</span>
                 </div>
               </div>
-              <p className="mt-1 text-meta text-gray-400">
+              <p className="mt-1 text-meta text-foreground-muted">
                 Matched bases are blue; mismatches are shown in rose. A dimmed 5&apos; region
                 is a non-annealing tail (e.g. a cloning overhang).
               </p>
@@ -577,11 +577,11 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-gray-100 bg-gray-50 px-4 py-3">
+        <div className="flex items-center justify-end gap-2 border-t border-border bg-surface-sunken px-4 py-3">
           <button
             type="button"
             onClick={request.onCancel}
-            className="rounded-lg px-4 py-2 text-body text-gray-600 transition-colors hover:bg-gray-200"
+            className="rounded-lg px-4 py-2 text-body text-foreground-muted transition-colors hover:bg-surface-sunken"
           >
             Cancel
           </button>
@@ -648,7 +648,7 @@ function MutagenesisFields({
     <div className="space-y-3">
       {/* Change type */}
       <div>
-        <span className="mb-1 block text-meta font-medium text-gray-500">Change type</span>
+        <span className="mb-1 block text-meta font-medium text-foreground-muted">Change type</span>
         <div className="grid grid-cols-3 gap-1.5">
           {MUT_TYPES.map((mt) => (
             <Tooltip key={mt.value} label={mt.hint}>
@@ -659,7 +659,7 @@ function MutagenesisFields({
                 className={`w-full rounded-md px-2 py-1.5 text-meta font-medium transition-colors ${
                   mutType === mt.value
                     ? "bg-sky-600 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
                 }`}
               >
                 {mt.label}
@@ -672,7 +672,7 @@ function MutagenesisFields({
       {/* Position + span/new-bases inputs */}
       <div className="grid grid-cols-2 gap-2">
         <label className="block">
-          <span className="mb-1 block text-meta font-medium text-gray-500">
+          <span className="mb-1 block text-meta font-medium text-foreground-muted">
             {mutType === "insertion" ? "Insert before position (1-based)" : "Position (1-based)"}
           </span>
           <input
@@ -684,13 +684,13 @@ function MutagenesisFields({
               const v = Number(e.target.value);
               if (Number.isFinite(v)) setMutPos(Math.max(0, Math.min(Math.round(v) - 1, templateLength)));
             }}
-            className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-body text-gray-800 focus:border-sky-400 focus:outline-none"
+            className="w-full rounded-md border border-border px-2.5 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
           />
         </label>
 
         {mutType === "deletion" ? (
           <label className="block">
-            <span className="mb-1 block text-meta font-medium text-gray-500">Bases to remove</span>
+            <span className="mb-1 block text-meta font-medium text-foreground-muted">Bases to remove</span>
             <input
               type="number"
               min={1}
@@ -700,12 +700,12 @@ function MutagenesisFields({
                 const v = Number(e.target.value);
                 if (Number.isFinite(v)) setMutSpan(Math.max(1, Math.round(v)));
               }}
-              className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-body text-gray-800 focus:border-sky-400 focus:outline-none"
+              className="w-full rounded-md border border-border px-2.5 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
             />
           </label>
         ) : (
           <label className="block">
-            <span className="mb-1 block text-meta font-medium text-gray-500">
+            <span className="mb-1 block text-meta font-medium text-foreground-muted">
               {mutType === "substitution" ? "New base(s)" : "Bases to insert"}
             </span>
             <input
@@ -713,7 +713,7 @@ function MutagenesisFields({
               onChange={(e) => setMutNewBases(sanitizePrimer(e.target.value))}
               placeholder={mutType === "substitution" ? "e.g. G" : "e.g. GAATTC"}
               spellCheck={false}
-              className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 font-mono text-body tracking-wide text-gray-800 focus:border-sky-400 focus:outline-none"
+              className="w-full rounded-md border border-border px-2.5 py-1.5 font-mono text-body tracking-wide text-foreground focus:border-sky-400 focus:outline-none"
             />
           </label>
         )}
@@ -722,7 +722,7 @@ function MutagenesisFields({
       {/* For a substitution, let the user replace more than one template base. */}
       {mutType === "substitution" ? (
         <label className="block">
-          <span className="mb-1 block text-meta font-medium text-gray-500">
+          <span className="mb-1 block text-meta font-medium text-foreground-muted">
             Template bases to replace
           </span>
           <input
@@ -734,15 +734,15 @@ function MutagenesisFields({
               const v = Number(e.target.value);
               if (Number.isFinite(v)) setMutSpan(Math.max(1, Math.round(v)));
             }}
-            className="w-32 rounded-md border border-gray-200 px-2.5 py-1.5 text-body text-gray-800 focus:border-sky-400 focus:outline-none"
+            className="w-32 rounded-md border border-border px-2.5 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
           />
-          <span className="ml-2 text-meta text-gray-400">
+          <span className="ml-2 text-meta text-foreground-muted">
             usually 1 (a point mutation); set higher to swap a block
           </span>
         </label>
       ) : null}
 
-      <p className="text-meta text-gray-400">
+      <p className="text-meta text-foreground-muted">
         Template is {templateLength.toLocaleString()} bp (positions 1..{maxPos + 1}). The change is
         centered between matching homology arms grown to about 60 °C (QuikChange-style 10-15 base
         flanks).
@@ -763,20 +763,20 @@ function MutagenesisFields({
 
           {/* The designed primer with the mutation region highlighted. */}
           <div>
-            <span className="mb-1 block text-meta font-medium text-gray-500">
+            <span className="mb-1 block text-meta font-medium text-foreground-muted">
               Designed mutagenic primer (5&apos; to 3&apos;)
             </span>
-            <div className="overflow-x-auto rounded-md border border-gray-200 bg-white px-3 py-2 font-mono text-body tracking-wide">
-              <span className="text-gray-400">5&apos; </span>
+            <div className="overflow-x-auto rounded-md border border-border bg-surface-raised px-3 py-2 font-mono text-body tracking-wide">
+              <span className="text-foreground-muted">5&apos; </span>
               {mp.primer.split("").map((b, i) => {
                 const edited = i >= mp.mutationPrimerStart && i < mp.mutationPrimerEnd;
                 return (
-                  <span key={i} className={edited ? "font-semibold text-rose-600" : "text-gray-800"}>
+                  <span key={i} className={edited ? "font-semibold text-rose-600" : "text-foreground"}>
                     {b}
                   </span>
                 );
               })}
-              <span className="text-gray-400"> 3&apos;</span>
+              <span className="text-foreground-muted"> 3&apos;</span>
             </div>
           </div>
 
@@ -784,17 +784,17 @@ function MutagenesisFields({
               the same blue-match / rose-mismatch convention as the manual view. */}
           <div>
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-meta font-medium text-gray-500">
+              <span className="text-meta font-medium text-foreground-muted">
                 Aligned to template (intended change in rose)
               </span>
-              <span className="text-meta font-medium text-gray-500">
+              <span className="text-meta font-medium text-foreground-muted">
                 {mp.leftArm + mp.rightArm} arm bases match
               </span>
             </div>
-            <div className="overflow-x-auto rounded-md border border-gray-200 bg-white px-3 py-2.5 font-mono text-meta leading-relaxed">
+            <div className="overflow-x-auto rounded-md border border-border bg-surface-raised px-3 py-2.5 font-mono text-meta leading-relaxed">
               {/* Primer row. */}
               <div className="whitespace-pre">
-                <span className="text-gray-400">5&apos; </span>
+                <span className="text-foreground-muted">5&apos; </span>
                 {mp.columns.map((c, i) => (
                   <span
                     key={i}
@@ -809,28 +809,28 @@ function MutagenesisFields({
                     {c.primer}
                   </span>
                 ))}
-                <span className="text-gray-400"> 3&apos;</span>
+                <span className="text-foreground-muted"> 3&apos;</span>
               </div>
               {/* Match bars. */}
-              <div className="whitespace-pre text-gray-400">
+              <div className="whitespace-pre text-foreground-muted">
                 {"   "}
                 {mp.columns.map((c) => (c.match ? "|" : c.edited ? "*" : " ")).join("")}
               </div>
               {/* Original-template row, lined up column-for-column. */}
               <div className="whitespace-pre">
-                <span className="text-gray-400">3&apos; </span>
+                <span className="text-foreground-muted">3&apos; </span>
                 {mp.columns.map((c, i) => (
                   <span
                     key={i}
-                    className={c.match ? "text-gray-600" : "text-rose-500"}
+                    className={c.match ? "text-foreground-muted" : "text-rose-500"}
                   >
                     {c.template}
                   </span>
                 ))}
-                <span className="text-gray-400"> 5&apos;</span>
+                <span className="text-foreground-muted"> 5&apos;</span>
               </div>
             </div>
-            <p className="mt-1 text-meta text-gray-400">
+            <p className="mt-1 text-meta text-foreground-muted">
               {mp.mutationType === "deletion"
                 ? "The arms join directly across the removed bases (marked * with no template partner shown)."
                 : mp.mutationType === "insertion"

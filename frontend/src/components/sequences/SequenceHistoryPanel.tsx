@@ -267,7 +267,7 @@ export default function SequenceHistoryPanel({
   // ── Empty / loading states ─────────────────────────────────────────────────
   if (rows === null) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-white text-meta text-gray-400">
+      <div className="flex h-full w-full items-center justify-center bg-surface-raised text-meta text-foreground-muted">
         Loading version history...
       </div>
     );
@@ -275,12 +275,12 @@ export default function SequenceHistoryPanel({
 
   if (isEmpty) {
     return (
-      <div className="flex h-full w-full flex-col bg-white">
+      <div className="flex h-full w-full flex-col bg-surface-raised">
         {restoreProvenanceLine && <RestoreProvenanceRow line={restoreProvenanceLine} />}
         <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
-          <IconHistory className="h-10 w-10 text-gray-300" />
-          <p className="mt-3 text-body font-medium text-gray-600">No earlier versions yet</p>
-          <p className="mt-1 max-w-xs text-meta text-gray-400">
+          <IconHistory className="h-10 w-10 text-foreground-muted" />
+          <p className="mt-3 text-body font-medium text-foreground-muted">No earlier versions yet</p>
+          <p className="mt-1 max-w-xs text-meta text-foreground-muted">
             {loadError
               ? "This sequence has no readable history."
               : "Each time you Save this sequence, a version is recorded here so you can compare and restore it later."}
@@ -291,11 +291,11 @@ export default function SequenceHistoryPanel({
   }
 
   return (
-    <div className="flex h-full w-full flex-col bg-white">
-      <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-2.5">
-        <IconHistory className="h-4 w-4 text-gray-500" />
-        <h3 className="text-body font-semibold text-gray-800">Version history</h3>
-        <span className="ml-auto text-meta text-gray-400">
+    <div className="flex h-full w-full flex-col bg-surface-raised">
+      <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+        <IconHistory className="h-4 w-4 text-foreground-muted" />
+        <h3 className="text-body font-semibold text-foreground">Version history</h3>
+        <span className="ml-auto text-meta text-foreground-muted">
           {model?.totalVersions} {model?.totalVersions === 1 ? "version" : "versions"}
         </span>
       </div>
@@ -304,7 +304,7 @@ export default function SequenceHistoryPanel({
         {restoreProvenanceLine && <RestoreProvenanceRow line={restoreProvenanceLine} />}
         {model?.days.map((day) => (
           <div key={day.dayKey}>
-            <div className="sticky top-0 z-10 border-b border-gray-100 bg-gray-50/95 px-4 py-1.5 text-meta font-semibold uppercase tracking-wide text-gray-400 backdrop-blur">
+            <div className="sticky top-0 z-10 border-b border-border bg-surface-sunken/95 px-4 py-1.5 text-meta font-semibold uppercase tracking-wide text-foreground-muted backdrop-blur">
               {day.label}
             </div>
             {day.sessions.map((session, si) => {
@@ -323,7 +323,7 @@ export default function SequenceHistoryPanel({
                     key={sessionKey}
                     type="button"
                     onClick={() => toggleSession(sessionKey)}
-                    className="flex w-full items-center gap-2 px-4 py-2 text-left transition-colors hover:bg-gray-50"
+                    className="flex w-full items-center gap-2 px-4 py-2 text-left transition-colors hover:bg-surface-sunken"
                   >
                     {/* Stacked avatars for multi-author; single avatar for solo */}
                     <span className="relative flex-shrink-0" style={{ width: avatarActors.length > 1 ? `${16 + (avatarActors.length - 1) * 8}px` : undefined }}>
@@ -337,10 +337,10 @@ export default function SequenceHistoryPanel({
                         </span>
                       ))}
                     </span>
-                    <span className="flex-1 truncate text-meta text-gray-600">
+                    <span className="flex-1 truncate text-meta text-foreground-muted">
                       {sessionRangeLabel(session, resolvedNames)}
                     </span>
-                    <IconChevron className="h-3 w-3 flex-shrink-0 text-gray-400" />
+                    <IconChevron className="h-3 w-3 flex-shrink-0 text-foreground-muted" />
                   </button>
                 );
               }
@@ -350,7 +350,7 @@ export default function SequenceHistoryPanel({
                     <button
                       type="button"
                       onClick={() => toggleSession(sessionKey)}
-                      className="flex w-full items-center gap-1 px-4 pt-2 text-meta text-gray-400 hover:text-gray-600"
+                      className="flex w-full items-center gap-1 px-4 pt-2 text-meta text-foreground-muted hover:text-foreground-muted"
                     >
                       <IconChevron className="h-3 w-3 rotate-90" />
                       {resolvedNames.length === 1
@@ -382,9 +382,9 @@ export default function SequenceHistoryPanel({
 
         {/* Folded-rows summary (compaction ran). */}
         {model?.summarized && (
-          <div className="border-t border-gray-100 bg-amber-50/40 px-4 py-3">
-            <p className="text-meta font-medium text-gray-600">Earlier versions (summarized)</p>
-            <p className="mt-1 text-meta leading-snug text-gray-500">
+          <div className="border-t border-border bg-amber-50/40 px-4 py-3">
+            <p className="text-meta font-medium text-foreground-muted">Earlier versions (summarized)</p>
+            <p className="mt-1 text-meta leading-snug text-foreground-muted">
               {model.summarized.compactedRowCount} intermediate saves before{" "}
               {model.summarized.dayLabel} were summarized to keep history fast. Row by row
               detail stops here.
@@ -394,11 +394,11 @@ export default function SequenceHistoryPanel({
 
         {/* Pagination. */}
         {model?.hasMore && (
-          <div className="border-t border-gray-100 px-4 py-3">
+          <div className="border-t border-border px-4 py-3">
             <button
               type="button"
               onClick={() => setPageCount((p) => p + 1)}
-              className="w-full rounded-lg bg-gray-100 px-3 py-1.5 text-meta text-gray-600 transition-colors hover:bg-gray-200"
+              className="w-full rounded-lg bg-surface-sunken px-3 py-1.5 text-meta text-foreground-muted transition-colors hover:bg-surface-sunken"
             >
               Load older versions
             </button>
@@ -464,7 +464,7 @@ function SequenceVersionRow({
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">
-          <span className="truncate text-meta font-medium text-gray-800">{label}</span>
+          <span className="truncate text-meta font-medium text-foreground">{label}</span>
           {entry.isHead && (
             <span className="flex-shrink-0 text-meta font-semibold uppercase tracking-wide text-emerald-600">
               Current version
@@ -472,12 +472,12 @@ function SequenceVersionRow({
           )}
         </span>
         {/* Delta summary (e.g. "+12 bp, +1 feature") + the absolute digest. */}
-        <span className="block truncate text-meta font-medium text-gray-600">
+        <span className="block truncate text-meta font-medium text-foreground-muted">
           {entry.summary}
         </span>
-        {digest && <span className="block truncate text-meta text-gray-400">{digest}</span>}
+        {digest && <span className="block truncate text-meta text-foreground-muted">{digest}</span>}
         <Tooltip label={`${formatFullDate(entry.ts)} · ${entry.ts}`} placement="bottom">
-          <span className="block w-fit text-meta text-gray-400">{formatRelative(entry.ts)}</span>
+          <span className="block w-fit text-meta text-foreground-muted">{formatRelative(entry.ts)}</span>
         </Tooltip>
 
         {/* Inline restore (NON-HEAD + write access). The confirm is inline, not
@@ -508,7 +508,7 @@ function SequenceVersionRow({
               type="button"
               onClick={onCancelConfirm}
               disabled={restoring}
-              className="rounded-md bg-gray-100 px-2 py-0.5 text-meta font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-60"
+              className="rounded-md bg-surface-sunken px-2 py-0.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken disabled:opacity-60"
             >
               Cancel
             </button>

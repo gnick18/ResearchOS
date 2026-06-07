@@ -150,10 +150,10 @@ function CheckBadge({ check }: { check: PrimerCheck }) {
 /** A small stat (label over value), compact. */
 function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
   return (
-    <div className="rounded-md bg-gray-50 px-2.5 py-1.5">
-      <div className="text-meta font-medium uppercase tracking-wide text-gray-400">{label}</div>
-      <div className="text-body font-semibold text-gray-800">{value}</div>
-      {hint ? <div className="text-meta text-gray-400">{hint}</div> : null}
+    <div className="rounded-md bg-surface-sunken px-2.5 py-1.5">
+      <div className="text-meta font-medium uppercase tracking-wide text-foreground-muted">{label}</div>
+      <div className="text-body font-semibold text-foreground">{value}</div>
+      {hint ? <div className="text-meta text-foreground-muted">{hint}</div> : null}
     </div>
   );
 }
@@ -367,11 +367,11 @@ export default function SequencePrimersPanel({
   };
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden bg-white">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-surface-raised">
       {/* Header + mode switch */}
-      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2">
-        <span className="text-meta font-semibold uppercase tracking-wide text-gray-500">Primers</span>
-        <div className="inline-flex rounded-md bg-gray-100 p-0.5 text-meta font-medium">
+      <div className="flex items-center justify-between border-b border-border px-4 py-2">
+        <span className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">Primers</span>
+        <div className="inline-flex rounded-md bg-surface-sunken p-0.5 text-meta font-medium">
           {(
             [
               ["list", "List"],
@@ -385,7 +385,7 @@ export default function SequencePrimersPanel({
               onClick={() => setMode(m)}
               aria-pressed={mode === m}
               className={`rounded px-2.5 py-1 transition-colors ${
-                mode === m ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                mode === m ? "bg-surface-raised text-foreground shadow-sm" : "text-foreground-muted hover:text-foreground"
               }`}
             >
               {label}
@@ -396,7 +396,7 @@ export default function SequencePrimersPanel({
 
       {/* Trust banner: our Tm matches Primer3 / Primer-BLAST. */}
       {mode !== "list" ? (
-        <div className="border-b border-gray-100 bg-sky-50/60 px-4 py-1.5 text-meta text-sky-700">
+        <div className="border-b border-border bg-sky-50/60 px-4 py-1.5 text-meta text-sky-700">
           Tm uses the SantaLucia 1998 nearest-neighbor model, the same one Primer3 and
           Primer-BLAST use, so these numbers match those tools. The dimer, hairpin, and
           poly-X checks are a quick screen that flags likely problems, not exact
@@ -424,7 +424,7 @@ export default function SequencePrimersPanel({
                   <button
                     type="button"
                     onClick={onAddCustomPrimer}
-                    className="rounded-md border border-gray-200 px-2.5 py-1 text-meta font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                    className="rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
                   >
                     Add a primer
                   </button>
@@ -434,8 +434,8 @@ export default function SequencePrimersPanel({
 
             {primers.length === 0 ? (
               <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-                <p className="text-body text-gray-500">No primers yet.</p>
-                <p className="mt-1 text-meta text-gray-400">
+                <p className="text-body text-foreground-muted">No primers yet.</p>
+                <p className="mt-1 text-meta text-foreground-muted">
                   {readOnly
                     ? "Primers added to this sequence will appear here."
                     : "Select a region and Design primers, or add one you already have."}
@@ -453,7 +453,7 @@ export default function SequencePrimersPanel({
                     <li key={`${f.name}-${f.start}-${index}`}>
                       <div
                         className={`group flex items-center gap-2 px-3 py-1.5 ${
-                          selected ? "bg-sky-50" : "hover:bg-gray-50"
+                          selected ? "bg-sky-50" : "hover:bg-surface-sunken"
                         }`}
                       >
                         <button
@@ -462,20 +462,20 @@ export default function SequencePrimersPanel({
                           className="flex min-w-0 flex-1 flex-col items-start text-left"
                         >
                           <span className="flex items-center gap-1.5">
-                            <span className="truncate text-body font-medium text-gray-800">
+                            <span className="truncate text-body font-medium text-foreground">
                               {f.name || "primer"}
                             </span>
-                            <span className="rounded bg-gray-100 px-1 text-meta font-medium text-gray-500">
+                            <span className="rounded bg-surface-sunken px-1 text-meta font-medium text-foreground-muted">
                               {f.strand === -1 ? "reverse" : "forward"}
                             </span>
                           </span>
-                          <span className="font-mono text-meta text-gray-400">
+                          <span className="font-mono text-meta text-foreground-muted">
                             {(f.start + 1).toLocaleString()} .. {f.end.toLocaleString()} · {len} nt
                             {gc !== null ? ` · ${gc}% GC` : ""}
                             {tm !== null ? ` · Tm ${tm} C` : ""}
                           </span>
                           {seq ? (
-                            <span className="truncate font-mono text-meta text-gray-500">
+                            <span className="truncate font-mono text-meta text-foreground-muted">
                               {`5'-${seq}-3'`}
                             </span>
                           ) : null}
@@ -486,7 +486,7 @@ export default function SequencePrimersPanel({
                               type="button"
                               onClick={() => onEditPrimer(index)}
                               aria-label={`Edit primer ${f.name}`}
-                              className="rounded p-1 text-gray-300 opacity-0 transition-opacity hover:bg-gray-100 hover:text-sky-600 group-hover:opacity-100"
+                              className="rounded p-1 text-foreground-muted opacity-0 transition-opacity hover:bg-surface-sunken hover:text-sky-600 group-hover:opacity-100"
                             >
                               <IconPencil className="h-3.5 w-3.5" />
                             </button>
@@ -501,7 +501,7 @@ export default function SequencePrimersPanel({
                                 setMode("check");
                               }}
                               aria-label={`Check primer ${f.name}`}
-                              className="rounded p-1 text-gray-300 opacity-0 transition-opacity hover:bg-gray-100 hover:text-sky-600 group-hover:opacity-100"
+                              className="rounded p-1 text-foreground-muted opacity-0 transition-opacity hover:bg-surface-sunken hover:text-sky-600 group-hover:opacity-100"
                             >
                               <IconCheck className="h-3.5 w-3.5" />
                             </button>
@@ -513,7 +513,7 @@ export default function SequencePrimersPanel({
                               type="button"
                               onClick={() => onDeletePrimer(index)}
                               aria-label={`Delete primer ${f.name}`}
-                              className="rounded p-1 text-gray-300 opacity-0 transition-opacity hover:bg-gray-100 hover:text-red-500 group-hover:opacity-100"
+                              className="rounded p-1 text-foreground-muted opacity-0 transition-opacity hover:bg-surface-sunken hover:text-red-500 group-hover:opacity-100"
                             >
                               <IconTrash className="h-3.5 w-3.5" />
                             </button>
@@ -532,21 +532,21 @@ export default function SequencePrimersPanel({
         {mode === "design" ? (
           <div className="space-y-3 px-4 py-3">
             {!hasSelection || !selection ? (
-              <div className="rounded-md border border-dashed border-gray-200 bg-gray-50 px-3 py-4 text-center text-body text-gray-500">
+              <div className="rounded-md border border-dashed border-border bg-surface-sunken px-3 py-4 text-center text-body text-foreground-muted">
                 Select a region in the Sequence view, then design primers for it.
-                <div className="mt-1 text-meta text-gray-400">
+                <div className="mt-1 text-meta text-foreground-muted">
                   Candidates use Primer3 defaults (length 18/20/27, Tm 57/60/63 C).
                 </div>
               </div>
             ) : (
               <>
-                <div className="flex items-center justify-between text-meta text-gray-500">
+                <div className="flex items-center justify-between text-meta text-foreground-muted">
                   <span>
                     Region {(selection.start + 1).toLocaleString()}..
                     {selection.end.toLocaleString()}{" "}
-                    <span className="text-gray-400">({selLen.toLocaleString()} bp)</span>
+                    <span className="text-foreground-muted">({selLen.toLocaleString()} bp)</span>
                   </span>
-                  <span className="text-gray-400">ranked best first</span>
+                  <span className="text-foreground-muted">ranked best first</span>
                 </div>
 
                 {design && design.forward.length === 0 && design.reverse.length === 0 ? (
@@ -594,7 +594,7 @@ export default function SequencePrimersPanel({
         {mode === "check" ? (
           <div className="space-y-3 px-4 py-3">
             <label className="block">
-              <span className="mb-1 block text-meta font-medium text-gray-500">
+              <span className="mb-1 block text-meta font-medium text-foreground-muted">
                 Primer sequence (5&apos; to 3&apos;)
               </span>
               <textarea
@@ -603,7 +603,7 @@ export default function SequencePrimersPanel({
                 rows={2}
                 placeholder="Paste a primer, or pick one from the List tab"
                 spellCheck={false}
-                className="w-full resize-y rounded-md border border-gray-200 px-2.5 py-2 font-mono text-body tracking-wide text-gray-800 focus:border-sky-400 focus:outline-none"
+                className="w-full resize-y rounded-md border border-border px-2.5 py-2 font-mono text-body tracking-wide text-foreground focus:border-sky-400 focus:outline-none"
               />
             </label>
 
@@ -616,7 +616,7 @@ export default function SequencePrimersPanel({
                 </div>
 
                 <div>
-                  <span className="mb-1 block text-meta font-medium text-gray-500">Trust checks</span>
+                  <span className="mb-1 block text-meta font-medium text-foreground-muted">Trust checks</span>
                   <div className="flex flex-wrap gap-1.5">
                     {checkAnalysis.checks.map((c) => (
                       <CheckBadge key={c.label} check={c} />
@@ -626,7 +626,7 @@ export default function SequencePrimersPanel({
 
                 {/* Binding on the current sequence */}
                 <div>
-                  <span className="mb-1 block text-meta font-medium text-gray-500">
+                  <span className="mb-1 block text-meta font-medium text-foreground-muted">
                     Binds this sequence
                   </span>
                   {checkBindingReport.sites.length > 0 ? (
@@ -635,7 +635,7 @@ export default function SequencePrimersPanel({
                         <div
                           key={`${s.start}-${s.end}-${s.direction}`}
                           className={`rounded-md px-2.5 py-1.5 text-meta ${
-                            i === 0 ? "bg-gray-50 text-gray-700" : "bg-amber-50 text-amber-700"
+                            i === 0 ? "bg-surface-sunken text-foreground" : "bg-amber-50 text-amber-700"
                           }`}
                         >
                           <span className="font-medium">
@@ -661,7 +661,7 @@ export default function SequencePrimersPanel({
                       ) : null}
                     </div>
                   ) : (
-                    <p className="rounded-md border border-dashed border-gray-200 px-2.5 py-2 text-meta text-gray-400">
+                    <p className="rounded-md border border-dashed border-border px-2.5 py-2 text-meta text-foreground-muted">
                       No binding site found on this sequence.
                     </p>
                   )}
@@ -692,7 +692,7 @@ export default function SequencePrimersPanel({
                     <button
                       type="button"
                       onClick={() => copy(checkPrimer)}
-                      className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1 text-meta font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                      className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
                     >
                       <IconCopy className="h-3.5 w-3.5" />
                       {copied === checkPrimer ? "Copied" : "Copy"}
@@ -703,7 +703,7 @@ export default function SequencePrimersPanel({
                       type="button"
                       onClick={runSpecificity}
                       disabled={specBusy}
-                      className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1 text-meta font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                      className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken disabled:opacity-50"
                     >
                       <IconShield className="h-3.5 w-3.5" />
                       {specBusy ? "Scanning..." : "Check specificity"}
@@ -757,7 +757,7 @@ export default function SequencePrimersPanel({
                 ) : null}
               </>
             ) : (
-              <p className="rounded-md border border-dashed border-gray-200 px-2.5 py-3 text-center text-meta text-gray-400">
+              <p className="rounded-md border border-dashed border-border px-2.5 py-3 text-center text-meta text-foreground-muted">
                 Paste a primer to see its Tm, GC, trust checks and binding sites.
               </p>
             )}
@@ -786,17 +786,17 @@ function SpecificityResult({
 }) {
   const clean = report.offTargets.length === 0;
   return (
-    <div className="rounded-md border border-gray-100 bg-gray-50/60 px-3 py-2.5">
+    <div className="rounded-md border border-border bg-surface-sunken/60 px-3 py-2.5">
       <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-meta font-semibold text-gray-700">Local-library specificity</span>
-        <span className="text-meta text-gray-400">
+        <span className="text-meta font-semibold text-foreground">Local-library specificity</span>
+        <span className="text-meta text-foreground-muted">
           {report.scanned} sequence{report.scanned === 1 ? "" : "s"} scanned
           {report.skipped > 0 ? ` (+${report.skipped} skipped)` : ""}
         </span>
       </div>
 
       {report.hits.length === 0 ? (
-        <p className="text-meta text-gray-500">
+        <p className="text-meta text-foreground-muted">
           This primer does not anneal anywhere in your connected sequences (at or above{" "}
           {report.minAnneal} bp). It may still have an intended site that is shorter than the
           detection threshold.
@@ -842,24 +842,24 @@ function SpecificityResult({
         </div>
       )}
 
-      <p className="mt-1.5 text-meta text-gray-400">
+      <p className="mt-1.5 text-meta text-foreground-muted">
         {clean
           ? `No off-target sites in your library${report.mismatchTolerant ? `, including near matches down to ${Math.round(report.minIdentity * 100)}% identity` : ""}. This is a local check only; it does not see genome-wide off-targets.`
           : `Rose rows are perfect off-targets (prime as strongly as the intended site); amber rows are near matches that can still cross-prime${report.mismatchTolerant ? ` (down to ${Math.round(report.minIdentity * 100)}% identity)` : ""}. This is a local check only; it does not see genome-wide off-targets.`}
       </p>
 
-      <div className="mt-2 border-t border-gray-100 pt-2">
+      <div className="mt-2 border-t border-border pt-2">
         <Tooltip label="Open NCBI Primer-BLAST in a new tab to check this primer against full genomes / transcriptomes">
           <button
             type="button"
             onClick={onCheckNcbi}
-            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-meta font-medium text-gray-600 transition-colors hover:bg-gray-50"
+            className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-raised px-2.5 py-1 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
           >
             <IconGlobe className="h-3.5 w-3.5" />
             Check genome-wide on NCBI
           </button>
         </Tooltip>
-        <p className="mt-1 text-meta text-gray-400">
+        <p className="mt-1 text-meta text-foreground-muted">
           Sends your primer and template to NCBI Primer-BLAST in a new tab (leaves your machine).
         </p>
       </div>
@@ -886,14 +886,14 @@ function CandidateList({
   if (candidates.length === 0) return null;
   return (
     <div>
-      <div className="mb-1 text-meta font-semibold uppercase tracking-wide text-gray-400">
+      <div className="mb-1 text-meta font-semibold uppercase tracking-wide text-foreground-muted">
         {title}
       </div>
       <ul className="space-y-1.5">
         {candidates.map((c, i) => (
-          <li key={`${c.primer}-${c.start}`} className="rounded-md border border-gray-100 px-2.5 py-2">
+          <li key={`${c.primer}-${c.start}`} className="rounded-md border border-border px-2.5 py-2">
             <div className="flex items-center justify-between gap-2">
-              <span className="break-all font-mono text-meta text-gray-800">
+              <span className="break-all font-mono text-meta text-foreground">
                 5&apos;-{c.primer}-3&apos;
               </span>
               <div className="flex shrink-0 items-center gap-1">
@@ -902,7 +902,7 @@ function CandidateList({
                     type="button"
                     onClick={() => onCopy(c.primer)}
                     aria-label="Copy oligo"
-                    className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                    className="rounded p-1 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
                   >
                     <IconCopy className="h-3.5 w-3.5" />
                   </button>
@@ -921,7 +921,7 @@ function CandidateList({
                 ) : null}
               </div>
             </div>
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-gray-500">
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-foreground-muted">
               <span>
                 {(c.start + 1).toLocaleString()}..{c.end.toLocaleString()}
               </span>
@@ -956,7 +956,7 @@ function NumberField({
 }) {
   return (
     <label className="flex flex-col gap-0.5">
-      <span className="text-meta font-medium uppercase tracking-wide text-gray-400">{label}</span>
+      <span className="text-meta font-medium uppercase tracking-wide text-foreground-muted">{label}</span>
       <input
         type="number"
         value={value}
@@ -965,7 +965,7 @@ function NumberField({
           const n = Number(e.target.value);
           if (!Number.isNaN(n)) onChange(n);
         }}
-        className="w-full rounded-md border border-gray-200 px-2 py-1 text-body text-gray-800 focus:border-sky-400 focus:outline-none"
+        className="w-full rounded-md border border-border px-2 py-1 text-body text-foreground focus:border-sky-400 focus:outline-none"
       />
     </label>
   );
@@ -986,23 +986,23 @@ function AdvancedPanel({
 }) {
   const set = (patch: Partial<PrimerDesignParams>) => onChange({ ...params, ...patch });
   return (
-    <div className="rounded-md border border-gray-100">
+    <div className="rounded-md border border-border">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        className="flex w-full items-center justify-between px-3 py-2 text-meta font-medium text-gray-600 transition-colors hover:bg-gray-50"
+        className="flex w-full items-center justify-between px-3 py-2 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
       >
         <span className="inline-flex items-center gap-1.5">
           <IconChevron open={open} className="h-3.5 w-3.5" />
           Advanced
         </span>
-        <span className="text-meta font-normal text-gray-400">defaults match Primer3</span>
+        <span className="text-meta font-normal text-foreground-muted">defaults match Primer3</span>
       </button>
       {open ? (
-        <div className="space-y-3 border-t border-gray-100 px-3 py-3">
+        <div className="space-y-3 border-t border-border px-3 py-3">
           <div>
-            <div className="mb-1 text-meta font-semibold uppercase tracking-wide text-gray-400">
+            <div className="mb-1 text-meta font-semibold uppercase tracking-wide text-foreground-muted">
               Length (bp)
             </div>
             <div className="grid grid-cols-3 gap-2">
@@ -1012,7 +1012,7 @@ function AdvancedPanel({
             </div>
           </div>
           <div>
-            <div className="mb-1 text-meta font-semibold uppercase tracking-wide text-gray-400">
+            <div className="mb-1 text-meta font-semibold uppercase tracking-wide text-foreground-muted">
               Tm (°C)
             </div>
             <div className="grid grid-cols-3 gap-2">
@@ -1022,7 +1022,7 @@ function AdvancedPanel({
             </div>
           </div>
           <div>
-            <div className="mb-1 text-meta font-semibold uppercase tracking-wide text-gray-400">
+            <div className="mb-1 text-meta font-semibold uppercase tracking-wide text-foreground-muted">
               %GC range
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -1042,12 +1042,12 @@ function AdvancedPanel({
               onChange={(n) => set({ oligoNanomolar: n })}
             />
           </div>
-          <label className="flex items-center gap-2 text-meta text-gray-600">
+          <label className="flex items-center gap-2 text-meta text-foreground-muted">
             <input
               type="checkbox"
               checked={params.requireGcClamp}
               onChange={(e) => set({ requireGcClamp: e.target.checked })}
-              className="h-3.5 w-3.5 rounded border-gray-300 text-sky-600 focus:ring-sky-400"
+              className="h-3.5 w-3.5 rounded border-border text-sky-600 focus:ring-sky-400"
             />
             Require a 3&apos; GC clamp
           </label>
@@ -1055,7 +1055,7 @@ function AdvancedPanel({
             <button
               type="button"
               onClick={onReset}
-              className="rounded-md px-2.5 py-1 text-meta font-medium text-gray-500 transition-colors hover:bg-gray-100"
+              className="rounded-md px-2.5 py-1 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
             >
               Reset to defaults
             </button>

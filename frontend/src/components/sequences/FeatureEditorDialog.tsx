@@ -210,18 +210,18 @@ export default function FeatureEditorDialog({
       data-tour-popup-occluding="feature-editor"
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={request.onCancel} />
-      <div className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
+      <div className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+        <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <span
             className="h-4 w-4 shrink-0 rounded-sm seq-swatch-border"
             style={{ backgroundColor: effectiveColor }}
             aria-hidden="true"
           />
-          <h2 className="text-title font-semibold text-gray-900">
+          <h2 className="text-title font-semibold text-foreground">
             {isAdd ? "Add feature" : readOnly ? name || "Feature" : "Edit feature"}
           </h2>
           {readOnly ? (
-            <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-meta font-medium text-gray-500">
+            <span className="ml-auto rounded-full bg-surface-sunken px-2 py-0.5 text-meta font-medium text-foreground-muted">
               Read-only
             </span>
           ) : null}
@@ -263,25 +263,25 @@ export default function FeatureEditorDialog({
 
           {/* Name */}
           <label className="block">
-            <span className="mb-1 block text-meta font-medium text-gray-500">Name</span>
+            <span className="mb-1 block text-meta font-medium text-foreground-muted">Name</span>
             <input
               ref={nameRef}
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Feature name"
-              className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-body text-gray-800 focus:border-sky-400 focus:outline-none"
+              className="w-full rounded-md border border-border px-2.5 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
             />
           </label>
 
           {/* Type + strand */}
           <div className="flex flex-wrap items-end gap-3">
             <label className="block min-w-[10rem] flex-1">
-              <span className="mb-1 block text-meta font-medium text-gray-500">Type</span>
+              <span className="mb-1 block text-meta font-medium text-foreground-muted">Type</span>
               <input
                 list="feature-type-options"
                 value={type}
                 onChange={(e) => setType(e.target.value)}
-                className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-body text-gray-800 focus:border-sky-400 focus:outline-none"
+                className="w-full rounded-md border border-border px-2.5 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
               />
               <datalist id="feature-type-options">
                 {COMMON_TYPES.map((t) => (
@@ -290,12 +290,12 @@ export default function FeatureEditorDialog({
               </datalist>
             </label>
             <div className="block">
-              <span className="mb-1 block text-meta font-medium text-gray-500">Strand</span>
+              <span className="mb-1 block text-meta font-medium text-foreground-muted">Strand</span>
               <StrandSelector value={strandDisplay} onChange={onStrandChange} />
             </div>
           </div>
           {strandDisplay === "none" || strandDisplay === "both" ? (
-            <p className="-mt-1.5 text-meta text-gray-400">
+            <p className="-mt-1.5 text-meta text-foreground-muted">
               GenBank stores a + or - strand only, so this saves as forward (+).
             </p>
           ) : null}
@@ -303,17 +303,17 @@ export default function FeatureEditorDialog({
           {/* Segment table (multi-segment join() editing) */}
           <div>
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-meta font-medium text-gray-500">
+              <span className="text-meta font-medium text-foreground-muted">
                 Segments {segments.length > 1 ? `(join of ${segments.length})` : ""}
               </span>
-              <span className="text-meta text-gray-400">
+              <span className="text-meta text-foreground-muted">
                 {span.length.toLocaleString()} bp total
               </span>
             </div>
-            <div className="overflow-hidden rounded-md border border-gray-200">
+            <div className="overflow-hidden rounded-md border border-border">
               <table className="w-full text-body">
                 <thead>
-                  <tr className="bg-gray-50 text-meta font-medium text-gray-500">
+                  <tr className="bg-surface-sunken text-meta font-medium text-foreground-muted">
                     <th className="px-2 py-1 text-left">Start</th>
                     <th className="px-2 py-1 text-left">End</th>
                     <th className="px-2 py-1 text-left">Color</th>
@@ -322,7 +322,7 @@ export default function FeatureEditorDialog({
                 </thead>
                 <tbody>
                   {segments.map((s, i) => (
-                    <tr key={i} className="border-t border-gray-100">
+                    <tr key={i} className="border-t border-border">
                       <td className="px-2 py-1">
                         <input
                           type="number"
@@ -332,7 +332,7 @@ export default function FeatureEditorDialog({
                           onChange={(e) =>
                             setSegStart(i, (Number(e.target.value) || 1) - 1)
                           }
-                          className="w-20 rounded border border-gray-200 px-1.5 py-1 text-body focus:border-sky-400 focus:outline-none"
+                          className="w-20 rounded border border-border px-1.5 py-1 text-body focus:border-sky-400 focus:outline-none"
                           aria-label={`Segment ${i + 1} start`}
                         />
                       </td>
@@ -343,7 +343,7 @@ export default function FeatureEditorDialog({
                           max={request.seqLength}
                           value={s.end}
                           onChange={(e) => setSegEnd(i, Number(e.target.value) || 0)}
-                          className="w-20 rounded border border-gray-200 px-1.5 py-1 text-body focus:border-sky-400 focus:outline-none"
+                          className="w-20 rounded border border-border px-1.5 py-1 text-body focus:border-sky-400 focus:outline-none"
                           aria-label={`Segment ${i + 1} end`}
                         />
                       </td>
@@ -394,7 +394,7 @@ export default function FeatureEditorDialog({
                 </tbody>
               </table>
             </div>
-            <p className="mt-1 text-meta text-gray-400">
+            <p className="mt-1 text-meta text-foreground-muted">
               Positions are 1-based inclusive (span {(span.start + 1).toLocaleString()}..
               {span.end.toLocaleString()}). Sequence is {request.seqLength.toLocaleString()} bp.
               Split a segment to create an intron gap (a GenBank join).
@@ -403,7 +403,7 @@ export default function FeatureEditorDialog({
 
           {/* Color */}
           <div>
-            <span className="mb-1 block text-meta font-medium text-gray-500">Color</span>
+            <span className="mb-1 block text-meta font-medium text-foreground-muted">Color</span>
             <div className="flex flex-wrap items-center gap-1.5">
               {FEATURE_COLOR_SWATCHES.map((sw) => {
                 const active = color.trim().toLowerCase() === sw.toLowerCase();
@@ -429,13 +429,13 @@ export default function FeatureEditorDialog({
                   className="h-6 w-6 cursor-pointer opacity-0"
                   aria-label="Custom color"
                 />
-                <span className="pointer-events-none absolute text-meta font-bold text-gray-500">+</span>
+                <span className="pointer-events-none absolute text-meta font-bold text-foreground-muted">+</span>
               </label>
             </div>
             <button
               type="button"
               onClick={() => setColor("")}
-              className="mt-1.5 text-meta text-gray-400 underline-offset-2 hover:text-gray-600 hover:underline"
+              className="mt-1.5 text-meta text-foreground-muted underline-offset-2 hover:text-foreground-muted hover:underline"
             >
               Use type default ({FEATURE_TYPE_COLORS[type.trim().toLowerCase()] ? type : "auto"})
             </button>
@@ -444,7 +444,7 @@ export default function FeatureEditorDialog({
           {/* Qualifiers (GenBank /product, /note, /gene, ...) */}
           <div>
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-meta font-medium text-gray-500">Qualifiers</span>
+              <span className="text-meta font-medium text-foreground-muted">Qualifiers</span>
               <button
                 type="button"
                 onClick={addQualifier}
@@ -454,7 +454,7 @@ export default function FeatureEditorDialog({
               </button>
             </div>
             {qualifiers.length === 0 ? (
-              <p className="rounded-md border border-dashed border-gray-200 px-2.5 py-2 text-meta text-gray-400">
+              <p className="rounded-md border border-dashed border-border px-2.5 py-2 text-meta text-foreground-muted">
                 No qualifiers. Add /product, /note, /gene, or any GenBank qualifier.
               </p>
             ) : (
@@ -466,7 +466,7 @@ export default function FeatureEditorDialog({
                       value={q.key}
                       onChange={(e) => setQualKey(i, e.target.value)}
                       placeholder="key"
-                      className="w-28 shrink-0 rounded-md border border-gray-200 px-2 py-1 text-body focus:border-sky-400 focus:outline-none"
+                      className="w-28 shrink-0 rounded-md border border-border px-2 py-1 text-body focus:border-sky-400 focus:outline-none"
                       aria-label={`Qualifier ${i + 1} key`}
                     />
                     <textarea
@@ -474,7 +474,7 @@ export default function FeatureEditorDialog({
                       onChange={(e) => setQualValue(i, e.target.value)}
                       rows={1}
                       placeholder="value"
-                      className="min-h-[32px] flex-1 resize-y rounded-md border border-gray-200 px-2 py-1 text-body focus:border-sky-400 focus:outline-none"
+                      className="min-h-[32px] flex-1 resize-y rounded-md border border-border px-2 py-1 text-body focus:border-sky-400 focus:outline-none"
                       aria-label={`Qualifier ${i + 1} value`}
                     />
                     <button
@@ -497,9 +497,9 @@ export default function FeatureEditorDialog({
           </div>
 
           {/* Display toggles */}
-          <div className="space-y-2 rounded-md bg-gray-50 px-3 py-2.5">
+          <div className="space-y-2 rounded-md bg-surface-sunken px-3 py-2.5">
             <label className="flex cursor-pointer items-center justify-between gap-3">
-              <span className="text-meta font-medium text-gray-600">Translate in sequence view</span>
+              <span className="text-meta font-medium text-foreground-muted">Translate in sequence view</span>
               <input
                 type="checkbox"
                 checked={translate}
@@ -508,7 +508,7 @@ export default function FeatureEditorDialog({
               />
             </label>
             <label className="flex cursor-pointer items-center justify-between gap-3">
-              <span className="text-meta font-medium text-gray-600">Prioritize display in maps</span>
+              <span className="text-meta font-medium text-foreground-muted">Prioritize display in maps</span>
               <input
                 type="checkbox"
                 checked={prioritize}
@@ -521,7 +521,7 @@ export default function FeatureEditorDialog({
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-t border-gray-100 bg-gray-50 px-4 py-3">
+        <div className="flex items-center justify-between gap-2 border-t border-border bg-surface-sunken px-4 py-3">
           <div className="flex items-center gap-1">
             {/* sequence editor master (redesign). Duplicate the feature. Edit mode
                 only (a copy of an existing feature has no meaning while adding or
@@ -530,7 +530,7 @@ export default function FeatureEditorDialog({
               <button
                 type="button"
                 onClick={request.onDuplicate}
-                className="rounded-lg px-3 py-2 text-body font-medium text-gray-600 transition-colors hover:bg-gray-200"
+                className="rounded-lg px-3 py-2 text-body font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
               >
                 Duplicate
               </button>
@@ -549,7 +549,7 @@ export default function FeatureEditorDialog({
             <button
               type="button"
               onClick={request.onCancel}
-              className="rounded-lg px-4 py-2 text-body text-gray-600 transition-colors hover:bg-gray-200"
+              className="rounded-lg px-4 py-2 text-body text-foreground-muted transition-colors hover:bg-surface-sunken"
             >
               {readOnly ? "Close" : "Cancel"}
             </button>
@@ -600,8 +600,8 @@ function ReadOnlyBody({
 }) {
   const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <div className="flex gap-3 py-1">
-      <span className="w-28 shrink-0 text-meta font-medium text-gray-500">{label}</span>
-      <span className="flex-1 break-words text-body text-gray-800">{children}</span>
+      <span className="w-28 shrink-0 text-meta font-medium text-foreground-muted">{label}</span>
+      <span className="flex-1 break-words text-body text-foreground">{children}</span>
     </div>
   );
 
@@ -616,12 +616,12 @@ function ReadOnlyBody({
       <Row label="Strand">{strand === -1 ? "Reverse (-)" : "Forward (+)"}</Row>
       <Row label="Range">
         {(span.start + 1).toLocaleString()}..{span.end.toLocaleString()}{" "}
-        <span className="text-gray-400">(1-based inclusive)</span>
+        <span className="text-foreground-muted">(1-based inclusive)</span>
       </Row>
       <Row label="Length">{span.length.toLocaleString()} bp</Row>
       {segments.length > 1 ? (
         <Row label="Segments">
-          <span className="text-gray-500">join of {segments.length}: </span>
+          <span className="text-foreground-muted">join of {segments.length}: </span>
           {segments
             .map((s) => `${(s.start + 1).toLocaleString()}..${s.end.toLocaleString()}`)
             .join(", ")}
@@ -648,12 +648,12 @@ function ReadOnlyBody({
 
       {qualifiers.length ? (
         <div className="py-2">
-          <span className="mb-1 block text-meta font-medium text-gray-500">Qualifiers</span>
+          <span className="mb-1 block text-meta font-medium text-foreground-muted">Qualifiers</span>
           <div className="space-y-1">
             {qualifiers.map((q, i) => (
               <div key={i} className="flex gap-2 text-body">
                 <span className="shrink-0 font-mono text-meta text-sky-700">/{q.key}</span>
-                <span className="break-words text-gray-800">{q.value}</span>
+                <span className="break-words text-foreground">{q.value}</span>
               </div>
             ))}
           </div>
@@ -663,10 +663,10 @@ function ReadOnlyBody({
       {featureSeq ? (
         <div className="py-2">
           <div className="mb-1 flex items-center justify-between">
-            <span className="text-meta font-medium text-gray-500">Sequence</span>
-            <span className="text-meta text-gray-400">GC {featureGc.toFixed(1)}%</span>
+            <span className="text-meta font-medium text-foreground-muted">Sequence</span>
+            <span className="text-meta text-foreground-muted">GC {featureGc.toFixed(1)}%</span>
           </div>
-          <div className="max-h-32 overflow-y-auto rounded-md bg-gray-50 px-2.5 py-2 font-mono text-meta leading-relaxed tracking-wide text-gray-700 break-all">
+          <div className="max-h-32 overflow-y-auto rounded-md bg-surface-sunken px-2.5 py-2 font-mono text-meta leading-relaxed tracking-wide text-foreground break-all">
             {featureSeq}
           </div>
         </div>

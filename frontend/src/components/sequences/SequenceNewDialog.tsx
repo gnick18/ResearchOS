@@ -90,17 +90,17 @@ export default function SequenceNewDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="sequence-new-dialog">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
+      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+        <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100">
             <IconPlus className="h-5 w-5 text-sky-600" />
           </div>
-          <h2 className="text-title font-semibold text-gray-900">New sequence</h2>
+          <h2 className="text-title font-semibold text-foreground">New sequence</h2>
         </div>
 
         <div className="space-y-4 px-5 py-4">
           <div>
-            <label className="mb-1 block text-meta font-medium uppercase tracking-wide text-gray-400">
+            <label className="mb-1 block text-meta font-medium uppercase tracking-wide text-foreground-muted">
               Name
             </label>
             <input
@@ -109,22 +109,22 @@ export default function SequenceNewDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. pEGFP-N1 backbone"
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-body text-gray-800 placeholder:text-gray-400 focus:border-sky-400 focus:outline-none"
+              className="w-full rounded-md border border-border px-3 py-2 text-body text-foreground placeholder:text-foreground-muted focus:border-sky-400 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-meta font-medium uppercase tracking-wide text-gray-400">
+            <label className="mb-1 block text-meta font-medium uppercase tracking-wide text-foreground-muted">
               Type
             </label>
-            <div className="flex items-center rounded-md border border-gray-200 p-0.5 text-body font-medium">
+            <div className="flex items-center rounded-md border border-border p-0.5 text-body font-medium">
               {(["dna", "rna", "protein"] as SeqType[]).map((t) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => setSeqType(t)}
                   className={`flex-1 rounded px-3 py-1.5 ${
-                    seqType === t ? "bg-sky-600 text-white" : "text-gray-600 hover:bg-gray-100"
+                    seqType === t ? "bg-sky-600 text-white" : "text-foreground-muted hover:bg-surface-sunken"
                   }`}
                 >
                   {t === "protein" ? "Protein" : t === "rna" ? "RNA" : "DNA"}
@@ -135,11 +135,11 @@ export default function SequenceNewDialog({
 
           <div>
             <div className="mb-1 flex items-center justify-between">
-              <label className="block text-meta font-medium uppercase tracking-wide text-gray-400">
+              <label className="block text-meta font-medium uppercase tracking-wide text-foreground-muted">
                 Sequence (optional)
               </label>
               {raw.trim().length > 0 ? (
-                <span className="text-meta text-gray-400">
+                <span className="text-meta text-foreground-muted">
                   {cleanedLength.toLocaleString()} {unit}
                 </span>
               ) : null}
@@ -154,20 +154,20 @@ export default function SequenceNewDialog({
               }
               rows={5}
               spellCheck={false}
-              className="w-full rounded-md border border-gray-200 px-3 py-2 font-mono text-meta leading-relaxed text-gray-800 placeholder:font-sans placeholder:text-gray-400 focus:border-sky-400 focus:outline-none"
+              className="w-full rounded-md border border-border px-3 py-2 font-mono text-meta leading-relaxed text-foreground placeholder:font-sans placeholder:text-foreground-muted focus:border-sky-400 focus:outline-none"
             />
-            <p className="mt-1 text-meta text-gray-400">
+            <p className="mt-1 text-meta text-foreground-muted">
               Whitespace, line numbers, and characters outside the {seqType.toUpperCase()} alphabet are removed automatically.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-t border-gray-100 bg-gray-50 px-4 py-3">
+        <div className="flex items-center justify-between gap-2 border-t border-border bg-surface-sunken px-4 py-3">
           <button
             type="button"
             onClick={() => submit(true)}
             disabled={!hasName}
-            className="rounded-lg px-3 py-2 text-body text-gray-600 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-lg px-3 py-2 text-body text-foreground-muted transition-colors hover:bg-surface-sunken disabled:cursor-not-allowed disabled:opacity-40"
           >
             Create blank
           </button>
@@ -175,7 +175,7 @@ export default function SequenceNewDialog({
             <button
               type="button"
               onClick={onCancel}
-              className="rounded-lg px-4 py-2 text-body text-gray-600 transition-colors hover:bg-gray-200"
+              className="rounded-lg px-4 py-2 text-body text-foreground-muted transition-colors hover:bg-surface-sunken"
             >
               Cancel
             </button>

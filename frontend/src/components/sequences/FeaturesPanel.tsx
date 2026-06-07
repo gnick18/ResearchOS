@@ -129,7 +129,7 @@ function ColorSwatches({
           className="h-5 w-5 cursor-pointer opacity-0"
           aria-label="Custom color"
         />
-        <span className="pointer-events-none absolute text-meta font-bold text-gray-500">+</span>
+        <span className="pointer-events-none absolute text-meta font-bold text-foreground-muted">+</span>
       </label>
     </div>
   );
@@ -151,7 +151,7 @@ function SectionHeader({
       <button
         type="button"
         onClick={onToggle}
-        className="flex items-center gap-1.5 text-meta font-semibold uppercase tracking-wide text-gray-500 hover:text-gray-700"
+        className="flex items-center gap-1.5 text-meta font-semibold uppercase tracking-wide text-foreground-muted hover:text-foreground"
       >
         <IconChevron open={open} className="h-3.5 w-3.5" />
         {title}
@@ -252,16 +252,16 @@ export default function FeaturesPanel({
   };
 
   return (
-    <div className="flex h-full w-72 shrink-0 flex-col overflow-hidden border-l border-gray-100 bg-white">
+    <div className="flex h-full w-72 shrink-0 flex-col overflow-hidden border-l border-border bg-surface-raised">
       {/* On-demand drawer header with a close affordance. */}
       {onClose ? (
-        <div className="flex items-center justify-between border-b border-gray-100 px-3 py-1.5">
-          <span className="text-meta font-semibold uppercase tracking-wide text-gray-500">Feature index</span>
+        <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
+          <span className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">Feature index</span>
           <Tooltip label="Hide the feature list">
             <button
               type="button"
               onClick={onClose}
-              className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              className="rounded p-1 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground-muted"
               aria-label="Hide the feature list"
             >
               <IconX className="h-3.5 w-3.5" />
@@ -294,7 +294,7 @@ export default function FeaturesPanel({
       {featuresOpen ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
           {/* sort header */}
-          <div className="flex items-center gap-1 border-y border-gray-50 px-3 py-1 text-meta uppercase tracking-wide text-gray-400">
+          <div className="flex items-center gap-1 border-y border-border px-3 py-1 text-meta uppercase tracking-wide text-foreground-muted">
             <span className="mr-auto">Sort</span>
             {(["order", "name", "type", "start", "length"] as SortKey[]).map((k) => (
               <button
@@ -302,7 +302,7 @@ export default function FeaturesPanel({
                 type="button"
                 onClick={() => setSortKey(k)}
                 className={`rounded px-1.5 py-0.5 ${
-                  sortKey === k ? "bg-sky-100 text-sky-700" : "hover:bg-gray-100"
+                  sortKey === k ? "bg-sky-100 text-sky-700" : "hover:bg-surface-sunken"
                 }`}
               >
                 {k}
@@ -311,7 +311,7 @@ export default function FeaturesPanel({
           </div>
 
           {features.length === 0 ? (
-            <p className="px-3 py-6 text-center text-meta text-gray-400">
+            <p className="px-3 py-6 text-center text-meta text-foreground-muted">
               {readOnly
                 ? "This sequence has no features."
                 : "No features yet. Select a range in the viewer and click Add."}
@@ -324,7 +324,7 @@ export default function FeaturesPanel({
                 const len = featureLength(f);
                 const isSel = selectedIndex === index;
                 return (
-                  <li key={`${index}-${f.name}`} className={`border-b border-gray-50 ${isSel ? "bg-sky-50" : ""}`}>
+                  <li key={`${index}-${f.name}`} className={`border-b border-border ${isSel ? "bg-sky-50" : ""}`}>
                     <div className="group flex items-center gap-2 px-3 py-1.5">
                       {/* color swatch (click to recolor; static in read-only) */}
                       <div className="relative">
@@ -344,7 +344,7 @@ export default function FeaturesPanel({
                           />
                         )}
                         {!readOnly && openColorIdx === index ? (
-                          <div className="absolute left-0 top-5 z-20 rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
+                          <div className="absolute left-0 top-5 z-20 rounded-lg border border-border bg-surface-raised p-2 shadow-lg">
                             <ColorSwatches
                               value={color}
                               onPick={(c) => {
@@ -362,10 +362,10 @@ export default function FeaturesPanel({
                         onClick={() => onSelectFeature(index)}
                         className="min-w-0 flex-1 text-left"
                       >
-                        <span className={`block truncate text-body ${hidden ? "text-gray-400 line-through" : "text-gray-800"}`}>
+                        <span className={`block truncate text-body ${hidden ? "text-foreground-muted line-through" : "text-foreground"}`}>
                           {f.name}
                         </span>
-                        <span className="block text-meta text-gray-400">
+                        <span className="block text-meta text-foreground-muted">
                           {(f.type || "misc_feature")} · {(f.start + 1).toLocaleString()}..{f.end.toLocaleString()} ·{" "}
                           {len.toLocaleString()} bp · {f.strand === -1 ? "-" : "+"}
                           {f.locations && f.locations.length > 1 ? ` · ${f.locations.length} segments` : ""}
@@ -379,7 +379,7 @@ export default function FeaturesPanel({
                             type="button"
                             onClick={() => toggleFeature(f)}
                             aria-label={`${hidden ? "Show" : "Hide"} ${f.name} in viewer`}
-                            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                            className="rounded p-1 text-foreground-muted hover:bg-surface-sunken hover:text-foreground-muted"
                           >
                             {hidden ? <IconEyeOff className="h-3.5 w-3.5" /> : <IconEye className="h-3.5 w-3.5" />}
                           </button>
@@ -389,7 +389,7 @@ export default function FeaturesPanel({
                             type="button"
                             onClick={() => onEditFeature(index)}
                             aria-label={`${readOnly ? "Details for" : "Edit"} ${f.name}`}
-                            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                            className="rounded p-1 text-foreground-muted hover:bg-surface-sunken hover:text-foreground-muted"
                           >
                             <IconEdit className="h-3.5 w-3.5" />
                           </button>
@@ -401,7 +401,7 @@ export default function FeaturesPanel({
                                 type="button"
                                 onClick={() => onDuplicateFeature(index)}
                                 aria-label={`Duplicate ${f.name}`}
-                                className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                                className="rounded p-1 text-foreground-muted hover:bg-surface-sunken hover:text-foreground-muted"
                               >
                                 <IconDuplicate className="h-3.5 w-3.5" />
                               </button>
@@ -411,7 +411,7 @@ export default function FeaturesPanel({
                                 type="button"
                                 onClick={() => onDeleteFeature(index)}
                                 aria-label={`Delete ${f.name}`}
-                                className="rounded p-1 text-gray-400 hover:bg-rose-50 hover:text-rose-600"
+                                className="rounded p-1 text-foreground-muted hover:bg-rose-50 hover:text-rose-600"
                               >
                                 <IconTrash className="h-3.5 w-3.5" />
                               </button>
@@ -432,7 +432,7 @@ export default function FeaturesPanel({
           (the flyout off the Features toggle); this section keeps only per-type
           COLOR, which is styling that belongs with feature management. */}
       {typesPresent.length > 0 ? (
-        <div className="border-t border-gray-100">
+        <div className="border-t border-border">
           <SectionHeader title="Type colors" open={displayOpen} onToggle={() => setDisplayOpen((v) => !v)} />
           {displayOpen ? (
             <div className="max-h-[55vh] overflow-y-auto px-3 pb-3">
@@ -459,7 +459,7 @@ export default function FeaturesPanel({
                             />
                           )}
                           {!readOnly && openTypeColor === k ? (
-                            <div className="absolute left-0 top-5 z-20 rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
+                            <div className="absolute left-0 top-5 z-20 rounded-lg border border-border bg-surface-raised p-2 shadow-lg">
                               <ColorSwatches
                                 value={typeColor}
                                 onPick={(c) => {
@@ -471,12 +471,12 @@ export default function FeaturesPanel({
                           ) : null}
                         </div>
                         {readOnly ? (
-                          <span className="flex-1 truncate text-left text-body text-gray-700">{k}</span>
+                          <span className="flex-1 truncate text-left text-body text-foreground">{k}</span>
                         ) : (
                           <button
                             type="button"
                             onClick={() => setOpenTypeColor(openTypeColor === k ? null : k)}
-                            className="flex-1 truncate text-left text-body text-gray-700"
+                            className="flex-1 truncate text-left text-body text-foreground"
                           >
                             {k}
                           </button>

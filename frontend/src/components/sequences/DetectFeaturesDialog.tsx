@@ -223,15 +223,15 @@ export default function DetectFeaturesDialog({
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={request.onCancel}
       />
-      <div className="relative flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="relative flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         {/* Header */}
-        <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-3.5">
+        <div className="flex items-center gap-2 border-b border-border px-5 py-3.5">
           <ScanIcon className="h-4 w-4 shrink-0 text-sky-500" />
-          <h2 className="text-title font-semibold text-gray-900">
+          <h2 className="text-title font-semibold text-foreground">
             Detect common features
           </h2>
           {ran && rows.length > 0 && (
-            <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-meta font-medium text-gray-500">
+            <span className="ml-auto rounded-full bg-surface-sunken px-2 py-0.5 text-meta font-medium text-foreground-muted">
               {rows.length} found
             </span>
           )}
@@ -240,14 +240,14 @@ export default function DetectFeaturesDialog({
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {loading ? (
-            <p className="text-body text-gray-400">Scanning the sequence…</p>
+            <p className="text-body text-foreground-muted">Scanning the sequence…</p>
           ) : error ? (
             <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-body text-rose-600">
               {error}
             </p>
           ) : (
             <div className="space-y-4">
-              <p className="text-body text-gray-600">
+              <p className="text-body text-foreground-muted">
                 ResearchOS translated every open reading frame on both strands and
                 compared each to a library of common protein elements, and aligned
                 the raw sequence against common DNA elements (origins, promoters,
@@ -256,13 +256,13 @@ export default function DetectFeaturesDialog({
               </p>
 
               {rows.length === 0 ? (
-                <p className="rounded-md border border-dashed border-gray-200 px-3 py-4 text-center text-body text-gray-400">
+                <p className="rounded-md border border-dashed border-border px-3 py-4 text-center text-body text-foreground-muted">
                   No common features were detected in this sequence.
                 </p>
               ) : (
                 <div className="space-y-2">
                   <div className="flex items-center">
-                    <span className="text-meta font-medium uppercase tracking-wide text-gray-400">
+                    <span className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
                       Proposed features
                     </span>
                     <button
@@ -273,7 +273,7 @@ export default function DetectFeaturesDialog({
                       {allSelected ? "Deselect all" : "Select all"}
                     </button>
                   </div>
-                  <ul className="divide-y divide-gray-100 overflow-hidden rounded-md border border-gray-200">
+                  <ul className="divide-y divide-border overflow-hidden rounded-md border border-border">
                     {rows.map((row, i) => (
                       <DetectedRow key={i} row={row} onToggle={() => toggleRow(i)} />
                     ))}
@@ -284,24 +284,24 @@ export default function DetectFeaturesDialog({
               {closestToShow.length > 0 && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-meta font-medium uppercase tracking-wide text-gray-400">
+                    <span className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
                       Closest known protein per ORF
                     </span>
                     <Tooltip label="The single best library match for each substantial open reading frame, shown for context. These are below the confident threshold and are not proposed for adding.">
-                      <InfoIcon className="h-3.5 w-3.5 text-gray-300" />
+                      <InfoIcon className="h-3.5 w-3.5 text-foreground-muted" />
                     </Tooltip>
                   </div>
                   <ul className="space-y-1">
                     {closestToShow.map((c, i) => (
                       <li
                         key={i}
-                        className="flex items-center gap-2 rounded-md bg-gray-50 px-3 py-1.5 text-meta text-gray-500"
+                        className="flex items-center gap-2 rounded-md bg-surface-sunken px-3 py-1.5 text-meta text-foreground-muted"
                       >
-                        <span className="font-medium text-gray-700">
+                        <span className="font-medium text-foreground">
                           {c.name}
                         </span>
                         <span>{Math.round(c.identity * 100)}% identity</span>
-                        <span className="ml-auto text-gray-400">
+                        <span className="ml-auto text-foreground-muted">
                           ORF {(c.orfStart + 1).toLocaleString()}..
                           {c.orfEnd.toLocaleString()} {c.strand === -1 ? "(−)" : "(+)"}
                         </span>
@@ -315,8 +315,8 @@ export default function DetectFeaturesDialog({
         </div>
 
         {/* Footer */}
-        <div className="flex items-start gap-2 border-t border-gray-100 px-5 py-3">
-          <p className="text-meta text-gray-400">
+        <div className="flex items-start gap-2 border-t border-border px-5 py-3">
+          <p className="text-meta text-foreground-muted">
             Reference data from FPbase (copyright-free) and UniProt / Swiss-Prot
             (CC BY 4.0), plus standard published epitope-tag sequences. DNA
             elements extracted from NCBI GenBank records (public-domain sequence
@@ -326,7 +326,7 @@ export default function DetectFeaturesDialog({
             <button
               type="button"
               onClick={request.onCancel}
-              className="rounded-md px-3 py-1.5 text-body font-medium text-gray-600 hover:bg-gray-100"
+              className="rounded-md px-3 py-1.5 text-body font-medium text-foreground-muted hover:bg-surface-sunken"
             >
               Cancel
             </button>
@@ -354,7 +354,7 @@ function DetectedRow({ row, onToggle }: { row: Row; onToggle: () => void }) {
   const catLabel = CATEGORY_LABEL[f.category] ?? f.category;
   return (
     <li>
-      <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-gray-50">
+      <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-surface-sunken">
         <input
           type="checkbox"
           checked={row.selected}
@@ -368,15 +368,15 @@ function DetectedRow({ row, onToggle }: { row: Row; onToggle: () => void }) {
         />
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
-            <span className="truncate text-body font-medium text-gray-800">
+            <span className="truncate text-body font-medium text-foreground">
               {f.name}
             </span>
-            <span className="shrink-0 text-meta text-gray-400">{catLabel}</span>
-            <span className="shrink-0 text-meta text-gray-400">
+            <span className="shrink-0 text-meta text-foreground-muted">{catLabel}</span>
+            <span className="shrink-0 text-meta text-foreground-muted">
               {f.strand === -1 ? "(−)" : "(+)"}
             </span>
           </span>
-          <span className="block text-meta text-gray-400">
+          <span className="block text-meta text-foreground-muted">
             {span} · {pct}% identity
           </span>
         </span>

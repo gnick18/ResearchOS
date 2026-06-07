@@ -123,10 +123,10 @@ function IconDuplicate({ className }: { className?: string }) {
 /** A small stat chip (label over value). */
 function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
   return (
-    <div className="rounded-md bg-gray-50 px-2.5 py-1.5">
-      <div className="text-meta font-medium uppercase tracking-wide text-gray-400">{label}</div>
-      <div className="text-body font-semibold text-gray-800">{value}</div>
-      {hint ? <div className="text-meta text-gray-400">{hint}</div> : null}
+    <div className="rounded-md bg-surface-sunken px-2.5 py-1.5">
+      <div className="text-meta font-medium uppercase tracking-wide text-foreground-muted">{label}</div>
+      <div className="text-body font-semibold text-foreground">{value}</div>
+      {hint ? <div className="text-meta text-foreground-muted">{hint}</div> : null}
     </div>
   );
 }
@@ -183,7 +183,7 @@ function BindingViz({
   const baseY = 38;
 
   return (
-    <div className="overflow-x-auto rounded-md border border-gray-200 bg-white px-3 py-2">
+    <div className="overflow-x-auto rounded-md border border-border bg-surface-raised px-3 py-2">
       <svg
         width={Math.max(width, 1)}
         height={totalHeight}
@@ -299,15 +299,15 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
       data-tour-popup-occluding="primer-editor"
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={request.onCancel} />
-      <div className="relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
+      <div className="relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+        <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-pink-50 text-pink-600">
             <IconPrimer className="h-4 w-4" />
           </span>
-          <h2 className="text-title font-semibold text-gray-900">
+          <h2 className="text-title font-semibold text-foreground">
             {readOnly ? "Primer" : "Edit primer"}
           </h2>
-          <span className="ml-auto text-meta text-gray-400">
+          <span className="ml-auto text-meta text-foreground-muted">
             Template {template.length.toLocaleString()} bp
           </span>
         </div>
@@ -323,38 +323,38 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
         >
           {/* Name */}
           <label className="block">
-            <span className="mb-1 block text-meta font-medium text-gray-500">Name</span>
+            <span className="mb-1 block text-meta font-medium text-foreground-muted">Name</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={readOnly}
               placeholder="e.g. GFP-seq-F"
-              className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-body text-gray-800 focus:border-sky-400 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+              className="w-full rounded-md border border-border px-2.5 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none disabled:bg-surface-sunken disabled:text-foreground-muted"
             />
           </label>
 
           {/* Description */}
           <label className="block">
-            <span className="mb-1 block text-meta font-medium text-gray-500">Description</span>
+            <span className="mb-1 block text-meta font-medium text-foreground-muted">Description</span>
             <input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               disabled={readOnly}
               placeholder="Optional note about this primer"
-              className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-body text-gray-800 focus:border-sky-400 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+              className="w-full rounded-md border border-border px-2.5 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none disabled:bg-surface-sunken disabled:text-foreground-muted"
             />
           </label>
 
           {/* Oligo sequence + reverse-complement action */}
           <div>
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-meta font-medium text-gray-500">Sequence</span>
+              <span className="text-meta font-medium text-foreground-muted">Sequence</span>
               {!readOnly ? (
                 <Tooltip label="Replace the oligo with its reverse complement">
                   <button
                     type="button"
                     onClick={() => setRaw((r) => reverseComplement(sanitizePrimer(r)))}
-                    className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-meta font-medium text-gray-500 transition-colors hover:bg-gray-100"
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
                   >
                     <IconSwap className="h-3.5 w-3.5" />
                     Reverse complement
@@ -363,7 +363,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
               ) : null}
             </div>
             <div className="flex items-center gap-2">
-              <span className="select-none text-meta font-medium text-gray-400">5&apos;</span>
+              <span className="select-none text-meta font-medium text-foreground-muted">5&apos;</span>
               <textarea
                 ref={seqRef}
                 value={raw}
@@ -372,20 +372,20 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
                 rows={2}
                 placeholder="Type or paste bases (5' to 3')"
                 spellCheck={false}
-                className="w-full resize-y rounded-md border border-gray-200 px-2.5 py-2 font-mono text-body tracking-wide text-gray-800 focus:border-sky-400 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+                className="w-full resize-y rounded-md border border-border px-2.5 py-2 font-mono text-body tracking-wide text-foreground focus:border-sky-400 focus:outline-none disabled:bg-surface-sunken disabled:text-foreground-muted"
               />
-              <span className="select-none text-meta font-medium text-gray-400">3&apos;</span>
+              <span className="select-none text-meta font-medium text-foreground-muted">3&apos;</span>
             </div>
           </div>
 
           {/* 5' phosphorylation */}
-          <label className="flex items-center gap-2 text-body text-gray-700">
+          <label className="flex items-center gap-2 text-body text-foreground">
             <input
               type="checkbox"
               checked={phosphorylated}
               disabled={readOnly}
               onChange={(e) => setPhosphorylated(e.target.checked)}
-              className="h-3.5 w-3.5 rounded border-gray-300 text-sky-600 focus:ring-sky-400"
+              className="h-3.5 w-3.5 rounded border-border text-sky-600 focus:ring-sky-400"
             />
             5&apos; Phosphorylated
           </label>
@@ -415,9 +415,9 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
 
           {/* Binding info */}
           <div>
-            <span className="mb-1 block text-meta font-medium text-gray-500">Binding</span>
+            <span className="mb-1 block text-meta font-medium text-foreground-muted">Binding</span>
             {length === 0 ? (
-              <p className="rounded-md border border-dashed border-gray-200 px-2.5 py-2 text-meta text-gray-400">
+              <p className="rounded-md border border-dashed border-border px-2.5 py-2 text-meta text-foreground-muted">
                 Enter a sequence to see where it anneals.
               </p>
             ) : sites.length === 0 ? (
@@ -427,7 +427,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
               </p>
             ) : (
               <div className="space-y-1.5">
-                <p className="text-meta text-gray-500">
+                <p className="text-meta text-foreground-muted">
                   {sites.length} binding {sites.length === 1 ? "site" : "sites"} on this template.
                 </p>
                 {sites.length > 1 ? (
@@ -440,7 +440,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
                         className={`rounded-md px-2 py-0.5 text-meta font-medium transition-colors ${
                           i === siteIdx
                             ? "bg-pink-600 text-white"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
                         }`}
                       >
                         {s.direction === 1 ? "→" : "←"} {(s.start + 1).toLocaleString()}..
@@ -455,8 +455,8 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
                   </div>
                 ) : null}
                 {site ? (
-                  <div className="rounded-md bg-gray-50 px-2.5 py-2 text-meta text-gray-700">
-                    <span className="font-medium text-gray-800">
+                  <div className="rounded-md bg-surface-sunken px-2.5 py-2 text-meta text-foreground">
+                    <span className="font-medium text-foreground">
                       {site.direction === 1 ? "Forward" : "Reverse"} strand
                     </span>
                     {", "}
@@ -479,10 +479,10 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
           {site ? (
             <div>
               <div className="mb-1 flex items-center justify-between">
-                <span className="text-meta font-medium text-gray-500">
+                <span className="text-meta font-medium text-foreground-muted">
                   Annealing (primer over template)
                 </span>
-                <span className="text-meta font-medium text-gray-500">
+                <span className="text-meta font-medium text-foreground-muted">
                   {site.annealedLength - (site.mismatches?.length ?? 0)}/{site.annealedLength}{" "}
                   matched (
                   {Math.round(
@@ -501,9 +501,9 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
               {/* Base-for-base alignment with mismatches highlighted, when the
                   aligner placed an imperfect primer. */}
               {site.alignedPrimer && site.alignedTemplate ? (
-                <div className="mt-2 overflow-x-auto rounded-md border border-gray-200 bg-white px-3 py-2.5 font-mono text-meta leading-relaxed">
+                <div className="mt-2 overflow-x-auto rounded-md border border-border bg-surface-raised px-3 py-2.5 font-mono text-meta leading-relaxed">
                   <div className="whitespace-pre">
-                    <span className="text-gray-400">5&apos; </span>
+                    <span className="text-foreground-muted">5&apos; </span>
                     {site.alignedPrimer.split("").map((pb, i) => {
                       const match = pb !== "-" && site.alignedTemplate![i] === pb;
                       return (
@@ -515,9 +515,9 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
                         </span>
                       );
                     })}
-                    <span className="text-gray-400"> 3&apos;</span>
+                    <span className="text-foreground-muted"> 3&apos;</span>
                   </div>
-                  <div className="whitespace-pre text-gray-400">
+                  <div className="whitespace-pre text-foreground-muted">
                     {"   "}
                     {site.alignedPrimer
                       .split("")
@@ -525,20 +525,20 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
                       .join("")}
                   </div>
                   <div className="whitespace-pre">
-                    <span className="text-gray-400">3&apos; </span>
+                    <span className="text-foreground-muted">3&apos; </span>
                     {site.alignedTemplate.split("").map((tb, i) => {
                       const match = tb !== "-" && site.alignedPrimer![i] === tb;
                       return (
-                        <span key={i} className={match ? "text-gray-600" : "text-rose-500"}>
+                        <span key={i} className={match ? "text-foreground-muted" : "text-rose-500"}>
                           {tb}
                         </span>
                       );
                     })}
-                    <span className="text-gray-400"> 5&apos;</span>
+                    <span className="text-foreground-muted"> 5&apos;</span>
                   </div>
                 </div>
               ) : null}
-              <p className="mt-1 text-meta text-gray-400">
+              <p className="mt-1 text-meta text-foreground-muted">
                 The thin bracket marks the annealed bases; the hook points toward the
                 primer&apos;s 3&apos; end. Mismatched bases are shown in rose.
               </p>
@@ -546,7 +546,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
           ) : null}
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-t border-gray-100 bg-gray-50 px-4 py-3">
+        <div className="flex items-center justify-between gap-2 border-t border-border bg-surface-sunken px-4 py-3">
           <div className="flex items-center gap-1">
             {/* sequence editor master (redesign). Duplicate the primer. Edit mode
                 only; mirrors the right-click "Duplicate". */}
@@ -555,7 +555,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
                 <button
                   type="button"
                   onClick={request.onDuplicate}
-                  className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-body font-medium text-gray-600 transition-colors hover:bg-gray-200"
+                  className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-body font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
                 >
                   <IconDuplicate className="h-4 w-4" />
                   Duplicate
@@ -579,7 +579,7 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
             <button
               type="button"
               onClick={request.onCancel}
-              className="rounded-lg px-4 py-2 text-body text-gray-600 transition-colors hover:bg-gray-200"
+              className="rounded-lg px-4 py-2 text-body text-foreground-muted transition-colors hover:bg-surface-sunken"
             >
               {readOnly ? "Close" : "Cancel"}
             </button>

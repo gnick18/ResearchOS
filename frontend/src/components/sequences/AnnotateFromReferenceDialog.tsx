@@ -187,15 +187,15 @@ export default function AnnotateFromReferenceDialog({
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={request.onCancel}
       />
-      <div className="relative flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="relative flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         {/* Header */}
-        <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-3.5">
+        <div className="flex items-center gap-2 border-b border-border px-5 py-3.5">
           <TransferIcon className="h-4 w-4 shrink-0 text-sky-500" />
-          <h2 className="text-title font-semibold text-gray-900">
+          <h2 className="text-title font-semibold text-foreground">
             Annotate from reference
           </h2>
           {stage === "review" && result && (
-            <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-meta font-medium text-gray-500">
+            <span className="ml-auto rounded-full bg-surface-sunken px-2 py-0.5 text-meta font-medium text-foreground-muted">
               {result.referenceOrientation === "reverse"
                 ? "reverse strand"
                 : "forward strand"}
@@ -229,8 +229,8 @@ export default function AnnotateFromReferenceDialog({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center gap-2 border-t border-gray-100 px-5 py-3">
-          <p className="text-meta text-gray-400">
+        <div className="flex items-center gap-2 border-t border-border px-5 py-3">
+          <p className="text-meta text-foreground-muted">
             {stage === "pick"
               ? "Features at least 70% identical over their aligned span are offered."
               : `${selectedCount} of ${mappable.length} mappable feature${
@@ -242,7 +242,7 @@ export default function AnnotateFromReferenceDialog({
               <button
                 type="button"
                 onClick={() => setStage("pick")}
-                className="rounded-md px-3 py-1.5 text-body font-medium text-gray-600 hover:bg-gray-100"
+                className="rounded-md px-3 py-1.5 text-body font-medium text-foreground-muted hover:bg-surface-sunken"
               >
                 Back
               </button>
@@ -250,7 +250,7 @@ export default function AnnotateFromReferenceDialog({
             <button
               type="button"
               onClick={request.onCancel}
-              className="rounded-md px-3 py-1.5 text-body font-medium text-gray-600 hover:bg-gray-100"
+              className="rounded-md px-3 py-1.5 text-body font-medium text-foreground-muted hover:bg-surface-sunken"
             >
               Cancel
             </button>
@@ -295,7 +295,7 @@ function PickStage({
 }) {
   return (
     <div className="space-y-3">
-      <p className="text-body text-gray-600">
+      <p className="text-body text-foreground-muted">
         Pick a sequence whose features you want to carry over. ResearchOS aligns
         the open sequence to it (both strands) and proposes the features that map.
       </p>
@@ -304,13 +304,13 @@ function PickStage({
           {libError}
         </p>
       ) : library == null ? (
-        <p className="text-body text-gray-400">Loading library…</p>
+        <p className="text-body text-foreground-muted">Loading library…</p>
       ) : library.length === 0 ? (
-        <p className="rounded-md border border-dashed border-gray-200 px-3 py-4 text-center text-body text-gray-400">
+        <p className="rounded-md border border-dashed border-border px-3 py-4 text-center text-body text-foreground-muted">
           No other sequences in your library to use as a reference.
         </p>
       ) : (
-        <ul className="divide-y divide-gray-100 overflow-hidden rounded-md border border-gray-200">
+        <ul className="divide-y divide-border overflow-hidden rounded-md border border-border">
           {library.map((rec) => {
             const active = rec.id === refId;
             return (
@@ -319,21 +319,21 @@ function PickStage({
                   type="button"
                   onClick={() => onPick(rec)}
                   className={`flex w-full items-center gap-3 px-3 py-2 text-left transition-colors ${
-                    active ? "bg-sky-50" : "hover:bg-gray-50"
+                    active ? "bg-sky-50" : "hover:bg-surface-sunken"
                   }`}
                 >
                   <span
                     className={`h-3.5 w-3.5 shrink-0 rounded-full border ${
                       active
                         ? "border-sky-500 bg-sky-500"
-                        : "border-gray-300 bg-white"
+                        : "border-border bg-surface-raised"
                     }`}
                   />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-body font-medium text-gray-800">
+                    <span className="block truncate text-body font-medium text-foreground">
                       {rec.display_name}
                     </span>
-                    <span className="block text-meta text-gray-400">
+                    <span className="block text-meta text-foreground-muted">
                       {rec.length.toLocaleString()} bp ·{" "}
                       {rec.feature_count} feature
                       {rec.feature_count === 1 ? "" : "s"} ·{" "}
@@ -370,9 +370,9 @@ function ReviewStage({
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <p className="text-body text-gray-600">
+        <p className="text-body text-foreground-muted">
           Proposed from{" "}
-          <span className="font-medium text-gray-800">{refName}</span>
+          <span className="font-medium text-foreground">{refName}</span>
         </p>
         {mappableCount > 0 && (
           <button
@@ -386,11 +386,11 @@ function ReviewStage({
       </div>
 
       {rows.length === 0 ? (
-        <p className="rounded-md border border-dashed border-gray-200 px-3 py-4 text-center text-body text-gray-400">
+        <p className="rounded-md border border-dashed border-border px-3 py-4 text-center text-body text-foreground-muted">
           The reference has no features to transfer.
         </p>
       ) : (
-        <ul className="divide-y divide-gray-100 overflow-hidden rounded-md border border-gray-200">
+        <ul className="divide-y divide-border overflow-hidden rounded-md border border-border">
           {rows.map((row, i) => (
             <ProposalRow key={i} row={row} onToggle={() => onToggle(i)} />
           ))}
@@ -398,7 +398,7 @@ function ReviewStage({
       )}
 
       {unmappedCount > 0 && (
-        <p className="text-meta text-gray-400">
+        <p className="text-meta text-foreground-muted">
           {unmappedCount} reference feature{unmappedCount === 1 ? "" : "s"} did
           not map to this sequence and {unmappedCount === 1 ? "is" : "are"} shown
           dimmed (not transferred).
@@ -424,7 +424,7 @@ function ProposalRow({
     <li>
       <label
         className={`flex items-center gap-3 px-3 py-2 ${
-          p.unmapped ? "opacity-50" : "cursor-pointer hover:bg-gray-50"
+          p.unmapped ? "opacity-50" : "cursor-pointer hover:bg-surface-sunken"
         }`}
       >
         <input
@@ -441,17 +441,17 @@ function ProposalRow({
         />
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
-            <span className="truncate text-body font-medium text-gray-800">
+            <span className="truncate text-body font-medium text-foreground">
               {p.name}
             </span>
-            <span className="shrink-0 text-meta text-gray-400">
+            <span className="shrink-0 text-meta text-foreground-muted">
               {p.type || "misc_feature"}
             </span>
-            <span className="shrink-0 text-meta text-gray-400">
+            <span className="shrink-0 text-meta text-foreground-muted">
               {p.strand === -1 ? "(−)" : "(+)"}
             </span>
           </span>
-          <span className="block text-meta text-gray-400">
+          <span className="block text-meta text-foreground-muted">
             {p.unmapped ? "not found in this sequence" : `${span} · ${pct}% identity`}
           </span>
         </span>

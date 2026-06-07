@@ -484,17 +484,17 @@ export default function NcbiDownloadDialog({
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={busy ? undefined : handleClose}
       />
-      <div className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         {/* Header */}
-        <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
+        <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100">
             <DownloadCloudIcon className="h-5 w-5 text-sky-600" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-title font-semibold text-gray-900">
+            <h2 className="text-title font-semibold text-foreground">
               Download from NCBI
             </h2>
-            <p className="text-meta text-gray-500">
+            <p className="text-meta text-foreground-muted">
               Pull a gene or genome from NCBI straight into your collection.
             </p>
           </div>
@@ -504,7 +504,7 @@ export default function NcbiDownloadDialog({
               onClick={handleClose}
               disabled={busy}
               aria-label="Close"
-              className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-40"
+              className="rounded-md p-1.5 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground-muted disabled:opacity-40"
             >
               <CloseIcon className="h-5 w-5" />
             </button>
@@ -516,7 +516,7 @@ export default function NcbiDownloadDialog({
           <div
             role="tablist"
             aria-label="What to download"
-            className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5"
+            className="inline-flex rounded-lg border border-border bg-surface-sunken p-0.5"
           >
             {TABS.map((t) => (
               <button
@@ -528,8 +528,8 @@ export default function NcbiDownloadDialog({
                 onClick={() => switchTab(t.id)}
                 className={`rounded-md px-3 py-1.5 text-meta font-medium transition-colors disabled:opacity-50 ${
                   tab === t.id
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
+                    ? "bg-surface-raised text-foreground shadow-sm"
+                    : "text-foreground-muted hover:text-foreground"
                 }`}
               >
                 {t.label}
@@ -564,9 +564,9 @@ export default function NcbiDownloadDialog({
                       setGeneSequenceOnly(e.target.checked);
                       resetState();
                     }}
-                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-200 disabled:opacity-50"
+                    className="mt-0.5 h-4 w-4 rounded border-border text-sky-600 focus:ring-sky-200 disabled:opacity-50"
                   />
-                  <span className="text-meta leading-relaxed text-gray-600">
+                  <span className="text-meta leading-relaxed text-foreground-muted">
                     Sequence only. Skip the annotated whole-gene record and
                     download the gene, RNA, protein, and CDS FASTA instead.
                   </span>
@@ -592,7 +592,7 @@ export default function NcbiDownloadDialog({
           </div>
 
           {/* Privacy note: only the public identifier is sent. */}
-          <p className="mt-3 text-meta leading-relaxed text-gray-400">
+          <p className="mt-3 text-meta leading-relaxed text-foreground-muted">
             Only the identifier you type is sent to NCBI, a public government
             database. Nothing of your own data leaves this app.
           </p>
@@ -615,9 +615,9 @@ export default function NcbiDownloadDialog({
 
           {/* efetch preview card (an individual annotated record). */}
           {efetchPreview && (phase === "preview" || phase === "downloading") ? (
-            <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+            <div className="mt-4 rounded-xl border border-border bg-surface-sunken/60 p-4">
               <div className="flex items-baseline justify-between gap-3">
-                <h3 className="truncate text-body font-semibold text-gray-900">
+                <h3 className="truncate text-body font-semibold text-foreground">
                   {efetchPreview.name}
                 </h3>
                 <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-meta font-medium uppercase tracking-wide text-emerald-700">
@@ -645,9 +645,9 @@ export default function NcbiDownloadDialog({
 
           {/* Preview card */}
           {preview && (phase === "preview" || phase === "downloading") ? (
-            <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+            <div className="mt-4 rounded-xl border border-border bg-surface-sunken/60 p-4">
               <div className="flex items-baseline justify-between gap-3">
-                <h3 className="truncate text-body font-semibold text-gray-900">
+                <h3 className="truncate text-body font-semibold text-foreground">
                   {preview.title}
                 </h3>
                 <span className="shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-meta font-medium uppercase tracking-wide text-sky-700">
@@ -691,7 +691,7 @@ export default function NcbiDownloadDialog({
 
           {/* Download progress */}
           {phase === "downloading" ? (
-            <div className="mt-3 flex items-center gap-2 text-meta text-gray-500">
+            <div className="mt-3 flex items-center gap-2 text-meta text-foreground-muted">
               <SpinnerIcon className="h-4 w-4 text-sky-500" />
               <span>{progress || "Working..."}</span>
             </div>
@@ -699,12 +699,12 @@ export default function NcbiDownloadDialog({
         </div>
 
         {/* Footer actions */}
-        <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3.5">
+        <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3.5">
           {phase === "downloading" || phase === "previewing" ? (
             <button
               type="button"
               onClick={cancelInFlight}
-              className="rounded-md border border-gray-200 px-3 py-1.5 text-meta font-medium text-gray-700 transition-colors hover:bg-gray-100"
+              className="rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
             >
               Cancel
             </button>
@@ -712,7 +712,7 @@ export default function NcbiDownloadDialog({
             <button
               type="button"
               onClick={handleClose}
-              className="rounded-md border border-gray-200 px-3 py-1.5 text-meta font-medium text-gray-700 transition-colors hover:bg-gray-100"
+              className="rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
             >
               Close
             </button>
@@ -768,7 +768,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-meta font-medium uppercase tracking-wide text-gray-400">
+      <span className="mb-1 block text-meta font-medium uppercase tracking-wide text-foreground-muted">
         {label}
       </span>
       <input
@@ -777,7 +777,7 @@ function Field({
         placeholder={placeholder}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border border-gray-200 px-3 py-2 text-body text-gray-900 placeholder:text-gray-300 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:bg-gray-50 disabled:text-gray-400"
+        className="w-full rounded-md border border-border px-3 py-2 text-body text-foreground placeholder:text-foreground-muted focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:bg-surface-sunken disabled:text-foreground-muted"
       />
     </label>
   );
@@ -786,10 +786,10 @@ function Field({
 function PreviewRow({ label, value }: { label: string; value: string }) {
   return (
     <>
-      <dt className="font-medium uppercase tracking-wide text-gray-400">
+      <dt className="font-medium uppercase tracking-wide text-foreground-muted">
         {label}
       </dt>
-      <dd className="min-w-0 break-words text-gray-700">{value}</dd>
+      <dd className="min-w-0 break-words text-foreground">{value}</dd>
     </>
   );
 }

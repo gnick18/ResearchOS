@@ -356,15 +356,15 @@ export default function EnzymePickerDialog({
       data-tour-popup-occluding="enzyme-picker"
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative flex h-[80vh] max-h-[640px] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="relative flex h-[80vh] max-h-[640px] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         {/* Header */}
-        <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-3.5">
+        <div className="flex items-center gap-3 border-b border-border px-5 py-3.5">
           <span className="flex h-7 w-7 items-center justify-center rounded-md bg-sky-50 text-sky-600">
             <IconScissors className="h-4 w-4" />
           </span>
           <div className="min-w-0">
-            <h2 className="text-title font-semibold text-gray-900">Choose enzymes</h2>
-            <p className="text-meta text-gray-500">
+            <h2 className="text-title font-semibold text-foreground">Choose enzymes</h2>
+            <p className="text-meta text-foreground-muted">
               Pick which restriction enzymes show on the map. Changes apply live.
             </p>
           </div>
@@ -373,7 +373,7 @@ export default function EnzymePickerDialog({
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="ml-auto flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              className="ml-auto flex h-8 w-8 items-center justify-center rounded-md text-foreground-muted hover:bg-surface-sunken hover:text-foreground-muted"
             >
               <IconClose className="h-4 w-4" />
             </button>
@@ -381,14 +381,14 @@ export default function EnzymePickerDialog({
         </div>
 
         {/* Presets row */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 px-5 py-2.5">
-          <span className="text-meta font-medium text-gray-500">Presets:</span>
+        <div className="flex flex-wrap items-center gap-2 border-b border-border px-5 py-2.5">
+          <span className="text-meta font-medium text-foreground-muted">Presets:</span>
           {ENZYME_PRESETS.map((p) => (
             <Tooltip key={p.id} label={p.description}>
               <button
                 type="button"
                 onClick={() => applyPreset(p.id)}
-                className="rounded-full border border-gray-200 px-2.5 py-1 text-meta font-medium text-gray-600 transition-colors hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
+                className="rounded-full border border-border px-2.5 py-1 text-meta font-medium text-foreground-muted transition-colors hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
               >
                 {p.label}
               </button>
@@ -397,7 +397,7 @@ export default function EnzymePickerDialog({
           <button
             type="button"
             onClick={clearAll}
-            className="ml-auto rounded-full px-2.5 py-1 text-meta font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            className="ml-auto rounded-full px-2.5 py-1 text-meta font-medium text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
           >
             Clear
           </button>
@@ -407,16 +407,16 @@ export default function EnzymePickerDialog({
             across every sequence. Distinct from the computed presets above. */}
         {canSaveSets && (
           <div
-            className="flex flex-wrap items-center gap-2 border-b border-gray-100 bg-sky-50/40 px-5 py-2.5"
+            className="flex flex-wrap items-center gap-2 border-b border-border bg-sky-50/40 px-5 py-2.5"
             data-testid="enzyme-saved-sets"
           >
-            <span className="flex items-center gap-1.5 text-meta font-medium text-gray-500">
+            <span className="flex items-center gap-1.5 text-meta font-medium text-foreground-muted">
               <IconBookmark className="h-3.5 w-3.5 text-sky-500" />
               Saved sets:
             </span>
 
             {savedSets.length === 0 && !savePromptOpen && (
-              <span className="text-meta text-gray-400">
+              <span className="text-meta text-foreground-muted">
                 None yet. Save the current selection as a reusable set.
               </span>
             )}
@@ -428,7 +428,7 @@ export default function EnzymePickerDialog({
                 return (
                   <span
                     key={set.id}
-                    className="flex items-center gap-1 rounded-full border border-sky-300 bg-white px-1.5 py-0.5"
+                    className="flex items-center gap-1 rounded-full border border-sky-300 bg-surface-raised px-1.5 py-0.5"
                   >
                     <input
                       autoFocus
@@ -438,7 +438,7 @@ export default function EnzymePickerDialog({
                         if (e.key === "Enter") void commitRename();
                         if (e.key === "Escape") setRenamingId(null);
                       }}
-                      className="w-28 rounded px-1 py-0.5 text-meta text-gray-800 focus:outline-none"
+                      className="w-28 rounded px-1 py-0.5 text-meta text-foreground focus:outline-none"
                       aria-label="New set name"
                     />
                     <Tooltip label="Save name">
@@ -461,7 +461,7 @@ export default function EnzymePickerDialog({
                   className={`group flex items-center gap-1 rounded-full border py-0.5 pl-2.5 pr-1 text-meta transition-colors ${
                     isLoaded
                       ? "border-sky-300 bg-sky-100 text-sky-800"
-                      : "border-gray-200 bg-white text-gray-600 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
+                      : "border-border bg-surface-raised text-foreground-muted hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
                   }`}
                   data-testid="enzyme-saved-set-chip"
                 >
@@ -485,7 +485,7 @@ export default function EnzymePickerDialog({
                     <button
                       type="button"
                       onClick={() => beginRename(set)}
-                      className="flex h-5 w-5 items-center justify-center rounded text-gray-400 hover:bg-white hover:text-gray-600"
+                      className="flex h-5 w-5 items-center justify-center rounded text-foreground-muted hover:bg-surface-raised hover:text-foreground-muted"
                       aria-label={`Rename ${set.name}`}
                     >
                       <IconPencil className="h-3 w-3" />
@@ -496,7 +496,7 @@ export default function EnzymePickerDialog({
                       type="button"
                       onClick={() => void removeSet(set)}
                       disabled={setsBusy}
-                      className="flex h-5 w-5 items-center justify-center rounded text-gray-400 hover:bg-white hover:text-rose-600 disabled:opacity-40"
+                      className="flex h-5 w-5 items-center justify-center rounded text-foreground-muted hover:bg-surface-raised hover:text-rose-600 disabled:opacity-40"
                       aria-label={`Delete ${set.name}`}
                     >
                       <IconTrash className="h-3 w-3" />
@@ -513,7 +513,7 @@ export default function EnzymePickerDialog({
                   type="button"
                   onClick={() => void updateLoadedSet()}
                   disabled={setsBusy}
-                  className="rounded-full border border-sky-300 bg-white px-2.5 py-1 text-meta font-medium text-sky-700 hover:bg-sky-50 disabled:opacity-40"
+                  className="rounded-full border border-sky-300 bg-surface-raised px-2.5 py-1 text-meta font-medium text-sky-700 hover:bg-sky-50 disabled:opacity-40"
                 >
                   Update
                 </button>
@@ -522,7 +522,7 @@ export default function EnzymePickerDialog({
 
             {/* Save as… inline name prompt, or the button that opens it. */}
             {savePromptOpen ? (
-              <span className="ml-auto flex items-center gap-1 rounded-full border border-sky-300 bg-white px-1.5 py-0.5">
+              <span className="ml-auto flex items-center gap-1 rounded-full border border-sky-300 bg-surface-raised px-1.5 py-0.5">
                 <input
                   autoFocus
                   value={saveName}
@@ -532,7 +532,7 @@ export default function EnzymePickerDialog({
                     if (e.key === "Escape") setSavePromptOpen(false);
                   }}
                   placeholder="Name this set"
-                  className="w-36 rounded px-1.5 py-0.5 text-meta text-gray-800 focus:outline-none"
+                  className="w-36 rounded px-1.5 py-0.5 text-meta text-foreground focus:outline-none"
                   aria-label="Name this enzyme set"
                 />
                 <Tooltip label="Save set">
@@ -550,7 +550,7 @@ export default function EnzymePickerDialog({
                   <button
                     type="button"
                     onClick={() => setSavePromptOpen(false)}
-                    className="flex h-5 w-5 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                    className="flex h-5 w-5 items-center justify-center rounded text-foreground-muted hover:bg-surface-sunken hover:text-foreground-muted"
                     aria-label="Cancel"
                   >
                     <IconClose className="h-3 w-3" />
@@ -563,7 +563,7 @@ export default function EnzymePickerDialog({
                   type="button"
                   onClick={beginSaveAs}
                   disabled={selected.size === 0}
-                  className="ml-auto flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-meta font-medium text-gray-600 transition-colors hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="ml-auto flex items-center gap-1 rounded-full border border-border bg-surface-raised px-2.5 py-1 text-meta font-medium text-foreground-muted transition-colors hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
                   data-testid="enzyme-save-set-button"
                 >
                   <IconBookmark className="h-3.5 w-3.5" />
@@ -577,23 +577,23 @@ export default function EnzymePickerDialog({
         {/* Body: filters | list | summary */}
         <div className="flex min-h-0 flex-1">
           {/* Filters column */}
-          <div className="w-52 shrink-0 space-y-3 overflow-y-auto border-r border-gray-100 px-4 py-3">
+          <div className="w-52 shrink-0 space-y-3 overflow-y-auto border-r border-border px-4 py-3">
             <label className="block">
-              <span className="mb-1 block text-meta font-medium text-gray-500">Search</span>
+              <span className="mb-1 block text-meta font-medium text-foreground-muted">Search</span>
               <input
                 value={filter.search}
                 onChange={(e) => patch({ search: e.target.value })}
                 placeholder="Enzyme name"
-                className="w-full rounded-md border border-gray-200 px-2 py-1 text-body text-gray-800 focus:border-sky-400 focus:outline-none"
+                className="w-full rounded-md border border-border px-2 py-1 text-body text-foreground focus:border-sky-400 focus:outline-none"
               />
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-meta font-medium text-gray-500">Cut count</span>
+              <span className="mb-1 block text-meta font-medium text-foreground-muted">Cut count</span>
               <select
                 value={filter.cutCount}
                 onChange={(e) => patch({ cutCount: e.target.value as CutCountFilter })}
-                className="w-full rounded-md border border-gray-200 px-2 py-1 text-body text-gray-800 focus:border-sky-400 focus:outline-none"
+                className="w-full rounded-md border border-border px-2 py-1 text-body text-foreground focus:border-sky-400 focus:outline-none"
               >
                 {CUT_COUNT_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -605,23 +605,23 @@ export default function EnzymePickerDialog({
 
             {filter.cutCount === "n-cutters" && (
               <label className="block">
-                <span className="mb-1 block text-meta font-medium text-gray-500">Exactly N cuts</span>
+                <span className="mb-1 block text-meta font-medium text-foreground-muted">Exactly N cuts</span>
                 <input
                   type="number"
                   min={0}
                   value={filter.nCuts}
                   onChange={(e) => patch({ nCuts: Math.max(0, Number(e.target.value) || 0) })}
-                  className="w-full rounded-md border border-gray-200 px-2 py-1 text-body text-gray-800 focus:border-sky-400 focus:outline-none"
+                  className="w-full rounded-md border border-border px-2 py-1 text-body text-foreground focus:border-sky-400 focus:outline-none"
                 />
               </label>
             )}
 
             <label className="block">
-              <span className="mb-1 block text-meta font-medium text-gray-500">Min recognition length</span>
+              <span className="mb-1 block text-meta font-medium text-foreground-muted">Min recognition length</span>
               <select
                 value={filter.minRecognitionLength}
                 onChange={(e) => patch({ minRecognitionLength: Number(e.target.value) })}
-                className="w-full rounded-md border border-gray-200 px-2 py-1 text-body text-gray-800 focus:border-sky-400 focus:outline-none"
+                className="w-full rounded-md border border-border px-2 py-1 text-body text-foreground focus:border-sky-400 focus:outline-none"
               >
                 {[0, 4, 5, 6, 7, 8].map((n) => (
                   <option key={n} value={n}>
@@ -632,11 +632,11 @@ export default function EnzymePickerDialog({
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-meta font-medium text-gray-500">Overhang</span>
+              <span className="mb-1 block text-meta font-medium text-foreground-muted">Overhang</span>
               <select
                 value={filter.overhang}
                 onChange={(e) => patch({ overhang: e.target.value as Overhang | "any" })}
-                className="w-full rounded-md border border-gray-200 px-2 py-1 text-body text-gray-800 focus:border-sky-400 focus:outline-none"
+                className="w-full rounded-md border border-border px-2 py-1 text-body text-foreground focus:border-sky-400 focus:outline-none"
               >
                 {OVERHANG_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -646,35 +646,35 @@ export default function EnzymePickerDialog({
               </select>
             </label>
 
-            <label className="flex items-center gap-2 text-meta text-gray-700">
+            <label className="flex items-center gap-2 text-meta text-foreground">
               <input
                 type="checkbox"
                 checked={filter.hideNoncutters}
                 onChange={(e) => patch({ hideNoncutters: e.target.checked })}
-                className="h-3.5 w-3.5 rounded border-gray-300 text-sky-600 focus:ring-sky-400"
+                className="h-3.5 w-3.5 rounded border-border text-sky-600 focus:ring-sky-400"
               />
               Hide noncutters
             </label>
-            <label className="flex items-center gap-2 text-meta text-gray-700">
+            <label className="flex items-center gap-2 text-meta text-foreground">
               <input
                 type="checkbox"
                 checked={filter.palindromicOnly}
                 onChange={(e) => patch({ palindromicOnly: e.target.checked })}
-                className="h-3.5 w-3.5 rounded border-gray-300 text-sky-600 focus:ring-sky-400"
+                className="h-3.5 w-3.5 rounded border-border text-sky-600 focus:ring-sky-400"
               />
               Palindromic only
             </label>
-            <label className="flex items-center gap-2 text-meta text-gray-700">
+            <label className="flex items-center gap-2 text-meta text-foreground">
               <input
                 type="checkbox"
                 checked={filter.nondegenerateOnly}
                 onChange={(e) => patch({ nondegenerateOnly: e.target.checked })}
-                className="h-3.5 w-3.5 rounded border-gray-300 text-sky-600 focus:ring-sky-400"
+                className="h-3.5 w-3.5 rounded border-border text-sky-600 focus:ring-sky-400"
               />
               Nondegenerate only
             </label>
 
-            <div className="my-1 h-px w-full bg-gray-100" />
+            <div className="my-1 h-px w-full bg-surface-sunken" />
 
             <Tooltip
               label={
@@ -684,14 +684,14 @@ export default function EnzymePickerDialog({
               }
             >
               <label
-                className={`flex items-center gap-2 text-meta ${hasSelection ? "text-gray-700" : "text-gray-300"}`}
+                className={`flex items-center gap-2 text-meta ${hasSelection ? "text-foreground" : "text-foreground-muted"}`}
               >
                 <input
                   type="checkbox"
                   checked={inSelection && hasSelection}
                   disabled={!hasSelection}
                   onChange={(e) => setInSelection(e.target.checked)}
-                  className="h-3.5 w-3.5 rounded border-gray-300 text-sky-600 focus:ring-sky-400 disabled:opacity-40"
+                  className="h-3.5 w-3.5 rounded border-border text-sky-600 focus:ring-sky-400 disabled:opacity-40"
                 />
                 Inside selection only
               </label>
@@ -700,7 +700,7 @@ export default function EnzymePickerDialog({
 
           {/* Enzyme list */}
           <div className="flex min-w-0 flex-1 flex-col">
-            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2 text-meta text-gray-500">
+            <div className="flex items-center justify-between border-b border-border px-4 py-2 text-meta text-foreground-muted">
               <span>
                 {visible.length} enzyme{visible.length === 1 ? "" : "s"}
                 {scope ? " (in selection)" : ""}
@@ -715,7 +715,7 @@ export default function EnzymePickerDialog({
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-1.5 py-1.5" data-testid="enzyme-list">
               {visible.length === 0 ? (
-                <p className="px-3 py-6 text-center text-body text-gray-400">
+                <p className="px-3 py-6 text-center text-body text-foreground-muted">
                   No enzymes match these filters.
                 </p>
               ) : (
@@ -724,18 +724,18 @@ export default function EnzymePickerDialog({
                     const checked = selected.has(d.info.key);
                     return (
                       <li key={d.info.key}>
-                        <label className="flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-body hover:bg-gray-50">
+                        <label className="flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-body hover:bg-surface-sunken">
                           <input
                             type="checkbox"
                             checked={checked}
                             onChange={() => toggle(d.info.key)}
-                            className="h-3.5 w-3.5 rounded border-gray-300 text-sky-600 focus:ring-sky-400"
+                            className="h-3.5 w-3.5 rounded border-border text-sky-600 focus:ring-sky-400"
                           />
-                          <span className="w-24 shrink-0 font-medium text-gray-800">{d.info.name}</span>
-                          <span className="min-w-0 flex-1 break-all font-mono text-meta text-gray-400">{d.info.rseq}</span>
-                          <span className="shrink-0 whitespace-nowrap text-right text-meta text-gray-500">
+                          <span className="w-24 shrink-0 font-medium text-foreground">{d.info.name}</span>
+                          <span className="min-w-0 flex-1 break-all font-mono text-meta text-foreground-muted">{d.info.rseq}</span>
+                          <span className="shrink-0 whitespace-nowrap text-right text-meta text-foreground-muted">
                             {d.cutCount === 0 ? (
-                              <span className="text-gray-300">no cut</span>
+                              <span className="text-foreground-muted">no cut</span>
                             ) : (
                               <span className={d.cutCount === 1 ? "text-emerald-600" : ""}>
                                 {d.cutCount} cut{d.cutCount === 1 ? "" : "s"}
@@ -752,36 +752,36 @@ export default function EnzymePickerDialog({
           </div>
 
           {/* Digest summary */}
-          <div className="w-56 shrink-0 overflow-y-auto border-l border-gray-100 bg-gray-50 px-4 py-3">
-            <h3 className="text-meta font-semibold uppercase tracking-wide text-gray-500">Digest</h3>
-            <p className="mt-1 text-meta text-gray-500">
+          <div className="w-56 shrink-0 overflow-y-auto border-l border-border bg-surface-sunken px-4 py-3">
+            <h3 className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">Digest</h3>
+            <p className="mt-1 text-meta text-foreground-muted">
               {summary.chosen.length} enzyme{summary.chosen.length === 1 ? "" : "s"} active,{" "}
               {summary.totalCuts} cut{summary.totalCuts === 1 ? "" : "s"}
             </p>
 
             {summary.chosen.length > 0 && (
               <>
-                <h4 className="mt-3 text-meta font-semibold uppercase tracking-wide text-gray-400">
+                <h4 className="mt-3 text-meta font-semibold uppercase tracking-wide text-foreground-muted">
                   Cut sites
                 </h4>
-                <ul className="mt-1 space-y-0.5 text-meta text-gray-600" data-testid="digest-cut-list">
+                <ul className="mt-1 space-y-0.5 text-meta text-foreground-muted" data-testid="digest-cut-list">
                   {summary.chosen
                     .flatMap((d) => d.cuts.map((c) => ({ name: d.info.name, position: c.position })))
                     .sort((a, b) => a.position - b.position)
                     .map((c, i) => (
                       <li key={`${c.name}-${c.position}-${i}`} className="flex justify-between gap-2">
                         <span className="truncate">{c.name}</span>
-                        <span className="shrink-0 font-mono text-gray-400">{c.position + 1}</span>
+                        <span className="shrink-0 font-mono text-foreground-muted">{c.position + 1}</span>
                       </li>
                     ))}
                 </ul>
 
-                <h4 className="mt-3 text-meta font-semibold uppercase tracking-wide text-gray-400">
+                <h4 className="mt-3 text-meta font-semibold uppercase tracking-wide text-foreground-muted">
                   Fragments ({summary.sizes.length})
                 </h4>
-                <ul className="mt-1 flex flex-wrap gap-1 text-meta text-gray-600">
+                <ul className="mt-1 flex flex-wrap gap-1 text-meta text-foreground-muted">
                   {summary.sizes.map((s, i) => (
-                    <li key={i} className="rounded bg-white px-1.5 py-0.5 font-mono ring-1 ring-gray-200">
+                    <li key={i} className="rounded bg-surface-raised px-1.5 py-0.5 font-mono ring-1 ring-border">
                       {s.toLocaleString()} bp
                     </li>
                   ))}
@@ -792,7 +792,7 @@ export default function EnzymePickerDialog({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-gray-100 px-5 py-2.5 text-meta text-gray-400">
+        <div className="flex items-center justify-between border-t border-border px-5 py-2.5 text-meta text-foreground-muted">
           <span>
             {canSaveSets
               ? loadedSet

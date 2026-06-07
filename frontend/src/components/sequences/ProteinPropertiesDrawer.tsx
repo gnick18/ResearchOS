@@ -112,13 +112,13 @@ function GlanceStat({
 }) {
   return (
     <div className="rounded-lg border border-sky-100 bg-sky-50/60 px-3 py-2">
-      <div className="text-meta font-medium uppercase tracking-wide text-gray-400">
+      <div className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
         {label}
       </div>
-      <div className="text-title font-semibold text-gray-900 tabular-nums">
+      <div className="text-title font-semibold text-foreground tabular-nums">
         {value}
       </div>
-      {sub ? <div className="text-meta text-gray-500 tabular-nums">{sub}</div> : null}
+      {sub ? <div className="text-meta text-foreground-muted tabular-nums">{sub}</div> : null}
     </div>
   );
 }
@@ -225,7 +225,7 @@ export default function ProteinPropertiesDrawer({
   return (
     <aside
       data-testid="protein-properties-drawer"
-      className="flex h-full shrink-0 flex-col overflow-hidden border-l border-gray-200 bg-white"
+      className="flex h-full shrink-0 flex-col overflow-hidden border-l border-border bg-surface-raised"
       style={{
         width: PROTEIN_DRAWER_WIDTH,
         animation: reducedMotion ? undefined : "protein-drawer-in 160ms ease-out",
@@ -240,25 +240,25 @@ export default function ProteinPropertiesDrawer({
       ) : null}
 
       {/* Header: feature identity, compact + read-only. */}
-      <div className="flex items-start gap-2 border-b border-gray-100 px-4 py-3">
+      <div className="flex items-start gap-2 border-b border-border px-4 py-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h3 className="truncate text-title font-semibold text-gray-900" title={name}>
+            <h3 className="truncate text-title font-semibold text-foreground" title={name}>
               {name}
             </h3>
           </div>
-          <p className="text-meta text-gray-500">
+          <p className="text-meta text-foreground-muted">
             {typeLabel} · {strandLabel}
             {segs > 1 ? ` · ${segs} segments` : ""}
           </p>
-          <p className="mt-0.5 font-mono text-meta text-gray-600">{location}</p>
+          <p className="mt-0.5 font-mono text-meta text-foreground-muted">{location}</p>
         </div>
         <Tooltip label="Close protein properties">
           <button
             type="button"
             onClick={onClose}
             aria-label="Close protein properties"
-            className="-mr-1 mt-0.5 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            className="-mr-1 mt-0.5 rounded-md p-1 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground-muted"
           >
             <CloseIcon className="h-4 w-4" />
           </button>
@@ -268,7 +268,7 @@ export default function ProteinPropertiesDrawer({
       {/* Body. */}
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         {result === null ? (
-          <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3 text-body text-gray-500">
+          <div className="rounded-lg border border-dashed border-border bg-surface-sunken p-3 text-body text-foreground-muted">
             Not a clean ORF. This feature does not translate to a standard protein
             sequence, so there is nothing to measure.
           </div>
@@ -313,7 +313,7 @@ export default function ProteinPropertiesDrawer({
                 on the map); in-review candidates from the annotate panel draw
                 pending so the user previews what accepting would add. */}
             <div className="mt-4">
-              <h4 className="mb-1.5 text-meta font-medium uppercase tracking-wide text-gray-400">
+              <h4 className="mb-1.5 text-meta font-medium uppercase tracking-wide text-foreground-muted">
                 Domains
               </h4>
               <ProteinDomainBar
@@ -349,7 +349,7 @@ export default function ProteinPropertiesDrawer({
           the feature does not translate to a clean protein (empty translation or
           an internal stop), since there is nothing valid to submit. */}
       {!readOnly ? (
-        <div className="space-y-2 border-t border-gray-100 px-4 py-2.5">
+        <div className="space-y-2 border-t border-border px-4 py-2.5">
           {onAddDomains ? (
             <DomainAnnotationPanel
               // Key by the feature identity so selecting a different CDS remounts
@@ -373,9 +373,9 @@ export default function ProteinPropertiesDrawer({
           <button
             type="button"
             onClick={() => onEditFeature(featureIndex)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-body font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            className="flex w-full items-center justify-center gap-1.5 rounded-md border border-border bg-surface-raised px-3 py-1.5 text-body font-medium text-foreground transition-colors hover:bg-surface-sunken"
           >
-            <PencilIcon className="h-4 w-4 text-gray-500" />
+            <PencilIcon className="h-4 w-4 text-foreground-muted" />
             Edit feature
           </button>
         </div>

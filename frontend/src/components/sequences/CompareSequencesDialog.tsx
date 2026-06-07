@@ -138,13 +138,13 @@ function SequencePicker({
 }) {
   return (
     <label className="flex min-w-0 flex-1 flex-col gap-1">
-      <span className="text-meta font-medium uppercase tracking-wide text-gray-400">
+      <span className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
         {label}
       </span>
       <select
         value={value == null ? "" : String(value)}
         onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
-        className="w-full rounded-md border border-gray-200 bg-white px-2 py-1.5 text-body text-gray-700 focus:border-sky-400 focus:outline-none"
+        className="w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
       >
         <option value="">Select a sequence…</option>
         {sequences.map((s) => (
@@ -165,7 +165,7 @@ function AlignmentView({ model }: { model: CompareModel }) {
         <div key={block.colStart} className="whitespace-pre">
           {/* A row with leading coordinate */}
           <div className="flex gap-3">
-            <span className="w-12 shrink-0 select-none text-right text-gray-400">
+            <span className="w-12 shrink-0 select-none text-right text-foreground-muted">
               {block.aStart ?? ""}
             </span>
             <span>
@@ -176,26 +176,26 @@ function AlignmentView({ model }: { model: CompareModel }) {
                     block.kinds[i] === "mismatch"
                       ? "bg-rose-100 text-rose-700"
                       : block.kinds[i] === "gap"
-                        ? "text-gray-300"
-                        : "text-gray-800"
+                        ? "text-foreground-muted"
+                        : "text-foreground"
                   }
                 >
                   {ch}
                 </span>
               ))}
             </span>
-            <span className="w-12 shrink-0 select-none text-left text-gray-400">
+            <span className="w-12 shrink-0 select-none text-left text-foreground-muted">
               {block.aEnd ?? ""}
             </span>
           </div>
           {/* Midline */}
           <div className="flex gap-3">
             <span className="w-12 shrink-0" />
-            <span className="text-gray-400">{block.midline}</span>
+            <span className="text-foreground-muted">{block.midline}</span>
           </div>
           {/* B row with leading coordinate */}
           <div className="flex gap-3">
-            <span className="w-12 shrink-0 select-none text-right text-gray-400">
+            <span className="w-12 shrink-0 select-none text-right text-foreground-muted">
               {block.bStart ?? ""}
             </span>
             <span>
@@ -206,15 +206,15 @@ function AlignmentView({ model }: { model: CompareModel }) {
                     block.kinds[i] === "mismatch"
                       ? "bg-rose-100 text-rose-700"
                       : block.kinds[i] === "gap"
-                        ? "text-gray-300"
-                        : "text-gray-800"
+                        ? "text-foreground-muted"
+                        : "text-foreground"
                   }
                 >
                   {ch}
                 </span>
               ))}
             </span>
-            <span className="w-12 shrink-0 select-none text-left text-gray-400">
+            <span className="w-12 shrink-0 select-none text-left text-foreground-muted">
               {block.bEnd ?? ""}
             </span>
           </div>
@@ -248,17 +248,17 @@ function DotplotView({ a, b }: { a: string; b: string }) {
   return (
     <div className="flex flex-col items-start gap-2">
       <div className="flex w-full items-center gap-3">
-        <span className="text-meta font-medium uppercase tracking-wide text-gray-400">
+        <span className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
           Dotplot (k = {plot.k})
         </span>
-        <label className="ml-auto flex items-center gap-1.5 text-meta text-gray-500">
+        <label className="ml-auto flex items-center gap-1.5 text-meta text-foreground-muted">
           <span>Word size</span>
           <select
             value={kOverride ?? "auto"}
             onChange={(e) =>
               setKOverride(e.target.value === "auto" ? null : Number(e.target.value))
             }
-            className="rounded border border-gray-300 bg-white px-1.5 py-0.5 text-meta focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="rounded border border-border bg-surface-raised px-1.5 py-0.5 text-meta focus:outline-none focus:ring-2 focus:ring-blue-400"
           >
             <option value="auto">Auto ({autoK})</option>
             {[6, 8, 10, 12, 14].map((v) => (
@@ -271,10 +271,10 @@ function DotplotView({ a, b }: { a: string; b: string }) {
       </div>
       {/* axis labels frame the square: A runs along the top, B down the left */}
       <div className="flex flex-col gap-1">
-        <span className="text-meta text-gray-400">A &rarr;</span>
+        <span className="text-meta text-foreground-muted">A &rarr;</span>
         <div className="flex items-stretch gap-1">
           <span
-            className="flex items-center text-meta text-gray-400"
+            className="flex items-center text-meta text-foreground-muted"
             style={{ writingMode: "vertical-rl" }}
           >
             B &darr;
@@ -283,7 +283,7 @@ function DotplotView({ a, b }: { a: string; b: string }) {
             width={DOTPLOT_PX}
             height={DOTPLOT_PX}
             viewBox={`0 0 ${DOTPLOT_PX} ${DOTPLOT_PX}`}
-            className="rounded-md border border-gray-200 bg-white"
+            className="rounded-md border border-border bg-surface-raised"
             role="img"
             aria-label="Dotplot of shared k-mers between the two sequences"
           >
@@ -313,7 +313,7 @@ function DotplotView({ a, b }: { a: string; b: string }) {
         </div>
       </div>
       {sparse && (
-        <p className="max-w-[340px] text-meta text-gray-400">
+        <p className="max-w-[340px] text-meta text-foreground-muted">
           {dots.length === 0 ? "No" : "Few"} exact {k} bp matches, so these
           sequences share little local identity at this word size. Lower the word
           size to reveal weaker similarity.
@@ -361,13 +361,13 @@ function HspCard({ hsp, rank }: { hsp: Hsp; rank: number }) {
   const model = useMemo(() => hspToCompareModel(hsp), [hsp]);
   const idPct = Math.round(hsp.identity * 100);
   return (
-    <div className="rounded-lg border border-gray-200">
+    <div className="rounded-lg border border-border">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-left transition-colors hover:bg-gray-50"
+        className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-left transition-colors hover:bg-surface-sunken"
       >
-        <span className="text-meta font-semibold text-gray-400">#{rank}</span>
+        <span className="text-meta font-semibold text-foreground-muted">#{rank}</span>
         <span className="rounded bg-sky-50 px-1.5 py-0.5 text-meta font-medium text-sky-700">
           {idPct}% identity
         </span>
@@ -380,20 +380,20 @@ function HspCard({ hsp, rank }: { hsp: Hsp; rank: number }) {
         >
           {hsp.strand === 1 ? "+ strand" : "- strand"}
         </span>
-        <span className="text-meta text-gray-500">
+        <span className="text-meta text-foreground-muted">
           A {(hsp.aStart + 1).toLocaleString()}&ndash;{hsp.aEnd.toLocaleString()}{" "}
           ({hsp.aLength.toLocaleString()} bp)
         </span>
-        <span className="text-meta text-gray-500">
+        <span className="text-meta text-foreground-muted">
           B {(hsp.bStart + 1).toLocaleString()}&ndash;{hsp.bEnd.toLocaleString()}{" "}
           ({hsp.bLength.toLocaleString()} bp)
         </span>
-        <span className="ml-auto text-meta text-gray-400">
+        <span className="ml-auto text-meta text-foreground-muted">
           {open ? "Hide alignment" : "Show alignment"}
         </span>
       </button>
       {open ? (
-        <div className="overflow-x-auto border-t border-gray-100 px-3 py-3">
+        <div className="overflow-x-auto border-t border-border px-3 py-3">
           <AlignmentView model={model} />
         </div>
       ) : null}
@@ -405,7 +405,7 @@ function HspCard({ hsp, rank }: { hsp: Hsp; rank: number }) {
 function SharedRegionsView({ result }: { result: SharedRegionResult }) {
   if (result.hsps.length === 0) {
     return (
-      <p className="rounded-lg bg-gray-50 px-4 py-3 text-body text-gray-500">
+      <p className="rounded-lg bg-surface-sunken px-4 py-3 text-body text-foreground-muted">
         No shared regions of {result.k} or more identical bases were found
         between these sequences on either strand. They share little local
         homology. Lower the dotplot word size to look for weaker similarity.
@@ -415,10 +415,10 @@ function SharedRegionsView({ result }: { result: SharedRegionResult }) {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="text-meta font-medium uppercase tracking-wide text-gray-400">
+        <span className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
           Shared regions (local homology)
         </span>
-        <span className="text-meta text-gray-500">
+        <span className="text-meta text-foreground-muted">
           {result.truncated
             ? `Top ${result.hsps.length} of ${result.totalHsps.toLocaleString()} regions, ranked by score (seed word ${result.k}).`
             : `${result.hsps.length.toLocaleString()} ${result.hsps.length === 1 ? "region" : "regions"}, ranked by score (seed word ${result.k}).`}
@@ -581,15 +581,15 @@ export default function CompareSequencesDialog({
       data-testid="compare-sequences-dialog"
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="relative flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
         {/* Header */}
-        <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
+        <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100">
             <AlignIcon className="h-5 w-5 text-sky-600" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-title font-semibold text-gray-900">Align sequences</h2>
-            <p className="text-meta text-gray-500">
+            <h2 className="text-title font-semibold text-foreground">Align sequences</h2>
+            <p className="text-meta text-foreground-muted">
               Align two sequences and see their identity, mismatches, and gaps.
             </p>
           </div>
@@ -597,64 +597,64 @@ export default function CompareSequencesDialog({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-md p-1.5 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground-muted"
           >
             <CloseIcon className="h-5 w-5" />
           </button>
         </div>
 
         {/* Controls */}
-        <div className="border-b border-gray-100 px-5 py-4">
+        <div className="border-b border-border px-5 py-4">
           <div className="flex flex-wrap items-end gap-3">
             <SequencePicker label="Sequence A" value={aId} onChange={setAId} sequences={sequences} />
             <SequencePicker label="Sequence B" value={bId} onChange={setBId} sequences={sequences} />
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
             <label className="flex flex-col gap-1">
-              <span className="text-meta font-medium uppercase tracking-wide text-gray-400">
+              <span className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
                 Mode
               </span>
               <select
                 value={mode}
                 onChange={(e) => setMode(e.target.value as AlignMode)}
-                className="rounded-md border border-gray-200 bg-white px-2 py-1.5 text-body text-gray-700 focus:border-sky-400 focus:outline-none"
+                className="rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
               >
                 <option value="global">Global (end to end)</option>
                 <option value="local">Local (best region)</option>
               </select>
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-meta font-medium uppercase tracking-wide text-gray-400">
+              <span className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
                 Scoring
               </span>
               <select
                 value={scheme}
                 onChange={(e) => setScheme(e.target.value as "auto" | ScoreScheme)}
-                className="rounded-md border border-gray-200 bg-white px-2 py-1.5 text-body text-gray-700 focus:border-sky-400 focus:outline-none"
+                className="rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
               >
                 <option value="auto">Auto-detect</option>
                 <option value="dna">DNA (IUPAC)</option>
                 <option value="protein">Protein (BLOSUM62)</option>
               </select>
             </label>
-            <label className="flex items-center gap-2 self-end pb-1.5 text-body text-gray-700">
+            <label className="flex items-center gap-2 self-end pb-1.5 text-body text-foreground">
               <input
                 type="checkbox"
                 checked={iupac}
                 disabled={scheme === "protein"}
                 onChange={(e) => setIupac(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-400 disabled:opacity-50"
+                className="h-4 w-4 rounded border-border text-sky-600 focus:ring-sky-400 disabled:opacity-50"
               />
-              <span className={scheme === "protein" ? "text-gray-400" : undefined}>
+              <span className={scheme === "protein" ? "text-foreground-muted" : undefined}>
                 IUPAC-aware scoring
               </span>
             </label>
-            <label className="flex items-center gap-2 self-end pb-1.5 text-body text-gray-700">
+            <label className="flex items-center gap-2 self-end pb-1.5 text-body text-foreground">
               <input
                 type="checkbox"
                 checked={showDotplot}
                 onChange={(e) => setShowDotplot(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-400"
+                className="h-4 w-4 rounded border-border text-sky-600 focus:ring-sky-400"
               />
               Show dotplot
             </label>
@@ -690,10 +690,10 @@ export default function CompareSequencesDialog({
                 guaranteed-optimal global alignment.
               </div>
               {aName && bName ? (
-                <span className="text-meta text-gray-400">A: {aName} · B: {bName}</span>
+                <span className="text-meta text-foreground-muted">A: {aName} · B: {bName}</span>
               ) : null}
               <SharedRegionsView result={largeResult} />
-              <div className="border-t border-gray-100 pt-4">
+              <div className="border-t border-border pt-4">
                 <DotplotView
                   a={lastBasesRef.current.a}
                   b={lastBasesRef.current.b}
@@ -701,11 +701,11 @@ export default function CompareSequencesDialog({
               </div>
             </div>
           ) : !result ? (
-            <div className="flex h-40 items-center justify-center text-body text-gray-400">
+            <div className="flex h-40 items-center justify-center text-body text-foreground-muted">
               {running ? "Aligning…" : "Pick two sequences and select Align."}
             </div>
           ) : result.ops.length === 0 ? (
-            <div className="flex h-40 items-center justify-center text-body text-gray-400">
+            <div className="flex h-40 items-center justify-center text-body text-foreground-muted">
               No aligned region found (the local alignment is empty). Try Global mode.
             </div>
           ) : visibleModel ? (
@@ -715,16 +715,16 @@ export default function CompareSequencesDialog({
                 <span className="rounded-md bg-sky-50 px-2.5 py-1 text-body font-medium text-sky-700">
                   {formatSummaryLine(visibleModel.summary)}
                 </span>
-                <span className="rounded-md bg-gray-100 px-2 py-0.5 text-meta font-medium text-gray-600">
+                <span className="rounded-md bg-surface-sunken px-2 py-0.5 text-meta font-medium text-foreground-muted">
                   {usedScheme === "protein" ? "BLOSUM62" : "DNA / IUPAC"}
                 </span>
-                <span className="text-meta text-gray-500">
+                <span className="text-meta text-foreground-muted">
                   {visibleModel.summary.matches.toLocaleString()} match ·{" "}
                   {visibleModel.summary.mismatches.toLocaleString()} mismatch ·{" "}
                   {visibleModel.summary.gaps.toLocaleString()} gap
                 </span>
                 {aName && bName ? (
-                  <span className="text-meta text-gray-400">
+                  <span className="text-meta text-foreground-muted">
                     A: {aName} · B: {bName}
                   </span>
                 ) : null}
@@ -745,7 +745,7 @@ export default function CompareSequencesDialog({
                 <AlignmentView model={visibleModel} />
               </div>
               {showDotplot && lastBasesRef.current ? (
-                <div className="border-t border-gray-100 pt-4">
+                <div className="border-t border-border pt-4">
                   <DotplotView a={lastBasesRef.current.a} b={lastBasesRef.current.b} />
                 </div>
               ) : null}
