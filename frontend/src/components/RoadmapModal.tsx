@@ -13,6 +13,8 @@
 
 import { useEffect, type ReactNode } from "react";
 
+import LivingPopup from "@/components/ui/LivingPopup";
+
 /* -------------------------------------------------------------------------- */
 /* Status badge config                                                         */
 /* -------------------------------------------------------------------------- */
@@ -355,38 +357,27 @@ export interface RoadmapModalProps {
 }
 
 export default function RoadmapModal({ open, onClose }: RoadmapModalProps) {
-  // Keyboard close + body scroll lock
+  // Body scroll lock while open. LivingPopup owns the scrim, the zoom, the X,
+  // and closing on Escape / click-outside.
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    // Prevent body scroll while modal is open
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
-      document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [open, onClose]);
-
-  if (!open) return null;
+  }, [open]);
 
   return (
-    /* Backdrop */
-    <div
-      className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-      onClick={onClose}
-      aria-modal="true"
-      role="dialog"
-      aria-label="What we're building"
+    <LivingPopup
+      open={open}
+      onClose={onClose}
+      label="What we're building"
+      widthClassName="max-w-5xl"
+      card={false}
     >
-      {/* Modal panel — stop propagation so clicks inside don't close */}
-      <div
-        className="relative w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_rgba(0,0,0,0.18)] ring-1 ring-black/5"
-        onClick={(e) => e.stopPropagation()}
-      >
+      {/* This marketing card brings its own white chrome (card=false above). */}
+      <div className="relative w-full overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_rgba(0,0,0,0.18)] ring-1 ring-black/5">
         {/* ── Header ────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between border-b border-[#e8f0f8] px-6 py-4">
           <div>
@@ -405,7 +396,7 @@ export default function RoadmapModal({ open, onClose }: RoadmapModalProps) {
           {/* Section A: upcoming features */}
           <div className="mb-6">
             <p className="mb-4 font-mono text-meta font-semibold uppercase tracking-[0.1em] text-[#1283c9]">
-              // upcoming
+              {"// upcoming"}
             </p>
 
             {/* Desktop: horizontal strip connected by dashed lines.
@@ -436,7 +427,7 @@ export default function RoadmapModal({ open, onClose }: RoadmapModalProps) {
           {/* Section B: recently shipped */}
           <div className="rounded-xl border border-[#e8f0f8] bg-[#f6fbf6] px-5 py-5">
             <p className="mb-3 font-mono text-meta font-semibold uppercase tracking-[0.1em] text-[#2d6a2d]">
-              // recently shipped
+              {"// recently shipped"}
             </p>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               {SHIPPED.map((label) => (
@@ -462,6 +453,6 @@ export default function RoadmapModal({ open, onClose }: RoadmapModalProps) {
           </p>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }
