@@ -10,6 +10,7 @@ import { describe, it, expect } from "vitest";
 import type { CalendarFeed, Event, ExternalEvent } from "@/lib/types";
 import {
   buildCalendarSource,
+  parseCalendarDate,
   type CalendarFrame,
   type CalendarSourceData,
   type CalendarSourceHandlers,
@@ -411,5 +412,45 @@ describe("buildCalendarSource nav groups", () => {
     expect(next.items[0].detail).toBe("soon, 2026-06-16");
     expect(next.items[0].tone).toBe("event");
     expect(next.items[1].tone).toBe("feed");
+  });
+});
+
+describe("parseCalendarDate", () => {
+  const today = "2026-06-15";
+  it("parses strict YYYY-MM-DD and rejects an invalid day", () => {
+    expect(parseCalendarDate("2026-07-01", today)).toEqual({
+      dateStr: "2026-07-01",
+      label: "July 1, 2026",
+    });
+    expect(parseCalendarDate("2026-02-31", today)).toBeNull();
+  });
+  it("parses today and tomorrow against the injected today", () => {
+    expect(parseCalendarDate("today", today)?.dateStr).toBe("2026-06-15");
+    expect(parseCalendarDate("tomorrow", today)?.dateStr).toBe("2026-06-16");
+  });
+  it("parses a month name plus day, inferring the current year, with an optional year", () => {
+    expect(parseCalendarDate("Jun 9", today)).toEqual({ dateStr: "2026-06-09", label: "June 9, 2026" });
+    expect(parseCalendarDate("9 june", today)?.dateStr).toBe("2026-06-09");
+    expect(parseCalendarDate("June 9 2027", today)?.dateStr).toBe("2027-06-09");
+  });
+  it("returns null for a non-date query", () => {
+    expect(parseCalendarDate("lab meeting", today)).toBeNull();
+    expect(parseCalendarDate("jun", today)).toBeNull();
+  });
+});
+
+describe("interpretQuery (the Go to date row)", () => {
+  it("returns a Go to <date> row that jumps when the query is a date", () => {
+    let jumped: string | null = null;
+    const src = buildCalendarSource(makeData(), { ...noopHandlers, goToDate: (d) => { jumped = d; } });
+    const groups = src.interpretQuery!("2026-07-01");
+    expect(groups[0].title).toBe("Go to a date");
+    expect(groups[0].items[0].label).toBe("Go to July 1, 2026");
+    groups[0].items[0].onRun();
+    expect(jumped).toBe("2026-07-01");
+  });
+  it("returns no rows when the query is not a date", () => {
+    const src = buildCalendarSource(makeData(), noopHandlers);
+    expect(src.interpretQuery!("lab meeting")).toEqual([]);
   });
 });

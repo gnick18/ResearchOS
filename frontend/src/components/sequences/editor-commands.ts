@@ -541,6 +541,13 @@ export interface PaletteInput {
   suggestedIds?: string[];
   suggestedHint?: string;
   navGroups?: PaletteNavGroup[];
+  /** BeakerSearch website-wide (step 3), the QUERY-AWARE nav seam. A page can
+   *  interpret the live typed query into lead rows that depend on the query text
+   *  itself, e.g. "Go to <the date you typed>" on Calendar, "Create a task named
+   *  <query>" elsewhere. Called with the trimmed non-empty query; its groups are
+   *  prepended to the typed view (they LEAD, not fuzzy-scored, since they already
+   *  ARE the query's interpretation) and are absent on the empty query. */
+  interpretQuery?: (query: string) => PaletteNavGroup[];
   /** BeakerSearch global object search, chunk 2. Pre-ranked per-type object
    *  groups (Tasks / Projects / Methods / Sequences), built by the app-shell
    *  global source from the pure rankGlobalEntries (already scored, capped, and
@@ -636,6 +643,7 @@ export function buildPaletteResultsForQuery(
     suggestedIds,
     suggestedHint,
     navGroups = EMPTY_NAV_GROUPS,
+    interpretQuery,
     objectGroups = EMPTY_OBJECT_GROUPS,
     recentRecords = EMPTY_RECENT_RECORDS,
   } = input;
@@ -834,6 +842,25 @@ export function buildPaletteResultsForQuery(
       if (b.title === topTitle) return 1;
       return 0;
     });
+  }
+
+  // The query-aware interpretation rows (step 3 seam). Built from the live query
+  // (e.g. "Go to <the date you typed>") and PREPENDED so they lead the typed view,
+  // ahead of the top-hit, since they already ARE the query's interpretation and
+  // are not fuzzy-scored. Page-supplied; absent on most pages and on empty query.
+  if (interpretQuery) {
+    const interpreted = interpretQuery(trimmed)
+      .filter((g) => g.items.length > 0)
+      .map((g) => ({
+        title: g.title,
+        hint: g.hint,
+        items: g.items.map((item) => ({
+          kind: "nav" as const,
+          item,
+          group: g.title,
+        })),
+      }));
+    if (interpreted.length > 0) return [...interpreted, ...groups];
   }
   return groups;
 }

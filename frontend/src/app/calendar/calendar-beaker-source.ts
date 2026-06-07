@@ -585,6 +585,71 @@ function buildNavGroups(
 }
 
 /** Build the whole Calendar BeakerSearch source from a pure state snapshot. */
+const MONTHS = [
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december",
+];
+
+/** Pure date parse for the "Go to <date>" interpretation row. Given the typed
+ *  query and today (a local YYYY-MM-DD, injected so the result is deterministic),
+ *  returns the target date + a display label, or null when the query is not a
+ *  date. Handles strict YYYY-MM-DD (with a validity round-trip that rejects
+ *  2026-02-31, mirroring the page's deep-link check), "today" / "tomorrow", and a
+ *  month name plus day with an optional year ("Jun 9", "9 june", "June 9 2026"). */
+export function parseCalendarDate(
+  query: string,
+  todayStr: string,
+): { dateStr: string; label: string } | null {
+  const q = query.trim().toLowerCase();
+  if (q === "") return null;
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const toStr = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`;
+  const valid = (y: number, m: number, d: number) => {
+    const dt = new Date(y, m - 1, d);
+    return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+  };
+  const label = (y: number, m: number, d: number) => {
+    const name = MONTHS[m - 1];
+    return `${name[0].toUpperCase()}${name.slice(1)} ${d}, ${y}`;
+  };
+
+  const [ty, tm, td] = todayStr.split("-").map(Number);
+  if (q === "today") return { dateStr: todayStr, label: label(ty, tm, td) };
+  if (q === "tomorrow") {
+    const dt = new Date(ty, tm - 1, td + 1);
+    const y = dt.getFullYear(), m = dt.getMonth() + 1, d = dt.getDate();
+    return { dateStr: toStr(y, m, d), label: label(y, m, d) };
+  }
+
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(q);
+  if (iso) {
+    const y = +iso[1], m = +iso[2], d = +iso[3];
+    return valid(y, m, d) ? { dateStr: toStr(y, m, d), label: label(y, m, d) } : null;
+  }
+
+  const tokens = q.replace(/,/g, " ").split(/\s+/).filter(Boolean);
+  let monIdx = -1, day = -1, year = -1;
+  for (const t of tokens) {
+    const mi = MONTHS.findIndex((mn) => mn === t || mn.slice(0, 3) === t);
+    if (mi >= 0 && monIdx < 0) {
+      monIdx = mi;
+      continue;
+    }
+    const n = Number(t);
+    if (Number.isInteger(n) && t !== "") {
+      if (n >= 1 && n <= 31 && day < 0) day = n;
+      else if (n >= 1000) year = n;
+    }
+  }
+  if (monIdx >= 0 && day >= 1) {
+    const y = year >= 1000 ? year : ty;
+    const m = monIdx + 1;
+    return valid(y, m, day) ? { dateStr: toStr(y, m, day), label: label(y, m, day) } : null;
+  }
+  return null;
+}
+
 export function buildCalendarSource(
   data: CalendarSourceData,
   handlers: CalendarSourceHandlers,
@@ -596,6 +661,26 @@ export function buildCalendarSource(
     suggestedIds: buildSuggestedIds(data),
     suggestedHint: buildSuggestedHint(data),
     navGroups: buildNavGroups(data, handlers),
+    // Query-aware seam (step 3), a "Go to <typed date>" row that leads the typed
+    // view when the query parses as a date. goToDate anchors the calendar there.
+    interpretQuery: (query: string): PaletteNavGroup[] => {
+      const parsed = parseCalendarDate(query, data.frame.todayStr);
+      if (!parsed) return [];
+      return [
+        {
+          title: "Go to a date",
+          items: [
+            {
+              id: "calendar-goto-date",
+              label: `Go to ${parsed.label}`,
+              detail: "jump the calendar there",
+              iconName: "history",
+              onRun: () => handlers.goToDate(parsed.dateStr),
+            },
+          ],
+        },
+      ];
+    },
   };
 }
 

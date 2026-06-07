@@ -409,3 +409,31 @@ describe("page-defined command groups (step 3)", () => {
     expect(groups.some((g) => g.title === "Timeline view")).toBe(true);
   });
 });
+
+describe("interpretQuery seam (step 3)", () => {
+  // A page interprets the live query into lead rows (e.g. "Go to <typed date>").
+  const interpretQuery = (q: string): PaletteNavGroup[] =>
+    /^\d+$/.test(q)
+      ? [{ title: "Go to a date", items: [{ id: "goto", label: `Go to day ${q}`, iconName: "list", onRun: noop }] }]
+      : [];
+
+  const input = { commands: makeCommands(), selectionKind: "none" as const, interpretQuery };
+
+  it("prepends the interpretation group so it leads the typed view", () => {
+    const groups = buildPaletteResultsForQuery(input, "9");
+    expect(groups[0].title).toBe("Go to a date");
+    expect(groups[0].items[0].kind).toBe("nav");
+  });
+
+  it("does not call the interpretation on the empty query", () => {
+    const groups = buildPaletteResults(input);
+    expect(groups.some((g) => g.title === "Go to a date")).toBe(false);
+  });
+
+  it("omits the group when the query does not interpret", () => {
+    const groups = buildPaletteResultsForQuery(input, "protein");
+    expect(groups.some((g) => g.title === "Go to a date")).toBe(false);
+    // The normal command results still surface.
+    expect(flattenPaletteItems(groups).some((i) => i.kind === "command")).toBe(true);
+  });
+});

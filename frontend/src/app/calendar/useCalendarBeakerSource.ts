@@ -17,14 +17,11 @@
 // currentUser, EXACTLY as the page's onSave / onCreate / delete paths do. It
 // never writes pto_dates directly.
 //
-// Note on the jump-to-date nicety (spec 4): the generic BeakerSearchSource
-// contract feeds the palette static navGroups (no query-time callback), so a
-// "Go to {typed date}" row that reacts to the live query string cannot be built
-// purely from this source. It needs a query-aware seam in the palette itself
-// (the parseCalendarDate module the spec sketches), which is OUT OF SCOPE for
-// this per-page source. The handler `goToDate` is wired and ready, so when that
-// seam lands the date item is a one-line addition. Everything else in the spec
-// is shipped.
+// Jump-to-date nicety (spec 4): WIRED via the contract's query-aware seam. The
+// source's `interpretQuery(query)` (in calendar-beaker-source.ts) parses the live
+// query with the pure parseCalendarDate (strict YYYY-MM-DD, today / tomorrow,
+// "Jun 9" style) and returns a "Go to <date>" lead row that calls goToDate. The
+// palette prepends it ahead of the fuzzy results when the query is a date.
 //
 // Voice in comments and copy, no em-dashes, no en-dashes, no emojis, no
 // mid-sentence colons.

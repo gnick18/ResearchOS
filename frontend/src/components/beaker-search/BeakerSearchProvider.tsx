@@ -293,6 +293,7 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
           suggestedIds={effectiveSource.suggestedIds}
           suggestedHint={effectiveSource.suggestedHint}
           navGroups={effectiveSource.navGroups}
+          interpretQuery={effectiveSource.interpretQuery}
           sequences={effectiveSource.sequences}
           artifacts={effectiveSource.artifacts}
           collectionLabel={effectiveSource.collectionLabel}

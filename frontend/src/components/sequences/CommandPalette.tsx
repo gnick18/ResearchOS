@@ -319,6 +319,8 @@ export interface CommandPaletteProps {
   suggestedIds?: string[];
   suggestedHint?: string;
   navGroups?: PaletteNavGroup[];
+  /** Query-aware interpretation rows (step 3 seam), e.g. "Go to <typed date>". */
+  interpretQuery?: (query: string) => PaletteNavGroup[];
   /** The OTHER sequences in the open collection, to jump to. Default empty. */
   sequences?: SequenceNavItem[];
   /** The latest saved results for the open sequence, newest first. Default empty. */
@@ -359,6 +361,7 @@ export function CommandPalette({
   suggestedIds,
   suggestedHint,
   navGroups = EMPTY_NAV_GROUPS,
+  interpretQuery,
   sequences = EMPTY_SEQUENCES,
   artifacts = EMPTY_ARTIFACTS,
   collectionLabel,
@@ -442,6 +445,7 @@ export function CommandPalette({
         suggestedIds,
         suggestedHint,
         navGroups,
+        interpretQuery,
         objectGroups,
         recentRecords,
       },
@@ -470,6 +474,7 @@ export function CommandPalette({
     suggestedIds,
     suggestedHint,
     navGroups,
+    interpretQuery,
     objectGroups,
     recentRecords,
     query,

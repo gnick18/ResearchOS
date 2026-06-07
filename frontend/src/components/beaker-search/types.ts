@@ -77,4 +77,9 @@ export interface BeakerSearchSource {
   suggestedHint?: string;
   /** The page's navigable entity / result groups (each under its own heading). */
   navGroups?: PaletteNavGroup[];
+  /** Query-aware interpretation rows (step 3 seam). Given the trimmed non-empty
+   *  query, return lead nav groups that depend on the query text, e.g. Calendar's
+   *  "Go to <the date you typed>". They lead the typed view and are not
+   *  fuzzy-scored (they already are the query's interpretation). */
+  interpretQuery?: (query: string) => PaletteNavGroup[];
 }
