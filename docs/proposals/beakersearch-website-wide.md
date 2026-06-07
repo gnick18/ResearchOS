@@ -1,4 +1,4 @@
-# BeakerSearch, website-wide
+c# BeakerSearch, website-wide
 
 BeakerSearch started as the sequence editor's Cmd-K palette. This proposes turning
 it into the app's universal, context-aware command surface: the one thing you
@@ -136,12 +136,30 @@ holds, the actions, and the selection / hover / on-screen model, then BeakerSear
 context card, suggested actions, navigable entities, and recent results for that
 page, with concrete examples.
 
+Each of these four now has a standalone, build-ready companion spec (the full
+context model mapped to real state, every Suggested variant wired to its real
+handler, the navigable entities, results, the long-tail command set, a typed
+`useBeakerSearchSource` sketch, and keyboard / permission / edge-case coverage):
+- Gantt, [`beakersearch-gantt.md`](./beakersearch-gantt.md)
+- Calendar, [`beakersearch-calendar.md`](./beakersearch-calendar.md)
+- Workbench, [`beakersearch-workbench.md`](./beakersearch-workbench.md)
+- Purchases, [`beakersearch-purchases.md`](./beakersearch-purchases.md)
+
+The sections below stay as the concept-level summary; the companion docs are the
+implementation source of truth, and two grounding corrections they surfaced are
+folded in here.
+
 ### Gantt (`/gantt`)
 
 The project-task timeline. Holds Tasks (start / duration / end / project / tags /
 complete), Projects, High-Level Goals (milestones), and Dependencies. Its context
 is a project filter + a tag filter + the visible time window, with one selected
-task (or goal) at a time, and dependency edges that light on hover.
+task (or goal) at a time, and dependency edges that light on hover. (Grounding
+correction, the project filter is a two-state model in the real store,
+`projectFilterMode` is `"all" | "explicit"` with a set of selected project keys,
+not an explicit / implicit / off triad; the timeline is a custom React grid, so
+the visible window is store state, `ganttStartDate` + `viewMode`, not a scroll
+offset.)
 
 BeakerSearch here:
 - CONTEXT card: the active scope, e.g. "Gantt, 3 projects, tag PCR, this quarter",
@@ -159,10 +177,14 @@ BeakerSearch here:
 
 ### Calendar (`/calendar`)
 
-Scheduling. Holds Events (title / date / time / duration / location, optional
-`task_id` link), external Feeds, and pulled External Events. Its context is the
-current date + view mode (month / week / day), so "on screen" is literally the
-visible date range, with one selected event and an optionally expanded day.
+Scheduling. Holds Events (title / start_date / start_time / location), external
+Feeds, and pulled External Events. Its context is the current date + view mode
+(month / week / day), so "on screen" is literally the visible date range, with one
+selected event and an optionally expanded day. (Grounding correction, the real
+`Event` type has no `task_id` link and no `duration_minutes` / `is_all_day`
+fields; an all-day event is simply one with `start_time === null`, so the
+"Link to a task" and duration ideas below are present-but-disabled follow-ups,
+not existing handlers.)
 
 BeakerSearch here:
 - CONTEXT card: "Calendar, week of Jun 7" (or the month / day), and the selected
