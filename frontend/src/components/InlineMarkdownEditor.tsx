@@ -2,13 +2,21 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { EditorState as EditorStateType } from "@codemirror/state";
-import type { NoteHandle } from "@/lib/loro/store";
-import type { TaskDocHandle } from "@/lib/loro/task-store";
+import type { EditorLoroHandle } from "@/lib/loro/editor-handle";
 import type { Note } from "@/lib/types";
 import type { EphemeralStore } from "loro-crdt";
 import type { UserState, EphemeralState } from "loro-codemirror";
 import { getEntryContentText } from "@/lib/loro/note-doc";
-import { getTaskContentText } from "@/lib/loro/task-doc";
+
+/**
+ * Read the seed markdown for a Loro-bound surface. A task surface exposes its
+ * own editorSeedText (the single "content" text); a note has none, so we fall
+ * back to the active entry's content text. Keeps the editor model-agnostic.
+ */
+function seedTextForHandle(handle: EditorLoroHandle, activeIndex: number): string {
+  if (handle.editorSeedText) return handle.editorSeedText(activeIndex);
+  return getEntryContentText(handle.doc, activeIndex)?.toString() ?? "";
+}
 
 /**
  * Inline ("Typora-style") Markdown editor — Typora editor chip 1 (T1 + T2).
@@ -101,22 +109,20 @@ interface InlineMarkdownEditorProps {
   // ---------------------------------------------------------------------------
   /** When set, the editor runs in Loro mode: seeds from the Loro text, binds
    *  LoroExtensions (sync + ephemeral + undo), drops CM6 history(), and commits
-   *  through the handle on every change. When absent, no behaviour changes. */
-  loroHandle?: NoteHandle;
-  /** Which entry inside the note doc to bind. Defaults to 0. */
+   *  through the handle on every change. When absent, no behaviour changes.
+   *  Accepts either a note handle or a task surface handle (experiment collab)
+   *  via the shared EditorLoroHandle shape. The task handle seeds from the doc's
+   *  single "content" text, commits with no base argument, and has no entry set
+   *  to reconcile, so the note-specific ensureEntries / entry-index paths are
+   *  skipped (they are optional members on the interface). */
+  loroHandle?: EditorLoroHandle;
+  /** Which entry inside the note doc to bind. Defaults to 0. A single-text task
+   *  surface ignores the index (the popup passes 0). */
   loroEntryIndex?: number;
-  /** The live Note object. The commit() call reads it from a ref so a
-   *  per-render-new identity never destabilises the updateListener. */
+  /** The live Note object (note path only). The commit() call reads it from a
+   *  ref so a per-render-new identity never destabilises the updateListener.
+   *  Undefined on the task path; the task handle ignores the commit argument. */
   loroBaseNote?: Note;
-  /**
-   * Experiment-collab chunk 1: when set, the editor runs in Loro mode against a
-   * task's single-text markdown surface (Lab Notes / Results) instead of a
-   * note's entry projection. Mutually exclusive with loroHandle. The task
-   * handle seeds from the doc's "content" text, commits with no base argument,
-   * and has no entry set to reconcile (single text), so the note-specific
-   * ensureEntries / entry-index paths are skipped on this branch.
-   */
-  loroTaskHandle?: TaskDocHandle;
 
   // ---------------------------------------------------------------------------
   // Live collab cursors (Phase 3 chunk 5a; additive; absent = sync-only mode)
@@ -264,16 +270,15 @@ export default function InlineMarkdownEditor({
   loroHandle,
   loroEntryIndex = 0,
   loroBaseNote,
-  loroTaskHandle,
   collabEphemeral,
   collabUser,
 }: InlineMarkdownEditorProps) {
   // loroActive is stable after mount: when a handle is provided, the editor is
   // in Loro mode for its entire lifetime. We compute it once from the prop
   // (truthy/falsy) rather than re-reading the ref, so React sees a stable bool.
-  // loroActive covers BOTH the note handle and the experiment-collab task
-  // handle (single-text surface). Either one puts the editor into Loro mode.
-  const loroActive = !!loroHandle || !!loroTaskHandle;
+  // The handle is either a note handle or an experiment-collab task surface
+  // handle, both behind the shared EditorLoroHandle shape.
+  const loroActive = !!loroHandle;
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<import("@codemirror/view").EditorView | null>(null);
   const modsRef = useRef<CMModules | null>(null);
@@ -299,7 +304,6 @@ export default function InlineMarkdownEditor({
   const loroHandleRef = useRef(loroHandle);
   const loroEntryIndexRef = useRef(loroEntryIndex);
   const loroBaseNoteRef = useRef(loroBaseNote);
-  const loroTaskHandleRef = useRef(loroTaskHandle);
   // Live collab cursor refs. The EphemeralStore instance is stable (created once
   // by useCollabSession and never re-created), so it is safe to hold in a ref
   // and read at makeState call time without the buildExtensions callback needing
@@ -327,7 +331,6 @@ export default function InlineMarkdownEditor({
   loroHandleRef.current = loroHandle;
   loroEntryIndexRef.current = loroEntryIndex;
   loroBaseNoteRef.current = loroBaseNote;
-  loroTaskHandleRef.current = loroTaskHandle;
   // Keep collab refs in sync. The EphemeralStore instance is stable across
   // renders (never re-created by useCollabSession), so this is just belt-and-
   // suspenders for the session-stop case where collabEphemeral goes undefined.
@@ -392,14 +395,11 @@ export default function InlineMarkdownEditor({
         onChangeRef.current?.(next);
         // Loro mode: debounced-commit. loroBaseNoteRef holds the latest Note
         // identity without appearing in the dep array (see ref comment above).
-        if (loroHandleRef.current && loroBaseNoteRef.current) {
-          void loroHandleRef.current.commit(loroBaseNoteRef.current);
-        }
-        // Experiment-collab chunk 1: the task handle's commit takes no base
-        // (single-text surface, no note-level stamping), so it does not depend
-        // on loroBaseNoteRef.
-        if (loroTaskHandleRef.current) {
-          void loroTaskHandleRef.current.commit();
+        // The note path always carries a base (its mirror projection needs it);
+        // a task surface has no base and its handle ignores the argument, so we
+        // commit whenever a handle is bound.
+        if (loroHandleRef.current) {
+          void loroHandleRef.current.commit(loroBaseNoteRef.current as Note);
         }
       });
       // Cmd/Ctrl+S -> explicit save. CM6 keymaps receive the EditorView; read
@@ -418,9 +418,6 @@ export default function InlineMarkdownEditor({
             if (loroHandleRef.current) {
               void loroHandleRef.current.flush();
             }
-            if (loroTaskHandleRef.current) {
-              void loroTaskHandleRef.current.flush();
-            }
             return true;
           },
         },
@@ -433,12 +430,12 @@ export default function InlineMarkdownEditor({
       // meaning a live collab session is active. Flag-off or no-session means the
       // ephemeral refs are undefined and bindEditorExtension falls back to sync-only.
       // Both handle shapes expose bindEditorExtension(activeIndex, ephemeral,
-      // user). The task handle ignores the index (single text); we pass 0.
-      const activeLoroHandle = loroHandleRef.current ?? loroTaskHandleRef.current;
+      // user). A task surface ignores the index (single text); the popup passes
+      // 0 for it.
       const loroExtension =
-        activeLoroHandle
-          ? [activeLoroHandle.bindEditorExtension(
-              loroHandleRef.current ? loroEntryIndexRef.current : 0,
+        loroHandleRef.current
+          ? [loroHandleRef.current.bindEditorExtension(
+              loroEntryIndexRef.current,
               collabEphemeralRef.current,
               collabUserRef.current,
             )]
@@ -518,17 +515,16 @@ export default function InlineMarkdownEditor({
       // Reconcile the entry set first (defensive: the note may have gained an
       // entry between openNote and this mount) so the bound index exists.
       // In normal mode, seed from the controlled `value` prop as before.
-      if (loroHandleRef.current && loroBaseNoteRef.current) {
-        loroHandleRef.current.ensureEntries(loroBaseNoteRef.current);
+      if (loroActive && loroBaseNoteRef.current) {
+        loroHandleRef.current!.ensureEntries?.(loroBaseNoteRef.current);
       }
       // Seed from the active Loro text so LoroSyncPlugin sees no first-sync
       // divergence. Note handle -> entry projection; task handle -> the single
-      // "content" text. Falls back to the controlled `value` in non-Loro mode.
-      const seedDoc = loroTaskHandleRef.current
-        ? getTaskContentText(loroTaskHandleRef.current.doc)
-        : loroHandleRef.current
-          ? (getEntryContentText(loroHandleRef.current.doc, loroEntryIndexRef.current)?.toString() ?? "")
-          : value;
+      // "content" text (via editorSeedText). Falls back to the controlled
+      // `value` in non-Loro mode.
+      const seedDoc = loroActive
+        ? seedTextForHandle(loroHandleRef.current!, loroEntryIndexRef.current)
+        : value;
 
       const view = new mods.EditorView({
         state: makeState(mods, seedDoc, !disabled),
@@ -645,9 +641,9 @@ export default function InlineMarkdownEditor({
     // The target entry may be NEW (added via the legacy UI after this note's
     // doc was seeded), in which case it is not in the doc yet and binding to it
     // would crash. Reconcile the entry set first so the entry exists.
-    if (loroBaseNoteRef.current) handle.ensureEntries(loroBaseNoteRef.current);
+    if (loroBaseNoteRef.current) handle.ensureEntries?.(loroBaseNoteRef.current);
     // Seed from the new entry's Loro text.
-    const newSeed = getEntryContentText(handle.doc, loroEntryIndex)?.toString() ?? "";
+    const newSeed = seedTextForHandle(handle, loroEntryIndex);
     view.setState(makeState(mods, newSeed, !disabled));
     lastAcceptedRef.current = newSeed;
     // eslint-disable-next-line react-hooks/exhaustive-deps

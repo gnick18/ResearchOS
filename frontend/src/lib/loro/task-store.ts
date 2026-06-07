@@ -58,6 +58,13 @@ export interface TaskDocHandle {
   close(): Promise<void>;
   readonly commitPending: boolean;
   subscribeCommitPending(cb: (pending: boolean) => void): () => void;
+  /**
+   * Read the seed markdown for the editor. The index is accepted for
+   * shape-compatibility with the note editor (which seeds per entry) but
+   * ignored here, since a task surface is a single text. Lets the shared
+   * EditorLoroHandle seed a task surface from its "content" text.
+   */
+  editorSeedText(activeIndex: number): string;
 }
 
 class TaskDocHandleImpl implements TaskDocHandle {
@@ -109,6 +116,10 @@ class TaskDocHandleImpl implements TaskDocHandle {
       ];
     }
     return syncExtension;
+  }
+
+  editorSeedText(_activeIndex: number): string {
+    return getTaskContent(this.doc).toString();
   }
 
   async commit(): Promise<void> {
