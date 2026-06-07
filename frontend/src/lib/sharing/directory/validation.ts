@@ -275,6 +275,13 @@ export interface ProfileBody {
   orcid: string | null;
   pinnedWorks: string[];
   hiddenWorks: string[];
+  /**
+   * Whether the user wants an email nudge when invited to collaborate. A body
+   * that omits the field defaults to true, which matches the default-true
+   * encoding in buildProfilePayload, so an older client's signature still
+   * verifies.
+   */
+  notifyOnCollabInvite: boolean;
   signature: string;
   issuedAt: string;
 }
@@ -343,12 +350,22 @@ export function parseProfileBody(body: unknown): ProfileBody | null {
     return null;
   }
 
+  // notifyOnCollabInvite: optional boolean, default true. A non-boolean present
+  // value is rejected (a malformed body), but an absent value is the default so
+  // an older client that never sends it is accepted.
+  let notifyOnCollabInvite = true;
+  if (b.notifyOnCollabInvite !== undefined) {
+    if (typeof b.notifyOnCollabInvite !== "boolean") return null;
+    notifyOnCollabInvite = b.notifyOnCollabInvite;
+  }
+
   return {
     displayName,
     affiliation,
     orcid,
     pinnedWorks,
     hiddenWorks,
+    notifyOnCollabInvite,
     signature: b.signature as string,
     issuedAt: b.issuedAt as string,
   };

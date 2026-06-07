@@ -27,6 +27,8 @@ let relayIdentityLimiterSingleton: RatelimitClient | null = null;
 let signupLimiterSingleton: RatelimitClient | null = null;
 let inviteLimiterSingleton: RatelimitClient | null = null;
 let searchLimiterSingleton: RatelimitClient | null = null;
+let collabNotifySenderLimiterSingleton: RatelimitClient | null = null;
+let collabNotifyRecipientLimiterSingleton: RatelimitClient | null = null;
 
 /** The OTP TTL in seconds, the 15-minute expiry from the proposal. */
 export const OTP_TTL_SECONDS = 900;
@@ -170,6 +172,41 @@ export function getSearchLimiter(): RatelimitClient {
     prefix: "directory:search",
   });
   return searchLimiterSingleton;
+}
+
+/**
+ * Per-SENDER collab-invite-notify limiter, 20 nudge emails per day. Keyed by the
+ * sender's email hash so it follows the identity, not the network path. Caps how
+ * many collaboration-invite nudges one sender can trigger per day so the path
+ * cannot be turned into a bulk relay even though every send respects the
+ * recipient's opt-in preference.
+ */
+export function getCollabNotifySenderLimiter(): RatelimitClient {
+  if (collabNotifySenderLimiterSingleton) return collabNotifySenderLimiterSingleton;
+  collabNotifySenderLimiterSingleton = new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(20, "86400 s"),
+    prefix: "collab:notify:sender",
+  });
+  return collabNotifySenderLimiterSingleton;
+}
+
+/**
+ * Per-RECIPIENT collab-invite-notify limiter, 5 nudge emails per day. Keyed by
+ * the recipient's email hash so one address cannot be hammered with invite
+ * nudges even from many different senders. This is the anti-harassment cap that
+ * sits on top of the recipient's opt-in preference.
+ */
+export function getCollabNotifyRecipientLimiter(): RatelimitClient {
+  if (collabNotifyRecipientLimiterSingleton) {
+    return collabNotifyRecipientLimiterSingleton;
+  }
+  collabNotifyRecipientLimiterSingleton = new Ratelimit({
+    redis: getRedis(),
+    limiter: Ratelimit.slidingWindow(5, "86400 s"),
+    prefix: "collab:notify:recipient",
+  });
+  return collabNotifyRecipientLimiterSingleton;
 }
 
 /** The Redis key holding the pending OTP record for an email hash. */

@@ -118,6 +118,16 @@ export interface ProfilePayloadInput {
   orcid?: string | null;
   pinnedWorks?: string[];
   hiddenWorks?: string[];
+  /**
+   * Whether the user wants an email nudge when someone invites them to
+   * collaborate. Defaults to true (a collaboration invite is wanted; the user
+   * can opt out). Encoded into the signed bytes so the preference is bound to
+   * the user's key, not just a server-side flag. An OLDER client that omits the
+   * field signs over the default-true encoding, which the server reconstructs
+   * identically (it also defaults to true), so old and new signatures both
+   * validate. See buildProfilePayload.
+   */
+  notifyOnCollabInvite?: boolean;
   issuedAt: string;
 }
 
@@ -129,6 +139,13 @@ export interface ProfilePayloadInput {
  * are encoded as the literal string "null" so the encoding is always stable.
  */
 export function buildProfilePayload(input: ProfilePayloadInput): Uint8Array {
+  // The notify preference defaults to true when omitted, on BOTH the client
+  // signer and the server verifier, so a client that never sends the field
+  // still produces bytes the server can reconstruct and verify. The field is
+  // only part of a "profile" (upsert) payload: a "delete-profile" carries no
+  // profile fields, so its signed bytes are left exactly as they were before
+  // this field existed and old delete signatures keep validating.
+  const notify = input.notifyOnCollabInvite ?? true;
   const lines = [
     PROFILE_VERSION,
     `action=${input.action}`,
@@ -137,7 +154,41 @@ export function buildProfilePayload(input: ProfilePayloadInput): Uint8Array {
     `orcid=${input.orcid ?? "null"}`,
     `pinned=${(input.pinnedWorks ?? []).join(",")}`,
     `hidden=${(input.hiddenWorks ?? []).join(",")}`,
-    `issuedAt=${input.issuedAt}`,
+  ];
+  if (input.action === "profile") {
+    lines.push(`notifyOnCollabInvite=${notify ? "true" : "false"}`);
+  }
+  lines.push(`issuedAt=${input.issuedAt}`);
+  return utf8ToBytes(lines.join("\n"));
+}
+
+// ---------------------------------------------------------------------------
+// Collab-invite notify payload (external-collab email nudge)
+// ---------------------------------------------------------------------------
+
+/**
+ * The bytes the SENDER (owner) signs when triggering a collaboration-invite
+ * email nudge. The recipient's preference, looked up server-side, decides
+ * whether the email actually goes out, but the sender's signature ties the
+ * request to a real directory key (anti-spam) and binds it to this exact
+ * recipient, title, and timestamp.
+ *
+ * Format mirrors the brief exactly:
+ *   notify-invite\n${recipientEmail}\n${noteTitle}\n${issuedAt}
+ * The recipient email is canonicalized by the caller before signing so both ends
+ * derive the same bytes. Titles never contain a newline in practice; the fixed
+ * field count keeps the framing unambiguous.
+ */
+export function buildNotifyInvitePayload(input: {
+  recipientEmail: string;
+  noteTitle: string;
+  issuedAt: string;
+}): Uint8Array {
+  const lines = [
+    "notify-invite",
+    input.recipientEmail,
+    input.noteTitle,
+    input.issuedAt,
   ];
   return utf8ToBytes(lines.join("\n"));
 }
