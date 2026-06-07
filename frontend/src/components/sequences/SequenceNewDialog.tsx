@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SeqType } from "@/lib/types";
 import { sanitizeRawSequence } from "@/lib/sequences/import";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 function IconPlus({ className }: { className?: string }) {
   return (
@@ -55,18 +56,6 @@ export default function SequenceNewDialog({
     }
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onCancel();
-      }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [open, onCancel]);
-
   // Live preview of the cleaned length so the paste feels responsive + smart.
   const cleanedLength = useMemo(
     () => sanitizeRawSequence(raw, seqType).length,
@@ -88,9 +77,8 @@ export default function SequenceNewDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="sequence-new-dialog">
-      <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
-      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+    <LivingPopup open onClose={onCancel} label="New sequence" card={false} widthClassName="max-w-lg">
+      <div className="pointer-events-auto relative w-full overflow-hidden rounded-2xl bg-surface-raised shadow-2xl" data-testid="sequence-new-dialog">
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-500/15">
             <IconPlus className="h-5 w-5 text-sky-600 dark:text-sky-300" />
@@ -190,6 +178,6 @@ export default function SequenceNewDialog({
           </div>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }

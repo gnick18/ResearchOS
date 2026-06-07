@@ -30,7 +30,7 @@ import {
 } from "@/lib/sequences/mutagenesis";
 import { colorForType } from "@/lib/sequences/feature-colors";
 import ColorSwatchPicker from "./ColorSwatchPicker";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 /** What the dialog hands back when the user adds the primer to the template. */
 export interface PrimerAddPayload {
@@ -145,9 +145,6 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
   // first (full matches sort first).
   const [siteIdx, setSiteIdx] = useState(0);
   const seqRef = useRef<HTMLTextAreaElement>(null);
-
-  // Escape closes this dialog (app-wide convention). Only bound while open.
-  useEscapeToClose(() => request?.onCancel(), !!request);
 
   useEffect(() => {
     if (!request) return;
@@ -322,13 +319,12 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      data-testid="primer-dialog"
-      data-tour-popup-occluding="primer"
-    >
-      <div className="absolute inset-0 bg-black/40" onClick={request.onCancel} />
-      <div className="relative flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+    <LivingPopup open onClose={request.onCancel} label="Add primer" selfSize>
+      <div
+        className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl"
+        data-testid="primer-dialog"
+        data-tour-popup-occluding="primer"
+      >
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300">
             <IconPrimer className="h-4 w-4" />
@@ -605,7 +601,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
           </Tooltip>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }
 

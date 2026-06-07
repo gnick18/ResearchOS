@@ -9,6 +9,7 @@
 // caller owns persistNew. No emojis (inline SVG only), no em-dashes.
 
 import { useEffect, useState } from "react";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 /** A single destination option in the chooser. The Unfiled choice uses a null
  *  id; a project uses its collection id (stringified project id). */
@@ -67,10 +68,7 @@ export default function SequenceImportTargetDialog({
   useEffect(() => {
     if (!request) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        request.onCancel();
-      } else if (e.key === "Enter") {
+      if (e.key === "Enter") {
         e.preventDefault();
         request.onConfirm(value === UNFILED_VALUE ? null : value);
       }
@@ -92,16 +90,12 @@ export default function SequenceImportTargetDialog({
     request.onConfirm(value === UNFILED_VALUE ? null : value);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      data-testid="sequence-import-target-dialog"
-      data-tour-popup-occluding="sequence-import-target"
-    >
+    <LivingPopup open onClose={request.onCancel} label="Import into" card={false} widthClassName="max-w-md">
       <div
-        className="absolute inset-0 bg-black/40"
-        onClick={request.onCancel}
-      />
-      <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+        className="pointer-events-auto relative w-full overflow-hidden rounded-2xl bg-surface-raised shadow-2xl"
+        data-testid="sequence-import-target-dialog"
+        data-tour-popup-occluding="sequence-import-target"
+      >
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-500/15">
             <FolderInIcon className="h-5 w-5 text-sky-600 dark:text-sky-300" />
@@ -160,6 +154,6 @@ export default function SequenceImportTargetDialog({
           </button>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }

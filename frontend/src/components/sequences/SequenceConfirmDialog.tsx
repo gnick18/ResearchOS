@@ -13,6 +13,7 @@
 
 import { useEffect } from "react";
 import type { AffectedFeature } from "@/lib/sequences/clipboard";
+import LivingPopup from "@/components/ui/LivingPopup";
 
 export type ConfirmTone = "paste" | "delete";
 
@@ -54,10 +55,7 @@ export default function SequenceConfirmDialog({ request }: { request: SequenceCo
   useEffect(() => {
     if (!request) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        request.onCancel();
-      } else if (e.key === "Enter") {
+      if (e.key === "Enter") {
         e.preventDefault();
         request.onConfirm();
       }
@@ -74,13 +72,12 @@ export default function SequenceConfirmDialog({ request }: { request: SequenceCo
     : { bg: "bg-sky-100 dark:bg-sky-500/15", fg: "text-sky-600 dark:text-sky-300", btn: "bg-sky-600 hover:bg-sky-700" };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      data-testid="sequence-confirm-dialog"
-      data-tour-popup-occluding="sequence-confirm"
-    >
-      <div className="absolute inset-0 bg-black/40" onClick={request.onCancel} />
-      <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+    <LivingPopup open onClose={request.onCancel} label={request.title} card={false} widthClassName="max-w-md">
+      <div
+        className="pointer-events-auto relative w-full overflow-hidden rounded-2xl bg-surface-raised shadow-2xl"
+        data-testid="sequence-confirm-dialog"
+        data-tour-popup-occluding="sequence-confirm"
+      >
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${accent.bg}`}>
             {isDelete ? <IconTrash className={`h-5 w-5 ${accent.fg}`} /> : <IconPaste className={`h-5 w-5 ${accent.fg}`} />}
@@ -133,6 +130,6 @@ export default function SequenceConfirmDialog({ request }: { request: SequenceCo
           </button>
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }

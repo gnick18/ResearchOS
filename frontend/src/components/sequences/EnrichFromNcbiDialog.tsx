@@ -14,12 +14,12 @@
 // PRIVACY. Only the public accession or organism the user resolves is sent to
 // NCBI's public API. Nothing of the user's own data leaves.
 //
-// Inline SVG icons (no emoji), <Tooltip> for icon-only controls, useEscapeToClose,
-// site typography tokens. No em-dash, no mid-sentence colon.
+// Inline SVG icons (no emoji), <Tooltip> for icon-only controls, LivingPopup
+// shell, site typography tokens. No em-dash, no mid-sentence colon.
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import Tooltip from "@/components/Tooltip";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import LivingPopup from "@/components/ui/LivingPopup";
 import {
   resolveTaxonomy,
   previewByAccession,
@@ -154,8 +154,6 @@ export default function EnrichFromNcbiDialog({
     onClose();
   }, [onClose]);
 
-  useEscapeToClose(handleClose, open);
-
   // Resolve a tax id / organism for a given query. An accession resolves through
   // the dataset report (which carries the organism + tax id), then we look up the
   // named lineage by tax id; an organism name resolves the taxonomy directly.
@@ -249,15 +247,20 @@ export default function EnrichFromNcbiDialog({
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      data-testid="enrich-from-ncbi-dialog"
+    <LivingPopup
+      open
+      onClose={() => {
+        if (!busy) handleClose();
+      }}
+      closeOnScrimClick={!busy}
+      label="Enrich from NCBI"
+      selfSize
+      showClose={false}
     >
       <div
-        className="absolute inset-0 bg-black/40"
-        onClick={busy ? undefined : handleClose}
-      />
-      <div className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+        className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl"
+        data-testid="enrich-from-ncbi-dialog"
+      >
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-500/15">
             <TreeIcon className="h-5 w-5 text-sky-600 dark:text-sky-300" />
@@ -459,6 +462,6 @@ export default function EnrichFromNcbiDialog({
           )}
         </div>
       </div>
-    </div>
+    </LivingPopup>
   );
 }
