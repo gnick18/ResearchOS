@@ -183,6 +183,11 @@
   .plan b { font-size: 15px; font-weight: 700; }
   .plan .plan-line { font-size: 12px; color: var(--foreground); }
   .plan small { margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--foreground-muted); }
+  /* a la carte comparison anchor (not separately purchasable) */
+  .anchor { display: flex; flex-direction: column; gap: 3px; border-radius: 10px; padding: 10px 14px;
+    background: rgba(16,185,129,.07); box-shadow: inset 0 0 0 1px var(--emerald-ring); }
+  .anchor-strike { font-size: 12px; color: var(--foreground-muted); text-decoration: line-through; }
+  .anchor-win { font-size: 13px; font-weight: 650; color: var(--emerald-text); }
 </style>
 </head>
 <body>
@@ -200,9 +205,6 @@
     <button class="seg active" data-activity="normal">Normal</button>
     <button class="seg" data-activity="near">Near allowance</button>
     <button class="seg" data-activity="throttled">Throttled</button>
-    <span class="label" style="margin-left:14px">Pricing model</span>
-    <button class="seg active" data-pricing="bundled">Bundled plan (1 control)</button>
-    <button class="seg" data-pricing="alacarte">A la carte (2 meters)</button>
   </div>
 
   <div class="scrim">
@@ -329,9 +331,13 @@ const sponsorCard = () => `
        <button class="plan"><b>Lab Pro</b><span class="plan-line">50 GB pooled</span><span class="plan-line">Very heavy</span><small>up to $45/mo</small></button>
      </div>
    </div>
+   <div class="anchor mt16">
+     <span class="anchor-strike">Separately: 10 GB pooled storage + heavy lab activity = ~$25/mo</span>
+     <span class="anchor-win">Lab Plus: 10% more of both for $15/mo. Bundling saves the lab money.</span>
+   </div>
    <div class="invoice mt16">
      <p class="uppermini">Your monthly invoice, one bill, one line</p>
-     <div class="inv-row total"><span>Lab Plus plan, storage + activity pooled</span><b>$11.62 / mo</b></div>
+     <div class="inv-row total"><span>Lab Plus plan, storage + activity pooled</span><b>$15.00 / mo</b></div>
    </div>` : `
    <div class="mt16">
      <p class="uppermini">Lab activity tier</p>
@@ -427,6 +433,10 @@ function planCard(plans, title, desc){
   return `<div class="card"><h3>${title}</h3>
     <p class="desc">${desc}</p>
     <div class="body"><div class="plans">${pills}</div>
+    <div class="anchor mt16">
+      <span class="anchor-strike">Separately: 25 GB storage $7 + heavy activity $7 = $14/mo</span>
+      <span class="anchor-win">Plus plan: 10% more of both for $7/mo. You save by bundling.</span>
+    </div>
     <p class="micro mt12">One choice, one monthly invoice line. You only pay for the storage you actually use up to the plan's cap; activity headroom is included.</p>
     </div></div>`;
 }
