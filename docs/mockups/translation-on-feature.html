@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Translation on the feature - color options</title>
+<style>
+  :root{ --line:#e2e8f0; --ink:#0f172a; --muted:#64748b; --slate:#475569; --sky:#0284c7; }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:#f1f5f9;padding:24px}
+  .wrap{max-width:1040px;margin:0 auto}
+  h1{font-size:20px;margin:0 0 4px}
+  .lede{color:var(--muted);margin:0 0 6px;max-width:760px}
+  .now{background:#fff1f2;border:1px solid #fecdd3;border-radius:8px;padding:10px 14px;color:#9f1239;font-size:12.5px;margin:8px 0 18px;max-width:760px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+  .card h2{font-size:15px;margin:0 0 2px}
+  .card .sub{color:var(--muted);font-size:12.5px;margin:0 0 14px}
+  .pick{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--sky);margin-left:8px}
+
+  /* one translated feature unit: AA row sitting directly on its feature bar */
+  .scene{display:flex;flex-direction:column;gap:14px;background:#fafbfc;border:1px solid var(--line);border-radius:8px;padding:14px 14px 16px}
+  .ruler{display:flex;gap:1px;color:#94a3b8;font:10px ui-monospace,Menlo,monospace;margin-left:0}
+  .ruler span{width:27px;text-align:center}
+  .tfeat{display:flex;flex-direction:column;gap:0}
+  .aarow{display:flex;gap:1px}
+  .aa{width:27px;height:20px;display:flex;align-items:center;justify-content:center;font:13px ui-monospace,Menlo,monospace;font-weight:700;border-radius:3px 3px 0 0;border:1px solid rgba(0,0,0,.06);border-bottom:0}
+  .fbar{height:17px;border-radius:0 0 5px 5px;display:flex;align-items:center;padding-left:9px;color:#fff;font-size:11px;font-weight:700;letter-spacing:.02em;text-shadow:0 1px 1px rgba(0,0,0,.25)}
+  .legend{color:var(--muted);font-size:11.5px;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Translation on the feature</h1>
+  <p class="lede">The amino acids sit directly on their own feature (SnapGene-style), one unit per protein, so two overlapping CDSs (purple "test feature" and green "gene of interest") read as distinct. Each option below differs only in how the feature color tints the amino acids. A stop codon is shown in each so you can see how it is flagged.</p>
+  <p class="now"><b>Today (the bug):</b> all translations render as one detached band above every feature, colored by amino-acid-type rainbow, with the feature bar floating separately below. That is the duplicate "extra feature" you saw.</p>
+
+  <!-- OPTION A -->
+  <div class="card">
+    <h2>A. Feature-tinted band, dark letters<span class="pick">recommended</span></h2>
+    <p class="sub">Soft tint of the feature color behind readable dark letters. Stop codon flagged red.</p>
+    <div class="scene">
+      <div class="ruler"><span>1</span><span></span><span></span><span></span><span>5</span><span></span><span></span><span></span><span></span><span>10</span></div>
+      <div class="tfeat">
+        <div class="aarow" id="a-purple"></div>
+        <div class="fbar" style="background:#7c3aed;width:270px">test feature</div>
+      </div>
+      <div class="tfeat" style="margin-left:108px">
+        <div class="aarow" id="a-green"></div>
+        <div class="fbar" style="background:#16a34a;width:189px">gene of interest</div>
+      </div>
+      <div class="legend">Two proteins, each AA band tinted by its own feature color, easy to tell apart.</div>
+    </div>
+  </div>
+
+  <!-- OPTION B -->
+  <div class="card">
+    <h2>B. Solid feature color, white letters</h2>
+    <p class="sub">Each amino-acid box filled solid with the feature color, light letters. Boldest coding, can read heavy.</p>
+    <div class="scene">
+      <div class="ruler"><span>1</span><span></span><span></span><span></span><span>5</span><span></span><span></span><span></span><span></span><span>10</span></div>
+      <div class="tfeat">
+        <div class="aarow" id="b-purple"></div>
+        <div class="fbar" style="background:#7c3aed;width:270px">test feature</div>
+      </div>
+      <div class="tfeat" style="margin-left:108px">
+        <div class="aarow" id="b-green"></div>
+        <div class="fbar" style="background:#16a34a;width:189px">gene of interest</div>
+      </div>
+      <div class="legend">Strongest color tie, but light feature colors can wash out the letters.</div>
+    </div>
+  </div>
+
+  <!-- OPTION C -->
+  <div class="card">
+    <h2>C. Per-residue rainbow, just moved onto the feature</h2>
+    <p class="sub">Keep the existing amino-acid coloring, only fix the placement so the AA sit on their feature.</p>
+    <div class="scene">
+      <div class="ruler"><span>1</span><span></span><span></span><span></span><span>5</span><span></span><span></span><span></span><span></span><span>10</span></div>
+      <div class="tfeat">
+        <div class="aarow" id="c-purple"></div>
+        <div class="fbar" style="background:#7c3aed;width:270px">test feature</div>
+      </div>
+      <div class="tfeat" style="margin-left:108px">
+        <div class="aarow" id="c-green"></div>
+        <div class="fbar" style="background:#16a34a;width:189px">gene of interest</div>
+      </div>
+      <div class="legend">Residue identity stays color-coded, but the AA no longer signal which feature they belong to (the issue when two proteins overlap).</div>
+    </div>
+  </div>
+
+  <p class="lede">Reply with A, B, or C (and any tweak). Then I wire it into the SeqViz renderer, feature-coupled placement plus the chosen coloring.</p>
+</div>
+
+<script>
+  // per-residue rainbow palette (approximating the editor's amino-acid colors)
+  var AAC = {M:"#fca5a5",V:"#fdba74",S:"#fde047",K:"#bef264",G:"#86efac",E:"#6ee7b7",L:"#67e8f9",F:"#93c5fd",D:"#c4b5fd",R:"#f0abfc",I:"#f9a8d4","*":"#ef4444"};
+  function hexA(hex,a){ var n=parseInt(hex.slice(1),16); return "rgba("+(n>>16&255)+","+(n>>8&255)+","+(n&255)+","+a+")"; }
+  function fill(rowId, seq, mode, feat){
+    var row=document.getElementById(rowId); if(!row) return;
+    seq.split("").forEach(function(c){
+      var d=document.createElement("div"); d.className="aa"; d.textContent=c;
+      var stop=c==="*";
+      if(mode==="A"){ d.style.background=stop?"#fee2e2":hexA(feat,.22); d.style.color=stop?"#b91c1c":"#1f2937"; }
+      else if(mode==="B"){ d.style.background=stop?"#b91c1c":feat; d.style.color="#fff"; d.style.textShadow="0 1px 1px rgba(0,0,0,.25)"; }
+      else { d.style.background=AAC[c]||"#e2e8f0"; d.style.color=stop?"#fff":"#1f2937"; }
+      row.appendChild(d);
+    });
+  }
+  var P="MVSKGEEL*F", G="DRKIE*L";
+  fill("a-purple",P,"A","#7c3aed"); fill("a-green",G,"A","#16a34a");
+  fill("b-purple",P,"B","#7c3aed"); fill("b-green",G,"B","#16a34a");
+  fill("c-purple",P,"C","#7c3aed"); fill("c-green",G,"C","#16a34a");
+</script>
+</body>
+</html>
