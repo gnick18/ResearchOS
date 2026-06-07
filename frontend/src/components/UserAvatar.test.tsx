@@ -26,9 +26,11 @@ vi.mock("@/lib/file-system/user-metadata", () => ({
       created_at: "2026-01-01T00:00:00.000Z",
     },
   })),
-  // RAINBOW_COLOR must be present in the mock so UserAvatar.tsx can import
-  // it — the component uses it to branch on the "rainbow" sentinel.
+  // The rainbow sentinels must be present in the mock so colors.ts (imported by
+  // UserAvatar via rainbowTheme) can resolve both rainbow options.
   RAINBOW_COLOR: "rainbow",
+  RAINBOW_VIVID_COLOR: "rainbow-vivid",
+  RAINBOW_SENTINELS: new Set(["rainbow", "rainbow-vivid"]),
 }));
 
 function renderWithQueryClient(ui: React.ReactElement) {

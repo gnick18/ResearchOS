@@ -289,8 +289,8 @@ function SortHeader({
       type="button"
       onClick={() => onSort(col)}
       className={`flex items-center gap-1 text-left text-meta font-medium uppercase tracking-wide ${
-        active ? "text-gray-700" : "text-gray-400"
-      } hover:text-gray-700 ${className ?? ""}`}
+        active ? "text-foreground" : "text-foreground-muted"
+      } hover:text-foreground ${className ?? ""}`}
     >
       {label}
       <span className="text-meta">{active ? (sortDir === "asc" ? "▲" : "▼") : ""}</span>
@@ -2131,18 +2131,18 @@ export default function SequencesPage() {
             role="dialog"
             aria-modal="true"
             aria-label="Paste taxonomy"
-            className="relative w-full max-w-md rounded-lg border border-gray-200 bg-white p-5 shadow-xl"
+            className="relative w-full max-w-md rounded-lg border border-border bg-surface-raised p-5 shadow-xl"
           >
-            <h2 className="text-title font-semibold text-gray-800">
+            <h2 className="text-title font-semibold text-foreground">
               Paste taxonomy
             </h2>
-            <p className="mt-2 text-body text-gray-600">
+            <p className="mt-2 text-body text-foreground-muted">
               Paste the taxonomy of{" "}
-              <span className="font-medium text-gray-900">
+              <span className="font-medium text-foreground">
                 {pasteConfirm.fromName}
               </span>{" "}
               onto{" "}
-              <span className="font-medium text-gray-900">
+              <span className="font-medium text-foreground">
                 {pasteConfirm.seq.display_name}
               </span>
               ?
@@ -2151,7 +2151,7 @@ export default function SequencesPage() {
               <button
                 type="button"
                 onClick={() => setPasteConfirm(null)}
-                className="rounded-md border border-gray-200 px-3 py-1.5 text-body font-medium text-gray-600 hover:bg-gray-50"
+                className="rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground-muted hover:bg-surface-sunken"
               >
                 Cancel
               </button>
