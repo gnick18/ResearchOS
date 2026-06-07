@@ -151,6 +151,32 @@ function DisplayChip({
   icon?: React.ReactNode;
   swatch?: string;
 }) {
+  // sequence editor master (redesign, two-zone chrome). A disabled chip stays in
+  // place (greyed, non-interactive) rather than vanishing, so the bottom zone
+  // never reflows between modes. We drop the Tooltip wrapper while disabled so a
+  // dead control offers no hover affordance.
+  if (disabled) {
+    return (
+      <button
+        type="button"
+        role="switch"
+        aria-checked={active}
+        aria-label={label}
+        disabled
+        className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-meta font-semibold text-foreground opacity-40"
+      >
+        {swatch ? (
+          <span
+            className="h-2.5 w-2.5 shrink-0 rounded-sm ring-1 ring-black/10"
+            style={{ backgroundColor: swatch }}
+            aria-hidden="true"
+          />
+        ) : null}
+        {icon ? <span className="shrink-0" aria-hidden="true">{icon}</span> : null}
+        <span>{label}</span>
+      </button>
+    );
+  }
   return (
     <Tooltip label={tooltip}>
       <button
@@ -188,6 +214,11 @@ export interface SequenceDisplayStripProps {
   /** The distinct feature types present (lowercase keys), for the per-type
    *  show/hide flyout off the Features chip. Empty hides the caret. */
   featureTypes: string[];
+  /** sequence editor master (redesign, two-zone chrome). When true the WHOLE
+   *  strip disables in place (greyed, non-interactive) instead of disappearing,
+   *  so the pinned bottom zone keeps a constant height on the Features / Primers
+   *  / History tabs where the "what is drawn" toggles have no canvas to act on. */
+  disabled?: boolean;
 }
 
 /** The per-type show/hide FLYOUT, anchored off the Features chip. A labeled
@@ -280,6 +311,7 @@ export default function SequenceDisplayStrip({
   onViewChange,
   circular,
   featureTypes,
+  disabled = false,
 }: SequenceDisplayStripProps) {
   const set = (patch: Partial<SequenceViewState>) => onViewChange({ ...view, ...patch });
   const [typesOpen, setTypesOpen] = useState(false);
@@ -301,12 +333,26 @@ export default function SequenceDisplayStrip({
       className="flex flex-wrap items-center gap-2 border-t border-border bg-surface-sunken px-3.5 py-1.5"
       role="group"
       aria-label="Display"
+      aria-disabled={disabled || undefined}
     >
       <span className="text-meta font-bold uppercase tracking-wide text-foreground-muted">Show</span>
 
       {/* FEATURES chip + per-type show/hide flyout. The chip flips the whole
           annotation layer; the caret opens the labeled "Feature types" flyout.
-          An amber dot marks a non-default (some-types-hidden) state. */}
+          An amber dot marks a non-default (some-types-hidden) state. When the
+          whole strip is disabled (a non-canvas tab) the compound chip collapses
+          to one greyed, non-interactive chip (no caret / flyout) so it still
+          occupies the same slot without offering a dead control. */}
+      {disabled ? (
+        <DisplayChip
+          label="Features"
+          tooltip="Features"
+          active={view.showFeatures}
+          onClick={() => {}}
+          disabled
+          swatch={colorForType("misc_feature")}
+        />
+      ) : (
       <div className="relative inline-flex items-center">
         <Tooltip label="Show or hide feature annotations">
           <button
@@ -363,12 +409,14 @@ export default function SequenceDisplayStrip({
           />
         ) : null}
       </div>
+      )}
 
       <DisplayChip
         label="Primers"
         tooltip="Show or hide primer-binding annotations"
         active={view.showPrimers}
         onClick={() => set({ showPrimers: !view.showPrimers })}
+        disabled={disabled}
         swatch="#0284c7"
       />
       <DisplayChip
@@ -376,6 +424,7 @@ export default function SequenceDisplayStrip({
         tooltip="Show or hide restriction-enzyme cut sites"
         active={view.showEnzymes}
         onClick={() => set({ showEnzymes: !view.showEnzymes })}
+        disabled={disabled}
         icon={<IconEnzymes className="h-3.5 w-3.5" />}
       />
       <DisplayChip
@@ -383,6 +432,7 @@ export default function SequenceDisplayStrip({
         tooltip="Show or hide the amino-acid translation of CDS features"
         active={view.showTranslation}
         onClick={() => set({ showTranslation: !view.showTranslation })}
+        disabled={disabled}
         icon={<IconTranslation className="h-3.5 w-3.5" />}
       />
       <DisplayChip
@@ -390,6 +440,7 @@ export default function SequenceDisplayStrip({
         tooltip="Open reading frames. Highlight ATG-to-stop runs (over 30 aa, both strands) that could be genes in unannotated DNA."
         active={view.showOrfs}
         onClick={() => set({ showOrfs: !view.showOrfs })}
+        disabled={disabled}
         icon={<IconOrfs className="h-3.5 w-3.5" />}
       />
       <DisplayChip
@@ -397,11 +448,15 @@ export default function SequenceDisplayStrip({
         tooltip="Show or hide the ruler / index row"
         active={view.showIndex}
         onClick={() => set({ showIndex: !view.showIndex })}
+        disabled={disabled}
         icon={<IconRuler className="h-3.5 w-3.5" />}
       />
 
       <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
 
+      {/* Topology chip relabels IN PLACE (Circular for a plasmid, Linear for a
+          linear molecule); it disables when the molecule is genuinely linear OR
+          when the whole strip is disabled, but never leaves its slot. */}
       <DisplayChip
         label={topologyCircular ? "Circular" : "Linear"}
         tooltip={
@@ -412,7 +467,7 @@ export default function SequenceDisplayStrip({
               : "Show as linear"
         }
         active={topologyCircular}
-        disabled={!circular}
+        disabled={disabled || !circular}
         onClick={() => set({ forceLinear: !view.forceLinear })}
         icon={topologyCircular ? <IconCircular className="h-3.5 w-3.5" /> : <IconLinear className="h-3.5 w-3.5" />}
       />
@@ -420,7 +475,7 @@ export default function SequenceDisplayStrip({
         label={view.wrapSequence ? "Wrapped" : "Single line"}
         tooltip={view.wrapSequence ? "Switch to a single continuous line" : "Switch to wrapped rows"}
         active={!view.wrapSequence}
-        disabled={!linearShown}
+        disabled={disabled || !linearShown}
         onClick={() => set({ wrapSequence: !view.wrapSequence })}
         icon={view.wrapSequence ? <IconWrapped className="h-3.5 w-3.5" /> : <IconSingleLine className="h-3.5 w-3.5" />}
       />

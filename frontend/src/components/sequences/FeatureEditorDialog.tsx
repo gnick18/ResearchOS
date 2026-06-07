@@ -60,6 +60,9 @@ export interface FeatureEditorRequest {
   initial: FeatureDraft;
   /** Whether deleting is offered (edit mode only). */
   onDelete?: () => void;
+  /** sequence editor master (redesign). Duplicate this feature (edit mode only).
+   *  Makes an independent copy on the molecule and closes the dialog. */
+  onDuplicate?: () => void;
   /** Required in add/edit mode; omitted in view mode. */
   onSubmit?: (draft: FeatureDraft) => void;
   onCancel: () => void;
@@ -519,7 +522,19 @@ export default function FeatureEditorDialog({
         </div>
 
         <div className="flex items-center justify-between gap-2 border-t border-gray-100 bg-gray-50 px-4 py-3">
-          <div>
+          <div className="flex items-center gap-1">
+            {/* sequence editor master (redesign). Duplicate the feature. Edit mode
+                only (a copy of an existing feature has no meaning while adding or
+                in the read-only view). Mirrors the right-click "Duplicate". */}
+            {!isAdd && !readOnly && request.onDuplicate ? (
+              <button
+                type="button"
+                onClick={request.onDuplicate}
+                className="rounded-lg px-3 py-2 text-body font-medium text-gray-600 transition-colors hover:bg-gray-200"
+              >
+                Duplicate
+              </button>
+            ) : null}
             {!readOnly && request.onDelete ? (
               <button
                 type="button"

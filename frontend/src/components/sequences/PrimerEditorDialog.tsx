@@ -71,6 +71,9 @@ export interface PrimerEditorRequest {
   readOnly?: boolean;
   onSubmit: (payload: PrimerEditorSavePayload) => void;
   onDelete?: () => void;
+  /** sequence editor master (redesign). Duplicate this primer (edit mode only).
+   *  Makes an independent copy on the molecule and closes the dialog. */
+  onDuplicate?: () => void;
   onCancel: () => void;
 }
 
@@ -104,6 +107,15 @@ function IconTrash({ className }: { className?: string }) {
       <polyline points="3 6 5 6 21 6" />
       <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
       <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+    </svg>
+  );
+}
+// sequence editor master (redesign). Duplicate glyph: two stacked sheets.
+function IconDuplicate({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15V5a2 2 0 0 1 2-2h8" />
     </svg>
   );
 }
@@ -535,7 +547,21 @@ export default function PrimerEditorDialog({ request }: { request: PrimerEditorR
         </div>
 
         <div className="flex items-center justify-between gap-2 border-t border-gray-100 bg-gray-50 px-4 py-3">
-          <div>
+          <div className="flex items-center gap-1">
+            {/* sequence editor master (redesign). Duplicate the primer. Edit mode
+                only; mirrors the right-click "Duplicate". */}
+            {!readOnly && request.onDuplicate ? (
+              <Tooltip label="Duplicate this primer">
+                <button
+                  type="button"
+                  onClick={request.onDuplicate}
+                  className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-body font-medium text-gray-600 transition-colors hover:bg-gray-200"
+                >
+                  <IconDuplicate className="h-4 w-4" />
+                  Duplicate
+                </button>
+              </Tooltip>
+            ) : null}
             {!readOnly && request.onDelete ? (
               <Tooltip label="Delete this primer">
                 <button

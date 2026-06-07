@@ -189,10 +189,7 @@ import { useContextMenu } from "@/components/context-menu/ContextMenuProvider";
 import { SequenceFindBox, type FindResult } from "./SequenceFindBox";
 import type { FindMatch } from "@/lib/sequences/find";
 import { seqIdentity } from "@/lib/sequences/find";
-import {
-  ExportMenuDropdown,
-  type ExportMenuItem,
-} from "./SequenceExportMenu";
+import { type ExportMenuItem } from "./SequenceExportMenu";
 import {
   SequenceOperationsRail,
   ActionList,
@@ -304,45 +301,6 @@ function IconPasteTool({ className }: { className?: string }) {
 // feature/primer menus bot — toolbar glyphs for the Feature and Primer
 // dropdowns. A tag for features, a forward-arrow oligo for primers. Inline SVG
 // only (no emojis), matching the rest of the toolbar icon set.
-function IconFeatureTag({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
-      <line x1="7" y1="7" x2="7.01" y2="7" />
-    </svg>
-  );
-}
-// primer colors bot — a clearer SnapGene-style OLIGO glyph: a short oligo/ruler
-// bar with a forward arrow riding ABOVE it (5'->3') and a shorter reverse arrow
-// tucked BELOW, so the icon reads as "a primer / oligo pair", not two abstract
-// arrows. Stroke-only, currentColor, no fill.
-function IconPrimer({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      {/* the oligo / template bar */}
-      <line x1="3" y1="12" x2="21" y2="12" />
-      {/* forward primer arrow, above the bar, 3' end pointing right */}
-      <path d="M5 8h11" />
-      <polyline points="14 5.5 17 8 14 10.5" />
-      {/* reverse primer arrow, below the bar, 3' end pointing left */}
-      <path d="M19 16H10" />
-      <polyline points="12 13.5 9 16 12 18.5" />
-    </svg>
-  );
-}
-// top menus consolidation bot — scissors glyph for the new "Enzyme" toolbar
-// dropdown. Mirrors the IconEnzymes cut-site icon in SequenceDisplayStrip.
-function IconScissors({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <circle cx="6" cy="6" r="3" />
-      <circle cx="6" cy="18" r="3" />
-      <path d="M20 4 8.12 15.88" />
-      <path d="M14.47 14.48 20 20" />
-      <path d="M8.12 8.12 12 12" />
-    </svg>
-  );
-}
 // sequence editor master. The OPERATIONS RAIL icon set (redesign phase 1).
 // Inline SVG, stroke-only, matching the editor's existing toolbar glyphs and
 // the v2 mockup. No emoji, no icon library.
@@ -2081,6 +2039,14 @@ export default function SequenceEditView({
     [editor],
   );
 
+  // sequence editor master (redesign). Duplicate the feature (or primer) at
+  // `index` through the undoable edit path. Declared BEFORE openEditFeature /
+  // openEditPrimer because they now reference it (the popup Duplicate action).
+  const duplicateFeatureAt = useCallback(
+    (index: number) => editor.applyDocEdit((prev) => duplicateFeature(prev, index)),
+    [editor],
+  );
+
   // EDIT: open the editor seeded from an existing feature, with a Delete action.
   const openEditFeature = useCallback(
     (index: number) => {
@@ -2111,10 +2077,16 @@ export default function SequenceEditView({
           setFeatureEditor(null);
           setSelectedFeatureIdx(null);
         },
+        // sequence editor master (redesign). Duplicate the feature, then close
+        // the popup. duplicateFeatureAt handles both features and primers.
+        onDuplicate: () => {
+          duplicateFeatureAt(index);
+          setFeatureEditor(null);
+        },
         onCancel: () => setFeatureEditor(null),
       });
     },
-    [doc.features, doc.seq.length, editor],
+    [doc.features, doc.seq.length, editor, duplicateFeatureAt],
   );
 
   // VIEW (read-only): open the feature info popup seeded from an existing
@@ -2209,10 +2181,18 @@ export default function SequenceEditView({
               setPrimerEditor(null);
               setSelectedFeatureIdx(null);
             },
+        // sequence editor master (redesign). Duplicate the primer, then close the
+        // popup. Edit mode only (omitted in the read-only variant).
+        onDuplicate: readOnly
+          ? undefined
+          : () => {
+              duplicateFeatureAt(index);
+              setPrimerEditor(null);
+            },
         onCancel: () => setPrimerEditor(null),
       });
     },
-    [doc.features, doc.seq, editor, readOnly],
+    [doc.features, doc.seq, editor, readOnly, duplicateFeatureAt],
   );
 
   // sequence editor master — open the right-docked PROTEIN-PROPERTIES DRAWER for a
@@ -2489,11 +2469,6 @@ export default function SequenceEditView({
     if (!circularPrimerHover) return null;
     return buildPrimerCard(circularPrimerHover.primer, doc.seq);
   }, [circularPrimerHover, doc.seq]);
-
-  const duplicateFeatureAt = useCallback(
-    (index: number) => editor.applyDocEdit((prev) => duplicateFeature(prev, index)),
-    [editor],
-  );
 
   const deleteFeatureAt = useCallback(
     (index: number) => {
@@ -4343,47 +4318,17 @@ export default function SequenceEditView({
             </ToolbarButton>
           </>
         ) : null}
-        {/* seq editops bot — the visible "Edit" dropdown (third home for the
-            ops; right-click menu + keyboard shortcuts are the other two). */}
-        <EditMenuDropdown items={editMenuItems} />
-        {/* feature/primer menus bot — two discoverable dropdowns next to Edit.
-            Add is always live; Edit / Duplicate / Remove grey out until a
-            feature (or primer) is selected. Mutation-only, so edit mode only. */}
-        {!readOnly ? (
-          <>
-            <EditMenuDropdown
-              items={featureMenuItems}
-              label="Feature"
-              testId="sequence-feature-button"
-              icon={<IconFeatureTag className="h-4 w-4" />}
-            />
-            <EditMenuDropdown
-              items={primerMenuItems}
-              label="Primer"
-              testId="sequence-primer-button"
-              icon={<IconPrimer className="h-4 w-4" />}
-            />
-            {/* sequence editor master. The old junk-drawer "Analyze" dropdown
-                is RETIRED (redesign phase 1). Its tools (Detect features,
-                Annotate from reference, Align, Protein properties, Enrich from
-                NCBI, Explore the tree of life, Look up an organism) now live on
-                the persistent operations rail on the right edge. */}
-          </>
-        ) : null}
-        {/* top menus consolidation bot — the Enzyme dropdown. Display only (cut
-            sites layer + enzyme picker), so it renders in read-only too. Sits
-            after Feature / Primer for the consistent top trio. */}
-        {showViewer ? (
-          <EditMenuDropdown
-            items={enzymeMenuItems}
-            label="Enzyme"
-            testId="sequence-enzyme-button"
-            icon={<IconScissors className="h-4 w-4" />}
-          />
-        ) : null}
-        {/* seq export bot — the Export dropdown (download .gb / .fasta /
-            selected DNA + protein / map image). Available in read-only too. */}
-        <ExportMenuDropdown items={exportMenuItems} />
+        {/* sequence editor master (redesign, two-zone chrome). The top action
+            bar is now ONLY document editing (Undo / Redo / Copy / Cut / Paste /
+            Save). The Edit, Feature, Primer, Enzyme, and Export dropdowns were
+            REMOVED from this bar because they shadowed the right operations rail
+            and the right-click menus, two homes for the same actions. The
+            underlying item builders (editMenuItems / featureMenuItems /
+            primerMenuItems / enzymeMenuItems / exportMenuItems) are KEPT: they
+            still feed the right-click context menus and the Export rail op.
+            Feature / primer object edits live on right-click + the double-click
+            popups; enzymes are the "Enzyme sites" show chip + the Cut rail
+            panel; Export is the Export rail op. */}
         {!readOnly ? (
           <>
             <div className="mx-1 h-5 w-px bg-gray-200" />
@@ -4403,33 +4348,13 @@ export default function SequenceEditView({
       </div>
       ) : null}
 
-      {/* sequence editor master (redesign phase 2). The CANVAS HEAD. The primary
-          view tabs sit at the TOP of the canvas, and the horizontal display
-          ("Show") strip sits directly beneath them. The strip relocates every
-          "what is drawn" toggle off the retired vertical view-control rail; it is
-          shown only for the Map + Sequence viewer tabs (same gate the rail used),
-          so its chips are never dead on the Features / Primers / History panels.
-          On those panels the head is just the tab row. */}
-      <div className="shrink-0">
-        <SequenceTabBar
-          active={viewMode}
-          onChange={setViewMode}
-          featureCount={doc.features.length}
-          primerCount={primerCount}
-          position="top"
-        />
-        {showViewer ? (
-          <SequenceDisplayStrip
-            view={view}
-            onViewChange={setView}
-            circular={doc.circular}
-            featureTypes={featureTypes}
-          />
-        ) : null}
-      </div>
+      {/* sequence editor master (redesign, two-zone chrome). The canvas head is
+          GONE: the view tabs and the "Show" display strip moved to the pinned
+          BOTTOM zone (below the canvas + rail), so the canvas reclaims that
+          vertical space and the chrome never stacks at the top. */}
 
       {/* Tab content. The vertical ViewControlRail is retired; its toggles now
-          live in the horizontal display strip above. */}
+          live in the horizontal display strip in the bottom zone. */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {/* seq nav bot — Map + Sequence: the SeqViz viewer + the persistent top
@@ -4755,60 +4680,11 @@ export default function SequenceEditView({
                   </div>
                 ) : null}
               </div>
-              {/* BOTTOM COORDINATE / ZOOM CLUSTER (linear only): zoom slider +
-                  editable bp-in-view field + exact window readout + horizontal
-                  coordinate minimap. Hidden on circular (the ring is the map). */}
-              {isLinearViewer ? (
-                <SequenceCoordinateBar
-                  seqLength={doc.seq.length}
-                  window={overviewWindow}
-                  zoom={linearZoom}
-                  onZoomChange={(z) => setView((v) => ({ ...v, linearZoom: z }))}
-                  onScrollToBp={scrollMainToBp}
-                  // nav polish bot — in Map view the molecule is shown whole, so
-                  // the window cluster (slider / bp-in-view / readout / minimap)
-                  // is stale; collapse it to a "Whole molecule (N bp)" indicator.
-                  mapMode={viewMode === "map"}
-                  // seq polish batch bot — FIX 3: hold the bp readout / bp-in-view
-                  // field until the true visible window has been measured, so
-                  // neither flashes the seeded whole-molecule span for a frame on
-                  // first paint or on a view toggle.
-                  measured={windowMeasured}
-                />
-              ) : viewMode === "map" ? (
-                // nav polish bot — circular molecule in Map view: the ring IS the
-                // whole-molecule map, so the circular zoom slider is irrelevant.
-                // Mirror the linear Map cluster with the same calm indicator.
-                <div className="flex items-center gap-2 border-t border-gray-100 bg-white px-3 py-2 text-meta text-gray-500">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-3.5 w-3.5 text-gray-400"
-                    aria-hidden="true"
-                  >
-                    <circle cx="12" cy="12" r="8" />
-                    <path d="M12 4v3M20 12h-3M12 20v-3M4 12h3" />
-                  </svg>
-                  <span>
-                    Whole molecule
-                    <span className="ml-1 font-mono text-gray-600">
-                      ({doc.seq.length.toLocaleString()} bp)
-                    </span>
-                  </span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3 border-t border-gray-100 bg-white px-3 py-1.5">
-                  <SequenceZoomControl
-                    axis="circular"
-                    zoom={view.circularZoom}
-                    onZoomChange={(z) => setView((v) => ({ ...v, circularZoom: z }))}
-                  />
-                </div>
-              )}
+              {/* sequence editor master (redesign, two-zone chrome). The bottom
+                  coordinate / zoom cluster moved OUT of the viewer column into
+                  the pinned bottom zone (below the canvas + rail), where it is
+                  always present and disables in place off the canvas tabs, so the
+                  chrome never reflows. See the bottom zone after this flex row. */}
             </>
           ) : null}
 
@@ -4906,25 +4782,162 @@ export default function SequenceEditView({
         ) : null}
       </div>
 
-      {/* Live selection readout (left) + the compact taxonomy affordance (right).
-          The base coordinates sit at the far left; the organism + lineage moved
-          off the old full-width top strip into the dead space at the right edge
-          of this bar, where a click opens the full clickable lineage upward. */}
-      <div className="flex items-center gap-4 border-t border-gray-100 bg-gray-50 px-3 py-1.5 text-meta text-gray-600">
-        <SelectionReadoutContent readout={readout} />
-        <SequenceLineageFooter
-          organism={sequence.organism}
-          taxId={sequence.tax_id}
-          lineage={sequence.tax_lineage}
-          onExploreInTree={onExploreInTree}
+      {/* sequence editor master (redesign, two-zone chrome). THE PINNED BOTTOM
+          ZONE. A constant, fixed-height spine below the canvas + rail that never
+          reflows when you switch tabs or topology. Three stable sub-rows:
+            1. the "Show" display strip (the "what is drawn" chips);
+            2. the coordinate / zoom cluster (Fit / bp-in-view / slider / minimap);
+            3. the view tabs (Find on the left, the Map / Sequence / Features /
+               Primers / History tabs, then the live coordinate readout + the
+               taxonomy footer on the right).
+          On the Features / Primers / History tabs the Show chips + the zoom
+          cluster DISABLE IN PLACE (greyed, non-interactive) rather than
+          disappearing, so nothing jumps. */}
+      <div className="shrink-0 border-t border-border">
+        {/* 1. Show display strip. Disabled in place off the canvas tabs. */}
+        <SequenceDisplayStrip
+          view={view}
+          onViewChange={setView}
+          circular={doc.circular}
+          featureTypes={featureTypes}
+          disabled={!showViewer}
         />
-      </div>
 
-      {/* sequence editor master (redesign phase 2). The primary Map / Sequence /
-          Features / Primers / History switch is now anchored at the TOP of the
-          canvas (see the canvas head above), so there is no bottom tab bar.
-          Restriction enzymes are a display LAYER (the "Enzyme sites" chip in the
-          display strip + the toolbar's Enzyme picker), not a tab. */}
+        {/* 2. Coordinate / zoom cluster. Always present at a constant height. On
+            the canvas tabs it is the live cluster (linear coordinate bar, circular
+            zoom control, or the Map "whole molecule" indicator). Off the canvas
+            tabs it disables in place: the same cluster shape for THIS molecule's
+            topology, greyed and non-interactive, so the row never reflows. */}
+        {showViewer ? (
+          isLinearViewer ? (
+            <SequenceCoordinateBar
+              seqLength={doc.seq.length}
+              window={overviewWindow}
+              zoom={linearZoom}
+              onZoomChange={(z) => setView((v) => ({ ...v, linearZoom: z }))}
+              onScrollToBp={scrollMainToBp}
+              // nav polish bot — in Map view the molecule is shown whole, so the
+              // window cluster (slider / bp-in-view / readout / minimap) is stale;
+              // collapse it to a "Whole molecule (N bp)" indicator.
+              mapMode={viewMode === "map"}
+              // seq polish batch bot — FIX 3: hold the bp readout / bp-in-view
+              // field until the true visible window has been measured.
+              measured={windowMeasured}
+            />
+          ) : viewMode === "map" ? (
+            // circular molecule in Map view: the ring IS the whole-molecule map,
+            // so the circular zoom slider is irrelevant. Calm indicator.
+            <div className="flex items-center gap-2 bg-surface px-3 py-2 text-meta text-foreground-muted">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-3.5 w-3.5 text-foreground-muted"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="8" />
+                <path d="M12 4v3M20 12h-3M12 20v-3M4 12h3" />
+              </svg>
+              <span>
+                Whole molecule
+                <span className="ml-1 font-mono text-foreground">
+                  ({doc.seq.length.toLocaleString()} bp)
+                </span>
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 bg-surface px-3 py-1.5">
+              <SequenceZoomControl
+                axis="circular"
+                zoom={view.circularZoom}
+                onZoomChange={(z) => setView((v) => ({ ...v, circularZoom: z }))}
+              />
+            </div>
+          )
+        ) : (
+          // Off the canvas tabs: the cluster disables IN PLACE. Render the same
+          // shape this molecule's topology would show on the canvas (linear ->
+          // coordinate bar, circular -> circular zoom), wrapped non-interactive so
+          // the row keeps its height and the controls grey out without vanishing.
+          <div
+            className="pointer-events-none select-none opacity-40"
+            aria-disabled="true"
+          >
+            {doc.circular ? (
+              <div className="flex items-center gap-3 bg-surface px-3 py-1.5">
+                <SequenceZoomControl
+                  axis="circular"
+                  zoom={view.circularZoom}
+                  onZoomChange={() => {}}
+                />
+              </div>
+            ) : (
+              <SequenceCoordinateBar
+                seqLength={doc.seq.length}
+                window={overviewWindow}
+                zoom={linearZoom}
+                onZoomChange={() => {}}
+                onScrollToBp={() => {}}
+                measured={windowMeasured}
+              />
+            )}
+          </div>
+        )}
+
+        {/* 3. The constant tabs spine. Find (left), the view tabs, then the live
+            coordinate readout + the taxonomy footer (right). */}
+        <div className="flex items-center gap-2 bg-surface px-1.5 py-0.5">
+          {/* sequence editor master (redesign, two-zone chrome). The FIND control,
+              left of the tabs. Opens the same inline Find box (Cmd F) the keyboard
+              and right-click menu open. Go To, Select All / Range / Invert, and
+              the case changes stay in the right-click menu + keyboard. */}
+          <Tooltip label="Find in this sequence (Cmd F)">
+            <button
+              type="button"
+              onClick={openFind}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-surface-sunken px-2.5 py-1 text-meta font-semibold text-foreground-muted transition-colors hover:bg-surface hover:text-foreground"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-3.5 w-3.5"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+              <span>Find</span>
+            </button>
+          </Tooltip>
+
+          <SequenceTabBar
+            active={viewMode}
+            onChange={setViewMode}
+            featureCount={doc.features.length}
+            primerCount={primerCount}
+            position="bottom"
+          />
+
+          {/* Live selection readout (left of this group) + the compact taxonomy
+              affordance, pushed to the far right of the spine. */}
+          <div className="ml-auto flex min-w-0 items-center gap-4 pr-2 text-meta text-foreground-muted">
+            <SelectionReadoutContent readout={readout} />
+            <SequenceLineageFooter
+              organism={sequence.organism}
+              taxId={sequence.tax_id}
+              lineage={sequence.tax_lineage}
+              onExploreInTree={onExploreInTree}
+            />
+          </div>
+        </div>
+      </div>
 
       {/* Confirmation dialog for Cut / chunk-delete / Paste / feature delete. */}
       <SequenceConfirmDialog request={confirm} />

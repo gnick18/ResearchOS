@@ -20,11 +20,13 @@ function Harness({
   initial = DEFAULT_VIEW_STATE,
   circular = true,
   featureTypes = ["cds", "promoter"],
+  disabled = false,
   onChange,
 }: {
   initial?: SequenceViewState;
   circular?: boolean;
   featureTypes?: string[];
+  disabled?: boolean;
   onChange?: (v: SequenceViewState) => void;
 }) {
   const [view, setView] = useState<SequenceViewState>(initial);
@@ -37,6 +39,7 @@ function Harness({
       }}
       circular={circular}
       featureTypes={featureTypes}
+      disabled={disabled}
     />
   );
 }
@@ -133,5 +136,35 @@ describe("SequenceDisplayStrip", () => {
     render(<Harness circular onChange={onChange} />);
     fireEvent.click(screen.getByRole("switch", { name: "Circular" }));
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ forceLinear: true }));
+  });
+
+  // sequence editor master (redesign, two-zone chrome). When the WHOLE strip is
+  // disabled (a non-canvas tab) every chip stays in place but greys out and stops
+  // responding, so the pinned bottom zone never reflows.
+  describe("disable-in-place (off a canvas tab)", () => {
+    it("renders every Show chip disabled and non-interactive", () => {
+      render(<Harness circular disabled />);
+      for (const name of [
+        "Features",
+        "Primers",
+        "Enzyme sites",
+        "Translation",
+        "Open reading frames",
+        "Ruler / index",
+        "Circular",
+      ]) {
+        const chip = screen.getByRole("switch", { name });
+        expect((chip as HTMLButtonElement).disabled).toBe(true);
+      }
+    });
+
+    it("a disabled chip never fires its view flag", () => {
+      const onChange = vi.fn();
+      render(<Harness circular disabled onChange={onChange} />);
+      // The Features chip is greyed in place; clicking it is a no-op.
+      fireEvent.click(screen.getByRole("switch", { name: "Features" }));
+      fireEvent.click(screen.getByRole("switch", { name: "Primers" }));
+      expect(onChange).not.toHaveBeenCalled();
+    });
   });
 });
