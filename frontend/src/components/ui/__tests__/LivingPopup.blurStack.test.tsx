@@ -31,6 +31,9 @@ describe("LivingPopup editor knobs", () => {
     // max-w-lg must NOT be applied (the child's max-w-4xl wins).
     expect(dialog.className).toContain("justify-center");
     expect(dialog.className).not.toContain("max-w-lg");
+    // The full-width wrapper must be click-through so clicks beside the centered
+    // card reach the scrim (which closes); the child re-enables pointer events.
+    expect(dialog.className).toContain("pointer-events-none");
   });
 
   it("showClose=false hides the corner X (editors bring their own close)", async () => {

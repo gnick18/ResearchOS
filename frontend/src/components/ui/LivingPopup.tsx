@@ -201,9 +201,13 @@ export default function LivingPopup({
 
   // selfSize: a transparent transform wrapper that imposes no width/height, so
   // the child (a big editor with its own sizing + expand mode) renders exactly
-  // as it would under a plain scrim. Otherwise the standard sized card.
+  // as it would under a plain scrim. It spans the full width to give the child a
+  // width to resolve against, but stays pointer-events-none so clicks in the
+  // empty space beside the centered card fall through to the scrim (which
+  // closes); the child MUST set pointer-events-auto on its own card to stay
+  // interactive. Otherwise the standard sized card.
   const cardClass = selfSize
-    ? "pointer-events-auto w-full flex justify-center"
+    ? "pointer-events-none w-full flex justify-center"
     : [
         "pointer-events-auto w-full",
         widthClassName,

@@ -1372,7 +1372,7 @@ export default function NoteDetailPopup({
       showClose={false}
     >
       <div
-        className={`relative bg-surface-raised rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden transition-all duration-300 ${
+        className={`pointer-events-auto relative bg-surface-raised rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden transition-all duration-300 ${
           isExpanded
             ? "inset-4 max-w-none max-h-none h-[calc(100vh-2rem)]"
             : "max-w-4xl max-h-[90vh]"
