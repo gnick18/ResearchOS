@@ -96,10 +96,9 @@ The two-mode scan loop Grant described:
 
 The dependency that gates this. The inventory data model does not exist yet, and the roadmap explicitly says it needs a design doc before building. The full loop (register, consume, auto-reorder) needs that model. So there is a sequencing fork to decide before the build plan.
 
-- Option A, co-design inventory first. Write the inventory model design doc now (it is roadmap-pending anyway), then the mobile app ships the full barcode loop in v1. The app and inventory are co-designed, with the phone as the primary scanner. Larger up-front scope, but the app launches with its headline inventory feature intact.
-- Option B, stepping-stone reorder in v1. Ship a simpler manual quick-add to the needs-ordering queue in v1 (no barcode, no inventory model), and add the barcode loop once the inventory model lands. The app launches sooner, the barcode loop follows in a fast v1.x once inventory is designed.
+RESOLVED 2026-06-07 (Grant): inventory gets its OWN standalone design doc first, independent of the mobile app timeline. Once the inventory shape is known, we decide whether the barcode loop ships in mobile v1 or a fast v1.x. The phone is still the intended primary scanner, the two are just designed in sequence rather than coupled up front. Mobile v1 ships the other anchors (photo capture, quick note, lab timers, today glance, push) regardless of where inventory lands. A simple manual quick-add to the needs-ordering queue may serve as a v1 placeholder until the barcode loop arrives.
 
-This fork is the main open feature decision. Everything else in the v1 set is independent of it.
+The next artifact is therefore the inventory design doc, not the mobile build plan.
 
 ## Open questions for Grant (decisions to lock before building)
 
