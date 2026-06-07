@@ -23,7 +23,6 @@ import {
   type IdentityMaterial,
 } from "@/lib/sharing/identity/setup";
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
-import { usePopupLayer } from "@/lib/ui/popup-stack";
 import { wrapDeviceKeyWithWords } from "@/lib/sharing/identity/device-key";
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 import { downloadRecoveryKit } from "@/lib/sharing/identity/recovery-kit";
@@ -107,11 +106,6 @@ export default function SharingSetupWizard({
 
   // Escape closes this wizard (app-wide convention).
   useEscapeToClose(onClose);
-
-  // This wizard usually opens from inside the profile popup, so it would be a
-  // popup-on-popup. Only blur when it is the bottom-most popup; stacked on top
-  // of the profile it dims without re-blurring (no blur-on-blur).
-  const { isBottom } = usePopupLayer(true);
 
   // Email subflow state.
   const [email, setEmail] = useState("");
@@ -510,9 +504,7 @@ export default function SharingSetupWizard({
 
   return (
     <div
-      className={`fixed inset-0 z-[200] flex items-center justify-center bg-black/50 ${
-        isBottom ? "backdrop-blur-sm" : ""
-      }`}
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50"
       data-tour-popup-occluding="sharing-setup"
       onClick={onClose}
     >

@@ -23,6 +23,7 @@ export default function ProfileSettingsModal() {
       label="Profile settings"
       widthClassName="max-w-2xl"
       padded
+      blur
     >
       <ProfileSettingsContent />
     </LivingPopup>

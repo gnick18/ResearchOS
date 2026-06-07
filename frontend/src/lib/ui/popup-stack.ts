@@ -1,60 +1,75 @@
 "use client";
 
-// Shared popup-stack registry so blur never compounds when one popup opens on
-// top of another (Grant 2026-06-06: "the layers of blur looked terrible. Not
-// EVERYTHING needs a blur").
+// Shared popup-stack registry that decides which popup, if any, blurs the page
+// behind it.
 //
-// The rule: only the BOTTOM-most open popup blurs the page behind it. Every
-// popup stacked on top of it dims (so the lower layer recedes) but does NOT
-// add its own backdrop-blur, so you never see blur-on-blur.
+// Two rules from Grant (2026-06-06):
+//   1. Little popups NEVER blur. A quick confirm, picker, or small dialog just
+//      dims the page; it does not demand your full attention.
+//   2. Only big, attention-demanding popups (Settings, your profile, an editor)
+//      blur. And even then, blur never compounds: if two blurring popups stack,
+//      only the bottom-most one blurs so you never see blur-on-blur.
 //
-// Any popup, whether it is a LivingPopup or a bespoke fixed-overlay modal,
-// opts in with one call: `const { isBottom } = usePopupLayer(isOpen)` and then
-// applies its blur class only when `isBottom`. LivingPopup does this for every
-// migrated popup automatically; a handful of not-yet-migrated modals that can
-// stack (the sharing / identity popups) call it directly.
+// A popup opts into blur by passing `wantsBlur` (LivingPopup exposes this as its
+// `blur` prop, default false). The hook returns `shouldBlur`, true only when
+// this popup wants blur AND it is the bottom-most blur-wanting popup currently
+// open. Little popups pass `wantsBlur=false` and so never blur.
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
 import { useEffect, useId } from "react";
 import { create } from "zustand";
 
+interface Layer {
+  id: string;
+  wantsBlur: boolean;
+}
+
 interface PopupStackState {
-  // Ordered by open time. stack[0] is the bottom-most (first opened) popup.
-  stack: string[];
-  push: (id: string) => void;
+  // Ordered by open time. The first blur-wanting entry is the bottom-most one.
+  stack: Layer[];
+  push: (layer: Layer) => void;
   remove: (id: string) => void;
 }
 
 const usePopupStackStore = create<PopupStackState>((set) => ({
   stack: [],
-  push: (id) =>
-    set((s) => (s.stack.includes(id) ? s : { stack: [...s.stack, id] })),
-  remove: (id) => set((s) => ({ stack: s.stack.filter((x) => x !== id) })),
+  push: (layer) =>
+    set((s) =>
+      s.stack.some((l) => l.id === layer.id)
+        ? s
+        : { stack: [...s.stack, layer] },
+    ),
+  remove: (id) => set((s) => ({ stack: s.stack.filter((l) => l.id !== id) })),
 }));
 
 /**
- * Register this popup as a layer while `active`, and learn whether it is the
- * bottom-most open popup. Only the bottom-most layer should apply a
- * backdrop-blur; stacked layers dim without re-blurring so blur never
- * compounds. Safe to call unconditionally (pass the popup's open/mounted flag).
+ * Register this popup as a layer while `active`, declaring whether it is a big
+ * attention-demanding popup that wants to blur (`wantsBlur`). Returns
+ * `shouldBlur`, true only when this popup wants blur and is the bottom-most
+ * blur-wanting popup open, so little popups never blur and blur never compounds.
  */
-export function usePopupLayer(active: boolean): { isBottom: boolean } {
+export function usePopupLayer(
+  active: boolean,
+  wantsBlur: boolean,
+): { shouldBlur: boolean } {
   const id = useId();
   const push = usePopupStackStore((s) => s.push);
   const remove = usePopupStackStore((s) => s.remove);
-  // The bottom-most layer is the first one that opened. While nothing is
-  // registered yet (the effect below has not run) treat ourselves as bottom so
-  // a lone popup blurs on its very first paint with no flash.
-  const isBottom = usePopupStackStore(
-    (s) => s.stack.length === 0 || s.stack[0] === id,
-  );
+
+  const shouldBlur = usePopupStackStore((s) => {
+    if (!wantsBlur) return false;
+    const firstBlur = s.stack.find((l) => l.wantsBlur);
+    // Until our own effect registers us, no blur-wanting layer exists yet, so a
+    // lone big popup blurs on first paint with no flash.
+    return firstBlur ? firstBlur.id === id : true;
+  });
 
   useEffect(() => {
     if (!active) return;
-    push(id);
+    push({ id, wantsBlur });
     return () => remove(id);
-  }, [active, id, push, remove]);
+  }, [active, id, wantsBlur, push, remove]);
 
-  return { isBottom };
+  return { shouldBlur };
 }

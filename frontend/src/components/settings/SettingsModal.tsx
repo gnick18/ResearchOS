@@ -41,6 +41,7 @@ export default function SettingsModal() {
       label="Settings"
       widthClassName="max-w-3xl"
       fillHeight
+      blur
     >
       <SettingsBody />
     </LivingPopup>

@@ -88,6 +88,11 @@ export interface LivingPopupProps {
   padded?: boolean;
   /** Bound the card height + let children scroll internally. Default false. */
   fillHeight?: boolean;
+  /** Blur the page behind this popup. Reserve for BIG, attention-demanding
+   *  popups (Settings, your profile, an editor); little popups never blur.
+   *  Even when set, blur never compounds (only the bottom-most blurs). Default
+   *  false. */
+  blur?: boolean;
   children: React.ReactNode;
 }
 
@@ -100,6 +105,7 @@ export default function LivingPopup({
   card = true,
   padded = false,
   fillHeight = false,
+  blur = false,
   children,
 }: LivingPopupProps) {
   // mounted: in the DOM (stays true through the exit animation).
@@ -152,10 +158,11 @@ export default function LivingPopup({
     };
   }, []);
 
-  // Register in the shared popup stack while mounted. Only the bottom-most
-  // popup blurs the page; a popup stacked on top dims without re-blurring, so
-  // blur never compounds (Grant 2026-06-06: no blur-on-blur).
-  const { isBottom } = usePopupLayer(mounted);
+  // Register in the shared popup stack while mounted. Blur is reserved for big
+  // attention-demanding popups (the `blur` prop); little popups never blur. And
+  // even among blurring popups only the bottom-most blurs, so blur never
+  // compounds (Grant 2026-06-06).
+  const { shouldBlur } = usePopupLayer(mounted, blur);
 
   if (!mounted) return null;
 
@@ -199,15 +206,16 @@ export default function LivingPopup({
       // do not each re-stamp data-tour-popup-occluding on their own overlay.
       data-tour-popup-occluding="living-popup"
     >
-      {/* Scrim over the live page behind. Click closes. Only the bottom-most
-          popup blurs; a popup stacked on top just dims, so blur never
+      {/* Scrim over the live page behind. Click closes. It always dims; it only
+          blurs for a big attention-demanding popup (blur prop) that is the
+          bottom-most blurring popup, so little popups never blur and blur never
           compounds (see popup-stack). */}
       <button
         type="button"
         aria-label={closeLabel}
         onClick={onClose}
         className={`absolute inset-0 h-full w-full cursor-default bg-slate-900/25 ${
-          isBottom ? "backdrop-blur-md" : ""
+          shouldBlur ? "backdrop-blur-md" : ""
         }`}
         style={{ opacity: shown ? 1 : 0, transition: `opacity ${ANIM_MS}ms ease` }}
       />
