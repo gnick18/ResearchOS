@@ -168,8 +168,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // settles. The tab itself never disappears (the dashboard at "/" is the
   // guaranteed-reachable landing tab), so there's no flicker-out risk.
   const isLabHead = useIsLabHead(currentUser ?? null);
-  const _isLabWorkspace = featurePicks?.account_type === "lab";
-  void _isLabWorkspace;
 
   // The dashboard ("/") is always shown so the user has a guaranteed safe
   // landing tab even if they hide everything else (or if Settings was

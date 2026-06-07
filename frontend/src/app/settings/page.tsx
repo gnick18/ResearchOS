@@ -20,8 +20,8 @@ import VersionBadge from "@/components/VersionBadge";
 import WhatsNewModal from "@/components/WhatsNewModal";
 import { RELEASE_NOTES } from "@/lib/release-notes";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
-import { discoverUsers } from "@/lib/file-system/user-discovery";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
+import { useIsLabMode } from "@/hooks/useIsLabMode";
 import { useAppStore } from "@/lib/store";
 import { fileService } from "@/lib/file-system/file-service";
 import {
@@ -57,7 +57,6 @@ import {
   replayOnboarding,
 } from "@/lib/onboarding/sidecar";
 import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
-import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { forgetAllTelegramTokenCache } from "@/lib/telegram/telegram-token-cache";
 import StreaksSection from "./StreaksSection";
 import { patchStreak } from "@/lib/streak/streak-sidecar";
@@ -152,7 +151,6 @@ export function SettingsBody() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const featurePicks = useFeaturePicks(currentUser);
 
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -188,47 +186,20 @@ export function SettingsBody() {
   // still gets the Lab Mode tab. The `settings.account_type` field
   // (member vs lab_head) is also what gates the Lab Head admin controls
   // inside the tab.
-  const isLabWorkspace = featurePicks?.account_type === "lab";
-
-  // Multi-user folder detection (Grant 2026-05-23 follow-up): the prior
-  // gate only surfaced the Lab Mode tab when feature_picks declared a
-  // lab workspace OR the user was already lab_head. That left a
-  // chicken-and-egg gap: a user created in a shared folder without
-  // going through onboarding (or who picked solo) could never reach the
-  // role picker to flip themselves to lab_head, because the role picker
-  // lives inside the gated tab. Detect the multi-user folder shape via
-  // discoverUsers() and OR that signal into the gate so the tab also
-  // surfaces for anyone sharing a folder with at least one other user.
-  // Self gets filtered out; the pseudo-`lab` user is already skipped by
-  // discoverUsers' SKIP_DIRECTORIES list.
-  const [folderHasOtherUsers, setFolderHasOtherUsers] = useState(false);
-  useEffect(() => {
-    if (!currentUser || !isConnected) {
-      setFolderHasOtherUsers(false);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const all = await discoverUsers();
-        if (cancelled) return;
-        const others = all.filter((u) => u !== currentUser);
-        setFolderHasOtherUsers(others.length > 0);
-      } catch {
-        // Discovery can fail on a transient FS read; default to false
-        // (hide tab) rather than risk surfacing a tab on a broken folder.
-        if (!cancelled) setFolderHasOtherUsers(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [currentUser, isConnected]);
-
-  const isLabMode =
-    settings?.account_type === "lab_head" ||
-    (settings?.account_type === "member" && isLabWorkspace) ||
-    folderHasOtherUsers;
+  // Identity model simplification Phase 2 (2026-06-07): "lab mode" is now the
+  // DERIVED signal (folder has 2 or more users OR any lab head is present), not
+  // the stored onboarding solo/lab choice. The onboarding pick is only a hint,
+  // so a member who picked "lab" but is alone in their folder is treated as
+  // solo until a second user joins (Grant's locked decision). useIsLabMode()
+  // reads the folder's users + roles and runs isLabModeFolder, which is the same
+  // predicate as folderRequiresLogin, so the "2 or more" rule has one home and
+  // the prior bespoke discoverUsers() effect here is retired. The lab_head
+  // fast-path keeps a PI's Lab Mode tab visible instantly from the already
+  // loaded settings, without waiting on the async folder read. The
+  // settings.account_type field still gates the Lab Head admin controls INSIDE
+  // the tab (the role gate, unchanged).
+  const derivedLabMode = useIsLabMode() ?? false;
+  const isLabMode = settings?.account_type === "lab_head" || derivedLabMode;
   // Tab state. Read the initial value from the `?tab=...` query so a
   // deep-link or in-session back-nav lands the user on the same tab.
   // Solo users never see the tab strip but we still respect the query
