@@ -47,6 +47,8 @@ const EXCLUDED_PREFIXES = [
   "/showcase", // hidden, unlinked BeakerBot showcase Easter egg (URL / brand-mark unlock only, never in nav); not a documented feature
   "/sequences", // pending wiki page (sequence editor Phase 4)
   "/open-source", // "Built on open source" credits + attribution page (legal/informational, no AppShell, not a documented app feature; like /welcome)
+  "/thanks", // "Sponsors and thanks": GitHub Sponsors tiers + open-source thank-you (marketing/brand page, no AppShell, not a documented app feature; like /open-source). Indexed on purpose, no robots noindex
+  "/sponsors", // redirect-only alias → /thanks (client-side router.replace stub, like /pcr)
   "/transparency", // "Transparency of tests": bioinformatic-tool comparisons vs Biopython/primer3, build-time computed + vitest-gated (trust/informational, no AppShell, not a documented app feature; like /open-source)
   "/sharing-setup-test", // dev-only test harness for the cross-boundary sharing setup wizard (NODE_ENV=development gated, renders "not available" in prod); not a user feature
   "/privacy", // privacy policy (legal/informational, no AppShell, not a documented app feature; like /open-source). OAuth providers require a privacy-policy URL

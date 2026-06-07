@@ -399,9 +399,15 @@ In plain terms: you are free to use, study, share, and modify ResearchOS, and yo
 
 ---
 
+## Sponsor
+
+ResearchOS has no paid tier and no investors. Sponsorship covers hosting and development so it stays free and open. If it helps your work, you can back it on [GitHub Sponsors](https://github.com/sponsors/ResearchOS-LLC). The tiers, perks, and the sponsor wall live at `/thanks` in the app.
+
+---
+
 ## Acknowledgements
 
-ResearchOS is built on open-source software and on published science, and we are grateful to everyone who made that work and gave it away. A warm thank-you and the curated highlights live in [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md), and you can read the same page inside the app at `/open-source`.
+ResearchOS is built on open-source software and on published science, and we are grateful to everyone who made that work and gave it away. A warm thank-you and the curated highlights live in [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md), and you can read the same page inside the app at `/open-source` (linked from `/thanks` as well).
 
 The formal, machine-generated license inventory for every package we ship is in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES). Both files are produced from the actual installed dependency tree by `scripts/build-open-source-credits.mjs`, so they never drift from reality. Regenerate them with:
 

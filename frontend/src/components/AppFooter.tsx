@@ -93,6 +93,14 @@ export default function AppFooter({
           </Link>
           <span aria-hidden="true">·</span>
           <Link
+            href="/thanks"
+            className="underline-offset-2 hover:text-foreground hover:underline"
+            data-testid="app-footer-thanks"
+          >
+            Sponsors and thanks
+          </Link>
+          <span aria-hidden="true">·</span>
+          <Link
             href="/transparency"
             className="underline-offset-2 hover:text-foreground hover:underline"
             data-testid="app-footer-transparency"
