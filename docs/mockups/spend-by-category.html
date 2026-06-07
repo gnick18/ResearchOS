@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Monthly spend by category, mockup</title>
+<style>
+  :root {
+    --surface: #f5f6f8; --surface-raised: #fff; --surface-sunken: #eef0f3;
+    --border: #e2e5ea; --foreground: #15181d; --foreground-muted: #6b7280;
+  }
+  .dark {
+    --surface: #15181d; --surface-raised: #1c2026; --surface-sunken: #23282f;
+    --border: #2c323b; --foreground: #f2f4f7; --foreground-muted: #9aa3af;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--surface); color: var(--foreground); padding: 28px 16px; }
+  .toolbar { max-width: 640px; margin: 0 auto 18px; text-align: center; }
+  .seg { border: 1px solid var(--border); background: var(--surface-raised); color: var(--foreground);
+    border-radius: 9px; padding: 7px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .card { max-width: 640px; margin: 0 auto; border: 1px solid var(--border); background: var(--surface-raised);
+    border-radius: 14px; padding: 24px; }
+  .head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
+  h2 { margin: 0; font-size: 17px; font-weight: 650; }
+  .desc { margin: 3px 0 0; font-size: 12px; line-height: 1.5; color: var(--foreground-muted); max-width: 60ch; }
+  .total { font-size: 24px; font-weight: 750; letter-spacing: -.02em; }
+  .total span { margin-left: 4px; font-size: 12px; font-weight: 400; color: var(--foreground-muted); }
+  .bar { margin-top: 18px; display: flex; height: 20px; width: 100%; border-radius: 999px; overflow: hidden;
+    box-shadow: inset 0 0 0 1px var(--border); background: var(--surface-sunken); }
+  .bar > i { display: block; height: 100%; }
+  .summary { margin-top: 8px; font-size: 12px; color: var(--foreground-muted); }
+  .legend { margin: 18px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .legend li { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .legend .l { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; }
+  .legend .sw { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+  .legend .mut { color: var(--foreground-muted); }
+  .legend .v { font-size: 13px; font-weight: 650; }
+  @media (max-width: 520px) { .legend { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <button class="seg" id="scenarioBtn">Scenario: busy month</button>
+    <button class="seg" id="themeBtn">Dark</button>
+  </div>
+  <div class="card" id="card"></div>
+<script>
+const usd = c => "$" + (c/100).toFixed(2);
+// Two scenarios so the design is visible (beta is mostly the fixed base).
+const SCENARIOS = {
+  beta: [
+    { label: "Hosting", vendor: "Vercel", cents: 2000, fixed: true, color: "#6366f1" },
+    { label: "Compute base", vendor: "Cloudflare Workers", cents: 500, fixed: true, color: "#f59e0b" },
+    { label: "Doc storage", vendor: "Durable Objects", cents: 0, fixed: false, color: "#0ea5e9" },
+    { label: "File storage", vendor: "Cloudflare R2", cents: 0, fixed: false, color: "#10b981" },
+    { label: "Activity", vendor: "Cloudflare", cents: 0, fixed: false, color: "#8b5cf6" },
+  ],
+  busy: [
+    { label: "Hosting", vendor: "Vercel", cents: 2000, fixed: true, color: "#6366f1" },
+    { label: "Compute base", vendor: "Cloudflare Workers", cents: 500, fixed: true, color: "#f59e0b" },
+    { label: "Doc storage", vendor: "Durable Objects", cents: 340, fixed: false, color: "#0ea5e9" },
+    { label: "File storage", vendor: "Cloudflare R2", cents: 180, fixed: false, color: "#10b981" },
+    { label: "Activity", vendor: "Cloudflare", cents: 920, fixed: false, color: "#8b5cf6" },
+  ],
+};
+let scenario = "busy";
+function render() {
+  const cats = SCENARIOS[scenario];
+  const total = cats.reduce((s,c)=>s+c.cents,0) || 1;
+  const fixed = cats.filter(c=>c.fixed).reduce((s,c)=>s+c.cents,0);
+  const variable = total - fixed;
+  const segs = cats.filter(c=>c.cents>0).map(c=>`<i style="width:${(c.cents/total)*100}%;background:${c.color}" title="${c.label} (${c.vendor}): ${usd(c.cents)}"></i>`).join("");
+  const legend = cats.map(c=>`<li>
+    <span class="l"><span class="sw" style="background:${c.color}"></span>
+      <span>${c.label} <span class="mut">· ${c.vendor}${c.fixed?" · fixed":""}</span></span></span>
+    <span class="v">${usd(c.cents)}</span></li>`).join("");
+  document.getElementById("card").innerHTML = `
+    <div class="head">
+      <div>
+        <h2>Monthly spend by category</h2>
+        <p class="desc">Estimated provider cost this month from live usage. Fixed base (hosting + compute) plus variable storage and activity. Recorded actuals live in the ledger below.</p>
+      </div>
+      <p class="total">${usd(total)}<span>/ mo est.</span></p>
+    </div>
+    <div class="bar">${segs}</div>
+    <p class="summary">${usd(fixed)} fixed base + ${usd(variable)} variable. The cost breaker budgets the variable part.</p>
+    <ul class="legend">${legend}</ul>`;
+}
+render();
+document.getElementById("scenarioBtn").onclick = (e) => {
+  scenario = scenario === "busy" ? "beta" : "busy";
+  e.target.textContent = "Scenario: " + (scenario === "busy" ? "busy month" : "beta (near-idle)");
+  render();
+};
+document.getElementById("themeBtn").onclick = (e) => {
+  document.documentElement.classList.toggle("dark");
+  e.target.textContent = document.documentElement.classList.contains("dark") ? "Light" : "Dark";
+};
+</script>
+</body>
+</html>
