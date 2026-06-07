@@ -142,7 +142,8 @@ export type PaletteTone =
   | "feed"
   | "note"
   | "person"
-  | "funding";
+  | "funding"
+  | "link";
 
 /** One navigable / reopenable page object (an entity or a recent result). The
  *  page-agnostic equivalent of SequenceNavItem, fuzzy-matched on label + keywords
