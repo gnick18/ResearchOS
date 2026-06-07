@@ -747,7 +747,7 @@ const SIGNAL_CHIP: Record<
   },
   low: {
     label: "low or empty",
-    icon: "gaugeLow",
+    icon: "dropletLow",
     chip: "bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30",
   },
 };

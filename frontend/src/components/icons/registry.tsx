@@ -558,13 +558,12 @@ const ICONS_RAW = {
       <path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9" />
     ),
   },
-  gaugeLow: {
-    concept: "Gauge low / low or empty",
+  dropletLow: {
+    concept: "Droplet low / low or empty",
     body: (
       <>
-        <path d="M4 18a8 8 0 1 1 16 0" />
-        <path d="M12 18l-3-4" />
-        <circle cx="12" cy="18" r="1.2" fill="currentColor" stroke="none" />
+        <path d="M12 3s5 6 5 10a5 5 0 0 1-10 0c0-4 5-10 5-10z" />
+        <path d="M7.4 14.5a5 5 0 0 0 9.2 0z" fill="currentColor" stroke="none" />
       </>
     ),
   },

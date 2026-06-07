@@ -81,7 +81,7 @@ export default function InventoryHealth({
       count: signals.low.length,
       label: "Low or empty",
       sub: "below your threshold",
-      icon: "gaugeLow",
+      icon: "dropletLow",
       iconWrap:
         "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
     },
