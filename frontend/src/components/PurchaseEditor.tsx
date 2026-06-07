@@ -8,6 +8,9 @@ import SharingChips from "@/components/sharing/SharingChips";
 import { ownerScopedPurchasesApi } from "@/lib/purchases/owner-scoped-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useLabHeadEditGate } from "@/hooks/useLabHeadEditGate";
+import { PURCHASE_LORO_ENABLED } from "@/lib/loro/config";
+import { usePurchaseRowLoro } from "@/lib/loro/use-purchase-row-loro";
+import { getPurchaseFields } from "@/lib/loro/purchase-doc";
 import RequestEditButton from "@/components/RequestEditButton";
 import EditSessionBanner from "@/components/EditSessionBanner";
 import AuditTrailNotice from "@/components/AuditTrailNotice";
@@ -250,6 +253,23 @@ export default function PurchaseEditor({
   // (read-only) mode — autocomplete is only relevant when the user can type.
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
+
+  // Purchase items on Loro (docs/proposals/PURCHASE_LORO.md) chunk 2 = READ +
+  // CONNECT for the single actively-edited row. Flag-gated: a pure no-op when
+  // PURCHASE_LORO_ENABLED is false (no handle, no session, no subscription).
+  // The folder owner is the lab-mode `username` when present, else the current
+  // user (the same path the items live under). queryUsername is the exact
+  // `username` value the ["purchases", taskId, username] query key uses, so a
+  // remote-change invalidation matches that key byte-for-byte.
+  const rowLoroOwner = username ?? currentUser;
+  const rowLoro = usePurchaseRowLoro({
+    itemId: editingItemId,
+    owner: rowLoroOwner,
+    taskId,
+    queryUsername: username,
+    currentUser,
+  });
+
   const { data: autocompleteItems = [] } = useQuery({
     queryKey: ["purchases-all", currentUser],
     queryFn: () => purchasesApi.listAllIncludingShared(currentUser),
@@ -372,6 +392,34 @@ export default function PurchaseEditor({
     },
     []
   );
+
+  // Purchase items on Loro chunk 2: read the open editor's INITIAL field values
+  // from the Loro projection (the CRDT truth) instead of the raw .json item,
+  // once the flag is on and the handle has opened. handleStartEdit seeds the
+  // draft from the .json item immediately (so the editor never blocks on a
+  // loader), then this effect re-seeds it from getPurchaseFields the moment the
+  // handle is ready. It fires exactly once per opened item (tracked by a ref),
+  // before the user has typed, so it cannot clobber an in-progress edit. Flag
+  // off / handle not yet open: it is a no-op and the .json seed stands.
+  const loroSeededItemId = useRef<number | null>(null);
+  useEffect(() => {
+    if (!PURCHASE_LORO_ENABLED) {
+      loroSeededItemId.current = null;
+      return;
+    }
+    if (editingItemId === null) {
+      // Edit ended: clear the guard so the next open re-seeds from the doc.
+      loroSeededItemId.current = null;
+      return;
+    }
+    // Wait for the handle to finish opening for THIS row before seeding.
+    if (rowLoro.opening || !rowLoro.handle) return;
+    if (loroSeededItemId.current === editingItemId) return;
+
+    loroSeededItemId.current = editingItemId;
+    setEditingRow(itemToEditingRow(getPurchaseFields(rowLoro.handle.doc)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingItemId, rowLoro.opening, rowLoro.handle]);
 
   const handleSaveEdit = useCallback(async () => {
     if (!editingItemId || !editingRow.item_name.trim()) return;
