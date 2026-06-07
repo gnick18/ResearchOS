@@ -1,10 +1,44 @@
-# Identity, simplified: your profile is your account
+# Identity, simplified: a local keypair is your account, OAuth is optional
 
-Status: decisions locked 2026-06-06, awaiting go-ahead to build (supersedes the
-password half of IDENTITY_MODEL_SIMPLIFICATION.md and reshapes
-PASSKEY_IDENTITY_UNLOCK.md)
+Status: decisions locked 2026-06-06; P1 + P2 built; MAJOR REVISION 2026-06-06
+(see below) after the OAuth-required model dead-ended in dev.
 Author: HR (orchestrator)
 Date: 2026-06-06
+
+## MAJOR REVISION 2026-06-06: local keypair = account, OAuth optional
+
+The first cut made the OAuth profile THE account ("your profile is your account").
+That dead-ended immediately: OAuth is not configured in dev (no AUTH_SECRET, no
+provider creds) and is off in prod (SHARING_ENABLED unset), so an account could
+not be created or unlocked at all there. Coupling basic local login to cloud
+OAuth infra fights the local-first premise.
+
+Grant's revised call: the ACCOUNT is a local keypair, created OFFLINE with no
+OAuth, unlocked by a passkey (everyday) or recovery code (offline fallback).
+OAuth becomes OPTIONAL, used only to publish a findable profile (bind the
+keypair's public key to a verified email in the directory) for cross-boundary
+sharing. This still kills the standalone password and keeps one keypair + passkey
+unlock; it just stops REQUIRING OAuth to have an account.
+
+What changes from the sections below:
+- "An account = a profile (OAuth)" becomes "an account = a local keypair";
+  creating it is a local step (mint keypair, enroll passkey, show recovery code),
+  no network.
+- The shared-folder gate forces CREATE-A-LOCAL-IDENTITY, not OAuth.
+- OAuth (SharingSetupWizard) becomes the optional "publish my profile" action and
+  must BIND THE EXISTING keypair to the email (it currently mints a fresh one,
+  that is the old two-keypair bug, fixing it here completes unification).
+- The sidecar `email`/`claimedAt` become optional (present only once published);
+  a local-only identity has keys + recoveryBlob + passkeyBlob and no email.
+- The P1 machinery (device-key/session-key/storage seal+unlock/sidecar wrapped
+  blobs) already supports this; the new work is a local "create identity" path +
+  making the wizard reuse the existing keypair + the optional-email sidecar shape.
+
+Everything below is the prior (OAuth-required) framing, kept for history; where it
+says "profile/OAuth is the account", read "local keypair is the account, OAuth
+optional".
+
+## Why (original framing)
 
 ## Why
 
