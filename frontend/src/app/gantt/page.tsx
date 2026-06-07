@@ -16,6 +16,7 @@ import HighLevelGoalSidebar from "@/components/HighLevelGoalSidebar";
 import { matchesAnyProjectFilter } from "@/lib/search/filterKey";
 import { taskKey } from "@/lib/types";
 import type { HighLevelGoal, Project } from "@/lib/types";
+import { useGanttBeakerSource } from "./useGanttBeakerSource";
 
 // Composite key for project lookups: shared and own projects can share a
 // numeric id and must not collide. Mirrors the `taskKey` pattern in
@@ -223,6 +224,11 @@ export default function Home() {
     },
     [queryClient, setEditingGoal, setIsCreatingGoal]
   );
+
+  // Register the Gantt page's BeakerSearch source (step 3) while mounted. The
+  // hook reads the same store slices + queries above and builds the source via
+  // the pure buildGanttSource builder. No props needed, it reads the store.
+  useGanttBeakerSource();
 
   // Find the task and project for the detail popup
   const editingTask = editingTaskKey
