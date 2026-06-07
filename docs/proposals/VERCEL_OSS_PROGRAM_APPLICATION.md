@@ -14,9 +14,10 @@ Drafted by: brand manager (Claude), 2026-06-07.
   only for the open source project. Nonprofits and small startups welcome. Larger
   funded companies are nudged to the separate Startups Program instead.
 - Apply at `vercel.link/oss-apply` (redirects to `open-source-program.vercel.app`).
-- TIMING CAUTION. Every source lists the Spring cohort deadline as June 3, and today
-  is June 7, so the Spring window may have just closed. The program runs every 3
-  months, so if Spring is closed, target the Summer cohort. These answers carry over.
+- TIMING. Spring 2026 closed June 3 (the Winter cohort was announced March 17, the
+  program runs quarterly). We are targeting the SUMMER 2026 cohort, which by the
+  pattern should open within a few weeks. We use the gap to build a little visible
+  traction first (see the traction checklist at the bottom), then submit.
 
 ## Our eligibility, confirmed
 
@@ -93,11 +94,19 @@ costs to researchers. It directly lowers the cost of keeping ResearchOS free and
 
 ### Traffic, growth, or community signals
 
-(Fill in real numbers before submitting. Candidates to include: GitHub stars and
-contributors, monthly active users or demo visits if tracked, beta tester count,
-the RISE Initiative funding, any institutional pilots or lab adopters, social
-following on Bluesky and LinkedIn and YouTube.) Honest framing is best, this is an
-early but actively developed project with a clear niche and a working hosted demo.
+ResearchOS is early but moving fast. The repository was created in February 2026 and
+already has more than 3,000 commits, with daily activity from the maintainer. It is
+funded in part by the UW-Madison RISE Initiative and has a working hosted demo that
+anyone can try in the browser with no signup. The pitch here is growth potential, a
+sharp niche (a local-first, fully open ELN that researchers actually own) at a moment
+when labs need NIH Data Management and Sharing compliance and a credible alternative
+to vendor-locked notebooks.
+
+Real numbers as of June 2026 (update right before submitting): GitHub repo created
+2026-02-15, roughly 3,300 commits, 1 primary contributor (the maintainer). Add by
+submit time: GitHub stars (grow these before applying), demo visit numbers from
+Vercel Web Analytics, any beta testers, and any lab or institutional pilots. Keep it
+honest, the reviewers weight growth potential and do not reward inflated figures.
 
 ### Maintainer
 
@@ -112,13 +121,26 @@ GNU Affero General Public License v3 (AGPLv3).
 
 Yes, `CODE_OF_CONDUCT.md` in the repository.
 
+## Traction to build before the Summer cohort opens
+
+The application's weak spot is community signal (1 star, solo as of June 2026). The
+gap before Summer is the time to fix that. Worth doing, roughly in order:
+
+1. Share the repo and the hosted demo on Bluesky and LinkedIn to earn some genuine
+   GitHub stars. Even 20 to 50 real stars changes the optics a lot.
+2. Turn on Vercel Web Analytics on the demo (if not already) so there are real
+   visit numbers to cite by submit time.
+3. Polish the repo front door, README badges, a clear screenshot or GIF up top, a
+   couple of "good first issue" tickets to signal it welcomes contributors.
+4. Line up any lab or classmate willing to be named as an early adopter or pilot.
+5. Ship the first YouTube companion tutorial (see the tutorials design doc), a real
+   demo video strengthens the application.
+
 ## Before submitting, do these
 
-1. Confirm the cohort is actually open on the live form. If Spring closed June 3,
-   note the Summer open date and submit then.
-2. Drop real numbers into the traffic/growth answer. Pull GitHub stars/contributors
-   and any usage you track. Do not inflate, the reviewers value honesty and growth
-   potential over raw size.
+1. Confirm the Summer cohort is open on the live form, note its deadline.
+2. Update the growth answer with the latest GitHub stars, demo visits, and any
+   pilots. Do not inflate.
 3. Read every answer out loud against the brand voice rules (no em-dashes, no emojis,
    no AI-speak, no "We're excited to"). They already follow it, but check.
 4. Decide whether to mention the LLC. Recommended one line so the metered-storage
