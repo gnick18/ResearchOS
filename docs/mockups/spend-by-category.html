@@ -3,100 +3,123 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Monthly spend by category, mockup</title>
+<title>Monthly money flow, mockup</title>
 <style>
   :root {
     --surface: #f5f6f8; --surface-raised: #fff; --surface-sunken: #eef0f3;
     --border: #e2e5ea; --foreground: #15181d; --foreground-muted: #6b7280;
+    --red: #b91c1c; --green: #047857;
   }
   .dark {
     --surface: #15181d; --surface-raised: #1c2026; --surface-sunken: #23282f;
     --border: #2c323b; --foreground: #f2f4f7; --foreground-muted: #9aa3af;
+    --red: #fca5a5; --green: #6ee7b7;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background: var(--surface); color: var(--foreground); padding: 28px 16px; }
-  .toolbar { max-width: 640px; margin: 0 auto 18px; text-align: center; }
+  .toolbar { max-width: 640px; margin: 0 auto 18px; text-align: center; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
   .seg { border: 1px solid var(--border); background: var(--surface-raised); color: var(--foreground);
     border-radius: 9px; padding: 7px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
   .card { max-width: 640px; margin: 0 auto; border: 1px solid var(--border); background: var(--surface-raised);
     border-radius: 14px; padding: 24px; }
-  .head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
   h2 { margin: 0; font-size: 17px; font-weight: 650; }
-  .desc { margin: 3px 0 0; font-size: 12px; line-height: 1.5; color: var(--foreground-muted); max-width: 60ch; }
-  .total { font-size: 24px; font-weight: 750; letter-spacing: -.02em; }
-  .total span { margin-left: 4px; font-size: 12px; font-weight: 400; color: var(--foreground-muted); }
-  .bar { margin-top: 18px; display: flex; height: 20px; width: 100%; border-radius: 999px; overflow: hidden;
+  .desc { margin: 3px 0 0; font-size: 12px; line-height: 1.5; color: var(--foreground-muted); max-width: 62ch; }
+  .row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+  .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+  .eyebrow.out { color: var(--red); } .eyebrow.in { color: var(--green); }
+  .amt { font-size: 16px; font-weight: 700; }
+  .bar { margin-top: 8px; display: flex; height: 20px; width: 100%; border-radius: 999px; overflow: hidden;
     box-shadow: inset 0 0 0 1px var(--border); background: var(--surface-sunken); }
   .bar > i { display: block; height: 100%; }
-  .summary { margin-top: 8px; font-size: 12px; color: var(--foreground-muted); }
-  .legend { margin: 18px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .summary { margin-top: 6px; font-size: 12px; color: var(--foreground-muted); }
+  .legend { margin: 12px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
   .legend li { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .legend .l { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; }
   .legend .sw { width: 12px; height: 12px; border-radius: 3px; flex: none; }
   .legend .mut { color: var(--foreground-muted); }
   .legend .v { font-size: 13px; font-weight: 650; }
+  .empty { margin-top: 8px; border: 1px dashed var(--border); background: var(--surface-sunken); border-radius: 10px;
+    padding: 12px 14px; font-size: 12px; color: var(--foreground-muted); }
+  .net { margin-top: 20px; display: flex; align-items: center; justify-content: space-between;
+    border-top: 1px solid var(--border); padding-top: 12px; }
+  .net .k { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--foreground-muted); }
+  .net .v { font-size: 16px; font-weight: 750; }
+  .section { margin-top: 22px; }
   @media (max-width: 520px) { .legend { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
   <div class="toolbar">
-    <button class="seg" id="scenarioBtn">Scenario: busy month</button>
+    <button class="seg" id="usageBtn">Usage: busy month</button>
+    <button class="seg" id="revBtn">Revenue: none yet</button>
     <button class="seg" id="themeBtn">Dark</button>
   </div>
   <div class="card" id="card"></div>
 <script>
 const usd = c => "$" + (c/100).toFixed(2);
-// Two scenarios so the design is visible (beta is mostly the fixed base).
-const SCENARIOS = {
+const OUT = {
   beta: [
-    { label: "Hosting", vendor: "Vercel", cents: 2000, fixed: true, color: "#6366f1" },
-    { label: "Compute base", vendor: "Cloudflare Workers", cents: 500, fixed: true, color: "#f59e0b" },
-    { label: "Doc storage", vendor: "Durable Objects", cents: 0, fixed: false, color: "#0ea5e9" },
-    { label: "File storage", vendor: "Cloudflare R2", cents: 0, fixed: false, color: "#10b981" },
-    { label: "Activity", vendor: "Cloudflare", cents: 0, fixed: false, color: "#8b5cf6" },
+    { label:"Hosting", vendor:"Vercel", cents:2000, fixed:true, color:"#6366f1" },
+    { label:"Compute base", vendor:"Cloudflare Workers", cents:500, fixed:true, color:"#f59e0b" },
+    { label:"Doc storage", vendor:"Durable Objects", cents:0, fixed:false, color:"#0ea5e9" },
+    { label:"File storage", vendor:"Cloudflare R2", cents:0, fixed:false, color:"#10b981" },
+    { label:"Activity", vendor:"Cloudflare", cents:0, fixed:false, color:"#8b5cf6" },
   ],
   busy: [
-    { label: "Hosting", vendor: "Vercel", cents: 2000, fixed: true, color: "#6366f1" },
-    { label: "Compute base", vendor: "Cloudflare Workers", cents: 500, fixed: true, color: "#f59e0b" },
-    { label: "Doc storage", vendor: "Durable Objects", cents: 340, fixed: false, color: "#0ea5e9" },
-    { label: "File storage", vendor: "Cloudflare R2", cents: 180, fixed: false, color: "#10b981" },
-    { label: "Activity", vendor: "Cloudflare", cents: 920, fixed: false, color: "#8b5cf6" },
+    { label:"Hosting", vendor:"Vercel", cents:2000, fixed:true, color:"#6366f1" },
+    { label:"Compute base", vendor:"Cloudflare Workers", cents:500, fixed:true, color:"#f59e0b" },
+    { label:"Doc storage", vendor:"Durable Objects", cents:340, fixed:false, color:"#0ea5e9" },
+    { label:"File storage", vendor:"Cloudflare R2", cents:180, fixed:false, color:"#10b981" },
+    { label:"Activity", vendor:"Cloudflare", cents:920, fixed:false, color:"#8b5cf6" },
   ],
 };
-let scenario = "busy";
-function render() {
-  const cats = SCENARIOS[scenario];
-  const total = cats.reduce((s,c)=>s+c.cents,0) || 1;
-  const fixed = cats.filter(c=>c.fixed).reduce((s,c)=>s+c.cents,0);
-  const variable = total - fixed;
-  const segs = cats.filter(c=>c.cents>0).map(c=>`<i style="width:${(c.cents/total)*100}%;background:${c.color}" title="${c.label} (${c.vendor}): ${usd(c.cents)}"></i>`).join("");
-  const legend = cats.map(c=>`<li>
-    <span class="l"><span class="sw" style="background:${c.color}"></span>
-      <span>${c.label} <span class="mut">· ${c.vendor}${c.fixed?" · fixed":""}</span></span></span>
-    <span class="v">${usd(c.cents)}</span></li>`).join("");
+const REV = {
+  none: [],
+  some: [
+    { label:"Storage plans", cents:4800, color:"#10b981" },
+    { label:"Lab plans", cents:3000, color:"#0ea5e9" },
+    { label:"Donations", cents:1500, color:"#8b5cf6" },
+  ],
+};
+let usage = "busy", rev = "none";
+function bar(segs){ const t=Math.max(1,segs.reduce((s,c)=>s+c.cents,0));
+  return `<div class="bar">${segs.filter(c=>c.cents>0).map(c=>`<i style="width:${(c.cents/t)*100}%;background:${c.color}"></i>`).join("")}</div>`; }
+function render(){
+  const out = OUT[usage], inc = REV[rev];
+  const outTotal = out.reduce((s,c)=>s+c.cents,0);
+  const fixed = out.filter(c=>c.fixed).reduce((s,c)=>s+c.cents,0);
+  const variable = outTotal - fixed;
+  const inTotal = inc.reduce((s,c)=>s+c.cents,0);
+  const net = inTotal - outTotal;
+  const outLegend = out.map(c=>`<li><span class="l"><span class="sw" style="background:${c.color}"></span>
+    <span>${c.label} <span class="mut">· ${c.vendor}${c.fixed?" · fixed":""}</span></span></span><span class="v">${usd(c.cents)}</span></li>`).join("");
+  const inLegend = inc.map(c=>`<li><span class="l"><span class="sw" style="background:${c.color}"></span>
+    <span>${c.label}</span></span><span class="v">${usd(c.cents)}</span></li>`).join("");
   document.getElementById("card").innerHTML = `
-    <div class="head">
-      <div>
-        <h2>Monthly spend by category</h2>
-        <p class="desc">Estimated provider cost this month from live usage. Fixed base (hosting + compute) plus variable storage and activity. Recorded actuals live in the ledger below.</p>
-      </div>
-      <p class="total">${usd(total)}<span>/ mo est.</span></p>
+    <h2>Monthly money flow</h2>
+    <p class="desc">Estimated provider cost out (from live usage) and recorded revenue in (from the ledger) this month.</p>
+    <div class="section">
+      <div class="row"><span class="eyebrow out">Money out, estimated cost</span><span class="amt">${usd(outTotal)}</span></div>
+      ${bar(out)}
+      <p class="summary">${usd(fixed)} fixed base + ${usd(variable)} variable. The cost breaker budgets the variable part.</p>
+      <ul class="legend">${outLegend}</ul>
     </div>
-    <div class="bar">${segs}</div>
-    <p class="summary">${usd(fixed)} fixed base + ${usd(variable)} variable. The cost breaker budgets the variable part.</p>
-    <ul class="legend">${legend}</ul>`;
+    <div class="section">
+      <div class="row"><span class="eyebrow in">Money in, revenue</span><span class="amt">${usd(inTotal)}</span></div>
+      ${inTotal>0 ? bar(inc)+`<ul class="legend">${inLegend}</ul>`
+        : `<div class="empty">No revenue yet. When storage plans or donations come in, they fill this bar by source.</div>`}
+    </div>
+    <div class="net"><span class="k">Net this month</span>
+      <span class="v" style="color:${net>=0?'var(--green)':'var(--red)'}">${net>=0?"+":"-"}${usd(Math.abs(net))}</span></div>`;
 }
 render();
-document.getElementById("scenarioBtn").onclick = (e) => {
-  scenario = scenario === "busy" ? "beta" : "busy";
-  e.target.textContent = "Scenario: " + (scenario === "busy" ? "busy month" : "beta (near-idle)");
-  render();
-};
-document.getElementById("themeBtn").onclick = (e) => {
-  document.documentElement.classList.toggle("dark");
-  e.target.textContent = document.documentElement.classList.contains("dark") ? "Light" : "Dark";
-};
+document.getElementById("usageBtn").onclick = e => { usage = usage==="busy"?"beta":"busy";
+  e.target.textContent = "Usage: " + (usage==="busy"?"busy month":"beta (near-idle)"); render(); };
+document.getElementById("revBtn").onclick = e => { rev = rev==="none"?"some":"none";
+  e.target.textContent = "Revenue: " + (rev==="none"?"none yet":"with revenue"); render(); };
+document.getElementById("themeBtn").onclick = e => { document.documentElement.classList.toggle("dark");
+  e.target.textContent = document.documentElement.classList.contains("dark")?"Light":"Dark"; render(); };
 </script>
 </body>
 </html>

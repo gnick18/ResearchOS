@@ -16,6 +16,7 @@ import Link from "next/link";
 import AppFooter from "@/components/AppFooter";
 import BeakerBotGreeting from "@/components/admin/BeakerBotGreeting";
 import OperatorSignIn from "@/components/admin/OperatorSignIn";
+import SpendByCategoryPanel from "@/components/admin/SpendByCategoryPanel";
 import {
   capacityStatus,
   pctUsed,
@@ -438,6 +439,11 @@ export default function AdminMetrics() {
         <StatCard label="Pending shares" value={r.pendingShares} />
         <StatCard label="Pending storage" value={humanBytes(r.pendingBytes)} />
         <StatCard label="Shares ever sent" value={r.totalEverSent} />
+      </div>
+
+      {/* Monthly money flow (cost out + revenue in). */}
+      <div className="mt-8">
+        <SpendByCategoryPanel />
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
