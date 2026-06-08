@@ -319,6 +319,19 @@ export function useGanttBeakerSource(): void {
         });
         await refetch(["dependencies"]);
       },
+      // BeakerSearch v2 (sub-flow framework, chunk 2). The owner-routed move, the
+      // SAME write the detail popup's project picker did (project_id null clears it
+      // to standalone), then refetch the tasks + this task + the projects scope.
+      moveTaskToProject: async (task: Task, projectId: number | null) => {
+        await tasksApi.update(
+          task.id,
+          { project_id: projectId },
+          task.is_shared_with_me ? task.owner : undefined,
+        );
+        await refetch(["tasks"]);
+        await refetch(["task", taskKey(task)]);
+        await refetch(["projects"]);
+      },
     }),
     [
       openTask,

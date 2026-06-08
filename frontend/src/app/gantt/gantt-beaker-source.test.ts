@@ -83,6 +83,7 @@ const noopHandlers: GanttSourceHandlers = {
   deleteGoal: () => {},
   assignTask: () => {},
   createDependency: () => {},
+  moveTaskToProject: () => {},
 };
 
 function makeData(over: Partial<GanttSourceData> = {}): GanttSourceData {
@@ -478,6 +479,68 @@ describe("buildGanttSource sub-flows", () => {
     const next = sf.onPick(sf.items[0]);
     expect(next).toBeUndefined();
     expect(assigned).toEqual([[1, "morgan"]]);
+  });
+
+  it("INLINE move-to-project, lists Standalone plus the active projects and calls the real move handler", () => {
+    const moved: Array<[number, number | null]> = [];
+    const handlers: GanttSourceHandlers = {
+      ...noopHandlers,
+      moveTaskToProject: (task, projectId) => {
+        moved.push([task.id, projectId]);
+      },
+    };
+    const ownProject = makeProject({ id: 10, owner: "self", name: "Mitochondria QC" });
+    const sharedProject = makeProject({ id: 20, owner: "alex", name: "Shared screen" });
+    const cmds = buildGanttSource(
+      makeData({
+        editingTaskKey: "self:1",
+        activeProjects: [ownProject, sharedProject],
+      }),
+      handlers,
+    ).commands;
+    const move = cmds.find((c) => c.id === "gantt-task-move-project")!;
+    expect(move.subflow).toBeDefined();
+    const sf = move.subflow!();
+    // Single stage, no explicit presentation (renders inline by inference).
+    expect(sf.presentation).toBeUndefined();
+    // Standalone leads, then each active project; the shared project echoes its owner.
+    expect(sf.items.map((i) => i.label)).toEqual([
+      "Standalone",
+      "Mitochondria QC",
+      "Shared screen",
+    ]);
+    expect(sf.items[0].id).toBe("__standalone__");
+    expect(sf.items[1].detail).toBeUndefined();
+    expect(sf.items[2].detail).toBe("shared by alex");
+    // Picking a real project completes (returns void) and passes its numeric id.
+    const next = sf.onPick(sf.items[2]);
+    expect(next).toBeUndefined();
+    expect(moved).toEqual([[1, 20]]);
+    // Picking Standalone passes project_id null.
+    const done = sf.onPick(sf.items[0]);
+    expect(done).toBeUndefined();
+    expect(moved).toEqual([[1, 20], [1, null]]);
+  });
+
+  it("gates move-to-project off for a read-only shared task", () => {
+    const cmds = buildGanttSource(
+      makeData({
+        editingTaskKey: "alex:2",
+        allTasks: [
+          makeTask({
+            id: 2,
+            owner: "alex",
+            is_shared_with_me: true,
+            shared_permission: "view",
+            name: "Shared run",
+          }),
+        ],
+      }),
+      noopHandlers,
+    ).commands;
+    const move = cmds.find((c) => c.id === "gantt-task-move-project");
+    expect(move?.enabled).toBe(false);
+    expect(move?.subflow).toBeDefined();
   });
 
   it("disables assign when there are no assignable members", () => {

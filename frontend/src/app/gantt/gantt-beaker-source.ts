@@ -148,6 +148,13 @@ export interface GanttSourceHandlers {
     childId: number,
     depType: "FS" | "SS" | "SF",
   ) => void | Promise<void>;
+  /** Move a task into a project (or to standalone when projectId is null) via the
+   *  owner-routed tasksApi.update, then refetch (the same write the detail popup's
+   *  project picker did). */
+  moveTaskToProject: (
+    task: Task,
+    projectId: number | null,
+  ) => void | Promise<void>;
 }
 
 // ── The eight VIEW_MODES, mirrored from Toolbar so the builder can stay pure
@@ -347,6 +354,54 @@ function buildAssignSubflow(
   };
 }
 
+// BeakerSearch v2 (sub-flow framework, chunk 2). The sentinel id the move-project
+// picker uses for the "Standalone" (project_id null) row, kept off the numeric
+// project-id space so onPick can tell it apart.
+const MOVE_PROJECT_STANDALONE_ID = "__standalone__";
+
+/** BeakerSearch v2 (sub-flow framework, chunk 2). The INLINE move-to-project flow,
+ *  mirroring assign (single stage, renders inline). Items are the active projects
+ *  plus a leading "Standalone" option (project_id null); picking one calls the real
+ *  owner-routed tasksApi.update via moveTaskToProject then COMPLETES (onPick returns
+ *  void). Single stage, so the framework renders it inline under the command row. */
+function buildMoveProjectSubflow(
+  task: Task,
+  data: GanttSourceData,
+  handlers: GanttSourceHandlers,
+): PaletteSubflow {
+  const standaloneItem: PaletteNavItem = {
+    id: MOVE_PROJECT_STANDALONE_ID,
+    label: "Standalone",
+    detail: "no project",
+    keywords: "no project orphan none",
+    iconName: "list",
+    tone: "task",
+    onRun: () => {},
+  };
+  const projectItems: PaletteNavItem[] = data.activeProjects.map((p) => ({
+    id: String(p.id),
+    label: p.name,
+    // The owner echo only when the project is shared from someone else, so an own
+    // project stays clean and a shared one shows whose it is.
+    detail:
+      p.owner && p.owner !== data.currentUser ? `shared by ${p.owner}` : undefined,
+    keywords: [...(p.tags ?? []), p.owner].filter(Boolean).join(" "),
+    iconName: "folder",
+    tone: "project",
+    onRun: () => {},
+  }));
+  return {
+    title: `Move "${task.name}" to a project`,
+    placeholder: "Pick a project",
+    items: [standaloneItem, ...projectItems],
+    onPick: (item) => {
+      const projectId =
+        item.id === MOVE_PROJECT_STANDALONE_ID ? null : Number(item.id);
+      void handlers.moveTaskToProject(task, projectId);
+    },
+  };
+}
+
 /** BeakerSearch v2 (sub-flow framework, chunk 1). The STACK add-dependency flow
  *  (proof 2, multi-stage). Stage 1 lists the OTHER experiments; picking one returns
  *  stage 2 (the three dep types), whose pick calls dependenciesApi.create then
@@ -474,6 +529,9 @@ function buildCommands(
       iconName: "eye",
       run: () => handlers.setEditingTaskKey(key),
     });
+    // BeakerSearch v2 (sub-flow framework, chunk 2). The INLINE move-to-project
+    // flow, pick a project (or Standalone). run stays terminal-safe (opens the
+    // popup) for a caller without the framework.
     out.push({
       id: "gantt-task-move-project",
       label: `Move "${t.name}" to a project`,
@@ -482,6 +540,7 @@ function buildCommands(
       iconName: "folder",
       enabled: !ro,
       run: () => handlers.setEditingTaskKey(key),
+      subflow: () => buildMoveProjectSubflow(t, data, handlers),
     });
     out.push({
       id: "gantt-task-delete",
