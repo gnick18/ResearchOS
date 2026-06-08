@@ -12,11 +12,11 @@ import NewPurchaseModal from "@/components/NewPurchaseModal";
 import PurchaseEditor from "@/components/PurchaseEditor";
 import SpendingDashboard from "@/components/SpendingDashboard";
 import DemoPurchasesViewer from "@/components/DemoPurchasesViewer";
-import SuppliesTabs from "@/components/inventory/SuppliesTabs";
 import FundingAccountsManager from "@/components/FundingAccountsManager";
 import LivingPopup from "@/components/ui/LivingPopup";
 import Tooltip from "@/components/Tooltip";
 import { useRouter, useSearchParams } from "next/navigation";
+import { INVENTORY_ENABLED } from "@/lib/inventory/config";
 import {
   MISC_CATEGORY_LABEL,
   isMiscProject,
@@ -58,6 +58,35 @@ type PurchaseCategoryFilter = "all" | "project" | "misc" | "awaiting_approval";
 type PurchaseOrderStatusFilter = "any" | PurchaseOrderStatus;
 
 export default function PurchasesPage() {
+  // Supplies v2 chunk 7: when the unified Supplies page is live
+  // (INVENTORY_ENABLED), /purchases is retired and redirects into /supplies,
+  // mapping its known deep-link param so the loop-strip / search intent
+  // survives. When the flag is OFF (prod default) this branch is never taken,
+  // so the standalone purchases page below renders exactly as before and prod
+  // is unchanged. INVENTORY_ENABLED is a module constant, so the same branch is
+  // taken on every render (no Rules-of-Hooks issue).
+  if (INVENTORY_ENABLED) {
+    return <PurchasesRedirect />;
+  }
+  return <PurchasesPageContent />;
+}
+
+/** Redirect /purchases into the unified /supplies page (chunk 7). Maps the
+ *  legacy "needs ordering" deep-link (?stage=needs_ordering) onto the unified
+ *  on-order filter; every other param lands on the default list. */
+function PurchasesRedirect() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const stage = searchParams.get("stage");
+  useEffect(() => {
+    const target =
+      stage === "needs_ordering" ? "/supplies?filter=onorder" : "/supplies";
+    router.replace(target);
+  }, [router, stage]);
+  return null;
+}
+
+function PurchasesPageContent() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [deletingTaskId, setDeletingTaskId] = useState<number | null>(null);
   const [showFundingManager, setShowFundingManager] = useState(false);
@@ -363,12 +392,6 @@ export default function PurchasesPage() {
   return (
     <AppShell>
       <div className="flex-1 overflow-auto p-6">
-        {/* Supplies hub header + loop strip (Supplies hub, 2026-06-07).
-            SuppliesTabs self-gates on INVENTORY_ENABLED and returns null when
-            the flag is off, so with the flag off (prod default) /purchases
-            renders EXACTLY as before. When the flag is on it adds the shared
-            tab header above the Purchases content. */}
-        <SuppliesTabs />
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-heading font-semibold text-foreground">Purchases</h2>

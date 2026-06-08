@@ -212,15 +212,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, [filtered, isLabHead]);
 
   // Supplies hub (Supplies hub, 2026-06-07). When INVENTORY_ENABLED is on,
-  // Inventory and Purchases become two tabs under ONE "Supplies" nav item
-  // (label "Supplies", default landing /inventory, active for /inventory OR
-  // /purchases). The shared tab header + loop strip render at the top of both
-  // pages (SuppliesTabs). When the flag is OFF (prod default) this collapse
-  // does NOT run, so Purchases keeps its own standalone nav item and Inventory
-  // stays hidden exactly as today. The collapse only touches these two
-  // entries; every other nav item is untouched (the broader nav audit is a
-  // separate task). The replacement is positioned where the first of the two
-  // (Inventory before Purchases in NAV_ITEMS) sat so the nav order is stable.
+  // Inventory and Purchases collapse into ONE "Supplies" nav item pointing at
+  // the unified /supplies page (label "Supplies", active for /supplies AND the
+  // legacy /inventory + /purchases routes, which now redirect into it). The old
+  // two-tab SuppliesTabs header is retired (Supplies v2 chunk 7, 2026-06-08).
+  // When the flag is OFF (prod default) this collapse does NOT run, so Purchases
+  // keeps its own standalone nav item and Inventory stays hidden exactly as
+  // today. The collapse only touches these two entries; every other nav item is
+  // untouched (the broader nav audit is a separate task). The replacement is
+  // positioned where the first of the two (Inventory before Purchases in
+  // NAV_ITEMS) sat so the nav order is stable.
   const navItems = useMemo(() => {
     if (!INVENTORY_ENABLED) return navItemsWithOverview;
     const hasInventory = navItemsWithOverview.some(
@@ -237,7 +238,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     for (const item of navItemsWithOverview) {
       if (item.href === "/inventory" || item.href === "/purchases") {
         if (!inserted) {
-          out.push({ href: "/inventory", label: "Supplies" });
+          out.push({ href: "/supplies", label: "Supplies" });
           inserted = true;
         }
         continue;
@@ -340,15 +341,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           data-tour-nav-disabled={navDisabledByTour ? "true" : undefined}
         >
           {navItems.map((item) => {
-            // The Supplies hub item (href "/inventory" under the flag) is the
-            // active tab for either of its two routes, since /purchases now
-            // lives under it. Every other item keeps the exact-match rule.
+            // The Supplies hub item (href "/supplies" under the flag) is the
+            // active tab for the unified page AND the legacy /inventory +
+            // /purchases routes, which redirect into it. Every other item keeps
+            // the exact-match rule.
             const isSuppliesHub =
               INVENTORY_ENABLED &&
-              item.href === "/inventory" &&
+              item.href === "/supplies" &&
               item.label === "Supplies";
             const isActive = isSuppliesHub
-              ? pathname === "/inventory" || pathname === "/purchases"
+              ? pathname === "/supplies" ||
+                pathname === "/inventory" ||
+                pathname === "/purchases"
               : pathname === item.href;
             // Onboarding v4 §6.12+ walkthrough anchors. Each top-nav
             // item gets a `data-tour-target` keyed off its route

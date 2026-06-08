@@ -150,7 +150,16 @@ function SuppliesPageInner() {
   const piMenu = usePiRecordMenu();
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
   const searchParams = useSearchParams();
-  const [filter, setFilter] = useState<SupplyFilter>("all");
+  // Deep-link seed (chunk 7): /supplies?filter=all|attention|onorder seeds the
+  // filter chip on load so the retired /inventory + /purchases routes can map
+  // their legacy params (?signal=, ?stage=) into the unified surface. Read once
+  // via the lazy initializer; thereafter the chips own the state. The lab-head
+  // "awaiting_approval" lens is intentionally not a seedable target (it is not
+  // a redirect destination and is role-gated).
+  const [filter, setFilter] = useState<SupplyFilter>(() => {
+    const f = searchParams.get("filter");
+    return f === "attention" || f === "onorder" || f === "all" ? f : "all";
+  });
   const [query, setQuery] = useState("");
   // Deep-link (chunk 6 + global-index): /supplies?supply={identityKey} opens that
   // supply's detail. Read once via the lazy initializer so a click from global

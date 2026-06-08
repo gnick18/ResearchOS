@@ -87,19 +87,15 @@ vi.mock("@/lib/file-system/file-system-context", () => ({
   useFileSystem: () => ({ currentUser: "alex", isLoading: false, directoryName: "Lab" }),
 }));
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
-  // The page reads useSearchParams for the Supplies-hub `?stage=` deep-link.
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  // The page reads useSearchParams for the retired `?stage=` deep-link (now
+  // handled by the flag-gated redirect, inert under the flag-off default here).
   useSearchParams: () => new URLSearchParams(),
 }));
 
-// Supplies hub (914668b05): the Purchases page renders SuppliesTabs as chrome
-// above the purchase content. It runs its own nav + inventory-data hooks before
-// the INVENTORY_ENABLED early-return (Rules of Hooks), so leaving it live pulls
-// the whole inventory graph into this suite. It is a sibling of the content
-// under test, so stub it out like the other page chrome.
-vi.mock("@/components/inventory/SuppliesTabs", () => ({
-  default: () => null,
-}));
+// Supplies v2 chunk 7 retired the SuppliesTabs hub header; the Purchases page
+// no longer mounts it (this suite runs with INVENTORY_ENABLED off, so the page
+// renders its standalone content), so no stub is needed.
 
 vi.mock("@/lib/store", () => ({
   useAppStore: (selector: (s: { selectedProjectIds: number[] }) => unknown) =>

@@ -14,7 +14,7 @@
 // / mid-sentence colons.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import AppShell from "@/components/AppShell";
@@ -44,7 +44,6 @@ import type {
 import ItemFormDialog from "@/components/inventory/ItemFormDialog";
 import ImportInventoryDialog from "@/components/inventory/ImportInventoryDialog";
 import ScanFlow from "@/components/inventory/ScanFlow";
-import SuppliesTabs from "@/components/inventory/SuppliesTabs";
 import StockFormDialog from "@/components/inventory/StockFormDialog";
 import StockRow from "@/components/inventory/StockRow";
 import StorageMap from "@/components/inventory/StorageMap";
@@ -97,6 +96,37 @@ type StockDialogState =
   | { mode: "edit"; item: InventoryItem; stock: InventoryStock };
 
 export default function InventoryPage() {
+  // Supplies v2 chunk 7: when the unified Supplies page is live
+  // (INVENTORY_ENABLED), /inventory is retired and redirects into /supplies,
+  // mapping its known deep-link params so the loop-strip / search intent
+  // survives. When the flag is OFF (prod default) this branch is never taken,
+  // so the standalone page below renders its usual "not enabled" state and prod
+  // is unchanged. INVENTORY_ENABLED is a module constant, so the same branch is
+  // taken on every render (no Rules-of-Hooks issue).
+  if (INVENTORY_ENABLED) {
+    return <InventoryRedirect />;
+  }
+  return <InventoryPageContent />;
+}
+
+/** Redirect /inventory into the unified /supplies page (chunk 7). Maps the
+ *  legacy health-tile deep-link (?signal=expiring|low|stale) onto the unified
+ *  attention filter; every other param lands on the default list. */
+function InventoryRedirect() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const signal = searchParams.get("signal");
+  useEffect(() => {
+    const target =
+      signal === "expiring" || signal === "low" || signal === "stale"
+        ? "/supplies?filter=attention"
+        : "/supplies";
+    router.replace(target);
+  }, [router, signal]);
+  return null;
+}
+
+function InventoryPageContent() {
   const { currentUser } = useCurrentUser();
   const queryClient = useQueryClient();
 
@@ -419,11 +449,6 @@ export default function InventoryPage() {
   return (
     <AppShell>
       <div className="flex-1 overflow-auto p-6">
-        {/* Supplies hub header + loop strip (Supplies hub, 2026-06-07). Self-
-            gated on INVENTORY_ENABLED, and this branch is only reached when the
-            flag is on, so it sits above the Inventory header when the hub is
-            live and is absent otherwise. */}
-        <SuppliesTabs />
         {/* Header */}
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>

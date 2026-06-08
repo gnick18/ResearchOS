@@ -52,6 +52,10 @@ export const NAV_ICON_BY_HREF: Record<string, IconName> = {
   "/purchases": "download",
   "/calendar": "history",
   "/inventory": "vial",
+  // Supplies v2 chunk 7: the unified /supplies page collapses Inventory +
+  // Purchases under the flag. Mapped to "box" (the same glyph the Supplies hub
+  // header + nav item use) so the "Go to Supplies" row reads meaningfully.
+  "/supplies": "box",
   "/search": "search",
   "/links": "share",
 };
@@ -75,10 +79,16 @@ export function useGlobalCommands(): EditorCommand[] {
 
   return useMemo<EditorCommand[]>(() => {
     const goTo: EditorCommand[] = NAV_ITEMS.filter((item) => {
-      // Inventory hides from the strip behind INVENTORY_ENABLED; keep the
-      // palette in lockstep so "Go to Inventory" does not surface a route the
-      // visible nav suppresses.
-      if (item.href === "/inventory" && !INVENTORY_ENABLED) return false;
+      // Inventory never gets its own "Go to" row: it is hidden behind the flag
+      // when off (the route shows a "not enabled" state), and collapsed into the
+      // unified "Go to Supplies" row injected below when on (Supplies v2 chunk
+      // 7). Either way "Go to Inventory" never surfaces a route the visible nav
+      // suppresses.
+      if (item.href === "/inventory") return false;
+      // Supplies v2 chunk 7: under the flag, /purchases also collapses into the
+      // unified "Go to Supplies" row (it only redirects into /supplies now).
+      // With the flag off this branch is skipped and Purchases keeps its own row.
+      if (INVENTORY_ENABLED && item.href === "/purchases") return false;
       // Drop the route you are already on. "Go to Workbench" while on
       // /workbench is a no-op row, so suppress it rather than show a dead entry.
       if (item.href === pathname) return false;
@@ -93,6 +103,22 @@ export function useGlobalCommands(): EditorCommand[] {
       keywords: item.label,
       run: () => router.push(item.href),
     }));
+
+    // Supplies v2 chunk 7: inject the unified "Go to Supplies" row under the
+    // flag, in place of the suppressed /inventory + /purchases rows. /supplies
+    // is not a NAV_ITEMS entry (it is synthesized in the AppShell nav too), so
+    // it is added here rather than read from the canonical list. Suppressed
+    // when already on /supplies, mirroring the same-route rule above.
+    if (INVENTORY_ENABLED && pathname !== "/supplies") {
+      goTo.push({
+        id: "goto-/supplies",
+        label: "Go to Supplies",
+        group: "Go to",
+        iconName: NAV_ICON_BY_HREF["/supplies"] ?? "more",
+        keywords: "Supplies inventory purchases",
+        run: () => router.push("/supplies"),
+      });
+    }
 
     const app: EditorCommand[] = [
       {
