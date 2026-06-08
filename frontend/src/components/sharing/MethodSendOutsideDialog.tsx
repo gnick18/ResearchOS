@@ -361,7 +361,8 @@ function SendForm({
 
   // The recipient is not on ResearchOS. Instead of a dead-end, offer to invite
   // them and share this method. The copy states the lower-assurance trust
-  // boundary honestly, an invite sends the unlock key in the email link.
+  // boundary honestly, the invitation email is keyless and the sender delivers
+  // the unlock key out of band (P1-A).
   if (state.phase === "offer-invite") {
     return (
       <div className="space-y-4">
@@ -374,9 +375,11 @@ function SendForm({
               {state.recipient} is not on ResearchOS yet
             </p>
             <p className="text-body text-foreground-muted mt-1 leading-relaxed">
-              ResearchOS can email them an invitation with a private link to this
-              method. They create a free account to open it, the method stays
-              encrypted until they do.
+              ResearchOS emails {state.recipient} a branded invitation to create a
+              free account. The email holds no key, so it cannot open the method on
+              its own. After you send it, ResearchOS gives you a private link and
+              an unlock code to pass to {state.recipient} yourself, and the method
+              stays encrypted until they open it with that key.
             </p>
           </div>
         </div>
@@ -386,8 +389,10 @@ function SendForm({
           </span>
           <p className="text-meta text-amber-800 dark:text-amber-300 leading-relaxed">
             An invite is a lower-assurance channel than sending to an existing
-            account. The unlock key travels in the email link, so anyone who can
-            read that email can open the method. Only invite an address you trust.
+            account. The unlock key never travels through our relay or the
+            invitation email, you deliver it to the recipient over a channel you
+            trust. Whoever holds that key can open the method, so send it carefully
+            and only invite an address you trust.
           </p>
         </div>
         <div className="flex gap-2 pt-1">

@@ -1,11 +1,13 @@
 /**
  * SharingServerCopyNotice
  *
- * The Option B transparency disclosure (see UNIFIED_MODEL_PHASE3C_SHARED_COLLAB).
- * When a user shares content for live collaboration, ResearchOS keeps a synced,
- * encrypted copy on its servers so collaborators see changes in real time. This
- * notice states that plainly at the moment of sharing, and reassures that
- * anything NOT shared stays only on the user's machine (local-first).
+ * The Option B transparency disclosure (see UNIFIED_MODEL_PHASE3C_SHARED_COLLAB
+ * and COLLAB_STORAGE_D1_DO_MIGRATION). When a user shares content for live
+ * collaboration, ResearchOS keeps a synced copy on its servers so collaborators
+ * see changes in real time. Per the Option B decision that copy is server-readable
+ * (PLAINTEXT over TLS, not end-to-end encrypted), unlike a one-time "Send outside"
+ * copy. This notice states that honestly at the moment of sharing, and reassures
+ * that anything NOT shared stays only on the user's machine (local-first).
  *
  * Used in every surface that creates a server-stored shared copy (the note
  * share dialog's "In your lab" tab, the shared-notebook dialog). NOT used on the
@@ -39,9 +41,10 @@ export default function SharingServerCopyNotice({
         <path d="M12 8h.01" />
       </svg>
       <span>
-        Sharing keeps a synced, encrypted copy on ResearchOS servers so your
-        collaborators see changes live. Anything you don&apos;t share stays only
-        on your computer.
+        Live collaboration keeps a synced copy on ResearchOS servers so your
+        collaborators see changes in real time. That copy is not end-to-end
+        encrypted, so our servers can read what you co-edit here. Anything you
+        don&apos;t share stays only on your computer.
       </span>
     </div>
   );

@@ -199,6 +199,15 @@ export default function SecurityPage() {
         <code>UPSTASH_REDIS_REST_URL</code> for shared-state rate limiting
         on public deploys. The wiring is already in place.
       </Callout>
+      <Callout variant="warning" title="Live collaboration uploads a readable copy">
+        One-time sends to someone outside your folder are end-to-end encrypted,
+        the relay holds only ciphertext and we cannot read it. Live real-time
+        collaboration is the exception. When you co-edit a note or a shared
+        notebook live, the shared document is synced to our servers in readable
+        form so every change reaches the other person right away, which means we
+        can read what you co-edit there. Anything you do not put into a live
+        shared document stays on your machine and is never uploaded.
+      </Callout>
 
       <h2>How to verify it yourself</h2>
       <p>

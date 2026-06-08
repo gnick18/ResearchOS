@@ -382,9 +382,12 @@ function SendForm({
               {state.recipient} is not on ResearchOS yet
             </p>
             <p className="text-body text-foreground-muted mt-1 leading-relaxed">
-              ResearchOS can email them an invitation with a private link to each
-              sequence. They create a free account to open them, the sequences
-              stay encrypted until they do.
+              ResearchOS emails {state.recipient} a branded invitation to create a
+              free account. The email holds no keys, so it cannot open the
+              sequences on its own. After you send it, ResearchOS gives you a
+              private link and an unlock code for each sequence to pass to{" "}
+              {state.recipient} yourself, and the sequences stay encrypted until
+              they open them with those keys.
             </p>
           </div>
         </div>
@@ -394,9 +397,10 @@ function SendForm({
           </span>
           <p className="text-meta text-amber-800 dark:text-amber-300 leading-relaxed">
             An invite is a lower-assurance channel than sending to an existing
-            account. The unlock key travels in the email link, so anyone who can
-            read that email can open the sequences. Only invite an address you
-            trust.
+            account. The unlock keys never travel through our relay or the
+            invitation email, you deliver them to the recipient over a channel you
+            trust. Whoever holds a key can open that sequence, so send them
+            carefully and only invite an address you trust.
           </p>
         </div>
         <div className="flex gap-2 pt-1">

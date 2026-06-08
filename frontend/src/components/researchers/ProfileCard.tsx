@@ -207,8 +207,10 @@ export default function ProfileCard({
 
         <p className="mt-5 text-meta text-foreground-muted leading-relaxed">
           To send research to this person, open any note, method, experiment,
-          project, or sequence and use its Share button. Sharing is end to end
-          encrypted, and this profile never exposes an email address.
+          project, or sequence and use its Share button. A one-time send is
+          encrypted end to end, so only the recipient can open it. Live real-time
+          collaboration is different, it keeps a synced copy on our servers so
+          edits sync instantly. This profile never exposes an email address.
         </p>
       </div>
     </div>

@@ -116,8 +116,11 @@ export default function PrivacyPolicy() {
               your email and your public keys, never your research content.
             </li>
             <li>
-              When you do share, the files travel end-to-end encrypted through a
-              relay that cannot read them and deletes them on a short timer.
+              When you send work to someone outside your folder, it travels
+              end-to-end encrypted through a relay that cannot read it and deletes
+              it on a short timer. Live real-time collaboration works differently,
+              it keeps a synced copy of the shared document on our servers so edits
+              appear instantly, and that copy is not end-to-end encrypted.
             </li>
             <li>
               We do not sell your data, we do not run advertising, and we never
@@ -222,7 +225,7 @@ export default function PrivacyPolicy() {
           </p>
         </Section>
 
-        <Section id="relay" title="The encrypted relay, we cannot read your shares">
+        <Section id="relay" title="The encrypted relay for one-time sends">
           <p>
             When you send a note, method, experiment, project, or sequence to
             someone outside your folder, ResearchOS encrypts it on your device
@@ -238,6 +241,15 @@ export default function PrivacyPolicy() {
             delivery. There is an abuse-report path so a recipient can flag
             unwanted content, and because the relay holds only encrypted bytes,
             we act on the account rather than the content we cannot see.
+          </p>
+          <p>
+            <strong>Live real-time collaboration is the one exception.</strong>{" "}
+            When you co-edit a note or a shared notebook with someone live, the app
+            keeps a synced copy of that document on our servers so every change
+            reaches the other person right away. That copy is held in readable
+            form, not end-to-end encrypted, so unlike a one-time send, our servers
+            can read what you collaborate on there. Anything you do not put into a
+            live shared document stays on your machine and is never uploaded.
           </p>
         </Section>
 
