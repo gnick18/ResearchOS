@@ -597,3 +597,282 @@ describe("CommandPalette contextual sections", () => {
     expect(screen.queryByText("Orphan recent")).toBeNull();
   });
 });
+
+// ── BeakerSearch v2 (sub-flow framework, chunk 1) ───────────────────────────
+
+import type { PaletteSubflow } from "./editor-commands";
+
+/** A member nav item for the inline assign flow. */
+function member(id: string, label: string) {
+  return { id, label, iconName: "users" as const, onRun: () => {} };
+}
+
+/** A command set with one INLINE single-stage sub-flow (assign), whose onPick
+ *  records the chosen member then completes (returns void). */
+function makeInlineSubflowCommands(onAssign: (id: string) => void): EditorCommand[] {
+  return [
+    {
+      id: "assign",
+      label: "Assign to a member",
+      group: "Edit",
+      iconName: "users",
+      run: () => {},
+      subflow: (): PaletteSubflow => ({
+        title: "Assign to a member",
+        placeholder: "Type a member",
+        items: [member("morgan", "Morgan Lee"), member("alex", "Alex Park")],
+        onPick: (item) => {
+          onAssign(item.id);
+        },
+      }),
+    },
+    {
+      id: "other-cmd",
+      label: "Some other command",
+      group: "View",
+      iconName: "eye",
+      run: () => {},
+    },
+  ];
+}
+
+/** A command set with one MULTI-STAGE sub-flow (add dependency), stage 1 lists
+ *  experiments, picking one chains to stage 2 (dep types), whose pick calls the
+ *  spy then completes. presentation defaults so it auto-promotes to the stack. */
+function makeStackSubflowCommands(onLink: (a: string, b: string) => void): EditorCommand[] {
+  return [
+    {
+      id: "add-dep",
+      label: "Add a dependency",
+      group: "Edit",
+      iconName: "share",
+      run: () => {},
+      subflow: (): PaletteSubflow => ({
+        title: "Add a dependency",
+        placeholder: "Pick the experiment",
+        // Open as a stack from stage 1 (matches the real Gantt add-dependency
+        // proof). It would also auto-promote on the chain if left default.
+        presentation: "stack",
+        items: [
+          { id: "exp-2", label: "Cloning run", iconName: "list", onRun: () => {} },
+          { id: "exp-3", label: "Western blot", iconName: "list", onRun: () => {} },
+        ],
+        onPick: (chosen): PaletteSubflow => ({
+          title: `Link to ${chosen.label}`,
+          placeholder: "Pick the dependency type",
+          items: [
+            { id: "FS", label: "Finish to start", iconName: "share", onRun: () => {} },
+            { id: "SS", label: "Start to start", iconName: "share", onRun: () => {} },
+          ],
+          onPick: (dep) => {
+            onLink(chosen.id, dep.id);
+          },
+        }),
+      }),
+    },
+  ];
+}
+
+describe("CommandPalette sub-flows", () => {
+  it("opens an INLINE sub-flow under the anchor with the page rows still present", () => {
+    render(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={makeInlineSubflowCommands(() => {})}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+    // Open the picker by clicking the command row (mouseDown is the run path).
+    fireEvent.mouseDown(screen.getByText("Assign to a member"));
+    // The picker rows are now present.
+    expect(screen.getByText("Morgan Lee")).toBeTruthy();
+    expect(screen.getByText("Alex Park")).toBeTruthy();
+    // The rest of the page rows stay visible (calm, in-context, option B).
+    expect(screen.getByText("Some other command")).toBeTruthy();
+    // No breadcrumb Back row in inline mode.
+    expect(screen.queryByTestId("beaker-subflow-back")).toBeNull();
+  });
+
+  it("filters the inline picker by the live query and reaches the rows by keyboard", () => {
+    render(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={makeInlineSubflowCommands(() => {})}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+    fireEvent.mouseDown(screen.getByText("Assign to a member"));
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "alex" } });
+    expect(screen.getByText("Alex Park")).toBeTruthy();
+    expect(screen.queryByText("Morgan Lee")).toBeNull();
+  });
+
+  it("completes a single-stage pick by running the handler and closing", () => {
+    const onAssign = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <CommandPalette
+        open
+        onClose={onClose}
+        commands={makeInlineSubflowCommands(onAssign)}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+    fireEvent.mouseDown(screen.getByText("Assign to a member"));
+    fireEvent.mouseDown(screen.getByText("Morgan Lee"));
+    expect(onAssign).toHaveBeenCalledWith("morgan");
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens a multi-stage flow as the stacked breadcrumb with a Back row", () => {
+    render(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={makeStackSubflowCommands(() => {})}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+    fireEvent.mouseDown(screen.getByText("Add a dependency"));
+    // Stage 1 experiments only, the original command row is replaced (STACK).
+    expect(screen.getByText("Cloning run")).toBeTruthy();
+    expect(screen.getByText("Western blot")).toBeTruthy();
+    // The Back row is present at the top.
+    expect(screen.getByTestId("beaker-subflow-back")).toBeTruthy();
+  });
+
+  it("chains stage 1 to stage 2 on pick, then completes on the second pick", () => {
+    const onLink = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <CommandPalette
+        open
+        onClose={onClose}
+        commands={makeStackSubflowCommands(onLink)}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+    fireEvent.mouseDown(screen.getByText("Add a dependency"));
+    // Pick stage 1.
+    fireEvent.mouseDown(screen.getByText("Cloning run"));
+    // Stage 2 dep types appear, stage 1 rows are gone.
+    expect(screen.getByText("Finish to start")).toBeTruthy();
+    expect(screen.queryByText("Cloning run")).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+    // Pick stage 2, the handler runs and the palette closes.
+    fireEvent.mouseDown(screen.getByText("Finish to start"));
+    expect(onLink).toHaveBeenCalledWith("exp-2", "FS");
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("pops one stage on Escape inside a flow, then closes at the root", () => {
+    const onClose = vi.fn();
+    render(
+      <CommandPalette
+        open
+        onClose={onClose}
+        commands={makeStackSubflowCommands(() => {})}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+    const dialog = screen.getByRole("dialog");
+    fireEvent.mouseDown(screen.getByText("Add a dependency"));
+    fireEvent.mouseDown(screen.getByText("Cloning run"));
+    // In stage 2 now.
+    expect(screen.getByText("Finish to start")).toBeTruthy();
+    // First Escape pops to stage 1 (does NOT close).
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    expect(screen.getByText("Cloning run")).toBeTruthy();
+    expect(onClose).not.toHaveBeenCalled();
+    // Second Escape pops to the root (the command row is back, still not closed).
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    expect(screen.getByText("Add a dependency")).toBeTruthy();
+    expect(onClose).not.toHaveBeenCalled();
+    // Third Escape at the root closes the palette.
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("pops a stage when the Back row is clicked", () => {
+    render(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={makeStackSubflowCommands(() => {})}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+    fireEvent.mouseDown(screen.getByText("Add a dependency"));
+    expect(screen.getByText("Cloning run")).toBeTruthy();
+    fireEvent.mouseDown(screen.getByTestId("beaker-subflow-back"));
+    // Back to the root, the command row is present again.
+    expect(screen.getByText("Add a dependency")).toBeTruthy();
+    expect(screen.queryByText("Cloning run")).toBeNull();
+  });
+
+  it("promotes an inline-default flow to the stack when stage 1 chains", () => {
+    // A flow whose stage 1 has no presentation override opens INLINE (option B),
+    // then PROMOTES to the stack (option A) on the chain.
+    const commands: EditorCommand[] = [
+      {
+        id: "flow",
+        label: "Move to a project",
+        group: "Edit",
+        iconName: "folder",
+        run: () => {},
+        subflow: (): PaletteSubflow => ({
+          title: "Move to a project",
+          items: [{ id: "p1", label: "Mitochondria QC", iconName: "folder", onRun: () => {} }],
+          onPick: (): PaletteSubflow => ({
+            title: "Confirm the move",
+            items: [{ id: "ok", label: "Confirm", iconName: "check", onRun: () => {} }],
+            onPick: () => {},
+          }),
+        }),
+      },
+    ];
+    render(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={commands}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+    fireEvent.mouseDown(screen.getByText("Move to a project"));
+    // Stage 1 inline, no Back row yet.
+    expect(screen.queryByTestId("beaker-subflow-back")).toBeNull();
+    expect(screen.getByText("Mitochondria QC")).toBeTruthy();
+    // Chain, now the stack with a Back row.
+    fireEvent.mouseDown(screen.getByText("Mitochondria QC"));
+    expect(screen.getByTestId("beaker-subflow-back")).toBeTruthy();
+    expect(screen.getByText("Confirm")).toBeTruthy();
+  });
+
+  it("leaves a command without a sub-flow exactly as v1 (runs and closes)", () => {
+    const run = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <CommandPalette
+        open
+        onClose={onClose}
+        commands={makeCommands({ "protein-props": run })}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+    fireEvent.mouseDown(screen.getByText("Protein properties"));
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});

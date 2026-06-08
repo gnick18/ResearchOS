@@ -3,7 +3,7 @@
 // the grouping, and the selection-biasing rule, so the palette's brain is
 // verified without a DOM.
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   fuzzyScore,
   scoreCommand,
@@ -16,12 +16,19 @@ import {
   scoreSequenceNav,
   scoreArtifactNav,
   scoreNavItem,
+  filterSubflowItems,
+  resolveSubflowPresentation,
+  isPaletteItemEnabled,
+  paletteItemKey,
+  runPaletteItem,
   RECENT_RESULTS_CAP,
   COMMAND_GROUP_ORDER,
   type EditorCommand,
   type SequenceNavItem,
   type ArtifactNavItem,
   type PaletteNavGroup,
+  type PaletteNavItem,
+  type PaletteSubflow,
 } from "./editor-commands";
 
 const noop = () => {};
@@ -435,5 +442,93 @@ describe("interpretQuery seam (step 3)", () => {
     expect(groups.some((g) => g.title === "Go to a date")).toBe(false);
     // The normal command results still surface.
     expect(flattenPaletteItems(groups).some((i) => i.kind === "command")).toBe(true);
+  });
+});
+
+// ── BeakerSearch v2 (sub-flow framework, chunk 1) ───────────────────────────
+
+function navItem(over: Partial<PaletteNavItem> = {}): PaletteNavItem {
+  return {
+    id: over.id ?? "x",
+    label: over.label ?? "Item",
+    iconName: "list",
+    onRun: () => {},
+    ...over,
+  };
+}
+
+describe("filterSubflowItems", () => {
+  const items: PaletteNavItem[] = [
+    navItem({ id: "morgan", label: "Morgan Lee", keywords: "morgan" }),
+    navItem({ id: "alex", label: "Alex Park", keywords: "alex" }),
+    navItem({ id: "sam", label: "Sam Diaz", keywords: "sam" }),
+  ];
+
+  it("returns the items in authored order on an empty query", () => {
+    expect(filterSubflowItems(items, "").map((i) => i.id)).toEqual([
+      "morgan",
+      "alex",
+      "sam",
+    ]);
+    // A copy, not the same array (so the caller can mutate freely).
+    expect(filterSubflowItems(items, "")).not.toBe(items);
+  });
+
+  it("fuzzy-filters and ranks by the live query", () => {
+    const got = filterSubflowItems(items, "alex");
+    expect(got.map((i) => i.id)).toEqual(["alex"]);
+  });
+
+  it("matches on keywords as well as the label", () => {
+    const withKw = [navItem({ id: "a", label: "First choice", keywords: "zebrafish" })];
+    expect(filterSubflowItems(withKw, "zebra").map((i) => i.id)).toEqual(["a"]);
+  });
+
+  it("drops everything when nothing matches", () => {
+    expect(filterSubflowItems(items, "zzzz")).toEqual([]);
+  });
+});
+
+describe("resolveSubflowPresentation", () => {
+  const base: PaletteSubflow = { title: "Pick", items: [], onPick: () => {} };
+
+  it("infers INLINE for the first stage and STACK for a deeper stage", () => {
+    expect(resolveSubflowPresentation(base, 1)).toBe("inline");
+    expect(resolveSubflowPresentation(base, 2)).toBe("stack");
+    expect(resolveSubflowPresentation(base, 3)).toBe("stack");
+  });
+
+  it("honors an explicit presentation override at any depth", () => {
+    const stacked: PaletteSubflow = { ...base, presentation: "stack" };
+    expect(resolveSubflowPresentation(stacked, 1)).toBe("stack");
+    const inlined: PaletteSubflow = { ...base, presentation: "inline" };
+    expect(resolveSubflowPresentation(inlined, 5)).toBe("inline");
+  });
+});
+
+describe("subpick PaletteItem union", () => {
+  it("keys, enables, and runs a subpick row", () => {
+    const onPick = vi.fn();
+    const item = {
+      kind: "subpick" as const,
+      item: navItem({ id: "morgan", label: "Morgan Lee" }),
+      onPick,
+    };
+    expect(paletteItemKey(item)).toBe("subpick-morgan");
+    expect(isPaletteItemEnabled(item)).toBe(true);
+    runPaletteItem(item);
+    expect(onPick).toHaveBeenCalledTimes(1);
+  });
+
+  it("greys and skips a disabled subpick choice", () => {
+    const onPick = vi.fn();
+    const item = {
+      kind: "subpick" as const,
+      item: navItem({ id: "x", enabled: false }),
+      onPick,
+    };
+    expect(isPaletteItemEnabled(item)).toBe(false);
+    runPaletteItem(item);
+    expect(onPick).not.toHaveBeenCalled();
   });
 });

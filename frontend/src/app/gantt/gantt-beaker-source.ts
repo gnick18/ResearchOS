@@ -26,8 +26,18 @@ import type {
   PaletteContextCard,
   PaletteNavGroup,
   PaletteNavItem,
+  PaletteSubflow,
 } from "@/components/sequences/editor-commands";
 import type { HighLevelGoal, Project, Task } from "@/lib/types";
+
+// BeakerSearch v2 (sub-flow framework, chunk 1). The two dependency-type rows the
+// add-dependency flow's second stage offers, named once so the picker + tests
+// share the constant. FS / SS / SF are the three Dependency.dep_type values.
+export const GANTT_DEP_TYPES: { id: "FS" | "SS" | "SF"; label: string; detail: string }[] = [
+  { id: "FS", label: "Finish to start", detail: "the linked experiment finishes before this one starts" },
+  { id: "SS", label: "Start to start", detail: "both start together" },
+  { id: "SF", label: "Start to finish", detail: "the linked experiment starts before this one finishes" },
+];
 
 // ── Page-defined command groups ────────────────────────────────────────────
 // These print between the page's nav groups and the global "Go to" / "App"
@@ -84,6 +94,14 @@ export interface GanttSourceData {
    *  "Recently opened" nav group. */
   recentTaskKeys: string[];
 
+  // BeakerSearch v2 (sub-flow framework, chunk 1).
+  /** Active (non-archived) lab members the current user can assign a task to,
+   *  excluding the current user themselves. The assign sub-flow lists these.
+   *  Resolved by the hook from useLabData + useArchivedUsers + the profile map. */
+  labMembers: { username: string; displayName: string }[];
+  /** The current user (the assign audit actor + the dep-create gate). */
+  currentUser: string;
+
   // Pre-computed helpers the builder needs but must not derive itself (keeps
   // the builder pure and the keying identical to the page).
   /** taskKey(task) for a task, the composite "{ns}:{id}". */
@@ -118,6 +136,18 @@ export interface GanttSourceHandlers {
   markGoalComplete: (goal: HighLevelGoal) => void | Promise<void>;
   /** The page's handleDeleteGoal (confirm + goalsApi.delete + refetch + clear). */
   deleteGoal: (goal: HighLevelGoal) => void | Promise<void>;
+
+  // BeakerSearch v2 (sub-flow framework, chunk 1), the two picker handlers.
+  /** Assign a task to a member through the owner-routed pi-actions.assignTask,
+   *  then refetch (the same handler AssignTaskButton uses). */
+  assignTask: (task: Task, assignee: string) => void | Promise<void>;
+  /** Create a dependency edge between two experiments via dependenciesApi.create,
+   *  then refetch. */
+  createDependency: (
+    parentId: number,
+    childId: number,
+    depType: "FS" | "SS" | "SF",
+  ) => void | Promise<void>;
 }
 
 // ── The eight VIEW_MODES, mirrored from Toolbar so the builder can stay pure
@@ -290,6 +320,85 @@ function anyFilterActive(data: GanttSourceData): boolean {
   );
 }
 
+/** BeakerSearch v2 (sub-flow framework, chunk 1). The INLINE assign flow (proof 1,
+ *  single stage). Items are the assignable lab members; picking one calls the real
+ *  owner-routed assignTask then COMPLETES (onPick returns void). Single stage, so
+ *  the framework renders it inline under the command row (option B). */
+function buildAssignSubflow(
+  task: Task,
+  data: GanttSourceData,
+  handlers: GanttSourceHandlers,
+): PaletteSubflow {
+  return {
+    title: `Assign "${task.name}" to a lab member`,
+    placeholder: "Type a lab member",
+    items: data.labMembers.map((m) => ({
+      id: m.username,
+      label: m.displayName,
+      detail: m.displayName === m.username ? undefined : m.username,
+      keywords: m.username,
+      iconName: "users",
+      tone: "person",
+      onRun: () => {},
+    })),
+    onPick: (item) => {
+      void handlers.assignTask(task, item.id);
+    },
+  };
+}
+
+/** BeakerSearch v2 (sub-flow framework, chunk 1). The STACK add-dependency flow
+ *  (proof 2, multi-stage). Stage 1 lists the OTHER experiments; picking one returns
+ *  stage 2 (the three dep types), whose pick calls dependenciesApi.create then
+ *  COMPLETES. Stage 1 sets presentation "stack" so the flow opens as the pushed
+ *  breadcrumb view immediately (it also auto-promotes on the chain regardless). */
+function buildAddDependencySubflow(
+  task: Task,
+  data: GanttSourceData,
+  handlers: GanttSourceHandlers,
+): PaletteSubflow {
+  const others = data.allTasks.filter(
+    (t) => t.task_type === "experiment" && data.taskKeyOf(t) !== data.taskKeyOf(task),
+  );
+  return {
+    title: `Add a dependency from "${task.name}"`,
+    placeholder: "Pick the experiment it links to",
+    presentation: "stack",
+    items: others.map((other) => ({
+      id: data.taskKeyOf(other),
+      label: other.name,
+      detail: `${other.start_date} to ${other.end_date}`,
+      keywords: (other.tags ?? []).join(" "),
+      iconName: "list",
+      tone: "task",
+      onRun: () => {},
+    })),
+    onPick: (chosen): PaletteSubflow => {
+      const child = others.find((t) => data.taskKeyOf(t) === chosen.id);
+      const childId = child ? child.id : task.id;
+      return {
+        title: `Link "${task.name}" to "${chosen.label}"`,
+        placeholder: "Pick the dependency type",
+        items: GANTT_DEP_TYPES.map((d) => ({
+          id: d.id,
+          label: d.label,
+          detail: d.detail,
+          keywords: d.id,
+          iconName: "share",
+          onRun: () => {},
+        })),
+        onPick: (depItem) => {
+          void handlers.createDependency(
+            task.id,
+            childId,
+            depItem.id as "FS" | "SS" | "SF",
+          );
+        },
+      };
+    },
+  };
+}
+
 /** Build the full command set with stable ids + page-defined groups (spec 3 +
  *  6). The selection-specific rows carry stable ids the Suggested rule names. */
 function buildCommands(
@@ -325,14 +434,37 @@ function buildCommands(
       enabled: !ro,
       run: () => handlers.setEditingTaskKey(key),
     });
+    // BeakerSearch v2 (sub-flow framework, chunk 1), proof 2. The STACK flow,
+    // pick the linked experiment, then the dep type. Gated to experiments with at
+    // least one OTHER experiment to link to. run is unused when subflow is set, but
+    // it stays terminal-safe (opens the popup) for any caller without the framework.
     out.push({
       id: "gantt-task-add-dependency",
       label: `Add a dependency from "${t.name}"`,
       detail: "link to another experiment",
       group: GANTT_GROUP_SELECTED_TASK,
       iconName: "share",
-      enabled: !ro && t.task_type === "experiment",
+      enabled:
+        !ro &&
+        t.task_type === "experiment" &&
+        data.allTasks.some(
+          (x) => x.task_type === "experiment" && data.taskKeyOf(x) !== key,
+        ),
       run: () => handlers.setEditingTaskKey(key),
+      subflow: () => buildAddDependencySubflow(t, data, handlers),
+    });
+    // BeakerSearch v2 (sub-flow framework, chunk 1), proof 1. The INLINE flow, pick
+    // a lab member. Gated to when there is at least one assignable member. run stays
+    // terminal-safe (opens the popup) for a caller without the framework.
+    out.push({
+      id: "gantt-task-assign",
+      label: `Assign "${t.name}" to a lab member`,
+      detail: t.assignee ? `currently ${t.assignee}` : "currently unassigned",
+      group: GANTT_GROUP_SELECTED_TASK,
+      iconName: "users",
+      enabled: !ro && data.labMembers.length > 0,
+      run: () => handlers.setEditingTaskKey(key),
+      subflow: () => buildAssignSubflow(t, data, handlers),
     });
     out.push({
       id: "gantt-task-open",
@@ -525,6 +657,7 @@ function buildSuggestedIds(data: GanttSourceData): string[] {
       "gantt-task-toggle-complete",
       "gantt-task-shift-dates",
       "gantt-task-add-dependency",
+      "gantt-task-assign",
       "gantt-task-open",
       "gantt-task-move-project",
       "gantt-task-delete",

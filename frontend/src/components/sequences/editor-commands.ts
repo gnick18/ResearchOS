@@ -78,6 +78,41 @@ export interface EditorCommand {
    *  or "21 nt". Display only, shown under the label in the Suggested rows so the
    *  command reads as "do this to my highlight". Absent on most commands. */
   detail?: string;
+  /** BeakerSearch v2 (sub-flow framework, chunk 1). When set, running this command
+   *  does NOT close the palette and run a terminal handler; instead it OPENS a
+   *  picker (a PaletteSubflow) inside the palette to collect a second choice (an
+   *  assignee, a project, a dependency target). Absent leaves the command terminal
+   *  (it behaves exactly as v1). The factory is called when the command is run, so
+   *  the picker is built from live state at open time, not at command-build time. */
+  subflow?: () => PaletteSubflow;
+}
+
+/** BeakerSearch v2 (sub-flow framework, chunk 1). A second-choice PICKER the
+ *  palette opens in place, without leaving for a page surface. The active stage's
+ *  `items` are fuzzy-filtered by the live query; selecting one either COMPLETES
+ *  the action (onPick returns void, the real handler ran) or CHAINS to another
+ *  stage (onPick returns another PaletteSubflow, e.g. pick experiment then pick
+ *  dep type). The HYBRID presentation rule (doc decision 2), a single-stage flow
+ *  renders INLINE under the command row, a chained / multi-stage flow renders as
+ *  the pushed STACK with a breadcrumb + Back. `presentation` overrides the inferred
+ *  default; a flow that starts inline and then chains promotes to the stack. */
+export interface PaletteSubflow {
+  /** Breadcrumb (stack mode) / inline header, e.g. 'Assign "PCR optimization" to'. */
+  title: string;
+  /** Input hint while the picker is active, e.g. "type a member". */
+  placeholder?: string;
+  /** The choices, fuzzy-filtered by the live query (label + keywords). */
+  items: PaletteNavItem[];
+  /** Run the pick. Returns void to COMPLETE (the handler ran, the palette closes),
+   *  or another PaletteSubflow to CHAIN to the next stage. */
+  onPick: (item: PaletteNavItem) => void | PaletteSubflow;
+  /** Optional free-text completion when the query matches no item (a new category
+   *  name, a date). Returns void to complete or a PaletteSubflow to chain. */
+  onSubmitRaw?: (query: string) => void | PaletteSubflow;
+  /** Explicit presentation override. Absent => inferred (single stage inline, a
+   *  chained stage stack). "stack" forces the pushed breadcrumb view from the
+   *  first stage; "inline" forces the under-the-row expansion. */
+  presentation?: "inline" | "stack";
 }
 
 /** One OTHER sequence in the open collection, offered as a jump target so the
@@ -184,7 +219,13 @@ export type PaletteItem =
   | { kind: "artifact"; artifact: ArtifactNavItem }
   | { kind: "object"; entry: GlobalIndexEntry; onRun: () => void }
   | { kind: "searchAll"; query: string; onRun: () => void }
-  | { kind: "nav"; item: PaletteNavItem; group: string };
+  | { kind: "nav"; item: PaletteNavItem; group: string }
+  // BeakerSearch v2 (sub-flow framework, chunk 1). One choice row inside an open
+  // sub-flow picker. The wrapped PaletteNavItem carries the icon / label / detail
+  // / tone (so the uniform row render covers it via paletteRowParts), and `onPick`
+  // runs the active stage's onPick for this choice (the palette decides whether
+  // that completes or chains, so the row never closes the palette itself).
+  | { kind: "subpick"; item: PaletteNavItem; onPick: () => void };
 
 /** The visible heading a palette group prints under. The command intent groups,
  *  the synthetic "Suggested", the sequence-editor navigation groups, plus the
@@ -227,6 +268,7 @@ export function isPaletteItemEnabled(item: PaletteItem): boolean {
   if (item.kind === "command") return isCommandEnabled(item.command);
   if (item.kind === "object") return item.entry.enabled;
   if (item.kind === "nav") return item.item.enabled !== false;
+  if (item.kind === "subpick") return item.item.enabled !== false;
   return true;
 }
 
@@ -239,6 +281,7 @@ export function paletteItemKey(item: PaletteItem): string {
   if (item.kind === "object") return `object-${item.entry.type}-${item.entry.key}`;
   if (item.kind === "searchAll") return "search-all";
   if (item.kind === "nav") return `nav-${item.group}-${item.item.id}`;
+  if (item.kind === "subpick") return `subpick-${item.item.id}`;
   return `artifact-${item.artifact.id}`;
 }
 
@@ -262,6 +305,10 @@ export function runPaletteItem(item: PaletteItem): void {
   }
   if (item.kind === "nav") {
     if (item.item.enabled !== false) item.item.onRun();
+    return;
+  }
+  if (item.kind === "subpick") {
+    if (item.item.enabled !== false) item.onPick();
     return;
   }
   item.artifact.onRun();
@@ -893,13 +940,20 @@ export function objectGroupTitle(type: GlobalIndexEntry["type"]): PaletteGroupTi
   }
 }
 
-/** The heading a single item belongs under in the typed view. */
-function paletteGroupTitleOf(item: PaletteItem): PaletteGroupTitle {
+/** The heading a single item belongs under in the typed view. A subpick row uses
+ *  the heading the active sub-flow stage passes (its title), falling back to "More"
+ *  when the caller has none, so the union stays exhaustive without a dedicated
+ *  per-item group field on the row. */
+function paletteGroupTitleOf(
+  item: PaletteItem,
+  subpickGroup?: string,
+): PaletteGroupTitle {
   if (item.kind === "sequence") return "Jump to a sequence";
   if (item.kind === "artifact") return "Recent results";
   if (item.kind === "object") return objectGroupTitle(item.entry.type);
   if (item.kind === "searchAll") return "More";
   if (item.kind === "nav") return item.group;
+  if (item.kind === "subpick") return subpickGroup ?? "More";
   return item.command.group;
 }
 
@@ -909,4 +963,43 @@ export function flattenPaletteItems(groups: PaletteGroup[]): PaletteItem[] {
   const flat: PaletteItem[] = [];
   for (const g of groups) flat.push(...g.items);
   return flat;
+}
+
+// ── BeakerSearch v2 (sub-flow framework, chunk 1), pure helpers ──────────────
+
+/** Fuzzy-filter a sub-flow stage's items by the live query, best-first. An empty
+ *  query returns the items in their authored order (the resting picker). A
+ *  non-empty query scores each item across its label + keywords + detail (the same
+ *  scoreNavItem the typed nav view uses), drops the misses, and sorts the
+ *  survivors by score. Pure, so the picker filter + ordering is unit-tested without
+ *  the palette. */
+export function filterSubflowItems(
+  items: PaletteNavItem[],
+  query: string,
+): PaletteNavItem[] {
+  const trimmed = query.trim();
+  if (trimmed === "") return [...items];
+  const scored: Array<{ item: PaletteNavItem; score: number }> = [];
+  for (const item of items) {
+    const s = scoreNavItem(trimmed, item);
+    if (s != null) scored.push({ item, score: s });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored.map((s) => s.item);
+}
+
+/** Decide how a sub-flow renders, the HYBRID rule (doc decision 2). An explicit
+ *  `presentation` on the subflow wins. Otherwise it is inferred from the stack
+ *  DEPTH, the first stage of a flow renders INLINE under the command row (a calm
+ *  single pick, option B), and any deeper stage (the flow chained to a second
+ *  pick) renders as the pushed STACK with a breadcrumb + Back (option A). So a
+ *  flow that starts inline and then chains promotes to the stack on the second
+ *  stage, and a flow whose first onPick returns another PaletteSubflow is never
+ *  stuck nesting inline. `depth` is 1-based (1 = the first stage). */
+export function resolveSubflowPresentation(
+  subflow: PaletteSubflow,
+  depth: number,
+): "inline" | "stack" {
+  if (subflow.presentation) return subflow.presentation;
+  return depth <= 1 ? "inline" : "stack";
 }

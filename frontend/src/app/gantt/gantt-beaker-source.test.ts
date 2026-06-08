@@ -7,6 +7,7 @@
 
 import { describe, it, expect } from "vitest";
 import type { HighLevelGoal, Project, Task } from "@/lib/types";
+import type { PaletteSubflow } from "@/components/sequences/editor-commands";
 import {
   buildGanttSource,
   ganttScopeSummary,
@@ -80,6 +81,8 @@ const noopHandlers: GanttSourceHandlers = {
   deleteTask: () => {},
   markGoalComplete: () => {},
   deleteGoal: () => {},
+  assignTask: () => {},
+  createDependency: () => {},
 };
 
 function makeData(over: Partial<GanttSourceData> = {}): GanttSourceData {
@@ -100,6 +103,8 @@ function makeData(over: Partial<GanttSourceData> = {}): GanttSourceData {
     editingGoal: null,
     hovered: null,
     recentTaskKeys: [],
+    labMembers: [{ username: "morgan", displayName: "Morgan Lee" }],
+    currentUser: "self",
     taskKeyOf: (t) => `${t.is_shared_with_me ? t.owner : "self"}:${t.id}`,
     filterKeyOf: (p) => `${p.owner}:${p.id}`,
     standaloneFilterKey: "__standalone__",
@@ -196,13 +201,14 @@ describe("buildGanttSource commands", () => {
     expect(cmds.some((c) => c.id === "gantt-tag-qPCR")).toBe(true);
   });
 
-  it("emits the six selected-task rows under Selected task when a task is selected", () => {
+  it("emits the seven selected-task rows under Selected task when a task is selected", () => {
     const cmds = buildGanttSource(makeData({ editingTaskKey: "self:1" }), noopHandlers).commands;
     const selected = cmds.filter((c) => c.group === "Selected task");
     expect(selected.map((c) => c.id)).toEqual([
       "gantt-task-toggle-complete",
       "gantt-task-shift-dates",
       "gantt-task-add-dependency",
+      "gantt-task-assign",
       "gantt-task-open",
       "gantt-task-move-project",
       "gantt-task-delete",
@@ -251,12 +257,13 @@ describe("buildGanttSource commands", () => {
 // ── Suggested ────────────────────────────────────────────────────────────────
 
 describe("buildGanttSource suggested ordering", () => {
-  it("leads with the six task actions then orientation defaults when a task is selected", () => {
+  it("leads with the seven task actions then orientation defaults when a task is selected", () => {
     const src = buildGanttSource(makeData({ editingTaskKey: "self:1" }), noopHandlers);
-    expect(src.suggestedIds?.slice(0, 6)).toEqual([
+    expect(src.suggestedIds?.slice(0, 7)).toEqual([
       "gantt-task-toggle-complete",
       "gantt-task-shift-dates",
       "gantt-task-add-dependency",
+      "gantt-task-assign",
       "gantt-task-open",
       "gantt-task-move-project",
       "gantt-task-delete",
@@ -342,16 +349,17 @@ describe("buildGanttSource nav groups", () => {
 // ── Hover as context (SELECTED > HOVERED) ────────────────────────────────────
 
 describe("buildGanttSource hover as context", () => {
-  it("drives the six task action ids and the pointing-at hint from a hovered task with no selection", () => {
+  it("drives the seven task action ids and the pointing-at hint from a hovered task with no selection", () => {
     const hov = makeTask();
     const src = buildGanttSource(
       makeData({ editingTaskKey: null, editingGoal: null, hovered: { kind: "task", task: hov } }),
       noopHandlers,
     );
-    expect(src.suggestedIds?.slice(0, 6)).toEqual([
+    expect(src.suggestedIds?.slice(0, 7)).toEqual([
       "gantt-task-toggle-complete",
       "gantt-task-shift-dates",
       "gantt-task-add-dependency",
+      "gantt-task-assign",
       "gantt-task-open",
       "gantt-task-move-project",
       "gantt-task-delete",
@@ -423,10 +431,11 @@ describe("buildGanttSource hover as context", () => {
       noopHandlers,
     );
     // The selected task drives Suggested, the hovered goal is ignored.
-    expect(src.suggestedIds?.slice(0, 6)).toEqual([
+    expect(src.suggestedIds?.slice(0, 7)).toEqual([
       "gantt-task-toggle-complete",
       "gantt-task-shift-dates",
       "gantt-task-add-dependency",
+      "gantt-task-assign",
       "gantt-task-open",
       "gantt-task-move-project",
       "gantt-task-delete",
@@ -440,5 +449,86 @@ describe("buildGanttSource hover as context", () => {
       noopHandlers,
     ).contextCard!;
     expect(card.selection?.text).toBe("PCR optimization, 2026-06-12 to 2026-06-19");
+  });
+});
+
+// ── BeakerSearch v2 (sub-flow framework, chunk 1), the two Gantt proofs ──────
+
+describe("buildGanttSource sub-flows", () => {
+  it("INLINE assign, picks a member and calls the real assign handler then completes", () => {
+    const assigned: Array<[number, string]> = [];
+    const handlers: GanttSourceHandlers = {
+      ...noopHandlers,
+      assignTask: (task, assignee) => {
+        assigned.push([task.id, assignee]);
+      },
+    };
+    const cmds = buildGanttSource(
+      makeData({ editingTaskKey: "self:1" }),
+      handlers,
+    ).commands;
+    const assign = cmds.find((c) => c.id === "gantt-task-assign")!;
+    expect(assign.subflow).toBeDefined();
+    const sf = assign.subflow!();
+    // Single stage, no explicit presentation (renders inline by inference).
+    expect(sf.presentation).toBeUndefined();
+    expect(sf.items.map((i) => i.id)).toEqual(["morgan"]);
+    expect(sf.items[0].label).toBe("Morgan Lee");
+    // Picking a member completes (returns void) and calls the handler.
+    const next = sf.onPick(sf.items[0]);
+    expect(next).toBeUndefined();
+    expect(assigned).toEqual([[1, "morgan"]]);
+  });
+
+  it("disables assign when there are no assignable members", () => {
+    const cmds = buildGanttSource(
+      makeData({ editingTaskKey: "self:1", labMembers: [] }),
+      noopHandlers,
+    ).commands;
+    expect(cmds.find((c) => c.id === "gantt-task-assign")?.enabled).toBe(false);
+  });
+
+  it("STACK add-dependency, stage 1 lists other experiments and chains to stage 2 dep types", () => {
+    const created: Array<[number, number, string]> = [];
+    const handlers: GanttSourceHandlers = {
+      ...noopHandlers,
+      createDependency: (parentId, childId, depType) => {
+        created.push([parentId, childId, depType]);
+      },
+    };
+    const parent = makeTask({ id: 1, name: "PCR optimization" });
+    const child = makeTask({ id: 2, name: "Cloning run", task_type: "experiment" });
+    const cmds = buildGanttSource(
+      makeData({
+        allTasks: [parent, child],
+        filteredTasks: [parent, child],
+        editingTaskKey: "self:1",
+      }),
+      handlers,
+    ).commands;
+    const addDep = cmds.find((c) => c.id === "gantt-task-add-dependency")!;
+    expect(addDep.enabled).toBe(true);
+    const sf = addDep.subflow!();
+    // Stage 1 is an explicit stack, listing the OTHER experiment only.
+    expect(sf.presentation).toBe("stack");
+    expect(sf.items.map((i) => i.label)).toEqual(["Cloning run"]);
+    // Picking stage 1 CHAINS to stage 2 (the three dep types).
+    const stage2 = sf.onPick(sf.items[0]);
+    expect(stage2 && typeof stage2 === "object").toBe(true);
+    const s2 = stage2 as PaletteSubflow;
+    expect(s2.items.map((i) => i.id)).toEqual(["FS", "SS", "SF"]);
+    // Picking a dep type completes and calls dependenciesApi.create.
+    const done = s2.onPick(s2.items[0]);
+    expect(done).toBeUndefined();
+    expect(created).toEqual([[1, 2, "FS"]]);
+  });
+
+  it("disables add-dependency for an experiment with no other experiment to link to", () => {
+    const cmds = buildGanttSource(
+      makeData({ editingTaskKey: "self:1" }),
+      noopHandlers,
+    ).commands;
+    // The default fixture has only one experiment, so there is nothing to link to.
+    expect(cmds.find((c) => c.id === "gantt-task-add-dependency")?.enabled).toBe(false);
   });
 });

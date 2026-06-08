@@ -18,10 +18,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   goalsApi,
   tasksApi,
+  dependenciesApi,
   fetchAllTasksIncludingShared,
   fetchAllProjectsIncludingShared,
 } from "@/lib/local-api";
+import { assignTask as assignTaskAction } from "@/lib/lab/pi-actions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useLabData } from "@/hooks/useLabData";
+import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
+import { useArchivedUsers } from "@/hooks/useArchivedUsers";
 import { useAppStore } from "@/lib/store";
 import { useBeakerSearchSource } from "@/components/beaker-search/useBeakerSearchSource";
 import { useBeakerHoveredKey } from "@/components/beaker-search/BeakerSearchProvider";
@@ -191,6 +196,24 @@ export function useGanttBeakerSource(): void {
     return Array.from(tagSet).sort();
   }, [activeProjects, allTasks, projects]);
 
+  // BeakerSearch v2 (sub-flow framework, chunk 1). The assignable lab members for
+  // the assign sub-flow, resolved the SAME way AssignTaskButton does, the lab user
+  // list minus archived members minus the current user, labelled by display name.
+  const { users: labUsers } = useLabData();
+  const profileMap = useLabUserProfileMap();
+  const archivedSet = useArchivedUsers();
+  const labMembers = useMemo(
+    () =>
+      labUsers
+        .filter((u) => !archivedSet.has(u.username))
+        .filter((u) => u.username !== currentUser)
+        .map((u) => ({
+          username: u.username,
+          displayName: profileMap[u.username]?.displayName?.trim() || u.username,
+        })),
+    [labUsers, archivedSet, currentUser, profileMap],
+  );
+
   // Session-local recently-opened task keys, newest first, capped + de-duped.
   const recentRef = useRef<string[]>([]);
   const recordRecent = useCallback((key: string) => {
@@ -262,6 +285,40 @@ export function useGanttBeakerSource(): void {
         setEditingGoal(null);
         setIsCreatingGoal(false);
       },
+      // BeakerSearch v2 (sub-flow framework, chunk 1). The two picker handlers,
+      // the SAME real wiring v1 had behind the popup.
+      assignTask: async (task: Task, assignee: string) => {
+        const result = await assignTaskAction({
+          actor: currentUser,
+          targetOwner: task.owner,
+          taskId: task.id,
+          assignee,
+          taskName: task.name,
+        });
+        if (!result.ok && result.reason === "data-write") {
+          const msg =
+            result.error instanceof Error
+              ? result.error.message
+              : "Failed to assign task. See console for details.";
+          alert(msg);
+          return;
+        }
+        await refetch(["tasks"]);
+        await refetch(["task", taskKey(task)]);
+        await refetch(["lab", "tasks"]);
+      },
+      createDependency: async (
+        parentId: number,
+        childId: number,
+        depType: "FS" | "SS" | "SF",
+      ) => {
+        await dependenciesApi.create({
+          parent_id: parentId,
+          child_id: childId,
+          dep_type: depType,
+        });
+        await refetch(["dependencies"]);
+      },
     }),
     [
       openTask,
@@ -278,6 +335,7 @@ export function useGanttBeakerSource(): void {
       setIsCreatingGoal,
       setEditingTaskKey,
       editingTaskKey,
+      currentUser,
       refetch,
     ],
   );
@@ -323,6 +381,8 @@ export function useGanttBeakerSource(): void {
       editingGoal,
       hovered,
       recentTaskKeys: recentRef.current,
+      labMembers,
+      currentUser,
       taskKeyOf: (task) => taskKey(task),
       filterKeyOf: (project) => encodeFilterKey(project),
       standaloneFilterKey: STANDALONE_FILTER_KEY,
@@ -343,6 +403,8 @@ export function useGanttBeakerSource(): void {
     editingTaskKey,
     editingGoal,
     hovered,
+    labMembers,
+    currentUser,
     handlers,
   ]);
 

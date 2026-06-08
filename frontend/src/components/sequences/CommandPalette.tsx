@@ -20,10 +20,12 @@ import BeakerBot from "@/components/BeakerBot";
 import type { SelectionKind } from "@/lib/sequences/inspector-context";
 import {
   buildPaletteResultsForQuery,
+  filterSubflowItems,
   flattenPaletteItems,
   isPaletteItemEnabled,
   objectGroupTitle,
   paletteItemKey,
+  resolveSubflowPresentation,
   runPaletteItem,
   type ArtifactNavItem,
   type EditorCommand,
@@ -32,6 +34,8 @@ import {
   type PaletteGroup,
   type PaletteItem,
   type PaletteNavGroup,
+  type PaletteNavItem,
+  type PaletteSubflow,
   type PaletteTone,
   type SequenceNavItem,
 } from "./editor-commands";
@@ -137,6 +141,18 @@ function paletteRowParts(item: PaletteItem): {
       label: item.item.label,
       sub: item.item.detail,
       hint: "Open",
+      tone: item.item.tone,
+    };
+  }
+  if (item.kind === "subpick") {
+    // BeakerSearch v2 (sub-flow framework, chunk 1). A choice row inside an open
+    // picker. The wrapped nav item carries the icon / label / detail / tone, and
+    // the right-side hint reads "Pick" so the action voice matches the flow.
+    return {
+      iconName: item.item.iconName,
+      label: item.item.label,
+      sub: item.item.detail,
+      hint: "Pick",
       tone: item.item.tone,
     };
   }
@@ -380,6 +396,13 @@ export function CommandPalette({
 
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
+  // BeakerSearch v2 (sub-flow framework, chunk 1). The open picker STACK. [] is
+  // the root / normal palette; the top of the stack is the active picker stage.
+  // `inlineAnchorKey` is the paletteItemKey of the command the INLINE picker hangs
+  // under (option B, single-stage). Null while in STACK mode (option A, the pushed
+  // breadcrumb view), which is how a multi-stage flow renders after a promotion.
+  const [subStack, setSubStack] = useState<PaletteSubflow[]>([]);
+  const [inlineAnchorKey, setInlineAnchorKey] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   // The element focused before the palette opened, restored on close.
@@ -484,7 +507,105 @@ export function CommandPalette({
     query,
     onSearchEverything,
   ]);
-  const flat = useMemo(() => flattenPaletteItems(groups), [groups]);
+
+  // BeakerSearch v2 (sub-flow framework, chunk 1). The active picker stage (top of
+  // the stack) and the chosen presentation. INLINE mode = the stack holds exactly
+  // one stage AND it was opened under a command row (inlineAnchorKey set), so the
+  // resting page stays visible and the picker splices in under that command (option
+  // B). STACK mode = a deeper / promoted / explicit-stack flow, the list is
+  // replaced by the picker under a breadcrumb + Back (option A).
+  const topSubflow = subStack.length > 0 ? subStack[subStack.length - 1] : null;
+  const inSubflow = topSubflow != null;
+  const subMode: "inline" | "stack" | null = !topSubflow
+    ? null
+    : subStack.length === 1 && inlineAnchorKey != null
+      ? "inline"
+      : "stack";
+
+  // The picker rows for the active stage, fuzzy-filtered by the live query and
+  // mapped to `subpick` items whose onPick runs the stage's onPick for that choice
+  // (the palette, not the row, decides whether that completes or chains).
+  const subItems = useMemo<PaletteItem[]>(() => {
+    if (!topSubflow) return [];
+    return filterSubflowItems(topSubflow.items, query).map((navItem) => ({
+      kind: "subpick" as const,
+      item: navItem,
+      // The actual onPick wiring is closed over in pickSubItem below, which the
+      // row's run path routes to. Here we only carry the choice; the real call is
+      // made by runItem -> pickSubItem so the stack transitions stay in one place.
+      onPick: () => {},
+    }));
+  }, [topSubflow, query]);
+
+  // The view the palette renders, derived (the v1 `groups` path is never mutated):
+  //   - ROOT (no sub-flow): exactly v1.
+  //   - INLINE: the RESTING page groups (built at empty query so nothing else
+  //     moves) with the filtered picker spliced in right after the anchor command's
+  //     row, under the sub-flow title; the rest of the page stays visible.
+  //   - STACK: ONLY the picker rows, under the breadcrumb title.
+  const restingGroups = useMemo<PaletteGroup[]>(() => {
+    if (subMode !== "inline") return EMPTY_PALETTE_GROUPS;
+    return buildPaletteResultsForQuery(
+      {
+        commands,
+        sequences,
+        artifacts,
+        collectionLabel,
+        selectionKind,
+        hasOrganism,
+        suggestedIds,
+        suggestedHint,
+        navGroups,
+        interpretQuery,
+        objectGroups,
+        recentRecords,
+      },
+      "",
+    );
+  }, [
+    subMode,
+    commands,
+    sequences,
+    artifacts,
+    collectionLabel,
+    selectionKind,
+    hasOrganism,
+    suggestedIds,
+    suggestedHint,
+    navGroups,
+    interpretQuery,
+    objectGroups,
+    recentRecords,
+  ]);
+
+  const viewGroups = useMemo<PaletteGroup[]>(() => {
+    if (!topSubflow || subMode == null) return groups;
+    const pickerGroup: PaletteGroup = {
+      title: topSubflow.title,
+      hint: topSubflow.placeholder,
+      items: subItems,
+    };
+    if (subMode === "stack") return [pickerGroup];
+    // INLINE: splice the picker group in immediately after the group that holds
+    // the anchor command's row. If the anchor is not found (it should always be,
+    // it is a resting command), fall back to leading with the picker.
+    const out: PaletteGroup[] = [];
+    let spliced = false;
+    for (const g of restingGroups) {
+      const holdsAnchor = g.items.some(
+        (it) => paletteItemKey(it) === inlineAnchorKey,
+      );
+      out.push(g);
+      if (holdsAnchor && !spliced) {
+        out.push(pickerGroup);
+        spliced = true;
+      }
+    }
+    if (!spliced) out.unshift(pickerGroup);
+    return out;
+  }, [topSubflow, subMode, subItems, groups, restingGroups, inlineAnchorKey]);
+
+  const flat = useMemo(() => flattenPaletteItems(viewGroups), [viewGroups]);
 
   // Reset the query and remember focus each time the palette opens; default the
   // highlight to the first (top-ranked) result and put the cursor in the input.
@@ -494,6 +615,9 @@ export function CommandPalette({
       (document.activeElement as HTMLElement | null) ?? null;
     setQuery("");
     setHighlight(0);
+    // BeakerSearch v2, a fresh open always starts at the root (no open picker).
+    setSubStack([]);
+    setInlineAnchorKey(null);
     // Focus after paint so the autofocus lands on the freshly mounted input.
     const id = window.requestAnimationFrame(() => inputRef.current?.focus());
     return () => window.cancelAnimationFrame(id);
@@ -512,15 +636,79 @@ export function CommandPalette({
     if (el && typeof el.focus === "function") el.focus();
   }, [open]);
 
+  // BeakerSearch v2 (sub-flow framework, chunk 1). OPEN a sub-flow from a command
+  // whose `subflow` factory is set. The picker does NOT close the palette; it
+  // pushes a stage and resets the query so the input now filters the picker. The
+  // HYBRID rule chooses the presentation, a single-stage flow (or one inferred
+  // inline) anchors UNDER the command row (INLINE, option B); an explicit-stack
+  // flow opens as the pushed breadcrumb view (STACK, option A).
+  const openSubflow = useCallback((anchorKey: string, factory: () => PaletteSubflow) => {
+    const sf = factory();
+    const mode = resolveSubflowPresentation(sf, 1);
+    setSubStack([sf]);
+    setInlineAnchorKey(mode === "inline" ? anchorKey : null);
+    setQuery("");
+    setHighlight(0);
+  }, []);
+
+  // PICK a choice in the active stage. The stage's onPick returns void to COMPLETE
+  // (the handler ran, the palette closes + the stack clears) or another
+  // PaletteSubflow to CHAIN. A chain PROMOTES the flow to the STACK (a flow that
+  // started inline becomes a stack when it nests), clears the inline anchor, and
+  // resets query + highlight for the next stage.
+  const pickSubItem = useCallback(
+    (navItem: PaletteNavItem) => {
+      if (!topSubflow || navItem.enabled === false) return;
+      const next = topSubflow.onPick(navItem);
+      if (next) {
+        setSubStack((cur) => [...cur, next]);
+        setInlineAnchorKey(null);
+        setQuery("");
+        setHighlight(0);
+        return;
+      }
+      // COMPLETE. The handler already ran inside onPick; close + clear the stack.
+      setSubStack([]);
+      setInlineAnchorKey(null);
+      onClose();
+    },
+    [topSubflow, onClose],
+  );
+
+  // POP one stage (Escape inside a flow, or the Back row). Dropping the last stage
+  // returns to the root; a deeper pop resets query + highlight for the now-top
+  // stage. The inline anchor only matters for the single-stage inline case, so a
+  // pop back to a single stage cannot be inline (a popped flow is always a stack),
+  // we clear the anchor so the remaining stage renders as the stack.
+  const popSubflow = useCallback(() => {
+    setSubStack((cur) => cur.slice(0, -1));
+    setInlineAnchorKey(null);
+    setQuery("");
+    setHighlight(0);
+  }, []);
+
   const runItem = useCallback(
     (item: PaletteItem | undefined) => {
       if (!item || !isPaletteItemEnabled(item)) return;
+      // (1) A command carrying a sub-flow OPENS the picker instead of running a
+      // terminal handler, and the palette stays open.
+      if (item.kind === "command" && item.command.subflow) {
+        openSubflow(paletteItemKey(item), item.command.subflow);
+        return;
+      }
+      // (2) A picker choice row routes to pickSubItem, which decides complete vs
+      // chain. It NEVER calls onClose itself (pickSubItem owns that on complete).
+      if (item.kind === "subpick") {
+        pickSubItem(item.item);
+        return;
+      }
+      // (3) Everything else is terminal, today's behavior, close then run.
       onClose();
       // Run AFTER closing so an action that opens its own dialog (or switches the
       // open sequence) does not fight the palette for focus.
       runPaletteItem(item);
     },
-    [onClose],
+    [onClose, openSubflow, pickSubItem],
   );
 
   // Move the highlight to the next RUNNABLE row, wrapping, skipping disabled
@@ -544,7 +732,10 @@ export function CommandPalette({
     (e: React.KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        onClose();
+        // BeakerSearch v2, a first Escape inside a flow POPS one stage; at the root
+        // it closes the palette (today's behavior).
+        if (inSubflow) popSubflow();
+        else onClose();
         return;
       }
       if (e.key === "ArrowDown") {
@@ -559,11 +750,44 @@ export function CommandPalette({
       }
       if (e.key === "Enter") {
         e.preventDefault();
+        // BeakerSearch v2, when a stage has a free-text completion and the query
+        // matches no picker row, Enter submits the raw query (a new category name,
+        // a date) instead of a dead no-op.
+        if (
+          inSubflow &&
+          topSubflow?.onSubmitRaw &&
+          query.trim() !== "" &&
+          subItems.length === 0
+        ) {
+          const next = topSubflow.onSubmitRaw(query.trim());
+          if (next) {
+            setSubStack((cur) => [...cur, next]);
+            setInlineAnchorKey(null);
+            setQuery("");
+            setHighlight(0);
+          } else {
+            setSubStack([]);
+            setInlineAnchorKey(null);
+            onClose();
+          }
+          return;
+        }
         runItem(flat[highlight]);
         return;
       }
     },
-    [onClose, moveHighlight, runItem, flat, highlight],
+    [
+      onClose,
+      moveHighlight,
+      runItem,
+      flat,
+      highlight,
+      inSubflow,
+      popSubflow,
+      topSubflow,
+      query,
+      subItems.length,
+    ],
   );
 
   // Keep the highlighted row scrolled into view as Up / Down walk past the fold.
@@ -624,7 +848,11 @@ export function CommandPalette({
               setQuery(e.target.value);
               setHighlight(0);
             }}
-            placeholder="Search, jump, or run any tool"
+            placeholder={
+              inSubflow
+                ? topSubflow?.placeholder ?? "Pick one"
+                : "Search, jump, or run any tool"
+            }
             aria-label="BeakerSearch"
             role="combobox"
             aria-expanded="true"
@@ -641,9 +869,38 @@ export function CommandPalette({
 
         {/* The "On this sequence" context card. A full card at rest, a slim
             one-line header while typing. Display only, outside the listbox so it
-            is never a selectable / highlighted row. */}
-        <ContextCard context={context} slim={typing} />
-        <GenericContextCard card={contextCard} slim={typing} />
+            is never a selectable / highlighted row. In STACK mode the picker fills
+            the view (option A), so the resting cards are hidden; INLINE keeps them
+            since the page stays in context (option B). */}
+        {subMode === "stack" ? null : (
+          <>
+            <ContextCard context={context} slim={typing} />
+            <GenericContextCard card={contextCard} slim={typing} />
+          </>
+        )}
+
+        {/* STACK mode breadcrumb + Back row (option A). The breadcrumb names the
+            flow (e.g. "Gantt / Add a dependency from..."), and the Back row pops one
+            stage (Escape does the same from the keyboard). */}
+        {subMode === "stack" && topSubflow ? (
+          <button
+            type="button"
+            data-testid="beaker-subflow-back"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              popSubflow();
+            }}
+            className="flex w-full items-center gap-2 border-b border-border px-4 py-2 text-left text-meta font-medium text-foreground-muted hover:bg-surface-sunken"
+          >
+            <Icon name="caret" className="h-3.5 w-3.5 flex-none rotate-180" />
+            <span className="truncate">
+              Back
+              <span className="ml-1.5 font-normal text-foreground-muted">
+                {topSubflow.title}
+              </span>
+            </span>
+          </button>
+        ) : null}
 
         {/* Result list. Grouped, scrollable, with a flat highlight cursor across
             commands, sequences, and saved results. */}
@@ -656,13 +913,13 @@ export function CommandPalette({
         >
           {flat.length === 0 ? (
             <div className="px-4 py-8 text-center text-meta text-foreground-muted">
-              Nothing matches that search.
+              {inSubflow ? "No matches. Press esc to go back." : "Nothing matches that search."}
             </div>
           ) : (
             (() => {
               // A running flat index so the highlight maps across groups.
               let flatIndex = -1;
-              return groups.map((g) => (
+              return viewGroups.map((g) => (
                 <div key={g.title}>
                   <div className="flex items-center gap-2 px-4 pb-1 pt-2.5 text-[10.5px] font-semibold uppercase tracking-normal text-foreground-muted">
                     <span>{g.title}</span>
@@ -753,15 +1010,17 @@ export function CommandPalette({
             <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-border bg-surface px-1 font-semibold text-foreground">
               &crarr;
             </kbd>
-            open
+            {inSubflow ? "pick" : "open"}
           </span>
           <span className="inline-flex items-center gap-1.5">
             <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-border bg-surface px-1 font-semibold text-foreground">
               esc
             </kbd>
-            close
+            {inSubflow ? "back" : "close"}
           </span>
-          <span className="ml-auto">Cmd K reaches everything</span>
+          <span className="ml-auto">
+            {inSubflow ? "Pick one to continue" : "Cmd K reaches everything"}
+          </span>
         </div>
       </div>
     </div>,
