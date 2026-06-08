@@ -165,6 +165,7 @@ function AppContent({ children }: { children: ReactNode }) {
     loadingStage,
     availableUsers,
     lastConnectedFolder,
+    disconnect,
   } = useFileSystem();
   const router = useRouter();
   const [showSetup, setShowSetup] = useState(false);
@@ -292,7 +293,18 @@ function AppContent({ children }: { children: ReactNode }) {
   }
 
   if (isLoading) {
-    return <StagedLoadingScreen stage={loadingStage} />;
+    // Escape hatch (2026-06-07): a stuck cloud folder (OneDrive / Box files-on-
+    // demand) can leave this screen spinning for a long time. disconnect()
+    // clears the handle + resets to the connect screen so the user can pick a
+    // different (ideally local) folder. The in-flight finishConnect bails on its
+    // next file op once the handle is cleared. Surfaced only after a delay inside
+    // StagedLoadingScreen so fast loads never show it.
+    return (
+      <StagedLoadingScreen
+        stage={loadingStage}
+        onPickDifferentFolder={() => void disconnect()}
+      />
+    );
   }
 
   if (!isFileSystemAccessSupported()) {

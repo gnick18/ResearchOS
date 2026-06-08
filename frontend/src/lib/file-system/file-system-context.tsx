@@ -337,6 +337,15 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         setState((prev) => ({ ...prev, loadingStage: "discovering-users" }));
         const users = await discoverUsers();
 
+        // Escape-hatch guard (2026-06-07): if the user hit "choose a different
+        // folder" on the loading screen while we were awaiting the slow cloud
+        // reads above, disconnect() cleared the handle. Bail without touching
+        // state so this stale connect does not flicker the screen back or
+        // wrongly mark the abandoned folder connected. The handle identity is
+        // the token: setDirectoryHandle(handle) ran at the top, disconnect
+        // nulls it, a fresh connect sets a different one.
+        if (fileService.getDirectoryHandle() !== handle) return false;
+
         // Self-heal sweep over `_user_metadata.json` (lab-roster ghost
         // cleanup, 2026-05-26). Removes entries that are invalid
         // usernames (`undefined`, empty, `"undefined"`, `"null"`) or
@@ -482,6 +491,11 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         // sentinel concern that gated the old branch no longer
         // applies because the new code never writes mainUser
         // unsolicited.
+
+        // Final escape-hatch guard before we commit "connected": if the user
+        // bailed to a different folder during the reads above, do not mark this
+        // abandoned folder connected.
+        if (fileService.getDirectoryHandle() !== handle) return false;
 
         setState((prev) => ({
           ...prev,

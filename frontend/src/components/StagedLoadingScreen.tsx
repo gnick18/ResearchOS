@@ -14,6 +14,14 @@ interface StagedLoadingScreenProps {
   stage: LoadingStage;
   /** Optional override for the main heading. */
   heading?: string;
+  /**
+   * Escape hatch for a stuck connect (2026-06-07). When provided, a "choose a
+   * different folder" affordance appears after the load has been running a
+   * while (cloud folders on files-on-demand can hang for a long time). It
+   * should disconnect + reset to the connect screen so the user can pick a
+   * different, ideally local, folder. Omitted on early-boot / non-connect uses.
+   */
+  onPickDifferentFolder?: () => void;
 }
 
 const STAGE_MESSAGES: Record<NonNullable<LoadingStage>, string> = {
@@ -55,6 +63,7 @@ const REASSURANCE_MESSAGES = [
 export default function StagedLoadingScreen({
   stage,
   heading,
+  onPickDifferentFolder,
 }: StagedLoadingScreenProps) {
   const [readCount, setReadCount] = useState(0);
   const [elapsedSec, setElapsedSec] = useState(0);
@@ -87,6 +96,10 @@ export default function StagedLoadingScreen({
   const subtitle = stage ? STAGE_SUBTITLES[stage] : null;
   const showReadCount = readCount > 0;
   const showReassurance = elapsedSec >= 4;
+  // Surface the escape hatch only after the load has clearly stalled (8s), so a
+  // normal fast connect never shows it. A cloud folder on files-on-demand can
+  // sit here for a long time; this lets the user bail to a different folder.
+  const showEscapeHatch = !!onPickDifferentFolder && elapsedSec >= 8;
 
   return (
     <div
@@ -171,6 +184,27 @@ export default function StagedLoadingScreen({
           <p className="text-body text-foreground-muted italic mt-6 transition-opacity duration-300">
             {REASSURANCE_MESSAGES[reassuranceIdx]}
           </p>
+        )}
+
+        {/* Escape hatch for a stalled cloud-folder connect. OneDrive / Box
+            files-on-demand can leave this spinning indefinitely while the OS
+            fetches placeholder files; this lets the user bail and pick a
+            different (ideally local) folder instead of being trapped. */}
+        {showEscapeHatch && (
+          <div className="mt-7">
+            <button
+              type="button"
+              onClick={onPickDifferentFolder}
+              data-testid="staged-loading-pick-different-folder"
+              className="text-body font-medium text-brand-action hover:text-brand-purple underline underline-offset-4 transition-colors"
+            >
+              Taking too long? Choose a different folder
+            </button>
+            <p className="text-meta text-foreground-muted mt-2">
+              Cloud folders (OneDrive, Box, Dropbox) can stall here. A folder on
+              your local disk loads instantly.
+            </p>
+          </div>
         )}
 
         {/* Temporary beta notice (Grant 2026-05-28). While ResearchOS is

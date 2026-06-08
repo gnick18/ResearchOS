@@ -8,7 +8,7 @@ export const LORO_PILOT_ENABLED = true;
  * ship and it is deliberately turned on. When off, openPurchaseDoc skips the
  * collab adopt path exactly as openTaskDoc gates on LORO_PILOT_ENABLED.
  */
-export const PURCHASE_LORO_ENABLED = false;
+export const PURCHASE_LORO_ENABLED = true;
 
 /**
  * External live-collaboration sharing (docs/proposals/EXTERNAL_COLLAB_SHARING.md).
@@ -18,7 +18,7 @@ export const PURCHASE_LORO_ENABLED = false;
  * Flipping a doc to enforced is a one-way action, so this stays dark until the
  * recipient side ships. The connect-token attach (PIECE A) is NOT gated by this.
  */
-export const EXTERNAL_COLLAB_ENABLED = false;
+export const EXTERNAL_COLLAB_ENABLED = true;
 
 /**
  * WebSocket URL for the collab relay. Defaults to the local wrangler dev
