@@ -6,14 +6,23 @@ const CURRENT_USER_KEY = "research-os-current-user";
 const MAIN_USER_KEY = "research-os-main-user";
 const STORE_NAME = "handles";
 const CACHE_STORE_NAME = "file-cache";
+const BLOB_CACHE_STORE = "image-cache";
 const DB_NAME = "research-os-fsa";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export interface CacheEntry {
   key: string;          // `${folderName}::${path}`
   lastModified: number; // File.lastModified at cache time
   data: unknown;        // parsed JSON object or string
   kind: "json" | "text";
+}
+
+export interface BlobCacheEntry {
+  key: string;          // `${folderName}::${path}`
+  lastModified: number;
+  blob: Blob;
+  size: number;         // blob.size, for budget tracking
+  cachedAt: number;     // Date.now(), for LRU eviction
 }
 
 // Pre-demo backup keys: written by `installWikiCaptureFixture` BEFORE it
@@ -157,6 +166,9 @@ async function initDB(): Promise<IDBDatabase | null> {
         if (!db.objectStoreNames.contains(CACHE_STORE_NAME)) {
           db.createObjectStore(CACHE_STORE_NAME, { keyPath: "key" });
         }
+        if (!db.objectStoreNames.contains(BLOB_CACHE_STORE)) {
+          db.createObjectStore(BLOB_CACHE_STORE, { keyPath: "key" });
+        }
       };
       request.onsuccess = () => {
         dbInitialized = true;
@@ -244,6 +256,139 @@ export async function deleteCacheEntry(key: string): Promise<void> {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
+  } catch {
+    // best-effort
+  } finally {
+    db.close();
+  }
+}
+
+export async function getBlobCacheEntry(key: string): Promise<BlobCacheEntry | null> {
+  if (isDemoTab()) return null;
+  const db = await initDB();
+  if (!db) return null;
+  try {
+    return await new Promise<BlobCacheEntry | null>((resolve, reject) => {
+      const tx = db.transaction(BLOB_CACHE_STORE, "readonly");
+      const store = tx.objectStore(BLOB_CACHE_STORE);
+      const request = store.get(key);
+      request.onsuccess = () => resolve((request.result as BlobCacheEntry) || null);
+      request.onerror = () => reject(request.error);
+    });
+  } catch {
+    return null;
+  } finally {
+    db.close();
+  }
+}
+
+export async function putBlobCacheEntry(entry: BlobCacheEntry): Promise<void> {
+  if (isDemoTab()) return;
+  const db = await initDB();
+  if (!db) return;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(BLOB_CACHE_STORE, "readwrite");
+      const store = tx.objectStore(BLOB_CACHE_STORE);
+      store.put(entry);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // best-effort
+  } finally {
+    db.close();
+  }
+}
+
+export async function deleteBlobCacheEntry(key: string): Promise<void> {
+  if (isDemoTab()) return;
+  const db = await initDB();
+  if (!db) return;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(BLOB_CACHE_STORE, "readwrite");
+      const store = tx.objectStore(BLOB_CACHE_STORE);
+      store.delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // best-effort
+  } finally {
+    db.close();
+  }
+}
+
+const BLOB_BUDGET_PREFIX = "image-cache-budget::";
+
+export async function getBlobCacheBudget(folderName: string): Promise<number> {
+  if (isDemoTab()) return 0;
+  try {
+    return (await get<number>(BLOB_BUDGET_PREFIX + folderName)) ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+export async function setBlobCacheBudget(folderName: string, bytes: number): Promise<void> {
+  if (isDemoTab()) return;
+  try {
+    await set(BLOB_BUDGET_PREFIX + folderName, bytes);
+  } catch {
+    // best-effort
+  }
+}
+
+export async function evictBlobCacheUntil(
+  folderName: string,
+  targetBytes: number
+): Promise<void> {
+  if (isDemoTab()) return;
+  const db = await initDB();
+  if (!db) return;
+  try {
+    const prefix = `${folderName}::`;
+    const entries: BlobCacheEntry[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(BLOB_CACHE_STORE, "readwrite");
+      const store = tx.objectStore(BLOB_CACHE_STORE);
+      const request = store.openCursor();
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) { resolve(); return; }
+        const entry = cursor.value as BlobCacheEntry;
+        if (entry.key.startsWith(prefix)) {
+          entries.push(entry);
+        }
+        cursor.continue();
+      };
+      request.onerror = () => reject(request.error);
+    });
+
+    entries.sort((a, b) => a.cachedAt - b.cachedAt);
+
+    let freed = 0;
+    const toDelete: string[] = [];
+    for (const entry of entries) {
+      if (freed >= targetBytes) break;
+      toDelete.push(entry.key);
+      freed += entry.size;
+    }
+
+    if (toDelete.length === 0) return;
+
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(BLOB_CACHE_STORE, "readwrite");
+      const store = tx.objectStore(BLOB_CACHE_STORE);
+      for (const key of toDelete) store.delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+
+    const current = await getBlobCacheBudget(folderName);
+    await setBlobCacheBudget(folderName, Math.max(0, current - freed));
   } catch {
     // best-effort
   } finally {
