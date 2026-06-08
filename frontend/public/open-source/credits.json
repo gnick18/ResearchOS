@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-06-07T22:06:04.294Z",
+  "generatedAt": "2026-06-08T21:36:09.893Z",
   "appVersion": "3.5.0",
-  "dependencyCount": 57,
+  "dependencyCount": 58,
   "licenseCounts": {
     "Apache-2.0": 3,
-    "MIT": 43,
+    "MIT": 44,
     "ISC": 8,
     "BSD-3-Clause": 1,
     "MPL-2.0": 1,
@@ -487,6 +487,12 @@
       "version": "5.0.0-beta.31",
       "license": "ISC",
       "repo": "https://github.com/nextauthjs/next-auth"
+    },
+    {
+      "name": "qrcode",
+      "version": "1.5.4",
+      "license": "MIT",
+      "repo": "https://github.com/soldair/node-qrcode"
     },
     {
       "name": "react",

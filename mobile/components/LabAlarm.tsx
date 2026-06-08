@@ -29,6 +29,7 @@ import {
   View,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { useAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import {
   Canvas,
   Circle,
@@ -49,6 +50,7 @@ import Animated, {
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { listTimers } from '@/lib/timers';
+import { ALARM_SOURCES, getAlarmPrefs, loadAlarmPrefs } from '@/lib/alarm-prefs';
 import {
   clearAlarm,
   showAlarm,
@@ -102,6 +104,8 @@ export function LabAlarmWatcher() {
   useEffect(() => {
     let mounted = true;
     const alarmed = new Set<string>();
+    // Hydrate alarm prefs so the overlay can read the chosen sound synchronously.
+    void loadAlarmPrefs();
 
     // Seed so timers already past their end (e.g. finished while the app was
     // closed) do not fire on mount. Only crossings during this session alarm.
@@ -182,6 +186,10 @@ function LabAlarmOverlay({ alarm, onStop }: { alarm: ActiveAlarm; onStop: () => 
   const glassFill = dark ? GLASS_DARK : GLASS_LIGHT;
   const ramp = dark ? RAINBOW_DARK : RAINBOW_LIGHT;
 
+  // Read prefs once at mount (the overlay remounts per alarm, so this is fresh).
+  const prefs = useMemo(() => getAlarmPrefs(), []);
+  const player = useAudioPlayer(ALARM_SOURCES[prefs.sound]);
+
   const [reduceMotion, setReduceMotion] = useState(false);
   useEffect(() => {
     let active = true;
@@ -193,8 +201,25 @@ function LabAlarmOverlay({ alarm, onStop }: { alarm: ActiveAlarm; onStop: () => 
     };
   }, []);
 
+  // Loop the chosen sound until stopped (plays even on silent), if enabled.
+  useEffect(() => {
+    if (!prefs.soundOn) return;
+    setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
+    player.loop = true;
+    player.volume = 1;
+    player.play();
+    return () => {
+      try {
+        player.pause();
+      } catch {
+        // player already released
+      }
+    };
+  }, [player, prefs.soundOn]);
+
   // Repeating haptic + one immediate buzz, until the overlay unmounts (stopped).
   useEffect(() => {
+    if (!prefs.vibrateOn) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
     const id = setInterval(() => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
