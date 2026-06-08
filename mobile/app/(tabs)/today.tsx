@@ -13,12 +13,11 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -98,18 +97,18 @@ export default function TodayScreen() {
     : [];
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={loading}
-              onRefresh={load}
-              tintColor={palette.sky}
-            />
-          }
-        >
+    <ScreenFrame>
+      <ScrollView
+        style={styles.fill}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={load}
+            tintColor={palette.sky}
+          />
+        }
+      >
           <ThemedText type="title">Today</ThemedText>
           <ThemedText style={[styles.tagline, { color: surface.muted }]}>
             A read-only glance at what is scheduled today, synced from your
@@ -226,9 +225,8 @@ export default function TodayScreen() {
               ) : null}
             </>
           ) : null}
-        </ScrollView>
-      </SafeAreaView>
-    </ThemedView>
+      </ScrollView>
+    </ScreenFrame>
   );
 }
 
@@ -321,8 +319,7 @@ function formatSynced(value: string): string {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  safe: { flex: 1 },
+  fill: { flex: 1 },
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 16,

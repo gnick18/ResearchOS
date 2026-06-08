@@ -17,7 +17,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import {
   CameraView,
@@ -27,11 +26,10 @@ import {
 import * as Haptics from 'expo-haptics';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { RainbowBar } from '@/components/ui/RainbowBar';
+import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { useTheme, palette } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
@@ -376,10 +374,8 @@ export default function ScanScreen() {
   const cameraReady = paired && permission?.granted === true && step === 'scan' && !handled;
 
   return (
-    <ThemedView style={styles.container}>
-      <RainbowBar />
-      <SafeAreaView style={styles.safe} edges={['bottom']}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+    <ScreenFrame edges={['bottom']}>
+      <ScrollView style={styles.fill} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {/* Not paired */}
           {!paired ? (
             <EmptyState
@@ -496,10 +492,8 @@ export default function ScanScreen() {
           {paired && step === 'done' ? (
             <DoneView message={doneMsg} onAgain={restart} />
           ) : null}
-        </ScrollView>
-      </SafeAreaView>
-      <RainbowBar />
-    </ThemedView>
+      </ScrollView>
+    </ScreenFrame>
   );
 }
 
@@ -791,8 +785,7 @@ function formatShort(value?: string): string {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  safe: { flex: 1 },
+  fill: { flex: 1 },
   scroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40, gap: 16 },
   h: { fontSize: 16, fontWeight: '700', lineHeight: 22 },
   sub: { fontSize: 14, lineHeight: 20 },
