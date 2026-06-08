@@ -44,8 +44,19 @@ export interface MigrationFs {
   /**
    * Write content to a file, overwriting any existing content.
    * Parent directories are NOT auto-created; call mkdirp first.
+   *
+   * NOTE: readFile/writeFile are UTF-8 string ops and MUST NOT be used to copy
+   * arbitrary files (they corrupt binary content like .loro CRDT data, images,
+   * and attachments). Use copyFile for byte-exact duplication.
    */
   writeFile(path: string, content: string): Promise<void>;
+
+  /**
+   * Byte-exact copy of a file, preserving binary content. Parent directories
+   * are NOT auto-created; call mkdirp first. Used for bundle extraction and the
+   * rename fallback so .loro / image / attachment bytes survive intact.
+   */
+  copyFile(from: string, to: string): Promise<void>;
 
   /**
    * Ensure a directory (and all ancestors) exists. Idempotent.

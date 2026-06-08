@@ -57,6 +57,20 @@ vi.mock("@/lib/file-system/file-service", () => {
       }
     }),
 
+    // Byte-safe blob ops the FSA adapter uses for copyFile / copyTree / rename.
+    readFileAsBlob: vi.fn(async (path: string) => {
+      const c = fakeFiles.get(path);
+      return c === undefined ? null : new Blob([c]);
+    }),
+
+    writeFileFromBlob: vi.fn(async (path: string, blob: Blob) => {
+      fakeFiles.set(path, await blob.text());
+      const parts = path.split("/");
+      for (let i = 1; i < parts.length; i++) {
+        fakeDirs.add(parts.slice(0, i).join("/"));
+      }
+    }),
+
     listFiles: vi.fn(async (dirPath: string) => {
       const prefix = dirPath.endsWith("/") ? dirPath : `${dirPath}/`;
       const names: string[] = [];

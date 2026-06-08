@@ -42,15 +42,17 @@ export function createFsaMigrationFs(): MigrationFs {
         copyTreeDir(`${from}/${name}`, `${to}/${name}`)
       ),
       ...files.map(async (name) => {
+        // Byte-exact via Blob so binary files (.loro, images, attachments)
+        // survive intact. readText/writeText would corrupt them.
         const srcPath = `${from}/${name}`;
         const dstPath = `${to}/${name}`;
-        const content = await fileService.readText(srcPath);
-        if (content === null) {
+        const blob = await fileService.readFileAsBlob(srcPath);
+        if (blob === null) {
           throw new Error(
             `migration-fs-fsa: copyTree could not read source file: ${srcPath}`
           );
         }
-        await fileService.writeText(dstPath, content);
+        await fileService.writeFileFromBlob(dstPath, blob);
       }),
     ]);
   }
@@ -80,6 +82,15 @@ export function createFsaMigrationFs(): MigrationFs {
 
     async writeFile(path: string, content: string): Promise<void> {
       await fileService.writeText(path, content);
+    },
+
+    async copyFile(from: string, to: string): Promise<void> {
+      // Byte-exact via Blob: preserves binary content (.loro, images, attachments).
+      const blob = await fileService.readFileAsBlob(from);
+      if (blob === null) {
+        throw new Error(`migration-fs-fsa: copyFile source not found: ${from}`);
+      }
+      await fileService.writeFileFromBlob(to, blob);
     },
 
     async mkdirp(path: string): Promise<void> {
@@ -118,11 +129,12 @@ export function createFsaMigrationFs(): MigrationFs {
         return;
       }
 
-      // May be an empty directory or a plain file. Try reading as a file.
-      const fileContent = await fileService.readText(from);
-      if (fileContent !== null) {
+      // May be an empty directory or a plain file. Try reading as a file
+      // (byte-exact via Blob so binary files are not corrupted).
+      const fileBlob = await fileService.readFileAsBlob(from);
+      if (fileBlob !== null) {
         // Plain file.
-        await fileService.writeText(to, fileContent);
+        await fileService.writeFileFromBlob(to, fileBlob);
         await fileService.deleteFile(from);
         return;
       }

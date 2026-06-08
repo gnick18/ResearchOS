@@ -191,8 +191,9 @@ export async function copyDirRecursiveMfs(
     if (entry.kind === "dir") {
       await copyDirRecursiveMfs(fs, srcChild, dstChild);
     } else {
-      const content = await fs.readFile(srcChild);
-      await fs.writeFile(dstChild, content);
+      // Byte-exact copy: readFile/writeFile would corrupt binary files
+      // (.loro CRDT data, images, attachments) via a UTF-8 round-trip.
+      await fs.copyFile(srcChild, dstChild);
     }
   }
 }

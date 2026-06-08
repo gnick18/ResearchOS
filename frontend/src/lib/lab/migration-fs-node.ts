@@ -54,6 +54,11 @@ export function createNodeMigrationFs(rootAbsPath: string): MigrationFs {
       await nodefs.writeFile(abs(path), content, "utf8");
     },
 
+    async copyFile(from: string, to: string): Promise<void> {
+      // Byte-exact: preserves binary content (.loro, images, attachments).
+      await nodefs.copyFile(abs(from), abs(to));
+    },
+
     async mkdirp(path: string): Promise<void> {
       await nodefs.mkdir(abs(path), { recursive: true });
     },
