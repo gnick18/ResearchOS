@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { tasksApi, purchasesApi, labApi, fetchAllProjectsIncludingShared, fetchAllTasksIncludingShared } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAccountType } from "@/hooks/useAccountType";
+import { useIsLabMode } from "@/hooks/useIsLabMode";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
 import NewPurchaseModal from "@/components/NewPurchaseModal";
@@ -109,6 +110,9 @@ export default function PurchasesPage() {
   const awaitingApprovalLabel = isLabHead
     ? "Pending approval"
     : "Awaiting approval";
+  // Approval is a lab concept (a member submits, a lab head approves). In a
+  // solo folder there is no approver, so hide the awaiting-approval filter.
+  const showApprovalFilter = useIsLabMode() === true;
 
   // /purchases is the ONLY surface that needs the hidden
   // `_misc_purchases` project to render — pass `includeHidden: true` so
@@ -502,7 +506,11 @@ export default function PurchasesPage() {
               label: awaitingApprovalLabel,
               count: awaitingApprovalCount,
             },
-          ] as const).map((chip) => {
+          ] as const)
+            .filter(
+              (chip) => chip.key !== "awaiting_approval" || showApprovalFilter,
+            )
+            .map((chip) => {
             const isActive = categoryFilter === chip.key;
             return (
               <button

@@ -155,6 +155,11 @@ export async function executeMigrationToSolo(
     movedUserSet,
   );
 
+  // 4. A solo folder has no lab head. Clamp the primary's account_type to
+  //    "member" so the folder derives as solo (isLabModeFolder keys off a lab
+  //    head); otherwise a converting PI would still render lab chrome.
+  await resetPrimaryToMember(fs, plan.primaryUser);
+
   return {
     primaryUser: plan.primaryUser,
     movedUsers,
@@ -162,6 +167,41 @@ export async function executeMigrationToSolo(
     trashPaths,
     sharesStripped,
   };
+}
+
+/**
+ * Clamp users/<primary>/settings.json account_type to "member". A solo folder
+ * has no lab head; this keeps useIsLabMode / isLabModeFolder deriving "solo"
+ * even when a former lab head converts their own folder. No-op when the file is
+ * missing, unparseable, or already "member".
+ */
+async function resetPrimaryToMember(
+  fs: MigrationFs,
+  primaryUser: string,
+): Promise<void> {
+  const path = joinPath("users", primaryUser, "settings.json");
+  if (!(await fs.exists(path))) return;
+  let raw: string;
+  try {
+    raw = await fs.readFile(path);
+  } catch {
+    return;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return;
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return;
+  }
+  const obj = parsed as Record<string, unknown>;
+  // Only clamp an explicit lab head. Absent / "member" already derive solo, so
+  // leave those files untouched (no needless rewrite).
+  if (obj["account_type"] !== "lab_head") return;
+  obj["account_type"] = "member";
+  await fs.writeFile(path, JSON.stringify(obj, null, 2));
 }
 
 // ---------------------------------------------------------------------------
@@ -305,6 +345,18 @@ async function stripSharesFromPrimary(
     if (obj["is_shared"] === true) {
       obj["is_shared"] = false;
       removed.push("is_shared");
+    }
+
+    // (f) Former 1:1 (mentoring) notebooks: the 1:1 construct is meaningless
+    //     once solo. Rename a "1:1 with <name>" shared notebook to a neutral
+    //     title so it reads as the ordinary personal notebook it now is.
+    if (
+      relPath.includes("/shared_notebooks/") &&
+      typeof obj["title"] === "string" &&
+      /^1:1 with /i.test(obj["title"] as string)
+    ) {
+      obj["title"] = "Meeting notes";
+      removed.push("(1:1-rename)");
     }
 
     if (removed.length === 0) return; // no changes
