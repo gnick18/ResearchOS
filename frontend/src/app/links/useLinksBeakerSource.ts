@@ -19,7 +19,7 @@
 // Voice in comments and copy, no em-dashes, no en-dashes, no emojis, no
 // mid-sentence colons.
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { labLinksApi } from "@/lib/local-api";
 import { isWholeLabShared } from "@/lib/sharing/unified";
@@ -61,6 +61,12 @@ export interface UseLinksBeakerSourceArgs {
   // Identity.
   currentUser: string;
   profileMap: Record<string, { displayName?: string | null }>;
+  // Category filter, LIFTED to the page so selecting a category in the palette
+  // actually filters the rendered board (it is no longer palette-local state).
+  // Mirrors how Gantt's projectFilterMode / selectedProjectIds page state drives
+  // both the board and the source.
+  activeCategory: string | null;
+  setActiveCategory: (c: string | null) => void;
 }
 
 /** Scroll a card into view and pulse it briefly with an inline outline (no new
@@ -98,11 +104,10 @@ export function useLinksBeakerSource(args: UseLinksBeakerSourceArgs): void {
     return parsed?.kind === "link" ? rawHoveredKey : null;
   }, [rawHoveredKey]);
 
-  // Palette-managed category filter (NEW, the page has no filter today, spec 7).
-  // It scopes the palette's nav list + unlocks the category-filter Suggested
-  // set; the board itself is left unfiltered for now (a board-filter lift is the
-  // open follow-up in spec 8.2).
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  // Category filter, now LIFTED to the page (spec 2.3 lift A). The page owns the
+  // state + setter and hands them in, so selecting a category in the palette
+  // filters the rendered board, not just the palette nav list / Suggested set.
+  const { activeCategory, setActiveCategory } = args;
 
   // The single invalidation the spec 1.4 table mandates after every write.
   const invalidate = useCallback(
@@ -135,18 +140,10 @@ export function useLinksBeakerSource(args: UseLinksBeakerSourceArgs): void {
     [invalidate],
   );
 
-  const refreshPreview = useCallback(
-    async (link: LabLink) => {
-      const preview = await labLinksApi.getPreview(link.url);
-      // The getPreview stub returns a null image today (spec 1.5), so no-op the
-      // write when there is nothing new to save rather than blanking the saved
-      // thumbnail.
-      if (!preview.image) return;
-      await labLinksApi.update(link.id, { preview_image_url: preview.image });
-      await invalidate();
-    },
-    [invalidate],
-  );
+  // Preview is now the site favicon, derived client-side from the url (lift B,
+  // Grant's locked decision, no server fetch, no metadata scrape). There is no
+  // server preview to refresh, so the card always shows the live favicon for the
+  // current url and this is a no-op. We no longer call the getPreview stub.
 
   const jumpToLink = useCallback(
     (link: LabLink) => scrollToSelector(`[data-link-key="${link.id}"]`),
@@ -188,7 +185,6 @@ export function useLinksBeakerSource(args: UseLinksBeakerSourceArgs): void {
       setWholeLab: args.setWholeLab,
       setActiveCategory,
       toggleVisibility,
-      refreshPreview,
       openExternally,
       openAll,
       copyUrl,
@@ -205,8 +201,8 @@ export function useLinksBeakerSource(args: UseLinksBeakerSourceArgs): void {
       args.setDeleteConfirmId,
       args.setColor,
       args.setWholeLab,
+      setActiveCategory,
       toggleVisibility,
-      refreshPreview,
       openExternally,
       openAll,
       copyUrl,

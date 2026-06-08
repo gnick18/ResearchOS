@@ -16,7 +16,7 @@ import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import AttributionChip from "@/components/AttributionChip";
 import { useLinksBeakerSource } from "./useLinksBeakerSource";
-import { linkKey } from "./links-beaker-source";
+import { faviconUrl, hostnameOf, linkKey } from "./links-beaker-source";
 
 // Predefined colors for link cards
 const CARD_COLORS = [
@@ -47,6 +47,11 @@ export default function LabLinksPage() {
   const [editingLink, setEditingLink] = useState<LabLink | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  // Category filter, LIFTED here from the BeakerSearch hook (spec 2.3 lift A) so
+  // picking a category in the palette filters the rendered board, not just the
+  // palette nav list. Mirrors Gantt's projectFilter page state driving both the
+  // board and the source. null = show every category group.
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // Escape closes the delete-confirm modal (app-wide convention), matching the
@@ -124,26 +129,16 @@ export default function LabLinksPage() {
     setWholeLab(false);
   };
 
+  // Client-side preview (lift B, Grant's locked decision, no server fetch, no
+  // metadata scrape). We derive the hostname + the favicon from the url right in
+  // the browser. When the title is still empty we seed it with the hostname so
+  // the draft is not blank; the favicon shows live on the card from the url, so
+  // there is no thumbnail to store. We no longer call the getPreview stub.
   const handleFetchPreview = async () => {
-    if (!url.trim()) return;
-    
-    setIsLoadingPreview(true);
-    try {
-      const preview = await labLinksApi.getPreview(url.trim());
-      if (preview.title && !title) {
-        setTitle(preview.title);
-      }
-      if (preview.description && !description) {
-        setDescription(preview.description);
-      }
-      if (preview.image) {
-        setPreviewImageUrl(preview.image);
-      }
-    } catch (error) {
-      console.error("Failed to fetch preview:", error);
-    } finally {
-      setIsLoadingPreview(false);
-    }
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    const host = hostnameOf(trimmed);
+    if (!title && host && host !== trimmed) setTitle(host);
   };
 
   const handleCreate = async () => {
@@ -257,6 +252,8 @@ export default function LabLinksPage() {
     setWholeLab,
     currentUser: currentUser ?? "",
     profileMap,
+    activeCategory,
+    setActiveCategory,
   });
 
   return (
@@ -510,7 +507,30 @@ export default function LabLinksPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {Object.entries(groupedLinks).map(([cat, catLinks]) => (
+            {/* Active category filter banner (spec 2.3 lift A). When a category
+                is picked in the palette the board renders only that group; this
+                row shows what is filtered and offers a one-click clear. */}
+            {activeCategory && (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-sunken px-3 py-2">
+                <p className="text-meta text-foreground-muted">
+                  Showing{" "}
+                  <span className="font-medium text-foreground">{activeCategory}</span>
+                  {" "}
+                  ({groupedLinks[activeCategory]?.length ?? 0} link
+                  {(groupedLinks[activeCategory]?.length ?? 0) === 1 ? "" : "s"})
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveCategory(null)}
+                  className="text-meta font-medium text-blue-600 dark:text-blue-300 hover:underline"
+                >
+                  Clear the {activeCategory} filter
+                </button>
+              </div>
+            )}
+            {Object.entries(groupedLinks)
+              .filter(([cat]) => !activeCategory || cat === activeCategory)
+              .map(([cat, catLinks]) => (
               <div key={cat} data-link-category={cat}>
                 <h3 className="text-meta font-semibold text-foreground-muted uppercase tracking-wider mb-3">
                   {cat}
@@ -543,11 +563,29 @@ export default function LabLinksPage() {
                             }}
                           />
                         ) : (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
-                              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-                            </svg>
+                          // Client-side preview (lift B, Grant's locked
+                          // decision, no server fetch, no metadata scrape): the
+                          // site favicon + hostname derived from the url in the
+                          // browser. faviconUrl guards a malformed url and
+                          // returns null, in which case the color bar shows on
+                          // its own. The favicon img self-hides on a load error.
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                            {faviconUrl(link.url) && (
+                              // eslint-disable-next-line @next/next/no-img-element -- favicon from the public favicon service for an arbitrary hostname; next/image would require an allowlist of every domain users might paste
+                              <img
+                                src={faviconUrl(link.url) ?? undefined}
+                                alt=""
+                                width={32}
+                                height={32}
+                                className="w-8 h-8 rounded-md bg-white/90 p-1 shadow-sm"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = "none";
+                                }}
+                              />
+                            )}
+                            <span className="px-2 text-meta font-medium text-white/90 truncate max-w-full">
+                              {hostnameOf(link.url)}
+                            </span>
                           </div>
                         )}
                         {/* Category badge */}

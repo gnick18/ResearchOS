@@ -12,6 +12,7 @@ import { describe, it, expect } from "vitest";
 import type { LabLink } from "@/lib/types";
 import {
   buildLinksSource,
+  faviconUrl,
   hostnameOf,
   isOwnLink,
   linksScopeSummary,
@@ -51,7 +52,6 @@ const noopHandlers: LinksSourceHandlers = {
   setWholeLab: () => {},
   setActiveCategory: () => {},
   toggleVisibility: () => {},
-  refreshPreview: () => {},
   openExternally: () => {},
   openAll: () => {},
   copyUrl: () => {},
@@ -118,6 +118,23 @@ describe("hostnameOf", () => {
   });
   it("degrades to the raw string for a malformed url", () => {
     expect(hostnameOf("not a url")).toBe("not a url");
+  });
+});
+
+describe("faviconUrl", () => {
+  it("derives a client-side favicon from the hostname, no server fetch", () => {
+    expect(faviconUrl("https://addgene.org/browse")).toBe(
+      "https://www.google.com/s2/favicons?domain=addgene.org&sz=64",
+    );
+  });
+  it("honors a custom size", () => {
+    expect(faviconUrl("https://addgene.org", 32)).toBe(
+      "https://www.google.com/s2/favicons?domain=addgene.org&sz=32",
+    );
+  });
+  it("degrades to null for a malformed url (card falls back to the color bar)", () => {
+    expect(faviconUrl("not a url")).toBeNull();
+    expect(faviconUrl("")).toBeNull();
   });
 });
 
@@ -202,8 +219,9 @@ describe("buildLinksSource commands", () => {
     expect(ids).toContain("links-edit-self:1");
     expect(ids).toContain("links-category-self:1");
     expect(ids).toContain("links-visibility-self:1");
-    expect(ids).toContain("links-refresh-self:1");
     expect(ids).toContain("links-delete-self:1");
+    // Refresh-preview is retired (preview is now the client-side favicon).
+    expect(ids).not.toContain("links-refresh-self:1");
     // Save + Cancel lead while editing this link.
     expect(ids).toContain("links-save-self:1");
     expect(ids).toContain("links-cancel-self:1");
@@ -278,6 +296,29 @@ describe("buildLinksSource commands", () => {
     expect(byId.get("links-new-in-category")?.label).toBe("New link in Database");
     expect(byId.get("links-open-all-in-category")?.enabled).toBe(true);
     expect(byId.get("links-clear-filter")?.enabled).toBe(true);
+  });
+
+  it("the filter command drives the page-lifted setActiveCategory (board filter)", () => {
+    // The category filter now lives on the page (lift A); running the palette
+    // command calls the page's setter, which the page reads to render only the
+    // active group. We assert the command forwards the right category, and that
+    // clear-filter resets it to null.
+    const links = [makeLink(), makeLink({ id: 2, category: "Protocol" })];
+    const calls: (string | null)[] = [];
+    const handlers: LinksSourceHandlers = {
+      ...noopHandlers,
+      setActiveCategory: (c) => calls.push(c),
+    };
+    const byId = new Map(
+      buildLinksSource(
+        makeData({ links, activeCategory: "Database" }),
+        handlers,
+      ).commands.map((c) => [c.id, c]),
+    );
+    byId.get("links-filter-Protocol")?.run();
+    expect(calls).toEqual(["Protocol"]);
+    byId.get("links-clear-filter")?.run();
+    expect(calls).toEqual(["Protocol", null]);
   });
 });
 

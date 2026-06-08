@@ -99,7 +99,6 @@ export interface LinksSourceHandlers {
   // Direct writes (wrap labLinksApi.update + the single ["lab-links"]
   // invalidation in the hook), used by the per-link Suggested rows.
   toggleVisibility: (link: LabLink) => void | Promise<void>;
-  refreshPreview: (link: LabLink) => void | Promise<void>;
 
   // Read-only moves (allowed on shared-in links too).
   openExternally: (link: LabLink) => void;
@@ -155,6 +154,21 @@ export function hostnameOf(url: string): string {
     return new URL(url).hostname;
   } catch {
     return url;
+  }
+}
+
+/** A client-side favicon url for a link (DECISION, client-side only, no server
+ *  fetch, no metadata scrape). Derives the hostname from the url and points at
+ *  Google's public favicon service. Guarded, so a malformed stored url degrades
+ *  to null (the card then falls back to its color bar) rather than producing a
+ *  broken request. Pure, unit-tested. */
+export function faviconUrl(url: string, size = 64): string | null {
+  try {
+    const host = new URL(url).hostname;
+    if (!host) return null;
+    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=${size}`;
+  } catch {
+    return null;
   }
 }
 
@@ -354,14 +368,6 @@ function writeLinkCommands(
     run: () => void handlers.toggleVisibility(link),
   });
   out.push({
-    id: `links-refresh-${key}`,
-    label: "Refresh preview",
-    detail: "re-fetches the thumbnail",
-    group: LINKS_GROUP_EDIT,
-    iconName: "refresh",
-    run: () => void handlers.refreshPreview(link),
-  });
-  out.push({
     id: `links-delete-${key}`,
     label: `Delete "${link.title}"`,
     detail: "removes the bookmark",
@@ -553,7 +559,6 @@ function buildSuggestedIds(data: LinksSourceData): string[] {
         `links-edit-${key}`,
         `links-category-${key}`,
         `links-visibility-${key}`,
-        `links-refresh-${key}`,
         `links-delete-${key}`,
       );
     } else {
