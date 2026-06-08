@@ -53,6 +53,15 @@ import {
 import { useRouter, usePathname } from "next/navigation";
 // BeakerSearch website-wide (step 4), the app-wide mouse-awareness primitive.
 import { beakerTargetKeyOf } from "./beaker-hover";
+// BeakerSearch v3. The "Re-check page" action re-captures the page context on
+// demand (pointer + selection + route). These pure helpers turn the raw values
+// into the friendly labels the dock's captured-context card shows.
+import {
+  prettyPointer,
+  prettyRoute,
+  selectionExcerpt,
+  type CapturedContext,
+} from "./captured-context";
 // Imported from the sequences tree for this step; relocation into beaker-search/
 // is a future step (see the file header).
 import { CommandPalette } from "@/components/sequences/CommandPalette";
@@ -137,6 +146,13 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
   // session), cleared on close. Source hooks read it via useBeakerHoveredKey.
   const lastHoveredKeyRef = useRef<string | null>(null);
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+  // BeakerSearch v3. The display-ready page context captured by the last
+  // re-check (or the open-time snapshot), shown in the dock's context card.
+  const [capturedContext, setCapturedContext] = useState<CapturedContext>({
+    route: null,
+    pointer: null,
+    selection: null,
+  });
   useEffect(() => {
     const onPointerOver = (e: Event) => {
       const key = beakerTargetKeyOf(e.target);
@@ -145,9 +161,6 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
     window.addEventListener("pointerover", onPointerOver, { passive: true });
     return () => window.removeEventListener("pointerover", onPointerOver);
   }, []);
-  useEffect(() => {
-    setHoveredKey(open ? lastHoveredKeyRef.current : null);
-  }, [open]);
 
   const registerSource = useCallback((source: BeakerSearchSource) => {
     // Replace any existing entry with this id, then append so the newest is last.
@@ -182,6 +195,53 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
     () => activePageTypeForPath(pathname),
     [pathname],
   );
+
+  // BeakerSearch v3. Re-capture the page context on demand. This re-reads (a) the
+  // current pointer / hover target (re-setting the same hoveredKey existing page
+  // consumers bias on, so they re-bias for free), (b) the live text selection,
+  // and (c) the current route, then refreshes the captured-context card. This
+  // replaces v2's open-only snapshot, the user can refresh the bias whenever the
+  // page state changes without reopening the dock.
+  const recheckPageContext = useCallback(() => {
+    const key = lastHoveredKeyRef.current;
+    setHoveredKey(key);
+    const selText =
+      typeof window !== "undefined" && window.getSelection
+        ? window.getSelection()?.toString() ?? null
+        : null;
+    setCapturedContext({
+      route: prettyRoute(pathname),
+      pointer: prettyPointer(key),
+      selection: selectionExcerpt(selText),
+    });
+  }, [pathname]);
+
+  // Capture once on open (the v2 baseline snapshot), then clear the per-open
+  // hovered key on close. Re-check refreshes it on demand while open.
+  useEffect(() => {
+    if (open) recheckPageContext();
+    else setHoveredKey(null);
+  }, [open, recheckPageContext]);
+
+  // BeakerSearch v3. The re-check keyboard chord. Cmd/Ctrl+Shift+K (no collision,
+  // grepped). Fires only while the dock is open so it never steals the chord from
+  // the page when BeakerSearch is closed.
+  const recheckShortcutLabel = "Cmd Shift K";
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey &&
+        e.key.toLowerCase() === "k"
+      ) {
+        e.preventDefault();
+        recheckPageContext();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, recheckPageContext]);
   // The per-user Recent-records MRU (chunk 4). A client-only localStorage list,
   // keyed by the current user so a profile switch never leaks another user's
   // recents, holding the last few globally-opened core records. Loaded on mount /
@@ -257,7 +317,13 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
   // page that registers no source of its own.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      // Plain Cmd/Ctrl+K toggles. Shift is reserved for the v3 re-check chord
+      // (Cmd/Ctrl+Shift+K), so it must not also toggle here.
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        !e.shiftKey &&
+        e.key.toLowerCase() === "k"
+      ) {
         e.preventDefault();
         setOpen((cur) => !cur);
       }
@@ -333,6 +399,9 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
           onNavigateObject={navigateToObject}
           onSearchEverything={searchEverything}
           recentEntries={recentEntries}
+          capturedContext={capturedContext}
+          onRecheck={recheckPageContext}
+          recheckShortcutLabel={recheckShortcutLabel}
         />
         </BeakerSearchHoverContext.Provider>
       </BeakerSearchRegistryContext.Provider>

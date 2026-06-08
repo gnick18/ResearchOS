@@ -118,8 +118,11 @@ describe("CommandPalette", () => {
         hasOrganism={false}
       />,
     );
-    const dialog = screen.getByRole("dialog", { name: "Command palette" });
+    // BeakerSearch v3. The dock is a NON-MODAL labelled region (role="dialog"
+    // without aria-modal), labelled "BeakerSearch".
+    const dialog = screen.getByRole("dialog", { name: "BeakerSearch" });
     expect(dialog).toBeTruthy();
+    expect(dialog.getAttribute("aria-modal")).toBeNull();
     // The input is a combobox over a labelled listbox.
     expect(screen.getByRole("combobox")).toBeTruthy();
     expect(

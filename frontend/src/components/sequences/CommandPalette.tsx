@@ -1,23 +1,52 @@
-// sequence editor master. The Cmd-K COMMAND PALETTE (sequences redesign phase
-// 4). A calm, centered overlay that is the KEYBOARD route to every editor
-// operation, including the ones that do not earn a permanent rail slot. It is a
-// supplement to the rail and the right-click menus, never the discoverability
-// fix, so it stays quiet until the informed user reaches for it.
+// sequence editor master. The Cmd-K COMMAND PALETTE, now the BeakerSearch v3
+// FLOATING DOCK. It began as a calm, centered modal overlay; v3 turns it into a
+// small persistent, NON-MODAL capsule the user drags anywhere, collapses to a
+// pill, or tucks off a side into a peek tab. The page stays fully interactive
+// while the dock is open (no scrim, no focus trap, no body-scroll lock), and a
+// "Re-check page" action re-captures the page context on demand instead of the
+// old open-only snapshot.
 //
-// It owns nothing about WHAT an operation does. The command list is built in
-// SequenceEditView from the same wired handlers the rail and menus use, and each
-// command's `run` points straight at that handler. This file only renders the
-// list, fuzzy-filters it, and drives the keyboard / focus / a11y.
+// It still owns nothing about WHAT a search result / command does. The command
+// list is built upstream from the same wired handlers the rail and menus use,
+// and each command's `run` points straight at that handler. This file renders
+// the list, fuzzy-filters it, drives the keyboard / focus / a11y, AND owns the
+// dock's geometry (drag, collapse, tuck, persistence) via the pure dock-state
+// module. The re-check action itself lives in the provider (it re-sets the
+// hovered key + captures selection + route); the dock only renders the button,
+// wires its shortcut, and shows the captured-context card.
 //
 // Icons render through <Icon> from the verified icon library (no inline svg, the
-// icon-guard enforces it). Voice in comments and copy, no em-dashes, no
-// en-dashes, no emojis, no mid-sentence colons.
+// icon-guard enforces it); the BeakerBot mark renders via the component. Voice in
+// comments and copy, no em-dashes, no en-dashes, no emojis, no mid-sentence
+// colons.
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@/components/icons";
 import BeakerBot from "@/components/BeakerBot";
+import Tooltip from "@/components/Tooltip";
 import type { SelectionKind } from "@/lib/sequences/inspector-context";
+import {
+  DOCK_STORAGE_KEY,
+  DOCK_WIDTH,
+  clampPosition,
+  endDragAt,
+  fromPersisted,
+  initialDockState,
+  nearestSide,
+  openDock,
+  parsePersisted,
+  reclampForViewport,
+  toPersisted,
+  toggleCollapsed,
+  tuckDecision,
+  tuckDock,
+  untuckDock,
+  type DockSide,
+  type DockState,
+  type Viewport,
+} from "@/components/beaker-search/dock-state";
+import type { CapturedContext } from "@/components/beaker-search/captured-context";
 import {
   buildPaletteResultsForQuery,
   filterSubflowItems,
@@ -367,9 +396,21 @@ export interface CommandPaletteProps {
    *  already resolved to live entries in MRU order by the provider. Rendered only
    *  in the empty-query view. Default empty. */
   recentEntries?: GlobalIndexEntry[];
+  /** BeakerSearch v3. The page context captured by the last "Re-check page"
+   *  (route / pointer / selection), already display-ready. The dock shows this in
+   *  the captured-context card so the bias is visible. Absent renders no card. */
+  capturedContext?: CapturedContext;
+  /** BeakerSearch v3. Re-capture the page context on demand. The provider re-sets
+   *  the hovered key (so existing page consumers re-bias) and refreshes the
+   *  captured-context card. Absent hides the "Re-check page" control. */
+  onRecheck?: () => void;
+  /** BeakerSearch v3. The keyboard chord that triggers re-check, shown on the
+   *  button (e.g. "Cmd Shift K"). The provider owns the actual key listener. */
+  recheckShortcutLabel?: string;
 }
 
-/** The full-screen palette. Renders nothing when closed. */
+/** The BeakerSearch v3 floating dock. Renders nothing when closed (the geometry
+ *  is preserved across opens via localStorage). */
 export function CommandPalette({
   open,
   onClose,
@@ -390,6 +431,9 @@ export function CommandPalette({
   onNavigateObject,
   onSearchEverything,
   recentEntries = EMPTY_OBJECT_INDEX,
+  capturedContext,
+  onRecheck,
+  recheckShortcutLabel,
 }: CommandPaletteProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -408,6 +452,71 @@ export function CommandPalette({
   // The element focused before the palette opened, restored on close.
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const baseId = useId();
+
+  // BeakerSearch v3. The floating-dock geometry (position, collapsed, tucked,
+  // side). The brain is the pure dock-state module; here we hold the live state,
+  // hydrate it from localStorage once, persist on change, and re-clamp on resize.
+  // `open` is the prop above; the dock-state `open` flag is unused on this side
+  // (the provider owns open/close), so we keep it in sync only for completeness.
+  const [dock, setDock] = useState<DockState>(() => initialDockState());
+  const dockRef = useRef<HTMLDivElement | null>(null);
+  const hydratedRef = useRef(false);
+  const reduceMotionRef = useRef(false);
+
+  const viewport = useCallback(
+    (): Viewport => ({ width: window.innerWidth, height: window.innerHeight }),
+    [],
+  );
+
+  // Hydrate the persisted geometry once on mount (open is never persisted).
+  useEffect(() => {
+    if (hydratedRef.current || typeof window === "undefined") return;
+    hydratedRef.current = true;
+    const persisted = parsePersisted(window.localStorage.getItem(DOCK_STORAGE_KEY));
+    if (persisted) setDock((cur) => ({ ...fromPersisted(persisted), open: cur.open }));
+    // matchMedia is absent in some test environments (jsdom), so guard it.
+    reduceMotionRef.current =
+      typeof window.matchMedia === "function"
+        ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        : false;
+  }, []);
+
+  // Persist the geometry whenever it changes (best-effort, never breaks the UI).
+  useEffect(() => {
+    if (!hydratedRef.current || typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        DOCK_STORAGE_KEY,
+        JSON.stringify(toPersisted(dock)),
+      );
+    } catch {
+      // localStorage full or disabled; the in-memory geometry still applies.
+    }
+  }, [dock]);
+
+  // On each open, ensure the dock is placed + untucked-if-it-was-closed-tucked is
+  // NOT forced; reopening returns it where it was left (floating or tucked side),
+  // per the spec. We only ensure it has a concrete position so the first open of
+  // a fresh session lands at the default top-right.
+  useEffect(() => {
+    if (!open || typeof window === "undefined") return;
+    setDock((cur) => {
+      const placed = cur.x == null ? openDock(cur, viewport()) : cur;
+      return { ...placed, open: true };
+    });
+  }, [open, viewport]);
+
+  // Re-clamp into the viewport on resize so a shrunk window never strands the
+  // dock off-screen, and a tucked dock stays parked at its side.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => setDock((cur) => reclampForViewport(cur, viewport()));
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [viewport]);
+
+  // The live "Hide here" hint side while dragging near an edge (null = not near).
+  const [armedSide, setArmedSide] = useState<DockSide | null>(null);
 
   const typing = query.trim() !== "";
 
@@ -811,6 +920,77 @@ export function CommandPalette({
     ],
   );
 
+  // BeakerSearch v3. Dragging the dock by its header. We capture the pointer on
+  // the header, follow it through pointermove (clamped to the viewport), and on
+  // release decide whether the position tucks the dock off a side (drag-to-edge).
+  // While dragging within the snap zone, armedSide drives the "Hide here" hint.
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+  } | null>(null);
+
+  const onHeaderPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      // Ignore drags that start on a header control (close / collapse / hide).
+      if ((e.target as HTMLElement).closest("[data-dock-act]")) return;
+      if (dock.tucked) return; // tucked = use the tab, not a drag.
+      const el = dockRef.current;
+      if (!el) return;
+      const x = dock.x ?? el.getBoundingClientRect().left;
+      const y = dock.y ?? el.getBoundingClientRect().top;
+      dragRef.current = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        originX: x,
+        originY: y,
+      };
+      el.setPointerCapture(e.pointerId);
+    },
+    [dock.tucked, dock.x, dock.y],
+  );
+
+  const onHeaderPointerMove = useCallback((e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    const vp: Viewport = { width: window.innerWidth, height: window.innerHeight };
+    const next = clampPosition(
+      d.originX + (e.clientX - d.startX),
+      d.originY + (e.clientY - d.startY),
+      vp,
+    );
+    setDock((cur) => ({ ...cur, x: next.x, y: next.y, tucked: false }));
+    setArmedSide(tuckDecision(next.x, vp));
+  }, []);
+
+  const onHeaderPointerUp = useCallback((e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    dragRef.current = null;
+    setArmedSide(null);
+    const el = dockRef.current;
+    if (el && el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+    const vp: Viewport = { width: window.innerWidth, height: window.innerHeight };
+    setDock((cur) => {
+      if (cur.x == null || cur.y == null) return cur;
+      return endDragAt(cur, cur.x, cur.y, vp);
+    });
+  }, []);
+
+  // Header control actions.
+  const doTuck = useCallback(() => {
+    const vp: Viewport = { width: window.innerWidth, height: window.innerHeight };
+    setDock((cur) => tuckDock(cur, nearestSide(cur, vp), vp));
+  }, []);
+  const doUntuck = useCallback(() => {
+    const vp: Viewport = { width: window.innerWidth, height: window.innerHeight };
+    setDock((cur) => untuckDock(cur, vp));
+  }, []);
+  const doCollapse = useCallback(() => setDock((cur) => toggleCollapsed(cur)), []);
+
   // Keep the highlighted row scrolled into view as Up / Down walk past the fold.
   useEffect(() => {
     if (!open) return;
@@ -832,27 +1012,115 @@ export function CommandPalette({
       ? `${baseId}-opt-${paletteItemKey(flat[highlight])}`
       : undefined;
 
+  // BeakerSearch v3 geometry, resolved for render. The dock is fixed-position at
+  // (x, y); tucked slides it off `side` via a transform leaving the peek tab;
+  // collapsed hides everything but the header pill. The transform keeps the
+  // resting position so untucking returns it at the same size.
+  const left = dock.x ?? 0;
+  const top = dock.y ?? 0;
+  const tuckTransform = dock.tucked
+    ? dock.side === "right"
+      ? "translateX(calc(100% + 24px))"
+      : "translateX(calc(-100% - 24px))"
+    : undefined;
+  // The animated chrome (drag tracks the pointer with no transition; tuck /
+  // untuck / collapse animate, unless the user prefers reduced motion).
+  const dragging = dragRef.current != null;
+  const transitionClass =
+    dragging || reduceMotionRef.current
+      ? ""
+      : "transition-[transform,left,top] duration-300 ease-out motion-reduce:transition-none";
+  // Which edge the hide button would tuck to (the nearest side), for its glyph +
+  // tooltip. Computed from the live position against the current viewport.
+  const hideSide: DockSide = nearestSide(
+    dock,
+    mounted
+      ? { width: window.innerWidth, height: window.innerHeight }
+      : { width: 0, height: 0 },
+  );
+
   return createPortal(
-    <div
-      // The scrim. Click outside the panel closes; clicks inside do not. A
-      // blurred dark wash matches the app's other Apple-style overlays.
-      className="fixed inset-0 z-[80] flex items-start justify-center bg-slate-900/35 px-4 backdrop-blur-sm"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
+    <>
+      {/* The drag-to-edge "Hide here" hint zones. They paint a soft accent wash
+          on the side the dock would tuck to on release, and stay pointer-inert
+          so they never block the page. Shown only while a drag is armed near an
+          edge. */}
+      {dragging ? (
+        <>
+          <div
+            aria-hidden="true"
+            className={`pointer-events-none fixed inset-y-0 left-0 z-[78] w-[80px] bg-gradient-to-r from-brand-action/25 to-transparent transition-opacity ${
+              armedSide === "left" ? "opacity-100" : "opacity-40"
+            }`}
+          />
+          <div
+            aria-hidden="true"
+            className={`pointer-events-none fixed inset-y-0 right-0 z-[78] w-[80px] bg-gradient-to-l from-brand-action/25 to-transparent transition-opacity ${
+              armedSide === "right" ? "opacity-100" : "opacity-40"
+            }`}
+          />
+        </>
+      ) : null}
+
+      {/* The peek tab, shown only while tucked. Clicking it pulls the dock back
+          in at its same size. A vertical "BeakerSearch" wordmark. */}
+      {dock.tucked ? (
+        <Tooltip label="Show BeakerSearch" placement={dock.side === "right" ? "left" : "right"}>
+          <button
+            type="button"
+            onClick={doUntuck}
+            aria-label="Show BeakerSearch"
+            className={`fixed top-1/2 z-[79] flex -translate-y-1/2 flex-col items-center gap-2 border border-border bg-surface-raised px-1.5 py-3 shadow-2xl hover:border-brand-action ${
+              dock.side === "right"
+                ? "right-0 rounded-l-xl border-r-0"
+                : "left-0 rounded-r-xl border-l-0"
+            }`}
+          >
+            <BeakerBot pose="idle" animated={false} className="h-4 w-4 flex-none" ariaLabel="" />
+            <span
+              className="text-[11px] font-extrabold tracking-wide text-foreground"
+              style={{
+                writingMode: "vertical-rl",
+                transform: dock.side === "left" ? "rotate(180deg)" : undefined,
+              }}
+            >
+              BeakerSearch
+            </span>
+          </button>
+        </Tooltip>
+      ) : null}
+
+      {/* The one dock. Non-modal: role="dialog" WITHOUT aria-modal, so it is a
+          labeled region the page can ignore; there is no scrim and no focus
+          trap, the page stays fully interactive while it is open. */}
       <div
+        ref={dockRef}
         role="dialog"
-        aria-modal="true"
-        aria-label="Command palette"
-        className="mt-[11vh] w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-surface-raised shadow-2xl"
+        aria-label="BeakerSearch"
         onKeyDown={onKeyDown}
+        style={{
+          left: `${left}px`,
+          top: `${top}px`,
+          width: `${DOCK_WIDTH}px`,
+          transform: tuckTransform,
+        }}
+        className={`fixed z-[79] flex max-h-[80vh] flex-col overflow-hidden rounded-2xl border border-border bg-surface-raised shadow-2xl ${transitionClass}`}
       >
-        {/* Search row. The BeakerBot mark + BeakerSearch wordmark brand the open
-            palette, then the input (a combobox over the result listbox). The
-            mark is the real BeakerBot mascot rendered via the component, so no
-            inline svg is added here. */}
-        <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+        {/* Dock header. The drag handle (whole header), the BeakerBot mark +
+            wordmark, and the control cluster (hide-to-edge, collapse, close). A
+            collapsed dock shows only this header; clicking it re-expands. */}
+        <div
+          onPointerDown={onHeaderPointerDown}
+          onPointerMove={onHeaderPointerMove}
+          onPointerUp={onHeaderPointerUp}
+          onPointerCancel={onHeaderPointerUp}
+          onClick={() => {
+            if (dock.collapsed) setDock((cur) => toggleCollapsed(cur));
+          }}
+          className={`flex select-none items-center gap-2 px-3 py-2 ${
+            dock.collapsed ? "" : "border-b border-border"
+          } ${dragging ? "cursor-grabbing" : "cursor-grab"}`}
+        >
           <BeakerBot
             pose="idle"
             animated={false}
@@ -862,6 +1130,64 @@ export function CommandPalette({
           <span className="flex-none text-body font-semibold text-foreground">
             BeakerSearch
           </span>
+          <Icon
+            name="more"
+            className="h-4 w-4 flex-none text-foreground-muted"
+            aria-hidden
+          />
+          <span className="flex-1" />
+          <Tooltip label={`Hide to ${hideSide} edge`}>
+            <button
+              type="button"
+              data-dock-act="tuck"
+              onClick={doTuck}
+              aria-label="Hide to edge"
+              className="flex h-7 w-7 flex-none items-center justify-center rounded-md border border-transparent text-foreground-muted hover:border-border hover:bg-surface-sunken hover:text-foreground"
+            >
+              <Icon
+                name={hideSide === "left" ? "chevronLeft" : "chevronRight"}
+                className="h-4 w-4"
+              />
+            </button>
+          </Tooltip>
+          <Tooltip label={dock.collapsed ? "Expand" : "Collapse"}>
+            <button
+              type="button"
+              data-dock-act="collapse"
+              onClick={doCollapse}
+              aria-label={dock.collapsed ? "Expand BeakerSearch" : "Collapse BeakerSearch"}
+              className="flex h-7 w-7 flex-none items-center justify-center rounded-md border border-transparent text-foreground-muted hover:border-border hover:bg-surface-sunken hover:text-foreground"
+            >
+              <Icon
+                name="chevronDown"
+                className={`h-4 w-4 ${dock.collapsed ? "-rotate-90" : ""}`}
+              />
+            </button>
+          </Tooltip>
+          <Tooltip label="Close">
+            <button
+              type="button"
+              data-dock-act="close"
+              onClick={onClose}
+              aria-label="Close BeakerSearch"
+              className="flex h-7 w-7 flex-none items-center justify-center rounded-md border border-transparent text-foreground-muted hover:border-border hover:bg-surface-sunken hover:text-foreground"
+            >
+              <Icon name="close" className="h-4 w-4" />
+            </button>
+          </Tooltip>
+        </div>
+
+        {/* The collapsible body. Hidden entirely when collapsed (pill mode). */}
+        {dock.collapsed ? null : (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {/* Search row. The input is a combobox over the result listbox below.
+            The search glyph comes from the registry; no inline svg is added. */}
+        <div className="flex items-center gap-2.5 px-3 pb-2 pt-2.5">
+          <Icon
+            name="search"
+            className="h-4 w-4 flex-none text-foreground-muted"
+            aria-hidden
+          />
           <input
             ref={inputRef}
             value={query}
@@ -883,10 +1209,63 @@ export function CommandPalette({
             spellCheck={false}
             className="flex-1 bg-transparent text-body text-foreground outline-none placeholder:text-foreground-muted"
           />
-          <kbd className="rounded-md border border-border bg-surface px-1.5 py-0.5 text-[11px] font-semibold text-foreground-muted">
-            esc
-          </kbd>
         </div>
+
+        {/* Re-check page. The primary affordance to re-capture the page context
+            (pointer + selection + route) on demand, replacing the old open-only
+            snapshot. The provider owns the capture; this button + its shortcut
+            label trigger it. */}
+        {onRecheck ? (
+          <button
+            type="button"
+            data-dock-act="recheck"
+            onClick={onRecheck}
+            className="mx-3 mb-1 mt-1 flex items-center gap-2 rounded-lg border border-brand-action/40 bg-brand-action/10 px-3 py-1.5 text-meta font-bold text-brand-action hover:bg-brand-action/20"
+          >
+            <Icon name="refresh" className="h-3.5 w-3.5 flex-none" />
+            <span>Re-check page</span>
+            <span className="flex-1" />
+            {recheckShortcutLabel ? (
+              <kbd className="rounded border border-brand-action/40 bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-brand-action">
+                {recheckShortcutLabel}
+              </kbd>
+            ) : null}
+          </button>
+        ) : null}
+
+        {/* Captured context card. Shows what the last re-check captured (Route,
+            Pointing at, Selection) so the result bias is visible. */}
+        {capturedContext ? (
+          <div className="mx-3 my-1 rounded-lg border border-dashed border-border bg-surface-sunken px-3 py-2 text-[11.5px]">
+            <div className="mb-1.5 text-[10px] font-extrabold uppercase tracking-wide text-foreground-muted">
+              Captured context
+            </div>
+            <div className="flex items-baseline gap-2 leading-relaxed">
+              <span className="w-[64px] flex-none font-semibold text-foreground-muted">
+                Route
+              </span>
+              <span className={capturedContext.route ? "font-semibold text-foreground" : "italic text-foreground-muted"}>
+                {capturedContext.route ?? "unknown"}
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2 leading-relaxed">
+              <span className="w-[64px] flex-none font-semibold text-foreground-muted">
+                Pointing at
+              </span>
+              <span className={capturedContext.pointer ? "font-semibold text-foreground" : "italic text-foreground-muted"}>
+                {capturedContext.pointer ?? "nothing yet"}
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2 leading-relaxed">
+              <span className="w-[64px] flex-none font-semibold text-foreground-muted">
+                Selection
+              </span>
+              <span className={`truncate ${capturedContext.selection ? "font-semibold text-foreground" : "italic text-foreground-muted"}`}>
+                {capturedContext.selection ?? "none"}
+              </span>
+            </div>
+          </div>
+        ) : null}
 
         {/* The "On this sequence" context card. A full card at rest, a slim
             one-line header while typing. Display only, outside the listbox so it
@@ -930,7 +1309,7 @@ export function CommandPalette({
           id={`${baseId}-listbox`}
           role="listbox"
           aria-label="Commands, sequences, and results"
-          className="max-h-[52vh] overflow-y-auto py-1"
+          className="min-h-0 flex-1 overflow-y-auto py-1"
         >
           {flat.length === 0 ? (
             <div className="px-4 py-8 text-center text-meta text-foreground-muted">
@@ -1043,8 +1422,10 @@ export function CommandPalette({
             {inSubflow ? "Pick one to continue" : "Cmd K reaches everything"}
           </span>
         </div>
+          </div>
+        )}
       </div>
-    </div>,
+    </>,
     document.body,
   );
 }
