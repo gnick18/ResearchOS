@@ -4,7 +4,7 @@
 // Done state work regardless of notification permission, the OS alert is a
 // bonus. SDK 54 expo-notifications: local scheduled notifications fire in Expo
 // Go (only remote push needs a development build). House style: no em-dashes,
-// no emojis, no mid-sentence colons, brand-sky (#1AA0E6) accents.
+// no emojis, no mid-sentence colons.
 import { useCallback, useEffect, useState } from 'react';
 import {
   Pressable,
@@ -18,6 +18,10 @@ import { useFocusEffect } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { SectionHeader } from '@/components/ui/SectionHeader';
+import { useTheme, palette } from '@/lib/design';
 import { ensureNotificationPermission } from '@/lib/notifications';
 import {
   addTimer,
@@ -27,13 +31,12 @@ import {
   type Timer,
 } from '@/lib/timers';
 
-const BRAND_SKY = '#1AA0E6';
-
 // Keypad layout, read right-to-left as HHMMSS like a bench timer.
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0', 'back'];
 
 export default function TimersScreen() {
   const { timers, refresh } = useTimers();
+  const { surface, spacing, radii } = useTheme();
   const [label, setLabel] = useState('');
   // Up to six entered digits, read right-to-left as HHMMSS.
   const [digits, setDigits] = useState('');
@@ -109,73 +112,94 @@ export default function TimersScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <ThemedText type="title">Timers</ThemedText>
-          <ThemedText style={styles.tagline}>
+          <ThemedText style={[styles.tagline, { color: surface.muted }]}>
             Start a countdown at the bench and get an alert when it finishes.
           </ThemedText>
 
-          <ThemedView style={styles.card}>
-            <ThemedText type="subtitle">New timer</ThemedText>
+          <Card style={{ gap: spacing.md }}>
+            <ThemedText style={[styles.cardSectionTitle, { color: surface.text }]}>
+              New timer
+            </ThemedText>
             <TextInput
               value={label}
               onChangeText={setLabel}
               placeholder="What are you timing, optional"
-              placeholderTextColor="rgba(128, 128, 128, 0.8)"
-              style={styles.input}
+              placeholderTextColor={surface.placeholder}
+              style={[
+                styles.input,
+                {
+                  borderColor: surface.border,
+                  borderRadius: radii.md,
+                  color: surface.text,
+                },
+              ]}
             />
 
             <View style={styles.displayWrap}>
-              <ThemedText style={[styles.display, duration <= 0 && styles.displayDim]}>
+              <ThemedText
+                style={[
+                  styles.display,
+                  { color: palette.sky },
+                  duration <= 0 && styles.displayDim,
+                ]}
+              >
                 {hh}:{mm}:{ss}
               </ThemedText>
-              <ThemedText style={styles.displayHint}>hours : min : sec</ThemedText>
+              <ThemedText style={[styles.displayHint, { color: surface.muted }]}>
+                hours : min : sec
+              </ThemedText>
             </View>
 
             <View style={styles.keypad}>
               {KEYS.map((key) => (
                 <Pressable
                   key={key}
-                  style={({ pressed }) => [styles.key, pressed && styles.keyPressed]}
+                  style={({ pressed }) => [
+                    styles.key,
+                    {
+                      borderColor: surface.border,
+                      borderRadius: radii.sm,
+                    },
+                    pressed && {
+                      backgroundColor: palette.skyDim,
+                      borderColor: palette.sky,
+                    },
+                  ]}
                   onPress={() => pushKey(key)}
                   accessibilityRole="button"
                   accessibilityLabel={key === 'back' ? 'delete' : key}
                 >
-                  <ThemedText style={styles.keyText}>
+                  <ThemedText style={[styles.keyText, { color: surface.text }]}>
                     {key === 'back' ? 'del' : key}
                   </ThemedText>
                 </Pressable>
               ))}
             </View>
 
-            <Pressable
-              style={[styles.primaryButton, duration <= 0 && styles.buttonDisabled]}
+            <Button
+              variant="primary"
+              label={duration > 0 ? `Start timer (${formatClock(duration)})` : 'Enter a time'}
               onPress={onStart}
               disabled={duration <= 0}
-              accessibilityRole="button"
-            >
-              <ThemedText style={styles.primaryButtonText}>
-                {duration > 0 ? `Start timer (${formatClock(duration)})` : 'Enter a time'}
-              </ThemedText>
-            </Pressable>
+            />
 
             {notifyGranted === false ? (
-              <ThemedText style={styles.permNote}>
+              <ThemedText style={[styles.permNote, { color: surface.muted }]}>
                 Notifications are off, so this timer runs in-app but you will not
                 get a background alert. Turn on notifications in Settings to be
                 alerted when the app is closed.
               </ThemedText>
             ) : null}
-          </ThemedView>
+          </Card>
 
-          <View style={styles.listHeader}>
-            <ThemedText type="subtitle">Running</ThemedText>
-          </View>
+          <SectionHeader title="Running" />
 
           {running.length === 0 ? (
-            <ThemedView style={styles.emptyCard}>
-              <ThemedText style={styles.cardHint}>
+            <Card>
+              <ThemedText style={[styles.cardHint, { color: surface.muted }]}>
                 No timers running. Start one above.
               </ThemedText>
-            </ThemedView>
+            </Card>
           ) : (
             running.map((timer) => (
               <TimerRow key={timer.id} timer={timer} onCancel={onCancel} />
@@ -184,16 +208,11 @@ export default function TimersScreen() {
 
           {finished.length > 0 ? (
             <>
-              <View style={styles.listHeader}>
-                <ThemedText type="subtitle">Finished</ThemedText>
-                <Pressable
-                  onPress={onClearFinished}
-                  accessibilityRole="button"
-                  hitSlop={8}
-                >
-                  <ThemedText style={styles.actionText}>Clear</ThemedText>
-                </Pressable>
-              </View>
+              <SectionHeader
+                title="Finished"
+                action="Clear"
+                onAction={onClearFinished}
+              />
               {finished.map((timer) => (
                 <TimerRow key={timer.id} timer={timer} onCancel={onCancel} />
               ))}
@@ -212,21 +231,29 @@ function TimerRow({
   timer: Timer;
   onCancel: (id: string) => void;
 }) {
+  const { surface } = useTheme();
   const isRunning = timer.status === 'running';
   // Remaining seconds, clamped at zero. Recomputed every render, the 1s tick in
   // useTimers drives the re-render.
   const remainingSec = Math.max(0, Math.ceil((timer.endsAt - Date.now()) / 1000));
 
+  const pillBg =
+    timer.status === 'done' ? palette.successLight : palette.skyDim;
+  const pillColor =
+    timer.status === 'done' ? palette.success : surface.muted;
+
   return (
-    <ThemedView style={styles.row}>
+    <Card compact style={styles.timerRow}>
       <View style={styles.rowBody}>
-        <ThemedText type="defaultSemiBold" numberOfLines={2}>
+        <ThemedText style={[styles.rowTitle, { color: surface.text }]} numberOfLines={2}>
           {timer.label.length > 0 ? timer.label : 'Lab timer'}
         </ThemedText>
         {isRunning ? (
-          <ThemedText style={styles.countdown}>{formatClock(remainingSec)}</ThemedText>
+          <ThemedText style={[styles.countdown, { color: palette.sky }]}>
+            {formatClock(remainingSec)}
+          </ThemedText>
         ) : (
-          <ThemedText style={styles.rowMeta}>
+          <ThemedText style={[styles.rowMeta, { color: surface.muted }]}>
             {formatClock(timer.durationSec)} total
           </ThemedText>
         )}
@@ -238,29 +265,19 @@ function TimerRow({
             accessibilityRole="button"
             hitSlop={8}
           >
-            <ThemedText style={styles.actionText}>Cancel</ThemedText>
+            <ThemedText style={[styles.actionText, { color: palette.sky }]}>
+              Cancel
+            </ThemedText>
           </Pressable>
         ) : (
-          <View
-            style={[
-              styles.pill,
-              timer.status === 'done' ? styles.pillDone : styles.pillCancelled,
-            ]}
-          >
-            <ThemedText
-              style={[
-                styles.pillText,
-                timer.status === 'done'
-                  ? styles.pillTextDone
-                  : styles.pillTextCancelled,
-              ]}
-            >
+          <View style={[styles.pill, { backgroundColor: pillBg }]}>
+            <ThemedText style={[styles.pillText, { color: pillColor }]}>
               {timer.status === 'done' ? 'Done' : 'Cancelled'}
             </ThemedText>
           </View>
         )}
       </View>
-    </ThemedView>
+    </Card>
   );
 }
 
@@ -285,25 +302,19 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   tagline: {
-    opacity: 0.7,
     lineHeight: 22,
   },
-  card: {
-    borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.3)',
-    borderRadius: 14,
-    padding: 16,
-    gap: 12,
+  cardSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 22,
   },
   input: {
     borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.4)',
-    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
     minHeight: 48,
-    color: '#888888',
   },
   displayWrap: {
     alignItems: 'center',
@@ -315,14 +326,12 @@ const styles = StyleSheet.create({
     lineHeight: 60,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
-    color: BRAND_SKY,
   },
   displayDim: {
     opacity: 0.35,
   },
   displayHint: {
     fontSize: 12,
-    opacity: 0.5,
     letterSpacing: 1,
   },
   keypad: {
@@ -335,85 +344,52 @@ const styles = StyleSheet.create({
     width: '31%',
     aspectRatio: 1.9,
     borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.3)',
-    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  keyPressed: {
-    backgroundColor: 'rgba(22, 160, 230, 0.12)',
-    borderColor: BRAND_SKY,
   },
   keyText: {
     fontSize: 24,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
   },
-  primaryButton: {
-    backgroundColor: BRAND_SKY,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  buttonDisabled: {
-    opacity: 0.4,
-  },
   permNote: {
-    opacity: 0.7,
     fontSize: 13,
     lineHeight: 18,
   },
-  listHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  emptyCard: {
-    borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.3)',
-    borderRadius: 14,
-    padding: 16,
-  },
   cardHint: {
-    opacity: 0.7,
     lineHeight: 20,
   },
-  row: {
+  timerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.3)',
-    borderRadius: 14,
-    padding: 16,
   },
   rowBody: {
     flex: 1,
     gap: 4,
   },
+  rowTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 20,
+  },
   rowMeta: {
-    opacity: 0.6,
     fontSize: 13,
+    lineHeight: 18,
   },
   countdown: {
     fontSize: 34,
     lineHeight: 42,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
-    color: BRAND_SKY,
     paddingVertical: 2,
   },
   rowActions: {
     alignItems: 'flex-end',
   },
   actionText: {
-    color: BRAND_SKY,
     fontWeight: '600',
+    fontSize: 14,
   },
   pill: {
     paddingHorizontal: 10,
@@ -423,17 +399,5 @@ const styles = StyleSheet.create({
   pillText: {
     fontSize: 12,
     fontWeight: '600',
-  },
-  pillDone: {
-    backgroundColor: 'rgba(22, 163, 74, 0.15)',
-  },
-  pillTextDone: {
-    color: '#16a34a',
-  },
-  pillCancelled: {
-    backgroundColor: 'rgba(128, 128, 128, 0.15)',
-  },
-  pillTextCancelled: {
-    color: '#888888',
   },
 });

@@ -3,11 +3,10 @@
 // The phone fetches with a device-Ed25519-signed request, unseals it with its
 // own X25519 key, and shows the task list plus overdue/upcoming chips and a last
 // synced line. No write-back, no inventory. Pull to refresh. House style: no
-// em-dashes, no emojis, no mid-sentence colons, brand-sky (#1AA0E6) accents.
+// em-dashes, no emojis, no mid-sentence colons.
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -18,6 +17,10 @@ import { useFocusEffect, useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { SectionHeader } from '@/components/ui/SectionHeader';
+import { useTheme, palette } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
 import {
@@ -26,10 +29,9 @@ import {
   type SnapshotTask,
 } from '@/lib/snapshots';
 
-const BRAND_SKY = '#1AA0E6';
-
 export default function TodayScreen() {
   const router = useRouter();
+  const { surface, spacing } = useTheme();
   const { pairing, loading: pairingLoading, refresh: refreshPairing } =
     usePairing();
   const [snapshot, setSnapshot] = useState<TodaySnapshot | null>(null);
@@ -101,112 +103,110 @@ export default function TodayScreen() {
             <RefreshControl
               refreshing={loading}
               onRefresh={load}
-              tintColor={BRAND_SKY}
+              tintColor={palette.sky}
             />
           }
         >
           <ThemedText type="title">Today</ThemedText>
-          <ThemedText style={styles.tagline}>
+          <ThemedText style={[styles.tagline, { color: surface.muted }]}>
             A read-only glance at what is scheduled today, synced from your
             laptop.
           </ThemedText>
 
           {!pairing && (pairingLoading || !loaded) ? (
             <View style={styles.loadingWrap}>
-              <ActivityIndicator color={BRAND_SKY} />
+              <ActivityIndicator color={palette.sky} />
             </View>
           ) : null}
 
           {!pairing && loaded ? (
-            <ThemedView style={styles.card}>
-              <ThemedText type="defaultSemiBold">
+            <Card style={{ gap: spacing.sm }}>
+              <ThemedText style={[styles.cardTitle, { color: surface.text }]}>
                 This phone is not paired
               </ThemedText>
-              <ThemedText style={styles.cardHint}>
+              <ThemedText style={[styles.cardHint, { color: surface.muted }]}>
                 Pair with your desktop to see today at the bench.
               </ThemedText>
-              <Pressable
-                style={styles.primaryButton}
+              <Button
+                variant="primary"
+                label="Pair this phone"
                 onPress={() => router.push('/pair')}
-                accessibilityRole="button"
-              >
-                <ThemedText style={styles.primaryButtonText}>
-                  Pair this phone
-                </ThemedText>
-              </Pressable>
-            </ThemedView>
+                style={{ marginTop: spacing.xs }}
+              />
+            </Card>
           ) : null}
 
           {pairing ? (
             <>
               {error ? (
-                <ThemedView style={styles.errorBanner}>
-                  <ThemedText style={styles.errorText}>{error}</ThemedText>
-                </ThemedView>
+                <View
+                  style={[
+                    styles.errorBanner,
+                    {
+                      borderColor: palette.dangerBorder,
+                      backgroundColor: palette.dangerLight,
+                      borderRadius: 12,
+                    },
+                  ]}
+                >
+                  <ThemedText style={[styles.errorText, { color: palette.danger }]}>
+                    {error}
+                  </ThemedText>
+                </View>
               ) : null}
 
               {loading && !loaded ? (
                 <View style={styles.loadingWrap}>
-                  <ActivityIndicator color={BRAND_SKY} />
+                  <ActivityIndicator color={palette.sky} />
                 </View>
               ) : null}
 
               {loaded && snapshot === null && !error ? (
-                <ThemedView style={styles.card}>
-                  <ThemedText type="defaultSemiBold">Not synced yet</ThemedText>
-                  <ThemedText style={styles.cardHint}>
+                <Card>
+                  <ThemedText style={[styles.cardTitle, { color: surface.text }]}>
+                    Not synced yet
+                  </ThemedText>
+                  <ThemedText style={[styles.cardHint, { color: surface.muted }]}>
                     Open ResearchOS on your laptop to sync today.
                   </ThemedText>
-                </ThemedView>
+                </Card>
               ) : null}
 
               {loaded && snapshot !== null && !error ? (
                 <>
-                  <ThemedText type="defaultSemiBold" style={styles.sectionHeader}>
-                    Today
-                  </ThemedText>
+                  <SectionHeader title="Today" />
                   {tasks.length > 0 ? (
                     tasks.map((task, i) => (
                       <TaskRow key={task.id ?? `today-${i}`} task={task} />
                     ))
                   ) : (
-                    <ThemedText style={styles.emptyLine}>
+                    <ThemedText style={[styles.emptyLine, { color: surface.muted }]}>
                       Nothing scheduled for today.
                     </ThemedText>
                   )}
 
                   {overdueTasks.length > 0 ? (
                     <>
-                      <ThemedText
-                        type="defaultSemiBold"
-                        style={[styles.sectionHeader, styles.overdueHeader]}
-                      >
-                        Overdue ({overdue})
-                      </ThemedText>
+                      <SectionHeader title={`Overdue (${overdue})`} />
                       {overdueTasks.map((task, i) => (
-                        <TaskRow key={task.id ?? `overdue-${i}`} task={task} />
+                        <TaskRow key={task.id ?? `overdue-${i}`} task={task} overdue />
                       ))}
                     </>
                   ) : overdue > 0 ? (
-                    <ThemedText style={[styles.emptyLine, styles.overdueHeader]}>
+                    <ThemedText style={[styles.emptyLine, { color: palette.danger }]}>
                       {overdue} overdue
                     </ThemedText>
                   ) : null}
 
                   {upcomingTasks.length > 0 ? (
                     <>
-                      <ThemedText
-                        type="defaultSemiBold"
-                        style={styles.sectionHeader}
-                      >
-                        Coming up ({upcoming})
-                      </ThemedText>
+                      <SectionHeader title={`Coming up (${upcoming})`} />
                       {upcomingTasks.map((task, i) => (
                         <TaskRow key={task.id ?? `upcoming-${i}`} task={task} />
                       ))}
                     </>
                   ) : upcoming > 0 ? (
-                    <ThemedText style={styles.emptyLine}>
+                    <ThemedText style={[styles.emptyLine, { color: surface.muted }]}>
                       {upcoming} upcoming
                     </ThemedText>
                   ) : null}
@@ -214,7 +214,7 @@ export default function TodayScreen() {
               ) : null}
 
               {snapshot?.generatedAt ? (
-                <ThemedText style={styles.synced}>
+                <ThemedText style={[styles.synced, { color: surface.muted }]}>
                   Last synced {formatSynced(snapshot.generatedAt)}
                 </ThemedText>
               ) : null}
@@ -226,19 +226,26 @@ export default function TodayScreen() {
   );
 }
 
-function TaskRow({ task }: { task: SnapshotTask }) {
+function TaskRow({ task, overdue }: { task: SnapshotTask; overdue?: boolean }) {
+  const { surface } = useTheme();
   const meta = [formatDateRange(task.start_date, task.end_date), task.task_type]
     .filter((part): part is string => !!part && part.length > 0)
     .join('  -  ');
   return (
-    <ThemedView style={styles.row}>
-      <ThemedText type="defaultSemiBold" numberOfLines={2}>
+    <Card compact>
+      <ThemedText
+        style={[
+          styles.rowTitle,
+          { color: overdue ? palette.danger : surface.text },
+        ]}
+        numberOfLines={2}
+      >
         {task.name && task.name.length > 0 ? task.name : 'Untitled task'}
       </ThemedText>
       {meta.length > 0 ? (
-        <ThemedText style={styles.rowMeta}>{meta}</ThemedText>
+        <ThemedText style={[styles.rowMeta, { color: surface.muted }]}>{meta}</ThemedText>
       ) : null}
-    </ThemedView>
+    </Card>
   );
 }
 
@@ -283,97 +290,42 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   tagline: {
-    opacity: 0.7,
     lineHeight: 22,
   },
-  sectionHeader: {
-    marginTop: 8,
-    marginBottom: 2,
-    fontSize: 15,
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 22,
   },
-  overdueHeader: {
-    color: '#dc2626',
+  cardHint: {
+    lineHeight: 20,
   },
   emptyLine: {
-    opacity: 0.6,
     lineHeight: 20,
   },
   loadingWrap: {
     paddingVertical: 24,
     alignItems: 'center',
   },
-  chipRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  statChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  overdueChip: {
-    backgroundColor: 'rgba(220, 38, 38, 0.12)',
-  },
-  overdueChipText: {
-    color: '#dc2626',
+  rowTitle: {
+    fontSize: 15,
     fontWeight: '600',
-    fontSize: 13,
-  },
-  upcomingChip: {
-    backgroundColor: 'rgba(22, 160, 230, 0.12)',
-  },
-  upcomingChipText: {
-    color: BRAND_SKY,
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  card: {
-    borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.3)',
-    borderRadius: 14,
-    padding: 16,
-    gap: 10,
-  },
-  cardHint: {
-    opacity: 0.7,
     lineHeight: 20,
   },
-  primaryButton: {
-    backgroundColor: BRAND_SKY,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  row: {
-    borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.3)',
-    borderRadius: 14,
-    padding: 16,
-    gap: 4,
-  },
   rowMeta: {
-    opacity: 0.6,
     fontSize: 13,
+    lineHeight: 18,
   },
   synced: {
-    opacity: 0.5,
     fontSize: 12,
     marginTop: 4,
   },
   errorBanner: {
     borderWidth: 1,
-    borderColor: 'rgba(220, 38, 38, 0.5)',
-    backgroundColor: 'rgba(220, 38, 38, 0.12)',
-    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   errorText: {
-    color: '#dc2626',
     lineHeight: 20,
   },
 });

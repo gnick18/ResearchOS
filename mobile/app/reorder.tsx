@@ -7,11 +7,10 @@
 // product_barcode, it never sets a barcode from the phone. SDK 54 expo-camera:
 // useCameraPermissions() for the grant, CameraView with onBarcodeScanned and
 // barcodeScannerSettings.barcodeTypes for the multi-format scanner. House style:
-// no em-dashes, no emojis, no mid-sentence colons, brand-sky (#1AA0E6) accents.
+// no em-dashes, no emojis, no mid-sentence colons.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -26,12 +25,13 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { useTheme, palette } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
 import { fetchSnapshot } from '@/lib/snapshots';
 import { uploadReorder, type ReorderPayload } from '@/lib/reorder';
-
-const BRAND_SKY = '#1AA0E6';
 
 // The barcode formats we ask the scanner to detect. Confirmed against the SDK 54
 // expo-camera doc BarcodeType union (every value below is a valid member).
@@ -87,6 +87,7 @@ type ScanOutcome =
 
 export default function ReorderScreen() {
   const { pairing } = usePairing();
+  const { surface, spacing, radii } = useTheme();
   const [permission, requestPermission] = useCameraPermissions();
 
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -208,7 +209,7 @@ export default function ReorderScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <ThemedText style={styles.tagline}>
+          <ThemedText style={[styles.tagline, { color: surface.muted }]}>
             Point the camera at a reagent box barcode to add it to your lab
             reorder list.
           </ThemedText>
@@ -216,33 +217,36 @@ export default function ReorderScreen() {
           <SyncLine sync={sync} paired={paired} />
 
           {!paired ? (
-            <ThemedView style={styles.card}>
-              <ThemedText style={styles.cardHint}>
+            <Card>
+              <ThemedText style={[styles.cardHint, { color: surface.muted }]}>
                 Pair this phone from the home tab to scan and send reorders.
               </ThemedText>
-            </ThemedView>
+            </Card>
           ) : null}
 
           {paired && permission && !permission.granted ? (
-            <ThemedView style={styles.card}>
-              <ThemedText type="defaultSemiBold">Camera access needed</ThemedText>
-              <ThemedText style={styles.cardHint}>
+            <Card style={{ gap: spacing.sm }}>
+              <ThemedText style={[styles.cardTitle, { color: surface.text }]}>
+                Camera access needed
+              </ThemedText>
+              <ThemedText style={[styles.cardHint, { color: surface.muted }]}>
                 ResearchOS needs the camera to scan reagent barcodes.
               </ThemedText>
-              <Pressable
-                style={styles.primaryButton}
+              <Button
+                variant="primary"
+                label="Allow camera"
                 onPress={requestPermission}
-                accessibilityRole="button"
-              >
-                <ThemedText style={styles.primaryButtonText}>
-                  Allow camera
-                </ThemedText>
-              </Pressable>
-            </ThemedView>
+              />
+            </Card>
           ) : null}
 
           {cameraReady ? (
-            <View style={styles.cameraWrap}>
+            <View
+              style={[
+                styles.cameraWrap,
+                { borderRadius: radii.lg },
+              ]}
+            >
               <CameraView
                 style={styles.camera}
                 facing="back"
@@ -262,30 +266,35 @@ export default function ReorderScreen() {
           ) : null}
 
           {paired ? (
-            <ThemedView style={styles.card}>
-              <ThemedText type="defaultSemiBold">Enter a code by hand</ThemedText>
-              <ThemedText style={styles.cardHint}>
+            <Card style={{ gap: spacing.sm }}>
+              <ThemedText style={[styles.cardTitle, { color: surface.text }]}>
+                Enter a code by hand
+              </ThemedText>
+              <ThemedText style={[styles.cardHint, { color: surface.muted }]}>
                 For a box that will not scan, type its barcode and look it up.
               </ThemedText>
               <TextInput
                 value={manualCode}
                 onChangeText={setManualCode}
                 placeholder="Barcode"
-                placeholderTextColor="rgba(128, 128, 128, 0.8)"
-                style={styles.input}
+                placeholderTextColor={surface.placeholder}
+                style={[
+                  styles.input,
+                  {
+                    borderColor: surface.border,
+                    borderRadius: radii.md,
+                    color: surface.text,
+                  },
+                ]}
                 autoCapitalize="none"
                 autoCorrect={false}
               />
-              <Pressable
-                style={styles.secondaryButton}
+              <Button
+                variant="secondary"
+                label="Look up code"
                 onPress={onManualLookup}
-                accessibilityRole="button"
-              >
-                <ThemedText style={styles.secondaryButtonText}>
-                  Look up code
-                </ThemedText>
-              </Pressable>
-            </ThemedView>
+              />
+            </Card>
           ) : null}
         </ScrollView>
       </SafeAreaView>
@@ -294,13 +303,18 @@ export default function ReorderScreen() {
 }
 
 function SyncLine({ sync, paired }: { sync: SyncState; paired: boolean }) {
+  const { surface } = useTheme();
   if (!paired) return null;
   if (sync.kind === 'loading') {
-    return <ThemedText style={styles.syncLine}>Syncing inventory...</ThemedText>;
+    return (
+      <ThemedText style={[styles.syncLine, { color: surface.muted }]}>
+        Syncing inventory...
+      </ThemedText>
+    );
   }
   if (sync.kind === 'ready') {
     return (
-      <ThemedText style={styles.syncLine}>
+      <ThemedText style={[styles.syncLine, { color: surface.muted }]}>
         Synced {sync.count} item{sync.count === 1 ? '' : 's'}
         {sync.generatedAt ? ` (updated ${formatTime(sync.generatedAt)})` : ''}
       </ThemedText>
@@ -308,13 +322,13 @@ function SyncLine({ sync, paired }: { sync: SyncState; paired: boolean }) {
   }
   if (sync.kind === 'empty') {
     return (
-      <ThemedText style={styles.syncLine}>
+      <ThemedText style={[styles.syncLine, { color: surface.muted }]}>
         No inventory yet, open ResearchOS on your laptop to publish it.
       </ThemedText>
     );
   }
   return (
-    <ThemedText style={[styles.syncLine, styles.syncError]}>
+    <ThemedText style={[styles.syncLine, { color: palette.danger }]}>
       {sync.message}
     </ThemedText>
   );
@@ -331,18 +345,16 @@ function OutcomeCard({
   onSend: (payload: ReorderPayload) => void;
   onScanAnother: () => void;
 }) {
+  const { surface, spacing } = useTheme();
+
   if (outcome.kind === 'none') {
     return (
-      <ThemedView style={styles.card}>
-        <ThemedText style={styles.cardHint}>No code read yet.</ThemedText>
-        <Pressable
-          style={styles.secondaryButton}
-          onPress={onScanAnother}
-          accessibilityRole="button"
-        >
-          <ThemedText style={styles.secondaryButtonText}>Scan again</ThemedText>
-        </Pressable>
-      </ThemedView>
+      <Card style={{ gap: spacing.sm }}>
+        <ThemedText style={[styles.cardHint, { color: surface.muted }]}>
+          No code read yet.
+        </ThemedText>
+        <Button variant="secondary" label="Scan again" onPress={onScanAnother} />
+      </Card>
     );
   }
 
@@ -361,20 +373,33 @@ function OutcomeCard({
       product_barcode: it.product_barcode ?? outcome.code,
     };
     return (
-      <ThemedView style={styles.card}>
-        <ThemedText type="defaultSemiBold">{it.name ?? 'Inventory item'}</ThemedText>
+      <Card style={{ gap: spacing.sm }}>
+        <ThemedText style={[styles.cardTitle, { color: surface.text }]}>
+          {it.name ?? 'Inventory item'}
+        </ThemedText>
         {it.vendor ? (
-          <ThemedText style={styles.cardHint}>Vendor {it.vendor}</ThemedText>
+          <ThemedText style={[styles.cardHint, { color: surface.muted }]}>
+            Vendor {it.vendor}
+          </ThemedText>
         ) : null}
         {it.catalog_number ? (
-          <ThemedText style={styles.cardHint}>Catalog {it.catalog_number}</ThemedText>
+          <ThemedText style={[styles.cardHint, { color: surface.muted }]}>
+            Catalog {it.catalog_number}
+          </ThemedText>
         ) : null}
         {it.container_label ? (
-          <ThemedText style={styles.cardHint}>{it.container_label}</ThemedText>
+          <ThemedText style={[styles.cardHint, { color: surface.muted }]}>
+            {it.container_label}
+          </ThemedText>
         ) : null}
         {lowStock ? (
-          <View style={styles.lowPill}>
-            <ThemedText style={styles.lowPillText}>
+          <View
+            style={[
+              styles.pill,
+              { backgroundColor: palette.warningLight },
+            ]}
+          >
+            <ThemedText style={[styles.pillText, { color: palette.warning }]}>
               Reorder at {it.low_at_count}
             </ThemedText>
           </View>
@@ -384,94 +409,77 @@ function OutcomeCard({
           <SentBlock onScanAnother={onScanAnother} />
         ) : (
           <>
-            <Pressable
-              style={[styles.primaryButton, sending && styles.buttonDisabled]}
+            <Button
+              variant="primary"
+              label="Add to reorder list"
+              loading={sending}
               onPress={() => onSend(payload)}
               disabled={sending}
-              accessibilityRole="button"
-            >
-              {sending ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <ThemedText style={styles.primaryButtonText}>
-                  Add to reorder list
-                </ThemedText>
-              )}
-            </Pressable>
+            />
             {send.kind === 'failed' ? (
-              <ThemedText style={styles.errorLine}>{send.error}</ThemedText>
-            ) : null}
-            <Pressable
-              style={styles.secondaryButton}
-              onPress={onScanAnother}
-              accessibilityRole="button"
-            >
-              <ThemedText style={styles.secondaryButtonText}>
-                Scan another
+              <ThemedText style={[styles.errorLine, { color: palette.danger }]}>
+                {send.error}
               </ThemedText>
-            </Pressable>
+            ) : null}
+            <Button
+              variant="secondary"
+              label="Scan another"
+              onPress={onScanAnother}
+            />
           </>
         )}
-      </ThemedView>
+      </Card>
     );
   }
 
   // No match.
   const payload: ReorderPayload = { product_barcode: outcome.code };
   return (
-    <ThemedView style={styles.card}>
-      <ThemedText type="defaultSemiBold">No matching item</ThemedText>
-      <ThemedText style={styles.cardHint}>Scanned code {outcome.code}</ThemedText>
+    <Card style={{ gap: spacing.sm }}>
+      <ThemedText style={[styles.cardTitle, { color: surface.text }]}>
+        No matching item
+      </ThemedText>
+      <ThemedText style={[styles.cardHint, { color: surface.muted }]}>
+        Scanned code {outcome.code}
+      </ThemedText>
       {sent ? (
         <SentBlock onScanAnother={onScanAnother} />
       ) : (
         <>
-          <Pressable
-            style={[styles.primaryButton, sending && styles.buttonDisabled]}
+          <Button
+            variant="primary"
+            label="Send reorder request anyway"
+            loading={sending}
             onPress={() => onSend(payload)}
             disabled={sending}
-            accessibilityRole="button"
-          >
-            {sending ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <ThemedText style={styles.primaryButtonText}>
-                Send reorder request anyway
-              </ThemedText>
-            )}
-          </Pressable>
+          />
           {send.kind === 'failed' ? (
-            <ThemedText style={styles.errorLine}>{send.error}</ThemedText>
-          ) : null}
-          <Pressable
-            style={styles.secondaryButton}
-            onPress={onScanAnother}
-            accessibilityRole="button"
-          >
-            <ThemedText style={styles.secondaryButtonText}>
-              Scan another
+            <ThemedText style={[styles.errorLine, { color: palette.danger }]}>
+              {send.error}
             </ThemedText>
-          </Pressable>
+          ) : null}
+          <Button
+            variant="secondary"
+            label="Scan another"
+            onPress={onScanAnother}
+          />
         </>
       )}
-    </ThemedView>
+    </Card>
   );
 }
 
 function SentBlock({ onScanAnother }: { onScanAnother: () => void }) {
+  const { spacing } = useTheme();
   return (
-    <>
-      <View style={styles.sentPill}>
-        <ThemedText style={styles.sentPillText}>Sent to your lab</ThemedText>
+    <View style={{ gap: spacing.sm }}>
+      <View style={[styles.pill, { backgroundColor: palette.successLight }]}>
+        <ThemedText style={[styles.pillText, { color: palette.success }]}>
+          Sent to your lab
+        </ThemedText>
       </View>
-      <Pressable
-        style={styles.secondaryButton}
-        onPress={onScanAnother}
-        accessibilityRole="button"
-      >
-        <ThemedText style={styles.secondaryButtonText}>Scan another</ThemedText>
-      </Pressable>
-    </>
+      <Button variant="secondary" label="Scan another" onPress={onScanAnother} />
+    </View>
   );
 }
 
@@ -492,99 +500,46 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   tagline: {
-    opacity: 0.7,
     lineHeight: 22,
   },
   syncLine: {
-    opacity: 0.7,
     fontSize: 14,
-  },
-  syncError: {
-    color: '#dc2626',
-    opacity: 1,
+    lineHeight: 20,
   },
   cameraWrap: {
     width: '100%',
     aspectRatio: 3 / 4,
-    borderRadius: 14,
     overflow: 'hidden',
     backgroundColor: '#000000',
   },
   camera: {
     flex: 1,
   },
-  card: {
-    borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.3)',
-    borderRadius: 14,
-    padding: 16,
-    gap: 10,
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 20,
   },
   cardHint: {
-    opacity: 0.7,
     lineHeight: 20,
   },
   input: {
     borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.4)',
-    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
     minHeight: 48,
-    color: '#888888',
-  },
-  primaryButton: {
-    backgroundColor: BRAND_SKY,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    borderWidth: 1,
-    borderColor: BRAND_SKY,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  secondaryButtonText: {
-    color: BRAND_SKY,
-    fontWeight: '600',
-  },
-  buttonDisabled: {
-    opacity: 0.4,
   },
   errorLine: {
-    color: '#dc2626',
     lineHeight: 20,
   },
-  lowPill: {
+  pill: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(217, 119, 6, 0.15)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
   },
-  lowPillText: {
-    color: '#b45309',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  sentPill: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(22, 163, 74, 0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  sentPillText: {
-    color: '#16a34a',
+  pillText: {
     fontSize: 12,
     fontWeight: '600',
   },

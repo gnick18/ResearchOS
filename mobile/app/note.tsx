@@ -3,11 +3,10 @@
 // outbox, the note sends immediately and the screen shows an inline status with
 // a retry on failure and a "send another" once it lands. Optional title rides
 // along as the note title on the laptop. House style: no em-dashes, no emojis,
-// no mid-sentence colons, brand-sky (#1AA0E6) accents.
+// no mid-sentence colons.
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -16,11 +15,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { useTheme, palette } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
 import { sendTextNote } from '@/lib/notes';
-
-const BRAND_SKY = '#1AA0E6';
 
 type SendState =
   | { kind: 'idle' }
@@ -30,6 +30,7 @@ type SendState =
 
 export default function NoteScreen() {
   const { pairing } = usePairing();
+  const { surface, spacing, radii } = useTheme();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [state, setState] = useState<SendState>({ kind: 'idle' });
@@ -68,41 +69,52 @@ export default function NoteScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <ThemedText style={styles.tagline}>
+          <ThemedText style={[styles.tagline, { color: surface.muted }]}>
             Jot a quick note and send it to your lab inbox.
           </ThemedText>
 
           {!paired ? (
-            <ThemedView style={styles.hintCard}>
-              <ThemedText style={styles.cardHint}>
+            <Card>
+              <ThemedText style={[styles.cardHint, { color: surface.muted }]}>
                 Pair this phone from the home tab to send notes to your lab.
               </ThemedText>
-            </ThemedView>
+            </Card>
           ) : null}
 
           {sent ? (
-            <ThemedView style={styles.statusCard}>
-              <ThemedText type="defaultSemiBold" style={styles.sentText}>
+            <Card
+              style={[
+                styles.statusCard,
+                {
+                  borderColor: palette.successLight,
+                  gap: spacing.md,
+                },
+              ]}
+            >
+              <ThemedText style={[styles.sentText, { color: palette.success }]}>
                 Sent to your lab.
               </ThemedText>
-              <Pressable
-                style={styles.secondaryButton}
+              <Button
+                variant="secondary"
+                label="Send another"
                 onPress={onSendAnother}
-                accessibilityRole="button"
-              >
-                <ThemedText style={styles.secondaryButtonText}>
-                  Send another
-                </ThemedText>
-              </Pressable>
-            </ThemedView>
+              />
+            </Card>
           ) : (
             <>
               <TextInput
                 value={title}
                 onChangeText={setTitle}
                 placeholder="Title, optional"
-                placeholderTextColor="rgba(128, 128, 128, 0.8)"
-                style={styles.titleInput}
+                placeholderTextColor={surface.placeholder}
+                style={[
+                  styles.titleInput,
+                  {
+                    borderColor: surface.border,
+                    borderRadius: radii.md,
+                    color: surface.text,
+                  },
+                ]}
                 editable={!sending}
                 returnKeyType="next"
               />
@@ -110,8 +122,15 @@ export default function NoteScreen() {
                 value={body}
                 onChangeText={setBody}
                 placeholder="Write your note"
-                placeholderTextColor="rgba(128, 128, 128, 0.8)"
-                style={styles.bodyInput}
+                placeholderTextColor={surface.placeholder}
+                style={[
+                  styles.bodyInput,
+                  {
+                    borderColor: surface.border,
+                    borderRadius: radii.md,
+                    color: surface.text,
+                  },
+                ]}
                 editable={!sending}
                 multiline
                 autoFocus
@@ -119,23 +138,18 @@ export default function NoteScreen() {
               />
 
               {state.kind === 'failed' ? (
-                <ThemedText style={styles.errorText}>{state.error}</ThemedText>
+                <ThemedText style={[styles.errorText, { color: palette.danger }]}>
+                  {state.error}
+                </ThemedText>
               ) : null}
 
-              <Pressable
-                style={[styles.primaryButton, !canSend && styles.buttonDisabled]}
+              <Button
+                variant="primary"
+                label={state.kind === 'failed' ? 'Retry' : 'Send to lab'}
+                loading={sending}
                 onPress={onSend}
                 disabled={!canSend}
-                accessibilityRole="button"
-              >
-                {sending ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <ThemedText style={styles.primaryButtonText}>
-                    {state.kind === 'failed' ? 'Retry' : 'Send to lab'}
-                  </ThemedText>
-                )}
-              </Pressable>
+              />
             </>
           )}
         </ScrollView>
@@ -154,75 +168,35 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   tagline: {
-    opacity: 0.7,
     lineHeight: 22,
   },
-  hintCard: {
-    borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.3)',
-    borderRadius: 14,
-    padding: 16,
-  },
   cardHint: {
-    opacity: 0.7,
     lineHeight: 20,
   },
   statusCard: {
     borderWidth: 1,
-    borderColor: 'rgba(22, 163, 74, 0.4)',
-    borderRadius: 14,
-    padding: 16,
-    gap: 12,
   },
   sentText: {
-    color: '#16a34a',
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 20,
   },
   titleInput: {
     borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.4)',
-    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#888888',
+    minHeight: 48,
   },
   bodyInput: {
     borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.4)',
-    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
     minHeight: 200,
-    color: '#888888',
     textAlignVertical: 'top',
   },
   errorText: {
-    color: '#dc2626',
     lineHeight: 20,
-  },
-  primaryButton: {
-    backgroundColor: BRAND_SKY,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    borderWidth: 1,
-    borderColor: BRAND_SKY,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: BRAND_SKY,
-    fontWeight: '600',
-  },
-  buttonDisabled: {
-    opacity: 0.4,
   },
 });

@@ -5,11 +5,10 @@
 // pairing and flips the home tab to Paired. SDK 54 camera API: CameraView +
 // useCameraPermissions + onBarcodeScanned(BarcodeScanningResult) +
 // barcodeScannerSettings.barcodeTypes. House style: no em-dashes, no emojis, no
-// mid-sentence colons, brand-sky (#1AA0E6) accents.
+// mid-sentence colons.
 import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   StyleSheet,
   TextInput,
   View,
@@ -27,13 +26,14 @@ import { hexToBytes } from '@noble/curves/utils.js';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { useTheme, palette } from '@/lib/design';
 import { setPairing } from '@/lib/pairing';
 import {
   getOrCreateDeviceKey,
   getDeviceX25519PubHex,
 } from '@/lib/device-identity';
-
-const BRAND_SKY = '#1AA0E6';
 
 // Canonical grant string, copied verbatim from the relay contract
 // (relay/scripts/smoke-capture.mjs / relay/src/worker.ts). Must stay byte
@@ -76,6 +76,7 @@ function parseGrantPayload(
 
 export default function PairScreen() {
   const router = useRouter();
+  const { surface, spacing, radii } = useTheme();
   const [permission, requestPermission] = useCameraPermissions();
   const [manualCode, setManualCode] = useState('');
   const [saving, setSaving] = useState(false);
@@ -190,7 +191,7 @@ export default function PairScreen() {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.centered}>
-          <ActivityIndicator color={BRAND_SKY} />
+          <ActivityIndicator color={palette.sky} />
         </SafeAreaView>
       </ThemedView>
     );
@@ -201,23 +202,19 @@ export default function PairScreen() {
   if (!permission.granted) {
     return (
       <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.permissionWrap}>
+        <SafeAreaView style={[styles.permissionWrap, { gap: spacing.lg }]}>
           <ThemedText type="title" style={styles.center}>
             Pair your phone
           </ThemedText>
-          <ThemedText style={styles.body}>
+          <ThemedText style={[styles.body, { color: surface.muted }]}>
             ResearchOS needs camera access to scan the pairing code shown on your
             desktop. You can also type the code in by hand.
           </ThemedText>
-          <Pressable
-            style={styles.primaryButton}
+          <Button
+            variant="primary"
+            label="Allow camera access"
             onPress={requestPermission}
-            accessibilityRole="button"
-          >
-            <ThemedText style={styles.primaryButtonText}>
-              Allow camera access
-            </ThemedText>
-          </Pressable>
+          />
 
           {error ? <ErrorBanner message={error} /> : null}
 
@@ -235,15 +232,20 @@ export default function PairScreen() {
   // Permission granted: live scanner plus the manual fallback below it.
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.scannerWrap}>
+      <SafeAreaView style={[styles.scannerWrap, { gap: spacing.md }]}>
         <ThemedText type="title" style={styles.center}>
           Scan to pair
         </ThemedText>
-        <ThemedText style={[styles.body, styles.center]}>
+        <ThemedText style={[styles.body, styles.center, { color: surface.muted }]}>
           Point your camera at the pairing code on your desktop.
         </ThemedText>
 
-        <View style={styles.cameraFrame}>
+        <View
+          style={[
+            styles.cameraFrame,
+            { borderColor: palette.sky, borderRadius: radii.xl },
+          ]}
+        >
           <CameraView
             style={styles.camera}
             facing="back"
@@ -252,7 +254,7 @@ export default function PairScreen() {
           />
           {saving ? (
             <View style={styles.savingOverlay}>
-              <ActivityIndicator color="#ffffff" />
+              <ActivityIndicator color={palette.white} />
               <ThemedText style={styles.savingText}>Pairing</ThemedText>
             </View>
           ) : null}
@@ -273,8 +275,18 @@ export default function PairScreen() {
 
 function ErrorBanner({ message }: { message: string }) {
   return (
-    <View style={styles.errorBanner}>
-      <ThemedText style={styles.errorText}>{message}</ThemedText>
+    <View
+      style={[
+        styles.errorBanner,
+        {
+          borderColor: palette.dangerBorder,
+          backgroundColor: palette.dangerLight,
+        },
+      ]}
+    >
+      <ThemedText style={[styles.errorText, { color: palette.danger }]}>
+        {message}
+      </ThemedText>
     </View>
   );
 }
@@ -290,30 +302,39 @@ function ManualEntry({
   onSubmit: () => void;
   saving: boolean;
 }) {
+  const { surface, radii, spacing } = useTheme();
+
   return (
-    <View style={styles.manualWrap}>
-      <ThemedText type="defaultSemiBold">Enter a code manually</ThemedText>
+    <Card style={{ gap: spacing.sm }}>
+      <ThemedText style={[styles.manualTitle, { color: surface.text }]}>
+        Enter a code manually
+      </ThemedText>
       <TextInput
         value={value}
         onChangeText={onChangeText}
         placeholder="Paste or type the pairing code"
-        placeholderTextColor="rgba(128, 128, 128, 0.8)"
+        placeholderTextColor={surface.placeholder}
         autoCapitalize="none"
         autoCorrect={false}
         editable={!saving}
-        style={styles.input}
+        style={[
+          styles.input,
+          {
+            borderColor: surface.border,
+            borderRadius: radii.md,
+            color: surface.text,
+          },
+        ]}
         onSubmitEditing={onSubmit}
         returnKeyType="done"
       />
-      <Pressable
-        style={[styles.secondaryButton, value.trim().length === 0 && styles.buttonDisabled]}
+      <Button
+        variant="secondary"
+        label="Pair with code"
         onPress={onSubmit}
         disabled={value.trim().length === 0 || saving}
-        accessibilityRole="button"
-      >
-        <ThemedText style={styles.secondaryButtonText}>Pair with code</ThemedText>
-      </Pressable>
-    </View>
+      />
+    </Card>
   );
 }
 
@@ -322,27 +343,22 @@ const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   center: { textAlign: 'center' },
   body: {
-    opacity: 0.7,
     lineHeight: 22,
   },
   permissionWrap: {
     flex: 1,
     paddingHorizontal: 24,
     justifyContent: 'center',
-    gap: 18,
   },
   scannerWrap: {
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 24,
-    gap: 16,
   },
   cameraFrame: {
     aspectRatio: 1,
-    borderRadius: 18,
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: BRAND_SKY,
     backgroundColor: '#000000',
   },
   camera: { flex: 1 },
@@ -354,53 +370,25 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
   },
   savingText: { color: '#ffffff' },
-  primaryButton: {
-    backgroundColor: BRAND_SKY,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: '#ffffff',
+  manualTitle: {
+    fontSize: 15,
     fontWeight: '600',
-  },
-  manualWrap: {
-    gap: 10,
-    marginTop: 8,
+    lineHeight: 20,
   },
   input: {
     borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.4)',
-    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#888888',
-  },
-  secondaryButton: {
-    borderWidth: 1,
-    borderColor: BRAND_SKY,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: BRAND_SKY,
-    fontWeight: '600',
-  },
-  buttonDisabled: {
-    opacity: 0.4,
+    minHeight: 48,
   },
   errorBanner: {
     borderWidth: 1,
-    borderColor: 'rgba(220, 38, 38, 0.5)',
-    backgroundColor: 'rgba(220, 38, 38, 0.12)',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   errorText: {
-    color: '#dc2626',
     lineHeight: 20,
   },
 });
