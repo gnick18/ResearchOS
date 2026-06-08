@@ -52,6 +52,20 @@ beforeAll(() => {
   }
 });
 
+// The editor gates on a REAL dynamic import() of seven CM6 modules plus a live
+// EditorView mount (jsdom measuring included). In isolation that resolves in
+// well under a second, but under full-suite parallel load the workers contend
+// for CPU and the import can take several seconds, blowing waitFor's 1000ms
+// default and making this file intermittently flaky. We can't fake-timer past
+// it (the gate is microtask-driven import resolution + CM6's real DOM
+// measuring, which fake timers would stall), so instead we give the
+// import-gated waits a generous ceiling: each waitFor still resolves the
+// instant the import lands, it just no longer gives up early under load.
+// IMPORT_WAIT must stay below the per-test timeout so the test fails with the
+// concrete assertion, not an opaque test-level timeout.
+const IMPORT_WAIT = { timeout: 15000 } as const;
+const TEST_TIMEOUT = 20000;
+
 describe("InlineMarkdownEditor: imperative insert API (insertRef)", () => {
   afterEach(() => {
     vi.clearAllMocks();
@@ -74,13 +88,13 @@ describe("InlineMarkdownEditor: imperative insert API (insertRef)", () => {
     // the insert closure reads at call time.
     await waitFor(() => {
       expect(screen.getByTestId("inline-markdown-editor")).toBeInTheDocument();
-    });
+    }, IMPORT_WAIT);
     await waitFor(() => {
       expect(screen.queryByText("Loading editor...")).toBeNull();
-    });
+    }, IMPORT_WAIT);
     await waitFor(() => {
       expect(insertRef.current).toBeTypeOf("function");
-    });
+    }, IMPORT_WAIT);
 
     // Selection defaults to offset 0 on a fresh mount, so the snippet is
     // spliced in BEFORE the seed text (not appended, not replacing the doc).
@@ -90,10 +104,10 @@ describe("InlineMarkdownEditor: imperative insert API (insertRef)", () => {
 
     await waitFor(() => {
       expect(onChange).toHaveBeenCalled();
-    });
+    }, IMPORT_WAIT);
     const last = onChange.mock.calls[onChange.mock.calls.length - 1][0];
     expect(last).toBe("**bold**seed");
-  });
+  }, TEST_TIMEOUT);
 
   it("clears the insert ref on unmount", async () => {
     const insertRef: React.MutableRefObject<((syntax: string) => void) | null> = {
@@ -104,11 +118,11 @@ describe("InlineMarkdownEditor: imperative insert API (insertRef)", () => {
     );
     await waitFor(() => {
       expect(screen.queryByText("Loading editor...")).toBeNull();
-    });
+    }, IMPORT_WAIT);
     await waitFor(() => {
       expect(insertRef.current).toBeTypeOf("function");
-    });
+    }, IMPORT_WAIT);
     unmount();
     expect(insertRef.current).toBeNull();
-  });
+  }, TEST_TIMEOUT);
 });
