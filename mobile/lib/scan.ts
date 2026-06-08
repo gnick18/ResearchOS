@@ -104,12 +104,18 @@ export type DeductPayload = {
 };
 export type ReorderActionPayload = { purchaseItemId: number | string };
 // Prefilled from the barcode autopopulate, the user confirmed before saving.
+// Tracking fields are bundled in (create + register in one action) because the
+// phone has no new record id to chain a separate register call to. When they are
+// absent the laptop just creates the record without tracking.
 export type CreatePayload = {
   name: string;
   vendor?: string | null;
   catalog?: string | null;
   productBarcode?: string;
   quantity?: number;
+  unitsPerScan?: number;
+  totalUnits?: number;
+  unitLabel?: string;
 };
 
 export type ActionResult = { ok: true } | { ok: false; error: string };

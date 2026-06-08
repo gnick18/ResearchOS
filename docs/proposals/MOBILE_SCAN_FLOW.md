@@ -34,7 +34,14 @@ Phone uploads a device-signed capture via the existing relay upload, with these 
 - `application/x-researchos-mark-arrived` `{ purchaseItemId }` -> `purchasesApi.setOrderStatus(purchaseItemId, "received")` + create/link an InventoryStock (purchase_item_id link).
 - `application/x-researchos-register-tracker` `{ stockId | purchaseItemId, productBarcode, unitsPerScan, totalUnits, unitLabel }` -> `registerTrackedBarcode(...)`.
 - `application/x-researchos-deduct` `{ stockId | productBarcode, amount }` -> deduct `amount` from `units_remaining` (foundation `deductUnitsFromScan` extended with a multiplier).
-- `application/x-researchos-reorder` `{ purchaseItemId }` -> `createReorderPurchase` / `seedFromPurchaseItem` (a REAL needs-ordering purchase, upgrading the current lands-as-a-Note behavior).
+- `application/x-researchos-reorder` `{ purchaseItemId }` -> a REAL needs-ordering purchase queue item (already on main via addReorderQueueItem since 6782124f5).
+
+Create paths (added 2026-06-08, the "add new" buttons; Grant approved task-less purchase intake):
+
+- `application/x-researchos-create-purchase` `{ name, vendor?, catalog?, productBarcode?, quantity?, unitsPerScan?, totalUnits?, unitLabel? }` -> create a STANDALONE (task-less) purchase for an arrived package (status received), create + link an InventoryStock, and if the tracking fields are present, register the tracker in the same action. Reuse the existing task-less purchase mechanism (the reorder queue path) if it fits; else add minimal task-less intake.
+- `application/x-researchos-create-inventory` `{ name, vendor?, catalog?, productBarcode?, unitsPerScan?, totalUnits?, unitLabel? }` -> create an InventoryItem + InventoryStock (no purchase record), and register the tracker when the tracking fields are present.
+
+Tracking fields are bundled into the create actions because the phone has no new record id to chain a separate register-tracker call to.
 
 ## Chunks
 
