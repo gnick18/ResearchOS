@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { tasksApi, projectsApi } from "@/lib/local-api";
+import { useAppStore } from "@/lib/store";
 import {
   taskResultsBase,
   resolveTabAttachmentBase,
@@ -173,6 +174,17 @@ export default function ResultsGallery({ project }: ResultsGalleryProps) {
 
   const stillLoading = ownLoading || hostedLoading || groupsLoading;
 
+  // Opens the new-experiment modal (issue #4 empty-state CTA): results are
+  // authored inside experiments, so this is how a user adds them from here.
+  const setIsCreatingTask = useAppStore((s) => s.setIsCreatingTask);
+  const setNewTaskStartDate = useAppStore((s) => s.setNewTaskStartDate);
+  const setRestrictedTaskType = useAppStore((s) => s.setRestrictedTaskType);
+  const createExperiment = useCallback(() => {
+    setNewTaskStartDate(null);
+    setRestrictedTaskType("experiment");
+    setIsCreatingTask(true);
+  }, [setIsCreatingTask, setNewTaskStartDate, setRestrictedTaskType]);
+
   return (
     <section id="results" className="scroll-mt-32">
       <div className="flex items-center justify-between mb-2">
@@ -186,17 +198,33 @@ export default function ResultsGallery({ project }: ResultsGalleryProps) {
       </div>
 
       {/* Read-only aggregation: Project Results rolls up images from child
-          experiments. You add results on each experiment, not here. */}
-      <p className="text-meta text-foreground-muted mb-3">
-        A read-only roll-up of images from this project&apos;s experiments. Add results on each experiment.
-      </p>
+          experiments. You add results on each experiment, not here. The note
+          only shows when there IS content; the empty-state below explains the
+          model and gives a path to add results (issue #4). */}
+      {!stillLoading && totalImages > 0 && (
+        <p className="text-meta text-foreground-muted mb-3">
+          A read-only roll-up of images from this project&apos;s experiments. Add results on each experiment.
+        </p>
+      )}
 
       {stillLoading ? (
         <p className="text-body text-foreground-muted italic">Loading results…</p>
       ) : groups.length === 0 ? (
-        <p className="text-body text-foreground-muted italic">
-          No results yet. Add images on an experiment.
-        </p>
+        <div className="rounded-xl border border-dashed border-border bg-surface-sunken px-5 py-6 text-center">
+          <p className="text-body font-medium text-foreground">No results yet</p>
+          <p className="mx-auto mt-1 max-w-md text-meta text-foreground-muted leading-relaxed">
+            Results live inside your experiments. Each experiment has its own
+            Results tab for images and a results document. This project page just
+            rolls them up here once you have some.
+          </p>
+          <button
+            type="button"
+            onClick={createExperiment}
+            className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-meta font-semibold text-white hover:bg-blue-700"
+          >
+            + New experiment
+          </button>
+        </div>
       ) : (
         <div className="flex flex-col gap-4">
           {groups.map((g) => {

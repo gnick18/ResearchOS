@@ -54,10 +54,12 @@ const DEFAULT_COLORS = [
 
 // Tab set is derived per-render from feature_picks + content presence (see
 // `sections` below): the Goals entry only appears when L11's gating condition
-// is met, and Results / Methods / Sequences only when those sections have
-// content. These are REAL tabs backed by local React state (see `activeTab`),
-// not scroll anchors: only the active section's content renders at a time, so a
-// near-empty project never shows a tab that scrolls nowhere. (Beta bug #4.)
+// is met, and Methods / Sequences only when those sections have content.
+// Results is ALWAYS shown (issue #4: users look for it; its empty-state is
+// actionable, not a dead tab). These are REAL tabs backed by local React state
+// (see `activeTab`), not scroll anchors: only the active section's content
+// renders at a time, so a near-empty project never shows a tab that scrolls
+// nowhere. (Original beta bug #4 was the dead-tab case.)
 // Sequences (de-bloat arc Phase 3b) is PRESENTATION-ONLY: it lists the project's
 // linked plasmids/sequences from the sequence arc's `sequencesApi.listByProject`
 // and links OUT to /sequences; it does not embed the editor or write data.
@@ -465,7 +467,11 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
   // essentially just the Overview tab, never a dead Results/Methods tab.
   const sections: SectionDef[] = [
     OVERVIEW_SECTION,
-    ...(presence.hasResults ? [RESULTS_SECTION] : []),
+    // Results is ALWAYS shown (issue #4): users look for it on a project, and
+    // when empty it renders an actionable empty-state (results live in
+    // experiments + a Create experiment button), so it is never a dead tab.
+    // Methods / Sequences / Activity stay hide-when-empty.
+    RESULTS_SECTION,
     ...(presence.hasMethods ? [METHODS_SECTION] : []),
     ...(presence.hasSequences ? [SEQUENCES_SECTION] : []),
     ...(goalsEnabled ? [GOALS_SECTION] : []),
@@ -902,9 +908,9 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
               when the project has no funding. Kept at the top of the body so it
               frames whichever section is active. */}
           <ProjectFundingSection project={project} />
-          {/* Active project tab body. The Results / Methods / Activity
-              sections are hide-when-empty tabs (beta bug #4), so only the
-              selected section renders here. The onboarding v4
+          {/* Active project tab body. Results is always shown (actionable
+              empty-state, issue #4); Methods / Activity stay hide-when-empty,
+              so only the selected section renders here. The onboarding v4
               `project-overview-rollup` narration beat that used to spotlight
               this wrapper was removed in the real-tabs redesign (tour-teardown
               audit 2026-06-03), so the dead spotlight anchor is gone. */}
