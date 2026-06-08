@@ -35,6 +35,7 @@ import type {
   PaletteContextCard,
   PaletteNavGroup,
   PaletteNavItem,
+  PaletteSubflow,
   PaletteTone,
 } from "@/components/sequences/editor-commands";
 import type { Note, Notebook, OneOnOne, Project, Task } from "@/lib/types";
@@ -225,7 +226,10 @@ export interface WorkbenchSourceHandlers {
   toggleListComplete: (task: Task) => void;
   expandListInline: (task: Task) => void;
   openNoteComments: (note: Note) => void;
-  moveNoteToNotebook: (note: Note) => void;
+  /** BeakerSearch v2 (sub-flow framework, chunk 2). The REAL note-move write, the
+   *  owner-aware notebooksApi.moveNoteToNotebook the Notes panel uses, targeting
+   *  the chosen notebook (null => Unfiled / no notebook), then refetch. */
+  moveNoteToNotebook: (note: Note, notebookId: string | null) => void | Promise<void>;
   deleteNote: (note: Note) => void;
   setOneOnOneArea: (area: "goals" | "meetings" | "notes" | "agenda") => void;
   deleteOneOnOne: (oo: OneOnOne) => void;
@@ -430,6 +434,56 @@ function buildContextCard(data: WorkbenchSourceData): PaletteContextCard {
   };
 }
 
+// BeakerSearch v2 (sub-flow framework, chunk 2). The sentinel id the move-note
+// picker uses for the "Unfiled" (notebook_id null) row, kept off the real
+// notebook-id string space so onPick can tell it apart.
+const MOVE_NOTEBOOK_UNFILED_ID = "__unfiled__";
+
+/** BeakerSearch v2 (sub-flow framework, chunk 2). The INLINE move-to-notebook
+ *  flow, mirroring the Gantt move-to-project flow (single stage, renders inline).
+ *  Items are the viewer's notebooks (label = notebook title, tone "note", detail =
+ *  note count when known) plus a leading "Unfiled" option (notebook_id null);
+ *  picking one calls the REAL owner-aware notebooksApi.moveNoteToNotebook via
+ *  moveNoteToNotebook then COMPLETES (onPick returns void). Single stage, so the
+ *  framework renders it inline under the command row. */
+function buildMoveNotebookSubflow(
+  note: Note,
+  data: WorkbenchSourceData,
+  handlers: WorkbenchSourceHandlers,
+): PaletteSubflow {
+  const unfiledItem: PaletteNavItem = {
+    id: MOVE_NOTEBOOK_UNFILED_ID,
+    label: "Unfiled",
+    detail: "no notebook",
+    keywords: "no notebook none floating remove",
+    iconName: ICON_NOTE,
+    tone: "note",
+    onRun: () => {},
+  };
+  const notebookItems: PaletteNavItem[] = data.notebooks.map((nb) => {
+    const count = data.notes.filter((n) => n.notebook_id === nb.id).length;
+    return {
+      id: nb.id,
+      label: data.notebookTitleOf(nb),
+      detail: `${count} note${count === 1 ? "" : "s"}`,
+      keywords: nb.members.join(" "),
+      iconName: ICON_NOTEBOOK,
+      tone: "note",
+      onRun: () => {},
+    };
+  });
+  return {
+    title: `Move "${note.title}" to a notebook`,
+    placeholder: "Pick a notebook",
+    items: [unfiledItem, ...notebookItems],
+    onPick: (item) => {
+      const notebookId =
+        item.id === MOVE_NOTEBOOK_UNFILED_ID ? null : item.id;
+      void handlers.moveNoteToNotebook(note, notebookId);
+    },
+  };
+}
+
 /** Build the full command set with stable ids + page-defined groups (spec 6).
  *  The selection-specific rows carry stable ids the Suggested rule names. */
 function buildCommands(
@@ -518,6 +572,10 @@ function buildCommands(
       iconName: "share",
       run: () => handlers.openNoteComments(n),
     });
+    // BeakerSearch v2 (sub-flow framework, chunk 2). The INLINE move-to-notebook
+    // flow, pick a notebook (or Unfiled), then the real owner-aware move write
+    // runs. run stays terminal-safe (opens the note) for a caller without the
+    // framework. Gated to an own note (a shared-in note is read-only).
     out.push({
       id: "workbench-note-move",
       label: `Move "${n.title}" to a notebook`,
@@ -525,7 +583,12 @@ function buildCommands(
       group: WORKBENCH_GROUP_SELECTED,
       iconName: "folder",
       enabled: editable,
-      run: () => handlers.moveNoteToNotebook(n),
+      run: () =>
+        handlers.requestOpen({
+          kind: "note",
+          key: noteKey(n, data.currentUser),
+        }),
+      subflow: () => buildMoveNotebookSubflow(n, data, handlers),
     });
     out.push({
       id: "workbench-note-delete",

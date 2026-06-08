@@ -23,12 +23,13 @@
 // mid-sentence colons.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
   fetchAllProjectsIncludingShared,
   fetchAllTasksIncludingShared,
   labApi,
+  notebooksApi,
   notesApi,
 } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -161,6 +162,7 @@ export function useWorkbenchBeakerSource(deps: WorkbenchBeakerPageDeps): void {
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const {
     activeTab,
@@ -391,12 +393,20 @@ export function useWorkbenchBeakerSource(deps: WorkbenchBeakerPageDeps): void {
     },
     [setPendingOpen, setActiveTab, currentUser],
   );
+  // BeakerSearch v2 (sub-flow framework, chunk 2). The REAL move-to-notebook
+  // write the move sub-flow drives, the owner-aware notebooksApi.moveNoteToNotebook
+  // the Notes panel uses (notebookId null => Unfiled / no notebook), then refetch
+  // the same query keys the page + panels read so the resting view updates.
   const moveNoteToNotebook = useCallback(
-    (note: Note) => {
-      setPendingOpen({ kind: "note", key: `note-${note.username || currentUser}:${note.id}` });
-      setActiveTab("notes");
+    async (note: Note, notebookId: string | null) => {
+      const owner =
+        note.username && note.username !== currentUser ? note.username : undefined;
+      await notebooksApi.moveNoteToNotebook(note.id, notebookId, owner);
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      queryClient.invalidateQueries({ queryKey: ["notebook"] });
+      queryClient.invalidateQueries({ queryKey: ["shared-notebooks", "mine"] });
     },
-    [setPendingOpen, setActiveTab, currentUser],
+    [queryClient, currentUser],
   );
   const deleteNote = useCallback(
     (note: Note) => {

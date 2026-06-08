@@ -369,6 +369,82 @@ describe("buildWorkbenchSource commands", () => {
     expect(ooCmds.find((c) => c.id === "workbench-oneonone-delete")?.enabled).toBe(false);
   });
 
+  // BeakerSearch v2 (sub-flow framework, chunk 2). The INLINE move-to-notebook flow.
+  it("INLINE move-to-notebook, lists Unfiled plus the notebooks and calls the real move handler", () => {
+    const moved: Array<[number, string | null]> = [];
+    const handlers: WorkbenchSourceHandlers = {
+      ...noopHandlers,
+      moveNoteToNotebook: (note, notebookId) => {
+        moved.push([note.id, notebookId]);
+      },
+    };
+    const note = makeNote({ id: 5, title: "PCR optimization log" });
+    const labMeeting = makeNotebook({ id: "nb-1", title: "Lab meeting" });
+    const teamSync = makeNotebook({ id: "nb-2", title: "Team sync" });
+    const src = buildWorkbenchSource(
+      makeData({
+        activeTab: "notes",
+        selectedNote: note,
+        notes: [note],
+        notebooks: [labMeeting, teamSync],
+        notebookTitleOf: (nb) => nb.title ?? "Notebook",
+      }),
+      handlers,
+    );
+    const move = src.commands.find((c) => c.id === "workbench-note-move")!;
+    expect(move.subflow).toBeDefined();
+    const sf = move.subflow!();
+    // Single stage, no explicit presentation (renders inline by inference).
+    expect(sf.presentation).toBeUndefined();
+    // Unfiled leads, then each notebook by title.
+    expect(sf.items.map((i) => i.label)).toEqual([
+      "Unfiled",
+      "Lab meeting",
+      "Team sync",
+    ]);
+    expect(sf.items[0].id).toBe("__unfiled__");
+    // The note count detail (this note lives in no notebook here, so each is 0).
+    expect(sf.items[1].id).toBe("nb-1");
+    expect(sf.items[1].detail).toBe("0 notes");
+    // Picking a notebook completes (returns void) and passes its string id.
+    const next = sf.onPick(sf.items[1]);
+    expect(next).toBeUndefined();
+    expect(moved).toEqual([[5, "nb-1"]]);
+    // Picking Unfiled passes notebook_id null.
+    const done = sf.onPick(sf.items[0]);
+    expect(done).toBeUndefined();
+    expect(moved).toEqual([[5, "nb-1"], [5, null]]);
+  });
+
+  it("counts the notes already in a notebook in the move-to-notebook detail", () => {
+    const note = makeNote({ id: 5, title: "Moving note" });
+    const inNb = makeNote({ id: 6, notebook_id: "nb-1" });
+    const src = buildWorkbenchSource(
+      makeData({
+        activeTab: "notes",
+        selectedNote: note,
+        notes: [note, inNb],
+        notebooks: [makeNotebook({ id: "nb-1", title: "Lab meeting" })],
+      }),
+      noopHandlers,
+    );
+    const sf = src.commands.find((c) => c.id === "workbench-note-move")!.subflow!();
+    expect(sf.items.find((i) => i.id === "nb-1")?.detail).toBe("1 note");
+  });
+
+  it("gates the move-to-notebook sub-flow off for a view-only note but still carries it", () => {
+    const move = buildWorkbenchSource(
+      makeData({
+        activeTab: "notes",
+        selectedNote: makeNote(),
+        noteEditableOf: () => false,
+      }),
+      noopHandlers,
+    ).commands.find((c) => c.id === "workbench-note-move");
+    expect(move?.enabled).toBe(false);
+    expect(move?.subflow).toBeDefined();
+  });
+
   it("echoes the single-project filter into the New experiment detail", () => {
     const cmds = buildWorkbenchSource(
       makeData({
