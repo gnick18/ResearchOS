@@ -24,6 +24,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { labLinksApi } from "@/lib/local-api";
 import { isWholeLabShared } from "@/lib/sharing/unified";
 import { useBeakerSearchSource } from "@/components/beaker-search/useBeakerSearchSource";
+import { useBeakerHoveredKey } from "@/components/beaker-search/BeakerSearchProvider";
+import { parseBeakerTargetKey } from "@/components/beaker-search/beaker-hover";
 import type { LabLink } from "@/lib/types";
 import {
   buildLinksSource,
@@ -84,6 +86,17 @@ function scrollToSelector(selector: string): void {
  *  Call once from app/links/page.tsx after the existing state reads. */
 export function useLinksBeakerSource(args: UseLinksBeakerSourceArgs): void {
   const queryClient = useQueryClient();
+
+  // Hovered-as-context (step 4). The provider snapshots the last tagged element
+  // the pointer was over before the palette opened. We only forward keys of our
+  // own "link" kind, so a stray task / lab-member hover never biases this page.
+  // The forwarded value is the full "link:{owner}:{id}" target the builder's
+  // resolveFocus matches against, and SELECTED (editingLink) still outranks it.
+  const rawHoveredKey = useBeakerHoveredKey();
+  const hoveredKey = useMemo(() => {
+    const parsed = parseBeakerTargetKey(rawHoveredKey);
+    return parsed?.kind === "link" ? rawHoveredKey : null;
+  }, [rawHoveredKey]);
 
   // Palette-managed category filter (NEW, the page has no filter today, spec 7).
   // It scopes the palette's nav list + unlocks the category-filter Suggested
@@ -216,9 +229,10 @@ export function useLinksBeakerSource(args: UseLinksBeakerSourceArgs): void {
       activeCategory,
       currentUser: args.currentUser,
       profileMap: args.profileMap,
-      // Hovered-as-context is inert until step 4, the provider's
-      // [data-beaker-target] capture lands then.
-      hoveredKey: null,
+      // Hovered-as-context (step 4). The full "link:{owner}:{id}" target of the
+      // card the pointer was over before the palette opened, or null. SELECTED
+      // (editingLink) outranks it in the builder's resolveFocus.
+      hoveredKey,
     };
     return buildLinksSource(data, handlers);
   }, [
@@ -234,6 +248,7 @@ export function useLinksBeakerSource(args: UseLinksBeakerSourceArgs): void {
     activeCategory,
     args.currentUser,
     args.profileMap,
+    hoveredKey,
     handlers,
   ]);
 

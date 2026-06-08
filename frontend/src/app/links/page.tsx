@@ -16,6 +16,7 @@ import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import AttributionChip from "@/components/AttributionChip";
 import { useLinksBeakerSource } from "./useLinksBeakerSource";
+import { linkKey } from "./links-beaker-source";
 
 // Predefined colors for link cards
 const CARD_COLORS = [
@@ -519,6 +520,7 @@ export default function LabLinksPage() {
                     <a
                       key={link.id}
                       data-link-key={link.id}
+                      data-beaker-target={`link:${linkKey(link, currentUser ?? "")}`}
                       href={link.url}
                       target="_blank"
                       rel="noopener noreferrer"
