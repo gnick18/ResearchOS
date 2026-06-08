@@ -67,8 +67,6 @@ function makeFundingAccount(
     name: "R01 main",
     description: null,
     total_budget: 0,
-    spent: 0,
-    remaining: 0,
     award_number: "R01-GM123456",
     funder_name: "National Institutes of Health",
     funder_id: "https://ror.org/01cwqze88",

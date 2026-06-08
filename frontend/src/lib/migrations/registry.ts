@@ -25,6 +25,7 @@ import {
   reconcileHostedDriftOwnerOnly,
   RECONCILE_HOSTED_ID,
 } from "./reconcile-hosted";
+import { runFundingRework, FUNDING_REWORK_ID } from "./funding-rework";
 import type { Migration, MigrationReport } from "./types";
 
 /** The lib/repair/* functions share a `{ total, repaired, unrecoverable }`
@@ -127,5 +128,13 @@ export const MIGRATIONS: Migration[] = [
     id: RECONCILE_HOSTED_ID,
     title: "Reconcile cross-owner project sharing",
     run: reconcileHostedDriftOwnerOnly,
+  },
+  {
+    // Funding-rework (2026-06-08): backfill PurchaseItem.funding_account_id from
+    // the legacy funding_string label, and strip the dead spent / remaining
+    // counters from funding-account files. Idempotent format upgrade.
+    id: FUNDING_REWORK_ID,
+    title: "Funding account links + live spend",
+    run: runFundingRework,
   },
 ];

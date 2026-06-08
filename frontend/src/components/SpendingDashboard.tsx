@@ -20,6 +20,10 @@ import type {
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import { matchesAnyProjectFilter } from "@/lib/search/filterKey";
 import {
+  computeFundingSpendByAccount,
+  computeUncategorizedSpend,
+} from "@/lib/funding/spend";
+import {
   MISC_CATEGORY_LABEL,
   isMiscProject,
 } from "@/lib/purchases/misc-project";
@@ -199,19 +203,21 @@ export default function SpendingDashboard({
     [filteredItems]
   );
 
-  // Funding-account spend computed live from items — FundingAccount.spent on
-  // disk is stale; always sum from line items.
-  const spentByFundingString = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const item of filteredItems) {
-      const key = item.funding_string ?? "__uncategorized__";
-      map.set(key, (map.get(key) ?? 0) + (item.total_price ?? 0));
-    }
-    return map;
-  }, [filteredItems]);
+  // Funding-account spend computed live from items (funding-rework): the stored
+  // `FundingAccount.spent` field is gone, so the shared helper rolls spend up by
+  // the authoritative `funding_account_id` FK — one source of truth across the
+  // dashboard, the funding nav, and the admin summary.
+  const spendByAccountId = useMemo(
+    () => computeFundingSpendByAccount(fundingAccounts, filteredItems),
+    [fundingAccounts, filteredItems],
+  );
 
-  const uncategorizedFundingTotal =
-    spentByFundingString.get("__uncategorized__") ?? 0;
+  // Spend not attributed to any known account (null FK, or an FK whose account
+  // was deleted) — the "Uncategorized" bucket.
+  const uncategorizedFundingTotal = useMemo(
+    () => computeUncategorizedSpend(fundingAccounts, filteredItems),
+    [fundingAccounts, filteredItems],
+  );
 
   // Per-month spend keyed by parent task's start_date.slice(0, 7).
   const spentByMonthMap = useMemo(() => {
@@ -495,7 +501,7 @@ export default function SpendingDashboard({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {fundingAccounts.map((acc) => {
-              const spent = spentByFundingString.get(acc.name) ?? 0;
+              const spent = spendByAccountId.get(acc.id) ?? 0;
               const pct =
                 acc.total_budget > 0
                   ? Math.min(100, (spent / acc.total_budget) * 100)
@@ -536,7 +542,7 @@ export default function SpendingDashboard({
                   Uncategorized
                 </p>
                 <p className="text-meta text-foreground-muted mt-0.5">
-                  ${uncategorizedFundingTotal.toFixed(2)} · no funding string
+                  ${uncategorizedFundingTotal.toFixed(2)} · no funding account
                 </p>
                 <p className="text-meta text-foreground-muted mt-2 italic">
                   Items without a funding account assigned.

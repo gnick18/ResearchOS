@@ -361,12 +361,20 @@ export function usePurchasesBeakerSource(args: UsePurchasesBeakerSourceArgs): vo
             void refetch(["projects"]);
           });
       },
-      setItemFunding: (item: PurchaseItem, order: Task, accountName: string) => {
+      setItemFunding: (
+        item: PurchaseItem,
+        order: Task,
+        account: { id: number; name: string },
+      ) => {
         // Own orders only, so no owner route. The builder loops this over every
-        // uncategorized item, one purchasesApi.update per item.
+        // uncategorized item, one purchasesApi.update per item. The FK is
+        // authoritative (funding-rework); the name rides along as the label.
         void order;
         void purchasesApi
-          .update(item.id, { funding_string: accountName })
+          .update(item.id, {
+            funding_account_id: account.id,
+            funding_string: account.name,
+          })
           .then(() => refetch(["purchases-all"]));
       },
 

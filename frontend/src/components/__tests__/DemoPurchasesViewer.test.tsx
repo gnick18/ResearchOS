@@ -81,8 +81,6 @@ const fakeFunding = {
   name: "Demo funding",
   description: null,
   total_budget: 1000,
-  spent: 100,
-  remaining: 900,
 };
 
 beforeEach(() => {

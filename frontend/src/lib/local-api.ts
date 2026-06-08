@@ -145,6 +145,7 @@ import {
   type ShareableRecord,
 } from "./sharing/unified";
 import { mondayOf } from "./weekly-goals/week";
+import { computeFundingSpend, computeUncategorizedSpend } from "./funding/spend";
 import { SharedNotebookStore } from "./shared-notebooks/store";
 import { OneOnOneStore, OneOnOneActionItemStore } from "./one-on-one/store";
 import type { Notebook } from "./types";
@@ -4389,6 +4390,8 @@ export const purchasesApi = {
       total_price: item.total_price ?? (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
       vendor: item.vendor ?? null,
       category: item.category ?? null,
+      // Normalize the funding FK to null for pre-rework records (funding-rework).
+      funding_account_id: item.funding_account_id ?? null,
       order_status: normalizeOrderStatus(item.order_status),
     }));
   },
@@ -4426,6 +4429,8 @@ export const purchasesApi = {
         (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
       vendor: item.vendor ?? null,
       category: item.category ?? null,
+      // Normalize the funding FK to null for pre-rework records (funding-rework).
+      funding_account_id: item.funding_account_id ?? null,
       order_status: normalizeOrderStatus(item.order_status),
     }));
 
@@ -4498,6 +4503,7 @@ export const purchasesApi = {
             (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
           vendor: item.vendor ?? null,
           category: item.category ?? null,
+          funding_account_id: item.funding_account_id ?? null,
           order_status: normalizeOrderStatus(item.order_status),
         });
       }
@@ -4520,6 +4526,9 @@ export const purchasesApi = {
       shipping_fees: data.shipping_fees ?? 0,
       total_price: total,
       notes: data.notes ?? null,
+      // Funding link (funding-rework, 2026-06-08): the FK is authoritative,
+      // the string rides along as the display label.
+      funding_account_id: data.funding_account_id ?? null,
       funding_string: data.funding_string ?? null,
       vendor: data.vendor ?? null,
       catalog_number: data.catalog_number ?? null,
@@ -4798,8 +4807,8 @@ export const purchasesApi = {
       ...data,
       description: data.description ?? null,
       total_budget: data.total_budget ?? 0,
-      spent: 0,
-      remaining: data.total_budget ?? 0,
+      // No stored `spent` / `remaining` (funding-rework, 2026-06-08): spend is
+      // derived live from purchase items via computeFundingSpend.
       // Structured grant metadata (metadata implementation bot, 2026-05-28).
       // Default each to null on create so a freshly-created account has a
       // consistent on-disk shape; the editor fills them in later. `...data`
@@ -4815,16 +4824,12 @@ export const purchasesApi = {
 
   // Partial-update via the store's spread-merge (filters `undefined`, so
   // omitted fields keep their existing value; `null` explicitly clears).
-  // The structured grant fields ride along on `...data` untouched.
+  // The structured grant fields ride along on `...data` untouched. No
+  // `remaining` recompute (funding-rework, 2026-06-08): it is no longer stored.
   updateFundingAccount: async (id: number, data: FundingAccountUpdate): Promise<FundingAccount | null> => {
     const existing = await fundingAccountsStore.get(id);
     if (!existing) return null;
-
-    const totalBudget = data.total_budget ?? existing.total_budget;
-    return fundingAccountsStore.update(id, {
-      ...data,
-      remaining: totalBudget - existing.spent,
-    });
+    return fundingAccountsStore.update(id, data);
   },
   
   deleteFundingAccount: async (id: number): Promise<void> => {
@@ -4832,16 +4837,30 @@ export const purchasesApi = {
   },
   
   getFundingSummary: async () => {
-    const accounts = await fundingAccountsStore.listAll();
+    // Spend is computed live from purchase line items (funding-rework,
+    // 2026-06-08) — the on-disk `spent` field is gone. We read every purchase
+    // item across the lab and roll up by `funding_account_id` so the summary
+    // matches what the spending dashboard and the funding nav show.
+    const currentUser = (await getCurrentUserCached()) ?? "";
+    const [accounts, items] = await Promise.all([
+      fundingAccountsStore.listAll(),
+      currentUser
+        ? purchasesApi.listAllIncludingShared(currentUser)
+        : purchasesApi.listAll(),
+    ]);
     const totalBudget = accounts.reduce((sum, a) => sum + a.total_budget, 0);
-    const totalSpent = accounts.reduce((sum, a) => sum + a.spent, 0);
-    
+    const totalSpent = accounts.reduce(
+      (sum, a) => sum + computeFundingSpend(a, items),
+      0,
+    );
+    const uncategorizedSpent = computeUncategorizedSpend(accounts, items);
+
     return {
       accounts,
       total_budget: totalBudget,
       total_spent: totalSpent,
       total_remaining: totalBudget - totalSpent,
-      uncategorized_spent: 0,
+      uncategorized_spent: uncategorizedSpent,
     };
   },
 };

@@ -26,6 +26,7 @@ function makeItem(over: Partial<PurchaseItem> = {}): PurchaseItem {
     shipping_fees: 15,
     total_price: 376.5,
     notes: "rush order",
+    funding_account_id: 5,
     funding_string: "NIH R01 ABC",
     vendor: "NEB",
     catalog_number: "M0491S",

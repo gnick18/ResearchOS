@@ -73,8 +73,6 @@ function makeFunding(over: Partial<FundingAccount> = {}): FundingAccount {
     name: "NIH R01",
     description: null,
     total_budget: 20000,
-    spent: 4120,
-    remaining: 15880,
     award_number: "R01-12345",
     funder_name: "National Institutes of Health",
     ...over,
@@ -410,7 +408,11 @@ describe("buildPurchasesSource suggested ids", () => {
 describe("buildPurchasesSource nav groups", () => {
   it("jump-to-a-purchase uses the task amber tone, funding uses green", () => {
     const task = makeTask({ id: 1, name: "qPCR reagents" });
-    const items = [makeItem({ task_id: 1, total_price: 100 })];
+    // The line item is charged to account 1, so the funding row's detail shows
+    // its LIVE spend (funding-rework: summed from items, not a stored field).
+    const items = [
+      makeItem({ task_id: 1, funding_account_id: 1, total_price: 100 }),
+    ];
     const src = buildPurchasesSource(
       makeData({
         purchaseTasks: [task],
@@ -426,7 +428,7 @@ describe("buildPurchasesSource nav groups", () => {
     const funding = src.navGroups?.find((g) => g.title === "Funding accounts");
     const row = funding?.items[0] as PaletteNavItem;
     expect(row.tone).toBe("funding");
-    expect(row.detail).toBe("$4,120.00 of $20,000.00 spent");
+    expect(row.detail).toBe("$100.00 of $20,000.00 spent");
   });
 
   it("widens the jump list to all orders when the visible filter is empty", () => {
@@ -599,15 +601,23 @@ describe("buildPurchasesSource sub-flows", () => {
     const funded: Array<[number, string]> = [];
     const handlers: PurchasesSourceHandlers = {
       ...noopHandlers,
-      setItemFunding: (item, _order, name) => {
-        funded.push([item.id, name]);
+      setItemFunding: (item, _order, account) => {
+        funded.push([item.id, account.name]);
       },
     };
     const task = makeTask({ id: 1 });
     const unfundedA = makeItem({ task_id: 1, funding_string: null });
     const unfundedB = makeItem({ task_id: 1, funding_string: "" });
     const alreadyFunded = makeItem({ task_id: 1, funding_string: "NIH R01" });
-    const items = [unfundedA, unfundedB, alreadyFunded];
+    // A DOE-funded line item drives the live spend shown in the subflow detail
+    // (funding-rework: spend is summed from items by funding_account_id).
+    const doeFunded = makeItem({
+      task_id: 1,
+      funding_string: "DOE EERE",
+      funding_account_id: 2,
+      total_price: 100,
+    });
+    const items = [unfundedA, unfundedB, alreadyFunded, doeFunded];
     const cmds = buildPurchasesSource(
       makeData({
         selectedTask: task,
@@ -615,7 +625,7 @@ describe("buildPurchasesSource sub-flows", () => {
         purchasesByTask: { "self:1": items },
         fundingAccounts: [
           makeFunding({ id: 1, name: "NIH R01" }),
-          makeFunding({ id: 2, name: "DOE EERE", spent: 100, total_budget: 5000 }),
+          makeFunding({ id: 2, name: "DOE EERE", total_budget: 5000 }),
         ],
       }),
       handlers,

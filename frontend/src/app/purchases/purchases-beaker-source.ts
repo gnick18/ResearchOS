@@ -54,6 +54,7 @@ import {
   type PurchaseOrderStatus,
   type Task,
 } from "@/lib/types";
+import { computeFundingSpendByAccount } from "@/lib/funding/spend";
 
 // ── The two filter unions (mirrored from the page so the builder stays pure) ─
 export type PurchaseCategoryFilter =
@@ -187,12 +188,14 @@ export interface PurchasesSourceHandlers {
    *  hidden misc project's id instead (the data model needs a real project_id). */
   changeOrderProject: (order: Task, projectId: number | null) => void;
   /** Set ONE uncategorized item's funding via purchasesApi.update(itemId,
-   *  { funding_string }), then refetch ["purchases-all"]. The builder loops this
-   *  over every uncategorized item in the order so the api stays single-item. */
+   *  { funding_account_id, funding_string }), then refetch ["purchases-all"].
+   *  The builder loops this over every uncategorized item in the order so the
+   *  api stays single-item. The id is authoritative (funding-rework); the name
+   *  rides along as the denormalized display label. */
   setItemFunding: (
     item: PurchaseItem,
     order: Task,
-    accountName: string,
+    account: Pick<FundingAccount, "id" | "name">,
   ) => void;
 
   // Approval (lab head + confirmed only). targetOwner = order.owner.
@@ -424,6 +427,12 @@ function buildSetFundingSubflow(
   handlers: PurchasesSourceHandlers,
 ): PaletteSubflow {
   const unfunded = uncategorizedItems(items);
+  // Live spend per account (funding-rework): the on-disk `spent` field is gone,
+  // so roll it up from every line item the page already holds.
+  const spendByAccount = computeFundingSpendByAccount(
+    data.fundingAccounts,
+    Object.values(data.purchasesByTask).flat(),
+  );
   return {
     title: `Set funding account for ${unfunded.length} item${
       unfunded.length === 1 ? "" : "s"
@@ -432,7 +441,7 @@ function buildSetFundingSubflow(
     items: data.fundingAccounts.map((a) => ({
       id: `funding-${a.id}`,
       label: a.name,
-      detail: `${money(a.spent)} of ${money(a.total_budget)} spent`,
+      detail: `${money(spendByAccount.get(a.id) ?? 0)} of ${money(a.total_budget)} spent`,
       keywords: [
         a.award_number ?? "",
         a.funder_name ?? "",
@@ -449,7 +458,7 @@ function buildSetFundingSubflow(
       const account = data.fundingAccounts.find((a) => `funding-${a.id}` === chosen.id);
       if (!account) return;
       for (const it of unfunded) {
-        handlers.setItemFunding(it, task, account.name);
+        handlers.setItemFunding(it, task, account);
       }
     },
   };
@@ -914,12 +923,14 @@ function orderNavItem(
   };
 }
 
-/** Jump to a funding account (opens the manager). */
+/** Jump to a funding account (opens the manager). `spentAmount` is the live
+ *  spend the caller rolled up from line items (funding-rework: no stored field). */
 function fundingNavItem(
   handlers: PurchasesSourceHandlers,
   account: FundingAccount,
+  spentAmount: number,
 ): PaletteNavItem {
-  const spent = money(account.spent);
+  const spent = money(spentAmount);
   const budget = money(account.total_budget);
   return {
     id: `funding-${account.id}`,
@@ -961,10 +972,18 @@ function buildNavGroups(
   }
 
   if (data.fundingAccounts.length > 0) {
+    // Live spend per account (funding-rework): rolled up once from every line
+    // item the page holds, then read per account below.
+    const spendByAccount = computeFundingSpendByAccount(
+      data.fundingAccounts,
+      Object.values(data.purchasesByTask).flat(),
+    );
     groups.push({
       title: "Funding accounts",
       hint: `${data.fundingAccounts.length}`,
-      items: data.fundingAccounts.map((a) => fundingNavItem(handlers, a)),
+      items: data.fundingAccounts.map((a) =>
+        fundingNavItem(handlers, a, spendByAccount.get(a.id) ?? 0),
+      ),
     });
   }
 

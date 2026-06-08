@@ -49,6 +49,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import SpendingDashboard from "@/components/SpendingDashboard";
+import { resolveFundingAccountId } from "@/lib/funding/prefill";
 import {
   MISC_CATEGORY_LABEL,
   isMiscProject,
@@ -177,6 +178,7 @@ async function fetchAlexFixtures(fixtureBase: string): Promise<{
     method_attachments: t.method_attachments ?? [],
     method_ids: t.method_ids ?? [],
   }));
+  const fundingAccounts: FundingAccount[] = fundingRaw;
   const purchaseItems: Array<PurchaseItem & { owner: string }> = itemsRaw.map(
     (item) => ({
       ...item,
@@ -186,9 +188,14 @@ async function fetchAlexFixtures(fixtureBase: string): Promise<{
         (item.price_per_unit ?? 0) * item.quantity + (item.shipping_fees ?? 0),
       vendor: item.vendor ?? null,
       category: item.category ?? null,
+      // Demo fixtures are static and never migrated, so resolve the funding FK
+      // live from the label here (funding-rework: SpendingDashboard groups spend
+      // by funding_account_id). Keeps a pre-existing id if the fixture has one.
+      funding_account_id:
+        item.funding_account_id ??
+        resolveFundingAccountId(item.funding_string, fundingAccounts),
     }),
   );
-  const fundingAccounts: FundingAccount[] = fundingRaw;
 
   return { tasks, projects, purchaseItems, fundingAccounts };
 }

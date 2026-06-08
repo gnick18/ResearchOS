@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { labApi, projectsApi as rawProjectsApi, tasksApi, purchasesApi } from "@/lib/local-api";
-import { defaultFundingStringForProject } from "@/lib/funding/prefill";
+import {
+  defaultFundingStringForProject,
+  resolveFundingAccountId,
+} from "@/lib/funding/prefill";
 import SharingChips from "@/components/sharing/SharingChips";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
@@ -514,6 +517,11 @@ export default function PurchaseEditor({
         price_per_unit: parseFloat(editingRow.price_per_unit) || 0,
         shipping_fees: parseFloat(editingRow.shipping_fees) || 0,
         notes: editingRow.notes.trim() || null,
+        // Authoritative FK + denormalized label (funding-rework, 2026-06-08).
+        funding_account_id: resolveFundingAccountId(
+          editingRow.funding_string,
+          fundingAccounts,
+        ),
         funding_string: editingRow.funding_string.trim() || null,
         vendor: editingRow.vendor.trim() || null,
         catalog_number: editingRow.catalog_number.trim() || null,
@@ -589,6 +597,7 @@ export default function PurchaseEditor({
   }, [
     editingItemId,
     editingRow,
+    fundingAccounts,
     refetch,
     queryClient,
     purchasesApi,
@@ -641,6 +650,11 @@ export default function PurchaseEditor({
         price_per_unit: parseFloat(rowData.price_per_unit) || 0,
         shipping_fees: parseFloat(rowData.shipping_fees) || 0,
         notes: rowData.notes.trim() || null,
+        // Authoritative FK + denormalized label (funding-rework, 2026-06-08).
+        funding_account_id: resolveFundingAccountId(
+          rowData.funding_string,
+          fundingAccounts,
+        ),
         funding_string: rowData.funding_string.trim() || null,
         vendor: rowData.vendor.trim() || null,
         catalog_number: rowData.catalog_number.trim() || null,
@@ -660,7 +674,7 @@ export default function PurchaseEditor({
     } finally {
       setSaving(false);
     }
-  }, [taskId, refetch, queryClient, purchasesApi]);
+  }, [taskId, fundingAccounts, refetch, queryClient, purchasesApi]);
 
   const handleAddRow = useCallback(async () => {
     if (!newRow.item_name.trim() || !newRow.quantity) return;

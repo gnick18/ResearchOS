@@ -65,6 +65,7 @@ const SCALAR_FIELD_KEYS = [
   "shipping_fees",
   "total_price",
   "notes",
+  "funding_account_id",
   "funding_string",
   "vendor",
   "category",
@@ -127,6 +128,8 @@ function scalarFor(item: PurchaseItem, key: ScalarFieldKey): FieldValue {
       return item.total_price ?? 0;
     case "notes":
       return item.notes ?? null;
+    case "funding_account_id":
+      return item.funding_account_id ?? null;
     case "funding_string":
       return item.funding_string ?? null;
     case "vendor":
@@ -199,6 +202,10 @@ function asString(v: unknown): string | null {
 function asNumber(v: unknown): number {
   return typeof v === "number" ? v : 0;
 }
+/** Like asNumber but preserves null (used for nullable FK columns). */
+function asNullableNumber(v: unknown): number | null {
+  return typeof v === "number" ? v : null;
+}
 
 /** Parse the serialized flagged value back into a PiFlag (or null). */
 function parseFlagged(raw: unknown): PiFlag | null {
@@ -232,6 +239,7 @@ export function getPurchaseFields(doc: LoroDoc): PurchaseItem {
     shipping_fees: asNumber(get("shipping_fees")),
     total_price: asNumber(get("total_price")),
     notes: asString(get("notes")),
+    funding_account_id: asNullableNumber(get("funding_account_id")),
     funding_string: asString(get("funding_string")),
     vendor: asString(get("vendor")),
     catalog_number: asString(get("catalog_number")),

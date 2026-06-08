@@ -413,23 +413,29 @@ export default function NewPurchaseModal({
         // 1. Ensure the funding-string row exists if the user typed
         //    one. Skipped when the field is blank — funding_string is
         //    nullable on PurchaseItem.
+        // The authoritative FK to stamp on the line item (funding-rework,
+        // 2026-06-08): resolve the typed label to an existing account id, or the
+        // id of the one we create. Stays null if the label is blank or the
+        // account create fails (the label still lands in funding_string).
+        let fundingAccountId: number | null = null;
         const fundingTrimmed = form.fundingString.trim();
         if (fundingTrimmed) {
           const existing = fundingAccounts.find(
             (acc) => acc.name === fundingTrimmed,
           );
-          if (!existing) {
+          if (existing) {
+            fundingAccountId = existing.id;
+          } else {
             try {
-              await purchasesApi.createFundingAccount({
+              const created = await purchasesApi.createFundingAccount({
                 name: fundingTrimmed,
                 total_budget: 0,
               });
+              fundingAccountId = created.id;
             } catch (err) {
               // Non-fatal: the line item itself can still record the
               // string; the funding-account row exists for budget
-              // tracking but isn't required for the PurchaseItem
-              // foreign-key shape (funding_string is a free-form
-              // column).
+              // tracking but isn't required for the PurchaseItem write.
               console.warn(
                 "[new-purchase] funding account create failed:",
                 err,
@@ -491,6 +497,7 @@ export default function NewPurchaseModal({
           quantity: parseInt(form.quantity) || 1,
           price_per_unit: parseFloat(form.price) || 0,
           vendor: form.vendor.trim() || null,
+          funding_account_id: fundingAccountId,
           funding_string: fundingTrimmed || null,
           category: itemCategory,
         });

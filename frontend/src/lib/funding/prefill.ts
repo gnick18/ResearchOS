@@ -58,3 +58,23 @@ export function resolveFundingStringDefault(
   if (typed.length > 0) return currentValue ?? "";
   return projectDefault ?? "";
 }
+
+/**
+ * Resolve a free-form funding label to the AUTHORITATIVE FundingAccount.id
+ * (funding-rework, 2026-06-08). Purchase writers persist the id, not the name,
+ * so spend rollups and charged-grants resolve by FK. The label is matched by
+ * exact (trimmed) `name`, mirroring the legacy `funding_string` -> name rule and
+ * the auto-migration backfill. Returns `null` for a blank label or one that
+ * matches no known account (e.g. a brand-new label whose account row failed to
+ * create); callers keep the label in `funding_string` either way so nothing is
+ * lost.
+ */
+export function resolveFundingAccountId(
+  fundingString: string | null | undefined,
+  fundingAccounts: ReadonlyArray<Pick<FundingAccount, "id" | "name">>,
+): number | null {
+  const trimmed = (fundingString ?? "").trim();
+  if (trimmed.length === 0) return null;
+  const match = fundingAccounts.find((acc) => acc.name === trimmed);
+  return match ? match.id : null;
+}

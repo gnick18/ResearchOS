@@ -2198,7 +2198,19 @@ export interface PurchaseItem {
   shipping_fees: number;
   total_price: number;
   notes: string | null;
-  funding_string: string | null;  // New field for funding account
+  // Funding link. `funding_account_id` is the AUTHORITATIVE foreign key to a
+  // FundingAccount.id (funding-rework, 2026-06-08). `funding_string` is kept as
+  // a denormalized display label (the account name at write time) for legacy
+  // records and quick rendering, but matching / spend rollups resolve by the id.
+  // Additive + optional: pre-rework records have no `funding_account_id`. The
+  // read mappers in local-api normalize it to `null`, so a value loaded through
+  // the API is always `number | null`; the raw on-disk record may omit it until
+  // the auto-migration backfills it by matching `funding_string` to an account
+  // name. Optional here (not bare `number | null`) so the many existing
+  // PurchaseItem fixtures / reconstructions stay valid, mirroring the other
+  // additive fields below (order_status, assigned_to, ...).
+  funding_account_id?: number | null;
+  funding_string: string | null;
   vendor: string | null;
   // Vendor ordering / catalog number (audit fix, additive-fields). The
   // reorder identifier a user types back into the vendor site, distinct from
@@ -2273,7 +2285,11 @@ export interface PurchaseItemCreate {
   price_per_unit?: number;
   shipping_fees?: number;
   notes?: string | null;
-  funding_string?: string | null;  // New field for funding account
+  // Funding link (funding-rework, 2026-06-08). Prefer setting
+  // `funding_account_id` (authoritative FK); `funding_string` is the
+  // denormalized display label. See PurchaseItem.
+  funding_account_id?: number | null;
+  funding_string?: string | null;
   vendor?: string | null;
   // Vendor ordering / catalog number (audit fix, additive-fields). Optional;
   // omitted records default null in purchasesApi.create.
@@ -2294,7 +2310,11 @@ export interface PurchaseItemUpdate {
   price_per_unit?: number;
   shipping_fees?: number;
   notes?: string | null;
-  funding_string?: string | null;  // New field for funding account
+  /** Funding link (funding-rework, 2026-06-08). `funding_account_id` is the
+   *  authoritative FK; `funding_string` rides along as the display label.
+   *  Either may be `null` to clear. See PurchaseItem. */
+  funding_account_id?: number | null;
+  funding_string?: string | null;
   vendor?: string | null;
   // Vendor ordering / catalog number (audit fix, additive-fields). Optional.
   catalog_number?: string | null;
@@ -2360,9 +2380,13 @@ export interface FundingAccount {
   id: number;
   name: string;
   description: string | null;
+  // The budget cap. Spend (and therefore "remaining") is NO LONGER stored
+  // (funding-rework, 2026-06-08): it is computed live from purchase line items
+  // via `computeFundingSpend` (lib/funding/spend.ts) wherever it is shown, so
+  // there is one source of truth and no stale on-disk counter to reconcile. The
+  // auto-migration strips the old `spent` / `remaining` fields from existing
+  // funding-account files.
   total_budget: number;
-  spent: number;
-  remaining: number;
   // Structured grant / award metadata (metadata implementation bot,
   // 2026-05-28). All optional + additive: funding-account files written
   // before this slice load unchanged (absent field = "not set"), and the

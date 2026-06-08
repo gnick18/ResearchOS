@@ -149,8 +149,6 @@ describe("FundingAccount - structured grant fields round-trip", () => {
       name: "Legacy grant",
       description: null,
       total_budget: 5000,
-      spent: 1200,
-      remaining: 3800,
     };
     memFs.set("users/lab/funding_accounts/99.json", legacy);
 

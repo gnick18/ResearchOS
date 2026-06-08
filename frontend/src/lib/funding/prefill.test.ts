@@ -18,8 +18,6 @@ function acct(id: number, name: string): FundingAccount {
     name,
     description: null,
     total_budget: 0,
-    spent: 0,
-    remaining: 0,
   };
 }
 

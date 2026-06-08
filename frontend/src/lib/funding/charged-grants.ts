@@ -5,7 +5,7 @@
 // Computes, for a given project, the DISTINCT set of FundingAccounts that
 // purchases inside that project were actually charged to. This is a DERIVED
 // view, NOT a stored field: it is recomputed live from the existing data
-// chain (Project -> Task -> PurchaseItem.funding_string -> FundingAccount.name)
+// chain (Project -> Task -> PurchaseItem.funding_account_id -> FundingAccount)
 // every time it is needed. Nothing new is persisted to disk.
 //
 // The "primary" grant link (Project.funding_account_id) is a separate,
@@ -14,11 +14,15 @@
 // (a project may charge several grants over its life, or charge a grant that
 // is not its declared primary).
 //
-// Match rule: PurchaseItem.funding_string is a free-form label that matches a
-// FundingAccount by its `name` (NOT its id). Strings that match no known
-// account are returned separately so the UI can surface a soft
-// "charged to X (no matching account)" hint rather than silently dropping
-// them.
+// Match rule (funding-rework, 2026-06-08): a purchase links to a grant by the
+// AUTHORITATIVE foreign key `PurchaseItem.funding_account_id` (-> id). For
+// records the auto-migration has not yet backfilled (null id but a populated
+// `funding_string`), we fall back to matching the label against the account
+// `name`, the legacy rule, so the rollup stays correct during the transition.
+// Links that resolve to no known account (a deleted grant, or a typed label
+// with no matching account) are returned separately via their `funding_string`
+// label so the UI can surface a soft "charged to X (no matching account)" hint
+// rather than silently dropping them.
 //
 // The core (`computeChargedGrants`) is a PURE function over plain data so it
 // is trivially unit-testable and dependency-free; the async wrapper
@@ -33,9 +37,9 @@ import type { FundingAccount, PurchaseItem, Task } from "@/lib/types";
  *
  * `accounts` are the resolved FundingAccounts (deduped by id, ordered by the
  * account `name` for a stable surface). `unmatchedStrings` are the distinct,
- * trimmed `funding_string` values that did NOT resolve to any known account,
- * preserving the casing of their first occurrence so the UI can echo what the
- * user actually typed.
+ * trimmed `funding_string` labels of purchases whose funding link did NOT
+ * resolve to any known account, preserving the casing of their first occurrence
+ * so the UI can echo what the user actually typed.
  */
 export interface ChargedGrants {
   accounts: FundingAccount[];
@@ -46,9 +50,13 @@ export interface ComputeChargedGrantsInput {
   projectId: number;
   /** All tasks visible to the caller. Filtered here by `project_id`. */
   tasks: ReadonlyArray<Pick<Task, "id" | "project_id">>;
-  /** All purchase items visible to the caller. Filtered here by `task_id`. */
-  purchases: ReadonlyArray<Pick<PurchaseItem, "task_id" | "funding_string">>;
-  /** Known funding accounts to resolve funding strings against by name. */
+  /** All purchase items visible to the caller. Filtered here by `task_id`.
+   *  Resolved by `funding_account_id` (authoritative), with a `funding_string`
+   *  -> name fallback for records not yet backfilled by the migration. */
+  purchases: ReadonlyArray<
+    Pick<PurchaseItem, "task_id" | "funding_account_id" | "funding_string">
+  >;
+  /** Known funding accounts to resolve funding links against (by id, then name). */
   fundingAccounts: ReadonlyArray<FundingAccount>;
 }
 
@@ -58,10 +66,13 @@ export interface ComputeChargedGrantsInput {
  *
  * Steps:
  *   1. Collect the ids of tasks whose `project_id === projectId`.
- *   2. Collect the purchases whose `task_id` is in that set.
- *   3. Collect the distinct non-empty (trimmed) `funding_string` values.
- *   4. Resolve each to a FundingAccount by exact `name` match; collect the
- *      rest as `unmatchedStrings`.
+ *   2. For each purchase on those tasks, resolve its funding link:
+ *        a. by `funding_account_id` -> account id (authoritative), else
+ *        b. (null id only) by trimmed `funding_string` -> account name
+ *           (transition fallback for un-backfilled records).
+ *   3. Resolved purchases contribute their account (deduped by id); links that
+ *      resolve to nothing but carry a `funding_string` label collect into
+ *      `unmatchedStrings` (distinct, first-seen casing).
  *
  * Empty / no-purchase projects yield `{ accounts: [], unmatchedStrings: [] }`.
  */
@@ -77,47 +88,60 @@ export function computeChargedGrants({
     if (task.project_id === projectId) taskIds.add(task.id);
   }
 
-  // 2 + 3. Distinct, trimmed, non-empty funding strings on those tasks'
-  // purchases. The Map is keyed on the trimmed string so duplicates collapse
-  // while preserving the first-seen value for the unmatched echo.
-  const distinctStrings = new Map<string, string>();
-  for (const purchase of purchases) {
-    if (!taskIds.has(purchase.task_id)) continue;
-    const raw = purchase.funding_string;
-    if (typeof raw !== "string") continue;
-    const trimmed = raw.trim();
-    if (trimmed.length === 0) continue;
-    if (!distinctStrings.has(trimmed)) distinctStrings.set(trimmed, trimmed);
-  }
-
-  // 4. Resolve by exact name. An account name index lets repeated lookups
-  // stay O(1); the first account wins if two accounts somehow share a name
-  // (a malformed lab folder), matching the single-row select behaviour.
+  // Account indexes. `byId` is the authoritative resolver; `byName` backs the
+  // legacy funding_string fallback for records the migration has not reached.
+  // First account wins on a name collision (a malformed lab folder), matching
+  // the single-row select behaviour.
+  const accountById = new Map<number, FundingAccount>();
   const accountByName = new Map<string, FundingAccount>();
   for (const acc of fundingAccounts) {
+    accountById.set(acc.id, acc);
     if (!accountByName.has(acc.name)) accountByName.set(acc.name, acc);
   }
 
   const resolvedById = new Map<number, FundingAccount>();
-  const unmatched: string[] = [];
-  for (const value of distinctStrings.values()) {
-    const match = accountByName.get(value);
+  // Keyed on the trimmed label so duplicate unmatched strings collapse while
+  // preserving the first-seen casing for the UI echo.
+  const unmatched = new Map<string, string>();
+
+  for (const purchase of purchases) {
+    if (!taskIds.has(purchase.task_id)) continue;
+
+    const rawString =
+      typeof purchase.funding_string === "string"
+        ? purchase.funding_string.trim()
+        : "";
+
+    // a. Authoritative FK.
+    if (purchase.funding_account_id != null) {
+      const match = accountById.get(purchase.funding_account_id);
+      if (match) {
+        resolvedById.set(match.id, match);
+      } else if (rawString.length > 0) {
+        // Dangling id (the grant was deleted) — echo the label if we have one.
+        if (!unmatched.has(rawString)) unmatched.set(rawString, rawString);
+      }
+      continue;
+    }
+
+    // b. Transition fallback: no id yet, resolve the label by name.
+    if (rawString.length === 0) continue;
+    const match = accountByName.get(rawString);
     if (match) {
-      // Dedupe by id: two different funding strings could resolve to the same
-      // account only if names collide, but the name-index above already
-      // collapses that. Keeping the id dedupe is cheap insurance.
-      if (!resolvedById.has(match.id)) resolvedById.set(match.id, match);
-    } else {
-      unmatched.push(value);
+      resolvedById.set(match.id, match);
+    } else if (!unmatched.has(rawString)) {
+      unmatched.set(rawString, rawString);
     }
   }
 
   const accounts = Array.from(resolvedById.values()).sort((a, b) =>
     a.name.localeCompare(b.name),
   );
-  unmatched.sort((a, b) => a.localeCompare(b));
+  const unmatchedStrings = Array.from(unmatched.values()).sort((a, b) =>
+    a.localeCompare(b),
+  );
 
-  return { accounts, unmatchedStrings: unmatched };
+  return { accounts, unmatchedStrings };
 }
 
 /**
