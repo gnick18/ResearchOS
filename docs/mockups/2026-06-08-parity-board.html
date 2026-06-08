@@ -102,8 +102,9 @@
   <p class="intro">Each row: the IDEAL mockup (how the page should look) on the left, and a drop zone on the right where you paste or drag-drop a screenshot of the LIVE app for that page. Click a drop zone to make it the paste target, then Cmd/Ctrl+V a screenshot, or drag an image file onto it. Jot the gaps in the notes box per page, then Export and send me the notes so I can close each gap to the high-quality version. Toggle dark to compare both themes.</p>
   <div class="bar">
     <button onclick="exportNotes()">Export notes</button>
+    <button onclick="downloadShots()">Download shots</button>
     <button class="ghost" onclick="toggleTheme()">Toggle dark</button>
-    <span class="hint">Click a drop zone, then paste (Cmd/Ctrl+V). Or drag an image onto it.</span>
+    <span class="hint">Click a drop zone, then paste (Cmd/Ctrl+V). Or drag an image onto it. "Download shots" saves each as &lt;page&gt;.png for the polish agents.</span>
   </div>
 </div>
 <div id="board"></div>
@@ -240,6 +241,14 @@ function exportNotes(){
   let out="PARITY REVIEW, ideal vs live\n============================\n\n";
   SCREENS.forEach(s=>{const n=(verd[s.id]||"").trim();if(n)out+=`[${s.name}]\n${n}\n\n`;});
   const o=document.getElementById("out");o.style.display="block";o.textContent=out||"(no notes yet, add gaps per page then Export)";
+}
+function downloadShots(){
+  const zones=[...document.querySelectorAll(".drop.has")];
+  if(!zones.length){alert("Drop some live screenshots first.");return;}
+  zones.forEach((z,i)=>{
+    const img=z.querySelector("img");if(!img)return;
+    setTimeout(()=>{const a=document.createElement("a");a.href=img.src;a.download=z.dataset.id+".png";document.body.appendChild(a);a.click();a.remove();}, i*250);
+  });
 }
 function toggleTheme(){const d=document.documentElement;d.setAttribute("data-theme",d.getAttribute("data-theme")==="dark"?"":"dark");}
 </script>
