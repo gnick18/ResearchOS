@@ -66,7 +66,14 @@ export default function ReceiveToInventoryDialog({
   purchaseItem,
   onClose,
 }: ReceiveToInventoryDialogProps) {
-  const [step, setStep] = useState<Step>("choice");
+  // Receive bridge (supplies-v2 chunk 4): a line that was started via "Reorder"
+  // from a supply carries inventory_item_id, so the received batch belongs to a
+  // known item. Skip the three-way choice and go straight to "add stock to
+  // existing" with that item pre-selected (no re-pick).
+  const linkedItemId = purchaseItem.inventory_item_id ?? null;
+  const [step, setStep] = useState<Step>(
+    linkedItemId != null ? "add-to-existing" : "choice",
+  );
 
   return (
     <LivingPopup
@@ -97,6 +104,7 @@ export default function ReceiveToInventoryDialog({
         {step === "add-to-existing" && (
           <AddToExistingStep
             purchaseItem={purchaseItem}
+            preselectItemId={linkedItemId}
             onBack={() => setStep("choice")}
             onClose={onClose}
           />
@@ -385,10 +393,14 @@ function CreateNewStep({
 
 function AddToExistingStep({
   purchaseItem,
+  preselectItemId = null,
   onBack,
   onClose,
 }: {
   purchaseItem: PurchaseItem;
+  /** When the line carries an inventory_item_id (a reorder from a supply),
+   *  pre-select that item once the item list loads. */
+  preselectItemId?: number | null;
   onBack: () => void;
   onClose: () => void;
 }) {
@@ -432,6 +444,15 @@ function AddToExistingStep({
     setSearch(it.name);
     setShowSuggestions(false);
   };
+
+  // Receive bridge (supplies-v2 chunk 4): when the line links to a known item,
+  // pre-select it as soon as the list loads so the user does not re-pick.
+  useEffect(() => {
+    if (preselectItemId == null || selectedItem) return;
+    const linked = allItems.find((it) => it.id === preselectItemId);
+    if (linked) pickItem(linked);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselectItemId, allItems, selectedItem]);
 
   const handleSubmit = async () => {
     if (!selectedItem) return;

@@ -1,35 +1,44 @@
 "use client";
 
-// /supplies (Supplies v2 unified page, SUPPLIES_V2_UNIFIED.md, chunk 2: the
-// read list). One page where each row is a Supply, showing on-hand state (from
-// Inventory) and on-order state (from Purchases) side by side, so identity
-// lives once and the two daily questions (what do I have / what is on order)
-// are answered in one list.
+// /supplies (Supplies v2 unified page, SUPPLIES_V2_UNIFIED.md). One page where
+// each row is a Supply, showing on-hand state (from Inventory) and on-order
+// state (from Purchases) side by side, so identity lives once and the two daily
+// questions (what do I have / what is on order) are answered in one list.
 //
-// Chunk 2 is READ-ONLY: the list, filters, and search. The two-section detail
-// panel (chunk 3), reorder + cart (chunk 4), the lab-head lens + spending
-// drawer (chunk 5), and palette/right-click parity (chunk 6) build on top. The
-// whole route is gated behind INVENTORY_ENABLED; the old /inventory and
-// /purchases pages keep working until chunk 7 redirects them here.
+// Chunk 2 built the read list + filters + search. Chunk 3 added the two-section
+// detail panel. Chunk 4 (this step) adds Reorder + the draft-order cart: a quick
+// Reorder affordance on low/out rows and in the detail panel seeds a draft line
+// from the supply identity, a "Reorder cart" chip opens the batch review where
+// one funding account is set and the order is submitted. The whole route is
+// gated behind INVENTORY_ENABLED.
 //
-// House style: <Icon> only, brand + semantic dark-mode tokens, no emojis /
-// em-dashes / mid-sentence colons.
+// House style: <Icon> only, brand + semantic dark-mode tokens, Tooltip on
+// icon-only buttons, no emojis / em-dashes / mid-sentence colons.
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import AppShell from "@/components/AppShell";
 import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { INVENTORY_ENABLED } from "@/lib/inventory/config";
 import {
   fetchAllInventoryItemsIncludingShared,
   fetchAllInventoryStocksIncludingShared,
+  fetchAllStorageNodesIncludingShared,
   purchasesApi,
 } from "@/lib/local-api";
+import type { InventoryItem } from "@/lib/types";
 import { CATEGORY_LABEL, statusChipClass } from "@/components/inventory/inventory-ui";
 import { buildSupplies, type Supply } from "@/lib/supplies/supply-model";
+import { seedFromSupply } from "@/lib/supplies/reorder";
 import SupplyDetailPanel from "@/components/supplies/SupplyDetailPanel";
+import {
+  ReorderCartProvider,
+  useReorderCart,
+} from "@/components/supplies/ReorderCartContext";
+import ReorderCartReview from "@/components/supplies/ReorderCartReview";
 
 type SupplyFilter = "all" | "attention" | "onorder";
 
@@ -55,6 +64,11 @@ function needsAttention(s: Supply): boolean {
   return s.onHand.soonestExpiry != null && daysUntil(s.onHand.soonestExpiry) <= EXPIRING_WINDOW_DAYS;
 }
 
+/** Low or out of stock, the case where a quick reorder affordance helps most. */
+function isLowOrOut(s: Supply): boolean {
+  return s.onHand != null && (s.onHand.worstStatus === "low" || s.onHand.worstStatus === "empty");
+}
+
 function categoryLabel(cat: string | null): string {
   if (!cat) return "";
   return (CATEGORY_LABEL as Record<string, string>)[cat] ?? cat;
@@ -66,10 +80,20 @@ function metaLine(s: Supply): string {
 }
 
 export default function SuppliesPage() {
+  return (
+    <ReorderCartProvider>
+      <SuppliesPageInner />
+    </ReorderCartProvider>
+  );
+}
+
+function SuppliesPageInner() {
   const { currentUser } = useCurrentUser();
+  const cart = useReorderCart();
   const [filter, setFilter] = useState<SupplyFilter>("all");
   const [query, setQuery] = useState("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
 
   const itemsQuery = useQuery({
     queryKey: ["inventory-items", currentUser],
@@ -86,15 +110,27 @@ export default function SuppliesPage() {
     queryFn: () => purchasesApi.listAllIncludingShared(currentUser ?? ""),
     enabled: INVENTORY_ENABLED && !!currentUser,
   });
+  const nodesQuery = useQuery({
+    queryKey: ["inventory-nodes", currentUser],
+    queryFn: fetchAllStorageNodesIncludingShared,
+    enabled: INVENTORY_ENABLED && !!currentUser,
+  });
+
+  const items = useMemo(() => itemsQuery.data ?? [], [itemsQuery.data]);
+  const itemsById = useMemo(() => {
+    const m = new Map<number, InventoryItem>();
+    for (const it of items) m.set(it.id, it);
+    return m;
+  }, [items]);
 
   const supplies = useMemo(
     () =>
       buildSupplies({
-        items: itemsQuery.data ?? [],
+        items,
         stocks: stocksQuery.data ?? [],
         purchases: purchasesQuery.data ?? [],
       }),
-    [itemsQuery.data, stocksQuery.data, purchasesQuery.data],
+    [items, stocksQuery.data, purchasesQuery.data],
   );
 
   const counts = useMemo(() => {
@@ -137,6 +173,11 @@ export default function SuppliesPage() {
       });
   }, [supplies, filter, query]);
 
+  const addToCart = (s: Supply) => {
+    const backing = s.onHand ? itemsById.get(s.onHand.itemIds[0]) ?? null : null;
+    cart.add(s.key, seedFromSupply(s, backing));
+  };
+
   if (!INVENTORY_ENABLED) {
     return (
       <AppShell>
@@ -148,7 +189,11 @@ export default function SuppliesPage() {
     );
   }
 
-  const isLoading = itemsQuery.isLoading || stocksQuery.isLoading || purchasesQuery.isLoading;
+  const isLoading =
+    itemsQuery.isLoading ||
+    stocksQuery.isLoading ||
+    purchasesQuery.isLoading ||
+    nodesQuery.isLoading;
 
   const chips: { key: SupplyFilter; label: string; count: number }[] = [
     { key: "all", label: "All", count: counts.all },
@@ -164,12 +209,23 @@ export default function SuppliesPage() {
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface-sunken text-foreground-muted">
             <Icon name="box" className="h-4 w-4" />
           </span>
-          <div>
+          <div className="min-w-0">
             <h1 className="text-title font-semibold text-foreground">Supplies</h1>
             <p className="text-meta text-foreground-muted">
               What you have and what you have on order, in one place.
             </p>
           </div>
+          {cart.count > 0 ? (
+            <button
+              type="button"
+              onClick={() => setCartOpen(true)}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-brand-action/40 bg-brand-action/10 px-3 py-1.5 text-meta font-medium text-brand-action hover:bg-brand-action/15"
+              data-testid="reorder-cart-chip"
+            >
+              <Icon name="refresh" className="h-3.5 w-3.5" />
+              Reorder cart ({cart.count})
+            </button>
+          ) : null}
         </div>
 
         {/* Filters */}
@@ -221,31 +277,58 @@ export default function SuppliesPage() {
           </p>
         ) : (
           <ul className="space-y-2">
-            {visible.map((s) => (
-              <li key={s.key}>
-              <button
-                type="button"
-                onClick={() => setSelectedKey(s.key)}
-                className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface-raised px-4 py-3 text-left transition-colors hover:border-brand-action/40 hover:bg-surface-sunken/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action/40"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-body font-semibold text-foreground">
-                    {s.identity.name}
-                  </div>
-                  {metaLine(s) ? (
-                    <div className="truncate text-meta text-foreground-muted">{metaLine(s)}</div>
+            {visible.map((s) => {
+              const showQuickReorder = isLowOrOut(s);
+              const inCart = cart.has(s.key);
+              return (
+                <li key={s.key} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedKey(s.key)}
+                    className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface-raised px-4 py-3 text-left transition-colors hover:border-brand-action/40 hover:bg-surface-sunken/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action/40"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-body font-semibold text-foreground">
+                        {s.identity.name}
+                      </div>
+                      {metaLine(s) ? (
+                        <div className="truncate text-meta text-foreground-muted">{metaLine(s)}</div>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-none items-center gap-2">
+                      {s.onHand ? <OnHandBadge supply={s} /> : null}
+                      {s.ordering ? <OnOrderBadge supply={s} /> : null}
+                      {!s.onHand && !s.ordering ? (
+                        <span className="text-meta text-foreground-muted">no stock or orders</span>
+                      ) : null}
+                      {/* Spacer so the absolutely-positioned quick reorder does
+                          not overlap the badges. */}
+                      {showQuickReorder ? <span className="w-[5.5rem]" aria-hidden /> : null}
+                    </div>
+                  </button>
+                  {showQuickReorder ? (
+                    inCart ? (
+                      <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 rounded-lg border border-brand-action/40 bg-brand-action/10 px-2 py-1 text-meta font-medium text-brand-action">
+                        <Icon name="check" className="h-3.5 w-3.5" />
+                        In cart
+                      </span>
+                    ) : (
+                      <Tooltip label="Add to the reorder cart">
+                        <button
+                          type="button"
+                          onClick={() => addToCart(s)}
+                          aria-label={`Reorder ${s.identity.name}`}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 rounded-lg border border-border bg-surface-raised px-2 py-1 text-meta font-medium text-foreground hover:bg-surface-sunken"
+                        >
+                          <Icon name="refresh" className="h-3.5 w-3.5" />
+                          Reorder
+                        </button>
+                      </Tooltip>
+                    )
                   ) : null}
-                </div>
-                <div className="flex flex-none items-center gap-2">
-                  {s.onHand ? <OnHandBadge supply={s} /> : null}
-                  {s.ordering ? <OnOrderBadge supply={s} /> : null}
-                  {!s.onHand && !s.ordering ? (
-                    <span className="text-meta text-foreground-muted">no stock or orders</span>
-                  ) : null}
-                </div>
-              </button>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         )}
 
@@ -257,11 +340,16 @@ export default function SuppliesPage() {
                 <SupplyDetailPanel
                   supply={sel}
                   stocks={stocksQuery.data ?? []}
+                  items={items}
+                  nodes={nodesQuery.data ?? []}
+                  currentUser={currentUser ?? null}
                   onClose={() => setSelectedKey(null)}
                 />
               );
             })()
           : null}
+
+        {cartOpen ? <ReorderCartReview onClose={() => setCartOpen(false)} /> : null}
       </div>
     </AppShell>
   );
