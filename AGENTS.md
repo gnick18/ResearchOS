@@ -312,6 +312,24 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 
 ## 5. Integrations in flight
 
+### Mobile companion app + store launch (in flight, 2026-06-07)
+- A free, thin Expo companion app lives in `mobile/` (snap a bench photo into the
+  inbox, push notifications, today/calendar glance; NOT a port). Design:
+  `docs/proposals/MOBILE_COMPANION.md`.
+- Store launch prep is DONE and documented: `docs/proposals/MOBILE_STORE_LISTING.md`
+  (copy, assets, data-safety, reviewer notes), `docs/ops/mobile-publish-runbook.md`
+  (the `eas build`/`eas submit` steps tagged [YOU]/[AGENT]), and
+  `docs/ops/mobile-dev-accounts-setup.md` (accounts).
+- EAS is configured: project `@gnickles/researchos-companion`, `eas.json` profiles,
+  bundle id `app.researchos.companion`. Dev accounts are PERSONAL (Apple Individual
+  paid, Google personal), transfer to the LLC org later. Google personal accounts
+  need a 12-tester/14-day closed test before production (the Android launch gate).
+- BeakerBot app icons are in `mobile/assets/images/` (generator `brand/src/`); the
+  Play feature graphic is `brand/png/researchos-play-feature.png`. Both are listed
+  in `brand/BRAND_MANAGER.md`.
+- Remaining before submit: app feature-complete + a reviewer demo mode, device
+  screenshots, then `eas build`.
+
 ### Telegram (live)
 - One bot per user. Token paired via `TelegramPairingModal`, written to `users/<u>/_telegram.json` with an auto-appended `.gitignore` rule so it doesn't get committed.
 - `lib/telegram/use-telegram-polling.ts` polls `getUpdates`. New photos land in `users/{user}/inbox/Images/` with `.json` sidecar containing caption / sender / received_at.

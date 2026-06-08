@@ -37,13 +37,18 @@ is fine.
 - The reviewer demo path exists in the build (the companion pairs to a desktop, so
   reviewers need a demo mode or a test pairing code, see the listing doc).
 
-## One-time EAS setup (in `mobile/`)
+## One-time EAS setup (in `mobile/`) — DONE 2026-06-07
 
-1. **[YOU]** `npm i -g eas-cli` then `eas login`.
-2. **[YOU]** Confirm `ios.bundleIdentifier` and `android.package` are set in
-   `app.json` (recommended `app.researchos.companion`, identical on both).
-3. **[YOU]** `eas build:configure` to create `eas.json` with a `production` profile.
-4. **[YOU]** Signing. EAS auto-manages it:
+Already complete; recorded for reference. State on disk:
+- `eas-cli` installed; logged in to Expo as `gnickles`.
+- EAS project linked: `@gnickles/researchos-companion` (projectId in `app.json`
+  under `extra.eas.projectId`, plus `owner: gnickles`).
+- `eas.json` exists with development / preview / production build profiles.
+- `app.json` has `ios.bundleIdentifier` and `android.package` =
+  `app.researchos.companion`, and `ITSAppUsesNonExemptEncryption=false`.
+
+The only one-time step left, and it happens on the FIRST build:
+- **[YOU]** Signing. EAS auto-manages it:
    - iOS: on the first build it logs into your personal Apple account and creates a
      distribution certificate + provisioning profile. Note your Apple Team ID.
    - Android: EAS generates an upload keystore. BACK IT UP (it signs every future
