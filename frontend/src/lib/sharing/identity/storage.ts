@@ -96,17 +96,32 @@ function tx<T>(
  */
 export async function saveIdentity(identity: StoredIdentity): Promise<void> {
   // OAuth-only model: the unlocked key lives in process memory for the session.
+  // This is the PRIMARY store loadIdentity reads, so it must land first.
   setSessionIdentity(identity);
   // Transition fallback: also keep the legacy IndexedDB record so a page reload
   // before the passkey-unlock login lands still finds the key. This raw-at-rest
   // store is removed once the login ceremony populates the session on boot.
-  const db = await openDb();
+  //
+  // Best-effort: IndexedDB can be absent (SSR / unit tests) or blocked (private
+  // browsing, hardened browsers, quota). The session key above is authoritative
+  // and loadIdentity prefers it, so a failed fallback persist must never break
+  // identity creation / unlock. Skip when there is no IndexedDB, and swallow
+  // runtime errors (open blocked, transaction aborted) with a warning.
+  if (typeof indexedDB === "undefined") return;
   try {
-    await tx(db, "readwrite", (store) =>
-      store.put(identity, IDENTITY_KEY),
+    const db = await openDb();
+    try {
+      await tx(db, "readwrite", (store) =>
+        store.put(identity, IDENTITY_KEY),
+      );
+    } finally {
+      db.close();
+    }
+  } catch (err) {
+    console.warn(
+      "[identity] IndexedDB fallback persist failed (non-fatal; session key is authoritative)",
+      err,
     );
-  } finally {
-    db.close();
   }
 }
 
