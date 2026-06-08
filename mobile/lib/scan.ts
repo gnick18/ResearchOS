@@ -12,6 +12,7 @@ import { bytesToHex } from '@noble/curves/utils.js';
 
 import type { Pairing } from '@/lib/pairing';
 import { captureUploadMessage } from '@/lib/captures';
+import { fireSuccess } from '@/lib/success-burst';
 
 // ---------------------------------------------------------------------------
 // Action contentTypes (must match the laptop poll handlers exactly)
@@ -202,6 +203,7 @@ async function uploadAction(
         error: `Send failed (status ${res.status})${resBody.error ? ` ${resBody.error}` : ''}`,
       };
     }
+    fireSuccess({ subtitle: caption ? caption.slice(0, 60) : undefined });
     return { ok: true };
   } catch (err) {
     return {

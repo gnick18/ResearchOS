@@ -8,6 +8,7 @@ import 'react-native-reanimated';
 
 import { AppSplash } from '@/components/AppSplash';
 import { RainbowBar } from '@/components/ui/RainbowBar';
+import { SuccessBurst } from '@/components/SuccessBurst';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 // Keep the native splash up until JS is ready so there is no white flash before
@@ -89,6 +90,9 @@ export default function RootLayout() {
         <View style={styles.rainbowBottom} pointerEvents="none">
           <RainbowBar />
         </View>
+        {/* Celebratory "sent to your lab" burst, floats over everything, never
+            blocks taps, renders null when idle. */}
+        <SuccessBurst />
       </View>
       {splashVisible ? <AppSplash onFinish={handleSplashFinish} /> : null}
       <StatusBar style="auto" />

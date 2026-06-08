@@ -10,6 +10,7 @@ import { bytesToHex } from '@noble/curves/utils.js';
 
 import type { Pairing } from '@/lib/pairing';
 import type { AnnotationDoc } from '@/lib/annotations';
+import { fireSuccess } from '@/lib/success-burst';
 
 const CAPTURES_KEY = 'researchos.captures.v1';
 
@@ -228,6 +229,7 @@ export async function sendCapture(
     }
 
     await setCaptureStatus(capture.id, 'sent');
+    fireSuccess({ subtitle: (capture.caption || 'Photo').slice(0, 60) });
   } catch (err) {
     await setCaptureStatus(capture.id, 'failed');
     throw err;

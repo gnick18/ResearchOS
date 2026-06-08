@@ -11,6 +11,7 @@ import { bytesToHex } from '@noble/curves/utils.js';
 
 import type { Pairing } from '@/lib/pairing';
 import { captureUploadMessage } from '@/lib/captures';
+import { fireSuccess } from '@/lib/success-burst';
 
 const NOTE_CONTENT_TYPE = 'text/markdown';
 
@@ -113,6 +114,7 @@ export async function sendTextNote(
         error: `Send failed (status ${res.status})${resBody.error ? ` ${resBody.error}` : ''}`,
       };
     }
+    fireSuccess({ subtitle: 'Quick note' });
     return { ok: true };
   } catch (err) {
     return {
