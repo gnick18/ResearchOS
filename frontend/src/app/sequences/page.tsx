@@ -12,6 +12,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AppShell from "@/components/AppShell";
 import Tooltip from "@/components/Tooltip";
 import SequenceEditView from "@/components/sequences/SequenceEditView";
+import { usePreloadOnIdle } from "@/lib/perf/use-preload-on-idle";
 import SequenceNewDialog, {
   type NewSequenceSubmit,
 } from "@/components/sequences/SequenceNewDialog";
@@ -305,6 +306,10 @@ function SortHeader({
 }
 
 export default function SequencesPage() {
+  // On the sequences surface the user is about to open the editor, so warm the
+  // heavy SeqViz chunk on idle (same import the editor's dynamic() uses) so the
+  // first sequence opens instantly.
+  usePreloadOnIdle(() => import("@/vendor/seqviz"));
   const [collection, setCollection] = useState<Collection>("all");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");

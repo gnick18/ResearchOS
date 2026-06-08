@@ -12,6 +12,7 @@ import AnnotatedImage from "./AnnotatedImage";
 import AttachmentViewerModal from "./AttachmentViewerModal";
 import Tooltip from "./Tooltip";
 import dynamic from "next/dynamic";
+import { usePreloadOnIdle } from "@/lib/perf/use-preload-on-idle";
 
 // Konva touches window/canvas and breaks SSR, so the annotator is client-only
 // and lazy-loaded; it mounts only when the user opens it from a thumbnail's
@@ -109,6 +110,9 @@ export default function ImageStrip({
   recordType = "experiment",
   onBodyChange,
 }: ImageStripProps) {
+  // The user is looking at images and may annotate one, so warm the lazy
+  // ImageAnnotatorModal chunk on idle for an instant first open.
+  usePreloadOnIdle(() => import("./ImageAnnotatorModal"));
   const [folderEntries, setFolderEntries] = useState<FolderImageEntry[]>([]);
   const [legacyEntries, setLegacyEntries] = useState<string[]>([]);
   const [blobUrls, setBlobUrls] = useState<Map<string, string>>(new Map());

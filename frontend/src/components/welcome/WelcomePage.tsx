@@ -42,6 +42,7 @@ import BeakerBotSpeechBubble from "@/components/beakerbot/SpeechBubble";
 import BeakerBotPeek from "@/components/welcome/BeakerBotPeek";
 import Wordmark from "@/components/Wordmark";
 import DemoLoop, { DemoLoopPlaceholder } from "@/components/welcome/DemoLoop";
+import { usePreloadOnIdle } from "@/lib/perf/use-preload-on-idle";
 import { GoogleIcon, GitHubIcon, LinkedInIcon, OrcidIcon } from "@/components/sharing/icons";
 import { FREE_STORAGE_BYTES, TTL_DAYS } from "@/lib/sharing/relay/limits";
 import RoadmapModal from "@/components/RoadmapModal";
@@ -451,6 +452,10 @@ function ComparisonRow({
 
 export default function WelcomePage() {
   const router = useRouter();
+
+  // Warm the heavy d3 tree-of-life chunk on idle; it is the hero interaction on
+  // this page, so it should be ready before the visitor scrolls to it.
+  usePreloadOnIdle(() => import("@/components/sequences/TaxonomyTreeView"));
 
   // Hi-wave greeting: BeakerBot waves on land then settles into the living
   // idle. Start false so the first server/client render is idle (avoids any
