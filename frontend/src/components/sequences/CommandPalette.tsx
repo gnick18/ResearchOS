@@ -962,15 +962,22 @@ export function CommandPalette({
     originY: number;
   } | null>(null);
 
-  // Px box in each screen corner that arms a hide while dragging.
-  const CORNER_HIT = 40;
-  const cornerArm = useCallback((cx: number, cy: number, vp: Viewport): DockSide | null => {
-    const nearL = cx <= CORNER_HIT;
-    const nearR = cx >= vp.width - CORNER_HIT;
-    const nearT = cy <= CORNER_HIT;
-    const nearB = cy >= vp.height - CORNER_HIT;
-    if ((nearL || nearR) && (nearT || nearB)) return nearR ? "right" : "left";
-    return null;
+  // How close the MOUSE CURSOR must get to a screen edge to arm a hide to that
+  // side (top / bottom / left / right). Driven by the cursor, not the dock's own
+  // edge, so positioning mid-screen never snaps; pushing the cursor to any wall
+  // hides toward it (the nearest wall wins in a corner).
+  const EDGE_HIT = 26;
+  const edgeArm = useCallback((cx: number, cy: number, vp: Viewport): DockSide | null => {
+    const dl = cx;
+    const dr = vp.width - cx;
+    const dt = cy;
+    const db = vp.height - cy;
+    const min = Math.min(dl, dr, dt, db);
+    if (min > EDGE_HIT) return null;
+    if (min === dt) return "top";
+    if (min === db) return "bottom";
+    if (min === dl) return "left";
+    return "right";
   }, []);
 
   const onHeaderPointerDown = useCallback((e: React.PointerEvent) => {
@@ -1019,13 +1026,13 @@ export function CommandPalette({
       liveGeomRef.current = { x, y, width: w };
       el.style.left = `${x}px`;
       el.style.top = `${y}px`;
-      const armed = cornerArm(e.clientX, e.clientY, vp);
+      const armed = edgeArm(e.clientX, e.clientY, vp);
       if (armed !== armedRef.current) {
         armedRef.current = armed;
         setArmedSide(armed);
       }
     },
-    [cornerArm],
+    [edgeArm],
   );
 
   const onHeaderPointerUp = useCallback(
@@ -1042,7 +1049,7 @@ export function CommandPalette({
       const w = dockStateRef.current.width;
       const x = d.originX + (e.clientX - d.startX);
       const y = d.originY + (e.clientY - d.startY);
-      const armed = cornerArm(e.clientX, e.clientY, vp);
+      const armed = edgeArm(e.clientX, e.clientY, vp);
       armedRef.current = null;
       setArmedSide(null);
       if (armed) {
@@ -1083,7 +1090,7 @@ export function CommandPalette({
       el.addEventListener("transitionend", finalize, { once: true });
       window.setTimeout(finalize, 460);
     },
-    [cornerArm],
+    [edgeArm],
   );
 
   // Header control actions.
@@ -1264,34 +1271,33 @@ export function CommandPalette({
 
   return createPortal(
     <>
-      {/* Corner hide targets, shown only while dragging. Throwing the cursor into
-          a screen corner hides the dock to that left / right side; the corners on
-          the armed side pulse as the "let go and I hide" cue. Pointer-inert so
-          they never block the page. */}
+      {/* Edge hide targets, shown only while dragging. Moving the cursor to any
+          screen edge hides the dock to that side; the armed edge pulses as the
+          "let go and I hide" cue. Pointer-inert so they never block the page. */}
       {dragging ? (
         <>
           <div
             aria-hidden="true"
-            className={`pointer-events-none fixed left-0 top-0 z-[78] h-16 w-16 rounded-br-2xl bg-brand-action/25 transition-opacity ${
-              armedSide === "left" ? "opacity-100 animate-pulse motion-reduce:animate-none" : "opacity-25"
+            className={`pointer-events-none fixed inset-y-0 left-0 z-[78] w-2 bg-brand-action transition-opacity ${
+              armedSide === "left" ? "opacity-90 animate-pulse motion-reduce:animate-none" : "opacity-20"
             }`}
           />
           <div
             aria-hidden="true"
-            className={`pointer-events-none fixed bottom-0 left-0 z-[78] h-16 w-16 rounded-tr-2xl bg-brand-action/25 transition-opacity ${
-              armedSide === "left" ? "opacity-100 animate-pulse motion-reduce:animate-none" : "opacity-25"
+            className={`pointer-events-none fixed inset-y-0 right-0 z-[78] w-2 bg-brand-action transition-opacity ${
+              armedSide === "right" ? "opacity-90 animate-pulse motion-reduce:animate-none" : "opacity-20"
             }`}
           />
           <div
             aria-hidden="true"
-            className={`pointer-events-none fixed right-0 top-0 z-[78] h-16 w-16 rounded-bl-2xl bg-brand-action/25 transition-opacity ${
-              armedSide === "right" ? "opacity-100 animate-pulse motion-reduce:animate-none" : "opacity-25"
+            className={`pointer-events-none fixed inset-x-0 top-0 z-[78] h-2 bg-brand-action transition-opacity ${
+              armedSide === "top" ? "opacity-90 animate-pulse motion-reduce:animate-none" : "opacity-20"
             }`}
           />
           <div
             aria-hidden="true"
-            className={`pointer-events-none fixed bottom-0 right-0 z-[78] h-16 w-16 rounded-tl-2xl bg-brand-action/25 transition-opacity ${
-              armedSide === "right" ? "opacity-100 animate-pulse motion-reduce:animate-none" : "opacity-25"
+            className={`pointer-events-none fixed inset-x-0 bottom-0 z-[78] h-2 bg-brand-action transition-opacity ${
+              armedSide === "bottom" ? "opacity-90 animate-pulse motion-reduce:animate-none" : "opacity-20"
             }`}
           />
         </>
