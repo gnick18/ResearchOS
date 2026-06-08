@@ -94,6 +94,24 @@ vi.mock("@/lib/local-api", () => {
   };
 });
 
+// Purchase items on Loro (PURCHASE_LORO_ENABLED) route the lab-head approve /
+// decline / flag writes through writePurchaseUpdateThroughLoro instead of
+// rawPurchasesApi.update. Mirror the merge-into-disk behavior the legacy update
+// gave us so the existing fakeFiles assertions hold; the pi-actions pre-read +
+// audit logic above this seam is what these tests exercise.
+vi.mock("@/lib/loro/purchase-write-through", () => ({
+  writePurchaseUpdateThroughLoro: vi.fn(
+    async (owner: string, id: number, patch: Record<string, unknown>) => {
+      const path = `users/${owner}/purchase_items/${id}.json`;
+      const existing = (fakeFiles[path] as Record<string, unknown>) ?? null;
+      if (!existing) return null;
+      const next = { ...existing, ...patch };
+      fakeFiles[path] = next;
+      return next;
+    },
+  ),
+}));
+
 // Imported AFTER the mocks so the action module picks them up.
 import {
   assignTask,

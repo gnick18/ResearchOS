@@ -100,6 +100,15 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 
+// Supplies hub (914668b05): the Purchases page renders SuppliesTabs as chrome
+// above the purchase content. It runs its own nav + inventory-data hooks before
+// the INVENTORY_ENABLED early-return (Rules of Hooks), so leaving it live pulls
+// the whole inventory graph into this suite. It is a sibling of the content
+// under test, so stub it out like the other page chrome.
+vi.mock("@/components/inventory/SuppliesTabs", () => ({
+  default: () => null,
+}));
+
 vi.mock("@/lib/store", () => ({
   useAppStore: (selector: (s: { selectedProjectIds: number[] }) => unknown) =>
     selector({ selectedProjectIds: [] }),

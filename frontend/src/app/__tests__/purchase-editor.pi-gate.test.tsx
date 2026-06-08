@@ -33,6 +33,28 @@ const { purchasesApi, labApi } = vi.hoisted(() => ({
 
 vi.mock("@/lib/local-api", () => ({ purchasesApi, labApi }));
 
+// Purchase items on Loro (PURCHASE_LORO_ENABLED, now on in prod): the row's
+// read handle (chunk 2) and the save write (chunk 3) route through Loro. Stub
+// the read hook to a no-op handle and capture the write-through so the gate +
+// audit flow is exercised under the real flag-on path without standing up the
+// Loro/WASM graph. The write-through merge mirrors what the legacy update gave.
+const { writeThroughLoro } = vi.hoisted(() => ({
+  writeThroughLoro: vi.fn(
+    async (_owner: string, _id: number, patch: Record<string, unknown>) => ({
+      id: 7,
+      item_name: (patch.item_name as string) ?? "Primer mix",
+      ...patch,
+    }),
+  ),
+}));
+vi.mock("@/lib/loro/use-purchase-row-loro", () => ({
+  usePurchaseRowLoro: () => ({ handle: null, opening: false, ephemeral: null }),
+}));
+vi.mock("@/lib/loro/purchase-write-through", () => ({
+  writePurchaseUpdateThroughLoro: (...a: unknown[]) =>
+    (writeThroughLoro as (...a: unknown[]) => unknown)(...a),
+}));
+
 // Active user is the lab head "alex" viewing member "morgan"'s order.
 vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({ currentUser: "alex" }),
@@ -142,13 +164,17 @@ describe("PurchaseEditor — PI edit gate", () => {
     // decline rows in the audit log via auditRecordTypeFor).
     expect(call.recordType).toBe("purchase_item");
     expect(call.recordId).toBe(7);
-    // The dataWrite ran the real owner-routed update.
+    // The dataWrite ran the real owner-routed update. PURCHASE_LORO_ENABLED is
+    // on in prod, so the save routes through the Loro write-through targeting
+    // morgan's folder (owner, id, payload, actor) rather than the legacy update.
     await waitFor(() =>
-      expect(purchasesApi.update).toHaveBeenCalledWith(
+      expect(writeThroughLoro).toHaveBeenCalledWith(
+        "morgan",
         7,
         expect.objectContaining({ item_name: "Morgan primer v2" }),
-        "morgan",
+        "alex",
       ),
     );
+    expect(purchasesApi.update).not.toHaveBeenCalled();
   });
 });
