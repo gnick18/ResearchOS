@@ -78,9 +78,8 @@ export async function fetchSnapshot(
   try {
     opened = await unsealSnapshot(sealed);
   } catch (e) {
-    // TEMP diagnostic: unseal (X25519 openSealed) failed. Almost always a key
-    // mismatch (the laptop sealed to a device key that does not match this
-    // phone's current X25519 key). Surface it instead of a generic sync error.
+    // Unseal (X25519 openSealed) failed. Rare, but worth a clear log for support
+    // (usually a device-key mismatch) rather than a generic "could not sync".
     console.warn(
       `[snapshot] unseal failed for "${name}" (sealedBytes=${sealed.length})`,
       e,
