@@ -1,10 +1,10 @@
 /**
- * Calc screen: 6-tab bench calculator (offline, pure client-side math).
+ * Calc screen: 5-tab bench calculator (offline, pure client-side math).
  *
- * Tabs: Scientific, Molarity, Dilution, Serial dilution, DNA/RNA, Buffer recipe.
+ * Tabs: Scientific, Molarity, Dilution, Serial dilution, Buffer recipe.
  * Each tab live-recomputes on every keystroke and shows results in a sky-tinted
- * Card. A horizontal chip row at the top switches tabs. Sequence-paste tools
- * (Primer Tm, Protein properties) live on the laptop, not here.
+ * Card. A horizontal chip row at the top switches tabs. Sequence and
+ * nucleic-acid tools (Primer Tm, Protein, DNA/RNA) live on the laptop, not here.
  *
  * Pure functions come from mobile/lib/calculators/ which are already on main.
  * No writes, no network, no storage.
@@ -37,10 +37,7 @@ import {
   concFromMolesVolume,
   dilutionV1,
   serialDilution,
-  naMolesFromMass,
-  concFromA260,
   bufferRecipe,
-  type NucleicAcidKind,
   type SerialDilutionStep,
   type BufferComponentInput,
 } from '@/lib/calculators/calculators';
@@ -69,7 +66,6 @@ type TabId =
   | 'molarity'
   | 'dilution'
   | 'serial'
-  | 'nucleic'
   | 'buffer';
 
 const TABS: { id: TabId; label: string }[] = [
@@ -77,7 +73,6 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'molarity', label: 'Molarity' },
   { id: 'dilution', label: 'Dilution' },
   { id: 'serial', label: 'Serial dilution' },
-  { id: 'nucleic', label: 'DNA/RNA' },
   { id: 'buffer', label: 'Buffer' },
 ];
 
@@ -135,7 +130,6 @@ export default function CalcScreen() {
         {activeTab === 'molarity' && <MolarityTab />}
         {activeTab === 'dilution' && <DilutionTab />}
         {activeTab === 'serial' && <SerialTab />}
-        {activeTab === 'nucleic' && <NucleicTab />}
         {activeTab === 'buffer' && <BufferTab />}
       </ScrollView>
     </ScreenFrame>
@@ -711,101 +705,7 @@ function SerialTab() {
 }
 
 // ---------------------------------------------------------------------------
-// Tab 4: DNA / RNA
-// ---------------------------------------------------------------------------
-
-const NA_KINDS: { id: NucleicAcidKind; label: string }[] = [
-  { id: 'dsDNA', label: 'dsDNA (650 Da/bp)' },
-  { id: 'ssDNA', label: 'ssDNA (330 Da/nt)' },
-  { id: 'RNA',   label: 'RNA (330 Da/nt)' },
-];
-
-function NucleicTab() {
-  const [kind, setKind] = useState<NucleicAcidKind>('dsDNA');
-  const [length, setLength] = useState('');
-  const [mass, setMass] = useState('');
-  const [massU, setMassU] = useState<MassUnit>('ug');
-  const [a260, setA260] = useState('');
-  const [dil, setDil] = useState('1');
-  const { surface } = useTheme();
-
-  const lengthN = parseNum(length);
-  const massN = parseNum(mass);
-  const a260n = parseNum(a260);
-  const dilN = parseNum(dil);
-
-  const lengthLabel = kind === 'dsDNA' ? 'Length (bp)' : 'Length (nt)';
-
-  let moles: number | null = null;
-  let a260Conc: number | null = null;
-  try {
-    if (lengthN !== null && massN !== null) {
-      moles = naMolesFromMass(massToBase(massN, massU), lengthN, kind);
-    }
-    if (a260n !== null && dilN !== null) {
-      a260Conc = concFromA260(a260n, kind, dilN);
-    }
-  } catch {
-    // partial input
-  }
-
-  return (
-    <View style={styles.tabGap}>
-      {/* Kind picker */}
-      <View style={styles.fieldWrap}>
-        <FieldLabel>Nucleic acid type</FieldLabel>
-        <View style={styles.kindRow}>
-          {NA_KINDS.map((k) => {
-            const active = k.id === kind;
-            return (
-              <Pressable
-                key={k.id}
-                onPress={() => setKind(k.id)}
-                style={[
-                  styles.kindChip,
-                  {
-                    backgroundColor: active ? palette.skyDim : surface.sunken,
-                    borderColor: active ? palette.skyBorder : surface.border,
-                    borderRadius: radii.sm,
-                  },
-                ]}
-              >
-                <Text style={[styles.kindChipLabel, { color: active ? palette.sky : surface.muted }]}>
-                  {k.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* Mass to moles */}
-      <Card>
-        <Text style={[styles.sectionLabel, { color: surface.muted }]}>MASS TO MOLES</Text>
-        <PlainNumeric label={lengthLabel} value={length} onValue={setLength} placeholder="e.g. 1000" />
-        <NumericWithUnit label="Mass" value={mass} onValue={setMass} unit={massU} onUnit={setMassU} units={MASS_UNITS} />
-        <ResultCard empty={moles === null}>
-          {moles !== null ? <ResultRow label="Amount" value={describeMoles(moles)} /> : null}
-        </ResultCard>
-      </Card>
-
-      {/* A260 to concentration */}
-      <Card>
-        <Text style={[styles.sectionLabel, { color: surface.muted }]}>A260 TO CONCENTRATION</Text>
-        <PlainNumeric label="A260 reading" value={a260} onValue={setA260} placeholder="e.g. 0.85" />
-        <PlainNumeric label="Dilution factor" value={dil} onValue={setDil} placeholder="1" suffix="x" />
-        <ResultCard empty={a260Conc === null}>
-          {a260Conc !== null ? (
-            <ResultRow label="Concentration" value={`${formatNum(a260Conc, 4)} ng/uL`} />
-          ) : null}
-        </ResultCard>
-      </Card>
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Tab 5: Buffer recipe
+// Tab 4: Buffer recipe
 // ---------------------------------------------------------------------------
 
 interface BufferRow {
@@ -997,10 +897,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   unitLabel: { fontSize: 12, fontWeight: '700' },
-  kindRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  kindChip: { paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1 },
-  kindChipLabel: { fontSize: 13, fontWeight: '600' },
-  sectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
   resultEmpty: {
     borderWidth: 1,
     borderStyle: 'dashed',
