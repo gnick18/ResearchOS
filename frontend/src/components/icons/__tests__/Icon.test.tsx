@@ -31,6 +31,19 @@ describe("<Icon>", () => {
     expect(titledSvg?.querySelector("title")?.textContent).toBe("Search");
   });
 
+  it("degrades to a fallback glyph (no throw) for an unknown / undefined name", () => {
+    // The palette aggregates icon names from many dynamic + persisted sources;
+    // a single bad or undefined name must not white-screen the surface. Cast
+    // around the IconName type to simulate the runtime-bad value.
+    const bogus = render(<Icon name={"definitely-not-an-icon" as IconName} />);
+    const bogusSvg = bogus.container.querySelector("svg");
+    expect(bogusSvg).not.toBeNull();
+    expect(bogusSvg?.querySelectorAll("path, circle, line, rect, polyline, polygon, text, ellipse").length).toBeGreaterThan(0);
+
+    const missing = render(<Icon name={undefined as unknown as IconName} />);
+    expect(missing.container.querySelector("svg")).not.toBeNull();
+  });
+
   it("every registry entry has a non-empty body and a concept", () => {
     const names = Object.keys(ICONS) as IconName[];
     expect(names.length).toBeGreaterThan(30);

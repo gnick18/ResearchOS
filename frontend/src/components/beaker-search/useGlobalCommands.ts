@@ -36,11 +36,13 @@ import type { IconName } from "@/components/icons";
 import { NAV_ITEMS } from "@/lib/nav";
 import { useTheme } from "@/lib/theme/use-theme";
 
-/** A sensible existing Icon for each top-level route. Falls back to "concept"
+/** A sensible existing Icon for each top-level route. Falls back to "more"
  *  for any route not mapped (a new NAV_ITEMS entry still gets a row). The
  *  registry has no calendar / cart / home glyphs, so the nearest reads stand in
- *  (history for Calendar, download for Purchases, folder for Home). */
-const NAV_ICON_BY_HREF: Record<string, IconName> = {
+ *  (history for Calendar, download for Purchases, folder for Home, vial for
+ *  Inventory, matching the global object index). Every value MUST be a real
+ *  registry key; an unregistered name (e.g. the old "concept") crashes <Icon>. */
+export const NAV_ICON_BY_HREF: Record<string, IconName> = {
   "/": "folder",
   "/workbench": "assemble",
   "/gantt": "list",
@@ -48,6 +50,7 @@ const NAV_ICON_BY_HREF: Record<string, IconName> = {
   "/sequences": "sequence",
   "/purchases": "download",
   "/calendar": "history",
+  "/inventory": "vial",
   "/search": "search",
   "/links": "share",
 };
@@ -73,7 +76,7 @@ export function useGlobalCommands(): EditorCommand[] {
       id: `goto-${item.href}`,
       label: `Go to ${titleCaseLabel(item.label)}`,
       group: "Go to",
-      iconName: NAV_ICON_BY_HREF[item.href] ?? "concept",
+      iconName: NAV_ICON_BY_HREF[item.href] ?? "more",
       // The bare page name widens the fuzzy match, so typing "workbench" finds
       // "Go to Workbench" without the "go to" prefix.
       keywords: item.label,
