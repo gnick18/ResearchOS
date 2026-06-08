@@ -12,7 +12,7 @@
 // Future: mirror the resolved choice into users/<u>/settings.json when a folder
 // is open, as a cross-device convenience (localStorage stays authoritative).
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type ThemeChoice = "light" | "dark" | "system";
 
@@ -54,8 +54,19 @@ export function useTheme() {
     setChoice(readStored());
   }, []);
 
-  // Persist + apply whenever the choice changes.
+  // Persist + apply only on REAL changes, never on the initial default-"light"
+  // mount. The mount run would otherwise write "light" to localStorage and strip
+  // data-theme BEFORE hydration reads the stored value, flipping the whole app to
+  // light and clobbering the saved preference. This bit hard when a SECOND
+  // useTheme mounts (e.g. the Settings modal): its mount-time "light" write raced
+  // the live theme and flipped everything to light. Skipping the first run leaves
+  // the no-FOUC-applied theme intact and only repaints on an actual choice change.
+  const isFirstRun = useRef(true);
   useEffect(() => {
+    if (isFirstRun.current) {
+      isFirstRun.current = false;
+      return;
+    }
     if (typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_KEY, choice);
     apply(resolve(choice));
