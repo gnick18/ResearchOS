@@ -329,11 +329,32 @@ all five docs are committed. Likely next moves, in priority order:
    - STEP 3 COMPLETE. All 7 page sources built + on main (Gantt, Calendar,
      Workbench, Purchases, Methods, Lab Overview, Links). Home is a pure redirect
      router, no source needed. The full nav now drives BeakerSearch.
-   - Step 4 (the remaining optional layer), app-wide mouse-awareness, the
-     provider captures the last `[data-beaker-target]` hovered element before the
-     palette opens and exposes it as `hoveredKey`, which lights up the
-     hovered-as-context paths every source ALREADY supports (they pass null today).
-     Tag the hoverable rows/cards per page + add the capture in BeakerSearchProvider.
+   - STEP 4 COMPLETE, app-wide mouse-awareness, on main. FOUNDATION (`e6d27162a`):
+     `beaker-hover.ts` (pure `beakerTargetKeyOf` + `parseBeakerTargetKey`, splits
+     on the FIRST colon) + a passive `pointerover` listener in BeakerSearchProvider
+     that records the last `[data-beaker-target]` key into a ref (updates only on a
+     tagged ancestor, so the palette/scrim never clears it), snapshot to
+     `hoveredKey` state on open, exposed via `useBeakerHoveredKey()`. PER PAGE, all
+     7 sources wired (hooks read useBeakerHoveredKey + parseBeakerTargetKey, resolve
+     to the hovered entity, feed the builder's hovered slot; each page tags its
+     rows `data-beaker-target="<kind>:<key>"`). SELECTED > HOVERED everywhere; the
+     hovered path reuses the same command set with a "Pointing at" framing. Kinds:
+     task/goal (Gantt bars), event/external (Calendar cells), experiment/list/
+     project/note (Workbench cards), purchase (order rows), method (Methods cards),
+     lab-member (LabRoster rows), link (Links cards). Lab Overview approvals are NOT
+     a row list on the page (just a count -> /purchases), so only member rows are
+     tagged. 302 beaker tests green on main.
+     - INCIDENT (caution for the next session): the shared LOCAL main is mutated by
+       concurrent sessions. The Lab Overview Step-3 source commit got ORPHANED when
+       another session moved main between my merge and my next work (later commits,
+       made on the new main, survived; the LO commit did not). Recovered by
+       re-cherry-picking the dangling SHA. LESSON, after each cherry-pick verify the
+       commit is actually an ANCESTOR of main (`git merge-base --is-ancestor <sha>
+       main`), do not trust the post-cherry-pick HEAD echo, and re-check key files
+       exist on main periodically.
+   - The full BeakerSearch website-wide initiative (foundation + redesign + global
+     object search chunks 1-4 + the generic per-page contract + all 7 page sources
+     + Step 4 hover) is DONE and on main.
 3. **Optional small follow-up:** the EventModal task-picker UI so a user can
    actually create an event-to-task link (the field exists, the UI does not).
 
