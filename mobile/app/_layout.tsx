@@ -65,8 +65,15 @@ export default function RootLayout() {
     setSplashVisible(false);
   }, []);
 
+  // Brand the navigator background too (the canvas behind screens + transitions)
+  // so there is no white flash between screens. Matches the ThemedView canvas.
+  const navTheme =
+    colorScheme === 'dark'
+      ? { ...DarkTheme, colors: { ...DarkTheme.colors, background: '#0a0e1a' } }
+      : { ...DefaultTheme, colors: { ...DefaultTheme.colors, background: '#E6F4FE' } };
+
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={navTheme}>
       <View style={styles.root}>
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

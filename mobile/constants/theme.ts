@@ -11,7 +11,9 @@ const tintColorDark = '#fff';
 export const Colors = {
   light: {
     text: '#11181C',
-    background: '#fff',
+    // Branded canvas (BeakerBot logo off-white), matches lib/design surface.bg
+    // so every ThemedView screen reads on-brand, not clinical white.
+    background: '#E6F4FE',
     tint: tintColorLight,
     icon: '#687076',
     tabIconDefault: '#687076',
@@ -19,7 +21,8 @@ export const Colors = {
   },
   dark: {
     text: '#ECEDEE',
-    background: '#151718',
+    // Branded dark canvas (website dark off-black), matches lib/design.
+    background: '#0a0e1a',
     tint: tintColorDark,
     icon: '#9BA1A6',
     tabIconDefault: '#9BA1A6',
