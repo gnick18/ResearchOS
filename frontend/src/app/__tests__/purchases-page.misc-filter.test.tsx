@@ -96,8 +96,14 @@ vi.mock("@/hooks/useAccountType", () => ({
 // `useRouter().push("/lab-overview")`. The misc-filter suite never
 // triggers it (account_type is "member"), but the hook still has to
 // resolve at render time.
+vi.mock("@/lib/file-system/file-system-context", () => ({
+  // Pre-existing gap: a child of the page reads useFileSystem; provide a stub.
+  useFileSystem: () => ({ currentUser: "alex", isLoading: false, directoryName: "Lab" }),
+}));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
+  // The page reads useSearchParams for the Supplies-hub `?stage=` deep-link.
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 // Supplies hub (914668b05): the Purchases page renders SuppliesTabs as chrome

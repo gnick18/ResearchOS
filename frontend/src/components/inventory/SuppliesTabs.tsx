@@ -26,6 +26,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { Icon } from "@/components/icons";
 import type { IconName } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { INVENTORY_ENABLED } from "@/lib/inventory/config";
 import {
@@ -52,6 +53,10 @@ interface LoopStat {
   icon: IconName;
   /** Color classes for the count + icon (semantic, dark-mode aware). */
   tone: string;
+  /** Deep-link to the matching filtered view. The Inventory / Purchases pages
+   *  read these params on load and seed their filter, so a count is a one-click
+   *  jump into exactly the items it counts. */
+  href: string;
 }
 
 export default function SuppliesTabs() {
@@ -110,18 +115,21 @@ export default function SuppliesTabs() {
         count: signals.expiring.length,
         icon: "alarmClock",
         tone: "text-amber-700 dark:text-amber-300",
+        href: "/inventory?signal=expiring",
       },
       {
         label: "low or empty",
         count: signals.low.length,
         icon: "dropletLow",
         tone: "text-rose-700 dark:text-rose-300",
+        href: "/inventory?signal=low",
       },
       {
         label: "to order",
         count: toOrderCount,
         icon: "box",
         tone: "text-brand-action",
+        href: "/purchases?stage=needs_ordering",
       },
     ],
     [signals.expiring.length, signals.low.length, toOrderCount],
@@ -141,16 +149,22 @@ export default function SuppliesTabs() {
           </span>
           <h1 className="text-title font-semibold text-foreground">Supplies</h1>
         </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           {stats.map((stat) => (
-            <span
+            <Tooltip
               key={stat.label}
-              className="inline-flex items-center gap-1.5 text-meta text-foreground-muted"
+              label={`Show the ${stat.count} ${stat.label}`}
+              placement="bottom"
             >
-              <Icon name={stat.icon} className={`h-3.5 w-3.5 ${stat.tone}`} />
-              <span className={`font-semibold ${stat.tone}`}>{stat.count}</span>
-              <span>{stat.label}</span>
-            </span>
+              <Link
+                href={stat.href}
+                className="group inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-meta text-foreground-muted transition-colors hover:bg-surface-sunken focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action/40"
+              >
+                <Icon name={stat.icon} className={`h-3.5 w-3.5 ${stat.tone}`} />
+                <span className={`font-semibold ${stat.tone}`}>{stat.count}</span>
+                <span className="group-hover:text-foreground">{stat.label}</span>
+              </Link>
+            </Tooltip>
           ))}
         </div>
       </div>

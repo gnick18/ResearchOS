@@ -13,7 +13,8 @@
 // icon-only buttons, brand + semantic (dark-mode) tokens, no emojis / em-dashes
 // / mid-sentence colons.
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import AppShell from "@/components/AppShell";
@@ -115,6 +116,19 @@ export default function InventoryPage() {
   const [activeSignal, setActiveSignal] = useState<InventorySignalKind | null>(
     null,
   );
+
+  // Supplies hub deep-link: a `?signal=expiring|low|stale` param (set by the
+  // clickable loop-strip counts in SuppliesTabs) seeds the health-tile filter on
+  // load, so a count is a one-click jump into exactly the items it counts. After
+  // seeding, the in-page filter UI owns the state normally; we do not force the
+  // URL to track every later in-page change.
+  const searchParams = useSearchParams();
+  const signalParam = searchParams.get("signal");
+  useEffect(() => {
+    if (signalParam === "expiring" || signalParam === "low" || signalParam === "stale") {
+      setActiveSignal(signalParam);
+    }
+  }, [signalParam]);
   const [itemDialog, setItemDialog] = useState<ItemDialogState>({
     mode: "closed",
   });
