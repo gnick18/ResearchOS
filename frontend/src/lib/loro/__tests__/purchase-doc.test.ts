@@ -28,6 +28,7 @@ function makeItem(over: Partial<PurchaseItem> = {}): PurchaseItem {
     notes: "rush order",
     funding_string: "NIH R01 ABC",
     vendor: "NEB",
+    catalog_number: "M0491S",
     category: "reagents",
     assigned_to: "alex",
     order_status: "needs_ordering",

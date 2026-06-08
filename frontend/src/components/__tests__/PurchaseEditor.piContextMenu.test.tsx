@@ -77,6 +77,7 @@ function makeItem(overrides: Partial<PurchaseItem> = {}): PurchaseItem {
     notes: null,
     funding_string: null,
     vendor: null,
+    catalog_number: null,
     category: null,
     ...overrides,
   };

@@ -1126,6 +1126,14 @@ export interface InventoryItem {
   cas: string | null; // chemicals; reuse the Purchases field name
   url: string | null; // product page (mirrors PurchaseItem.link)
   container_label: string | null; // display word for the count: "vial" | "tube" | "bottle" | "plate" | "box". Default "container".
+  // Chemical-safety + EHS reporting fields (audit fix, additive-fields).
+  // Manual entry only, no auto-lookup. `storage_class` is the hazard /
+  // storage category (free text, e.g. "Flammable", "Corrosive"); `hazard_note`
+  // is a short handling reminder; `sds_url` links the safety data sheet.
+  // All additive + optional: legacy records normalize to null on read.
+  storage_class: string | null;
+  hazard_note: string | null;
+  sds_url: string | null;
   notes: string | null;
 
   // Low-stock policy is COUNT-BASED by default (design §2.3). Flags low when the
@@ -1166,6 +1174,10 @@ export interface InventoryItemCreate {
   cas?: string | null;
   url?: string | null;
   container_label?: string | null;
+  // Chemical-safety + EHS reporting fields (audit fix, additive-fields).
+  storage_class?: string | null;
+  hazard_note?: string | null;
+  sds_url?: string | null;
   notes?: string | null;
   low_at_count?: number | null;
   track_consumption?: boolean;
@@ -1186,6 +1198,10 @@ export interface InventoryItemUpdate {
   cas?: string | null;
   url?: string | null;
   container_label?: string | null;
+  // Chemical-safety + EHS reporting fields (audit fix, additive-fields).
+  storage_class?: string | null;
+  hazard_note?: string | null;
+  sds_url?: string | null;
   notes?: string | null;
   low_at_count?: number | null;
   track_consumption?: boolean;
@@ -2148,6 +2164,12 @@ export interface PurchaseItem {
   notes: string | null;
   funding_string: string | null;  // New field for funding account
   vendor: string | null;
+  // Vendor ordering / catalog number (audit fix, additive-fields). The
+  // reorder identifier a user types back into the vendor site, distinct from
+  // `cas` (the chemical identity). Additive + optional: old records without it
+  // normalize to null on read (purchasesApi.create + the Loro field map seed a
+  // null default).
+  catalog_number: string | null;
   category: string | null;
   // Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29):
   // username of the lab member who was asked to actually place this order.
@@ -2217,6 +2239,9 @@ export interface PurchaseItemCreate {
   notes?: string | null;
   funding_string?: string | null;  // New field for funding account
   vendor?: string | null;
+  // Vendor ordering / catalog number (audit fix, additive-fields). Optional;
+  // omitted records default null in purchasesApi.create.
+  catalog_number?: string | null;
   category?: string | null;
   // Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29).
   assigned_to?: string | null;
@@ -2235,6 +2260,8 @@ export interface PurchaseItemUpdate {
   notes?: string | null;
   funding_string?: string | null;  // New field for funding account
   vendor?: string | null;
+  // Vendor ordering / catalog number (audit fix, additive-fields). Optional.
+  catalog_number?: string | null;
   category?: string | null;
   /** Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29):
    *  username to assign (or `null` to clear). The writer that flips this
@@ -2268,6 +2295,10 @@ export interface CatalogItem {
   item_name: string;
   link: string | null;
   cas: string | null;
+  // Vendor ordering / catalog number (audit fix, additive-fields). Lets a
+  // catalog suggestion prefill the new purchase row's catalog_number on
+  // select. Optional on read; legacy catalog entries normalize to null.
+  catalog_number?: string | null;
   price_per_unit: number;
 }
 

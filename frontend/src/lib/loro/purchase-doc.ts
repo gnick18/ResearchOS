@@ -77,6 +77,10 @@ const SCALAR_FIELD_KEYS = [
   "declined_by",
   "last_edited_by",
   "last_edited_at",
+  // Vendor ordering / catalog number (audit fix, additive-fields). Appended at
+  // the END of the locked key order so existing seeds keep their byte layout;
+  // a new key only adds to the tail. Seeds null when the record omits it.
+  "catalog_number",
 ] as const;
 
 type ScalarFieldKey = (typeof SCALAR_FIELD_KEYS)[number];
@@ -147,6 +151,8 @@ function scalarFor(item: PurchaseItem, key: ScalarFieldKey): FieldValue {
       return item.last_edited_by ?? null;
     case "last_edited_at":
       return item.last_edited_at ?? null;
+    case "catalog_number":
+      return item.catalog_number ?? null;
   }
 }
 
@@ -228,6 +234,7 @@ export function getPurchaseFields(doc: LoroDoc): PurchaseItem {
     notes: asString(get("notes")),
     funding_string: asString(get("funding_string")),
     vendor: asString(get("vendor")),
+    catalog_number: asString(get("catalog_number")),
     category: asString(get("category")),
     assigned_to: asString(get("assigned_to")),
     order_status:

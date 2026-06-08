@@ -64,6 +64,9 @@ interface FormState {
   cas: string;
   url: string;
   container_label: string;
+  storage_class: string;
+  hazard_note: string;
+  sds_url: string;
   low_at_count: string;
   product_barcode: string;
   notes: string;
@@ -111,6 +114,9 @@ function itemToForm(item: InventoryItem | null): FormState {
     cas: item?.cas ?? "",
     url: item?.url ?? "",
     container_label: item?.container_label ?? "",
+    storage_class: item?.storage_class ?? "",
+    hazard_note: item?.hazard_note ?? "",
+    sds_url: item?.sds_url ?? "",
     low_at_count:
       item?.low_at_count != null ? String(item.low_at_count) : "",
     product_barcode: item?.product_barcode ?? "",
@@ -294,6 +300,9 @@ export default function ItemFormDialog({
       cas: toNullable(form.cas),
       url: toNullable(form.url),
       container_label: toNullable(form.container_label),
+      storage_class: toNullable(form.storage_class),
+      hazard_note: toNullable(form.hazard_note),
+      sds_url: toNullable(form.sds_url),
       low_at_count,
       product_barcode: toNullable(form.product_barcode),
       notes: toNullable(form.notes),
@@ -784,6 +793,63 @@ export default function ItemFormDialog({
             value={form.url}
             onChange={(e) => set("url", e.target.value)}
             placeholder="https://"
+            autoComplete="off"
+          />
+        </div>
+
+        {/* Safety and storage (audit fix, additive-fields). Manual entry for
+            chemical safety + EHS inventory reporting, no auto-lookup. All
+            optional. The SDS field shows an Open link once a URL is set. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="inv-storage-class" className={LABEL_CLASS}>
+              Storage class
+            </label>
+            <input
+              id="inv-storage-class"
+              className={INPUT_CLASS}
+              value={form.storage_class}
+              onChange={(e) => set("storage_class", e.target.value)}
+              placeholder="Flammable, Corrosive, Oxidizer"
+              autoComplete="off"
+            />
+          </div>
+          <div>
+            <label htmlFor="inv-sds" className={LABEL_CLASS}>
+              Safety data sheet (SDS)
+            </label>
+            <input
+              id="inv-sds"
+              className={INPUT_CLASS}
+              value={form.sds_url}
+              onChange={(e) => set("sds_url", e.target.value)}
+              placeholder="https://"
+              autoComplete="off"
+            />
+            {form.sds_url.trim().length > 0 && (
+              <a
+                href={form.sds_url.trim()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-block text-meta text-brand-action hover:underline"
+              >
+                Open SDS
+              </a>
+            )}
+          </div>
+        </div>
+
+        {/* Hazard note */}
+        <div>
+          <label htmlFor="inv-hazard" className={LABEL_CLASS}>
+            Hazard note
+          </label>
+          <input
+            id="inv-hazard"
+            className={INPUT_CLASS}
+            value={form.hazard_note}
+            onChange={(e) => set("hazard_note", e.target.value)}
+            placeholder="Store below 4C, keep away from acids"
             autoComplete="off"
           />
         </div>

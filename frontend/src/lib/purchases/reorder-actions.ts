@@ -38,6 +38,9 @@ export interface ReorderItemSeed {
   vendor?: string | null;
   cas?: string | null;
   link?: string | null;
+  // Vendor ordering / catalog number (audit fix, additive-fields). Carried
+  // forward so a reorder keeps the catalog id the user types into the vendor.
+  catalog_number?: string | null;
   price_per_unit?: number | null;
   quantity?: number | null;
   notes?: string | null;
@@ -109,6 +112,7 @@ export async function createReorderPurchase(
     vendor: seed.vendor ?? null,
     cas: seed.cas ?? null,
     link: seed.link ?? null,
+    catalog_number: seed.catalog_number ?? null,
     funding_string: seed.funding_string ?? null,
     notes: seed.notes ?? null,
     category: itemCategory,
@@ -128,6 +132,7 @@ export function seedFromPurchaseItem(item: PurchaseItem): ReorderItemSeed {
     vendor: item.vendor,
     cas: item.cas,
     link: item.link,
+    catalog_number: item.catalog_number,
     price_per_unit: item.price_per_unit,
     quantity: item.quantity,
   };

@@ -60,6 +60,7 @@ function seedPurchaseItem(
     notes: null,
     funding_string: null,
     vendor: "VWR",
+    catalog_number: null,
     category: "Consumables",
     ...overrides,
   };

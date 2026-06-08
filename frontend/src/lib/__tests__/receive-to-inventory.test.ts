@@ -85,6 +85,7 @@ function makePurchaseItem(overrides?: Partial<PurchaseItem>): PurchaseItem {
     notes: null,
     funding_string: null,
     vendor: "NEB",
+    catalog_number: null,
     category: null,
     order_status: "received",
     ...overrides,
@@ -114,6 +115,7 @@ describe("receive-to-inventory: choice 2 (create new item + stock)", () => {
       name: purchase.item_name,
       category: "reagent",
       vendor: purchase.vendor ?? undefined,
+      catalog_number: null,
       cas: purchase.cas ?? undefined,
       url: purchase.link ?? undefined,
     });

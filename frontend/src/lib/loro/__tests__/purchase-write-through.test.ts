@@ -90,6 +90,7 @@ function makeItem(over: Partial<PurchaseItem> = {}): PurchaseItem {
     notes: null,
     funding_string: null,
     vendor: "NEB",
+    catalog_number: null,
     category: null,
     flagged: null,
     ...over,
@@ -113,6 +114,7 @@ describe("writePurchaseUpdateThroughLoro", () => {
 
     const projected = await writePurchaseUpdateThroughLoro(OWNER, ID, {
       vendor: "Thermo",
+      catalog_number: null,
     });
 
     // Returns the projected PurchaseItem (same return contract as .update).
@@ -163,6 +165,7 @@ describe("writePurchaseUpdateThroughLoro", () => {
 
     const projected = await writePurchaseUpdateThroughLoro(OWNER, ID, {
       vendor: "Sigma",
+      catalog_number: null,
     });
 
     // Our field changed AND the concurrent remote field is preserved.

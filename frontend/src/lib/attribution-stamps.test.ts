@@ -188,6 +188,7 @@ function seedPurchase(): PurchaseItem {
     notes: null,
     funding_string: null,
     vendor: null,
+    catalog_number: null,
     category: null,
   };
   memFs.set(`users/alex/purchase_items/1.json`, item);

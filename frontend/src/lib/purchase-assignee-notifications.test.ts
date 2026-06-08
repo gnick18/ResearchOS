@@ -107,6 +107,7 @@ function seedItem(item: Partial<PurchaseItem> & { id: number; task_id: number; i
     notes: null,
     funding_string: null,
     vendor: null,
+    catalog_number: null,
     category: null,
     assigned_to: null,
     order_status: "needs_ordering",

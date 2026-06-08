@@ -117,6 +117,7 @@ function seedItem(
     notes: null,
     funding_string: null,
     vendor: null,
+    catalog_number: null,
     category: null,
     assigned_to: null,
     order_status: "needs_ordering",

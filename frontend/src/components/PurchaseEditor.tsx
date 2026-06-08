@@ -66,6 +66,7 @@ interface EditingRow {
   notes: string;
   funding_string: string;
   vendor: string;
+  catalog_number: string;
   category: string;
 }
 
@@ -79,6 +80,7 @@ const EMPTY_ROW: EditingRow = {
   notes: "",
   funding_string: "",
   vendor: "",
+  catalog_number: "",
   category: "",
 };
 
@@ -93,6 +95,7 @@ function itemToEditingRow(item: PurchaseItem): EditingRow {
     notes: item.notes || "",
     funding_string: item.funding_string || "",
     vendor: item.vendor || "",
+    catalog_number: item.catalog_number || "",
     category: item.category || "",
   };
 }
@@ -395,6 +398,7 @@ export default function PurchaseEditor({
       item_name: cat.item_name,
       link: cat.link || "",
       cas: cat.cas || "",
+      catalog_number: cat.catalog_number || "",
       price_per_unit: cat.price_per_unit.toString(),
     }));
     setSelectedCatalogItem(cat);
@@ -407,6 +411,7 @@ export default function PurchaseEditor({
       item_name: cat.item_name,
       link: cat.link || "",
       cas: cat.cas || "",
+      catalog_number: cat.catalog_number || "",
       price_per_unit: cat.price_per_unit.toString(),
     }));
     setEditSelectedCatalogItem(cat);
@@ -511,6 +516,7 @@ export default function PurchaseEditor({
         notes: editingRow.notes.trim() || null,
         funding_string: editingRow.funding_string.trim() || null,
         vendor: editingRow.vendor.trim() || null,
+        catalog_number: editingRow.catalog_number.trim() || null,
         category: editingRow.category.trim() || null,
       };
 
@@ -637,6 +643,7 @@ export default function PurchaseEditor({
         notes: rowData.notes.trim() || null,
         funding_string: rowData.funding_string.trim() || null,
         vendor: rowData.vendor.trim() || null,
+        catalog_number: rowData.catalog_number.trim() || null,
         category: rowData.category.trim() || null,
       });
       setNewRow({ ...EMPTY_ROW });
@@ -705,6 +712,7 @@ export default function PurchaseEditor({
             item_name: newRow.item_name.trim(),
             link: newRow.link.trim() || null,
             cas: newRow.cas.trim() || null,
+            catalog_number: newRow.catalog_number.trim() || null,
             price_per_unit: parseFloat(newRow.price_per_unit) || 0,
           });
         } catch {
@@ -716,6 +724,7 @@ export default function PurchaseEditor({
             item_name: newRow.item_name.trim(),
             link: newRow.link.trim() || null,
             cas: newRow.cas.trim() || null,
+            catalog_number: newRow.catalog_number.trim() || null,
             price_per_unit: parseFloat(newRow.price_per_unit) || 0,
           });
         } catch {
@@ -857,6 +866,11 @@ export default function PurchaseEditor({
               </th>
               <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-28">
                 Vendor
+              </th>
+              {/* Vendor ordering / catalog number (audit fix, additive-fields):
+                  the reorder id a user types back into the vendor site. */}
+              <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-28">
+                Catalog #
               </th>
               <th className="text-left py-2 px-2 text-meta font-semibold text-foreground-muted w-28">
                 Category
@@ -1009,6 +1023,15 @@ export default function PurchaseEditor({
                   <td className="py-2 px-2">
                     <input
                       type="text"
+                      value={editingRow.catalog_number}
+                      onChange={(e) => handleEditFieldChange("catalog_number", e.target.value)}
+                      placeholder="M0491S"
+                      className="w-full px-2 py-1 border border-amber-300 rounded text-body focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    />
+                  </td>
+                  <td className="py-2 px-2">
+                    <input
+                      type="text"
                       list={CATEGORY_DATALIST_ID}
                       value={editingRow.category}
                       onChange={(e) => handleEditFieldChange("category", e.target.value)}
@@ -1122,6 +1145,9 @@ export default function PurchaseEditor({
                   </td>
                   <td className="py-2 px-2 text-foreground-muted text-meta">
                     {item.vendor || "—"}
+                  </td>
+                  <td className="py-2 px-2 text-foreground-muted text-meta">
+                    {item.catalog_number || "—"}
                   </td>
                   <td className="py-2 px-2 text-foreground-muted text-meta">
                     {item.category || "—"}
@@ -1465,6 +1491,15 @@ export default function PurchaseEditor({
                 <td className="py-2 px-2">
                   <input
                     type="text"
+                    value={newRow.catalog_number}
+                    onChange={(e) => handleFieldChange("catalog_number", e.target.value)}
+                    placeholder="M0491S"
+                    className="w-full px-2 py-1 border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  />
+                </td>
+                <td className="py-2 px-2">
+                  <input
+                    type="text"
                     list={CATEGORY_DATALIST_ID}
                     value={newRow.category}
                     onChange={(e) => handleFieldChange("category", e.target.value)}
@@ -1511,9 +1546,9 @@ export default function PurchaseEditor({
               <td className="py-2 px-2 text-right font-bold text-foreground">
                 ${taskTotal.toFixed(2)}
               </td>
-              {/* Funding + Vendor + Category + Notes + Assigned to + Order
-                  status + PI status + actions = 8 trailing columns. */}
-              <td colSpan={8}></td>
+              {/* Funding + Vendor + Catalog # + Category + Notes + Assigned to
+                  + Order status + PI status + actions = 9 trailing columns. */}
+              <td colSpan={9}></td>
             </tr>
           </tfoot>
         </table>

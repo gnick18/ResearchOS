@@ -45,6 +45,7 @@ const priorItems: PurchaseItem[] = [
     notes: null,
     funding_string: "Old funding",
     vendor: "BeakerBot's Boutique",
+    catalog_number: null,
     category: null,
   },
   {
@@ -60,6 +61,7 @@ const priorItems: PurchaseItem[] = [
     notes: null,
     funding_string: null,
     vendor: "BeakerBot's Boutique v2",
+    catalog_number: null,
     category: null,
   },
   {
@@ -75,6 +77,7 @@ const priorItems: PurchaseItem[] = [
     notes: null,
     funding_string: null,
     vendor: "Sigma-Aldrich",
+    catalog_number: null,
     category: null,
   },
 ];
@@ -215,6 +218,7 @@ describe("buildRecentItemEntries — recency quick-pick contract", () => {
       id: i + 1,
       item_name: `Item ${i + 1}`,
       vendor: null,
+      catalog_number: null,
       price_per_unit: i,
     }));
     expect(buildRecentItemEntries(many, 5)).toHaveLength(5);

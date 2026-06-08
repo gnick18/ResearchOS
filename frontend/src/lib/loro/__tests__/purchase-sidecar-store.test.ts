@@ -58,6 +58,7 @@ function makeItem(over: Partial<PurchaseItem> = {}): PurchaseItem {
     notes: null,
     funding_string: null,
     vendor: "NEB",
+    catalog_number: null,
     category: null,
     flagged: null,
     ...over,
