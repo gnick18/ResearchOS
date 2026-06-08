@@ -2310,6 +2310,16 @@ function wholeLabEditShare(): SharedUser[] {
   return [{ username: WHOLE_LAB_SENTINEL, level: "edit" }];
 }
 
+/** UTC day number (whole days since the epoch) for a date, used so the expiry
+ *  comparison is day-level. Expiration dates are stored at UTC midnight (see
+ *  `dateInputToIso`); comparing raw timestamps flips "expired" at UTC midnight,
+ *  which lands the previous evening in a US (UTC-negative) timezone and reads as
+ *  an off-by-one. Comparing day numbers keeps an item "expires today" for its
+ *  whole stored day. */
+function utcDayNumber(d: Date): number {
+  return Math.floor(d.getTime() / 86_400_000);
+}
+
 /**
  * Derive the persisted `status` of a stock from its own fields + its parent
  * item (design §5.2, "derived-and-persisted"). Recomputed on every write.
@@ -2343,10 +2353,12 @@ export function deriveInventoryStatus(
   const now = options?.now ?? new Date();
   const count = Number.isFinite(stock.container_count) ? stock.container_count : 0;
 
-  // 1. Expiry wins outright — it is a fact about the reagent, not a tap.
+  // 1. Expiry wins outright — it is a fact about the reagent, not a tap. The
+  //    comparison is day-level (UTC) so a stock is "expired" only once its
+  //    stored expiry DAY has fully passed, not at the instant of UTC midnight.
   if (stock.expiration_date) {
     const exp = new Date(stock.expiration_date);
-    if (!Number.isNaN(exp.getTime()) && exp.getTime() < now.getTime()) {
+    if (!Number.isNaN(exp.getTime()) && utcDayNumber(now) > utcDayNumber(exp)) {
       return "expired";
     }
   }

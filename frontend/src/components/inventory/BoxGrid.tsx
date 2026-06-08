@@ -32,7 +32,7 @@ import {
 interface BoxGridProps {
   box: StorageNode;
   stocks: InventoryStock[];
-  itemsById: Map<number, InventoryItem>;
+  itemsById: Map<string, InventoryItem>; // keyed `${owner}:${item_id}`
   /** The currently-selected cell id (highlighted), or null. */
   selectedPosition?: string | null;
   /** Click handler. `occupant` is the stock sitting in the cell, or null for an

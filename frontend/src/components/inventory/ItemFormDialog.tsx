@@ -272,8 +272,10 @@ export default function ItemFormDialog({
     let low_at_count: number | null = null;
     if (lowRaw.length > 0) {
       const parsed = Number(lowRaw);
-      if (!Number.isFinite(parsed) || parsed < 0) {
-        setError("Low-stock count must be a number of containers (0 or more).");
+      // A threshold of 0 can never fire (total < 0 is always false), so it would
+      // silently disable the flag. Require 1 or more, and leave blank for off.
+      if (!Number.isFinite(parsed) || parsed < 1) {
+        setError("Low-stock count must be 1 or more (leave blank to turn off).");
         return;
       }
       low_at_count = Math.floor(parsed);
@@ -795,7 +797,7 @@ export default function ItemFormDialog({
             <input
               id="inv-low"
               type="number"
-              min={0}
+              min={1}
               step={1}
               className={INPUT_CLASS}
               value={form.low_at_count}

@@ -11,6 +11,7 @@ import {
   computeStaleSignals,
   computeLowSignals,
   computeInventorySignals,
+  formatDate,
   EXPIRING_SOON_DAYS,
 } from "../inventory-ui";
 import type { InventoryItem, InventoryStock } from "@/lib/types";
@@ -243,5 +244,108 @@ describe("computeInventorySignals", () => {
     );
     expect(bundle.allClear).toBe(false);
     expect(bundle.low).toHaveLength(1);
+  });
+});
+
+describe("cross-owner item-id collision (composite owner:id key)", () => {
+  // Every user's id counter starts at 1, so in a two-user lab alex and mira can
+  // each own an item with id 1. fetchAllInventoryItemsIncludingShared merges
+  // both, so a bare-integer key would let one owner's stocks resolve to the
+  // other owner's item. These lock the composite `${owner}:${item_id}` keying.
+
+  it("computeLowSignals does NOT merge two owners' stocks under the same id", () => {
+    const alexItem = makeItem({
+      id: 1,
+      owner: "alex",
+      name: "Alex Q5",
+      low_at_count: 2,
+    });
+    const miraItem = makeItem({
+      id: 1,
+      owner: "mira",
+      name: "Mira Q5",
+      low_at_count: 2,
+    });
+    const stocks = [
+      // alex is genuinely low: 1 container, threshold 2.
+      makeStock({ id: 1, item_id: 1, owner: "alex", container_count: 1 }),
+      // mira is healthy: 5 containers. A bare-id sum (1 + 5 = 6) would mask
+      // alex's low signal entirely.
+      makeStock({ id: 2, item_id: 1, owner: "mira", container_count: 5 }),
+    ];
+    const out = computeLowSignals([alexItem, miraItem], stocks);
+    expect(out).toHaveLength(1);
+    expect(out[0].item.owner).toBe("alex");
+    expect(out[0].totalContainers).toBe(1);
+  });
+
+  it("computeExpiringSignals resolves a stock to its OWN owner's item", () => {
+    const alexItem = makeItem({ id: 1, owner: "alex", name: "Alex reagent" });
+    // mira's item is pushed last, so a bare-id Map would overwrite key `1` with
+    // it and mislabel alex's expiring stock as "Mira reagent".
+    const miraItem = makeItem({ id: 1, owner: "mira", name: "Mira reagent" });
+    const stock = makeStock({
+      id: 9,
+      item_id: 1,
+      owner: "alex",
+      expiration_date: isoDaysFromNow(5),
+    });
+    const out = computeExpiringSignals([alexItem, miraItem], [stock], NOW);
+    expect(out).toHaveLength(1);
+    expect(out[0].item.owner).toBe("alex");
+    expect(out[0].item.name).toBe("Alex reagent");
+  });
+
+  it("computeStaleSignals resolves a stock to its OWN owner's item", () => {
+    const alexItem = makeItem({ id: 1, owner: "alex", name: "Alex reagent" });
+    const miraItem = makeItem({ id: 1, owner: "mira", name: "Mira reagent" });
+    const stock = makeStock({
+      id: 9,
+      item_id: 1,
+      owner: "alex",
+      received_date: "2025-10-01T12:00:00.000Z",
+    });
+    const out = computeStaleSignals([alexItem, miraItem], [stock], NOW);
+    expect(out).toHaveLength(1);
+    expect(out[0].item.owner).toBe("alex");
+    expect(out[0].item.name).toBe("Alex reagent");
+  });
+});
+
+describe("computeStaleSignals annotation wording", () => {
+  const item = makeItem();
+
+  it("cites the last-touch date when that is the reference, not just receipt", () => {
+    // received Jan 2025, last touched Aug 2025; both past the 6-month cutoff.
+    // The "N months" gap is from the LAST TOUCH (Aug), so the annotation must
+    // name the touch rather than implying the gap is measured from receipt.
+    const stock = makeStock({
+      received_date: "2025-01-01T12:00:00.000Z",
+      last_touched_at: "2025-08-01T12:00:00.000Z",
+    });
+    const out = computeStaleSignals([item], [stock], NOW);
+    expect(out).toHaveLength(1);
+    expect(out[0].annotation).toBe(
+      "Received Jan 1, 2025, last touched Aug 1, 2025 (10 months ago)",
+    );
+  });
+
+  it("uses the received_date phrasing when there is no last touch", () => {
+    const stock = makeStock({ received_date: "2025-10-01T12:00:00.000Z" });
+    const out = computeStaleSignals([item], [stock], NOW);
+    expect(out[0].annotation).toBe("Received Oct 1, 2025, not touched in 8 months");
+  });
+});
+
+describe("formatDate renders the stored UTC-midnight day", () => {
+  // Dates are stored at UTC midnight. formatDate must render in UTC so a US
+  // (UTC-negative) machine does not show the previous calendar day.
+  it("keeps a UTC-midnight ISO on its stored day", () => {
+    expect(formatDate("2026-06-07T00:00:00.000Z")).toBe("Jun 7, 2026");
+  });
+
+  it("returns empty string for null / unparseable input", () => {
+    expect(formatDate(null)).toBe("");
+    expect(formatDate("not-a-date")).toBe("");
   });
 });
