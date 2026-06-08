@@ -3,9 +3,11 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { AppSplash } from '@/components/AppSplash';
+import { RainbowBar } from '@/components/ui/RainbowBar';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 // Keep the native splash up until JS is ready so there is no white flash before
@@ -64,18 +66,36 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="pair" options={{ title: 'Pair' }} />
-        <Stack.Screen name="note" options={{ title: 'Quick note' }} />
-        <Stack.Screen name="reorder" options={{ title: 'Scan to reorder' }} />
-        <Stack.Screen name="scan" options={{ title: 'Scan' }} />
-        <Stack.Screen name="bulk" options={{ title: 'Label photos' }} />
-        <Stack.Screen name="wiki/[slug]" options={{ title: '' }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
+      <View style={styles.root}>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="pair" options={{ title: 'Pair' }} />
+          <Stack.Screen name="note" options={{ title: 'Quick note' }} />
+          <Stack.Screen name="reorder" options={{ title: 'Scan to reorder' }} />
+          <Stack.Screen name="scan" options={{ title: 'Scan' }} />
+          <Stack.Screen name="bulk" options={{ title: 'Label photos' }} />
+          <Stack.Screen name="wiki/[slug]" options={{ title: '' }} />
+          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        </Stack>
+        {/* The signature rainbow lives at the true top and bottom EDGES of the
+            screen (over the status-bar zone and below the tab bar), as fixed
+            overlays, so it is identical on every screen and matches the mockup.
+            pointerEvents none so it never eats taps. */}
+        <View style={styles.rainbowTop} pointerEvents="none">
+          <RainbowBar />
+        </View>
+        <View style={styles.rainbowBottom} pointerEvents="none">
+          <RainbowBar />
+        </View>
+      </View>
       {splashVisible ? <AppSplash onFinish={handleSplashFinish} /> : null}
       <StatusBar style="auto" />
     </ThemeProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  rainbowTop: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50 },
+  rainbowBottom: { position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 50 },
+});
