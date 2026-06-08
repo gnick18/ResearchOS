@@ -163,16 +163,21 @@ describe("findSharedRegions — no homology", () => {
 
 describe("findSharedRegions — caps and stats", () => {
   it("caps the returned HSPs and flags truncation when more are found", () => {
-    // Plant the SAME short block many times so many distinct HSPs exist, then
-    // cap to a small number and assert truncation is reported. Each copy sits in
-    // its own random flank region so they are distinct (non-overlapping) HSPs.
+    // Plant the SAME short block in each sequence a few times. Because the block
+    // is identical, copy i in A is homologous to copy j in B for every (i, j), so
+    // N copies yield N*N distinct cross-matched HSPs (each (i, j) pair has a
+    // distinct A-span/B-span combination that survives de-dup). N=3 gives 9
+    // distinct HSPs, comfortably above the cap of 3, so truncation is proven
+    // structurally without needing a large corpus or depending on wall-clock
+    // under parallel test load. Each copy sits in its own random flank region so
+    // the copies are non-overlapping.
     const block = sharedBlock(400, 5);
-    const copies = 8;
+    const copies = 3;
     let a = "";
     let b = "";
     for (let i = 0; i < copies; i++) {
-      a += randomDna(2_000, 100 + i) + block;
-      b += randomDna(2_000, 200 + i) + block;
+      a += randomDna(1_000, 100 + i) + block;
+      b += randomDna(1_000, 200 + i) + block;
     }
     const result = findSharedRegions(a, b, { maxRegions: 3 });
     expect(result.hsps.length).toBe(3);
