@@ -540,9 +540,11 @@ export function CommandPalette({
   // committed once on release. `gesture` marks an active drag / resize so the
   // render reads the live geometry ref and disables the transition; the height
   // is measured once at gesture start instead of every move.
-  const [gesture, setGesture] = useState<null | "drag" | "resize">(null);
+  const [gesture, setGesture] = useState<null | "drag" | "resize" | "settling">(null);
   const liveGeomRef = useRef<{ x: number; y: number; width: number } | null>(null);
   const gestureHeightRef = useRef(DOCK_HEIGHT_FALLBACK);
+  // Bumped to cancel a pending bounce-back settle when a new gesture begins.
+  const settleTokenRef = useRef(0);
 
   const typing = query.trim() !== "";
 
@@ -988,6 +990,8 @@ export function CommandPalette({
       originX: x,
       originY: y,
     };
+    // Cancel any in-flight bounce-back settle so it cannot finalize mid-drag.
+    settleTokenRef.current++;
     // Measure height ONCE so pointermove never forces a layout reflow.
     gestureHeightRef.current = el.offsetHeight || DOCK_HEIGHT_FALLBACK;
     liveGeomRef.current = { x, y, width: cur.width };
@@ -1039,16 +1043,45 @@ export function CommandPalette({
       const x = d.originX + (e.clientX - d.startX);
       const y = d.originY + (e.clientY - d.startY);
       const armed = cornerArm(e.clientX, e.clientY, vp);
-      liveGeomRef.current = null;
       armedRef.current = null;
       setArmedSide(null);
-      setGesture(null);
       if (armed) {
+        liveGeomRef.current = null;
+        setGesture(null);
         setDock((cur) => tuckDock(cur, armed, vp, h));
-      } else {
-        const c = clampPosition(x, y, vp, 44, h, w);
-        setDock((cur) => ({ ...cur, x: c.x, y: c.y, tucked: false }));
+        return;
       }
+      const target = clampPosition(x, y, vp, 44, h, w);
+      const offScreen = target.x !== x || target.y !== y;
+      if (!offScreen || reduceMotionRef.current || !el) {
+        // Already fully in view (or reduced motion): commit with no animation.
+        liveGeomRef.current = null;
+        setGesture(null);
+        setDock((cur) => ({ ...cur, x: target.x, y: target.y, tucked: false }));
+        return;
+      }
+      // Gentle bounce back into full view. Animate imperatively from the dropped
+      // (partially off-screen) position to the clamped target with an ease-out
+      // overshoot, then commit state once the settle finishes. A re-render during
+      // the settle reads the live ref (= target) so it never snaps.
+      const token = ++settleTokenRef.current;
+      liveGeomRef.current = { x: target.x, y: target.y, width: w };
+      setGesture("settling");
+      el.style.transition =
+        "left 420ms cubic-bezier(.34,1.45,.5,1), top 420ms cubic-bezier(.34,1.45,.5,1)";
+      void el.offsetWidth; // lock in the start position with the transition armed
+      el.style.left = `${target.x}px`;
+      el.style.top = `${target.y}px`;
+      const finalize = () => {
+        if (settleTokenRef.current !== token) return; // superseded by a new gesture
+        settleTokenRef.current++;
+        el.style.transition = "";
+        liveGeomRef.current = null;
+        setGesture(null);
+        setDock((cur) => ({ ...cur, x: target.x, y: target.y, tucked: false }));
+      };
+      el.addEventListener("transitionend", finalize, { once: true });
+      window.setTimeout(finalize, 460);
     },
     [cornerArm],
   );
@@ -1077,6 +1110,7 @@ export function CommandPalette({
       const el = dockRef.current;
       const cur = dockStateRef.current;
       const rect = el?.getBoundingClientRect();
+      settleTokenRef.current++; // cancel any in-flight bounce-back settle
       resizeRef.current = { pointerId: e.pointerId, edge };
       liveGeomRef.current = {
         x: cur.x ?? rect?.left ?? 0,
