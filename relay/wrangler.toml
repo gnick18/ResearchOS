@@ -47,6 +47,14 @@ bucket_name = "researchos-collab-backups"
 binding = "CAPTURES"
 bucket_name = "researchos-captures"
 
+# R2 bucket for server-blind lab data (lab tier Phase 3 chunk 1). Stores opaque
+# lab-key ciphertext keyed `${labId}/${owner}/${recordType}/${recordId}`. The
+# relay never decrypts; it only verifies the signer is a lab member before
+# writing. Reads are open at the transport (useless without the lab key).
+[[r2_buckets]]
+binding = "LAB_DATA"
+bucket_name = "researchos-lab-data"
+
 # new_sqlite_classes is required for the WebSocket Hibernation API on a fresh
 # DO class (SQLite-backed DOs are the current default storage backend).
 [[migrations]]

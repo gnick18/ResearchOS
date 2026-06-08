@@ -247,3 +247,21 @@ export function verifyMembershipLog(record: LabRecord): VerifyResult {
 
   return { ok: true, reason: "" };
 }
+
+/**
+ * True when pubkeyHex (hex Ed25519 signing key) is the lab head or a listed
+ * member of the lab record. Uses the real LabRecord shape where head is a
+ * LabMember with ed25519PublicKey and members is an array of LabMember. The
+ * data routes check this server-side against the roster fetched from the
+ * LabRecordDO, and the client checks it locally. Comparison is case-insensitive.
+ */
+export function isLabMemberOrHead(
+  record: LabRecord,
+  pubkeyHex: string,
+): boolean {
+  const target = pubkeyHex.toLowerCase();
+  if (record.head.ed25519PublicKey.toLowerCase() === target) return true;
+  return record.members.some(
+    (m) => m.ed25519PublicKey.toLowerCase() === target,
+  );
+}
