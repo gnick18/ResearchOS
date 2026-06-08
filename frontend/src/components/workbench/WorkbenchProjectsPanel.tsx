@@ -133,6 +133,7 @@ function ProjectCard({ project, color, counts, sequenceCount, onOpen }: ProjectC
     <button
       type="button"
       onClick={onOpen}
+      data-beaker-target={`project:${project.owner}:${project.id}`}
       className="relative flex flex-col text-left rounded-xl border border-border bg-surface-raised p-4 shadow-sm transition-all hover:shadow-md hover:border-foreground-muted/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
     >
       {project.is_shared_with_me && (

@@ -266,21 +266,25 @@ export default function WorkbenchListsPanel({
           }
         />
       );
-      if (!isFirstCardOverall) return row;
-      // Workbench expansion manager 2026-05-22 (§6.7b): wrap the first
-      // list card rendered across every section in a div carrying
+      // BeakerSearch hover-as-context (step 4): tag every list card wrapper with
+      // its composite taskKey so the palette can resolve the list the cursor was
+      // pointing at when nothing is selected (SELECTED still outranks HOVERED).
+      // Workbench expansion manager 2026-05-22 (§6.7b): the first list card
+      // rendered across every section also carries
       // `data-tour-target="workbench-list-card-first"`, so the
-      // workbench-list-add-items cursor demo can deterministically
-      // resolve the just-created list. Render-scoped — the flag is
-      // recomputed below on every render, so a back-step into the same
-      // step gets a fresh latch. The wrapper sits above the new
-      // ExpandableListCard (which replaced ListTaskRow in the parallel
-      // inline-expand UX chip d3991231), so the data-tour-target
-      // resolves the entire card including its expanded panel.
+      // workbench-list-add-items cursor demo can deterministically resolve the
+      // just-created list. Render-scoped — the flag is recomputed on every render,
+      // so a back-step into the same step gets a fresh latch. The wrapper sits
+      // above the ExpandableListCard (which replaced ListTaskRow in the parallel
+      // inline-expand UX chip d3991231), so both targets resolve the entire card
+      // including its expanded panel.
       return (
         <div
-          key={`first-card-wrapper-${tk}`}
-          data-tour-target="workbench-list-card-first"
+          key={`card-wrapper-${tk}`}
+          data-beaker-target={`list:${tk}`}
+          data-tour-target={
+            isFirstCardOverall ? "workbench-list-card-first" : undefined
+          }
         >
           {row}
         </div>

@@ -144,6 +144,7 @@ function makeData(over: Partial<WorkbenchSourceData> = {}): WorkbenchSourceData 
     selectedList: null,
     selectedNote: null,
     selectedOneOnOne: null,
+    hovered: null,
     recent: [],
     taskKeyOf,
     projectKeyOf,
@@ -526,6 +527,81 @@ describe("buildWorkbenchSource nav groups", () => {
     const exp = src.navGroups!.find((g) => g.title === "Jump to an experiment")!;
     expect(exp.items.map((i) => i.label)).toEqual(["In view", "Off screen"]);
     expect(exp.hint).toBe("in view (1)");
+  });
+});
+
+// ── Hover as context (SELECTED > HOVERED) ────────────────────────────────────
+
+describe("buildWorkbenchSource hover as context", () => {
+  it("a hovered experiment with no selection drives its Suggested + a Pointing at line", () => {
+    const hov = makeTask({ id: 42, name: "Hovered run" });
+    const src = buildWorkbenchSource(
+      makeData({
+        experiments: [hov],
+        hovered: { kind: "experiment", task: hov },
+      }),
+      noopHandlers,
+    );
+    // The context-card selection line frames the hovered card.
+    expect(src.contextCard!.selection?.text).toBe(
+      "Pointing at Hovered run, Running, day 2 of 5",
+    );
+    // Suggested leads with the same per-entity action ids a selection would.
+    expect(src.suggestedIds!.slice(0, 2)).toEqual([
+      "workbench-experiment-open",
+      "workbench-experiment-comment",
+    ]);
+    expect(src.suggestedHint).toBe("for the experiment you were pointing at");
+    // Those ids resolve to real commands (the hovered card emits the rows).
+    const ids = new Set(src.commands.map((c) => c.id));
+    expect(ids.has("workbench-experiment-open")).toBe(true);
+    expect(ids.has("workbench-experiment-comment")).toBe(true);
+  });
+
+  it("SELECTED outranks HOVERED, the open entity wins over a stale hover", () => {
+    const selected = makeTask({ id: 1, name: "Open experiment" });
+    const hov = makeTask({ id: 2, name: "Hovered experiment" });
+    const src = buildWorkbenchSource(
+      makeData({
+        experiments: [selected, hov],
+        selectedExperiment: selected,
+        hovered: { kind: "experiment", task: hov },
+      }),
+      noopHandlers,
+    );
+    // The selection line names the open entity plainly, no "Pointing at".
+    expect(src.contextCard!.selection?.text).toBe(
+      "Open experiment, Running, day 2 of 5",
+    );
+    expect(src.suggestedHint).toBe("for the selected experiment");
+  });
+
+  it("frames a hovered note and a hovered project with their own copy", () => {
+    const note = makeNote({ id: 9, title: "Hovered note" });
+    const noteSrc = buildWorkbenchSource(
+      makeData({ activeTab: "notes", notes: [note], hovered: { kind: "note", note } }),
+      noopHandlers,
+    );
+    expect(noteSrc.contextCard!.selection?.text).toBe(
+      "Pointing at Hovered note, in Lab meeting, updated 2h ago",
+    );
+    expect(noteSrc.suggestedHint).toBe("for the note you were pointing at");
+
+    const project = makeProject({ id: 3, name: "Hovered project" });
+    const projSrc = buildWorkbenchSource(
+      makeData({
+        activeTab: "projects",
+        projects: [project],
+        hovered: { kind: "project", project },
+      }),
+      noopHandlers,
+    );
+    // A hovered project surfaces a context-card line but has no per-entity
+    // Suggested rows, so it carries no selection-specific hint.
+    expect(projSrc.contextCard!.selection?.text).toBe(
+      "Pointing at Hovered project, 8 experiments, 62% complete",
+    );
+    expect(projSrc.suggestedHint).toBeUndefined();
   });
 });
 

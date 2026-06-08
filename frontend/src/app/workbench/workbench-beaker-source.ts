@@ -136,6 +136,20 @@ export interface WorkbenchSourceData {
   selectedNote: Note | null;
   selectedOneOnOne: OneOnOne | null;
 
+  // HOVERED (the card / row the cursor was over when the palette opened,
+  // resolved by the hook from the data-beaker-target key). SELECTED always
+  // outranks this, so a real open entity wins over a stale hover. When nothing
+  // is selected, the hovered entity drives the SAME context-card selection line
+  // and the SAME per-entity Suggested set, only the framing ("Pointing at" vs
+  // "selected") changes. Null when nothing tagged was under the pointer. The 1:1
+  // tab has no hoverable card today, so it is not a hovered kind.
+  hovered:
+    | { kind: "experiment"; task: Task }
+    | { kind: "list"; task: Task }
+    | { kind: "note"; note: Note }
+    | { kind: "project"; project: Project }
+    | null;
+
   /** The recently-opened MRU refs (newest first), for the "Recently opened"
    *  cross-tab nav group (spec 5). */
   recent: WorkbenchRecentRef[];
@@ -242,6 +256,44 @@ function resolveSelection(data: WorkbenchSourceData):
   return null;
 }
 
+/** The resolved active-context entity by the SELECTED > HOVERED rule. When a real
+ *  selection exists, hovered is ignored. When nothing is selected, the card the
+ *  cursor was pointing at drives the SAME context-card selection line and the
+ *  SAME per-entity Suggested set, only the framing changes. `isHovered` lets the
+ *  copy switch voice without duplicating the per-entity logic. A hovered 1:1 is
+ *  not modeled (the 1:1 tab has no tagged card), so the oneonone kind only ever
+ *  arrives via a real selection. */
+type WorkbenchContext =
+  | { kind: "experiment"; task: Task; isHovered: boolean }
+  | { kind: "list"; task: Task; isHovered: boolean }
+  | { kind: "note"; note: Note; isHovered: boolean }
+  | { kind: "oneonone"; oo: OneOnOne; isHovered: boolean }
+  | { kind: "project"; project: Project; isHovered: boolean }
+  | null;
+
+function resolveContext(data: WorkbenchSourceData): WorkbenchContext {
+  const sel = resolveSelection(data);
+  if (sel?.kind === "experiment") {
+    return { kind: "experiment", task: sel.task, isHovered: false };
+  }
+  if (sel?.kind === "list") return { kind: "list", task: sel.task, isHovered: false };
+  if (sel?.kind === "note") return { kind: "note", note: sel.note, isHovered: false };
+  if (sel?.kind === "oneonone") {
+    return { kind: "oneonone", oo: sel.oo, isHovered: false };
+  }
+
+  const hov = data.hovered;
+  if (hov?.kind === "experiment") {
+    return { kind: "experiment", task: hov.task, isHovered: true };
+  }
+  if (hov?.kind === "list") return { kind: "list", task: hov.task, isHovered: true };
+  if (hov?.kind === "note") return { kind: "note", note: hov.note, isHovered: true };
+  if (hov?.kind === "project") {
+    return { kind: "project", project: hov.project, isHovered: true };
+  }
+  return null;
+}
+
 /** The plain tab noun for the context-card headline (spec 3.5). The 1:1 tab uses
  *  the role-relative label. */
 function tabNoun(data: WorkbenchSourceData): string {
@@ -330,28 +382,36 @@ function tabSub(data: WorkbenchSourceData): string {
  *  filtered to <scope>], <sub>"; plus a second stacked selection line under a
  *  hairline divider naming the open experiment / list / note / 1:1. */
 function buildContextCard(data: WorkbenchSourceData): PaletteContextCard {
-  const sel = resolveSelection(data);
+  const ctx = resolveContext(data);
   let selection: PaletteContextCard["selection"];
 
-  if (sel?.kind === "experiment") {
+  // A real selection names the open entity plainly; a hover frames it as "the
+  // card you were pointing at", so the user knows which one drives Suggested.
+  const lead = ctx?.isHovered ? "Pointing at " : "";
+  if (ctx?.kind === "experiment") {
     selection = {
       iconName: ICON_EXPERIMENT,
-      text: `${sel.task.name}, ${data.experimentDetailOf(sel.task)}`,
+      text: `${lead}${ctx.task.name}, ${data.experimentDetailOf(ctx.task)}`,
     };
-  } else if (sel?.kind === "list") {
+  } else if (ctx?.kind === "list") {
     selection = {
       iconName: ICON_LIST,
-      text: `${sel.task.name}, ${data.listDetailOf(sel.task)}`,
+      text: `${lead}${ctx.task.name}, ${data.listDetailOf(ctx.task)}`,
     };
-  } else if (sel?.kind === "note") {
+  } else if (ctx?.kind === "note") {
     selection = {
       iconName: ICON_NOTE,
-      text: `${sel.note.title}, ${data.noteDetailOf(sel.note)}`,
+      text: `${lead}${ctx.note.title}, ${data.noteDetailOf(ctx.note)}`,
     };
-  } else if (sel?.kind === "oneonone") {
+  } else if (ctx?.kind === "oneonone") {
     selection = {
       iconName: ICON_ONEONONE,
-      text: data.oneOnOneNameOf(sel.oo),
+      text: `${lead}${data.oneOnOneNameOf(ctx.oo)}`,
+    };
+  } else if (ctx?.kind === "project") {
+    selection = {
+      iconName: ICON_PROJECT,
+      text: `${lead}${ctx.project.name}, ${data.projectDetailOf(ctx.project)}`,
     };
   }
 
@@ -377,12 +437,15 @@ function buildCommands(
   handlers: WorkbenchSourceHandlers,
 ): EditorCommand[] {
   const out: EditorCommand[] = [];
-  const sel = resolveSelection(data);
+  // SELECTED > HOVERED. A hovered card drives the same per-entity action rows as a
+  // selection (same ids, same enabled gating), so Suggested can name them either
+  // way. The oneonone rows only ever fire from a real selection (no hovered 1:1).
+  const ctx = resolveContext(data);
   const single = singleProjectFilter(data);
 
-  // ── Selected entity row actions (spec 6.5). ───────────────────────────────
-  if (sel?.kind === "experiment") {
-    const t = sel.task;
+  // ── Selected / hovered entity row actions (spec 6.5). ─────────────────────
+  if (ctx?.kind === "experiment") {
+    const t = ctx.task;
     out.push({
       id: "workbench-experiment-open",
       label: `Open "${t.name}"`,
@@ -400,8 +463,8 @@ function buildCommands(
       iconName: "share",
       run: () => handlers.openTaskComments(t),
     });
-  } else if (sel?.kind === "list") {
-    const t = sel.task;
+  } else if (ctx?.kind === "list") {
+    const t = ctx.task;
     const canToggle = canToggleListComplete(t);
     out.push({
       id: "workbench-list-open",
@@ -432,8 +495,8 @@ function buildCommands(
       iconName: "list",
       run: () => handlers.expandListInline(t),
     });
-  } else if (sel?.kind === "note") {
-    const n = sel.note;
+  } else if (ctx?.kind === "note") {
+    const n = ctx.note;
     const editable = data.noteEditableOf(n);
     out.push({
       id: "workbench-note-open",
@@ -473,8 +536,8 @@ function buildCommands(
       enabled: editable,
       run: () => handlers.deleteNote(n),
     });
-  } else if (sel?.kind === "oneonone") {
-    const oo = sel.oo;
+  } else if (ctx?.kind === "oneonone") {
+    const oo = ctx.oo;
     const name = data.oneOnOneNameOf(oo);
     out.push({
       id: "workbench-oneonone-open",
@@ -653,24 +716,27 @@ export function noteKey(note: Note, currentUser: string): string {
  *  selected-experiment Suggested with Open, Add a comment, then New experiment. */
 function buildSuggestedIds(data: WorkbenchSourceData): string[] {
   const ids: string[] = [];
-  const sel = resolveSelection(data);
+  // SELECTED > HOVERED, both lead with the same per-entity action ids. A hovered
+  // project carries no per-entity command rows, so it falls through to the
+  // orientation defaults below (the same defaults a bare tab shows).
+  const ctx = resolveContext(data);
 
-  if (sel?.kind === "experiment") {
+  if (ctx?.kind === "experiment") {
     ids.push("workbench-experiment-open", "workbench-experiment-comment");
-  } else if (sel?.kind === "list") {
+  } else if (ctx?.kind === "list") {
     ids.push(
       "workbench-list-open",
       "workbench-list-toggle",
       "workbench-list-expand",
     );
-  } else if (sel?.kind === "note") {
+  } else if (ctx?.kind === "note") {
     ids.push(
       "workbench-note-open",
       "workbench-note-comment",
       "workbench-note-move",
       "workbench-note-delete",
     );
-  } else if (sel?.kind === "oneonone") {
+  } else if (ctx?.kind === "oneonone") {
     ids.push(
       "workbench-oneonone-open",
       "workbench-oneonone-goals",
@@ -705,13 +771,27 @@ function buildSuggestedIds(data: WorkbenchSourceData): string[] {
   return ids;
 }
 
-/** The Suggested heading hint (spec 6.5). */
+/** The Suggested heading hint (spec 6.5). A real selection reads "for the
+ *  selected ...", a hover reads "for the ... you were pointing at". A hovered
+ *  project has no per-entity Suggested rows, so it carries no hint. */
 function buildSuggestedHint(data: WorkbenchSourceData): string | undefined {
-  const sel = resolveSelection(data);
-  if (sel?.kind === "experiment") return "for the selected experiment";
-  if (sel?.kind === "list") return "for the selected list task";
-  if (sel?.kind === "note") return "for the selected note";
-  if (sel?.kind === "oneonone") return "for the selected 1:1";
+  const ctx = resolveContext(data);
+  if (ctx?.kind === "experiment") {
+    return ctx.isHovered
+      ? "for the experiment you were pointing at"
+      : "for the selected experiment";
+  }
+  if (ctx?.kind === "list") {
+    return ctx.isHovered
+      ? "for the list task you were pointing at"
+      : "for the selected list task";
+  }
+  if (ctx?.kind === "note") {
+    return ctx.isHovered
+      ? "for the note you were pointing at"
+      : "for the selected note";
+  }
+  if (ctx?.kind === "oneonone") return "for the selected 1:1";
   return undefined;
 }
 

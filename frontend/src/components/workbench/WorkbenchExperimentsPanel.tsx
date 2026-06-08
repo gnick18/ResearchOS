@@ -475,6 +475,7 @@ export default function WorkbenchExperimentsPanel({
         className="flex flex-col gap-2"
         data-tour-target={labTourTarget}
         data-testid="experiment-board-card"
+        data-beaker-target={`experiment:${taskKey(t)}`}
         onContextMenu={(e) => {
           e.preventDefault();
           setTileMenu({ x: e.clientX, y: e.clientY, task: t });

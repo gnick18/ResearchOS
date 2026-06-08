@@ -3,6 +3,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Note, LabNote } from "@/lib/types";
 import { notesApi } from "@/lib/local-api";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import UserAvatar from "@/components/UserAvatar";
 import AttributionChip from "@/components/AttributionChip";
 import ReceivedFromBadge from "@/components/ReceivedFromBadge";
@@ -21,6 +22,13 @@ interface NoteCardProps {
 
 export default function NoteCard({ note, onClick, isLabMode = false, tourTarget }: NoteCardProps) {
   const queryClient = useQueryClient();
+  const { currentUser } = useCurrentUser();
+  // BeakerSearch hover-as-context (step 4): the composite note key the Workbench
+  // source resolves against (note-<owner>:<id>, owner falling back to the viewer
+  // for a personal note), so the palette can bias Suggested toward the note the
+  // cursor was pointing at. Only the Workbench source parses the "note:" kind, so
+  // tagging the shared NoteCard here is inert on every other surface.
+  const beakerTarget = `note:note-${note.username || currentUser || ""}:${note.id}`;
   const toggleShareMutation = useMutation({
     mutationFn: (next: boolean) => notesApi.update(note.id, { is_shared: next }),
     onSuccess: () => {
@@ -64,6 +72,7 @@ export default function NoteCard({ note, onClick, isLabMode = false, tourTarget 
     <div
       onClick={onClick}
       data-tour-target={tourTarget}
+      data-beaker-target={beakerTarget}
       className="bg-surface-raised rounded-xl border border-border p-4 cursor-pointer hover:shadow-md hover:border-brand-action/30 transition-all duration-200 group"
     >
       {/* Header with icon and type indicator */}

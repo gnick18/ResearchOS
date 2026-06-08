@@ -1,6 +1,7 @@
 "use client";
 
 import type { Note, LabNote } from "@/lib/types";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import UserAvatar from "@/components/UserAvatar";
 import ReceivedFromBadge from "@/components/ReceivedFromBadge";
 
@@ -17,6 +18,12 @@ interface NoteListRowProps {
 // — rows are separated by a hairline divider supplied by the parent's
 // `divide-y` container.
 export default function NoteListRow({ note, onClick, isLabMode = false }: NoteListRowProps) {
+  const { currentUser } = useCurrentUser();
+  // BeakerSearch hover-as-context (step 4): same composite note key the
+  // Workbench source resolves against (note-<owner>:<id>, owner falling back to
+  // the viewer). Inert outside the Workbench source, which is the only one that
+  // parses the "note:" kind.
+  const beakerTarget = `note:note-${note.username || currentUser || ""}:${note.id}`;
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return "";
     try {
@@ -46,6 +53,7 @@ export default function NoteListRow({ note, onClick, isLabMode = false }: NoteLi
       onClick={onClick}
       role="button"
       tabIndex={0}
+      data-beaker-target={beakerTarget}
       aria-label={note.title || "Untitled note"}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
