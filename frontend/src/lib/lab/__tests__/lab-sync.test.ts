@@ -38,6 +38,9 @@ vi.mock("../config", () => ({ LAB_TIER_ENABLED: true }));
 import {
   syncLabWorkToMirror,
   pullMemberLabRecords,
+  makeTombstoneBytes,
+  isTombstone,
+  LAB_TOMBSTONE_MARKER,
   type LabWorkRecord,
   type LabSyncManifest,
 } from "../lab-sync";
@@ -262,6 +265,8 @@ describe("syncLabWorkToMirror", () => {
     expect(result.removedKeys).not.toContain(keptKey);
     // The stale key must still be in the returned manifest (tombstoning deferred).
     expect(result.manifest[removedKey]).toBe("aa".repeat(32));
+    // tombstoneRemoved defaults to false: tombstoned must be empty.
+    expect(result.tombstoned).toHaveLength(0);
   });
 
   it("does not mutate the input manifest", async () => {
@@ -511,5 +516,262 @@ describe("key parsing: 4-segment key", () => {
     const [, , recordType, recordId] = key.split("/");
     expect(recordType).toBe("purchase");
     expect(recordId).toBe("p-7");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tombstone helpers unit tests.
+// ---------------------------------------------------------------------------
+
+describe("makeTombstoneBytes + isTombstone", () => {
+  it("makeTombstoneBytes is deterministic for a fixed deletedAt", () => {
+    const t = 1717000000000;
+    const a = makeTombstoneBytes(t);
+    const b = makeTombstoneBytes(t);
+    // Same length and same bytes.
+    expect(a.byteLength).toBe(b.byteLength);
+    expect(a).toEqual(b);
+  });
+
+  it("makeTombstoneBytes produces different output for different timestamps", () => {
+    const a = makeTombstoneBytes(1000);
+    const b = makeTombstoneBytes(2000);
+    expect(a).not.toEqual(b);
+  });
+
+  it("isTombstone returns true for bytes produced by makeTombstoneBytes", () => {
+    const bytes = makeTombstoneBytes(1717000000000);
+    expect(isTombstone(bytes)).toBe(true);
+  });
+
+  it("isTombstone returns false for a normal record plaintext", () => {
+    const normal = enc.encode(JSON.stringify({ type: "note", content: "PCR recipe" }));
+    expect(isTombstone(normal)).toBe(false);
+  });
+
+  it("isTombstone returns false for garbage bytes (non-JSON)", () => {
+    const garbage = new Uint8Array([0xff, 0xfe, 0x00, 0x01, 0xab, 0xcd]);
+    expect(isTombstone(garbage)).toBe(false);
+  });
+
+  it("isTombstone returns false for empty bytes", () => {
+    expect(isTombstone(new Uint8Array(0))).toBe(false);
+  });
+
+  it(`isTombstone returns false when ${LAB_TOMBSTONE_MARKER} is present but not true`, () => {
+    const bytes = enc.encode(JSON.stringify({ [LAB_TOMBSTONE_MARKER]: false, deletedAt: 999 }));
+    expect(isTombstone(bytes)).toBe(false);
+  });
+
+  it(`isTombstone returns false when ${LAB_TOMBSTONE_MARKER} field is missing`, () => {
+    const bytes = enc.encode(JSON.stringify({ deletedAt: 999 }));
+    expect(isTombstone(bytes)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// syncLabWorkToMirror tombstone-on-delete behaviour.
+// ---------------------------------------------------------------------------
+
+describe("syncLabWorkToMirror with tombstoneRemoved: true", () => {
+  const kp = randomKeyPair();
+  const labId = "lab-ts";
+  const owner = "eve";
+  const labKey = randomLabKey();
+  const FIXED_NOW = 1717111111111;
+
+  // A putImpl mock that captures full params.
+  let putCaptures: Array<Parameters<typeof putLabRecord>[0]>;
+  let mockPut: typeof putLabRecord;
+
+  beforeEach(() => {
+    putCaptures = [];
+    mockPut = vi.fn(async (params) => {
+      putCaptures.push({ ...params });
+    }) as unknown as typeof putLabRecord;
+  });
+
+  it("tombstones a removed key: putImpl called, manifest updated, key in tombstoned", async () => {
+    const removedKey = labDataObjectKey(labId, owner, "note", "deleted-note");
+
+    const inputManifest: LabSyncManifest = {
+      [removedKey]: "aa".repeat(32),
+    };
+
+    const result = await syncLabWorkToMirror({
+      labId,
+      owner,
+      records: [], // the record was deleted locally
+      labKey,
+      signerEd25519Priv: kp.priv,
+      signerEd25519Pub: kp.pub,
+      manifest: inputManifest,
+      putImpl: mockPut,
+      tombstoneRemoved: true,
+      now: FIXED_NOW,
+    });
+
+    // putImpl must have been called exactly once for the tombstone.
+    expect(putCaptures).toHaveLength(1);
+    const call = putCaptures[0];
+    expect(call.labId).toBe(labId);
+    expect(call.owner).toBe(owner);
+    expect(call.recordType).toBe("note");
+    expect(call.recordId).toBe("deleted-note");
+    // The plaintext supplied must be recognisable as a tombstone.
+    expect(isTombstone(call.plaintext)).toBe(true);
+
+    // The manifest entry must have been updated to the tombstone's sha256.
+    expect(result.manifest[removedKey]).not.toBe("aa".repeat(32));
+    // It must be a valid lowercase hex sha256 (64 chars).
+    expect(result.manifest[removedKey]).toMatch(/^[0-9a-f]{64}$/);
+
+    // The key must appear in tombstoned and in removedKeys.
+    expect(result.tombstoned).toContain(removedKey);
+    expect(result.removedKeys).toContain(removedKey);
+  });
+
+  it("a second sync with the tombstoned manifest does NOT re-push the tombstone", async () => {
+    const removedKey = labDataObjectKey(labId, owner, "task", "deleted-task");
+
+    const inputManifest: LabSyncManifest = {
+      [removedKey]: "bb".repeat(32),
+    };
+
+    // First sync: tombstone is written.
+    const first = await syncLabWorkToMirror({
+      labId,
+      owner,
+      records: [],
+      labKey,
+      signerEd25519Priv: kp.priv,
+      signerEd25519Pub: kp.pub,
+      manifest: inputManifest,
+      putImpl: mockPut,
+      tombstoneRemoved: true,
+      now: FIXED_NOW,
+    });
+
+    expect(first.tombstoned).toContain(removedKey);
+    expect(putCaptures).toHaveLength(1);
+
+    // Second sync: manifest already has the tombstone hash, no live records.
+    putCaptures = [];
+    mockPut = vi.fn(async (params) => {
+      putCaptures.push({ ...params });
+    }) as unknown as typeof putLabRecord;
+
+    const second = await syncLabWorkToMirror({
+      labId,
+      owner,
+      records: [],
+      labKey,
+      signerEd25519Priv: kp.priv,
+      signerEd25519Pub: kp.pub,
+      manifest: first.manifest,
+      putImpl: mockPut,
+      tombstoneRemoved: true,
+      now: FIXED_NOW,
+    });
+
+    // The manifest entry was updated to the tombstone hash on the first sync.
+    // On the second sync, the engine detects the existing hash matches the
+    // tombstone bytes for nowMs and skips the upload (idempotent).
+    expect(putCaptures).toHaveLength(0);
+    expect(second.tombstoned).toHaveLength(0);
+  });
+
+  it("tombstoneRemoved defaults to false: tombstoned is empty, removedKeys reported", async () => {
+    const removedKey = labDataObjectKey(labId, owner, "experiment", "old-exp");
+
+    const inputManifest: LabSyncManifest = {
+      [removedKey]: "cc".repeat(32),
+    };
+
+    const result = await syncLabWorkToMirror({
+      labId,
+      owner,
+      records: [],
+      labKey,
+      signerEd25519Priv: kp.priv,
+      signerEd25519Pub: kp.pub,
+      manifest: inputManifest,
+      putImpl: mockPut,
+      // tombstoneRemoved NOT passed (default false)
+    });
+
+    // Back-compat: putImpl not called, tombstoned empty, removedKeys reported.
+    expect(putCaptures).toHaveLength(0);
+    expect(result.tombstoned).toHaveLength(0);
+    expect(result.removedKeys).toContain(removedKey);
+    // Stale manifest entry untouched.
+    expect(result.manifest[removedKey]).toBe("cc".repeat(32));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tombstone round-trip via the REAL client (in-memory relay).
+// ---------------------------------------------------------------------------
+
+describe("tombstone round-trip (real client, in-memory relay)", () => {
+  it("push a record, then tombstone it, then pull and detect isTombstone", async () => {
+    const kp = randomKeyPair();
+    const labId = "lab-ts-rt";
+    const owner = "frank";
+    const labKey = randomLabKey();
+    const { fetchImpl, store } = makeInMemoryRelay();
+    const FIXED_NOW = 1717222222222;
+
+    const record: LabWorkRecord = {
+      recordType: "note",
+      recordId: "n-ts-rt",
+      plaintext: enc.encode("initial note content"),
+    };
+
+    // First sync: push the live record.
+    const first = await syncLabWorkToMirror({
+      labId,
+      owner,
+      records: [record],
+      labKey,
+      signerEd25519Priv: kp.priv,
+      signerEd25519Pub: kp.pub,
+      manifest: {},
+      fetchImpl,
+    });
+    expect(first.pushed).toHaveLength(1);
+    expect(store.size).toBe(1);
+
+    // Second sync: the record was deleted locally, tombstone it.
+    const second = await syncLabWorkToMirror({
+      labId,
+      owner,
+      records: [], // record gone locally
+      labKey,
+      signerEd25519Priv: kp.priv,
+      signerEd25519Pub: kp.pub,
+      manifest: first.manifest,
+      fetchImpl,
+      tombstoneRemoved: true,
+      now: FIXED_NOW,
+    });
+
+    const recordKey = labDataObjectKey(labId, owner, "note", "n-ts-rt");
+    expect(second.tombstoned).toContain(recordKey);
+    // The R2 blob was overwritten, not deleted: store still has 1 entry.
+    expect(store.size).toBe(1);
+
+    // Pull as the PI would: the record now decrypts to tombstone bytes.
+    const pulled = await pullMemberLabRecords({
+      labId,
+      memberOwner: owner,
+      labKey,
+      signerEd25519Priv: kp.priv,
+      signerEd25519Pub: kp.pub,
+      fetchImpl,
+    });
+
+    expect(pulled).toHaveLength(1);
+    expect(isTombstone(pulled[0].plaintext)).toBe(true);
   });
 });

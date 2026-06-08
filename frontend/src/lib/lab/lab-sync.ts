@@ -19,15 +19,14 @@
 //      the user's folder under _schema_migrations.json or a dedicated
 //      _lab_sync_manifest.json). This module does not touch storage.
 //
-// TOMBSTONING (deferred): when a record is deleted locally, its key appears in
-// `removedKeys` in the result. The R2 blob is NOT deleted in this chunk because
-// the relay has no DELETE route yet. The returned manifest still carries the old
-// entry so a future chunk can act on removedKeys (e.g. issue a relay delete or
-// write a tombstone sentinel). Callers MUST NOT purge removedKeys from the
-// manifest themselves until tombstoning is implemented, or the key will appear
-// as "new" on the next push. The conservative choice (leave stale keys in the
-// manifest) avoids redundant re-uploads; the caller can read `removedKeys` to
-// surface a diff to the user if desired.
+// TOMBSTONING: when a record is deleted locally its key appears in `removedKeys`
+// in the result. The relay has NO delete route and we are deliberately not adding
+// one (deletion on a server-blind store is sensitive). Instead, callers that pass
+// `tombstoneRemoved: true` to syncLabWorkToMirror cause each removed key to be
+// OVERWRITTEN with an encrypted tombstone sentinel (LAB_TOMBSTONE_MARKER bytes).
+// The PI's read path calls isTombstone(plaintext) to detect these and treats them
+// as deletions. When `tombstoneRemoved` is false (the default) the old behaviour
+// is preserved: removedKeys are reported but the R2 blobs are left unchanged.
 //
 // LAB_TIER_ENABLED gate: production callers must check the flag before calling
 // syncLabWorkToMirror or pullMemberLabRecords. The underlying putLabRecord /
@@ -40,6 +39,50 @@
 
 import { labDataObjectKey } from "./lab-data-protocol";
 import { putLabRecord, getLabRecord, listLabRecords } from "./lab-data-client";
+
+// ---------------------------------------------------------------------------
+// Tombstone sentinel + helpers.
+// ---------------------------------------------------------------------------
+
+/**
+ * The marker field used to identify tombstone payloads. A tombstone plaintext
+ * is canonical JSON with this key set to `true` plus a `deletedAt` timestamp.
+ * The marker string is intentionally unlikely to collide with any real record
+ * field, and the JSON structure is deterministic for a given `deletedAt` value.
+ */
+export const LAB_TOMBSTONE_MARKER = "__labTombstone";
+
+/**
+ * Builds the canonical tombstone bytes for a record deleted at `deletedAt`
+ * (milliseconds since epoch). The output is deterministic for a given input:
+ * the same `deletedAt` always produces the same bytes.
+ *
+ * The format is the compact JSON string:
+ *   `{"__labTombstone":true,"deletedAt":<number>}`
+ */
+export function makeTombstoneBytes(deletedAt: number): Uint8Array {
+  const json = `{"${LAB_TOMBSTONE_MARKER}":true,"deletedAt":${deletedAt}}`;
+  return new TextEncoder().encode(json);
+}
+
+/**
+ * Returns true iff `plaintext` decodes to valid JSON with the
+ * `__labTombstone` field set to `true`. Malformed input or any JSON that does
+ * not satisfy that condition returns `false` without throwing.
+ */
+export function isTombstone(plaintext: Uint8Array): boolean {
+  try {
+    const text = new TextDecoder().decode(plaintext);
+    const parsed = JSON.parse(text) as unknown;
+    return (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      (parsed as Record<string, unknown>)[LAB_TOMBSTONE_MARKER] === true
+    );
+  } catch {
+    return false;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Public types.
@@ -74,14 +117,19 @@ export type LabSyncManifest = Record<string, string>;
  *   pushed:       object keys that were encrypted and uploaded this run.
  *   skipped:      object keys whose content sha256 matched the manifest (no-op).
  *   removedKeys:  object keys present in the INPUT manifest that no longer
- *                 correspond to any live record. The R2 blob is NOT deleted
- *                 (tombstoning is deferred). See module-level doc comment.
+ *                 correspond to any live record. When `tombstoneRemoved` is true
+ *                 these keys have had tombstone sentinels written to R2 and their
+ *                 manifest entries updated. When `tombstoneRemoved` is false the
+ *                 R2 blobs are unchanged. See module-level doc comment.
+ *   tombstoned:   object keys for which a tombstone sentinel was written during
+ *                 this run. Empty when `tombstoneRemoved` is false (the default).
  */
 export interface SyncResult {
   manifest: LabSyncManifest;
   pushed: string[];
   skipped: string[];
   removedKeys: string[];
+  tombstoned: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -128,9 +176,17 @@ async function sha256HexBytes(bytes: Uint8Array): Promise<string> {
  * @param params.signerEd25519Pub   caller's Ed25519 signing public key.
  * @param params.manifest     the manifest from the previous sync (or {} for a
  *                            fresh start).
- * @param params.putImpl      optional override for putLabRecord (used in unit
- *                            tests to bypass the LAB_TIER_ENABLED gate).
- * @param params.fetchImpl    optional fetch override forwarded to putLabRecord.
+ * @param params.putImpl           optional override for putLabRecord (used in
+ *                                 unit tests to bypass the LAB_TIER_ENABLED gate).
+ * @param params.fetchImpl         optional fetch override forwarded to putLabRecord.
+ * @param params.tombstoneRemoved  when true, each removed key is overwritten with
+ *                                 an encrypted tombstone sentinel so the PI mirror
+ *                                 reflects the deletion without a relay delete
+ *                                 route. Defaults to false (back-compat: removed
+ *                                 keys are only reported, not acted on).
+ * @param params.now               optional override for the tombstone timestamp
+ *                                 (milliseconds since epoch). Defaults to
+ *                                 Date.now(). Useful in deterministic tests.
  *
  * @returns a new SyncResult with the updated manifest and categorised keys.
  */
@@ -144,8 +200,12 @@ export async function syncLabWorkToMirror(params: {
   manifest: LabSyncManifest;
   putImpl?: typeof putLabRecord;
   fetchImpl?: typeof fetch;
+  tombstoneRemoved?: boolean;
+  now?: number;
 }): Promise<SyncResult> {
   const doPut = params.putImpl ?? putLabRecord;
+  const tombstoneRemoved = params.tombstoneRemoved ?? false;
+  const nowMs = params.now ?? Date.now();
 
   // Work on a shallow copy of the manifest so the input is never mutated.
   const newManifest: LabSyncManifest = { ...params.manifest };
@@ -191,17 +251,58 @@ export async function syncLabWorkToMirror(params: {
 
   // Detect keys in the input manifest that no longer have a live record.
   // These correspond to records deleted locally since the last sync.
-  // We report them but do NOT delete from R2 (tombstoning is a later chunk).
-  // The stale entries are intentionally LEFT in the returned manifest so that
-  // a future tombstoning chunk can act on removedKeys before removing them.
   const removedKeys: string[] = [];
+  const tombstoned: string[] = [];
+
   for (const key of Object.keys(params.manifest)) {
-    if (!liveKeys.has(key)) {
-      removedKeys.push(key);
+    if (liveKeys.has(key)) continue;
+    removedKeys.push(key);
+
+    if (!tombstoneRemoved) {
+      // Default behaviour: report but do not act. The stale entry is left in the
+      // manifest intentionally so it is not treated as "new" on the next push.
+      continue;
     }
+
+    // tombstoneRemoved: overwrite the R2 blob with a tombstone sentinel.
+    // Parse the key as 4 slash-segments: labId/owner/recordType/recordId.
+    const parts = key.split("/");
+    if (parts.length !== 4) {
+      // Malformed key: skip rather than throw so one bad key does not abort the
+      // entire sync. The stale entry remains in the manifest.
+      continue;
+    }
+    const [kLabId, kOwner, kRecordType, kRecordId] = parts;
+
+    const tombstoneBytes = makeTombstoneBytes(nowMs);
+    const tombstoneHash = await sha256HexBytes(tombstoneBytes);
+
+    // Short-circuit: if the manifest already holds this tombstone hash the
+    // sentinel was written on a prior sync run. Skip to keep the operation
+    // idempotent and avoid a redundant encrypted upload.
+    if (newManifest[key] === tombstoneHash) {
+      continue;
+    }
+
+    await doPut({
+      labId: kLabId,
+      owner: kOwner,
+      recordType: kRecordType,
+      recordId: kRecordId,
+      plaintext: tombstoneBytes,
+      labKey: params.labKey,
+      signerEd25519Priv: params.signerEd25519Priv,
+      signerEd25519Pub: params.signerEd25519Pub,
+      fetchImpl: params.fetchImpl,
+    });
+
+    // Update the manifest entry to the tombstone content hash so a subsequent
+    // sync does not re-push the tombstone (it will look unchanged).
+    newManifest[key] = tombstoneHash;
+    tombstoned.push(key);
   }
 
-  return { manifest: newManifest, pushed, skipped, removedKeys };
+  return { manifest: newManifest, pushed, skipped, removedKeys, tombstoned };
 }
 
 // ---------------------------------------------------------------------------
