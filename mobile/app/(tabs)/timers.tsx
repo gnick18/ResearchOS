@@ -29,25 +29,14 @@ import {
 
 const BRAND_SKY = '#1AA0E6';
 
-type Preset = { label: string; seconds: number };
-
-const PRESETS: Preset[] = [
-  { label: '30s', seconds: 30 },
-  { label: '1m', seconds: 60 },
-  { label: '2m', seconds: 120 },
-  { label: '5m', seconds: 300 },
-  { label: '10m', seconds: 600 },
-  { label: '30m', seconds: 1800 },
-  { label: '1h', seconds: 3600 },
-];
+// Keypad layout, read right-to-left as HHMMSS like a bench timer.
+const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0', 'back'];
 
 export default function TimersScreen() {
   const { timers, refresh } = useTimers();
   const [label, setLabel] = useState('');
-  // Selected preset seconds, or null when the user is using a custom mm:ss.
-  const [presetSeconds, setPresetSeconds] = useState<number | null>(60);
-  const [customMin, setCustomMin] = useState('');
-  const [customSec, setCustomSec] = useState('');
+  // Up to six entered digits, read right-to-left as HHMMSS.
+  const [digits, setDigits] = useState('');
   // null = not yet checked, true/false once we know the OS grant.
   const [notifyGranted, setNotifyGranted] = useState<boolean | null>(null);
 
@@ -69,35 +58,32 @@ export default function TimersScreen() {
     }, [refresh]),
   );
 
-  // Resolve the duration to start, preferring a valid custom mm:ss entry, else
-  // the selected preset. Returns 0 when nothing usable is set.
-  const resolveDuration = useCallback((): number => {
-    const min = parseInt(customMin, 10);
-    const sec = parseInt(customSec, 10);
-    const hasCustom =
-      (customMin.trim().length > 0 && !Number.isNaN(min)) ||
-      (customSec.trim().length > 0 && !Number.isNaN(sec));
-    if (hasCustom) {
-      const total = (Number.isNaN(min) ? 0 : min) * 60 + (Number.isNaN(sec) ? 0 : sec);
-      return total;
-    }
-    return presetSeconds ?? 0;
-  }, [customMin, customSec, presetSeconds]);
+  // Read the entered digits right-to-left as HH:MM:SS, the way a bench timer
+  // keypad works (type 1 3 0 0 -> 13 min 00 sec).
+  const padded = digits.padStart(6, '0');
+  const hh = padded.slice(0, 2);
+  const mm = padded.slice(2, 4);
+  const ss = padded.slice(4, 6);
+  const duration = Number(hh) * 3600 + Number(mm) * 60 + Number(ss);
 
-  const duration = resolveDuration();
+  const pushKey = useCallback((key: string) => {
+    setDigits((prev) => {
+      if (key === 'back') return prev.slice(0, -1);
+      const next = key === '00' ? `${prev}00` : `${prev}${key}`;
+      // Drop leading zeros and keep at most six digits (HHMMSS).
+      return next.replace(/^0+/, '').slice(-6);
+    });
+  }, []);
 
   const onStart = useCallback(async () => {
-    const durationSec = resolveDuration();
-    if (durationSec <= 0) return;
-    await addTimer({ label, durationSec });
+    if (duration <= 0) return;
+    await addTimer({ label, durationSec: duration });
     setLabel('');
-    setCustomMin('');
-    setCustomSec('');
-    setPresetSeconds(60);
+    setDigits('');
     // Re-check the grant, a first start may have triggered the OS prompt.
     setNotifyGranted(await ensureNotificationPermission());
     await refresh();
-  }, [label, resolveDuration, refresh]);
+  }, [label, duration, refresh]);
 
   const onCancel = useCallback(
     async (id: string) => {
@@ -112,15 +98,8 @@ export default function TimersScreen() {
     await refresh();
   }, [refresh]);
 
-  const onPickPreset = useCallback((seconds: number) => {
-    setPresetSeconds(seconds);
-    setCustomMin('');
-    setCustomSec('');
-  }, []);
-
   const running = timers.filter((t) => t.status === 'running');
   const finished = timers.filter((t) => t.status !== 'running');
-  const usingCustom = customMin.trim().length > 0 || customSec.trim().length > 0;
 
   return (
     <ThemedView style={styles.container}>
@@ -144,47 +123,27 @@ export default function TimersScreen() {
               style={styles.input}
             />
 
-            <View style={styles.presetRow}>
-              {PRESETS.map((preset) => {
-                const selected = !usingCustom && presetSeconds === preset.seconds;
-                return (
-                  <Pressable
-                    key={preset.label}
-                    style={[styles.chip, selected && styles.chipSelected]}
-                    onPress={() => onPickPreset(preset.seconds)}
-                    accessibilityRole="button"
-                  >
-                    <ThemedText
-                      style={[styles.chipText, selected && styles.chipTextSelected]}
-                    >
-                      {preset.label}
-                    </ThemedText>
-                  </Pressable>
-                );
-              })}
+            <View style={styles.displayWrap}>
+              <ThemedText style={[styles.display, duration <= 0 && styles.displayDim]}>
+                {hh}:{mm}:{ss}
+              </ThemedText>
+              <ThemedText style={styles.displayHint}>hours : min : sec</ThemedText>
             </View>
 
-            <View style={styles.customRow}>
-              <ThemedText style={styles.customLabel}>Custom</ThemedText>
-              <TextInput
-                value={customMin}
-                onChangeText={setCustomMin}
-                placeholder="mm"
-                placeholderTextColor="rgba(128, 128, 128, 0.8)"
-                keyboardType="number-pad"
-                style={styles.customInput}
-                maxLength={3}
-              />
-              <ThemedText style={styles.customColon}>:</ThemedText>
-              <TextInput
-                value={customSec}
-                onChangeText={setCustomSec}
-                placeholder="ss"
-                placeholderTextColor="rgba(128, 128, 128, 0.8)"
-                keyboardType="number-pad"
-                style={styles.customInput}
-                maxLength={2}
-              />
+            <View style={styles.keypad}>
+              {KEYS.map((key) => (
+                <Pressable
+                  key={key}
+                  style={({ pressed }) => [styles.key, pressed && styles.keyPressed]}
+                  onPress={() => pushKey(key)}
+                  accessibilityRole="button"
+                  accessibilityLabel={key === 'back' ? 'delete' : key}
+                >
+                  <ThemedText style={styles.keyText}>
+                    {key === 'back' ? 'del' : key}
+                  </ThemedText>
+                </Pressable>
+              ))}
             </View>
 
             <Pressable
@@ -194,7 +153,7 @@ export default function TimersScreen() {
               accessibilityRole="button"
             >
               <ThemedText style={styles.primaryButtonText}>
-                {duration > 0 ? `Start timer (${formatClock(duration)})` : 'Start timer'}
+                {duration > 0 ? `Start timer (${formatClock(duration)})` : 'Enter a time'}
               </ThemedText>
             </Pressable>
 
@@ -346,50 +305,49 @@ const styles = StyleSheet.create({
     minHeight: 48,
     color: '#888888',
   },
-  presetRow: {
+  displayWrap: {
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: 6,
+  },
+  display: {
+    fontSize: 52,
+    lineHeight: 60,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+    color: BRAND_SKY,
+  },
+  displayDim: {
+    opacity: 0.35,
+  },
+  displayHint: {
+    fontSize: 12,
+    opacity: 0.5,
+    letterSpacing: 1,
+  },
+  keypad: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    justifyContent: 'space-between',
+    rowGap: 10,
   },
-  chip: {
+  key: {
+    width: '31%',
+    aspectRatio: 1.9,
     borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.4)',
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    borderColor: 'rgba(128, 128, 128, 0.3)',
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  chipSelected: {
-    backgroundColor: BRAND_SKY,
+  keyPressed: {
+    backgroundColor: 'rgba(22, 160, 230, 0.12)',
     borderColor: BRAND_SKY,
   },
-  chipText: {
+  keyText: {
+    fontSize: 24,
     fontWeight: '600',
-  },
-  chipTextSelected: {
-    color: '#ffffff',
-  },
-  customRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  customLabel: {
-    opacity: 0.7,
-  },
-  customInput: {
-    borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.4)',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 16,
-    width: 64,
-    textAlign: 'center',
-    color: '#888888',
-  },
-  customColon: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
   primaryButton: {
     backgroundColor: BRAND_SKY,
