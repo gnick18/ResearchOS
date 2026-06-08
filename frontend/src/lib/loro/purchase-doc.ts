@@ -65,7 +65,6 @@ const SCALAR_FIELD_KEYS = [
   "shipping_fees",
   "total_price",
   "notes",
-  "funding_account_id",
   "funding_string",
   "vendor",
   "category",
@@ -78,9 +77,11 @@ const SCALAR_FIELD_KEYS = [
   "declined_by",
   "last_edited_by",
   "last_edited_at",
-  // Vendor ordering / catalog number (audit fix, additive-fields). Appended at
-  // the END of the locked key order so existing seeds keep their byte layout;
-  // a new key only adds to the tail. Seeds null when the record omits it.
+  // New keys (funding_account_id FK + catalog number) appended at the END of
+  // the locked key order so existing seeds keep their byte layout; new keys
+  // only add to the tail. Order between these two is irrelevant; both seed null
+  // when the record omits them.
+  "funding_account_id",
   "catalog_number",
 ] as const;
 
