@@ -14,6 +14,7 @@
 
 import { useMemo, useState } from 'react';
 import {
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,14 +22,15 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { Card } from '@/components/ui/Card';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { ThemedText } from '@/components/themed-text';
 import { palette, radii, spacing, useTheme } from '@/lib/design';
 
 import {
   evaluateExpression,
-  formatResult,
   type AngleMode,
 } from '@/lib/calculators/scientific';
 import {
@@ -82,43 +84,14 @@ const TABS: { id: TabId; label: string }[] = [
 
 export default function CalcScreen() {
   const [activeTab, setActiveTab] = useState<TabId>('scientific');
-  const { surface, spacing: sp } = useTheme();
+  const { spacing: sp } = useTheme();
 
   return (
     <ScreenFrame>
-      {/* Horizontal scrollable tab chip row */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={[styles.chipScroll, { borderBottomColor: surface.border }]}
-        contentContainerStyle={styles.chipRow}
-      >
-        {TABS.map((t) => {
-          const active = t.id === activeTab;
-          return (
-            <Pressable
-              key={t.id}
-              onPress={() => setActiveTab(t.id)}
-              style={[
-                styles.chip,
-                {
-                  backgroundColor: active ? palette.sky : surface.sunken,
-                  borderRadius: radii.pill,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.chipLabel,
-                  { color: active ? palette.white : surface.muted },
-                ]}
-              >
-                {t.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      {/* Calculator switcher: a tap-to-change header (doubles as the title). */}
+      <View style={styles.switcherWrap}>
+        <CalcSwitcher active={activeTab} onChange={setActiveTab} />
+      </View>
 
       {/* Tab body */}
       <ScrollView
@@ -133,6 +106,73 @@ export default function CalcScreen() {
         {activeTab === 'buffer' && <BufferTab />}
       </ScrollView>
     </ScreenFrame>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Calculator switcher (dropdown header + bottom-sheet list)
+// ---------------------------------------------------------------------------
+
+function CalcSwitcher({
+  active,
+  onChange,
+}: {
+  active: TabId;
+  onChange: (id: TabId) => void;
+}) {
+  const { surface } = useTheme();
+  const [open, setOpen] = useState(false);
+  const label = TABS.find((t) => t.id === active)?.label ?? 'Calculator';
+
+  return (
+    <>
+      <Pressable
+        onPress={() => setOpen(true)}
+        style={[styles.switcher, { backgroundColor: surface.surface, borderColor: surface.border }]}
+        accessibilityRole="button"
+        accessibilityLabel={`Calculator: ${label}, tap to switch`}
+      >
+        <View style={{ flex: 1 }}>
+          <ThemedText style={[styles.switcherTitle, { color: surface.text }]}>{label}</ThemedText>
+          <ThemedText style={[styles.switcherSub, { color: surface.muted }]}>
+            tap to switch calculator
+          </ThemedText>
+        </View>
+        <Ionicons name="chevron-down" size={20} color={palette.sky} />
+      </Pressable>
+
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <Pressable style={styles.sheetBackdrop} onPress={() => setOpen(false)}>
+          <Pressable style={[styles.sheet, { backgroundColor: surface.surface }]} onPress={() => {}}>
+            <View style={styles.sheetGrab} />
+            <ThemedText style={[styles.sheetTitle, { color: surface.muted }]}>CALCULATORS</ThemedText>
+            {TABS.map((t) => {
+              const on = t.id === active;
+              return (
+                <Pressable
+                  key={t.id}
+                  onPress={() => {
+                    onChange(t.id);
+                    setOpen(false);
+                  }}
+                  style={[styles.sheetItem, on && { backgroundColor: palette.skyDim, borderRadius: radii.md }]}
+                >
+                  <ThemedText
+                    style={[
+                      styles.sheetItemLabel,
+                      { color: on ? palette.sky : surface.text, fontWeight: on ? '700' : '500' },
+                    ]}
+                  >
+                    {t.label}
+                  </ThemedText>
+                  {on ? <Ionicons name="checkmark" size={18} color={palette.sky} /> : null}
+                </Pressable>
+              );
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   );
 }
 
@@ -326,188 +366,167 @@ function describeConc(baseM: number): string {
 // Tab 0: Scientific calculator
 // ---------------------------------------------------------------------------
 
+// Function strip entries: [display label, inserted token].
+const FN_KEYS: [string, string][] = [
+  ['sin', 'sin('],
+  ['cos', 'cos('],
+  ['tan', 'tan('],
+  ['asin', 'asin('],
+  ['acos', 'acos('],
+  ['atan', 'atan('],
+  ['ln', 'ln('],
+  ['log', 'log10('],
+  ['√', 'sqrt('],
+  ['xⁿ', '^'],
+  ['(', '('],
+  [')', ')'],
+  ['π', 'pi'],
+  ['e', 'e'],
+  ['n!', '!'],
+];
+
+type SciKeyVariant = 'digit' | 'op' | 'fnk' | 'eq';
+
+function SciKey({
+  label,
+  onPress,
+  variant = 'digit',
+  span2,
+}: {
+  label: string;
+  onPress: () => void;
+  variant?: SciKeyVariant;
+  span2?: boolean;
+}) {
+  const { surface } = useTheme();
+  const bg =
+    variant === 'op'
+      ? palette.skyDim
+      : variant === 'eq'
+      ? palette.sky
+      : variant === 'fnk'
+      ? surface.sunken
+      : surface.surface;
+  const color =
+    variant === 'op' ? palette.sky : variant === 'eq' ? palette.white : variant === 'fnk' ? surface.muted : surface.text;
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.padKey,
+        span2 && styles.padKeySpan2,
+        { backgroundColor: bg, opacity: pressed ? 0.72 : 1 },
+        variant === 'digit' && { borderColor: surface.border, borderWidth: 1 },
+      ]}
+    >
+      <Text style={[styles.padKeyLabel, { color }, variant === 'fnk' && styles.padKeyLabelSm]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 function ScientificTab() {
   const { surface } = useTheme();
   const [expr, setExpr] = useState('');
   const [angleMode, setAngleMode] = useState<AngleMode>('rad');
   const [ans, setAns] = useState(0);
-  const [memory, setMemory] = useState(0);
 
   const result = useMemo(
-    () => evaluateExpression(expr, { angleMode, ans, memory }),
-    [expr, angleMode, ans, memory],
+    () => evaluateExpression(expr, { angleMode, ans, memory: 0 }),
+    [expr, angleMode, ans],
   );
 
   const insert = (text: string) => setExpr((prev) => prev + text);
   const backspace = () => setExpr((prev) => prev.slice(0, -1));
   const clear = () => setExpr('');
-
   const commit = () => {
     if (!result.ok) return;
     setAns(result.value);
     setExpr(result.display);
   };
 
-  type KeyVariant = 'digit' | 'fn' | 'op' | 'accent' | 'muted';
-
-  const keyBg: Record<KeyVariant, string> = {
-    digit: surface.sunken,
-    fn: surface.surface,
-    op: palette.skyDim,
-    accent: palette.sky,
-    muted: surface.sunken,
-  };
-  const keyColor: Record<KeyVariant, string> = {
-    digit: surface.text,
-    fn: surface.muted,
-    op: palette.sky,
-    accent: palette.white,
-    muted: surface.muted,
-  };
-
-  function Key({
-    label,
-    onPress,
-    variant = 'digit',
-    wide,
-  }: {
-    label: string;
-    onPress: () => void;
-    variant?: KeyVariant;
-    wide?: boolean;
-  }) {
-    return (
-      <Pressable
-        onPress={onPress}
-        style={({ pressed }) => [
-          styles.key,
-          wide && styles.keyWide,
-          {
-            backgroundColor: keyBg[variant],
-            borderColor: surface.border,
-            opacity: pressed ? 0.7 : 1,
-          },
-        ]}
-      >
-        <Text style={[styles.keyLabel, { color: keyColor[variant] }]}>{label}</Text>
-      </Pressable>
-    );
-  }
-
-  const FN_KEYS: [string, string][] = [
-    ['sin(', 'sin('], ['cos(', 'cos('], ['tan(', 'tan('],
-    ['asin(', 'asin('], ['acos(', 'acos('], ['atan(', 'atan('],
-    ['ln(', 'ln('], ['log10(', 'log10('], ['sqrt(', 'sqrt('],
-    ['^', '^'], ['(', '('], [')', ')'],
-    ['pi', 'pi'], ['e', 'e'], ['!', '!'],
-  ];
-
-  const showResult = result.ok || expr.trim() !== '';
+  const shown = result.ok ? result.display : expr.trim() === '' ? '0' : '…';
 
   return (
     <View style={styles.tabGap}>
-      {/* Display */}
-      <View style={[styles.calcDisplay, { backgroundColor: surface.sunken, borderColor: surface.border }]}>
+      {/* Dark calculator display */}
+      <View style={styles.disp}>
         <TextInput
-          style={[styles.calcExprInput, { color: surface.text }]}
+          style={styles.dispExpr}
           value={expr}
           onChangeText={setExpr}
-          placeholder="Expression, e.g. sqrt(2) * sin(45)"
-          placeholderTextColor={surface.placeholder}
+          placeholder="Type or tap the keys below"
+          placeholderTextColor="#5b7088"
           autoCorrect={false}
           autoCapitalize="none"
           multiline={false}
           onSubmitEditing={commit}
           returnKeyType="done"
         />
-        <Text style={[styles.calcResult, { color: result.ok ? surface.text : surface.muted }]}>
-          {result.ok
-            ? `= ${result.display}`
-            : showResult
-            ? '='
-            : '0'}
+        <Text style={styles.dispRes} numberOfLines={1} adjustsFontSizeToFit>
+          {shown}
         </Text>
       </View>
 
-      {/* Angle mode + memory */}
-      <View style={styles.row}>
-        <View style={[styles.anglePill, { borderColor: surface.border, backgroundColor: surface.sunken }]}>
+      {/* RAD/DEG toggle + scrollable function strip */}
+      <View style={styles.stripRow}>
+        <View style={[styles.rdpill, { borderColor: surface.border }]}>
           {(['rad', 'deg'] as AngleMode[]).map((m) => (
             <Pressable
               key={m}
               onPress={() => setAngleMode(m)}
-              style={[
-                styles.angleBtn,
-                {
-                  backgroundColor: m === angleMode ? palette.sky : 'transparent',
-                  borderRadius: radii.sm,
-                },
-              ]}
+              style={[styles.rdseg, m === angleMode && { backgroundColor: palette.sky }]}
             >
-              <Text style={[styles.angleBtnLabel, { color: m === angleMode ? palette.white : surface.muted }]}>
+              <Text style={[styles.rdsegLabel, { color: m === angleMode ? palette.white : surface.muted }]}>
                 {m.toUpperCase()}
               </Text>
             </Pressable>
           ))}
         </View>
-
-        <View style={styles.memRow}>
-          <Text style={[styles.hint, { color: surface.muted }]}>M={formatResult(memory)}</Text>
-          {(
-            [
-              ['MC', () => setMemory(0)],
-              ['MR', () => insert('M')],
-              ['M+', () => { if (result.ok) setMemory((v) => v + result.value); }],
-            ] as [string, () => void][]
-          ).map(([label, onPress]) => (
-            <Pressable
-              key={label}
-              onPress={onPress}
-              style={[styles.memBtn, { backgroundColor: surface.sunken, borderColor: surface.border }]}
-            >
-              <Text style={[styles.memBtnLabel, { color: surface.muted }]}>{label}</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.fnstrip}
+          keyboardShouldPersistTaps="handled"
+        >
+          {FN_KEYS.map(([label, token]) => (
+            <Pressable key={label} onPress={() => insert(token)} style={styles.fnchip}>
+              <Text style={styles.fnchipLabel}>{label}</Text>
             </Pressable>
           ))}
-        </View>
+        </ScrollView>
       </View>
 
-      {/* Keypad: function grid (left, 3-col) + number pad (right, 4-col) */}
-      <View style={styles.keypadWrap}>
-        <View style={styles.fnGrid}>
-          {FN_KEYS.map(([label, text]) => (
-            <Key key={label} label={label} onPress={() => insert(text)} variant="fn" />
-          ))}
-        </View>
+      {/* Number pad */}
+      <View style={styles.padGrid}>
+        <SciKey label="AC" onPress={clear} variant="fnk" />
+        <SciKey label="⌫" onPress={backspace} variant="fnk" />
+        <SciKey label="Ans" onPress={() => insert('Ans')} variant="fnk" />
+        <SciKey label="÷" onPress={() => insert('/')} variant="op" />
 
-        <View style={styles.numGrid}>
-          <Key label="AC" onPress={clear} variant="muted" />
-          <Key label="<-" onPress={backspace} variant="muted" />
-          <Key label="Ans" onPress={() => insert('Ans')} variant="muted" />
-          <Key label="/" onPress={() => insert('/')} variant="op" />
+        <SciKey label="7" onPress={() => insert('7')} />
+        <SciKey label="8" onPress={() => insert('8')} />
+        <SciKey label="9" onPress={() => insert('9')} />
+        <SciKey label="×" onPress={() => insert('*')} variant="op" />
 
-          <Key label="7" onPress={() => insert('7')} />
-          <Key label="8" onPress={() => insert('8')} />
-          <Key label="9" onPress={() => insert('9')} />
-          <Key label="x" onPress={() => insert('*')} variant="op" />
+        <SciKey label="4" onPress={() => insert('4')} />
+        <SciKey label="5" onPress={() => insert('5')} />
+        <SciKey label="6" onPress={() => insert('6')} />
+        <SciKey label="−" onPress={() => insert('-')} variant="op" />
 
-          <Key label="4" onPress={() => insert('4')} />
-          <Key label="5" onPress={() => insert('5')} />
-          <Key label="6" onPress={() => insert('6')} />
-          <Key label="-" onPress={() => insert('-')} variant="op" />
+        <SciKey label="1" onPress={() => insert('1')} />
+        <SciKey label="2" onPress={() => insert('2')} />
+        <SciKey label="3" onPress={() => insert('3')} />
+        <SciKey label="+" onPress={() => insert('+')} variant="op" />
 
-          <Key label="1" onPress={() => insert('1')} />
-          <Key label="2" onPress={() => insert('2')} />
-          <Key label="3" onPress={() => insert('3')} />
-          <Key label="+" onPress={() => insert('+')} variant="op" />
-
-          <Key label="0" onPress={() => insert('0')} wide />
-          <Key label="." onPress={() => insert('.')} />
-          <Key label="=" onPress={commit} variant="accent" />
-        </View>
+        <SciKey label="0" onPress={() => insert('0')} span2 />
+        <SciKey label="." onPress={() => insert('.')} />
+        <SciKey label="=" onPress={commit} variant="eq" />
       </View>
 
       <HintText>
-        Computed live as you type. sin/cos/tan/asin/acos/atan, ln, log10, sqrt, ^, !, pi, e. Nothing is saved.
+        Computed live as you type. Functions in the strip, nothing is saved.
       </HintText>
     </View>
   );
@@ -842,26 +861,34 @@ function BufferTab() {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  chipScroll: {
-    maxHeight: 52,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  chipRow: {
+
+  // Calculator switcher (dropdown header)
+  switcherWrap: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.sm },
+  switcher: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: 13,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    gap: 10,
+    shadowColor: '#101828',
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
   },
-  chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 7,
-  },
-  chipLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    lineHeight: 18,
-  },
+  switcherTitle: { fontSize: 18, fontWeight: '800', letterSpacing: -0.2, lineHeight: 22 },
+  switcherSub: { fontSize: 12, lineHeight: 16, marginTop: 1 },
+
+  // Switcher bottom sheet
+  sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
+  sheet: { borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 30 },
+  sheetGrab: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(0,0,0,0.18)', marginBottom: 10 },
+  sheetTitle: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginLeft: 6, marginBottom: 4 },
+  sheetItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 14 },
+  sheetItemLabel: { fontSize: 16 },
+
   body: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
@@ -951,66 +978,58 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Scientific calculator keys
-  calcDisplay: {
-    borderWidth: 1,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    gap: 4,
+  // Scientific calculator: dark display
+  disp: {
+    backgroundColor: '#0c1422',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 6,
   },
-  calcExprInput: {
-    fontSize: 17,
+  dispExpr: {
+    color: '#cfe0f0',
     fontFamily: 'Courier',
-    minHeight: 28,
+    fontSize: 15,
+    textAlign: 'right',
+    minHeight: 20,
+    padding: 0,
   },
-  calcResult: {
-    fontSize: 26,
-    fontWeight: '600',
+  dispRes: {
+    color: '#ffffff',
+    fontSize: 34,
+    fontWeight: '700',
     textAlign: 'right',
     letterSpacing: -0.5,
   },
-  anglePill: {
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderRadius: radii.sm,
-    overflow: 'hidden',
-  },
-  angleBtn: {
+
+  // Function strip
+  stripRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  rdpill: { flexDirection: 'row', borderWidth: 1, borderRadius: 10, overflow: 'hidden' },
+  rdseg: { paddingHorizontal: 11, paddingVertical: 9 },
+  rdsegLabel: { fontSize: 12, fontWeight: '700' },
+  fnstrip: { gap: 7, paddingRight: 4, alignItems: 'center' },
+  fnchip: {
+    backgroundColor: palette.skyDim,
+    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 9,
   },
-  angleBtnLabel: { fontSize: 13, fontWeight: '700' },
-  memRow: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1, justifyContent: 'flex-end' },
-  memBtn: {
-    borderWidth: 1,
-    borderRadius: radii.sm,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-  },
-  memBtnLabel: { fontSize: 12, fontWeight: '600' },
-  keypadWrap: { flexDirection: 'row', gap: spacing.sm },
-  fnGrid: {
-    flex: 3,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-  },
-  numGrid: {
-    flex: 4,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-  },
-  key: {
-    width: '23%',
-    aspectRatio: 1.2,
-    borderRadius: radii.sm,
-    borderWidth: StyleSheet.hairlineWidth,
+  fnchipLabel: { color: palette.sky, fontSize: 14, fontWeight: '700', fontFamily: 'Courier' },
+
+  // Number pad (4-col)
+  padGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
+  padKey: {
+    width: '22.7%',
+    height: 58,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#101828',
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
   },
-  keyWide: {
-    width: '48%',
-  },
-  keyLabel: { fontSize: 12, fontWeight: '600' },
+  padKeySpan2: { width: '48.1%' },
+  padKeyLabel: { fontSize: 22, fontWeight: '600' },
+  padKeyLabelSm: { fontSize: 16, fontWeight: '700' },
 });

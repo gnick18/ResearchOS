@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS mobile, Calculator redesign</title>
+<style>
+  :root{
+    --r1:#FFD2B0;--r2:#FFF1A8;--r3:#B7EBB1;--r4:#A6D2F4;--r5:#D6B5F0;
+    --sky:#1AA0E6;--bg:#E6F4FE;--card:#fff;--ink:#0c1830;--ink2:#374151;--ink3:#6b7280;--border:rgba(0,0,0,.08);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#e9edf1;color:#1f2937;padding:24px 18px 90px}
+  .head{max-width:1180px;margin:0 auto 20px}
+  h1{font-size:21px;margin:0 0 6px}
+  .intro{color:#5b6573;font-size:14px;line-height:1.55;max-width:900px}
+  h2.section{max-width:1180px;margin:26px auto 12px;font-size:15px;color:#334155;border-top:1px solid #d7dde4;padding-top:18px}
+  .rowwrap{max-width:1180px;margin:0 auto;display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap}
+  .col{display:flex;flex-direction:column;align-items:center;gap:10px}
+  .cap{font-size:12.5px;font-weight:700;color:#7a8694;text-transform:uppercase;letter-spacing:.04em}
+  .note{font-size:12px;color:#6b7280;max-width:300px;text-align:center;line-height:1.45}
+
+  /* phone */
+  .phone{width:300px;height:640px;border-radius:42px;background:var(--bg);position:relative;overflow:hidden;border:9px solid #0c0d10;box-shadow:0 18px 40px rgba(16,24,40,.20)}
+  .phone.sm{width:230px;height:150px;border-radius:30px}
+  .rainbow{height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5));position:absolute;top:0;left:0;right:0;z-index:30}
+  .phone::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5));z-index:30}
+  .statusbar{position:absolute;top:5px;left:0;right:0;height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;font-size:12.5px;font-weight:600;color:var(--ink);z-index:20}
+  .content{position:absolute;top:40px;left:0;right:0;bottom:14px;overflow:hidden;padding:6px 14px 0}
+  .mascot{position:absolute;top:42px;right:14px;width:26px;height:34px;z-index:25}
+  .mascot svg{width:100%;height:100%}
+
+  /* switcher: dropdown header */
+  .calcsel{display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--border);border-radius:13px;padding:11px 14px;box-shadow:0 1px 3px rgba(16,24,40,.06);margin-bottom:12px}
+  .calcsel .t{font-size:17px;font-weight:800;letter-spacing:-.01em}
+  .calcsel .cu{font-size:12px;color:var(--ink3);margin-top:1px}
+  .calcsel .chev{color:var(--sky);font-size:18px;font-weight:700}
+
+  /* display */
+  .disp{background:#0c1422;border-radius:16px;padding:14px 16px;margin-bottom:12px}
+  .disp .expr{color:#9fb6cc;font-family:ui-monospace,Menlo,monospace;font-size:14px;min-height:18px;text-align:right}
+  .disp .res{color:#fff;font-size:34px;font-weight:700;text-align:right;letter-spacing:-.5px;margin-top:6px}
+  .disp.light{background:#fff;border:1px solid var(--border);box-shadow:0 1px 3px rgba(16,24,40,.06)}
+  .disp.light .expr{color:#94a3b8}.disp.light .res{color:var(--ink)}
+
+  /* function strip */
+  .fnstrip{display:flex;gap:7px;overflow:auto;padding-bottom:9px;margin-bottom:4px}
+  .fnchip{flex:none;background:color-mix(in srgb,var(--sky) 12%,transparent);color:var(--sky);border-radius:10px;padding:9px 12px;font-size:13px;font-weight:700;white-space:nowrap;font-family:ui-monospace,Menlo,monospace}
+  .rdpill{flex:none;display:flex;background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  .rdpill span{padding:9px 11px;font-size:12px;font-weight:700;color:var(--ink3)}
+  .rdpill span.on{background:var(--sky);color:#fff}
+
+  /* number pad */
+  .pad{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+  .key{border-radius:16px;padding:15px 0;text-align:center;font-size:21px;font-weight:600;background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(16,24,40,.06)}
+  .key.op{background:color-mix(in srgb,var(--sky) 12%,transparent);color:var(--sky);font-weight:700}
+  .key.fnk{background:#eef2f6;color:var(--ink2);font-size:16px}
+  .key.eq{background:var(--sky);color:#fff;font-weight:800}
+  .key.span2{grid-column:span 2}
+
+  /* bottom switcher bar */
+  .botbar{position:absolute;left:0;right:0;bottom:10px;display:flex;gap:6px;padding:9px 12px;overflow:auto;background:color-mix(in srgb,#fff 90%,transparent);backdrop-filter:blur(10px);border-top:1px solid var(--border)}
+  .botchip{flex:none;border-radius:999px;padding:7px 13px;font-size:12.5px;font-weight:700;background:#eef2f6;color:var(--ink3)}
+  .botchip.on{background:var(--sky);color:#fff}
+
+  /* top chip row (restyled) */
+  .toprow{display:flex;gap:7px;overflow:auto;padding-bottom:10px}
+  .topchip{flex:none;border-radius:999px;padding:8px 14px;font-size:13px;font-weight:700;background:#fff;color:var(--ink3);box-shadow:0 1px 3px rgba(16,24,40,.06)}
+  .topchip.on{background:var(--sky);color:#fff;box-shadow:none}
+</style>
+</head>
+<body>
+<div class="head">
+  <h1>Calculator redesign, for review</h1>
+  <p class="intro">The Scientific tab gets a clean phone-calculator layout: a dark result display, the scientific functions as a single scrollable strip (no more cramped twin grid), and a roomy four-column pad with sky operators. Below that, three options for where the calculator-switcher (Scientific / Molarity / Dilution / Serial / Buffer) lives, since the current top chip row felt off. Tell me which switcher you want and whether the keypad direction is right.</p>
+</div>
+
+<h2 class="section">1. Scientific calculator, redesigned (switcher shown as a tap-to-change header)</h2>
+<div class="rowwrap">
+  <div class="col">
+    <span class="cap">Proposed, dark display</span>
+    <div class="phone">
+      <div class="rainbow"></div>
+      <div class="statusbar"><span>9:41</span><span>WiFi</span></div>
+      <div class="mascot">${''}<svg viewBox="8 3 24 31"><path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="#fff"/><path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="#A6D2F4"/><path d="M22 8 C 22 6, 24 4, 26 6" stroke="#1AA0E6" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" stroke="#1AA0E6" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M11 12 L29 12" stroke="#1AA0E6" stroke-width="2" stroke-linecap="round"/><circle cx="17" cy="18" r="1.2" fill="#1AA0E6"/><circle cx="23" cy="18" r="1.2" fill="#1AA0E6"/><path d="M18 22 Q 20 24, 22 22" stroke="#1AA0E6" stroke-width="2" fill="none" stroke-linecap="round"/></svg></div>
+      <div class="content">
+        <div class="calcsel"><div><div class="t">Scientific</div><div class="cu">tap to switch calculator</div></div><span class="chev">&#9662;</span></div>
+        <div class="disp"><div class="expr">sqrt(2) * sin(45)</div><div class="res">1.000</div></div>
+        <div class="fnstrip">
+          <div class="rdpill"><span class="on">RAD</span><span>DEG</span></div>
+          <div class="fnchip">sin</div><div class="fnchip">cos</div><div class="fnchip">tan</div><div class="fnchip">ln</div><div class="fnchip">log</div><div class="fnchip">&radic;</div><div class="fnchip">x&#8319;</div><div class="fnchip">&pi;</div><div class="fnchip">e</div><div class="fnchip">n!</div>
+        </div>
+        <div class="pad">
+          <div class="key fnk">AC</div><div class="key fnk">(</div><div class="key fnk">)</div><div class="key op">&divide;</div>
+          <div class="key">7</div><div class="key">8</div><div class="key">9</div><div class="key op">&times;</div>
+          <div class="key">4</div><div class="key">5</div><div class="key">6</div><div class="key op">&minus;</div>
+          <div class="key">1</div><div class="key">2</div><div class="key">3</div><div class="key op">+</div>
+          <div class="key span2">0</div><div class="key">.</div><div class="key eq">=</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">Dark display reads like a real calculator and makes the answer pop. Functions scroll in one tidy strip.</div>
+  </div>
+
+  <div class="col">
+    <span class="cap">Alt, light display</span>
+    <div class="phone">
+      <div class="rainbow"></div>
+      <div class="statusbar"><span>9:41</span><span>WiFi</span></div>
+      <div class="content">
+        <div class="calcsel"><div><div class="t">Scientific</div><div class="cu">tap to switch calculator</div></div><span class="chev">&#9662;</span></div>
+        <div class="disp light"><div class="expr">12 ^ 2 + 5</div><div class="res">149</div></div>
+        <div class="fnstrip">
+          <div class="rdpill"><span class="on">RAD</span><span>DEG</span></div>
+          <div class="fnchip">sin</div><div class="fnchip">cos</div><div class="fnchip">tan</div><div class="fnchip">ln</div><div class="fnchip">log</div><div class="fnchip">&radic;</div><div class="fnchip">x&#8319;</div><div class="fnchip">&pi;</div><div class="fnchip">e</div><div class="fnchip">n!</div>
+        </div>
+        <div class="pad">
+          <div class="key fnk">AC</div><div class="key fnk">(</div><div class="key fnk">)</div><div class="key op">&divide;</div>
+          <div class="key">7</div><div class="key">8</div><div class="key">9</div><div class="key op">&times;</div>
+          <div class="key">4</div><div class="key">5</div><div class="key">6</div><div class="key op">&minus;</div>
+          <div class="key">1</div><div class="key">2</div><div class="key">3</div><div class="key op">+</div>
+          <div class="key span2">0</div><div class="key">.</div><div class="key eq">=</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">Same layout with a white display, if you would rather keep everything light to match the rest of the app.</div>
+  </div>
+</div>
+
+<h2 class="section">2. Where the calculator-switcher lives, three options</h2>
+<div class="rowwrap">
+  <div class="col">
+    <span class="cap">Option A, dropdown header</span>
+    <div class="phone sm">
+      <div class="rainbow"></div>
+      <div class="content" style="top:14px">
+        <div class="calcsel"><div><div class="t">Molarity</div><div class="cu">tap to switch calculator</div></div><span class="chev">&#9662;</span></div>
+        <div style="font-size:12px;color:var(--ink3);text-align:center;margin-top:6px">Tapping opens a list of all 5 calculators</div>
+      </div>
+    </div>
+    <div class="note">One compact header that doubles as the title. Cleanest, most space for the calc itself. My recommendation.</div>
+  </div>
+  <div class="col">
+    <span class="cap">Option B, bottom bar</span>
+    <div class="phone sm">
+      <div class="rainbow"></div>
+      <div class="content" style="top:14px;bottom:40px"><div style="font-size:12px;color:var(--ink3);text-align:center;margin-top:30px">calculator content</div></div>
+      <div class="botbar"><span class="botchip">Sci</span><span class="botchip on">Molarity</span><span class="botchip">Dilution</span><span class="botchip">Serial</span><span class="botchip">Buffer</span></div>
+    </div>
+    <div class="note">Switcher pinned to the bottom, thumb-reachable, content fills the top.</div>
+  </div>
+  <div class="col">
+    <span class="cap">Option C, restyled top chips</span>
+    <div class="phone sm">
+      <div class="rainbow"></div>
+      <div class="content" style="top:14px">
+        <div class="toprow"><span class="topchip on">Scientific</span><span class="topchip">Molarity</span><span class="topchip">Dilution</span><span class="topchip">Serial</span></div>
+        <div style="font-size:12px;color:var(--ink3);text-align:center;margin-top:6px">same place, cleaner pills</div>
+      </div>
+    </div>
+    <div class="note">Keeps today's top row but as cleaner white pills with a clear active state.</div>
+  </div>
+</div>
+
+</body>
+</html>
