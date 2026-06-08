@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import Tooltip from "@/components/Tooltip";
+import { focusWithoutTooltip } from "@/components/tooltip-focus";
 import LivingPopup from "@/components/ui/LivingPopup";
 import { projectsApi } from "@/lib/local-api";
 import type { Project } from "@/lib/types";
@@ -101,7 +102,10 @@ export default function ProjectCreateModal({
       (document.activeElement as HTMLElement | null) ?? null;
     return () => {
       try {
-        restoreFocusRef.current?.focus?.();
+        // Return focus to the opener (good a11y), but suppress its <Tooltip>
+        // focus-reveal so the "Create a new project" bubble does not pop on
+        // close while the pointer is elsewhere.
+        focusWithoutTooltip(restoreFocusRef.current);
       } catch {
         // best-effort focus restore — never throw on unmount
       }

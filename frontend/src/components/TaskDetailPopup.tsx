@@ -23,6 +23,7 @@ import CommentsThread from "./CommentsThread";
 import CommentsSidebar from "./CommentsSidebar";
 import ReceivedFromBadge from "./ReceivedFromBadge";
 import Tooltip from "./Tooltip";
+import { focusWithoutTooltip } from "./tooltip-focus";
 import LivingPopup from "@/components/ui/LivingPopup";
 import { useAppStore } from "@/lib/store";
 import { taskKey } from "@/lib/types";
@@ -247,7 +248,7 @@ export default function TaskDetailPopup({
   const closeHistory = useCallback(() => {
     setHistoryOpen(false);
     setVersionPreview(null);
-    historyTriggerRef.current?.focus();
+    focusWithoutTooltip(historyTriggerRef.current);
   }, []);
 
   // Owner-aware view of tasksApi: when this popup is showing a task that was
@@ -683,7 +684,7 @@ export default function TaskDetailPopup({
         // closing the whole popup. Mirrors NoteDetailPopup's precedence.
         setHistoryOpen(false);
         setVersionPreview(null);
-        historyTriggerRef.current?.focus();
+        focusWithoutTooltip(historyTriggerRef.current);
         return;
       }
       if (commentsOpen) {

@@ -32,6 +32,7 @@ import NoteCommentsThread from "./NoteCommentsThread";
 import CommentsSidebar from "./CommentsSidebar";
 import ReceivedFromBadge from "./ReceivedFromBadge";
 import Tooltip from "./Tooltip";
+import { focusWithoutTooltip } from "./tooltip-focus";
 import { useFileRenamePopup } from "./FileRenamePopup";
 import { useDuplicateResolver } from "./DuplicateUploadDialog";
 import { fileService } from "@/lib/file-system/file-service";
@@ -157,7 +158,7 @@ export default function NoteDetailPopup({
   const closeHistory = useCallback(() => {
     setHistoryOpen(false);
     setVersionPreview(null);
-    historyTriggerRef.current?.focus();
+    focusWithoutTooltip(historyTriggerRef.current);
   }, []);
   // Shared 1:1 notebooks (notebook-note-edit sub-bot of HR, 2026-06-02):
   // a NOTEBOOK note carrying a `notebook_id` is always shared with BOTH members
@@ -817,7 +818,7 @@ export default function NoteDetailPopup({
       if (historyOpen) {
         setHistoryOpen(false);
         setVersionPreview(null);
-        historyTriggerRef.current?.focus();
+        focusWithoutTooltip(historyTriggerRef.current);
       } else if (commentsOpen) {
         setCommentsOpen(false);
       } else if (isExpanded) {

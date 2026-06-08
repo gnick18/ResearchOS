@@ -15,6 +15,7 @@ import {
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
+import { isTooltipFocusSuppressed } from "./tooltip-focus";
 
 type Placement = "top" | "bottom" | "left" | "right";
 
@@ -214,6 +215,14 @@ export default function Tooltip({
     setPos(null);
   }, [isControlled]);
 
+  // Focus reveal, but skip it when focus arrived via focusWithoutTooltip() (a
+  // programmatic restore/return to this trigger). Keyboard-tab focus still
+  // reveals; only the stray "focus came back after a close" bubble is muted.
+  const handleFocus = useCallback(() => {
+    if (isTooltipFocusSuppressed()) return;
+    handleEnter();
+  }, [handleEnter]);
+
   const captureRef = useCallback((el: HTMLElement | null) => {
     triggerElRef.current = el;
   }, []);
@@ -245,7 +254,7 @@ export default function Tooltip({
     className: [original.className, "group"].filter(Boolean).join(" "),
     onMouseEnter: handleEnter,
     onMouseLeave: handleLeave,
-    onFocus: handleEnter,
+    onFocus: handleFocus,
     onBlur: handleLeave,
     ref: composedRef,
   };
