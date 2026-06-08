@@ -1324,7 +1324,7 @@ export default function PurchaseEditor({
                           onClick={(e) => e.stopPropagation()}
                           className="text-red-400 text-meta opacity-30 cursor-not-allowed"
                         >
-                          ✕
+                          <Icon name="close" className="w-3.5 h-3.5" />
                         </button>
                       </Tooltip>
                     )}
