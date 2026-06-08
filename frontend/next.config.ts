@@ -54,6 +54,15 @@ const COLLAB_RELAY_WS =
 const COLLAB_RELAY_HTTP = COLLAB_RELAY_WS.replace(/^ws/, "http");
 const COLLAB_RELAY_ORIGIN = `${COLLAB_RELAY_WS} ${COLLAB_RELAY_HTTP}`;
 
+// The mobile capture relay (bench-photo upload + E2E snapshot download) is an
+// https origin the web app fetches cross-origin (devices, inbox poll, snapshot
+// publish). CSP connect-src must allow it. Defaults to the deployed worker, the
+// same default as lib/mobile-relay/client.ts captureRelayUrl(), overridable via
+// NEXT_PUBLIC_CAPTURE_RELAY_URL. The relay only ever holds signed/sealed bytes.
+const CAPTURE_RELAY_ORIGIN =
+  process.env.NEXT_PUBLIC_CAPTURE_RELAY_URL ??
+  "https://researchos-collab-relay.gnick317.workers.dev";
+
 /**
  * Content-Security-Policy locked to the surface ResearchOS actually uses.
  *
@@ -127,7 +136,7 @@ const CSP = [
   // Vercel Blob CDN for the welcome-page demo loop videos and their posters.
   "media-src 'self' https://*.public.blob.vercel-storage.com",
   "font-src 'self' data:",
-  `connect-src 'self' https://api.telegram.org https://vitals.vercel-insights.com https://*.r2.cloudflarestorage.com https://api.ncbi.nlm.nih.gov https://eutils.ncbi.nlm.nih.gov data: ${COLLAB_RELAY_ORIGIN}`,
+  `connect-src 'self' https://api.telegram.org https://vitals.vercel-insights.com https://*.r2.cloudflarestorage.com https://api.ncbi.nlm.nih.gov https://eutils.ncbi.nlm.nih.gov data: ${COLLAB_RELAY_ORIGIN} ${CAPTURE_RELAY_ORIGIN}`,
   "frame-src 'self' blob:",
   "frame-ancestors 'none'",
   "object-src 'none'",
