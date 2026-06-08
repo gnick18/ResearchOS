@@ -7,12 +7,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
@@ -139,6 +141,8 @@ export default function TodayScreen() {
 
           {pairing ? (
             <>
+              <ScanHeroCard onPress={() => router.push('/scan')} />
+
               {error ? (
                 <View
                   style={[
@@ -225,6 +229,40 @@ export default function TodayScreen() {
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
+  );
+}
+
+// The primary Scan entry point. A sky-filled hero card at the top of Today,
+// because "I just got a package" is the moment you open the app. Tapping it
+// opens the scan flow (receive, track, deduct, reorder). Mirrored by a smaller
+// scan affordance in Send.
+function ScanHeroCard({ onPress }: { onPress: () => void }) {
+  const { radii, elevation } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.scanHero,
+        {
+          backgroundColor: palette.sky,
+          borderRadius: radii.lg,
+          opacity: pressed ? 0.92 : 1,
+          transform: [{ scale: pressed ? 0.985 : 1 }],
+        },
+        elevation,
+      ]}
+    >
+      <View style={styles.scanHeroIcon}>
+        <Ionicons name="scan-outline" size={26} color={palette.white} />
+      </View>
+      <View style={styles.scanHeroText}>
+        <ThemedText style={styles.scanHeroTitle}>Scan a package</ThemedText>
+        <ThemedText style={styles.scanHeroSub}>
+          Receive, track, and reorder supplies
+        </ThemedText>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.85)" />
+    </Pressable>
   );
 }
 
@@ -329,5 +367,35 @@ const styles = StyleSheet.create({
   },
   errorText: {
     lineHeight: 20,
+  },
+  scanHero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+  },
+  scanHeroIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scanHeroText: {
+    flex: 1,
+  },
+  scanHeroTitle: {
+    color: '#ffffff',
+    fontSize: 17,
+    fontWeight: '700',
+    lineHeight: 22,
+  },
+  scanHeroSub: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 1,
   },
 });
