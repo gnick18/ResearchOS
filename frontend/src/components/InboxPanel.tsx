@@ -56,6 +56,9 @@ export default function InboxPanel({
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Inbox"
       className="fixed inset-0 z-[105] flex items-center justify-center bg-black/30 backdrop-blur-sm"
       // Marker for TourSpotlight (popup-occluding sweep manager,
       // 2026-05-27). Hides the v4 walkthrough ring while this popup
