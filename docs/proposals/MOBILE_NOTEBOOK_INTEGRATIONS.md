@@ -202,16 +202,18 @@ The audit found setTaskContentText REPLACES the whole doc (delete 0..len +
 insert), which would CLOBBER concurrent collab edits. Do NOT reuse it for
 append. Add a targeted `appendTaskLine(doc, line)` that does
 `content.insert(content.length, "\n" + line)` (a single CRDT insert at the end),
-which is safe under live editing. The line is `"<expr> = <value>"` with units,
+which is safe under live editing. The line is a PLAIN markdown line
+`"<expr> = <value>"` with units (confirmed 2026-06-08, no label / timestamp /
+bullet), e.g. `5 x 2 + 7 = 17` or `0.5 M NaCl in 50 mL (MW 58.44) = 1.46 g`,
 built phone-side from the calculator state.
 
 ### Edge cases to handle
 
 - Laptop offline / stale context: phone treats context older than ~20s as
   kind:'none' -> inbox / picker. No false "send to experiment".
-- Target task not currently open: append still works (writes the doc). For the
-  auto-switch part, if the experiment is not the open one, the laptop opens it
-  to the chosen tab then appends (flag: confirm this vs append-silently-if-closed).
+- Target task not currently open: the laptop OPENS that experiment to the chosen
+  tab and appends (confirmed 2026-06-08, "open it + switch + append"). Append
+  itself writes the doc regardless of open state; the open+switch is the UX.
 - Multiple laptops: v1 assumes one. Context is last-writer-wins per device; note
   multi-laptop disambiguation as a follow-up.
 - Idempotency: commandId dedups; ack deletes; safe to retry. Timer dismiss is
