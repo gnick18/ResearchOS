@@ -74,6 +74,23 @@ export async function fetchSnapshot(
   }
 
   const sealed = new Uint8Array(await res.arrayBuffer());
-  const opened = await unsealSnapshot(sealed);
-  return JSON.parse(new TextDecoder().decode(opened));
+  let opened: Uint8Array;
+  try {
+    opened = await unsealSnapshot(sealed);
+  } catch (e) {
+    // TEMP diagnostic: unseal (X25519 openSealed) failed. Almost always a key
+    // mismatch (the laptop sealed to a device key that does not match this
+    // phone's current X25519 key). Surface it instead of a generic sync error.
+    console.warn(
+      `[snapshot] unseal failed for "${name}" (sealedBytes=${sealed.length})`,
+      e,
+    );
+    throw e;
+  }
+  try {
+    return JSON.parse(new TextDecoder().decode(opened));
+  } catch (e) {
+    console.warn(`[snapshot] JSON parse failed for "${name}"`, e);
+    throw e;
+  }
 }
