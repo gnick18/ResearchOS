@@ -19,9 +19,18 @@ import {
 import { useTheme, palette, radii as globalRadii, spacing as globalSpacing } from '@/lib/design';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+export type ButtonAccent = 'sky' | 'coral' | 'amber';
+
+const ACCENT_COLOR: Record<ButtonAccent, string> = {
+  sky: palette.sky,
+  coral: palette.coral,
+  amber: palette.amber,
+};
 
 export interface ButtonProps extends Omit<PressableProps, 'style'> {
   variant?: ButtonVariant;
+  /** Tints the secondary/ghost label (and a secondary button's border). Default sky. */
+  accent?: ButtonAccent;
   label: string;
   /** Optional leading icon node (e.g. an IconSymbol). */
   icon?: React.ReactNode;
@@ -32,6 +41,7 @@ export interface ButtonProps extends Omit<PressableProps, 'style'> {
 
 export function Button({
   variant = 'primary',
+  accent = 'sky',
   label,
   icon,
   loading = false,
@@ -76,7 +86,7 @@ export function Button({
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === 'primary' ? palette.white : palette.sky}
+          color={variant === 'primary' ? palette.white : ACCENT_COLOR[accent]}
           size="small"
         />
       ) : (
@@ -86,7 +96,7 @@ export function Button({
             style={[
               styles.label,
               variant === 'primary' && styles.labelPrimary,
-              variant === 'secondary' && styles.labelSecondary,
+              variant === 'secondary' && { color: ACCENT_COLOR[accent] },
               variant === 'ghost' && { color: surface.muted },
             ]}
           >

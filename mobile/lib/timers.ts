@@ -113,15 +113,15 @@ export async function addTimer(input: {
 
 // Cancel a running timer. Cancels the scheduled notification and marks the row
 // cancelled. A no-op if the timer is already gone.
-export async function cancelTimer(id: string): Promise<Timer[]> {
+// Cancel a running timer. Cancelling just removes it (no "Cancelled" tombstone
+// in the Finished list); only timers that actually run out land in Finished.
+export async function deleteTimer(id: string): Promise<Timer[]> {
   const current = await listTimers();
   const target = current.find((t) => t.id === id);
   if (target) {
     await cancelTimerNotification(target.notificationId);
   }
-  const next = current.map((t) =>
-    t.id === id ? { ...t, status: 'cancelled' as const, notificationId: null } : t,
-  );
+  const next = current.filter((t) => t.id !== id);
   await writeAll(next);
   return next;
 }

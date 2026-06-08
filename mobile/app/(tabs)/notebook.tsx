@@ -348,6 +348,7 @@ export default function NotebookScreen() {
         {!previewUri ? (
           <Button
             variant="secondary"
+            accent="amber"
             label="Upload from camera roll"
             onPress={onUploadFromLibrary}
           />

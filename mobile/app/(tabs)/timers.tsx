@@ -27,7 +27,7 @@ import { useTheme, palette } from '@/lib/design';
 import { ensureNotificationPermission } from '@/lib/notifications';
 import {
   addTimer,
-  cancelTimer,
+  deleteTimer,
   clearFinished,
   useTimers,
   type Timer,
@@ -113,7 +113,7 @@ export default function TimersScreen() {
 
   const onCancel = useCallback(
     async (id: string) => {
-      await cancelTimer(id);
+      await deleteTimer(id);
       await refresh();
     },
     [refresh],
@@ -167,12 +167,23 @@ export default function TimersScreen() {
                 {PRESETS.map((p) => (
                   <Pressable
                     key={p.sec}
-                    style={[styles.preset, { backgroundColor: palette.white, borderColor: palette.elevatedBorder, borderRadius: radii.pill }]}
+                    style={({ pressed }) => [
+                      styles.preset,
+                      {
+                        borderRadius: radii.pill,
+                        backgroundColor: pressed ? palette.amber : palette.white,
+                        borderColor: pressed ? palette.amber : palette.elevatedBorder,
+                      },
+                    ]}
                     onPress={() => startPreset(p.sec)}
                     accessibilityRole="button"
                     accessibilityLabel={`Start ${p.label} timer`}
                   >
-                    <ThemedText style={[styles.presetText, { color: palette.sky }]}>{p.label}</ThemedText>
+                    {({ pressed }) => (
+                      <ThemedText style={[styles.presetText, { color: pressed ? palette.white : palette.sky }]}>
+                        {p.label}
+                      </ThemedText>
+                    )}
                   </Pressable>
                 ))}
               </View>
