@@ -5,6 +5,25 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+// Show a banner when a lab timer notification fires while the app is open. Per
+// the SDK 54 expo-notifications docs the handler returns shouldShowBanner /
+// shouldShowList. Guarded so a missing native module (some Expo Go edge) never
+// crashes app startup, the in-app timer countdown works regardless.
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const Notifications = require('expo-notifications');
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+} catch {
+  // expo-notifications unavailable here, skip the foreground handler.
+}
+
 export const unstable_settings = {
   anchor: '(tabs)',
 };
