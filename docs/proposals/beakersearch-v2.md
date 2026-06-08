@@ -311,9 +311,36 @@ All decisions are now LOCKED.
     task/record -> pick member/flag) -> the real pi-actions through the per-record
     PI edit confirm.
   All additive (a command without `subflow` is unchanged). 354 beaker tests green.
-- NEXT, CHUNK 3 (the three lifts), Workbench live selection (a per-panel reporter
-  so the clicked card drives context, not the last-opened proxy), Links board
-  filter (lift activeCategory so it filters the visible board) + client-side link
-  preview (favicon + hostname), Lab Overview pending approvals surfaced as
-  NAVIGATE entities (approve/decline/flag a specific item inline, not just route
-  to /purchases). That completes the locked debt-only v2 scope.
+- CHUNK 3 DONE + on `main`: the three lifts.
+  - Workbench LIVE SELECTION, each panel now reports its own open/selected entity
+    UP via an `onSelectionChange` reporter (the symmetric twin of v1's pushed
+    `initialOpen`), so the CLICKED card drives the context card + Suggested, not
+    the last-palette-opened proxy. Clears on close, outranks hover.
+  - Links, the category filter is LIFTED to the page so it filters the visible
+    board (not just the palette), and the `getPreview` stub is replaced with a
+    client-side favicon + hostname (no backend, malformed-url guarded); the dead
+    "Refresh preview" command is removed.
+  - Lab Overview, pending approvals are palette NAVIGATE entities you act on
+    inline (approve / decline / flag a specific item via the per-record confirm),
+    and they now lead the empty view; the /purchases route stays as the escape
+    hatch. (v1 had largely built this already, the lift was the entity copy +
+    ordering.)
+  365 beaker tests green.
+
+## 9. STATUS, debt-only v2 COMPLETE
+
+All five v1 simplifications are cleared and on `main`:
+1. In-palette multi-step pickers, DONE (chunks 1 to 2, the sub-flow framework +
+   every picker across all pages).
+2. Workbench live selection, DONE (chunk 3).
+3. Links board filter + real (client-side) preview, DONE (chunk 3).
+4. Lab Overview pending entities, DONE (chunk 3).
+5. The per-record PI confirm was already correct (no change needed).
+
+The "and more" (section 3 beyond the lifts, plus the global Notes entity in section
+4) was deliberately deferred, frecency ranking, the one-action-source refactor,
+result sub-actions, quick-filter tokens (cut), multi-select + bulk (cut), inline
+previews beyond favicons. Those are a future v2.x pass if they earn their weight.
+
+BeakerSearch is now, website-wide, context + mouse aware, with every action
+completable inside the palette. v1 + Step 4 + v2 debt-only are all shipped.
