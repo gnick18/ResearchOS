@@ -31,6 +31,7 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import { fileService } from "@/lib/file-system/file-service";
+import { appQueryClient } from "@/lib/query-client";
 import { notesApi } from "@/lib/local-api";
 import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { imageEvents } from "@/lib/attachments/image-events";
@@ -283,6 +284,15 @@ export async function runCaptureInboxPoll(
         message,
       );
     }
+  }
+
+  // The poller writes notes/images straight through the API + file-service layer,
+  // which does NOT run the React Query mutation hooks that normally refresh open
+  // views, so the Notes list / Photos inbox would stay stale until a manual
+  // refresh. Invalidate once after a productive poll so they re-fetch and the new
+  // items appear on their own (mirrors SharedFolderAutoRefresh's invalidate).
+  if (pulled > 0) {
+    void appQueryClient.invalidateQueries();
   }
 
   return { pulled, errors };
