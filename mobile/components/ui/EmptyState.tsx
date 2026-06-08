@@ -14,7 +14,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
-import { useTheme } from '@/lib/design';
+import { palette } from '@/lib/design';
 import { Card } from './Card';
 
 // We use Ionicons (bundled with @expo/vector-icons, already a dep). The icon
@@ -29,12 +29,11 @@ export interface EmptyStateProps {
 }
 
 export function EmptyState({ icon, text }: EmptyStateProps) {
-  const { surface } = useTheme();
   return (
     <Card>
       <View style={styles.inner}>
-        <Ionicons name={icon} size={28} color={surface.muted} />
-        <ThemedText style={[styles.text, { color: surface.muted }]}>
+        <Ionicons name={icon} size={28} color={palette.faint} />
+        <ThemedText style={[styles.text, { color: palette.faint }]}>
           {text}
         </ThemedText>
       </View>

@@ -353,6 +353,9 @@ function BrowseList({
                   key={entry.slug}
                   entry={entry}
                   first={i === 0}
+                  // The first page of each section is its overview/landing page.
+                  overview={i === 0}
+                  sectionLabel={section.label}
                   onPress={() => onSelectPage(entry)}
                 />
               ))}
@@ -368,25 +371,41 @@ function BrowseList({
 function PageRow({
   entry,
   first,
+  overview,
+  sectionLabel,
   onPress,
 }: {
   entry: WikiEntry;
   first?: boolean;
+  overview?: boolean;
+  sectionLabel?: string;
   onPress: () => void;
 }) {
   const { surface } = useTheme();
+  // When the overview page just repeats the section name (e.g. FEATURES >
+  // "Features"), relabel it to "Overview" so it does not read as a duplicate.
+  const dupTitle =
+    overview && sectionLabel && entry.title.toLowerCase() === sectionLabel.toLowerCase();
+  const title = dupTitle ? 'Overview' : entry.title;
+  const accent = overview ? palette.sky : surface.text;
+
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
         styles.pageRow,
         !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: surface.border },
-        { backgroundColor: pressed ? surface.pressed : 'transparent' },
+        { backgroundColor: pressed ? surface.pressed : overview ? palette.skyDim : 'transparent' },
       ]}
     >
+      {overview ? (
+        <View style={styles.overviewIcon}>
+          <Ionicons name="compass-outline" size={18} color={palette.sky} />
+        </View>
+      ) : null}
       <View style={{ flex: 1, gap: 2 }}>
-        <ThemedText style={[styles.pageTitle, { color: surface.text }]}>
-          {entry.title}
+        <ThemedText style={[styles.pageTitle, { color: accent }, overview && styles.overviewTitle]}>
+          {title}
         </ThemedText>
         {entry.blurb ? (
           <ThemedText style={[styles.pageBlurb, { color: surface.muted }]} numberOfLines={2}>
@@ -394,7 +413,7 @@ function PageRow({
           </ThemedText>
         ) : null}
       </View>
-      <Ionicons name="chevron-forward" size={16} color={surface.muted} style={styles.chevron} />
+      <Ionicons name="chevron-forward" size={16} color={overview ? palette.sky : surface.muted} style={styles.chevron} />
     </Pressable>
   );
 }
@@ -460,7 +479,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginLeft: 4,
   },
-  pagesCard: { padding: 0, gap: 0 },
+  pagesCard: { padding: 0, gap: 0, overflow: 'hidden' },
 
   pageRow: {
     flexDirection: 'row',
@@ -468,6 +487,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 13,
   },
+  overviewIcon: { marginRight: 11 },
+  overviewTitle: { fontWeight: '700' },
   pageTitle: { fontSize: 15, fontWeight: '500', lineHeight: 20 },
   pageBlurb: { fontSize: 13, lineHeight: 18 },
 

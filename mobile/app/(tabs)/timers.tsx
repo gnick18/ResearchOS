@@ -6,13 +6,7 @@
 // Go (only remote push needs a development build). House style: no em-dashes,
 // no emojis, no mid-sentence colons.
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 
@@ -21,7 +15,6 @@ import { ThemedView } from '@/components/themed-view';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { EmptyState } from '@/components/ui/EmptyState';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { useTheme, palette } from '@/lib/design';
 import { ensureNotificationPermission } from '@/lib/notifications';
@@ -48,7 +41,6 @@ const PRESETS = [
 export default function TimersScreen() {
   const { timers, refresh } = useTimers();
   const { surface, spacing, radii } = useTheme();
-  const [label, setLabel] = useState('');
   // Up to six entered digits, read right-to-left as HHMMSS.
   const [digits, setDigits] = useState('');
   // null = not yet checked, true/false once we know the OS grant.
@@ -91,24 +83,22 @@ export default function TimersScreen() {
 
   const onStart = useCallback(async () => {
     if (duration <= 0) return;
-    await addTimer({ label, durationSec: duration });
-    setLabel('');
+    await addTimer({ label: '', durationSec: duration });
     setDigits('');
     // Re-check the grant, a first start may have triggered the OS prompt.
     setNotifyGranted(await ensureNotificationPermission());
     await refresh();
-  }, [label, duration, refresh]);
+  }, [duration, refresh]);
 
   // One-tap preset: start a timer immediately at the chosen duration.
   const startPreset = useCallback(
     async (sec: number) => {
-      await addTimer({ label, durationSec: sec });
-      setLabel('');
+      await addTimer({ label: '', durationSec: sec });
       setDigits('');
       setNotifyGranted(await ensureNotificationPermission());
       await refresh();
     },
-    [label, refresh],
+    [refresh],
   );
 
   const onCancel = useCallback(
@@ -124,8 +114,13 @@ export default function TimersScreen() {
     await refresh();
   }, [refresh]);
 
-  const running = timers.filter((t) => t.status === 'running');
-  const finished = timers.filter((t) => t.status !== 'running');
+  // Newest first, so a freshly started timer lands at the top of each list.
+  const running = timers
+    .filter((t) => t.status === 'running')
+    .sort((a, b) => b.startedAt - a.startedAt);
+  const finished = timers
+    .filter((t) => t.status !== 'running')
+    .sort((a, b) => b.endsAt - a.endsAt);
 
   return (
     <ScreenFrame>
@@ -139,25 +134,21 @@ export default function TimersScreen() {
             Start a countdown at the bench and get an alert when it finishes.
           </ThemedText>
 
+          {/* Running timers float to the top, newest first. The whole section
+              vanishes when nothing is running, so New timer sits at the top. */}
+          {running.length > 0 ? (
+            <>
+              <SectionHeader title="Running" />
+              {running.map((timer) => (
+                <TimerRow key={timer.id} timer={timer} onCancel={onCancel} />
+              ))}
+            </>
+          ) : null}
+
           <Card style={{ gap: spacing.md }}>
             <ThemedText style={[styles.cardSectionTitle, { color: surface.text }]}>
               New timer
             </ThemedText>
-            <TextInput
-              value={label}
-              onChangeText={setLabel}
-              placeholder="What are you timing, optional"
-              placeholderTextColor={surface.placeholder}
-              style={[
-                styles.input,
-                {
-                  backgroundColor: surface.surface,
-                  borderColor: surface.border,
-                  borderRadius: radii.md,
-                  color: surface.text,
-                },
-              ]}
-            />
 
             <View>
               <ThemedText style={[styles.subLabel, { color: surface.muted }]}>
@@ -203,7 +194,7 @@ export default function TimersScreen() {
               >
                 {hh}:{mm}:{ss}
               </ThemedText>
-              <ThemedText style={[styles.displayHint, { color: surface.muted }]}>
+              <ThemedText style={[styles.displayHint, { color: palette.faint }]}>
                 hours : min : sec
               </ThemedText>
             </View>
@@ -242,26 +233,13 @@ export default function TimersScreen() {
             />
 
             {notifyGranted === false ? (
-              <ThemedText style={[styles.permNote, { color: surface.muted }]}>
+              <ThemedText style={[styles.permNote, { color: palette.faint }]}>
                 Notifications are off, so this timer runs in-app but you will not
                 get a background alert. Turn on notifications in Settings to be
                 alerted when the app is closed.
               </ThemedText>
             ) : null}
           </Card>
-
-          <SectionHeader title="Running" />
-
-          {running.length === 0 ? (
-            <EmptyState
-              icon="timer-outline"
-              text="No timers running. Start one above."
-            />
-          ) : (
-            running.map((timer) => (
-              <TimerRow key={timer.id} timer={timer} onCancel={onCancel} />
-            ))
-          )}
 
           {finished.length > 0 ? (
             <>

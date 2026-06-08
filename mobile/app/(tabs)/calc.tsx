@@ -322,8 +322,7 @@ function ResultRow({ label, value }: { label: string; value: string }) {
 }
 
 function HintText({ children }: { children: string }) {
-  const { surface } = useTheme();
-  return <Text style={[styles.hint, { color: surface.muted }]}>{children}</Text>;
+  return <Text style={[styles.hint, { color: palette.faint }]}>{children}</Text>;
 }
 
 // ---------------------------------------------------------------------------
@@ -385,7 +384,22 @@ const FN_KEYS: [string, string][] = [
   ['n!', '!'],
 ];
 
-type SciKeyVariant = 'digit' | 'op' | 'fnk' | 'eq';
+// Key tones: clear=coral, accent(del/Ans)=solid sky, eq=amber, op=sky tint,
+// digit=white. Word keys (AC/del/Ans) use the smaller label.
+type SciKeyVariant = 'digit' | 'op' | 'fnk' | 'eq' | 'clear' | 'accent';
+
+const KEY_BG: Partial<Record<SciKeyVariant, string>> = {
+  op: palette.skyDim,
+  eq: palette.amber,
+  clear: palette.coral,
+  accent: palette.sky,
+};
+const KEY_FG: Partial<Record<SciKeyVariant, string>> = {
+  op: palette.sky,
+  eq: palette.white,
+  clear: palette.white,
+  accent: palette.white,
+};
 
 function SciKey({
   label,
@@ -399,16 +413,9 @@ function SciKey({
   span2?: boolean;
 }) {
   const { surface } = useTheme();
-  const bg =
-    variant === 'op'
-      ? palette.skyDim
-      : variant === 'eq'
-      ? palette.sky
-      : variant === 'fnk'
-      ? surface.sunken
-      : surface.surface;
-  const color =
-    variant === 'op' ? palette.sky : variant === 'eq' ? palette.white : variant === 'fnk' ? surface.muted : surface.text;
+  const bg = KEY_BG[variant] ?? (variant === 'fnk' ? surface.sunken : surface.surface);
+  const color = KEY_FG[variant] ?? (variant === 'fnk' ? surface.muted : surface.text);
+  const wordKey = variant === 'fnk' || variant === 'clear' || variant === 'accent';
   return (
     <Pressable
       onPress={onPress}
@@ -424,7 +431,7 @@ function SciKey({
           style={[
             styles.padKeyLabel,
             { color: pressed ? palette.white : color },
-            variant === 'fnk' && styles.padKeyLabelSm,
+            wordKey && styles.padKeyLabelSm,
           ]}
         >
           {label}
@@ -514,9 +521,9 @@ function ScientificTab() {
 
       {/* Number pad */}
       <View style={styles.padGrid}>
-        <SciKey label="AC" onPress={clear} variant="fnk" />
-        <SciKey label="⌫" onPress={backspace} variant="fnk" />
-        <SciKey label="Ans" onPress={() => insert('Ans')} variant="fnk" />
+        <SciKey label="AC" onPress={clear} variant="clear" />
+        <SciKey label="⌫" onPress={backspace} variant="accent" />
+        <SciKey label="Ans" onPress={() => insert('Ans')} variant="accent" />
         <SciKey label="÷" onPress={() => insert('/')} variant="op" />
 
         <SciKey label="7" onPress={() => insert('7')} />

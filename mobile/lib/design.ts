@@ -52,6 +52,9 @@ export const palette = {
   // Grays
   white: '#ffffff',
   black: '#000000',
+  // Soft grey for info captions / hint subheadings, lighter than surface.muted
+  // so the eye is drawn to the controls, not the explanatory text.
+  faint: '#9aa3b2',
 } as const;
 
 // ---------------------------------------------------------------------------
