@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import type { CalendarFeed, ExternalEvent } from "@/lib/types";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -39,6 +39,43 @@ async function fetchIcsFeed(feed: CalendarFeed): Promise<ExternalEvent[]> {
   return parseIcsToExternalEvents(ics, feed);
 }
 
+// ── Per-feed circuit breaker ─────────────────────────────────────────────
+// A dead or expired ICS share URL fails the same way on every poll. Without
+// a breaker, React Query's refetch-on-focus + retry re-fires the failing
+// feed on every window focus and every component that mounts the hook
+// (the calendar page, the daily sidebar, the lab-overview widget…), which
+// is exactly the "console floods with 502s" failure mode. After
+// MAX_CONSECUTIVE_FAILURES failures a feed is "tripped": its query is
+// disabled so it stops auto-refetching until the user explicitly retries
+// (or edits the URL, which changes the breaker key). Module-level so the
+// tripped state is shared across every mount and survives remounts within a
+// session; it resets on reload (a natural "try again").
+const MAX_CONSECUTIVE_FAILURES = 3;
+type BreakerEntry = { failures: number; tripped: boolean };
+const feedBreaker = new Map<string, BreakerEntry>();
+
+function breakerKey(feed: CalendarFeed): string {
+  // Include the URL so editing a broken feed's link mints a fresh key and
+  // clears the tripped state automatically.
+  return `${feed.id}::${feed.icsUrl ?? ""}`;
+}
+function isFeedTripped(feed: CalendarFeed): boolean {
+  return feedBreaker.get(breakerKey(feed))?.tripped ?? false;
+}
+function recordFeedSuccess(feed: CalendarFeed): void {
+  feedBreaker.delete(breakerKey(feed));
+}
+function recordFeedFailure(feed: CalendarFeed): void {
+  const key = breakerKey(feed);
+  const entry = feedBreaker.get(key) ?? { failures: 0, tripped: false };
+  entry.failures += 1;
+  if (entry.failures >= MAX_CONSECUTIVE_FAILURES) entry.tripped = true;
+  feedBreaker.set(key, entry);
+}
+function resetFeedBreaker(): void {
+  feedBreaker.clear();
+}
+
 export function useCalendarFeeds() {
   const { currentUser } = useCurrentUser();
   return useQuery({
@@ -64,6 +101,11 @@ export function useExternalEvents() {
 
   const queryClient = useQueryClient();
 
+  // Bumped when the user retries stalled feeds: forces the per-feed `enabled`
+  // flags below to recompute from the (now-reset) breaker so a tripped query
+  // re-enables and React Query re-runs it.
+  const [breakerNonce, setBreakerNonce] = useState(0);
+
   const perFeed = useQueries({
     queries: enabledFeeds.map((feed) => ({
       // currentUser is the FIRST key segment (calendar-privacy fix,
@@ -86,21 +128,39 @@ export function useExternalEvents() {
       // events outright rather than merely marking them stale.
       queryKey: [FEED_EVENTS_PREFIX, currentUser, feed.id, feed.kind, feed.icsUrl] as const,
       queryFn: async () => {
-        const events = await fetchIcsFeed(feed);
-        if (currentUser) {
-          try {
-            await markFeedSynced(currentUser, feed.id);
-            queryClient.invalidateQueries({ queryKey: [...FEEDS_QUERY_KEY, currentUser] });
-          } catch {
-            // markFeedSynced is best-effort; surfacing its failure would just
-            // bury the actual events behind a non-fatal error.
+        try {
+          const events = await fetchIcsFeed(feed);
+          recordFeedSuccess(feed);
+          if (currentUser) {
+            try {
+              await markFeedSynced(currentUser, feed.id);
+              queryClient.invalidateQueries({ queryKey: [...FEEDS_QUERY_KEY, currentUser] });
+            } catch {
+              // markFeedSynced is best-effort; surfacing its failure would just
+              // bury the actual events behind a non-fatal error.
+            }
           }
+          return events;
+        } catch (err) {
+          recordFeedFailure(feed);
+          throw err;
         }
-        return events;
       },
+      // Once a feed has failed MAX_CONSECUTIVE_FAILURES times in a row it is
+      // almost certainly a dead/expired share URL, not a blip. Disable the
+      // query so it stops auto-refetching on every focus / remount (the
+      // console-flood failure mode) until the user explicitly retries.
+      enabled: !isFeedTripped(feed),
+      // A 502 from a dead feed won't recover on an immediate retry; it just
+      // doubles the noise. Let the breaker + manual retry handle recovery.
+      retry: 0,
+      // The default focus/reconnect refetch is what turns one bad feed into a
+      // console flood as the user clicks around. Feeds refresh on the
+      // staleTime cadence and on explicit retry instead.
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
       staleTime: FIFTEEN_MIN_MS,
       gcTime: ONE_HOUR_MS,
-      retry: 1,
     })),
   });
 
@@ -124,16 +184,35 @@ export function useExternalEvents() {
     return map;
   }, [enabledFeeds, perFeed]);
 
+  // Feeds the breaker has given up on. The UI shows these as "stopped
+  // syncing — check the link" (a likely-broken subscription needing the
+  // user's attention), distinct from a transient "couldn't fetch, will
+  // retry". perFeed + breakerNonce are the signals the tripped set changed
+  // (a query just errored, or the user retried).
+  const staleFeedIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const feed of enabledFeeds) {
+      if (isFeedTripped(feed)) ids.add(feed.id);
+    }
+    return ids;
+  }, [enabledFeeds, perFeed, breakerNonce]);
+
   const isLoading = feedsQuery.isLoading || perFeed.some((q) => q.isLoading);
   const isFetching = feedsQuery.isFetching || perFeed.some((q) => q.isFetching);
 
   const refetch = async () => {
+    // Clear every breaker entry and force `enabled` to recompute true so
+    // tripped queries re-enable, then re-run all feed queries. Backs the
+    // user-facing "Retry" affordances.
+    resetFeedBreaker();
+    setBreakerNonce((n) => n + 1);
     await Promise.all(perFeed.map((q) => q.refetch()));
   };
 
   return {
     events,
     errorsByFeedId,
+    staleFeedIds,
     isLoading,
     isFetching,
     refetch,

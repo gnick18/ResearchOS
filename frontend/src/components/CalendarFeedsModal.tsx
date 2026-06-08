@@ -10,6 +10,7 @@ import {
   updateFeed,
 } from "@/lib/calendar/external-feeds-store";
 import { parseIcsToExternalEvents } from "@/lib/calendar/ics-parser";
+import { useExternalEvents } from "@/lib/calendar/use-external-events";
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 import { getNativeCalendarColor } from "@/lib/file-system/user-metadata";
 import {
@@ -39,6 +40,16 @@ interface Props {
 export default function CalendarFeedsModal({ open, onClose }: Props) {
   const { currentUser } = useCurrentUser();
   const queryClient = useQueryClient();
+  // Live sync health for the listed feeds: which ones the circuit breaker has
+  // given up on (stale link), which have a transient error, and a retry that
+  // resets the breaker. Lets this management surface tell the user a feed
+  // needs its link re-checked.
+  const {
+    staleFeedIds,
+    errorsByFeedId,
+    refetch: refetchFeedSync,
+    isFetching: feedSyncFetching,
+  } = useExternalEvents();
   const [feeds, setFeeds] = useState<CalendarFeed[]>([]);
   const [loading, setLoading] = useState(true);
   const [showHelp, setShowHelp] = useState<CalendarFeedProvider | null>(null);
@@ -268,6 +279,29 @@ export default function CalendarFeedsModal({ open, onClose }: Props) {
                           Last synced {new Date(feed.lastSyncAt).toLocaleString()}
                         </p>
                       )}
+                      {feed.enabled && staleFeedIds.has(feed.id) ? (
+                        <div className="mt-1.5 rounded-md border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 px-2 py-1.5">
+                          <p className="text-meta font-medium text-red-700 dark:text-red-300">
+                            Stopped syncing — the link may be broken or expired.
+                          </p>
+                          <p className="text-meta text-red-600/90 dark:text-red-300/80 mt-0.5">
+                            Re-copy this calendar&apos;s public iCal URL from its
+                            share settings and re-add it (Remove, then paste the
+                            new link), or retry.
+                          </p>
+                          <button
+                            onClick={() => void refetchFeedSync()}
+                            disabled={feedSyncFetching}
+                            className="mt-1 text-meta font-medium text-red-700 dark:text-red-300 underline disabled:opacity-50"
+                          >
+                            {feedSyncFetching ? "Retrying…" : "Retry now"}
+                          </button>
+                        </div>
+                      ) : feed.enabled && errorsByFeedId.has(feed.id) ? (
+                        <p className="mt-1 text-meta text-amber-600 dark:text-amber-300">
+                          Couldn&apos;t sync just now — will retry automatically.
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex flex-col items-end gap-2">
                       <label className="inline-flex items-center gap-1 cursor-pointer">
