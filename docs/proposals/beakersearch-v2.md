@@ -250,9 +250,22 @@ as the v1 global-search decisions doc.
    framework + every in-palette picker + the Workbench live-selection, Links
    board-filter, and Lab-Overview pending-entity lifts. The "and more" (section 3
    beyond the lifts, and section 4) is deferred to a later pass, NOT this build.
-2. SUB-FLOW UX, **pending**. Grant is deciding from the interactive side-by-side
-   `docs/mockups/beakersearch-v2-subflow.html` (Option A pushed view-stack vs
-   Option B inline expansion). Lock this before chunk 1.
+2. SUB-FLOW UX, **HYBRID** (Grant, from the mockup). Option B (inline expansion)
+   is the DEFAULT for a single-step pick, the picker opens under the command row
+   and nothing else moves. A MULTI-STEP flow uses Option A (the pushed view-stack
+   with breadcrumb + Back), because chained picks nest awkwardly inline. So the
+   framework supports BOTH and chooses per flow:
+   - One-stage sub-flows render INLINE (B), assign-task (pick member),
+     change-project (pick project), set-funding (pick account), move-note (pick
+     notebook), move-method-category (pick category), link-event-to-task (pick
+     task), pin/visibility quick-picks.
+   - Multi-stage sub-flows render as the STACK (A), add-dependency (pick child
+     experiment -> pick dep type), flag-a-record (pick record -> pick flag), and
+     any flow whose first `onPick` returns another `PaletteSubflow`.
+   - The presentation is inferred (single stage -> inline, chained -> stack) with
+     an optional explicit `presentation` override on the PaletteSubflow. A flow
+     that STARTS inline and then chains promotes to the stack on the second stage,
+     so the user is never stuck nesting inline.
 3. LINK PREVIEW, **client-side only**. Favicon + hostname derived in the browser,
    no backend, no metadata-scrape function. Ships with the Links board-filter lift.
 4. QUICK-FILTER TOKENS, **skipped for v2**. The inline palette stays about fuzzy
@@ -269,5 +282,5 @@ entities). Frecency ranking, inline previews beyond favicons, result sub-actions
 the one-action-source refactor, tokens, bulk, and the global Notes entity are all
 explicitly OUT of this push.
 
-The remaining gate is decision 2 (the sub-flow presentation), once Grant picks A or
-B from the mockup, chunk 1 can start.
+All decisions are now LOCKED. Chunk 1 (the sub-flow framework, supporting both the
+inline and stacked presentations per the hybrid rule) is ready to build.
