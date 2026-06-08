@@ -532,6 +532,19 @@ export function CommandPalette({
 
   // The live "Hide here" hint side while dragging near an edge (null = not near).
   const [armedSide, setArmedSide] = useState<DockSide | null>(null);
+  // De-dupe armedSide so a drag only sets state when the armed wall actually
+  // changes (most moves do not), keeping pointermove free of React work.
+  const armedRef = useRef<DockSide | null>(null);
+
+  // BeakerSearch v3 performance. Drag and resize are driven IMPERATIVELY while
+  // the pointer is down (the element's style is mutated directly, no per-move
+  // setState, no localStorage write, no offsetHeight reflow). React state is
+  // committed once on release. `gesture` marks an active drag / resize so the
+  // render reads the live geometry ref and disables the transition; the height
+  // is measured once at gesture start instead of every move.
+  const [gesture, setGesture] = useState<null | "drag" | "resize">(null);
+  const liveGeomRef = useRef<{ x: number; y: number; width: number } | null>(null);
+  const gestureHeightRef = useRef(DOCK_HEIGHT_FALLBACK);
 
   const typing = query.trim() !== "";
 
@@ -947,55 +960,72 @@ export function CommandPalette({
     originY: number;
   } | null>(null);
 
-  const onHeaderPointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      // Ignore drags that start on a header control (close / collapse / hide).
-      if ((e.target as HTMLElement).closest("[data-dock-act]")) return;
-      if (dock.tucked) return; // tucked = use the tab, not a drag.
-      const el = dockRef.current;
-      if (!el) return;
-      const x = dock.x ?? el.getBoundingClientRect().left;
-      const y = dock.y ?? el.getBoundingClientRect().top;
-      dragRef.current = {
-        pointerId: e.pointerId,
-        startX: e.clientX,
-        startY: e.clientY,
-        originX: x,
-        originY: y,
-      };
-      el.setPointerCapture(e.pointerId);
-    },
-    [dock.tucked, dock.x, dock.y],
-  );
+  const onHeaderPointerDown = useCallback((e: React.PointerEvent) => {
+    // Ignore drags that start on a header control (close / collapse / hide).
+    if ((e.target as HTMLElement).closest("[data-dock-act]")) return;
+    const cur = dockStateRef.current;
+    if (cur.tucked) return; // tucked = use the tab, not a drag.
+    const el = dockRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = cur.x ?? rect.left;
+    const y = cur.y ?? rect.top;
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: x,
+      originY: y,
+    };
+    // Measure height ONCE so pointermove never forces a layout reflow.
+    gestureHeightRef.current = el.offsetHeight || DOCK_HEIGHT_FALLBACK;
+    liveGeomRef.current = { x, y, width: cur.width };
+    armedRef.current = null;
+    // Capture on the header (the element with the move/up listeners) so a fast
+    // drag that outruns the dock keeps delivering events instead of stalling.
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    setGesture("drag");
+  }, []);
 
   const onHeaderPointerMove = useCallback((e: React.PointerEvent) => {
     const d = dragRef.current;
     if (!d || d.pointerId !== e.pointerId) return;
+    const el = dockRef.current;
+    if (!el) return;
     const vp: Viewport = { width: window.innerWidth, height: window.innerHeight };
-    const h = dockHeight();
-    // The DESIRED (unclamped) position decides arming; the dock itself sits at
-    // the clamped position so it can be pressed flush against the wall.
+    const h = gestureHeightRef.current;
+    const w = dockStateRef.current.width;
+    // DESIRED (unclamped) decides arming; the dock sits at the clamped position.
     const desiredX = d.originX + (e.clientX - d.startX);
     const desiredY = d.originY + (e.clientY - d.startY);
-    const w = dockStateRef.current.width;
     const next = clampPosition(desiredX, desiredY, vp, 44, h, w);
-    setDock((cur) => ({ ...cur, x: next.x, y: next.y, tucked: false }));
-    setArmedSide(armedWall(desiredX, desiredY, vp, h, w));
-  }, [dockHeight]);
+    liveGeomRef.current = { x: next.x, y: next.y, width: w };
+    // Imperative move, no React state, so the dock tracks the pointer 1:1.
+    el.style.left = `${next.x}px`;
+    el.style.top = `${next.y}px`;
+    const armed = armedWall(desiredX, desiredY, vp, h, w);
+    if (armed !== armedRef.current) {
+      armedRef.current = armed;
+      setArmedSide(armed);
+    }
+  }, []);
 
   const onHeaderPointerUp = useCallback((e: React.PointerEvent) => {
     const d = dragRef.current;
     if (!d || d.pointerId !== e.pointerId) return;
     dragRef.current = null;
-    setArmedSide(null);
-    const el = dockRef.current;
-    if (el && el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+    const header = e.currentTarget as HTMLElement;
+    if (header.hasPointerCapture(e.pointerId)) header.releasePointerCapture(e.pointerId);
     const vp: Viewport = { width: window.innerWidth, height: window.innerHeight };
-    const h = dockHeight();
+    const h = gestureHeightRef.current;
     const desiredX = d.originX + (e.clientX - d.startX);
     const desiredY = d.originY + (e.clientY - d.startY);
-    setDock((cur) => endDrag(cur, desiredX, desiredY, vp, h));
-  }, [dockHeight]);
+    liveGeomRef.current = null;
+    armedRef.current = null;
+    setArmedSide(null);
+    setGesture(null);
+    setDock((curState) => endDrag(curState, desiredX, desiredY, vp, h));
+  }, []);
 
   // Header control actions.
   const doTuck = useCallback(() => {
@@ -1018,26 +1048,45 @@ export function CommandPalette({
     (edge: ResizeEdge) => (e: React.PointerEvent) => {
       e.stopPropagation();
       e.preventDefault();
+      const el = dockRef.current;
+      const cur = dockStateRef.current;
+      const rect = el?.getBoundingClientRect();
       resizeRef.current = { pointerId: e.pointerId, edge };
+      liveGeomRef.current = {
+        x: cur.x ?? rect?.left ?? 0,
+        y: cur.y ?? rect?.top ?? 0,
+        width: cur.width,
+      };
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      setGesture("resize");
     },
     [],
   );
   const onResizePointerMove = useCallback((e: React.PointerEvent) => {
     const r = resizeRef.current;
     if (!r || r.pointerId !== e.pointerId) return;
+    const el = dockRef.current;
+    if (!el) return;
     const vp: Viewport = { width: window.innerWidth, height: window.innerHeight };
-    setDock((cur) => {
-      const nz = resizeWidth(cur, r.edge, e.clientX, vp);
-      return { ...cur, x: nz.x, width: nz.width };
-    });
+    // resizeWidth is absolute (pointer-based), so the frozen start state is the
+    // correct anchor for every move; no per-move setState.
+    const nz = resizeWidth(dockStateRef.current, r.edge, e.clientX, vp);
+    const live = liveGeomRef.current;
+    liveGeomRef.current = { x: nz.x, y: live?.y ?? (dockStateRef.current.y ?? 0), width: nz.width };
+    el.style.left = `${nz.x}px`;
+    el.style.width = `${nz.width}px`;
   }, []);
   const onResizePointerUp = useCallback((e: React.PointerEvent) => {
     const r = resizeRef.current;
     if (!r || r.pointerId !== e.pointerId) return;
     resizeRef.current = null;
-    const el = e.currentTarget as HTMLElement;
-    if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+    const handle = e.currentTarget as HTMLElement;
+    if (handle.hasPointerCapture(e.pointerId)) handle.releasePointerCapture(e.pointerId);
+    const vp: Viewport = { width: window.innerWidth, height: window.innerHeight };
+    const nz = resizeWidth(dockStateRef.current, r.edge, e.clientX, vp);
+    liveGeomRef.current = null;
+    setGesture(null);
+    setDock((cur) => ({ ...cur, x: nz.x, width: nz.width }));
   }, []);
 
   // BeakerSearch v3. Arrow keys hide the dock to a wall, or pull it back from
@@ -1114,8 +1163,13 @@ export function CommandPalette({
   // (x, y); tucked slides it off `side` via a transform leaving the peek tab;
   // collapsed hides everything but the header pill. The transform keeps the
   // resting position so untucking returns it at the same size.
-  const left = dock.x ?? 0;
-  const top = dock.y ?? 0;
+  // During an active gesture the live geometry ref is the source of truth (the
+  // pointer handlers mutate the element imperatively); a re-render mid-gesture
+  // reads it so the position never snaps back. Otherwise read committed state.
+  const live = gesture ? liveGeomRef.current : null;
+  const left = live ? live.x : dock.x ?? 0;
+  const top = live ? live.y : dock.y ?? 0;
+  const renderWidth = live ? live.width : dock.width;
   const TUCK_TRANSFORM: Record<DockSide, string> = {
     right: "translateX(calc(100% + 24px))",
     left: "translateX(calc(-100% - 24px))",
@@ -1123,11 +1177,11 @@ export function CommandPalette({
     top: "translateY(calc(-100% - 24px))",
   };
   const tuckTransform = dock.tucked ? TUCK_TRANSFORM[dock.side] : undefined;
-  // The animated chrome (drag tracks the pointer with no transition; tuck /
-  // untuck / collapse animate, unless the user prefers reduced motion).
-  const dragging = dragRef.current != null;
+  // The animated chrome (a live drag / resize tracks the pointer with no
+  // transition; tuck / untuck / collapse animate, unless reduced motion).
+  const dragging = gesture === "drag";
   const transitionClass =
-    dragging || reduceMotionRef.current
+    gesture || reduceMotionRef.current
       ? ""
       : "transition-[transform,left,top] duration-300 ease-out motion-reduce:transition-none";
   // While a drag is armed against a wall, the dock pulses a ring on that edge as
@@ -1245,7 +1299,7 @@ export function CommandPalette({
         style={{
           left: `${left}px`,
           top: `${top}px`,
-          width: `${dock.width}px`,
+          width: `${renderWidth}px`,
           transform: tuckTransform,
         }}
         className={`fixed z-[79] flex max-h-[80vh] flex-col overflow-hidden rounded-2xl border border-border bg-surface-raised shadow-2xl ${transitionClass} ${armedRingClass}`}
