@@ -100,6 +100,22 @@ export default function HomeScreen() {
             style={{ marginTop: spacing.xs }}
           />
         </Card>
+
+        {/* Wiki -- offline help docs, no pairing required */}
+        <Card style={{ gap: spacing.sm }}>
+          <ThemedText style={[styles.cardTitle, { color: surface.text }]}>
+            Wiki and help
+          </ThemedText>
+          <ThemedText style={[styles.cardMeta, { color: surface.muted }]}>
+            Every guide from the website, searchable and offline. No pairing needed.
+          </ThemedText>
+          <Button
+            variant="secondary"
+            label="Open the wiki"
+            onPress={() => router.push('/wiki')}
+            style={{ marginTop: spacing.xs }}
+          />
+        </Card>
       </View>
     </ScreenFrame>
   );

@@ -71,6 +71,8 @@ export default function RootLayout() {
         <Stack.Screen name="reorder" options={{ title: 'Scan to reorder' }} />
         <Stack.Screen name="scan" options={{ title: 'Scan' }} />
         <Stack.Screen name="calc" options={{ title: 'Calculators' }} />
+        <Stack.Screen name="wiki/index" options={{ title: 'Wiki' }} />
+        <Stack.Screen name="wiki/[slug]" options={{ title: '' }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       {splashVisible ? <AppSplash onFinish={handleSplashFinish} /> : null}
