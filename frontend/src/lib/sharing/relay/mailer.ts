@@ -9,10 +9,12 @@
 //
 // CONTENT MINIMIZATION. The body carries ONLY the item TITLE the sender chose
 // to expose, never any research content (the data is parked sealed on the relay,
-// not attached here). The accept link carries the one-time decryption key in its
-// URL FRAGMENT, which a browser never transmits to a server, so the key is in the
-// email (the trust channel) but never reaches our infrastructure in a stored
-// form. We do not log the link.
+// not attached here). The accept link is KEYLESS, a bare /accept/<id> landing
+// with NO fragment and NO key (P1-A, docs/proposals/INVITE_KEY_OUT_OF_EMAIL.md).
+// The one-time decryption key never reaches this email or Resend's retained log,
+// the SENDER delivers it to the recipient out of band as a private link or unlock
+// code. So this email opens a landing that asks for that code, it is not itself
+// sufficient to decrypt the item.
 //
 // LIVE SENDING PREREQUISITE. Sending from a research-os.app address requires the
 // domain verified in Resend (SPF / DKIM / DMARC), a separate human DNS step. The
@@ -104,11 +106,11 @@ export interface InviteEmailParams {
   /** The note/method TITLE the sender chose to expose. The ONLY content teaser. */
   itemTitle: string;
   /**
-   * The full accept link INCLUDING the one-time key in its fragment
-   * (https://research-os.app/accept/<id>#k=<key>). Composed by the client and
-   * passed in transiently to put in the email body. It is NEVER persisted
-   * server-side and NEVER logged. This is the honest trust boundary, the email
-   * is the keyless-invite trust channel.
+   * The KEYLESS accept landing link (https://research-os.app/accept/<id>), with
+   * NO fragment and NO key. Built server-side by the confirm route from the
+   * verified inviteId (P1-A), never carries the one-time key. It opens the
+   * landing where the recipient pastes the unlock code the sender sent them out
+   * of band, so this link alone cannot decrypt the item.
    */
   acceptUrl: string;
   /**
@@ -181,8 +183,8 @@ export function buildInviteHtml(params: InviteEmailParams): string {
   const title = esc(params.itemTitle);
   const { article, noun } = itemNoun(params.itemKind);
   // The accept URL is placed in href / text verbatim. It is a same-team-built
-  // URL (research-os.app/accept/<uuid>#k=<hex>), the fragment is opaque hex, so
-  // it is URL-safe to embed directly. We do not escape the fragment away.
+  // KEYLESS URL (research-os.app/accept/<uuid>, no fragment), so it carries no
+  // secret and is URL-safe to embed directly.
   const url = params.acceptUrl;
   // Absolute mascot URL, built once for this render. A table-based lockup (mascot
   // left, "ResearchOS" wordmark beside it) is the reliable cross-client way to
@@ -211,11 +213,13 @@ export function buildInviteHtml(params: InviteEmailParams): string {
       <p style="font-size:14px;line-height:1.6;color:#4b5563;text-align:center;margin:0 0 20px;">
         They used ResearchOS to send you an encrypted copy of
         <strong style="color:#111827;">&ldquo;${title}&rdquo;</strong>.
-        Create a free account to open it, the ${noun} stays sealed until you do.
+        Create your free account here, then ${sender} will send you a separate
+        private link or unlock code to open it. The ${noun} stays sealed until
+        you have that.
       </p>
       <div style="text-align:center;margin:0 0 20px;">
         <a href="${url}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 22px;border-radius:9px;">
-          Open this ${noun} on ResearchOS
+          Create your free account
         </a>
       </div>
       <p style="font-size:13px;line-height:1.6;color:#6b7280;text-align:center;margin:0;">
@@ -251,10 +255,11 @@ export function buildInviteText(params: InviteEmailParams): string {
   return [
     `${params.senderLabel} shared ${article} ${noun} with you on ResearchOS.`,
     ``,
-    `They sent you an encrypted copy of "${params.itemTitle}". Create a free`,
-    `account to open it, the ${noun} stays sealed until you do.`,
+    `They sent you an encrypted copy of "${params.itemTitle}". Create your free`,
+    `account, then ${params.senderLabel} will send you a separate private link or`,
+    `unlock code to open it. The ${noun} stays sealed until you have that.`,
     ``,
-    `Open it here: ${params.acceptUrl}`,
+    `Create your free account here: ${params.acceptUrl}`,
     ``,
     `ResearchOS is a free, open electronic lab notebook. The shared content is`,
     `not in this email, it is parked encrypted until you open it.`,
@@ -267,8 +272,8 @@ export function buildInviteText(params: InviteEmailParams): string {
 /**
  * Sends the branded invite email via Resend. Throws if Resend reports an error
  * so the calling route can return a generic failure rather than claim success on
- * a dropped send. The acceptUrl (with its fragment key) is used only to compose
- * the body, it is never logged here.
+ * a dropped send. The acceptUrl is the keyless landing link (no key, P1-A), used
+ * only to compose the body, and is never logged here.
  */
 export async function sendInviteEmail(params: InviteEmailParams): Promise<void> {
   const resend = getResend();

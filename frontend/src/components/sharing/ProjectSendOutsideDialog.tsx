@@ -34,6 +34,7 @@ import {
   countProjectExperiments,
   ProjectTooLargeError,
 } from "@/lib/sharing/project-transfer";
+import InviteOutOfBandPanel from "@/components/sharing/InviteOutOfBandPanel";
 import Tooltip from "@/components/Tooltip";
 import type { Project } from "@/lib/types";
 
@@ -202,7 +203,13 @@ type SendState =
   // The recipient is not on ResearchOS, offer the invite-a-non-user path instead
   | { phase: "offer-invite"; recipient: string }
   | { phase: "inviting"; recipient: string }
-  | { phase: "invited"; recipient: string };
+  // The out-of-band material (P1-A) the sender must hand the recipient.
+  | {
+      phase: "invited";
+      recipient: string;
+      privateLink: string;
+      unlockCode: string;
+    };
 
 function SendForm({
   project,
@@ -301,7 +308,7 @@ function SendForm({
     setState({ phase: "inviting", recipient: recipientEmail });
     try {
       const payload = await buildProjectSendPayload(project, ownerUsername);
-      await inviteRawShare({
+      const result = await inviteRawShare({
         email: senderEmail,
         recipientEmail,
         payload,
@@ -309,7 +316,12 @@ function SendForm({
         senderLabel: senderEmail,
         itemKind: "project",
       });
-      setState({ phase: "invited", recipient: recipientEmail });
+      setState({
+        phase: "invited",
+        recipient: recipientEmail,
+        privateLink: result.privateLink,
+        unlockCode: result.unlockCode,
+      });
     } catch (err) {
       if (err instanceof ProjectTooLargeError) {
         setState({
@@ -405,11 +417,16 @@ function SendForm({
             We have invited {state.recipient}
           </p>
           <p className="text-body text-foreground-muted mt-1 leading-relaxed">
-            They will get an email with a private link to this project. Once they
-            create a free account and open it, it lands in their workspace as a
-            new project. The project is held encrypted for 30 days.
+            They will get an email inviting them to create a free account. The
+            project is held encrypted for 30 days.
           </p>
         </div>
+        <InviteOutOfBandPanel
+          recipient={state.recipient}
+          items={[
+            { privateLink: state.privateLink, unlockCode: state.unlockCode },
+          ]}
+        />
         <button
           type="button"
           onClick={onClose}

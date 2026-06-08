@@ -33,6 +33,7 @@ import {
   RelayError,
 } from "@/lib/sharing/relay/client";
 import { buildNoteBundleInput } from "@/lib/sharing/note-transfer";
+import InviteOutOfBandPanel from "@/components/sharing/InviteOutOfBandPanel";
 import Tooltip from "@/components/Tooltip";
 import type { Note } from "@/lib/types";
 
@@ -236,7 +237,14 @@ type SendState =
   // the exact email the lookup rejected.
   | { phase: "offer-invite"; recipient: string }
   | { phase: "inviting"; recipient: string }
-  | { phase: "invited"; recipient: string };
+  // The out-of-band material (P1-A) the sender must hand the recipient. The
+  // branded email is keyless, so the private link / unlock code surface here.
+  | {
+      phase: "invited";
+      recipient: string;
+      privateLink: string;
+      unlockCode: string;
+    };
 
 function SendForm({
   note,
@@ -302,14 +310,19 @@ function SendForm({
     setState({ phase: "inviting", recipient: recipientEmail });
     try {
       const bundle = await buildNoteBundleInput(note, ownerUsername);
-      await inviteShare({
+      const result = await inviteShare({
         email: senderEmail,
         recipientEmail,
         bundle,
         itemTitle: note.title || "Untitled note",
         senderLabel: senderEmail,
       });
-      setState({ phase: "invited", recipient: recipientEmail });
+      setState({
+        phase: "invited",
+        recipient: recipientEmail,
+        privateLink: result.privateLink,
+        unlockCode: result.unlockCode,
+      });
     } catch {
       setState({
         phase: "error",
@@ -419,11 +432,16 @@ function SendForm({
             We have invited {state.recipient}
           </p>
           <p className="text-body text-foreground-muted mt-1 leading-relaxed">
-            They will get an email with a private link to this note. Once they
-            create a free account and open it, it lands in their notes. The note
-            is held encrypted for 30 days.
+            They will get an email inviting them to create a free account. The
+            note is held encrypted for 30 days.
           </p>
         </div>
+        <InviteOutOfBandPanel
+          recipient={state.recipient}
+          items={[
+            { privateLink: state.privateLink, unlockCode: state.unlockCode },
+          ]}
+        />
         <button
           type="button"
           onClick={onClose}

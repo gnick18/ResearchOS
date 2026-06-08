@@ -2,13 +2,17 @@
 
 // Cross-boundary sharing, the INVITE accept page (invite-a-non-user loop).
 //
-// A person who is NOT on ResearchOS receives a branded email with a link of the
-// form https://research-os.app/accept/<inviteId>#k=<one-time-key>. This page is
-// where that link lands. The flow,
+// A person who is NOT on ResearchOS receives a branded but KEYLESS email linking
+// to https://research-os.app/accept/<inviteId> (no fragment). The sender delivers
+// the one-time key OUT OF BAND (P1-A), either as a full private link
+// (.../accept/<inviteId>#k=<one-time-key>) or a bare unlock code the recipient
+// pastes here. This page is where both land. The flow,
 //   1. Read the inviteId from the path and the one-time key from the URL
-//      FRAGMENT (after #). The fragment is read ONLY in the browser, it is never
-//      sent to our server (browsers do not transmit fragments), which is the
-//      whole point of carrying the key there.
+//      FRAGMENT (after #) when the sender's private link was used. The fragment
+//      is read ONLY in the browser, it is never sent to our server (browsers do
+//      not transmit fragments). If there is no fragment (the keyless email link),
+//      we show a "paste the unlock code the sender sent you" field instead of a
+//      dead end, and the pasted code stays client-side exactly like the fragment.
 //   2. Fetch the parked sealed bytes by the bearer inviteId, decrypt them with
 //      the fragment key, and SNIFF the decrypted payload to learn its kind (the
 //      relay is blind, it never records the entity type). This needs no account,
@@ -58,6 +62,7 @@ import {
   type SequenceSharePayload,
 } from "@/lib/sharing/sequence-transfer";
 import { readManifestSenderFromPayload } from "@/lib/sharing/sender-stamp";
+import { readFragmentKey, parseUnlockCode } from "@/lib/sharing/accept-code";
 import ImportExperimentDialog from "@/components/ImportExperimentDialog";
 import ProjectImportDialog from "@/components/sharing/ProjectImportDialog";
 import { recordNoteHistory } from "@/lib/history";
@@ -65,20 +70,10 @@ import { fileService } from "@/lib/file-system/file-service";
 import { projectsApi } from "@/lib/local-api";
 import type { Note, Project } from "@/lib/types";
 
-// ── Fragment key parsing ─────────────────────────────────────────────────────
-// The key arrives as the URL fragment "#k=<hex>". We read window.location.hash
-// in an effect (it is client-only). A valid key is 64 lowercase hex chars (32
-// bytes). Anything else is treated as a malformed link.
-const KEY_HEX_RE = /^[0-9a-f]{64}$/;
-
-function readFragmentKey(): string | null {
-  if (typeof window === "undefined") return null;
-  const hash = window.location.hash; // e.g. "#k=abcd..."
-  const m = /(?:^#|&)k=([0-9a-fA-F]+)/.exec(hash);
-  if (!m) return null;
-  const hex = m[1].toLowerCase();
-  return KEY_HEX_RE.test(hex) ? hex : null;
-}
+// Fragment / unlock-code parsing lives in lib/sharing/accept-code.ts (pure, unit
+// tested). readFragmentKey recovers the key from a sender-delivered private
+// link's URL fragment, parseUnlockCode recovers it from what the recipient pastes
+// when they arrived via the keyless email link. Both stay client-side (P1-A).
 
 // ── Item-kind copy ───────────────────────────────────────────────────────────
 // The four importable kinds, with the article + noun the page copy reads with.
@@ -102,6 +97,9 @@ function kindNoun(kind: SharePayloadKind): { article: string; noun: string } {
 type LoadState =
   | { phase: "loading" }
   | { phase: "bad-link" }
+  // No fragment key was present (the recipient came via the keyless email link),
+  // so we ask them to paste the unlock code the sender sent out of band (P1-A).
+  | { phase: "need-code" }
   | { phase: "unavailable"; reason: string }
   | {
       phase: "ready";
@@ -151,10 +149,33 @@ export default function AcceptInvitePage() {
   );
   const [seqProjectId, setSeqProjectId] = useState<number | null>(null);
 
+  // The unlock code the recipient pastes when they arrived via the keyless email
+  // link (no fragment). Setting keyHex from a valid code re-runs the fetch effect
+  // exactly as a fragment would, the code never leaves the browser.
+  const [codeInput, setCodeInput] = useState("");
+  const [codeError, setCodeError] = useState(false);
+
   // Read the fragment key once on mount (client only).
   useEffect(() => {
-    setKeyHex(readFragmentKey());
+    setKeyHex(
+      typeof window === "undefined"
+        ? null
+        : readFragmentKey(window.location.hash),
+    );
   }, []);
+
+  // Submit a pasted unlock code. A valid 64-hex code (or a full pasted private
+  // link) reconstructs the key client-side and drops into the same fetch path; an
+  // invalid one shows an inline error and stays put.
+  const handleSubmitCode = useCallback(() => {
+    const recovered = parseUnlockCode(codeInput);
+    if (!recovered) {
+      setCodeError(true);
+      return;
+    }
+    setCodeError(false);
+    setKeyHex(recovered);
+  }, [codeInput]);
 
   // RECEIVER PLACEMENT. Load the visitor's OWN projects once they have connected
   // a folder and the loaded item is a sequence, so the placement dropdown can
@@ -184,8 +205,14 @@ export default function AcceptInvitePage() {
   // kinds keep the raw bytes for the import dialog and read the manifest sender.
   useEffect(() => {
     if (keyHex === undefined) return; // still reading the fragment
-    if (!inviteId || !keyHex) {
+    if (!inviteId) {
       setLoad({ phase: "bad-link" });
+      return;
+    }
+    if (!keyHex) {
+      // No key yet (the keyless email link). Ask for the unlock code instead of
+      // a dead end. Pasting a valid code sets keyHex and re-enters this effect.
+      setLoad({ phase: "need-code" });
       return;
     }
     let cancelled = false;
@@ -472,7 +499,19 @@ export default function AcceptInvitePage() {
           {load.phase === "bad-link" && (
             <NoticeBody
               title="This invite link is incomplete"
-              body="The link is missing the part that unlocks the shared item (the bit after the # in the address). Open the original link from your email exactly as it was sent, without trimming the end."
+              body="The address is missing the invite id. Open the original link from your email exactly as it was sent, without trimming it."
+            />
+          )}
+
+          {load.phase === "need-code" && (
+            <CodeEntryBody
+              value={codeInput}
+              error={codeError}
+              onChange={(next) => {
+                setCodeInput(next);
+                if (codeError) setCodeError(false);
+              }}
+              onSubmit={handleSubmitCode}
             />
           )}
 
@@ -620,6 +659,73 @@ function NoticeBody({ title, body }: { title: string; body: string }) {
     <div className="py-6 text-center">
       <h2 className="text-title font-semibold text-foreground">{title}</h2>
       <p className="text-body text-foreground-muted mt-2 leading-relaxed">{body}</p>
+    </div>
+  );
+}
+
+// The keyless-email landing. The email link carries no key (P1-A), so the sender
+// sends the unlock code separately. The recipient pastes it here, and it is used
+// only in the browser to decrypt, exactly like the private link's fragment, it is
+// never sent to our server.
+function CodeEntryBody({
+  value,
+  error,
+  onChange,
+  onSubmit,
+}: {
+  value: string;
+  error: boolean;
+  onChange: (next: string) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className="space-y-4 py-2">
+      <div>
+        <h2 className="text-title font-semibold text-foreground">
+          Enter your unlock code
+        </h2>
+        <p className="text-body text-foreground-muted mt-2 leading-relaxed">
+          The sender is sending you a private link or a short unlock code over a
+          separate channel (a message, a text, in person). Paste that code here to
+          open the shared item. The code stays on this device, it is never sent to
+          ResearchOS.
+        </p>
+      </div>
+      <div>
+        <label
+          htmlFor="accept-unlock-code"
+          className="block text-meta font-medium text-foreground mb-1"
+        >
+          Unlock code
+        </label>
+        <input
+          id="accept-unlock-code"
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onSubmit();
+          }}
+          placeholder="Paste the code or the private link the sender sent you"
+          autoComplete="off"
+          spellCheck={false}
+          className="w-full px-3 py-2 border border-border rounded-lg text-body text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono break-all"
+        />
+        {error && (
+          <p className="text-meta text-red-700 dark:text-red-300 mt-1.5 leading-relaxed">
+            That does not look like a valid unlock code. Paste the full code (or
+            the whole private link) exactly as the sender sent it.
+          </p>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={onSubmit}
+        disabled={value.trim().length === 0}
+        className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Open the shared item
+      </button>
     </div>
   );
 }

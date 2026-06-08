@@ -30,6 +30,7 @@ import {
   RelayError,
 } from "@/lib/sharing/relay/client";
 import { buildExperimentSendPayload } from "@/lib/sharing/experiment-transfer";
+import InviteOutOfBandPanel from "@/components/sharing/InviteOutOfBandPanel";
 import Tooltip from "@/components/Tooltip";
 import type { Task } from "@/lib/types";
 
@@ -206,7 +207,13 @@ type SendState =
   // email the lookup rejected. Mirrors the note dialog (SendOutsideDialog.tsx).
   | { phase: "offer-invite"; recipient: string }
   | { phase: "inviting"; recipient: string }
-  | { phase: "invited"; recipient: string };
+  // The out-of-band material (P1-A) the sender must hand the recipient.
+  | {
+      phase: "invited";
+      recipient: string;
+      privateLink: string;
+      unlockCode: string;
+    };
 
 function SendForm({
   task,
@@ -271,7 +278,7 @@ function SendForm({
     setState({ phase: "inviting", recipient: recipientEmail });
     try {
       const payload = await buildExperimentSendPayload(task, ownerUsername);
-      await inviteRawShare({
+      const result = await inviteRawShare({
         email: senderEmail,
         recipientEmail,
         payload,
@@ -279,7 +286,12 @@ function SendForm({
         senderLabel: senderEmail,
         itemKind: "experiment",
       });
-      setState({ phase: "invited", recipient: recipientEmail });
+      setState({
+        phase: "invited",
+        recipient: recipientEmail,
+        privateLink: result.privateLink,
+        unlockCode: result.unlockCode,
+      });
     } catch {
       setState({
         phase: "error",
@@ -360,11 +372,16 @@ function SendForm({
             We have invited {state.recipient}
           </p>
           <p className="text-body text-foreground-muted mt-1 leading-relaxed">
-            They will get an email with a private link to this experiment. Once
-            they create a free account and open it, it lands in their workspace.
-            The experiment is held encrypted for 30 days.
+            They will get an email inviting them to create a free account. The
+            experiment is held encrypted for 30 days.
           </p>
         </div>
+        <InviteOutOfBandPanel
+          recipient={state.recipient}
+          items={[
+            { privateLink: state.privateLink, unlockCode: state.unlockCode },
+          ]}
+        />
         <button
           type="button"
           onClick={onClose}

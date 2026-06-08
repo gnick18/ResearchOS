@@ -35,6 +35,7 @@ import {
   buildMethodSendPayload,
   CompoundMethodNotSupportedError,
 } from "@/lib/sharing/method-transfer";
+import InviteOutOfBandPanel from "@/components/sharing/InviteOutOfBandPanel";
 import Tooltip from "@/components/Tooltip";
 import type { Method } from "@/lib/types";
 
@@ -245,7 +246,13 @@ type SendState =
   // email the lookup rejected. Mirrors the note dialog (SendOutsideDialog.tsx).
   | { phase: "offer-invite"; recipient: string }
   | { phase: "inviting"; recipient: string }
-  | { phase: "invited"; recipient: string };
+  // The out-of-band material (P1-A) the sender must hand the recipient.
+  | {
+      phase: "invited";
+      recipient: string;
+      privateLink: string;
+      unlockCode: string;
+    };
 
 function SendForm({
   method,
@@ -322,7 +329,7 @@ function SendForm({
     setState({ phase: "inviting", recipient: recipientEmail });
     try {
       const payload = await buildMethodSendPayload(method, ownerUsername);
-      await inviteRawShare({
+      const result = await inviteRawShare({
         email: senderEmail,
         recipientEmail,
         payload,
@@ -330,7 +337,12 @@ function SendForm({
         senderLabel: senderEmail,
         itemKind: "method",
       });
-      setState({ phase: "invited", recipient: recipientEmail });
+      setState({
+        phase: "invited",
+        recipient: recipientEmail,
+        privateLink: result.privateLink,
+        unlockCode: result.unlockCode,
+      });
     } catch (err) {
       if (err instanceof CompoundMethodNotSupportedError) {
         setState({
@@ -418,11 +430,16 @@ function SendForm({
             We have invited {state.recipient}
           </p>
           <p className="text-body text-foreground-muted mt-1 leading-relaxed">
-            They will get an email with a private link to this method. Once they
-            create a free account and open it, it lands in their workspace. The
+            They will get an email inviting them to create a free account. The
             method is held encrypted for 30 days.
           </p>
         </div>
+        <InviteOutOfBandPanel
+          recipient={state.recipient}
+          items={[
+            { privateLink: state.privateLink, unlockCode: state.unlockCode },
+          ]}
+        />
         <button
           type="button"
           onClick={onClose}

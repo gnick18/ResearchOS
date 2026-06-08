@@ -2,24 +2,29 @@
 //
 // POST a SENDER's signed request (action "invite-confirm") carrying an inviteId,
 // plus the UNSIGNED delivery fields the branded email needs (the recipient's
-// plaintext address, the sender's display label, the item title, and the full
-// accept URL with its fragment key). The send route reserved the invite as
-// "pending" and handed back a presigned PUT; once the client has uploaded the
-// sealed bytes it calls this route, which verifies the sender's signature,
-// flips the row to "ready" scoped to that sender, and ONLY THEN sends the
-// branded email. Sending after the upload confirms is what stops an abandoned
-// upload from producing a dead accept link in someone's inbox.
+// plaintext address, the sender's display label, and the item title). The send
+// route reserved the invite as "pending" and handed back a presigned PUT; once
+// the client has uploaded the sealed bytes it calls this route, which verifies
+// the sender's signature, flips the row to "ready" scoped to that sender, and
+// ONLY THEN sends the branded email. Sending after the upload confirms is what
+// stops an abandoned upload from producing a dead accept link in someone's inbox.
+//
+// NO KEY REACHES THIS ROUTE (P1-A, docs/proposals/INVITE_KEY_OUT_OF_EMAIL.md).
+// The branded email link is KEYLESS, a bare `${origin}/accept/<inviteId>` landing
+// this route builds from the inviteId it already verified. The one-time
+// decryption key never leaves the sender's browser to us, the sender delivers it
+// to the recipient out of band (a private link or unlock code the client returns
+// to the send-invite UI). This route therefore never sees, stores, or logs the
+// key, which keeps it out of Resend's retained email-activity log.
 //
 // WHY THE DELIVERY FIELDS ARE NOT SIGNED. The signed payload binds the inviteId
-// (the capability being confirmed) and the sender identity. The recipient email,
-// the title, and the accept URL are delivery details the same authenticated
-// sender supplies, the signature already proves who is sending, and the relay
-// never stores any of them, it composes the email and discards them. The accept
-// URL carries the one-time key in its fragment, and this route uses it ONLY to
-// build the email body, it is never persisted and never logged.
+// (the capability being confirmed) and the sender identity. The recipient email
+// and the title are delivery details the same authenticated sender supplies, the
+// signature already proves who is sending, and the relay never stores any of
+// them, it composes the email and discards them.
 //
 // Reads env: SHARING_ENABLED, DIRECTORY_HMAC_PEPPER, DATABASE_URL,
-// KV_REST_API_URL, KV_REST_API_TOKEN, RESEND_API_KEY.
+// KV_REST_API_URL, KV_REST_API_TOKEN, RESEND_API_KEY, NEXT_PUBLIC_APP_ORIGIN.
 
 import {
   getRelayIdentityLimiter,
@@ -61,6 +66,18 @@ const ITEM_KINDS: readonly InviteItemKind[] = [
 
 function nonEmptyString(v: unknown): v is string {
   return typeof v === "string" && v.trim().length > 0;
+}
+
+/**
+ * The absolute origin the keyless accept link points at, read from the SAME env
+ * the client's acceptBaseUrl() and the mailer's assetOrigin() use, with the
+ * canonical production default. Runs server-side, so there is no window fallback.
+ * The link is KEYLESS (no fragment), so this carries no secret.
+ */
+function acceptOrigin(): string {
+  const configured = process.env.NEXT_PUBLIC_APP_ORIGIN;
+  if (configured && configured.length > 0) return configured.replace(/\/$/, "");
+  return "https://research-os.app";
 }
 
 /** Coerce the unsigned itemKind delivery field to a known kind, default "note". */
@@ -119,17 +136,17 @@ export async function POST(request: Request): Promise<Response> {
   const recipientEmailRaw = b.recipientEmail;
   const senderLabel = b.senderLabel;
   const itemTitle = b.itemTitle;
-  const acceptUrl = b.acceptUrl;
   // The item kind is an optional delivery hint for the email noun only. It is
   // not security-sensitive (it never gates fetch / decrypt), so an unknown or
   // missing value safely defaults to "note" rather than failing the confirm.
   const itemKind = coerceItemKind(b.itemKind);
+  // NOTE there is deliberately no acceptUrl field. The client no longer sends it
+  // (and never sends the key), this route builds the keyless link itself below.
   if (
     !nonEmptyString(recipientEmailRaw) ||
     !EMAIL_RE.test(recipientEmailRaw.trim()) ||
     !nonEmptyString(senderLabel) ||
-    typeof itemTitle !== "string" ||
-    !nonEmptyString(acceptUrl)
+    typeof itemTitle !== "string"
   ) {
     return json(400, GENERIC_FAILURE);
   }
@@ -194,6 +211,9 @@ export async function POST(request: Request): Promise<Response> {
   // We deliberately do not roll back the ready flip, the data is safely parked
   // and a retry of the email is possible without re-uploading.
   try {
+    // Build the KEYLESS accept link from the verified inviteId. No fragment, no
+    // key, so nothing secret enters the email or Resend's retained log (P1-A).
+    const acceptUrl = `${acceptOrigin()}/accept/${flipped.inviteId}`;
     await sendInviteEmail({
       toEmail: recipientEmailRaw.trim(),
       senderLabel: senderLabel.trim(),
@@ -202,8 +222,8 @@ export async function POST(request: Request): Promise<Response> {
       itemKind: itemKind,
     });
   } catch (err) {
-    // Do not log the acceptUrl (it carries the fragment key). Log only that the
-    // send failed.
+    // The accept link is keyless, but keep the existing minimal log (no link, no
+    // fields) for the same reason, the failure fact is all the operator needs.
     console.error("[invite] branded email send failed");
     void err;
     return json(502, { error: "invite parked but email could not be sent" });

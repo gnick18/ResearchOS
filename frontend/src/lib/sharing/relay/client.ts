@@ -590,15 +590,20 @@ export async function ackShare(params: AckShareParams): Promise<void> {
 // RecipientNotFoundError. inviteShare is the alternative, it seals the SAME note
 // bundle under a fresh ONE-TIME symmetric key (the recipient has no identity key
 // yet), parks it on the relay as a PENDING INVITE, and has the relay send a
-// branded email with an accept link. The one-time key lives ONLY in the accept
-// link's URL FRAGMENT (#k=<key>), which the browser never transmits to a server,
-// so the relay and our server never see it in a stored form.
+// branded but KEYLESS email. The one-time key NEVER goes to the confirm route or
+// the email, it is RETURNED to the sender (privateLink + unlockCode) so the
+// sender delivers it to the recipient OUT OF BAND (P1-A, the 2026-06-08 audit
+// fix, docs/proposals/INVITE_KEY_OUT_OF_EMAIL.md).
 //
-// TRUST BOUNDARY (honest). The link (key in fragment) is composed HERE in the
-// browser and passed to the confirm route purely to put in the email body. We do
-// not persist or upload the key. The email is the trust channel, whoever can read
-// the invite email can open the data, which is inherent to inviting someone who
-// has no key yet. This is a lower-assurance channel than a registered send.
+// TRUST BOUNDARY (honest). The key IS the capability, whoever holds it holds the
+// data, which is inherent to inviting someone who has no key yet. What changed in
+// P1-A is the CHANNEL that carries the key. The branded email now carries only a
+// keyless /accept/<id> landing, so the key never transits Resend (which retains
+// email bodies ~30 days) or the Vercel function. The sender mints the key here in
+// the browser, seals + uploads under it exactly as before, and is handed the full
+// private link (key in the URL fragment) and the bare unlock code to send the
+// recipient over a channel the sender trusts. Our infrastructure never sees the
+// key in a stored form.
 //
 // SEND SEQUENCE (inviteShare):
 //   1. buildBundle over the note (same portable RO-Crate bag as sendShare).
@@ -607,11 +612,15 @@ export async function ackShare(params: AckShareParams): Promise<void> {
 //      /api/relay/invite/send. Returns { inviteId, uploadUrl, expiresAt }, the
 //      invite row is reserved "pending" and is not yet fetchable or emailed.
 //   4. HTTP PUT the sealed bytes to uploadUrl (direct to R2).
-//   5. Compose the accept link with the key in the fragment, then sign an
-//      "invite-confirm" request (inviteId) and POST /api/relay/invite/confirm
-//      with the link + delivery fields. The route flips the row to "ready" and
-//      sends the branded email. The confirm AFTER the PUT stops an abandoned
-//      upload from producing a dead accept link.
+//   5. Sign an "invite-confirm" request (inviteId) and POST
+//      /api/relay/invite/confirm with the delivery fields ONLY (recipient, sender
+//      label, title, kind), NO key and NO accept URL. The route builds the keyless
+//      email link from the inviteId itself, flips the row to "ready", and sends
+//      the branded email. The confirm AFTER the PUT stops an abandoned upload from
+//      producing a dead accept link.
+//   6. Compose the full private link (key in fragment) and the bare unlock code
+//      locally and RETURN them, so the send-invite UI can show the sender what to
+//      hand the recipient out of band.
 // ---------------------------------------------------------------------------
 
 /** The public base URL the accept link points at. Configurable, with a same-origin
@@ -669,6 +678,21 @@ export interface InviteShareResult {
   inviteId: string;
   /** ISO-8601 timestamp the pending invite self-expires (the 30-day TTL). */
   expiresAt: string;
+  /**
+   * The full private accept link INCLUDING the one-time key in its URL fragment
+   * (`${base}/accept/<id>#k=<hex>`). This is OUT-OF-BAND material, the sender
+   * sends it to the recipient over a channel they trust. It never goes to the
+   * confirm route or the email (P1-A). A recipient who opens this link decrypts
+   * in one click, the fragment never reaches a server.
+   */
+  privateLink: string;
+  /**
+   * The bare one-time key as 64 lowercase hex chars, the same secret as the
+   * fragment above without the link wrapper. The recipient pastes this on the
+   * keyless /accept landing to reconstruct the key client-side. Also out-of-band,
+   * never sent to any server.
+   */
+  unlockCode: string;
 }
 
 /**
@@ -714,11 +738,11 @@ export async function inviteShare(
     throw new RelayError("Failed to upload the sealed invite", putRes.status);
   }
 
-  // 5. Compose the accept link (key in fragment) and confirm. The confirm route
-  //    flips the invite to ready and sends the branded email. The accept URL is
-  //    passed only so the route can put it in the email body, the key in its
-  //    fragment is never stored server-side.
-  const acceptUrl = buildAcceptUrl(reserved.inviteId, key);
+  // 5. Confirm. The confirm route flips the invite to ready and sends the branded
+  //    KEYLESS email, which it builds from the inviteId itself. We pass the
+  //    delivery fields ONLY (recipient, sender label, title, kind), never the key
+  //    or the accept URL, so the one-time key never reaches the server or Resend
+  //    (P1-A).
   const confirmBody = signRelayRequest(
     {
       action: "invite-confirm",
@@ -733,13 +757,24 @@ export async function inviteShare(
     recipientEmail: params.recipientEmail,
     senderLabel: params.senderLabel,
     itemTitle: params.itemTitle,
-    acceptUrl,
     ...(params.itemKind ? { itemKind: params.itemKind } : {}),
   });
 
+  // 6. Compose the OUT-OF-BAND material locally and return it. The sender hands
+  //    the recipient either the full private link (key in fragment, one-click) or
+  //    the bare unlock code (pasted on the keyless landing). Neither ever left the
+  //    browser toward our infrastructure.
+  const privateLink = buildAcceptUrl(reserved.inviteId, key);
+  const unlockCode = bytesToHex(key);
+
   // Anonymous feature counter only, no recipient or content.
   trackShareSent(params.itemKind ?? "note", "email_invite");
-  return { inviteId: reserved.inviteId, expiresAt: reserved.expiresAt };
+  return {
+    inviteId: reserved.inviteId,
+    expiresAt: reserved.expiresAt,
+    privateLink,
+    unlockCode,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -815,9 +850,10 @@ export async function inviteRawShare(
     throw new RelayError("Failed to upload the sealed invite", putRes.status);
   }
 
-  // 4. Compose the accept link (key in fragment) and confirm. The confirm route
-  //    flips the invite to ready and sends the branded email with the right noun.
-  const acceptUrl = buildAcceptUrl(reserved.inviteId, key);
+  // 4. Confirm. The confirm route flips the invite to ready and sends the branded
+  //    KEYLESS email with the right noun, building the link from the inviteId
+  //    itself. We pass the delivery fields ONLY, never the key or the accept URL,
+  //    so the one-time key never reaches the server or Resend (P1-A).
   const confirmBody = signRelayRequest(
     {
       action: "invite-confirm",
@@ -832,13 +868,23 @@ export async function inviteRawShare(
     recipientEmail: params.recipientEmail,
     senderLabel: params.senderLabel,
     itemTitle: params.itemTitle,
-    acceptUrl,
     itemKind: params.itemKind,
   });
 
+  // 5. Compose the OUT-OF-BAND material locally and return it (full private link
+  //    or bare unlock code), for the sender to hand the recipient over a trusted
+  //    channel. Neither ever left the browser toward our infrastructure.
+  const privateLink = buildAcceptUrl(reserved.inviteId, key);
+  const unlockCode = bytesToHex(key);
+
   // Anonymous feature counter only, no recipient or content.
   trackShareSent(params.itemKind ?? "note", "email_invite");
-  return { inviteId: reserved.inviteId, expiresAt: reserved.expiresAt };
+  return {
+    inviteId: reserved.inviteId,
+    expiresAt: reserved.expiresAt,
+    privateLink,
+    unlockCode,
+  };
 }
 
 // ---------------------------------------------------------------------------

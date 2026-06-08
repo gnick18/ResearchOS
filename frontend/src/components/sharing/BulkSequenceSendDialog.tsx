@@ -29,6 +29,9 @@ import {
 } from "@/lib/sharing/relay/client";
 import { buildSequenceSendPayload } from "@/lib/sharing/sequence-transfer";
 import { sequencesApi } from "@/lib/local-api";
+import InviteOutOfBandPanel, {
+  type InviteOutOfBandItem,
+} from "@/components/sharing/InviteOutOfBandPanel";
 import Tooltip from "@/components/Tooltip";
 
 // A light, permissive email check, only to gate the Send button. The real
@@ -197,7 +200,14 @@ type SendState =
   // whole batch instead of a dead-end. Mirrors the single-sequence dialog.
   | { phase: "offer-invite"; recipient: string }
   | { phase: "inviting"; recipient: string; done: number; total: number }
-  | { phase: "invited"; recipient: string; count: number };
+  // Each invited sequence has its OWN one-time key, so the out-of-band material
+  // (P1-A) is a per-item list the sender hands the recipient.
+  | {
+      phase: "invited";
+      recipient: string;
+      count: number;
+      items: InviteOutOfBandItem[];
+    };
 
 function SendForm({
   ids,
@@ -239,18 +249,28 @@ function SendForm({
   );
 
   const inviteOne = useCallback(
-    async (id: number, fromEmail: string, recipientEmail: string) => {
+    async (
+      id: number,
+      fromEmail: string,
+      recipientEmail: string,
+    ): Promise<InviteOutOfBandItem | null> => {
       const seq = await sequencesApi.get(id);
-      if (!seq) return;
+      if (!seq) return null; // deleted between select and send, skip it
+      const title = seq.display_name || "Untitled sequence";
       const payload = await buildSequenceSendPayload(seq, ownerUsername);
-      await inviteRawShare({
+      const result = await inviteRawShare({
         email: fromEmail,
         recipientEmail,
         payload,
-        itemTitle: seq.display_name || "Untitled sequence",
+        itemTitle: title,
         senderLabel: fromEmail,
         itemKind: "sequence",
       });
+      return {
+        title,
+        privateLink: result.privateLink,
+        unlockCode: result.unlockCode,
+      };
     },
     [ownerUsername],
   );
@@ -325,10 +345,12 @@ function SendForm({
     }
     const recipientEmail = recipient.trim();
     setState({ phase: "inviting", recipient: recipientEmail, done: 0, total });
+    const items: InviteOutOfBandItem[] = [];
     for (let i = 0; i < ids.length; i += 1) {
       setState({ phase: "inviting", recipient: recipientEmail, done: i, total });
       try {
-        await inviteOne(ids[i], senderEmail, recipientEmail);
+        const item = await inviteOne(ids[i], senderEmail, recipientEmail);
+        if (item) items.push(item);
       } catch {
         setState({
           phase: "error",
@@ -337,7 +359,12 @@ function SendForm({
         return;
       }
     }
-    setState({ phase: "invited", recipient: recipientEmail, count: total });
+    setState({
+      phase: "invited",
+      recipient: recipientEmail,
+      count: items.length,
+      items,
+    });
     onSent?.();
   }, [senderEmail, recipient, ids, total, inviteOne, onSent]);
 
@@ -414,12 +441,12 @@ function SendForm({
             We have invited {state.recipient}
           </p>
           <p className="text-body text-foreground-muted mt-1 leading-relaxed">
-            They will get an email with a private link to each of the{" "}
-            {state.count} sequence{state.count === 1 ? "" : "s"}. Once they create
-            a free account and open them, each lands in their library. The
-            sequences are held encrypted for 30 days.
+            They will get an email inviting them to create a free account. The{" "}
+            {state.count} sequence{state.count === 1 ? "" : "s"}{" "}
+            {state.count === 1 ? "is" : "are"} held encrypted for 30 days.
           </p>
         </div>
+        <InviteOutOfBandPanel recipient={state.recipient} items={state.items} />
         <button
           type="button"
           onClick={onClose}
