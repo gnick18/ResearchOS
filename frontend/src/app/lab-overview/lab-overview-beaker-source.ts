@@ -40,6 +40,7 @@ import type {
   PaletteContextCard,
   PaletteNavGroup,
   PaletteNavItem,
+  PaletteSubflow,
 } from "@/components/sequences/editor-commands";
 
 // ── Page-defined command groups ────────────────────────────────────────────
@@ -78,6 +79,17 @@ const ICON_NEW: IconName = "plus";
 const ICON_OPEN: IconName = "eye";
 const ICON_SECTION: IconName = "list";
 
+// BeakerSearch v2 (sub-flow framework, chunk 2). The fixed flag-reason set the
+// flag-a-record sub-flow's stage 2 offers, named once so the picker + tests share
+// the same labels. A typed query that matches none of these completes via
+// onSubmitRaw with the raw text as the flag.
+const LAB_OVERVIEW_FLAG_REASONS: { id: string; label: string; detail: string }[] = [
+  { id: "needs-receipt", label: "Needs a receipt", detail: "ask the owner to attach proof of purchase" },
+  { id: "over-budget", label: "Check the budget", detail: "confirm there is funding for this" },
+  { id: "duplicate", label: "Possible duplicate", detail: "we may already have this" },
+  { id: "clarify", label: "Needs clarification", detail: "ask the owner for more detail" },
+];
+
 // ── The plain entity snapshots the builder reads (decorated with owner) ──────
 
 /** A lab member, from the lab roster, decorated with a display name + workload
@@ -92,6 +104,19 @@ export interface LabOverviewMember {
   overdueTasks: number;
   /** True when the member is archived (drives the Restore vs Archive choice). */
   archived: boolean;
+}
+
+/** An assignable lab task, from useLabData().tasks. `owner` is the task OWNER
+ *  (the targetOwner assignTask routes to). `id` is the numeric task id in the
+ *  owner's namespace. `projectName` is the owning project's name (resolved in the
+ *  hook) for the fuzzy match + the picker detail line, undefined when standalone. */
+export interface LabOverviewTask {
+  id: number;
+  name: string;
+  owner: string;
+  /** The owning project's name, for the fuzzy match + detail. Undefined when the
+   *  task is standalone (no project). */
+  projectName?: string;
 }
 
 /** A pending purchase approval, from labApi.getAllPurchaseItems() filtered by
@@ -148,6 +173,9 @@ export interface LabOverviewSourceData {
   members: LabOverviewMember[];
   /** Every pending purchase approval across the lab, owner-decorated. */
   pendingApprovals: LabOverviewApproval[];
+  /** Every assignable lab task across the lab, owner-decorated (the assign
+   *  sub-flow's stage 1, fuzzy by name + project). */
+  tasks: LabOverviewTask[];
   /** Lab-wide announcements, newest-first. */
   announcements: LabOverviewAnnouncement[];
 
@@ -189,11 +217,16 @@ export interface LabOverviewSourceHandlers {
   /** Flag a pending approval's purchase item for review. */
   flagApproval: (approval: LabOverviewApproval) => void;
 
-  // Assignment + flag composers (open the existing flows; a two-step picker is
-  // out of scope, so these route to the surfaces that own the picker, see the
-  // hook). The mockup's "Assign a task" / "Flag a record" rows.
-  openAssignFlow: () => void;
-  openFlagFlow: () => void;
+  // Assignment + flag terminal writes (the multi-stage sub-flows' final picks).
+  // Each wraps the real owner-routed pi-action + the per-record PI edit-confirm
+  // (markPiEditConfirmed before the write, the same gate the approve / decline /
+  // flag-approval handlers use) + the spec invalidations; the builder never calls
+  // an api. The mockup's "Assign a task" / "Flag a record" rows drive these.
+  /** Assign a picked task to a picked member (owner-routed, with the confirm). */
+  assignTask: (task: LabOverviewTask, assignee: string) => void;
+  /** Flag a picked record for review with a picked / typed reason (owner-routed,
+   *  with the confirm). `record` is the flaggable record (a pending approval). */
+  flagRecord: (record: LabOverviewApproval, flag: string) => void;
 
   // Announcements (author-gated, NOT session-gated). The composer + own-entry
   // edit / pin / delete.
@@ -322,6 +355,137 @@ function buildContextCard(data: LabOverviewSourceData): PaletteContextCard {
   };
 }
 
+// ── Sub-flows (BeakerSearch v2, chunk 2, both MULTI-STAGE) ──────────────────
+// Both mirror the gantt add-dependency STACK flow (stage 1 onPick RETURNS a
+// second PaletteSubflow that the framework promotes to the stacked breadcrumb
+// view). Stage 1 sets presentation "stack" so the flow opens stacked from the
+// first stage. The terminal pick calls the real owner-routed pi-action via the
+// handler (which marks the per-record PI edit-confirm before the write).
+
+/** The MULTI-STAGE assign flow. Stage 1 lists the lab's tasks (fuzzy by name +
+ *  project); picking a task RETURNS stage 2 (the lab members, person tone), whose
+ *  pick calls the real owner-routed assignTask then COMPLETES (returns void). */
+function buildAssignTaskSubflow(
+  data: LabOverviewSourceData,
+  handlers: LabOverviewSourceHandlers,
+): PaletteSubflow {
+  return {
+    title: "Assign a task to a lab member",
+    placeholder: "Pick a task to assign",
+    presentation: "stack",
+    items: data.tasks.map((task) => ({
+      id: `${task.owner}:${task.id}`,
+      label: task.name,
+      // The owner echo (and the project when present) widens the fuzzy match and
+      // shows whose task it is in the row detail.
+      detail: task.projectName ? `${task.projectName}, ${task.owner}` : task.owner,
+      keywords: [task.owner, task.projectName].filter(Boolean).join(" "),
+      iconName: ICON_SECTION,
+      tone: "task",
+      onRun: () => {},
+    })),
+    onPick: (chosen): PaletteSubflow => {
+      const task =
+        data.tasks.find((t) => `${t.owner}:${t.id}` === chosen.id) ?? data.tasks[0];
+      return {
+        title: `Assign "${task.name}" to a lab member`,
+        placeholder: "Pick a lab member",
+        items: data.members.map((m) => ({
+          id: m.username,
+          label: m.displayName,
+          detail: m.displayName === m.username ? undefined : m.username,
+          keywords: m.username,
+          iconName: ICON_MEMBER,
+          tone: "person",
+          onRun: () => {},
+        })),
+        onPick: (memberItem) => {
+          handlers.assignTask(task, memberItem.id);
+        },
+      };
+    },
+  };
+}
+
+/** The member-scoped assign flow (the selection-aware "Assign a task to X" row).
+ *  A single stage that lists the lab's tasks; picking one calls the real
+ *  owner-routed assignTask for the already-known member then COMPLETES. */
+function buildAssignToMemberSubflow(
+  member: LabOverviewMember,
+  data: LabOverviewSourceData,
+  handlers: LabOverviewSourceHandlers,
+): PaletteSubflow {
+  return {
+    title: `Assign a task to ${member.displayName}`,
+    placeholder: "Pick a task to assign",
+    items: data.tasks.map((task) => ({
+      id: `${task.owner}:${task.id}`,
+      label: task.name,
+      detail: task.projectName ? `${task.projectName}, ${task.owner}` : task.owner,
+      keywords: [task.owner, task.projectName].filter(Boolean).join(" "),
+      iconName: ICON_SECTION,
+      tone: "task",
+      onRun: () => {},
+    })),
+    onPick: (chosen) => {
+      const task =
+        data.tasks.find((t) => `${t.owner}:${t.id}` === chosen.id) ?? data.tasks[0];
+      handlers.assignTask(task, member.username);
+    },
+  };
+}
+
+/** The MULTI-STAGE flag flow. Stage 1 lists the flaggable records (the pending
+ *  purchase approvals, label = item name + owner); picking a record RETURNS stage
+ *  2 (the fixed flag reasons, plus a free-text completion via onSubmitRaw), whose
+ *  pick calls the real owner-routed setFlagForReview then COMPLETES. */
+function buildFlagRecordSubflow(
+  data: LabOverviewSourceData,
+  handlers: LabOverviewSourceHandlers,
+): PaletteSubflow {
+  return {
+    title: "Flag a record for review",
+    placeholder: "Pick a record to flag",
+    presentation: "stack",
+    items: data.pendingApprovals.map((record) => ({
+      id: `${record.owner}:${record.id}`,
+      label: record.itemName,
+      detail: `${record.owner}, ${record.priceLabel}`,
+      keywords: `${record.owner} purchase approval pending`,
+      iconName: ICON_APPROVAL_ITEM,
+      tone: "task",
+      onRun: () => {},
+    })),
+    onPick: (chosen): PaletteSubflow => {
+      const record =
+        data.pendingApprovals.find((r) => `${r.owner}:${r.id}` === chosen.id) ??
+        data.pendingApprovals[0];
+      return {
+        title: `Flag "${record.itemName}" for review`,
+        placeholder: "Pick a reason or type your own",
+        items: LAB_OVERVIEW_FLAG_REASONS.map((reason) => ({
+          id: reason.id,
+          label: reason.label,
+          detail: reason.detail,
+          keywords: reason.label,
+          iconName: ICON_FLAG,
+          onRun: () => {},
+        })),
+        onPick: (reasonItem) => {
+          const reason = LAB_OVERVIEW_FLAG_REASONS.find((r) => r.id === reasonItem.id);
+          handlers.flagRecord(record, reason ? reason.label : reasonItem.label);
+        },
+        // A typed reason that matches none of the fixed set flags with the raw text.
+        onSubmitRaw: (query) => {
+          const trimmed = query.trim();
+          if (!trimmed) return;
+          handlers.flagRecord(record, trimmed);
+        },
+      };
+    },
+  };
+}
+
 // ── Commands ────────────────────────────────────────────────────────────────
 
 /** The full command set with stable ids + page-defined groups. The
@@ -355,7 +519,9 @@ function buildCommands(
       detail: "owner-routed, notifies the assignee",
       group: LAB_OVERVIEW_GROUP_SELECTED,
       iconName: ICON_ASSIGN,
-      run: () => handlers.openAssignFlow(),
+      enabled: data.tasks.length > 0,
+      run: () => {},
+      subflow: () => buildAssignToMemberSubflow(m, data, handlers),
     });
     if (m.archived) {
       out.push({
@@ -492,7 +658,11 @@ function buildCommands(
     run: () => handlers.openPurchasesApprovalQueue(),
   });
 
-  // ── Task assignment (opens the existing flow). ────────────────────────────
+  // ── Task assignment (MULTI-STAGE sub-flow, pick a task then a member). Gated
+  // to when there is at least one assignable task AND one member. The terminal
+  // pick runs the real owner-routed assignTask via the handler (per-record
+  // confirm before the write). run stays a no-op for a caller without the
+  // framework (there is no v1 surface to fall back to here). ─────────────────
   out.push({
     id: "lab-overview-assign-task",
     label: "Assign a task to a lab member",
@@ -500,10 +670,15 @@ function buildCommands(
     keywords: "delegate give member",
     group: LAB_OVERVIEW_GROUP_ASSIGN,
     iconName: ICON_ASSIGN,
-    run: () => handlers.openAssignFlow(),
+    enabled: data.tasks.length > 0 && data.members.length > 0,
+    run: () => {},
+    subflow: () => buildAssignTaskSubflow(data, handlers),
   });
 
-  // ── Flag for review (opens the existing flow). ────────────────────────────
+  // ── Flag for review (MULTI-STAGE sub-flow, pick a record then a reason). Gated
+  // to when there is at least one flaggable record. The terminal pick runs the
+  // real owner-routed setFlagForReview via the handler (per-record confirm before
+  // the write). ─────────────────────────────────────────────────────────────
   out.push({
     id: "lab-overview-flag-record",
     label: "Flag a record for review",
@@ -511,7 +686,9 @@ function buildCommands(
     keywords: "review follow up attention",
     group: LAB_OVERVIEW_GROUP_FLAG,
     iconName: ICON_FLAG,
-    run: () => handlers.openFlagFlow(),
+    enabled: data.pendingApprovals.length > 0,
+    run: () => {},
+    subflow: () => buildFlagRecordSubflow(data, handlers),
   });
 
   // ── Announcements (author-gated, NOT session-gated). ──────────────────────

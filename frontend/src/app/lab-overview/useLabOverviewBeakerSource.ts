@@ -32,12 +32,13 @@
 //     a COUNT that routes to Purchases), so only member rows are taggable.
 //   - A /workbench?user= member view does not exist, so "Open member workload"
 //     routes to the lab roster generically (the page's roster section).
-//   - The assign / flag commands need a two-step picker the provider does not
-//     have yet (the spec's open question 3). Rather than build a new modal, the
-//     "Assign a task" / "Flag a record" rows route to the surfaces that own
-//     those record popups (lab experiments / the lab inbox), where the existing
-//     AssignTaskButton / FlagForReviewButton flows live. The per-approval
-//     Flag, by contrast, acts directly via setFlagForReview on the picked item.
+//   - BeakerSearch v2 (sub-flow framework, chunk 2). The "Assign a task" and
+//     "Flag a record" rows are now MULTI-STAGE in-palette sub-flows (the spec's
+//     open question 3, resolved). Assign is pick a task then a member; Flag is
+//     pick a record then a reason (a fixed set or free text). The terminal pick
+//     runs the real owner-routed assignTask / setFlagForReview here, marking the
+//     per-record PI edit-confirm before the write, EXACTLY as the inline approve /
+//     decline / flag-approval handlers do. No page surface, no modal.
 //
 // Voice in comments and copy, no em-dashes, no en-dashes, no emojis, no
 // mid-sentence colons.
@@ -58,6 +59,7 @@ import {
   setPurchaseApproval,
   declinePurchase,
   setFlagForReview,
+  assignTask as assignTaskAction,
   purgeAnnouncementNotifications,
   refreshAnnouncementNotifications,
 } from "@/lib/lab/pi-actions";
@@ -82,6 +84,7 @@ import {
   type LabOverviewSelection,
   type LabOverviewSourceData,
   type LabOverviewSourceHandlers,
+  type LabOverviewTask,
 } from "./lab-overview-beaker-source";
 
 /** A "$1,234.56" money string (mirrors the Purchases source's money helper). */
@@ -125,7 +128,7 @@ export function useLabOverviewBeakerSource(
   const isLabHead = accountType === "lab_head";
 
   // ── Queries, mirroring the page's keys so the cache is shared (no refetch). ─
-  const { users, tasks } = useLabData();
+  const { users, tasks, projects } = useLabData();
   const profileMap = useLabUserProfileMap();
   const archivedSet = useArchivedUsers();
 
@@ -216,6 +219,25 @@ export function useLabOverviewBeakerSource(
       })),
     [labPurchaseItems],
   );
+
+  // ── Assignable tasks (the assign sub-flow's stage 1, owner-decorated, fuzzy by
+  // name + project). Owner is the task username; the project name is resolved from
+  // the lab projects by id + owner (project ids are owner-namespaced). Completed
+  // tasks are dropped so the picker offers live work only. ───────────────────
+  const assignableTasks = useMemo<LabOverviewTask[]>(() => {
+    const projectName = new Map<string, string>();
+    for (const p of projects) {
+      projectName.set(`${p.username}:${p.id}`, p.name);
+    }
+    return tasks
+      .filter((t) => !t.is_complete)
+      .map((t) => ({
+        id: t.id,
+        name: t.name,
+        owner: t.username,
+        projectName: projectName.get(`${t.username}:${t.project_id}`),
+      }));
+  }, [tasks, projects]);
 
   // ── Announcements (newest-first, with a single-line preview). ─────────────
   const announcements = useMemo<LabOverviewAnnouncement[]>(
@@ -371,10 +393,49 @@ export function useLabOverviewBeakerSource(
         });
       },
 
-      // Assign / flag composers route to the surfaces that own the record
-      // popups (no in-palette two-step picker yet, see the file header).
-      openAssignFlow: () => args.router.push("/lab-experiments"),
-      openFlagFlow: () => args.router.push("/lab-inbox"),
+      // ── The two MULTI-STAGE sub-flow terminal writes. Each marks the per-record
+      // PI edit-confirm before the owner-routed pi-action, EXACTLY as the inline
+      // approve / decline / flag-approval handlers do. ──────────────────────────
+      assignTask: (task, assignee) => {
+        // The first assign IS the PI edit-confirm for this owner's task record.
+        markPiEditConfirmed(piEditKey(task.owner, "task", task.id));
+        void assignTaskAction({
+          actor: currentUser,
+          sessionId: undefined,
+          targetOwner: task.owner,
+          taskId: task.id,
+          assignee,
+          taskName: task.name,
+        }).then(() => {
+          void refetch(["lab", "tasks"]);
+          void refetch(["tasks"]);
+        });
+        pushRecent({
+          label: `Assigned "${task.name}" to ${assignee}`,
+          detail: task.owner,
+          kind: "assign",
+        });
+      },
+      flagRecord: (record, flag) => {
+        markPiEditConfirmed(piEditKey(record.owner, "purchase", record.id));
+        void setFlagForReview({
+          actor: currentUser,
+          sessionId: undefined,
+          targetOwner: record.owner,
+          recordType: "purchase_item",
+          recordId: record.id,
+          flag: { by: currentUser, at: new Date().toISOString(), reason: flag },
+          recordName: record.itemName,
+        }).then(() => {
+          void refetch(["lab", "purchase-items"]);
+          void refetch(["purchases-all"]);
+        });
+        pushRecent({
+          label: `Flagged "${record.itemName}"`,
+          detail: `${record.owner}, ${flag}`,
+          kind: "flag",
+        });
+      },
 
       openAnnouncementComposer: () => args.scrollToRoster(),
       editAnnouncement: (an) => {
@@ -454,6 +515,7 @@ export function useLabOverviewBeakerSource(
     const data: LabOverviewSourceData = {
       members,
       pendingApprovals,
+      tasks: assignableTasks,
       announcements,
       pending,
       flagged,
@@ -467,6 +529,7 @@ export function useLabOverviewBeakerSource(
     isLabHead,
     members,
     pendingApprovals,
+    assignableTasks,
     announcements,
     pending,
     flagged,

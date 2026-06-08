@@ -8,6 +8,7 @@
 // gantt-beaker-source.test.ts.
 
 import { describe, it, expect } from "vitest";
+import type { PaletteSubflow } from "@/components/sequences/editor-commands";
 import {
   buildInboxSnapshot,
   buildLabOverviewSource,
@@ -19,6 +20,7 @@ import {
   type LabOverviewRecentAction,
   type LabOverviewSourceData,
   type LabOverviewSourceHandlers,
+  type LabOverviewTask,
 } from "./lab-overview-beaker-source";
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
@@ -44,6 +46,16 @@ function makeApproval(over: Partial<LabOverviewApproval> = {}): LabOverviewAppro
   };
 }
 
+function makeTask(over: Partial<LabOverviewTask> = {}): LabOverviewTask {
+  return {
+    id: 1,
+    name: "PCR optimization",
+    owner: "alex",
+    projectName: "Mitochondria QC",
+    ...over,
+  };
+}
+
 function makeAnnouncement(
   over: Partial<LabOverviewAnnouncement> = {},
 ): LabOverviewAnnouncement {
@@ -64,8 +76,8 @@ const noopHandlers: LabOverviewSourceHandlers = {
   declineApproval: () => {},
   approveAllPending: () => {},
   flagApproval: () => {},
-  openAssignFlow: () => {},
-  openFlagFlow: () => {},
+  assignTask: () => {},
+  flagRecord: () => {},
   openAnnouncementComposer: () => {},
   editAnnouncement: () => {},
   togglePinAnnouncement: () => {},
@@ -88,6 +100,10 @@ function makeData(over: Partial<LabOverviewSourceData> = {}): LabOverviewSourceD
     pendingApprovals: [
       makeApproval(),
       makeApproval({ id: 2, owner: "morgan", itemName: "Antibody, anti-TRAP1", priceLabel: "$412.00" }),
+    ],
+    tasks: [
+      makeTask(),
+      makeTask({ id: 2, name: "Cloning run", owner: "morgan", projectName: undefined }),
     ],
     announcements: [makeAnnouncement()],
     pending: 3,
@@ -435,5 +451,123 @@ describe("buildLabOverviewSource selection wiring", () => {
     memberGroup.items[0].onRun();
     expect(picked).not.toBeNull();
     expect(picked!.username).toBe("alex");
+  });
+});
+
+// ── BeakerSearch v2 (sub-flow framework, chunk 2), the two MULTI-STAGE flows ──
+
+describe("buildLabOverviewSource sub-flows", () => {
+  it("STACK assign-task, stage 1 lists the lab tasks and chains to stage 2 members", () => {
+    const assigned: Array<[number, string, string, string]> = [];
+    const handlers: LabOverviewSourceHandlers = {
+      ...noopHandlers,
+      assignTask: (task, assignee) => {
+        assigned.push([task.id, task.owner, task.name, assignee]);
+      },
+    };
+    const cmds = buildLabOverviewSource(makeData(), handlers).commands;
+    const assign = cmds.find((c) => c.id === "lab-overview-assign-task")!;
+    expect(assign.enabled).toBe(true);
+    expect(assign.subflow).toBeDefined();
+    const sf = assign.subflow!();
+    // Stage 1 is an explicit stack, listing the lab's tasks (name + project echo).
+    expect(sf.presentation).toBe("stack");
+    expect(sf.items.map((i) => i.label)).toEqual(["PCR optimization", "Cloning run"]);
+    expect(sf.items[0].detail).toBe("Mitochondria QC, alex");
+    expect(sf.items[1].detail).toBe("morgan");
+    expect(sf.items[0].id).toBe("alex:1");
+    // Picking a task CHAINS to stage 2 (the lab members, person tone).
+    const stage2 = sf.onPick(sf.items[0]);
+    expect(stage2 && typeof stage2 === "object").toBe(true);
+    const s2 = stage2 as PaletteSubflow;
+    expect(s2.items.map((i) => i.id)).toEqual(["alex", "morgan"]);
+    expect(s2.items[0].tone).toBe("person");
+    // Picking a member completes (returns void) and calls the real assign handler
+    // with the picked task's owner + id + name and the assignee username.
+    const done = s2.onPick(s2.items[1]);
+    expect(done).toBeUndefined();
+    expect(assigned).toEqual([[1, "alex", "PCR optimization", "morgan"]]);
+  });
+
+  it("disables assign-task when there is no task or no member", () => {
+    const noTasks = buildLabOverviewSource(makeData({ tasks: [] }), noopHandlers).commands;
+    expect(noTasks.find((c) => c.id === "lab-overview-assign-task")?.enabled).toBe(false);
+    const noMembers = buildLabOverviewSource(makeData({ members: [] }), noopHandlers).commands;
+    expect(noMembers.find((c) => c.id === "lab-overview-assign-task")?.enabled).toBe(false);
+  });
+
+  it("STACK flag-record, stage 1 lists the records and chains to stage 2 reasons", () => {
+    const flagged: Array<[number, string, string, string]> = [];
+    const handlers: LabOverviewSourceHandlers = {
+      ...noopHandlers,
+      flagRecord: (record, flag) => {
+        flagged.push([record.id, record.owner, record.itemName, flag]);
+      },
+    };
+    const cmds = buildLabOverviewSource(makeData(), handlers).commands;
+    const flag = cmds.find((c) => c.id === "lab-overview-flag-record")!;
+    expect(flag.enabled).toBe(true);
+    expect(flag.subflow).toBeDefined();
+    const sf = flag.subflow!();
+    // Stage 1 is an explicit stack, listing the flaggable records (name + owner).
+    expect(sf.presentation).toBe("stack");
+    expect(sf.items.map((i) => i.label)).toEqual(["Pipette tips x10", "Antibody, anti-TRAP1"]);
+    expect(sf.items[0].detail).toBe("alex, $89.00");
+    expect(sf.items[0].id).toBe("alex:1");
+    // Picking a record CHAINS to stage 2 (the fixed reasons).
+    const stage2 = sf.onPick(sf.items[0]);
+    expect(stage2 && typeof stage2 === "object").toBe(true);
+    const s2 = stage2 as PaletteSubflow;
+    expect(s2.items.length).toBeGreaterThan(0);
+    // Picking a fixed reason completes and calls the real flag handler with the
+    // record's owner + id + name and the reason LABEL.
+    const done = s2.onPick(s2.items[0]);
+    expect(done).toBeUndefined();
+    expect(flagged).toEqual([[1, "alex", "Pipette tips x10", s2.items[0].label]]);
+  });
+
+  it("flag-record stage 2 free-text submit flags with the raw typed reason", () => {
+    const flagged: Array<[number, string]> = [];
+    const handlers: LabOverviewSourceHandlers = {
+      ...noopHandlers,
+      flagRecord: (record, flag) => {
+        flagged.push([record.id, flag]);
+      },
+    };
+    const cmds = buildLabOverviewSource(makeData(), handlers).commands;
+    const sf = cmds.find((c) => c.id === "lab-overview-flag-record")!.subflow!();
+    const s2 = sf.onPick(sf.items[1]) as PaletteSubflow;
+    expect(s2.onSubmitRaw).toBeDefined();
+    const done = s2.onSubmitRaw!("  please reconfirm vendor  ");
+    expect(done).toBeUndefined();
+    // Trimmed, owner-routed to the picked record (the morgan item).
+    expect(flagged).toEqual([[2, "please reconfirm vendor"]]);
+  });
+
+  it("disables flag-record when there is nothing to flag", () => {
+    const cmds = buildLabOverviewSource(makeData({ pendingApprovals: [] }), noopHandlers).commands;
+    expect(cmds.find((c) => c.id === "lab-overview-flag-record")?.enabled).toBe(false);
+  });
+
+  it("selected-member assign is a single-stage task picker that assigns to that member", () => {
+    const assigned: Array<[number, string]> = [];
+    const handlers: LabOverviewSourceHandlers = {
+      ...noopHandlers,
+      assignTask: (task, assignee) => {
+        assigned.push([task.id, assignee]);
+      },
+    };
+    const cmds = buildLabOverviewSource(
+      makeData({ selected: { kind: "member", member: makeMember({ username: "morgan", displayName: "Morgan Lee" }) } }),
+      handlers,
+    ).commands;
+    const memberAssign = cmds.find((c) => c.id === "lab-overview-member-assign")!;
+    expect(memberAssign.subflow).toBeDefined();
+    const sf = memberAssign.subflow!();
+    // Single stage, the member is already known, so picking a task completes.
+    expect(sf.items.map((i) => i.label)).toEqual(["PCR optimization", "Cloning run"]);
+    const done = sf.onPick(sf.items[0]);
+    expect(done).toBeUndefined();
+    expect(assigned).toEqual([[1, "morgan"]]);
   });
 });
