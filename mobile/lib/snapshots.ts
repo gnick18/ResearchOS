@@ -30,11 +30,16 @@ export type SnapshotTask = {
 };
 
 // The decrypted "today" snapshot. generatedAt drives the "last synced" line.
+// overdueTasks / upcomingTasks are the actual rows (capped by the laptop); the
+// counts stay for the summary chips. Older laptops omit the arrays, so treat
+// them as optional and fall back to the counts.
 export type TodaySnapshot = {
   generatedAt?: string;
   tasks?: SnapshotTask[];
   overdue?: number;
   upcoming?: number;
+  overdueTasks?: SnapshotTask[];
+  upcomingTasks?: SnapshotTask[];
 };
 
 // Fetch + unseal a named snapshot. GETs the relay's snapshot/get endpoint with a

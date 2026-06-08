@@ -85,6 +85,12 @@ export default function TodayScreen() {
   const overdue = typeof snapshot?.overdue === 'number' ? snapshot.overdue : 0;
   const upcoming =
     typeof snapshot?.upcoming === 'number' ? snapshot.upcoming : 0;
+  const overdueTasks: SnapshotTask[] = Array.isArray(snapshot?.overdueTasks)
+    ? snapshot!.overdueTasks!
+    : [];
+  const upcomingTasks: SnapshotTask[] = Array.isArray(snapshot?.upcomingTasks)
+    ? snapshot!.upcomingTasks!
+    : [];
 
   return (
     <ThemedView style={styles.container}>
@@ -133,21 +139,6 @@ export default function TodayScreen() {
 
           {pairing ? (
             <>
-              {snapshot ? (
-                <View style={styles.chipRow}>
-                  <View style={[styles.statChip, styles.overdueChip]}>
-                    <ThemedText style={styles.overdueChipText}>
-                      Overdue {overdue}
-                    </ThemedText>
-                  </View>
-                  <View style={[styles.statChip, styles.upcomingChip]}>
-                    <ThemedText style={styles.upcomingChipText}>
-                      Upcoming {upcoming}
-                    </ThemedText>
-                  </View>
-                </View>
-              ) : null}
-
               {error ? (
                 <ThemedView style={styles.errorBanner}>
                   <ThemedText style={styles.errorText}>{error}</ThemedText>
@@ -169,20 +160,58 @@ export default function TodayScreen() {
                 </ThemedView>
               ) : null}
 
-              {loaded && snapshot !== null && tasks.length === 0 && !error ? (
-                <ThemedView style={styles.card}>
-                  <ThemedText type="defaultSemiBold">
-                    Nothing scheduled for today
+              {loaded && snapshot !== null && !error ? (
+                <>
+                  <ThemedText type="defaultSemiBold" style={styles.sectionHeader}>
+                    Today
                   </ThemedText>
-                  <ThemedText style={styles.cardHint}>
-                    Enjoy the clear bench.
-                  </ThemedText>
-                </ThemedView>
-              ) : null}
+                  {tasks.length > 0 ? (
+                    tasks.map((task, i) => (
+                      <TaskRow key={task.id ?? `today-${i}`} task={task} />
+                    ))
+                  ) : (
+                    <ThemedText style={styles.emptyLine}>
+                      Nothing scheduled for today.
+                    </ThemedText>
+                  )}
 
-              {tasks.map((task, i) => (
-                <TaskRow key={task.id ?? `task-${i}`} task={task} />
-              ))}
+                  {overdueTasks.length > 0 ? (
+                    <>
+                      <ThemedText
+                        type="defaultSemiBold"
+                        style={[styles.sectionHeader, styles.overdueHeader]}
+                      >
+                        Overdue ({overdue})
+                      </ThemedText>
+                      {overdueTasks.map((task, i) => (
+                        <TaskRow key={task.id ?? `overdue-${i}`} task={task} />
+                      ))}
+                    </>
+                  ) : overdue > 0 ? (
+                    <ThemedText style={[styles.emptyLine, styles.overdueHeader]}>
+                      {overdue} overdue
+                    </ThemedText>
+                  ) : null}
+
+                  {upcomingTasks.length > 0 ? (
+                    <>
+                      <ThemedText
+                        type="defaultSemiBold"
+                        style={styles.sectionHeader}
+                      >
+                        Coming up ({upcoming})
+                      </ThemedText>
+                      {upcomingTasks.map((task, i) => (
+                        <TaskRow key={task.id ?? `upcoming-${i}`} task={task} />
+                      ))}
+                    </>
+                  ) : upcoming > 0 ? (
+                    <ThemedText style={styles.emptyLine}>
+                      {upcoming} upcoming
+                    </ThemedText>
+                  ) : null}
+                </>
+              ) : null}
 
               {snapshot?.generatedAt ? (
                 <ThemedText style={styles.synced}>
@@ -256,6 +285,18 @@ const styles = StyleSheet.create({
   tagline: {
     opacity: 0.7,
     lineHeight: 22,
+  },
+  sectionHeader: {
+    marginTop: 8,
+    marginBottom: 2,
+    fontSize: 15,
+  },
+  overdueHeader: {
+    color: '#dc2626',
+  },
+  emptyLine: {
+    opacity: 0.6,
+    lineHeight: 20,
   },
   loadingWrap: {
     paddingVertical: 24,

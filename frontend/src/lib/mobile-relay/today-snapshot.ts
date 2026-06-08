@@ -27,10 +27,22 @@ export interface SnapshotTask {
 /** The decrypted shape the phone reads after openSealed. */
 export interface TodaySnapshot {
   generatedAt: string;
+  /** Tasks active today (start_date <= today <= end_date). */
   tasks: SnapshotTask[];
+  /** Overdue count, kept for the summary chip. */
   overdue: number;
+  /** Upcoming count, kept for the summary chip. */
   upcoming: number;
+  /** The overdue tasks themselves (capped), soonest-due first, so the bench
+   *  glance can list what is behind, not just a number. */
+  overdueTasks: SnapshotTask[];
+  /** The next upcoming tasks (capped), soonest-start first. */
+  upcomingTasks: SnapshotTask[];
 }
+
+/** Cap on how many overdue / upcoming rows ride in the sealed snapshot, to keep
+ *  the payload small. The counts above are always exact. */
+const LIST_CAP = 20;
 
 /** Local calendar day as YYYY-MM-DD, matching how task dates are stored. */
 function localToday(): string {
@@ -85,17 +97,27 @@ export async function buildTodaySnapshot(): Promise<TodaySnapshot> {
   const today = localToday();
   const tasks = (await fetchAllTasks()) as unknown as TaskLike[];
   const { active, overdue, upcoming } = classifyToday(tasks, today);
+  const toSnap = (t: TaskLike): SnapshotTask => ({
+    id: t.id,
+    name: t.name,
+    start_date: t.start_date,
+    end_date: t.end_date,
+    task_type: t.task_type,
+  });
+  // Overdue oldest-due first (most behind at the top); upcoming soonest-first.
+  const overdueSorted = [...overdue].sort((a, b) =>
+    a.end_date.localeCompare(b.end_date),
+  );
+  const upcomingSorted = [...upcoming].sort((a, b) =>
+    a.start_date.localeCompare(b.start_date),
+  );
   return {
     generatedAt: new Date().toISOString(),
-    tasks: active.map((t) => ({
-      id: t.id,
-      name: t.name,
-      start_date: t.start_date,
-      end_date: t.end_date,
-      task_type: t.task_type,
-    })),
+    tasks: active.map(toSnap),
     overdue: overdue.length,
     upcoming: upcoming.length,
+    overdueTasks: overdueSorted.slice(0, LIST_CAP).map(toSnap),
+    upcomingTasks: upcomingSorted.slice(0, LIST_CAP).map(toSnap),
   };
 }
 
