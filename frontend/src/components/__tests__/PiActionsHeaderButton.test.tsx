@@ -46,7 +46,11 @@ function renderButton(opts: {
   owner?: string;
   flagged?: boolean;
 }) {
-  accountTypeRef.current = (opts.accountType ?? "lab_head") as "lab_head" | "member";
+  // The internal usePiRecordMenu reads useIsLabHead (which wraps the mocked
+  // useAccountType), so drive both the internal hook AND the header-button prop
+  // from the same role. The button now takes the PI-role boolean directly.
+  const accountType = (opts.accountType ?? "lab_head") as "lab_head" | "member";
+  accountTypeRef.current = accountType;
   currentUserRef.current = opts.currentUser ?? "mira";
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -56,7 +60,7 @@ function renderButton(opts: {
           recordType="task"
           record={{ owner: opts.owner ?? "alex", id: 7, flagged: !!opts.flagged }}
           viewerUsername={currentUserRef.current}
-          accountType={accountTypeRef.current}
+          isLabHead={accountType === "lab_head"}
           onEditAsPi={() => {}}
         />
       </ContextMenuProvider>

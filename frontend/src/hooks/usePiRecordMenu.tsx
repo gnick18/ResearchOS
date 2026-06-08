@@ -29,7 +29,7 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "./useCurrentUser";
-import { useAccountType } from "./useAccountType";
+import { useIsLabHead } from "./useIsLabHead";
 import { useLabData } from "./useLabData";
 import { useLabUserProfileMap } from "./useLabUserProfiles";
 import { useArchivedUsers } from "./useArchivedUsers";
@@ -141,7 +141,7 @@ export function usePiRecordMenu(): PiRecordMenuApi {
   const contextMenu = useOptionalContextMenu();
   const queryClient = useQueryClient();
   const { currentUser } = useCurrentUser();
-  const accountType = useAccountType(currentUser ?? null);
+  const isLabHead = useIsLabHead(currentUser ?? null);
 
   // Assign modal state (tasks). null = closed.
   const [assign, setAssign] = useState<AssignState | null>(null);
@@ -226,7 +226,7 @@ export function usePiRecordMenu(): PiRecordMenuApi {
         recordType,
         record,
         viewerUsername: currentUser,
-        accountType,
+        isLabHead,
         includeEditAsPi,
         callbacks: {
           onEditAsPi,
@@ -256,7 +256,7 @@ export function usePiRecordMenu(): PiRecordMenuApi {
         },
       });
     },
-    [currentUser, accountType, runFlag, runClearFlag, runApprove, runDecline],
+    [currentUser, isLabHead, runFlag, runClearFlag, runApprove, runDecline],
   );
 
   const handleContextMenu = useCallback(

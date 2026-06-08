@@ -19,7 +19,7 @@ function input(over: Partial<LandingRedirectInput> = {}): LandingRedirectInput {
   return {
     suppress: false,
     currentUser: "mira",
-    accountType: "member",
+    isLabHead: false,
     defaultLandingTab: null,
     fromRedirect: null,
     tourActive: false,
@@ -30,7 +30,7 @@ function input(over: Partial<LandingRedirectInput> = {}): LandingRedirectInput {
 describe("decideLandingRedirect — in-flight / suppress guards", () => {
   it("does nothing while a deep-link / open popup suppresses the bounce", () => {
     const d = decideLandingRedirect(
-      input({ suppress: true, accountType: "lab_head" }),
+      input({ suppress: true, isLabHead: true }),
     );
     expect(d).toEqual({ kind: "none", markOneShot: false });
   });
@@ -40,15 +40,15 @@ describe("decideLandingRedirect — in-flight / suppress guards", () => {
     expect(d).toEqual({ kind: "none", markOneShot: false });
   });
 
-  it("waits (no mark) while the account-type read is in flight", () => {
-    const d = decideLandingRedirect(input({ accountType: undefined }));
+  it("waits (no mark) while the lab-head read is in flight", () => {
+    const d = decideLandingRedirect(input({ isLabHead: undefined }));
     expect(d).toEqual({ kind: "none", markOneShot: false });
   });
 });
 
 describe("decideLandingRedirect — role-based bounce", () => {
   it("bounces a lab_head to the curated /lab-overview", () => {
-    const d = decideLandingRedirect(input({ accountType: "lab_head" }));
+    const d = decideLandingRedirect(input({ isLabHead: true }));
     expect(d).toEqual({
       kind: "replace",
       to: "/lab-overview",
@@ -57,7 +57,7 @@ describe("decideLandingRedirect — role-based bounce", () => {
   });
 
   it("bounces a member to /workbench", () => {
-    const d = decideLandingRedirect(input({ accountType: "member" }));
+    const d = decideLandingRedirect(input({ isLabHead: false }));
     expect(d).toEqual({
       kind: "replace",
       to: "/workbench",
@@ -67,7 +67,7 @@ describe("decideLandingRedirect — role-based bounce", () => {
 
   it("an explicit non-'/' landing tab wins over the role default", () => {
     const d = decideLandingRedirect(
-      input({ accountType: "lab_head", defaultLandingTab: "/methods" }),
+      input({ isLabHead: true, defaultLandingTab: "/methods" }),
     );
     expect(d).toEqual({
       kind: "replace",
@@ -81,7 +81,7 @@ describe("decideLandingRedirect — v4 walkthrough guard", () => {
   it("does NOT bounce off '/' while the tour is active", () => {
     const d = decideLandingRedirect(
       input({
-        accountType: "lab_head",
+        isLabHead: true,
         defaultLandingTab: "/workbench",
         tourActive: true,
       }),
@@ -94,7 +94,7 @@ describe("decideLandingRedirect — v4 walkthrough guard", () => {
   it("resumes the redirect normally once the tour ends", () => {
     const d = decideLandingRedirect(
       input({
-        accountType: "lab_head",
+        isLabHead: true,
         defaultLandingTab: "/workbench",
         tourActive: false,
       }),
@@ -110,7 +110,7 @@ describe("decideLandingRedirect — v4 walkthrough guard", () => {
 describe("decideLandingRedirect — ?from sentinel loop guard", () => {
   it("a non-PI bounced off /lab-overview lands on the role default /workbench", () => {
     const d = decideLandingRedirect(
-      input({ accountType: "member", fromRedirect: "lab-overview" }),
+      input({ isLabHead: false, fromRedirect: "lab-overview" }),
     );
     expect(d).toEqual({
       kind: "replace",
@@ -125,7 +125,7 @@ describe("decideLandingRedirect — ?from sentinel loop guard", () => {
     // them straight back. Falls through to the role default.
     const d = decideLandingRedirect(
       input({
-        accountType: "member",
+        isLabHead: false,
         defaultLandingTab: "/lab-overview",
         fromRedirect: "lab-overview",
       }),
@@ -148,7 +148,7 @@ describe("decideLandingRedirect — ?from sentinel loop guard", () => {
 describe("decideLandingRedirect — default landing tab '/'", () => {
   it("treats default '/' as no explicit tab and applies the role default", () => {
     const d = decideLandingRedirect(
-      input({ accountType: "member", defaultLandingTab: "/" }),
+      input({ isLabHead: false, defaultLandingTab: "/" }),
     );
     expect(d).toEqual({
       kind: "replace",

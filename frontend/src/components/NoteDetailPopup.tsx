@@ -109,6 +109,15 @@ export default function NoteDetailPopup({
   // write) via canActAsLabHead below.
   const { currentUser } = useCurrentUser();
   const accountType = useAccountType(currentUser);
+  // The PI-role boolean for the header button, derived from accountType so the
+  // loading `undefined` is preserved (matching useIsLabHead). accountType is
+  // still read directly below for the canActAsLabHead gate, so it stays.
+  const isLabHead =
+    accountType === "lab_head"
+      ? true
+      : accountType === undefined
+        ? undefined
+        : false;
   const canActAsLabHead =
     propReadOnly &&
     accountType === "lab_head" &&
@@ -1576,7 +1585,7 @@ export default function NoteDetailPopup({
                     flagged: !!note.flagged,
                   }}
                   viewerUsername={currentUser}
-                  accountType={accountType}
+                  isLabHead={isLabHead}
                   onEditAsPi={() => {}}
                 />
               )}

@@ -19,7 +19,6 @@
 // Voice: no em-dashes, no emojis, no mid-sentence colons.
 
 import type { EditMenuItem } from "@/components/sequences/SequenceEditMenu";
-import type { AccountType } from "@/lib/settings/user-settings";
 
 /** The record types the PI menu surfaces actions for. */
 export type PiMenuRecordType = "task" | "note" | "purchase";
@@ -82,8 +81,9 @@ export interface BuildPiRecordMenuArgs {
   record: PiMenuRecord;
   /** The active user (the would-be lab head). */
   viewerUsername: string | null | undefined;
-  /** The active user's account type. */
-  accountType: AccountType | null | undefined;
+  /** Whether the active user is a lab head (PI). `undefined`/`null` while the
+   *  role read is in flight, which (like a non-PI) yields an empty menu. */
+  isLabHead: boolean | null | undefined;
   callbacks: PiMenuCallbacks;
   /** Whether to include the leading "Edit as lab head" row. Default true, so the
    *  Pass 1 list-row callers are unchanged. The detail-popup header callers pass
@@ -95,16 +95,18 @@ export interface BuildPiRecordMenuArgs {
 
 /**
  * True when `viewer` is a lab head looking at a record owned by SOMEONE ELSE.
- * Mirrors the gate signal in usePiEditGate (accountType === "lab_head" AND
- * record.owner !== currentUser). A non-PI, or a PI on their OWN record, gets
- * no PI menu. Exported so row consumers can cheaply early-out before building.
+ * Mirrors the gate signal in usePiEditGate (isLabHead AND record.owner !==
+ * currentUser). A non-PI, or a PI on their OWN record, gets no PI menu.
+ * Exported so row consumers can cheaply early-out before building. A
+ * falsy/loading `isLabHead` (undefined/null/false) yields false, exactly as the
+ * former `accountType !== "lab_head"` did.
  */
 export function isPiViewingMemberRecord(
-  accountType: AccountType | null | undefined,
+  isLabHead: boolean | null | undefined,
   viewerUsername: string | null | undefined,
   recordOwner: string | null | undefined,
 ): boolean {
-  if (accountType !== "lab_head") return false;
+  if (!isLabHead) return false;
   if (!viewerUsername) return false;
   if (!recordOwner) return false;
   return recordOwner !== viewerUsername;
@@ -122,10 +124,10 @@ export function isPiViewingMemberRecord(
  *   - purchase: + "Approve" / "Decline" reflecting the current approval state.
  */
 export function buildPiRecordMenuItems(args: BuildPiRecordMenuArgs): EditMenuItem[] {
-  const { recordType, record, viewerUsername, accountType, callbacks } = args;
+  const { recordType, record, viewerUsername, isLabHead, callbacks } = args;
   const includeEditAsPi = args.includeEditAsPi ?? true;
 
-  if (!isPiViewingMemberRecord(accountType, viewerUsername, record.owner)) {
+  if (!isPiViewingMemberRecord(isLabHead, viewerUsername, record.owner)) {
     return [];
   }
 

@@ -193,6 +193,16 @@ export default function TaskDetailPopup({
   const [pendingEnterEdit, setPendingEnterEdit] = useState(false);
   const { currentUser } = useCurrentUser();
   const accountType = useAccountType(currentUser);
+  // The PI-role boolean for the header button, derived from accountType so the
+  // loading `undefined` is preserved (matching useIsLabHead). accountType is
+  // still read directly below for the canActAsLabHead gate and the unified
+  // viewer mapping, so it stays.
+  const isLabHead =
+    accountType === "lab_head"
+      ? true
+      : accountType === undefined
+        ? undefined
+        : false;
   // A lab head viewing a member's task (read-only lab-mode view of someone
   // else's record) keeps the assign / flag role affordances. These are PI
   // privileges, not record writes, so they survive the edit-session removal.
@@ -1122,7 +1132,7 @@ export default function TaskDetailPopup({
                 flagged: !!task.flagged,
               }}
               viewerUsername={currentUser}
-              accountType={accountType}
+              isLabHead={isLabHead}
               onEditAsPi={() => {}}
             />
             {/* PI Phase 3 (PI Phase 3 manager, 2026-05-23):

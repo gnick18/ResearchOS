@@ -12,7 +12,7 @@ import TaskDetailPopup from "@/components/TaskDetailPopup";
 import UserLoginScreen from "@/components/UserLoginScreen";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
-import { useAccountType } from "@/hooks/useAccountType";
+import { useIsLabHead } from "@/hooks/useIsLabHead";
 import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
 import { V4_PREVIEW_STICKY_KEY } from "@/lib/file-system/wiki-capture-mock";
 import { decideLandingRedirect } from "./page-landing-redirect";
@@ -47,7 +47,7 @@ export default function HomePage() {
   // tags the URL so we honor the bounce as the user's final destination
   // instead of compounding into a second redirect via defaultLandingTab.
   const defaultLandingTab = useAppStore((s) => s.defaultLandingTab);
-  const accountType = useAccountType(currentUser || null);
+  const isLabHead = useIsLabHead(currentUser || null);
   // The v4 onboarding walkthrough mounts page.tsx inside
   // <TourControllerProvider>, so the live tour mode is readable here. The
   // walkthrough's dashboard phase navigates to "/" via the controller's
@@ -72,7 +72,7 @@ export default function HomePage() {
     const decision = decideLandingRedirect({
       suppress: hasDeepLink || selectedTask !== null,
       currentUser,
-      accountType,
+      isLabHead,
       defaultLandingTab,
       fromRedirect: searchParams?.get("from") ?? null,
       tourActive,
@@ -92,7 +92,7 @@ export default function HomePage() {
   }, [
     currentUser,
     defaultLandingTab,
-    accountType,
+    isLabHead,
     tourActive,
     router,
     searchParams,

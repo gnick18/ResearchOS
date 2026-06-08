@@ -27,7 +27,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useAccountType } from "@/hooks/useAccountType";
+import { useIsLabHead } from "@/hooks/useIsLabHead";
 import {
   canRead as canReadRecord,
   canWrite as canWriteRecord,
@@ -88,7 +88,9 @@ export interface UseMethodPermissions {
 
 export function useMethodPermissions(): UseMethodPermissions {
   const { currentUser } = useCurrentUser();
-  const accountType = useAccountType(currentUser);
+  // The PI-role boolean, `undefined` while the role read is in flight (mirrors
+  // the former useAccountType undefined, which `isReady` waits on below).
+  const isLabHead = useIsLabHead(currentUser);
 
   // We share the same query key the rest of the app uses so the cache
   // hits even when another page already fetched it (e.g. the Gantt).
@@ -108,16 +110,15 @@ export function useMethodPermissions(): UseMethodPermissions {
 
   const viewer: Viewer | null = useMemo(() => {
     if (!currentUser) return null;
-    // `AccountType` ("member" | "lab_head") → `Viewer.account_type`
-    // ("solo" | "lab" | "lab_head"). On the methods page every user lives
-    // inside the lab (the solo case has no cross-user sharing to gate),
-    // so "member" maps to "lab" for the purposes of the unified read/write
-    // helpers. `"solo"` would behave identically for canRead but the "lab"
-    // mapping keeps the semantics honest: this viewer IS a lab member.
-    const role: Viewer["account_type"] =
-      accountType === "lab_head" ? "lab_head" : "lab";
+    // The PI-role boolean → `Viewer.account_type` ("solo" | "lab" |
+    // "lab_head"). On the methods page every user lives inside the lab (the
+    // solo case has no cross-user sharing to gate), so a non-head maps to
+    // "lab" for the purposes of the unified read/write helpers. `"solo"` would
+    // behave identically for canRead but the "lab" mapping keeps the semantics
+    // honest: this viewer IS a lab member.
+    const role: Viewer["account_type"] = isLabHead ? "lab_head" : "lab";
     return { username: currentUser, account_type: role };
-  }, [currentUser, accountType]);
+  }, [currentUser, isLabHead]);
 
   const canReadMethod = useMemo(() => {
     return (method: Method) => {
@@ -151,7 +152,7 @@ export function useMethodPermissions(): UseMethodPermissions {
   }, [viewer]);
 
   const isReady =
-    !!currentUser && accountType !== undefined && !tasksLoading;
+    !!currentUser && isLabHead !== undefined && !tasksLoading;
 
   return {
     viewer,
