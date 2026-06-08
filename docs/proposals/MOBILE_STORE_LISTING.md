@@ -170,8 +170,89 @@ payments, and any agreement acceptance are Grant's to do himself.
 5. Set the privacy policy URL.
 6. Upload an AAB via EAS, roll out to a testing track first, then production.
 
+## Reviewer access (the biggest rejection risk for a companion app)
+
+Both Apple and Google have a human (or automated) reviewer who must actually run
+the app. This app pairs to a desktop the reviewer does not have, so without a way
+to see it work, it gets rejected ("we were unable to use the core features"). Solve
+this before submitting. Two options, decide with the mobile workstream:
+
+- **Preferred: a demo / review mode.** A button or a hardcoded test pairing code
+  that drops the reviewer into a seeded fixture state (a sample inbox, sample
+  today's tasks, a sample push), no real desktop needed. Same fixture-data spirit
+  as the web wiki-capture mode. This is the most reliable path and is the mobile
+  workstream's to build.
+- **Fallback: a standing test pairing.** Keep one desktop instance paired to a
+  test account and hand the reviewer a code, riskier (the pairing can expire or the
+  desktop can be offline during review).
+
+Draft **App Review notes** (App Store Connect "App Review Information" / Play
+"App access" + review notes):
+```
+ResearchOS is a free companion to the ResearchOS desktop research app. The phone
+captures a bench photo into your desktop inbox, delivers push notifications, and
+shows today's tasks and calendar. To review without a paired desktop, open the app
+and tap "Try the demo" on the pairing screen (or enter pairing code <CODE>), which
+loads sample data so you can see the capture flow, the today view, and a sample
+notification. No account or desktop is required for the demo.
+```
+FLAG: the "Try the demo" path / pairing code above must actually exist in the build.
+If the mobile workstream cannot add a demo mode for v1, switch to the standing-test
+fallback and update these notes.
+
+## Export compliance / encryption
+
+Add to `mobile/app.json` so App Store builds stop prompting on every upload:
+```json
+"ios": { "infoPlist": { "ITSAppUsesNonExemptEncryption": false } }
+```
+NUANCE, confirm before declaring `false`: an app qualifies for the exemption (and
+declares `false`) when it only uses standard encryption (HTTPS/TLS, the OS keychain,
+standard auth crypto). This app ALSO does end-to-end sealing of captured content
+through the relay. Standard, well-known E2E using platform/standard crypto is
+usually still exempt, but end-to-end content encryption can in some cases require a
+one-time self-classification (an ERN/CCATS) and an annual report to US BIS. Have the
+person who knows the exact crypto (the relay's `sealToRecipient` path) confirm the
+app uses only standard algorithms, then declare `false`. If unsure, this is a quick
+question for a lawyer or the App Store encryption questionnaire, do not guess.
+
+## Content rating questionnaire answers (draft)
+
+Same answers drive both Apple's age rating and Play's IARC. The app has no
+objectionable content; the only user content is the user's own bench photos going
+to their own inbox (not shared publicly).
+
+- Violence, sexual content, profanity, drugs, gambling, horror: None / No.
+- User-generated content shared with others publicly: No (photos go to the user's
+  own private inbox, not a public feed).
+- Unrestricted web access: No.
+- Data sharing / location: see the Data safety section.
+- Expected result: App Store 4+, Play "Everyone".
+
+## Release notes / What's New (v1.0.0)
+
+```
+First release. Snap a photo at the bench into your ResearchOS inbox, get push
+notifications, and check today's tasks and calendar from your phone. The desktop
+app stays your main workspace.
+```
+
+## Pre-submission QA checklist
+
+- Install a release build on a real iPhone and a real Android device (not just the
+  simulator) and walk the capture-to-inbox flow, a push, and the today view.
+- Confirm the app launches cleanly with no account and shows the pairing/demo entry
+  (reviewers start cold).
+- Verify deep links / the `researchos://` scheme open the app.
+- Test on a small screen and a large screen; confirm portrait-only is intended.
+- Confirm no placeholder assets ship (the react-logo files are removed, the icon is
+  the final BeakerBot).
+- Confirm the privacy policy URL loads and matches the data-safety answers.
+- Screenshots use fixture data only, never real research data.
+
 ## What is Grant's (do not automate)
 
-Account creation, developer-program payments, accepting any store agreement, and
-the final "Submit for review" / "Publish" click are all Grant's. The Chrome agent
-fills fields and uploads staged files only, and stops at any payment or agreement.
+Account creation, developer-program payments, accepting any store agreement, tax
+and banking forms, and the final "Submit for review" / "Publish" click are all
+Grant's. The Chrome agent fills fields and uploads staged files only, and stops at
+any payment or agreement.
