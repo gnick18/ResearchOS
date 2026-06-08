@@ -152,6 +152,27 @@ export async function hasIdentity(): Promise<boolean> {
 }
 
 /**
+ * Boot-time restore. The unlocked identity lives in an in-memory session that is
+ * cleared on every page reload, while the key is also persisted in IndexedDB
+ * (saveIdentity). Without re-populating the session on boot, the user had to
+ * re-unlock ("reconnect their profile") on every refresh. This parks the
+ * persisted key back into the session so getSessionIdentity()-direct callers AND
+ * useSharingIdentity subscribers see a consistent unlocked state across reloads.
+ * No-op + returns false when nothing is persisted (the user then unlocks via
+ * recovery code or passkey). Exposes no key that loadIdentity did not already
+ * serve from the same IndexedDB record.
+ */
+export async function restoreSessionFromStore(): Promise<boolean> {
+  if (getSessionIdentity()) return true;
+  const stored = await loadIdentity();
+  if (stored) {
+    setSessionIdentity(stored);
+    return true;
+  }
+  return false;
+}
+
+/**
  * Removes this device's identity. Used on sign-out or a destructive reset. Does
  * not delete the database itself, so a later save reuses the same store.
  */

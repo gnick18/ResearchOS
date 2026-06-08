@@ -35,6 +35,7 @@ import WhatsNewManager from "@/components/WhatsNewManager";
 import WikiCaptureBodyClass from "@/components/WikiCaptureBodyClass";
 import SharedFolderAutoRefresh from "@/components/SharedFolderAutoRefresh";
 import CaptureInboxPoller from "@/components/CaptureInboxPoller";
+import IdentitySessionRestorer from "@/components/IdentitySessionRestorer";
 import TodaySnapshotPublisher from "@/components/TodaySnapshotPublisher";
 import DataMigrationRunner from "@/components/DataMigrationRunner";
 import MigrationToast from "@/components/MigrationToast";
@@ -411,6 +412,11 @@ function AppContent({ children }: { children: ReactNode }) {
           push: watches the folder via FileSystemObserver, focus-refetch
           fallback. Mounted here so it covers every signed-in route. */}
       <SharedFolderAutoRefresh />
+      {/* Boot-time identity restore: repopulate the in-memory session from the
+          persisted key on reload so the user does not have to re-unlock their
+          profile every refresh, and so every reader sees one consistent
+          identity. Mounted before the relay components that depend on it. */}
+      <IdentitySessionRestorer />
       {/* Mobile capture relay poller (docs/proposals/MOBILE_CAPTURE_RELAY.md,
           piece D): when a folder is connected and the identity is unlocked,
           pulls phone-sent bench photos from the relay into the inbox, then
