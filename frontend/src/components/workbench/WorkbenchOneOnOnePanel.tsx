@@ -27,7 +27,10 @@ import Tooltip from "@/components/Tooltip";
 import ContextMenu from "@/components/ContextMenu";
 import NoteDetailPopup from "@/components/NoteDetailPopup";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
-import type { WorkbenchInitialOpen } from "@/app/workbench/workbench-beaker-source";
+import type {
+  WorkbenchInitialOpen,
+  WorkbenchRecentRef,
+} from "@/app/workbench/workbench-beaker-source";
 
 type AreaTab = "goals" | "meetings" | "notes" | "agenda";
 
@@ -48,6 +51,10 @@ interface WorkbenchOneOnOnePanelProps {
    *  the "__create__" sentinel), then clears via onInitialOpenConsumed. */
   initialOpen?: WorkbenchInitialOpen;
   onInitialOpenConsumed?: () => void;
+  /** BeakerSearch v2 chunk 3, the live-selection lift. Reports the open 1:1 up
+   *  to the page so the BeakerSearch context card + Suggested describe the 1:1
+   *  the user actually selected. Fires with the open 1:1, null when none. */
+  onSelectionChange?: (sel: WorkbenchRecentRef | null) => void;
 }
 
 const ooKey = ["one-on-ones"] as const;
@@ -60,6 +67,7 @@ export default function WorkbenchOneOnOnePanel({
   isLabHead,
   initialOpen = null,
   onInitialOpenConsumed,
+  onSelectionChange,
 }: WorkbenchOneOnOnePanelProps) {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -105,6 +113,17 @@ export default function WorkbenchOneOnOnePanel({
     onInitialOpenConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialOpen, oneOnOnes]);
+
+  // BeakerSearch v2 chunk 3, the live-selection lift. Report the open 1:1 up to
+  // the page so the BeakerSearch source names the 1:1 the user actually selected.
+  // The key matches the hook's 1:1 resolution (oneonone-<id>). The selection IS
+  // the open state here (no popup), so watching selectedId covers every path.
+  useEffect(() => {
+    onSelectionChange?.(
+      selectedId ? { kind: "oneonone", key: `oneonone-${selectedId}` } : null,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => oneOnOnesApi.delete(id),

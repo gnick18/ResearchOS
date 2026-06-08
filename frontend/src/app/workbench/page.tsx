@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   fetchAllProjectsIncludingShared,
@@ -70,6 +70,22 @@ export default function WorkbenchPage() {
   // Suggested actions can name the open thing without rewiring panel state.
   const [pendingOpen, setPendingOpen] = useState<WorkbenchPendingOpen>(null);
   const [selection, setSelection] = useState<WorkbenchSelection>(null);
+  // BeakerSearch v2 chunk 3, the WORKBENCH LIVE-SELECTION lift. The card the
+  // user actually clicks / opens in a panel (not the last palette-opened proxy)
+  // drives the context card + Suggested. Each panel reports its own selection
+  // up through onSelectionChange; the page holds it here and feeds it to the
+  // source as the real selection. A reported selection (the clicked card) wins
+  // over the consumed-pendingOpen fallback below, so the clicked card outranks a
+  // stale palette jump and clears to null when the panel's popup closes.
+  const [liveSelection, setLiveSelection] = useState<WorkbenchSelection>(null);
+  const reportSelection = useCallback((sel: WorkbenchSelection) => {
+    setLiveSelection(sel);
+  }, []);
+  // The selection the source echoes. The panel-reported live selection (the
+  // clicked card) wins; the consumed-pendingOpen promotion is the fallback for
+  // the seams a panel does not report (the notebook rail jump). The CLICKED card
+  // must win, so liveSelection is checked first.
+  const effectiveSelection: WorkbenchSelection = liveSelection ?? selection;
   // Clearing the pending intent once a panel has consumed it. The same call also
   // promotes the consumed intent to the focused selection so the source echoes
   // it (a "__create__" / "__all__" sentinel is a transient action, not a real
@@ -129,7 +145,7 @@ export default function WorkbenchPage() {
     activeTab,
     setActiveTab,
     setPendingOpen,
-    selection,
+    selection: effectiveSelection,
     oneOnOneTabLabel: oneOnOneLabelText,
     showOneOnOneTab,
     isLabHead,
@@ -302,6 +318,7 @@ export default function WorkbenchPage() {
                 : null
             }
             onInitialOpenConsumed={consumePendingOpen}
+            onSelectionChange={reportSelection}
           />
         )}
         {activeTab === "experiments" && (
@@ -313,6 +330,7 @@ export default function WorkbenchPage() {
                 : null
             }
             onInitialOpenConsumed={consumePendingOpen}
+            onSelectionChange={reportSelection}
           />
         )}
         {activeTab === "lists" && (
@@ -322,6 +340,7 @@ export default function WorkbenchPage() {
               pendingOpen && pendingOpen.kind === "list" ? pendingOpen : null
             }
             onInitialOpenConsumed={consumePendingOpen}
+            onSelectionChange={reportSelection}
           />
         )}
         {activeTab === "oneonone" && showOneOnOneTab && (
@@ -334,6 +353,7 @@ export default function WorkbenchPage() {
                 : null
             }
             onInitialOpenConsumed={consumePendingOpen}
+            onSelectionChange={reportSelection}
           />
         )}
       </div>

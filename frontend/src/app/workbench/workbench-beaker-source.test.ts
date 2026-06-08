@@ -681,6 +681,74 @@ describe("buildWorkbenchSource hover as context", () => {
   });
 });
 
+// BeakerSearch v2 chunk 3, the WORKBENCH LIVE-SELECTION lift. The card the user
+// actually clicks / opens in a panel (reported up via onSelectionChange, resolved
+// to the selected* entity by the hook) drives the context card + Suggested, not
+// the last palette-opened proxy. These lock that contract at the builder boundary
+// the hook feeds: a live selection drives context, clearing it falls back to
+// nothing-selected, and a clicked (selected) card outranks a hover.
+describe("buildWorkbenchSource live selection (chunk 3)", () => {
+  it("a reported live selection drives the context card + Suggested for that entity", () => {
+    const clicked = makeTask({ id: 7, name: "Clicked experiment" });
+    const src = buildWorkbenchSource(
+      makeData({
+        experiments: [clicked],
+        // The live selection the panel reported, resolved by the hook to the
+        // selectedExperiment the builder reads.
+        selectedExperiment: clicked,
+      }),
+      noopHandlers,
+    );
+    expect(src.contextCard!.selection?.text).toBe(
+      "Clicked experiment, Running, day 2 of 5",
+    );
+    expect(src.suggestedHint).toBe("for the selected experiment");
+    expect(src.suggestedIds!.slice(0, 2)).toEqual([
+      "workbench-experiment-open",
+      "workbench-experiment-comment",
+    ]);
+  });
+
+  it("clearing the live selection falls back to nothing-selected", () => {
+    // The panel reported null (its popup closed), so no selected* entity flows
+    // in. The context card carries no selection line and Suggested has no hint.
+    const src = buildWorkbenchSource(
+      makeData({
+        selectedExperiment: null,
+        selectedList: null,
+        selectedNote: null,
+        selectedOneOnOne: null,
+        hovered: null,
+      }),
+      noopHandlers,
+    );
+    expect(src.contextCard!.selection).toBeUndefined();
+    expect(src.suggestedHint).toBeUndefined();
+  });
+
+  it("a clicked (selected) card outranks a hover of a different entity", () => {
+    // The user clicked a note, then the cursor drifted over an experiment card
+    // before opening the palette. The clicked card must win.
+    const clickedNote = makeNote({ id: 11, title: "Clicked note" });
+    const hoveredExperiment = makeTask({ id: 22, name: "Hovered experiment" });
+    const src = buildWorkbenchSource(
+      makeData({
+        activeTab: "notes",
+        notes: [clickedNote],
+        experiments: [hoveredExperiment],
+        selectedNote: clickedNote,
+        hovered: { kind: "experiment", task: hoveredExperiment },
+      }),
+      noopHandlers,
+    );
+    // The note (the clicked card) drives context, not the hovered experiment.
+    expect(src.contextCard!.selection?.text).toBe(
+      "Clicked note, in Lab meeting, updated 2h ago",
+    );
+    expect(src.suggestedHint).toBe("for the selected note");
+  });
+});
+
 describe("noteKey", () => {
   it("composes a collision-safe owner-namespaced key, falling back to the viewer", () => {
     expect(noteKey(makeNote({ id: 5, username: "morgan" }), "alex")).toBe(

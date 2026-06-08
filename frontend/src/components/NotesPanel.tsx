@@ -20,7 +20,10 @@ import LivingPopup from "@/components/ui/LivingPopup";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePiRecordMenu } from "@/hooks/usePiRecordMenu";
 import Tooltip from "./Tooltip";
-import type { WorkbenchInitialOpen } from "@/app/workbench/workbench-beaker-source";
+import type {
+  WorkbenchInitialOpen,
+  WorkbenchRecentRef,
+} from "@/app/workbench/workbench-beaker-source";
 
 // Notes scale controls (notes-scale bot, 2026-06-02). The Notes tab is a
 // pleasant card grid at 7 notes but becomes an unnavigable sea of cards at
@@ -89,6 +92,12 @@ interface NotesPanelProps {
   // on-mount seam as initialNotebookId, generalized for cross-tab opens.
   initialOpen?: WorkbenchInitialOpen;
   onInitialOpenConsumed?: () => void;
+  // BeakerSearch v2 chunk 3, the live-selection lift. Reports the open note up
+  // to the page so the BeakerSearch context card + Suggested describe the note
+  // the user actually clicked, not the last palette-opened proxy. Fires with the
+  // open note, null when the popup closes (the notebook-rail selection alone is
+  // not a note selection, so it reports null).
+  onSelectionChange?: (sel: WorkbenchRecentRef | null) => void;
 }
 
 export default function NotesPanel({
@@ -97,6 +106,7 @@ export default function NotesPanel({
   initialNotebookId = null,
   initialOpen = null,
   onInitialOpenConsumed,
+  onSelectionChange,
 }: NotesPanelProps) {
   const queryClient = useQueryClient();
   const { currentUser } = useCurrentUser();
@@ -356,6 +366,23 @@ export default function NotesPanel({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialOpen, notes, isLabMode]);
+
+  // BeakerSearch v2 chunk 3, the live-selection lift. Report the open note up to
+  // the page so the BeakerSearch source names the note the user actually clicked.
+  // The key matches the hook's note resolution (note-<owner>:<id>). Watching
+  // selectedNote covers every open path (click, comment intent, create, the
+  // cross-tab jump) and the close-to-null path with one thin effect.
+  useEffect(() => {
+    onSelectionChange?.(
+      selectedNote
+        ? {
+            kind: "note",
+            key: `note-${selectedNote.username || currentUser}:${selectedNote.id}`,
+          }
+        : null,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNote]);
 
   // Handle note update
   const handleNoteUpdate = useCallback((updatedNote: Note) => {

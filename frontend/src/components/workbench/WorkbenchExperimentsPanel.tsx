@@ -32,7 +32,10 @@ import {
   type WorkbenchSection,
 } from "@/lib/workbench/sectionAssignment";
 import { BEAKERBOT_LAB_USERNAME } from "@/components/onboarding/v4/steps/lab/lib/lab-fake-user";
-import type { WorkbenchInitialOpen } from "@/app/workbench/workbench-beaker-source";
+import type {
+  WorkbenchInitialOpen,
+  WorkbenchRecentRef,
+} from "@/app/workbench/workbench-beaker-source";
 
 const DEFAULT_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -147,12 +150,18 @@ interface Props {
    *  onInitialOpenConsumed (modeled on NotesPanel's initialNotebookId). */
   initialOpen?: WorkbenchInitialOpen;
   onInitialOpenConsumed?: () => void;
+  /** BeakerSearch v2 chunk 3, the live-selection lift. Reports this panel's own
+   *  open experiment up to the page so the BeakerSearch context card + Suggested
+   *  describe the card the user actually clicked, not the last palette-opened
+   *  proxy. Fires with the open experiment, null when the popup closes. */
+  onSelectionChange?: (sel: WorkbenchRecentRef | null) => void;
 }
 
 export default function WorkbenchExperimentsPanel({
   projects,
   initialOpen = null,
   onInitialOpenConsumed,
+  onSelectionChange,
 }: Props) {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   // Right-click "Add a comment": opens the popup with the comments rail expanded.
@@ -431,6 +440,20 @@ export default function WorkbenchExperimentsPanel({
     onInitialOpenConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialOpen, allTasks]);
+
+  // BeakerSearch v2 chunk 3, the live-selection lift. Report whatever experiment
+  // is open (or null when the popup closes) up to the page so the BeakerSearch
+  // source names the card the user actually clicked. Watching selectedTask covers
+  // every open path (click, chain navigation, comment intent, the cross-tab jump)
+  // and the close-to-null path with one thin effect.
+  useEffect(() => {
+    onSelectionChange?.(
+      selectedTask
+        ? { kind: "experiment", key: taskKey(selectedTask) }
+        : null,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTask]);
 
   const totalCount = visibleEntries.length;
 

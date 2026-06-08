@@ -19,7 +19,10 @@ import {
 import { type DateSignalKind } from "@/components/workbench/ListTaskRow";
 import ExpandableListCard from "@/components/workbench/ExpandableListCard";
 import SharedFromPill from "@/components/workbench/SharedFromPill";
-import type { WorkbenchInitialOpen } from "@/app/workbench/workbench-beaker-source";
+import type {
+  WorkbenchInitialOpen,
+  WorkbenchRecentRef,
+} from "@/app/workbench/workbench-beaker-source";
 import { usePiRecordMenu } from "@/hooks/usePiRecordMenu";
 
 const DEFAULT_COLORS = [
@@ -98,12 +101,18 @@ interface Props {
    *  cross-tab jump lands somewhere visible regardless of bucket scroll. */
   initialOpen?: WorkbenchInitialOpen;
   onInitialOpenConsumed?: () => void;
+  /** BeakerSearch v2 chunk 3, the live-selection lift. Reports the open list
+   *  card (the inline-expanded card or the full-view popup) up to the page so the
+   *  BeakerSearch context card + Suggested describe the card the user actually
+   *  clicked. Fires with the open list, null when nothing is open. */
+  onSelectionChange?: (sel: WorkbenchRecentRef | null) => void;
 }
 
 export default function WorkbenchListsPanel({
   projects,
   initialOpen = null,
   onInitialOpenConsumed,
+  onSelectionChange,
 }: Props) {
   const queryClient = useQueryClient();
   // The popup mount path stays alive ONLY as the "Open full view" escape
@@ -194,6 +203,18 @@ export default function WorkbenchListsPanel({
     onInitialOpenConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialOpen, allTasks]);
+
+  // BeakerSearch v2 chunk 3, the live-selection lift. Report the open list card
+  // up to the page so the BeakerSearch source names the card the user actually
+  // clicked. The full-view popup (selectedTask) outranks the inline-expanded card
+  // (expandedTaskKey); null when neither is open. One thin effect covers the open
+  // paths (inline expand, full view, the cross-tab jump) and the close-to-null.
+  useEffect(() => {
+    const key =
+      selectedTask != null ? taskKey(selectedTask) : expandedTaskKey;
+    onSelectionChange?.(key ? { kind: "list", key } : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTask, expandedTaskKey]);
 
   const handleCreateListTask = useCallback(() => {
     setNewTaskStartDate(null);
