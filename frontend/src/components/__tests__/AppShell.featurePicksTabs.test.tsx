@@ -95,6 +95,9 @@ vi.mock("@/components/Tooltip", () => ({
 }));
 vi.mock("@/components/UserAvatar", () => ({ default: () => null }));
 vi.mock("@/components/FeedbackButton", () => ({ default: () => null }));
+// BeakerSearch pill calls useBeakerSearch (needs BeakerSearchProvider); not under
+// test here, stub it to null like the other app-chrome buttons.
+vi.mock("@/components/beaker-search/BeakerSearchPill", () => ({ default: () => null }));
 vi.mock("@/components/BetaDonationButton", () => ({ default: () => null }));
 vi.mock("@/components/DevTestNotificationButton", () => ({
   default: () => null,

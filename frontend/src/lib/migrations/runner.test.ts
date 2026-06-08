@@ -2,18 +2,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock the registry with controllable fake migrations and the marker with an
 // in-memory store, so the test exercises the runner's orchestration alone.
-const fakeMigrations: Array<{
-  id: string;
-  title: string;
-  run: () => Promise<{ changed: number; scanned: number; failed: number }>;
-}> = [];
+// vi.mock factories are hoisted above module-body declarations, so the shared
+// state they close over must be created with vi.hoisted (otherwise the factory
+// runs in the const's temporal dead zone: "Cannot access ... before init").
+const { fakeMigrations, markerStore } = vi.hoisted(() => ({
+  fakeMigrations: [] as Array<{
+    id: string;
+    title: string;
+    run: () => Promise<{ changed: number; scanned: number; failed: number }>;
+  }>,
+  markerStore: new Map<string, string[]>(),
+}));
 vi.mock("./registry", () => ({
   get MIGRATIONS() {
     return fakeMigrations;
   },
 }));
 
-const markerStore = new Map<string, string[]>();
 vi.mock("./marker", () => ({
   readMarker: vi.fn(async (user: string) => ({
     applied: markerStore.get(user) ?? [],

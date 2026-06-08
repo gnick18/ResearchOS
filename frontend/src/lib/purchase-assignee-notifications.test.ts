@@ -57,6 +57,30 @@ vi.mock("./file-system/user-discovery", () => ({
   discoverUsers: vi.fn(async () => ["alex", "morgan", "mira"]),
 }));
 
+// Purchase items on Loro: PURCHASE_LORO_ENABLED is on in prod, so
+// setOrderStatus persists through the Loro write seam (which writes the .loro
+// sidecar via fileService.writeFileFromBlob). This suite exercises the bell
+// notifications on order-status transitions, not Loro persistence, so stand in
+// for the write seam and mirror the change into memFs like the loro-on
+// companion (purchase-set-order-status-loro-on.test.ts) does, so the next
+// prior-status read sees the landed status.
+vi.mock("./loro/purchase-write-through", () => ({
+  writePurchaseUpdateThroughLoro: vi.fn(
+    async (
+      owner: string,
+      id: number,
+      partial: Record<string, unknown>,
+      _actor?: string,
+    ) => {
+      const path = `users/${owner}/purchase_items/${id}.json`;
+      const existing = (memFs.get(path) ?? {}) as Record<string, unknown>;
+      const merged = { ...existing, ...partial };
+      memFs.set(path, merged);
+      return merged;
+    },
+  ),
+}));
+
 import { purchasesApi } from "./local-api";
 import { clearCurrentUserCache } from "./storage/json-store";
 

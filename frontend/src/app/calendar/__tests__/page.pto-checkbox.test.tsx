@@ -55,6 +55,21 @@ const {
   }),
 }));
 
+// The calendar page reads useRouter + useSearchParams; without a mock the real
+// hooks throw "expected app router to be mounted" under jsdom.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/calendar",
+}));
+
+// The page registers a BeakerSearch source (fetches tasks, reads the search
+// provider context). Not under test here, so stub it to a no-op like the
+// purchases page test stubs usePurchasesBeakerSource.
+vi.mock("../useCalendarBeakerSource", () => ({
+  useCalendarBeakerSource: () => {},
+}));
+
 vi.mock("@/lib/local-api", () => ({
   eventsApi,
 }));
