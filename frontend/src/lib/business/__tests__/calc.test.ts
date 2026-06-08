@@ -101,6 +101,7 @@ describe("upcomingDeadlines", () => {
       ein: null,
       registeredAgent: null,
       appleEnrollmentId: null,
+      googlePlayAccount: null,
       bankLabel: null,
       docsFolder: null,
       salesTaxStatus: "pending",

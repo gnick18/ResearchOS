@@ -257,6 +257,17 @@ function EntityCard({
           />,
         )}
         {field(
+          "Google Play account",
+          <input
+            className={input}
+            placeholder="gnick317@gmail.com / dev account ID"
+            value={form.googlePlayAccount ?? ""}
+            onChange={(e) =>
+              setForm({ ...form, googlePlayAccount: e.target.value || null })
+            }
+          />,
+        )}
+        {field(
           "Bank account label",
           <input
             className={input}

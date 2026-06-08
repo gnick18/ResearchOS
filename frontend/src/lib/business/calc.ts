@@ -19,6 +19,8 @@ export interface EntityConfig {
   registeredAgent: string | null;
   /** Apple Developer Program enrollment ID (e.g. "PTR262UUT9"), for the iOS app. */
   appleEnrollmentId: string | null;
+  /** Google Play developer account (email and/or developer account ID). */
+  googlePlayAccount: string | null;
   /** A label for the business bank account, never the account number. */
   bankLabel: string | null;
   /** Where the actual filed documents live on disk (the ResearchOS_LLC folder). */
@@ -143,6 +145,7 @@ export const DEFAULT_ENTITY: EntityConfig = {
   ein: null,
   registeredAgent: null,
   appleEnrollmentId: null,
+  googlePlayAccount: null,
   bankLabel: null,
   docsFolder: null,
   salesTaxStatus: "pending",
