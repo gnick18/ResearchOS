@@ -196,6 +196,25 @@ describe("CommandPalette", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("closes on Escape even when focus is outside the dialog", () => {
+    // Regression: Escape was handled only on the dialog, so if focus had left
+    // the palette (a click on the scrim/body, or the open-focus rAF not
+    // landing) Escape did nothing. It now closes from a window-level listener.
+    const onClose = vi.fn();
+    render(
+      <CommandPalette
+        open
+        onClose={onClose}
+        commands={makeCommands()}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+    // Fire on document.body (NOT the dialog) to model focus being elsewhere.
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("runs a command on mouse click", () => {
     const run = vi.fn();
     render(

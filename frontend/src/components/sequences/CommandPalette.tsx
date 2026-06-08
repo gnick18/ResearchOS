@@ -728,16 +728,30 @@ export function CommandPalette({
     [flat, highlight],
   );
 
+  // Escape closes the palette (or pops one sub-flow stage) from a WINDOW-level
+  // listener so it works regardless of where focus sits. The dialog-level
+  // onKeyDown only fires when focus is inside the palette, and focus can land
+  // elsewhere (e.g. a click on the scrim/body, or the open-focus rAF not
+  // landing), which previously left Escape dead. A first Escape inside a flow
+  // POPS one stage; at the root it closes. Keydown bubbles to window, so the
+  // existing dialog-targeted tests still exercise this path.
+  useEffect(() => {
+    if (!open) return;
+    const onWindowKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      if (inSubflow) popSubflow();
+      else onClose();
+    };
+    window.addEventListener("keydown", onWindowKey);
+    return () => window.removeEventListener("keydown", onWindowKey);
+  }, [open, inSubflow, popSubflow, onClose]);
+
+  // Escape is handled by the window-level listener above so it works no matter
+  // where focus sits. It is intentionally NOT handled here to avoid
+  // double-firing (the dialog keydown also bubbles to window).
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        // BeakerSearch v2, a first Escape inside a flow POPS one stage; at the root
-        // it closes the palette (today's behavior).
-        if (inSubflow) popSubflow();
-        else onClose();
-        return;
-      }
       if (e.key === "ArrowDown") {
         e.preventDefault();
         moveHighlight(1);
@@ -783,7 +797,6 @@ export function CommandPalette({
       flat,
       highlight,
       inSubflow,
-      popSubflow,
       topSubflow,
       query,
       subItems.length,
