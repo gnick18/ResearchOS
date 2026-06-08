@@ -1,0 +1,267 @@
+// Tests for lab-sync-runner.ts.
+//
+// Covers:
+//   - Non-live sessions (locked/solo/expired/authenticating/unlocking) ->
+//     { ran: false, reason: "session not live" }; source and syncImpl are
+//     NOT called.
+//   - Live session happy path: enumerates via injected source, calls syncImpl
+//     with the correct labId/owner/labKey/signing keys + tombstoneRemoved:true,
+//     saves the RETURNED manifest via manifestStore, returns the summary.
+//   - Manifest round-trip: load returns a prior manifest, it is forwarded to
+//     syncImpl, the returned (updated) manifest is saved.
+//   - Error path: syncImpl rejects -> manifest is NOT saved and the error
+//     propagates to the caller (no half-written manifest).
+//
+// All external effects are injected; no real filesystem/network calls.
+//
+// No emojis, no em-dashes, no mid-sentence colons.
+
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { runLabSyncForSession } from "../lab-sync-runner";
+import type { LabSyncRunDeps } from "../lab-sync-runner";
+import type { LabSessionState } from "../lab-session";
+import type { LabWorkSource } from "../lab-work-enumerate";
+import type { ManifestStore } from "../lab-sync-manifest-store";
+import type { LabSyncManifest, SyncResult } from "../lab-sync";
+import type { syncLabWorkToMirror } from "../lab-sync";
+
+// ---------------------------------------------------------------------------
+// Helpers / fixtures.
+// ---------------------------------------------------------------------------
+
+type SyncImplParams = Parameters<typeof syncLabWorkToMirror>[0];
+
+/** A live session with deterministic keys. */
+function makeLiveSession(overrides?: Partial<Extract<LabSessionState, { kind: "live" }>>): Extract<LabSessionState, { kind: "live" }> {
+  return {
+    kind: "live",
+    labId: "lab-abc",
+    labKey: new Uint8Array(32).fill(1),
+    signingKeyPair: {
+      ed25519Priv: new Uint8Array(64).fill(2),
+      ed25519Pub: new Uint8Array(32).fill(3),
+    },
+    member: { username: "alice", labId: "lab-abc" },
+    graceUntil: null,
+    ...overrides,
+  };
+}
+
+/** Returns an empty LabWorkSource that always resolves with empty arrays. */
+function makeEmptySource(): LabWorkSource {
+  return {
+    listTasks: vi.fn(async (_owner: string) => []),
+    listNotes: vi.fn(async (_owner: string) => []),
+    listMethods: vi.fn(async (_owner: string) => []),
+    listPurchases: vi.fn(async (_owner: string) => []),
+  };
+}
+
+/** Returns a ManifestStore fake with controllable load/save. */
+function makeManifestStore(loadResult: LabSyncManifest = {}): {
+  store: ManifestStore;
+  loadMock: ReturnType<typeof vi.fn>;
+  saveMock: ReturnType<typeof vi.fn>;
+} {
+  const loadMock = vi.fn(async (_owner: string) => loadResult);
+  const saveMock = vi.fn(async (_owner: string, _manifest: LabSyncManifest) => undefined);
+  return {
+    store: { load: loadMock, save: saveMock },
+    loadMock,
+    saveMock,
+  };
+}
+
+/** A minimal SyncResult with the given manifest. */
+function makeSyncResult(manifest: LabSyncManifest = {}): SyncResult {
+  return { manifest, pushed: ["key/a"], skipped: [], removedKeys: [], tombstoned: [] };
+}
+
+// ---------------------------------------------------------------------------
+// Non-live session guard.
+// ---------------------------------------------------------------------------
+
+describe("runLabSyncForSession – non-live sessions", () => {
+  const nonLiveSessions: LabSessionState[] = [
+    { kind: "locked" },
+    { kind: "solo" },
+    { kind: "expired" },
+    { kind: "authenticating" },
+    { kind: "unlocking" },
+  ];
+
+  for (const session of nonLiveSessions) {
+    it(`returns { ran: false } for kind="${session.kind}" without calling source or syncImpl`, async () => {
+      const source = makeEmptySource();
+      const syncImpl = vi.fn(async () => makeSyncResult());
+      const { store } = makeManifestStore();
+
+      const result = await runLabSyncForSession(session, {
+        source,
+        manifestStore: store,
+        syncImpl,
+      });
+
+      expect(result.ran).toBe(false);
+      expect(result.reason).toBe("session not live");
+
+      // Source methods must NOT have been called.
+      expect((source.listTasks as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+      expect((source.listNotes as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+      expect((source.listMethods as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+      expect((source.listPurchases as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+
+      // syncImpl must NOT have been called.
+      expect(syncImpl).not.toHaveBeenCalled();
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Live session happy path.
+// ---------------------------------------------------------------------------
+
+describe("runLabSyncForSession – live session", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("calls syncImpl with the session's labId, owner, labKey, signing keys, and tombstoneRemoved:true", async () => {
+    const session = makeLiveSession();
+    const source = makeEmptySource();
+    const syncImpl = vi.fn(async () => makeSyncResult());
+    const { store } = makeManifestStore();
+
+    await runLabSyncForSession(session, { source, manifestStore: store, syncImpl });
+
+    expect(syncImpl).toHaveBeenCalledOnce();
+    const params = (syncImpl.mock.calls as unknown as [SyncImplParams][])
+      [0][0];
+    expect(params.labId).toBe("lab-abc");
+    expect(params.owner).toBe("alice");
+    expect(params.labKey).toBe(session.labKey);
+    expect(params.signerEd25519Priv).toBe(session.signingKeyPair.ed25519Priv);
+    expect(params.signerEd25519Pub).toBe(session.signingKeyPair.ed25519Pub);
+    expect(params.tombstoneRemoved).toBe(true);
+  });
+
+  it("returns { ran: true, owner, pushed, skipped, tombstoned } from syncImpl result", async () => {
+    const session = makeLiveSession();
+    const syncImpl = vi.fn(async () => ({
+      manifest: {},
+      pushed: ["lab-abc/alice/task/t1"],
+      skipped: ["lab-abc/alice/note/n1"],
+      removedKeys: [],
+      tombstoned: ["lab-abc/alice/method/m1"],
+    }));
+    const { store } = makeManifestStore();
+
+    const result = await runLabSyncForSession(session, {
+      source: makeEmptySource(),
+      manifestStore: store,
+      syncImpl,
+    });
+
+    expect(result.ran).toBe(true);
+    expect(result.owner).toBe("alice");
+    expect(result.pushed).toEqual(["lab-abc/alice/task/t1"]);
+    expect(result.skipped).toEqual(["lab-abc/alice/note/n1"]);
+    expect(result.tombstoned).toEqual(["lab-abc/alice/method/m1"]);
+  });
+
+  it("saves the manifest returned by syncImpl (not the input manifest)", async () => {
+    const inputManifest: LabSyncManifest = { "old-key": "oldhash" };
+    const returnedManifest: LabSyncManifest = {
+      "old-key": "oldhash",
+      "new-key": "newhash",
+    };
+    const session = makeLiveSession();
+    const syncImpl = vi.fn(async () => makeSyncResult(returnedManifest));
+    const { store, saveMock } = makeManifestStore(inputManifest);
+
+    await runLabSyncForSession(session, { source: makeEmptySource(), manifestStore: store, syncImpl });
+
+    expect(saveMock).toHaveBeenCalledOnce();
+    const [savedOwner, savedManifest] = (saveMock.mock.calls as unknown as [string, LabSyncManifest][])[0];
+    expect(savedOwner).toBe("alice");
+    expect(savedManifest).toEqual(returnedManifest);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Manifest round-trip.
+// ---------------------------------------------------------------------------
+
+describe("runLabSyncForSession – manifest round-trip", () => {
+  it("loads prior manifest and passes it to syncImpl, then saves the returned manifest", async () => {
+    const priorManifest: LabSyncManifest = { "lab-abc/alice/task/t0": "hash0" };
+    const updatedManifest: LabSyncManifest = {
+      "lab-abc/alice/task/t0": "hash0",
+      "lab-abc/alice/task/t1": "hash1",
+    };
+
+    const session = makeLiveSession();
+    const syncImpl = vi.fn(async (_p: SyncImplParams) => ({
+      manifest: updatedManifest,
+      pushed: ["lab-abc/alice/task/t1"],
+      skipped: ["lab-abc/alice/task/t0"],
+      removedKeys: [],
+      tombstoned: [],
+    }));
+    const { store, loadMock, saveMock } = makeManifestStore(priorManifest);
+
+    await runLabSyncForSession(session, { source: makeEmptySource(), manifestStore: store, syncImpl });
+
+    // load was called for "alice".
+    expect(loadMock).toHaveBeenCalledWith("alice");
+
+    // syncImpl received the prior manifest.
+    const syncParams = (syncImpl.mock.calls as unknown as [SyncImplParams][])[0][0];
+    expect(syncParams.manifest).toEqual(priorManifest);
+
+    // save was called with the updated manifest.
+    const [, savedManifest] = (saveMock.mock.calls as unknown as [string, LabSyncManifest][])[0];
+    expect(savedManifest).toEqual(updatedManifest);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Error path: no half-written manifest.
+// ---------------------------------------------------------------------------
+
+describe("runLabSyncForSession – error path", () => {
+  it("rethrows when syncImpl rejects and does NOT save the manifest", async () => {
+    const session = makeLiveSession();
+    const boom = new Error("network failure");
+    const syncImpl = vi.fn(async () => { throw boom; });
+    const { store, saveMock } = makeManifestStore();
+
+    await expect(
+      runLabSyncForSession(session, {
+        source: makeEmptySource(),
+        manifestStore: store,
+        syncImpl,
+      }),
+    ).rejects.toThrow("network failure");
+
+    // The manifest must NOT have been saved.
+    expect(saveMock).not.toHaveBeenCalled();
+  });
+
+  it("rethrows when enumeration (source) rejects and does NOT save the manifest", async () => {
+    const session = makeLiveSession();
+    const boom = new Error("enumerate failed");
+    const source: LabWorkSource = {
+      listTasks: vi.fn(async (_owner: string) => { throw boom; }),
+      listNotes: vi.fn(async (_owner: string) => []),
+      listMethods: vi.fn(async (_owner: string) => []),
+      listPurchases: vi.fn(async (_owner: string) => []),
+    };
+    const syncImpl = vi.fn(async () => makeSyncResult());
+    const { store, saveMock } = makeManifestStore();
+
+    await expect(
+      runLabSyncForSession(session, { source, manifestStore: store, syncImpl }),
+    ).rejects.toThrow("enumerate failed");
+
+    expect(saveMock).not.toHaveBeenCalled();
+  });
+});

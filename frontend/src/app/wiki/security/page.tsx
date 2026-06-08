@@ -18,8 +18,8 @@ export default function SecurityPage() {
         uploaded to a database we control, because there is no database
         we control. Two narrow proxy routes we wrote exist for browser
         CORS reasons and are documented below, but they are streams, not
-        stores. Vercel Web Analytics and Speed Insights add a couple of
-        outbound destinations, also documented below.
+        stores. Vercel Web Analytics adds one outbound destination, also
+        documented below.
       </p>
 
       <h2>What stays on your computer</h2>
@@ -133,9 +133,9 @@ export default function SecurityPage() {
         The calendar CORS-bypass proxy uses the most defensive shape we
         know how to write: HTTPS only, private-IP blocking, redirect
         re-validation, byte cap, timeout, content-type denylist, and
-        per-IP rate limiting. The Vercel Analytics and Speed Insights
-        endpoints are Vercel-owned scripts and beacon targets, their
-        posture is Vercel&apos;s, not ours. The route-defense code is in{" "}
+        per-IP rate limiting. The Vercel Analytics endpoint is a
+        Vercel-owned script and beacon target, its posture is
+        Vercel&apos;s, not ours. The route-defense code is in{" "}
         <code>frontend/src/lib/api/url-guards.ts</code> and{" "}
         <code>frontend/src/lib/api/rate-limit.ts</code> if you want to read
         it line by line.
@@ -217,9 +217,8 @@ export default function SecurityPage() {
           </li>
           <li>
             The <strong>Offline mode</strong> toggle disables the two proxy
-            routes plus the Vercel Analytics and Speed Insights script tags
-            in one click, for anyone who wants zero outbound network from
-            the app surface.
+            routes plus the Vercel Analytics script tag in one click, for
+            anyone who wants zero outbound network from the app surface.
           </li>
           <li>
             <strong>&ldquo;Where is this stored?&rdquo;</strong> hints on

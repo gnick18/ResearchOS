@@ -40,3 +40,7 @@ Wordmark is **Geist** at weight 800 (bold), tight tracking (about -0.03em), in `
 
 ## Favicon
 The site favicon (`frontend/src/app/icon.svg` + `frontend/src/app/favicon.ico`) is the BeakerBot mark on a soft sky disc, generated from the same geometry.
+
+## Play feature graphic
+
+`brand/png/researchos-play-feature.png` (1024x500), generated from `brand/src/play-feature-graphic.html` via Playwright. The Google Play feature graphic: BeakerBot lockup + the headline "Snap it at the bench, file it from your desk." on the brand rainbow-rail treatment.

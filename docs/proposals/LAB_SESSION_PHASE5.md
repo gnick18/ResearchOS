@@ -1,6 +1,6 @@
 # Lab Tier Phase 5: the OAuth-gated lab session
 
-Status: DRAFT for sign-off (SHARING + COLLAB manager, 2026-06-08). No code until Grant locks the open decisions at the bottom.
+Status: DECISIONS LOCKED by Grant 2026-06-08. Build in progress (SHARING + COLLAB manager), starting with the pure core. See "Decisions (LOCKED)" + "Build sequencing" below.
 
 Sibling docs: `LAB_TIER_REDESIGN.md` (the pivot + the five locked decisions), `IDENTITY_OAUTH_ONLY.md` (the existing keypair-first identity model). This doc covers ONLY the lab session, the runtime layer that the data plane (Phase 3) has been waiting on.
 
@@ -108,10 +108,20 @@ The sync trigger (2b-bind) subscribes to this: it only runs while the session is
 4. Wire 2b-bind: the sync trigger reads keys from the live session and pushes via the Phase 3 engine. This is where the data plane finally runs end to end.
 5. Expiry / idle / logout handling and the degraded read-only state.
 
-## Open decisions for Grant (nothing is built until these are locked)
+## Decisions (LOCKED by Grant 2026-06-08)
 
-1. PROVIDERS. All four (Google, GitHub, ORCID, LinkedIn) are already scaffolded. Which do we enable for lab login at launch? Recommendation: Google + ORCID as the primary pair (ORCID is the academic standard and fits the NIH angle), GitHub/LinkedIn as secondary toggles.
-2. KEYPAIR UNLOCK IN A LAB SESSION. Passkey-PRF as the primary unlock with recovery code as fallback (reusing what is built), re-unlock on each app open. Confirm, and decide whether to add an idle timeout that forces re-unlock mid-session.
-3. OAUTH SESSION EXPIRY BEHAVIOR. When the NextAuth session lapses, the lab tier goes read-only / locked until re-login (online-gated by design). Confirm this is the desired behavior rather than a softer grace period.
-4. OAUTH-TO-KEYPAIR BINDING. First lab sign-in binds the verified email to the keypair, later sign-ins must match the same keypair (no silent takeover). Confirm, and decide the recovery path if a member genuinely changes their OAuth email.
-5. ACCOUNT-TYPE SOURCE OF TRUTH. We need a marker for "this is a lab account." Recommendation: derive from Lab Record DO membership (is this keypair a member or head of any lab) plus a small persisted `account_type` so the gate can render before any network call. This connects to the deferred identity-model Phase 2 (`account_type -> isLabHead`), confirm we fold that in here.
+1. PROVIDERS. Enable ALL of them at launch: Google, ORCID, GitHub, LinkedIn, and Microsoft. CORRECTION 2026-06-08: all five are ALREADY wired in `lib/sharing/auth.ts` (`providers: [Google, GitHub, LinkedIn, ...microsoftEntra, ...orcidProvider, ...]`, with MicrosoftEntraID and ORCID gated on their creds). The earlier "Microsoft must be added" note was wrong, it came from a stale comment in `oauth-availability.ts`. Slice 2 is therefore a no-op beyond confirming provider availability degrades gracefully when a deployer has not configured a provider's credentials.
+2. KEYPAIR UNLOCK IN A LAB SESSION. Passkey-PRF as primary unlock, recovery code as fallback (reuse the existing `lib/sharing/identity/*` layer), re-unlock on each app open. Built on the existing `session-key.ts` keypair-session state.
+3. OAUTH SESSION EXPIRY BEHAVIOR. GRACE PERIOD THEN LOCK. When the NextAuth session lapses, the member keeps working through a soft grace window (default 15 minutes), after which the lab tier locks behind the sign-in gate and the in-memory lab key is zeroed. (Chosen over an immediate hard lock so work is not yanked away mid-thought.)
+4. OAUTH-TO-KEYPAIR BINDING. First lab sign-in binds the verified email to the keypair; later sign-ins must resolve to the SAME keypair (no silent takeover). A genuine OAuth-email change is a deliberate re-key/recovery flow, not an automatic rebind (recovery path detailed when the binding slice is built).
+5. ACCOUNT-TYPE SOURCE OF TRUTH. Lab Record DO membership (is this keypair a member or head of any lab) is the authoritative signal, plus a small persisted `account_type` marker so the gate can render before any network call. Membership can only UPGRADE solo->lab; a failed network check never downgrades lab->solo (fail-safe). This folds in the deferred identity-model Phase 2 (`account_type -> isLabHead`).
+
+## Build sequencing (post-lock)
+
+These slices are INHERENTLY SEQUENTIAL (each sits on the session state machine) and several touch live shared files (AppShell, providers, `auth.ts`), so they are built in order, not fanned out in parallel:
+1. PURE CORE (in progress): `lab-account-type.ts` (resolveAccountType) + `lab-session.ts` (state machine + controller), all external effects injected, fully unit-tested, new files only. No live wiring.
+2. DONE/no-op: all five providers already wired in `auth.ts` (see decision 1). Just confirm env-var docs.
+3. Wire the controller's injected effects to reality (BROWSER-DEPENDENT: `unlockKeypair` is a WebAuthn passkey prompt that only runs in a real browser, so this slice is built + tested with a browser open, not solo): `authenticate` -> `signIn(provider)` from next-auth/react then poll `getSession()` for the verified email; `unlockKeypair` -> the existing passkey-PRF unlock flow (`unwrapKeysWithPrf` in `identity/passkey.ts`, recovery-code fallback) then `setSessionIdentity` (`session-key.ts`); `openLabKey` -> `getSessionIdentity()` for the X25519 priv + username, `getLabRemote(labId)` (returns `{ record: LabRecord, envelopes: LabKeyEnvelope[] }`), pick the highest-generation envelope, `openLabKeyCopy(envelope, username, x25519Priv)` -> labKey, build `signingKeyPair` from the session identity's Ed25519 keys; `resolveAccountType`'s `checkLabMembership` -> `getLabRemote` (member appears in `record.members` or is the head); the persisted `account_type` marker storage.
+4. The lab sign-in gate UI (reuse the sharing provider buttons + passkey unlock), shown only for `LAB_TIER_ENABLED` lab accounts when the session is not `live`.
+5. Wire the 2b-bind sync trigger: while the session is `live`, enumerate via `createLocalApiLabWorkSource()` -> `enumerateLabWork` -> `syncLabWorkToMirror` with the session's keys. This is where the whole data plane finally runs end to end.
+6. Grace-then-lock expiry handling + the degraded read-only state in the live app.
