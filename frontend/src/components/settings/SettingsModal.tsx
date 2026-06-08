@@ -12,6 +12,7 @@
 // LivingPopup actually mounts the body (first open).
 
 import dynamic from "next/dynamic";
+import { useEffect } from "react";
 
 import LivingPopup from "@/components/ui/LivingPopup";
 import { useSettingsModal } from "@/lib/settings/settings-modal-store";
@@ -43,6 +44,27 @@ export default function SettingsModal() {
   const isOpen = useSettingsModal((s) => s.isOpen);
   const origin = useSettingsModal((s) => s.origin);
   const close = useSettingsModal((s) => s.close);
+
+  // Warm the lazy SettingsBody chunk on idle after the app mounts, so the FIRST
+  // open is instant (no chunk-load delay). This modal is mounted once at app
+  // start, so the preload runs once. Same module specifier as the dynamic()
+  // above, so it just fills webpack's chunk cache. (ProfileSettingsContent is a
+  // static import, already eager, so it needs no preload.)
+  useEffect(() => {
+    const w = window as unknown as {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    const preload = () => {
+      void import("@/app/settings/page");
+    };
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(preload, { timeout: 3000 });
+      return () => w.cancelIdleCallback?.(id);
+    }
+    const id = window.setTimeout(preload, 1500);
+    return () => window.clearTimeout(id);
+  }, []);
 
   return (
     <LivingPopup
