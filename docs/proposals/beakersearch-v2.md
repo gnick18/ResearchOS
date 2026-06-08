@@ -241,3 +241,33 @@ the interactive before/after mockup review before it is treated final.
 
 No build starts before this file is reviewed and these are answered, same posture
 as the v1 global-search decisions doc.
+
+---
+
+## 7. Decisions (Grant, 2026-06-07)
+
+1. SCOPE, **debt-only first**. The first v2 push is chunks 1 to 3, the sub-flow
+   framework + every in-palette picker + the Workbench live-selection, Links
+   board-filter, and Lab-Overview pending-entity lifts. The "and more" (section 3
+   beyond the lifts, and section 4) is deferred to a later pass, NOT this build.
+2. SUB-FLOW UX, **pending**. Grant is deciding from the interactive side-by-side
+   `docs/mockups/beakersearch-v2-subflow.html` (Option A pushed view-stack vs
+   Option B inline expansion). Lock this before chunk 1.
+3. LINK PREVIEW, **client-side only**. Favicon + hostname derived in the browser,
+   no backend, no metadata-scrape function. Ships with the Links board-filter lift.
+4. QUICK-FILTER TOKENS, **skipped for v2**. The inline palette stays about fuzzy
+   reach, structured / faceted filtering remains `/search`'s job (the "Search
+   everything" handoff already bridges there).
+5. MULTI-SELECT + BULK, **skipped for v2**. v2 stays one-entity. Bulk is a separate
+   initiative if it earns its weight later.
+
+So the LOCKED v2 build is, the sub-flow framework (UX pending), the picker debts
+(assign / flag / change-project / set-funding / add-dependency / move-note /
+move-method-category / link-event-to-task), and the three lifts (Workbench
+selection, Links board filter + client-side preview, Lab-Overview pending
+entities). Frecency ranking, inline previews beyond favicons, result sub-actions,
+the one-action-source refactor, tokens, bulk, and the global Notes entity are all
+explicitly OUT of this push.
+
+The remaining gate is decision 2 (the sub-flow presentation), once Grant picks A or
+B from the mockup, chunk 1 can start.
