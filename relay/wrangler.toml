@@ -24,6 +24,15 @@ class_name = "RecipientInbox"
 name = "CAPTURE_INBOX"
 class_name = "CaptureInbox"
 
+# Per-lab record store (lab tier Phase 2). One DO instance per labId is the
+# authoritative server-side home of a lab: the head pubkey, the head-signed
+# hash-chained membership log, and the per-generation sealed lab-key envelopes.
+# The DO is BLIND to the lab key (it stores only sealed copies + signed public
+# metadata). ADDITIVE and dormant; the client gate is LAB_TIER_ENABLED.
+[[durable_objects.bindings]]
+name = "LAB_RECORD"
+class_name = "LabRecordDO"
+
 # R2 bucket for periodic per-doc snapshot backups (disaster-recovery net for the
 # DO SQLite store, storage-migration phase 1 chunk 4). The DO writes its current
 # compacted snapshot here on a throttled alarm cadence.
@@ -53,3 +62,8 @@ new_sqlite_classes = ["RecipientInbox"]
 [[migrations]]
 tag = "v3"
 new_sqlite_classes = ["CaptureInbox"]
+
+# lab tier Phase 2: the per-lab record store DO.
+[[migrations]]
+tag = "v4"
+new_sqlite_classes = ["LabRecordDO"]

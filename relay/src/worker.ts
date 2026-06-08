@@ -53,6 +53,12 @@ export interface Env {
   /** R2 bucket for transient bench-capture blobs. Deleted on ack (the laptop
    *  pulls them into the data folder, then the relay drops them). */
   CAPTURES: R2Bucket;
+  /** Per-lab record store (lab tier Phase 2), addressed by labId. Holds the
+   *  head pubkey (set on create), the head-signed hash-chained membership log,
+   *  and the per-generation sealed lab-key envelopes. It NEVER receives the lab
+   *  key in plaintext, only sealed copies + signed public metadata. Dormant
+   *  behind LAB_TIER_ENABLED on the client; the DO + binding ship inert. */
+  LAB_RECORD: DurableObjectNamespace;
 }
 
 /** Permissive CORS for the cross-origin /snapshot fetch from the app. The
@@ -159,6 +165,52 @@ export default {
         env.RECIPIENT_INBOX.idFromName(inboxKey),
       );
       return stub.fetch(request);
+    }
+
+    // Per-lab record store (lab tier Phase 2). The authoritative server-side home
+    // of a lab: the head pubkey, the head-signed hash-chained membership log, and
+    // the per-generation sealed lab-key envelopes. Addressed by ?lab=<labId>, so
+    // each lab has its own LabRecordDO independent of any collab session. The DO
+    // verifies the head's Ed25519 signature ON THE LOG ENTRIES (not a separate
+    // request signature) and re-runs the chain checks before appending. It is
+    // BLIND to the lab key, it only ever stores sealed copies + signed public
+    // metadata. POST only; the DO does its own verification. This is ADDITIVE and
+    // dormant (the client gate is LAB_TIER_ENABLED); nothing in the live app calls
+    // it yet. Mirrors how /inbox/* resolves RECIPIENT_INBOX by emailHash.
+    if (
+      url.pathname === "/lab/create" ||
+      url.pathname === "/lab/append" ||
+      url.pathname === "/lab/get"
+    ) {
+      if (request.method !== "POST") {
+        return new Response("Method not allowed", {
+          status: 405,
+          headers: CORS_HEADERS,
+        });
+      }
+      const labId = url.searchParams.get("lab");
+      if (!labId || labId.trim() === "") {
+        return new Response("Missing required query parameter: lab", {
+          status: 400,
+          headers: CORS_HEADERS,
+        });
+      }
+      const stub = env.LAB_RECORD.get(env.LAB_RECORD.idFromName(labId));
+      return stub.fetch(request);
+    }
+
+    // CORS preflight for the cross-origin lab-record POSTs from the app (the JSON
+    // Content-Type makes these non-simple requests). Handled before the capture
+    // dispatch so an OPTIONS never tries to parse a body.
+    if (request.method === "OPTIONS" && url.pathname.startsWith("/lab/")) {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        },
+      });
     }
 
     // CORS preflight for the cross-origin capture POSTs/GETs from the app (the
@@ -1834,6 +1886,488 @@ export class CaptureInbox {
       // Leave u empty; the handler re-parses and returns the malformed error.
     }
     return { u, request };
+  }
+}
+
+// ===========================================================================
+// Lab tier Phase 2: the per-lab record store.
+// ===========================================================================
+//
+// LAB-LOG CANONICAL MESSAGE. THE CONTRACT. This MUST byte-match
+// canonicalEntryMessage in frontend/src/lib/lab/lab-membership.ts exactly, since
+// the head signs that string and the DO verifies the same bytes. If you change
+// one, change both. The client builder labLogCanonicalMessage in
+// frontend/src/lib/lab/lab-do-client.ts is a third copy that must agree too;
+// the client tests round-trip a real lab-key entry through this DO to prove it.
+
+interface LabMemberWire {
+  username: string;
+  x25519PublicKey: string;
+  ed25519PublicKey: string;
+  role: "head" | "member";
+}
+
+interface LabLogEntryWire {
+  seq: number;
+  type: "create" | "add" | "remove" | "rotate";
+  keyGeneration: number;
+  roster: LabMemberWire[];
+  subject?: LabMemberWire;
+  issuedAt: number;
+  prevHash: string;
+  signature: string;
+}
+
+interface LabKeyCopyWire {
+  username: string;
+  sealed: string;
+}
+
+interface LabEnvelopeWire {
+  generation: number;
+  copies: LabKeyCopyWire[];
+  seedLink?: string;
+}
+
+/**
+ * The exact canonical message the head signs for a log entry (everything but the
+ * signature, in a fixed order, with the "lab-log" verb prefix). Byte-identical to
+ * canonicalEntryMessage in lab-membership.ts. JSON.stringify of roster/subject is
+ * deterministic because both sides construct those objects with the same key
+ * order, so sign and verify produce identical bytes.
+ */
+function labLogCanonicalMessage(entry: Omit<LabLogEntryWire, "signature">): string {
+  return [
+    "lab-log",
+    String(entry.seq),
+    entry.type,
+    String(entry.keyGeneration),
+    JSON.stringify(entry.roster),
+    JSON.stringify(entry.subject ?? null),
+    String(entry.issuedAt),
+    entry.prevHash,
+  ].join("\n");
+}
+
+/**
+ * Per-lab record store (lab tier Phase 2). One DO instance per labId
+ * (idFromName(labId)). It is the authoritative server-side home of a lab:
+ *
+ *   - head_pubkey: the head's Ed25519 signing key, set on /lab/create like
+ *     RecipientInbox sets recipient_pubkey on first push. Every later write is
+ *     verified against it, so only the head can extend the log.
+ *   - the head-signed, hash-chained membership log (one row per entry).
+ *   - one sealed lab-key ENVELOPE per generation (copies sealed to each member's
+ *     X25519 key + an optional seed link).
+ *
+ * SECURITY MODEL. The server stays BLIND to the lab key. It only ever receives
+ * sealed copies (openable solely with a member's X25519 private key) and signed
+ * public metadata. It never sees the 32-byte lab key in plaintext.
+ *
+ * Authentication is the LOG ENTRY's own head signature, not a separate request
+ * token: each entry carries an Ed25519 signature by the head over
+ * labLogCanonicalMessage(entry). On /lab/create the DO records head_pubkey from
+ * the genesis entry's verified roster head and stores the entry + envelope. On
+ * /lab/append the DO verifies the new entry's signature against the STORED
+ * head_pubkey AND that it chains correctly onto the stored tail (seq monotonic,
+ * prevHash = sha256(tail signature), generation rule), mirroring
+ * verifyMembershipLog, before it accepts the row. A non-head signature, a forged
+ * generation jump, a replayed/reordered seq, or a broken prevHash is rejected.
+ *
+ * /lab/get is an open read of the record + envelopes. The sealed copies are
+ * crypto-gated (only the right member can open theirs), so an open read leaks no
+ * lab key. An optional requester signature can gate it for symmetry, but is not
+ * required.
+ */
+export class LabRecordDO {
+  readonly state: DurableObjectState;
+  readonly env: Env;
+
+  constructor(state: DurableObjectState, env: Env) {
+    this.state = state;
+    this.env = env;
+    // One row per log entry, in seq order. entry is the full LabLogEntryWire JSON.
+    this.sql().exec(
+      "CREATE TABLE IF NOT EXISTS log (seq INTEGER PRIMARY KEY, type TEXT, key_generation INTEGER, signature TEXT, entry TEXT)",
+    );
+    // One row per generation, holding that generation's sealed envelope JSON.
+    this.sql().exec(
+      "CREATE TABLE IF NOT EXISTS envelopes (generation INTEGER PRIMARY KEY, envelope TEXT)",
+    );
+    // meta holds 'head_pubkey' (hex, set on create) and 'lab_id'.
+    this.sql().exec(
+      "CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)",
+    );
+  }
+
+  private sql(): SqlStorage {
+    return this.state.storage.sql;
+  }
+
+  private metaGet(key: string): string | null {
+    const rows = this.sql()
+      .exec<{ v: string }>("SELECT v FROM meta WHERE k = ?", key)
+      .toArray();
+    return rows.length > 0 ? rows[0].v : null;
+  }
+
+  private metaSet(key: string, value: string): void {
+    this.sql().exec(
+      "INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v",
+      key,
+      value,
+    );
+  }
+
+  /** Verifies a hex Ed25519 signature over a UTF-8 message under a hex pubkey.
+   *  Any malformed input is a verification failure, never a throw. */
+  private verifySig(sigHex: string, message: string, pubkeyHex: string): boolean {
+    try {
+      const sig = hexToBytes(sigHex);
+      const pub = hexToBytes(pubkeyHex);
+      const msg = new TextEncoder().encode(message);
+      return ed25519.verify(sig, msg, pub);
+    } catch {
+      return false;
+    }
+  }
+
+  private json(body: unknown, status: number): Response {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
+  }
+
+  /** sha256 hex of an entry's signature bytes, the next entry's prevHash. Matches
+   *  hashEntrySignature in lab-membership.ts (sha256 of the hex-decoded
+   *  signature). */
+  private async hashEntrySignature(signatureHex: string): Promise<string> {
+    const digest = await crypto.subtle.digest(
+      "SHA-256",
+      hexToBytes(signatureHex),
+    );
+    const view = new Uint8Array(digest);
+    let hex = "";
+    for (let i = 0; i < view.length; i++) {
+      hex += view[i].toString(16).padStart(2, "0");
+    }
+    return hex;
+  }
+
+  /** Basic structural validation of a log entry from the wire. Returns null on a
+   *  shape problem (so the caller returns 400). Does NOT verify the signature or
+   *  the chain (those are separate steps). */
+  private badEntryShape(entry: unknown): entry is LabLogEntryWire {
+    if (typeof entry !== "object" || entry === null) return false;
+    const e = entry as Record<string, unknown>;
+    if (typeof e.seq !== "number" || !Number.isInteger(e.seq) || e.seq < 0) {
+      return false;
+    }
+    if (
+      e.type !== "create" &&
+      e.type !== "add" &&
+      e.type !== "remove" &&
+      e.type !== "rotate"
+    ) {
+      return false;
+    }
+    if (typeof e.keyGeneration !== "number" || !Number.isInteger(e.keyGeneration)) {
+      return false;
+    }
+    if (!Array.isArray(e.roster)) return false;
+    if (typeof e.issuedAt !== "number") return false;
+    if (typeof e.prevHash !== "string") return false;
+    if (typeof e.signature !== "string") return false;
+    return true;
+  }
+
+  /** The stored log tail, or null when the log is empty. */
+  private tail(): LabLogEntryWire | null {
+    const rows = this.sql()
+      .exec<{ entry: string }>(
+        "SELECT entry FROM log ORDER BY seq DESC LIMIT 1",
+      )
+      .toArray();
+    return rows.length > 0 ? (JSON.parse(rows[0].entry) as LabLogEntryWire) : null;
+  }
+
+  /** POST /lab/create?lab=<labId>. The genesis: a head-signed seq-0 create entry
+   *  plus the gen-0 envelope. The DO verifies the head signature on the entry,
+   *  records head_pubkey, and stores the entry + envelope. Rejects if the lab
+   *  already exists (head_pubkey already set) with 409. */
+  private async handleCreate(request: Request, labId: string): Promise<Response> {
+    let body: { entry?: unknown; envelope?: unknown };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+
+    const entry = body.entry;
+    const envelope = body.envelope as LabEnvelopeWire | undefined;
+    if (!this.badEntryShape(entry)) {
+      return this.json({ error: "malformed entry" }, 400);
+    }
+    if (
+      !envelope ||
+      typeof envelope !== "object" ||
+      typeof (envelope as LabEnvelopeWire).generation !== "number" ||
+      !Array.isArray((envelope as LabEnvelopeWire).copies)
+    ) {
+      return this.json({ error: "malformed envelope" }, 400);
+    }
+
+    // Reject a duplicate create. head_pubkey is set exactly once, here.
+    if (this.metaGet("head_pubkey") !== null) {
+      return this.json({ error: "lab already exists" }, 409);
+    }
+
+    // Genesis shape: seq 0, type create, empty prevHash, generation 0.
+    if (entry.seq !== 0 || entry.type !== "create" || entry.prevHash !== "") {
+      return this.json({ error: "invalid genesis entry" }, 400);
+    }
+    if (entry.keyGeneration !== 0 || envelope.generation !== 0) {
+      return this.json({ error: "genesis generation must be 0" }, 400);
+    }
+
+    // The head is the role:"head" member in the roster head OR, since the create
+    // roster lists the non-head members (lab-key.ts builds it that way), the head
+    // pubkey is supplied alongside. We take it from the request so the DO knows
+    // who to bind, then REQUIRE the genesis signature to verify under it. A forged
+    // head_pubkey that did not actually sign the entry fails this check.
+    const head = (body as { head?: LabMemberWire }).head;
+    if (
+      !head ||
+      typeof head.ed25519PublicKey !== "string" ||
+      head.role !== "head"
+    ) {
+      return this.json({ error: "missing head" }, 400);
+    }
+
+    const message = labLogCanonicalMessage({
+      seq: entry.seq,
+      type: entry.type,
+      keyGeneration: entry.keyGeneration,
+      roster: entry.roster,
+      subject: entry.subject,
+      issuedAt: entry.issuedAt,
+      prevHash: entry.prevHash,
+    });
+    if (!this.verifySig(entry.signature, message, head.ed25519PublicKey)) {
+      return this.json({ error: "bad genesis signature" }, 401);
+    }
+
+    // Bind the head and store the genesis entry + envelope atomically enough for a
+    // single-threaded DO (one request at a time per instance).
+    this.metaSet("head_pubkey", head.ed25519PublicKey);
+    this.metaSet("lab_id", labId);
+    this.metaSet("head", JSON.stringify(head));
+    this.sql().exec(
+      "INSERT INTO log (seq, type, key_generation, signature, entry) VALUES (?, ?, ?, ?, ?)",
+      entry.seq,
+      entry.type,
+      entry.keyGeneration,
+      entry.signature,
+      JSON.stringify(entry),
+    );
+    this.sql().exec(
+      "INSERT INTO envelopes (generation, envelope) VALUES (?, ?) ON CONFLICT(generation) DO UPDATE SET envelope = excluded.envelope",
+      envelope.generation,
+      JSON.stringify(envelope),
+    );
+
+    return this.json({ ok: true }, 200);
+  }
+
+  /** POST /lab/append?lab=<labId>. A new head-signed log entry (add/remove/
+   *  rotate). For rotate, a new envelope for the bumped generation; for add, the
+   *  newcomer's sealed copy to splice into the current envelope. The DO verifies
+   *  the head signature against the STORED head_pubkey AND that the entry chains
+   *  onto the stored tail before appending. */
+  private async handleAppend(request: Request): Promise<Response> {
+    let body: {
+      entry?: unknown;
+      envelope?: unknown;
+      copy?: unknown;
+    };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+
+    const entry = body.entry;
+    if (!this.badEntryShape(entry)) {
+      return this.json({ error: "malformed entry" }, 400);
+    }
+
+    const headPubkey = this.metaGet("head_pubkey");
+    if (headPubkey === null) {
+      // No lab here yet. Append before create is meaningless.
+      return this.json({ error: "lab does not exist" }, 404);
+    }
+
+    const tail = this.tail();
+    if (tail === null) {
+      return this.json({ error: "lab has no genesis" }, 409);
+    }
+
+    // Chain checks, mirroring verifyMembershipLog for a single append.
+    // 1. seq is exactly tail.seq + 1 (monotonic, no gap, no reorder, no replay).
+    if (entry.seq !== tail.seq + 1) {
+      return this.json({ error: "seq is not monotonic" }, 400);
+    }
+    // 2. A second create is never valid.
+    if (entry.type === "create") {
+      return this.json({ error: "unexpected create on append" }, 400);
+    }
+    // 3. prevHash equals sha256(tail signature).
+    const wantPrev = await this.hashEntrySignature(tail.signature);
+    if (entry.prevHash !== wantPrev) {
+      return this.json({ error: "broken hash chain" }, 400);
+    }
+    // 4. Generation rule: bump by exactly one on rotate, stay put on add/remove.
+    const wantGeneration =
+      entry.type === "rotate"
+        ? tail.keyGeneration + 1
+        : tail.keyGeneration;
+    if (entry.keyGeneration !== wantGeneration) {
+      return this.json(
+        {
+          error: `unexpected keyGeneration ${entry.keyGeneration}, wanted ${wantGeneration}`,
+        },
+        400,
+      );
+    }
+
+    // 5. The signature verifies under the STORED head pubkey over the canonical
+    // message. This is the catch-all: any flipped byte above also changes this
+    // message, and a non-head signer fails outright.
+    const message = labLogCanonicalMessage({
+      seq: entry.seq,
+      type: entry.type,
+      keyGeneration: entry.keyGeneration,
+      roster: entry.roster,
+      subject: entry.subject,
+      issuedAt: entry.issuedAt,
+      prevHash: entry.prevHash,
+    });
+    if (!this.verifySig(entry.signature, message, headPubkey)) {
+      return this.json({ error: "bad signature" }, 401);
+    }
+
+    // Envelope handling. A rotate carries a fresh envelope for the new
+    // generation; an add carries the newcomer's sealed copy that we splice into
+    // the CURRENT generation's stored envelope. Neither ever carries a lab key.
+    if (entry.type === "rotate") {
+      const envelope = body.envelope as LabEnvelopeWire | undefined;
+      if (
+        !envelope ||
+        typeof envelope !== "object" ||
+        envelope.generation !== entry.keyGeneration ||
+        !Array.isArray(envelope.copies)
+      ) {
+        return this.json({ error: "rotate requires a matching envelope" }, 400);
+      }
+      this.sql().exec(
+        "INSERT INTO envelopes (generation, envelope) VALUES (?, ?) ON CONFLICT(generation) DO UPDATE SET envelope = excluded.envelope",
+        envelope.generation,
+        JSON.stringify(envelope),
+      );
+    } else if (entry.type === "add") {
+      const copy = body.copy as LabKeyCopyWire | undefined;
+      if (
+        !copy ||
+        typeof copy.username !== "string" ||
+        typeof copy.sealed !== "string"
+      ) {
+        return this.json({ error: "add requires the newcomer sealed copy" }, 400);
+      }
+      const rows = this.sql()
+        .exec<{ envelope: string }>(
+          "SELECT envelope FROM envelopes WHERE generation = ?",
+          entry.keyGeneration,
+        )
+        .toArray();
+      if (rows.length === 0) {
+        return this.json({ error: "no envelope for the current generation" }, 409);
+      }
+      const env = JSON.parse(rows[0].envelope) as LabEnvelopeWire;
+      // Upsert the newcomer's copy (idempotent on re-send).
+      const others = env.copies.filter((c) => c.username !== copy.username);
+      env.copies = [...others, copy];
+      this.sql().exec(
+        "UPDATE envelopes SET envelope = ? WHERE generation = ?",
+        JSON.stringify(env),
+        entry.keyGeneration,
+      );
+    }
+    // remove carries neither (it is a roster change with no key effect; a real
+    // departure rotates, which is the rotate branch above).
+
+    // Append the entry only after all checks + the envelope write succeed.
+    this.sql().exec(
+      "INSERT INTO log (seq, type, key_generation, signature, entry) VALUES (?, ?, ?, ?, ?)",
+      entry.seq,
+      entry.type,
+      entry.keyGeneration,
+      entry.signature,
+      JSON.stringify(entry),
+    );
+
+    return this.json({ ok: true }, 200);
+  }
+
+  /** POST /lab/get?lab=<labId>. Open read of the record + envelopes. The sealed
+   *  copies are crypto-gated, so this leaks no lab key. Returns 404 when the lab
+   *  does not exist. */
+  private async handleGet(): Promise<Response> {
+    const headPubkey = this.metaGet("head_pubkey");
+    if (headPubkey === null) {
+      return this.json({ error: "lab does not exist" }, 404);
+    }
+
+    const logRows = this.sql()
+      .exec<{ entry: string }>("SELECT entry FROM log ORDER BY seq ASC")
+      .toArray();
+    const log = logRows.map((r) => JSON.parse(r.entry) as LabLogEntryWire);
+
+    const envRows = this.sql()
+      .exec<{ envelope: string }>(
+        "SELECT envelope FROM envelopes ORDER BY generation ASC",
+      )
+      .toArray();
+    const envelopes = envRows.map(
+      (r) => JSON.parse(r.envelope) as LabEnvelopeWire,
+    );
+
+    const headRaw = this.metaGet("head");
+    const head = headRaw ? (JSON.parse(headRaw) as LabMemberWire) : null;
+    const labId = this.metaGet("lab_id") ?? "";
+    const finalEntry = log.length > 0 ? log[log.length - 1] : null;
+
+    // The record mirrors LabRecord (lab-membership.ts): head + the final roster
+    // as members + the keyGeneration of the final entry + the full log. The
+    // client re-runs verifyMembershipLog over this before trusting it.
+    const record = {
+      labId,
+      head,
+      members: finalEntry ? finalEntry.roster : [],
+      keyGeneration: finalEntry ? finalEntry.keyGeneration : 0,
+      log,
+    };
+
+    return this.json({ record, envelopes }, 200);
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    const labId = url.searchParams.get("lab") ?? "";
+    if (url.pathname === "/lab/create") return this.handleCreate(request, labId);
+    if (url.pathname === "/lab/append") return this.handleAppend(request);
+    if (url.pathname === "/lab/get") return this.handleGet();
+    return this.json({ error: "not found" }, 404);
   }
 }
 
