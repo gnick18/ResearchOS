@@ -133,14 +133,28 @@ export async function saveIdentity(identity: StoredIdentity): Promise<void> {
 export async function loadIdentity(): Promise<StoredIdentity | null> {
   const session = getSessionIdentity();
   if (session) return session;
-  const db = await openDb();
+  // The legacy IndexedDB record is a best-effort fallback. IndexedDB can be
+  // absent (SSR / tests) or blocked (private browsing, hardened browsers); that
+  // must read as "no persisted identity", never throw — callers like
+  // restoreSessionFromStore / hasIdentity and the key-rotation publish flow
+  // would otherwise see an unhandled rejection. Mirrors saveIdentity's guard.
+  if (typeof indexedDB === "undefined") return null;
   try {
-    const record = await tx<StoredIdentity | undefined>(db, "readonly", (store) =>
-      store.get(IDENTITY_KEY),
+    const db = await openDb();
+    try {
+      const record = await tx<StoredIdentity | undefined>(db, "readonly", (store) =>
+        store.get(IDENTITY_KEY),
+      );
+      return record ?? null;
+    } finally {
+      db.close();
+    }
+  } catch (err) {
+    console.warn(
+      "[identity] IndexedDB load failed (treating as no persisted identity)",
+      err,
     );
-    return record ?? null;
-  } finally {
-    db.close();
+    return null;
   }
 }
 
@@ -177,13 +191,25 @@ export async function restoreSessionFromStore(): Promise<boolean> {
  * not delete the database itself, so a later save reuses the same store.
  */
 export async function clearIdentity(): Promise<void> {
-  // Lock the session AND drop the legacy raw record.
+  // Lock the session AND drop the legacy raw record. The session lock above is
+  // authoritative; the IndexedDB delete is best-effort. Absent / blocked
+  // IndexedDB must not turn a successful sign-out into a reported failure
+  // ("Could not remove your key from this device") when the key is in fact gone
+  // from the session. Mirrors saveIdentity / loadIdentity.
   clearSessionIdentity();
-  const db = await openDb();
+  if (typeof indexedDB === "undefined") return;
   try {
-    await tx(db, "readwrite", (store) => store.delete(IDENTITY_KEY));
-  } finally {
-    db.close();
+    const db = await openDb();
+    try {
+      await tx(db, "readwrite", (store) => store.delete(IDENTITY_KEY));
+    } finally {
+      db.close();
+    }
+  } catch (err) {
+    console.warn(
+      "[identity] IndexedDB clear failed (session already locked)",
+      err,
+    );
   }
 }
 
