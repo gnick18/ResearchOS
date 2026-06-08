@@ -3,9 +3,10 @@
 // the batch to your lab. Each selected photo is queued through the same outbox
 // pipeline a single capture uses, with the shared caption. When paired they
 // upload right away, when not paired they wait in the outbox. Annotate (draw or
-// markup per photo) is a separate heavier feature, the entry is here but the
-// editor is not built yet. House style: no em-dashes, no emojis, no mid-sentence
-// colons.
+// markup) opens the editor for the FIRST selected photo and rides its doc along
+// with that photo on send. FLAG: per-photo annotation across the whole grid is
+// not built yet, only the first selected photo is annotatable here. House style:
+// no em-dashes, no emojis, no mid-sentence colons.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -17,15 +18,21 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
+import { AnnotationOverlay } from '@/components/AnnotationOverlay';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { useTheme, palette } from '@/lib/design';
 import { addCapture, sendCapture } from '@/lib/captures';
 import { takePendingBatch } from '@/lib/bulk-batch';
+import {
+  setAnnotateTarget,
+  takeAnnotateResult,
+} from '@/lib/annotate-handoff';
+import type { AnnotationDoc } from '@/lib/annotations';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
 
@@ -38,6 +45,9 @@ export default function BulkScreen() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [caption, setCaption] = useState('');
   const [sending, setSending] = useState(false);
+  // Annotation docs keyed by the photo uri they belong to. Only the first
+  // selected photo can be annotated for now (see FLAG in the header).
+  const [docs, setDocs] = useState<Record<string, AnnotationDoc>>({});
 
   // Take the picked batch on mount, all photos selected by default.
   useEffect(() => {
@@ -45,6 +55,17 @@ export default function BulkScreen() {
     setUris(batch);
     setSelected(new Set(batch.map((_, i) => i)));
   }, []);
+
+  // Returning from the annotate editor: take the saved doc and key it to its uri
+  // so it sends with that photo.
+  useFocusEffect(
+    useCallback(() => {
+      const result = takeAnnotateResult();
+      if (result) {
+        setDocs((prev) => ({ ...prev, [result.uri]: result.doc }));
+      }
+    }, []),
+  );
 
   const paired = !!pairing;
   const count = selected.size;
@@ -58,12 +79,22 @@ export default function BulkScreen() {
     });
   }, []);
 
+  // The first selected photo, in grid order, or null when nothing is selected.
+  const firstSelectedUri = useMemo(() => {
+    for (let i = 0; i < uris.length; i += 1) {
+      if (selected.has(i)) return uris[i];
+    }
+    return null;
+  }, [uris, selected]);
+
+  // Annotate the first selected photo. The doc comes back on focus return and is
+  // keyed to that uri so it sends with the photo. FLAG: only the first selected
+  // photo is annotatable; per-photo annotation across the grid is a follow-up.
   const onAnnotate = useCallback(() => {
-    Alert.alert(
-      'Annotate is coming soon',
-      'Drawing and markup on photos is on the way. For now you can label and send the batch.',
-    );
-  }, []);
+    if (!firstSelectedUri) return;
+    setAnnotateTarget(firstSelectedUri);
+    router.push('/annotate');
+  }, [firstSelectedUri, router]);
 
   const onSend = useCallback(async () => {
     if (count === 0 || sending) return;
@@ -71,7 +102,7 @@ export default function BulkScreen() {
     const chosen = uris.filter((_, i) => selected.has(i));
     try {
       for (const uri of chosen) {
-        const queued = await addCapture({ uri, caption });
+        const queued = await addCapture({ uri, caption, annotation: docs[uri] });
         if (pairing) {
           try {
             await sendCapture(queued, pairing, signWithDevice);
@@ -90,7 +121,7 @@ export default function BulkScreen() {
     } finally {
       setSending(false);
     }
-  }, [count, sending, uris, selected, caption, pairing, paired, router]);
+  }, [count, sending, uris, selected, caption, docs, pairing, paired, router]);
 
   const sendLabel = useMemo(
     () => (paired ? `Send ${count} to lab` : `Add ${count} to outbox`),
@@ -111,6 +142,7 @@ export default function BulkScreen() {
             return (
               <Pressable key={`${uri}-${i}`} onPress={() => toggle(i)} style={styles.cellWrap}>
                 <Image source={{ uri }} style={[styles.cell, { borderRadius: radii.md }]} />
+                {docs[uri] ? <AnnotationOverlay doc={docs[uri]} /> : null}
                 <View
                   style={[
                     styles.check,
@@ -119,6 +151,11 @@ export default function BulkScreen() {
                 >
                   {on ? <Ionicons name="checkmark" size={15} color={palette.white} /> : null}
                 </View>
+                {docs[uri] ? (
+                  <View style={[styles.annotBadge, { backgroundColor: palette.sky }]}>
+                    <Ionicons name="brush" size={11} color={palette.white} />
+                  </View>
+                ) : null}
                 {!on ? <View style={[styles.dim, { borderRadius: radii.md }]} /> : null}
               </Pressable>
             );
@@ -137,7 +174,17 @@ export default function BulkScreen() {
           />
         </Card>
 
-        <Button variant="secondary" label="Annotate selected" onPress={onAnnotate} disabled={count === 0} />
+        <Button
+          variant="secondary"
+          label={
+            firstSelectedUri && docs[firstSelectedUri]
+              ? 'Edit annotations on first photo'
+              : 'Annotate first photo'
+          }
+          icon={<Ionicons name="brush-outline" size={18} color={palette.sky} />}
+          onPress={onAnnotate}
+          disabled={count === 0}
+        />
         <Button variant="primary" label={sendLabel} loading={sending} disabled={count === 0 || sending} onPress={onSend} />
       </ScrollView>
     </ScreenFrame>
@@ -152,6 +199,16 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   cellWrap: { width: '31%', aspectRatio: 1, position: 'relative' },
   cell: { width: '100%', height: '100%', backgroundColor: '#00000010' },
+  annotBadge: {
+    position: 'absolute',
+    bottom: 6,
+    left: 6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   check: {
     position: 'absolute',
     top: 6,

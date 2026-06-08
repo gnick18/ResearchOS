@@ -21,6 +21,12 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 
 import { ThemedText } from '@/components/themed-text';
+import { AnnotationOverlay } from '@/components/AnnotationOverlay';
+import {
+  setAnnotateTarget,
+  takeAnnotateResult,
+} from '@/lib/annotate-handoff';
+import type { AnnotationDoc } from '@/lib/annotations';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -102,6 +108,7 @@ export default function NotebookScreen() {
   // ---- Photo capture pipeline ----
   const { captures, refresh: refreshCaptures } = useCaptures();
   const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<AnnotationDoc | null>(null);
   const [caption, setCaption] = useState('');
   const [saving, setSaving] = useState(false);
   const [sendingAll, setSendingAll] = useState(false);
@@ -109,6 +116,17 @@ export default function NotebookScreen() {
   useFocusEffect(
     useCallback(() => {
       refreshCaptures();
+      // Returning from the annotate editor: take the saved doc and apply it to
+      // the preview when it matches the photo currently in preview.
+      const result = takeAnnotateResult();
+      if (result) {
+        setPreviewUri((current) => {
+          if (current && current === result.uri) {
+            setPreviewDoc(result.doc);
+          }
+          return current;
+        });
+      }
     }, [refreshCaptures]),
   );
 
@@ -166,6 +184,7 @@ export default function NotebookScreen() {
     const asset = result.assets?.[0];
     if (!asset?.uri) return;
     setPreviewUri(asset.uri);
+    setPreviewDoc(null);
     setCaption('');
   }, []);
 
@@ -188,6 +207,7 @@ export default function NotebookScreen() {
     if (picked.length === 0) return;
     if (picked.length === 1) {
       setPreviewUri(picked[0]);
+      setPreviewDoc(null);
       setCaption('');
       return;
     }
@@ -199,8 +219,14 @@ export default function NotebookScreen() {
     if (!previewUri) return;
     setSaving(true);
     try {
-      const queued = await addCapture({ uri: previewUri, caption });
+      const queued = await addCapture({
+        uri: previewUri,
+        caption,
+        // Carry the annotation doc with the queued capture when one was drawn.
+        annotation: previewDoc ?? undefined,
+      });
       setPreviewUri(null);
+      setPreviewDoc(null);
       setCaption('');
       await refreshCaptures();
       if (pairing) {
@@ -209,10 +235,19 @@ export default function NotebookScreen() {
     } finally {
       setSaving(false);
     }
-  }, [previewUri, caption, refreshCaptures, pairing, sendOne]);
+  }, [previewUri, previewDoc, caption, refreshCaptures, pairing, sendOne]);
+
+  // Stash the preview photo and open the annotation editor. The doc comes back
+  // on focus return (see useFocusEffect above).
+  const onAnnotate = useCallback(() => {
+    if (!previewUri) return;
+    setAnnotateTarget(previewUri);
+    router.push('/annotate');
+  }, [previewUri, router]);
 
   const onDiscard = useCallback(() => {
     setPreviewUri(null);
+    setPreviewDoc(null);
     setCaption('');
   }, []);
 
@@ -323,10 +358,17 @@ export default function NotebookScreen() {
         {/* Photo preview + caption + queue */}
         {previewUri ? (
           <Card style={{ gap: spacing.md }}>
-            <Image
-              source={{ uri: previewUri }}
-              style={[styles.preview, { borderRadius: radii.md }]}
-            />
+            {/* The image and the annotation overlay both letterbox the same way
+                (contain + the SVG viewBox's default xMidYMid meet) so committed
+                shapes land exactly where they were drawn. */}
+            <View style={[styles.preview, { borderRadius: radii.md, overflow: 'hidden' }]}>
+              <Image
+                source={{ uri: previewUri }}
+                style={StyleSheet.absoluteFill}
+                resizeMode="contain"
+              />
+              {previewDoc ? <AnnotationOverlay doc={previewDoc} /> : null}
+            </View>
             <TextInput
               value={caption}
               onChangeText={setCaption}
@@ -342,6 +384,13 @@ export default function NotebookScreen() {
               ]}
               editable={!saving}
               multiline
+            />
+            <Button
+              variant="secondary"
+              label={previewDoc ? 'Edit annotations' : 'Annotate'}
+              icon={<Ionicons name="brush-outline" size={18} color={palette.sky} />}
+              onPress={onAnnotate}
+              disabled={saving}
             />
             <Button
               variant="primary"

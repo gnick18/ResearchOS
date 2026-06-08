@@ -9,6 +9,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/curves/utils.js';
 
 import type { Pairing } from '@/lib/pairing';
+import type { AnnotationDoc } from '@/lib/annotations';
 
 const CAPTURES_KEY = 'researchos.captures.v1';
 
@@ -26,6 +27,12 @@ export type Capture = {
   createdAt: string;
   // Lifecycle through the outbox.
   status: CaptureStatus;
+  // Optional non-destructive annotation layer (vectors in NATURAL image pixels),
+  // the EXACT same schema the laptop writes to {imageName}.annot.json. Carried
+  // here so the doc rides along with the queued capture. RELAY/POLLER FOLLOW-UP:
+  // the upload (sendCapture) and the laptop poller do NOT yet ship this field;
+  // the orchestrator wires it from this exact spot. See sendCapture below.
+  annotation?: AnnotationDoc;
 };
 
 // ---- Canonical signed-byte string (MUST match relay/scripts/smoke-capture.mjs
@@ -96,6 +103,7 @@ async function writeAll(captures: Capture[]): Promise<void> {
 export async function addCapture(input: {
   uri: string;
   caption?: string;
+  annotation?: AnnotationDoc;
 }): Promise<Capture> {
   const capture: Capture = {
     id: makeId(),
@@ -103,6 +111,8 @@ export async function addCapture(input: {
     caption: (input.caption ?? '').trim(),
     createdAt: new Date().toISOString(),
     status: 'queued',
+    // Only carry the field when present so plain captures stay byte-clean.
+    ...(input.annotation ? { annotation: input.annotation } : {}),
   };
   const current = await listCaptures();
   // Newest first so the freshest snap sits at the top of the outbox.
@@ -181,6 +191,14 @@ export async function sendCapture(
       name: fileNameForUri(capture.uri, contentType),
       type: contentType,
     } as unknown as Blob);
+    // RELAY/POLLER FOLLOW-UP (orchestrator): capture.annotation holds the EXACT
+    // AnnotationDoc the laptop expects in {imageName}.annot.json. To ship it,
+    // add an `annotation: capture.annotation` field to this meta JSON (and fold
+    // it into the signed captureUploadMessage on both sides so the relay accepts
+    // it), then have the laptop poller write it next to the imported image as
+    // `${imageName}.annot.json`. Nothing on the mobile editor side is missing,
+    // the doc is fully built and persisted on the Capture; only the wire +
+    // poller remain.
     form.append(
       'meta',
       JSON.stringify({
