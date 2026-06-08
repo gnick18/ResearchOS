@@ -1466,15 +1466,6 @@ export class CaptureInbox {
       new Date().toISOString(),
     );
 
-    // TEMP diagnostic: confirm which DO/identity the capture landed in.
-    const upCount =
-      this.sql()
-        .exec<{ n: number }>("SELECT COUNT(*) AS n FROM captures")
-        .toArray()[0]?.n ?? -1;
-    console.log(
-      `[capture-debug] UPLOAD u=${u} cid=${captureId} totalRows=${upCount}`,
-    );
-
     return this.json({ ok: true, captureId }, 200);
   }
 
@@ -1503,9 +1494,6 @@ export class CaptureInbox {
       createdAt: r.created_at,
       contentType: r.content_type,
     }));
-
-    // TEMP diagnostic: confirm the inbox reads the same DO/identity as upload.
-    console.log(`[capture-debug] INBOX u=${u} rows=${rows.length}`);
 
     return this.json({ captures }, 200);
   }
