@@ -13,12 +13,14 @@
 //
 // House style: Tooltip for icon-only buttons, no emojis, no em-dashes, no
 // mid-sentence colons, dark-mode tokens (bg-surface / text-foreground /
-// border-border).
+// border-border). All glyphs render through the verified icon registry via
+// <Icon name="..."> (companion / phone / lock / camera / sun added 2026-06-08).
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 
 import Tooltip from "@/components/Tooltip";
+import { Icon } from "@/components/icons";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   listDevices,
@@ -66,104 +68,18 @@ function formatCountdown(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-// ── Inline SVGs ───────────────────────────────────────────────────────────────
+// ── BeakerBot companion tile ───────────────────────────────────────────────────
 
-/** BeakerBot tile: sky-to-purple gradient rounded square with the bot icon. */
+/** BeakerBot tile: sky-to-purple gradient rounded square with the companion icon. */
 function BotTile() {
   return (
     <span
       aria-hidden="true"
-      className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-[9px]"
+      className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-[9px] text-white"
       style={{ background: "linear-gradient(135deg,#1AA0E6,#5B47D6)" }}
     >
-      <svg
-        viewBox="0 0 24 24"
-        width="20"
-        height="20"
-        fill="none"
-        stroke="#fff"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <rect x="4" y="8" width="16" height="11" rx="3" />
-        <path d="M12 8V4M9 4h6" />
-        <circle cx="9.5" cy="13" r="1.2" fill="#fff" stroke="none" />
-        <circle cx="14.5" cy="13" r="1.2" fill="#fff" stroke="none" />
-      </svg>
+      <Icon name="companion" className="w-5 h-5" />
     </span>
-  );
-}
-
-function PhoneIcon({ size = 16 }: { size?: number }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width={size}
-      height={size}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="6" y="3" width="12" height="18" rx="3" />
-      <path d="M11 18h2" />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="14"
-      height="14"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-    >
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  );
-}
-
-function SyncIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="13"
-      height="13"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="flex-shrink-0"
-    >
-      <path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-7.5-4M3 12a9 9 0 0 1 9-9 9 9 0 0 1 7.5 4" />
-      <path d="M21 3v4h-4M3 21v-4h4" />
-    </svg>
-  );
-}
-
-function LockIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="14"
-      height="14"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="flex-shrink-0 mt-0.5"
-    >
-      <rect x="5" y="11" width="14" height="9" rx="2" />
-      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
-    </svg>
   );
 }
 
@@ -172,74 +88,19 @@ function LockIcon() {
 const FEATURE_CHIPS = [
   {
     label: "Bench photos",
-    icon: (
-      <svg
-        viewBox="0 0 24 24"
-        width="13"
-        height="13"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L19 6h0a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-        <circle cx="12" cy="13" r="3.2" />
-      </svg>
-    ),
+    icon: <Icon name="camera" className="w-[13px] h-[13px]" />,
   },
   {
     label: "Quick notes",
-    icon: (
-      <svg
-        viewBox="0 0 24 24"
-        width="13"
-        height="13"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M5 3h11l3 3v15H5z" />
-        <path d="M8 9h8M8 13h8M8 17h5" />
-      </svg>
-    ),
+    icon: <Icon name="file" className="w-[13px] h-[13px]" />,
   },
   {
     label: "Scan to reorder",
-    icon: (
-      <svg
-        viewBox="0 0 24 24"
-        width="13"
-        height="13"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M4 12h16" />
-      </svg>
-    ),
+    icon: <Icon name="scan" className="w-[13px] h-[13px]" />,
   },
   {
     label: "Today glance",
-    icon: (
-      <svg
-        viewBox="0 0 24 24"
-        width="13"
-        height="13"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <circle cx="12" cy="12" r="4" />
-        <path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19" />
-      </svg>
-    ),
+    icon: <Icon name="sun" className="w-[13px] h-[13px]" />,
   },
 ] as const;
 
@@ -448,7 +309,7 @@ export default function DevicesSection({ ready }: DevicesSectionProps) {
   if (!ready) {
     return (
       <div className="flex gap-3 items-start rounded-xl border border-dashed border-border bg-surface-sunken p-4 text-body text-foreground-muted leading-relaxed">
-        <LockIcon />
+        <Icon name="lock" className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
         <span>
           Your account keypair is what authorizes a phone. It now stays unlocked across refreshes. If it
           ever locks, you will see &ldquo;Unlock with your recovery code or passkey&rdquo; right here instead of
@@ -550,7 +411,7 @@ export default function DevicesSection({ ready }: DevicesSectionProps) {
                 className="flex items-center gap-3 rounded-xl border border-border bg-surface px-3.5 py-3"
               >
                 <span className="w-8 h-8 rounded-lg bg-surface-sunken flex items-center justify-center text-foreground-muted flex-shrink-0">
-                  <PhoneIcon size={16} />
+                  <Icon name="phone" className="w-4 h-4" />
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-body font-semibold text-foreground truncate">
@@ -591,29 +452,18 @@ export default function DevicesSection({ ready }: DevicesSectionProps) {
             disabled={busy}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-body border border-border rounded-lg text-foreground hover:bg-surface-sunken disabled:opacity-50"
           >
-            <PlusIcon />
+            <Icon name="plus" className="w-3.5 h-3.5" />
             Pair another phone
           </button>
           <span className="flex items-center gap-1.5 text-meta text-foreground-muted">
-            <SyncIcon />
+            <Icon name="refresh" className="w-[13px] h-[13px] flex-shrink-0" />
             Auto-syncing &middot; captures land in your inbox on their own
           </span>
         </div>
 
         <details className="group">
           <summary className="cursor-pointer text-meta text-foreground-muted select-none list-none flex items-center gap-1">
-            <svg
-              viewBox="0 0 24 24"
-              width="12"
-              height="12"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              className="transition-transform group-open:rotate-90"
-            >
-              <path d="M9 18l6-6-6-6" />
-            </svg>
+            <Icon name="chevronRight" className="w-3 h-3 transition-transform group-open:rotate-90" />
             Advanced
           </summary>
           <div className="mt-3 flex flex-wrap gap-2 items-start">
@@ -699,7 +549,7 @@ export default function DevicesSection({ ready }: DevicesSectionProps) {
           className="inline-flex items-center gap-2 px-4 py-2.5 text-body font-semibold text-white rounded-xl disabled:opacity-50"
           style={{ background: "linear-gradient(135deg,#1AA0E6,#5B47D6)" }}
         >
-          <PhoneIcon size={16} />
+          <Icon name="phone" className="w-4 h-4" />
           Pair a phone
         </button>
         {/* TODO: link to the companion app store listing once published */}

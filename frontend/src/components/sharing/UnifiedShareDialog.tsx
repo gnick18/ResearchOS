@@ -40,6 +40,7 @@ import ProjectSendOutsideDialog from "@/components/sharing/ProjectSendOutsideDia
 import SequenceSendOutsideDialog from "@/components/sharing/SequenceSendOutsideDialog";
 import ExternalCollabSection from "@/components/sharing/ExternalCollabSection";
 import { EXTERNAL_COLLAB_ENABLED } from "@/lib/loro/config";
+import { isRealSharingEnabled } from "@/lib/sharing/oauth-availability";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import { useArchivedUsers } from "@/hooks/useArchivedUsers";
 import SharingServerCopyNotice from "@/components/sharing/SharingServerCopyNotice";
@@ -351,7 +352,7 @@ function OutsideTabBody({
             ownerUsername={target.owner}
             onClose={onClose}
           />
-          {EXTERNAL_COLLAB_ENABLED ? (
+          {isRealSharingEnabled() && EXTERNAL_COLLAB_ENABLED ? (
             <div className="mt-4">
               <ExternalCollabSection
                 note={target.note}

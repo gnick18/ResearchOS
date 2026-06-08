@@ -22,9 +22,9 @@ export const metadata: Metadata = {
  * colons.
  */
 export default function MaintenancePage() {
-  const returnAt =
-    process.env.MAINTENANCE_RETURN_AT?.trim() ||
-    "Monday, June 8, 2026 at 9:00 AM Central Time";
+  // A specific return time when the deployer sets one, otherwise a generic
+  // "shortly" so the page never advertises a stale, already-past timestamp.
+  const returnAt = process.env.MAINTENANCE_RETURN_AT?.trim() || "";
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-sky-50 to-white">
@@ -74,8 +74,16 @@ export default function MaintenancePage() {
 
           <p className="text-base leading-relaxed text-slate-600">
             ResearchOS is undergoing scheduled maintenance to ship some major
-            improvements. We expect to be back online by{" "}
-            <span className="font-semibold text-slate-800">{returnAt}</span>.
+            improvements. We expect to be back online{" "}
+            {returnAt ? (
+              <>
+                by{" "}
+                <span className="font-semibold text-slate-800">{returnAt}</span>
+              </>
+            ) : (
+              <span className="font-semibold text-slate-800">shortly</span>
+            )}
+            .
           </p>
 
           <p className="rounded-xl bg-white/70 px-5 py-4 text-sm leading-relaxed text-slate-500 ring-1 ring-sky-100">

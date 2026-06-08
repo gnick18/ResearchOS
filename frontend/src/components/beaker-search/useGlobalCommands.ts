@@ -34,6 +34,7 @@ import { useRouter } from "next/navigation";
 import type { EditorCommand } from "@/components/sequences/editor-commands";
 import type { IconName } from "@/components/icons";
 import { NAV_ITEMS } from "@/lib/nav";
+import { INVENTORY_ENABLED } from "@/lib/inventory/config";
 import { useTheme } from "@/lib/theme/use-theme";
 
 /** A sensible existing Icon for each top-level route. Falls back to "more"
@@ -72,7 +73,13 @@ export function useGlobalCommands(): EditorCommand[] {
   const { resolved, setTheme } = useTheme();
 
   return useMemo<EditorCommand[]>(() => {
-    const goTo: EditorCommand[] = NAV_ITEMS.map((item) => ({
+    const goTo: EditorCommand[] = NAV_ITEMS.filter((item) => {
+      // Inventory hides from the strip behind INVENTORY_ENABLED; keep the
+      // palette in lockstep so "Go to Inventory" does not surface a route the
+      // visible nav suppresses.
+      if (item.href === "/inventory" && !INVENTORY_ENABLED) return false;
+      return true;
+    }).map((item) => ({
       id: `goto-${item.href}`,
       label: `Go to ${titleCaseLabel(item.label)}`,
       group: "Go to",

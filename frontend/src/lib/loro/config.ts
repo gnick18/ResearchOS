@@ -18,7 +18,8 @@ export const PURCHASE_LORO_ENABLED = true;
  * Flipping a doc to enforced is a one-way action, so this stays dark until the
  * recipient side ships. The connect-token attach (PIECE A) is NOT gated by this.
  */
-export const EXTERNAL_COLLAB_ENABLED = true;
+export const EXTERNAL_COLLAB_ENABLED =
+  process.env.NEXT_PUBLIC_EXTERNAL_COLLAB_ENABLED === "true";
 
 /**
  * WebSocket URL for the collab relay. Defaults to the local wrangler dev
@@ -28,8 +29,34 @@ export const EXTERNAL_COLLAB_ENABLED = true;
  * Session connect builds `${COLLAB_RELAY_URL}/ws?session=<sessionId>`, which
  * matches the relay's /ws?session=<id> endpoint in relay/src/worker.ts.
  */
+const COLLAB_RELAY_URL_DEFAULT = "ws://localhost:8787";
+
 export const COLLAB_RELAY_URL =
-  process.env.NEXT_PUBLIC_COLLAB_RELAY_URL ?? "ws://localhost:8787";
+  process.env.NEXT_PUBLIC_COLLAB_RELAY_URL ?? COLLAB_RELAY_URL_DEFAULT;
+
+/**
+ * Guard against a prod/staging deploy that forgot NEXT_PUBLIC_COLLAB_RELAY_URL.
+ * Without this, collab silently points at ws://localhost:8787 and every connect
+ * fails with no obvious cause. In production with the pilot on, that is a hard
+ * misconfiguration, so throw at module load. Elsewhere (dev, or pilot off) it is
+ * the expected local default, so warn once and carry on.
+ */
+if (
+  COLLAB_RELAY_URL === COLLAB_RELAY_URL_DEFAULT &&
+  !process.env.NEXT_PUBLIC_COLLAB_RELAY_URL
+) {
+  if (LORO_PILOT_ENABLED && process.env.NODE_ENV === "production") {
+    throw new Error(
+      "NEXT_PUBLIC_COLLAB_RELAY_URL is unset in production with the Loro pilot " +
+        "enabled; collab would silently point at ws://localhost:8787. Set the " +
+        "env var to the deployed relay URL.",
+    );
+  }
+  console.warn(
+    "[loro/config] NEXT_PUBLIC_COLLAB_RELAY_URL is unset; defaulting collab " +
+      `relay to ${COLLAB_RELAY_URL_DEFAULT} (local dev). Set it for staging/prod.`,
+  );
+}
 
 /**
  * Domain-separation salt for the per-recipient inbox address (external-collab

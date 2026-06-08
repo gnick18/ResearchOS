@@ -622,6 +622,56 @@ const ICONS_RAW = {
       </>
     ),
   },
+
+  // ── Companion / phone linking (Settings Devices redesign, Grant sign-off
+  //    2026-06-08). Bodies verbatim from the shipped DevicesSection.
+  companion: {
+    concept: "Companion / BeakerBot tile",
+    body: (
+      <>
+        <rect x="4" y="8" width="16" height="11" rx="3" />
+        <path d="M12 8V4M9 4h6" />
+        <circle cx="9.5" cy="13" r="1.2" fill="currentColor" stroke="none" />
+        <circle cx="14.5" cy="13" r="1.2" fill="currentColor" stroke="none" />
+      </>
+    ),
+  },
+  phone: {
+    concept: "Phone / device",
+    body: (
+      <>
+        <rect x="6" y="3" width="12" height="18" rx="3" />
+        <path d="M11 18h2" />
+      </>
+    ),
+  },
+  lock: {
+    concept: "Lock / identity locked",
+    body: (
+      <>
+        <rect x="5" y="11" width="14" height="9" rx="2" />
+        <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+      </>
+    ),
+  },
+  camera: {
+    concept: "Camera / photo",
+    body: (
+      <>
+        <path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L19 6h0a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        <circle cx="12" cy="13" r="3.2" />
+      </>
+    ),
+  },
+  sun: {
+    concept: "Sun / today",
+    body: (
+      <>
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19" />
+      </>
+    ),
+  },
 } satisfies Record<string, IconEntry>;
 
 export type IconName = keyof typeof ICONS_RAW;

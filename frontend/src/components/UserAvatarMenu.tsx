@@ -24,6 +24,7 @@ import Link from "@/components/FixtureLink";
 import Tooltip from "@/components/Tooltip";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import { compactFingerprint } from "@/lib/sharing/profile";
+import { isRealSharingEnabled } from "@/lib/sharing/oauth-availability";
 import { useProfileModal } from "@/lib/sharing/profile-modal-store";
 import { useProfileSettingsModal } from "@/lib/profile/profile-settings-modal-store";
 import { useSettingsModal } from "@/lib/settings/settings-modal-store";
@@ -386,10 +387,12 @@ export default function UserAvatarMenu({
               <PersonIcon />
               Profile settings
             </DropdownItem>
-            <DropdownItem href="/researchers" onClick={close}>
-              <DirectoryIcon />
-              Find researchers
-            </DropdownItem>
+            {isRealSharingEnabled() && (
+              <DropdownItem href="/researchers" onClick={close}>
+                <DirectoryIcon />
+                Find researchers
+              </DropdownItem>
+            )}
             <DropdownItem onClick={openSettingsModal}>
               <GearIcon />
               Settings

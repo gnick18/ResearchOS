@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+//
 // Regression for the BeakerSearch "Go to" rows. Every top-level NAV_ITEMS route
 // renders a global command whose iconName is drawn through <Icon>, so each route
 // MUST map to a REAL registry key. A new nav route added without an icon mapping
@@ -6,10 +8,21 @@
 // gracefully, but the mapping must still be complete + valid so the row shows a
 // meaningful glyph rather than the neutral fallback.
 
-import { describe, expect, it } from "vitest";
-import { NAV_ICON_BY_HREF } from "../useGlobalCommands";
+import { describe, expect, it, vi } from "vitest";
+import { renderHook } from "@testing-library/react";
+import { NAV_ICON_BY_HREF, useGlobalCommands } from "../useGlobalCommands";
 import { NAV_ITEMS } from "@/lib/nav";
 import { ICONS } from "@/components/icons";
+import { INVENTORY_ENABLED } from "@/lib/inventory/config";
+
+// The global command list is built under the Next router + theme. Stub both so
+// the hook renders in isolation, no provider tree needed.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+vi.mock("@/lib/theme/use-theme", () => ({
+  useTheme: () => ({ resolved: "light", setTheme: vi.fn() }),
+}));
 
 describe("NAV_ICON_BY_HREF", () => {
   it("maps every NAV_ITEMS route to a registered icon", () => {
@@ -30,5 +43,20 @@ describe("NAV_ICON_BY_HREF", () => {
         `${href} -> "${icon}" is not in the icon registry`,
       ).toBeTruthy();
     }
+  });
+});
+
+describe("useGlobalCommands flag gating", () => {
+  it("omits the Inventory 'Go to' row while INVENTORY_ENABLED is off", () => {
+    // Guard against the flag being flipped on under us: this assertion only
+    // proves the gate when the flag is actually off (its default on main).
+    expect(INVENTORY_ENABLED).toBe(false);
+
+    const { result } = renderHook(() => useGlobalCommands());
+    const ids = result.current.map((cmd) => cmd.id);
+
+    expect(ids).not.toContain("goto-/inventory");
+    // Sibling routes still render, so this is gating, not a broken list.
+    expect(ids).toContain("goto-/workbench");
   });
 });
