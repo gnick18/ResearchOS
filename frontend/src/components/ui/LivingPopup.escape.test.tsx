@@ -4,6 +4,8 @@ import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/re
 import "@testing-library/jest-dom/vitest";
 
 import LivingPopup from "./LivingPopup";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import { usePopupLayer } from "@/lib/ui/popup-stack";
 
 /**
  * Escape-coordination regression tests for the shared LivingPopup primitive.
@@ -145,6 +147,63 @@ describe("LivingPopup Escape coordination", () => {
     pressEscape();
     expect(innerClose).toHaveBeenCalledTimes(1);
     expect(parentEscape).not.toHaveBeenCalled();
+  });
+
+  it("a nested overlay registered in the popup stack wins Escape over the LivingPopup it sits in", async () => {
+    // Mirrors SharingSetupWizard launched from the embedded SendOutsideDialog on
+    // the UnifiedShareDialog's "Outside your lab" tab. The wizard is NOT a
+    // LivingPopup, it uses a window-level useEscapeToClose for its own Escape,
+    // but it registers in the shared popup stack via usePopupLayer(true, false).
+    // Registering puts it ABOVE the dialog in the stack, so the dialog's
+    // LivingPopup sees isTop=false and stands its Escape down; the wizard then
+    // closes itself, returning the user to the dialog rather than closing the
+    // whole dialog (the UX refinement this test pins).
+    //
+    // It is toggled open AFTER the dialog mounts (as the real flow does, behind a
+    // "set up sharing" click), so it registers last and is genuinely the top-most
+    // layer. A nested child mounted at the same time as its parent would register
+    // FIRST (child effects run before parent effects), which is not the real
+    // ordering, hence the toggle.
+    const dialogClose = vi.fn();
+    const wizardClose = vi.fn();
+    function WizardLike({ onClose }: { onClose: () => void }) {
+      // The two hooks the real SharingSetupWizard uses for Escape + stack.
+      useEscapeToClose(onClose);
+      usePopupLayer(true, false);
+      return <div>wizard body</div>;
+    }
+    function Harness() {
+      const [wizardOpen, setWizardOpen] = useState(false);
+      return (
+        <LivingPopup open onClose={dialogClose} label="Share">
+          <div>share body</div>
+          <button type="button" onClick={() => setWizardOpen(true)}>
+            open wizard
+          </button>
+          {wizardOpen && <WizardLike onClose={() => {
+            wizardClose();
+            setWizardOpen(false);
+          }} />}
+        </LivingPopup>
+      );
+    }
+    render(<Harness />);
+    await waitForPopup("share body");
+    fireEvent.click(screen.getByText("open wizard"));
+    await waitForPopup("wizard body");
+
+    // First press closes ONLY the wizard; the dialog stands down.
+    pressEscape();
+    expect(wizardClose).toHaveBeenCalledTimes(1);
+    expect(dialogClose).not.toHaveBeenCalled();
+
+    // After the wizard unmounts (and deregisters from the stack), the dialog is
+    // top-most again, so the next press reaches it. Wait for the wizard's
+    // listener + stack entry to clear first.
+    await waitFor(() => {
+      pressEscape();
+      expect(dialogClose).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("sibling gating: the outer stands its Escape down so a sibling overlay wins", async () => {
