@@ -16,7 +16,7 @@ import SuppliesTabs from "@/components/inventory/SuppliesTabs";
 import FundingAccountsManager from "@/components/FundingAccountsManager";
 import LivingPopup from "@/components/ui/LivingPopup";
 import Tooltip from "@/components/Tooltip";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   MISC_CATEGORY_LABEL,
   isMiscProject,
@@ -90,6 +90,20 @@ export default function PurchasesPage() {
   // Per-item ordering-status filter (purchases-ordered-stage, 2026-05-29).
   const [orderStatusFilter, setOrderStatusFilter] =
     useState<PurchaseOrderStatusFilter>("any");
+  // Supplies hub deep-link: a `?stage=needs_ordering|ordered|received` param
+  // (set by the clickable "to order" loop-strip count in SuppliesTabs) seeds the
+  // ordering-status filter on load. After seeding, the chips own the state.
+  const searchParams = useSearchParams();
+  const stageParam = searchParams.get("stage");
+  useEffect(() => {
+    if (
+      stageParam === "needs_ordering" ||
+      stageParam === "ordered" ||
+      stageParam === "received"
+    ) {
+      setOrderStatusFilter(stageParam);
+    }
+  }, [stageParam]);
   const queryClient = useQueryClient();
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
   const router = useRouter();
