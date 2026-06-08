@@ -122,6 +122,17 @@ export default function InventoryPage() {
     mode: "closed",
   });
   const [deletingItem, setDeletingItem] = useState<InventoryItem | null>(null);
+  // Guards against a double-click firing confirmDeleteItem twice (the second
+  // call errors on already-gone stock ids).
+  const [deletingInFlight, setDeletingInFlight] = useState(false);
+  // Stock deletion gets a confirm step too (stocks carry lot numbers, expiry,
+  // and location, so losing one on a misclick is costly). Holds the pending
+  // item + stock; in-flight guards against a double-delete.
+  const [deletingStock, setDeletingStock] = useState<{
+    item: InventoryItem;
+    stock: InventoryStock;
+  } | null>(null);
+  const [deletingStockInFlight, setDeletingStockInFlight] = useState(false);
   // The barcode scanner popup (chunk 6). Open holds the scanner + result flow.
   const [scanOpen, setScanOpen] = useState(false);
   // The spreadsheet-import popup (cold-start path, 2026-06-07).
@@ -278,18 +289,36 @@ export default function InventoryPage() {
   };
 
   const confirmDeleteItem = async () => {
-    if (!deletingItem) return;
-    const owner = effectiveOwnerOf(deletingItem, currentUser);
-    // Soft-delete (chunk 5): moves records to _trash so they can be restored
-    // from /trash. Delete stocks first so none are left pointing at a gone item.
-    const itemStocks =
-      stocksByItem.get(`${deletingItem.owner}:${deletingItem.id}`) ?? [];
-    for (const s of itemStocks) {
-      await inventoryStocksApi.delete(s.id, owner);
+    if (!deletingItem || deletingInFlight) return;
+    setDeletingInFlight(true);
+    try {
+      const owner = effectiveOwnerOf(deletingItem, currentUser);
+      // Soft-delete (chunk 5): moves records to _trash so they can be restored
+      // from /trash. Delete stocks first so none are left pointing at a gone item.
+      const itemStocks =
+        stocksByItem.get(`${deletingItem.owner}:${deletingItem.id}`) ?? [];
+      for (const s of itemStocks) {
+        await inventoryStocksApi.delete(s.id, owner);
+      }
+      await inventoryItemsApi.delete(deletingItem.id, owner);
+      setDeletingItem(null);
+      refresh();
+    } finally {
+      setDeletingInFlight(false);
     }
-    await inventoryItemsApi.delete(deletingItem.id, owner);
-    setDeletingItem(null);
-    refresh();
+  };
+
+  const confirmDeleteStock = async () => {
+    if (!deletingStock || deletingStockInFlight) return;
+    setDeletingStockInFlight(true);
+    try {
+      const owner = effectiveOwnerOf(deletingStock.item, currentUser);
+      await inventoryStocksApi.delete(deletingStock.stock.id, owner);
+      setDeletingStock(null);
+      refresh();
+    } finally {
+      setDeletingStockInFlight(false);
+    }
   };
 
   // ── Stock CRUD ─────────────────────────────────────────────────────────
@@ -668,17 +697,9 @@ export default function InventoryPage() {
                               onEdit={() =>
                                 setStockDialog({ mode: "edit", item, stock })
                               }
-                              onDelete={async () => {
-                                const owner = effectiveOwnerOf(
-                                  item,
-                                  currentUser,
-                                );
-                                await inventoryStocksApi.delete(
-                                  stock.id,
-                                  owner,
-                                );
-                                refresh();
-                              }}
+                              onDelete={() =>
+                                setDeletingStock({ item, stock })
+                              }
                             />
                           ))}
                         </div>
@@ -787,17 +808,64 @@ export default function InventoryPage() {
               <button
                 type="button"
                 onClick={() => setDeletingItem(null)}
-                className="rounded-lg border border-border px-4 py-2 text-body text-foreground hover:bg-surface-sunken"
+                disabled={deletingInFlight}
+                className="rounded-lg border border-border px-4 py-2 text-body text-foreground hover:bg-surface-sunken disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={confirmDeleteItem}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-2 text-body font-medium text-white hover:bg-rose-700"
+                disabled={deletingInFlight}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-2 text-body font-medium text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Icon name="trash" className="h-4 w-4" />
-                Delete
+                {deletingInFlight ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        )}
+      </LivingPopup>
+
+      {/* Delete stock confirm */}
+      <LivingPopup
+        open={deletingStock !== null}
+        onClose={() => setDeletingStock(null)}
+        label="Delete stock"
+        widthClassName="max-w-md"
+        card
+        padded
+      >
+        {deletingStock && (
+          <div>
+            <h2 className="text-title font-semibold text-foreground">
+              Delete this stock of {deletingStock.item.name}?
+            </h2>
+            <p className="mt-2 text-body text-foreground-muted">
+              This permanently removes the stock
+              {deletingStock.stock.lot_number
+                ? ` (lot ${deletingStock.stock.lot_number})`
+                : ""}{" "}
+              along with its lot number, expiry, and location. This cannot be
+              undone.
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeletingStock(null)}
+                disabled={deletingStockInFlight}
+                className="rounded-lg border border-border px-4 py-2 text-body text-foreground hover:bg-surface-sunken disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteStock}
+                disabled={deletingStockInFlight}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-2 text-body font-medium text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Icon name="trash" className="h-4 w-4" />
+                {deletingStockInFlight ? "Deleting…" : "Delete"}
               </button>
             </div>
           </div>

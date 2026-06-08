@@ -405,6 +405,10 @@ export default function NewPurchaseModal({
       }
       setSaving(true);
       setError(null);
+      // Tracks the parent task once created so the catch block can roll it
+      // back if the line-item create fails (otherwise we orphan a
+      // purchase-typed task with no items).
+      let createdTaskId: number | null = null;
       try {
         // 1. Ensure the funding-string row exists if the user typed
         //    one. Skipped when the field is blank — funding_string is
@@ -478,6 +482,7 @@ export default function NewPurchaseModal({
           task_type: "purchase",
           ...(projectId !== undefined ? { project_id: projectId } : {}),
         });
+        createdTaskId = task.id;
 
         // 3. Create the line item.
         const item = await purchasesApi.create({
@@ -517,6 +522,22 @@ export default function NewPurchaseModal({
         clearDraft();
         onClose();
       } catch (err) {
+        // Roll back a half-created purchase: if the parent task was created
+        // but the line-item create (or a later step) threw, delete the task
+        // so we don't leave a purchase-typed task with no items behind.
+        if (createdTaskId !== null) {
+          try {
+            await tasksApi.delete(createdTaskId);
+            await queryClient.refetchQueries({ queryKey: ["tasks"] });
+            await queryClient.refetchQueries({ queryKey: ["purchases-all"] });
+            await queryClient.refetchQueries({ queryKey: ["projects"] });
+          } catch (cleanupErr) {
+            console.warn(
+              "[new-purchase] failed to roll back orphaned task:",
+              cleanupErr,
+            );
+          }
+        }
         const msg =
           err instanceof Error ? err.message : "Failed to save purchase.";
         setError(msg);
