@@ -159,8 +159,8 @@ describe("runCaptureInboxPoll reorder routing", () => {
     expect(item.vendor).toBe("NEB");
     expect(item.order_status).toBe("needs_ordering");
     expect(item.category).toBe(MISC_CATEGORY_LABEL);
-    // Catalog number + barcode ride along in notes (no dedicated column yet).
-    expect(item.notes).toContain("M0273");
+    // Catalog number lands in its dedicated column; the barcode rides in notes.
+    expect(item.catalog_number).toBe("M0273");
     expect(item.notes).toContain("012345678905");
 
     // The capture was acked once it landed.

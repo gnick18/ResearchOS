@@ -111,7 +111,9 @@ export interface ReorderQueueSeed {
  */
 export function buildReorderNotes(seed: ReorderQueueSeed): string | null {
   const lines: string[] = ["Reorder request from a paired phone."];
-  if (seed.catalog_number) lines.push(`Catalog number: ${seed.catalog_number}`);
+  // catalog_number now lands in the dedicated PurchaseItem.catalog_number
+  // column (added by the additive-fields work), so it is no longer duplicated
+  // into the notes string.
   if (seed.product_barcode) lines.push(`Barcode: ${seed.product_barcode}`);
   if (seed.inventory_item_id !== undefined && seed.inventory_item_id !== null)
     lines.push(`Inventory item id: ${seed.inventory_item_id}`);
@@ -136,6 +138,7 @@ export async function addReorderQueueItem(
     quantity: 1,
     vendor: seed.vendor ?? null,
     link: seed.link ?? null,
+    catalog_number: seed.catalog_number ?? null,
     category: MISC_CATEGORY_LABEL,
     notes: buildReorderNotes(seed),
     order_status: DEFAULT_PURCHASE_ORDER_STATUS,
