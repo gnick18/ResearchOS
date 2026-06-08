@@ -1,24 +1,33 @@
+/**
+ * Home tab (v2 visual foundation).
+ *
+ * All feature logic is unchanged (usePairing, routes to /pair, /note,
+ * /reorder, capture, clearPairing). This pass restyles with the new design
+ * tokens + primitives from lib/design and components/ui/.
+ *
+ * House style: no em-dashes, no emojis, no mid-sentence colons.
+ */
+
 import { useCallback } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { BeakerBotMark } from '@/components/ui/BeakerBotMark';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 import { clearPairing, usePairing } from '@/lib/pairing';
+import { useTheme } from '@/lib/design';
 
-const BRAND_SKY = '#1AA0E6';
-
-// ResearchOS companion, v0 shell (Chunk 0) + v0 pairing. The laptop stays the
-// main workspace; this is the bench-side companion. v0 pairing just means
-// "scanned + stored a payload", crypto + device keys + network come next.
-// House style: no em-dashes, no emojis.
 export default function HomeScreen() {
   const router = useRouter();
   const { pairing, loading, refresh } = usePairing();
+  const { surface, spacing, type } = useTheme();
 
-  // Re-read the pairing whenever the tab regains focus, so it updates right
-  // after the pair screen pops back here.
+  // Re-read pairing whenever the tab regains focus, so it updates right
+  // after the pair screen pops back.
   useFocusEffect(
     useCallback(() => {
       refresh();
@@ -33,96 +42,137 @@ export default function HomeScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safe}>
-        <ThemedView style={styles.hero}>
-          <ThemedText type="title" style={styles.center}>
-            ResearchOS
-          </ThemedText>
-          <ThemedText type="subtitle" style={styles.center}>
-            Companion
-          </ThemedText>
-          <ThemedText style={styles.tagline}>
-            Snap a photo at the bench, glance at today, and stay in sync with
-            your lab. Your laptop stays the main workspace.
-          </ThemedText>
-        </ThemedView>
+        {/* Hero */}
+        <View style={[styles.hero, { gap: spacing.sm }]}>
+          <BeakerBotMark size="lg" />
+          <View style={[styles.heroText, { gap: spacing.xs }]}>
+            <ThemedText
+              style={[
+                styles.wordmark,
+                { color: surface.text },
+              ]}
+            >
+              ResearchOS
+            </ThemedText>
+            <ThemedText
+              style={[
+                styles.tagline,
+                { color: surface.muted },
+              ]}
+            >
+              Bench companion. Snap photos, glance at today, and stay in sync
+              with your lab. Your laptop stays the main workspace.
+            </ThemedText>
+          </View>
+        </View>
 
+        {/* Pairing card */}
         {loading ? (
-          <ThemedView style={styles.card}>
-            <ThemedText style={styles.cardHint}>Checking pairing...</ThemedText>
-          </ThemedView>
+          <Card>
+            <ThemedText style={{ color: surface.muted }}>Checking pairing...</ThemedText>
+          </Card>
         ) : pairing ? (
-          <ThemedView style={styles.card}>
-            <ThemedText type="defaultSemiBold">
-              {pairing.labName ?? 'Paired'}
-            </ThemedText>
-            <ThemedText style={styles.cardHint}>
-              Paired {formatPairedAt(pairing.pairedAt)}
-            </ThemedText>
-            <Pressable
-              style={styles.primaryButton}
-              onPress={() => router.push('/(tabs)/capture')}
-              accessibilityRole="button"
-            >
-              <ThemedText style={styles.primaryButtonText}>
-                Take a bench photo
-              </ThemedText>
-            </Pressable>
-            <Pressable
-              style={styles.secondaryButton}
-              onPress={() => router.push('/note')}
-              accessibilityRole="button"
-            >
-              <ThemedText style={styles.secondaryButtonText}>
-                Quick note
-              </ThemedText>
-            </Pressable>
-            <Pressable
-              style={styles.secondaryButton}
-              onPress={() => router.push('/reorder')}
-              accessibilityRole="button"
-            >
-              <ThemedText style={styles.secondaryButtonText}>
-                Scan to reorder
-              </ThemedText>
-            </Pressable>
-            <Pressable
-              style={styles.secondaryButton}
-              onPress={onUnpair}
-              accessibilityRole="button"
-            >
-              <ThemedText style={styles.secondaryButtonText}>Unpair</ThemedText>
-            </Pressable>
-          </ThemedView>
+          <PairedCard
+            labName={pairing.labName}
+            pairedAt={pairing.pairedAt}
+            onCapture={() => router.push('/(tabs)/capture')}
+            onNote={() => router.push('/note')}
+            onReorder={() => router.push('/reorder')}
+            onUnpair={onUnpair}
+          />
         ) : (
-          <ThemedView style={styles.card}>
-            <ThemedText type="defaultSemiBold">Not paired yet</ThemedText>
-            <ThemedText style={styles.cardHint}>
-              Scan the pairing code from your desktop to link this phone to your
-              lab.
-            </ThemedText>
-            <Pressable
-              style={styles.primaryButton}
-              onPress={() => router.push('/pair')}
-              accessibilityRole="button"
-            >
-              <ThemedText style={styles.primaryButtonText}>
-                Pair your phone
-              </ThemedText>
-            </Pressable>
-          </ThemedView>
+          <NotPairedCard onPair={() => router.push('/pair')} />
         )}
       </SafeAreaView>
     </ThemedView>
   );
 }
 
-// Friendly local rendering of the stored ISO timestamp; falls back to the raw
-// string if it cannot be parsed.
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function PairedCard({
+  labName,
+  pairedAt,
+  onCapture,
+  onNote,
+  onReorder,
+  onUnpair,
+}: {
+  labName?: string;
+  pairedAt: string;
+  onCapture: () => void;
+  onNote: () => void;
+  onReorder: () => void;
+  onUnpair: () => void;
+}) {
+  const { surface, spacing } = useTheme();
+
+  return (
+    <Card style={{ gap: spacing.sm }}>
+      {/* Lab name + paired-at */}
+      <View style={{ gap: 3 }}>
+        <ThemedText style={[styles.cardTitle, { color: surface.text }]}>
+          {labName ?? 'Paired'}
+        </ThemedText>
+        <ThemedText style={[styles.cardMeta, { color: surface.muted }]}>
+          Paired {formatPairedAt(pairedAt)}
+        </ThemedText>
+      </View>
+
+      {/* Primary action */}
+      <Button
+        variant="primary"
+        label="Take a bench photo"
+        onPress={onCapture}
+        style={{ marginTop: spacing.xs }}
+      />
+
+      {/* Secondary actions */}
+      <Button variant="secondary" label="Quick note" onPress={onNote} />
+      <Button variant="secondary" label="Scan to reorder" onPress={onReorder} />
+      <Button variant="ghost" label="Unpair" onPress={onUnpair} />
+    </Card>
+  );
+}
+
+function NotPairedCard({ onPair }: { onPair: () => void }) {
+  const { surface, spacing } = useTheme();
+
+  return (
+    <Card style={{ gap: spacing.sm }}>
+      <View style={{ gap: 3 }}>
+        <ThemedText style={[styles.cardTitle, { color: surface.text }]}>
+          Not paired yet
+        </ThemedText>
+        <ThemedText style={[styles.cardMeta, { color: surface.muted }]}>
+          Scan the pairing code from your desktop to link this phone to your lab.
+        </ThemedText>
+      </View>
+      <Button
+        variant="primary"
+        label="Pair your phone"
+        onPress={onPair}
+        style={{ marginTop: spacing.xs }}
+      />
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
 function formatPairedAt(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   return date.toLocaleString();
 }
+
+// ---------------------------------------------------------------------------
+// Styles
+// ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
@@ -134,48 +184,30 @@ const styles = StyleSheet.create({
   },
   hero: {
     alignItems: 'center',
-    gap: 10,
   },
-  center: {
+  heroText: {
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  wordmark: {
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.5,
     textAlign: 'center',
   },
   tagline: {
+    fontSize: 15,
+    lineHeight: 22,
     textAlign: 'center',
-    opacity: 0.7,
+    maxWidth: 320,
+  },
+  cardTitle: {
+    fontSize: 17,
+    fontWeight: '700',
     lineHeight: 22,
   },
-  card: {
-    borderWidth: 1,
-    borderColor: 'rgba(128, 128, 128, 0.3)',
-    borderRadius: 14,
-    padding: 16,
-    gap: 10,
-  },
-  cardHint: {
-    opacity: 0.7,
+  cardMeta: {
+    fontSize: 14,
     lineHeight: 20,
-  },
-  primaryButton: {
-    backgroundColor: BRAND_SKY,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    borderWidth: 1,
-    borderColor: BRAND_SKY,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  secondaryButtonText: {
-    color: BRAND_SKY,
-    fontWeight: '600',
   },
 });
