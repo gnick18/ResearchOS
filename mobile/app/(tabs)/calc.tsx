@@ -415,13 +415,21 @@ function SciKey({
       style={({ pressed }) => [
         styles.padKey,
         span2 && styles.padKeySpan2,
-        { backgroundColor: bg, opacity: pressed ? 0.72 : 1 },
-        variant === 'digit' && { borderColor: surface.border, borderWidth: 1 },
+        { backgroundColor: pressed ? palette.amber : bg },
+        variant === 'digit' && !pressed && { borderColor: surface.border, borderWidth: 1 },
       ]}
     >
-      <Text style={[styles.padKeyLabel, { color }, variant === 'fnk' && styles.padKeyLabelSm]}>
-        {label}
-      </Text>
+      {({ pressed }) => (
+        <Text
+          style={[
+            styles.padKeyLabel,
+            { color: pressed ? palette.white : color },
+            variant === 'fnk' && styles.padKeyLabelSm,
+          ]}
+        >
+          {label}
+        </Text>
+      )}
     </Pressable>
   );
 }
@@ -491,8 +499,14 @@ function ScientificTab() {
           keyboardShouldPersistTaps="handled"
         >
           {FN_KEYS.map(([label, token]) => (
-            <Pressable key={label} onPress={() => insert(token)} style={styles.fnchip}>
-              <Text style={styles.fnchipLabel}>{label}</Text>
+            <Pressable
+              key={label}
+              onPress={() => insert(token)}
+              style={({ pressed }) => [styles.fnchip, pressed && { backgroundColor: palette.amber }]}
+            >
+              {({ pressed }) => (
+                <Text style={[styles.fnchipLabel, pressed && { color: palette.white }]}>{label}</Text>
+              )}
             </Pressable>
           ))}
         </ScrollView>

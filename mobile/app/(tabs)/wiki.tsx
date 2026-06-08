@@ -12,7 +12,7 @@
  * House style: no em-dashes, no emojis, no mid-sentence colons.
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -30,6 +30,7 @@ import { Card } from '@/components/ui/Card';
 import { useTheme, palette } from '@/lib/design';
 import {
   getBundledContent,
+  loadWikiContent,
   groupSearchHits,
   entriesForSection,
   searchWiki,
@@ -55,6 +56,16 @@ function buildSectionRows(content: WikiContent) {
 
 const SECTION_ROWS = buildSectionRows(CONTENT);
 
+function formatPulled(iso: string): string {
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return 'recently';
+  return new Date(ms).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Root screen
 // ---------------------------------------------------------------------------
@@ -63,12 +74,21 @@ export default function WikiBrowseScreen() {
   const { surface } = useTheme();
   const router = useRouter();
   const [query, setQuery] = useState('');
-  // Sections start expanded so the browse list reads like the ideal: grouped
-  // white cards with their pages visible, not a wall of collapsed headers.
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    () => new Set(SECTION_ROWS.map((r) => r.section.id)),
-  );
   const inputRef = useRef<TextInput>(null);
+
+  // When the wiki content was last pulled from the website wiki. Starts from the
+  // bundled copy, then upgrades to the freshest (remote-fetched) copy if one is
+  // available, so the line reflects the living, auto-fetched content.
+  const [pulledAt, setPulledAt] = useState<string>(CONTENT.generatedAt);
+  useEffect(() => {
+    let active = true;
+    loadWikiContent()
+      .then((c) => active && setPulledAt(c.generatedAt))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const hits = useMemo(() => {
     if (query.trim().length < 2) return null;
@@ -79,15 +99,6 @@ export default function WikiBrowseScreen() {
     if (!hits) return null;
     return groupSearchHits(hits, CONTENT.sections);
   }, [hits]);
-
-  const toggleSection = useCallback((id: string) => {
-    setExpandedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
 
   const goToPage = useCallback(
     (entry: WikiEntry) => {
@@ -117,6 +128,12 @@ export default function WikiBrowseScreen() {
             inputRef={inputRef}
           />
         </View>
+        <View style={styles.pulledRow}>
+          <Ionicons name="cloud-done-outline" size={13} color={surface.muted} />
+          <ThemedText style={[styles.pulledNote, { color: surface.muted }]}>
+            Last pulled from the web wiki on {formatPulled(pulledAt)}
+          </ThemedText>
+        </View>
       </View>
 
       {/* Content area */}
@@ -127,12 +144,7 @@ export default function WikiBrowseScreen() {
           onSelect={goToPage}
         />
       ) : (
-        <BrowseList
-          sectionRows={SECTION_ROWS}
-          expandedSections={expandedSections}
-          onToggleSection={toggleSection}
-          onSelectPage={goToPage}
-        />
+        <BrowseList sectionRows={SECTION_ROWS} onSelectPage={goToPage} />
       )}
     </ScreenFrame>
   );
@@ -316,97 +328,50 @@ function SnippetText({ hit, style }: { hit: WikiSearchHit; style?: object }) {
 
 function BrowseList({
   sectionRows,
-  expandedSections,
-  onToggleSection,
   onSelectPage,
 }: {
   sectionRows: Array<{ section: WikiSection; pages: WikiEntry[] }>;
-  expandedSections: Set<string>;
-  onToggleSection: (id: string) => void;
   onSelectPage: (entry: WikiEntry) => void;
 }) {
+  const { surface } = useTheme();
   return (
     <ScrollView
       style={styles.fill}
       contentContainerStyle={styles.browseContent}
       keyboardShouldPersistTaps="handled"
     >
-      {sectionRows.map(({ section, pages }) => (
-        <SectionCard
-          key={section.id}
-          section={section}
-          pages={pages}
-          expanded={expandedSections.has(section.id)}
-          onToggle={() => onToggleSection(section.id)}
-          onSelectPage={onSelectPage}
-        />
-      ))}
+      {sectionRows.map(({ section, pages }) =>
+        pages.length === 0 ? null : (
+          <View key={section.id} style={styles.sectionBlock}>
+            {/* Section label sits OUTSIDE the white card, like the ideal. */}
+            <ThemedText style={[styles.sectionLabelOut, { color: surface.muted }]}>
+              {section.label.toUpperCase()}
+            </ThemedText>
+            <Card style={styles.pagesCard}>
+              {pages.map((entry, i) => (
+                <PageRow
+                  key={entry.slug}
+                  entry={entry}
+                  first={i === 0}
+                  onPress={() => onSelectPage(entry)}
+                />
+              ))}
+            </Card>
+          </View>
+        ),
+      )}
       <View style={styles.bottomPad} />
     </ScrollView>
   );
 }
 
-function SectionCard({
-  section,
-  pages,
-  expanded,
-  onToggle,
-  onSelectPage,
-}: {
-  section: WikiSection;
-  pages: WikiEntry[];
-  expanded: boolean;
-  onToggle: () => void;
-  onSelectPage: (entry: WikiEntry) => void;
-}) {
-  const { surface } = useTheme();
-
-  return (
-    <Card style={styles.sectionCard}>
-      <Pressable
-        onPress={onToggle}
-        style={({ pressed }) => [
-          styles.sectionCardHeader,
-          pressed ? { backgroundColor: surface.pressed } : null,
-        ]}
-        accessibilityRole="button"
-        accessibilityState={{ expanded }}
-      >
-        <View style={{ flex: 1 }}>
-          <ThemedText style={[styles.sectionTitle, { color: surface.text }]}>
-            {section.label}
-          </ThemedText>
-          {section.blurb ? (
-            <ThemedText style={[styles.sectionBlurb, { color: surface.muted }]} numberOfLines={2}>
-              {section.blurb}
-            </ThemedText>
-          ) : null}
-        </View>
-        <Ionicons
-          name={expanded ? 'chevron-down' : 'chevron-forward'}
-          size={18}
-          color={surface.muted}
-        />
-      </Pressable>
-
-      {expanded
-        ? pages.map((entry) => (
-            <PageRow
-              key={entry.slug}
-              entry={entry}
-              onPress={() => onSelectPage(entry)}
-            />
-          ))
-        : null}
-    </Card>
-  );
-}
-
 function PageRow({
   entry,
+  first,
   onPress,
 }: {
   entry: WikiEntry;
+  first?: boolean;
   onPress: () => void;
 }) {
   const { surface } = useTheme();
@@ -415,10 +380,8 @@ function PageRow({
       onPress={onPress}
       style={({ pressed }) => [
         styles.pageRow,
-        {
-          backgroundColor: pressed ? surface.pressed : 'transparent',
-          borderTopColor: surface.border,
-        },
+        !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: surface.border },
+        { backgroundColor: pressed ? surface.pressed : 'transparent' },
       ]}
     >
       <View style={{ flex: 1, gap: 2 }}>
@@ -449,6 +412,8 @@ const styles = StyleSheet.create({
   },
   tagline: { fontSize: 14, lineHeight: 20, marginTop: 4 },
   searchWrap: { paddingTop: 12 },
+  pulledRow: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingTop: 9, marginLeft: 2 },
+  pulledNote: { fontSize: 12, lineHeight: 16 },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -482,32 +447,26 @@ const styles = StyleSheet.create({
   highlight: { backgroundColor: 'rgba(26, 160, 230, 0.20)', color: palette.sky },
   chevron: { marginLeft: 8 },
 
-  // Browse list (grouped cards)
+  // Browse list: grey section label OUTSIDE a white card of page rows.
   browseContent: {
     paddingHorizontal: 24,
-    paddingTop: 8,
-    gap: 12,
+    paddingTop: 4,
+    gap: 18,
   },
-  sectionCard: {
-    padding: 0,
-    gap: 0,
+  sectionBlock: { gap: 8 },
+  sectionLabelOut: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginLeft: 4,
   },
-  sectionCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 15,
-    borderRadius: 16,
-  },
-  sectionTitle: { fontSize: 16, fontWeight: '700', lineHeight: 22 },
-  sectionBlurb: { fontSize: 13, lineHeight: 18, marginTop: 2 },
+  pagesCard: { padding: 0, gap: 0 },
 
   pageRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 13,
   },
   pageTitle: { fontSize: 15, fontWeight: '500', lineHeight: 20 },
   pageBlurb: { fontSize: 13, lineHeight: 18 },
