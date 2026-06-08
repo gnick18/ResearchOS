@@ -26,7 +26,12 @@ Wordmark is **Geist** at weight 800 (bold), tight tracking (about -0.03em), in `
   - `researchos-banner-*.png` — 2048x1152.
   - `researchos-og.png` — 1200x630 social-share / OpenGraph card (mark + wordmark + tagline). Wired into the app as `frontend/src/app/opengraph-image.png` + `twitter-image.png`.
   - `researchos-bluesky-banner.png` — 1500x500 (3:1) Bluesky profile header. Lockup nudged right of center to clear the bottom-left avatar overlay.
-- `src/` — the editable generators (`profile.html`, `banner.html`, `og.html`, `bluesky-banner.html`). Open over `http://localhost` to re-render or tweak.
+  - `researchos-mobile-icon-1024.png` — 1024x1024 iOS app icon master (BeakerBot on the sky disc, no alpha, no rounded corners since Apple masks). Mirrored into `mobile/assets/images/icon.png`.
+  - `researchos-mobile-play-512.png` — 512x512 Google Play store icon, same treatment.
+- `src/` — the editable generators (`profile.html`, `banner.html`, `og.html`, `bluesky-banner.html`, `mobile-icon.html`). Open over `http://localhost` to re-render or tweak.
+
+## Mobile app icons
+`src/mobile-icon.html` + `src/render-mobile-icons.mjs` generate the whole Expo icon set (run `node brand/src/render-mobile-icons.mjs` from the repo root). It writes `mobile/assets/images/`: `icon.png` (iOS, sky disc), the Android adaptive trio (`android-icon-foreground` BeakerBot in the safe zone on transparent, `android-icon-background` flat `#E6F4FE`, `android-icon-monochrome` single-color line art for themed icons), plus `splash-icon.png` and `favicon.png`. The iOS icon, Play icon, and splash are flattened to RGB with PIL after rendering because Apple rejects any alpha channel; the Android foreground and monochrome keep their transparency.
 
 ## Notes
 - SVG is the master format (infinitely crisp), but YouTube/most upload forms only accept PNG/JPG. Upload the PNGs, keep the SVGs for everything else (web, print, slides).

@@ -381,6 +381,9 @@ export default function WorkbenchExperimentsPanel({
 
   const projectNameFor = useCallback(
     (task: Task): string => {
+      // A falsy project_id (0/null) means standalone, not a dangling reference.
+      // Render it as "Standalone" rather than "Unknown project (#0)".
+      if (!task.project_id) return "Standalone";
       const hit = projects.find(
         (p) => p.id === task.project_id && p.owner === task.owner,
       );

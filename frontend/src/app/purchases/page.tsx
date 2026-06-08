@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { tasksApi, purchasesApi, labApi, fetchAllProjectsIncludingShared, fetchAllTasksIncludingShared } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAccountType } from "@/hooks/useAccountType";
+import { useIsLabMode } from "@/hooks/useIsLabMode";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
 import NewPurchaseModal from "@/components/NewPurchaseModal";
@@ -109,6 +110,9 @@ export default function PurchasesPage() {
   const awaitingApprovalLabel = isLabHead
     ? "Pending approval"
     : "Awaiting approval";
+  // Approval is a lab concept (a member submits, a lab head approves). In a
+  // solo folder there is no approver, so hide the awaiting-approval filter.
+  const showApprovalFilter = useIsLabMode() === true;
 
   // /purchases is the ONLY surface that needs the hidden
   // `_misc_purchases` project to render — pass `includeHidden: true` so
@@ -196,11 +200,20 @@ export default function PurchasesPage() {
   // `approved !== true`. We resolve items per-task via
   // `purchasesByTask` (built further down — declared here lazily so we
   // can reuse the same composite-key map).
-  // Category chip applied on its own (no order-status filter). Kept separate
-  // so the "Any stage" status chip can show the count for the active category
-  // rather than the unfiltered grand total.
-  const categoryFilteredTasks = useMemo(() => {
+  const categorizedTasks = useMemo(() => {
     return purchaseTasks.filter((task) => {
+      // Order-status filter (purchases-ordered-stage, 2026-05-29): keep the
+      // order if any of its line items is in the selected stage. Applied
+      // first so it composes with whichever category chip is active.
+      if (orderStatusFilter !== "any") {
+        const items = allPurchases.filter(
+          (p) => p.owner === task.owner && p.task_id === task.id,
+        );
+        const hasStatus = items.some(
+          (p) => normalizeOrderStatus(p.order_status) === orderStatusFilter,
+        );
+        if (!hasStatus) return false;
+      }
       if (categoryFilter === "awaiting_approval") {
         const items = allPurchases.filter(
           (p) => p.owner === task.owner && p.task_id === task.id,
@@ -215,22 +228,7 @@ export default function PurchasesPage() {
       if (categoryFilter === "project") return !taskIsMisc;
       return true;
     });
-  }, [purchaseTasks, projects, categoryFilter, allPurchases]);
-
-  const categorizedTasks = useMemo(() => {
-    if (orderStatusFilter === "any") return categoryFilteredTasks;
-    // Order-status filter (purchases-ordered-stage, 2026-05-29): keep the
-    // order if any of its line items is in the selected stage. Composes on
-    // top of whichever category chip is active.
-    return categoryFilteredTasks.filter((task) => {
-      const items = allPurchases.filter(
-        (p) => p.owner === task.owner && p.task_id === task.id,
-      );
-      return items.some(
-        (p) => normalizeOrderStatus(p.order_status) === orderStatusFilter,
-      );
-    });
-  }, [categoryFilteredTasks, orderStatusFilter, allPurchases]);
+  }, [purchaseTasks, projects, categoryFilter, orderStatusFilter, allPurchases]);
 
   // Counts for the segmented control labels. Computed off the full
   // purchase-task list so the chip badges stay stable as the user
@@ -508,7 +506,11 @@ export default function PurchasesPage() {
               label: awaitingApprovalLabel,
               count: awaitingApprovalCount,
             },
-          ] as const).map((chip) => {
+          ] as const)
+            .filter(
+              (chip) => chip.key !== "awaiting_approval" || showApprovalFilter,
+            )
+            .map((chip) => {
             const isActive = categoryFilter === chip.key;
             return (
               <button
@@ -548,7 +550,7 @@ export default function PurchasesPage() {
         >
           <span className="text-meta text-foreground-muted mr-1">Ordering:</span>
           {([
-            { key: "any", label: "Any stage", count: categoryFilteredTasks.length },
+            { key: "any", label: "Any stage", count: purchaseTasks.length },
             {
               key: "needs_ordering",
               label: PURCHASE_ORDER_STATUS_LABEL.needs_ordering,
@@ -798,7 +800,8 @@ export default function PurchasesPage() {
               <div className="text-center py-16">
                 <p className="text-title text-foreground-muted mb-2">No purchases yet</p>
                 <p className="text-body text-foreground-muted">
-                  Click + New Purchase above to create your first order.
+                  Create a task with type &ldquo;Purchase&rdquo; to start
+                  tracking orders
                 </p>
               </div>
             );
@@ -808,29 +811,20 @@ export default function PurchasesPage() {
           // chip and that bucket happens to be empty, surface a softer
           // message so it doesn't look like /purchases lost data.
           if (sortedTasks.length === 0) {
-            let categoryLabel: string;
+            let filterLabel: string;
             if (categoryFilter === "misc") {
-              categoryLabel = `${MISC_CATEGORY_LABEL.toLowerCase()} purchases`;
+              filterLabel = `${MISC_CATEGORY_LABEL.toLowerCase()} purchases`;
             } else if (categoryFilter === "awaiting_approval") {
-              categoryLabel = isLabHead
+              filterLabel = isLabHead
                 ? "purchases pending your approval"
                 : "purchases awaiting approval";
-            } else if (categoryFilter === "project") {
-              categoryLabel = "Project purchases";
             } else {
-              categoryLabel = "purchases";
+              filterLabel = "project-attached purchases";
             }
-            // When a stage filter is also active, name it so the user knows
-            // the data exists, just not in this stage (purchases-ordered-stage).
-            const stageClause =
-              orderStatusFilter !== "any"
-                ? ` in the ${PURCHASE_ORDER_STATUS_LABEL[orderStatusFilter]} stage`
-                : "";
             return (
               <div className="text-center py-12">
                 <p className="text-body text-foreground-muted">
-                  No {categoryLabel}
-                  {stageClause} yet
+                  No {filterLabel} yet
                 </p>
               </div>
             );

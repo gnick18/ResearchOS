@@ -19,6 +19,7 @@ import MoveToNotebookMenu from "./notebooks/MoveToNotebookMenu";
 import LivingPopup from "@/components/ui/LivingPopup";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePiRecordMenu } from "@/hooks/usePiRecordMenu";
+import { useIsLabMode } from "@/hooks/useIsLabMode";
 import Tooltip from "./Tooltip";
 import type {
   WorkbenchInitialOpen,
@@ -110,6 +111,12 @@ export default function NotesPanel({
 }: NotesPanelProps) {
   const queryClient = useQueryClient();
   const { currentUser } = useCurrentUser();
+  // The "Shared with lab" filter only makes sense in a lab folder. Gate it on
+  // the canonical folder-level signal, falling back to the view-level isLabMode
+  // prop so the lab notes view never flickers while the hook settles. A solo
+  // folder (1 member, no lab head) hides the chip entirely.
+  const folderLabMode = useIsLabMode();
+  const showSharedWithLab = isLabMode || folderLabMode === true;
   // PI capability revamp Phase 2: right-click PI actions on member-owned note
   // rows. The builder gates internally (no items for a non-PI viewer or a PI
   // on their own note), so we append its items to the existing tile menu.
@@ -939,7 +946,9 @@ export default function NotesPanel({
           </button>
 
           {/* Shared-with-lab filter (notes-scale bot). Composes (AND) with
-              the type filter above; does not replace it. */}
+              the type filter above; does not replace it. Hidden in a solo
+              folder, where there is no lab to share with. */}
+          {showSharedWithLab && (
           <button
             onClick={() => setSharedOnly((v) => !v)}
             aria-pressed={sharedOnly}
@@ -955,6 +964,7 @@ export default function NotesPanel({
             </svg>
             Shared with lab
           </button>
+          )}
           </div>
 
           {/* Cluster 2: sort + group-by selects kept together, with the

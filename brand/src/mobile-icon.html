@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>ResearchOS mobile icon render</title>
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+  <!--
+    Mobile app icon generator. BeakerBot mascot (geometry from components/BeakerBot.tsx,
+    same as brand/src/profile.html and the favicon) on the brand sky treatment.
+
+    Query params:
+      mode = ios | foreground | background | monochrome   (default ios)
+      size = output square px                              (default 1024)
+
+    Modes:
+      ios         full-bleed sky disc + BeakerBot, large (Apple masks corners itself)
+      foreground  Android adaptive foreground: BeakerBot in the safe zone, transparent
+      background  Android adaptive background: flat #E6F4FE, no mascot
+      monochrome  Android themed layer: single-color BeakerBot line art, transparent
+  -->
+  <svg id="art" xmlns="http://www.w3.org/2000/svg"></svg>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const mode = params.get('mode') || 'ios';
+    const S = parseInt(params.get('size') || '1024', 10);
+
+    // BeakerBot natural coords (viewBox 0..40). Visible bbox roughly x[11,29] y[4,32];
+    // geometric centre (20,18). frac = mascot width / canvas width.
+    const FRAC = { ios: 0.52, foreground: 0.42, monochrome: 0.42, background: 0 }[mode] ?? 0.52;
+    const CX = 20, CY = 18, NAT_W = 18;
+    const k = (FRAC * S) / NAT_W;
+    const tx = S / 2 - CX * k;
+    const ty = S / 2 - CY * k;
+
+    const mono = mode === 'monochrome';
+    const stroke = mono ? '#1A1A1A' : '#1AA0E6';
+
+    // Build SVG markup.
+    const svg = document.getElementById('art');
+    svg.setAttribute('width', S);
+    svg.setAttribute('height', S);
+    svg.setAttribute('viewBox', `0 0 ${S} ${S}`);
+
+    let defs = `
+      <defs>
+        <linearGradient id="liq" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"  stop-color="#FFD2B0" />
+          <stop offset="25%" stop-color="#FFF1A8" />
+          <stop offset="50%" stop-color="#B7EBB1" />
+          <stop offset="75%" stop-color="#A6D2F4" />
+          <stop offset="100%" stop-color="#D6B5F0" />
+        </linearGradient>
+        <radialGradient id="bgSky" cx="50%" cy="42%" r="72%">
+          <stop offset="0%"  stop-color="#F2F8FF" />
+          <stop offset="100%" stop-color="#CFE6FA" />
+        </radialGradient>
+      </defs>`;
+
+    let bg = '';
+    if (mode === 'ios') {
+      bg = `<rect x="0" y="0" width="${S}" height="${S}" fill="url(#bgSky)" />`;
+    } else if (mode === 'background') {
+      bg = `<rect x="0" y="0" width="${S}" height="${S}" fill="#E6F4FE" />`;
+    }
+
+    // BeakerBot group. Monochrome: single colour, no liquid/white fills (clean line art
+    // silhouette that the launcher tints). Otherwise: full sky-blue mascot.
+    let bot = '';
+    if (mode !== 'background') {
+      const bodyFill = mono ? 'none' : 'white';
+      const liquid = mono ? '' :
+        `<path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liq)" stroke="none" />`;
+      bot = `
+        <g transform="translate(${tx},${ty}) scale(${k})"
+           fill="none" stroke="${stroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="${bodyFill}" stroke="none" />
+          ${liquid}
+          <path d="M22 8 C 22 6, 24 4, 26 6" />
+          <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" />
+          <path d="M11 12 L29 12" />
+          <circle cx="17" cy="18" r="1.2" fill="${stroke}" stroke="none" />
+          <circle cx="23" cy="18" r="1.2" fill="${stroke}" stroke="none" />
+          <path d="M18 22 Q 20 24, 22 22" />
+          <path d="M14 26 L15.5 26" />
+          <path d="M24.5 26 L26 26" />
+        </g>`;
+    }
+
+    svg.innerHTML = defs + bg + bot;
+  </script>
+</body>
+</html>
