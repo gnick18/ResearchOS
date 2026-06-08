@@ -139,7 +139,7 @@ export default function AddPurchaseScreen() {
                 borderColor: surface.border,
                 borderRadius: radii.md,
                 color: surface.text,
-                backgroundColor: surface.sunken,
+                backgroundColor: surface.surface,
               },
             ]}
             editable={!saving}
@@ -163,7 +163,7 @@ export default function AddPurchaseScreen() {
                 borderColor: surface.border,
                 borderRadius: radii.md,
                 color: surface.text,
-                backgroundColor: surface.sunken,
+                backgroundColor: surface.surface,
               },
             ]}
             editable={!saving}
@@ -187,7 +187,7 @@ export default function AddPurchaseScreen() {
                 borderColor: surface.border,
                 borderRadius: radii.md,
                 color: surface.text,
-                backgroundColor: surface.sunken,
+                backgroundColor: surface.surface,
               },
             ]}
             editable={!saving}
@@ -210,7 +210,7 @@ export default function AddPurchaseScreen() {
                   borderColor: surface.border,
                   borderRadius: radii.md,
                   opacity: quantity <= 1 || saving ? 0.4 : pressed ? 0.7 : 1,
-                  backgroundColor: surface.sunken,
+                  backgroundColor: surface.surface,
                 },
               ]}
               accessibilityRole="button"
@@ -232,7 +232,7 @@ export default function AddPurchaseScreen() {
                   borderColor: surface.border,
                   borderRadius: radii.md,
                   opacity: saving ? 0.4 : pressed ? 0.7 : 1,
-                  backgroundColor: surface.sunken,
+                  backgroundColor: surface.surface,
                 },
               ]}
               accessibilityRole="button"

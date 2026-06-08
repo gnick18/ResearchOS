@@ -283,6 +283,7 @@ export default function ReorderScreen() {
                 style={[
                   styles.input,
                   {
+                    backgroundColor: surface.surface,
                     borderColor: surface.border,
                     borderRadius: radii.md,
                     color: surface.text,

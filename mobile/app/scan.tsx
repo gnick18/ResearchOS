@@ -425,7 +425,7 @@ export default function ScanScreen() {
                   onChangeText={setManualCode}
                   placeholder="Barcode"
                   placeholderTextColor={surface.placeholder}
-                  style={[styles.input, { borderColor: surface.border, borderRadius: radii.md, color: surface.text }]}
+                  style={[styles.input, { backgroundColor: surface.surface, borderColor: surface.border, borderRadius: radii.md, color: surface.text }]}
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
@@ -735,7 +735,7 @@ function TrackView({
             placeholder="50"
             placeholderTextColor={surface.placeholder}
             keyboardType="number-pad"
-            style={[styles.numInput, { borderColor: surface.border, borderRadius: radii.sm, color: surface.text }]}
+            style={[styles.numInput, { backgroundColor: surface.surface, borderColor: surface.border, borderRadius: radii.sm, color: surface.text }]}
           />
         </View>
         <View>

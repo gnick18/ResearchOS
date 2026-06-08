@@ -171,7 +171,7 @@ export default function BulkScreen() {
             onChangeText={setCaption}
             placeholder="Caption, applied to every selected photo"
             placeholderTextColor={surface.placeholder}
-            style={[styles.input, { borderColor: surface.border, borderRadius: radii.md, color: surface.text }]}
+            style={[styles.input, { backgroundColor: surface.surface, borderColor: surface.border, borderRadius: radii.md, color: surface.text }]}
             multiline
           />
         </Card>

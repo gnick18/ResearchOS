@@ -170,7 +170,7 @@ function NumericWithUnit<U extends string>({
       <FieldLabel>{label}</FieldLabel>
       <View style={styles.row}>
         <TextInput
-          style={[styles.numInput, { borderColor: surface.border, color: surface.text, flex: 1 }]}
+          style={[styles.numInput, { backgroundColor: surface.surface, borderColor: surface.border, color: surface.text, flex: 1 }]}
           value={value}
           onChangeText={onValue}
           keyboardType="decimal-pad"
@@ -231,7 +231,7 @@ function PlainNumeric({
       <FieldLabel>{label}</FieldLabel>
       <View style={styles.row}>
         <TextInput
-          style={[styles.numInput, { borderColor: surface.border, color: surface.text, flex: 1 }]}
+          style={[styles.numInput, { backgroundColor: surface.surface, borderColor: surface.border, color: surface.text, flex: 1 }]}
           value={value}
           onChangeText={onValue}
           keyboardType="decimal-pad"
@@ -767,7 +767,7 @@ function BufferTab() {
         <Card key={r.id} compact>
           <View style={styles.row}>
             <TextInput
-              style={[styles.nameInput, { borderColor: surface.border, color: surface.text, flex: 1 }]}
+              style={[styles.nameInput, { backgroundColor: surface.surface, borderColor: surface.border, color: surface.text, flex: 1 }]}
               value={r.name}
               onChangeText={(v) => update(r.id, { name: v })}
               placeholder="Component name"

@@ -151,7 +151,7 @@ function SearchBar({
 }) {
   const { surface, radii } = useTheme();
   return (
-    <View style={[styles.searchRow, { backgroundColor: surface.sunken, borderRadius: radii.md }]}>
+    <View style={[styles.searchRow, { backgroundColor: surface.surface, borderColor: surface.border, borderWidth: 1, borderRadius: radii.md }]}>
       <Ionicons name="search" size={18} color={surface.muted} style={styles.searchIcon} />
       <TextInput
         ref={inputRef}

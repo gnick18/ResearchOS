@@ -111,6 +111,7 @@ export default function NoteScreen() {
                 style={[
                   styles.titleInput,
                   {
+                    backgroundColor: surface.surface,
                     borderColor: surface.border,
                     borderRadius: radii.md,
                     color: surface.text,
@@ -127,6 +128,7 @@ export default function NoteScreen() {
                 style={[
                   styles.bodyInput,
                   {
+                    backgroundColor: surface.surface,
                     borderColor: surface.border,
                     borderRadius: radii.md,
                     color: surface.text,

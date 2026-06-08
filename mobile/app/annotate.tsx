@@ -464,7 +464,7 @@ export default function AnnotateScreen() {
               autoFocus
               style={[
                 styles.modalInput,
-                { borderColor: surface.border, borderRadius: radii.md, color: surface.text },
+                { backgroundColor: surface.surface, borderColor: surface.border, borderRadius: radii.md, color: surface.text },
               ]}
               onSubmitEditing={onConfirmText}
               returnKeyType="done"
