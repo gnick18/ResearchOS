@@ -29,7 +29,12 @@ export default function BeakerSearchPill() {
         onClick={() => openPalette()}
         data-testid="beakersearch-pill"
         aria-label="Open BeakerSearch (Cmd K)"
-        className="flex items-center gap-2 rounded-lg border border-border bg-surface-sunken px-2.5 py-1 text-foreground-muted transition-colors hover:border-sky-300 hover:text-foreground dark:hover:border-sky-700"
+        // Closing the palette restores focus here (correct a11y), so the
+        // resting focus state must look intentional. The default browser
+        // outline rendered as a stray "halo" against the header; use the app's
+        // focus-visible ring instead (shown for keyboard focus, hidden for
+        // mouse).
+        className="flex items-center gap-2 rounded-lg border border-border bg-surface-sunken px-2.5 py-1 text-foreground-muted transition-colors hover:border-sky-300 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 dark:hover:border-sky-700"
       >
         <BeakerBot
           pose="idle"
