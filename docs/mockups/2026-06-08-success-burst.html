@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS success burst, rainbow arc + confetti</title>
+<style>
+  :root{
+    --o:#F97316;--a:#E8920B;--g:#16A34A;--b:#0284C7;--p:#9333EA;
+    --sky:#1AA0E6;--bg:#E6F4FE;--card:#fff;--ink:#0c1830;--sub:#6b7280;
+  }
+  [data-theme="dark"]{--bg:#0a0e1a;--card:#161b22;--ink:#e6edf3;--sub:#8b949e}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#dfe5ec;color:#1f2937;padding:26px 16px 70px;text-align:center}
+  [data-theme="dark"] body{background:#05070a;color:#cbd5e1}
+  h1{font-size:19px;margin:0 0 6px}
+  .intro{max-width:760px;margin:0 auto 18px;color:#5b6573;font-size:13.5px;line-height:1.55}
+  [data-theme="dark"] .intro{color:#8b949e}
+  .controls{display:flex;gap:10px;justify-content:center;margin-bottom:20px}
+  .controls button{background:var(--sky);color:#fff;border:none;border-radius:9px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer}
+  .controls button.ghost{background:transparent;border:1px solid #9aa6b2;color:#5b6573}
+  [data-theme="dark"] .controls button.ghost{color:#8b949e;border-color:#39424d}
+  .phone{width:300px;height:640px;border-radius:44px;border:10px solid #0c0d10;margin:0 auto;position:relative;overflow:hidden;background:var(--bg);box-shadow:0 30px 60px rgba(16,24,40,.28)}
+  [data-theme="dark"] .phone{border-color:#23262d}
+  .edge{position:absolute;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--o),var(--a),var(--g),var(--b),var(--p));z-index:8}
+  .edge.top{top:0}.edge.bot{bottom:0}
+  .appbg{position:absolute;inset:0;padding:50px 22px;text-align:left;opacity:.4}
+  .appbg .t{font-size:26px;font-weight:800;color:var(--ink)}
+  .appbg .card{background:var(--card);border-radius:14px;height:54px;margin-top:14px;box-shadow:0 1px 3px rgba(16,24,40,.06)}
+  .layer{position:absolute;inset:0;z-index:20;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+  .burst{width:250px;height:170px;position:relative}
+  .burst svg{width:100%;height:100%;overflow:visible}
+  /* arcs: pathLength=1 so one dasharray works at any radius */
+  .arc{fill:none;stroke-width:12;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1}
+  .conf{opacity:0;transform-box:fill-box;transform-origin:center}
+  .label{opacity:0}
+  .label .l{font-size:17px;font-weight:800;color:var(--ink)}
+  .label .s{font-size:12.5px;color:var(--sub);margin-top:2px}
+
+  .go .arc{animation:draw .62s cubic-bezier(.3,0,.2,1) forwards}
+  .go .a1{animation-delay:.00s}.go .a2{animation-delay:.09s}.go .a3{animation-delay:.18s}
+  .go .a4{animation-delay:.27s}.go .a5{animation-delay:.36s}
+  .go .conf{animation:pop .5s cubic-bezier(.34,1.56,.64,1) forwards}
+  .go .label{animation:lab 1.7s ease forwards}
+  .go .burst{animation:out 1.9s ease forwards}
+
+  @keyframes draw{to{stroke-dashoffset:0}}
+  @keyframes pop{0%{opacity:0;transform:scale(0) translateY(4px)}60%{opacity:1;transform:scale(1.15) translateY(0)}100%{opacity:1;transform:scale(1)}}
+  @keyframes lab{0%{opacity:0}30%{opacity:1}72%{opacity:1}100%{opacity:0}}
+  @keyframes out{0%,78%{opacity:1}100%{opacity:0;transform:scale(1.04)}}
+</style>
+</head>
+<body>
+  <h1>Success burst, rainbow arc + confetti (matching your reference)</h1>
+  <p class="intro">A celebratory rainbow ARC in our brand colors draws on sweeping around, with confetti (dots, triangles, bars) popping in the gaps, and "Sent to your lab" fading through. No character (BeakerBot stays the splash moment). About 1.6s, no dim, never blocks taps, with a success haptic. Plays on every successful phone-to-laptop push. Tap "Trigger a send".</p>
+  <div class="controls">
+    <button onclick="fire()">Trigger a send</button>
+    <button class="ghost" onclick="toggleTheme()">Toggle dark</button>
+  </div>
+
+  <div class="phone">
+    <div class="edge top"></div>
+    <div class="appbg"><div class="t">Notebook</div><div class="card"></div><div class="card" style="height:120px"></div></div>
+    <div class="layer" id="layer">
+      <div class="burst">
+        <svg viewBox="0 0 250 170">
+          <!-- 5 concentric brand-rainbow arcs, outer to inner, drawing on -->
+          <path class="arc a1" pathLength="1" stroke="#F97316" d="M 15 150 A 110 110 0 0 1 235 150"/>
+          <path class="arc a2" pathLength="1" stroke="#E8920B" d="M 41 150 A 84 84 0 0 1 209 150"/>
+          <path class="arc a3" pathLength="1" stroke="#16A34A" d="M 67 150 A 58 58 0 0 1 183 150"/>
+          <path class="arc a4" pathLength="1" stroke="#0284C7" d="M 93 150 A 32 32 0 0 1 157 150"/>
+          <path class="arc a5" pathLength="1" stroke="#9333EA" d="M 113 150 A 12 12 0 0 1 137 150"/>
+
+          <!-- confetti, brand colors, popping in the gaps -->
+          <g id="confetti"></g>
+        </svg>
+      </div>
+      <div class="label"><div class="l">Sent to your lab</div><div class="s">Gel image &middot; Notebook</div></div>
+    </div>
+    <div class="edge bot"></div>
+  </div>
+
+<script>
+  // Scatter confetti in the arc band region (brand colors, dots/triangles/bars).
+  const cols=["#F97316","#E8920B","#16A34A","#0284C7","#9333EA"];
+  const conf=document.getElementById("confetti");
+  const pieces=[];
+  // place along arcs at varied angles/radii so they sit in the gaps
+  for(let i=0;i<22;i++){
+    const ang=Math.PI*(0.08+0.84*Math.random());           // along the arc
+    const rad=40+90*Math.random();                          // radius spread
+    const cx=125-Math.cos(ang)*rad, cy=150-Math.sin(ang)*rad;
+    const c=cols[i%cols.length];
+    const kind=i%3;
+    let el;
+    if(kind===0){el=`<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${(2+Math.random()*3).toFixed(1)}" fill="${c}"/>`;}
+    else if(kind===1){const s=4+Math.random()*3;el=`<polygon points="${cx.toFixed(1)},${(cy-s).toFixed(1)} ${(cx-s).toFixed(1)},${(cy+s*0.7).toFixed(1)} ${(cx+s).toFixed(1)},${(cy+s*0.7).toFixed(1)}" fill="${c}"/>`;}
+    else{el=`<rect x="${(cx-2).toFixed(1)}" y="${(cy-4).toFixed(1)}" width="4" height="8" rx="1.5" transform="rotate(${(Math.random()*60-30).toFixed(0)} ${cx.toFixed(1)} ${cy.toFixed(1)})" fill="${c}"/>`;}
+    pieces.push(`<g class="conf" style="animation-delay:${(0.3+Math.random()*0.5).toFixed(2)}s">${el}</g>`);
+  }
+  conf.innerHTML=pieces.join("");
+  const layer=document.getElementById("layer");
+  function fire(){layer.classList.remove("go");void layer.offsetWidth;layer.classList.add("go");}
+  function toggleTheme(){const d=document.documentElement;d.setAttribute("data-theme",d.getAttribute("data-theme")==="dark"?"":"dark");}
+  fire();
+</script>
+</body>
+</html>
