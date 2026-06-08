@@ -1,9 +1,10 @@
 /**
- * Calc screen: 8-tab bench calculator (offline, pure client-side math).
+ * Calc screen: 6-tab bench calculator (offline, pure client-side math).
  *
- * Tabs: Scientific, Molarity, Dilution, Serial dilution, Primer Tm, DNA/RNA,
- * Protein, Buffer recipe. Each tab live-recomputes on every keystroke and shows
- * results in a sky-tinted Card. A horizontal chip row at the top switches tabs.
+ * Tabs: Scientific, Molarity, Dilution, Serial dilution, DNA/RNA, Buffer recipe.
+ * Each tab live-recomputes on every keystroke and shows results in a sky-tinted
+ * Card. A horizontal chip row at the top switches tabs. Sequence-paste tools
+ * (Primer Tm, Protein properties) live on the laptop, not here.
  *
  * Pure functions come from mobile/lib/calculators/ which are already on main.
  * No writes, no network, no storage.
@@ -36,8 +37,6 @@ import {
   concFromMolesVolume,
   dilutionV1,
   serialDilution,
-  sequenceStats,
-  tmWallace,
   naMolesFromMass,
   concFromA260,
   bufferRecipe,
@@ -45,8 +44,6 @@ import {
   type SerialDilutionStep,
   type BufferComponentInput,
 } from '@/lib/calculators/calculators';
-import { nearestNeighborTm } from '@/lib/calculators/tm-nn';
-import { analyzeProtein } from '@/lib/calculators/protein';
 import {
   parseNum,
   formatNum,
@@ -72,9 +69,7 @@ type TabId =
   | 'molarity'
   | 'dilution'
   | 'serial'
-  | 'tm'
   | 'nucleic'
-  | 'protein'
   | 'buffer';
 
 const TABS: { id: TabId; label: string }[] = [
@@ -82,9 +77,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'molarity', label: 'Molarity' },
   { id: 'dilution', label: 'Dilution' },
   { id: 'serial', label: 'Serial dilution' },
-  { id: 'tm', label: 'Primer Tm' },
   { id: 'nucleic', label: 'DNA/RNA' },
-  { id: 'protein', label: 'Protein' },
   { id: 'buffer', label: 'Buffer' },
 ];
 
@@ -142,9 +135,7 @@ export default function CalcScreen() {
         {activeTab === 'molarity' && <MolarityTab />}
         {activeTab === 'dilution' && <DilutionTab />}
         {activeTab === 'serial' && <SerialTab />}
-        {activeTab === 'tm' && <TmTab />}
         {activeTab === 'nucleic' && <NucleicTab />}
-        {activeTab === 'protein' && <ProteinTab />}
         {activeTab === 'buffer' && <BufferTab />}
       </ScrollView>
     </ScreenFrame>
@@ -720,146 +711,7 @@ function SerialTab() {
 }
 
 // ---------------------------------------------------------------------------
-// Tab 4: Primer Tm
-// ---------------------------------------------------------------------------
-
-function TmTab() {
-  const [seq, setSeq] = useState('');
-  const [salt, setSalt] = useState('');
-  const [showAdv, setShowAdv] = useState(false);
-  const [oligo, setOligo] = useState('');
-  const [oligoUnit, setOligoUnit] = useState<'uM' | 'nM'>('uM');
-  const [mg, setMg] = useState('');
-  const [dntp, setDntp] = useState('');
-  const { surface } = useTheme();
-
-  const stats = useMemo(() => sequenceStats(seq), [seq]);
-  const saltN = parseNum(salt);
-  const oligoN = parseNum(oligo);
-  const mgN = parseNum(mg) ?? 0;
-  const dntpN = parseNum(dntp) ?? 0;
-
-  const naUsed = saltN ?? 50;
-  const oligoNm = oligoN !== null ? concToBase(oligoN, oligoUnit) * 1e9 : 250;
-
-  const nn = useMemo(() => {
-    try {
-      return nearestNeighborTm(seq, { na: naUsed, mg: mgN, dntps: dntpN, oligoNanomolar: oligoNm });
-    } catch {
-      return null;
-    }
-  }, [seq, naUsed, mgN, dntpN, oligoNm]);
-
-  const wallace = useMemo(() => {
-    try { return tmWallace(seq); } catch { return null; }
-  }, [seq]);
-
-  const shortOligo = stats.length > 0 && stats.length < 14;
-  const hasSeq = stats.length > 0;
-
-  return (
-    <View style={styles.tabGap}>
-      <View style={styles.fieldWrap}>
-        <FieldLabel>DNA / RNA sequence</FieldLabel>
-        <TextInput
-          style={[styles.seqInput, { borderColor: surface.border, color: surface.text }]}
-          value={seq}
-          onChangeText={setSeq}
-          placeholder="e.g. ATGCGTACGTTAGC"
-          placeholderTextColor={surface.placeholder}
-          multiline
-          numberOfLines={2}
-          autoCorrect={false}
-          autoCapitalize="characters"
-        />
-      </View>
-      <PlainNumeric label="Monovalent salt [Na+ / K+]" value={salt} onValue={setSalt} placeholder="50 (assumed)" suffix="mM" />
-
-      <Pressable
-        onPress={() => setShowAdv((s) => !s)}
-        style={styles.advToggle}
-      >
-        <Text style={[styles.advToggleLabel, { color: palette.sky }]}>
-          {showAdv ? 'Hide' : 'Show'} advanced (oligo conc, Mg2+, dNTP)
-        </Text>
-      </Pressable>
-
-      {showAdv ? (
-        <View style={styles.tabGap}>
-          <View style={styles.fieldWrap}>
-            <FieldLabel>Oligo concentration</FieldLabel>
-            <View style={styles.row}>
-              <TextInput
-                style={[styles.numInput, { borderColor: surface.border, color: surface.text, flex: 1 }]}
-                value={oligo}
-                onChangeText={setOligo}
-                keyboardType="decimal-pad"
-                placeholder="0.25"
-                placeholderTextColor={surface.placeholder}
-                autoCorrect={false}
-                autoCapitalize="none"
-              />
-              <View style={styles.unitRow}>
-                {(['uM', 'nM'] as const).map((u) => {
-                  const active = u === oligoUnit;
-                  return (
-                    <Pressable
-                      key={u}
-                      onPress={() => setOligoUnit(u)}
-                      style={[
-                        styles.unitChip,
-                        {
-                          backgroundColor: active ? palette.skyDim : surface.sunken,
-                          borderColor: active ? palette.skyBorder : surface.border,
-                          borderRadius: radii.sm,
-                        },
-                      ]}
-                    >
-                      <Text style={[styles.unitLabel, { color: active ? palette.sky : surface.muted }]}>{u}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-          </View>
-          <PlainNumeric label="Mg2+" value={mg} onValue={setMg} placeholder="0" suffix="mM" />
-          <PlainNumeric label="dNTPs" value={dntp} onValue={setDntp} placeholder="0" suffix="mM" />
-        </View>
-      ) : null}
-
-      {!hasSeq ? (
-        <ResultCard empty />
-      ) : (
-        <ResultCard>
-          <ResultRow label="Length" value={`${stats.length} nt`} />
-          <ResultRow
-            label="GC content"
-            value={stats.gcPercent !== null ? `${formatNum(stats.gcPercent, 3)} %` : '-'}
-          />
-          <ResultRow
-            label="Tm (nearest-neighbor)"
-            value={
-              nn !== null
-                ? `${nn.tm.toFixed(1)} C`
-                : stats.length < 2
-                ? 'needs 2+ bases'
-                : '-'
-            }
-          />
-          {shortOligo && wallace !== null ? (
-            <ResultRow label="Tm (Wallace, short oligo)" value={`${formatNum(wallace, 4)} C`} />
-          ) : null}
-          <HintText>
-            {`SantaLucia nearest-neighbor at ${naUsed} mM salt${mgN > 0 ? `, ${mgN} mM Mg2+` : ''}${dntpN > 0 ? `, ${dntpN} mM dNTP` : ''}. Standard defaults assumed until you override them.`}
-          </HintText>
-        </ResultCard>
-      )}
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Tab 5: DNA / RNA
+// Tab 4: DNA / RNA
 // ---------------------------------------------------------------------------
 
 const NA_KINDS: { id: NucleicAcidKind; label: string }[] = [
@@ -953,70 +805,7 @@ function NucleicTab() {
 }
 
 // ---------------------------------------------------------------------------
-// Tab 6: Protein properties
-// ---------------------------------------------------------------------------
-
-function ProteinTab() {
-  const [seq, setSeq] = useState('');
-  const { surface } = useTheme();
-
-  const result = useMemo(() => {
-    try { return analyzeProtein(seq); }
-    catch { return null; }
-  }, [seq]);
-
-  return (
-    <View style={styles.tabGap}>
-      <HintText>
-        ExPASy ProtParam numbers via Biopython algorithms. Paste a one-letter amino-acid sequence. Whitespace, digits, and FASTA headers are ignored.
-      </HintText>
-      <View style={styles.fieldWrap}>
-        <FieldLabel>Amino-acid sequence</FieldLabel>
-        <TextInput
-          style={[styles.seqInput, { borderColor: surface.border, color: surface.text }]}
-          value={seq}
-          onChangeText={setSeq}
-          placeholder="e.g. MVSKGEELFT..."
-          placeholderTextColor={surface.placeholder}
-          multiline
-          numberOfLines={3}
-          autoCorrect={false}
-          autoCapitalize="characters"
-        />
-      </View>
-
-      {result === null ? (
-        <ResultCard empty />
-      ) : (
-        <ResultCard>
-          <ResultRow label="Length" value={`${result.length} aa`} />
-          <ResultRow label="MW" value={`${formatNum(result.molecularWeight, 6)} Da`} />
-          <ResultRow label="Isoelectric point (pI)" value={result.isoelectricPoint.toFixed(2)} />
-          <ResultRow label="Charge at pH 7" value={result.chargeAtPH7.toFixed(2)} />
-          <ResultRow label="Extinction coeff (reduced)" value={`${result.extinctionReduced} M-1 cm-1`} />
-          <ResultRow label="Extinction coeff (oxidized)" value={`${result.extinctionOxidized} M-1 cm-1`} />
-          <ResultRow label="A280 (1 g/L, reduced)" value={formatNum(result.a280Reduced, 4)} />
-          <ResultRow label="A280 (1 g/L, oxidized)" value={formatNum(result.a280Oxidized, 4)} />
-          <ResultRow
-            label="Instability index"
-            value={`${result.instabilityIndex.toFixed(2)} (${result.instabilityIndex > 40 ? 'predicted unstable' : 'predicted stable'})`}
-          />
-          <ResultRow label="GRAVY (hydropathy)" value={result.gravy.toFixed(4)} />
-          <ResultRow label="Aromaticity" value={`${(result.aromaticity * 100).toFixed(2)} %`} />
-          <ResultRow label="Aliphatic index" value={result.aliphaticIndex.toFixed(2)} />
-          {result.nonStandardChars.length > 0 ? (
-            <Text style={[styles.hint, { color: palette.warning }]}>
-              {`Non-standard residues ignored: ${result.nonStandardChars.join(', ')}`}
-            </Text>
-          ) : null}
-        </ResultCard>
-      )}
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Tab 7: Buffer recipe
+// Tab 5: Buffer recipe
 // ---------------------------------------------------------------------------
 
 interface BufferRow {
@@ -1198,16 +987,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     minHeight: 40,
   },
-  seqInput: {
-    borderWidth: 1,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    fontSize: 15,
-    minHeight: 64,
-    fontFamily: 'Courier',
-    textAlignVertical: 'top',
-  },
   suffix: { fontSize: 14, fontWeight: '500', minWidth: 36 },
   unitRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap' },
   unitChip: {
@@ -1338,6 +1117,4 @@ const styles = StyleSheet.create({
     width: '48%',
   },
   keyLabel: { fontSize: 12, fontWeight: '600' },
-  advToggle: { paddingVertical: 4 },
-  advToggleLabel: { fontSize: 14, fontWeight: '600' },
 });
