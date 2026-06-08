@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
+import { usePreloadOnIdle } from "@/lib/perf/use-preload-on-idle";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -272,6 +273,13 @@ export default function LiveMarkdownEditor({
   collabEphemeral,
   collabUser,
 }: LiveMarkdownEditorProps) {
+  // The markdown editor lets you annotate dropped/embedded images, so warm the
+  // lazy annotator chunk on idle. ImageStrip isn't always mounted alongside this
+  // editor, so it can't rely on ImageStrip's warm; this covers the notes/methods
+  // surfaces directly. (The webpack chunk cache is shared, so warming it once
+  // here also benefits ImageStrip / ImageMetadataPopup.)
+  usePreloadOnIdle(() => import("./ImageAnnotatorModal"));
+
   // Internal mode state (used if onModeChange is not provided)
   const [internalMode, setInternalMode] = useState<EditorMode>(mode);
 
