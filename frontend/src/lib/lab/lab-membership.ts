@@ -30,6 +30,23 @@ export interface LabMember {
   ed25519PublicKey: string;
   /** "head" for the PI, "member" for everyone else. The head is the only signer. */
   role: "head" | "member";
+  /**
+   * Optional OAuth-email binding for this member, lab-key-encrypted (Phase 8a,
+   * see lab-binding.ts). The value is hex of encryptLabData(hashEmail(
+   * canonicalizeEmail(verifiedEmail), LAB_EMAIL_BINDING_SALT), labKey). It binds
+   * the third-party-OAuth-verified email the member actually authenticates with
+   * to this membership, so a login whose OAuth email does not match is rejected.
+   * The lab-key seal of the key copy is the primary access gate, this is the
+   * human-identity layer on top.
+   *
+   * Encrypted because /lab/get is an open read and a low-entropy email hash would
+   * otherwise be brute-forceable. It rides inside this head-signed roster, so it
+   * is also tamper-evident. Optional because labs created before this field exist
+   * with no binding, and because it is set at member-add time (a login against a
+   * member that has no binding yet is rejected, fail-safe). When absent,
+   * JSON.stringify omits it, so older signed rosters stay byte-identical.
+   */
+  emailHashEnc?: string;
 }
 
 /** The kinds of events the log records. */

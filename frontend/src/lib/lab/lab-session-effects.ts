@@ -50,6 +50,7 @@ import {
 } from "@/lib/sharing/identity/session-key";
 import { getLabRemote } from "./lab-do-client";
 import { openLabKeyCopy } from "./lab-key";
+import { verifyMemberEmailBinding } from "./lab-binding";
 import type {
   LabSessionEffects,
   LabSigningKeyPair,
@@ -183,6 +184,37 @@ export function createLabSessionEffects(params: {
 
       // Step 4: open this member's sealed copy.
       const labKey = openLabKeyCopy(current, username, x25519Priv);
+
+      // Step 4.5: OAuth-email to membership binding (Phase 8a). Opening the
+      // sealed copy above already proves this keypair is a recipient. This
+      // additionally proves the THIRD-PARTY-OAuth identity behind the keypair is
+      // the one bound to this membership, so a different OAuth account that
+      // somehow held the keypair cannot quietly take the seat. Strict: a missing
+      // roster entry, a missing binding, a missing OAuth email, or a hash
+      // mismatch all reject the login (the effect throws, the controller lands in
+      // its error state). The OAuth email is read from getSession() here as the
+      // authoritative source rather than threaded from authenticate().
+      const rosterMember =
+        result.record.head.username === username
+          ? result.record.head
+          : result.record.members.find((m) => m.username === username);
+      if (!rosterMember) {
+        throw new Error(
+          "lab session: no roster entry for this user (not a member of this lab)",
+        );
+      }
+      const session = await getSession();
+      const oauthEmail = session?.user?.email ?? "";
+      const binding = verifyMemberEmailBinding({
+        member: rosterMember,
+        oauthEmail,
+        labKey,
+      });
+      if (!binding.ok) {
+        throw new Error(
+          `lab session: OAuth email does not match this lab membership (${binding.reason})`,
+        );
+      }
 
       // Step 5: assemble and return the live-session payload.
       const signingKeyPair: LabSigningKeyPair = {

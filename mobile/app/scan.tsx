@@ -30,6 +30,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { useTheme, palette } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
@@ -374,7 +375,8 @@ export default function ScanScreen() {
   const cameraReady = paired && permission?.granted === true && step === 'scan' && !handled;
 
   return (
-    <ScreenFrame edges={['bottom']}>
+    <ScreenFrame>
+      <ScreenHeader />
       <ScrollView style={styles.fill} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {/* Not paired */}
           {!paired ? (

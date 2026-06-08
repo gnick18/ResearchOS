@@ -73,10 +73,10 @@ export default function RootLayout() {
           <Stack.Screen name="pair" options={{ title: 'Pair' }} />
           <Stack.Screen name="note" options={{ title: 'Quick note' }} />
           <Stack.Screen name="reorder" options={{ title: 'Scan to reorder' }} />
-          <Stack.Screen name="scan" options={{ title: 'Scan' }} />
+          <Stack.Screen name="scan" options={{ headerShown: false }} />
           <Stack.Screen name="bulk" options={{ title: 'Label photos' }} />
           <Stack.Screen name="annotate" options={{ title: 'Annotate' }} />
-          <Stack.Screen name="add-purchase" options={{ title: 'Add purchase' }} />
+          <Stack.Screen name="add-purchase" options={{ headerShown: false }} />
           <Stack.Screen name="wiki/[slug]" options={{ title: '' }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>

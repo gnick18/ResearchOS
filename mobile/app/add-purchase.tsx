@@ -18,6 +18,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useTheme, palette } from '@/lib/design';
@@ -79,7 +80,8 @@ export default function AddPurchaseScreen() {
 
   if (sent) {
     return (
-      <ScreenFrame edges={['bottom']}>
+      <ScreenFrame>
+        <ScreenHeader />
         <ScrollView
           style={styles.fill}
           contentContainerStyle={styles.scrollContent}
@@ -96,7 +98,8 @@ export default function AddPurchaseScreen() {
   }
 
   return (
-    <ScreenFrame edges={['bottom']}>
+    <ScreenFrame>
+      <ScreenHeader title="Add purchase" />
       <ScrollView
         style={styles.fill}
         contentContainerStyle={styles.scrollContent}
