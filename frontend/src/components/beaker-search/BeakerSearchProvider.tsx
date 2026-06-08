@@ -46,10 +46,13 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
+// BeakerSearch website-wide (step 4), the app-wide mouse-awareness primitive.
+import { beakerTargetKeyOf } from "./beaker-hover";
 // Imported from the sequences tree for this step; relocation into beaker-search/
 // is a future step (see the file header).
 import { CommandPalette } from "@/components/sequences/CommandPalette";
@@ -112,12 +115,39 @@ const BeakerSearchApiContext = createContext<BeakerSearchApi | null>(null);
 const BeakerSearchRegistryContext = createContext<BeakerSearchRegistry | null>(
   null,
 );
+// BeakerSearch website-wide (step 4). The `data-beaker-target` key of the last
+// tagged element hovered before the palette opened, snapshot on open, null while
+// closed. Source hooks read it via useBeakerHoveredKey and resolve it to the
+// hovered entity. A plain string context (not in the API) so triggers do not
+// re-render on hover-key changes.
+const BeakerSearchHoverContext = createContext<string | null>(null);
 
 export function BeakerSearchProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   // The source STACK. The last element is the active source (most-recently
   // registered surface wins).
   const [sources, setSources] = useState<BeakerSearchSource[]>([]);
+
+  // BeakerSearch website-wide (step 4), app-wide mouse-awareness. A global
+  // pointer listener records the `data-beaker-target` key of the last TAGGED
+  // element the pointer was over, into a ref. It updates ONLY on a tagged
+  // ancestor (beakerTargetKeyOf returns non-null), so moving the pointer onto the
+  // palette / scrim / untagged chrome never clears the last real target. On open
+  // the ref is snapshot into hoveredKey state (a stable value for the open
+  // session), cleared on close. Source hooks read it via useBeakerHoveredKey.
+  const lastHoveredKeyRef = useRef<string | null>(null);
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+  useEffect(() => {
+    const onPointerOver = (e: Event) => {
+      const key = beakerTargetKeyOf(e.target);
+      if (key != null) lastHoveredKeyRef.current = key;
+    };
+    window.addEventListener("pointerover", onPointerOver, { passive: true });
+    return () => window.removeEventListener("pointerover", onPointerOver);
+  }, []);
+  useEffect(() => {
+    setHoveredKey(open ? lastHoveredKeyRef.current : null);
+  }, [open]);
 
   const registerSource = useCallback((source: BeakerSearchSource) => {
     // Replace any existing entry with this id, then append so the newest is last.
@@ -276,7 +306,8 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
   return (
     <BeakerSearchApiContext.Provider value={api}>
       <BeakerSearchRegistryContext.Provider value={registry}>
-        {children}
+        <BeakerSearchHoverContext.Provider value={hoveredKey}>
+          {children}
         {/* The one shared palette, rendered from the EFFECTIVE source (the active
             page merged with the always-present global layer, or the synthetic
             global-only source). It is therefore renderable on every page. The
@@ -303,9 +334,20 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
           onSearchEverything={searchEverything}
           recentEntries={recentEntries}
         />
+        </BeakerSearchHoverContext.Provider>
       </BeakerSearchRegistryContext.Provider>
     </BeakerSearchApiContext.Provider>
   );
+}
+
+/** Read the `data-beaker-target` key of the element hovered before the palette
+ *  opened (null while the palette is closed, or when nothing tagged was hovered).
+ *  A per-page source hook calls this and resolves the key (via
+ *  parseBeakerTargetKey) to the hovered entity for its own kinds. Safe to call
+ *  outside the provider, it returns null rather than throwing, so a page can read
+ *  it unconditionally even before the provider mounts. */
+export function useBeakerHoveredKey(): string | null {
+  return useContext(BeakerSearchHoverContext);
 }
 
 /** Trigger hook for the rail doorway and the front-door pill. Throws when used
