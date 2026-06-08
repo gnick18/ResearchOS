@@ -157,7 +157,7 @@ export default function WelcomeWizardPage() {
         <li><strong>Q2:</strong> Will you track lab purchases? (Yes / No / Maybe later)</li>
         <li><strong>Q3:</strong> Want calendar feeds? (Yes / No / Maybe later)</li>
         <li><strong>Q4:</strong> Want a goal-tracking page? (Yes / No / Maybe later)</li>
-        <li><strong>Q5:</strong> Want a Telegram bot for image inbox? (Yes / No / Maybe later)</li>
+        <li><strong>Q5:</strong> Want a phone companion for image inbox? (Yes / No / Maybe later)</li>
         <li>
           <strong>Q6:</strong> AI Helper prompt size. ResearchOS can paste a
           system prompt into Claude, ChatGPT, or Gemini so the assistant
@@ -254,8 +254,8 @@ export default function WelcomeWizardPage() {
         Two surfaces live in the top bar. The bell collects anything that
         needs your attention (reminders for upcoming work, updates from
         labmates, mentions on your writeups), and the inbox next to it
-        collects files sent in from outside the app, like Telegram photos or
-        shared attachments. This cluster was trimmed to two awareness beats.
+        collects files sent in from outside the app, like photos from a phone
+        companion or shared attachments. This cluster was trimmed to two awareness beats.
         The old field-by-field demos for marking a row read and dismissing one
         were cut, since the inbox is self-explanatory once you know it exists.
       </p>
@@ -477,7 +477,6 @@ export default function WelcomeWizardPage() {
         <Step><strong>personalization-animations.</strong> Animated on the Gantt toolbar. BeakerBot demos the animations toggle that fires when you finish an experiment.</Step>
         <Step><strong>personalization-color.</strong> BeakerBot demos the primary accent color picker and invites you to pick a secondary color at your own pace.</Step>
         <Step><strong>settings-tour-folder.</strong> Universal. Explains that the connected lab folder is set, and that switching folders means signing out and picking a new one from the entry screen.</Step>
-        <Step><strong>settings-tour-telegram.</strong> Conditional on Q5 = yes. Telegram wiring lives in this Settings section if you didn&apos;t link it during setup.</Step>
         <Step><strong>settings-tour-account-type-toggle.</strong> Conditional on Q1 = solo. Explains how to pivot from solo to a lab account via the user picker (no dedicated Settings toggle yet).</Step>
         <Step><strong>settings-tour-visible-tabs.</strong> Universal. Tabs you said no to are hidden; check the box here to turn one back on, or hide tabs you don&apos;t need.</Step>
         <Step><strong>settings-tour-streak.</strong> Universal. The streak counter is private and on by default; toggle it off here if you prefer not to be reminded.</Step>
@@ -529,11 +528,6 @@ export default function WelcomeWizardPage() {
         cluster gates on the matching Q answer being <strong>yes</strong>.
       </p>
       <ul>
-        <li>
-          <strong>Telegram</strong> (Q5 = yes). The <code>telegram</code> step
-          covers the inline pairing flow and a quick demo of sending an image
-          from Telegram and watching it appear in your image inbox.
-        </li>
         <li>
           <strong>Purchases</strong> (Q2 = yes). An eight-step cluster in two
           phases. Phase 1 teaches on your empty page (intro, create-button
@@ -686,7 +680,6 @@ export default function WelcomeWizardPage() {
         <li><strong>Purchases</strong> appears only when <code>purchases === &quot;yes&quot;</code>.</li>
         <li><strong>Calendar</strong> appears only when <code>calendar === &quot;yes&quot;</code>.</li>
         <li><strong>Goals</strong> appears only when <code>goals === &quot;yes&quot;</code>.</li>
-        <li><strong>Telegram</strong> (the notifications inbox surface) appears only when <code>telegram === &quot;yes&quot;</code>.</li>
         <li>
           <strong>Links / Lab Links</strong> appears only when{" "}
           <code>links === &quot;yes&quot;</code>. Solo accounts see the tab

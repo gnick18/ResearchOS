@@ -51,8 +51,8 @@ export default function StartHerePage() {
         Everything you do writes to the folder you connected. Nothing uploads.
         There is no ResearchOS server holding your research. If you want to
         back it up, copy the folder. If you want to walk away, delete it. The
-        only network calls the app makes are to fetch your own Telegram
-        photos and your own calendar feed URLs, both opt-in. See{" "}
+        only network calls the app makes are to fetch your own calendar
+        feed URLs, opt-in. See{" "}
         <Link href="/wiki/security">Security</Link> for the full story.
       </Callout>
 
@@ -126,14 +126,12 @@ export default function StartHerePage() {
 
       <Callout
         variant="tip"
-        title="7. Integrations (Telegram, calendar, AI Helper) are all opt-in"
+        title="7. Integrations (calendar, AI Helper) are all opt-in"
       >
         ResearchOS works completely standalone. The{" "}
-        <Link href="/wiki/integrations/telegram">Telegram bot</Link> (snap
-        a photo on your phone, it lands in your inbox), the{" "}
         <Link href="/wiki/integrations/calendar-feeds">calendar feeds</Link>{" "}
-        (subscribe to a Google / Outlook / iCloud calendar), and the AI
-        Helper are all in Settings, all off by default, and all separately
+        (subscribe to a Google / Outlook / iCloud calendar) and the AI
+        Helper are all in Settings, off by default, and separately
         switchable. Connect them when you want them.
       </Callout>
 
@@ -146,7 +144,7 @@ export default function StartHerePage() {
         <li>
           <strong>Type a phrase in the search bar at the top of the
           sidebar.</strong> Fastest. If you know the word for the thing you
-          want (&quot;gradient,&quot; &quot;telegram,&quot; &quot;edit
+          want (&quot;gradient,&quot; &quot;calendar,&quot; &quot;edit
           session&quot;), search beats browsing every time.
         </li>
         <li>

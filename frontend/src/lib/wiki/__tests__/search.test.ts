@@ -64,12 +64,12 @@ const fixture: WikiSearchIndex = {
       ],
     },
     {
-      href: "/wiki/integrations/telegram",
-      title: "Telegram Bot",
-      breadcrumbs: ["Integrations", "Telegram Bot"],
+      href: "/wiki/integrations/calendar-feeds",
+      title: "Calendar Feeds",
+      breadcrumbs: ["Integrations", "Calendar Feeds"],
       categoryId: "integrations",
-      headings: ["Pair the bot", "Token storage"],
-      bodySnippets: ["Send phone photos straight into your inbox."],
+      headings: ["Subscribe to a feed", "Supported providers"],
+      bodySnippets: ["Subscribe to a Google, Outlook, or iCloud calendar via iCal URL."],
     },
   ],
 };

@@ -13,7 +13,7 @@ export default function SecurityPage() {
       <p>
         ResearchOS is built as a browser-only app that reads and writes a
         folder you pick on your own machine. Your notes, results, project
-        and task data, images, attachments, Telegram inbox, and calendar
+        and task data, images, attachments, and calendar
         subscriptions all stay in that folder. Nothing about your work is
         uploaded to a database we control, because there is no database
         we control. Two narrow proxy routes we wrote exist for browser
@@ -47,7 +47,6 @@ export default function SecurityPage() {
           The JSON for projects, tasks, dependencies, methods, and PCR
           protocols.
         </li>
-        <li>Your Telegram bot token and any photos that arrived through it.</li>
         <li>Your calendar subscription URLs and the events they pulled in.</li>
         <li>
           The optional PBKDF2-hashed password protecting your per-user
@@ -72,7 +71,6 @@ export default function SecurityPage() {
       _auth.json                 PBKDF2-hashed password (only if set)
       _counters.json             id counters per entity type
       _shared_with_me.json       inbound sharing pointers
-      _telegram.json             Telegram bot token + inbox state (gitignored)
       _calendar-feeds.json       subscribed iCal URLs
       _notifications.json        bell-dropdown rows
       projects/<id>.json         one flat file per project
@@ -96,17 +94,17 @@ export default function SecurityPage() {
       goals/<id>.json            project goals
       lab_links/<id>.json        link library entries
       purchase_items/<id>.json   purchase orders
-      inbox/Images/              Telegram photos awaiting routing`}
+      inbox/Images/              photos awaiting routing`}
           </code>
         </pre>
       </details>
 
       <h2>What briefly touches a server we operate</h2>
       <p>
-        Three routes on the ResearchOS server are involved. The first two
-        are CORS-bypass streams that exist because browsers refuse to talk
-        directly to the upstream services. The third is an anonymous
-        page-view ping. None of them ever sees the contents of your data
+        Two routes on the ResearchOS server are involved. The first is a
+        CORS-bypass stream that exists because browsers refuse to talk
+        directly to the upstream service. The second is an anonymous
+        page-view ping. Neither ever sees the contents of your data
         folder.
       </p>
       <ul>
@@ -121,14 +119,6 @@ export default function SecurityPage() {
           upstream. We do not persist the URL or the contents.
         </li>
         <li>
-          <strong>Telegram file CDN.</strong> When a photo arrives through
-          your bot, the browser asks <code>/api/telegram-file</code> to
-          fetch the bytes from Telegram (whose CDN refuses to set CORS
-          headers, so the browser cannot reach it directly). The bot token
-          travels in a request header, never in the URL. The bytes stream
-          straight through to your folder and we keep none of them.
-        </li>
-        <li>
           <strong>Vercel Web Analytics.</strong> When you navigate between
           pages, your browser sends an anonymous page-view beacon to Vercel
           telling them which route you visited. No IDs, no folder contents,
@@ -140,7 +130,7 @@ export default function SecurityPage() {
         </li>
       </ul>
       <p>
-        The two CORS-bypass proxy routes use the most defensive shape we
+        The calendar CORS-bypass proxy uses the most defensive shape we
         know how to write: HTTPS only, private-IP blocking, redirect
         re-validation, byte cap, timeout, content-type denylist, and
         per-IP rate limiting. The Vercel Analytics and Speed Insights
@@ -150,102 +140,6 @@ export default function SecurityPage() {
         <code>frontend/src/lib/api/rate-limit.ts</code> if you want to read
         it line by line.
       </p>
-      <h3 className="text-title font-semibold mt-6">
-        Two recovery surfaces for your Telegram bot token
-      </h3>
-      <p>
-        The on-disk <code>_telegram.json</code> sidecar can disappear for
-        ordinary reasons: a misshared OneDrive deletion, an iCloud sync
-        hiccup, a lab-mate tidying up. ResearchOS keeps two optional
-        recovery paths so you don&apos;t have to start over from
-        BotFather when that happens. Both live on your own machine.
-        Neither involves a server we operate.
-      </p>
-      <Callout variant="info" title="The browser-side recovery cache">
-        <p>
-          The first recovery path is a browser-scoped IndexedDB store
-          (<code>research-os-telegram-token-cache</code>) that holds a
-          minimal credential row so the app can offer a one-click
-          recovery prompt instead of making you re-pair. The cache
-          stores only <code>bot_token</code>, <code>chat_id</code>, and{" "}
-          <code>bot_username</code>, keyed by{" "}
-          <code>(folderName, username)</code>.
-        </p>
-        <p>
-          The cache is symmetric in risk with the disk sidecar: both are
-          DevTools-readable on the local machine, and the cache is{" "}
-          <em>not</em> exposed via cloud-folder share (browser-scoped, not
-          file-scoped). That&apos;s a small win over disk-only storage for
-          the multi-user-folder case: Alice&apos;s cached token is invisible
-          to Bob even when they share a OneDrive folder.
-        </p>
-        <p>
-          The only network call adjacent to the cache is a{" "}
-          <code>getMe</code> round-trip to{" "}
-          <code>api.telegram.org</code> to confirm the cached token still
-          works before the recovery prompt offers it. That call goes
-          direct from your browser to Telegram, the same path the bot
-          polling already uses. The <strong>Forget</strong> button in
-          Settings &rarr; Data inventory wipes every cache row for the
-          current folder in one click.
-        </p>
-      </Callout>
-      <Callout variant="info" title="The optional on-disk encrypted backup">
-        <p>
-          The second recovery path is an encrypted backup file on disk,
-          off by default. If you turn it on, either via the checkbox in
-          the Telegram pairing dialog or via{" "}
-          <strong>
-            Settings &rarr; Notifications &amp; behavior &rarr;
-            Auto-reconnect Telegram bot
-          </strong>
-          , ResearchOS writes an encrypted file at{" "}
-          <code>users/&lt;you&gt;/_telegram-encrypted.json</code> next to
-          your regular <code>_telegram.json</code>. The encryption uses
-          your account password, the same password you use to sign in
-          to ResearchOS. The use case is the one the browser-side cache
-          cannot cover: you sit down at a different computer or open
-          the folder in a different browser, and the{" "}
-          <code>_telegram.json</code> file is somehow gone. With the
-          encrypted backup turned on, ResearchOS can ask for your
-          password and reconnect the bot without making you start over
-          with BotFather. The file is auto-gitignored on first write,
-          the same way <code>_telegram.json</code> is, so it never slips
-          into a <code>git push</code>.
-        </p>
-        <p>
-          <strong>Lose your account password and you lose the backup.</strong>{" "}
-          There is no recovery key, no escape hatch, and no copy of your
-          password anywhere in ResearchOS (we never had it). Anyone who
-          knows your account password can also decrypt this backup, so
-          treat the encrypted backup and your account password as a
-          single credential.
-        </p>
-        <p>
-          Changing your account password through the normal change-
-          password flow handles the re-encryption automatically. The
-          submit button label flips to{" "}
-          <em>&ldquo;Re-encrypting Telegram backup&hellip;&rdquo;</em>{" "}
-          while it runs, and the success banner reads{" "}
-          <em>&ldquo;Password updated. Telegram backup
-          re-encrypted.&rdquo;</em> The encrypt-with-new-password step
-          runs <strong>before</strong> the new password hash is written,
-          so if anything goes wrong the entire password change is
-          aborted and your backup is never stranded.
-        </p>
-        <p className="text-body text-foreground-muted">
-          The encryption parameters (KDF, cipher, IV / salt sizes,
-          fail-closed decryption semantics) live in{" "}
-          <a
-            href="https://github.com/gnick18/ResearchOS/blob/main/SECURITY_AUDIT.md"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            SECURITY_AUDIT.md
-          </a>{" "}
-          sections 1.5 and 1.6 for readers who want the bytes.
-        </p>
-      </Callout>
 
       <h2>What we collect, and what we don&apos;t</h2>
       <p>
@@ -296,22 +190,11 @@ export default function SecurityPage() {
         has it. Turn on OS-level full-disk encryption (FileVault on macOS,
         BitLocker on Windows) if your laptop walks around.
       </Callout>
-      <Callout variant="warning" title="Bot tokens are real credentials">
-        Your Telegram bot token lives in plaintext in{" "}
-        <code>users/&lt;u&gt;/_telegram.json</code>. We auto-gitignore the
-        file so it doesn&apos;t slip into a <code>git push</code>, but
-        anyone who reads the file can post and read messages on your
-        bot&apos;s chats. Treat it like any other API key. The optional
-        encrypted backup at <code>_telegram-encrypted.json</code>{" "}
-        (described above) is the one place the token is <em>not</em> in
-        plaintext on disk, but it inherits the security of your account
-        password.
-      </Callout>
-      <Callout variant="warning" title="Public hosting is opt-in, and the proxies are open">
+      <Callout variant="warning" title="Public hosting is opt-in, and the proxy is open">
         If you self-host ResearchOS on a public Vercel deploy with no auth
-        gate, anyone on the internet can hit the two proxy routes (subject
-        to rate limiting). This is not a data-exfiltration risk because the
-        proxies have no access to your data folder, but it does mean
+        gate, anyone on the internet can hit the calendar-feed proxy route
+        (subject to rate limiting). This is not a data-exfiltration risk
+        because the proxy has no access to your data folder, but it does mean
         someone could burn your Vercel function budget. Set{" "}
         <code>UPSTASH_REDIS_REST_URL</code> for shared-state rate limiting
         on public deploys. The wiring is already in place.
@@ -366,7 +249,7 @@ export default function SecurityPage() {
             the view.
           </Step>
           <Step>
-            Reload the page. Visit Calendar, Telegram inbox, the
+            Reload the page. Visit Calendar, the inbox, and the
             experiments you care about. Watch every outbound request as
             you go.
           </Step>
@@ -374,10 +257,7 @@ export default function SecurityPage() {
             You should see requests to your own ResearchOS origin (for
             JavaScript, CSS, and static assets), occasional requests to{" "}
             <code>/api/calendar-feed</code> when a subscribed feed
-            refreshes, occasional requests to{" "}
-            <code>/api/telegram-file</code> when an inbox photo loads,
-            direct requests to <code>api.telegram.org</code> when you
-            exchange messages with your bot, and occasional requests to{" "}
+            refreshes, and occasional requests to{" "}
             <code>va.vercel-scripts.com</code> and{" "}
             <code>vitals.vercel-insights.com</code> for anonymous
             page-view pings (unless <strong>Offline mode</strong> is on,
@@ -397,39 +277,22 @@ export default function SecurityPage() {
           <Step>
             For a second pass, switch from the <strong>Network</strong>{" "}
             tab to <strong>Application</strong>{" "}
-            &rarr; <strong>IndexedDB</strong>. ResearchOS uses three
+            &rarr; <strong>IndexedDB</strong>. ResearchOS uses two
             IndexedDB databases.
             <ul>
               <li>
-                The first, <code>research-os-fsa</code>, holds the
-                opaque File System Access handle for your data folder.
-                This is what gives the browser permission to read and
-                write the folder you picked.
+                <code>research-os-fsa</code> holds the opaque File System
+                Access handle for your data folder. This is what gives
+                the browser permission to read and write the folder you
+                picked.
               </li>
               <li>
-                The second, <code>keyval-store</code>, holds three small
+                <code>keyval-store</code> holds three small
                 session-routing strings: the folder name plus its grant
                 timestamp, the currently signed-in user, and (if you are
                 a PI signed in) the primary account.
               </li>
-              <li>
-                The third,{" "}
-                <code>research-os-telegram-token-cache</code>, exists
-                only if you have paired a Telegram bot. It holds one row
-                per paired-user-in-this-folder, with the minimal
-                credentials <code>bot_token</code>, <code>chat_id</code>,{" "}
-                <code>bot_username</code>, keyed by{" "}
-                <code>(folderName, username)</code>.
-              </li>
             </ul>
-            A fresh install with no Telegram pairing shows two
-            databases, not three (four IDB keys total, not five). Expand
-            the <code>tokens</code> store under{" "}
-            <code>research-os-telegram-token-cache</code> to confirm the
-            row holds only the three fields named above. Clicking the
-            rose <strong>Forget</strong> button in Settings &rarr; Data
-            inventory wipes every row for the current folder, the
-            change shows up here on the next DevTools refresh.
           </Step>
         </Steps>
       </details>
@@ -440,9 +303,8 @@ export default function SecurityPage() {
         It closed one Critical finding (cross-site scripting via
         unsanitized markdown HTML across all 8 markdown rendering sites in
         the app) and several Important findings around the proxy routes,
-        the LabArchives credential flow, the Telegram credential recovery
-        surface, and the in-app verification surface (data inventory,
-        offline mode, storage hints). The audit
+        the LabArchives credential flow, and the in-app verification
+        surface (data inventory, offline mode, storage hints). The audit
         report is checked into the repo as{" "}
         <a
           href="https://github.com/gnick18/ResearchOS/blob/main/SECURITY_AUDIT.md"

@@ -81,13 +81,10 @@ vi.mock("@/hooks/useErrorReporting", () => ({
 // Heavy children that AppShell renders unconditionally — stub as inert.
 vi.mock("@/components/DailyTasksSidebar", () => ({ default: () => null }));
 vi.mock("@/components/CalendarSidebar", () => ({ default: () => null }));
-vi.mock("@/components/telegram/TelegramHeaderButton", () => ({ default: () => null }));
 vi.mock("@/components/InboxBadge", () => ({ default: () => null }));
 vi.mock("@/components/InboxToast", () => ({ default: () => null }));
 vi.mock("@/components/NotificationBadge", () => ({ default: () => null }));
 vi.mock("@/components/ReminderRunner", () => ({ default: () => null }));
-vi.mock("@/components/telegram/TelegramPopup", () => ({ default: () => null }));
-vi.mock("@/components/TelegramEncryptedRecoveryPrompt", () => ({ default: () => null }));
 vi.mock("@/components/IdlePasswordWipe", () => ({ default: () => null }));
 vi.mock("@/components/Tooltip", () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,

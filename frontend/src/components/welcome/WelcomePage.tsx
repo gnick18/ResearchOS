@@ -855,18 +855,9 @@ export default function WelcomePage() {
               />
             </BentoCell>
 
-            {/* 05: snap from the bench (placeholder). */}
-            <BentoCell num="05" span="small" title="Snap it from the bench">
-              <p className="text-body leading-relaxed text-[#475569]">
-                Send a photo or note from your phone over Telegram and it lands in
-                your notebook inbox, ready to attach.
-              </p>
-              <DemoLoopPlaceholder
-                tag="Telegram capture"
-                claim="A phone photo over Telegram landing in the notebook inbox."
-                className="mt-4 flex-1"
-              />
-            </BentoCell>
+            {/* 05: phone companion showcase — placeholder for a future
+                mobile-relay or phone-companion demo clip once that surface
+                ships. Telegram capture was here; removed 2026-06-08. */}
           </div>
         </section>
 

@@ -7,7 +7,7 @@ export default function NotificationsFeaturePage() {
   return (
     <WikiPage
       title="Notifications & Inbox"
-      intro="The bell, the Telegram inbox, and event reminders. All three live in the app shell, so you see new things wherever you're working."
+      intro="The bell, the photo inbox, and event reminders. All three live in the app shell, so you see new things wherever you're working."
     >
       <Screenshot
         src="/wiki/screenshots/notifications.png"
@@ -29,14 +29,13 @@ export default function NotificationsFeaturePage() {
         </li>
         <li>
           <strong>The Inbox pill</strong>, right next to the bell, opens a
-          centered modal of Telegram photos waiting to be filed into an
-          experiment. The pill turns amber and shows a count when photos are
-          waiting.
+          centered modal of photos waiting to be filed into an experiment.
+          The pill turns amber and shows a count when photos are waiting.
         </li>
         <li>
           <strong>An inbox toast</strong> appears at the bottom-right corner
-          the moment a new Telegram photo arrives, so you can file it in one
-          click without hunting for the modal.
+          the moment a new photo arrives, so you can file it in one click
+          without hunting for the modal.
         </li>
       </ul>
 
@@ -105,14 +104,14 @@ export default function NotificationsFeaturePage() {
 
       <h2>The Inbox modal</h2>
       <p>
-        The Inbox pill in the header counts photos sitting in your Telegram
-        inbox folder. Click it to open the Inbox modal, a centered popup over
-        the rest of the app. Each row shows a thumbnail, the caption you sent
-        with the photo, the original filename, and the time it arrived.
+        The Inbox pill in the header counts photos sitting in your inbox
+        folder. Click it to open the Inbox modal, a centered popup over
+        the rest of the app. Each row shows a thumbnail, the caption, the
+        original filename, and the time it arrived.
       </p>
       <Screenshot
         src="/wiki/screenshots/telegram-inbox.png"
-        alt="The Inbox modal showing waiting Telegram photos with thumbnails, captions, timestamps, and per-row Move and Delete buttons."
+        alt="The Inbox modal showing waiting photos with thumbnails, captions, timestamps, and per-row Move and Delete buttons."
         caption="Open the Inbox to see waiting photos. Each row has a Move-to-active and Delete button, and clicking the row opens an editor for the caption and filename."
       />
       <p>
@@ -183,7 +182,7 @@ export default function NotificationsFeaturePage() {
       <Screenshot
         src="/wiki/screenshots/telegram-inbox-multiselect.png"
         alt="The Inbox modal with three rows selected (blue borders) and the right-click context menu showing Send 3 items to task, Move to active, and Delete."
-        caption="Shift-click or Cmd-click to select multiple inbox photos, then right-click for the batch menu. The label updates to reflect how many items will be sent."
+        caption="Shift-click or Cmd-click to select multiple inbox photos, then right-click for the batch menu."
       />
       <p>
         If any filename in the batch collides with an existing image in the
@@ -204,7 +203,7 @@ export default function NotificationsFeaturePage() {
 
       <h2>The bottom-right toast</h2>
       <p>
-        The moment a new photo arrives in your Telegram inbox, a toast appears
+        The moment a new photo arrives in your inbox, a toast appears
         in the bottom-right corner with a thumbnail, the caption, and a one-click
         action. If an experiment popup is open, the action is{" "}
         <strong>File here</strong>, which moves the photo straight into that
@@ -291,7 +290,7 @@ export default function NotificationsFeaturePage() {
         <Link href="/wiki/integrations/calendar-feeds">Calendar Feeds</Link>.
       </Callout>
       <p>
-        Reminder settings, the bell history, and the Telegram inbox are all
+        Reminder settings, the bell history, and the photo inbox are all
         per-user. If you share a folder with the rest of your lab, everyone
         has their own bell, their own inbox, and their own reminder
         preferences.

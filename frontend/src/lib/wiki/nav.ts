@@ -353,7 +353,7 @@ export const WIKI_NAV: WikiNode[] = [
       {
         href: "/wiki/features/notifications",
         label: "Notifications & Inbox",
-        blurb: "Bell, Telegram inbox, event reminders.",
+        blurb: "Bell, photo inbox, and event reminders.",
       },
       {
         href: "/wiki/features/feedback",
@@ -366,11 +366,6 @@ export const WIKI_NAV: WikiNode[] = [
     href: "/wiki/integrations",
     label: "Integrations",
     children: [
-      {
-        href: "/wiki/integrations/telegram",
-        label: "Telegram Bot",
-        blurb: "Send phone photos straight into your inbox.",
-      },
       {
         href: "/wiki/integrations/calendar-feeds",
         label: "Calendar Feeds",
