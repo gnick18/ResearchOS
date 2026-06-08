@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS companion - Apple-grade polish mockup</title>
+<style>
+  /* ---- tokens ---------------------------------------------------------- */
+  :root{
+    --sky:#1AA0E6; --sky-press:#1488c4; --purple:#5B47D6;
+    --ink:#0b1320; --ink-2:#3c4656; --ink-3:#8a93a3;
+    --bg:#f2f3f7; --group:#ffffff; --sep:rgba(60,67,86,.10);
+    --card-shadow:0 1px 2px rgba(16,24,40,.05), 0 8px 24px rgba(16,24,40,.06);
+    --tabbar:rgba(248,249,252,.72);
+    --ok:#1a9c5b; --ok-bg:#e4f7ec; --danger:#e5484d; --danger-bg:#fdecec; --warn:#d98a0b; --warn-bg:#fdf3e2;
+    --r1:#FFD2B0; --r2:#FFF1A8; --r3:#B7EBB1; --r4:#A6D2F4; --r5:#D6B5F0;
+    --radius:18px; --radius-sm:12px;
+    --page:#e9ebf1;
+  }
+  [data-theme="dark"]{
+    --sky:#3aa6e8; --sky-press:#2b8fd0; --purple:#8170e6;
+    --ink:#f5f7fb; --ink-2:#c3ccda; --ink-3:#7e8696;
+    --bg:#000000; --group:#15171c; --sep:rgba(255,255,255,.10);
+    --card-shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.5);
+    --tabbar:rgba(22,24,30,.66);
+    --ok:#3ddc8c; --ok-bg:rgba(45,160,100,.18); --danger:#ff6b6f; --danger-bg:rgba(229,72,77,.16); --warn:#f4b740; --warn-bg:rgba(217,138,11,.18);
+    --r1:#F97316; --r2:#E8920B; --r3:#16A34A; --r4:#0284C7; --r5:#9333EA;
+    --page:#0a0b0e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;}
+  .top{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--page) 88%,transparent);backdrop-filter:saturate(180%) blur(20px);
+    border-bottom:1px solid var(--sep);padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .top h1{font-size:17px;margin:0;font-weight:700;letter-spacing:-.02em}
+  .top .sub{font-size:12.5px;color:var(--ink-3)}
+  .spacer{flex:1}
+  .tbtn{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--sep);background:var(--group);color:var(--ink);border-radius:980px;padding:8px 15px;cursor:pointer}
+  .tbtn.brand{background:linear-gradient(135deg,var(--sky),var(--purple));color:#fff;border:none}
+  .legend{display:flex;gap:12px;font-size:12px;color:var(--ink-3);align-items:center;flex-wrap:wrap}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px}
+  .dot.ok{background:#1a9c5b}.dot.warn{background:#d98a0b}.dot.none{background:#c4ccd6}
+  .wrap{max-width:1180px;margin:0 auto;padding:20px 20px 120px}
+  .intro{font-size:13px;color:var(--ink-2);max-width:880px;line-height:1.6;margin:8px 0 6px}
+  .principles{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 6px}
+  .principles span{font-size:11.5px;color:var(--ink-2);background:var(--group);border:1px solid var(--sep);border-radius:980px;padding:5px 11px}
+  .grid{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start;margin-top:14px;justify-content:center}
+  .cell{width:330px}
+  .cap{display:flex;align-items:center;gap:8px;margin:0 2px 9px}
+  .cap .n{font-size:14px;font-weight:700;letter-spacing:-.01em}
+  .cap .d{font-size:12px;color:var(--ink-3)}
+  /* ---- phone ----------------------------------------------------------- */
+  .phone{width:330px;height:680px;border-radius:46px;background:var(--bg);position:relative;overflow:hidden;
+    border:10px solid #0c0d10;box-shadow:0 30px 60px rgba(16,24,40,.22), 0 6px 16px rgba(16,24,40,.12)}
+  [data-theme="dark"] .phone{border-color:#23262d}
+  .scr{position:absolute;inset:0;display:flex;flex-direction:column}
+  .statusbar{height:46px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 7px;font-size:13px;font-weight:600;color:var(--ink)}
+  .statusbar .r{display:flex;gap:6px;align-items:center}
+  .content{flex:1;overflow:hidden;position:relative}
+  .scroll{position:absolute;inset:0;overflow:auto;padding:0 18px 96px}
+  .scroll::-webkit-scrollbar{display:none}
+  .largetitle{font-size:32px;font-weight:800;letter-spacing:-.03em;margin:6px 2px 4px}
+  .subtitle{font-size:14px;color:var(--ink-3);margin:0 2px 16px;line-height:1.45}
+  .group{background:var(--group);border-radius:var(--radius);box-shadow:var(--card-shadow);overflow:hidden;margin-bottom:16px}
+  .row{display:flex;align-items:center;gap:13px;padding:14px 16px;position:relative}
+  .row + .row::before{content:"";position:absolute;top:0;left:52px;right:0;height:1px;background:var(--sep)}
+  .row .ico{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff}
+  .row .tx{flex:1;min-width:0}
+  .row .t{font-size:15px;font-weight:600;letter-spacing:-.01em}
+  .row .s{font-size:12.5px;color:var(--ink-3);margin-top:1px}
+  .chev{color:var(--ink-3);opacity:.5}
+  .pill{font-size:11px;font-weight:700;padding:3px 9px;border-radius:980px;letter-spacing:.01em}
+  .pill.ok{background:var(--ok-bg);color:var(--ok)} .pill.muted{background:var(--sep);color:var(--ink-3)}
+  .pill.danger{background:var(--danger-bg);color:var(--danger)} .pill.warn{background:var(--warn-bg);color:var(--warn)}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;border-radius:15px;
+    padding:15px;font:inherit;font-size:16px;font-weight:650;letter-spacing:-.01em;cursor:pointer;transition:transform .12s cubic-bezier(.2,.7,.3,1)}
+  .btn:active{transform:scale(.97)}
+  .btn.primary{background:var(--sky);color:#fff}
+  .btn.secondary{background:var(--group);color:var(--sky);box-shadow:var(--card-shadow)}
+  .btn.tinted{background:color-mix(in srgb,var(--sky) 14%,transparent);color:var(--sky)}
+  .sec-h{font-size:13px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.03em;margin:6px 8px 8px}
+  /* tab bar */
+  .tabbar{position:absolute;left:0;right:0;bottom:0;height:84px;background:var(--tabbar);backdrop-filter:saturate(180%) blur(22px);
+    border-top:1px solid var(--sep);display:flex;padding:8px 6px 26px}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--ink-3);font-size:10.5px;font-weight:600}
+  .tab.active{color:var(--sky)}
+  .tab svg{width:25px;height:25px}
+  /* beakerbot */
+  .bot{display:inline-block}
+  .bot .eye{transform-box:fill-box;transform-origin:center;animation:blink 5.2s infinite}
+  @keyframes blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+  .botwrap{animation:sway 6.5s ease-in-out infinite;transform-origin:50% 90%}
+  @keyframes sway{0%,100%{transform:translateY(0) rotate(-1.6deg)}50%{transform:translateY(-1.5%) rotate(1.6deg)}}
+  /* splash */
+  .splash{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
+  .rainbowbg{position:absolute;inset:0;background:linear-gradient(100deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5));opacity:.9}
+  .lockup{position:relative;display:flex;align-items:center;gap:16px;z-index:2}
+  .lockup .wm{font-size:34px;font-weight:800;letter-spacing:-.03em;color:#0b1320}
+  .heart{position:absolute;color:#ff5b8a}
+  /* misc */
+  .display{font-size:54px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;text-align:center;color:var(--sky)}
+  .display .hint{display:block;font-size:11px;font-weight:600;color:var(--ink-3);letter-spacing:.08em;margin-top:2px}
+  .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-top:8px}
+  .key{aspect-ratio:1.7;border:1px solid var(--sep);background:var(--group);border-radius:15px;display:flex;align-items:center;justify-content:center;
+    font-size:23px;font-weight:600;font-variant-numeric:tabular-nums;cursor:pointer;transition:transform .1s, background .1s}
+  .key:active{transform:scale(.94);background:color-mix(in srgb,var(--sky) 12%,transparent)}
+  .qr{width:172px;height:172px;display:grid;grid-template-columns:repeat(13,1fr);gap:2px;background:#fff;padding:11px;border-radius:16px;margin:0 auto}
+  .qr i{background:#0b1320;border-radius:1px}.qr i.off{background:transparent}
+  .chiprow{display:flex;gap:8px;flex-wrap:wrap;margin:2px 2px 16px}
+  .chip{font-size:12px;font-weight:600;color:var(--ink-2);background:var(--group);box-shadow:var(--card-shadow);border-radius:980px;padding:7px 12px;display:flex;align-items:center;gap:6px}
+  .thumb{width:46px;height:46px;border-radius:10px;background:linear-gradient(135deg,#23304a,#0e1626);flex-shrink:0;overflow:hidden}
+  /* review */
+  .review{margin-top:12px;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+  .seg{display:inline-flex;border:1px solid var(--sep);border-radius:9px;overflow:hidden}
+  .seg button{font:inherit;font-size:12px;padding:6px 11px;border:none;background:var(--group);color:var(--ink-3);cursor:pointer}
+  .seg button.on.ok{background:#1a9c5b;color:#fff}.seg button.on.warn{background:#d98a0b;color:#fff}.seg button.on.none{background:#64748b;color:#fff}
+  .cmt{width:100%;margin-top:8px;font:inherit;font-size:12.5px;border:1px dashed var(--sep);border-radius:9px;background:var(--group);color:var(--ink);padding:8px 10px;resize:vertical;min-height:30px}
+  .why{font-size:12px;color:var(--ink-2);line-height:1.5;margin:8px 2px 0;border-left:2px solid var(--sky);padding-left:10px}
+  svg{display:block}
+  #exm{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+  #exm .box{background:var(--group);border-radius:16px;max-width:680px;width:100%;padding:18px;border:1px solid var(--sep)}
+  #exm textarea{width:100%;min-height:240px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid var(--sep);border-radius:8px;background:var(--bg);color:var(--ink);padding:10px}
+</style>
+</head>
+<body>
+<div class="top">
+  <div><h1>ResearchOS companion, Apple-grade polish</h1><div class="sub">Inspired by top-tier iOS apps, our branding throughout. 3 surfaces. Mockup for sign-off.</div></div>
+  <div class="spacer"></div>
+  <div class="legend"><span><span class="dot ok"></span>Approve</span><span><span class="dot warn"></span>Change</span><span><span class="dot none"></span>Undecided</span></div>
+  <button class="tbtn" id="theme">Dark</button>
+  <button class="tbtn brand" id="export">Export feedback</button>
+</div>
+<div class="wrap">
+  <p class="intro">A simple app deserves obsessive polish on its few screens. This draws on the Apple playbook, clarity, deference, depth, large titles content scrolls under, inset grouped cards, translucent material tab bar, restrained single accent, calm 60fps micro-motion, and haptics, while staying unmistakably ResearchOS, brand sky as the one accent, the signature rainbow reserved for brand + success moments, and a living BeakerBot. Toggle dark mode (Apple apps live in both). Mark each screen and Export.</p>
+  <div class="principles">
+    <span>Large titles</span><span>Inset grouped cards</span><span>Material/blur tab bar</span><span>One accent (sky)</span><span>Rainbow = brand + success only</span><span>Living BeakerBot</span><span>Spring micro-motion</span><span>Haptics</span><span>Light + dark</span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+</div>
+
+<div id="exm"><div class="box">
+  <div style="display:flex;gap:10px;margin-bottom:10px;align-items:center"><strong style="font-size:14px">Feedback</strong><span class="spacer" style="flex:1"></span><button class="tbtn" onclick="navigator.clipboard.writeText(exT.value)">Copy</button><button class="tbtn" onclick="exm.style.display='none'">Close</button></div>
+  <textarea id="exT" readonly></textarea>
+</div></div>
+
+<script>
+// ---- BeakerBot SVG (living): rainbow liquid, blinking eyes, smile, spout curl ----
+function bot(size){return `<span class="bot botwrap" style="width:${size*0.78}px;height:${size}px">
+<svg viewBox="8 0 24 34" width="${size*0.78}" height="${size}" fill="none">
+<defs><linearGradient id="liq" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="var(--r1)"/><stop offset=".25" stop-color="var(--r2)"/><stop offset=".5" stop-color="var(--r3)"/><stop offset=".75" stop-color="var(--r4)"/><stop offset="1" stop-color="var(--r5)"/></linearGradient></defs>
+<path d="M13 12 L13 27 Q13 31 17 31 L23 31 Q27 31 27 27 L27 12 Z" fill="#fff"/>
+<path d="M13 21 L13 27 Q13 31 17 31 L23 31 Q27 31 27 27 L27 21 Z" fill="url(#liq)"/>
+<path d="M11 12 L29 12" stroke="var(--sky)" stroke-width="2" stroke-linecap="round"/>
+<path d="M13 12 L13 27 Q13 31 17 31 L23 31 Q27 31 27 27 L27 12" stroke="var(--sky)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M22 8 C 22 5, 25 3, 27 6" stroke="var(--sky)" stroke-width="2" stroke-linecap="round"/>
+<circle class="eye" cx="17.5" cy="18" r="1.25" fill="var(--sky)"/>
+<circle class="eye" cx="22.5" cy="18" r="1.25" fill="var(--sky)"/>
+<path d="M17.5 22 Q20 24.5 22.5 22" stroke="var(--sky)" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+</svg></span>`;}
+const I={
+ cam:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L19 6h0a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.3"/></svg>',
+ note:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l3 3v15H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>',
+ scan:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M4 12h16"/></svg>',
+ chev:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+ home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg>',
+ sun:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6L19 19M19 5l-1.4 1.4M6.4 17.6L5 19"/></svg>',
+ camt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L19 6h0a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.3"/></svg>',
+ timer:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 13V9M9 2h6"/></svg>',
+ phone:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="3"/><path d="M11 18h2"/></svg>',
+ bolt:'<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="none"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg>',
+};
+function tabbar(active){const t=[['home','Home',I.home],['today','Today',I.sun],['capture','Capture',I.camt],['timers','Timers',I.timer]];
+ return `<div class="tabbar">${t.map(x=>`<div class="tab ${x[0]===active?'active':''}">${x[2]}<span>${x[1]}</span></div>`).join('')}</div>`;}
+function sb(dark){return `<div class="statusbar"><span>9:41</span><span class="r">${I.bolt}<svg width="17" height="12" viewBox="0 0 24 16" fill="currentColor"><rect x="0" y="6" width="4" height="10" rx="1"/><rect x="6" y="3" width="4" height="13" rx="1"/><rect x="12" y="0" width="4" height="16" rx="1"/><rect x="18" y="0" width="4" height="16" rx="1" opacity=".35"/></svg></span></div>`;}
+
+// ---- screens ----
+const screens = [
+ {id:'splash', n:'Launch', d:'Branded splash that shrinks out',
+  why:'Apple opens with calm brand, not a spinner. The lockup is centered, the rainbow is the moment, then it scale-fades to reveal the app (no hard cut). BeakerBot is alive + tappable for hearts.',
+  html:`<div class="scr"><div class="splash"><div class="rainbowbg"></div>
+    <div class="lockup">${bot(76)}<span class="wm">ResearchOS</span></div>
+  </div></div>`},
+
+ {id:'connect', n:'Connect (Home)', d:'The 1st core: link to your laptop',
+  why:'Large title, a single confident card. BeakerBot hero gives warmth (Apple uses a friendly focal element). Paired status uses the rainbow success tint, the one place rainbow earns its keep here. Actions are a clear primary + quiet secondaries, generous spacing.',
+  html:`<div class="scr">${sb()}<div class="content"><div class="scroll">
+    <div style="display:flex;justify-content:center;margin:10px 0 4px">${bot(96)}</div>
+    <div class="largetitle" style="text-align:center">ResearchOS</div>
+    <div class="subtitle" style="text-align:center">Your bench companion. The laptop stays the main workspace.</div>
+    <div class="group" style="padding:16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <span class="pill ok">Paired</span>
+        <span style="font-size:12.5px;color:var(--ink-3)">Fungal Interactions Lab</span>
+      </div>
+      <button class="btn primary" style="margin-bottom:10px">${I.cam} Take a bench photo</button>
+      <button class="btn tinted" style="margin-bottom:10px">${I.note} Quick note</button>
+      <button class="btn tinted">${I.scan} Scan to reorder</button>
+    </div>
+    <div class="sec-h">Device</div>
+    <div class="group"><div class="row"><span class="ico" style="background:var(--sky)">${I.phone}</span><div class="tx"><div class="t">This iPhone</div><div class="s">Paired today &middot; last synced just now</div></div><span class="chev">${I.chev}</span></div></div>
+  </div></div>${tabbar('home')}</div>`},
+
+ {id:'pair', n:'Connect, pairing', d:'The QR sheet',
+  why:'A focused sheet (Apple modal pattern): one job, big QR, a calm waiting state with a progress hint, dismiss is obvious. No chrome competing for attention.',
+  html:`<div class="scr">${sb()}<div class="content"><div class="scroll" style="padding-top:8px">
+    <div class="largetitle">Pair a phone</div>
+    <div class="subtitle">Open ResearchOS on your computer, choose Pair, and scan.</div>
+    <div class="group" style="padding:20px;text-align:center">
+      <div class="qr" id="qr"></div>
+      <div style="font-size:13px;color:var(--ink-3);margin-top:14px;display:flex;align-items:center;justify-content:center;gap:7px"><span style="width:8px;height:8px;border-radius:50%;background:var(--sky);display:inline-block"></span> Waiting for your phone &middot; 1:48</div>
+    </div>
+    <button class="btn secondary">Enter a code instead</button>
+  </div></div></div>`},
+
+ {id:'today', n:'Today (View)', d:'The 2nd core: glance at today',
+  why:'Pure Apple list craft, large title, inset grouped rows with hairline separators, an Overdue section in the danger tint, a quiet last-synced footnote. Calm, scannable, zero clutter. Pull-to-refresh.',
+  html:`<div class="scr">${sb()}<div class="content"><div class="scroll" style="padding-top:8px">
+    <div class="largetitle">Today</div>
+    <div class="subtitle">Synced from your laptop, read-only.</div>
+    <div class="sec-h">Today</div>
+    <div class="group">
+      <div class="row"><span class="ico" style="background:var(--sky)">${I.note}</span><div class="tx"><div class="t">Passage HEK293 cells</div><div class="s">Experiment &middot; due today</div></div></div>
+      <div class="row"><span class="ico" style="background:var(--purple)">${I.note}</span><div class="tx"><div class="t">Order Q5 polymerase</div><div class="s">Purchase &middot; today</div></div></div>
+    </div>
+    <div class="sec-h" style="color:var(--danger)">Overdue (3)</div>
+    <div class="group">
+      <div class="row"><div class="tx"><div class="t" style="color:var(--danger)">Find A. nidulans plates</div><div class="s">Due May 19</div></div></div>
+      <div class="row"><div class="tx"><div class="t" style="color:var(--danger)">Aspergillus seq init</div><div class="s">Due Jun 3</div></div></div>
+      <div class="row"><div class="tx"><div class="t" style="color:var(--danger)">Gel for PCR screen</div><div class="s">Due Jun 5</div></div></div>
+    </div>
+    <div style="font-size:12px;color:var(--ink-3);text-align:center;margin-top:4px">Last synced today at 9:38 AM</div>
+  </div></div>${tabbar('today')}</div>`},
+
+ {id:'capture', n:'Capture (View)', d:'Snap + the outbox',
+  why:'A big, obvious capture action, then the outbox as grouped cards with a thumbnail and a status pill (Queued/Sent) that animates on change. expo-image fade-in. The empty state would carry a calm BeakerBot.',
+  html:`<div class="scr">${sb()}<div class="content"><div class="scroll" style="padding-top:8px">
+    <div class="largetitle">Capture</div>
+    <div class="subtitle">Snap a photo at the bench, it lands in your lab inbox.</div>
+    <button class="btn primary" style="margin-bottom:18px">${I.cam} Take a bench photo</button>
+    <div class="sec-h">Outbox</div>
+    <div class="group">
+      <div class="row"><span class="thumb"></span><div class="tx"><div class="t">Gel image</div><div class="s">9:31 AM</div></div><span class="pill ok">Sent</span></div>
+      <div class="row"><span class="thumb"></span><div class="tx"><div class="t">Plate count</div><div class="s">9:29 AM</div></div><span class="pill muted">Sending</span></div>
+    </div>
+    <div style="font-size:12px;color:var(--ink-3);text-align:center">Captures sync to your inbox automatically.</div>
+  </div></div>${tabbar('capture')}</div>`},
+
+ {id:'timers', n:'Timers', d:'The 3rd core: bench timer',
+  why:'A real lab-timer keypad with tactile depth + haptics per key, a big tabular-numerals display, and running timers as cards. The active timer could fill with a subtle rainbow as it nears done, brand + signal in one.',
+  html:`<div class="scr">${sb()}<div class="content"><div class="scroll" style="padding-top:8px">
+    <div class="largetitle">Timers</div>
+    <div class="group" style="padding:16px">
+      <div class="display">00:13:00<span class="hint">HOURS &middot; MIN &middot; SEC</span></div>
+      <div class="keypad">${['1','2','3','4','5','6','7','8','9','00','0','del'].map(k=>`<div class="key">${k}</div>`).join('')}</div>
+      <button class="btn primary" style="margin-top:14px">Start timer</button>
+    </div>
+    <div class="sec-h">Running</div>
+    <div class="group"><div class="row"><div class="tx"><div class="t">PCR extension</div><div class="s" style="font-size:22px;font-weight:700;color:var(--sky);font-variant-numeric:tabular-nums">04:51</div></div><span class="pill danger">Cancel</span></div></div>
+  </div></div>${tabbar('timers')}</div>`},
+];
+
+// render
+const grid=document.getElementById('grid');
+const KEY='mobile-apple-polish-2026-06-08';const store=JSON.parse(localStorage.getItem(KEY)||'{}');function save(){localStorage.setItem(KEY,JSON.stringify(store));}
+screens.forEach(s=>{
+  const cell=document.createElement('div');cell.className='cell';
+  cell.innerHTML=`<div class="cap"><span class="n">${s.n}</span><span class="d">${s.d}</span></div>
+    <div class="phone">${s.html}</div>
+    <div class="why">${s.why}</div>
+    <div class="review" data-id="${s.id}"></div>`;
+  grid.appendChild(cell);
+});
+// qr fill
+(function(){const q=document.getElementById('qr');if(!q)return;let h='';for(let i=0;i<169;i++)h+=`<i class="${Math.random()>.5?'':'off'}"></i>`;q.innerHTML=h;})();
+// review controls
+document.querySelectorAll('.review').forEach(r=>{
+  const id=r.dataset.id;const cur=store[id]||{};
+  const seg=document.createElement('div');seg.className='seg';
+  [['ok','Approve'],['warn','Change'],['none','?']].forEach(([v,l])=>{const b=document.createElement('button');b.textContent=l;b.onclick=()=>{store[id]={...(store[id]||{}),v};save();paint();};seg.appendChild(b);});
+  r.appendChild(seg);
+  const ta=document.createElement('textarea');ta.className='cmt';ta.placeholder='Comment';ta.value=cur.c||'';ta.oninput=()=>{store[id]={...(store[id]||{}),c:ta.value};save();};
+  r.parentElement.appendChild(ta);
+});
+function paint(){document.querySelectorAll('.review').forEach(r=>{const c=store[r.dataset.id]||{};r.querySelectorAll('.seg button').forEach(b=>{const v=b.textContent==='Approve'?'ok':b.textContent==='Change'?'warn':'none';b.className=(c.v===v?'on '+v:'');});});}
+paint();
+document.getElementById('theme').onclick=function(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Dark':'Light';};
+document.getElementById('export').onclick=function(){let o='RESEARCHOS COMPANION - APPLE POLISH MOCKUP - '+new Date().toString().slice(0,21)+'\\n'+'='.repeat(46)+'\\n\\n';screens.forEach(s=>{const c=store[s.id]||{};const v=c.v==='ok'?'APPROVE':c.v==='warn'?'CHANGE':c.v==='none'?'undecided':'(unmarked)';o+='['+v+'] '+s.n+'\\n';if(c.c&&c.c.trim())o+='   note: '+c.c.trim()+'\\n';});document.getElementById('exT').value=o;document.getElementById('exm').style.display='flex';};
+</script>
+</body>
+</html>
