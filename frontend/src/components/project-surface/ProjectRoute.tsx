@@ -21,6 +21,7 @@ import { readProjectActivity } from "@/lib/project-activity/event-log";
 import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
 import ProjectDepositDialog from "@/components/ProjectDepositDialog";
 import Tooltip from "@/components/Tooltip";
+import { focusWithoutTooltip } from "@/components/tooltip-focus";
 import ProjectFundingSection from "@/components/project-surface/ProjectFundingSection";
 import ResultsGallery from "@/components/project-surface/ResultsGallery";
 import MethodsInventory from "@/components/project-surface/MethodsInventory";
@@ -307,7 +308,7 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
   const closeHistory = useCallback(() => {
     setHistoryOpen(false);
     setVersionPreview(null);
-    historyTriggerRef.current?.focus();
+    focusWithoutTooltip(historyTriggerRef.current);
   }, []);
 
   // canRestore: can the current viewer write this project (and thus restore a

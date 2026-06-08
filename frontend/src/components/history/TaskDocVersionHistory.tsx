@@ -41,6 +41,7 @@ import EntityVersionHistorySidebar, {
 } from "@/components/history/EntityVersionHistorySidebar";
 import VersionDiffView from "@/components/history/VersionDiffView";
 import Tooltip from "@/components/Tooltip";
+import { focusWithoutTooltip } from "@/components/tooltip-focus";
 
 export interface UseTaskDocHistoryArgs {
   surface: TaskDocSurface;
@@ -101,14 +102,14 @@ export function useTaskDocHistory({
   const close = useCallback(() => {
     setIsOpen(false);
     setPreview(null);
-    triggerRef.current?.focus();
+    focusWithoutTooltip(triggerRef.current);
   }, []);
   const open = useCallback(() => setIsOpen(true), []);
   const toggle = useCallback(() => {
     setIsOpen((v) => {
       if (v) {
         setPreview(null);
-        triggerRef.current?.focus();
+        focusWithoutTooltip(triggerRef.current);
         return false;
       }
       return true;
