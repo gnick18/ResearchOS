@@ -12,6 +12,7 @@ import { describe, it, expect } from "vitest";
 import type {
   EditorCommand,
   PaletteNavItem,
+  PaletteSubflow,
 } from "@/components/sequences/editor-commands";
 import type { FundingAccount, Project, PurchaseItem, Task } from "@/lib/types";
 import {
@@ -101,6 +102,8 @@ const noopHandlers: PurchasesSourceHandlers = {
   setItemStatus: () => {},
   setOrderComplete: () => {},
   deleteOrder: () => {},
+  changeOrderProject: () => {},
+  setItemFunding: () => {},
   approveItem: () => {},
   declineItem: () => {},
   exportSpendingCsv: () => {},
@@ -117,6 +120,8 @@ function makeData(over: Partial<PurchasesSourceData> = {}): PurchasesSourceData 
     purchasesByTask: over.purchasesByTask ?? {},
     projects,
     fundingAccounts: over.fundingAccounts ?? [],
+    moveTargets: over.moveTargets ?? [],
+    miscProjectId: over.miscProjectId ?? null,
     sortedTasks: over.sortedTasks ?? (task ? [task] : []),
     grandTotal: over.grandTotal ?? 0,
     categoryFilter: over.categoryFilter ?? "all",
@@ -508,5 +513,175 @@ describe("buildPurchasesSource bulk collapse", () => {
     ).commands;
     expect(cmdById(cmds, "purchases-mark-ordered")).toBeDefined();
     expect(cmdById(cmds, "purchases-mark-received")).toBeDefined();
+  });
+});
+
+// ── BeakerSearch v2 (sub-flow framework, chunk 2), the two Purchases pickers ──
+
+describe("buildPurchasesSource sub-flows", () => {
+  it("INLINE change-project, lists move targets + Miscellaneous and calls the real handler then completes", () => {
+    const changed: Array<[number, number | null]> = [];
+    const handlers: PurchasesSourceHandlers = {
+      ...noopHandlers,
+      changeOrderProject: (order, projectId) => {
+        changed.push([order.id, projectId]);
+      },
+    };
+    const task = makeTask({ id: 1, project_id: 10 });
+    const cmds = buildPurchasesSource(
+      makeData({
+        selectedTask: task,
+        purchaseTasks: [task],
+        purchasesByTask: { "self:1": [makeItem({ task_id: 1 })] },
+        moveTargets: [
+          { id: 10, name: "Project Alpha" },
+          { id: 20, name: "Project Beta" },
+        ],
+        miscProjectId: 99,
+      }),
+      handlers,
+    ).commands;
+    const cmd = cmdById(cmds, "purchases-change-project")!;
+    expect(cmd.subflow).toBeDefined();
+    const sf = cmd.subflow!();
+    // Single stage, no explicit presentation (renders inline by inference).
+    expect(sf.presentation).toBeUndefined();
+    // The two real projects plus the Miscellaneous sentinel option.
+    expect(sf.items.map((i) => i.label)).toEqual([
+      "Project Alpha",
+      "Project Beta",
+      "Miscellaneous",
+    ]);
+    // The order's current project is offered but disabled.
+    expect(sf.items[0].enabled).toBe(false);
+    expect(sf.items[1].enabled).toBe(true);
+    // Picking Project Beta completes (returns void) with the real project id.
+    const next = sf.onPick(sf.items[1]);
+    expect(next).toBeUndefined();
+    expect(changed).toEqual([[1, 20]]);
+    // Miscellaneous resolves to the misc project id, not a null project_id.
+    sf.onPick(sf.items[2]);
+    expect(changed[1]).toEqual([1, 99]);
+  });
+
+  it("omits Miscellaneous when the misc project is not bootstrapped", () => {
+    const task = makeTask({ id: 1, project_id: 10 });
+    const cmds = buildPurchasesSource(
+      makeData({
+        selectedTask: task,
+        purchaseTasks: [task],
+        purchasesByTask: { "self:1": [makeItem({ task_id: 1 })] },
+        moveTargets: [{ id: 20, name: "Project Beta" }],
+        miscProjectId: null,
+      }),
+      noopHandlers,
+    ).commands;
+    const sf = cmdById(cmds, "purchases-change-project")!.subflow!();
+    expect(sf.items.map((i) => i.label)).toEqual(["Project Beta"]);
+  });
+
+  it("gates change-project on ownership (shared orders cannot move)", () => {
+    const task = makeTask({ id: 1, owner: "alex", is_shared_with_me: true });
+    const cmds = buildPurchasesSource(
+      makeData({
+        selectedTask: task,
+        purchaseTasks: [task],
+        purchasesByTask: { "alex:1": [makeItem({ task_id: 1, owner: "alex" })] },
+        moveTargets: [{ id: 20, name: "Project Beta" }],
+        miscProjectId: 99,
+      }),
+      noopHandlers,
+    ).commands;
+    expect(cmdById(cmds, "purchases-change-project")?.enabled).toBe(false);
+  });
+
+  it("INLINE set-funding, lists accounts and writes only the uncategorized items then completes", () => {
+    const funded: Array<[number, string]> = [];
+    const handlers: PurchasesSourceHandlers = {
+      ...noopHandlers,
+      setItemFunding: (item, _order, name) => {
+        funded.push([item.id, name]);
+      },
+    };
+    const task = makeTask({ id: 1 });
+    const unfundedA = makeItem({ task_id: 1, funding_string: null });
+    const unfundedB = makeItem({ task_id: 1, funding_string: "" });
+    const alreadyFunded = makeItem({ task_id: 1, funding_string: "NIH R01" });
+    const items = [unfundedA, unfundedB, alreadyFunded];
+    const cmds = buildPurchasesSource(
+      makeData({
+        selectedTask: task,
+        purchaseTasks: [task],
+        purchasesByTask: { "self:1": items },
+        fundingAccounts: [
+          makeFunding({ id: 1, name: "NIH R01" }),
+          makeFunding({ id: 2, name: "DOE EERE", spent: 100, total_budget: 5000 }),
+        ],
+      }),
+      handlers,
+    ).commands;
+    const cmd = cmdById(cmds, "purchases-set-funding")!;
+    expect(cmd.enabled).toBe(true);
+    expect(cmd.subflow).toBeDefined();
+    const sf = cmd.subflow!();
+    expect(sf.presentation).toBeUndefined();
+    expect(sf.items.map((i) => i.label)).toEqual(["NIH R01", "DOE EERE"]);
+    expect(sf.items[1].detail).toBe("$100.00 of $5,000.00 spent");
+    // Picking DOE EERE writes ONLY the two unfunded items (skips the funded one).
+    const next = sf.onPick(sf.items[1]);
+    expect(next).toBeUndefined();
+    expect(funded).toEqual([
+      [unfundedA.id, "DOE EERE"],
+      [unfundedB.id, "DOE EERE"],
+    ]);
+    // Type-only assert so the PaletteSubflow import is exercised.
+    const typed: PaletteSubflow = sf;
+    expect(typed.title).toContain("2 items");
+  });
+
+  it("disables set-funding when there are no uncategorized items", () => {
+    const task = makeTask({ id: 1 });
+    const cmds = buildPurchasesSource(
+      makeData({
+        selectedTask: task,
+        purchaseTasks: [task],
+        purchasesByTask: {
+          "self:1": [makeItem({ task_id: 1, funding_string: "NIH R01" })],
+        },
+        fundingAccounts: [makeFunding({ id: 1, name: "NIH R01" })],
+      }),
+      noopHandlers,
+    ).commands;
+    expect(cmdById(cmds, "purchases-set-funding")?.enabled).toBe(false);
+  });
+
+  it("disables set-funding when there are no funding accounts", () => {
+    const task = makeTask({ id: 1 });
+    const cmds = buildPurchasesSource(
+      makeData({
+        selectedTask: task,
+        purchaseTasks: [task],
+        purchasesByTask: { "self:1": [makeItem({ task_id: 1, funding_string: null })] },
+        fundingAccounts: [],
+      }),
+      noopHandlers,
+    ).commands;
+    expect(cmdById(cmds, "purchases-set-funding")?.enabled).toBe(false);
+  });
+
+  it("gates set-funding on ownership (shared orders cannot be funded)", () => {
+    const task = makeTask({ id: 1, owner: "alex", is_shared_with_me: true });
+    const cmds = buildPurchasesSource(
+      makeData({
+        selectedTask: task,
+        purchaseTasks: [task],
+        purchasesByTask: {
+          "alex:1": [makeItem({ task_id: 1, owner: "alex", funding_string: null })],
+        },
+        fundingAccounts: [makeFunding({ id: 1, name: "NIH R01" })],
+      }),
+      noopHandlers,
+    ).commands;
+    expect(cmdById(cmds, "purchases-set-funding")?.enabled).toBe(false);
   });
 });

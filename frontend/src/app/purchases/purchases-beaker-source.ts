@@ -42,6 +42,7 @@ import type {
   PaletteContextCard,
   PaletteNavGroup,
   PaletteNavItem,
+  PaletteSubflow,
 } from "@/components/sequences/editor-commands";
 import {
   isPurchasePending,
@@ -86,6 +87,11 @@ const ICON_ORDER: IconName = "box";
 const ICON_FUNDING: IconName = "folder";
 const ICON_EXPORT: IconName = "download";
 
+// The "Miscellaneous" catch-all label in the change-project picker. Mirrors the
+// MISC_CATEGORY_LABEL the page maps the hidden _misc_purchases project to, so
+// the picker option reads the same as the project-name override everywhere else.
+const MISC_PROJECT_OPTION_LABEL = "Miscellaneous";
+
 // ── The plain state snapshot the builder reads ─────────────────────────────
 export interface PurchasesSourceData {
   /** Every purchase order (task_type === "purchase"), own + shared, decorated
@@ -98,6 +104,17 @@ export interface PurchasesSourceData {
   projects: Project[];
   /** Funding accounts (current user). */
   fundingAccounts: FundingAccount[];
+
+  // BeakerSearch v2 (sub-flow framework, chunk 2). The MOVE TARGETS the
+  // change-project sub-flow lists, resolved in the hook (own, non-archived,
+  // non-misc real projects), label = name. The "Miscellaneous" option is added
+  // by the builder, pointing at miscProjectId below. The data model requires a
+  // project_id on every purchase task (see misc-project.ts), so Miscellaneous
+  // resolves to the hidden _misc_purchases project's id, not a null project_id.
+  moveTargets: { id: number; name: string }[];
+  /** The hidden _misc_purchases project's id (the Miscellaneous sentinel), or
+   *  null when it does not exist yet (the sub-flow then omits the option). */
+  miscProjectId: number | null;
 
   // ON SCREEN (the two filters + the live spending snapshot).
   sortedTasks: Task[];
@@ -163,6 +180,21 @@ export interface PurchasesSourceHandlers {
   setOrderComplete: (order: Task, complete: boolean) => void;
   deleteOrder: (order: Task) => void;
 
+  // BeakerSearch v2 (sub-flow framework, chunk 2), the two picker handlers.
+  /** Change the order's project via tasksApi.update(task.id, { project_id })
+   *  (owner-routed for own orders, i.e. no owner), then refetch the spec keys.
+   *  projectId null means "no project"; the Miscellaneous option passes the
+   *  hidden misc project's id instead (the data model needs a real project_id). */
+  changeOrderProject: (order: Task, projectId: number | null) => void;
+  /** Set ONE uncategorized item's funding via purchasesApi.update(itemId,
+   *  { funding_string }), then refetch ["purchases-all"]. The builder loops this
+   *  over every uncategorized item in the order so the api stays single-item. */
+  setItemFunding: (
+    item: PurchaseItem,
+    order: Task,
+    accountName: string,
+  ) => void;
+
   // Approval (lab head + confirmed only). targetOwner = order.owner.
   approveItem: (item: PurchaseItem, order: Task) => void;
   declineItem: (item: PurchaseItem, order: Task) => void;
@@ -200,6 +232,18 @@ function itemsFor(data: PurchasesSourceData, task: Task): PurchaseItem[] {
 /** The summed total_price of an order's items. */
 function orderTotal(items: PurchaseItem[]): number {
   return items.reduce((sum, i) => sum + (i.total_price ?? 0), 0);
+}
+
+/** Whether a line item has no funding account assigned yet (an empty
+ *  funding_string). The set-funding sub-flow only writes these (spec 3.2,
+ *  "order has uncategorized items"). */
+function isUncategorized(item: PurchaseItem): boolean {
+  return !item.funding_string || item.funding_string.trim() === "";
+}
+
+/** The uncategorized (unfunded) items of an order, from the deduped map. */
+function uncategorizedItems(items: PurchaseItem[]): PurchaseItem[] {
+  return items.filter(isUncategorized);
 }
 
 /** A "$1,234.56" money string (no mid-string locale surprises in the test). */
@@ -305,6 +349,96 @@ function buildContextCard(data: PurchasesSourceData): PaletteContextCard {
     meta: buildScopeMeta(data),
     chips: chips.length > 0 ? chips : undefined,
     selection,
+  };
+}
+
+// ── BeakerSearch v2 (sub-flow framework, chunk 2), the two INLINE pickers ────
+
+/** The INLINE change-project flow (single stage). Items are the active project
+ *  move targets plus a "Miscellaneous" option (the hidden _misc_purchases
+ *  project's id when it exists); picking one calls the owner-routed
+ *  changeOrderProject then COMPLETES (onPick returns void). Single stage, so the
+ *  framework renders it inline under the command row (mirrors the Gantt assign
+ *  proof). */
+function buildChangeProjectSubflow(
+  task: Task,
+  data: PurchasesSourceData,
+  handlers: PurchasesSourceHandlers,
+): PaletteSubflow {
+  const currentProjectId = task.project_id;
+  const items: PaletteNavItem[] = data.moveTargets.map((p) => ({
+    id: String(p.id),
+    label: p.name,
+    detail: p.id === currentProjectId ? "current project" : undefined,
+    iconName: ICON_FUNDING,
+    tone: "project",
+    enabled: p.id !== currentProjectId,
+    onRun: () => {},
+  }));
+  // The Miscellaneous catch-all, pointing at the hidden misc project id (the
+  // data model needs a real project_id, see misc-project.ts). Omitted only when
+  // the misc project has not been bootstrapped yet.
+  if (data.miscProjectId != null) {
+    items.push({
+      id: String(data.miscProjectId),
+      label: MISC_PROJECT_OPTION_LABEL,
+      detail:
+        data.miscProjectId === currentProjectId ? "current project" : "no project",
+      iconName: "list",
+      tone: "project",
+      enabled: data.miscProjectId !== currentProjectId,
+      onRun: () => {},
+    });
+  }
+  return {
+    title: `Change project of "${task.name}"`,
+    placeholder: "Pick a project",
+    items,
+    onPick: (item) => {
+      handlers.changeOrderProject(task, Number(item.id));
+    },
+  };
+}
+
+/** The INLINE set-funding flow (single stage). Items are the lab's funding
+ *  accounts (label = name, detail = spent / budget); picking one loops the
+ *  single-item setItemFunding over every UNCATEGORIZED item in the order, then
+ *  COMPLETES (onPick returns void). Single stage, so it renders inline. */
+function buildSetFundingSubflow(
+  task: Task,
+  items: PurchaseItem[],
+  data: PurchasesSourceData,
+  handlers: PurchasesSourceHandlers,
+): PaletteSubflow {
+  const unfunded = uncategorizedItems(items);
+  return {
+    title: `Set funding account for ${unfunded.length} item${
+      unfunded.length === 1 ? "" : "s"
+    }`,
+    placeholder: "Pick a funding account",
+    items: data.fundingAccounts.map((a) => ({
+      id: `funding-${a.id}`,
+      label: a.name,
+      detail: `${money(a.spent)} of ${money(a.total_budget)} spent`,
+      keywords: [
+        a.award_number ?? "",
+        a.funder_name ?? "",
+        a.award_title ?? "",
+        "grant award funding",
+      ]
+        .filter(Boolean)
+        .join(" "),
+      iconName: ICON_FUNDING,
+      tone: "funding",
+      onRun: () => {},
+    })),
+    onPick: (chosen) => {
+      const account = data.fundingAccounts.find((a) => `funding-${a.id}` === chosen.id);
+      if (!account) return;
+      for (const it of unfunded) {
+        handlers.setItemFunding(it, task, account.name);
+      }
+    },
   };
 }
 
@@ -445,6 +579,39 @@ function buildCommands(
       iconName: "check",
       enabled: writable,
       run: () => handlers.setOrderComplete(task, !task.is_complete),
+    });
+
+    // Change project (own orders), an INLINE sub-flow over the move targets +
+    // Miscellaneous (BeakerSearch v2 chunk 2). run stays terminal-safe (opens
+    // the order) for any caller without the sub-flow framework.
+    out.push({
+      id: "purchases-change-project",
+      label: `Change project of "${task.name}"`,
+      detail: writeReason ?? `currently ${data.projectNameOf(task) ?? "no project"}`,
+      keywords: "move reassign bucket",
+      group: PURCHASES_GROUP_SELECTED,
+      iconName: ICON_FUNDING,
+      enabled: writable,
+      run: () => handlers.setSelectedTask(task),
+      subflow: () => buildChangeProjectSubflow(task, data, handlers),
+    });
+
+    // Set funding account for the order's uncategorized items (own orders), an
+    // INLINE sub-flow over the funding accounts. Gated to own orders that have at
+    // least one unfunded item AND at least one funding account to choose from.
+    const unfunded = uncategorizedItems(items);
+    out.push({
+      id: "purchases-set-funding",
+      label: "Set funding account for items",
+      detail: writeReason ?? `${unfunded.length} item${
+        unfunded.length === 1 ? "" : "s"
+      } unfunded`,
+      keywords: "grant award budget categorize",
+      group: PURCHASES_GROUP_SELECTED,
+      iconName: ICON_FUNDING,
+      enabled: writable && unfunded.length > 0 && data.fundingAccounts.length > 0,
+      run: () => handlers.setSelectedTask(task),
+      subflow: () => buildSetFundingSubflow(task, items, data, handlers),
     });
 
     // Delete (own orders).
@@ -669,7 +836,13 @@ function buildSuggestedIds(data: PurchasesSourceData): string[] {
       ids.push("purchases-approve-all-in-order");
     }
     ids.push("purchases-toggle-complete");
-    if (!task.is_shared_with_me) ids.push("purchases-delete-order");
+    if (!task.is_shared_with_me) {
+      ids.push(
+        "purchases-change-project",
+        "purchases-set-funding",
+        "purchases-delete-order",
+      );
+    }
     return ids;
   }
 

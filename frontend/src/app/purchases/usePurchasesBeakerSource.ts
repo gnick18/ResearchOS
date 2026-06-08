@@ -257,6 +257,30 @@ export function usePurchasesBeakerSource(args: UsePurchasesBeakerSourceArgs): vo
   }, [isLabHead, focusedTask, purchasesByTask]);
 
   // ── Display helpers (project-name override + composite key). ──────────────
+  // BeakerSearch v2 (sub-flow framework, chunk 2). The change-project move
+  // targets, resolved the SAME way the page's project pickers do, the current
+  // user's OWN, non-archived, non-misc real projects (label = name). The misc
+  // project is excluded here and offered as the picker's separate
+  // "Miscellaneous" option, pointing at miscProjectId below.
+  const moveTargets = useMemo(
+    () =>
+      projects
+        .filter((p) => p.owner === currentUser)
+        .filter((p) => !p.is_archived)
+        .filter((p) => !isMiscProject(p))
+        .map((p) => ({ id: p.id, name: p.name })),
+    [projects, currentUser],
+  );
+
+  // The hidden _misc_purchases project's id (the Miscellaneous sentinel), or
+  // null when it has not been bootstrapped yet (the picker then omits it).
+  const miscProjectId = useMemo(() => {
+    const misc = projects.find(
+      (p) => p.owner === currentUser && isMiscProject(p),
+    );
+    return misc ? misc.id : null;
+  }, [projects, currentUser]);
+
   const projectNameOf = useCallback(
     (task: Task): string | null => {
       const project = projects.find(
@@ -310,6 +334,28 @@ export function usePurchasesBeakerSource(args: UsePurchasesBeakerSourceArgs): vo
       deleteOrder: (order: Task) => {
         // Keeps the page's confirm() + invalidations (handleDeleteTask).
         args.handleDeleteTask(order.id);
+      },
+
+      // BeakerSearch v2 (sub-flow framework, chunk 2), the two picker handlers,
+      // the SAME real wiring v1 had behind the order editor.
+      changeOrderProject: (order: Task, projectId: number | null) => {
+        // Own orders only (the command gates !is_shared_with_me), so no owner
+        // route. project_id null normalizes to "no project" inside tasksApi.
+        void tasksApi
+          .update(order.id, { project_id: projectId })
+          .then(() => {
+            void refetch(["tasks"]);
+            void refetch(["task", taskKey(order)]);
+            void refetch(["projects"]);
+          });
+      },
+      setItemFunding: (item: PurchaseItem, order: Task, accountName: string) => {
+        // Own orders only, so no owner route. The builder loops this over every
+        // uncategorized item, one purchasesApi.update per item.
+        void order;
+        void purchasesApi
+          .update(item.id, { funding_string: accountName })
+          .then(() => refetch(["purchases-all"]));
       },
 
       approveItem: (item: PurchaseItem, order: Task) => {
@@ -384,6 +430,8 @@ export function usePurchasesBeakerSource(args: UsePurchasesBeakerSourceArgs): vo
       purchasesByTask,
       projects,
       fundingAccounts,
+      moveTargets,
+      miscProjectId,
       sortedTasks,
       grandTotal,
       categoryFilter: args.categoryFilter,
@@ -406,6 +454,8 @@ export function usePurchasesBeakerSource(args: UsePurchasesBeakerSourceArgs): vo
     purchasesByTask,
     projects,
     fundingAccounts,
+    moveTargets,
+    miscProjectId,
     sortedTasks,
     grandTotal,
     args.categoryFilter,
