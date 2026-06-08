@@ -60,10 +60,7 @@ export class FileService {
   }
 
   async verifyPermission(requestWrite: boolean = true): Promise<boolean> {
-    if (!this.directoryHandle) {
-      console.log("verifyPermission: no directoryHandle");
-      return false;
-    }
+    if (!this.directoryHandle) return false;
 
     const mode = requestWrite ? "readwrite" : "read";
 
@@ -75,15 +72,9 @@ export class FileService {
     if (handleWithPermission.queryPermission) {
       try {
         const permission = await handleWithPermission.queryPermission({ mode });
-        console.log("queryPermission result:", permission);
-
-        if (permission === "granted") {
-          return true;
-        }
-
+        if (permission === "granted") return true;
         if (permission === "prompt" && handleWithPermission.requestPermission) {
           const requestResult = await handleWithPermission.requestPermission({ mode });
-          console.log("requestPermission result:", requestResult);
           return requestResult === "granted";
         }
       } catch (err) {
@@ -102,7 +93,6 @@ export class FileService {
     if (!this.directoryHandle) return null;
 
     const parts = path.split("/").filter(Boolean);
-    console.log("[getHandleByPath] path:", path, "parts:", parts);
     let currentHandle: FileSystemDirectoryHandle = this.directoryHandle;
 
     for (let i = 0; i < parts.length; i++) {
@@ -111,46 +101,34 @@ export class FileService {
 
       try {
         const nextHandle = await currentHandle.getDirectoryHandle(part);
-        console.log("[getHandleByPath] Got directory:", part, "kind:", nextHandle.kind);
         currentHandle = nextHandle;
       } catch {
-        console.log("[getHandleByPath] getDirectoryHandle failed for:", part, "isLast:", isLast);
         if (isLast) {
           if (create) {
             try {
-              const fileHandle = await currentHandle.getFileHandle(part, { create: true });
-              console.log("[getHandleByPath] Created file:", part);
-              return fileHandle;
+              return await currentHandle.getFileHandle(part, { create: true });
             } catch {
-              console.log("[getHandleByPath] Failed to create file:", part);
               return null;
             }
           } else {
             try {
-              const fileHandle = await currentHandle.getFileHandle(part);
-              console.log("[getHandleByPath] Got file:", part);
-              return fileHandle;
+              return await currentHandle.getFileHandle(part);
             } catch {
-              console.log("[getHandleByPath] getFileHandle also failed for:", part);
               return null;
             }
           }
         } else if (create) {
           try {
             currentHandle = await currentHandle.getDirectoryHandle(part, { create: true });
-            console.log("[getHandleByPath] Created directory:", part);
           } catch {
-            console.log("[getHandleByPath] Failed to create directory:", part);
             return null;
           }
         } else {
-          console.log("[getHandleByPath] Returning null, can't find:", part);
           return null;
         }
       }
     }
 
-    console.log("[getHandleByPath] Returning currentHandle:", currentHandle.name, "kind:", currentHandle.kind);
     return currentHandle;
   }
 
@@ -196,16 +174,10 @@ export class FileService {
   }
 
   async readJson<T>(path: string): Promise<T | null> {
-    if (!this.directoryHandle) {
-      console.log(`[fileService.readJson] No directoryHandle, returning null for: ${path}`);
-      return null;
-    }
+    if (!this.directoryHandle) return null;
 
     const handle = await this.getHandleByPath(path);
-    if (!handle || handle.kind !== "file") {
-      console.log(`[fileService.readJson] Not a file or null: ${path}, handle:`, handle ? { kind: handle.kind, name: handle.name } : null);
-      return null;
-    }
+    if (!handle || handle.kind !== "file") return null;
 
     try {
       const fileHandle = handle as FileSystemFileHandle;
@@ -230,7 +202,6 @@ export class FileService {
       const result = JSON.parse(text) as T;
       await putCacheEntry({ key, lastModified: file.lastModified, data: result, kind: "json" });
       this.bumpReadCount();
-      console.log(`[fileService.readJson] Successfully read: ${path}`);
       return result;
     } catch (err) {
       console.warn(`[fileService.readJson] Recoverable empty/malformed sidecar at ${path} (treating as missing):`, err);
@@ -339,20 +310,10 @@ export class FileService {
   }
 
   async listFiles(dirPath: string): Promise<string[]> {
-    console.log(`[fileService.listFiles] Called with dirPath: ${dirPath}, connected: ${this.isConnected()}`);
-    
-    if (!this.directoryHandle) {
-      console.log(`[fileService.listFiles] No directory handle, returning empty array`);
-      return [];
-    }
+    if (!this.directoryHandle) return [];
 
     const dirHandle = await this.getHandleByPath(dirPath);
-    console.log(`[fileService.listFiles] getHandleByPath result:`, dirHandle ? { kind: dirHandle.kind, name: dirHandle.name } : null);
-    
-    if (!dirHandle || dirHandle.kind !== "directory") {
-      console.log(`[fileService.listFiles] Not a directory or null, returning empty array`);
-      return [];
-    }
+    if (!dirHandle || dirHandle.kind !== "directory") return [];
 
     const files: string[] = [];
     const directoryHandle = dirHandle as FileSystemDirectoryHandle;
@@ -363,7 +324,6 @@ export class FileService {
       }
     }
 
-    console.log(`[fileService.listFiles] Found ${files.length} files in ${dirPath}:`, files);
     this.bumpReadCount();
     return files.sort();
   }
@@ -666,17 +626,13 @@ export class FileService {
   }
 
   async getDirectory(dirPath: string): Promise<FileSystemDirectoryHandle | null> {
-    console.log("getDirectory called with:", dirPath, "handle exists:", !!this.directoryHandle);
     const handle = await this.getHandleByPath(dirPath);
-    console.log("getHandleByPath result:", handle?.kind, handle?.name);
     if (!handle || handle.kind !== "directory") return null;
     return handle as FileSystemDirectoryHandle;
   }
 
   isConnected(): boolean {
-    const connected = this.directoryHandle !== null;
-    console.log("isConnected:", connected);
-    return connected;
+    return this.directoryHandle !== null;
   }
 }
 
