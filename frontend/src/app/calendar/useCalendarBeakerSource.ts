@@ -32,6 +32,8 @@ import { eventsApi } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAppStore } from "@/lib/store";
 import { useBeakerSearchSource } from "@/components/beaker-search/useBeakerSearchSource";
+import { useBeakerHoveredKey } from "@/components/beaker-search/BeakerSearchProvider";
+import { parseBeakerTargetKey } from "@/components/beaker-search/beaker-hover";
 import {
   type CalendarView,
   eventCoversDate,
@@ -408,6 +410,26 @@ export function useCalendarBeakerSource(deps: CalendarBeakerPageDeps): void {
     [view, currentDate, eventCount],
   );
 
+  // HOVERED. The event the cursor was over when the palette opened (null while
+  // closed). Parse its data-beaker-target key the same way the views stamp it
+  // ("event:<native id>" / "external:<external id>"), then resolve to the live
+  // entity. SELECTED still outranks this in the builder, so a real open event
+  // wins over a stale hover.
+  const hoveredKey = useBeakerHoveredKey();
+  const hovered = useMemo<CalendarSourceData["hovered"]>(() => {
+    const parsed = parseBeakerTargetKey(hoveredKey);
+    if (!parsed) return null;
+    if (parsed.kind === "event") {
+      const event = events.find((e) => String(e.id) === parsed.key);
+      return event ? { kind: "native", event } : null;
+    }
+    if (parsed.kind === "external") {
+      const event = externalEvents.find((e) => String(e.id) === parsed.key);
+      return event ? { kind: "external", event } : null;
+    }
+    return null;
+  }, [hoveredKey, events, externalEvents]);
+
   const source = useMemo(() => {
     const data: CalendarSourceData = {
       events,
@@ -421,6 +443,7 @@ export function useCalendarBeakerSource(deps: CalendarBeakerPageDeps): void {
       onScreenExternalEvents,
       selectedEvent: lastSelectedEventRef.current,
       selectedExternal: lastSelectedExternalRef.current,
+      hovered,
       upcomingEvents,
       eventDateLine,
       upcomingDetail: (item) => upcomingDetail(frame.todayStr, item),
@@ -436,6 +459,7 @@ export function useCalendarBeakerSource(deps: CalendarBeakerPageDeps): void {
     frame,
     onScreenEvents,
     onScreenExternalEvents,
+    hovered,
     upcomingEvents,
     feedById,
     handlers,

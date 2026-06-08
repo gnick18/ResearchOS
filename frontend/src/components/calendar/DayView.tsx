@@ -121,6 +121,7 @@ export default function DayView({
                 <button
                   key={`n-${item.event.id}`}
                   onClick={() => onEventClick(item.event)}
+                  data-beaker-target={`event:${item.event.id}`}
                   className={`w-full text-left px-2 py-1 text-meta rounded hover:opacity-90 ${ended ? ENDED_CLASSES : ""}`}
                   style={{
                     backgroundColor: itemColor,
@@ -139,6 +140,7 @@ export default function DayView({
                   key={`x-${item.event.id}`}
                   onClick={() => onExternalClick(item.event)}
                   title="Linked calendar event (read-only)"
+                  data-beaker-target={`external:${item.event.id}`}
                   className={`w-full text-left px-2 py-1 text-meta rounded hover:opacity-90 flex items-center gap-1 ${ended ? ENDED_CLASSES : ""}`}
                   style={{
                     backgroundColor: itemColor,
@@ -251,6 +253,11 @@ export default function DayView({
                     e.stopPropagation();
                     handleClick();
                   }}
+                  data-beaker-target={
+                    item.kind === "native"
+                      ? `event:${item.event.id}`
+                      : `external:${item.event.id}`
+                  }
                   className={`absolute rounded-md px-2 py-1 text-left overflow-hidden hover:opacity-90 z-10 ${ended ? ENDED_CLASSES : ""}`}
                   style={{
                     top,

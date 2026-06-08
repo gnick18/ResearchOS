@@ -270,6 +270,7 @@ function AllDayStrip({
                 <button
                   key={`n-${item.event.id}`}
                   onClick={() => onEventClick(item.event)}
+                  data-beaker-target={`event:${item.event.id}`}
                   className={`w-full text-left px-1.5 py-0.5 text-meta rounded truncate hover:opacity-80 ${ended ? ENDED_CLASSES : ""}`}
                   style={{
                     backgroundColor: itemColor,
@@ -288,6 +289,7 @@ function AllDayStrip({
                   key={`x-${item.event.id}`}
                   onClick={() => onExternalClick(item.event)}
                   title="Linked calendar event (read-only)"
+                  data-beaker-target={`external:${item.event.id}`}
                   className={`w-full text-left px-1.5 py-0.5 text-meta rounded truncate hover:opacity-80 flex items-center gap-1 ${ended ? ENDED_CLASSES : ""}`}
                   style={{
                     backgroundColor: itemColor,
@@ -356,6 +358,11 @@ function TimedEventBlock({
         e.stopPropagation();
         handleClick();
       }}
+      data-beaker-target={
+        item.kind === "native"
+          ? `event:${item.event.id}`
+          : `external:${item.event.id}`
+      }
       className={`absolute rounded-md px-1.5 py-0.5 text-left overflow-hidden hover:opacity-90 transition-opacity z-10 ${ended ? ENDED_CLASSES : ""}`}
       style={{
         top,

@@ -101,6 +101,16 @@ export interface CalendarSourceData {
   selectedEvent: Event | null;
   selectedExternal: ExternalEvent | null;
 
+  // Hover (HOVERED). The event the cursor was over when the palette opened,
+  // resolved by the hook from the data-beaker-target key (native "event:<id>" or
+  // external "external:<id>"). SELECTED always outranks this, so a real open
+  // event wins over a stale hover. Null when nothing tagged was under the
+  // pointer.
+  hovered:
+    | { kind: "native"; event: Event }
+    | { kind: "external"; event: ExternalEvent }
+    | null;
+
   /** The next ~5 upcoming events (start_date >= today), pre-sorted + capped by
    *  the caller, for the "Next up" nav group (spec 5). Native + external. */
   upcomingEvents: CalendarUpcomingItem[];
@@ -179,30 +189,63 @@ function resolveSelection(
   return null;
 }
 
+/** Resolve the active context entity by the SELECTED > HOVERED rule. When a real
+ *  selection exists, hovered is ignored. When nothing is selected, the event the
+ *  cursor was pointing at drives the SAME context-card selection line and the
+ *  SAME Suggested action set, only the framing ("pointing at" vs "selected")
+ *  changes. `isHovered` lets the copy and the Suggested hint switch voice without
+ *  duplicating the per-kind logic. */
+function resolveContext(data: CalendarSourceData):
+  | { kind: "native"; event: Event; isHovered: boolean }
+  | { kind: "external"; event: ExternalEvent; isHovered: boolean }
+  | null {
+  const sel = resolveSelection(data);
+  if (sel?.kind === "native") {
+    return { kind: "native", event: sel.event, isHovered: false };
+  }
+  if (sel?.kind === "external") {
+    return { kind: "external", event: sel.event, isHovered: false };
+  }
+
+  const hov = data.hovered;
+  if (hov?.kind === "native") {
+    return { kind: "native", event: hov.event, isHovered: true };
+  }
+  if (hov?.kind === "external") {
+    return { kind: "external", event: hov.event, isHovered: true };
+  }
+  return null;
+}
+
 /** Build the context card (spec 2.4). Title + meta from the frame, plus a
  *  second stacked selection line under a hairline divider when an event is
  *  selected ("Selected, ACS National Meeting, Jun 9 to Jun 12"; external adds
  *  ", read-only"). */
 function buildContextCard(data: CalendarSourceData): PaletteContextCard {
-  const sel = resolveSelection(data);
+  const ctx = resolveContext(data);
   let selection: PaletteContextCard["selection"];
 
-  if (sel?.kind === "native") {
-    const e = sel.event;
+  // The selection line frames a real selection as the open event and a hover as
+  // "the event you were pointing at", so the user knows which one drives
+  // Suggested.
+  if (ctx?.kind === "native") {
+    const e = ctx.event;
     const bits = [data.eventDateLine(e)];
     if (e.is_pto === true) bits.push("PTO");
+    const lead = ctx.isHovered ? "Pointing at" : "Selected";
     selection = {
       iconName: "list",
-      text: `Selected, ${e.title}, ${bits.join(", ")}`,
+      text: `${lead}, ${e.title}, ${bits.join(", ")}`,
     };
-  } else if (sel?.kind === "external") {
-    const e = sel.event;
+  } else if (ctx?.kind === "external") {
+    const e = ctx.event;
     const feed = data.feedOfExternal(e);
     const bits = [data.eventDateLine(e), "read-only"];
     if (feed) bits.push(`from ${feed.label}`);
+    const lead = ctx.isHovered ? "Pointing at" : "Selected";
     selection = {
       iconName: "import",
-      text: `Selected, ${e.title}, ${bits.join(", ")}`,
+      text: `${lead}, ${e.title}, ${bits.join(", ")}`,
     };
   }
 
@@ -223,12 +266,15 @@ function buildCommands(
   handlers: CalendarSourceHandlers,
 ): EditorCommand[] {
   const out: EditorCommand[] = [];
-  const sel = resolveSelection(data);
+  // SELECTED > HOVERED. A hovered event drives the same action rows as a
+  // selection (same ids, same gating), so Suggested can reference them either
+  // way.
+  const ctx = resolveContext(data);
   const frame = data.frame;
 
-  // ── Selected native event actions (spec 3.A). ─────────────────────────────
-  if (sel?.kind === "native") {
-    const e = sel.event;
+  // ── Selected / hovered native event actions (spec 3.A). ───────────────────
+  if (ctx?.kind === "native") {
+    const e = ctx.event;
     const dateLine = data.eventDateLine(e);
     const isPto = e.is_pto === true;
     out.push({
@@ -288,9 +334,9 @@ function buildCommands(
     });
   }
 
-  // ── Selected external (read-only) event actions (spec 3.B). ───────────────
-  if (sel?.kind === "external") {
-    const e = sel.event;
+  // ── Selected / hovered external (read-only) event actions (spec 3.B). ─────
+  if (ctx?.kind === "external") {
+    const e = ctx.event;
     const feed = data.feedOfExternal(e);
     out.push({
       id: "calendar-external-open-source",
@@ -449,10 +495,11 @@ function buildCommands(
  *  palette. */
 function buildSuggestedIds(data: CalendarSourceData): string[] {
   const ids: string[] = [];
-  const sel = resolveSelection(data);
+  // SELECTED > HOVERED, both lead with the same per-event action ids.
+  const ctx = resolveContext(data);
 
-  if (sel?.kind === "native") {
-    const isPto = sel.event.is_pto === true;
+  if (ctx?.kind === "native") {
+    const isPto = ctx.event.is_pto === true;
     ids.push(
       "calendar-event-edit",
       "calendar-event-delete",
@@ -463,7 +510,7 @@ function buildSuggestedIds(data: CalendarSourceData): string[] {
     return ids;
   }
 
-  if (sel?.kind === "external") {
+  if (ctx?.kind === "external") {
     ids.push(
       "calendar-external-open-source",
       "calendar-external-show-feed",
@@ -488,9 +535,17 @@ function buildSuggestedIds(data: CalendarSourceData): string[] {
 
 /** The Suggested heading hint (spec 3). */
 function buildSuggestedHint(data: CalendarSourceData): string | undefined {
-  const sel = resolveSelection(data);
-  if (sel?.kind === "native") return "for the selected event";
-  if (sel?.kind === "external") return "for the selected linked event";
+  const ctx = resolveContext(data);
+  if (ctx?.kind === "native") {
+    return ctx.isHovered
+      ? "for the event you were pointing at"
+      : "for the selected event";
+  }
+  if (ctx?.kind === "external") {
+    return ctx.isHovered
+      ? "for the linked event you were pointing at"
+      : "for the selected linked event";
+  }
   return undefined;
 }
 

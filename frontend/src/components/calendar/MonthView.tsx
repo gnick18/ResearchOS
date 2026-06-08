@@ -161,6 +161,7 @@ export default function MonthView({
                         isPto ? "PTO day, won't break your streak" : undefined
                       }
                       data-pto={isPto ? "true" : undefined}
+                      data-beaker-target={`event:${item.event.id}`}
                       className={`w-full text-left px-1.5 py-0.5 text-meta rounded truncate hover:opacity-80 flex items-center gap-1 ${
                         isPto ? "ring-1 ring-sky-300 ring-inset" : ""
                       } ${ended ? ENDED_CLASSES : ""}`}
@@ -189,6 +190,7 @@ export default function MonthView({
                         onExternalClick(item.event);
                       }}
                       title="Linked calendar event (read-only)"
+                      data-beaker-target={`external:${item.event.id}`}
                       className={`w-full text-left px-1.5 py-0.5 text-meta rounded truncate hover:opacity-80 flex items-center gap-1 ${ended ? ENDED_CLASSES : ""}`}
                       style={{
                         backgroundColor: itemColor,

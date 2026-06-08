@@ -119,6 +119,7 @@ function makeData(over: Partial<CalendarSourceData> = {}): CalendarSourceData {
     onScreenExternalEvents: [makeExternal()],
     selectedEvent: null,
     selectedExternal: null,
+    hovered: null,
     upcomingEvents: [],
     eventDateLine: (e) =>
       e.end_date && e.end_date !== e.start_date
@@ -374,6 +375,106 @@ describe("buildCalendarSource suggested ordering", () => {
     );
     expect(src.suggestedIds).toContain("calendar-go-today");
     expect(src.suggestedIds).toContain("calendar-retry-syncs");
+  });
+});
+
+// ── Hover as context (SELECTED > HOVERED) ────────────────────────────────────
+
+describe("buildCalendarSource hovered path", () => {
+  it("a hovered native event with no selection drives the native Suggested + hint", () => {
+    const src = buildCalendarSource(
+      makeData({
+        selectedEvent: null,
+        selectedExternal: null,
+        hovered: { kind: "native", event: makeEvent({ is_pto: false }) },
+      }),
+      noopHandlers,
+    );
+    expect(src.suggestedIds).toEqual([
+      "calendar-event-edit",
+      "calendar-event-delete",
+      "calendar-event-duplicate",
+      "calendar-event-mark-pto",
+      "calendar-event-open",
+    ]);
+    expect(src.suggestedHint).toBe("for the event you were pointing at");
+    // The same rows show up under Selected event, driven by the hover.
+    const sel = src.commands.filter((c) => c.group === "Selected event");
+    expect(sel.map((c) => c.id)).toEqual([
+      "calendar-event-edit",
+      "calendar-event-delete",
+      "calendar-event-duplicate",
+      "calendar-event-mark-pto",
+      "calendar-event-open",
+    ]);
+  });
+
+  it("frames the hovered native event context line as Pointing at", () => {
+    const card = buildCalendarSource(
+      makeData({
+        hovered: { kind: "native", event: makeEvent() },
+      }),
+      noopHandlers,
+    ).contextCard!;
+    expect(card.selection?.text).toBe(
+      "Pointing at, ACS National Meeting, 2026-06-09 to 2026-06-12",
+    );
+  });
+
+  it("a hovered external event with no selection drives the read-only Suggested + hint", () => {
+    const src = buildCalendarSource(
+      makeData({
+        hovered: { kind: "external", event: makeExternal() },
+      }),
+      noopHandlers,
+    );
+    expect(src.suggestedIds).toEqual([
+      "calendar-external-open-source",
+      "calendar-external-show-feed",
+      "calendar-external-copy",
+    ]);
+    expect(src.suggestedHint).toBe("for the linked event you were pointing at");
+    const card = src.contextCard!;
+    expect(card.selection?.text).toBe(
+      "Pointing at, Group Meeting, 2026-06-10, read-only, from Lab Google Calendar",
+    );
+  });
+
+  it("a selected event outranks a hovered one", () => {
+    const src = buildCalendarSource(
+      makeData({
+        selectedEvent: makeEvent({ id: 1, title: "Selected One" }),
+        hovered: {
+          kind: "native",
+          event: makeEvent({ id: 2, title: "Hovered Two" }),
+        },
+      }),
+      noopHandlers,
+    );
+    // The card frames the SELECTED event, not the hover.
+    expect(src.contextCard!.selection?.text).toContain("Selected, Selected One");
+    expect(src.contextCard!.selection?.text).not.toContain("Hovered Two");
+    expect(src.suggestedHint).toBe("for the selected event");
+  });
+
+  it("a selected external event outranks a hovered native one", () => {
+    const src = buildCalendarSource(
+      makeData({
+        selectedExternal: makeExternal({ id: "x-sel", title: "Selected Feed" }),
+        hovered: {
+          kind: "native",
+          event: makeEvent({ id: 9, title: "Hovered Native" }),
+        },
+      }),
+      noopHandlers,
+    );
+    expect(src.suggestedIds).toEqual([
+      "calendar-external-open-source",
+      "calendar-external-show-feed",
+      "calendar-external-copy",
+    ]);
+    expect(src.contextCard!.selection?.text).toContain("Selected, Selected Feed");
+    expect(src.suggestedHint).toBe("for the selected linked event");
   });
 });
 
