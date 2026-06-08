@@ -1257,6 +1257,22 @@ export interface InventoryStock {
   // specific container set / lot (design §15.1, FLAG-B2). Optional.
   container_code: string | null;
 
+  // --- UNITS-PER-SCAN ledger (scan-manager, 2026-06-08) ---
+  // When `units_per_scan` is set, a single barcode scan deducts `units_per_scan`
+  // from `units_remaining` instead of decrementing `container_count` by 1.
+  // When `units_per_scan` is absent, the existing container-count path is used
+  // unchanged so all legacy stocks behave exactly as before.
+  //
+  // `units_per_scan` — how many discrete units (reactions, mL, etc.) one scan
+  //   consumes from this stock. Must be a positive integer when set.
+  // `units_remaining` — the live ledger of units left. Initialized to the total
+  //   units in the box when the lab registers the stock for tracked scanning via
+  //   `registerTrackedBarcode`. Clamped at 0; never goes negative. Status
+  //   derivation treats 0 units_remaining as empty, and units_remaining below
+  //   the item's low_at_count threshold (in units) as low.
+  units_per_scan?: number;
+  units_remaining?: number;
+
   notes: string | null;
 
   owner: string; // always equals the parent item's owner
@@ -1287,6 +1303,8 @@ export interface InventoryStockCreate {
   position?: string | null;
   purchase_item_id?: number | null;
   container_code?: string | null;
+  units_per_scan?: number;
+  units_remaining?: number;
   notes?: string | null;
   /** Defaults to the parent item's `shared_with` when omitted (design §5.2:
    *  a stock inherits the item's sharing). Falls back to whole-lab edit. */
@@ -1313,6 +1331,8 @@ export interface InventoryStockUpdate {
   position?: string | null;
   purchase_item_id?: number | null;
   container_code?: string | null;
+  units_per_scan?: number;
+  units_remaining?: number;
   notes?: string | null;
   shared_with?: SharedUser[];
   // Auto-stamped by `inventoryStocksApi.update`.

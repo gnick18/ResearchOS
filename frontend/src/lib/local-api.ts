@@ -2339,18 +2339,24 @@ function utcDayNumber(d: Date): number {
  *
  * Precedence, highest first:
  *   1. `expired`  — `expiration_date` is in the past.
- *   2. `empty`    — `container_count <= 0`.
+ *   2. `empty`    — when `units_per_scan` is set: `units_remaining <= 0`;
+ *                   otherwise: `container_count <= 0`.
  *   3. manual tap — a directly-set `low` / `empty` is HONORED and never
  *                   clobbered back to `in_stock` by a recompute. (A manual
  *                   `empty` on a still-positive count is preserved.)
- *   4. `low`      — summed container_count across the item's stocks is below
- *                   `item.low_at_count`.
+ *   4. `low`      — when `units_per_scan` is set: `units_remaining` is below
+ *                   the item's `low_at_count` threshold (units, not containers);
+ *                   otherwise: summed container_count is below `low_at_count`.
  *   5. `in_stock` — otherwise.
  *
  * `summedCount` is the total container_count across ALL stocks of the item
  * (the low signal is item-level, not per-stock; design §2.3, §10). Callers
  * pass it so this stays a pure function; when omitted it falls back to this
  * stock's own count (single-stock case).
+ *
+ * When `units_per_scan` is set the low signal uses `units_remaining` directly
+ * (a per-stock unit ledger) rather than the summed container count. The
+ * `units_remaining` ledger does not cross container boundaries.
  *
  * `now` is injectable for deterministic tests.
  */
@@ -2359,6 +2365,8 @@ export function deriveInventoryStatus(
     container_count: number;
     expiration_date: string | null;
     status?: InventoryStockStatus;
+    units_per_scan?: number;
+    units_remaining?: number;
   },
   item: { low_at_count: number | null } | null | undefined,
   options?: { summedCount?: number; now?: Date; manualStatus?: InventoryStockStatus | null },
@@ -2374,6 +2382,29 @@ export function deriveInventoryStatus(
     if (!Number.isNaN(exp.getTime()) && utcDayNumber(now) > utcDayNumber(exp)) {
       return "expired";
     }
+  }
+
+  // Detect whether this stock is running the units-per-scan ledger.
+  const trackedByUnits =
+    typeof stock.units_per_scan === "number" &&
+    stock.units_per_scan > 0 &&
+    typeof stock.units_remaining === "number";
+
+  if (trackedByUnits) {
+    const remaining = stock.units_remaining as number;
+
+    // 2a. Units ledger empty.
+    if (remaining <= 0) return "empty";
+
+    // 3. Honor a manual low/empty tap.
+    const manual = options?.manualStatus ?? stock.status;
+    if (manual === "low" || manual === "empty") return manual;
+
+    // 4a. Units-based low signal vs item threshold.
+    const threshold = item?.low_at_count ?? null;
+    if (threshold != null && remaining < threshold) return "low";
+
+    return "in_stock";
   }
 
   // 2. A zero (or negative) count is empty regardless of taps.
@@ -2470,6 +2501,8 @@ export function normalizeInventoryStockRecord(
     position: raw.position ?? null,
     purchase_item_id: raw.purchase_item_id ?? null,
     container_code: raw.container_code ?? null,
+    ...(raw.units_per_scan != null ? { units_per_scan: raw.units_per_scan } : {}),
+    ...(raw.units_remaining != null ? { units_remaining: raw.units_remaining } : {}),
     notes: raw.notes ?? null,
     owner: raw.owner ?? fallbackOwner ?? "",
     shared_with: normalizeSharedWith(raw.shared_with),
@@ -2708,7 +2741,13 @@ export const inventoryStocksApi = {
       container_count,
     );
     const status = deriveInventoryStatus(
-      { container_count, expiration_date, status: data.status },
+      {
+        container_count,
+        expiration_date,
+        status: data.status,
+        units_per_scan: data.units_per_scan,
+        units_remaining: data.units_remaining,
+      },
       parentItem ? { low_at_count: parentItem.low_at_count ?? null } : null,
       { summedCount: summed, manualStatus: data.status ?? null },
     );
@@ -2730,6 +2769,8 @@ export const inventoryStocksApi = {
       position: data.position ?? null,
       purchase_item_id: data.purchase_item_id ?? null,
       container_code: data.container_code ?? null,
+      ...(data.units_per_scan != null ? { units_per_scan: data.units_per_scan } : {}),
+      ...(data.units_remaining != null ? { units_remaining: data.units_remaining } : {}),
       notes: data.notes ?? null,
       owner: targetOwner,
       shared_with,
@@ -2786,6 +2827,8 @@ export const inventoryStocksApi = {
         container_count: merged.container_count,
         expiration_date: merged.expiration_date,
         status: data.status,
+        units_per_scan: merged.units_per_scan,
+        units_remaining: merged.units_remaining,
       },
       parentItem ? { low_at_count: parentItem.low_at_count ?? null } : null,
       { summedCount: summed, manualStatus },

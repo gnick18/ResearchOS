@@ -84,6 +84,9 @@ interface ConsumeOutcome {
   stock: InventoryStock;
   previousCount: number;
   newCount: number;
+  /** When units_per_scan is set: the units remaining after the deduction. */
+  previousUnits: number | undefined;
+  newUnits: number | undefined;
   /** The re-derived status after the write (from the data layer). */
   newStatus: InventoryStock["status"];
   /** True when the write crossed into low or empty. */
@@ -138,21 +141,41 @@ export default function ScanFlow({
     }
   };
 
-  // Decrement one container of `stock` by 1 via the API and capture the
-  // re-derived status so we can show the "now low" note + Undo.
+  // Consume one scan's worth of `stock`. When `units_per_scan` is set on the
+  // stock, deduct `units_per_scan` from `units_remaining` (clamped at 0) and
+  // leave `container_count` untouched. When `units_per_scan` is not set, fall
+  // back to decrementing `container_count` by 1 (the original behavior).
   const consume = async (item: InventoryItem, stock: InventoryStock) => {
     setBusy(true);
     try {
       const previousCount = Number.isFinite(stock.container_count)
         ? stock.container_count
         : 0;
-      const newCount = Math.max(0, previousCount - 1);
       const owner = effectiveOwnerOf(item, currentUser);
-      const updated = await inventoryStocksApi.update(
-        stock.id,
-        { container_count: newCount },
-        owner,
-      );
+
+      let patch: Parameters<typeof inventoryStocksApi.update>[1];
+      let newCount: number;
+      let previousUnits: number | undefined;
+      let newUnits: number | undefined;
+
+      const trackedByUnits =
+        typeof stock.units_per_scan === "number" &&
+        stock.units_per_scan > 0 &&
+        typeof stock.units_remaining === "number";
+
+      if (trackedByUnits) {
+        // Units-per-scan path: deduct units_per_scan from units_remaining.
+        previousUnits = stock.units_remaining as number;
+        newUnits = Math.max(0, previousUnits - (stock.units_per_scan as number));
+        newCount = previousCount; // container_count unchanged on a units deduction
+        patch = { units_remaining: newUnits };
+      } else {
+        // Legacy path: decrement container_count by 1.
+        newCount = Math.max(0, previousCount - 1);
+        patch = { container_count: newCount };
+      }
+
+      const updated = await inventoryStocksApi.update(stock.id, patch, owner);
       const newStatus = updated?.status ?? stock.status;
       const crossedLow =
         (newStatus === "low" || newStatus === "empty") &&
@@ -194,6 +217,8 @@ export default function ScanFlow({
           stock,
           previousCount,
           newCount,
+          previousUnits,
+          newUnits,
           newStatus,
           crossedLow,
           reorderDropped,
@@ -205,17 +230,18 @@ export default function ScanFlow({
     }
   };
 
-  // Undo restores the previous count. We do not unwind a reorder drop (the
-  // line item stays in the order pipeline, which is the safe default).
+  // Undo restores the previous count (or units_remaining for tracked stocks).
+  // We do not unwind a reorder drop (the line item stays in the order pipeline,
+  // which is the safe default).
   const undoConsume = async (outcome: ConsumeOutcome) => {
     setBusy(true);
     try {
       const owner = effectiveOwnerOf(outcome.item, currentUser);
-      await inventoryStocksApi.update(
-        outcome.stock.id,
-        { container_count: outcome.previousCount },
-        owner,
-      );
+      const undoPatch =
+        outcome.previousUnits !== undefined
+          ? { units_remaining: outcome.previousUnits }
+          : { container_count: outcome.previousCount };
+      await inventoryStocksApi.update(outcome.stock.id, undoPatch, owner);
       onRefresh();
       setState({ phase: "scanning" });
     } finally {
@@ -287,12 +313,17 @@ function ConsumeCard({
   onScanAnother: () => void;
   onDone: () => void;
 }) {
-  const { item, stock, previousCount, newCount, newStatus, crossedLow, reorderDropped } =
+  const { item, stock, previousCount, newCount, previousUnits, newUnits, newStatus, crossedLow, reorderDropped } =
     outcome;
   const word = containerWord(item.container_label);
   const metaParts: string[] = [];
   if (stock.lot_number) metaParts.push(`Lot ${stock.lot_number}`);
   if (stock.location_text) metaParts.push(stock.location_text);
+
+  // Show units-ledger progress when the stock uses units_per_scan, otherwise
+  // show the classic container count change.
+  const trackedByUnits = previousUnits !== undefined && newUnits !== undefined;
+  const unitLabel = stock.unit ?? "unit";
 
   return (
     <div className="p-5">
@@ -316,23 +347,48 @@ function ConsumeCard({
             ) : null}
           </div>
           <div className="mt-2 inline-flex items-center gap-1.5 text-body font-semibold">
-            Used one {word}
-            <span className="text-foreground-muted line-through">
-              {previousCount}
-            </span>
-            <Icon
-              name="chevronDown"
-              className="h-3.5 w-3.5 -rotate-90 text-foreground-muted"
-            />
-            <span
-              className={
-                crossedLow
-                  ? "text-amber-600 dark:text-amber-300"
-                  : "text-emerald-600 dark:text-emerald-300"
-              }
-            >
-              {newCount} left
-            </span>
+            {trackedByUnits ? (
+              <>
+                Used {stock.units_per_scan} {unitLabel}
+                {(stock.units_per_scan ?? 1) !== 1 ? "s" : ""}
+                <span className="text-foreground-muted line-through">
+                  {previousUnits}
+                </span>
+                <Icon
+                  name="chevronDown"
+                  className="h-3.5 w-3.5 -rotate-90 text-foreground-muted"
+                />
+                <span
+                  className={
+                    crossedLow
+                      ? "text-amber-600 dark:text-amber-300"
+                      : "text-emerald-600 dark:text-emerald-300"
+                  }
+                >
+                  {newUnits} left
+                </span>
+              </>
+            ) : (
+              <>
+                Used one {word}
+                <span className="text-foreground-muted line-through">
+                  {previousCount}
+                </span>
+                <Icon
+                  name="chevronDown"
+                  className="h-3.5 w-3.5 -rotate-90 text-foreground-muted"
+                />
+                <span
+                  className={
+                    crossedLow
+                      ? "text-amber-600 dark:text-amber-300"
+                      : "text-emerald-600 dark:text-emerald-300"
+                  }
+                >
+                  {newCount} left
+                </span>
+              </>
+            )}
           </div>
         </div>
       </div>
