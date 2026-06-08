@@ -137,7 +137,10 @@ describe("PurchaseEditor — PI edit gate", () => {
     };
     expect(call.targetOwner).toBe("morgan");
     expect(call.actor).toBe("alex");
-    expect(call.recordType).toBe("purchase");
+    // Audit record_type for a purchase is "purchase_item" (Phase 4 pass B
+    // standardized it so a purchase's content edits group with the approve /
+    // decline rows in the audit log via auditRecordTypeFor).
+    expect(call.recordType).toBe("purchase_item");
     expect(call.recordId).toBe(7);
     // The dataWrite ran the real owner-routed update.
     await waitFor(() =>
