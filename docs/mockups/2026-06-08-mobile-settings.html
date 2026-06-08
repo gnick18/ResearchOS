@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS companion - Settings sheet + global rainbow</title>
+<style>
+  :root{--sky:#1AA0E6;--purple:#5B47D6;--ink:#0b1320;--ink-2:#3c4656;--ink-3:#8a93a3;--bg:#f2f3f7;--group:#fff;--sep:rgba(60,67,86,.10);--card-shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px rgba(16,24,40,.06);--ok:#1a9c5b;--ok-bg:#e4f7ec;--danger:#e5484d;--r1:#FFD2B0;--r2:#FFF1A8;--r3:#B7EBB1;--r4:#A6D2F4;--r5:#D6B5F0;--radius:18px;--page:#e9ebf1}
+  [data-theme="dark"]{--sky:#3aa6e8;--purple:#8170e6;--ink:#f5f7fb;--ink-2:#c3ccda;--ink-3:#7e8696;--bg:#000;--group:#15171c;--sep:rgba(255,255,255,.10);--card-shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.5);--ok:#3ddc8c;--ok-bg:rgba(45,160,100,.18);--danger:#ff6b6f;--r1:#F97316;--r2:#E8920B;--r3:#16A34A;--r4:#0284C7;--r5:#9333EA;--page:#0a0b0e}
+  *{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .top{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--page) 88%,transparent);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--sep);padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .top h1{font-size:17px;margin:0;font-weight:700;letter-spacing:-.02em}.top .sub{font-size:12.5px;color:var(--ink-3)}.spacer{flex:1}
+  .tbtn{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--sep);background:var(--group);color:var(--ink);border-radius:980px;padding:8px 15px;cursor:pointer}.tbtn.brand{background:linear-gradient(135deg,var(--sky),var(--purple));color:#fff;border:none}
+  .legend{display:flex;gap:12px;font-size:12px;color:var(--ink-3);align-items:center;flex-wrap:wrap}.dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px}.dot.ok{background:#1a9c5b}.dot.warn{background:#d98a0b}.dot.none{background:#c4ccd6}
+  .wrap{max-width:760px;margin:0 auto;padding:20px 20px 120px}.intro{font-size:13px;color:var(--ink-2);max-width:640px;line-height:1.6;margin:8px 0}
+  .grid{display:flex;gap:36px;flex-wrap:wrap;align-items:flex-start;margin-top:14px;justify-content:center}.cell{width:330px}
+  .cap{display:flex;align-items:baseline;gap:8px;margin:0 2px 9px}.cap .n{font-size:14px;font-weight:700}.cap .d{font-size:12px;color:var(--ink-3)}
+  .phone{width:330px;height:710px;border-radius:46px;background:var(--bg);position:relative;overflow:hidden;border:10px solid #0c0d10;box-shadow:0 30px 60px rgba(16,24,40,.22)}
+  [data-theme="dark"] .phone{border-color:#23262d}
+  .phone::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5));z-index:20}
+  .scr{position:absolute;inset:0;display:flex;flex-direction:column}
+  .rainbow{height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5))}
+  .statusbar{height:46px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 7px;font-size:13px;font-weight:600}
+  .navbar{display:flex;align-items:center;justify-content:space-between;padding:4px 18px 2px}
+  .navbar .lt{font-size:20px;font-weight:800;letter-spacing:-.02em}
+  .gear{width:32px;height:32px;border-radius:50%;background:var(--group);box-shadow:var(--card-shadow);display:flex;align-items:center;justify-content:center;color:var(--ink-2)}
+  .content{flex:1;overflow:hidden;position:relative}.scroll{position:absolute;inset:0;overflow:auto;padding:0 18px 30px}.scroll::-webkit-scrollbar{display:none}
+  .sheetgrip{width:38px;height:5px;border-radius:3px;background:var(--sep);margin:8px auto 6px}
+  .largetitle{font-size:30px;font-weight:800;letter-spacing:-.03em;margin:4px 2px 14px}
+  .group{background:var(--group);border-radius:var(--radius);box-shadow:var(--card-shadow);overflow:hidden;margin-bottom:16px}
+  .row{display:flex;align-items:center;gap:13px;padding:13px 16px;position:relative}.row+.row::before{content:"";position:absolute;top:0;left:52px;right:0;height:1px;background:var(--sep)}
+  .row .ico{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff}
+  .row .tx{flex:1;min-width:0}.row .t{font-size:15px;font-weight:550}.row .s{font-size:12.5px;color:var(--ink-3);margin-top:1px}
+  .chev{color:var(--ink-3);opacity:.5}.val{font-size:14px;color:var(--ink-3)}
+  .sec-h{font-size:13px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.03em;margin:6px 8px 8px}
+  .pill{font-size:11px;font-weight:700;padding:3px 9px;border-radius:980px}.pill.ok{background:var(--ok-bg);color:var(--ok)}
+  /* identity */
+  .idcard{display:flex;align-items:center;gap:14px;padding:18px 16px}
+  .orb{width:54px;height:54px;border-radius:50%;background:conic-gradient(from 30deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5),var(--r1));flex-shrink:0;box-shadow:0 2px 10px rgba(0,0,0,.12)}
+  .idcard .nm{font-size:18px;font-weight:700;letter-spacing:-.01em}.idcard .em{font-size:13px;color:var(--ink-3);margin-top:1px}
+  /* usage */
+  .usage{display:flex;align-items:center;gap:18px;padding:18px 16px}
+  .ring{width:84px;height:84px;flex-shrink:0;position:relative}
+  .ring .lab{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .ring .lab b{font-size:16px;font-weight:800}.ring .lab span{font-size:9px;color:var(--ink-3)}
+  .usage .meta .b{font-size:15px;font-weight:650}.usage .meta .s{font-size:12.5px;color:var(--ink-3);margin-top:3px;line-height:1.45}
+  .seg3{display:flex;background:var(--sep);border-radius:11px;padding:3px;margin:0}
+  .seg3 div{flex:1;text-align:center;font-size:13px;font-weight:600;padding:7px;border-radius:8px;color:var(--ink-2)}
+  .seg3 div.on{background:var(--group);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  .toggle{width:46px;height:28px;border-radius:980px;background:var(--ok);position:relative;flex-shrink:0}.toggle::after{content:"";position:absolute;top:2px;right:2px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+  .toggle.off{background:var(--sep)}.toggle.off::after{right:auto;left:2px}
+  .danger{color:var(--danger)}
+  .why{font-size:12px;color:var(--ink-2);line-height:1.5;margin:8px 2px 0;border-left:2px solid var(--sky);padding-left:10px}
+  .review{margin-top:12px;display:flex;gap:7px;flex-wrap:wrap}.seg{display:inline-flex;border:1px solid var(--sep);border-radius:9px;overflow:hidden}.seg button{font:inherit;font-size:12px;padding:6px 11px;border:none;background:var(--group);color:var(--ink-3);cursor:pointer}.seg button.on.ok{background:#1a9c5b;color:#fff}.seg button.on.warn{background:#d98a0b;color:#fff}.seg button.on.none{background:#64748b;color:#fff}
+  .cmt{width:100%;margin-top:8px;font:inherit;font-size:12.5px;border:1px dashed var(--sep);border-radius:9px;background:var(--group);color:var(--ink);padding:8px 10px;resize:vertical;min-height:30px}
+  svg{display:block}
+  #exm{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}#exm .box{background:var(--group);border-radius:16px;max-width:680px;width:100%;padding:18px;border:1px solid var(--sep)}#exm textarea{width:100%;min-height:200px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid var(--sep);border-radius:8px;background:var(--bg);color:var(--ink);padding:10px}
+</style>
+</head>
+<body>
+<div class="top">
+  <div><h1>Settings sheet + global rainbow</h1><div class="sub">Gear on Today (top-right) opens this. Thin rainbow now tops every page.</div></div>
+  <div class="spacer"></div>
+  <div class="legend"><span><span class="dot ok"></span>Approve</span><span><span class="dot warn"></span>Change</span><span><span class="dot none"></span>?</span></div>
+  <button class="tbtn" id="theme">Dark</button><button class="tbtn brand" id="export">Export</button>
+</div>
+<div class="wrap">
+  <p class="intro">The gear lives in the top-right of Today. Tapping it opens this Settings sheet (the Apple bottom-sheet pattern). Theme defaults to following your phone; the toggle is here. Your usage graphic is the storage ring up top. Mark each + Export.</p>
+  <div class="grid" id="grid"></div>
+</div>
+<div id="exm"><div class="box"><div style="display:flex;gap:10px;margin-bottom:10px;align-items:center"><strong style="font-size:14px">Feedback</strong><span class="spacer" style="flex:1"></span><button class="tbtn" onclick="navigator.clipboard.writeText(exT.value)">Copy</button><button class="tbtn" onclick="exm.style.display='none'">Close</button></div><textarea id="exT" readonly></textarea></div></div>
+<script>
+const I={
+ gear:'<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H1a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 2.6 7a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H7a1.6 1.6 0 0 0 1-1.5V1a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V7a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>',
+ chev:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+ phone:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="3"/><path d="M11 18h2"/></svg>',
+ bell:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>',
+ lock:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+ shield:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>',
+ info:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h0"/></svg>',
+ heart:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 6.6a5 5 0 0 0-7.1 0L12 8.3l-1.7-1.7a5 5 0 1 0-7.1 7.1L12 22l8.8-8.3a5 5 0 0 0 0-7.1z"/></svg>',
+ chat:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+ sun:'<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6L19 19M19 5l-1.4 1.4M6.4 17.6L5 19"/></svg>',
+};
+function ring(pct){const r=34,c=2*Math.PI*r,off=c*(1-pct);return `<svg viewBox="0 0 84 84" width="84" height="84"><defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--r1)"/><stop offset=".5" stop-color="var(--r3)"/><stop offset="1" stop-color="var(--r5)"/></linearGradient></defs><circle cx="42" cy="42" r="${r}" fill="none" stroke="var(--sep)" stroke-width="9"/><circle cx="42" cy="42" r="${r}" fill="none" stroke="url(#rg)" stroke-width="9" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${off}" transform="rotate(-90 42 42)"/></svg>`;}
+
+const screens=[
+ {id:'today-gear',n:'Today, with the gear',d:'rainbow top + gear top-right',
+  why:'The rainbow now tops every page (your note). The gear sits in the top-right of Today, the one settings entry, keeping the 5 tabs uncluttered.',
+  html:`<div class="scr"><div class="rainbow"></div><div class="statusbar"><span>9:41</span><span>WiFi</span></div>
+   <div class="navbar"><span class="lt">Today</span><span class="gear">${I.gear}</span></div>
+   <div class="content"><div class="scroll" style="padding-top:6px">
+     <div class="sec-h">Today</div><div class="group"><div class="row"><div class="tx"><div class="t">Passage HEK293 cells</div><div class="s">Experiment</div></div></div></div>
+     <div class="sec-h" style="color:var(--danger)">Overdue (3)</div><div class="group"><div class="row"><div class="tx"><div class="t danger">Find A. nidulans plates</div><div class="s">Due May 19</div></div></div></div>
+   </div></div></div>`},
+
+ {id:'settings',n:'Settings sheet',d:'opened from the gear',
+  why:'Apple bottom-sheet. Top: your identity (rainbow orb). Then the usage graphic, a rainbow storage ring + a plain-language local-first note. Theme segmented (System default). Connection (device/unpair/sync). Notifications. Privacy + About round it out. Everything a simple companion needs, nothing it does not.',
+  html:`<div class="scr"><div class="rainbow"></div><div class="content"><div class="scroll">
+   <div class="sheetgrip"></div>
+   <div class="largetitle">Settings</div>
+   <div class="group"><div class="idcard"><span class="orb"></span><div><div class="nm">Grant Nickles</div><div class="em">Fungal Interactions Lab</div></div><span class="chev">${I.chev}</span></div></div>
+   <div class="sec-h">Usage</div>
+   <div class="group"><div class="usage"><div class="ring">${ring(.12)}<div class="lab"><b>12%</b><span>used</span></div></div><div class="meta"><div class="b">240 MB of 2 GB</div><div class="s">Cloud transfer + sharing. Your research lives in your folder, the cloud only holds what is in transit.</div></div></div>
+     <div class="row"><div class="tx"><div class="t">This week</div><div class="s">18 captures, 4 notes synced</div></div></div></div>
+   <div class="sec-h">Appearance</div>
+   <div class="group" style="padding:12px 14px"><div class="seg3"><div>System</div><div class="on">Light</div><div>Dark</div></div></div>
+   <div class="sec-h">Connection</div>
+   <div class="group">
+     <div class="row"><span class="ico" style="background:var(--sky)">${I.phone}</span><div class="tx"><div class="t">Paired with your laptop</div><div class="s">Synced just now</div></div><span class="pill ok">Live</span></div>
+     <div class="row"><div class="tx"><div class="t danger">Unpair this phone</div></div></div>
+   </div>
+   <div class="sec-h">Preferences</div>
+   <div class="group"><div class="row"><span class="ico" style="background:#d98a0b">${I.bell}</span><div class="tx"><div class="t">Notifications</div><div class="s">Timer + capture alerts</div></div><span class="toggle"></span></div></div>
+   <div class="sec-h">Privacy</div>
+   <div class="group"><div class="row"><span class="ico" style="background:#1a9c5b">${I.shield}</span><div class="tx"><div class="t">What stays on your device</div></div><span class="chev">${I.chev}</span></div>
+     <div class="row"><span class="ico" style="background:var(--ink-2)">${I.lock}</span><div class="tx"><div class="t">Lock identity</div></div><span class="chev">${I.chev}</span></div></div>
+   <div class="sec-h">About</div>
+   <div class="group"><div class="row"><span class="ico" style="background:var(--purple)">${I.info}</span><div class="tx"><div class="t">Version</div></div><span class="val">2.0 (build 14)</span></div>
+     <div class="row"><span class="ico" style="background:var(--ink-2)">${I.heart}</span><div class="tx"><div class="t">Open source + credits</div><div class="s">AGPLv3</div></div><span class="chev">${I.chev}</span></div>
+     <div class="row"><span class="ico" style="background:var(--sky)">${I.chat}</span><div class="tx"><div class="t">Send feedback</div></div><span class="chev">${I.chev}</span></div></div>
+  </div></div></div>`},
+];
+const grid=document.getElementById('grid');const KEY='mobile-settings-2026-06-08';const store=JSON.parse(localStorage.getItem(KEY)||'{}');function save(){localStorage.setItem(KEY,JSON.stringify(store));}
+screens.forEach(s=>{const c=document.createElement('div');c.className='cell';c.innerHTML=`<div class="cap"><span class="n">${s.n}</span><span class="d">${s.d}</span></div><div class="phone">${s.html}</div><div class="why">${s.why}</div><div class="review" data-id="${s.id}"></div>`;grid.appendChild(c);});
+document.querySelectorAll('.review').forEach(r=>{const id=r.dataset.id;const cur=store[id]||{};const seg=document.createElement('div');seg.className='seg';[['ok','Approve'],['warn','Change'],['none','?']].forEach(([v,l])=>{const b=document.createElement('button');b.textContent=l;b.onclick=()=>{store[id]={...(store[id]||{}),v};save();paint();};seg.appendChild(b);});r.appendChild(seg);const ta=document.createElement('textarea');ta.className='cmt';ta.placeholder='Comment';ta.value=cur.c||'';ta.oninput=()=>{store[id]={...(store[id]||{}),c:ta.value};save();};r.parentElement.appendChild(ta);});
+function paint(){document.querySelectorAll('.review').forEach(r=>{const c=store[r.dataset.id]||{};r.querySelectorAll('.seg button').forEach(b=>{const v=b.textContent==='Approve'?'ok':b.textContent==='Change'?'warn':'none';b.className=(c.v===v?'on '+v:'');});});}paint();
+document.getElementById('theme').onclick=function(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Dark':'Light';};
+document.getElementById('export').onclick=function(){let o='SETTINGS SHEET - '+new Date().toString().slice(0,21)+'\\n'+'='.repeat(30)+'\\n\\n';screens.forEach(s=>{const c=store[s.id]||{};const v=c.v==='ok'?'APPROVE':c.v==='warn'?'CHANGE':c.v==='none'?'undecided':'(unmarked)';o+='['+v+'] '+s.n+'\\n';if(c.c&&c.c.trim())o+='   note: '+c.c.trim()+'\\n';});exT.value=o;exm.style.display='flex';};
+</script>
+</body>
+</html>

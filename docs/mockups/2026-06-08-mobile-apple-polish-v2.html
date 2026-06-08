@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS companion v2 - restructured (Connect + 5 tabs)</title>
+<style>
+  :root{
+    --sky:#1AA0E6; --purple:#5B47D6; --ink:#0b1320; --ink-2:#3c4656; --ink-3:#8a93a3;
+    --bg:#f2f3f7; --group:#ffffff; --sep:rgba(60,67,86,.10);
+    --card-shadow:0 1px 2px rgba(16,24,40,.05), 0 8px 24px rgba(16,24,40,.06);
+    --tabbar:rgba(248,249,252,.72);
+    --ok:#1a9c5b; --ok-bg:#e4f7ec; --danger:#e5484d; --danger-bg:#fdecec; --warn:#d98a0b; --warn-bg:#fdf3e2;
+    --r1:#FFD2B0; --r2:#FFF1A8; --r3:#B7EBB1; --r4:#A6D2F4; --r5:#D6B5F0;
+    --radius:18px; --page:#e9ebf1;
+  }
+  [data-theme="dark"]{
+    --sky:#3aa6e8; --purple:#8170e6; --ink:#f5f7fb; --ink-2:#c3ccda; --ink-3:#7e8696;
+    --bg:#000000; --group:#15171c; --sep:rgba(255,255,255,.10);
+    --card-shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.5);
+    --tabbar:rgba(22,24,30,.66);
+    --ok:#3ddc8c; --ok-bg:rgba(45,160,100,.18); --danger:#ff6b6f; --danger-bg:rgba(229,72,77,.16); --warn:#f4b740; --warn-bg:rgba(217,138,11,.18);
+    --r1:#F97316; --r2:#E8920B; --r3:#16A34A; --r4:#0284C7; --r5:#9333EA; --page:#0a0b0e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .top{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--page) 88%,transparent);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--sep);padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .top h1{font-size:17px;margin:0;font-weight:700;letter-spacing:-.02em}.top .sub{font-size:12.5px;color:var(--ink-3)}
+  .spacer{flex:1}
+  .tbtn{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--sep);background:var(--group);color:var(--ink);border-radius:980px;padding:8px 15px;cursor:pointer}
+  .tbtn.brand{background:linear-gradient(135deg,var(--sky),var(--purple));color:#fff;border:none}
+  .legend{display:flex;gap:12px;font-size:12px;color:var(--ink-3);align-items:center;flex-wrap:wrap}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px}.dot.ok{background:#1a9c5b}.dot.warn{background:#d98a0b}.dot.none{background:#c4ccd6}
+  .wrap{max-width:1200px;margin:0 auto;padding:20px 20px 120px}
+  .intro{font-size:13px;color:var(--ink-2);max-width:900px;line-height:1.6;margin:8px 0 6px}
+  .grid{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start;margin-top:16px;justify-content:center}
+  .cell{width:330px}
+  .cap{display:flex;align-items:baseline;gap:8px;margin:0 2px 9px}.cap .n{font-size:14px;font-weight:700}.cap .d{font-size:12px;color:var(--ink-3)}
+  .badge{font-size:10.5px;font-weight:700;border-radius:980px;padding:2px 8px}
+  .badge.new{background:color-mix(in srgb,var(--purple) 16%,transparent);color:var(--purple)}
+  .badge.chg{background:var(--warn-bg);color:var(--warn)}
+  .badge.ok{background:var(--ok-bg);color:var(--ok)}
+  .phone{width:330px;height:680px;border-radius:46px;background:var(--bg);position:relative;overflow:hidden;border:10px solid #0c0d10;box-shadow:0 30px 60px rgba(16,24,40,.22),0 6px 16px rgba(16,24,40,.12)}
+  [data-theme="dark"] .phone{border-color:#23262d}
+  .phone::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5));z-index:20}
+  .scr{position:absolute;inset:0;display:flex;flex-direction:column}
+  .statusbar{height:46px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 7px;font-size:13px;font-weight:600}
+  .statusbar .r{display:flex;gap:6px;align-items:center}
+  .content{flex:1;overflow:hidden;position:relative}
+  .scroll{position:absolute;inset:0;overflow:auto;padding:0 18px 96px}.scroll::-webkit-scrollbar{display:none}
+  .rainbow{height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5))}
+  .largetitle{font-size:32px;font-weight:800;letter-spacing:-.03em;margin:6px 2px 4px}
+  .subtitle{font-size:14px;color:var(--ink-3);margin:0 2px 16px;line-height:1.45}
+  .group{background:var(--group);border-radius:var(--radius);box-shadow:var(--card-shadow);overflow:hidden;margin-bottom:16px}
+  .row{display:flex;align-items:center;gap:13px;padding:14px 16px;position:relative}
+  .row + .row::before{content:"";position:absolute;top:0;left:52px;right:0;height:1px;background:var(--sep)}
+  .row .ico{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff}
+  .row .tx{flex:1;min-width:0}.row .t{font-size:15px;font-weight:600;letter-spacing:-.01em}.row .s{font-size:12.5px;color:var(--ink-3);margin-top:1px}
+  .chev{color:var(--ink-3);opacity:.5}
+  .pill{font-size:11px;font-weight:700;padding:3px 9px;border-radius:980px}.pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.muted{background:var(--sep);color:var(--ink-3)}.pill.danger{background:var(--danger-bg);color:var(--danger)}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;border-radius:15px;padding:15px;font:inherit;font-size:16px;font-weight:650;cursor:pointer;transition:transform .12s}
+  .btn:active{transform:scale(.97)}.btn.primary{background:var(--sky);color:#fff}.btn.secondary{background:var(--group);color:var(--sky);box-shadow:var(--card-shadow)}.btn.tinted{background:color-mix(in srgb,var(--sky) 14%,transparent);color:var(--sky)}
+  .sec-h{font-size:13px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.03em;margin:6px 8px 8px}
+  .tabbar{position:absolute;left:0;right:0;bottom:0;height:84px;background:var(--tabbar);backdrop-filter:saturate(180%) blur(22px);border-top:1px solid var(--sep);display:flex;padding:8px 2px 26px}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--ink-3);font-size:10px;font-weight:600}.tab.active{color:var(--sky)}.tab svg{width:24px;height:24px}
+  .bot .eye{transform-box:fill-box;transform-origin:center;animation:blink 5.2s infinite}@keyframes blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+  .botwrap{animation:sway 6.5s ease-in-out infinite;transform-origin:50% 90%}@keyframes sway{0%,100%{transform:translateY(0) rotate(-1.6deg)}50%{transform:translateY(-1.5%) rotate(1.6deg)}}
+  .splash{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  .rainbowbg{position:absolute;inset:0;background:linear-gradient(100deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5));opacity:.9}
+  .lockup{position:relative;display:flex;align-items:center;gap:16px;z-index:2}.lockup .wm{font-size:34px;font-weight:800;letter-spacing:-.03em;color:#0b1320}
+  /* hub tabs */
+  .display{font-size:52px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;text-align:center;color:var(--sky)}.display .hint{display:block;font-size:11px;font-weight:600;color:var(--ink-3);letter-spacing:.08em;margin-top:2px}
+  .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-top:8px}.key{aspect-ratio:1.7;border:1px solid var(--sep);background:var(--group);border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;font-variant-numeric:tabular-nums}
+  .qr{width:168px;height:168px;display:grid;grid-template-columns:repeat(13,1fr);gap:2px;background:#fff;padding:11px;border-radius:16px;margin:0 auto}.qr i{background:#0b1320;border-radius:1px}.qr i.off{background:transparent}
+  .chiprow{display:flex;gap:8px;flex-wrap:wrap;margin:2px 2px 16px}.chip{font-size:12px;font-weight:600;color:var(--ink-2);background:var(--group);box-shadow:var(--card-shadow);border-radius:980px;padding:7px 12px;display:flex;align-items:center;gap:6px}
+  .thumb{width:46px;height:46px;border-radius:10px;background:linear-gradient(135deg,#23304a,#0e1626);flex-shrink:0}
+  /* calc tabs */
+  .ctabs{display:flex;gap:7px;overflow:auto;padding:2px 2px 12px}.ctabs::-webkit-scrollbar{display:none}
+  .ctab{flex:0 0 auto;font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:980px;background:var(--group);box-shadow:var(--card-shadow);color:var(--ink-2);white-space:nowrap}
+  .ctab.on{background:var(--sky);color:#fff;box-shadow:none}
+  .field{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;position:relative}.field+.field::before{content:"";position:absolute;top:0;left:16px;right:0;height:1px;background:var(--sep)}
+  .field .l{font-size:14px;font-weight:500}.field .v{font-size:15px;font-weight:600;color:var(--ink-2);display:flex;align-items:center;gap:6px}
+  .field .u{font-size:11px;font-weight:700;color:var(--sky);background:color-mix(in srgb,var(--sky) 12%,transparent);border-radius:7px;padding:3px 7px}
+  .result{background:linear-gradient(135deg,color-mix(in srgb,var(--sky) 12%,transparent),color-mix(in srgb,var(--purple) 10%,transparent));border-radius:var(--radius);padding:18px;text-align:center;margin-bottom:14px}
+  .result .big{font-size:30px;font-weight:800;letter-spacing:-.02em}.result .lab{font-size:12px;color:var(--ink-3);margin-top:2px}
+  .validated{font-size:11.5px;color:var(--ok);display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:14px}
+  /* wiki */
+  .search{display:flex;align-items:center;gap:9px;background:var(--group);box-shadow:var(--card-shadow);border-radius:13px;padding:11px 14px;margin-bottom:6px;color:var(--ink-3);font-size:15px}
+  .ask{display:flex;align-items:center;gap:8px;border-radius:13px;padding:12px 14px;margin:8px 2px 16px;background:linear-gradient(135deg,color-mix(in srgb,var(--sky) 14%,transparent),color-mix(in srgb,var(--purple) 12%,transparent));font-size:13.5px;font-weight:600}
+  /* bulk */
+  .selgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:14px}
+  .selcell{aspect-ratio:1;border-radius:12px;background:linear-gradient(135deg,#23304a,#0e1626);position:relative;overflow:hidden}
+  .selcell .ck{position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;background:var(--sky);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:0 0 0 2px #fff}
+  .selcell.off .ck{background:rgba(255,255,255,.5);box-shadow:0 0 0 2px rgba(255,255,255,.7)}
+  .review{margin-top:12px;display:flex;gap:7px;flex-wrap:wrap}
+  .seg{display:inline-flex;border:1px solid var(--sep);border-radius:9px;overflow:hidden}.seg button{font:inherit;font-size:12px;padding:6px 11px;border:none;background:var(--group);color:var(--ink-3);cursor:pointer}.seg button.on.ok{background:#1a9c5b;color:#fff}.seg button.on.warn{background:#d98a0b;color:#fff}.seg button.on.none{background:#64748b;color:#fff}
+  .cmt{width:100%;margin-top:8px;font:inherit;font-size:12.5px;border:1px dashed var(--sep);border-radius:9px;background:var(--group);color:var(--ink);padding:8px 10px;resize:vertical;min-height:30px}
+  .why{font-size:12px;color:var(--ink-2);line-height:1.5;margin:8px 2px 0;border-left:2px solid var(--sky);padding-left:10px}
+  svg{display:block}
+  #exm{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}#exm .box{background:var(--group);border-radius:16px;max-width:680px;width:100%;padding:18px;border:1px solid var(--sep)}#exm textarea{width:100%;min-height:240px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid var(--sep);border-radius:8px;background:var(--bg);color:var(--ink);padding:10px}
+</style>
+</head>
+<body>
+<div class="top">
+  <div><h1>ResearchOS companion v2</h1><div class="sub">Restructured per your notes: Connect screen + a 5-tab app (Today / Send / Calc / Timer / Wiki). No Home.</div></div>
+  <div class="spacer"></div>
+  <div class="legend"><span><span class="dot ok"></span>Approve</span><span><span class="dot warn"></span>Change</span><span><span class="dot none"></span>?</span></div>
+  <button class="tbtn" id="theme">Dark</button>
+  <button class="tbtn brand" id="export">Export</button>
+</div>
+<div class="wrap">
+  <p class="intro">Reworked to your direction. Home is gone. When disconnected you get a single Connect screen. Once connected the app is a clean 5-tab bar, Today / Send / Calc / Timer / Wiki, no launcher to drill through, the five are always one tap away (the Apple pattern for up to five destinations). Calc ports the website calculator (all 8 tabs, same validated math). Wiki ports the full wiki with a search-first, ask-style navigator. Send adds camera-roll upload + bulk label/annotate. Rainbow tweaks applied. Toggle Dark. Mark each + Export.</p>
+
+  <div class="grid" id="grid"></div>
+</div>
+
+<div id="exm"><div class="box"><div style="display:flex;gap:10px;margin-bottom:10px;align-items:center"><strong style="font-size:14px">Feedback</strong><span class="spacer" style="flex:1"></span><button class="tbtn" onclick="navigator.clipboard.writeText(exT.value)">Copy</button><button class="tbtn" onclick="exm.style.display='none'">Close</button></div><textarea id="exT" readonly></textarea></div></div>
+
+<script>
+function bot(size){return `<span class="bot botwrap" style="width:${size*0.78}px;height:${size}px"><svg viewBox="8 0 24 34" width="${size*0.78}" height="${size}" fill="none"><defs><linearGradient id="liq" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--r1)"/><stop offset=".25" stop-color="var(--r2)"/><stop offset=".5" stop-color="var(--r3)"/><stop offset=".75" stop-color="var(--r4)"/><stop offset="1" stop-color="var(--r5)"/></linearGradient></defs><path d="M13 12 L13 27 Q13 31 17 31 L23 31 Q27 31 27 27 L27 12 Z" fill="#fff"/><path d="M13 21 L13 27 Q13 31 17 31 L23 31 Q27 31 27 27 L27 21 Z" fill="url(#liq)"/><path d="M11 12 L29 12" stroke="var(--sky)" stroke-width="2" stroke-linecap="round"/><path d="M13 12 L13 27 Q13 31 17 31 L23 31 Q27 31 27 27 L27 12" stroke="var(--sky)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 8 C 22 5, 25 3, 27 6" stroke="var(--sky)" stroke-width="2" stroke-linecap="round"/><circle class="eye" cx="17.5" cy="18" r="1.25" fill="var(--sky)"/><circle class="eye" cx="22.5" cy="18" r="1.25" fill="var(--sky)"/><path d="M17.5 22 Q20 24.5 22.5 22" stroke="var(--sky)" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg></span>`;}
+const I={
+ cam:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L19 6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.3"/></svg>',
+ lib:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>',
+ chev:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+ sun:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6L19 19M19 5l-1.4 1.4M6.4 17.6L5 19"/></svg>',
+ send:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg>',
+ calc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6M8 11h0M12 11h0M16 11h0M8 15h0M12 15h0M16 15v2"/></svg>',
+ timer:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 13V9M9 2h6"/></svg>',
+ book:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M19 19v2"/></svg>',
+ srch:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>',
+ spark:'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none"><path d="M12 2l1.6 5.4L19 9l-5.4 1.6L12 16l-1.6-5.4L5 9l5.4-1.6z"/></svg>',
+ check:'<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+ ok:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+ bolt:'<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg>',
+};
+function tabbar(active){const t=[['today','Today',I.sun],['send','Send',I.send],['calc','Calc',I.calc],['timer','Timer',I.timer],['wiki','Wiki',I.book]];return `<div class="tabbar">${t.map(x=>`<div class="tab ${x[0]===active?'active':''}">${x[2]}<span>${x[1]}</span></div>`).join('')}</div>`;}
+function sb(){return `<div class="statusbar"><span>9:41</span><span class="r">${I.bolt}<svg width="17" height="12" viewBox="0 0 24 16" fill="currentColor"><rect x="0" y="6" width="4" height="10" rx="1"/><rect x="6" y="3" width="4" height="13" rx="1"/><rect x="12" y="0" width="4" height="16" rx="1"/></svg></span></div>`;}
+
+const screens=[
+ {id:'launch',n:'Launch',b:'ok',d:'approved, unchanged',
+  why:'Locked. Branded rainbow lockup, shrinks out to reveal the app.',
+  html:`<div class="scr"><div class="splash"><div class="rainbowbg"></div><div class="lockup">${bot(76)}<span class="wm">ResearchOS</span></div></div></div>`},
+
+ {id:'connect',n:'Connect',b:'chg',d:'disconnected state + rainbow top',
+  why:'The only screen when not paired. Thin rainbow on top (your note). One job: connect to your laptop. Calm, centered, BeakerBot for warmth. No tabs until connected.',
+  html:`<div class="scr"><div class="rainbow"></div>${sb()}<div class="content"><div class="scroll" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding-bottom:40px">
+   ${bot(104)}
+   <div class="largetitle" style="margin-top:8px">Connect</div>
+   <div class="subtitle" style="max-width:250px">Pair with ResearchOS on your laptop to capture, glance, and sync at the bench.</div>
+   <button class="btn primary" style="width:240px;margin-bottom:10px">Connect to your laptop</button>
+   <button class="btn secondary" style="width:240px">Enter a code</button>
+  </div></div></div>`},
+
+ {id:'pairing',n:'Pairing',b:'chg',d:'rainbow top + bottom',
+  why:'You said amazing, just branded. Thin rainbow on top AND bottom. Focused single-job sheet with the QR + calm waiting state.',
+  html:`<div class="scr"><div class="rainbow"></div>${sb()}<div class="content"><div class="scroll" style="padding-top:8px">
+   <div class="largetitle">Pair a phone</div><div class="subtitle">Open ResearchOS on your computer, choose Pair, and scan.</div>
+   <div class="group" style="padding:20px;text-align:center"><div class="qr" id="qr"></div><div style="font-size:13px;color:var(--ink-3);margin-top:14px;display:flex;align-items:center;justify-content:center;gap:7px"><span style="width:8px;height:8px;border-radius:50%;background:var(--sky);display:inline-block"></span> Waiting for your phone &middot; 1:48</div></div>
+   <button class="btn secondary">Enter a code instead</button>
+  </div></div><div class="rainbow"></div></div>`},
+
+ {id:'today',n:'Today',b:'ok',d:'approved (tab 1)',
+  why:'Locked. Apple list craft. Now tab 1 of the 5-tab app, where you land when connected.',
+  html:`<div class="scr">${sb()}<div class="content"><div class="scroll" style="padding-top:8px">
+   <div class="largetitle">Today</div><div class="subtitle">Synced from your laptop.</div>
+   <div class="sec-h">Today</div><div class="group"><div class="row"><span class="ico" style="background:var(--sky)">${I.lib}</span><div class="tx"><div class="t">Passage HEK293 cells</div><div class="s">Experiment</div></div></div></div>
+   <div class="sec-h" style="color:var(--danger)">Overdue (3)</div><div class="group"><div class="row"><div class="tx"><div class="t" style="color:var(--danger)">Find A. nidulans plates</div><div class="s">Due May 19</div></div></div><div class="row"><div class="tx"><div class="t" style="color:var(--danger)">Aspergillus seq init</div><div class="s">Due Jun 3</div></div></div></div>
+  </div></div>${tabbar('today')}</div>`},
+
+ {id:'send',n:'Send',b:'chg',d:'camera roll upload + bulk',
+  why:'Was Capture. Now two ways in, take a photo OR upload from your camera roll (enables bulk). A Select control turns the outbox into multi-select for bulk actions. This is the "Send" tab in your 5.',
+  html:`<div class="scr">${sb()}<div class="content"><div class="scroll" style="padding-top:8px">
+   <div class="largetitle">Send</div><div class="subtitle">Snap or upload, it lands in your lab inbox.</div>
+   <button class="btn primary" style="margin-bottom:10px">${I.cam} Take a bench photo</button>
+   <button class="btn tinted" style="margin-bottom:18px">${I.lib} Upload from camera roll</button>
+   <div class="sec-h" style="display:flex;justify-content:space-between"><span>Outbox</span><span style="color:var(--sky)">Select</span></div>
+   <div class="group"><div class="row"><span class="thumb"></span><div class="tx"><div class="t">Gel image</div><div class="s">9:31 AM</div></div><span class="pill ok">Sent</span></div><div class="row"><span class="thumb"></span><div class="tx"><div class="t">Plate count</div><div class="s">9:29 AM</div></div><span class="pill muted">Sending</span></div></div>
+  </div></div>${tabbar('send')}</div>`},
+
+ {id:'bulk',n:'Bulk label + annotate',b:'new',d:'after a camera-roll bulk upload',
+  why:'New. After picking many photos, label + annotate them together: a shared caption/tags applied to all, per-photo selection, and an Annotate entry (draw/markup) per image. Apple multi-select pattern (checkable grid + a bottom action).',
+  html:`<div class="scr">${sb()}<div class="content"><div class="scroll" style="padding-top:8px">
+   <div class="largetitle">Label 6 photos</div><div class="subtitle">Apply to all, or tap one to annotate.</div>
+   <div class="selgrid">${[1,1,1,1,0,1].map(on=>`<div class="selcell ${on?'':'off'}"><span class="ck">${I.check}</span></div>`).join('')}</div>
+   <div class="sec-h">Apply to all</div>
+   <div class="group"><div class="field"><span class="l">Caption</span><span class="v">Gibson pilot gels</span></div><div class="field"><span class="l">Tags</span><span class="v" style="color:var(--sky)">+ cloning</span></div><div class="field"><span class="l">Send to</span><span class="v">Inbox ${I.chev}</span></div></div>
+   <button class="btn secondary" style="margin-bottom:10px">${I.lib} Annotate selected</button>
+   <button class="btn primary">Send 6 to lab</button>
+  </div></div></div>`},
+
+ {id:'calc',n:'Calc',b:'new',d:'port of the website calculator',
+  why:'New tab, the website calculator ported exactly (same validated math, lib/calculators). Scrollable tab strip for all 8 modes, Apple grouped inputs, a hero result card, and the validated-against-Biopython trust mark. Shown: Dilution.',
+  html:`<div class="scr">${sb()}<div class="content"><div class="scroll" style="padding-top:8px">
+   <div class="largetitle">Calc</div>
+   <div class="ctabs">${['Scientific','Molarity','Dilution','Serial','Primer Tm','DNA/RNA','Protein','Buffer'].map((t,i)=>`<div class="ctab ${i===2?'on':''}">${t}</div>`).join('')}</div>
+   <div class="result"><div class="big">8.0 uL</div><div class="lab">stock to add &middot; top up to 200 uL</div></div>
+   <div class="validated">${I.ok} Validated against Biopython + primer3</div>
+   <div class="group"><div class="field"><span class="l">Stock (C1)</span><span class="v">25 <span class="u">uM</span></span></div><div class="field"><span class="l">Final (C2)</span><span class="v">1 <span class="u">uM</span></span></div><div class="field"><span class="l">Final volume</span><span class="v">200 <span class="u">uL</span></span></div></div>
+  </div></div>${tabbar('calc')}</div>`},
+
+ {id:'wiki',n:'Wiki',b:'new',d:'full wiki + search-first navigator',
+  why:'New tab, the whole website wiki on mobile. Search-first (your "special navigate feature"): a prominent search + an Ask-style answer bar that jumps you to the right page, then the 8 sections as grouped rows. Same 66 pages, mobile reader.',
+  html:`<div class="scr">${sb()}<div class="content"><div class="scroll" style="padding-top:8px">
+   <div class="largetitle">Wiki</div>
+   <div class="search">${I.srch} Search the wiki</div>
+   <div class="ask">${I.spark} Ask: how do I pair my phone?</div>
+   <div class="sec-h">Browse</div>
+   <div class="group">
+     <div class="row"><span class="ico" style="background:var(--sky)">${I.sun}</span><div class="tx"><div class="t">Getting started</div><div class="s">6 pages</div></div><span class="chev">${I.chev}</span></div>
+     <div class="row"><span class="ico" style="background:var(--purple)">${I.lib}</span><div class="tx"><div class="t">Features</div><div class="s">35 pages</div></div><span class="chev">${I.chev}</span></div>
+     <div class="row"><span class="ico" style="background:#1a9c5b">${I.calc}</span><div class="tx"><div class="t">Calculators</div><div class="s">how the math works</div></div><span class="chev">${I.chev}</span></div>
+     <div class="row"><span class="ico" style="background:#d98a0b">${I.book}</span><div class="tx"><div class="t">Compliance + trust</div><div class="s">6 pages</div></div><span class="chev">${I.chev}</span></div>
+   </div>
+  </div></div>${tabbar('wiki')}</div>`},
+
+ {id:'timer',n:'Timers',b:'ok',d:'approved (tab 4)',
+  why:'Locked. Tactile keypad + haptics, tabular display. Tab 4.',
+  html:`<div class="scr">${sb()}<div class="content"><div class="scroll" style="padding-top:8px">
+   <div class="largetitle">Timers</div>
+   <div class="group" style="padding:16px"><div class="display">00:13:00<span class="hint">HOURS &middot; MIN &middot; SEC</span></div><div class="keypad">${['1','2','3','4','5','6','7','8','9','00','0','del'].map(k=>`<div class="key">${k}</div>`).join('')}</div><button class="btn primary" style="margin-top:14px">Start timer</button></div>
+  </div></div>${tabbar('timer')}</div>`},
+];
+
+const grid=document.getElementById('grid');
+const KEY='mobile-apple-polish-v2-2026-06-08';const store=JSON.parse(localStorage.getItem(KEY)||'{}');function save(){localStorage.setItem(KEY,JSON.stringify(store));}
+screens.forEach(s=>{const cell=document.createElement('div');cell.className='cell';
+ cell.innerHTML=`<div class="cap"><span class="n">${s.n}</span><span class="badge ${s.b}">${s.b==='new'?'NEW':s.b==='chg'?'CHANGED':'APPROVED'}</span><span class="d">${s.d}</span></div><div class="phone">${s.html}</div><div class="why">${s.why}</div><div class="review" data-id="${s.id}"></div>`;
+ grid.appendChild(cell);});
+(function(){document.querySelectorAll('.qr').forEach(q=>{let h='';for(let i=0;i<169;i++)h+=`<i class="${Math.random()>.5?'':'off'}"></i>`;q.innerHTML=h;});})();
+document.querySelectorAll('.review').forEach(r=>{const id=r.dataset.id;const cur=store[id]||{};const seg=document.createElement('div');seg.className='seg';[['ok','Approve'],['warn','Change'],['none','?']].forEach(([v,l])=>{const b=document.createElement('button');b.textContent=l;b.onclick=()=>{store[id]={...(store[id]||{}),v};save();paint();};seg.appendChild(b);});r.appendChild(seg);const ta=document.createElement('textarea');ta.className='cmt';ta.placeholder='Comment';ta.value=cur.c||'';ta.oninput=()=>{store[id]={...(store[id]||{}),c:ta.value};save();};r.parentElement.appendChild(ta);});
+function paint(){document.querySelectorAll('.review').forEach(r=>{const c=store[r.dataset.id]||{};r.querySelectorAll('.seg button').forEach(b=>{const v=b.textContent==='Approve'?'ok':b.textContent==='Change'?'warn':'none';b.className=(c.v===v?'on '+v:'');});});}
+paint();
+document.getElementById('theme').onclick=function(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Dark':'Light';};
+document.getElementById('export').onclick=function(){let o='RESEARCHOS COMPANION v2 - '+new Date().toString().slice(0,21)+'\\n'+'='.repeat(40)+'\\n\\n';screens.forEach(s=>{const c=store[s.id]||{};const v=c.v==='ok'?'APPROVE':c.v==='warn'?'CHANGE':c.v==='none'?'undecided':'(unmarked)';o+='['+v+'] '+s.n+'\\n';if(c.c&&c.c.trim())o+='   note: '+c.c.trim()+'\\n';});document.getElementById('exT').value=o;document.getElementById('exm').style.display='flex';};
+</script>
+</body>
+</html>
