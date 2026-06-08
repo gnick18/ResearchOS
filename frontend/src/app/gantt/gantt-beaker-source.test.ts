@@ -98,6 +98,7 @@ function makeData(over: Partial<GanttSourceData> = {}): GanttSourceData {
     window: { startLabel: "Jun 9", endLabel: "Jul 20" },
     editingTaskKey: null,
     editingGoal: null,
+    hovered: null,
     recentTaskKeys: [],
     taskKeyOf: (t) => `${t.is_shared_with_me ? t.owner : "self"}:${t.id}`,
     filterKeyOf: (p) => `${p.owner}:${p.id}`,
@@ -335,5 +336,109 @@ describe("buildGanttSource nav groups", () => {
     expect(recent).toBeDefined();
     expect(recent!.items[0].label).toBe("PCR optimization");
     expect(recent!.items[0].detail).toBe("opened recently");
+  });
+});
+
+// ── Hover as context (SELECTED > HOVERED) ────────────────────────────────────
+
+describe("buildGanttSource hover as context", () => {
+  it("drives the six task action ids and the pointing-at hint from a hovered task with no selection", () => {
+    const hov = makeTask();
+    const src = buildGanttSource(
+      makeData({ editingTaskKey: null, editingGoal: null, hovered: { kind: "task", task: hov } }),
+      noopHandlers,
+    );
+    expect(src.suggestedIds?.slice(0, 6)).toEqual([
+      "gantt-task-toggle-complete",
+      "gantt-task-shift-dates",
+      "gantt-task-add-dependency",
+      "gantt-task-open",
+      "gantt-task-move-project",
+      "gantt-task-delete",
+    ]);
+    expect(src.suggestedHint).toBe("for the task you were pointing at");
+    // The action rows the suggested ids name actually exist in commands.
+    const ids = new Set(src.commands.map((c) => c.id));
+    for (const id of src.suggestedIds ?? []) expect(ids.has(id)).toBe(true);
+  });
+
+  it("frames the context-card selection line as pointing at the hovered task", () => {
+    const hov = makeTask();
+    const card = buildGanttSource(
+      makeData({ hovered: { kind: "task", task: hov } }),
+      noopHandlers,
+    ).contextCard!;
+    expect(card.selection?.text).toBe(
+      "Pointing at PCR optimization, 2026-06-12 to 2026-06-19",
+    );
+    expect(card.selection?.iconName).toBe("list");
+  });
+
+  it("drives the four goal action ids and the pointing-at milestone hint from a hovered goal", () => {
+    const src = buildGanttSource(
+      makeData({ hovered: { kind: "goal", goal: makeGoal() } }),
+      noopHandlers,
+    );
+    expect(src.suggestedIds?.slice(0, 4)).toEqual([
+      "gantt-goal-edit",
+      "gantt-goal-add-task",
+      "gantt-goal-toggle-complete",
+      "gantt-goal-delete",
+    ]);
+    expect(src.suggestedHint).toBe("for the milestone you were pointing at");
+    const card = buildGanttSource(
+      makeData({ hovered: { kind: "goal", goal: makeGoal() } }),
+      noopHandlers,
+    ).contextCard!;
+    expect(card.selection?.text).toBe(
+      "Pointing at Submit R01 aims, milestone, due 2026-08-01, 1 of 2 done",
+    );
+  });
+
+  it("greys a hovered read-only shared task's mutating rows but keeps Open enabled", () => {
+    const ro = makeTask({
+      id: 3,
+      owner: "alex",
+      is_shared_with_me: true,
+      shared_permission: "view",
+      name: "View-only run",
+    });
+    const byId = new Map(
+      buildGanttSource(
+        makeData({ hovered: { kind: "task", task: ro } }),
+        noopHandlers,
+      ).commands.map((c) => [c.id, c]),
+    );
+    expect(byId.get("gantt-task-toggle-complete")?.enabled).toBe(false);
+    expect(byId.get("gantt-task-delete")?.enabled).toBe(false);
+    expect(byId.get("gantt-task-open")?.enabled).toBeUndefined();
+  });
+
+  it("lets a SELECTED task outrank a HOVERED goal (selected wins, no pointing-at framing)", () => {
+    const src = buildGanttSource(
+      makeData({
+        editingTaskKey: "self:1",
+        hovered: { kind: "goal", goal: makeGoal() },
+      }),
+      noopHandlers,
+    );
+    // The selected task drives Suggested, the hovered goal is ignored.
+    expect(src.suggestedIds?.slice(0, 6)).toEqual([
+      "gantt-task-toggle-complete",
+      "gantt-task-shift-dates",
+      "gantt-task-add-dependency",
+      "gantt-task-open",
+      "gantt-task-move-project",
+      "gantt-task-delete",
+    ]);
+    expect(src.suggestedHint).toBe("for the selected task");
+    const card = buildGanttSource(
+      makeData({
+        editingTaskKey: "self:1",
+        hovered: { kind: "goal", goal: makeGoal() },
+      }),
+      noopHandlers,
+    ).contextCard!;
+    expect(card.selection?.text).toBe("PCR optimization, 2026-06-12 to 2026-06-19");
   });
 });

@@ -71,6 +71,15 @@ export interface GanttSourceData {
   editingTaskKey: string | null;
   editingGoal: HighLevelGoal | null;
 
+  // Hover (HOVERED). The bar the cursor was over when the palette opened,
+  // resolved by the hook from the data-beaker-target key (task or goal). SELECTED
+  // always outranks this, so a real open entity wins over a stale hover. Null when
+  // nothing tagged was under the pointer.
+  hovered:
+    | { kind: "task"; task: Task }
+    | { kind: "goal"; goal: HighLevelGoal }
+    | null;
+
   /** Session-local recently-opened task keys (newest first), for the
    *  "Recently opened" nav group. */
   recentTaskKeys: string[];
@@ -209,25 +218,49 @@ function resolveSelection(
   return null;
 }
 
+/** Resolve the active context entity by the SELECTED > HOVERED rule. When a real
+ *  selection exists, hovered is ignored. When nothing is selected, the bar the
+ *  cursor was pointing at drives the SAME context-card selection line and the
+ *  SAME Suggested action set, only the framing ("pointing at" vs "selected")
+ *  changes. `isHovered` lets the copy and the Suggested hint switch voice without
+ *  duplicating the per-entity logic. */
+function resolveContext(data: GanttSourceData):
+  | { kind: "task"; task: Task; isHovered: boolean }
+  | { kind: "goal"; goal: HighLevelGoal; isHovered: boolean }
+  | null {
+  const sel = resolveSelection(data);
+  if (sel?.kind === "task") return { kind: "task", task: sel.task, isHovered: false };
+  if (sel?.kind === "goal") return { kind: "goal", goal: sel.goal, isHovered: false };
+
+  const hov = data.hovered;
+  if (hov?.kind === "task") return { kind: "task", task: hov.task, isHovered: true };
+  if (hov?.kind === "goal") return { kind: "goal", goal: hov.goal, isHovered: true };
+  return null;
+}
+
 /** Build the context card (spec 2.5). Two stacked lines, the scope line as
  *  title + meta, the selection line under a hairline divider when SELECTED. */
 function buildContextCard(data: GanttSourceData): PaletteContextCard {
-  const sel = resolveSelection(data);
+  const ctx = resolveContext(data);
   let selection: PaletteContextCard["selection"];
 
-  if (sel?.kind === "task") {
-    const t = sel.task;
+  // The selection line frames a real selection as the open entity and a hover as
+  // "the bar you were pointing at", so the user knows which one drives Suggested.
+  if (ctx?.kind === "task") {
+    const t = ctx.task;
     const bits = [`${t.start_date} to ${t.end_date}`];
     if (t.is_complete) bits.push("complete");
     if (isGanttTaskReadOnly(t)) bits.push("shared, view only");
-    selection = { iconName: "list", text: `${t.name}, ${bits.join(", ")}` };
-  } else if (sel?.kind === "goal") {
-    const g = sel.goal;
+    const lead = ctx.isHovered ? "Pointing at " : "";
+    selection = { iconName: "list", text: `${lead}${t.name}, ${bits.join(", ")}` };
+  } else if (ctx?.kind === "goal") {
+    const g = ctx.goal;
     const done = g.smart_goals.filter((s) => s.is_complete).length;
     const total = g.smart_goals.length;
     const bits = ["milestone", `due ${g.end_date}`];
     if (total > 0) bits.push(`${done} of ${total} done`);
-    selection = { iconName: "map", text: `${g.name}, ${bits.join(", ")}` };
+    const lead = ctx.isHovered ? "Pointing at " : "";
+    selection = { iconName: "map", text: `${lead}${g.name}, ${bits.join(", ")}` };
   }
 
   return {
@@ -264,12 +297,14 @@ function buildCommands(
   handlers: GanttSourceHandlers,
 ): EditorCommand[] {
   const out: EditorCommand[] = [];
-  const sel = resolveSelection(data);
+  // SELECTED > HOVERED. A hovered bar drives the same action rows as a selection
+  // (same ids, same enabled gating), so Suggested can reference them either way.
+  const ctx = resolveContext(data);
 
-  // ── Selected task actions (spec 3.1). v1 simplifications, Shift / Add dep /
-  // Move all open the detail popup where those edits live. ──────────────────
-  if (sel?.kind === "task") {
-    const t = sel.task;
+  // ── Selected / hovered task actions (spec 3.1). v1 simplifications, Shift /
+  // Add dep / Move all open the detail popup where those edits live. ─────────
+  if (ctx?.kind === "task") {
+    const t = ctx.task;
     const key = data.taskKeyOf(t);
     const ro = isGanttTaskReadOnly(t);
     out.push({
@@ -327,9 +362,9 @@ function buildCommands(
     });
   }
 
-  // ── Selected goal actions (spec 3.2). ─────────────────────────────────────
-  if (sel?.kind === "goal") {
-    const g = sel.goal;
+  // ── Selected / hovered goal actions (spec 3.2). ───────────────────────────
+  if (ctx?.kind === "goal") {
+    const g = ctx.goal;
     const ro = isGanttGoalReadOnly(g);
     out.push({
       id: "gantt-goal-edit",
@@ -482,9 +517,10 @@ function buildCommands(
  *  by the palette. */
 function buildSuggestedIds(data: GanttSourceData): string[] {
   const ids: string[] = [];
-  const sel = resolveSelection(data);
+  // SELECTED > HOVERED, both lead with the same per-entity action ids.
+  const ctx = resolveContext(data);
 
-  if (sel?.kind === "task") {
+  if (ctx?.kind === "task") {
     ids.push(
       "gantt-task-toggle-complete",
       "gantt-task-shift-dates",
@@ -493,7 +529,7 @@ function buildSuggestedIds(data: GanttSourceData): string[] {
       "gantt-task-move-project",
       "gantt-task-delete",
     );
-  } else if (sel?.kind === "goal") {
+  } else if (ctx?.kind === "goal") {
     ids.push(
       "gantt-goal-edit",
       "gantt-goal-add-task",
@@ -519,9 +555,15 @@ function buildSuggestedIds(data: GanttSourceData): string[] {
 
 /** The Suggested heading hint (spec 3). */
 function buildSuggestedHint(data: GanttSourceData): string | undefined {
-  const sel = resolveSelection(data);
-  if (sel?.kind === "task") return "for the selected task";
-  if (sel?.kind === "goal") return "for the selected milestone";
+  const ctx = resolveContext(data);
+  if (ctx?.kind === "task") {
+    return ctx.isHovered ? "for the task you were pointing at" : "for the selected task";
+  }
+  if (ctx?.kind === "goal") {
+    return ctx.isHovered
+      ? "for the milestone you were pointing at"
+      : "for the selected milestone";
+  }
   return undefined;
 }
 

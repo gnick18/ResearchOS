@@ -24,6 +24,8 @@ import {
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAppStore } from "@/lib/store";
 import { useBeakerSearchSource } from "@/components/beaker-search/useBeakerSearchSource";
+import { useBeakerHoveredKey } from "@/components/beaker-search/BeakerSearchProvider";
+import { parseBeakerTargetKey } from "@/components/beaker-search/beaker-hover";
 import { encodeFilterKey, STANDALONE_FILTER_KEY } from "@/lib/search/filterKey";
 import { taskKey } from "@/lib/types";
 import type { HighLevelGoal, Project, Task, ViewMode } from "@/lib/types";
@@ -285,6 +287,25 @@ export function useGanttBeakerSource(): void {
     [ganttStartDate, viewMode],
   );
 
+  // HOVERED. The bar the cursor was over when the palette opened (null while
+  // closed). Parse its data-beaker-target key the same way the provider stamps it
+  // ("task:<composite key>" / "goal:<id>"), then resolve to the live entity.
+  // SELECTED still outranks this in the builder, so a real open task / goal wins.
+  const hoveredKey = useBeakerHoveredKey();
+  const hovered = useMemo<GanttSourceData["hovered"]>(() => {
+    const parsed = parseBeakerTargetKey(hoveredKey);
+    if (!parsed) return null;
+    if (parsed.kind === "task") {
+      const task = allTasks.find((t) => taskKey(t) === parsed.key);
+      return task ? { kind: "task", task } : null;
+    }
+    if (parsed.kind === "goal") {
+      const goal = goals.find((g) => String(g.id) === parsed.key);
+      return goal ? { kind: "goal", goal } : null;
+    }
+    return null;
+  }, [hoveredKey, allTasks, goals]);
+
   const source = useMemo(() => {
     const data: GanttSourceData = {
       allTasks,
@@ -300,6 +321,7 @@ export function useGanttBeakerSource(): void {
       window,
       editingTaskKey,
       editingGoal,
+      hovered,
       recentTaskKeys: recentRef.current,
       taskKeyOf: (task) => taskKey(task),
       filterKeyOf: (project) => encodeFilterKey(project),
@@ -320,6 +342,7 @@ export function useGanttBeakerSource(): void {
     window,
     editingTaskKey,
     editingGoal,
+    hovered,
     handlers,
   ]);
 

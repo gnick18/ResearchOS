@@ -1593,6 +1593,7 @@ export default function GanttChart({
                     return (
                       <div
                         key={`goal-${goal.id}`}
+                        data-beaker-target={`goal:${goal.id}`}
                         className="absolute rounded cursor-pointer transition-all hover:h-5 hover:z-10 group"
                         style={{
                           left: `${(spanStart / weekDates.length) * 100}%`,
@@ -1922,6 +1923,7 @@ export default function GanttChart({
                               {/* Task bar */}
                               <div
                                 ref={(el) => registerTaskElement(tk, el, weekIdx, rowNum, spanInfo)}
+                                data-beaker-target={`task:${tk}`}
                                 data-tour-target={tourTarget}
                                 data-tour-target-legacy={tourTargetLegacy}
                                 draggable={!isLabMode}
