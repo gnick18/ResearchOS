@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 
 import Tooltip from "@/components/Tooltip";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   listDevices,
   makePairingGrant,
@@ -23,6 +24,7 @@ import {
   type PairingGrant,
 } from "@/lib/mobile-relay/client";
 import { loadUserCaptureKeys } from "@/lib/mobile-relay/keys";
+import { runCaptureInboxPoll } from "@/lib/mobile-relay/poll";
 
 function formatBoundAt(iso: string | null): string {
   if (!iso) return "unknown";
@@ -46,7 +48,13 @@ interface DevicesSectionInnerProps {
  * reads), and renders the "set up your account" hint otherwise.
  */
 export default function DevicesSection({ ready }: DevicesSectionInnerProps) {
+  const { currentUser } = useCurrentUser();
   const [devices, setDevices] = useState<BoundDevice[] | null>(null);
+  // Manual "Check for new captures" state, the same single-poll the background
+  // CaptureInboxPoller runs, surfaced as a button so a paired user can pull on
+  // demand and read the result inline.
+  const [checking, setChecking] = useState(false);
+  const [checkResult, setCheckResult] = useState<string | null>(null);
   const [grant, setGrant] = useState<PairingGrant | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(0);
@@ -171,6 +179,34 @@ export default function DevicesSection({ ready }: DevicesSectionInnerProps) {
     [refreshDevices],
   );
 
+  const checkForCaptures = useCallback(async () => {
+    setCheckResult(null);
+    setChecking(true);
+    try {
+      const keys = await loadUserCaptureKeys();
+      if (!keys) {
+        setCheckResult("Your identity is locked. Set up or restore your account first.");
+        return;
+      }
+      if (!currentUser) {
+        setCheckResult("Connect your data folder first.");
+        return;
+      }
+      const { pulled, errors } = await runCaptureInboxPoll(keys, currentUser);
+      if (pulled === 0 && errors === 0) {
+        setCheckResult("Nothing pending.");
+      } else if (errors > 0) {
+        setCheckResult(`Pulled ${pulled}. ${errors} could not be imported, will retry.`);
+      } else {
+        setCheckResult(`Pulled ${pulled}.`);
+      }
+    } catch {
+      setCheckResult("Could not reach the relay. Check your connection.");
+    } finally {
+      setChecking(false);
+    }
+  }, [currentUser]);
+
   if (!ready) {
     return (
       <p className="text-body text-foreground-muted">
@@ -188,16 +224,32 @@ export default function DevicesSection({ ready }: DevicesSectionInnerProps) {
           with your phone's camera, snap a photo, and it lands here.
         </p>
         {!grant && (
-          <button
-            type="button"
-            onClick={() => void startPairing()}
-            disabled={busy}
-            className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg whitespace-nowrap"
-          >
-            Pair a phone
-          </button>
+          <div className="flex items-center gap-2">
+            <Tooltip label="Pull any captures waiting on the relay right now">
+              <button
+                type="button"
+                onClick={() => void checkForCaptures()}
+                disabled={checking}
+                className="px-3 py-2 text-body border border-border text-foreground hover:bg-surface-sunken disabled:opacity-50 rounded-lg whitespace-nowrap"
+              >
+                {checking ? "Checking..." : "Check for new captures"}
+              </button>
+            </Tooltip>
+            <button
+              type="button"
+              onClick={() => void startPairing()}
+              disabled={busy}
+              className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg whitespace-nowrap"
+            >
+              Pair a phone
+            </button>
+          </div>
         )}
       </div>
+
+      {checkResult && (
+        <p className="text-meta text-foreground-muted">{checkResult}</p>
+      )}
 
       {error && (
         <p className="text-meta text-red-600 dark:text-red-400">{error}</p>
