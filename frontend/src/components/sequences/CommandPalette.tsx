@@ -406,8 +406,9 @@ export interface CommandPaletteProps {
    *  the hovered key (so existing page consumers re-bias) and refreshes the
    *  captured-context card. Absent hides the "Re-check page" control. */
   onRecheck?: () => void;
-  /** BeakerSearch v3. The keyboard chord that triggers re-check, shown on the
-   *  button (e.g. "Cmd Shift K"). The provider owns the actual key listener. */
+  /** BeakerSearch v3. The keyboard shortcut that triggers re-check, shown on the
+   *  button (e.g. "R"). The dock owns the key listener (plain "r" while floating
+   *  and focus is parked); the provider supplies the re-check handler + label. */
   recheckShortcutLabel?: string;
 }
 
@@ -1033,6 +1034,27 @@ export function CommandPalette({
     window.addEventListener("keydown", onArrow);
     return () => window.removeEventListener("keydown", onArrow);
   }, [open, dockHeight]);
+
+  // BeakerSearch v3. Plain "r" re-checks the page, but only while the dock is
+  // open AND floating (not tucked, not closed) AND focus is parked on nothing.
+  // Same guard as the arrow keys, so typing "r" in the search box or in a page
+  // widget is never stolen; a tucked dock has nothing to re-check into view.
+  useEffect(() => {
+    if (!open || !onRecheck) return;
+    const onR = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      if (e.key.toLowerCase() !== "r") return;
+      if (dockStateRef.current.tucked) return;
+      const ae = document.activeElement;
+      const parked =
+        !ae || ae === document.body || ae === document.documentElement;
+      if (!parked) return;
+      e.preventDefault();
+      onRecheck();
+    };
+    window.addEventListener("keydown", onR);
+    return () => window.removeEventListener("keydown", onR);
+  }, [open, onRecheck]);
 
   // Keep the highlighted row scrolled into view as Up / Down walk past the fold.
   useEffect(() => {

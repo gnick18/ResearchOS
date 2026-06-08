@@ -223,25 +223,12 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
     else setHoveredKey(null);
   }, [open, recheckPageContext]);
 
-  // BeakerSearch v3. The re-check keyboard chord. Cmd/Ctrl+Shift+K (no collision,
-  // grepped). Fires only while the dock is open so it never steals the chord from
-  // the page when BeakerSearch is closed.
-  const recheckShortcutLabel = "Cmd Shift K";
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (
-        (e.metaKey || e.ctrlKey) &&
-        e.shiftKey &&
-        e.key.toLowerCase() === "k"
-      ) {
-        e.preventDefault();
-        recheckPageContext();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, recheckPageContext]);
+  // BeakerSearch v3. The re-check shortcut is a plain "r", handled inside the
+  // dock (CommandPalette) where the floating / tucked state lives. It fires only
+  // while the dock is open AND floating (not tucked, not closed) AND focus is
+  // parked on nothing, so typing "r" in the search box or in a page widget is
+  // never stolen. The label is set here for the dock's button to render.
+  const recheckShortcutLabel = "R";
   // The per-user Recent-records MRU (chunk 4). A client-only localStorage list,
   // keyed by the current user so a profile switch never leaks another user's
   // recents, holding the last few globally-opened core records. Loaded on mount /
