@@ -499,6 +499,32 @@ export async function countInvitesBySender(
   return rows[0]?.n ?? 0;
 }
 
+/**
+ * Sums the stored bytes of a RECIPIENT hash's non-expired invites (of either
+ * status, so a reserved-but-pending invite counts the same as a confirmed one,
+ * mirroring sumPendingBytesByRecipient on the inbox side). The invite send route
+ * uses this to enforce the INVITE_FREE_STORAGE_BYTES budget. Summing reservations
+ * means a burst of unconfirmed large invites cannot slip past the byte budget
+ * before the grace-window sweep reclaims them. Keyed by recipient_email_hash (not
+ * sender) so the ceiling bounds total sealed bytes parked FOR one address across
+ * every sender that targets it, matching the send path's abuse model. Rows with a
+ * null size_bytes contribute zero (coalesced in SQL). The bigint sum is coerced to
+ * a number the same way mapInviteRow coerces a single size.
+ */
+export async function sumPendingInviteBytesByRecipient(
+  recipientEmailHash: string,
+): Promise<number> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT coalesce(sum(size_bytes), 0)::bigint AS total
+    FROM relay_invite
+    WHERE recipient_email_hash = ${recipientEmailHash}
+      AND expires_at > now()
+  `) as Array<{ total: number | string | null }>;
+  const total = rows[0]?.total;
+  return total == null ? 0 : Number(total);
+}
+
 /** Normalizes a raw pending-invite DB row into an InviteEntry. */
 function mapInviteRow(r: {
   invite_id: string;

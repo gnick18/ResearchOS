@@ -36,9 +36,11 @@ import {
   deleteInviteEntry,
   ensureInviteSchema,
   markInviteReady,
+  sumPendingInviteBytesByRecipient,
   updateInviteSize,
 } from "@/lib/sharing/relay/db";
-import { headObjectSize } from "@/lib/sharing/relay/storage";
+import { INVITE_FREE_STORAGE_BYTES } from "@/lib/sharing/relay/limits";
+import { deleteObject, headObjectSize } from "@/lib/sharing/relay/storage";
 import { sendInviteEmail, type InviteItemKind } from "@/lib/sharing/relay/mailer";
 
 export const runtime = "nodejs";
@@ -168,7 +170,22 @@ export async function POST(request: Request): Promise<Response> {
       await deleteInviteEntry(flipped.inviteId);
       return json(400, GENERIC_FAILURE);
     }
+    // Correct the stored size to the real one, then re-check the recipient's byte
+    // budget against the true total, mirroring the send confirm route. With the
+    // size-bound presign this is normally a no-op, it is the backstop for the case
+    // where the real upload still exceeded the declared size and pushed the
+    // recipient hash over INVITE_FREE_STORAGE_BYTES. If so, roll the whole invite
+    // back (object and row) and fail the confirm BEFORE any email is sent, so an
+    // over-budget bundle never produces a live accept link.
     await updateInviteSize(flipped.inviteId, trueSize);
+    const total = await sumPendingInviteBytesByRecipient(
+      flipped.recipientEmailHash,
+    );
+    if (total > INVITE_FREE_STORAGE_BYTES) {
+      await deleteObject(flipped.inviteId);
+      await deleteInviteEntry(flipped.inviteId);
+      return json(429, { error: "recipient mailbox is full" });
+    }
   }
 
   // Send the branded email LAST, after the row is ready and fetchable. If the

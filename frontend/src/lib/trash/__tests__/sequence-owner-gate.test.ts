@@ -113,9 +113,12 @@ vi.mock("@/lib/file-system/indexeddb-store", () => ({
   clearMainUser: vi.fn(),
 }));
 
+const memFiles = new Map<string, unknown>();
 vi.mock("@/lib/file-system/file-service", () => ({
   fileService: {
-    readJson: vi.fn(async () => null),
+    readJson: vi.fn(async (path: string) =>
+      memFiles.has(path) ? memFiles.get(path) : null,
+    ),
     writeJson: vi.fn(async () => undefined),
     readText: vi.fn(async () => null),
     writeText: vi.fn(async () => undefined),
@@ -129,8 +132,14 @@ vi.mock("@/lib/file-system/file-service", () => ({
 
 import { sequencesApi } from "@/lib/local-api";
 
+/** Mark the current user (alex) as a lab head for the duration of a test. */
+function makeCurrentUserLabHead() {
+  memFiles.set("users/alex/settings.json", { account_type: "lab_head" });
+}
+
 beforeEach(() => {
   trashCalls.length = 0;
+  memFiles.clear();
 });
 
 describe("seq owner-only delete gate (OQ9): sequencesApi.delete", () => {
@@ -144,7 +153,8 @@ describe("seq owner-only delete gate (OQ9): sequencesApi.delete", () => {
     expect(trashCalls[0].sessionId).toBeNull();
   });
 
-  it("PI cross-owner delete proceeds when sessionId is present", async () => {
+  it("lab-head cross-owner delete proceeds", async () => {
+    makeCurrentUserLabHead();
     const ok = await sequencesApi.delete(6, "mira", {
       actor: "morgan",
       sessionId: "session-seq",
@@ -156,10 +166,19 @@ describe("seq owner-only delete gate (OQ9): sequencesApi.delete", () => {
     expect(trashCalls[0].sessionId).toBe("session-seq");
   });
 
-  it("shared-edit user cross-owner delete is REFUSED (no PI unlock)", async () => {
+  it("shared-edit user cross-owner delete is REFUSED (not a lab head)", async () => {
     const ok = await sequencesApi.delete(7, "mira", {
       actor: "alex",
       sessionId: null,
+    });
+    expect(ok).toBe(false);
+    expect(trashCalls).toHaveLength(0);
+  });
+
+  it("non-lab-head cross-owner delete is REFUSED even with a sessionId (ACL hardening)", async () => {
+    const ok = await sequencesApi.delete(8, "mira", {
+      actor: "alex",
+      sessionId: "lab-head-action",
     });
     expect(ok).toBe(false);
     expect(trashCalls).toHaveLength(0);

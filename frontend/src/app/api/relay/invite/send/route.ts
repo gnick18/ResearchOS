@@ -43,8 +43,13 @@ import {
   countInvitesBySender,
   ensureInviteSchema,
   insertInviteEntry,
+  sumPendingInviteBytesByRecipient,
 } from "@/lib/sharing/relay/db";
-import { PENDING_INVITE_CAP, TTL_MS } from "@/lib/sharing/relay/limits";
+import {
+  INVITE_FREE_STORAGE_BYTES,
+  PENDING_INVITE_CAP,
+  TTL_MS,
+} from "@/lib/sharing/relay/limits";
 import { presignUpload } from "@/lib/sharing/relay/storage";
 
 export const runtime = "nodejs";
@@ -132,6 +137,24 @@ export async function POST(request: Request): Promise<Response> {
   const recipientCanonical = canonicalizeEmail(verified.parsed.recipientEmail);
   const recipientHash = hashEmail(recipientCanonical, getPepper());
 
+  // Per-RECIPIENT BYTE budget, mirroring the send path's FREE_STORAGE_BYTES gate
+  // (here the smaller, dedicated INVITE_FREE_STORAGE_BYTES, see limits.ts for why
+  // the invite path earns a tighter ceiling). The per-sender count cap and rate
+  // limiter above bound how many invites one sender parks, this orthogonal axis
+  // bounds the total sealed bytes parked under one recipient hash across every
+  // sender that targets it. Reject when the recipient's existing non-expired
+  // invite bytes plus this incoming bundle would exceed the budget. The size is
+  // the sender-reported sealed size, the same value stored on the row, so the
+  // running sum and this check use the same number. The presign below binds the
+  // upload to exactly this many bytes, and the confirm route re-reads the true
+  // object size from R2 and re-checks this budget, so a false claim cannot stick.
+  const existingInviteBytes = await sumPendingInviteBytesByRecipient(
+    recipientHash,
+  );
+  if (existingInviteBytes + declaredBytes > INVITE_FREE_STORAGE_BYTES) {
+    return json(429, { error: "recipient mailbox is full" });
+  }
+
   // The invite id is server-generated, never client-chosen, so a sender cannot
   // target or overwrite an existing object. It doubles as the R2 object key and
   // the bearer id the accept page presents.
@@ -147,10 +170,10 @@ export async function POST(request: Request): Promise<Response> {
   });
 
   // Bind the presigned PUT to exactly the declared size so the real upload cannot
-  // exceed what was claimed. The invite path has no per-recipient byte budget (it
-  // is gated by the per-sender invite rate limit and PENDING_INVITE_CAP instead),
-  // so this size binding plus the confirm-time true-size correction are what keep
-  // a 0-claim-then-upload-huge from quietly parking unbounded bytes on R2.
+  // exceed what was claimed. Together with the per-recipient byte budget checked
+  // above and the confirm-time true-size re-check, this keeps a
+  // 0-claim-then-upload-huge (and a within-budget-claim-then-upload-bigger) from
+  // quietly parking unbudgeted bytes on R2.
   const uploadUrl = await presignUpload(inviteId, declaredBytes);
 
   return json(200, { inviteId, uploadUrl, expiresAt });

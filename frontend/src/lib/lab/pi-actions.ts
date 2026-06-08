@@ -40,7 +40,7 @@
 //     therefore takes no `sessionId`. Its audit entry stamps the
 //     owner-clear via `session_id: "owner-clear"` and `actor: owner`.
 
-import { tasksApi as rawTasksApi, notesApi as rawNotesApi, purchasesApi as rawPurchasesApi } from "@/lib/local-api";
+import { tasksApi as rawTasksApi, notesApi as rawNotesApi, purchasesApi as rawPurchasesApi, buildCurrentViewer } from "@/lib/local-api";
 import { fileService } from "../file-system/file-service";
 import { appendAuditEntries } from "./pi-audit";
 import { readArchivedSet } from "./user-archive";
@@ -108,6 +108,39 @@ export type PiActionResult<T> =
 
 function dataWriteFailure(error: unknown): PiActionResult<never> {
   return { ok: false, reason: "data-write", error };
+}
+
+/**
+ * ACL hardening (2026-06-08): every lab-head action below writes cross-owner
+ * (into a target member's folder) and emits an audit entry attributed to an
+ * `actor` arg supplied by the caller. Before this gate the `actor` was taken on
+ * trust — nothing verified the PROCESS current user was actually a lab head, so
+ * any caller could pass `actor: "<some-pi>"` and perform a privileged write
+ * into another member's folder. This check builds the live viewer and refuses
+ * the action unless the current user genuinely holds the `lab_head` role,
+ * BEFORE any data write or audit append fires.
+ *
+ * Returns a `data-write` failure to short-circuit when the gate fails (the
+ * record was never touched), or `null` to proceed. A failure reading the
+ * viewer (e.g. settings.json unreadable) is also treated as a refusal — fail
+ * closed for a privileged cross-owner write.
+ */
+async function assertLabHeadActor(
+  apiTag: string,
+): Promise<PiActionResult<never> | null> {
+  try {
+    const viewer = await buildCurrentViewer();
+    if (viewer.account_type !== "lab_head") {
+      return dataWriteFailure(
+        new Error(
+          `[${apiTag}] refused: ${viewer.username || "anonymous"} is not a lab head`,
+        ),
+      );
+    }
+    return null;
+  } catch (err) {
+    return dataWriteFailure(err);
+  }
 }
 
 function notificationsPath(username: string): string {
@@ -371,6 +404,10 @@ export interface AssignTaskValue {
 }
 
 export async function assignTask(args: AssignTaskArgs): Promise<PiActionResult<AssignTaskValue>> {
+  // 0. Role gate — only a lab head may assign a member's task.
+  const gate = await assertLabHeadActor("assignTask");
+  if (gate) return gate;
+
   // 1. Pre-read for the audit diff.
   let before;
   try {
@@ -473,6 +510,10 @@ export interface SetPurchaseApprovalValue {
 export async function setPurchaseApproval(
   args: ApprovePurchaseArgs,
 ): Promise<PiActionResult<SetPurchaseApprovalValue>> {
+  // 0. Role gate — only a lab head may approve/clear a member's purchase.
+  const gate = await assertLabHeadActor("setPurchaseApproval");
+  if (gate) return gate;
+
   const approved = args.approved ?? true;
   const now = new Date().toISOString();
 
@@ -595,6 +636,10 @@ export interface DeclinePurchaseValue {
 export async function declinePurchase(
   args: DeclinePurchaseArgs,
 ): Promise<PiActionResult<DeclinePurchaseValue>> {
+  // 0. Role gate — only a lab head may decline a member's purchase.
+  const gate = await assertLabHeadActor("declinePurchase");
+  if (gate) return gate;
+
   const now = new Date().toISOString();
 
   let before;
@@ -696,6 +741,10 @@ export interface SetFlagForReviewValue {
 export async function setFlagForReview(
   args: FlagRecordArgs,
 ): Promise<PiActionResult<SetFlagForReviewValue>> {
+  // 0. Role gate — only a lab head may flag a member's record for review.
+  const gate = await assertLabHeadActor("setFlagForReview");
+  if (gate) return gate;
+
   let beforeFlag: PiFlag | null = null;
   let displayName: string | undefined;
 

@@ -54,6 +54,30 @@ export const TTL_DAYS = 30;
 export const PENDING_INVITE_CAP = 50;
 
 /**
+ * Free total stored-bytes budget per RECIPIENT email hash on the invite path,
+ * 256 MB. The invite send route sums the sizeBytes of a recipient hash's
+ * non-expired invite rows (across all senders) and rejects a new invite when the
+ * incoming bundle would push the total over this budget, mirroring the send
+ * path's FREE_STORAGE_BYTES ceiling but smaller on purpose.
+ *
+ * Why a dedicated, smaller budget and not FREE_STORAGE_BYTES (1 GB). The invite
+ * path has weaker economics, the recipient is NOT a ResearchOS user yet, so an
+ * invited bundle may never be accepted and can sit on R2 for the full 30-day TTL
+ * with no chance of pickup until/unless that person signs up. A registered
+ * recipient's mailbox (the send path) is far more likely to be drained on pickup,
+ * so it earns the larger ceiling. 256 MB is still generous for the KB-MB sealed
+ * notes/methods that dominate invites, while keeping the free R2 tier safe even
+ * if many invites are abandoned (Grant, 2026-06-08).
+ *
+ * Keyed per-RECIPIENT (not per-sender) to match the send path's abuse model. R2
+ * cost accrues per parked object under a recipient hash, so bounding the total
+ * sealed bytes parked FOR one address (across every sender that targets it) is
+ * the meaningful ceiling. The per-sender axis (PENDING_INVITE_CAP plus the 10/day
+ * rate limiter) is unchanged, this is the orthogonal per-recipient byte axis.
+ */
+export const INVITE_FREE_STORAGE_BYTES = 256 * 1024 * 1024;
+
+/**
  * Grace window (seconds) for an unconfirmed pending invite, comfortably beyond
  * the presigned-PUT lifetime so an in-flight upload is never swept. An invite
  * that reserves a row but never confirms (a closed tab) is reclaimed after this.

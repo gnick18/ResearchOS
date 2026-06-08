@@ -182,7 +182,14 @@ describe("fetchAllMethodsIncludingShared — owner provenance backfill (guards 1
   it("keeps a shared-in method whose owner is still active", async () => {
     // delete-affordances bot, 2026-05-29 — the tombstone gate must NOT
     // over-filter: an active owner's shared-in method still shows.
-    seedMethod("morgan", { id: 9, name: "morgan's qPCR", owner: "morgan" });
+    // ACL hardening (2026-06-08): the source method must actually share with
+    // alex for the manifest entry to be honored (no more manifest-only trust).
+    seedMethod("morgan", {
+      id: 9,
+      name: "morgan's qPCR",
+      owner: "morgan",
+      shared_with: [{ username: "alex", level: "read", permission: "view" }],
+    });
     memFs.set("users/alex/_shared_with_me.json", {
       version: 1,
       projects: [],
@@ -207,7 +214,13 @@ describe("fetchAllMethodsIncludingShared — owner provenance backfill (guards 1
     // Alex owns a pre-migration method. Morgan has shared method 9 with Alex
     // via Alex's _shared_with_me manifest; the file lives in Morgan's folder.
     seedMethod("alex", { id: 1, name: "legacy western blot" });
-    seedMethod("morgan", { id: 9, name: "morgan's qPCR", owner: "morgan" });
+    // ACL hardening (2026-06-08): the source method genuinely shares with alex.
+    seedMethod("morgan", {
+      id: 9,
+      name: "morgan's qPCR",
+      owner: "morgan",
+      shared_with: [{ username: "alex", level: "read", permission: "view" }],
+    });
     memFs.set("users/alex/_shared_with_me.json", {
       version: 1,
       projects: [],

@@ -37,6 +37,7 @@ import {
   getInviteEntry,
   insertInviteEntry,
   markInviteReady,
+  sumPendingInviteBytesByRecipient,
 } from "../db";
 
 function lastQuery(): Recorded {
@@ -142,6 +143,33 @@ describe("countInvitesBySender", () => {
   it("returns 0 when no row comes back", async () => {
     resultQueue = [[]];
     expect(await countInvitesBySender("sh")).toBe(0);
+  });
+});
+
+describe("sumPendingInviteBytesByRecipient", () => {
+  it("sums non-expired invite bytes keyed by the RECIPIENT hash", async () => {
+    resultQueue = [[{ total: "1234" }]];
+    const n = await sumPendingInviteBytesByRecipient("rh");
+    const q = lastQuery();
+    expect(q.text).toContain("sum(size_bytes)");
+    expect(q.text).toContain("FROM relay_invite");
+    // Keyed by recipient, not sender, to match the send path's abuse model.
+    expect(q.text).toContain("recipient_email_hash = ?");
+    expect(q.text).not.toContain("sender_email_hash");
+    expect(q.text).toContain("expires_at > now()");
+    expect(q.values).toEqual(["rh"]);
+    // The bigint sum may arrive as a string from the Neon driver, coerced here.
+    expect(n).toBe(1234);
+  });
+
+  it("returns 0 when the recipient has no invite bytes", async () => {
+    resultQueue = [[{ total: 0 }]];
+    expect(await sumPendingInviteBytesByRecipient("rh")).toBe(0);
+  });
+
+  it("returns 0 when no row comes back", async () => {
+    resultQueue = [[]];
+    expect(await sumPendingInviteBytesByRecipient("rh")).toBe(0);
   });
 });
 

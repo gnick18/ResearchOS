@@ -1,6 +1,10 @@
 // VCP R1 trash MVP notes (2026-05-26): defense-in-depth check that the
-// notesApi.delete entry point refuses cross-owner deletes without an
-// active Phase 5 session id (OQ9).
+// notesApi.delete entry point refuses cross-owner deletes.
+//
+// ACL hardening (2026-06-08): the gate no longer trusts a non-null sessionId
+// (the removed PI edit-session). A cross-owner delete now requires the live
+// process viewer to be a lab head, resolved from the current user's seeded
+// settings.json account_type.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -47,9 +51,12 @@ vi.mock("@/lib/file-system/indexeddb-store", () => ({
   clearMainUser: vi.fn(),
 }));
 
+const memFiles = new Map<string, unknown>();
 vi.mock("@/lib/file-system/file-service", () => ({
   fileService: {
-    readJson: vi.fn(async () => null),
+    readJson: vi.fn(async (path: string) =>
+      memFiles.has(path) ? memFiles.get(path) : null,
+    ),
     writeJson: vi.fn(async () => undefined),
     ensureDir: vi.fn(async () => null),
     deleteFile: vi.fn(async () => true),
@@ -62,8 +69,14 @@ vi.mock("@/lib/file-system/file-service", () => ({
 
 import { notesApi } from "@/lib/local-api";
 
+/** Mark the current user (alex) as a lab head for the duration of a test. */
+function makeCurrentUserLabHead() {
+  memFiles.set("users/alex/settings.json", { account_type: "lab_head" });
+}
+
 beforeEach(() => {
   trashedCalls.length = 0;
+  memFiles.clear();
 });
 
 describe("notesApi.delete owner-only gate (OQ9)", () => {
@@ -78,7 +91,8 @@ describe("notesApi.delete owner-only gate (OQ9)", () => {
     });
   });
 
-  it("PI cross-owner delete proceeds when sessionId is present", async () => {
+  it("lab-head cross-owner delete proceeds", async () => {
+    makeCurrentUserLabHead();
     await notesApi.delete(2, "mira", {
       actor: "morgan",
       sessionId: "session-xyz",
@@ -92,8 +106,13 @@ describe("notesApi.delete owner-only gate (OQ9)", () => {
     });
   });
 
-  it("shared-edit user cross-owner delete is refused (no session)", async () => {
+  it("shared-edit user cross-owner delete is refused (not a lab head)", async () => {
     await notesApi.delete(3, "mira", { actor: "alex", sessionId: null });
+    expect(trashedCalls).toHaveLength(0);
+  });
+
+  it("non-lab-head cross-owner delete is refused even with a sessionId (ACL hardening)", async () => {
+    await notesApi.delete(4, "mira", { actor: "alex", sessionId: "lab-head-action" });
     expect(trashedCalls).toHaveLength(0);
   });
 });

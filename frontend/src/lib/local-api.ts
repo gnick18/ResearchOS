@@ -138,9 +138,11 @@ import {
   isWholeLabShared,
   normalizeSharedWith,
   canRead,
+  canWriteIgnoringPiRole,
   pairingSharedWith,
   membersSharedWith,
   type Viewer,
+  type ShareableRecord,
 } from "./sharing/unified";
 import { mondayOf } from "./weekly-goals/week";
 import { SharedNotebookStore } from "./shared-notebooks/store";
@@ -267,24 +269,35 @@ function colorSecondaryFor(
 }
 
 /** VCP R2 trash everywhere (2026-05-26): shared owner-only delete gate.
- *  OQ9 locks: only the record owner may delete. A PI may cross-delete
- *  ONLY during an active Phase 5 unlock — the caller passes `sessionId`
- *  in that case so the trash entry's audit fields group with the rest
- *  of the unlock's edits. Edit-access shared users are refused.
+ *  OQ9 locks: only the record owner may delete. A lab head may cross-delete
+ *  any member's record (role privilege); the `sessionId` is preserved purely
+ *  so the trash entry's audit fields can group with the rest of a batch.
+ *
+ *  ACL hardening (2026-06-08): this gate previously treated ANY non-null
+ *  `sessionId` as authorization for a cross-owner delete. Since the PI
+ *  edit-session was removed, callers pass the constant `"lab-head-action"`
+ *  sentinel as `sessionId`, which silently opened the cross-owner delete to
+ *  every caller for free. The sessionId bypass is replaced with a real role
+ *  check against the live process viewer: a cross-owner delete now requires
+ *  the current user to actually be a lab head. `sessionId` no longer
+ *  authorizes anything; it only rides along into the audit fields.
  *
  *  Returns `null` when the delete is gated (caller no-ops); otherwise
  *  returns the resolved attribution fields to thread into `trashEntity`. */
-function resolveDeleteAttribution(
+async function resolveDeleteAttribution(
   targetOwner: string,
   actor: string,
   sessionId: string | null,
   apiTag: string,
-): { actor: string; sessionId: string | null } | null {
-  if (actor !== targetOwner && !sessionId) {
-    console.warn(
-      `[${apiTag}] refused: non-owner ${actor} cannot delete record owned by ${targetOwner} without an active PI unlock`,
-    );
-    return null;
+): Promise<{ actor: string; sessionId: string | null } | null> {
+  if (actor !== targetOwner) {
+    const viewer = await buildCurrentViewer();
+    if (viewer.account_type !== "lab_head") {
+      console.warn(
+        `[${apiTag}] refused: non-owner ${actor} cannot delete record owned by ${targetOwner} (not a lab head)`,
+      );
+      return null;
+    }
   }
   return { actor, sessionId };
 }
@@ -516,7 +529,7 @@ export const projectsApi = {
     const currentUser = (await getCurrentUserCached()) ?? "";
     const actor = options?.actor ?? currentUser;
     const sessionId = options?.sessionId ?? null;
-    const attribution = resolveDeleteAttribution(
+    const attribution = await resolveDeleteAttribution(
       currentUser,
       actor,
       sessionId,
@@ -1161,7 +1174,7 @@ export const tasksApi = {
     // Owner gate uses the task's owner field when available; falls back to
     // the active user for malformed records.
     const targetOwner = task?.owner ?? currentUser;
-    const attribution = resolveDeleteAttribution(
+    const attribution = await resolveDeleteAttribution(
       targetOwner,
       actor,
       sessionId,
@@ -2238,7 +2251,7 @@ export const methodsApi = {
       return;
     }
     const targetOwner = privateMethod.owner || currentUser;
-    const attribution = resolveDeleteAttribution(
+    const attribution = await resolveDeleteAttribution(
       targetOwner,
       actor,
       sessionId,
@@ -2574,7 +2587,7 @@ export const inventoryItemsApi = {
       : await inventoryItemsStore.get(id);
     if (!rec) return;
     const targetOwner = rec.owner || owner || currentUser;
-    const attribution = resolveDeleteAttribution(
+    const attribution = await resolveDeleteAttribution(
       targetOwner,
       actor,
       sessionId,
@@ -2798,7 +2811,7 @@ export const inventoryStocksApi = {
       : await inventoryStocksStore.get(id);
     if (!rec) return;
     const targetOwner = rec.owner || owner || currentUser;
-    const attribution = resolveDeleteAttribution(
+    const attribution = await resolveDeleteAttribution(
       targetOwner,
       actor,
       sessionId,
@@ -3010,7 +3023,7 @@ export const storageNodesApi = {
       : await storageNodesStore.get(id);
     if (!rec) return;
     const targetOwner = rec.owner || owner || currentUser;
-    const attribution = resolveDeleteAttribution(
+    const attribution = await resolveDeleteAttribution(
       targetOwner,
       actor,
       sessionId,
@@ -3206,7 +3219,7 @@ export const sequencesApi = {
     const targetOwner = owner ?? currentUser;
     const actor = options?.actor ?? currentUser;
     const sessionId = options?.sessionId ?? null;
-    const attribution = resolveDeleteAttribution(
+    const attribution = await resolveDeleteAttribution(
       targetOwner,
       actor,
       sessionId,
@@ -3316,7 +3329,7 @@ export const goalsApi = {
     const currentUser = (await getCurrentUserCached()) ?? "";
     const actor = options?.actor ?? currentUser;
     const sessionId = options?.sessionId ?? null;
-    const attribution = resolveDeleteAttribution(
+    const attribution = await resolveDeleteAttribution(
       currentUser,
       actor,
       sessionId,
@@ -4196,7 +4209,7 @@ export const massSpecApi = {
       return;
     }
     const targetOwner = privateProtocol.owner || currentUser;
-    const attribution = resolveDeleteAttribution(
+    const attribution = await resolveDeleteAttribution(
       targetOwner,
       actor,
       sessionId,
@@ -4456,6 +4469,26 @@ export const purchasesApi = {
     data: PurchaseItemUpdate,
     owner?: string,
   ): Promise<PurchaseItem | null> => {
+    // ACL hardening (2026-06-08): a cross-owner write (owner set and not the
+    // current user) lands in another member's purchase_items folder. This was
+    // previously ungated at the API layer, so any caller that passed an
+    // `owner` could write to that user's folder regardless of role. Enforce
+    // that only a lab head may write cross-owner; own-record writes (no owner,
+    // or owner === current user) are unaffected. Legitimate lab-head purchase
+    // edits (PI approve/decline/flag via pi-actions, the PI row editor) all
+    // run as a lab head and pass; non-lab-head shared-purchase views are
+    // read-only at the editor level, so no legitimate member flow breaks.
+    if (owner) {
+      const currentUser = await getCurrentUserCached();
+      if (owner !== currentUser) {
+        const viewer = await buildCurrentViewer();
+        if (viewer.account_type !== "lab_head") {
+          throw new Error(
+            `[purchasesApi.update] refused: ${currentUser ?? "anonymous"} cannot edit purchase item owned by ${owner} (not a lab head)`,
+          );
+        }
+      }
+    }
     const existing = owner
       ? await purchaseItemsStore.getForUser(id, owner)
       : await purchaseItemsStore.get(id);
@@ -4642,7 +4675,7 @@ export const purchasesApi = {
     const targetOwner = owner ?? currentUser;
     const actor = options?.actor ?? currentUser;
     const sessionId = options?.sessionId ?? null;
-    const attribution = resolveDeleteAttribution(
+    const attribution = await resolveDeleteAttribution(
       targetOwner,
       actor,
       sessionId,
@@ -4755,7 +4788,7 @@ export const purchasesApi = {
  * `Viewer` union is `"solo" | "lab" | "lab_head"`. Only "lab_head" carries a
  * privilege, so anything else collapses to the conservative "lab".
  */
-async function buildCurrentViewer(): Promise<Viewer> {
+export async function buildCurrentViewer(): Promise<Viewer> {
   const username = (await getCurrentUserCached()) ?? "";
   let accountType: Viewer["account_type"] = "lab";
   try {
@@ -4871,7 +4904,7 @@ export const labLinksApi = {
     const sessionId = options?.sessionId ?? null;
     const link = await labLinksStore.get(id);
     const targetOwner = link?.owner || currentUser;
-    const attribution = resolveDeleteAttribution(
+    const attribution = await resolveDeleteAttribution(
       targetOwner,
       actor,
       sessionId,
@@ -5112,20 +5145,27 @@ export const notesApi = {
     owner?: string,
     options?: { actor?: string; sessionId?: string | null },
   ): Promise<void> => {
-    const targetOwner = owner ?? (await getCurrentUserCached());
-    const actor = options?.actor ?? (await getCurrentUserCached());
+    const targetOwner = owner ?? (await getCurrentUserCached()) ?? "";
+    const actor = options?.actor ?? (await getCurrentUserCached()) ?? "";
     const sessionId = options?.sessionId ?? null;
-    // Gate: owner self-delete (actor === owner) is always allowed.
-    // PI cross-owner delete requires an active Phase 5 session id.
-    // Edit-access shared users (different actor, no session) are
-    // refused.
-    if (actor !== targetOwner && !sessionId) {
-      console.warn(
-        `[notesApi.delete] refused: non-owner ${actor} cannot delete note owned by ${targetOwner} without an active PI unlock`,
-      );
-      return;
-    }
-    await trashNote(targetOwner, id, { actor, sessionId });
+    // Gate: owner self-delete (actor === owner) is always allowed; a
+    // cross-owner delete requires the live process user to be a lab head.
+    // ACL hardening (2026-06-08): this used to treat any non-null `sessionId`
+    // as authorization, which the removed PI edit-session left wide open via
+    // the constant sentinel. Route through the shared role-checked gate so
+    // notes match every other entity's delete contract. `sessionId` only
+    // rides along into the trash entry's audit fields now.
+    const attribution = await resolveDeleteAttribution(
+      targetOwner,
+      actor,
+      sessionId,
+      "notesApi.delete",
+    );
+    if (!attribution) return;
+    await trashNote(targetOwner, id, {
+      actor: attribution.actor,
+      sessionId: attribution.sessionId,
+    });
   },
 
   // Inverse of `delete`. Returns the restored Note on success, `null`
@@ -6663,6 +6703,34 @@ function resolveShareLevel(input: {
   return PERMISSION_DEFAULT === "edit" ? "edit" : "read";
 }
 
+/**
+ * ACL hardening (2026-06-08): only a record's OWNER may change who it is shared
+ * with. The `sharingApi.share*` functions read the record from the current
+ * user's own folder and then stamp `shared_with`, but none of them asserted
+ * the record actually belongs to the caller — a malformed / malicious call site
+ * could thus mutate the sharing list of a record it does not own. This guard
+ * makes the ownership requirement explicit at the library layer, independent of
+ * any UI gating.
+ *
+ * Legacy records predate the `owner` field (single-user era). A record read
+ * from the current user's own folder with no `owner` stamp is treated as owned
+ * by the current user (it lives in their namespace), so legitimate sharing of
+ * un-migrated records still works. Only a record whose stamped `owner` names a
+ * DIFFERENT user is refused.
+ */
+function assertShareOwnership(
+  recordOwner: string | null | undefined,
+  currentUser: string | null,
+  apiTag: string,
+): void {
+  const owner = recordOwner ?? currentUser ?? "";
+  if (owner !== (currentUser ?? "")) {
+    throw new Error(
+      `[${apiTag}] refused: ${currentUser ?? "anonymous"} cannot change sharing on a record owned by ${recordOwner}`,
+    );
+  }
+}
+
 export const sharingApi = {
   shareTask: async (
     taskId: number,
@@ -6689,6 +6757,7 @@ export const sharingApi = {
     for (const id of ids) {
       const task = await tasksStore.get(id);
       if (!task) continue;
+      assertShareOwnership(task.owner, currentUser, "sharingApi.shareTask");
       // Persist BOTH `level` (the new canonical field) and `permission`
       // (legacy) so old readers + new readers both work during the
       // migration window. upsertSharedWith only sets `permission`; we
@@ -6845,6 +6914,7 @@ export const sharingApi = {
     }
     const method = await methodsStore.get(methodId);
     if (!method) throw new Error(`Method ${methodId} not found in current user's library`);
+    assertShareOwnership(method.owner, currentUser, "sharingApi.shareMethod");
     const sharedListWithLevel = (upsertSharedWith(method, data.username, permission).shared_with ?? [])
       .map((s) => (s.username === data.username ? { ...s, level } : s));
     const updated = { ...method, shared_with: sharedListWithLevel };
@@ -6884,6 +6954,7 @@ export const sharingApi = {
     }
     const project = await projectsStore.get(projectId);
     if (!project) throw new Error(`Project ${projectId} not found in current user's workspace`);
+    assertShareOwnership(project.owner, currentUser, "sharingApi.shareProject");
     const sharedListWithLevel = (upsertSharedWith(project, data.username, permission).shared_with ?? [])
       .map((s) => (s.username === data.username ? { ...s, level } : s));
     const updated = { ...project, shared_with: sharedListWithLevel };
@@ -6934,8 +7005,10 @@ export const sharingApi = {
     noteId: number,
     recipients: { username: string; level: "read" | "edit" }[]
   ): Promise<{ status: string; item_id: number; shared_with: SharedUser[] }> => {
+    const currentUser = await getCurrentUserCached();
     const note = await notesStore.get(noteId);
     if (!note) throw new Error(`Note ${noteId} not found`);
+    assertShareOwnership((note as { owner?: string }).owner, currentUser, "sharingApi.shareNote");
     const sharedWith: SharedUser[] = recipients.map((r) => ({
       username: r.username,
       level: r.level,
@@ -6958,8 +7031,10 @@ export const sharingApi = {
     linkId: number,
     recipients: { username: string; level: "read" | "edit" }[]
   ): Promise<{ status: string; item_id: number; shared_with: SharedUser[] }> => {
+    const currentUser = await getCurrentUserCached();
     const link = await labLinksStore.get(linkId);
     if (!link) throw new Error(`LabLink ${linkId} not found`);
+    assertShareOwnership(link.owner, currentUser, "sharingApi.shareLink");
     const sharedWith: SharedUser[] = recipients.map((r) => ({
       username: r.username,
       level: r.level,
@@ -6975,8 +7050,10 @@ export const sharingApi = {
     goalId: number,
     recipients: { username: string; level: "read" | "edit" }[]
   ): Promise<{ status: string; item_id: number; shared_with: SharedUser[] }> => {
+    const currentUser = await getCurrentUserCached();
     const goal = await goalsStore.get(goalId);
     if (!goal) throw new Error(`HighLevelGoal ${goalId} not found`);
+    assertShareOwnership(goal.owner, currentUser, "sharingApi.shareGoal");
     const sharedWith: SharedUser[] = recipients.map((r) => ({
       username: r.username,
       level: r.level,
@@ -8638,6 +8715,90 @@ interface SharedWithMeManifest {
   projects?: Array<{ id: number; owner: string; permission?: string; shared_at?: string }>;
 }
 
+// ── ACL hardening (2026-06-08): source-of-truth permission cross-validation ──
+//
+// The receiver-side `_shared_with_me.json` manifest is RECEIVER-WRITABLE and can
+// drift or be forged. The fetch-all-including-shared loaders used to overlay
+// `shared_permission` straight from the manifest entry, so:
+//   - after an owner downgrades edit->view (or revokes), the receiver kept
+//     editing until a manual reconcile, and
+//   - a receiver could hand-edit their own manifest to grant themselves edit
+//     on any record they can name.
+// The fix: after reading the SOURCE record from the owner's folder, re-derive
+// the viewer's effective level from the source's own `shared_with` (the
+// owner-controlled source of truth) via the same pure predicates the rest of
+// the app uses, and surface THAT level. When the manifest and the source
+// disagree, a best-effort manifest repair is queued so the on-disk drift
+// converges over time.
+
+type ManifestRepair = {
+  itemType: ItemType;
+  owner: string;
+  id: number;
+  /** "remove" drops a revoked/forged entry; "view"/"edit" corrects a stale
+   *  permission in place. */
+  action: "remove" | "view" | "edit";
+};
+
+/**
+ * Re-derive the viewer's effective permission on a shared-in record from the
+ * SOURCE record's `shared_with`, ignoring whatever the receiver's manifest
+ * claimed. Returns "edit" / "view", or null when the viewer has NO access per
+ * the source (revoked or forged) and the record must not be surfaced.
+ *
+ * The lab-head implicit edit-all is intentionally NOT folded in here:
+ * `shared_permission === "edit"` drives the silent receiver-edit routing
+ * (`effectiveOwnerOf`), whereas a lab head's cross-owner edit goes through the
+ * explicit PI-confirm path. So a lab head who is not ALSO an explicit edit-
+ * recipient resolves to "view" here (read via the implicit view-all), which is
+ * the correct, conservative result.
+ */
+function deriveSourcePermission(
+  source: { owner?: string | null; shared_with?: SharedUser[] | null },
+  viewer: Viewer,
+  ownerFromManifest: string,
+): "edit" | "view" | null {
+  const record: ShareableRecord = {
+    owner: source.owner ?? ownerFromManifest,
+    shared_with: (source.shared_with ?? []) as SharedUser[],
+  };
+  if (canWriteIgnoringPiRole(record, viewer)) return "edit";
+  if (canRead(record, viewer)) return "view";
+  return null;
+}
+
+/** Best-effort: apply queued `_shared_with_me.json` repairs for `receiver`.
+ *  Removes revoked/forged entries and corrects stale permissions. Failures are
+ *  logged and swallowed — a repair must never break a read path. */
+async function applyManifestRepairs(
+  receiver: string | null,
+  repairs: ManifestRepair[],
+): Promise<void> {
+  if (!receiver || repairs.length === 0) return;
+  try {
+    const manifest = await readSharedWithMe(receiver);
+    let changed = false;
+    for (const r of repairs) {
+      const list = manifest[sharedListKey(r.itemType)];
+      const idx = list.findIndex((e) => e.id === r.id && e.owner === r.owner);
+      if (idx < 0) continue;
+      if (r.action === "remove") {
+        list.splice(idx, 1);
+        changed = true;
+      } else {
+        const desired = r.action === "edit" ? "edit" : "view";
+        if (list[idx].permission !== desired) {
+          list[idx] = { ...list[idx], permission: desired };
+          changed = true;
+        }
+      }
+    }
+    if (changed) await writeSharedWithMe(receiver, manifest);
+  } catch (err) {
+    console.warn(`[applyManifestRepairs] failed for ${receiver}:`, err);
+  }
+}
+
 export const fetchAllTasksIncludingShared = async () => {
   const ownTasks = await tasksStore.listAll();
   const currentUserForOwn = await getCurrentUserCached();
@@ -8651,6 +8812,9 @@ export const fetchAllTasksIncludingShared = async () => {
   // individually shared AND a member of a shared project. Composite key —
   // numeric ids are namespaced per-owner.
   const seenComposite = new Set<string>();
+  // ACL hardening: viewer + queued manifest repairs for source cross-validation.
+  const viewer = await buildCurrentViewer();
+  const manifestRepairs: ManifestRepair[] = [];
   try {
     const currentUser = currentUserForOwn;
     const manifest = await fileService.readJson<SharedWithMeManifest>(
@@ -8665,7 +8829,17 @@ export const fetchAllTasksIncludingShared = async () => {
         `users/${entry.owner}/tasks/${entry.id}.json`
       );
       if (!task) continue;
-      const permission = entry.permission === "view" ? "view" : "edit";
+      // ACL: derive the real permission from the SOURCE task's shared_with, not
+      // the receiver-writable manifest. null = revoked/forged → drop + repair.
+      const permission = deriveSourcePermission(task, viewer, entry.owner);
+      if (permission === null) {
+        manifestRepairs.push({ itemType: "task", owner: entry.owner, id: entry.id, action: "remove" });
+        continue;
+      }
+      const manifestPerm = entry.permission === "view" ? "view" : entry.permission === "edit" ? "edit" : undefined;
+      if (manifestPerm !== permission) {
+        manifestRepairs.push({ itemType: "task", owner: entry.owner, id: entry.id, action: permission });
+      }
       const withOwner = {
         ...task,
         owner: entry.owner,
@@ -8692,7 +8866,24 @@ export const fetchAllTasksIncludingShared = async () => {
     // the project's permission for each pulled task.
     const projectEntries = manifest?.projects ?? [];
     for (const projEntry of projectEntries) {
-      const projPermission = projEntry.permission === "view" ? "view" : "edit";
+      // ACL: a forged projects[] entry would otherwise hand the receiver edit
+      // on EVERY task in the owner's project. Validate the project share
+      // against the SOURCE project record before inheriting its permission.
+      const srcProject = await fileService.readJson<Project>(
+        `users/${projEntry.owner}/projects/${projEntry.id}.json`
+      );
+      const projPermission = srcProject
+        ? deriveSourcePermission(srcProject, viewer, projEntry.owner)
+        : null;
+      if (projPermission === null) {
+        // Drop the manifest entry only when we positively confirmed the source
+        // exists but no longer grants access (revoked/forged). A missing source
+        // file (deleted project / read race) is left for delete propagation.
+        if (srcProject) {
+          manifestRepairs.push({ itemType: "project", owner: projEntry.owner, id: projEntry.id, action: "remove" });
+        }
+        continue;
+      }
       let ownerTasks: Task[] = [];
       try {
         ownerTasks = await tasksStore.listAllForUser(projEntry.owner);
@@ -8725,6 +8916,7 @@ export const fetchAllTasksIncludingShared = async () => {
   } catch (err) {
     console.warn("[fetchAllTasksIncludingShared] failed to load shared tasks:", err);
   }
+  if (manifestRepairs.length > 0) void applyManifestRepairs(currentUserForOwn, manifestRepairs);
 
   // Cross-owner host (Option C). For every project owned by the CURRENT
   // user, read the `<projectId>-hosted.json` manifest and pull each foreign
@@ -8864,6 +9056,9 @@ export const fetchAllMethodsIncludingShared = async (): Promise<Method[]> => {
     !!owner && !!allUserMeta[owner]?.deleted_at;
 
   const sharedMethods: Method[] = [];
+  // ACL hardening: cross-validate each shared method against the SOURCE record.
+  const viewer = await buildCurrentViewer();
+  const manifestRepairs: ManifestRepair[] = [];
   try {
     const manifest = await fileService.readJson<SharedManifest>(
       `users/${currentUser}/_shared_with_me.json`
@@ -8875,7 +9070,17 @@ export const fetchAllMethodsIncludingShared = async (): Promise<Method[]> => {
         `users/${entry.owner}/methods/${entry.id}.json`
       );
       if (!method) continue;
-      const permission = entry.permission === "view" ? "view" : "edit";
+      // ACL: derive the real permission from the SOURCE method's shared_with,
+      // not the receiver-writable manifest. null = revoked/forged → drop.
+      const permission = deriveSourcePermission(method, viewer, entry.owner);
+      if (permission === null) {
+        manifestRepairs.push({ itemType: "method", owner: entry.owner, id: entry.id, action: "remove" });
+        continue;
+      }
+      const manifestPerm = entry.permission === "view" ? "view" : entry.permission === "edit" ? "edit" : undefined;
+      if (manifestPerm !== permission) {
+        manifestRepairs.push({ itemType: "method", owner: entry.owner, id: entry.id, action: permission });
+      }
       const withOverlay = {
         ...method,
         owner: entry.owner,
@@ -8888,6 +9093,7 @@ export const fetchAllMethodsIncludingShared = async (): Promise<Method[]> => {
   } catch (err) {
     console.warn("[fetchAllMethodsIncludingShared] failed to load shared methods:", err);
   }
+  if (manifestRepairs.length > 0) void applyManifestRepairs(currentUser, manifestRepairs);
 
   return [...ownMethods, ...sharedMethods];
 };
@@ -8962,6 +9168,9 @@ export const fetchAllProjectsIncludingShared = async (
   });
 
   const sharedProjects: Project[] = [];
+  // ACL hardening: cross-validate each shared project against the SOURCE record.
+  const viewer = await buildCurrentViewer();
+  const manifestRepairs: ManifestRepair[] = [];
   try {
     const manifest = await fileService.readJson<SharedManifest>(
       `users/${currentUser}/_shared_with_me.json`
@@ -8972,7 +9181,17 @@ export const fetchAllProjectsIncludingShared = async (
         `users/${entry.owner}/projects/${entry.id}.json`
       );
       if (!project) continue;
-      const permission = entry.permission === "view" ? "view" : "edit";
+      // ACL: derive the real permission from the SOURCE project's shared_with,
+      // not the receiver-writable manifest. null = revoked/forged → drop.
+      const permission = deriveSourcePermission(project, viewer, entry.owner);
+      if (permission === null) {
+        manifestRepairs.push({ itemType: "project", owner: entry.owner, id: entry.id, action: "remove" });
+        continue;
+      }
+      const manifestPerm = entry.permission === "view" ? "view" : entry.permission === "edit" ? "edit" : undefined;
+      if (manifestPerm !== permission) {
+        manifestRepairs.push({ itemType: "project", owner: entry.owner, id: entry.id, action: permission });
+      }
       const withOverlay = {
         ...project,
         owner: entry.owner,
@@ -8984,6 +9203,7 @@ export const fetchAllProjectsIncludingShared = async (
   } catch (err) {
     console.warn("[fetchAllProjectsIncludingShared] failed to load shared projects:", err);
   }
+  if (manifestRepairs.length > 0) void applyManifestRepairs(currentUser, manifestRepairs);
 
   const combined = [...ownProjectsWithOwner, ...sharedProjects];
   // Defense-in-depth filter (tour orphan project R1, 2026-05-26): drop

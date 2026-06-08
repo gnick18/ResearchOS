@@ -35,8 +35,20 @@ vi.mock("../../file-system/file-service", () => ({
 // Mock the raw APIs so we can drive get/update without standing up the
 // full local-api stack. The Phase 3 actions only use these four entry
 // points.
+// ACL hardening (2026-06-08): the lab-head actions now gate on the live viewer
+// being a lab head. Default the mock to a lab head so the existing behavior
+// tests pass; the role-refusal tests override `viewerState.accountType`
+// per-case. `vi.hoisted` makes the holder available inside the hoisted
+// vi.mock factory without a temporal-dead-zone error.
+const viewerState = vi.hoisted(() => ({
+  accountType: "lab_head" as "solo" | "lab" | "lab_head",
+}));
 vi.mock("@/lib/local-api", () => {
   return {
+    buildCurrentViewer: vi.fn(async () => ({
+      username: "mira",
+      account_type: viewerState.accountType,
+    })),
     tasksApi: {
       get: vi.fn(async (id: number, owner: string) => {
         return fakeFiles[`users/${owner}/tasks/${id}.json`] ?? null;
@@ -155,6 +167,7 @@ describe("pi-actions", () => {
   beforeEach(() => {
     for (const k of Object.keys(fakeFiles)) delete fakeFiles[k];
     writeJsonShouldFailFor = null;
+    viewerState.accountType = "lab_head";
   });
 
   // ── lab-head actions no longer require an edit session ────────────────
@@ -177,6 +190,98 @@ describe("pi-actions", () => {
     it("clearFlagAsOwner clears the flag (owner action)", async () => {
       seedTask("alex", 1, {
         flagged: { by: "mira", at: "2026-05-23T00:00:00Z", reason: null },
+      });
+      const result = await clearFlagAsOwner({
+        owner: "alex",
+        recordType: "task",
+        recordId: 1,
+      });
+      expect(result.ok).toBe(true);
+      const task = fakeFiles["users/alex/tasks/1.json"] as { flagged: unknown };
+      expect(task.flagged).toBeNull();
+    });
+  });
+
+  // ── ACL hardening (2026-06-08): lab_head role gate ───────────────────
+  //
+  // Every cross-owner PI action must refuse when the live process viewer is
+  // not actually a lab head, BEFORE any data write or audit append. A
+  // non-lab-head caller that forges an `actor` arg gets a clean
+  // {ok:false, reason:"data-write"} and the target record is left untouched.
+
+  describe("lab_head role gate (ACL hardening)", () => {
+    it("assignTask refuses when the viewer is not a lab head and writes nothing", async () => {
+      viewerState.accountType = "lab";
+      seedTask("alex", 1, {});
+      const result = await assignTask({
+        actor: "mira",
+        targetOwner: "alex",
+        taskId: 1,
+        assignee: "bob",
+      });
+      expect(result.ok).toBe(false);
+      expect(result.ok === false && result.reason).toBe("data-write");
+      // The task must be untouched (assignee still null, no folder write).
+      const task = fakeFiles["users/alex/tasks/1.json"] as { assignee: unknown };
+      expect(task.assignee).toBeNull();
+      // No audit entry was appended.
+      const entries = await readAuditEntries("alex");
+      expect(entries).toHaveLength(0);
+    });
+
+    it("setPurchaseApproval refuses for a non-lab-head viewer", async () => {
+      viewerState.accountType = "lab";
+      seedPurchase("alex", 1, {});
+      const result = await setPurchaseApproval({
+        actor: "mira",
+        targetOwner: "alex",
+        purchaseItemId: 1,
+        approved: true,
+      });
+      expect(result.ok).toBe(false);
+      expect(result.ok === false && result.reason).toBe("data-write");
+      const item = fakeFiles["users/alex/purchase_items/1.json"] as {
+        approved: boolean;
+      };
+      expect(item.approved).toBe(false);
+    });
+
+    it("declinePurchase refuses for a non-lab-head viewer", async () => {
+      viewerState.accountType = "lab";
+      seedPurchase("alex", 1, {});
+      const result = await declinePurchase({
+        actor: "mira",
+        targetOwner: "alex",
+        purchaseItemId: 1,
+      });
+      expect(result.ok).toBe(false);
+      expect(result.ok === false && result.reason).toBe("data-write");
+      const item = fakeFiles["users/alex/purchase_items/1.json"] as {
+        declined_by: unknown;
+      };
+      expect(item.declined_by).toBeUndefined();
+    });
+
+    it("setFlagForReview refuses for a non-lab-head viewer", async () => {
+      viewerState.accountType = "lab";
+      seedTask("alex", 1, {});
+      const result = await setFlagForReview({
+        actor: "mira",
+        targetOwner: "alex",
+        recordType: "task",
+        recordId: 1,
+        flag: { by: "mira", at: "2026-06-08T00:00:00Z", reason: null },
+      });
+      expect(result.ok).toBe(false);
+      expect(result.ok === false && result.reason).toBe("data-write");
+      const task = fakeFiles["users/alex/tasks/1.json"] as { flagged: unknown };
+      expect(task.flagged).toBeNull();
+    });
+
+    it("clearFlagAsOwner is NOT gated (owner clears their own flag)", async () => {
+      viewerState.accountType = "lab";
+      seedTask("alex", 1, {
+        flagged: { by: "mira", at: "2026-06-08T00:00:00Z", reason: null },
       });
       const result = await clearFlagAsOwner({
         owner: "alex",

@@ -28,6 +28,8 @@ const writeThroughLoro = vi.fn(
 vi.mock("@/lib/loro/config", () => ({ PURCHASE_LORO_ENABLED: false }));
 
 vi.mock("@/lib/local-api", () => ({
+  // ACL hardening (2026-06-08): pi-actions now gates on a lab-head viewer.
+  buildCurrentViewer: vi.fn(async () => ({ username: "pi", account_type: "lab_head" })),
   tasksApi: { get: vi.fn(), update: vi.fn() },
   notesApi: { get: vi.fn(), update: vi.fn() },
   purchasesApi: { update: (...a: unknown[]) => rawPurchasesUpdate(...a) },
