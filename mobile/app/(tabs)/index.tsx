@@ -78,6 +78,15 @@ export default function HomeScreen() {
             </Pressable>
             <Pressable
               style={styles.secondaryButton}
+              onPress={() => router.push('/reorder')}
+              accessibilityRole="button"
+            >
+              <ThemedText style={styles.secondaryButtonText}>
+                Scan to reorder
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              style={styles.secondaryButton}
               onPress={onUnpair}
               accessibilityRole="button"
             >

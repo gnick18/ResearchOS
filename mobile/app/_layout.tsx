@@ -37,6 +37,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="pair" options={{ title: 'Pair' }} />
         <Stack.Screen name="note" options={{ title: 'Quick note' }} />
+        <Stack.Screen name="reorder" options={{ title: 'Scan to reorder' }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style="auto" />
