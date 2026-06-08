@@ -16,6 +16,14 @@ describe("classifyCapture", () => {
     expect(classifyCapture("TEXT/PLAIN")).toBe("text");
   });
 
+  it("routes the reorder content type to the reorder branch", () => {
+    expect(classifyCapture("application/x-researchos-reorder")).toBe("reorder");
+    expect(classifyCapture("APPLICATION/X-RESEARCHOS-REORDER")).toBe("reorder");
+    expect(classifyCapture("application/x-researchos-reorder; charset=utf-8")).toBe(
+      "reorder",
+    );
+  });
+
   it("routes everything else to other (skipped, never acked)", () => {
     expect(classifyCapture("application/pdf")).toBe("other");
     expect(classifyCapture("application/octet-stream")).toBe("other");

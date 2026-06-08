@@ -13,6 +13,10 @@
 //   text/*        creates a real Note (notesApi.create) so it shows up in the
 //                 Notes UI, then acks. Title comes from the caption, the body
 //                 is the markdown text.
+//   application/x-researchos-reorder
+//                 a barcode reorder request from a paired phone. The body is a
+//                 JSON description of the item; it lands as a visible Note
+//                 titled "Reorder: <name|catalog|barcode>", then acks.
 //   anything else logged and SKIPPED (not acked, so nothing is lost, the relay
 //                 keeps it and a future build can handle it).
 //
@@ -42,7 +46,22 @@ import {
 const LOG_PREFIX = "[capture-poller]";
 
 /** Coarse category a capture is routed by, derived from its content type. */
-export type CaptureKind = "image" | "text" | "other";
+export type CaptureKind = "image" | "text" | "reorder" | "other";
+
+/** The barcode-reorder content type the phone sends a reorder request as. */
+const REORDER_CONTENT_TYPE = "application/x-researchos-reorder";
+
+/** Decoded reorder request payload. Every field is optional (the phone may
+ *  only know a scanned barcode and nothing else), so consumers must tolerate
+ *  a partial object. */
+interface ReorderPayload {
+  product_barcode?: string;
+  itemId?: number | string;
+  name?: string;
+  catalog_number?: string;
+  vendor?: string;
+  note?: string;
+}
 
 /**
  * Classify a capture content type into the branch that handles it. Pure +
@@ -53,8 +72,32 @@ export type CaptureKind = "image" | "text" | "other";
 export function classifyCapture(contentType: string | null | undefined): CaptureKind {
   const ct = (contentType ?? "").toLowerCase();
   if (ct.startsWith("image/")) return "image";
+  if (ct.startsWith(REORDER_CONTENT_TYPE)) return "reorder";
   if (ct.startsWith("text/")) return "text";
   return "other";
+}
+
+/** Best-effort label for a reorder request, for the note title. */
+function reorderLabel(payload: ReorderPayload): string {
+  return (
+    payload.name?.trim() ||
+    payload.catalog_number?.trim() ||
+    payload.product_barcode?.trim() ||
+    "item"
+  );
+}
+
+/** Render a reorder payload as a readable markdown note body. */
+function reorderNoteBody(payload: ReorderPayload): string {
+  const lines: string[] = ["Reorder request from a paired phone.", ""];
+  if (payload.name) lines.push(`- Name: ${payload.name}`);
+  if (payload.itemId !== undefined && payload.itemId !== null)
+    lines.push(`- Inventory item id: ${payload.itemId}`);
+  if (payload.catalog_number) lines.push(`- Catalog number: ${payload.catalog_number}`);
+  if (payload.vendor) lines.push(`- Vendor: ${payload.vendor}`);
+  if (payload.product_barcode) lines.push(`- Barcode: ${payload.product_barcode}`);
+  if (payload.note) lines.push(`- Note: ${payload.note}`);
+  return lines.join("\n");
 }
 
 /** Maps a capture content-type to a sensible image extension. */
@@ -175,6 +218,35 @@ export async function runCaptureInboxPoll(
         });
         console.info(
           `${LOG_PREFIX} wrote ${basePath}/Images/${result.finalFilename}`,
+        );
+      } else if (kind === "reorder") {
+        // Barcode reorder request. The phone sends a JSON body describing the
+        // item to reorder. We land it as a visible Note (see report flag for
+        // why a Note and not a Purchase) so the lab sees the request in the
+        // Notes UI. Tolerant of partial payloads.
+        let payload: ReorderPayload = {};
+        try {
+          payload = JSON.parse(await blob.text()) as ReorderPayload;
+        } catch (parseErr) {
+          console.warn(
+            `${LOG_PREFIX} reorder ${capture.captureId} has unparseable body, landing a bare note`,
+            parseErr instanceof Error ? parseErr.message : String(parseErr),
+          );
+        }
+        const label = reorderLabel(payload);
+        const title = `Reorder: ${label}`;
+        const note = await notesApi.create({
+          title,
+          entries: [
+            {
+              title,
+              date: (capture.createdAt || new Date().toISOString()).slice(0, 10),
+              content: reorderNoteBody(payload),
+            },
+          ],
+        });
+        console.info(
+          `${LOG_PREFIX} wrote reorder note users/${currentUser}/notes/${note.id}.json`,
         );
       } else {
         // text/*. Land a real Note so it is visible in the Notes UI. The body is

@@ -20,6 +20,7 @@ import { useEffect, useRef } from "react";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { loadUserCaptureKeys } from "@/lib/mobile-relay/keys";
 import { publishTodayToAllDevices } from "@/lib/mobile-relay/today-snapshot";
+import { publishInventoryToAllDevices } from "@/lib/mobile-relay/inventory-snapshot";
 
 const PUBLISH_INTERVAL_MS = 60_000;
 // Throttle so a focus event landing on top of the interval (or vice versa) does
@@ -52,6 +53,15 @@ export default function TodaySnapshotPublisher() {
         if (published > 0 || skipped > 0) {
           console.info(
             `[today-publisher] published to ${published} device(s), skipped ${skipped}`,
+          );
+        }
+        // Same cadence as the today snapshot: seal + publish the inventory
+        // snapshot so paired phones can resolve a scanned barcode offline.
+        if (cancelled) return;
+        const inv = await publishInventoryToAllDevices(keys);
+        if (inv.published > 0 || inv.skipped > 0) {
+          console.info(
+            `[inventory-publisher] published to ${inv.published} device(s), skipped ${inv.skipped}`,
           );
         }
       } catch (err) {
