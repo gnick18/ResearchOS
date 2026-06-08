@@ -69,6 +69,15 @@ export default function HomeScreen() {
             </Pressable>
             <Pressable
               style={styles.secondaryButton}
+              onPress={() => router.push('/note')}
+              accessibilityRole="button"
+            >
+              <ThemedText style={styles.secondaryButtonText}>
+                Quick note
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              style={styles.secondaryButton}
               onPress={onUnpair}
               accessibilityRole="button"
             >
