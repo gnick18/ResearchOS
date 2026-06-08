@@ -99,7 +99,7 @@ export default function WikiBrowseScreen() {
   }, []);
 
   return (
-    <ScreenFrame edges={['bottom']}>
+    <ScreenFrame>
       <View style={[styles.header, { backgroundColor: surface.bg, borderBottomColor: surface.border }]}>
         <ThemedText style={[styles.title, { color: surface.text }]}>Help &amp; Wiki</ThemedText>
       </View>

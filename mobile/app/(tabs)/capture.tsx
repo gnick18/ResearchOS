@@ -17,7 +17,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 
 import { ThemedText } from '@/components/themed-text';
@@ -36,12 +36,13 @@ import {
   type Capture,
   type CaptureStatus,
 } from '@/lib/captures';
-import { usePairing } from '@/lib/pairing';
+import { usePairing, clearPairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
 
 export default function CaptureScreen() {
+  const router = useRouter();
   const { captures, refresh } = useCaptures();
-  const { pairing } = usePairing();
+  const { pairing, refresh: refreshPairing } = usePairing();
   const { surface, spacing, radii } = useTheme();
   // The just-snapped photo, held before the user decides to queue or discard.
   const [previewUri, setPreviewUri] = useState<string | null>(null);
@@ -50,6 +51,18 @@ export default function CaptureScreen() {
   const [sendingAll, setSendingAll] = useState(false);
 
   const paired = !!pairing;
+
+  // Keep the connection card current when returning from the pair screen.
+  useFocusEffect(
+    useCallback(() => {
+      refreshPairing();
+    }, [refreshPairing]),
+  );
+
+  const onUnpair = useCallback(async () => {
+    await clearPairing();
+    refreshPairing();
+  }, [refreshPairing]);
 
   // Upload one capture, surfacing failures via an alert. Refreshes the list so
   // the status pill reflects sending -> sent or failed.
@@ -159,10 +172,37 @@ export default function CaptureScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-          <ThemedText type="title">Capture</ThemedText>
+          <ThemedText type="title">Send</ThemedText>
           <ThemedText style={[styles.tagline, { color: surface.muted }]}>
-            Snap a photo at the bench and queue it to your lab.
+            Send photos and notes from the bench to your lab.
           </ThemedText>
+
+          {paired ? (
+            <Card style={{ gap: spacing.sm }}>
+              <ThemedText style={[styles.cardTitle, { color: surface.text }]}>
+                {pairing?.labName ?? 'Paired with your lab'}
+              </ThemedText>
+              <ThemedText style={[styles.tagline, { color: surface.muted }]}>
+                Connected. Captures and notes sync over the encrypted relay.
+              </ThemedText>
+              <Button variant="ghost" label="Unpair" onPress={onUnpair} />
+            </Card>
+          ) : (
+            <Card style={{ gap: spacing.sm }}>
+              <ThemedText style={[styles.cardTitle, { color: surface.text }]}>
+                Not paired
+              </ThemedText>
+              <ThemedText style={[styles.tagline, { color: surface.muted }]}>
+                Pair this phone with your laptop to send captures and notes to
+                your lab.
+              </ThemedText>
+              <Button
+                variant="primary"
+                label="Pair this phone"
+                onPress={() => router.push('/pair')}
+              />
+            </Card>
+          )}
 
           {previewUri ? (
             <Card style={{ gap: spacing.md }}>
@@ -208,12 +248,18 @@ export default function CaptureScreen() {
             />
           )}
 
+          <Button
+            variant="secondary"
+            label="Quick note"
+            onPress={() => router.push('/note')}
+          />
+
           <View style={styles.outboxHeader}>
             <SectionHeader title="Outbox" />
             <ThemedText style={[styles.outboxNote, { color: surface.muted }]}>
               {paired
                 ? 'Captures upload to your lab inbox over the encrypted relay.'
-                : 'Pair this phone from the home tab to send captures to your lab.'}
+                : 'Pair this phone above to send captures to your lab.'}
             </ThemedText>
           </View>
 
@@ -339,6 +385,7 @@ function formatCreatedAt(iso: string): string {
 }
 
 const styles = StyleSheet.create({
+  cardTitle: { fontSize: 17, fontWeight: '700', lineHeight: 22 },
   fill: { flex: 1 },
   container: { flex: 1 },
   safe: { flex: 1 },

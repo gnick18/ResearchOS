@@ -1,9 +1,9 @@
 /**
- * Tab bar layout (v2 visual foundation).
+ * Tab bar layout (5-tab restructure).
  *
- * Brand-sky active tint, themed background, comfortable height/padding.
- * All four tabs (Home / Today / Capture / Timers) and their icons are
- * unchanged. Only the visual styling adopts the new design tokens.
+ * Five tabs: Today / Send / Calc / Timer / Wiki. The old Home tab is retired;
+ * its pairing + send actions move into the Send tab. Brand-sky active tint,
+ * themed background, comfortable height/padding. Today is the default tab.
  *
  * House style: no em-dashes, no emojis, no mid-sentence colons.
  */
@@ -15,6 +15,11 @@ import { Platform } from 'react-native';
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useTheme } from '@/lib/design';
+
+// Today is the landing tab now that Home is gone.
+export const unstable_settings = {
+  initialRouteName: 'today',
+};
 
 export default function TabLayout() {
   const { surface } = useTheme();
@@ -49,15 +54,6 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="house.fill" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="today"
         options={{
           title: 'Today',
@@ -69,18 +65,36 @@ export default function TabLayout() {
       <Tabs.Screen
         name="capture"
         options={{
-          title: 'Capture',
+          title: 'Send',
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="camera.fill" color={color} />
+            <IconSymbol size={26} name="paperplane.fill" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="calc"
+        options={{
+          title: 'Calc',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={26} name="function" color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="timers"
         options={{
-          title: 'Timers',
+          title: 'Timer',
           tabBarIcon: ({ color }) => (
             <IconSymbol size={26} name="timer" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="wiki"
+        options={{
+          title: 'Wiki',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={26} name="book.fill" color={color} />
           ),
         }}
       />

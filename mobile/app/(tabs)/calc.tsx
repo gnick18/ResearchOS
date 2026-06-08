@@ -97,7 +97,7 @@ export default function CalcScreen() {
   const { surface, spacing: sp } = useTheme();
 
   return (
-    <ScreenFrame edges={['bottom']}>
+    <ScreenFrame>
       {/* Horizontal scrollable tab chip row */}
       <ScrollView
         horizontal

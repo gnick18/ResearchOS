@@ -19,6 +19,8 @@ const MAPPING = {
   'camera.fill': 'photo-camera',
   'sun.max.fill': 'wb-sunny',
   'timer': 'timer',
+  'function': 'calculate',
+  'book.fill': 'menu-book',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
 } as IconMapping;
