@@ -12,9 +12,17 @@ import { CommandPalette, type DockControl } from "./CommandPalette";
 import type { EditorCommand } from "./editor-commands";
 import type { GlobalIndexEntry } from "@/components/beaker-search/global-index";
 
+// usePathname is mocked so tests can drive route changes without a Next.js
+// router. Each test resets _mockPathname to the base path in beforeEach.
+let _mockPathname = "/sequences/1";
+vi.mock("next/navigation", () => ({
+  usePathname: () => _mockPathname,
+}));
+
 // v3 persists the dock geometry to localStorage; clear it between tests so a
 // tucked-state from one test cannot leak the peek tab into the next render.
 beforeEach(() => {
+  _mockPathname = "/sequences/1";
   try {
     window.localStorage.clear();
   } catch {
@@ -371,6 +379,88 @@ describe("CommandPalette", () => {
     expect(screen.getByText("Suggested")).toBeTruthy();
     const options = screen.getAllByRole("option");
     expect(options[0].textContent).toContain("Design primers");
+  });
+
+  it("clears the query on pathname change, leaves the dock open", () => {
+    // Type a query, then simulate navigating to a different page by changing
+    // the mocked pathname and rerendering. The combobox value must be empty;
+    // the dialog must still be present (dock stays open).
+    const { rerender } = render(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={makeCommands()}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+    const input = screen.getByRole("combobox") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "prot" } });
+    expect(input.value).toBe("prot");
+
+    // Simulate navigation: change the mocked pathname, then rerender.
+    _mockPathname = "/workbench/tasks";
+    rerender(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={makeCommands()}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+
+    expect((screen.getByRole("combobox") as HTMLInputElement).value).toBe("");
+    // The dock itself stays open.
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("resets an open sub-flow on pathname change", () => {
+    // Open a stack sub-flow, navigate, and confirm the Back row is gone and
+    // the root list is restored.
+    function makeStackCmd(): EditorCommand[] {
+      return [
+        {
+          id: "add-dep",
+          label: "Add a dependency",
+          group: "Edit",
+          iconName: "share",
+          run: () => {},
+          subflow: () => ({
+            title: "Add a dependency",
+            placeholder: "Pick one",
+            presentation: "stack" as const,
+            items: [{ id: "x", label: "Experiment X", iconName: "list" as const, onRun: () => {} }],
+            onPick: () => {},
+          }),
+        },
+      ];
+    }
+    const { rerender } = render(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={makeStackCmd()}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+    fireEvent.mouseDown(screen.getByText("Add a dependency"));
+    expect(screen.getByTestId("beaker-subflow-back")).toBeTruthy();
+
+    _mockPathname = "/workbench/projects";
+    rerender(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={makeStackCmd()}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+
+    expect(screen.queryByTestId("beaker-subflow-back")).toBeNull();
+    expect(screen.getByText("Add a dependency")).toBeTruthy();
   });
 });
 

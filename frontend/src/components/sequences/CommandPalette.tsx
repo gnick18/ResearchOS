@@ -21,6 +21,7 @@
 // colons.
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import { Icon } from "@/components/icons";
 import BeakerBot from "@/components/BeakerBot";
@@ -474,6 +475,10 @@ export function CommandPalette({
   // The element focused before the palette opened, restored on close.
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const baseId = useId();
+  const pathname = usePathname();
+  // Starts false; the first pathname-effect run (mount) flips it to true and
+  // exits early, so only genuine route changes after mount trigger the clear.
+  const clearOnNavRef = useRef(false);
 
   // BeakerSearch v3. The floating-dock geometry (position, collapsed, tucked,
   // side). The brain is the pure dock-state module; here we hold the live state,
@@ -779,6 +784,27 @@ export function CommandPalette({
     const id = window.requestAnimationFrame(() => inputRef.current?.focus());
     return () => window.cancelAnimationFrame(id);
   }, [open]);
+
+  // When the user navigates to a different page, clear the typed query and any
+  // open sub-flow so the dock presents a fresh list for the new page. The dock
+  // stays open and its geometry is unchanged. The first run of this effect is
+  // the mount call (skipped via clearOnNavRef); only genuine route changes after
+  // mount trigger the clear. Focus stays on the input when it already held it.
+  useEffect(() => {
+    if (!clearOnNavRef.current) {
+      clearOnNavRef.current = true;
+      return;
+    }
+    const hadFocus =
+      inputRef.current != null && document.activeElement === inputRef.current;
+    setQuery("");
+    setHighlight(0);
+    setSubStack([]);
+    setInlineAnchorKey(null);
+    if (!hadFocus) return;
+    const id = window.requestAnimationFrame(() => inputRef.current?.focus());
+    return () => window.cancelAnimationFrame(id);
+  }, [pathname]);
 
   // Keep the highlight in range as the filtered list shrinks; default to the top
   // result whenever the query changes.
