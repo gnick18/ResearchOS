@@ -8,6 +8,12 @@
 // switch. Per the build plan (docs/proposals/INVENTORY_V1_BUILD_PLAN.md rule
 // 5) the whole user-facing surface lands behind this flag.
 //
-// To dogfood in Grant's working tree, flip this to `true` locally. It is left
-// at `false` on `main` until inventory v1 is complete and verified.
-export const INVENTORY_ENABLED = false;
+// Env-driven so dogfooding no longer requires hand-editing this const: set
+// NEXT_PUBLIC_INVENTORY_ENABLED=1 in frontend/.env.local (NEXT_PUBLIC_* is
+// inlined at build, so restart the dev server after changing it). Default OFF
+// when unset, so it stays dark on `main` and in prod until inventory v1 is
+// complete and verified. Flipping prod ON is a deliberate, post-bug-fix Vercel
+// env action (set NEXT_PUBLIC_INVENTORY_ENABLED + redeploy), NOT a code change.
+export const INVENTORY_ENABLED =
+  process.env.NEXT_PUBLIC_INVENTORY_ENABLED === "1" ||
+  process.env.NEXT_PUBLIC_INVENTORY_ENABLED === "true";
