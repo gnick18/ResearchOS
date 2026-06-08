@@ -259,6 +259,7 @@ const ICONS_RAW = {
     body: (
       <>
         <text
+          aria-hidden="true"
           x="12"
           y="13"
           textAnchor="middle"
@@ -430,6 +431,7 @@ const ICONS_RAW = {
         <g>
           <rect x="13" y="2.5" width="9.5" height="6" rx="1.5" fill="#20558a" />
           <text
+            aria-hidden="true"
             x="17.75"
             y="7"
             textAnchor="middle"
