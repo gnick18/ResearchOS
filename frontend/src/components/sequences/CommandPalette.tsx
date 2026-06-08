@@ -27,10 +27,13 @@ import BeakerBot from "@/components/BeakerBot";
 import Tooltip from "@/components/Tooltip";
 import type { SelectionKind } from "@/lib/sequences/inspector-context";
 import {
+  DOCK_HEIGHT_FALLBACK,
   DOCK_STORAGE_KEY,
   DOCK_WIDTH,
+  applyArrowKey,
+  armedWall,
   clampPosition,
-  endDragAt,
+  endDrag,
   fromPersisted,
   initialDockState,
   nearestSide,
@@ -39,7 +42,6 @@ import {
   reclampForViewport,
   toPersisted,
   toggleCollapsed,
-  tuckDecision,
   tuckDock,
   untuckDock,
   type DockSide,
@@ -462,9 +464,20 @@ export function CommandPalette({
   const dockRef = useRef<HTMLDivElement | null>(null);
   const hydratedRef = useRef(false);
   const reduceMotionRef = useRef(false);
+  // The latest dock state, read by the window-level arrow-key handler without
+  // re-subscribing the listener on every geometry change.
+  const dockStateRef = useRef(dock);
+  dockStateRef.current = dock;
 
   const viewport = useCallback(
     (): Viewport => ({ width: window.innerWidth, height: window.innerHeight }),
+    [],
+  );
+
+  // The measured live height of the dock, so the pure geometry can keep the full
+  // footprint on screen and decide top / bottom hides. Falls back before mount.
+  const dockHeight = useCallback(
+    () => dockRef.current?.offsetHeight ?? DOCK_HEIGHT_FALLBACK,
     [],
   );
 
@@ -957,14 +970,15 @@ export function CommandPalette({
     const d = dragRef.current;
     if (!d || d.pointerId !== e.pointerId) return;
     const vp: Viewport = { width: window.innerWidth, height: window.innerHeight };
-    const next = clampPosition(
-      d.originX + (e.clientX - d.startX),
-      d.originY + (e.clientY - d.startY),
-      vp,
-    );
+    const h = dockHeight();
+    // The DESIRED (unclamped) position decides arming; the dock itself sits at
+    // the clamped position so it can be pressed flush against the wall.
+    const desiredX = d.originX + (e.clientX - d.startX);
+    const desiredY = d.originY + (e.clientY - d.startY);
+    const next = clampPosition(desiredX, desiredY, vp, 44, h);
     setDock((cur) => ({ ...cur, x: next.x, y: next.y, tucked: false }));
-    setArmedSide(tuckDecision(next.x, vp));
-  }, []);
+    setArmedSide(armedWall(desiredX, desiredY, vp, h));
+  }, [dockHeight]);
 
   const onHeaderPointerUp = useCallback((e: React.PointerEvent) => {
     const d = dragRef.current;
@@ -974,22 +988,51 @@ export function CommandPalette({
     const el = dockRef.current;
     if (el && el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
     const vp: Viewport = { width: window.innerWidth, height: window.innerHeight };
-    setDock((cur) => {
-      if (cur.x == null || cur.y == null) return cur;
-      return endDragAt(cur, cur.x, cur.y, vp);
-    });
-  }, []);
+    const h = dockHeight();
+    const desiredX = d.originX + (e.clientX - d.startX);
+    const desiredY = d.originY + (e.clientY - d.startY);
+    setDock((cur) => endDrag(cur, desiredX, desiredY, vp, h));
+  }, [dockHeight]);
 
   // Header control actions.
   const doTuck = useCallback(() => {
     const vp: Viewport = { width: window.innerWidth, height: window.innerHeight };
-    setDock((cur) => tuckDock(cur, nearestSide(cur, vp), vp));
-  }, []);
+    const h = dockHeight();
+    setDock((cur) => tuckDock(cur, nearestSide(cur, vp, h), vp, h));
+  }, [dockHeight]);
   const doUntuck = useCallback(() => {
     const vp: Viewport = { width: window.innerWidth, height: window.innerHeight };
-    setDock((cur) => untuckDock(cur, vp));
-  }, []);
+    setDock((cur) => untuckDock(cur, vp, dockHeight()));
+  }, [dockHeight]);
   const doCollapse = useCallback(() => setDock((cur) => toggleCollapsed(cur)), []);
+
+  // BeakerSearch v3. Arrow keys hide the dock to a wall, or pull it back from
+  // one. They act ONLY when focus is "parked" on nothing focusable (the document
+  // body, after clicking empty page space). If focus is in the search input, the
+  // dock chrome, or ANY page widget, that target keeps its own arrow keys, so we
+  // never hijack the result-list Up / Down navigation, the search field, or a
+  // page's own arrow handling (the sequence editor, calendar, and so on). A
+  // floating dock hides toward the arrow; a tucked dock returns on the arrow
+  // pointing away from the wall it sits on.
+  useEffect(() => {
+    if (!open) return;
+    const onArrow = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      if (!e.key.startsWith("Arrow")) return;
+      const ae = document.activeElement;
+      const parked =
+        !ae || ae === document.body || ae === document.documentElement;
+      if (!parked) return;
+      const vp: Viewport = { width: window.innerWidth, height: window.innerHeight };
+      const next = applyArrowKey(dockStateRef.current, e.key, vp, dockHeight());
+      if (next) {
+        e.preventDefault();
+        setDock(next);
+      }
+    };
+    window.addEventListener("keydown", onArrow);
+    return () => window.removeEventListener("keydown", onArrow);
+  }, [open, dockHeight]);
 
   // Keep the highlighted row scrolled into view as Up / Down walk past the fold.
   useEffect(() => {
@@ -1018,11 +1061,13 @@ export function CommandPalette({
   // resting position so untucking returns it at the same size.
   const left = dock.x ?? 0;
   const top = dock.y ?? 0;
-  const tuckTransform = dock.tucked
-    ? dock.side === "right"
-      ? "translateX(calc(100% + 24px))"
-      : "translateX(calc(-100% - 24px))"
-    : undefined;
+  const TUCK_TRANSFORM: Record<DockSide, string> = {
+    right: "translateX(calc(100% + 24px))",
+    left: "translateX(calc(-100% - 24px))",
+    bottom: "translateY(calc(100% + 24px))",
+    top: "translateY(calc(-100% - 24px))",
+  };
+  const tuckTransform = dock.tucked ? TUCK_TRANSFORM[dock.side] : undefined;
   // The animated chrome (drag tracks the pointer with no transition; tuck /
   // untuck / collapse animate, unless the user prefers reduced motion).
   const dragging = dragRef.current != null;
@@ -1030,6 +1075,11 @@ export function CommandPalette({
     dragging || reduceMotionRef.current
       ? ""
       : "transition-[transform,left,top] duration-300 ease-out motion-reduce:transition-none";
+  // While a drag is armed against a wall, the dock pulses a ring on that edge as
+  // the "let go and I will hide here" cue (static ring under reduced motion).
+  const armedRingClass = armedSide
+    ? "ring-2 ring-brand-action animate-pulse motion-reduce:animate-none"
+    : "";
   // Which edge the hide button would tuck to (the nearest side), for its glyph +
   // tooltip. Computed from the live position against the current viewport.
   const hideSide: DockSide = nearestSide(
@@ -1037,58 +1087,97 @@ export function CommandPalette({
     mounted
       ? { width: window.innerWidth, height: window.innerHeight }
       : { width: 0, height: 0 },
+    dockHeight(),
   );
 
   return createPortal(
     <>
-      {/* The drag-to-edge "Hide here" hint zones. They paint a soft accent wash
-          on the side the dock would tuck to on release, and stay pointer-inert
-          so they never block the page. Shown only while a drag is armed near an
-          edge. */}
+      {/* The drag-to-edge "Hide here" hint zones, one per wall. They paint a soft
+          accent wash on the wall the dock would hide against, pulse while that
+          wall is armed (the "let go and I hide" cue), and stay pointer-inert so
+          they never block the page. Shown only while dragging. */}
       {dragging ? (
         <>
           <div
             aria-hidden="true"
-            className={`pointer-events-none fixed inset-y-0 left-0 z-[78] w-[80px] bg-gradient-to-r from-brand-action/25 to-transparent transition-opacity ${
-              armedSide === "left" ? "opacity-100" : "opacity-40"
+            className={`pointer-events-none fixed inset-y-0 left-0 z-[78] w-[80px] bg-gradient-to-r from-brand-action/30 to-transparent transition-opacity ${
+              armedSide === "left"
+                ? "opacity-100 animate-pulse motion-reduce:animate-none"
+                : "opacity-30"
             }`}
           />
           <div
             aria-hidden="true"
-            className={`pointer-events-none fixed inset-y-0 right-0 z-[78] w-[80px] bg-gradient-to-l from-brand-action/25 to-transparent transition-opacity ${
-              armedSide === "right" ? "opacity-100" : "opacity-40"
+            className={`pointer-events-none fixed inset-y-0 right-0 z-[78] w-[80px] bg-gradient-to-l from-brand-action/30 to-transparent transition-opacity ${
+              armedSide === "right"
+                ? "opacity-100 animate-pulse motion-reduce:animate-none"
+                : "opacity-30"
+            }`}
+          />
+          <div
+            aria-hidden="true"
+            className={`pointer-events-none fixed inset-x-0 top-0 z-[78] h-[80px] bg-gradient-to-b from-brand-action/30 to-transparent transition-opacity ${
+              armedSide === "top"
+                ? "opacity-100 animate-pulse motion-reduce:animate-none"
+                : "opacity-30"
+            }`}
+          />
+          <div
+            aria-hidden="true"
+            className={`pointer-events-none fixed inset-x-0 bottom-0 z-[78] h-[80px] bg-gradient-to-t from-brand-action/30 to-transparent transition-opacity ${
+              armedSide === "bottom"
+                ? "opacity-100 animate-pulse motion-reduce:animate-none"
+                : "opacity-30"
             }`}
           />
         </>
       ) : null}
 
       {/* The peek tab, shown only while tucked. Clicking it pulls the dock back
-          in at its same size. A vertical "BeakerSearch" wordmark. */}
-      {dock.tucked ? (
-        <Tooltip label="Show BeakerSearch" placement={dock.side === "right" ? "left" : "right"}>
-          <button
-            type="button"
-            onClick={doUntuck}
-            aria-label="Show BeakerSearch"
-            className={`fixed top-1/2 z-[79] flex -translate-y-1/2 flex-col items-center gap-2 border border-border bg-surface-raised px-1.5 py-3 shadow-2xl hover:border-brand-action ${
-              dock.side === "right"
-                ? "right-0 rounded-l-xl border-r-0"
-                : "left-0 rounded-r-xl border-l-0"
-            }`}
-          >
-            <BeakerBot pose="idle" animated={false} className="h-4 w-4 flex-none" ariaLabel="" />
-            <span
-              className="text-[11px] font-extrabold tracking-wide text-foreground"
-              style={{
-                writingMode: "vertical-rl",
-                transform: dock.side === "left" ? "rotate(180deg)" : undefined,
-              }}
-            >
-              BeakerSearch
-            </span>
-          </button>
-        </Tooltip>
-      ) : null}
+          in at its same size. Left / right render a vertical wordmark, top /
+          bottom a horizontal one. */}
+      {dock.tucked
+        ? (() => {
+            const vertical = dock.side === "left" || dock.side === "right";
+            const posClass: Record<DockSide, string> = {
+              right: "right-0 top-1/2 -translate-y-1/2 flex-col px-1.5 py-3 rounded-l-xl border-r-0",
+              left: "left-0 top-1/2 -translate-y-1/2 flex-col px-1.5 py-3 rounded-r-xl border-l-0",
+              top: "top-0 left-1/2 -translate-x-1/2 flex-row px-3 py-1.5 rounded-b-xl border-t-0",
+              bottom: "bottom-0 left-1/2 -translate-x-1/2 flex-row px-3 py-1.5 rounded-t-xl border-b-0",
+            };
+            const tipPlacement: Record<DockSide, "left" | "right" | "top" | "bottom"> = {
+              right: "left",
+              left: "right",
+              top: "bottom",
+              bottom: "top",
+            };
+            return (
+              <Tooltip label="Show BeakerSearch" placement={tipPlacement[dock.side]}>
+                <button
+                  type="button"
+                  onClick={doUntuck}
+                  aria-label="Show BeakerSearch"
+                  className={`fixed z-[79] flex items-center gap-2 border border-border bg-surface-raised shadow-2xl hover:border-brand-action ${posClass[dock.side]}`}
+                >
+                  <BeakerBot pose="idle" animated={false} className="h-4 w-4 flex-none" ariaLabel="" />
+                  <span
+                    className="text-[11px] font-extrabold tracking-wide text-foreground"
+                    style={
+                      vertical
+                        ? {
+                            writingMode: "vertical-rl",
+                            transform: dock.side === "left" ? "rotate(180deg)" : undefined,
+                          }
+                        : undefined
+                    }
+                  >
+                    BeakerSearch
+                  </span>
+                </button>
+              </Tooltip>
+            );
+          })()
+        : null}
 
       {/* The one dock. Non-modal: role="dialog" WITHOUT aria-modal, so it is a
           labeled region the page can ignore; there is no scrim and no focus
@@ -1104,7 +1193,7 @@ export function CommandPalette({
           width: `${DOCK_WIDTH}px`,
           transform: tuckTransform,
         }}
-        className={`fixed z-[79] flex max-h-[80vh] flex-col overflow-hidden rounded-2xl border border-border bg-surface-raised shadow-2xl ${transitionClass}`}
+        className={`fixed z-[79] flex max-h-[80vh] flex-col overflow-hidden rounded-2xl border border-border bg-surface-raised shadow-2xl ${transitionClass} ${armedRingClass}`}
       >
         {/* Dock header. The drag handle (whole header), the BeakerBot mark +
             wordmark, and the control cluster (hide-to-edge, collapse, close). A
@@ -1145,8 +1234,14 @@ export function CommandPalette({
               className="flex h-7 w-7 flex-none items-center justify-center rounded-md border border-transparent text-foreground-muted hover:border-border hover:bg-surface-sunken hover:text-foreground"
             >
               <Icon
-                name={hideSide === "left" ? "chevronLeft" : "chevronRight"}
-                className="h-4 w-4"
+                name={
+                  hideSide === "left"
+                    ? "chevronLeft"
+                    : hideSide === "right"
+                      ? "chevronRight"
+                      : "chevronDown"
+                }
+                className={`h-4 w-4 ${hideSide === "top" ? "rotate-180" : ""}`}
               />
             </button>
           </Tooltip>

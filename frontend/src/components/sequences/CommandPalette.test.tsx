@@ -6,12 +6,21 @@
 // icons render through the verified Icon registry inside the component.
 
 import { useEffect, useState } from "react";
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { CommandPalette } from "./CommandPalette";
 import type { EditorCommand } from "./editor-commands";
 import type { GlobalIndexEntry } from "@/components/beaker-search/global-index";
 
+// v3 persists the dock geometry to localStorage; clear it between tests so a
+// tucked-state from one test cannot leak the peek tab into the next render.
+beforeEach(() => {
+  try {
+    window.localStorage.clear();
+  } catch {
+    // jsdom without storage; nothing to clear.
+  }
+});
 afterEach(() => cleanup());
 
 // A tiny harness that reproduces the SequenceEditView wiring exactly, the global
