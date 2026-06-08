@@ -21,12 +21,18 @@ import { useQuery } from "@tanstack/react-query";
 import AppShell from "@/components/AppShell";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
+import LivingPopup from "@/components/ui/LivingPopup";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useIsLabHead } from "@/hooks/useIsLabHead";
+import { useAppStore } from "@/lib/store";
 import { INVENTORY_ENABLED } from "@/lib/inventory/config";
 import {
   fetchAllInventoryItemsIncludingShared,
   fetchAllInventoryStocksIncludingShared,
   fetchAllStorageNodesIncludingShared,
+  fetchAllProjectsIncludingShared,
+  fetchAllTasksIncludingShared,
+  labApi,
   purchasesApi,
 } from "@/lib/local-api";
 import type { InventoryItem } from "@/lib/types";
@@ -39,8 +45,16 @@ import {
   useReorderCart,
 } from "@/components/supplies/ReorderCartContext";
 import ReorderCartReview from "@/components/supplies/ReorderCartReview";
+import OrdersApprovalsLens, {
+  isPendingApproval,
+  type LabPurchaseItem,
+} from "@/components/supplies/OrdersApprovalsLens";
+import SpendingDashboard from "@/components/SpendingDashboard";
+import FundingAccountsManager from "@/components/FundingAccountsManager";
 
-type SupplyFilter = "all" | "attention" | "onorder";
+// "awaiting_approval" is the lab-head-only "Orders & approvals" lens (decision
+// 4.2): an order-grouped queue, NOT a per-supply view. Members never see it.
+type SupplyFilter = "all" | "attention" | "onorder" | "awaiting_approval";
 
 /** Days until an ISO date, UTC-day based (matches the inventory date handling). */
 function daysUntil(iso: string): number {
@@ -90,10 +104,17 @@ export default function SuppliesPage() {
 function SuppliesPageInner() {
   const { currentUser } = useCurrentUser();
   const cart = useReorderCart();
+  const isLabHead = useIsLabHead(currentUser ?? null) === true;
+  const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
   const [filter, setFilter] = useState<SupplyFilter>("all");
   const [query, setQuery] = useState("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
+  // Lab-head drawers (decision 4.5): spending is a drawer, not permanent page
+  // height; the funding-budget cards live in the Manage Funding popup. Members
+  // see neither (they cannot act on budgets).
+  const [spendingOpen, setSpendingOpen] = useState(false);
+  const [fundingOpen, setFundingOpen] = useState(false);
 
   const itemsQuery = useQuery({
     queryKey: ["inventory-items", currentUser],
@@ -115,6 +136,58 @@ function SuppliesPageInner() {
     queryFn: fetchAllStorageNodesIncludingShared,
     enabled: INVENTORY_ENABLED && !!currentUser,
   });
+
+  // Lab-head-only data. The approval lens reads the lab-wide purchase items +
+  // task names; the spending drawer reuses SpendingDashboard's existing inputs.
+  // All gated on isLabHead so a member never pays for the discovery walk and
+  // never sees the lab-wide queue. Share the canonical ["lab","purchase-items"]
+  // key with /purchases + Lab Overview so React Query dedupes the fetch.
+  const labPurchaseItemsQuery = useQuery({
+    queryKey: ["lab", "purchase-items"],
+    queryFn: () => labApi.getAllPurchaseItems(),
+    enabled: INVENTORY_ENABLED && isLabHead,
+  });
+  const labTasksQuery = useQuery({
+    queryKey: ["lab", "tasks"],
+    queryFn: () => labApi.getTasks(),
+    enabled: INVENTORY_ENABLED && isLabHead,
+  });
+  const projectsQuery = useQuery({
+    queryKey: ["projects", currentUser, { includeHidden: true }],
+    queryFn: () => fetchAllProjectsIncludingShared({ includeHidden: true }),
+    enabled: INVENTORY_ENABLED && isLabHead,
+  });
+  const allTasksQuery = useQuery({
+    queryKey: ["tasks", currentUser],
+    queryFn: fetchAllTasksIncludingShared,
+    enabled: INVENTORY_ENABLED && isLabHead,
+  });
+  const fundingAccountsQuery = useQuery({
+    queryKey: ["funding-accounts", currentUser],
+    queryFn: purchasesApi.listFundingAccounts,
+    enabled: INVENTORY_ENABLED && isLabHead,
+  });
+
+  const labPurchaseItems = useMemo(
+    () => (labPurchaseItemsQuery.data ?? []) as LabPurchaseItem[],
+    [labPurchaseItemsQuery.data],
+  );
+  const pendingApprovalCount = useMemo(
+    () => labPurchaseItems.filter(isPendingApproval).length,
+    [labPurchaseItems],
+  );
+
+  // The tiny inline spending summary (decision 4.5: keep a cheap "$total"
+  // line, no charts on the main page). Lab-head only; the full breakdown lives
+  // in the drawer.
+  const purchasesTotal = useMemo(
+    () =>
+      (purchasesQuery.data ?? []).reduce(
+        (sum, p) => sum + (p.total_price ?? 0),
+        0,
+      ),
+    [purchasesQuery.data],
+  );
 
   const items = useMemo(() => itemsQuery.data ?? [], [itemsQuery.data]);
   const itemsById = useMemo(() => {
@@ -199,7 +272,24 @@ function SuppliesPageInner() {
     { key: "all", label: "All", count: counts.all },
     { key: "attention", label: "Needs attention", count: counts.attention },
     { key: "onorder", label: "On order", count: counts.onorder },
+    // Lab-head-only: the order-grouped approval queue. Members never see it.
+    ...(isLabHead
+      ? [
+          {
+            key: "awaiting_approval" as const,
+            label: "Awaiting approval",
+            count: pendingApprovalCount,
+          },
+        ]
+      : []),
   ];
+
+  // Defend against a stale filter if the role read flips to member after the
+  // lens chip was selected (e.g. a user switch). Fall back to the per-supply
+  // default so a member can never land in the lab-head lens.
+  const activeFilter: SupplyFilter =
+    filter === "awaiting_approval" && !isLabHead ? "all" : filter;
+  const showApprovalLens = activeFilter === "awaiting_approval";
 
   return (
     <AppShell>
@@ -215,18 +305,56 @@ function SuppliesPageInner() {
               What you have and what you have on order, in one place.
             </p>
           </div>
-          {cart.count > 0 ? (
-            <button
-              type="button"
-              onClick={() => setCartOpen(true)}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-brand-action/40 bg-brand-action/10 px-3 py-1.5 text-meta font-medium text-brand-action hover:bg-brand-action/15"
-              data-testid="reorder-cart-chip"
-            >
-              <Icon name="refresh" className="h-3.5 w-3.5" />
-              Reorder cart ({cart.count})
-            </button>
-          ) : null}
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+            {/* Lab-head spending lives in a drawer, not inline (decision 4.5).
+                Members do not see these (they cannot act on budgets). */}
+            {isLabHead ? (
+              <>
+                <Tooltip label="Funding accounts and budgets">
+                  <button
+                    type="button"
+                    onClick={() => setFundingOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-1.5 text-meta font-medium text-foreground hover:bg-surface-sunken"
+                    data-testid="supplies-manage-funding"
+                  >
+                    <Icon name="folder" className="h-3.5 w-3.5" />
+                    Manage funding
+                  </button>
+                </Tooltip>
+                <Tooltip label="Open the spending dashboard">
+                  <button
+                    type="button"
+                    onClick={() => setSpendingOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-1.5 text-meta font-medium text-foreground hover:bg-surface-sunken"
+                    data-testid="supplies-view-spending"
+                  >
+                    <Icon name="eye" className="h-3.5 w-3.5" />
+                    View spending
+                  </button>
+                </Tooltip>
+              </>
+            ) : null}
+            {cart.count > 0 ? (
+              <button
+                type="button"
+                onClick={() => setCartOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-brand-action/40 bg-brand-action/10 px-3 py-1.5 text-meta font-medium text-brand-action hover:bg-brand-action/15"
+                data-testid="reorder-cart-chip"
+              >
+                <Icon name="refresh" className="h-3.5 w-3.5" />
+                Reorder cart ({cart.count})
+              </button>
+            ) : null}
+          </div>
         </div>
+
+        {/* Tiny inline spend summary (decision 4.5). Lab-head only; the charts
+            live in the drawer. */}
+        {isLabHead ? (
+          <p className="mb-3 text-meta text-foreground-muted" data-testid="supplies-spend-summary">
+            ${purchasesTotal.toFixed(2)} total in purchases
+          </p>
+        ) : null}
 
         {/* Filters */}
         <nav
@@ -255,19 +383,38 @@ function SuppliesPageInner() {
           })}
         </nav>
 
-        {/* Search */}
-        <div className="mb-4 flex max-w-md items-center gap-2 rounded-lg border border-border bg-surface-sunken px-3 py-2">
-          <Icon name="search" className="h-4 w-4 text-foreground-muted" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search supplies by name, vendor, catalog, CAS"
-            className="w-full bg-transparent text-body text-foreground outline-none placeholder:text-foreground-muted"
-          />
-        </div>
+        {/* Search. Hidden in the approval lens, which is order-grouped and has
+            its own queue, not the per-supply search index. */}
+        {!showApprovalLens ? (
+          <div className="mb-4 flex max-w-md items-center gap-2 rounded-lg border border-border bg-surface-sunken px-3 py-2">
+            <Icon name="search" className="h-4 w-4 text-foreground-muted" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search supplies by name, vendor, catalog, CAS"
+              className="w-full bg-transparent text-body text-foreground outline-none placeholder:text-foreground-muted"
+            />
+          </div>
+        ) : null}
 
-        {/* List */}
-        {isLoading ? (
+        {/* Lab-head "Orders & approvals" lens (decision 4.2): the pending queue
+            grouped order-by-order, reusing the existing approval machinery. */}
+        {showApprovalLens ? (
+          labPurchaseItemsQuery.isLoading || labTasksQuery.isLoading ? (
+            <p className="py-12 text-center text-body text-foreground-muted">
+              Loading the approval queue&hellip;
+            </p>
+          ) : (
+            <OrdersApprovalsLens
+              items={labPurchaseItems}
+              tasks={labTasksQuery.data ?? []}
+              actor={currentUser ?? ""}
+              onChanged={() => {
+                void labPurchaseItemsQuery.refetch();
+              }}
+            />
+          )
+        ) : isLoading ? (
           <p className="py-12 text-center text-body text-foreground-muted">Loading supplies&hellip;</p>
         ) : visible.length === 0 ? (
           <p className="py-12 text-center text-body text-foreground-muted">
@@ -350,6 +497,41 @@ function SuppliesPageInner() {
           : null}
 
         {cartOpen ? <ReorderCartReview onClose={() => setCartOpen(false)} /> : null}
+
+        {/* Lab-head spending drawer (decision 4.5). SpendingDashboard is reused
+            as-is inside a wide LivingPopup so the charts never spend permanent
+            height on the member's main list. */}
+        {isLabHead ? (
+          <LivingPopup
+            open={spendingOpen}
+            onClose={() => setSpendingOpen(false)}
+            label="Spending"
+            widthClassName="max-w-4xl"
+            card={false}
+          >
+            <SpendingDashboard
+              purchaseItems={purchasesQuery.data ?? []}
+              tasks={allTasksQuery.data ?? []}
+              projects={projectsQuery.data ?? []}
+              fundingAccounts={fundingAccountsQuery.data ?? []}
+              selectedProjectIds={selectedProjectIds}
+            />
+          </LivingPopup>
+        ) : null}
+
+        {/* Manage Funding popup (decision 4.5): the funding-budget cards live
+            here, not in the main scroll. Reuses the canonical editor. */}
+        {isLabHead ? (
+          <LivingPopup
+            open={fundingOpen}
+            onClose={() => setFundingOpen(false)}
+            label="Funding accounts"
+            widthClassName="max-w-2xl"
+            card={false}
+          >
+            <FundingAccountsManager fundingAccounts={fundingAccountsQuery.data ?? []} />
+          </LivingPopup>
+        ) : null}
       </div>
     </AppShell>
   );
