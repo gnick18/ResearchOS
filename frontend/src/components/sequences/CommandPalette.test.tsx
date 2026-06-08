@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
 import { CommandPalette } from "./CommandPalette";
 import type { EditorCommand } from "./editor-commands";
 import type { GlobalIndexEntry } from "@/components/beaker-search/global-index";
@@ -340,12 +340,21 @@ describe("CommandPalette", () => {
         hasOrganism={false}
       />,
     );
+    // Scope every assertion to the palette's OWN dialog. "BeakerSearch" also
+    // renders on the chrome pill button and the tucked peek-tab, both of which
+    // are siblings OUTSIDE this dialog (see CommandPalette.tsx: the wordmark at
+    // ~:1353 lives inside the role="dialog" div, the peek-tab at ~:1283 does
+    // not). Under full-suite load a sibling render's "BeakerSearch" node can
+    // bleed into document.body, so a bare screen.getByText matched two and threw
+    // getMultipleElementsFoundError ~1 in 5 full runs. within(dialog) pins the
+    // check to this palette and is immune to any stray node by construction.
+    const dialog = screen.getByRole("dialog");
     // The wordmark in the header row.
-    expect(screen.getByText("BeakerSearch")).toBeTruthy();
+    expect(within(dialog).getByText("BeakerSearch")).toBeTruthy();
     // The real BeakerBot mark (rendered via the component, role=img).
-    expect(screen.getByLabelText("BeakerBot")).toBeTruthy();
+    expect(within(dialog).getByLabelText("BeakerBot")).toBeTruthy();
     // The input now identifies as BeakerSearch.
-    expect(screen.getByRole("combobox", { name: "BeakerSearch" })).toBeTruthy();
+    expect(within(dialog).getByRole("combobox", { name: "BeakerSearch" })).toBeTruthy();
   });
 
   it("surfaces a region-relevant command in the Suggested group", () => {
