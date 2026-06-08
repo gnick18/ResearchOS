@@ -1,15 +1,22 @@
-// v0 bench photo capture queue. The companion's headline move is snapping a
-// bench photo, captioning it, and queuing it to send to the lab. For v0 this is
-// intentionally local-only. We persist a small JSON list in AsyncStorage and
-// keep each image at the picker's returned uri. No network, no durable file
-// copy yet, that is the next increment. House style: no em-dashes, no emojis.
+// Bench photo capture queue + relay upload (piece C). The companion snaps a
+// bench photo, captions it, and queues it. When the phone is paired, queued
+// captures upload to the relay's capture inbox signed with the phone's device
+// key. The image stays at the picker's local uri until it is sent. House style:
+// no em-dashes, no emojis, no mid-sentence colons.
 import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex } from '@noble/curves/utils.js';
 
-const CAPTURES_KEY = 'researchos.captures.v0';
+import type { Pairing } from '@/lib/pairing';
+
+const CAPTURES_KEY = 'researchos.captures.v1';
+
+export type CaptureStatus = 'queued' | 'sending' | 'sent' | 'failed';
 
 export type Capture = {
-  // Stable id for the row. Generated at call time, see makeId below.
+  // Stable id for the row. Generated at call time, see makeId below. Doubles as
+  // the captureId in the upload contract.
   id: string;
   // The picker's returned local uri. Durable copy is a refine-later item.
   uri: string;
@@ -17,9 +24,21 @@ export type Capture = {
   caption: string;
   // ISO timestamp of when the capture was queued.
   createdAt: string;
-  // v0 only ever queues. Sync flips this later.
-  status: 'queued';
+  // Lifecycle through the outbox.
+  status: CaptureStatus;
 };
+
+// ---- Canonical signed-byte string (MUST match relay/scripts/smoke-capture.mjs
+// and relay/src/worker.ts verbatim). Copied verbatim from the contract. -------
+
+export function captureUploadMessage(
+  u: string,
+  captureId: string,
+  createdAt: string,
+  sha256Hex: string,
+): string {
+  return `researchos-capture-upload\nu=${u}\ncid=${captureId}\ncreatedAt=${createdAt}\nsha256=${sha256Hex}`;
+}
 
 // Per-process counter so two captures made in the same millisecond still get
 // distinct ids. Kept at module scope on purpose; it only needs to be unique
@@ -55,7 +74,16 @@ function isCapture(value: unknown): value is Capture {
     typeof (value as Capture).uri === 'string' &&
     typeof (value as Capture).caption === 'string' &&
     typeof (value as Capture).createdAt === 'string' &&
-    (value as Capture).status === 'queued'
+    isStatus((value as Capture).status)
+  );
+}
+
+function isStatus(value: unknown): value is CaptureStatus {
+  return (
+    value === 'queued' ||
+    value === 'sending' ||
+    value === 'sent' ||
+    value === 'failed'
   );
 }
 
@@ -89,7 +117,106 @@ export async function removeCapture(id: string): Promise<void> {
   await writeAll(next);
 }
 
-// React hook so screens react to add/remove. Loads on mount and exposes a
+// Flip a single capture's status in place. Returns the updated list.
+export async function setCaptureStatus(
+  id: string,
+  status: CaptureStatus,
+): Promise<Capture[]> {
+  const current = await listCaptures();
+  const next = current.map((c) => (c.id === id ? { ...c, status } : c));
+  await writeAll(next);
+  return next;
+}
+
+// Read an image uri into raw bytes. In React Native fetch(uri).arrayBuffer()
+// works for the file:// uris the picker returns.
+async function readImageBytes(uri: string): Promise<Uint8Array> {
+  const res = await fetch(uri);
+  const buffer = await res.arrayBuffer();
+  return new Uint8Array(buffer);
+}
+
+// Best-effort content type from the uri extension. The relay stores whatever we
+// declare; jpeg is the common camera output.
+function contentTypeForUri(uri: string): string {
+  const lower = uri.split('?')[0].toLowerCase();
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.heic')) return 'image/heic';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  return 'image/jpeg';
+}
+
+function fileNameForUri(uri: string, contentType: string): string {
+  const ext = contentType.split('/')[1] || 'jpg';
+  return `capture.${ext === 'jpeg' ? 'jpg' : ext}`;
+}
+
+// Upload one capture to the relay. Reads the image bytes, hashes them, signs the
+// canonical upload message with the device key, and POSTs multipart to
+// ${relayUrl}/capture/upload with a file field "blob" and a JSON "meta" field.
+// On success the capture is marked sent. On any failure it is marked failed and
+// the error is rethrown so the caller can surface it.
+export async function sendCapture(
+  capture: Capture,
+  pairing: Pairing,
+  deviceSign: (message: string) => Promise<string>,
+): Promise<void> {
+  await setCaptureStatus(capture.id, 'sending');
+  try {
+    const bytes = await readImageBytes(capture.uri);
+    const shaHex = bytesToHex(sha256(bytes));
+    const contentType = contentTypeForUri(capture.uri);
+    const message = captureUploadMessage(
+      pairing.u,
+      capture.id,
+      capture.createdAt,
+      shaHex,
+    );
+    const sig = await deviceSign(message);
+
+    const form = new FormData();
+    // React Native FormData takes a { uri, name, type } object for files.
+    form.append('blob', {
+      uri: capture.uri,
+      name: fileNameForUri(capture.uri, contentType),
+      type: contentType,
+    } as unknown as Blob);
+    form.append(
+      'meta',
+      JSON.stringify({
+        u: pairing.u,
+        devicePubkey: pairing.devicePubkey,
+        captureId: capture.id,
+        caption: capture.caption,
+        createdAt: capture.createdAt,
+        contentType,
+        sig,
+      }),
+    );
+
+    const base = pairing.relayUrl.replace(/\/+$/, '');
+    const res = await fetch(`${base}/capture/upload`, {
+      method: 'POST',
+      body: form,
+    });
+    const body = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      error?: string;
+    };
+    if (!res.ok || body.ok !== true) {
+      throw new Error(
+        `upload failed (status ${res.status})${body.error ? ` ${body.error}` : ''}`,
+      );
+    }
+
+    await setCaptureStatus(capture.id, 'sent');
+  } catch (err) {
+    await setCaptureStatus(capture.id, 'failed');
+    throw err;
+  }
+}
+
+// React hook so screens react to add/remove/status. Loads on mount and exposes a
 // refresh the caller runs after writing.
 export function useCaptures() {
   const [captures, setCaptures] = useState<Capture[]>([]);

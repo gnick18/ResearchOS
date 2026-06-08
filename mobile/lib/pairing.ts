@@ -1,48 +1,48 @@
-// v0 phone pairing storage. The companion pairs the phone to the user's lab.
-// For v0 this is intentionally simple: we store whatever payload was scanned
-// (or typed) plus a timestamp. No crypto, no device keys, no network yet, that
-// is the next increment. House style: no em-dashes, no emojis.
+// Phone pairing storage (piece C). After the phone verifies a scanned grant and
+// registers its device key with the relay, we persist the bound relation: which
+// user this phone reports to, the relay base url to upload against, and this
+// phone's own device public key. No raw payload is kept; the verified, parsed
+// values are the record. House style: no em-dashes, no emojis, no mid-sentence
+// colons.
 import { useCallback, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 
-const PAIRING_KEY = 'researchos.pairing.v0';
+const PAIRING_KEY = 'researchos.pairing.v1';
 
 export type Pairing = {
-  // The raw scanned (or typed) payload, stored verbatim.
-  raw: string;
+  // The lab user's identity public key (hex), from the verified grant.
+  u: string;
+  // The relay base url taken from the grant, never hardcoded.
+  relayUrl: string;
+  // This phone's device public key (hex), registered with the relay.
+  devicePubkey: string;
   // ISO timestamp of when the pairing was saved.
   pairedAt: string;
-  // Parsed from the payload when it is JSON with a labName field, else undefined.
+  // Optional human label carried by the grant, shown on the home tab.
   labName?: string;
 };
 
-// Pull a human label out of the payload if it happens to be JSON carrying one.
-// Anything that is not JSON-with-labName stays as a bare raw payload.
-function parseLabName(raw: string): string | undefined {
-  try {
-    const parsed = JSON.parse(raw);
-    if (
-      parsed &&
-      typeof parsed === 'object' &&
-      typeof (parsed as { labName?: unknown }).labName === 'string'
-    ) {
-      const name = (parsed as { labName: string }).labName.trim();
-      return name.length > 0 ? name : undefined;
-    }
-  } catch {
-    // Not JSON, that is fine for v0. Keep the raw payload.
-  }
-  return undefined;
+function isPairing(value: unknown): value is Pairing {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    typeof (value as Pairing).u === 'string' &&
+    typeof (value as Pairing).relayUrl === 'string' &&
+    typeof (value as Pairing).devicePubkey === 'string' &&
+    typeof (value as Pairing).pairedAt === 'string'
+  );
 }
 
 export async function getPairing(): Promise<Pairing | null> {
   const stored = await SecureStore.getItemAsync(PAIRING_KEY);
   if (!stored) return null;
   try {
-    const parsed = JSON.parse(stored) as Partial<Pairing>;
-    if (parsed && typeof parsed.raw === 'string' && typeof parsed.pairedAt === 'string') {
+    const parsed = JSON.parse(stored);
+    if (isPairing(parsed)) {
       return {
-        raw: parsed.raw,
+        u: parsed.u,
+        relayUrl: parsed.relayUrl,
+        devicePubkey: parsed.devicePubkey,
         pairedAt: parsed.pairedAt,
         labName: typeof parsed.labName === 'string' ? parsed.labName : undefined,
       };
@@ -53,15 +53,19 @@ export async function getPairing(): Promise<Pairing | null> {
   return null;
 }
 
-// Accepts either a full Pairing or just the parts the caller knows; labName is
-// derived from raw when not supplied so callers only have to pass the payload.
-export async function setPairing(
-  p: { raw: string; pairedAt?: string; labName?: string },
-): Promise<Pairing> {
+export async function setPairing(p: {
+  u: string;
+  relayUrl: string;
+  devicePubkey: string;
+  pairedAt?: string;
+  labName?: string;
+}): Promise<Pairing> {
   const pairing: Pairing = {
-    raw: p.raw,
+    u: p.u,
+    relayUrl: p.relayUrl,
+    devicePubkey: p.devicePubkey,
     pairedAt: p.pairedAt ?? new Date().toISOString(),
-    labName: p.labName ?? parseLabName(p.raw),
+    labName: p.labName,
   };
   await SecureStore.setItemAsync(PAIRING_KEY, JSON.stringify(pairing));
   return pairing;

@@ -12,6 +12,7 @@ import DataSetupScreen from "@/components/DataSetupScreen";
 import UserLoginScreen from "@/components/UserLoginScreen";
 import ImportExperimentDialog from "@/components/ImportExperimentDialog";
 import MigrationStatusRow from "@/components/settings/MigrationStatusRow";
+import DevicesSection from "@/components/settings/DevicesSection";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import Tooltip from "@/components/Tooltip";
 import { Icon } from "@/components/icons";
@@ -452,6 +453,14 @@ export function SettingsBody() {
             <ProfessionalModeSection settings={settings} update={update} />
             <TabsSection settings={settings} update={update} />
             <LabArchivesSection />
+            <SectionShell
+              id="devices"
+              title="Devices"
+              description="Pair a phone to send bench photos straight to your inbox. Photos route through an encrypted relay that holds them only until your laptop pulls them in."
+              searchKeywords="devices phone pair pairing mobile capture photo qr relay inbox camera"
+            >
+              <DevicesSection ready={sharing.isReady} />
+            </SectionShell>
             <AIHelperSection />
             <SidebarSection settings={settings} update={update} />
             <DefaultsSection settings={settings} update={update} />

@@ -1,9 +1,11 @@
-// v0 phone pairing screen. Scans a QR code with the camera and stores whatever
-// it reads, then flips the home tab to Paired. A typed-code fallback feeds the
-// same store. No crypto / device keys / network yet, that is the next
-// increment. SDK 54 camera API: CameraView + useCameraPermissions +
-// onBarcodeScanned(BarcodeScanningResult) + barcodeScannerSettings.barcodeTypes.
-// House style: no em-dashes, no emojis, brand-sky (#1AA0E6) accents.
+// Phone pairing screen (piece C). Scans (or accepts a pasted) signed pairing
+// grant, verifies the grant signature against the user's identity key and that
+// it has not expired, generates this phone's device key, then registers that
+// device with the relay named in the grant. On success it stores the verified
+// pairing and flips the home tab to Paired. SDK 54 camera API: CameraView +
+// useCameraPermissions + onBarcodeScanned(BarcodeScanningResult) +
+// barcodeScannerSettings.barcodeTypes. House style: no em-dashes, no emojis, no
+// mid-sentence colons, brand-sky (#1AA0E6) accents.
 import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -19,19 +21,63 @@ import {
   useCameraPermissions,
   type BarcodeScanningResult,
 } from 'expo-camera';
+import { Platform } from 'react-native';
+import { ed25519 } from '@noble/curves/ed25519.js';
+import { hexToBytes } from '@noble/curves/utils.js';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { setPairing } from '@/lib/pairing';
+import { getOrCreateDeviceKey } from '@/lib/device-identity';
 
 const BRAND_SKY = '#1AA0E6';
+
+// Canonical grant string, copied verbatim from the relay contract
+// (relay/scripts/smoke-capture.mjs / relay/src/worker.ts). Must stay byte
+// identical or the signature will not verify.
+function capturePairGrantMessage(
+  u: string,
+  pid: string,
+  exp: string,
+  url: string,
+): string {
+  return `researchos-pair-grant\nu=${u}\npid=${pid}\nexp=${exp}\nurl=${url}`;
+}
+
+type Grant = { u: string; pid: string; exp: string; url: string };
+
+const enc = new TextEncoder();
+
+function parseGrantPayload(
+  raw: string,
+): { grant: Grant; sig: string } | null {
+  try {
+    const parsed = JSON.parse(raw);
+    const grant = parsed?.grant;
+    const sig = parsed?.sig;
+    if (
+      grant &&
+      typeof grant.u === 'string' &&
+      typeof grant.pid === 'string' &&
+      typeof grant.exp === 'string' &&
+      typeof grant.url === 'string' &&
+      typeof sig === 'string'
+    ) {
+      return { grant, sig };
+    }
+  } catch {
+    // Not a JSON grant payload.
+  }
+  return null;
+}
 
 export default function PairScreen() {
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
   const [manualCode, setManualCode] = useState('');
   const [saving, setSaving] = useState(false);
-  // Latch so a held QR code does not fire setPairing dozens of times.
+  const [error, setError] = useState<string | null>(null);
+  // Latch so a held QR code does not run the flow dozens of times.
   const handledRef = useRef(false);
 
   const finishPairing = useCallback(
@@ -39,13 +85,80 @@ export default function PairScreen() {
       if (handledRef.current) return;
       handledRef.current = true;
       setSaving(true);
-      try {
-        await setPairing({ raw });
-        router.back();
-      } catch {
-        // Allow a retry if the write failed.
+      setError(null);
+
+      // Allow another attempt after any failure below.
+      const fail = (message: string) => {
+        setError(message);
         handledRef.current = false;
         setSaving(false);
+      };
+
+      const parsed = parseGrantPayload(raw.trim());
+      if (!parsed) {
+        fail('That code is not a ResearchOS pairing grant. Scan the QR shown under Settings to Devices on your desktop.');
+        return;
+      }
+      const { grant, sig } = parsed;
+
+      // Reject an expired grant before touching the network.
+      const expMs = Date.parse(grant.exp);
+      if (Number.isNaN(expMs) || expMs <= Date.now()) {
+        fail('This pairing code has expired. Generate a fresh one on your desktop and try again.');
+        return;
+      }
+
+      // Verify the grant signature against the user identity key.
+      let valid = false;
+      try {
+        const message = capturePairGrantMessage(grant.u, grant.pid, grant.exp, grant.url);
+        valid = ed25519.verify(hexToBytes(sig), enc.encode(message), hexToBytes(grant.u));
+      } catch {
+        valid = false;
+      }
+      if (!valid) {
+        fail('This pairing code could not be verified. Scan the QR shown on your desktop.');
+        return;
+      }
+
+      try {
+        const device = await getOrCreateDeviceKey();
+        const label = Platform.OS === 'ios' ? 'iPhone' : Platform.OS === 'android' ? 'Android phone' : 'Phone';
+        const base = grant.url.replace(/\/+$/, '');
+        const res = await fetch(`${base}/capture/register?u=${grant.u}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            grant,
+            sig,
+            devicePubkey: device.devicePubHex,
+            label,
+          }),
+        });
+        const body = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+        };
+        if (!res.ok || body.ok !== true) {
+          fail(
+            `Could not register this phone (status ${res.status})${body.error ? ` ${body.error}` : ''}. Check your connection and retry.`,
+          );
+          return;
+        }
+
+        const labName =
+          typeof (grant as { labName?: unknown }).labName === 'string'
+            ? (grant as { labName: string }).labName
+            : undefined;
+        await setPairing({
+          u: grant.u,
+          relayUrl: base,
+          devicePubkey: device.devicePubHex,
+          labName,
+        });
+        router.back();
+      } catch {
+        fail('Could not reach the relay. Check your connection and try again.');
       }
     },
     [router],
@@ -99,6 +212,8 @@ export default function PairScreen() {
             </ThemedText>
           </Pressable>
 
+          {error ? <ErrorBanner message={error} /> : null}
+
           <ManualEntry
             value={manualCode}
             onChangeText={setManualCode}
@@ -136,6 +251,8 @@ export default function PairScreen() {
           ) : null}
         </View>
 
+        {error ? <ErrorBanner message={error} /> : null}
+
         <ManualEntry
           value={manualCode}
           onChangeText={setManualCode}
@@ -144,6 +261,14 @@ export default function PairScreen() {
         />
       </SafeAreaView>
     </ThemedView>
+  );
+}
+
+function ErrorBanner({ message }: { message: string }) {
+  return (
+    <View style={styles.errorBanner}>
+      <ThemedText style={styles.errorText}>{message}</ThemedText>
+    </View>
   );
 }
 
@@ -258,5 +383,17 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.4,
+  },
+  errorBanner: {
+    borderWidth: 1,
+    borderColor: 'rgba(220, 38, 38, 0.5)',
+    backgroundColor: 'rgba(220, 38, 38, 0.12)',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  errorText: {
+    color: '#dc2626',
+    lineHeight: 20,
   },
 });

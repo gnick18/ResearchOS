@@ -18,7 +18,7 @@ export interface ImageSidecar {
   description?: string;
   tags?: string[];
   receivedAt?: string;
-  source?: "telegram" | "upload" | "import";
+  source?: "telegram" | "upload" | "import" | "relay";
   telegramMessageId?: number;
   telegramChatId?: number;
   /** Telegram media_group_id of the album this photo arrived in (a numeric
