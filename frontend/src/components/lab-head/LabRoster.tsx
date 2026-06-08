@@ -292,6 +292,7 @@ export default function LabRoster() {
                   row.archived ? "bg-surface-sunken" : "bg-surface-raised"
                 }`}
                 data-testid={`lab-roster-row-${row.username}`}
+                data-beaker-target={`lab-member:${row.username}`}
                 onContextMenu={(e) =>
                   openMenu(
                     e,

@@ -23,10 +23,13 @@
 // session-gated.
 //
 // A few honest simplifications, called out so a reader is not misled:
-//   - HOVERED-as-context is inert here (Step 4). The provider does not yet track
-//     a last-hovered [data-beaker-target] key for this page, so SELECTED is only
-//     ever set by an in-palette NAVIGATE drill (a member / approval / own
-//     announcement), never by a hover.
+//   - HOVERED-as-context (Step 4) is wired for the roster MEMBER rows only. The
+//     LabRoster row carries data-beaker-target="lab-member:<username>", and the
+//     hook resolves the hovered username against the lab users so a hovered member
+//     drives the member Suggested when nothing is selected. SELECTED (an in-palette
+//     drill) still outranks the hover. Approval / announcement hover does not exist
+//     because the page renders no per-item approval LIST (the action bar shows only
+//     a COUNT that routes to Purchases), so only member rows are taggable.
 //   - A /workbench?user= member view does not exist, so "Open member workload"
 //     routes to the lab roster generically (the page's roster section).
 //   - The assign / flag commands need a two-step picker the provider does not
@@ -67,6 +70,8 @@ import {
 import { archiveUser, restoreUser } from "@/lib/lab/user-archive";
 import { markPiEditConfirmed, piEditKey } from "@/lib/lab/pi-edit-guard";
 import { useBeakerSearchSource } from "@/components/beaker-search/useBeakerSearchSource";
+import { useBeakerHoveredKey } from "@/components/beaker-search/BeakerSearchProvider";
+import { parseBeakerTargetKey } from "@/components/beaker-search/beaker-hover";
 import { isPurchasePending, type PurchaseItem } from "@/lib/types";
 import {
   buildLabOverviewSource,
@@ -223,6 +228,39 @@ export function useLabOverviewBeakerSource(
       })),
     [announcementEntries],
   );
+
+  // ── HOVERED. The roster row the cursor was over when the palette opened (null
+  // while closed). Parse its data-beaker-target key the way LabRoster stamps it
+  // ("lab-member:<username>"), then resolve to the live member. SELECTED still
+  // outranks this in the builder, so an in-palette drill wins over a stale hover.
+  // An archived member is resolvable too (so the hovered path can offer Restore),
+  // so this resolves against the full roster, not just the active jump list. ──
+  const hoveredKey = useBeakerHoveredKey();
+  const hovered = useMemo<LabOverviewSourceData["hovered"]>(() => {
+    const parsed = parseBeakerTargetKey(hoveredKey);
+    if (!parsed || parsed.kind !== "lab-member") return null;
+    const active = members.find((m) => m.username === parsed.key);
+    if (active) return { kind: "member", member: active };
+    const archivedUser = users.find((u) => u.username === parsed.key);
+    if (!archivedUser || !archivedSet.has(archivedUser.username)) return null;
+    let open = 0;
+    let overdue = 0;
+    for (const t of tasks) {
+      if (t.is_complete || t.username !== archivedUser.username) continue;
+      open += 1;
+      if (t.end_date && t.end_date < todayIso) overdue += 1;
+    }
+    return {
+      kind: "member",
+      member: {
+        username: archivedUser.username,
+        displayName: profileMap[archivedUser.username]?.displayName || archivedUser.username,
+        openTasks: open,
+        overdueTasks: overdue,
+        archived: true,
+      },
+    };
+  }, [hoveredKey, members, users, archivedSet, tasks, todayIso, profileMap]);
 
   // ── In-palette selection + the recent-actions MRU (session-local). ────────
   const [selected, setSelected] = useState<LabOverviewSelection>(null);
@@ -422,6 +460,7 @@ export function useLabOverviewBeakerSource(
       mentions,
       currentUser,
       selected,
+      hovered,
     };
     return buildLabOverviewSource(data, handlers, recentActions);
   }, [
@@ -434,6 +473,7 @@ export function useLabOverviewBeakerSource(
     mentions,
     currentUser,
     selected,
+    hovered,
     handlers,
     recentActions,
   ]);

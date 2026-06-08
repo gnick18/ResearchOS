@@ -95,6 +95,7 @@ function makeData(over: Partial<LabOverviewSourceData> = {}): LabOverviewSourceD
     mentions: 1,
     currentUser: "pi",
     selected: null,
+    hovered: null,
     ...over,
   };
 }
@@ -347,6 +348,74 @@ describe("buildLabOverviewSource nav groups", () => {
       noopHandlers,
     ).navGroups!;
     expect(groups.some((g) => g.title === "Pending approvals")).toBe(false);
+  });
+});
+
+// ── Hovered member (HOVERED, member rows only) ──────────────────────────────
+
+describe("buildLabOverviewSource hovered member", () => {
+  it("drives the member Suggested + a Pointing at line when nothing is selected", () => {
+    const src = buildLabOverviewSource(
+      makeData({
+        selected: null,
+        hovered: { kind: "member", member: makeMember() },
+      }),
+      noopHandlers,
+    );
+    expect(src.suggestedIds).toEqual([
+      "lab-overview-member-open",
+      "lab-overview-member-assign",
+      "lab-overview-member-archive",
+    ]);
+    expect(src.suggestedHint).toBe("for the member you were pointing at");
+    expect(src.contextCard!.selection?.text).toBe(
+      "Pointing at alex, 6 open, 2 overdue",
+    );
+  });
+
+  it("offers restore instead of archive for an archived hovered member", () => {
+    const src = buildLabOverviewSource(
+      makeData({
+        selected: null,
+        hovered: { kind: "member", member: makeMember({ archived: true }) },
+      }),
+      noopHandlers,
+    );
+    expect(src.suggestedIds).toContain("lab-overview-member-restore");
+    expect(src.suggestedIds).not.toContain("lab-overview-member-archive");
+    expect(src.contextCard!.selection?.text).toBe(
+      "Pointing at alex, 6 open, 2 overdue, archived",
+    );
+  });
+
+  it("lets a SELECTED member outrank a HOVERED one", () => {
+    const src = buildLabOverviewSource(
+      makeData({
+        selected: { kind: "member", member: makeMember({ username: "morgan", displayName: "morgan", openTasks: 3, overdueTasks: 0 }) },
+        hovered: { kind: "member", member: makeMember() },
+      }),
+      noopHandlers,
+    );
+    // The selected member drives the line + the selected (not hovered) framing.
+    expect(src.contextCard!.selection?.text).toBe("Selected member morgan, 3 open");
+    expect(src.suggestedHint).toBe("for the selected member");
+  });
+
+  it("lets a SELECTED approval outrank a HOVERED member", () => {
+    const src = buildLabOverviewSource(
+      makeData({
+        selected: { kind: "approval", approval: makeApproval() },
+        hovered: { kind: "member", member: makeMember() },
+      }),
+      noopHandlers,
+    );
+    expect(src.suggestedIds).toEqual([
+      "lab-overview-approval-approve",
+      "lab-overview-approval-decline",
+      "lab-overview-approval-flag",
+      "lab-overview-approval-open",
+    ]);
+    expect(src.suggestedHint).toBe("for the selected approval");
   });
 });
 

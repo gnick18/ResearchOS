@@ -161,6 +161,14 @@ export interface LabOverviewSourceData {
 
   // The in-palette selection (mockup selection-aware Suggested). Null at rest.
   selected: LabOverviewSelection;
+
+  // The hovered member (HOVERED). The roster row the cursor was over when the
+  // palette opened, resolved by the hook from the data-beaker-target key
+  // ("lab-member:<username>"). SELECTED always outranks this, so an in-palette
+  // drill wins over a stale hover. Null when nothing tagged was under the
+  // pointer. Only member rows are taggable on this page (the page renders no
+  // per-item approval LIST, so approval / announcement hover does not exist).
+  hovered: { kind: "member"; member: LabOverviewMember } | null;
 }
 
 // ── The handler bag (closures over the page's real handlers + invalidations) ─
@@ -247,18 +255,51 @@ function buildMembersMeta(data: LabOverviewSourceData): string {
   return `${n} member${n === 1 ? "" : "s"}`;
 }
 
+// ── Context resolution (SELECTED > HOVERED) ─────────────────────────────────
+
+/** The resolved context entity for the selection-aware lines + Suggested. A real
+ *  in-palette SELECTED drill (member / approval / announcement) always wins. When
+ *  nothing is selected, a hovered roster MEMBER drives the SAME member context,
+ *  only the framing ("Pointing at" vs "Selected") flips via `isHovered`. Approval
+ *  / announcement hover does not exist (no taggable rows), so the hovered path is
+ *  member-only. Null when neither a selection nor a hovered member is present. */
+function resolveContext(data: LabOverviewSourceData):
+  | { kind: "member"; member: LabOverviewMember; isHovered: boolean }
+  | { kind: "approval"; approval: LabOverviewApproval; isHovered: boolean }
+  | { kind: "announcement"; announcement: LabOverviewAnnouncement; isHovered: boolean }
+  | null {
+  const sel = data.selected;
+  if (sel?.kind === "member") {
+    return { kind: "member", member: sel.member, isHovered: false };
+  }
+  if (sel?.kind === "approval") {
+    return { kind: "approval", approval: sel.approval, isHovered: false };
+  }
+  if (sel?.kind === "announcement") {
+    return { kind: "announcement", announcement: sel.announcement, isHovered: false };
+  }
+  const hov = data.hovered;
+  if (hov?.kind === "member") {
+    return { kind: "member", member: hov.member, isHovered: true };
+  }
+  return null;
+}
+
 function buildContextCard(data: LabOverviewSourceData): PaletteContextCard {
   // Selection line (the mockup's selection-aware second line). No session line.
+  // A real selection reads "Selected ...", a hovered member reads "Pointing at
+  // ...", so the user knows which one drives Suggested.
   let selection: PaletteContextCard["selection"];
-  const sel = data.selected;
+  const sel = resolveContext(data);
   if (sel?.kind === "member") {
     const m = sel.member;
     const bits = [`${m.openTasks} open`];
     if (m.overdueTasks > 0) bits.push(`${m.overdueTasks} overdue`);
     if (m.archived) bits.push("archived");
+    const lead = sel.isHovered ? "Pointing at " : "Selected member ";
     selection = {
       iconName: ICON_MEMBER,
-      text: `Selected member ${m.displayName}, ${bits.join(", ")}`,
+      text: `${lead}${m.displayName}, ${bits.join(", ")}`,
     };
   } else if (sel?.kind === "approval") {
     const a = sel.approval;
@@ -290,7 +331,10 @@ function buildCommands(
   handlers: LabOverviewSourceHandlers,
 ): EditorCommand[] {
   const out: EditorCommand[] = [];
-  const sel = data.selected;
+  // SELECTED > HOVERED. A hovered roster member drives the SAME member action
+  // rows (same ids, same gating) as a selected member, so Suggested can name them
+  // either way. A real selection still outranks the hover.
+  const sel = resolveContext(data);
 
   // ── Selection-aware actions (the mockup's selection-aware Suggested). ──────
   if (sel?.kind === "member") {
@@ -575,7 +619,8 @@ function buildCommands(
  *  skipped by the palette. A selection re-drives the top (the mockup's
  *  selection-aware Suggested); otherwise the nothing-selected set. */
 function buildSuggestedIds(data: LabOverviewSourceData): string[] {
-  const sel = data.selected;
+  // SELECTED > HOVERED, both lead with the same per-member action ids.
+  const sel = resolveContext(data);
 
   if (sel?.kind === "member") {
     const ids = ["lab-overview-member-open", "lab-overview-member-assign"];
@@ -623,8 +668,12 @@ function buildSuggestedIds(data: LabOverviewSourceData): string[] {
 
 /** The Suggested heading hint. */
 function buildSuggestedHint(data: LabOverviewSourceData): string | undefined {
-  const sel = data.selected;
-  if (sel?.kind === "member") return "for the selected member";
+  const sel = resolveContext(data);
+  if (sel?.kind === "member") {
+    return sel.isHovered
+      ? "for the member you were pointing at"
+      : "for the selected member";
+  }
   if (sel?.kind === "approval") return "for the selected approval";
   if (sel?.kind === "announcement") return "for your announcement";
   return "what needs you";
