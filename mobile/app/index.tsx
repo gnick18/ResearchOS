@@ -1,10 +1,9 @@
-// App entry route. The Home tab was retired in the 5-tab restructure, which left
-// "/" with no route, the app launches at "/" and would otherwise hang on the
-// splash with nowhere to go. This redirects the entry to the Today tab, the
-// default landing surface. House style: no em-dashes, no emojis, no mid-sentence
-// colons.
+// App entry route. Redirects the entry point to the Notebook tab, the default
+// landing surface after the tab restructure (Notebook replaced Today + Send).
+// Without this file "/" has no route and the app hangs on the splash screen.
+// House style: no em-dashes, no emojis, no mid-sentence colons.
 import { Redirect } from 'expo-router';
 
 export default function Index() {
-  return <Redirect href="/today" />;
+  return <Redirect href="/notebook" />;
 }

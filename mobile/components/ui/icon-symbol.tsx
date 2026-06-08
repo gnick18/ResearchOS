@@ -21,6 +21,10 @@ const MAPPING = {
   'timer': 'timer',
   'function': 'calculate',
   'book.fill': 'menu-book',
+  // Notebook tab (SF note.text -> Material edit-note).
+  'note.text': 'edit-note',
+  // Inventory tab (SF shippingbox.fill -> Material inventory-2).
+  'shippingbox.fill': 'inventory-2',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
 } as IconMapping;

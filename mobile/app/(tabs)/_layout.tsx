@@ -1,9 +1,10 @@
 /**
  * Tab bar layout (5-tab restructure).
  *
- * Five tabs: Today / Send / Calc / Timer / Wiki. The old Home tab is retired;
- * its pairing + send actions move into the Send tab. Brand-sky active tint,
- * themed background, comfortable height/padding. Today is the default tab.
+ * Five tabs: Notebook / Inventory / Calc / Timer / Wiki.
+ * Notebook is the default tab (bench companion: today glance + capture + note).
+ * Inventory is the new dedicated supply management home.
+ * Calc, Timer, and Wiki are tool tabs unchanged from before.
  *
  * House style: no em-dashes, no emojis, no mid-sentence colons.
  */
@@ -16,9 +17,9 @@ import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useTheme } from '@/lib/design';
 
-// Today is the landing tab now that Home is gone.
+// Notebook is the landing tab (bench companion replaces Today + Send).
 export const unstable_settings = {
-  initialRouteName: 'today',
+  initialRouteName: 'notebook',
 };
 
 export default function TabLayout() {
@@ -39,7 +40,7 @@ export default function TabLayout() {
           backgroundColor: surface.tabBarBg,
           borderTopColor: surface.tabBarBorder,
           borderTopWidth: 1,
-          // Give it a little extra height for comfortable touch targets.
+          // A little extra height for comfortable touch targets.
           height: Platform.OS === 'ios' ? 84 : 68,
           paddingTop: 6,
           paddingBottom: Platform.OS === 'ios' ? 28 : 10,
@@ -54,20 +55,20 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="today"
+        name="notebook"
         options={{
-          title: 'Today',
+          title: 'Notebook',
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="sun.max.fill" color={color} />
+            <IconSymbol size={26} name="note.text" color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="capture"
+        name="inventory"
         options={{
-          title: 'Send',
+          title: 'Inventory',
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="paperplane.fill" color={color} />
+            <IconSymbol size={26} name="shippingbox.fill" color={color} />
           ),
         }}
       />
