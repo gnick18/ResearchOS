@@ -285,6 +285,26 @@
   color: inherit;
 }
 
+/* Popout menus and dialogs that live in the DOM *under* a .light-scope (e.g. the
+ * avatar dropdown, which is a child of the light-scoped tinted header) should
+ * still follow the REAL theme, not the forced-light header. Re-assert the dark
+ * tokens for [role="menu"] / [role="dialog"] inside a light-scope under dark, so
+ * a popout opened from a light region paints in the active theme. More specific
+ * than the .light-scope block above, so it wins. */
+[data-theme="dark"] .light-scope [role="menu"],
+[data-theme="dark"] .light-scope [role="dialog"] {
+  color-scheme: dark;
+  --background: #0a0e1a;
+  --foreground: #f1f5f9;
+  --surface: #0a0e1a;
+  --surface-raised: #131c2e;
+  --surface-sunken: #0d1424;
+  --foreground-muted: #b4bfd0;
+  --border-subtle: rgba(255, 255, 255, 0.22);
+  --accent: #38bdf8;
+  --accent-soft: rgba(56, 189, 248, 0.14);
+}
+
 @layer utilities {
   /* Paint the brand rainbow as a background fill (ribbons, dividers, bands). */
   .brand-rainbow-bg {
