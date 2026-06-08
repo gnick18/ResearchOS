@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS splash animation prototype, "BeakerBot wakes up"</title>
+<style>
+  :root{
+    --r1:#FFD2B0;--r2:#FFF1A8;--r3:#B7EBB1;--r4:#A6D2F4;--r5:#D6B5F0;
+    --sky:#1AA0E6;--bg:#E6F4FE;--ink:#0c1830;--word:#0c1830;--shadow:rgba(26,160,230,.20);
+  }
+  [data-theme="dark"]{
+    --r1:#F97316;--r2:#E8920B;--r3:#16A34A;--r4:#0284C7;--r5:#9333EA;
+    --bg:#0a0e1a;--ink:#e6edf3;--word:#ffffff;--shadow:rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#dfe5ec;color:#1f2937;padding:26px 16px 70px;text-align:center}
+  [data-theme="dark"] body{background:#05070a;color:#cbd5e1}
+  h1{font-size:19px;margin:0 0 6px}
+  .intro{max-width:760px;margin:0 auto 18px;color:#5b6573;font-size:13.5px;line-height:1.55}
+  [data-theme="dark"] .intro{color:#8b949e}
+  .controls{display:flex;gap:10px;justify-content:center;margin-bottom:20px}
+  .controls button{background:var(--sky);color:#fff;border:none;border-radius:9px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer}
+  .controls button.ghost{background:transparent;border:1px solid #9aa6b2;color:#5b6573}
+  [data-theme="dark"] .controls button.ghost{color:#8b949e;border-color:#39424d}
+  .phone{width:300px;height:640px;border-radius:44px;border:10px solid #0c0d10;margin:0 auto;position:relative;overflow:hidden;background:var(--bg);box-shadow:0 30px 60px rgba(16,24,40,.28)}
+  [data-theme="dark"] .phone{border-color:#23262d}
+  .edge{position:absolute;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5));z-index:8}
+  .edge.top{top:0}.edge.bot{bottom:0}
+  .stage{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+  .lockup{display:flex;flex-direction:column;align-items:center;gap:18px}
+  .markwrap{position:relative;width:188px;height:188px;display:flex;align-items:center;justify-content:center}
+  .shadow{position:absolute;bottom:14px;width:120px;height:20px;border-radius:50%;background:var(--shadow);filter:blur(9px);opacity:0;transform:scale(.6)}
+  svg{width:188px;height:188px;overflow:visible}
+  .stroke{stroke:var(--sky);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .wordmark{font-size:30px;font-weight:800;letter-spacing:-.5px;color:var(--word);display:flex}
+  .wordmark span{opacity:0;transform:translateY(8px);display:inline-block}
+  .spark{position:absolute;top:24px;left:118px;font-size:18px;opacity:0;color:var(--sky)}
+
+  /* ---- animation, applied when .play is on the stage ---- */
+  .play .shadow{animation:shadowIn .5s ease-out .25s forwards}
+  .play .glass{stroke-dasharray:120;stroke-dashoffset:120;animation:draw .55s ease-out forwards}
+  .play .rim{stroke-dasharray:20;stroke-dashoffset:20;animation:draw .3s ease-out .15s forwards}
+  .play .spout{stroke-dasharray:14;stroke-dashoffset:14;animation:draw .35s ease-out .35s forwards}
+  .play .liquid{transform:translateY(15px);animation:rise .8s cubic-bezier(.22,1,.36,1) .5s forwards}
+  .play .bub{opacity:0;animation:bubble 1s ease-in .9s forwards}
+  .play .bub.b2{animation-delay:1.15s}
+  .play .foot{stroke-dasharray:3;stroke-dashoffset:3;animation:draw .25s ease-out .9s forwards}
+  .play .eye{transform:scale(0);transform-origin:center;animation:pop .4s cubic-bezier(.34,1.56,.64,1) 1.0s forwards,blink .25s ease 1.7s 1}
+  .play .eye.e2{animation-delay:1.08s,1.7s}
+  .play .smile{stroke-dasharray:8;stroke-dashoffset:8;animation:draw .35s ease-out 1.25s forwards}
+  .play .spark{animation:twinkle .7s ease-out 1.45s forwards}
+  .play .wordmark span{animation:letterIn .45s cubic-bezier(.22,1,.36,1) forwards}
+  .play .lockup{animation:breathe 2.2s ease-in-out 1.9s 1}
+
+  @keyframes draw{to{stroke-dashoffset:0}}
+  @keyframes shadowIn{to{opacity:1;transform:scale(1)}}
+  @keyframes rise{to{transform:translateY(0)}}
+  @keyframes bubble{0%{opacity:0;transform:translateY(0)}30%{opacity:.9}100%{opacity:0;transform:translateY(-9px)}}
+  @keyframes pop{to{transform:scale(1)}}
+  @keyframes blink{50%{transform:scaleY(.1)}}
+  @keyframes twinkle{0%{opacity:0;transform:scale(.4) rotate(0)}40%{opacity:1;transform:scale(1.1) rotate(20deg)}100%{opacity:0;transform:scale(.7) rotate(40deg)}}
+  @keyframes letterIn{to{opacity:1;transform:translateY(0)}}
+  @keyframes breathe{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+  /* the handoff to the app: shrink + fade (toggled separately) */
+  .stage.exit .lockup{animation:exit .5s ease-in .1s forwards}
+  @keyframes exit{to{transform:scale(.88);opacity:0}}
+</style>
+</head>
+<body>
+  <h1>ResearchOS splash, "BeakerBot wakes up" (prototype)</h1>
+  <p class="intro">Hand-built reveal using our real BeakerBot geometry + signature rainbow. Beats: the beaker draws on, the rainbow liquid rises with bubbles, BeakerBot wakes (eyes pop, blink, smile), a spout sparkle, the wordmark settles in letter by letter, one breathe, then it shrinks out to the app. Roughly 2.4s. Replay to rewatch; toggle dark.</p>
+  <div class="controls">
+    <button onclick="play()">Replay</button>
+    <button class="ghost" onclick="exitDemo()">Show app handoff (shrink out)</button>
+    <button class="ghost" onclick="toggleTheme()">Toggle dark</button>
+  </div>
+
+  <div class="phone">
+    <div class="edge top"></div>
+    <div class="stage" id="stage">
+      <div class="lockup">
+        <div class="markwrap">
+          <div class="shadow"></div>
+          <svg viewBox="8 3 24 31" id="mark">
+            <defs>
+              <linearGradient id="liq" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/>
+                <stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/>
+                <stop offset="100%" stop-color="#D6B5F0"/>
+              </linearGradient>
+              <clipPath id="bk"><path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z"/></clipPath>
+            </defs>
+            <!-- white glass fill (so the liquid reads on a clean beaker) -->
+            <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none"/>
+            <!-- rising rainbow liquid, clipped to the beaker -->
+            <g clip-path="url(#bk)">
+              <g class="liquid">
+                <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liq)" stroke="none"/>
+                <circle class="bub" cx="17" cy="29" r="0.7" fill="rgba(255,255,255,.8)"/>
+                <circle class="bub b2" cx="22" cy="30" r="0.6" fill="rgba(255,255,255,.7)"/>
+              </g>
+            </g>
+            <!-- spout curl -->
+            <path class="stroke spout" d="M22 8 C 22 6, 24 4, 26 6"/>
+            <!-- beaker outline + rim -->
+            <path class="stroke glass" d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12"/>
+            <path class="stroke rim" d="M11 12 L29 12"/>
+            <!-- face -->
+            <circle class="eye" cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/>
+            <circle class="eye e2" cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/>
+            <path class="stroke smile" d="M18 22 Q 20 24, 22 22"/>
+            <!-- feet -->
+            <path class="stroke foot" d="M14 26 L15.5 26"/><path class="stroke foot" d="M24.5 26 L26 26"/>
+          </svg>
+          <div class="spark">&#10022;</div>
+        </div>
+        <div class="wordmark" id="word"></div>
+      </div>
+    </div>
+    <div class="edge bot"></div>
+  </div>
+
+<script>
+  // Build the wordmark as staggered letters (ref-3 nod, but subtle).
+  const word="ResearchOS";
+  const wEl=document.getElementById("word");
+  wEl.innerHTML=[...word].map((c,i)=>`<span style="animation-delay:${1.5+i*0.045}s">${c}</span>`).join("");
+  const stage=document.getElementById("stage");
+  function play(){
+    stage.classList.remove("play","exit");
+    void stage.offsetWidth; // reflow to restart animations
+    stage.classList.add("play");
+  }
+  function exitDemo(){ stage.classList.add("exit"); setTimeout(play, 900); }
+  function toggleTheme(){const d=document.documentElement;d.setAttribute("data-theme",d.getAttribute("data-theme")==="dark"?"":"dark");}
+  play();
+</script>
+</body>
+</html>
