@@ -249,6 +249,9 @@ export interface UserSettings {
   // allowed by design, per Grant's 2026-05-23 decisions).
   account_type: AccountType;
 
+  /** Lab-tier: the lab this user belongs to (head or member). Absent for solo users. */
+  lab_id?: string;
+
   // When on, the app makes zero calls to its own server proxy
   // (`/api/calendar-feed`).
   offlineMode: boolean;
