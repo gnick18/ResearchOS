@@ -33,6 +33,10 @@ export class FileService {
 
   setDirectoryHandle(handle: FileSystemDirectoryHandle): void {
     this.directoryHandle = handle;
+    // Negative + in-flight state is keyed by raw path (not folder-scoped), so
+    // it must not leak across a folder switch.
+    this.negativeCache.clear();
+    this.inFlightReads.clear();
   }
 
   getDirectoryHandle(): FileSystemDirectoryHandle | null {
@@ -41,6 +45,8 @@ export class FileService {
 
   clearDirectoryHandle(): void {
     this.directoryHandle = null;
+    this.negativeCache.clear();
+    this.inFlightReads.clear();
   }
 
   getReadCount(): number {
@@ -53,6 +59,59 @@ export class FileService {
 
   private bumpReadCount(): void {
     this.readCount += 1;
+  }
+
+  // ── Negative cache ──────────────────────────────────────────────────────
+  // Session-scoped set of file paths that resolved to "missing or empty" on a
+  // recent read. Re-reading such a path otherwise re-attempts an FSA
+  // getFileHandle lookup that throws NotFound — and on OneDrive a failed
+  // lookup can still be a cloud round-trip. The dominant source is image
+  // sidecars (`<img>.png.json`, `<img>.png.annot.json`) that usually don't
+  // exist yet but are probed on every render. Entries expire after
+  // NEGATIVE_TTL_MS so a file created out-of-band (a collaborator's write
+  // surfaced via FileSystemObserver) becomes visible without an explicit
+  // invalidation; local writes/deletes invalidate synchronously.
+  private negativeCache = new Map<string, number>();
+  private static readonly NEGATIVE_TTL_MS = 30_000;
+
+  private isKnownMissing(path: string): boolean {
+    const expiry = this.negativeCache.get(path);
+    if (expiry === undefined) return false;
+    if (Date.now() > expiry) {
+      this.negativeCache.delete(path);
+      return false;
+    }
+    return true;
+  }
+
+  private markMissing(path: string): void {
+    this.negativeCache.set(path, Date.now() + FileService.NEGATIVE_TTL_MS);
+  }
+
+  private clearMissing(path: string): void {
+    this.negativeCache.delete(path);
+  }
+
+  // ── In-flight read coalescing ───────────────────────────────────────────
+  // With React Query staleTime:0, every component that mounts in one render
+  // pass fires its own read for the same file (the log shows the same
+  // sequence `.meta.json` read 5-6x back-to-back). Without coalescing each
+  // pays a full FSA directory traversal + getFile + IndexedDB get. This
+  // returns the SAME in-flight promise to concurrent callers and clears the
+  // entry the moment it settles — so it only merges reads that overlap in
+  // time and adds zero staleness (a read-after-write still runs fresh).
+  // Keyed by "<reader>::<path>" so a JSON read and a blob read of one path
+  // don't collide.
+  private inFlightReads = new Map<string, Promise<unknown>>();
+
+  private coalesceRead<T>(key: string, run: () => Promise<T>): Promise<T> {
+    const existing = this.inFlightReads.get(key) as Promise<T> | undefined;
+    if (existing) return existing;
+    const pending = run().finally(() => {
+      this.inFlightReads.delete(key);
+    });
+    this.inFlightReads.set(key, pending);
+    return pending;
   }
 
   private getFolderName(): string {
@@ -175,9 +234,16 @@ export class FileService {
 
   async readJson<T>(path: string): Promise<T | null> {
     if (!this.directoryHandle) return null;
+    if (this.isKnownMissing(path)) return null;
+    return this.coalesceRead(`json::${path}`, () => this.readJsonInner<T>(path));
+  }
 
+  private async readJsonInner<T>(path: string): Promise<T | null> {
     const handle = await this.getHandleByPath(path);
-    if (!handle || handle.kind !== "file") return null;
+    if (!handle || handle.kind !== "file") {
+      this.markMissing(path);
+      return null;
+    }
 
     try {
       const fileHandle = handle as FileSystemFileHandle;
@@ -196,6 +262,7 @@ export class FileService {
       }
       const text = await file.text();
       if (text.trim().length === 0) {
+        this.markMissing(path);
         this.bumpReadCount();
         return null;
       }
@@ -205,6 +272,7 @@ export class FileService {
       return result;
     } catch (err) {
       console.warn(`[fileService.readJson] Recoverable empty/malformed sidecar at ${path} (treating as missing):`, err);
+      this.markMissing(path);
       return null;
     }
   }
@@ -219,9 +287,16 @@ export class FileService {
   // returns `null` (callers translate to "" for empty-body semantics).
   async readText(path: string): Promise<string | null> {
     if (!this.directoryHandle) return null;
+    if (this.isKnownMissing(path)) return null;
+    return this.coalesceRead(`text::${path}`, () => this.readTextInner(path));
+  }
 
+  private async readTextInner(path: string): Promise<string | null> {
     const handle = await this.getHandleByPath(path);
-    if (!handle || handle.kind !== "file") return null;
+    if (!handle || handle.kind !== "file") {
+      this.markMissing(path);
+      return null;
+    }
 
     try {
       const fileHandle = handle as FileSystemFileHandle;
@@ -244,6 +319,7 @@ export class FileService {
       return text;
     } catch (err) {
       console.warn(`[fileService.readText] Failed to read ${path} (treating as missing):`, err);
+      this.markMissing(path);
       return null;
     }
   }
@@ -270,6 +346,14 @@ export class FileService {
 
     try {
       await currentHandle.removeEntry(parts[parts.length - 1]);
+      // The file is now genuinely gone: short-circuit future reads and evict
+      // any stale positive cache entry so a re-read can't resurrect old bytes.
+      this.markMissing(path);
+      try {
+        await deleteCacheEntry(`${this.getFolderName()}::${path}`);
+      } catch {
+        // best-effort; a stale positive entry is re-validated by lastModified
+      }
       return true;
     } catch {
       return false;
@@ -349,9 +433,16 @@ export class FileService {
 
   async readFileAsBlob(path: string): Promise<Blob | null> {
     if (!this.directoryHandle) return null;
+    if (this.isKnownMissing(path)) return null;
+    return this.coalesceRead(`blob::${path}`, () => this.readFileAsBlobInner(path));
+  }
 
+  private async readFileAsBlobInner(path: string): Promise<Blob | null> {
     const handle = await this.getHandleByPath(path);
-    if (!handle || handle.kind !== "file") return null;
+    if (!handle || handle.kind !== "file") {
+      this.markMissing(path);
+      return null;
+    }
 
     try {
       const fileHandle = handle as FileSystemFileHandle;
@@ -381,6 +472,7 @@ export class FileService {
 
       return blob;
     } catch {
+      this.markMissing(path);
       return null;
     }
   }
@@ -628,6 +720,10 @@ export class FileService {
       }
       throw err;
     }
+
+    // A successful write means this path is no longer missing/empty — drop any
+    // negative-cache entry so the next read doesn't short-circuit to null.
+    this.clearMissing(path);
 
     // Write-through cache update. Re-read lastModified from the final file
     // so the next readJson/readText skips the FSA byte read entirely.
