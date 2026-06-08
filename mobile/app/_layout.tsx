@@ -6,9 +6,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
 import { AppSplash } from '@/components/AppSplash';
 import { RainbowBar } from '@/components/ui/RainbowBar';
 import { SuccessBurst } from '@/components/SuccessBurst';
+import { HeaderMascot } from '@/components/HeaderMascot';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 // Keep the native splash up until JS is ready so there is no white flash before
@@ -73,6 +76,7 @@ export default function RootLayout() {
       : { ...DefaultTheme, colors: { ...DefaultTheme.colors, background: '#E6F4FE' } };
 
   return (
+    <SafeAreaProvider>
     <ThemeProvider value={navTheme}>
       <View style={styles.root}>
         <Stack>
@@ -100,10 +104,15 @@ export default function RootLayout() {
         {/* Celebratory "sent to your lab" burst, floats over everything, never
             blocks taps, renders null when idle. */}
         <SuccessBurst />
+        {/* Live BeakerBot mascot, top-right on every screen. Idle breathe +
+            blink, tap him for a heart burst. Small absolute Pressable, so taps
+            elsewhere pass through. */}
+        <HeaderMascot />
       </View>
       {splashVisible ? <AppSplash onFinish={handleSplashFinish} /> : null}
       <StatusBar style="auto" />
     </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
 
