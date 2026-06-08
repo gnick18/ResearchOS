@@ -785,7 +785,7 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
             type="button"
             onClick={() => setWalkthroughOpen(true)}
             data-testid="picker-walkthrough-open"
-            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-sky-500/15 px-4 py-2 text-body font-semibold text-sky-100 border border-sky-300/40 transition-colors hover:bg-sky-500/25 hover:text-white hover:border-sky-300/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
+            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-sky-500/10 dark:bg-sky-500/15 px-4 py-2 text-body font-semibold text-sky-700 dark:text-sky-100 border border-sky-400/40 dark:border-sky-300/40 transition-colors hover:bg-sky-500/20 dark:hover:bg-sky-500/25 hover:text-sky-800 dark:hover:text-white hover:border-sky-400/70 dark:hover:border-sky-300/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 dark:focus-visible:outline-sky-300"
           >
             <svg
               aria-hidden="true"
