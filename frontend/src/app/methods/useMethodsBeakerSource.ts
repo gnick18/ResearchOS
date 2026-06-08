@@ -14,14 +14,15 @@
 //
 // A few honest notes, called out so a reader is not misled:
 //
-//  - HOVERED-as-context is inert here. The generic BeakerSearchSource contract
-//    on this worktree has no hover seam (the spec's 2.3 / 3.3 hover promotion
-//    needs the provider to track [data-beaker-target], a Step 4 item). So the
-//    SELECTED method (the open viewer / compound builder) is the only focus
-//    signal, exactly as Gantt / Workbench treat their selection. The template
-//    hover (spec 3.3) is therefore reachable only by typing a template name into
-//    the palette, not by pointing at a card; the per-template "Use" commands +
-//    the Template library nav group cover that path without hover.
+//  - HOVERED-as-context is wired (BeakerSearch step 4). The provider tracks the
+//    last [data-beaker-target] under the pointer; the method cards on page.tsx
+//    are tagged "method:<owner>:<id>". This hook reads useBeakerHoveredKey,
+//    parses the "method" kind, resolves it against the live methods list (with a
+//    public fallback), and passes it into the builder's hovered slot. SELECTED
+//    (an open viewer / compound builder) still outranks a hover, so a real open
+//    method wins. The template hover (spec 3.3) stays out of scope, templates in
+//    the browser are not the user's cards; the per-template "Use" commands + the
+//    Template library nav group cover that path without hover.
 //
 //  - convertToSingle + extendIntoKit reuse the REAL operations rather than
 //    re-implementing them. extendIntoKit calls methodsApi.wrapAsCompound (the
@@ -41,6 +42,8 @@ import {
   type MethodUpdate,
 } from "@/lib/local-api";
 import { useBeakerSearchSource } from "@/components/beaker-search/useBeakerSearchSource";
+import { useBeakerHoveredKey } from "@/components/beaker-search/BeakerSearchProvider";
+import { parseBeakerTargetKey } from "@/components/beaker-search/beaker-hover";
 import { useMethodPermissions } from "@/hooks/useMethodPermissions";
 import {
   fetchMethodCatalogManifest,
@@ -282,6 +285,21 @@ export function useMethodsBeakerSource(args: UseMethodsBeakerSourceArgs): void {
     [args, openMethod, recordRecent, invalidate],
   );
 
+  // HOVERED. The method card the cursor was over when the palette opened (null
+  // while closed). Parse its data-beaker-target key the way page.tsx stamps it
+  // ("method:<owner>:<id>"), then resolve to the live method by composite
+  // owner:id. SELECTED still outranks this in the builder, so a real open method
+  // / compound builder wins. A public method's card stamps owner "public", so
+  // the same composite match resolves it.
+  const hoveredKey = useBeakerHoveredKey();
+  const hovered = useMemo<Method | null>(() => {
+    const parsed = parseBeakerTargetKey(hoveredKey);
+    if (!parsed || parsed.kind !== "method") return null;
+    return (
+      args.methods.find((m) => `${m.owner}:${m.id}` === parsed.key) ?? null
+    );
+  }, [hoveredKey, args.methods]);
+
   const source = useMemo(() => {
     // recentVersion is a memo dependency so a new open rebuilds the MRU group.
     void recentVersion;
@@ -295,13 +313,14 @@ export function useMethodsBeakerSource(args: UseMethodsBeakerSourceArgs): void {
       browsingTemplates: args.browsingTemplates,
       viewingMethod: args.viewingMethod,
       editingCompound: args.editingCompound,
+      hovered,
       canModify: canModifyMethod,
       currentUser: args.currentUser,
       templates,
       recent: recentRef.current,
     };
     return buildMethodsSource(data, handlers);
-  }, [args, canModifyMethod, templates, handlers, recentVersion]);
+  }, [args, canModifyMethod, templates, handlers, recentVersion, hovered]);
 
   useBeakerSearchSource(source);
 }

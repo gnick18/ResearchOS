@@ -94,6 +94,7 @@ function makeData(over: Partial<MethodsSourceData> = {}): MethodsSourceData {
     browsingTemplates: false,
     viewingMethod: null,
     editingCompound: null,
+    hovered: null,
     canModify: () => true,
     currentUser: "self",
     templates: [makeTemplate()],
@@ -485,5 +486,105 @@ describe("methods recent MRU", () => {
     expect(
       source.navGroups?.find((g) => g.title === "Recent methods"),
     ).toBeUndefined();
+  });
+});
+
+// ── Hover-as-context, SELECTED > HOVERED (step 4) ────────────────────────────
+
+describe("methods hover-as-context", () => {
+  it("a hovered method with no open viewer drives its Suggested + Pointing-at line", () => {
+    const hovered = makeMethod({ id: 7, name: "Hovered method" });
+    const data = makeData({
+      methods: [hovered],
+      filteredOwnMethods: [hovered],
+      viewingMethod: null,
+      editingCompound: null,
+      hovered,
+    });
+    const source = buildMethodsSource(data, makeHandlers());
+
+    // Same per-method action ids as the selected path lead the Suggested set.
+    expect(source.suggestedIds?.slice(0, 5)).toEqual([
+      "methods-selected-open",
+      "methods-selected-edit",
+      "methods-selected-rename",
+      "methods-selected-move",
+      "methods-selected-fork",
+    ]);
+    // The hint + context-card line frame it as a hover, not an open method.
+    expect(source.suggestedHint).toBe("for the method you were pointing at");
+    expect(source.contextCard?.selection?.text).toMatch(/^Pointing at, /);
+    expect(source.contextCard?.selection?.text).toContain('"Hovered method"');
+  });
+
+  it("carries the same permission gating on a read-only hovered method", () => {
+    const hovered = makeMethod({
+      id: 8,
+      owner: "alex",
+      is_shared_with_me: true,
+    });
+    const source = buildMethodsSource(
+      makeData({
+        methods: [hovered],
+        filteredOwnMethods: [],
+        filteredSharedMethods: [hovered],
+        hovered,
+        canModify: () => false,
+      }),
+      makeHandlers(),
+    );
+    // Writes greyed, fork stays enabled, exactly as the selected read-only path.
+    expect(cmd(source, "methods-selected-edit")?.enabled).toBe(false);
+    expect(cmd(source, "methods-selected-delete")?.enabled).toBe(false);
+    expect(cmd(source, "methods-selected-fork")?.enabled).not.toBe(false);
+  });
+
+  it("frames a hovered kit as the kit you were pointing at", () => {
+    const compound = makeMethod({
+      id: 9,
+      name: "Hovered kit",
+      method_type: "compound",
+      source_path: null,
+      components: [{ method_id: 2, owner: null, ordering: 0 }],
+    });
+    const source = buildMethodsSource(
+      makeData({ methods: [compound], hovered: compound }),
+      makeHandlers(),
+    );
+    expect(source.suggestedHint).toBe("for the kit you were pointing at");
+    expect(source.suggestedIds).toContain("methods-selected-edit-components");
+  });
+
+  it("an open viewer (selected) outranks a hovered method", () => {
+    const open = makeMethod({ id: 1, name: "Open method" });
+    const hovered = makeMethod({ id: 7, name: "Hovered method" });
+    const source = buildMethodsSource(
+      makeData({
+        methods: [open, hovered],
+        viewingMethod: open,
+        hovered,
+      }),
+      makeHandlers(),
+    );
+    // The selected method wins, framed "Open", and its Suggested hint is used.
+    expect(source.suggestedHint).toBe("for the open method");
+    expect(source.contextCard?.selection?.text).toMatch(/^Open, /);
+    expect(source.contextCard?.selection?.text).toContain('"Open method"');
+    expect(source.contextCard?.selection?.text).not.toContain("Hovered method");
+  });
+
+  it("suppresses hover while the template browser is open", () => {
+    const hovered = makeMethod({ id: 7, name: "Hovered method" });
+    const source = buildMethodsSource(
+      makeData({ browsingTemplates: true, hovered, methods: [hovered] }),
+      makeHandlers(),
+    );
+    // The template-browser context stays authoritative, no per-method Suggested.
+    expect(source.suggestedHint).toBe("in the template library");
+    expect(source.suggestedIds).toEqual([
+      "methods-templates-close",
+      "methods-templates-new-blank",
+    ]);
+    expect(source.contextCard?.selection).toBeUndefined();
   });
 });

@@ -764,6 +764,10 @@ export default function MethodsPage() {
   const renderMethodCard = (m: Method, isDraggable: boolean) => (
     <div
       key={`${m.owner}-${m.id}`}
+      // Hover-as-context (BeakerSearch step 4). The composite owner:id key the
+      // Methods source resolves to the hovered method when the palette opens
+      // while nothing is selected. SELECTED (an open viewer) still outranks it.
+      data-beaker-target={`method:${m.owner}:${m.id}`}
       draggable={isDraggable}
       onDragStart={isDraggable ? () => handleDragStart(m) : undefined}
       className={`bg-surface-raised border border-border rounded-lg p-4 hover:shadow-sm transition-shadow cursor-pointer ${

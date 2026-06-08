@@ -118,6 +118,15 @@ export interface MethodsSourceData {
   /** The compound open in the builder (CompoundMethodBuilder), or null. */
   editingCompound: Method | null;
 
+  // HOVERED (spec 2.3 / 3.3). The method card the cursor was over when the
+  // palette opened, resolved by the hook from the data-beaker-target key
+  // ("method:<owner>:<id>"). SELECTED always outranks this, so a real open
+  // method wins over a stale hover. Null when nothing tagged was under the
+  // pointer. A hovered method drives the SAME per-method Suggested + the SAME
+  // command gating as the selected path; only the framing ("Pointing at" vs
+  // "Open") changes.
+  hovered: Method | null;
+
   // Permission seam (spec 3.1). The hook passes the real
   // useMethodPermissions().canModifyMethod so the builder stays pure and
   // testable. true => writable (own or shared-with-edit), false => read-only.
@@ -220,6 +229,24 @@ function resolveSelection(data: MethodsSourceData): Method | null {
   return data.viewingMethod ?? data.editingCompound ?? null;
 }
 
+/** Resolve the active context method by the SELECTED > HOVERED rule. When a real
+ *  selection exists (an open viewer / compound builder), hovered is ignored. When
+ *  nothing is selected, the card the cursor was pointing at drives the SAME
+ *  context-card selection line and the SAME Suggested action set, only the
+ *  framing ("Pointing at" vs "Open") changes. `isHovered` lets the copy and the
+ *  Suggested hint switch voice without duplicating the per-method logic. While
+ *  the template browser is open, hover is suppressed so the browser context
+ *  stays authoritative (spec 3.4 beats a stale card hover behind the modal). */
+function resolveContext(
+  data: MethodsSourceData,
+): { method: Method; isHovered: boolean } | null {
+  const sel = resolveSelection(data);
+  if (sel) return { method: sel, isHovered: false };
+  if (data.browsingTemplates) return null;
+  if (data.hovered) return { method: data.hovered, isHovered: true };
+  return null;
+}
+
 /** Whether a method is a compound (kit). */
 function isCompound(method: Method): boolean {
   return method.method_type === "compound";
@@ -264,10 +291,11 @@ export function methodsScopeMeta(data: MethodsSourceData): string {
  *  a method viewer / compound builder is open (name + type + folder, plus a
  *  read-only or provenance hint). */
 function buildContextCard(data: MethodsSourceData): PaletteContextCard {
-  const sel = resolveSelection(data);
+  const ctx = resolveContext(data);
   let selection: PaletteContextCard["selection"];
 
-  if (sel) {
+  if (ctx) {
+    const sel = ctx.method;
     const bits: string[] = [];
     if (isCompound(sel)) {
       const n = componentCount(sel);
@@ -286,9 +314,12 @@ function buildContextCard(data: MethodsSourceData): PaletteContextCard {
       bits.push(`received from ${sel.received_from}, verified`);
     }
 
+    // Frame a real selection as the open method, a hover as the card you were
+    // pointing at, so the user knows which one drives Suggested.
+    const lead = ctx.isHovered ? "Pointing at" : "Open";
     selection = {
       iconName: isCompound(sel) ? "wrapped" : ICON_METHOD,
-      text: `Open, "${sel.name}", ${bits.join(", ")}`,
+      text: `${lead}, "${sel.name}", ${bits.join(", ")}`,
     };
   }
 
@@ -312,9 +343,11 @@ function buildCommands(
   handlers: MethodsSourceHandlers,
 ): EditorCommand[] {
   const out: EditorCommand[] = [];
-  const sel = resolveSelection(data);
+  // SELECTED > HOVERED. A hovered card drives the SAME action rows as a selection
+  // (same ids, same canModify gating), so Suggested can reference them either way.
+  const sel = resolveContext(data)?.method ?? null;
 
-  // ── Selected method actions (spec 3.2). ───────────────────────────────────
+  // ── Selected / hovered method actions (spec 3.2). ─────────────────────────
   if (sel) {
     const writable = data.canModify(sel);
     const sharedIn = isMethodSharedIntoMe(sel);
@@ -556,9 +589,11 @@ function buildCommands(
  *  library. Ids that are disabled / absent are silently skipped by the palette,
  *  so the rule can be generous. */
 function buildSuggestedIds(data: MethodsSourceData): string[] {
-  const sel = resolveSelection(data);
+  // SELECTED > HOVERED, both lead with the same per-method action ids.
+  const sel = resolveContext(data)?.method ?? null;
 
-  // 3.2, a method open in the viewer / compound builder. Open, Edit, Rename,
+  // 3.2, a method open in the viewer / compound builder, OR the card the cursor
+  // was pointing at. Open, Edit, Rename,
   // Move, Fork, then the kit + share + delete affordances. The compound's
   // per-component rows are collapsed into Edit components + Convert to single.
   if (sel) {
@@ -602,8 +637,15 @@ function buildSuggestedIds(data: MethodsSourceData): string[] {
 
 /** The Suggested heading hint (spec 3). */
 function buildSuggestedHint(data: MethodsSourceData): string | undefined {
-  const sel = resolveSelection(data);
-  if (sel) return isCompound(sel) ? "for the open kit" : "for the open method";
+  const ctx = resolveContext(data);
+  if (ctx) {
+    if (ctx.isHovered) {
+      return isCompound(ctx.method)
+        ? "for the kit you were pointing at"
+        : "for the method you were pointing at";
+    }
+    return isCompound(ctx.method) ? "for the open kit" : "for the open method";
+  }
   if (data.browsingTemplates) return "in the template library";
   return undefined;
 }
