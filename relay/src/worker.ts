@@ -59,6 +59,11 @@ export interface Env {
    *  key in plaintext, only sealed copies + signed public metadata. Dormant
    *  behind LAB_TIER_ENABLED on the client; the DO + binding ship inert. */
   LAB_RECORD: DurableObjectNamespace;
+  /** R2 bucket for server-blind lab data (lab tier Phase 3). Stores opaque
+   *  lab-key ciphertext; the relay never decrypts or holds the lab key. Keyed
+   *  `${labId}/${owner}/${recordType}/${recordId}`. Dormant until the client
+   *  calls the /lab/data/* routes. */
+  LAB_DATA: R2Bucket;
 }
 
 /** Permissive CORS for the cross-origin /snapshot fetch from the app. The
@@ -167,6 +172,17 @@ export default {
       return stub.fetch(request);
     }
 
+    // Server-blind lab data store (lab tier Phase 3). Stores and returns opaque
+    // lab-key ciphertext; the relay never decrypts or holds the lab key. Writes
+    // and lists are Ed25519-signed and re-verified against the lab roster fetched
+    // from the LabRecordDO via the real /lab/get route. GET /lab/data/get is
+    // open at the transport (the blob is useless without the lab key). ADDITIVE
+    // and dormant (client gate is LAB_TIER_ENABLED). Dispatched BEFORE the
+    // /lab/create|append|get block so it matches first.
+    if (url.pathname.startsWith("/lab/data/")) {
+      return handleLabData(url, request, env);
+    }
+
     // Per-lab record store (lab tier Phase 2). The authoritative server-side home
     // of a lab: the head pubkey, the head-signed hash-chained membership log, and
     // the per-generation sealed lab-key envelopes. Addressed by ?lab=<labId>, so
@@ -199,15 +215,16 @@ export default {
       return stub.fetch(request);
     }
 
-    // CORS preflight for the cross-origin lab-record POSTs from the app (the JSON
-    // Content-Type makes these non-simple requests). Handled before the capture
-    // dispatch so an OPTIONS never tries to parse a body.
+    // CORS preflight for the cross-origin lab-record POSTs and lab-data GETs
+    // from the app (the JSON Content-Type + GET /lab/data/get make these
+    // non-simple requests). Handled before the capture dispatch so an OPTIONS
+    // never tries to parse a body.
     if (request.method === "OPTIONS" && url.pathname.startsWith("/lab/")) {
       return new Response(null, {
         status: 204,
         headers: {
           "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
           "Access-Control-Allow-Headers": "Content-Type",
         },
       });
@@ -1887,6 +1904,358 @@ export class CaptureInbox {
     }
     return { u, request };
   }
+}
+
+// ===========================================================================
+// Lab tier Phase 3 chunk 1: the server-blind lab data store (/lab/data/*).
+//
+// The worker stores and returns opaque lab-key ciphertext in the LAB_DATA R2
+// bucket. It NEVER holds the lab key and NEVER decrypts. The R2 object key is
+// `${labId}/${owner}/${recordType}/${recordId}` (plaintext routing metadata so
+// the PI can enumerate a member's records by prefix). Signed writes and lists
+// are verified against the lab roster fetched from the REAL LabRecordDO via the
+// POST /lab/get route (NOT a /lab/roster route; that does not exist). Reads are
+// open at the transport (useless without the lab key).
+// ===========================================================================
+
+/** Verifies a hex Ed25519 signature over a UTF-8 message under a hex pubkey.
+ *  Pure JS (@noble/curves), so it runs in workerd. Any malformed input is a
+ *  verification failure, never a throw. (Mirrors CollabRoom.verifySig.) */
+function verifyLabSig(
+  sigHex: string,
+  message: string,
+  pubkeyHex: string,
+): boolean {
+  try {
+    const sig = hexToBytes(sigHex);
+    const pub = hexToBytes(pubkeyHex);
+    const msg = new TextEncoder().encode(message);
+    return ed25519.verify(sig, msg, pub);
+  } catch {
+    return false;
+  }
+}
+
+/** A millisecond-epoch issuedAt is fresh within +/- 5 minutes of now. */
+function labTsFresh(issuedAt: number): boolean {
+  if (typeof issuedAt !== "number" || !Number.isFinite(issuedAt)) return false;
+  return Math.abs(Date.now() - issuedAt) <= 5 * 60 * 1000;
+}
+
+function labJson(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+  });
+}
+
+/** The roster shape the data routes check against. Built by fetchRoster from the
+ *  real LabRecordDO /lab/get response. */
+interface LabRosterPayload {
+  labId: string;
+  /** Hex Ed25519 signing pubkey of the lab head. */
+  headPubkey: string;
+  members: Array<{ pubkey: string; role: string }>;
+}
+
+/** True when pubkeyHex is the head or a listed member of the roster. */
+function rosterAllows(roster: LabRosterPayload, pubkeyHex: string): boolean {
+  const target = pubkeyHex.toLowerCase();
+  if (roster.headPubkey.toLowerCase() === target) return true;
+  return roster.members.some((m) => m.pubkey.toLowerCase() === target);
+}
+
+/**
+ * Fetches a lab's roster from its REAL LabRecordDO via POST /lab/get, or null
+ * when the lab does not exist (fail-closed). The DO returns the full record
+ * including `record.head` (a LabMemberWire with ed25519PublicKey) and
+ * `record.members` (LabMemberWire[]). We map head.ed25519PublicKey to
+ * headPubkey, and members[].ed25519PublicKey to members[].pubkey.
+ *
+ * This is the ONLY place the data routes talk to the LabRecordDO. There is NO
+ * /lab/roster endpoint on the DO; that route does not exist.
+ */
+async function fetchRoster(
+  env: Env,
+  labId: string,
+): Promise<LabRosterPayload | null> {
+  const stub = env.LAB_RECORD.get(env.LAB_RECORD.idFromName(labId));
+  // POST /lab/get?lab=<labId> is the real DO's open-read endpoint. Returns
+  // { record: { labId, head, members, keyGeneration, log }, envelopes } on 200
+  // or { error } on 404 when the lab does not exist.
+  const res = await stub.fetch(
+    `https://lab-record/lab/get?lab=${encodeURIComponent(labId)}`,
+    { method: "POST" },
+  );
+  if (!res.ok) return null;
+  try {
+    const data = (await res.json()) as {
+      record?: {
+        labId?: string;
+        head?: { ed25519PublicKey?: string; [k: string]: unknown } | null;
+        members?: Array<{ ed25519PublicKey?: string; role?: string; [k: string]: unknown }>;
+        [k: string]: unknown;
+      };
+    };
+    const record = data.record;
+    if (!record) return null;
+    const headPubkey = record.head?.ed25519PublicKey;
+    if (typeof headPubkey !== "string" || headPubkey.trim() === "") return null;
+    const members = Array.isArray(record.members)
+      ? record.members
+          .filter(
+            (m): m is { ed25519PublicKey: string; role: string } =>
+              !!m && typeof m.ed25519PublicKey === "string",
+          )
+          .map((m) => ({ pubkey: m.ed25519PublicKey, role: m.role ?? "member" }))
+      : [];
+    return { labId, headPubkey, members };
+  } catch {
+    return null;
+  }
+}
+
+/** Decodes a base64 string to bytes. Uses atob (available in workerd). */
+function base64ToBytes(b64: string): Uint8Array {
+  const binary = atob(b64);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+  return out;
+}
+
+// ---- Lab data store canonical signed-byte strings --------------------------
+// THE CONTRACT. The client (frontend/src/lib/lab/lab-data-protocol.ts) keeps
+// byte-identical copies of labDataPutMessage / labDataListMessage; if you
+// change one, change both, or signatures stop verifying.
+
+/** The R2 object key for one lab record. Mirrors labDataObjectKey in the client
+ *  protocol module. */
+function labDataObjectKeyServer(
+  labId: string,
+  owner: string,
+  recordType: string,
+  recordId: string,
+): string {
+  return `${labId}/${owner}/${recordType}/${recordId}`;
+}
+
+/** Canonical PUT message (mirrors labDataPutMessage in the client). */
+function labDataPutCanonical(
+  labId: string,
+  owner: string,
+  recordType: string,
+  recordId: string,
+  ciphertextSha256: string,
+  issuedAt: number,
+): string {
+  return [
+    "lab-data-put",
+    `labId=${labId}`,
+    `owner=${owner}`,
+    `recordType=${recordType}`,
+    `recordId=${recordId}`,
+    `sha256=${ciphertextSha256}`,
+    `issuedAt=${issuedAt}`,
+  ].join("\n");
+}
+
+/** Canonical LIST message (mirrors labDataListMessage in the client). */
+function labDataListCanonical(
+  labId: string,
+  prefix: string,
+  issuedAt: number,
+): string {
+  return [
+    "lab-data-list",
+    `labId=${labId}`,
+    `prefix=${prefix}`,
+    `issuedAt=${issuedAt}`,
+  ].join("\n");
+}
+
+/** Worker-level dispatch for the SERVER-BLIND lab data store. */
+async function handleLabData(
+  url: URL,
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  if (url.pathname === "/lab/data/put") {
+    if (request.method !== "POST") {
+      return labJson({ error: "method not allowed" }, 405);
+    }
+    return handleLabDataPut(request, env);
+  }
+  if (url.pathname === "/lab/data/get") {
+    if (request.method !== "GET") {
+      return labJson({ error: "method not allowed" }, 405);
+    }
+    return handleLabDataGet(url, env);
+  }
+  if (url.pathname === "/lab/data/list") {
+    if (request.method !== "POST") {
+      return labJson({ error: "method not allowed" }, 405);
+    }
+    return handleLabDataList(request, env);
+  }
+  return labJson({ error: "not found" }, 404);
+}
+
+/** POST /lab/data/put. Member/head-signed write of one lab-key ciphertext blob.
+ *  The signature binds the ciphertext sha256, so the stored bytes cannot be
+ *  swapped under a valid signature. The worker NEVER decrypts the ciphertext. */
+async function handleLabDataPut(request: Request, env: Env): Promise<Response> {
+  let body: {
+    labId?: unknown;
+    owner?: unknown;
+    recordType?: unknown;
+    recordId?: unknown;
+    ciphertext?: unknown;
+    signerPubkey?: unknown;
+    issuedAt?: unknown;
+    signature?: unknown;
+  };
+  try {
+    body = await request.json();
+  } catch {
+    return labJson({ error: "invalid JSON body" }, 400);
+  }
+
+  const { labId, owner, recordType, recordId, ciphertext, signerPubkey, issuedAt, signature } =
+    body;
+  if (
+    typeof labId !== "string" ||
+    typeof owner !== "string" ||
+    typeof recordType !== "string" ||
+    typeof recordId !== "string" ||
+    typeof ciphertext !== "string" ||
+    typeof signerPubkey !== "string" ||
+    typeof issuedAt !== "number" ||
+    typeof signature !== "string"
+  ) {
+    return labJson({ error: "malformed put" }, 400);
+  }
+  if (!labTsFresh(issuedAt)) {
+    return labJson({ error: "stale issuedAt" }, 401);
+  }
+
+  // Decode the ciphertext (base64) to opaque bytes. The worker treats these as
+  // an opaque blob; it never interprets or decrypts them.
+  let ciphertextBytes: Uint8Array;
+  try {
+    ciphertextBytes = base64ToBytes(ciphertext);
+  } catch {
+    return labJson({ error: "bad ciphertext encoding" }, 400);
+  }
+
+  const ciphertextSha256 = await sha256Hex(ciphertextBytes);
+  const message = labDataPutCanonical(
+    labId,
+    owner,
+    recordType,
+    recordId,
+    ciphertextSha256,
+    issuedAt,
+  );
+  if (!verifyLabSig(signature, message, signerPubkey)) {
+    return labJson({ error: "bad signature" }, 401);
+  }
+
+  const roster = await fetchRoster(env, labId);
+  if (!roster || !rosterAllows(roster, signerPubkey)) {
+    return labJson({ error: "not a lab member" }, 401);
+  }
+
+  const key = labDataObjectKeyServer(labId, owner, recordType, recordId);
+  try {
+    await env.LAB_DATA.put(key, ciphertextBytes);
+  } catch {
+    return labJson({ error: "storage write failed" }, 500);
+  }
+  return labJson({ ok: true, key }, 200);
+}
+
+/** GET /lab/data/get?key=<labId/owner/recordType/recordId>. Returns the raw
+ *  ciphertext bytes; the caller decrypts with the lab key client-side. Open at
+ *  the transport because the blob is useless without the lab key (which the
+ *  relay never holds). The worker NEVER decrypts. */
+async function handleLabDataGet(url: URL, env: Env): Promise<Response> {
+  const key = url.searchParams.get("key");
+  if (!key || key.trim() === "") {
+    return labJson({ error: "missing key" }, 400);
+  }
+  const obj = await env.LAB_DATA.get(key);
+  if (!obj) {
+    return labJson({ error: "not found" }, 404);
+  }
+  return new Response(obj.body, {
+    status: 200,
+    headers: {
+      ...CORS_HEADERS,
+      "Content-Type": "application/octet-stream",
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
+/** POST /lab/data/list. Member/head-signed enumeration of the R2 object keys
+ *  under `${labId}/${prefix}` (prefix = an owner or `owner/recordType`). This is
+ *  what lets the PI enumerate every member's lab records. */
+async function handleLabDataList(request: Request, env: Env): Promise<Response> {
+  let body: {
+    labId?: unknown;
+    prefix?: unknown;
+    signerPubkey?: unknown;
+    issuedAt?: unknown;
+    signature?: unknown;
+  };
+  try {
+    body = await request.json();
+  } catch {
+    return labJson({ error: "invalid JSON body" }, 400);
+  }
+
+  const { labId, prefix, signerPubkey, issuedAt, signature } = body;
+  if (
+    typeof labId !== "string" ||
+    typeof prefix !== "string" ||
+    typeof signerPubkey !== "string" ||
+    typeof issuedAt !== "number" ||
+    typeof signature !== "string"
+  ) {
+    return labJson({ error: "malformed list" }, 400);
+  }
+  if (!labTsFresh(issuedAt)) {
+    return labJson({ error: "stale issuedAt" }, 401);
+  }
+
+  const message = labDataListCanonical(labId, prefix, issuedAt);
+  if (!verifyLabSig(signature, message, signerPubkey)) {
+    return labJson({ error: "bad signature" }, 401);
+  }
+
+  const roster = await fetchRoster(env, labId);
+  if (!roster || !rosterAllows(roster, signerPubkey)) {
+    return labJson({ error: "not a lab member" }, 401);
+  }
+
+  // R2 list under the full `${labId}/${prefix}` namespace, paging through the
+  // truncated cursor so a large lab enumerates fully.
+  const fullPrefix = prefix === "" ? `${labId}/` : `${labId}/${prefix}`;
+  const keys: string[] = [];
+  let cursor: string | undefined = undefined;
+  try {
+    do {
+      const listed: R2Objects = await env.LAB_DATA.list({
+        prefix: fullPrefix,
+        cursor,
+      });
+      for (const o of listed.objects) keys.push(o.key);
+      cursor = listed.truncated ? listed.cursor : undefined;
+    } while (cursor);
+  } catch {
+    return labJson({ error: "storage list failed" }, 500);
+  }
+  return labJson({ keys }, 200);
 }
 
 // ===========================================================================

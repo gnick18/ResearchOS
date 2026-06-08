@@ -54,7 +54,7 @@ import {
   type LabRecord,
 } from "./lab-membership";
 
-const LAB_KEY_LENGTH = 32; // XChaCha20-Poly1305 key length
+export const LAB_KEY_LENGTH = 32; // XChaCha20-Poly1305 key length
 const NONCE_LENGTH = 24; // XChaCha20-Poly1305 nonce length
 
 // ---------------------------------------------------------------------------
