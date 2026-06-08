@@ -444,9 +444,11 @@ const styles = StyleSheet.create({
   },
   countdown: {
     fontSize: 34,
+    lineHeight: 42,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
     color: BRAND_SKY,
+    paddingVertical: 2,
   },
   rowActions: {
     alignItems: 'flex-end',

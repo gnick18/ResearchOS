@@ -4,7 +4,7 @@
 // own X25519 key, and shows the task list plus overdue/upcoming chips and a last
 // synced line. No write-back, no inventory. Pull to refresh. House style: no
 // em-dashes, no emojis, no mid-sentence colons, brand-sky (#1AA0E6) accents.
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -61,12 +61,22 @@ export default function TodayScreen() {
     }
   }, [pairing]);
 
-  // Re-read pairing and reload the snapshot whenever the tab regains focus.
+  // Reload the snapshot whenever the resolved pairing IDENTITY changes (covers
+  // the async pairing load and a re-pair). Keyed on the stable u+relayUrl, not
+  // the pairing object reference, because usePairing returns a fresh object on
+  // every refresh, keying on the object would re-fire this forever.
+  const pairingKey = pairing ? `${pairing.u}:${pairing.relayUrl}` : 'none';
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pairingKey]);
+
+  // On focus, re-read the pairing record once. refresh is stable (useCallback
+  // with empty deps), so this runs once per focus and cannot loop.
   useFocusEffect(
     useCallback(() => {
       refreshPairing();
-      load();
-    }, [refreshPairing, load]),
+    }, [refreshPairing]),
   );
 
   const tasks: SnapshotTask[] = Array.isArray(snapshot?.tasks)
