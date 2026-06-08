@@ -30,9 +30,7 @@ export default function SettingsFeaturePage() {
         Type <code>password</code> and the page collapses to the Security
         panel; type <code>animation</code> and it narrows to the Animation
         section. The filter matches section headings and the body text inside
-        each panel, so a query like <code>telegram</code> surfaces both the
-        Notifications row and the Data inventory Telegram-cache control.
-        Clear the bar to restore the full stack.
+        each panel. Clear the bar to restore the full stack.
       </p>
 
       <h2>Personal vs Lab Mode tabs</h2>
@@ -253,34 +251,9 @@ export default function SettingsFeaturePage() {
 
       <h2>Notifications &amp; behavior</h2>
       <p>
-        Five master switches for messaging and safety prompts.
+        Two master switches for safety prompts and lab-view visibility.
       </p>
       <ul>
-        <li>
-          <strong>Telegram notifications</strong>, when off, the app stops
-          polling your Telegram bot for inbound photos and updates. Pairing
-          and unpairing the bot itself happens elsewhere (see{" "}
-          <Link href="/wiki/integrations/telegram">Telegram integration</Link>{" "}
-          for the connect flow).
-        </li>
-        <li>
-          <strong>Auto-reconnect Telegram bot</strong>, when on, your bot
-          token is saved in an encrypted file (<code>_telegram-encrypted.json</code>)
-          inside your folder, encrypted with your account password. If the
-          pairing file is ever lost (OneDrive deletion, iCloud sync hiccup),
-          ResearchOS can restore from the backup automatically. Enabling this
-          toggle opens an inline password-entry form: type your account
-          password and click <strong>Save encrypted backup</strong>. Canceling
-          closes the form without changing the setting. Flipping the toggle off
-          deletes the encrypted sidecar immediately.
-        </li>
-        <li>
-          <strong>Lock encrypted backup access</strong>, a button that appears
-          only when your account password is currently cached in memory (from
-          the enable flow above). Clicking it clears the in-memory cache so
-          the next auto-reconnect attempt will prompt for the password again.
-          The button hides itself when the cache is already empty.
-        </li>
         <li>
           <strong>Confirm destructive actions</strong>, when on, the app shows
           an &ldquo;Are you sure?&rdquo; prompt before you delete a task,
@@ -334,8 +307,7 @@ export default function SettingsFeaturePage() {
       <h2>Data inventory</h2>
       <p>
         A read-only transparency surface that proves your data stays on your
-        computer. Nothing here takes any action beyond the Telegram-cache Forget
-        button; everything else is view-only.
+        computer. Everything here is view-only.
       </p>
       <p>
         <strong>Files on disk</strong>: a scrollable list of every file path
@@ -344,7 +316,7 @@ export default function SettingsFeaturePage() {
         file count and group count appear above the list.
       </p>
       <p>
-        <strong>Browser IndexedDB keys</strong>: five known keys the app keeps
+        <strong>Browser IndexedDB keys</strong>: four known keys the app keeps
         in your browser:
       </p>
       <ul>
@@ -365,34 +337,16 @@ export default function SettingsFeaturePage() {
           <code>keyval-store / keyval / research-os-main-user</code>:
           the primary account when a PI is signed in.
         </li>
-        <li>
-          <code>research-os-telegram-token-cache / tokens / &#123;folderName, username&#125;</code>:
-          a recovery cache for your Telegram bot credentials, keyed per folder
-          and user so a lab-mate sharing the folder cannot see your token. A{" "}
-          <strong>Forget</strong> button (red) wipes every cached entry for the
-          current folder.
-        </li>
       </ul>
       <p>
-        <strong>Telegram bot backup</strong>: a status badge showing whether
-        the encrypted backup file (<code>users/&lt;you&gt;/_telegram-encrypted.json</code>)
-        is present, with a &ldquo;last saved&rdquo; timestamp when it is. A{" "}
-        <strong>Manage</strong> button scrolls to the Auto-reconnect row in
-        Notifications &amp; behavior.
-      </p>
-      <p>
         <strong>External calls</strong>: a disclosure paragraph listing the
-        four destinations your browser contacts when using ResearchOS: (a){" "}
-        <code>api.telegram.org</code> directly, if you have paired a Telegram
-        bot; (b) <code>/api/calendar-feed</code> on this app&apos;s origin,
-        which fetches ICS calendars on your behalf; (c){" "}
-        <code>/api/telegram-file</code> on this app&apos;s origin, which
-        proxies Telegram CDN file downloads; and (d){" "}
+        destinations your browser contacts when using ResearchOS: (a){" "}
+        <code>/api/calendar-feed</code> on this app&apos;s origin,
+        which fetches ICS calendars on your behalf; and (b){" "}
         <code>va.vercel-scripts.com</code> / <code>vitals.vercel-insights.com</code>{" "}
         for anonymous page-view pings via Vercel Web Analytics plus anonymous
-        Core Web Vitals via Vercel Speed Insights. Enabling
-        Offline mode (below) blocks destinations (b), (c), and (d). Direct{" "}
-        Telegram polling continues regardless.
+        Core Web Vitals via Vercel Speed Insights. Enabling Offline mode
+        (below) blocks both of these.
       </p>
 
       <h2>Data maintenance</h2>
@@ -527,16 +481,11 @@ export default function SettingsFeaturePage() {
       <h2>Offline mode</h2>
       <p>
         A single toggle, <strong>Block calls to our server</strong>, that
-        disables the two proxy routes the app uses for external data fetching:
-        <code>/api/calendar-feed</code> (ICS calendar sync) and{" "}
-        <code>/api/telegram-file</code> (Telegram CDN file downloads). Enabling
-        this makes the app make no outbound calls to its own server.
-      </p>
-      <p>
-        Direct Telegram polling (browser to <code>api.telegram.org</code>)
-        continues regardless of this setting, because that path does not go
-        through the app&apos;s proxy. An amber notice appears while the toggle
-        is on, confirming which features are paused.
+        disables the proxy route the app uses for external data fetching:
+        <code>/api/calendar-feed</code> (ICS calendar sync). Enabling
+        this makes the app make no outbound calls to its own server. An amber
+        notice appears while the toggle is on, confirming which features are
+        paused.
       </p>
 
       <Callout variant="info" title="Settings are per-user, per-folder">
