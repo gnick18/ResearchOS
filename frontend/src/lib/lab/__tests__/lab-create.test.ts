@@ -21,8 +21,18 @@ import { createLabForCurrentUser } from "../lab-create";
 // Mocks
 // ---------------------------------------------------------------------------
 
+const FAKE_GENERATED_KEY = new Uint8Array(32).fill(0x77);
+
 vi.mock("../lab-key", () => ({
   createLab: vi.fn(),
+  generateLabKey: vi.fn(() => new Uint8Array(32).fill(0x77)),
+}));
+
+// lab-binding is mocked so this orchestration test does not exercise the real
+// hash + lab-key encrypt (that is covered in lab-binding.test.ts). We only need
+// to assert lab-create seals the head's email under the generated key.
+vi.mock("../lab-binding", () => ({
+  sealMemberEmailHash: vi.fn(() => "deadbeefdeadbeef"),
 }));
 
 vi.mock("../lab-do-client", () => ({
@@ -31,9 +41,11 @@ vi.mock("../lab-do-client", () => ({
 
 // Pull the typed mock handles after module registration.
 import { createLab } from "../lab-key";
+import { sealMemberEmailHash } from "../lab-binding";
 import { createLabRemote } from "../lab-do-client";
 
 const mockCreateLab = vi.mocked(createLab);
+const mockSealEmail = vi.mocked(sealMemberEmailHash);
 const mockCreateLabRemote = vi.mocked(createLabRemote);
 
 // ---------------------------------------------------------------------------
@@ -97,11 +109,12 @@ describe("createLabForCurrentUser", () => {
     await createLabForCurrentUser({
       username: "alice",
       identity,
+      oauthEmail: "alice@wisc.edu",
       idImpl: () => "lab-test-id",
     });
 
     expect(mockCreateLab).toHaveBeenCalledOnce();
-    const [calledLabId, calledHead, calledMembers, calledPrivKey] =
+    const [calledLabId, calledHead, calledMembers, calledPrivKey, calledOpts] =
       mockCreateLab.mock.calls[0];
 
     // labId
@@ -117,12 +130,35 @@ describe("createLabForCurrentUser", () => {
       encodePublicKey(identity.keys.signing.publicKey),
     );
 
+    // head carries the lab-key-encrypted email binding (Phase 8a)
+    expect(calledHead.emailHashEnc).toBe("deadbeefdeadbeef");
+    expect(mockSealEmail).toHaveBeenCalledWith(
+      "alice@wisc.edu",
+      FAKE_GENERATED_KEY,
+    );
+
     // members is [head] (head is the sole member for a brand-new lab)
     expect(calledMembers).toHaveLength(1);
     expect(calledMembers[0]).toEqual(calledHead);
 
     // private signing key is passed verbatim
     expect(calledPrivKey).toBe(identity.keys.signing.privateKey);
+
+    // the generated key is injected so the binding rides the signed roster
+    expect(calledOpts).toEqual({ labKey: FAKE_GENERATED_KEY });
+  });
+
+  it("throws when no OAuth email is supplied (cannot bind the head)", async () => {
+    const identity = makeFakeIdentity();
+    await expect(
+      createLabForCurrentUser({
+        username: "alice",
+        identity,
+        oauthEmail: "  ",
+        idImpl: () => "lab-test-id",
+      }),
+    ).rejects.toThrow(/OAuth-verified email is required/);
+    expect(mockCreateLab).not.toHaveBeenCalled();
   });
 
   it("calls createLabRemote with the labId and the CreatedLab from createLab", async () => {
@@ -134,6 +170,7 @@ describe("createLabForCurrentUser", () => {
     await createLabForCurrentUser({
       username: "alice",
       identity,
+      oauthEmail: "alice@wisc.edu",
       idImpl: () => "lab-test-id",
     });
 
@@ -152,6 +189,7 @@ describe("createLabForCurrentUser", () => {
     const result = await createLabForCurrentUser({
       username: "alice",
       identity,
+      oauthEmail: "alice@wisc.edu",
       idImpl: () => "lab-test-id",
     });
 
@@ -169,6 +207,7 @@ describe("createLabForCurrentUser", () => {
       createLabForCurrentUser({
         username: "alice",
         identity,
+        oauthEmail: "alice@wisc.edu",
         idImpl: () => "lab-test-id",
       }),
     ).rejects.toThrow(

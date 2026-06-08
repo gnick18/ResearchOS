@@ -468,14 +468,25 @@ export interface CreatedLab {
  * @param head the PI (role "head").
  * @param members the initial non-head members (role "member").
  * @param headEd25519PrivateKey the PI's signing key.
+ * @param opts.labKey an existing 32-byte lab key to use instead of generating a
+ *   fresh one. The caller injects this when it must derive something from the
+ *   key BEFORE the genesis roster is signed, e.g. the head's lab-key-encrypted
+ *   email binding (lab-create.ts, Phase 8a), so the binding rides inside the
+ *   head-signed roster. When omitted, a fresh key is generated as before.
  */
 export function createLab(
   labId: string,
   head: LabMember,
   members: LabMember[],
   headEd25519PrivateKey: Uint8Array,
+  opts?: { labKey?: Uint8Array },
 ): CreatedLab {
-  const labKey = generateLabKey();
+  const labKey = opts?.labKey ?? generateLabKey();
+  if (labKey.length !== LAB_KEY_LENGTH) {
+    throw new Error(
+      `createLab: provided lab key must be ${LAB_KEY_LENGTH} bytes, got ${labKey.length}`,
+    );
+  }
   const copies = distributeLabKey(labKey, members, head);
   const envelope: LabKeyEnvelope = { generation: 0, copies };
 

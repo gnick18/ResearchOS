@@ -26,7 +26,8 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-import { createLab } from "./lab-key";
+import { createLab, generateLabKey } from "./lab-key";
+import { sealMemberEmailHash } from "./lab-binding";
 import { createLabRemote } from "./lab-do-client";
 import type { LabMember } from "./lab-membership";
 import { encodePublicKey } from "@/lib/sharing/identity/keys";
@@ -37,6 +38,13 @@ export interface CreateLabParams {
   username: string;
   /** The caller's unlocked identity, injected from getSessionIdentity. */
   identity: StoredIdentity;
+  /**
+   * The head's third-party-OAuth-verified email (from getSession().user.email).
+   * Bound to the head membership (lab-key-encrypted, Phase 8a) so a later head
+   * login MUST authenticate with this same email. Required: a lab cannot be
+   * created without an OAuth identity to anchor the head to.
+   */
+  oauthEmail: string;
   /**
    * Override for the lab-id generator. Defaults to crypto.randomUUID. Injected
    * in tests to produce a deterministic id.
@@ -69,14 +77,25 @@ export interface CreateLabResult {
 export async function createLabForCurrentUser(
   params: CreateLabParams,
 ): Promise<CreateLabResult> {
-  const { username, identity } = params;
+  const { username, identity, oauthEmail } = params;
+  if (!oauthEmail || !oauthEmail.trim()) {
+    throw new Error(
+      "createLabForCurrentUser: an OAuth-verified email is required to bind the head membership",
+    );
+  }
   const labId = (params.idImpl ?? (() => crypto.randomUUID()))();
+
+  // Generate the lab key up front so the head's email binding can be sealed
+  // under it and ride INSIDE the head-signed genesis roster (Phase 8a). The same
+  // key is injected into createLab via opts.labKey so no second key is minted.
+  const labKey = generateLabKey();
 
   const head: LabMember = {
     username,
     x25519PublicKey: encodePublicKey(identity.keys.encryption.publicKey),
     ed25519PublicKey: encodePublicKey(identity.keys.signing.publicKey),
     role: "head",
+    emailHashEnc: sealMemberEmailHash(oauthEmail, labKey),
   };
 
   // A lab of one for now: the head is the sole member. addMember/invite is a
@@ -86,6 +105,7 @@ export async function createLabForCurrentUser(
     head,
     [head],
     identity.keys.signing.privateKey,
+    { labKey },
   );
 
   const res = await createLabRemote(labId, created);
