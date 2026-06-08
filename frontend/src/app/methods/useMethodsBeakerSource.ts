@@ -237,6 +237,16 @@ export function useMethodsBeakerSource(args: UseMethodsBeakerSourceArgs): void {
         });
         await invalidate();
       },
+      // The real write behind the inline move-to-category sub-flow. The picker
+      // hands an existing category, "" for Uncategorized, or a typed NEW
+      // category name; an empty path clears the folder (Uncategorized).
+      moveToFolder: async (m, folderPath) => {
+        const trimmed = folderPath.trim();
+        await ownerScopedMethodsApi(m).update(m.id, {
+          folder_path: trimmed.length > 0 ? trimmed : null,
+        });
+        await invalidate();
+      },
       extendIntoKit: async (m) => {
         try {
           const compound = await rawMethodsApi.wrapAsCompound(

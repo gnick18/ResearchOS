@@ -43,6 +43,7 @@ import type {
   PaletteContextCard,
   PaletteNavGroup,
   PaletteNavItem,
+  PaletteSubflow,
 } from "@/components/sequences/editor-commands";
 import type { Method } from "@/lib/types";
 import { getMethodTypeMeta, type MethodTypeId } from "@/lib/methods/method-type-registry";
@@ -175,8 +176,14 @@ export interface MethodsSourceHandlers {
   // (["methods"]); the builder never calls an api.
   /** ownerScopedMethodsApi(m).update(m.id, { name }) + invalidate. */
   rename: (method: Method) => void;
-  /** ownerScopedMethodsApi(m).update(m.id, { folder_path }) + invalidate. */
+  /** ownerScopedMethodsApi(m).update(m.id, { folder_path }) via a prompt +
+   *  invalidate. The terminal-safe fallback for a caller without the sub-flow
+   *  framework; the palette routes through the inline picker (moveToFolder). */
   move: (method: Method) => void;
+  /** ownerScopedMethodsApi(m).update(m.id, { folder_path }) for the chosen
+   *  category + invalidate. The real write behind the inline move sub-flow. An
+   *  empty folder (Uncategorized) clears the path. */
+  moveToFolder: (method: Method, folderPath: string) => void;
   /** methodsApi.wrapAsCompound(m.id, ...) then open the compound builder. */
   extendIntoKit: (method: Method) => void;
   /** ConvertCompoundToSingleAction on the compound. */
@@ -331,6 +338,58 @@ function buildContextCard(data: MethodsSourceData): PaletteContextCard {
   };
 }
 
+// ── Move-to-category sub-flow (BeakerSearch v2, chunk 2) ─────────────────────
+// The sentinel id the move picker uses for the "Uncategorized" row (a null
+// folder_path), kept off the real folder-name space so onPick can tell it apart.
+const MOVE_UNCATEGORIZED_ID = "__uncategorized__";
+
+/** BeakerSearch v2 (sub-flow framework, chunk 2). The INLINE move-to-category
+ *  flow, mirroring the Gantt move-to-project picker (single stage, renders
+ *  inline). Items are the existing categories plus a leading "Uncategorized"
+ *  option; picking one calls the real owner-routed moveToFolder then COMPLETES
+ *  (onPick returns void). onSubmitRaw lets a typed category that matches no
+ *  existing folder create-and-move to that NEW category. */
+function buildMoveCategorySubflow(
+  method: Method,
+  data: MethodsSourceData,
+  handlers: MethodsSourceHandlers,
+): PaletteSubflow {
+  const uncategorizedItem: PaletteNavItem = {
+    id: MOVE_UNCATEGORIZED_ID,
+    label: UNCATEGORIZED,
+    detail: "no category",
+    keywords: "none uncategorized no category",
+    iconName: "folder",
+    onRun: () => {},
+  };
+  const folderItems: PaletteNavItem[] = data.existingFolders.map((folder) => ({
+    id: folder,
+    label: folder,
+    detail:
+      folderLabel(method) === folder ? "current category" : undefined,
+    keywords: "category folder",
+    iconName: "folder",
+    onRun: () => {},
+  }));
+  return {
+    title: `Move "${method.name}" to a category`,
+    placeholder: "Pick or type a category",
+    items: [uncategorizedItem, ...folderItems],
+    onPick: (item) => {
+      const folderPath =
+        item.id === MOVE_UNCATEGORIZED_ID ? "" : item.id;
+      handlers.moveToFolder(method, folderPath);
+    },
+    // Free-text completion, a typed category that matches no existing folder
+    // creates-and-moves to that NEW category.
+    onSubmitRaw: (query) => {
+      const trimmed = query.trim();
+      if (trimmed.length === 0) return;
+      handlers.moveToFolder(method, trimmed);
+    },
+  };
+}
+
 // ── Commands (spec 3 + 6) ───────────────────────────────────────────────────
 
 /** Build the full command set with stable ids + page-defined groups (spec 3 +
@@ -380,6 +439,10 @@ function buildCommands(
       enabled: writable,
       run: () => handlers.rename(sel),
     });
+    // BeakerSearch v2 (sub-flow framework, chunk 2). The INLINE move-to-category
+    // flow, pick an existing category, Uncategorized, or type a NEW one. run
+    // stays terminal-safe (the prompt fallback) for a caller without the
+    // framework.
     out.push({
       id: "methods-selected-move",
       label: `Move "${sel.name}" to a category`,
@@ -389,6 +452,7 @@ function buildCommands(
       // Shared methods are non-draggable today (spec 3.2), so move is OWN only.
       enabled: writable && !sharedIn,
       run: () => handlers.move(sel),
+      subflow: () => buildMoveCategorySubflow(sel, data, handlers),
     });
 
     // Fork (the universal make-my-own-copy move, always enabled, spec 3.2).

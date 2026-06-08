@@ -71,6 +71,7 @@ function makeHandlers(): MethodsSourceHandlers {
     useTemplate: noop,
     rename: noop,
     move: noop,
+    moveToFolder: noop,
     extendIntoKit: noop,
     convertToSingle: noop,
     fork: noop,
@@ -320,6 +321,117 @@ describe("methods command permission gating", () => {
     expect(cmd(kitSrc, "methods-selected-edit-components")).toBeDefined();
     // One component, so Convert to single is offered.
     expect(cmd(kitSrc, "methods-selected-convert-single")).toBeDefined();
+  });
+});
+
+// ── Move-to-category sub-flow (BeakerSearch v2, chunk 2) ─────────────────────
+
+describe("methods move-to-category sub-flow", () => {
+  it("carries an inline sub-flow listing the categories plus Uncategorized", () => {
+    const open = makeMethod({ folder_path: "Molecular Biology" });
+    const source = buildMethodsSource(
+      makeData({
+        viewingMethod: open,
+        existingFolders: ["Molecular Biology", "Microscopy"],
+      }),
+      makeHandlers(),
+    );
+    const move = cmd(source, "methods-selected-move")!;
+    expect(move.subflow).toBeDefined();
+    const sf = move.subflow!();
+    // Single stage, no explicit presentation (renders inline by inference).
+    expect(sf.presentation).toBeUndefined();
+    // Uncategorized leads, then each existing category.
+    expect(sf.items.map((i) => i.label)).toEqual([
+      "Uncategorized",
+      "Molecular Biology",
+      "Microscopy",
+    ]);
+    expect(sf.items[0].id).toBe("__uncategorized__");
+    // The current category is echoed in its detail.
+    expect(sf.items[1].detail).toBe("current category");
+    expect(sf.items[2].detail).toBeUndefined();
+  });
+
+  it("picks a category and calls moveToFolder with the folder_path", () => {
+    const open = makeMethod({ id: 7, name: "Western blot" });
+    const moved: Array<[number, string]> = [];
+    const handlers = makeHandlers();
+    handlers.moveToFolder = (m, folderPath) => {
+      moved.push([m.id, folderPath]);
+    };
+    const source = buildMethodsSource(
+      makeData({
+        viewingMethod: open,
+        existingFolders: ["Molecular Biology", "Microscopy"],
+      }),
+      handlers,
+    );
+    const sf = cmd(source, "methods-selected-move")!.subflow!();
+    // Picking a real category completes (returns void) with its name.
+    const next = sf.onPick(sf.items[2]);
+    expect(next).toBeUndefined();
+    expect(moved).toEqual([[7, "Microscopy"]]);
+    // Picking Uncategorized passes the empty path (clears the folder).
+    const done = sf.onPick(sf.items[0]);
+    expect(done).toBeUndefined();
+    expect(moved).toEqual([[7, "Microscopy"], [7, ""]]);
+  });
+
+  it("onSubmitRaw creates-and-moves to a NEW typed category", () => {
+    const open = makeMethod({ id: 7 });
+    const moved: Array<[number, string]> = [];
+    const handlers = makeHandlers();
+    handlers.moveToFolder = (m, folderPath) => {
+      moved.push([m.id, folderPath]);
+    };
+    const source = buildMethodsSource(
+      makeData({ viewingMethod: open }),
+      handlers,
+    );
+    const sf = cmd(source, "methods-selected-move")!.subflow!();
+    expect(sf.onSubmitRaw).toBeDefined();
+    // A typed category that does not exist creates-and-moves (trimmed).
+    const done = sf.onSubmitRaw!("  Sequencing  ");
+    expect(done).toBeUndefined();
+    expect(moved).toEqual([[7, "Sequencing"]]);
+    // Blank free text is a no-op (no spurious move).
+    sf.onSubmitRaw!("   ");
+    expect(moved).toEqual([[7, "Sequencing"]]);
+  });
+
+  it("offers the move sub-flow only when canModify AND not shared into me", () => {
+    // Own writable method, the sub-flow is present + enabled.
+    const own = buildMethodsSource(
+      makeData({ viewingMethod: makeMethod(), canModify: () => true }),
+      makeHandlers(),
+    );
+    expect(cmd(own, "methods-selected-move")?.enabled).not.toBe(false);
+    expect(cmd(own, "methods-selected-move")?.subflow).toBeDefined();
+
+    // Read-only shared-with-view, gated off.
+    const readOnly = buildMethodsSource(
+      makeData({
+        viewingMethod: makeMethod({ owner: "alex", is_shared_with_me: true }),
+        canModify: () => false,
+      }),
+      makeHandlers(),
+    );
+    expect(cmd(readOnly, "methods-selected-move")?.enabled).toBe(false);
+
+    // Shared-with-edit (canModify true) is still non-draggable, gated off.
+    const sharedEdit = buildMethodsSource(
+      makeData({
+        viewingMethod: makeMethod({
+          owner: "alex",
+          is_shared_with_me: true,
+          shared_permission: "edit",
+        }),
+        canModify: () => true,
+      }),
+      makeHandlers(),
+    );
+    expect(cmd(sharedEdit, "methods-selected-move")?.enabled).toBe(false);
   });
 });
 
