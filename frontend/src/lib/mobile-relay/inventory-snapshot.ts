@@ -10,9 +10,17 @@
 // This mirrors today-snapshot.ts exactly; see that file + relay/scripts/
 // smoke-snapshot.mjs for the full seal/openSealed round-trip contract.
 //
+// W2 (scan-manager web sub-bot, 2026-06-08): extended with three additive fields
+// on the snapshot:
+//   trackedStocks[] - one entry per InventoryStock with both product_barcode AND
+//     units_per_scan set (the "tracked" stocks the mobile deduct UI cares about).
+//   recentPurchases[] - purchase items currently in order_status === "ordered".
+//   barcodeIndex - a best-effort map productBarcode -> {name, vendor, catalog}
+//     drawn from items + stocks, used for the new-package autopopulate guess.
+//
 // No em-dashes, no emojis, no mid-sentence colons.
 
-import { inventoryItemsApi } from "@/lib/local-api";
+import { inventoryItemsApi, inventoryStocksApi, purchasesApi, fetchAllTasks } from "@/lib/local-api";
 import { sealToRecipient } from "@/lib/sharing/encryption";
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
 import { listDevices, publishSnapshot, type UserCaptureKeys } from "./client";
@@ -29,15 +37,179 @@ export interface SnapshotInventoryItem {
   container_label: string | null;
 }
 
+/**
+ * One tracked stock entry, shown in the mobile deduct UI.
+ * A stock qualifies when the parent item has product_barcode set AND the stock
+ * has units_per_scan set (i.e. the lab explicitly registered it for scan tracking).
+ *
+ * `unitLabel`: the human label for one scan's unit ("tip", "rxn", "mL"). Sourced
+ * from `InventoryStock.scan_unit_label` when set; otherwise falls back to
+ * `InventoryStock.unit` (the amount-per-container label, e.g. "uL"); otherwise
+ * an empty string. The mobile UI hides the label when empty.
+ */
+export interface SnapshotTrackedStock {
+  stockId: number;
+  itemName: string;
+  vendor: string | null;
+  productBarcode: string;
+  unitsPerScan: number;
+  unitsRemaining: number;
+  unitLabel: string;
+  lowAtCount: number | null;
+  purchaseItemId: number | null;
+  totalUnits: number;
+}
+
+/**
+ * One recent purchase: an ordered-but-not-yet-arrived purchase item.
+ * The mobile "match received package" flow shows these so the user can mark
+ * one as arrived with a single tap.
+ */
+export interface SnapshotRecentPurchase {
+  purchaseItemId: number;
+  name: string;
+  vendor: string | null;
+  orderedDate: string | null;
+  catalog: string | null;
+  productBarcode: string | null;
+}
+
+/**
+ * Barcode index entry: best-effort guess for an unknown barcode.
+ * Populated from items that have product_barcode set + from purchase items
+ * that have catalog_number (which might carry a barcode value on older records).
+ */
+export interface SnapshotBarcodeIndexEntry {
+  name: string;
+  vendor: string | null;
+  catalog: string | null;
+}
+
 /** The decrypted shape the phone reads after openSealed. */
 export interface InventorySnapshot {
   generatedAt: string;
   items: SnapshotInventoryItem[];
+  /** W2 additions (scan-manager web sub-bot, 2026-06-08). All additive: a phone
+   *  built before these were added simply ignores the new fields. */
+  trackedStocks: SnapshotTrackedStock[];
+  recentPurchases: SnapshotRecentPurchase[];
+  barcodeIndex: Record<string, SnapshotBarcodeIndexEntry>;
 }
 
 /** Reads the connected folder's inventory and builds the snapshot. */
 export async function buildInventorySnapshot(): Promise<InventorySnapshot> {
-  const items = await inventoryItemsApi.list();
+  // Parallel fetch to keep snapshot build fast.
+  const [items, stocks, purchases, tasks] = await Promise.all([
+    inventoryItemsApi.list(),
+    inventoryStocksApi.list(),
+    purchasesApi.listAll(),
+    fetchAllTasks(),
+  ]);
+
+  // ── Item lookup maps ──────────────────────────────────────────────────────
+  // item by id, for stock -> item join.
+  const itemById = new Map(items.map((i) => [i.id, i]));
+
+  // task start_date by task id, for orderedDate in recentPurchases.
+  const taskDateById = new Map(
+    (tasks as Array<{ id: number; start_date: string; task_type: string }>)
+      .filter((t) => t.task_type === "purchase")
+      .map((t) => [t.id, t.start_date]),
+  );
+
+  // ── trackedStocks ─────────────────────────────────────────────────────────
+  // A stock qualifies when the PARENT ITEM has product_barcode set (so the
+  // scanner can resolve it) AND the stock itself has units_per_scan set (so the
+  // deduct flow knows how many units to subtract per scan).
+  const trackedStocks: SnapshotTrackedStock[] = [];
+  for (const stock of stocks) {
+    if (
+      typeof stock.units_per_scan !== "number" ||
+      stock.units_per_scan <= 0
+    ) {
+      continue;
+    }
+    const item = itemById.get(stock.item_id);
+    if (!item?.product_barcode) continue;
+
+    // units_remaining defaults to totalUnits (same value stored at registration)
+    // when absent on a legacy record. Treat absence as 0 (should not happen for
+    // a properly registered stock, but defensive is better than NaN in the UI).
+    const unitsRemaining = stock.units_remaining ?? 0;
+    const totalUnits = stock.units_remaining ?? 0;
+
+    // Resolve the unit label. Priority: scan_unit_label > stock.unit > "".
+    const unitLabel =
+      (stock.scan_unit_label && stock.scan_unit_label.trim()) ||
+      (stock.unit && stock.unit.trim()) ||
+      "";
+
+    trackedStocks.push({
+      stockId: stock.id,
+      itemName: item.name,
+      vendor: item.vendor,
+      productBarcode: item.product_barcode,
+      unitsPerScan: stock.units_per_scan,
+      unitsRemaining,
+      unitLabel,
+      lowAtCount: item.low_at_count,
+      purchaseItemId: stock.purchase_item_id,
+      totalUnits,
+    });
+  }
+
+  // ── recentPurchases ───────────────────────────────────────────────────────
+  // Purchase items currently in "ordered" status (on their way, not yet arrived).
+  // The mobile "mark as arrived" flow surfaces these for one-tap receiving.
+  const recentPurchases: SnapshotRecentPurchase[] = purchases
+    .filter((p) => p.order_status === "ordered")
+    .map((p) => ({
+      purchaseItemId: p.id,
+      name: p.item_name,
+      vendor: p.vendor,
+      orderedDate: taskDateById.get(p.task_id) ?? null,
+      catalog: p.catalog_number,
+      // product_barcode lives on the InventoryItem, not the PurchaseItem, so
+      // this field is null for now. After a barcode scan links a purchase to
+      // an inventory item, the item carries the barcode and barcodeIndex covers
+      // the reverse lookup. Kept here as a nullable slot for forward-compat.
+      productBarcode: null,
+    }));
+
+  // ── barcodeIndex ──────────────────────────────────────────────────────────
+  // Best-effort map productBarcode -> {name, vendor, catalog} for the
+  // new-package autopopulate guess. Populated from two sources:
+  //   1. InventoryItem records that already have product_barcode set.
+  //   2. PurchaseItem records (catalog_number might be a barcode for some labs).
+  // Source 1 wins if both have the same barcode (most precise, lab-confirmed).
+  const barcodeIndex: Record<string, SnapshotBarcodeIndexEntry> = {};
+
+  // Purchase items first (lower priority, can be overwritten by items).
+  for (const p of purchases) {
+    // Use catalog_number as a secondary barcode signal only when the purchase
+    // item has one and there is no item-level barcode for it yet.
+    if (p.catalog_number) {
+      if (!barcodeIndex[p.catalog_number]) {
+        barcodeIndex[p.catalog_number] = {
+          name: p.item_name,
+          vendor: p.vendor,
+          catalog: p.catalog_number,
+        };
+      }
+    }
+  }
+
+  // InventoryItem records (higher priority, overwrite purchase entries).
+  for (const item of items) {
+    if (item.product_barcode) {
+      barcodeIndex[item.product_barcode] = {
+        name: item.name,
+        vendor: item.vendor,
+        catalog: item.catalog_number,
+      };
+    }
+  }
+
   return {
     generatedAt: new Date().toISOString(),
     items: items.map((i) => ({
@@ -50,6 +222,9 @@ export async function buildInventorySnapshot(): Promise<InventorySnapshot> {
       low_at_count: i.low_at_count,
       container_label: i.container_label,
     })),
+    trackedStocks,
+    recentPurchases,
+    barcodeIndex,
   };
 }
 

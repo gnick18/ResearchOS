@@ -1,7 +1,8 @@
 // Units-per-scan inventory model tests (scan-manager sub-bot, 2026-06-08).
 //
 // Covers:
-//   deductUnitsFromScan — basic math, units_per_scan > 1, clamp at 0
+//   deductUnitsFromScan — basic math, units_per_scan > 1, clamp at 0,
+//     multiplier param (default 1 preserves single-scan behavior)
 //   deriveInventoryStatus — units path: empty at 0, low below threshold,
 //     in_stock above threshold, manual tap honored, expiry still wins
 //   deriveInventoryStatus — legacy path unaffected (no units_per_scan)
@@ -45,6 +46,30 @@ describe("deductUnitsFromScan", () => {
       remaining = deductUnitsFromScan(remaining, 5);
     }
     expect(remaining).toBe(0);
+  });
+
+  // ── multiplier param ────────────────────────────────────────────────────────
+
+  it("multiplier defaults to 1 — single-scan behavior unchanged", () => {
+    expect(deductUnitsFromScan(50, 5)).toBe(45);
+    // explicit 1 same as no arg
+    expect(deductUnitsFromScan(50, 5, 1)).toBe(45);
+  });
+
+  it("multiplier=3 deducts 3 * units_per_scan in one call", () => {
+    expect(deductUnitsFromScan(50, 5, 3)).toBe(35);   // 50 - 15 = 35
+    expect(deductUnitsFromScan(50, 1, 3)).toBe(47);   // 50 - 3 = 47
+  });
+
+  it("multiplier clamps at 0 — never goes negative", () => {
+    expect(deductUnitsFromScan(10, 5, 3)).toBe(0);    // 10 - 15 = -5, clamped
+    expect(deductUnitsFromScan(0, 5, 10)).toBe(0);
+  });
+
+  it("multiplier=1 matches single-scan across a variety of units_per_scan values", () => {
+    for (const ups of [1, 2, 5, 10]) {
+      expect(deductUnitsFromScan(100, ups, 1)).toBe(deductUnitsFromScan(100, ups));
+    }
   });
 });
 

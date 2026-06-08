@@ -46,6 +46,12 @@ vi.mock("@/lib/file-system/file-service", () => ({
     readText: vi.fn(async () => null),
     writeText: vi.fn(async () => {}),
     isConnected: vi.fn(() => true),
+    // Needed by the PURCHASE_LORO_ENABLED / LORO_PILOT_ENABLED write-through path
+    // (loro sidecar-store uses writeFileFromBlob to persist .loro binary files).
+    // In tests we accept the sidecar write silently; the in-memory JSON store is
+    // what the tests assert against.
+    writeFileFromBlob: vi.fn(async () => {}),
+    readFileAsBytes: vi.fn(async () => null),
   },
 }));
 
@@ -72,11 +78,14 @@ import {
   type PendingCapture,
   type UserCaptureKeys,
 } from "@/lib/mobile-relay/client";
-import { purchasesApi } from "@/lib/local-api";
+import { purchasesApi, inventoryItemsApi, inventoryStocksApi, tasksApi } from "@/lib/local-api";
 import { MISC_CATEGORY_LABEL } from "@/lib/purchases/misc-project";
 import { clearCurrentUserCache } from "@/lib/storage/json-store";
 
 const REORDER_CT = "application/x-researchos-reorder";
+const MARK_ARRIVED_CT = "application/x-researchos-mark-arrived";
+const REGISTER_TRACKER_CT = "application/x-researchos-register-tracker";
+const DEDUCT_CT = "application/x-researchos-deduct";
 const KEYS = {} as UserCaptureKeys;
 
 /** A pending reorder capture with the given id. */
@@ -133,6 +142,30 @@ describe("classifyCapture", () => {
     expect(classifyCapture("")).toBe("other");
     expect(classifyCapture(null)).toBe("other");
     expect(classifyCapture(undefined)).toBe("other");
+  });
+
+  // W3 action content types (scan-manager web sub-bot, 2026-06-08).
+  it("routes mark-arrived content type", () => {
+    expect(classifyCapture("application/x-researchos-mark-arrived")).toBe("mark-arrived");
+    expect(classifyCapture("APPLICATION/X-RESEARCHOS-MARK-ARRIVED")).toBe("mark-arrived");
+  });
+
+  it("routes register-tracker content type", () => {
+    expect(classifyCapture("application/x-researchos-register-tracker")).toBe("register-tracker");
+    expect(classifyCapture("APPLICATION/X-RESEARCHOS-REGISTER-TRACKER")).toBe("register-tracker");
+  });
+
+  it("routes deduct content type", () => {
+    expect(classifyCapture("application/x-researchos-deduct")).toBe("deduct");
+    expect(classifyCapture("APPLICATION/X-RESEARCHOS-DEDUCT")).toBe("deduct");
+  });
+
+  it("does not confuse similar x-researchos prefixes with each other", () => {
+    // reorder must NOT be classified as mark-arrived even though it shares a prefix
+    expect(classifyCapture("application/x-researchos-reorder")).toBe("reorder");
+    expect(classifyCapture("application/x-researchos-mark-arrived")).toBe("mark-arrived");
+    expect(classifyCapture("application/x-researchos-register-tracker")).toBe("register-tracker");
+    expect(classifyCapture("application/x-researchos-deduct")).toBe("deduct");
   });
 });
 
@@ -231,5 +264,194 @@ describe("runCaptureInboxPoll dedup guard", () => {
 
     const items = await purchasesApi.listAll();
     expect(items).toHaveLength(1);
+  });
+});
+
+// ── W3 action handler routing ─────────────────────────────────────────────────
+// (scan-manager web sub-bot, 2026-06-08)
+//
+// Each test verifies that when a capture with a given contentType lands in the
+// poll, the correct real-data write executes and the capture is acked.
+
+function actionCapture(contentType: string, captureId: string): PendingCapture {
+  return {
+    captureId,
+    caption: null,
+    createdAt: "2026-06-08T12:00:00.000Z",
+    contentType,
+  };
+}
+
+function actionBlob(contentType: string, payload: Record<string, unknown>) {
+  return {
+    blob: new Blob([JSON.stringify(payload)], { type: contentType }),
+  };
+}
+
+describe("runCaptureInboxPoll W3 mark-arrived", () => {
+  it("marks a purchase as received and creates a linked stock + item", async () => {
+    // Set up a purchase task + item in "ordered" status.
+    const task = await tasksApi.create({
+      name: "Order",
+      start_date: "2026-06-01",
+      duration_days: 1,
+      task_type: "purchase",
+    });
+    const purchase = await purchasesApi.create({
+      task_id: task.id,
+      item_name: "Q5 Polymerase",
+      quantity: 2,
+      vendor: "NEB",
+      order_status: "ordered",
+    });
+
+    vi.mocked(fetchInbox).mockResolvedValue([actionCapture(MARK_ARRIVED_CT, "arr-1")]);
+    vi.mocked(fetchObject).mockResolvedValue(
+      actionBlob(MARK_ARRIVED_CT, { purchaseItemId: purchase.id }) as never,
+    );
+
+    const result = await runCaptureInboxPoll(KEYS, "alex");
+    expect(result.pulled).toBe(1);
+    expect(result.errors).toBe(0);
+
+    // The purchase should now be "received".
+    const updated = (await purchasesApi.listAll()).find((p) => p.id === purchase.id);
+    expect(updated?.order_status).toBe("received");
+
+    // An InventoryItem + stock should have been created.
+    const items = await inventoryItemsApi.list();
+    expect(items.length).toBeGreaterThanOrEqual(1);
+    const createdItem = items.find((i) => i.name === "Q5 Polymerase");
+    expect(createdItem).toBeDefined();
+
+    const stocks = await inventoryStocksApi.list();
+    const linkedStock = stocks.find((s) => s.purchase_item_id === purchase.id);
+    expect(linkedStock).toBeDefined();
+
+    expect(vi.mocked(ackCaptures)).toHaveBeenCalledWith(KEYS, ["arr-1"]);
+  });
+
+  it("skips gracefully when purchaseItemId is missing", async () => {
+    vi.mocked(fetchInbox).mockResolvedValue([actionCapture(MARK_ARRIVED_CT, "arr-bad")]);
+    vi.mocked(fetchObject).mockResolvedValue(
+      actionBlob(MARK_ARRIVED_CT, {}) as never,
+    );
+
+    const result = await runCaptureInboxPoll(KEYS, "alex");
+    // The capture is still pulled (handler logged + returned, did not throw).
+    expect(result.pulled).toBe(1);
+    expect(result.errors).toBe(0);
+  });
+});
+
+describe("runCaptureInboxPoll W3 register-tracker", () => {
+  it("registers a stock for tracked scanning", async () => {
+    const item = await inventoryItemsApi.create({ name: "Tip Box" });
+    const stock = await inventoryStocksApi.create({
+      item_id: item.id,
+      container_count: 1,
+    });
+
+    vi.mocked(fetchInbox).mockResolvedValue([actionCapture(REGISTER_TRACKER_CT, "reg-1")]);
+    vi.mocked(fetchObject).mockResolvedValue(
+      actionBlob(REGISTER_TRACKER_CT, {
+        stockId: stock.id,
+        productBarcode: "BARCODE123",
+        unitsPerScan: 1,
+        totalUnits: 96,
+        unitLabel: "tip",
+      }) as never,
+    );
+
+    const result = await runCaptureInboxPoll(KEYS, "alex");
+    expect(result.pulled).toBe(1);
+    expect(result.errors).toBe(0);
+
+    // Stock should now have units_per_scan + units_remaining.
+    const updated = await inventoryStocksApi.get(stock.id);
+    expect(updated?.units_per_scan).toBe(1);
+    expect(updated?.units_remaining).toBe(96);
+    expect(updated?.scan_unit_label).toBe("tip");
+
+    // Item should have the product_barcode set.
+    const updatedItem = await inventoryItemsApi.get(item.id);
+    expect(updatedItem?.product_barcode).toBe("BARCODE123");
+
+    expect(vi.mocked(ackCaptures)).toHaveBeenCalledWith(KEYS, ["reg-1"]);
+  });
+
+  it("skips gracefully when required fields are missing", async () => {
+    vi.mocked(fetchInbox).mockResolvedValue([actionCapture(REGISTER_TRACKER_CT, "reg-bad")]);
+    vi.mocked(fetchObject).mockResolvedValue(
+      actionBlob(REGISTER_TRACKER_CT, { stockId: 99999 }) as never, // no barcode/units
+    );
+
+    const result = await runCaptureInboxPoll(KEYS, "alex");
+    expect(result.pulled).toBe(1);
+    expect(result.errors).toBe(0);
+  });
+});
+
+describe("runCaptureInboxPoll W3 deduct", () => {
+  it("deducts amount * units_per_scan from a tracked stock by stockId", async () => {
+    const item = await inventoryItemsApi.create({ name: "Taq Box", product_barcode: "DEDBARCODE" });
+    const stock = await inventoryStocksApi.create({
+      item_id: item.id,
+      units_per_scan: 5,
+      units_remaining: 50,
+      container_count: 1,
+    });
+
+    vi.mocked(fetchInbox).mockResolvedValue([actionCapture(DEDUCT_CT, "ded-1")]);
+    vi.mocked(fetchObject).mockResolvedValue(
+      actionBlob(DEDUCT_CT, { stockId: stock.id, amount: 3 }) as never,
+    );
+
+    const result = await runCaptureInboxPoll(KEYS, "alex");
+    expect(result.pulled).toBe(1);
+    expect(result.errors).toBe(0);
+
+    // 50 - (5 * 3) = 35
+    const updated = await inventoryStocksApi.get(stock.id);
+    expect(updated?.units_remaining).toBe(35);
+
+    expect(vi.mocked(ackCaptures)).toHaveBeenCalledWith(KEYS, ["ded-1"]);
+  });
+
+  it("resolves a stock by productBarcode when stockId is not given", async () => {
+    const item = await inventoryItemsApi.create({
+      name: "PCR Kit",
+      product_barcode: "BARCODEONLY",
+    });
+    await inventoryStocksApi.create({
+      item_id: item.id,
+      units_per_scan: 1,
+      units_remaining: 20,
+      container_count: 1,
+    });
+
+    vi.mocked(fetchInbox).mockResolvedValue([actionCapture(DEDUCT_CT, "ded-2")]);
+    vi.mocked(fetchObject).mockResolvedValue(
+      actionBlob(DEDUCT_CT, { productBarcode: "BARCODEONLY", amount: 2 }) as never,
+    );
+
+    await runCaptureInboxPoll(KEYS, "alex");
+
+    const updatedItem = await inventoryItemsApi.get(item.id);
+    const stocks = await inventoryStocksApi.list();
+    const updatedStock = stocks.find((s) => s.item_id === updatedItem!.id);
+    // 20 - (1 * 2) = 18
+    expect(updatedStock?.units_remaining).toBe(18);
+  });
+
+  it("skips gracefully when amount is missing", async () => {
+    vi.mocked(fetchInbox).mockResolvedValue([actionCapture(DEDUCT_CT, "ded-bad")]);
+    vi.mocked(fetchObject).mockResolvedValue(
+      actionBlob(DEDUCT_CT, { stockId: 1 }) as never,
+    );
+
+    const result = await runCaptureInboxPoll(KEYS, "alex");
+    expect(result.pulled).toBe(1);
+    expect(result.errors).toBe(0);
   });
 });

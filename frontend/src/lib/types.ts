@@ -1273,6 +1273,18 @@ export interface InventoryStock {
   units_per_scan?: number;
   units_remaining?: number;
 
+  // FLAG (scan-manager web sub-bot, 2026-06-08): NEW ADDITIVE FIELD.
+  // `scan_unit_label` is the human label for the unit consumed per scan
+  // (e.g. "tip", "rxn", "mL", "tablet"). It is distinct from `unit`
+  // (which is the amount-per-container label like "uL" or "mg" and belongs
+  // to the precise-consumption ledger) and from `container_label` on
+  // InventoryItem (which labels the container TYPE, not what each scan
+  // deducts). The mobile deduct UI shows this label next to the remaining
+  // count: "47 tips remaining". Optional and additive: absent on every
+  // pre-existing stock record (lazy-normalize to null). Written by the
+  // mobile "register tracker" flow via the mark-arrived action handler.
+  scan_unit_label?: string | null;
+
   notes: string | null;
 
   owner: string; // always equals the parent item's owner
@@ -1305,6 +1317,8 @@ export interface InventoryStockCreate {
   container_code?: string | null;
   units_per_scan?: number;
   units_remaining?: number;
+  // See InventoryStock.scan_unit_label for the full FLAG note.
+  scan_unit_label?: string | null;
   notes?: string | null;
   /** Defaults to the parent item's `shared_with` when omitted (design §5.2:
    *  a stock inherits the item's sharing). Falls back to whole-lab edit. */
@@ -1333,6 +1347,8 @@ export interface InventoryStockUpdate {
   container_code?: string | null;
   units_per_scan?: number;
   units_remaining?: number;
+  // See InventoryStock.scan_unit_label for the full FLAG note.
+  scan_unit_label?: string | null;
   notes?: string | null;
   shared_with?: SharedUser[];
   // Auto-stamped by `inventoryStocksApi.update`.

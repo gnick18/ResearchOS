@@ -2503,6 +2503,9 @@ export function normalizeInventoryStockRecord(
     container_code: raw.container_code ?? null,
     ...(raw.units_per_scan != null ? { units_per_scan: raw.units_per_scan } : {}),
     ...(raw.units_remaining != null ? { units_remaining: raw.units_remaining } : {}),
+    // scan_unit_label: FLAG (scan-manager web sub-bot, 2026-06-08). New additive
+    // field. Absent on every pre-existing stock. Lazy-normalize to null on read.
+    ...(raw.scan_unit_label != null ? { scan_unit_label: raw.scan_unit_label } : {}),
     notes: raw.notes ?? null,
     owner: raw.owner ?? fallbackOwner ?? "",
     shared_with: normalizeSharedWith(raw.shared_with),
@@ -2771,6 +2774,7 @@ export const inventoryStocksApi = {
       container_code: data.container_code ?? null,
       ...(data.units_per_scan != null ? { units_per_scan: data.units_per_scan } : {}),
       ...(data.units_remaining != null ? { units_remaining: data.units_remaining } : {}),
+      ...(data.scan_unit_label != null ? { scan_unit_label: data.scan_unit_label } : {}),
       notes: data.notes ?? null,
       owner: targetOwner,
       shared_with,

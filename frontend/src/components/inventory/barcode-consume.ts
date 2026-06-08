@@ -20,17 +20,23 @@ import { inventoryItemsApi, inventoryStocksApi } from "@/lib/local-api";
 import type { InventoryItem, InventoryStock } from "@/lib/types";
 
 /**
- * Pure math: compute the units_remaining after one scan deduction.
+ * Pure math: compute the units_remaining after one or more scan deductions.
  *
  * @param currentRemaining  the current units_remaining on the stock.
  * @param unitsPerScan      how many units one scan consumes (must be > 0).
+ * @param multiplier        how many scans to apply at once (default 1). The
+ *                          total deduction is `multiplier * unitsPerScan`,
+ *                          clamped so the result never goes below 0. Passing 1
+ *                          (or omitting it) reproduces the original single-scan
+ *                          behavior exactly.
  * @returns the new units_remaining, clamped to a minimum of 0.
  */
 export function deductUnitsFromScan(
   currentRemaining: number,
   unitsPerScan: number,
+  multiplier = 1,
 ): number {
-  return Math.max(0, currentRemaining - unitsPerScan);
+  return Math.max(0, currentRemaining - unitsPerScan * multiplier);
 }
 
 /**
