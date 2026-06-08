@@ -26,6 +26,7 @@ import { hexToBytes } from '@noble/curves/utils.js';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useTheme, palette } from '@/lib/design';
@@ -156,7 +157,7 @@ export default function PairScreen() {
 
         const labName =
           typeof (grant as { labName?: unknown }).labName === 'string'
-            ? (grant as { labName: string }).labName
+            ? (grant as unknown as { labName: string }).labName
             : undefined;
         await setPairing({
           u: grant.u,
@@ -189,11 +190,11 @@ export default function PairScreen() {
   // Permission still loading from the OS.
   if (!permission) {
     return (
-      <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.centered}>
+      <ScreenFrame edges={['bottom']}>
+        <View style={styles.centered}>
           <ActivityIndicator color={palette.sky} />
-        </SafeAreaView>
-      </ThemedView>
+        </View>
+      </ScreenFrame>
     );
   }
 
@@ -201,8 +202,8 @@ export default function PairScreen() {
   // fallback stays available so pairing works even without the camera.
   if (!permission.granted) {
     return (
-      <ThemedView style={styles.container}>
-        <SafeAreaView style={[styles.permissionWrap, { gap: spacing.lg }]}>
+      <ScreenFrame edges={['bottom']}>
+        <View style={[styles.permissionWrap, { gap: spacing.lg }]}>
           <ThemedText type="title" style={styles.center}>
             Pair your phone
           </ThemedText>
@@ -224,15 +225,15 @@ export default function PairScreen() {
             onSubmit={onSubmitManual}
             saving={saving}
           />
-        </SafeAreaView>
-      </ThemedView>
+        </View>
+      </ScreenFrame>
     );
   }
 
   // Permission granted: live scanner plus the manual fallback below it.
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={[styles.scannerWrap, { gap: spacing.md }]}>
+    <ScreenFrame edges={['bottom']}>
+      <View style={[styles.scannerWrap, { gap: spacing.md }]}>
         <ThemedText type="title" style={styles.center}>
           Scan to pair
         </ThemedText>
@@ -268,8 +269,8 @@ export default function PairScreen() {
           onSubmit={onSubmitManual}
           saving={saving}
         />
-      </SafeAreaView>
-    </ThemedView>
+      </View>
+    </ScreenFrame>
   );
 }
 
