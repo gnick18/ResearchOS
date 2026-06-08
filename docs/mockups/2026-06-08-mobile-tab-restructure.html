@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS mobile, tab restructure (Notebook / Inventory / Calc / Timer / Wiki)</title>
+<style>
+  :root{
+    --r1:#FFD2B0;--r2:#FFF1A8;--r3:#B7EBB1;--r4:#A6D2F4;--r5:#D6B5F0;
+    --sky:#1AA0E6;--purple:#5B47D6;
+    --bg:#f4f6f8;--card:#ffffff;--group:#f3f4f6;--ink:#111827;--ink-2:#374151;--ink-3:#6b7280;--border:rgba(0,0,0,.08);
+    --ok:#16a34a;--okbg:rgba(22,163,74,.12);--warn:#d97706;--warnbg:rgba(217,119,6,.12);
+    --tabbar:rgba(255,255,255,.86);
+  }
+  [data-theme="dark"]{
+    --r1:#F97316;--r2:#E8920B;--r3:#16A34A;--r4:#0284C7;--r5:#9333EA;
+    --bg:#0c0e11;--card:#161b22;--group:#0d1117;--ink:#e6edf3;--ink-2:#c9d1d9;--ink-3:#8b949e;--border:rgba(255,255,255,.09);
+    --tabbar:rgba(22,27,34,.86);
+  }
+  *{box-sizing:border-box;-webkit-font-smoothing:antialiased}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;background:#e9edf1;color:var(--ink);padding:28px 18px 80px}
+  [data-theme="dark"] body{background:#05070a}
+  .head{max-width:1080px;margin:0 auto 22px}
+  h1{font-size:20px;margin:0 0 6px}
+  .intro{color:#5b6573;font-size:14px;line-height:1.5;max-width:780px}
+  [data-theme="dark"] .intro{color:#8b949e}
+  .toggle{display:inline-flex;gap:8px;align-items:center;margin-top:12px;cursor:pointer;font-size:13px;color:var(--sky);font-weight:600}
+  .grid{display:flex;flex-wrap:wrap;gap:40px;justify-content:center;max-width:1080px;margin:0 auto}
+  .col{display:flex;flex-direction:column;align-items:center;gap:12px;width:330px}
+  .phone{width:330px;height:710px;border-radius:46px;background:var(--bg);position:relative;overflow:hidden;border:10px solid #0c0d10;box-shadow:0 30px 60px rgba(16,24,40,.22)}
+  [data-theme="dark"] .phone{border-color:#23262d}
+  .phone::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5));z-index:30}
+  .rainbow{height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5));position:absolute;top:0;left:0;right:0;z-index:30}
+  .statusbar{position:absolute;top:4px;left:0;right:0;height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;font-size:13px;font-weight:600;color:var(--ink);z-index:20}
+  .content{position:absolute;top:38px;left:0;right:0;bottom:64px;overflow:hidden}
+  .scroll{height:100%;overflow:auto;padding:8px 18px 18px}
+  .largetitle{font-size:30px;font-weight:800;letter-spacing:-.02em;margin:6px 0 2px}
+  .subtitle{font-size:14px;color:var(--ink-3);line-height:1.4;margin-bottom:14px}
+  .sec-h{font-size:13px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;margin:16px 0 8px}
+  .group{background:var(--card);border-radius:16px;box-shadow:0 1px 3px rgba(16,24,40,.06);overflow:hidden}
+  .row{display:flex;align-items:center;gap:12px;padding:13px 15px;border-bottom:1px solid var(--border)}
+  .row:last-child{border-bottom:none}
+  .row .tx{flex:1;min-width:0}
+  .row .t{font-size:15px;font-weight:600}
+  .row .s{font-size:12.5px;color:var(--ink-3);margin-top:1px}
+  .thumb{width:40px;height:40px;border-radius:9px;background:linear-gradient(135deg,#c7d2e0,#9fb3c8)}
+  .ico{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff}
+  .pill{padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700}
+  .pill.ok{background:var(--okbg);color:var(--ok)}
+  .pill.warn{background:var(--warnbg);color:var(--warn)}
+  .pill.muted{background:var(--group);color:var(--ink-3)}
+  .btn{width:100%;border:none;border-radius:13px;padding:14px;font-size:16px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
+  .btn.primary{background:var(--sky);color:#fff}
+  .btn.secondary{background:transparent;border:1.5px solid var(--sky);color:var(--sky)}
+  .btn.tinted{background:color-mix(in srgb,var(--sky) 14%,transparent);color:var(--sky)}
+  .qrow{display:flex;gap:12px;margin:10px 0 4px}
+  .qrow .act{flex:1;border:none;border-radius:16px;padding:16px 12px;display:flex;flex-direction:column;align-items:center;gap:9px;font-size:14.5px;font-weight:600;cursor:pointer}
+  .qrow .act svg{width:24px;height:24px}
+  .act.primary{background:var(--sky);color:#fff}
+  .act.tinted{background:color-mix(in srgb,var(--sky) 14%,transparent);color:var(--sky)}
+  .hero{display:flex;align-items:center;gap:14px;background:var(--sky);color:#fff;border-radius:16px;padding:16px;box-shadow:0 6px 18px rgba(26,160,230,.3)}
+  .hero .hi{width:44px;height:44px;border-radius:14px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center}
+  .hero .ht{flex:1}
+  .hero .h1{font-size:17px;font-weight:700}
+  .hero .h2{font-size:13px;color:rgba(255,255,255,.9);margin-top:1px}
+  .conn{display:flex;align-items:center;gap:10px;background:var(--card);border-radius:14px;padding:12px 14px;box-shadow:0 1px 3px rgba(16,24,40,.06)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--ok)}
+  .empty{background:var(--card);border-radius:16px;padding:22px;text-align:center;color:var(--ink-3);font-size:13.5px;box-shadow:0 1px 3px rgba(16,24,40,.06)}
+  .tabbar{position:absolute;left:0;right:0;bottom:0;height:64px;display:flex;background:var(--tabbar);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid var(--border);z-index:25}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--ink-3);font-size:10.5px;font-weight:600}
+  .tab.on{color:var(--sky)}
+  .tab svg{width:24px;height:24px}
+  .cap{font-size:13px;color:#5b6573;font-weight:600}
+  [data-theme="dark"] .cap{color:#8b949e}
+  .review{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+  .review button{border:1px solid var(--border);background:var(--card);color:var(--ink-2);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer}
+  .review button.sel[data-v="ok"]{background:var(--okbg);color:var(--ok);border-color:transparent}
+  .review button.sel[data-v="chg"]{background:var(--warnbg);color:var(--warn);border-color:transparent}
+  .review button.sel[data-v="q"]{background:color-mix(in srgb,var(--sky) 14%,transparent);color:var(--sky);border-color:transparent}
+  .note{width:330px;min-height:34px;border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-size:12.5px;font-family:inherit;background:var(--card);color:var(--ink)}
+  .exportbar{max-width:1080px;margin:26px auto 0;text-align:center}
+  .exportbar button{background:var(--sky);color:#fff;border:none;border-radius:10px;padding:11px 20px;font-size:14px;font-weight:700;cursor:pointer}
+  pre#out{max-width:1080px;margin:16px auto 0;white-space:pre-wrap;background:#0b0f14;color:#cfe8ff;padding:16px;border-radius:12px;font-size:12px;display:none}
+</style>
+</head>
+<body>
+<div class="head">
+  <h1>ResearchOS mobile, tab restructure</h1>
+  <p class="intro">Two clear areas plus tools. <b>Notebook</b> = the bench companion (today's glance, take a photo, quick note, pairing). <b>Inventory</b> = its own home (scan a package, purchase orders, reorder, tracked items), the scan flow lives here now instead of on Today. <b>Calc / Timer / Wiki</b> stay as tool tabs (Calc and Timer unchanged from what you have). Mark each frame + add notes + Export.</p>
+  <div class="toggle" onclick="toggleTheme()">Toggle light / dark</div>
+</div>
+<div class="grid" id="grid"></div>
+<div class="exportbar"><button onclick="exportNotes()">Export review</button></div>
+<pre id="out"></pre>
+
+<script>
+const I = {
+  scan:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>',
+  cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+  note:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  chev:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+  // tab icons
+  tNotebook:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v18H6.5A2.5 2.5 0 0 0 4 22.5z"/><path d="M9 2v20"/></svg>',
+  tInv:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8l9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>',
+  tCalc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 11h2M8 15h2M14 11h2M14 15h2"/></svg>',
+  tTimer:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg>',
+  tWiki:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
+};
+function sb(){return '<div class="statusbar"><span>9:41</span><span>WiFi</span></div>'}
+function tabbar(active){
+  const tabs=[['Notebook',I.tNotebook],['Inventory',I.tInv],['Calc',I.tCalc],['Timer',I.tTimer],['Wiki',I.tWiki]];
+  return '<div class="tabbar">'+tabs.map(([n,ic])=>`<div class="tab ${n===active?'on':''}">${ic}<span>${n}</span></div>`).join('')+'</div>';
+}
+
+const screens=[
+ {id:'notebook',n:'Notebook (companion home)',d:'today glance + capture + note + pairing',
+  why:'Merges the old Today + Send. The bench companion in one place: a read-only glance at today, quick ways to capture a photo or a note into your lab, and the pairing status. Connected/Unpair lives in the connection card (a Settings sheet can absorb it later). The scan/inventory stuff has MOVED out to its own Inventory tab.',
+  html:`<div class="scr"><div class="rainbow"></div>${sb()}<div class="content"><div class="scroll">
+   <div class="largetitle">Notebook</div>
+   <div class="subtitle">Capture the bench into your lab notebook, and see what is on today.</div>
+   <div class="conn"><span class="dot"></span><div class="tx" style="flex:1"><div class="t" style="font-size:14px">Fungal Interactions Lab</div><div class="s">Connected</div></div><span style="color:var(--sky);font-weight:600;font-size:13px">Unpair</span></div>
+   <div class="qrow">
+     <button class="act primary">${I.cam}<span>Take a photo</span></button>
+     <button class="act tinted">${I.note}<span>Quick note</span></button>
+   </div>
+   <div class="sec-h">Today</div>
+   <div class="empty">Nothing scheduled for today.</div>
+   <div class="sec-h">Overdue (1)</div>
+   <div class="group"><div class="row"><div class="tx"><div class="t" style="color:#dc2626">first e</div><div class="s">Jun 5 &middot; experiment</div></div></div></div>
+   <div style="font-size:12px;color:var(--ink-3);margin-top:10px">Last synced Jun 8 at 9:27 AM</div>
+  </div></div>${tabbar('Notebook')}</div>`},
+
+ {id:'inventory',n:'Inventory (home)',d:'scan + tracked items + purchase orders',
+  why:'New dedicated home for supplies. Scan a package is the hero action (opens the full receive/track/deduct/reorder flow you signed off on). Add a purchase item is the manual path, log a purchase without scanning anything (the standalone task-less purchase you approved). Below them, the barcodes you are tracking (remaining counts + low flags) and your recent purchase orders. This is where purchase orders + barcode scanning live, pulled off the Today page.',
+  html:`<div class="scr"><div class="rainbow"></div>${sb()}<div class="content"><div class="scroll">
+   <div class="largetitle">Inventory</div>
+   <div class="subtitle">Scan a package to receive it, track barcodes, and reorder.</div>
+   <div class="hero"><div class="hi">${I.scan}</div><div class="ht"><div class="h1">Scan a package</div><div class="h2">Receive, track, and reorder supplies</div></div>${I.chev.replace('17','20')}</div>
+   <button class="btn secondary" style="margin-top:12px">+ Add a purchase item</button>
+   <div class="sec-h">Tracked items</div>
+   <div class="group">
+     <div class="row"><span class="ico" style="background:var(--sky)">${I.tInv}</span><div class="tx"><div class="t">Q5 Polymerase</div><div class="s">47 of 50 reactions left</div></div><span class="pill ok">ok</span></div>
+     <div class="row"><span class="ico" style="background:var(--sky)">${I.tInv}</span><div class="tx"><div class="t">96-well PCR plates</div><div class="s">2 left</div></div><span class="pill warn">low</span></div>
+   </div>
+   <div class="sec-h">Purchase orders</div>
+   <div class="group">
+     <div class="row"><div class="tx"><div class="t">DMEM, high glucose</div><div class="s">Gibco &middot; ordered Jun 2</div></div><span class="pill muted">ordered</span></div>
+     <div class="row"><div class="tx"><div class="t">Q5 High-Fidelity Polymerase</div><div class="s">Thermo &middot; arrived Jun 6</div></div><span class="pill ok">arrived</span></div>
+   </div>
+  </div></div>${tabbar('Inventory')}</div>`},
+];
+
+const verdicts={};
+function render(){
+  const g=document.getElementById('grid');g.innerHTML='';
+  screens.forEach(s=>{
+    const col=document.createElement('div');col.className='col';
+    col.innerHTML=`<div class="cap">${s.n} &middot; ${s.d}</div>
+      <div class="phone">${s.html}</div>
+      <div class="cap" style="font-weight:400;color:#7a8694">${s.why}</div>
+      <div class="review" data-id="${s.id}">
+        <button data-v="ok" onclick="mark('${s.id}','ok',this)">Approve</button>
+        <button data-v="chg" onclick="mark('${s.id}','chg',this)">Change</button>
+        <button data-v="q" onclick="mark('${s.id}','q',this)">?</button>
+      </div>
+      <textarea class="note" placeholder="notes for ${s.n}" oninput="noteIn('${s.id}',this.value)"></textarea>`;
+    g.appendChild(col);
+  });
+}
+function mark(id,v,btn){verdicts[id]=Object.assign(verdicts[id]||{},{v});
+  btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('sel'));btn.classList.add('sel');}
+function noteIn(id,t){verdicts[id]=Object.assign(verdicts[id]||{},{note:t});}
+function exportNotes(){
+  const map={ok:'APPROVE',chg:'CHANGE',q:'?'};
+  let out='TAB RESTRUCTURE REVIEW\n======================\n\n';
+  screens.forEach(s=>{const v=verdicts[s.id]||{};out+=`[${map[v.v]||'(no mark)'}] ${s.n}\n`;if(v.note)out+='   note: '+v.note+'\n';});
+  const o=document.getElementById('out');o.style.display='block';o.textContent=out;
+}
+function toggleTheme(){const d=document.documentElement;d.setAttribute('data-theme',d.getAttribute('data-theme')==='dark'?'':'dark');}
+render();
+</script>
+</body>
+</html>
