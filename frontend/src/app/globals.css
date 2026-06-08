@@ -137,11 +137,11 @@
   --foreground: #f1f5f9;
 
   --surface: #0a0e1a; /* page background (darkest) */
-  --surface-raised: #131c2e; /* cards (lifts off the page) */
-  --surface-overlay: #1d2942; /* popups, modals (top elevation; lighter than cards so a popup is never the same color as the page and inner cards read as nested) */
+  --surface-raised: #1c2638; /* cards (lifts off the page) */
+  --surface-overlay: #28344c; /* popups, modals (top elevation; lighter than cards so a popup is never the same color as the page and inner cards read as nested) */
   --surface-sunken: #0d1424;
   --foreground-muted: #b4bfd0; /* slate-350, lighter than the old #94a3b8 so secondary text reads brighter on dark (Grant 2026-06-06) */
-  --border-subtle: rgba(255, 255, 255, 0.3); /* hairline; strong enough to delineate same-color cards (Grant 2026-06-08) */
+  --border-subtle: rgba(255, 255, 255, 0.16); /* hairline; strong enough to delineate same-color cards (Grant 2026-06-08) */
 
   /* Brighter accent + a translucent soft fill that reads as "selected" on dark. */
   --accent: #38bdf8; /* sky-400, legible on near-black */
@@ -299,11 +299,11 @@
   --background: #0a0e1a;
   --foreground: #f1f5f9;
   --surface: #0a0e1a;
-  --surface-raised: #131c2e;
-  --surface-overlay: #1d2942;
+  --surface-raised: #1c2638;
+  --surface-overlay: #28344c;
   --surface-sunken: #0d1424;
   --foreground-muted: #b4bfd0;
-  --border-subtle: rgba(255, 255, 255, 0.3);
+  --border-subtle: rgba(255, 255, 255, 0.16);
   --accent: #38bdf8;
   --accent-soft: rgba(56, 189, 248, 0.14);
 }
