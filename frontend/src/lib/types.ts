@@ -2218,6 +2218,14 @@ export interface PurchaseItem {
   // normalize to null on read (purchasesApi.create + the Loro field map seed a
   // null default).
   catalog_number: string | null;
+  // Supplies v2 unified page (SUPPLIES_V2_UNIFIED.md, chunk 1). Optional link to
+  // the InventoryItem this purchase line is "on order" for, so the unified
+  // Supplies view can attach this open order to the right supply BEFORE receipt
+  // (the post-receipt direction is InventoryStock.purchase_item_id). Stamped by
+  // "Reorder" from a supply; null for ad-hoc purchases (resolved by identity
+  // match at view time) and for order-only things (flights/services). Additive +
+  // optional: old records normalize to null on read.
+  inventory_item_id?: number | null;
   category: string | null;
   // Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29):
   // username of the lab member who was asked to actually place this order.
@@ -2294,6 +2302,9 @@ export interface PurchaseItemCreate {
   // Vendor ordering / catalog number (audit fix, additive-fields). Optional;
   // omitted records default null in purchasesApi.create.
   catalog_number?: string | null;
+  // Supplies v2 link FK (SUPPLIES_V2_UNIFIED.md, chunk 1). Optional; set by
+  // "Reorder" from a supply, omitted otherwise.
+  inventory_item_id?: number | null;
   category?: string | null;
   // Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29).
   assigned_to?: string | null;
