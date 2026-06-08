@@ -17,6 +17,7 @@ const MAPPING = {
   'house.fill': 'home',
   'paperplane.fill': 'send',
   'camera.fill': 'photo-camera',
+  'sun.max.fill': 'wb-sunny',
   'timer': 'timer',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',

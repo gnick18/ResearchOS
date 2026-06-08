@@ -28,7 +28,10 @@ import { hexToBytes } from '@noble/curves/utils.js';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { setPairing } from '@/lib/pairing';
-import { getOrCreateDeviceKey } from '@/lib/device-identity';
+import {
+  getOrCreateDeviceKey,
+  getDeviceX25519PubHex,
+} from '@/lib/device-identity';
 
 const BRAND_SKY = '#1AA0E6';
 
@@ -123,6 +126,9 @@ export default function PairScreen() {
 
       try {
         const device = await getOrCreateDeviceKey();
+        // getOrCreateDeviceKey ensures the X25519 key too, so this never
+        // generates a second time; we read its public half for the register.
+        const devX25519 = await getDeviceX25519PubHex();
         const label = Platform.OS === 'ios' ? 'iPhone' : Platform.OS === 'android' ? 'Android phone' : 'Phone';
         const base = grant.url.replace(/\/+$/, '');
         const res = await fetch(`${base}/capture/register?u=${grant.u}`, {
@@ -132,6 +138,7 @@ export default function PairScreen() {
             grant,
             sig,
             devicePubkey: device.devicePubHex,
+            devX25519,
             label,
           }),
         });
