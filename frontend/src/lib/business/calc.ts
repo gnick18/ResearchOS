@@ -19,6 +19,9 @@ export interface EntityConfig {
   registeredAgent: string | null;
   /** Apple Developer Program enrollment ID (e.g. "PTR262UUT9"), for the iOS app. */
   appleEnrollmentId: string | null;
+  /** ISO date the Apple Developer Program was enrolled, anchors the $99/yr
+   *  renewal deadline. Null until set. */
+  appleEnrollmentDate: string | null;
   /** Google Play developer account (email and/or developer account ID). */
   googlePlayAccount: string | null;
   /** A label for the business bank account, never the account number. */
@@ -145,6 +148,7 @@ export const DEFAULT_ENTITY: EntityConfig = {
   ein: null,
   registeredAgent: null,
   appleEnrollmentId: null,
+  appleEnrollmentDate: null,
   googlePlayAccount: null,
   bankLabel: null,
   docsFolder: null,
@@ -303,6 +307,31 @@ export function vercelOssApplicationDeadline(now: Date = new Date()): Deadline |
 }
 
 /** The upcoming deadlines, soonest first. WI report only if a formation date is set. */
+/**
+ * The next Apple Developer Program renewal, the annual anniversary of the
+ * enrollment date. The $99/year membership auto-renews, so this is a reminder to
+ * confirm the charge or cancel before it if the iOS app is not continuing.
+ */
+export function nextAppleRenewal(
+  enrollmentDateISO: string,
+  now: Date = new Date(),
+): Deadline {
+  const enrolled = parseISODate(enrollmentDateISO);
+  const today = startOfTodayUTC(now);
+  let year = today.getUTCFullYear();
+  const mkDue = (y: number) =>
+    new Date(Date.UTC(y, enrolled.getUTCMonth(), enrolled.getUTCDate()));
+  let due = mkDue(year);
+  if (due.getTime() < today.getTime()) due = mkDue((year += 1));
+  return {
+    key: "apple-dev-renewal",
+    label: "Apple Developer Program renewal",
+    dueDate: toISODate(due),
+    daysUntil: daysUntil(due, now),
+    note: "$99/year, auto-renews. Cancel at least a day before if not continuing the iOS app.",
+  };
+}
+
 export function upcomingDeadlines(
   config: EntityConfig,
   now: Date = new Date(),
@@ -310,6 +339,9 @@ export function upcomingDeadlines(
   const out: Deadline[] = [];
   if (config.formationDate) {
     out.push(nextWisconsinAnnualReport(config.formationDate, now));
+  }
+  if (config.appleEnrollmentDate) {
+    out.push(nextAppleRenewal(config.appleEnrollmentDate, now));
   }
   out.push(nextFederalEstimate(now));
   return out.sort((a, b) => a.dueDate.localeCompare(b.dueDate));

@@ -257,6 +257,17 @@ function EntityCard({
           />,
         )}
         {field(
+          "Apple enrollment date (renews yearly)",
+          <input
+            type="date"
+            className={input}
+            value={form.appleEnrollmentDate ?? ""}
+            onChange={(e) =>
+              setForm({ ...form, appleEnrollmentDate: e.target.value || null })
+            }
+          />,
+        )}
+        {field(
           "Google Play account",
           <input
             className={input}
