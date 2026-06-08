@@ -53,6 +53,20 @@ const OWNER = "mira";
 const ID = 47;
 const NOW = new Date("2026-01-02T00:00:00.000Z");
 
+// Every assertion here gates on a REAL HistoryEngine reconstruction pass (the
+// rows paint first, then per-version state reconstruction fills in the diffs /
+// summaries a tick later). In isolation that resolves in well under a second,
+// but under full-suite parallel load the workers contend for CPU and the
+// reconstruction can overrun waitFor's 1000ms default, making this file
+// intermittently flaky while passing every time alone. We can't fake-timer past
+// it (the gate is real async reconstruction work, which fake timers would
+// stall), so give the reconstruction-gated waits a generous ceiling: each
+// waitFor still resolves the instant the work lands, it just no longer gives up
+// early under load. IMPORT_WAIT must stay below the per-test timeout so a real
+// failure surfaces the concrete assertion, not an opaque test-level timeout.
+const IMPORT_WAIT = { timeout: 15000 } as const;
+const TEST_TIMEOUT = 20000;
+
 function noteRecord(fields: {
   title: string;
   entries: { title: string; content: string }[];
@@ -158,13 +172,13 @@ describe("EntityVersionHistorySidebar (Notes adapter)", () => {
 
     await waitFor(() => {
       expect(screen.getByText("changed title")).toBeInTheDocument();
-    });
+    }, IMPORT_WAIT);
     const rows = screen.getAllByTestId("version-row");
     expect(rows.length).toBe(3);
     expect(rows[0].getAttribute("data-version-index")).toBe("3");
     expect(within(rows[0]).getByText("Current version")).toBeInTheDocument();
     expect(within(rows[0]).getByText("changed title")).toBeInTheDocument();
-  });
+  }, TEST_TIMEOUT);
 
   // ── Overflow guard (vc-sidebar-overflow-fix sub-bot of HR, 2026-05-31) ─────
   // The sidebar self-clamps so a LONG, fully-expanded version list scrolls
@@ -193,7 +207,11 @@ describe("EntityVersionHistorySidebar (Notes adapter)", () => {
       />,
     );
 
-    const sidebar = await screen.findByTestId("note-version-history-sidebar");
+    const sidebar = await screen.findByTestId(
+      "note-version-history-sidebar",
+      undefined,
+      IMPORT_WAIT,
+    );
     // Root: a full-height flex column. Without h-full it cannot inherit the
     // host card height; without flex-col the children do not stack.
     expect(sidebar.className).toContain("h-full");
@@ -203,10 +221,10 @@ describe("EntityVersionHistorySidebar (Notes adapter)", () => {
     // The version list is the single scrollable, growing child. flex-1 lets it
     // take the leftover height; overflow-y-auto engages the internal scroll once
     // the host bounds the column.
-    const list = await screen.findByTestId("version-list");
+    const list = await screen.findByTestId("version-list", undefined, IMPORT_WAIT);
     expect(list.className).toContain("flex-1");
     expect(list.className).toContain("overflow-y-auto");
-  });
+  }, TEST_TIMEOUT);
 
   it("renders the predecessor diff in the document column via the adapter", async () => {
     const previews: Array<{ before: string; after: string; editor: string }> = [];
@@ -231,7 +249,7 @@ describe("EntityVersionHistorySidebar (Notes adapter)", () => {
 
     await waitFor(() => {
       expect(previews.length).toBeGreaterThan(0);
-    });
+    }, IMPORT_WAIT);
     const latest = previews[previews.length - 1];
     // The adapter (projectNoteState) drives the body projection: HEAD body vs
     // its predecessor body, never raw diff text. The body leads with the note
@@ -241,7 +259,7 @@ describe("EntityVersionHistorySidebar (Notes adapter)", () => {
     expect(latest.after).toBe("# Draft\n\n## Notes\nalpha\nbeta");
     expect(latest.before).toBe("# Draft\n\n## Notes\nalpha");
     expect(latest.editor).toBe("mira");
-  });
+  }, TEST_TIMEOUT);
 
   it("shows the empty state for a record with no history", async () => {
     render(
@@ -258,9 +276,9 @@ describe("EntityVersionHistorySidebar (Notes adapter)", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("version-empty")).toBeInTheDocument();
-    });
+    }, IMPORT_WAIT);
     expect(screen.getByText("No earlier versions yet")).toBeInTheDocument();
-  });
+  }, TEST_TIMEOUT);
 
   // ── P1: live-refresh after a restore / undo ────────────────────────────────
   // A restore / undo updates the live note, which changes headCanonical. The
@@ -291,7 +309,7 @@ describe("EntityVersionHistorySidebar (Notes adapter)", () => {
 
     await waitFor(() => {
       expect(screen.getAllByTestId("version-row").length).toBe(2);
-    });
+    }, IMPORT_WAIT);
     const callsAfterMount = readSpy.mock.calls.length;
     expect(callsAfterMount).toBeGreaterThan(0);
 
@@ -325,18 +343,18 @@ describe("EntityVersionHistorySidebar (Notes adapter)", () => {
     // again and the new (third) restore row appears in the open timeline.
     await waitFor(() => {
       expect(readSpy.mock.calls.length).toBeGreaterThan(callsAfterMount);
-    });
+    }, IMPORT_WAIT);
     await waitFor(() => {
       expect(screen.getAllByTestId("version-row").length).toBe(3);
-    });
+    }, IMPORT_WAIT);
     // The new restore row carries the "Restored an earlier version" summary once
     // reconstruction repopulates the summary map (a tick after the rows render).
     await waitFor(() => {
       expect(
         screen.getByText("Restored an earlier version"),
       ).toBeInTheDocument();
-    });
-  });
+    }, IMPORT_WAIT);
+  }, TEST_TIMEOUT);
 });
 
 // ── P0 regression: bare-genesis viewer flow (create-note-then-edit) ──────────
@@ -366,14 +384,14 @@ describe("EntityVersionHistorySidebar bare-genesis viewer flow (P0)", () => {
     // bodies come back empty.
     await waitFor(() => {
       expect(screen.getAllByTestId("version-row").length).toBe(2);
-    });
+    }, IMPORT_WAIT);
     await waitFor(() => {
       expect(previews.length).toBeGreaterThan(0);
-    });
+    }, IMPORT_WAIT);
     const latest = previews[previews.length - 1];
     expect(latest.after).toBe("");
     expect(latest.before).toBe("");
-  });
+  }, TEST_TIMEOUT);
 
   it("renders NON-EMPTY diffs with headCanonical (the fix)", async () => {
     const liveHead = await seedBareGenesis();
@@ -394,7 +412,7 @@ describe("EntityVersionHistorySidebar bare-genesis viewer flow (P0)", () => {
     );
     await waitFor(() => {
       expect(previews.length).toBeGreaterThan(0);
-    });
+    }, IMPORT_WAIT);
     // HEAD is auto-selected: its body is the live note, predecessor is the
     // first-save state. Both non-empty, and they differ by the note title (HEAD
     // is "Final", predecessor is "Draft"), which the title-in-body projection now
@@ -407,7 +425,7 @@ describe("EntityVersionHistorySidebar bare-genesis viewer flow (P0)", () => {
     expect(rows.length).toBe(2);
     expect(within(rows[0]).getByText("Current version")).toBeInTheDocument();
     expect(within(rows[0]).getByText("changed title")).toBeInTheDocument();
-  });
+  }, TEST_TIMEOUT);
 
   it("surfaces the restore footer on a selected non-HEAD version", async () => {
     const liveHead = await seedBareGenesis();
@@ -427,7 +445,7 @@ describe("EntityVersionHistorySidebar bare-genesis viewer flow (P0)", () => {
     );
     await waitFor(() => {
       expect(screen.getAllByTestId("version-row").length).toBe(2);
-    });
+    }, IMPORT_WAIT);
     const rows = screen.getAllByTestId("version-row");
     // HEAD (rows[0]) is selected by default: no footer (nothing to restore TO).
     expect(screen.queryByTestId("restore-footer")).not.toBeInTheDocument();
@@ -439,7 +457,7 @@ describe("EntityVersionHistorySidebar bare-genesis viewer flow (P0)", () => {
     fireEvent.click(olderRow!);
     await waitFor(() => {
       expect(screen.getByTestId("restore-footer")).toBeInTheDocument();
-    });
+    }, IMPORT_WAIT);
     expect(screen.getByTestId("restore-button")).toBeInTheDocument();
-  });
+  }, TEST_TIMEOUT);
 });

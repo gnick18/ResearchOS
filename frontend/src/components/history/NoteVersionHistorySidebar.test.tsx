@@ -64,6 +64,20 @@ const OWNER = "mira";
 const NOTE_ID = 47;
 const NOW = new Date("2026-01-02T00:00:00.000Z");
 
+// Every assertion here gates on a REAL HistoryEngine reconstruction pass (the
+// rows paint first, then per-version state reconstruction fills in the diffs /
+// summaries a tick later). In isolation that resolves in well under a second,
+// but under full-suite parallel load the workers contend for CPU and the
+// reconstruction can overrun waitFor's 1000ms default, making this file
+// intermittently flaky while passing every time alone. We can't fake-timer past
+// it (the gate is real async reconstruction work, which fake timers would
+// stall), so give the reconstruction-gated waits a generous ceiling: each
+// waitFor still resolves the instant the work lands, it just no longer gives up
+// early under load. IMPORT_WAIT must stay below the per-test timeout so a real
+// failure surfaces the concrete assertion, not an opaque test-level timeout.
+const IMPORT_WAIT = { timeout: 15000 } as const;
+const TEST_TIMEOUT = 20000;
+
 /** Build a Note record at a given content for engine seeding. */
 function noteRecord(fields: {
   title: string;
@@ -140,7 +154,7 @@ describe("NoteVersionHistorySidebar", () => {
     // fills in the real ones). The newest save changed the title.
     await waitFor(() => {
       expect(screen.getByText("changed title")).toBeInTheDocument();
-    });
+    }, IMPORT_WAIT);
     expect(screen.getAllByTestId("version-row").length).toBe(3);
     // Newest row (the mira "Final" save) is the HEAD = Current version, and it
     // carries the title-change summary.
@@ -148,7 +162,7 @@ describe("NoteVersionHistorySidebar", () => {
     expect(rows[0].getAttribute("data-version-index")).toBe("3");
     expect(within(rows[0]).getByText("Current version")).toBeInTheDocument();
     expect(within(rows[0]).getByText("changed title")).toBeInTheDocument();
-  });
+  }, TEST_TIMEOUT);
 
   it("renders the predecessor diff in the document column by default", async () => {
     const previews: Array<{ before: string; after: string; editor: string }> = [];
@@ -171,7 +185,7 @@ describe("NoteVersionHistorySidebar", () => {
 
     await waitFor(() => {
       expect(previews.length).toBeGreaterThan(0);
-    });
+    }, IMPORT_WAIT);
     // Default selection is HEAD (the "alpha\nbeta" save); compared against its
     // predecessor ("alpha"). The reconstructed states drive the diff, never
     // raw diff text.
@@ -181,7 +195,7 @@ describe("NoteVersionHistorySidebar", () => {
     expect(latest.after).toBe("# Draft\n\n## Notes\nalpha\nbeta");
     expect(latest.before).toBe("# Draft\n\n## Notes\nalpha");
     expect(latest.editor).toBe("mira");
-  });
+  }, TEST_TIMEOUT);
 
   it("toggles the compare base to 'vs current'", async () => {
     const previews: Array<{ before: string; after: string }> = [];
@@ -207,7 +221,7 @@ describe("NoteVersionHistorySidebar", () => {
     // Select the MIDDLE version (alpha\nbeta) so predecessor != current.
     await waitFor(() => {
       expect(screen.getAllByTestId("version-row").length).toBe(3);
-    });
+    }, IMPORT_WAIT);
     const rows = screen.getAllByTestId("version-row");
     // rows[1] is the middle save.
     fireEvent.click(rows[1]);
@@ -215,7 +229,7 @@ describe("NoteVersionHistorySidebar", () => {
       const last = previews[previews.length - 1];
       expect(last.after).toBe("# Draft\n\n## Notes\nalpha\nbeta");
       expect(last.before).toBe("# Draft\n\n## Notes\nalpha"); // predecessor
-    });
+    }, IMPORT_WAIT);
 
     // Flip to "compare against current". Now before === the HEAD body.
     fireEvent.click(screen.getByTestId("compare-current"));
@@ -223,8 +237,8 @@ describe("NoteVersionHistorySidebar", () => {
       const last = previews[previews.length - 1];
       expect(last.after).toBe("# Draft\n\n## Notes\nalpha\nbeta");
       expect(last.before).toBe("# Draft\n\n## Notes\nalpha\nbeta\ngamma"); // current HEAD
-    });
-  });
+    }, IMPORT_WAIT);
+  }, TEST_TIMEOUT);
 
   it("paginates: 'Load older' reveals versions beyond the first page", async () => {
     // 55 saves -> 55 delta rows. First page shows 50 (PAGE_SIZE), so the
@@ -249,16 +263,16 @@ describe("NoteVersionHistorySidebar", () => {
 
     await waitFor(() => {
       expect(screen.getAllByTestId("version-row").length).toBe(50);
-    });
+    }, IMPORT_WAIT);
     expect(screen.getByTestId("load-older")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("load-older"));
     await waitFor(() => {
       expect(screen.getAllByTestId("version-row").length).toBe(55);
-    });
+    }, IMPORT_WAIT);
     // No more pages: the button is gone.
     expect(screen.queryByTestId("load-older")).not.toBeInTheDocument();
-  });
+  }, TEST_TIMEOUT);
 
   it("collapses a same-editor run into one expandable session", async () => {
     // Four consecutive mira saves, all within a few seconds (close-clock), so
@@ -287,7 +301,7 @@ describe("NoteVersionHistorySidebar", () => {
     // Collapsed by default: one summary row, no expanded version rows.
     await waitFor(() => {
       expect(screen.getByTestId("session-collapsed")).toBeInTheDocument();
-    });
+    }, IMPORT_WAIT);
     expect(screen.queryAllByTestId("version-row")).toHaveLength(0);
     expect(screen.getByTestId("session-collapsed").textContent).toMatch(
       /Mira, .*, 4 versions/,
@@ -297,8 +311,8 @@ describe("NoteVersionHistorySidebar", () => {
     fireEvent.click(screen.getByTestId("session-collapsed"));
     await waitFor(() => {
       expect(screen.getAllByTestId("version-row")).toHaveLength(4);
-    });
-  });
+    }, IMPORT_WAIT);
+  }, TEST_TIMEOUT);
 
   it("shows the empty state for a note with no history", async () => {
     // No seeding: readHistory returns [].
@@ -314,9 +328,9 @@ describe("NoteVersionHistorySidebar", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("version-empty")).toBeInTheDocument();
-    });
+    }, IMPORT_WAIT);
     expect(screen.getByText("No earlier versions yet")).toBeInTheDocument();
-  });
+  }, TEST_TIMEOUT);
 
   it("Esc closes the sidebar via onClose", async () => {
     const onClose = vi.fn();
@@ -332,8 +346,8 @@ describe("NoteVersionHistorySidebar", () => {
     );
     await waitFor(() => {
       expect(screen.getAllByTestId("version-row").length).toBe(1);
-    });
+    }, IMPORT_WAIT);
     fireEvent.keyDown(screen.getByTestId("version-list"), { key: "Escape" });
     expect(onClose).toHaveBeenCalled();
-  });
+  }, TEST_TIMEOUT);
 });
