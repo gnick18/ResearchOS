@@ -17,6 +17,8 @@ export interface EntityConfig {
   formationDate: string | null;
   ein: string | null;
   registeredAgent: string | null;
+  /** Apple Developer Program enrollment ID (e.g. "PTR262UUT9"), for the iOS app. */
+  appleEnrollmentId: string | null;
   /** A label for the business bank account, never the account number. */
   bankLabel: string | null;
   /** Where the actual filed documents live on disk (the ResearchOS_LLC folder). */
@@ -140,6 +142,7 @@ export const DEFAULT_ENTITY: EntityConfig = {
   formationDate: null,
   ein: null,
   registeredAgent: null,
+  appleEnrollmentId: null,
   bankLabel: null,
   docsFolder: null,
   salesTaxStatus: "pending",

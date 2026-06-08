@@ -100,6 +100,7 @@ describe("upcomingDeadlines", () => {
       formationDate: "2025-02-14",
       ein: null,
       registeredAgent: null,
+      appleEnrollmentId: null,
       bankLabel: null,
       docsFolder: null,
       salesTaxStatus: "pending",

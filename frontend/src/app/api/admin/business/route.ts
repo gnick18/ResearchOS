@@ -111,6 +111,8 @@ function parseEntity(raw: unknown): EntityConfig | null {
     formationDate,
     ein: o.ein == null ? null : asString(o.ein),
     registeredAgent: o.registeredAgent == null ? null : asString(o.registeredAgent),
+    appleEnrollmentId:
+      o.appleEnrollmentId == null ? null : asString(o.appleEnrollmentId),
     bankLabel: o.bankLabel == null ? null : asString(o.bankLabel),
     docsFolder: o.docsFolder == null ? null : asString(o.docsFolder),
     salesTaxStatus,

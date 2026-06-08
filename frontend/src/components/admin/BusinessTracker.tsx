@@ -246,6 +246,17 @@ function EntityCard({
           />,
         )}
         {field(
+          "Apple enrollment ID",
+          <input
+            className={input}
+            placeholder="PTR262UUT9"
+            value={form.appleEnrollmentId ?? ""}
+            onChange={(e) =>
+              setForm({ ...form, appleEnrollmentId: e.target.value || null })
+            }
+          />,
+        )}
+        {field(
           "Bank account label",
           <input
             className={input}

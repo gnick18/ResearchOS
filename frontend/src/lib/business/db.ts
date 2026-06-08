@@ -72,6 +72,7 @@ export async function ensureBusinessSchema(): Promise<void> {
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS formation_date date`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS ein text`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS registered_agent text`;
+  await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS apple_enrollment_id text`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS bank_label text`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS docs_folder text`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS sales_tax_status text`;
@@ -195,6 +196,7 @@ type EntityRow = {
   formation_date: string | null;
   ein: string | null;
   registered_agent: string | null;
+  apple_enrollment_id: string | null;
   bank_label: string | null;
   docs_folder: string | null;
   sales_tax_status: string | null;
@@ -224,6 +226,7 @@ function rowToEntity(r: EntityRow): EntityConfig {
     formationDate: toIsoDateString(r.formation_date),
     ein: r.ein ?? null,
     registeredAgent: r.registered_agent ?? null,
+    appleEnrollmentId: r.apple_enrollment_id ?? null,
     bankLabel: r.bank_label ?? null,
     docsFolder: r.docs_folder ?? null,
     salesTaxStatus: normalizeSalesTaxStatus(r.sales_tax_status),
@@ -237,7 +240,8 @@ export async function getEntity(): Promise<EntityConfig> {
   const sql = getSql();
   const rows = (await sql`
     SELECT legal_name, state, entity_id, formation_date, ein, registered_agent,
-           bank_label, docs_folder, sales_tax_status, sales_tax_note, reserve_pct
+           apple_enrollment_id, bank_label, docs_folder, sales_tax_status,
+           sales_tax_note, reserve_pct
     FROM business_entity WHERE id = 1
   `) as EntityRow[];
   if (!rows.length) return { ...DEFAULT_ENTITY };
@@ -250,12 +254,13 @@ export async function upsertEntity(config: EntityConfig): Promise<EntityConfig> 
   await sql`
     INSERT INTO business_entity
       (id, legal_name, state, entity_id, formation_date, ein, registered_agent,
-       bank_label, docs_folder, sales_tax_status, sales_tax_note, reserve_pct, updated_at)
+       apple_enrollment_id, bank_label, docs_folder, sales_tax_status,
+       sales_tax_note, reserve_pct, updated_at)
     VALUES
       (1, ${config.legalName}, ${config.state}, ${config.entityId},
        ${config.formationDate}, ${config.ein}, ${config.registeredAgent},
-       ${config.bankLabel}, ${config.docsFolder}, ${config.salesTaxStatus},
-       ${config.salesTaxNote}, ${config.reservePct}, now())
+       ${config.appleEnrollmentId}, ${config.bankLabel}, ${config.docsFolder},
+       ${config.salesTaxStatus}, ${config.salesTaxNote}, ${config.reservePct}, now())
     ON CONFLICT (id) DO UPDATE SET
       legal_name = EXCLUDED.legal_name,
       state = EXCLUDED.state,
@@ -263,6 +268,7 @@ export async function upsertEntity(config: EntityConfig): Promise<EntityConfig> 
       formation_date = EXCLUDED.formation_date,
       ein = EXCLUDED.ein,
       registered_agent = EXCLUDED.registered_agent,
+      apple_enrollment_id = EXCLUDED.apple_enrollment_id,
       bank_label = EXCLUDED.bank_label,
       docs_folder = EXCLUDED.docs_folder,
       sales_tax_status = EXCLUDED.sales_tax_status,
