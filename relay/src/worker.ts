@@ -188,9 +188,13 @@ export default {
       // upload handler re-reads u from the parsed meta and the worker forwards by
       // a header so the DO is addressed consistently.
       let userPubkey = url.searchParams.get("u");
-      if (url.pathname === "/capture/upload") {
+      if (
+        url.pathname === "/capture/upload" ||
+        url.pathname === "/capture/snapshot/publish"
+      ) {
         // Clone so the DO can still read the multipart body. We only need the u
-        // routing key here; pull it from a lightweight form parse.
+        // routing key here; pull it from a lightweight form parse. Both the
+        // capture upload and the snapshot publish are multipart with u in meta.
         try {
           const form = await request.clone().formData();
           const metaRaw = form.get("meta");
@@ -1167,6 +1171,18 @@ export class CaptureInbox {
     this.sql().exec(
       "CREATE TABLE IF NOT EXISTS devices (device_pubkey TEXT PRIMARY KEY, label TEXT, bound_at TEXT)",
     );
+    // x25519_pubkey (mobile download path, piece A) is the device's hex X25519
+    // SEALING key. The laptop seals each snapshot to it so only that device can
+    // open the ciphertext. Added idempotently so a devices table created before
+    // this column exists keeps its rows (they read back x25519_pubkey as null,
+    // and an older phone that paired without a sealing key simply cannot receive
+    // snapshots until it re-registers). SQLite ADD COLUMN throws if the column is
+    // already present, so swallow that (mirrors RecipientInbox.from_pubkey).
+    try {
+      this.sql().exec("ALTER TABLE devices ADD COLUMN x25519_pubkey TEXT");
+    } catch {
+      // Column already present (fresh table above, or a prior migration).
+    }
     // The index of pending captures. blob_key is the R2 key (`<u>/<captureId>`);
     // the blob is deleted from R2 on ack alongside the row.
     this.sql().exec(
@@ -1258,6 +1274,7 @@ export class CaptureInbox {
       sig?: unknown;
       devicePubkey?: unknown;
       label?: unknown;
+      devX25519?: unknown;
     };
     try {
       body = await request.json();
@@ -1295,11 +1312,17 @@ export class CaptureInbox {
       return this.json({ error: "bad grant signature" }, 401);
     }
 
+    // devX25519 (mobile download path) is OPTIONAL so older phones that paired
+    // before the sealing key existed keep working. When present it is stored on
+    // the binding; the laptop reads it back from /capture/devices to seal
+    // snapshots to this device.
+    const devX25519 = body.devX25519;
     this.sql().exec(
-      "INSERT INTO devices (device_pubkey, label, bound_at) VALUES (?, ?, ?) ON CONFLICT(device_pubkey) DO UPDATE SET label = excluded.label, bound_at = excluded.bound_at",
+      "INSERT INTO devices (device_pubkey, label, bound_at, x25519_pubkey) VALUES (?, ?, ?, ?) ON CONFLICT(device_pubkey) DO UPDATE SET label = excluded.label, bound_at = excluded.bound_at, x25519_pubkey = excluded.x25519_pubkey",
       devicePubkey,
       typeof label === "string" ? label : null,
       new Date().toISOString(),
+      typeof devX25519 === "string" ? devX25519 : null,
     );
 
     return this.json({ ok: true }, 200);
@@ -1538,8 +1561,13 @@ export class CaptureInbox {
     if (denied) return denied;
 
     const rows = this.sql()
-      .exec<{ device_pubkey: string; label: string | null; bound_at: string | null }>(
-        "SELECT device_pubkey, label, bound_at FROM devices ORDER BY bound_at ASC",
+      .exec<{
+        device_pubkey: string;
+        label: string | null;
+        bound_at: string | null;
+        x25519_pubkey: string | null;
+      }>(
+        "SELECT device_pubkey, label, bound_at, x25519_pubkey FROM devices ORDER BY bound_at ASC",
       )
       .toArray();
 
@@ -1547,6 +1575,10 @@ export class CaptureInbox {
       devicePubkey: r.device_pubkey,
       label: r.label,
       boundAt: r.bound_at,
+      // The device's hex X25519 sealing key (mobile download path). null for an
+      // older device that paired before the sealing key existed; the laptop
+      // skips those when publishing snapshots.
+      x25519Pubkey: r.x25519_pubkey,
     }));
 
     return this.json({ devices }, 200);
@@ -1582,7 +1614,154 @@ export class CaptureInbox {
     if (denied) return denied;
 
     this.sql().exec("DELETE FROM devices WHERE device_pubkey = ?", device);
+
+    // Mobile download path: a revoked device must not keep readable snapshots in
+    // R2. Drop every snapshot under this device's prefix. Best-effort; a stray
+    // object is sealed (unreadable) and lifecycle-cleaned, so a failure here is
+    // not a security gap, only minor litter.
+    try {
+      const prefix = `${u}/snap/${device}/`;
+      const listed = await this.env.CAPTURES.list({ prefix });
+      for (const obj of listed.objects) {
+        try {
+          await this.env.CAPTURES.delete(obj.key);
+        } catch {
+          // Skip one failed delete; the rest still get cleaned.
+        }
+      }
+    } catch {
+      // Listing failed; leave the (sealed, unreadable) snapshots for lifecycle
+      // cleanup. The binding is already gone, which is the security-relevant act.
+    }
+
     return this.json({ ok: true }, 200);
+  }
+
+  /** POST /capture/snapshot/publish (mobile download path). multipart/form-data:
+   *  a `blob` file field (the SEALED ciphertext) + a text `meta` JSON field
+   *  `{ u, name, device, ts, sig }`. The USER identity key signs over
+   *  u + name + device + ts + sha256(sealed blob). We verify the device is bound
+   *  to u, recompute the blob sha256, verify the user signature, then store the
+   *  sealed blob overwrite-latest at `<u>/snap/<device>/<name>`. */
+  private async handleSnapshotPublish(request: Request): Promise<Response> {
+    let form: FormData;
+    try {
+      form = await request.formData();
+    } catch {
+      return this.json({ error: "invalid multipart body" }, 400);
+    }
+
+    const blob = form.get("blob");
+    const metaRaw = form.get("meta");
+    if (!(blob instanceof File) && !(blob instanceof Blob)) {
+      return this.json({ error: "missing blob field" }, 400);
+    }
+    if (typeof metaRaw !== "string") {
+      return this.json({ error: "missing meta field" }, 400);
+    }
+
+    let meta: {
+      u?: unknown;
+      name?: unknown;
+      device?: unknown;
+      ts?: unknown;
+      sig?: unknown;
+    };
+    try {
+      meta = JSON.parse(metaRaw);
+    } catch {
+      return this.json({ error: "invalid meta JSON" }, 400);
+    }
+
+    const u = meta.u;
+    const name = meta.name;
+    const device = meta.device;
+    const ts = meta.ts;
+    const sig = meta.sig;
+    if (
+      typeof u !== "string" ||
+      typeof name !== "string" ||
+      typeof device !== "string" ||
+      typeof ts !== "string" ||
+      typeof sig !== "string"
+    ) {
+      return this.json({ error: "malformed meta" }, 400);
+    }
+
+    // The target device must be bound to this user (the laptop publishes to its
+    // own paired devices only).
+    if (!this.isBoundDevice(device)) {
+      return this.json({ error: "device not bound" }, 403);
+    }
+
+    if (!this.isFreshIso(ts)) {
+      return this.json({ error: "stale ts" }, 401);
+    }
+
+    // Recompute the sealed blob's sha256 so the user signature binds the exact
+    // ciphertext we store.
+    const blobBytes = new Uint8Array(await blob.arrayBuffer());
+    const sha256 = await sha256Hex(blobBytes);
+    const message = snapshotPublishMessage(u, name, device, ts, sha256);
+    if (!this.verifySig(sig, message, u)) {
+      return this.json({ error: "bad signature" }, 401);
+    }
+
+    const blobKey = `${u}/snap/${device}/${name}`;
+    try {
+      await this.env.CAPTURES.put(blobKey, blobBytes, {
+        httpMetadata: { contentType: "application/octet-stream" },
+      });
+    } catch {
+      return this.json({ error: "storage write failed" }, 500);
+    }
+
+    return this.json({ ok: true }, 200);
+  }
+
+  /** GET /capture/snapshot/get?u=&name=&device=&ts=&sig= (mobile download path).
+   *  DEVICE-key signed (the phone holds its Ed25519 device key, not the user
+   *  key). The `device` param is the binding id AND the verifying pubkey. We
+   *  verify the device is bound to u, then verify the signature against the
+   *  device's bound Ed25519 key over u + name + device + ts, then return the
+   *  latest sealed blob for `<u>/snap/<device>/<name>` (or 404). */
+  private async handleSnapshotGet(u: string, url: URL): Promise<Response> {
+    const name = url.searchParams.get("name") ?? "";
+    const device = url.searchParams.get("device") ?? "";
+    const ts = url.searchParams.get("ts") ?? "";
+    const sig = url.searchParams.get("sig") ?? "";
+    if (name.trim() === "" || device.trim() === "") {
+      return this.json({ error: "missing name or device" }, 400);
+    }
+
+    if (!this.isBoundDevice(device)) {
+      return this.json({ error: "device not bound" }, 403);
+    }
+
+    if (!this.isFreshIso(ts)) {
+      return this.json({ error: "stale ts" }, 401);
+    }
+    // Signed by the DEVICE's bound Ed25519 key (the `device` param), NOT the
+    // user key. This is the asymmetry the design calls out: the phone reads.
+    const message = snapshotGetMessage(u, name, device, ts);
+    if (!this.verifySig(sig, message, device)) {
+      return this.json({ error: "bad signature" }, 401);
+    }
+
+    const blobKey = `${u}/snap/${device}/${name}`;
+    const obj = await this.env.CAPTURES.get(blobKey);
+    if (!obj) {
+      return this.json({ error: "not found" }, 404);
+    }
+
+    return new Response(obj.body, {
+      status: 200,
+      headers: {
+        ...CORS_HEADERS,
+        "Content-Type": "application/octet-stream",
+        "Cache-Control": "no-store",
+      },
+    });
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -1597,6 +1776,16 @@ export class CaptureInbox {
     if (url.pathname === "/capture/upload") {
       if (request.method !== "POST") return this.json({ error: "method not allowed" }, 405);
       return this.handleUpload(request);
+    }
+    // Snapshot publish is multipart (u lives in meta, like upload), so it does
+    // not go through the JSON peekBodyU path below.
+    if (url.pathname === "/capture/snapshot/publish") {
+      if (request.method !== "POST") return this.json({ error: "method not allowed" }, 405);
+      return this.handleSnapshotPublish(request);
+    }
+    if (url.pathname === "/capture/snapshot/get") {
+      if (request.method !== "GET") return this.json({ error: "method not allowed" }, 405);
+      return this.handleSnapshotGet(url.searchParams.get("u") ?? "", url);
     }
 
     // The remaining routes are user-key-signed and carry u in ?u (GET) or the
@@ -1658,8 +1847,9 @@ function frame(type: number, payload: Uint8Array): Uint8Array {
 
 // ---- Mobile capture relay canonical signed-byte strings -----------------
 // THE CONTRACT. The phone + desktop sign the UTF-8 of these exact strings, then
-// ed25519 verify. The smoke-test script (relay/scripts/smoke-capture.mjs) keeps
-// byte-identical copies; if you change one, change all three.
+// ed25519 verify. The smoke-test scripts (relay/scripts/smoke-capture.mjs and
+// relay/scripts/smoke-snapshot.mjs) keep byte-identical copies; if you change
+// one, change all of them.
 
 /** Pairing grant, signed by the USER identity key. */
 export function capturePairGrantMessage(
@@ -1695,6 +1885,29 @@ export function captureReadMessage(
 ): string {
   const base = `researchos-capture-${action}\nu=${userPubkeyHex}\nts=${tsIso}`;
   return extra ? `${base}\n${extra}` : base;
+}
+
+/** Snapshot publish (mobile download path), signed by the USER identity key.
+ *  sha256Hex is the lowercase hex sha256 of the SEALED blob bytes. */
+export function snapshotPublishMessage(
+  userPubkeyHex: string,
+  name: string,
+  devicePubkeyHex: string,
+  tsIso: string,
+  sha256Hex: string,
+): string {
+  return `researchos-snapshot-publish\nu=${userPubkeyHex}\nname=${name}\ndevice=${devicePubkeyHex}\nts=${tsIso}\nsha256=${sha256Hex}`;
+}
+
+/** Snapshot get (mobile download path), signed by the bound DEVICE Ed25519 key
+ *  (the phone reads). */
+export function snapshotGetMessage(
+  userPubkeyHex: string,
+  name: string,
+  devicePubkeyHex: string,
+  tsIso: string,
+): string {
+  return `researchos-snapshot-get\nu=${userPubkeyHex}\nname=${name}\ndevice=${devicePubkeyHex}\nts=${tsIso}`;
 }
 
 /** Lowercase hex sha256 of the given bytes, via WebCrypto (available in

@@ -10,7 +10,9 @@
     "smoke:capture": "node scripts/smoke-capture.mjs"
   },
   "dependencies": {
+    "@noble/ciphers": "^2.2.0",
     "@noble/curves": "^2.2.0",
+    "@noble/hashes": "^2.2.0",
     "loro-crdt": "1.12.3"
   },
   "devDependencies": {
